@@ -81,7 +81,7 @@ export const UNIT_ROSTER = {
   ],
   Specialty: [
     'Labor and Delivery', 'PACU', 'NICU', 'PICU',
-    'Pediatrics', 'Postpartum', '3 South',
+    'Pediatrics', 'Postpartum', 'Float Pool', '3 South',
   ],
 }
 
