@@ -117,7 +117,7 @@ export default function App() {
             <div className="header-logo">A</div>
             <div>
               <h1 className="header-title">ASPIRE Placement Tracker</h1>
-              <p className="header-sub">Torrance Memorial Medical Center</p>
+              <p className="header-sub">Cedars-Sinai Medical Center</p>
             </div>
           </div>
           <div className="header-actions">
