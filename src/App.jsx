@@ -251,7 +251,7 @@ export default function App() {
       <header className="app-header">
         <div className="header-inner">
           <div className="header-brand">
-            <div className="header-logo">A</div>
+            <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="32" />
             <div>
               <h1 className="header-title">ASPIRE Placement Tracker</h1>
               <p className="header-sub">Cedars-Sinai Medical Center</p>
