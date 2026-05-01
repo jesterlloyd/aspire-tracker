@@ -3,10 +3,13 @@ import UnitCard from './UnitCard'
 import StudentMatchCard from './StudentMatchCard'
 import UnitSetupPanel from './UnitSetupPanel'
 import ImportUnitsCSV from './ImportUnitsCSV'
+import PendingSubmissions from './PendingSubmissions'
 
 export default function MatchingTab({
   students, units, matches, cohortId,
+  pendingSubmissions = [],
   onMatch, onUnmatch, onUpdateMatch, onRefreshUnits,
+  onApproveSubmission, onRejectSubmission,
 }) {
   const [selectedStudent,  setSelectedStudent]  = useState(null)
   const [showUnitSetup,    setShowUnitSetup]    = useState(false)
@@ -67,6 +70,15 @@ export default function MatchingTab({
           </div>
         ))}
       </div>
+
+      {/* ── Pending submissions review queue ── */}
+      {pendingSubmissions.length > 0 && (
+        <PendingSubmissions
+          submissions={pendingSubmissions}
+          onApprove={onApproveSubmission}
+          onReject={onRejectSubmission}
+        />
+      )}
 
       {/* ── Unit management toolbar ── */}
       <div className="matching-toolbar">
