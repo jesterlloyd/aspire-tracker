@@ -146,12 +146,14 @@ export default function App() {
     if (error) { console.error(error); return }
 
     const newRemaining = Math.max(0, unit.slots_remaining - 1)
-    await supabase.from('students').update({ matched_unit_id: unit.id }).eq('id', student.id)
+    await supabase.from('students')
+      .update({ matched_unit_id: unit.id, interview_outcome: 'Accepted' })
+      .eq('id', student.id)
     await supabase.from('units').update({ slots_remaining: newRemaining }).eq('id', unit.id)
 
     setMatches(prev => [...prev, m])
     setStudents(prev => prev.map(s =>
-      s.id === student.id ? { ...s, matched_unit_id: unit.id } : s
+      s.id === student.id ? { ...s, matched_unit_id: unit.id, interview_outcome: 'Accepted' } : s
     ))
     setUnits(prev => prev.map(u =>
       u.id === unit.id ? { ...u, slots_remaining: newRemaining } : u
@@ -164,7 +166,7 @@ export default function App() {
 
     // Part 5: clear all three sync fields on the student record
     await supabase.from('students')
-      .update({ matched_unit_id: null, matched_preceptor: '', shift_assigned: '' })
+      .update({ matched_unit_id: null, matched_preceptor: '', shift_assigned: '', interview_outcome: 'Pending Interview' })
       .eq('id', student.id)
 
     const newRemaining = unit.slots_remaining + 1
@@ -173,7 +175,7 @@ export default function App() {
     if (match) setMatches(prev => prev.filter(m => m.id !== match.id))
     setStudents(prev => prev.map(s =>
       s.id === student.id
-        ? { ...s, matched_unit_id: null, matched_preceptor: '', shift_assigned: '' }
+        ? { ...s, matched_unit_id: null, matched_preceptor: '', shift_assigned: '', interview_outcome: 'Pending Interview' }
         : s
     ))
     setUnits(prev => prev.map(u =>
