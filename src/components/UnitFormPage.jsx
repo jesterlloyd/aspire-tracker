@@ -2,19 +2,20 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
 export default function UnitFormPage() {
-  const [cohortId,   setCohortId]   = useState(null)
-  const [cohortName, setCohortName] = useState('')
-  const [form,       setForm]       = useState({
-    unit_name:      '',
-    contact_person: '',
-    contact_email:  '',
-    is_participating: null,  // null = not yet selected
-    total_slots:    '',
-    shift_day:      false,
-    shift_night:    false,
-    shift_either:   false,
-    preceptors:     '',
-    considerations: '',
+  const [cohortId,   setCohortId]    = useState(null)
+  const [cohortName, setCohortName]  = useState('')
+  const [open,       setOpen]        = useState(null) // null=loading, true=open, false=closed
+  const [form,       setForm]        = useState({
+    unit_name:        '',
+    contact_person:   '',
+    contact_email:    '',
+    is_participating: null,
+    total_slots:      '',
+    shift_day:        false,
+    shift_night:      false,
+    shift_either:     false,
+    preceptors:       '',
+    considerations:   '',
   })
   const [submitting, setSubmitting] = useState(false)
   const [submitted,  setSubmitted]  = useState(false)
@@ -24,20 +25,20 @@ export default function UnitFormPage() {
     supabase
       .from('cohorts')
       .select('id, name')
-      .eq('status', 'Active')
-      .order('created_at', { ascending: false })
+      .eq('accepting_submissions', true)
       .limit(1)
       .single()
       .then(({ data }) => {
-        if (data) { setCohortId(data.id); setCohortName(data.name) }
+        if (data) { setCohortId(data.id); setCohortName(data.name); setOpen(true) }
+        else setOpen(false)
       })
   }, [])
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
   const shiftPref = [
-    form.shift_day   && 'Day Shift',
-    form.shift_night && 'Night Shift',
+    form.shift_day    && 'Day Shift',
+    form.shift_night  && 'Night Shift',
     form.shift_either && 'Either',
   ].filter(Boolean).join(', ')
 
@@ -55,27 +56,47 @@ export default function UnitFormPage() {
     setError(null)
 
     const { error: err } = await supabase.from('unit_submissions').insert({
-      unit_name:       form.unit_name.trim(),
-      contact_person:  form.contact_person.trim(),
-      contact_email:   form.contact_email.trim(),
+      unit_name:        form.unit_name.trim(),
+      contact_person:   form.contact_person.trim(),
+      contact_email:    form.contact_email.trim(),
       is_participating: form.is_participating,
-      total_slots:     form.is_participating ? (parseInt(form.total_slots) || 0) : 0,
+      total_slots:      form.is_participating ? (parseInt(form.total_slots) || 0) : 0,
       shift_preference: form.is_participating ? shiftPref : '',
-      preceptors:      form.is_participating ? form.preceptors.trim() : '',
-      considerations:  form.is_participating ? form.considerations.trim() : '',
-      review_status:   'Pending',
-      cohort_id:       cohortId,
+      preceptors:       form.is_participating ? form.preceptors.trim() : '',
+      considerations:   form.is_participating ? form.considerations.trim() : '',
+      review_status:    'Pending',
+      cohort_id:        cohortId,
     })
 
-    if (err) {
-      setError('Something went wrong. Please try again.')
-      setSubmitting(false)
-      return
-    }
+    if (err) { setError('Something went wrong. Please try again.'); setSubmitting(false); return }
     setSubmitted(true)
   }
 
-  // ── Confirmation screen ───────────────────────────────────────────
+  if (open === null) {
+    return (
+      <div className="uf-page">
+        <div className="uf-card" style={{ textAlign: 'center', padding: '60px 40px' }}>
+          <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
+          <p style={{ color: 'var(--raven-muted)' }}>Loading…</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (open === false) {
+    return (
+      <div className="uf-page">
+        <div className="uf-card" style={{ textAlign: 'center', padding: '56px 40px' }}>
+          <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
+          <h2 className="uf-title" style={{ marginBottom: 12 }}>ASPIRE Program: Unit Availability Form</h2>
+          <p style={{ color: 'var(--raven-muted)', fontSize: 15, lineHeight: 1.6 }}>
+            Submissions are not currently open. Please contact the ASPIRE team for more information.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   if (submitted) {
     return (
       <div className="uf-page">
@@ -91,25 +112,22 @@ export default function UnitFormPage() {
     )
   }
 
-  // ── Form ─────────────────────────────────────────────────────────
   return (
     <div className="uf-page">
       <div className="uf-card">
         <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
-
         <div className="uf-header">
           <h1 className="uf-title">ASPIRE Program: Unit Availability Form</h1>
           {cohortName && <div className="uf-cohort-badge">{cohortName}</div>}
           <p className="uf-subtitle">
-            Thank you for your interest in hosting ASPIRE students. Please complete this
-            form to indicate your unit's availability for the upcoming rotation.
+            Thank you for your interest in hosting ASPIRE students. Please complete this form
+            to indicate your unit's availability for the upcoming rotation.
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="uf-form">
           {error && <div className="error-msg" style={{ margin: '0 0 8px' }}>{error}</div>}
 
-          {/* Contact info */}
           <div className="uf-section">
             <div className="uf-field">
               <label className="uf-label">Unit or Department Name *</label>
@@ -131,7 +149,6 @@ export default function UnitFormPage() {
             </div>
           </div>
 
-          {/* Participation */}
           <div className="uf-section">
             <div className="uf-field">
               <label className="uf-label">Will your unit be participating this cycle? *</label>
@@ -152,50 +169,39 @@ export default function UnitFormPage() {
             </div>
           </div>
 
-          {/* Participation details — only shown when Yes */}
           {form.is_participating === true && (
             <>
               <div className="uf-section">
                 <div className="uf-field">
                   <label className="uf-label">Number of students you can host *</label>
                   <input className="uf-input uf-input-sm" type="number" min="1" max="10"
-                    value={form.total_slots}
-                    onChange={e => set('total_slots', e.target.value)}
+                    value={form.total_slots} onChange={e => set('total_slots', e.target.value)}
                     placeholder="1–10" />
                 </div>
               </div>
-
               <div className="uf-section">
                 <div className="uf-field">
                   <label className="uf-label">Shift preference (select all that apply)</label>
                   <div className="uf-checkbox-group">
-                    {[
-                      ['shift_day',    'Day Shift'],
-                      ['shift_night',  'Night Shift'],
-                      ['shift_either', 'Either'],
-                    ].map(([key, label]) => (
-                      <label key={key} className="uf-check-label">
-                        <input type="checkbox" checked={form[key]}
-                          onChange={e => set(key, e.target.checked)} />
-                        <span>{label}</span>
+                    {[['shift_day','Day Shift'],['shift_night','Night Shift'],['shift_either','Either']].map(([k,l]) => (
+                      <label key={k} className="uf-check-label">
+                        <input type="checkbox" checked={form[k]} onChange={e => set(k, e.target.checked)} />
+                        <span>{l}</span>
                       </label>
                     ))}
                   </div>
                 </div>
               </div>
-
               <div className="uf-section">
                 <div className="uf-field">
                   <label className="uf-label">Preceptor names (optional)</label>
-                  <textarea className="uf-textarea" rows={3}
-                    value={form.preceptors}
+                  <textarea className="uf-textarea" rows={3} value={form.preceptors}
                     onChange={e => set('preceptors', e.target.value)}
                     placeholder="List names of RNs interested in precepting, if known" />
                 </div>
                 <div className="uf-field">
                   <label className="uf-label">Special considerations or requirements (optional)</label>
-                  <textarea className="uf-textarea" rows={3}
-                    value={form.considerations}
+                  <textarea className="uf-textarea" rows={3} value={form.considerations}
                     onChange={e => set('considerations', e.target.value)}
                     placeholder="e.g. scheduling requirements, dress code, skill level preferences" />
                 </div>

@@ -5,13 +5,7 @@ const STATUS_CLASS = {
   Archived:  'cs-archived',
 }
 
-export default function CohortBar({
-  cohorts,
-  activeCohortId,
-  onSelect,
-  onNew,
-  onManage,
-}) {
+export default function CohortBar({ cohorts, activeCohortId, onSelect, onNew, onManage }) {
   const active = cohorts.find(c => c.id === activeCohortId)
 
   return (
@@ -25,9 +19,7 @@ export default function CohortBar({
             onChange={e => onSelect(e.target.value)}
           >
             {cohorts.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
           {active && (
@@ -35,21 +27,20 @@ export default function CohortBar({
               {active.status}
             </span>
           )}
-          {active?.start_date && active?.end_date && (
-            <span className="cohort-dates">
-              {active.start_date} – {active.end_date}
+          {active?.accepting_submissions && (
+            <span className="cohort-open-badge" title="This cohort is currently accepting form submissions">
+              ● Accepting submissions
             </span>
+          )}
+          {active?.start_date && active?.end_date && (
+            <span className="cohort-dates">{active.start_date} – {active.end_date}</span>
           )}
         </div>
         <div className="cohort-bar-actions">
           {active && (
-            <button className="btn-cohort-outline" onClick={onManage}>
-              ⚙ Edit Cohort
-            </button>
+            <button className="btn-cohort-outline" onClick={onManage}>⚙ Edit Cohort</button>
           )}
-          <button className="btn-cohort-primary" onClick={onNew}>
-            + New Cohort
-          </button>
+          <button className="btn-cohort-primary" onClick={onNew}>+ New Cohort</button>
         </div>
       </div>
     </div>

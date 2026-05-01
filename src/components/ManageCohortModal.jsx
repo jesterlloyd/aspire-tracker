@@ -14,11 +14,12 @@ export default function ManageCohortModal({ cohort, onSave, onClose }) {
     setSaving(true)
     setError(null)
     const err = await onSave(cohort.id, {
-      name: form.name,
-      status: form.status,
-      start_date: form.start_date,
-      end_date: form.end_date,
-      notes: form.notes,
+      name:                 form.name,
+      status:               form.status,
+      start_date:           form.start_date,
+      end_date:             form.end_date,
+      notes:                form.notes,
+      accepting_submissions: !!form.accepting_submissions,
     })
     if (err) { setError(err.message || 'Failed to save.'); setSaving(false) }
     else onClose()
@@ -66,7 +67,25 @@ export default function ManageCohortModal({ cohort, onSave, onClose }) {
               <label className="form-label">Notes</label>
               <textarea className="form-textarea" rows={3} value={form.notes || ''} onChange={e => set('notes', e.target.value)} />
             </div>
+
+            {/* Accepting submissions toggle */}
+            <label className={`cohort-toggle-row${form.accepting_submissions ? ' toggle-on' : ''}`}>
+              <input
+                type="checkbox"
+                className="toggle-checkbox"
+                checked={!!form.accepting_submissions}
+                onChange={e => set('accepting_submissions', e.target.checked)}
+              />
+              <div>
+                <div className="toggle-title">Accepting submissions</div>
+                <div className="toggle-desc">
+                  Turn on to accept unit and school coordinator form submissions for this cohort.
+                  Only one cohort can be active at a time — enabling here will disable it on any other cohort.
+                </div>
+              </div>
+            </label>
           </div>
+
           <div className="modal-footer">
             <button type="button" className="btn btn-outline-modal" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>

@@ -127,6 +127,15 @@ export const UNIT_NAMES = [
 
 export const COHORT_STATUSES = ['Planning', 'Active', 'Completed', 'Archived']
 
+export const PROGRAM_TYPES = [
+  'BSN Semester',
+  'BSN Trimester',
+  'Accelerated BSN',
+  'LVN to BSN',
+  'MECN',
+  'ELMN',
+]
+
 // Clinical area groupings for yellow (same-area) compatibility
 export const UNIT_AREAS = {
   'Labor & Delivery': 'OB / Women\'s Health',

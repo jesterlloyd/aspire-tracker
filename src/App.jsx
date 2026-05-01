@@ -9,24 +9,26 @@ import NewCohortModal from './components/NewCohortModal'
 import ManageCohortModal from './components/ManageCohortModal'
 import LoginPage from './components/LoginPage'
 import UnitFormPage from './components/UnitFormPage'
+import SchoolFormPage from './components/SchoolFormPage'
+import PendingStudentSubmissions from './components/PendingStudentSubmissions'
 
-// MainApp contains all hooks — must not be rendered conditionally
 function MainApp() {
-  // ── Cohort state ─────────────────────────────────────────────────
+  // ── Cohort ────────────────────────────────────────────────────────
   const [cohorts,          setCohorts]          = useState([])
   const [activeCohortId,   setActiveCohortId]   = useState(null)
   const [showNewCohort,    setShowNewCohort]    = useState(false)
   const [showManageCohort, setShowManageCohort] = useState(false)
 
   // ── Core data ─────────────────────────────────────────────────────
-  const [students,     setStudents]    = useState([])
-  const [units,        setUnits]       = useState([])
-  const [matches,      setMatches]     = useState([])
-  const [submissions,  setSubmissions] = useState([])
-  const [loading,      setLoading]     = useState(true)
-  const [dbError,      setDbError]     = useState(null)
+  const [students,          setStudents]          = useState([])
+  const [units,             setUnits]             = useState([])
+  const [matches,           setMatches]           = useState([])
+  const [submissions,       setSubmissions]       = useState([])
+  const [studentSubmissions,setStudentSubmissions]= useState([])
+  const [loading,           setLoading]           = useState(true)
+  const [dbError,           setDbError]           = useState(null)
 
-  // ── UI state ──────────────────────────────────────────────────────
+  // ── UI ────────────────────────────────────────────────────────────
   const [activeTab,    setActiveTab]   = useState('students')
   const [showAddModal, setShowAddModal]= useState(false)
   const [search,       setSearch]      = useState('')
@@ -49,7 +51,6 @@ function MainApp() {
     init()
   }, [])
 
-  // ── Reload all data when cohort changes ───────────────────────────
   useEffect(() => {
     if (!activeCohortId) return
     setLoading(true)
@@ -59,35 +60,34 @@ function MainApp() {
       fetchUnits(activeCohortId),
       fetchMatches(activeCohortId),
       fetchSubmissions(activeCohortId),
+      fetchStudentSubmissions(activeCohortId),
     ]).finally(() => setLoading(false))
   }, [activeCohortId])
 
   // ── Fetch helpers ─────────────────────────────────────────────────
   const fetchStudents = async id => {
     const { data, error } = await supabase
-      .from('students').select('*')
-      .eq('cohort_id', id).order('school').order('name')
+      .from('students').select('*').eq('cohort_id', id).order('school').order('name')
     if (error) setDbError(error.message)
     else setStudents(data || [])
   }
-
   const fetchUnits = async id => {
-    const { data } = await supabase
-      .from('units').select('*').eq('cohort_id', id).order('unit_name')
+    const { data } = await supabase.from('units').select('*').eq('cohort_id', id).order('unit_name')
     setUnits(data || [])
   }
-
   const fetchMatches = async id => {
-    const { data } = await supabase
-      .from('matches').select('*').eq('cohort_id', id)
+    const { data } = await supabase.from('matches').select('*').eq('cohort_id', id)
     setMatches(data || [])
   }
-
   const fetchSubmissions = async id => {
-    const { data } = await supabase
-      .from('unit_submissions').select('*')
+    const { data } = await supabase.from('unit_submissions').select('*')
       .eq('cohort_id', id).order('submitted_at', { ascending: false })
     setSubmissions(data || [])
+  }
+  const fetchStudentSubmissions = async id => {
+    const { data } = await supabase.from('student_submissions').select('*')
+      .eq('cohort_id', id).order('submitted_at', { ascending: false })
+    setStudentSubmissions(data || [])
   }
 
   const refreshAll = () => {
@@ -96,22 +96,28 @@ function MainApp() {
     fetchUnits(activeCohortId)
     fetchMatches(activeCohortId)
     fetchSubmissions(activeCohortId)
+    fetchStudentSubmissions(activeCohortId)
   }
 
   // ── Cohort CRUD ───────────────────────────────────────────────────
   const createCohort = async cohortData => {
-    const { data, error } = await supabase
-      .from('cohorts').insert(cohortData).select().single()
+    const { data, error } = await supabase.from('cohorts').insert(cohortData).select().single()
     if (!error && data) {
       setCohorts(prev => [data, ...prev])
       setActiveCohortId(data.id)
-      setStudents([]); setUnits([]); setMatches([]); setSubmissions([])
+      setStudents([]); setUnits([]); setMatches([])
+      setSubmissions([]); setStudentSubmissions([])
       setShowNewCohort(false)
     }
     return error || null
   }
 
   const updateCohort = async (id, updates) => {
+    // Mutex: turning on accepting_submissions disables it on all other cohorts
+    if (updates.accepting_submissions === true) {
+      await supabase.from('cohorts').update({ accepting_submissions: false }).neq('id', id)
+      setCohorts(prev => prev.map(c => c.id !== id ? { ...c, accepting_submissions: false } : c))
+    }
     const { error } = await supabase.from('cohorts').update(updates).eq('id', id)
     if (!error) setCohorts(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))
     return error || null
@@ -147,8 +153,7 @@ function MainApp() {
   const createMatch = async (student, unit) => {
     if (!activeCohortId) return
     const { data: m, error } = await supabase
-      .from('matches')
-      .insert({ student_id: student.id, unit_id: unit.id, cohort_id: activeCohortId })
+      .from('matches').insert({ student_id: student.id, unit_id: unit.id, cohort_id: activeCohortId })
       .select().single()
     if (error) { console.error(error); return }
 
@@ -161,31 +166,24 @@ function MainApp() {
     setStudents(prev => prev.map(s =>
       s.id === student.id ? { ...s, matched_unit_id: unit.id, interview_outcome: 'Accepted' } : s
     ))
-    setUnits(prev => prev.map(u =>
-      u.id === unit.id ? { ...u, slots_remaining: newRemaining } : u
-    ))
+    setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, slots_remaining: newRemaining } : u))
   }
 
   const unmatch = async (student, unit) => {
     const match = matches.find(m => m.student_id === student.id && m.unit_id === unit.id)
     if (match) await supabase.from('matches').delete().eq('id', match.id)
-
     await supabase.from('students')
       .update({ matched_unit_id: null, matched_preceptor: '', shift_assigned: '', interview_outcome: 'Pending Interview' })
       .eq('id', student.id)
-
     const newRemaining = unit.slots_remaining + 1
     await supabase.from('units').update({ slots_remaining: newRemaining }).eq('id', unit.id)
-
     if (match) setMatches(prev => prev.filter(m => m.id !== match.id))
     setStudents(prev => prev.map(s =>
       s.id === student.id
         ? { ...s, matched_unit_id: null, matched_preceptor: '', shift_assigned: '', interview_outcome: 'Pending Interview' }
         : s
     ))
-    setUnits(prev => prev.map(u =>
-      u.id === unit.id ? { ...u, slots_remaining: newRemaining } : u
-    ))
+    setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, slots_remaining: newRemaining } : u))
   }
 
   const updateMatch = async (matchId, studentId, updates) => {
@@ -202,61 +200,85 @@ function MainApp() {
     }
   }
 
-  // ── Submission review ─────────────────────────────────────────────
+  // ── Unit submission review ────────────────────────────────────────
   const approveSubmission = async sub => {
-    const { data: unitData, error } = await supabase
-      .from('units')
-      .insert({
-        unit_name:        sub.unit_name,
-        contact_person:   sub.contact_person,
-        total_slots:      sub.total_slots,
-        slots_remaining:  sub.total_slots,
-        shift_preference: sub.shift_preference,
-        preceptors:       sub.preceptors,
-        considerations:   sub.considerations,
-        is_participating: true,
-        cohort_id:        activeCohortId,
-      })
-      .select().single()
+    const { data: unitData, error } = await supabase.from('units').insert({
+      unit_name: sub.unit_name, contact_person: sub.contact_person,
+      total_slots: sub.total_slots, slots_remaining: sub.total_slots,
+      shift_preference: sub.shift_preference, preceptors: sub.preceptors,
+      considerations: sub.considerations, is_participating: true, cohort_id: activeCohortId,
+    }).select().single()
     if (error) { console.error(error); return }
-
-    await supabase.from('unit_submissions')
-      .update({ review_status: 'Approved' }).eq('id', sub.id)
-
+    await supabase.from('unit_submissions').update({ review_status: 'Approved' }).eq('id', sub.id)
     setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: 'Approved' } : s))
     setUnits(prev => [...prev, unitData].sort((a, b) => a.unit_name.localeCompare(b.unit_name)))
   }
 
   const rejectSubmission = async sub => {
-    await supabase.from('unit_submissions')
-      .update({ review_status: 'Rejected' }).eq('id', sub.id)
+    await supabase.from('unit_submissions').update({ review_status: 'Rejected' }).eq('id', sub.id)
     setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: 'Rejected' } : s))
+  }
+
+  // ── Student submission review ─────────────────────────────────────
+  const approveStudentSubmission = async sub => {
+    const activeCohort = cohorts.find(c => c.id === activeCohortId)
+    const { data: studentData, error } = await supabase.from('students').insert({
+      name:              sub.student_name,
+      school_email:      sub.student_email,
+      phone:             sub.student_phone || '',
+      school:            sub.school,
+      aspire_cohort:     activeCohort?.name || '',
+      term_dates:        sub.term_dates || '',
+      hours_required:    sub.hours_required || 0,
+      hours_completed:   0,
+      status:            'Form Sent',
+      interview_outcome: 'Pending Interview',
+      ngrp_outcome:      'Pending',
+      gpa_verified:      false,
+      bls_current:       false,
+      health_cleared:    false,
+      background_check:  false,
+      coordinators:      sub.coordinator_name
+        ? `${sub.coordinator_name} (${sub.coordinator_email})`
+        : '',
+      cohort_id:         activeCohortId,
+    }).select().single()
+    if (error) { console.error(error); return }
+    await supabase.from('student_submissions').update({ review_status: 'Approved' }).eq('id', sub.id)
+    setStudentSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: 'Approved' } : s))
+    setStudents(prev =>
+      [...prev, studentData].sort((a, b) => (a.school + a.name).localeCompare(b.school + b.name))
+    )
+  }
+
+  const rejectStudentSubmission = async sub => {
+    await supabase.from('student_submissions').update({ review_status: 'Rejected' }).eq('id', sub.id)
+    setStudentSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: 'Rejected' } : s))
   }
 
   // ── CSV export ────────────────────────────────────────────────────
   const exportCSV = () => {
     const headers = [
-      'Name', 'School Email', 'Personal Email', 'Phone', 'School', 'ASPIRE Cohort',
-      'Term Dates', 'Hours Required', 'Hours Completed', 'Unit', 'Preceptor',
-      'ASPIRE Status', 'NGRP Cohort Target', 'NGRP Outcome',
-      'GPA Verified', 'BLS Current', 'Health Cleared', 'Background Check',
-      'Coordinators', 'Notes',
+      'Name','School Email','Personal Email','Phone','School','ASPIRE Cohort',
+      'Term Dates','Hours Required','Hours Completed','Unit','Preceptor',
+      'ASPIRE Status','NGRP Cohort Target','NGRP Outcome',
+      'GPA Verified','BLS Current','Health Cleared','Background Check',
+      'Coordinators','Notes',
     ]
     const rows = students.map(s => [
-      s.name, s.school_email, s.personal_email, s.phone, s.school, s.aspire_cohort,
-      s.term_dates, s.hours_required, s.hours_completed, s.unit, s.preceptor_name,
-      s.status, s.ngrp_cohort_target, s.ngrp_outcome,
-      s.gpa_verified ? 'Yes' : 'No', s.bls_current ? 'Yes' : 'No',
-      s.health_cleared ? 'Yes' : 'No', s.background_check ? 'Yes' : 'No',
-      s.coordinators, s.notes,
+      s.name,s.school_email,s.personal_email,s.phone,s.school,s.aspire_cohort,
+      s.term_dates,s.hours_required,s.hours_completed,s.unit,s.preceptor_name,
+      s.status,s.ngrp_cohort_target,s.ngrp_outcome,
+      s.gpa_verified?'Yes':'No',s.bls_current?'Yes':'No',
+      s.health_cleared?'Yes':'No',s.background_check?'Yes':'No',
+      s.coordinators,s.notes,
     ])
-    const csv = [headers, ...rows]
-      .map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
-      .join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = url; a.download = `aspire-${new Date().toISOString().slice(0, 10)}.csv`; a.click()
+    const csv = [headers,...rows]
+      .map(r => r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href=url; a.download=`aspire-${new Date().toISOString().slice(0,10)}.csv`; a.click()
     URL.revokeObjectURL(url)
   }
 
@@ -275,9 +297,11 @@ function MainApp() {
     return true
   })
 
-  const activeCohort       = cohorts.find(c => c.id === activeCohortId)
-  const pendingSubmissions = submissions.filter(s => s.review_status === 'Pending')
-  const pendingCount       = pendingSubmissions.length
+  const activeCohort            = cohorts.find(c => c.id === activeCohortId)
+  const pendingSubmissions      = submissions.filter(s => s.review_status === 'Pending')
+  const pendingStudentSubs      = studentSubmissions.filter(s => s.review_status === 'Pending')
+  const pendingUnitCount        = pendingSubmissions.length
+  const pendingStudentCount     = pendingStudentSubs.length
 
   // ── Render ────────────────────────────────────────────────────────
   return (
@@ -319,15 +343,14 @@ function MainApp() {
             onClick={() => setActiveTab('students')}
           >
             Students
+            {pendingStudentCount > 0 && <span className="tab-badge">{pendingStudentCount}</span>}
           </button>
           <button
             className={`tab-btn${activeTab === 'matching' ? ' active' : ''}`}
             onClick={() => setActiveTab('matching')}
           >
             Matching
-            {pendingCount > 0 && (
-              <span className="tab-badge">{pendingCount}</span>
-            )}
+            {pendingUnitCount > 0 && <span className="tab-badge">{pendingUnitCount}</span>}
           </button>
         </div>
       )}
@@ -344,11 +367,9 @@ function MainApp() {
             </button>
           </div>
         )}
-
         {loading && cohorts.length > 0 && (
           <div className="state-box"><div className="spinner" /><p>Loading…</p></div>
         )}
-
         {dbError && (
           <div className="state-box error-box">
             <p><strong>Database error:</strong> {dbError}</p>
@@ -361,6 +382,13 @@ function MainApp() {
 
         {!loading && !dbError && cohorts.length > 0 && activeTab === 'students' && (
           <>
+            {pendingStudentCount > 0 && (
+              <PendingStudentSubmissions
+                submissions={pendingStudentSubs}
+                onApprove={approveStudentSubmission}
+                onReject={rejectStudentSubmission}
+              />
+            )}
             <Dashboard students={students} />
             <StudentList
               students={filteredStudents}
@@ -407,14 +435,12 @@ function MainApp() {
   )
 }
 
-// Thin wrapper: handles routing and auth — only one hook each
 export default function App() {
   const path = window.location.pathname
-  const [authed, setAuthed] = useState(
-    () => sessionStorage.getItem('aspire_auth') === '1'
-  )
+  const [authed, setAuthed] = useState(() => sessionStorage.getItem('aspire_auth') === '1')
 
   if (path.startsWith('/unit-form'))   return <UnitFormPage />
+  if (path.startsWith('/school-form')) return <SchoolFormPage />
   if (!authed) return <LoginPage onSuccess={() => setAuthed(true)} />
   return <MainApp />
 }

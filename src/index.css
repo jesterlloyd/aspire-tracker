@@ -1104,6 +1104,120 @@ h1, h2, h3 {
 .uf-confirm-msg   { font-size: 15px; color: var(--raven-muted); line-height: 1.65; }
 
 /* ============================================================
+   COHORT ACCEPTING-SUBMISSIONS INDICATOR
+   ============================================================ */
+.cohort-open-badge {
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   MANAGE COHORT TOGGLE
+   ============================================================ */
+.cohort-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  transition: border-color 0.12s, background 0.12s;
+  user-select: none;
+}
+.cohort-toggle-row.toggle-on {
+  border-color: #16a34a;
+  background: #f0fdf4;
+}
+.toggle-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: #16a34a;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.toggle-title { font-size: 14px; font-weight: 600; color: var(--raven); }
+.toggle-desc  { font-size: 12px; color: var(--raven-muted); margin-top: 3px; line-height: 1.45; }
+
+/* ============================================================
+   SCHOOL FORM PAGE extras (reuses uf-* classes)
+   ============================================================ */
+.sf-card { max-width: 740px; }
+.sf-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--raven-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 4px;
+}
+.sf-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.sf-row-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+.sf-student-block {
+  border: 1px solid var(--border-lt);
+  border-radius: 6px;
+  padding: 16px;
+  background: var(--sand);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.sf-student-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sf-student-num {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--raven);
+}
+.sf-remove-btn {
+  background: none;
+  border: none;
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  padding: 2px 6px;
+}
+.sf-remove-btn:hover { text-decoration: underline; }
+.sf-add-btn {
+  background: none;
+  border: 1.5px dashed var(--border);
+  border-radius: 4px;
+  color: var(--raven-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  padding: 10px 0;
+  width: 100%;
+  transition: border-color 0.12s, color 0.12s;
+}
+.sf-add-btn:hover { border-color: var(--red); color: var(--red); }
+
+@media (max-width: 600px) {
+  .sf-row-2, .sf-row-3 { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
    LOGIN PAGE
    ============================================================ */
 .login-page {
