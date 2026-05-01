@@ -1,7 +1,7 @@
 import { ASPIRE_STATUSES } from '../lib/constants'
 import StudentRow from './StudentRow'
 
-export default function StudentList({ students, allStudents, search, filters, onSearch, onFilter, onUpdate }) {
+export default function StudentList({ students, allStudents, units = [], search, filters, onSearch, onFilter, onUpdate }) {
   const schools = [...new Set(allStudents.map(s => s.school).filter(Boolean))].sort()
   const cohorts = [...new Set(allStudents.map(s => s.aspire_cohort).filter(Boolean))].sort()
 
@@ -78,7 +78,7 @@ export default function StudentList({ students, allStudents, search, filters, on
           <div className="table-empty">No students match your search or filters.</div>
         ) : (
           students.map(s => (
-            <StudentRow key={s.id} student={s} onUpdate={onUpdate} />
+            <StudentRow key={s.id} student={s} units={units} onUpdate={onUpdate} />
           ))
         )}
       </div>

@@ -1,35 +1,37 @@
 import { useState, useRef, useCallback } from 'react'
 import {
   SCHOOLS,
-  SCHOOL_DEFAULTS,
   UNITS_BY_DIVISION,
   ASPIRE_STATUSES,
   NGRP_OUTCOMES,
   COHORTS,
+  INTERVIEW_OUTCOMES,
+  SHIFT_OPTIONS,
+  UNIT_NAMES,
 } from '../lib/constants'
 
 const STATUS_CLASS = {
-  'Form Sent': 'badge-gray',
-  'Form Returned': 'badge-blue',
-  'Interviewed': 'badge-purple',
-  'Accepted': 'badge-green',
-  'Active Rotation': 'badge-teal',
-  'Completed': 'badge-navy',
-  'Declined': 'badge-red',
+  'Form Sent':      'badge-gray',
+  'Form Returned':  'badge-blue',
+  'Interviewed':    'badge-purple',
+  'Accepted':       'badge-green',
+  'Active Rotation':'badge-teal',
+  'Completed':      'badge-navy',
+  'Declined':       'badge-red',
 }
 
 const NGRP_CLASS = {
-  'Pending': 'badge-gray',
-  'Applied': 'badge-blue',
-  'Interviewed': 'badge-purple',
-  'Offered': 'badge-amber',
-  'Hired': 'badge-green',
-  'Declined': 'badge-red',
+  'Pending':    'badge-gray',
+  'Applied':    'badge-blue',
+  'Interviewed':'badge-purple',
+  'Offered':    'badge-amber',
+  'Hired':      'badge-green',
+  'Declined':   'badge-red',
 }
 
-export default function StudentRow({ student, onUpdate }) {
+export default function StudentRow({ student, units = [], onUpdate }) {
   const [expanded, setExpanded] = useState(false)
-  const [data, setData] = useState(student)
+  const [data, setData]         = useState(student)
   const [saveState, setSaveState] = useState('idle')
   const timerRef = useRef(null)
 
@@ -71,6 +73,10 @@ export default function StudentRow({ student, onUpdate }) {
   const hoursProgress = data.hours_required > 0
     ? Math.min(100, Math.round(((data.hours_completed || 0) / data.hours_required) * 100))
     : 0
+
+  const matchedUnitName = data.matched_unit_id && units.length > 0
+    ? (units.find(u => u.id === data.matched_unit_id)?.unit_name || '—')
+    : (data.matched_unit_id ? '(loading…)' : '—')
 
   return (
     <div className={`student-row${expanded ? ' expanded' : ''}`}>
@@ -120,8 +126,8 @@ export default function StudentRow({ student, onUpdate }) {
             <span className="expand-title">Editing — {data.name}</span>
             <span className={`save-status save-${saveState}`}>
               {saveState === 'saving' && '· Saving…'}
-              {saveState === 'saved' && '✓ Saved'}
-              {saveState === 'error' && '✗ Save failed'}
+              {saveState === 'saved'  && '✓ Saved'}
+              {saveState === 'error'  && '✗ Save failed'}
             </span>
           </div>
 
@@ -179,9 +185,9 @@ export default function StudentRow({ student, onUpdate }) {
               <Field label="Unit">
                 <select className="form-select" value={data.unit || ''} onChange={e => handleSelect('unit', e.target.value)}>
                   <option value="">Select unit…</option>
-                  {Object.entries(UNITS_BY_DIVISION).map(([div, units]) => (
+                  {Object.entries(UNITS_BY_DIVISION).map(([div, unitList]) => (
                     <optgroup key={div} label={`── ${div} ──`}>
-                      {units.map(u => <option key={u} value={u}>{u}</option>)}
+                      {unitList.map(u => <option key={u} value={u}>{u}</option>)}
                     </optgroup>
                   ))}
                 </select>
@@ -205,15 +211,59 @@ export default function StudentRow({ student, onUpdate }) {
             </div>
           </div>
 
+          {/* ASPIRE Matching */}
+          <div className="form-section">
+            <div className="section-label">ASPIRE Matching</div>
+            <div className="form-grid form-grid-5">
+              <Field label="Interview Outcome">
+                <select className="form-select" value={data.interview_outcome || 'Pending Interview'} onChange={e => handleSelect('interview_outcome', e.target.value)}>
+                  {INTERVIEW_OUTCOMES.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </Field>
+              <Field label="Shift Availability">
+                <select className="form-select" value={data.shift_availability || ''} onChange={e => handleSelect('shift_availability', e.target.value)}>
+                  <option value="">Select…</option>
+                  {SHIFT_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </Field>
+              <Field label="Unit Preference 1">
+                <select className="form-select" value={data.unit_preference_1 || ''} onChange={e => handleSelect('unit_preference_1', e.target.value)}>
+                  <option value="">Select…</option>
+                  {UNIT_NAMES.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </Field>
+              <Field label="Unit Preference 2">
+                <select className="form-select" value={data.unit_preference_2 || ''} onChange={e => handleSelect('unit_preference_2', e.target.value)}>
+                  <option value="">Select…</option>
+                  {UNIT_NAMES.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </Field>
+              <Field label="Unit Preference 3">
+                <select className="form-select" value={data.unit_preference_3 || ''} onChange={e => handleSelect('unit_preference_3', e.target.value)}>
+                  <option value="">Select…</option>
+                  {UNIT_NAMES.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </Field>
+            </div>
+            <div className="form-grid form-grid-2" style={{ marginTop: 10 }}>
+              <Field label="Matched Unit (read-only)">
+                <div className="form-readonly">{matchedUnitName}</div>
+              </Field>
+              <Field label="Matched Preceptor (read-only)">
+                <div className="form-readonly">{data.matched_preceptor || '—'}</div>
+              </Field>
+            </div>
+          </div>
+
           {/* Compliance */}
           <div className="form-section">
             <div className="section-label">Compliance</div>
             <div className="compliance-grid">
               {[
-                ['gpa_verified', 'GPA Verified'],
-                ['bls_current', 'BLS Current'],
-                ['health_cleared', 'Health Cleared'],
-                ['background_check', 'Background Check'],
+                ['gpa_verified',    'GPA Verified'],
+                ['bls_current',     'BLS Current'],
+                ['health_cleared',  'Health Cleared'],
+                ['background_check','Background Check'],
               ].map(([field, label]) => (
                 <label key={field} className="checkbox-item">
                   <input
@@ -231,20 +281,10 @@ export default function StudentRow({ student, onUpdate }) {
           <div className="form-section">
             <div className="form-grid form-grid-2">
               <Field label="School Coordinators">
-                <textarea
-                  className="form-textarea"
-                  rows={3}
-                  value={data.coordinators || ''}
-                  onChange={e => handleText('coordinators', e.target.value)}
-                />
+                <textarea className="form-textarea" rows={3} value={data.coordinators || ''} onChange={e => handleText('coordinators', e.target.value)} />
               </Field>
               <Field label="Notes">
-                <textarea
-                  className="form-textarea"
-                  rows={3}
-                  value={data.notes || ''}
-                  onChange={e => handleText('notes', e.target.value)}
-                />
+                <textarea className="form-textarea" rows={3} value={data.notes || ''} onChange={e => handleText('notes', e.target.value)} />
               </Field>
             </div>
           </div>

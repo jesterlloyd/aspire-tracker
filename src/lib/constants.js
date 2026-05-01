@@ -84,3 +84,71 @@ export const NGRP_OUTCOMES = [
 ]
 
 export const COHORTS = ['Summer 2026', 'Fall 2026', 'Spring 2027', 'Summer 2027']
+
+// ── Matching tab constants ────────────────────────────────────────────
+
+export const INTERVIEW_OUTCOMES = [
+  'Pending Interview',
+  'Accepted',
+  'Accepted with Reservations',
+  'Declined',
+]
+
+export const SHIFT_OPTIONS = ['Day', 'Night', 'Either']
+
+// The 14 Cedars-Sinai units available for matching
+export const UNIT_NAMES = [
+  '4 NE/NW',
+  '4 SE/SW',
+  '5 SCCT',
+  '5 SE/SW',
+  '6 NE',
+  '6 NW',
+  '6 SE/SW',
+  '7 NE/NW',
+  '8 NE/NW',
+  '8 SE/SW',
+  'Labor & Delivery',
+  'NICU',
+  'PACU',
+  'Pediatrics',
+]
+
+// Clinical area groupings for yellow (same-area) compatibility
+export const UNIT_AREAS = {
+  'Labor & Delivery': 'OB / Women\'s Health',
+  '6 NW':  'Medical-Surgical',
+  '6 NE':  'Medical-Surgical',
+  'PACU':  'Perioperative',
+  '7 NE/NW': 'Medical-Surgical',
+  '8 NE/NW': 'Medical-Surgical',
+  '8 SE/SW': 'Medical-Surgical',
+  '4 SE/SW': 'Oncology',
+  '5 SE/SW': 'Medical-Surgical',
+  'Pediatrics': 'Pediatrics',
+  'NICU': 'Critical Care',
+  '6 SE/SW': 'Medical-Surgical',
+  '5 SCCT': 'Critical Care',
+  '4 NE/NW': 'Medical-Surgical',
+}
+
+/**
+ * Returns 'green' | 'yellow' | 'gray' for a student vs a unit.
+ * Green  = unit is in the student's top-3 preferences
+ * Yellow = unit shares a clinical area with one of their preferences
+ * Gray   = no match
+ */
+export function getCompatibility(student, unitName) {
+  const prefs = [
+    student.unit_preference_1,
+    student.unit_preference_2,
+    student.unit_preference_3,
+  ].filter(Boolean)
+
+  if (prefs.includes(unitName)) return 'green'
+
+  const unitArea = UNIT_AREAS[unitName]
+  if (unitArea && prefs.some(p => UNIT_AREAS[p] === unitArea)) return 'yellow'
+
+  return 'gray'
+}
