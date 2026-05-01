@@ -1,4 +1,5 @@
 const STATUS_CLASS = {
+  Planning:  'cs-planning',
   Active:    'cs-active',
   Completed: 'cs-completed',
   Archived:  'cs-archived',

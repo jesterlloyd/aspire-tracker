@@ -125,7 +125,7 @@ export const UNIT_NAMES = [
   'NICU', 'PACU', 'Pediatrics',
 ]
 
-export const COHORT_STATUSES = ['Active', 'Completed', 'Archived']
+export const COHORT_STATUSES = ['Planning', 'Active', 'Completed', 'Archived']
 
 // Clinical area groupings for yellow (same-area) compatibility
 export const UNIT_AREAS = {

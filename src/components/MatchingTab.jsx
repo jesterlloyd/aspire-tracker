@@ -46,13 +46,13 @@ export default function MatchingTab({
   }
 
   const summaryStats = [
-    { label: 'Total Slots',     value: totalSlots,             color: '#1a3a6b' },
-    { label: 'Slots Remaining', value: slotsRemaining,         color: '#0d9488' },
-    { label: 'Students',        value: students.length,        color: '#64748b' },
-    { label: 'Matched',         value: matchedStudents.length, color: '#16a34a' },
-    { label: 'Unmatched',       value: activeUnmatched.length, color: '#2563eb' },
-    { label: 'Waitlisted',      value: waitlisted.length,      color: '#ca8a04' },
-    { label: 'Declined',        value: declined.length,        color: '#dc2626' },
+    { label: 'Total Slots',     value: totalSlots,             color: '#dc1e34' },
+    { label: 'Slots Remaining', value: slotsRemaining,         color: '#dc1e34' },
+    { label: 'Students',        value: students.length,        color: '#dc1e34' },
+    { label: 'Matched',         value: matchedStudents.length, color: '#dc1e34' },
+    { label: 'Unmatched',       value: activeUnmatched.length, color: '#dc1e34' },
+    { label: 'Waitlisted',      value: waitlisted.length,      color: '#dc1e34' },
+    { label: 'Declined',        value: declined.length,        color: '#dc1e34' },
   ]
 
   return (
