@@ -683,7 +683,7 @@ h1, h2, h3 { font-weight: 600; }
   padding: 0 24px;
   display: flex;
   position: sticky;
-  top: 62px;
+  top: 110px; /* 62px header + 48px cohort bar */
   z-index: 150;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
@@ -703,6 +703,409 @@ h1, h2, h3 { font-weight: 600; }
 }
 .tab-btn:hover { color: var(--text); }
 .tab-btn.active { color: var(--navy); border-bottom-color: var(--navy); }
+
+/* ============================================================
+   COHORT BAR
+   ============================================================ */
+.cohort-bar {
+  background: #f0f4f8;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 62px;
+  z-index: 160;
+}
+.cohort-bar-inner {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 8px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.cohort-select-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.cohort-bar-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.cohort-select {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--navy);
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+  font-family: inherit;
+  min-width: 180px;
+}
+.cohort-select:focus { border-color: var(--accent); }
+
+.cohort-status-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.cs-active    { background: #dcfce7; color: #15803d; }
+.cs-completed { background: #dbeafe; color: #1d4ed8; }
+.cs-archived  { background: #f1f5f9; color: #64748b; }
+
+.cohort-dates {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.cohort-bar-actions { display: flex; gap: 8px; }
+
+.btn-cohort-outline {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s, border-color 0.12s;
+}
+.btn-cohort-outline:hover { background: var(--bg); border-color: var(--navy); color: var(--navy); }
+
+.btn-cohort-primary {
+  padding: 6px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s;
+}
+.btn-cohort-primary:hover { background: var(--accent-dark); }
+
+/* ============================================================
+   MATCHING TOOLBAR
+   ============================================================ */
+.matching-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.matching-toolbar-left { display: flex; gap: 8px; }
+.toolbar-hint { font-size: 13px; color: var(--text-muted); font-style: italic; }
+
+/* ============================================================
+   IMPORT STUDENT BUTTON IN LIST CONTROLS
+   ============================================================ */
+.btn-import-students {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: border-color 0.12s, color 0.12s;
+}
+.btn-import-students:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ============================================================
+   FULL-SCREEN PANEL (Unit Setup)
+   ============================================================ */
+.fullscreen-panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15,37,71,0.5);
+  z-index: 600;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  backdrop-filter: blur(2px);
+}
+.fullscreen-panel {
+  background: #fff;
+  width: min(820px, 95vw);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 32px rgba(0,0,0,0.2);
+}
+.fsp-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border-lt);
+  flex-shrink: 0;
+}
+.fsp-title { font-size: 20px; font-weight: 700; color: var(--navy); margin: 0; }
+.fsp-sub   { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+.fsp-close { font-size: 26px; }
+
+.fsp-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+}
+.fsp-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-lt);
+  background: #fafbfc;
+  flex-shrink: 0;
+}
+
+/* Unit setup panel */
+.usp-division { margin-bottom: 24px; }
+.usp-division-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-lt);
+  margin-bottom: 8px;
+}
+.usp-unit-list { display: flex; flex-direction: column; gap: 4px; }
+.usp-unit-row {
+  border: 1px solid var(--border-lt);
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: #fafbfc;
+  transition: background 0.1s, border-color 0.1s;
+}
+.usp-unit-row.usp-checked { background: #fff; border-color: var(--accent); }
+
+.usp-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.usp-checkbox-label input[type="checkbox"] {
+  width: 15px; height: 15px;
+  accent-color: var(--navy);
+  cursor: pointer; flex-shrink: 0;
+}
+.usp-unit-name { font-size: 14px; font-weight: 600; color: var(--text); }
+
+.usp-unit-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-lt);
+  align-items: flex-end;
+}
+.usp-field-group { display: flex; flex-direction: column; gap: 3px; }
+.usp-field-grow  { flex: 1; min-width: 140px; }
+.usp-field-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.usp-input {
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 13px;
+  color: var(--text);
+  background: #fff;
+  outline: none;
+  font-family: inherit;
+}
+.usp-input-sm { width: 70px; }
+.usp-input:focus { border-color: var(--accent); }
+.usp-select {
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 13px;
+  color: var(--text);
+  background: #fff;
+  outline: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+.usp-select:focus { border-color: var(--accent); }
+.usp-textarea {
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 12px;
+  color: var(--text);
+  background: #fff;
+  outline: none;
+  font-family: inherit;
+  resize: vertical;
+  margin-top: 6px;
+}
+.usp-considerations-toggle { width: 100%; }
+.usp-considerations-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+.usp-considerations-btn:hover { color: var(--text); }
+
+/* ============================================================
+   IMPORT MODALS (Units + Students)
+   ============================================================ */
+.modal-lg { max-width: 760px; }
+
+.import-steps {
+  display: flex;
+  gap: 16px;
+  margin-top: 6px;
+}
+.import-step {
+  font-size: 12px;
+  color: var(--text-light);
+  font-weight: 500;
+}
+.import-step.active { color: var(--navy); font-weight: 700; }
+.import-step.done   { color: #16a34a; }
+
+.import-upload-zone {
+  text-align: center;
+  padding: 32px 16px;
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.import-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* Column mapper */
+.col-mapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.col-mapper-row {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  background: #fafbfc;
+  border-radius: 5px;
+}
+.col-mapper-field { font-size: 13px; font-weight: 600; color: var(--text); }
+.req-star { color: #dc2626; }
+.col-mapper-select {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text);
+  background: #fff;
+  outline: none;
+}
+.col-mapper-select:focus { border-color: var(--accent); }
+
+/* Preview table */
+.preview-table-wrap {
+  overflow-x: auto;
+  margin-top: 12px;
+  border: 1px solid var(--border-lt);
+  border-radius: 6px;
+}
+.preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.preview-table th {
+  background: #f8fafc;
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-bottom: 1px solid var(--border);
+}
+.preview-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border-lt);
+  color: var(--text);
+}
+.preview-table tr:last-child td { border-bottom: none; }
+.row-warn td { background: #fff5f5; color: #b91c1c; }
+
+/* Import summary */
+.import-summary-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+.import-count { font-size: 13px; font-weight: 600; color: var(--text); }
+.import-valid { font-size: 13px; color: #16a34a; font-weight: 600; }
+.import-skip  { font-size: 13px; color: #ca8a04; font-weight: 600; }
+
+.import-warnings {
+  background: #fef9c3;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.import-warning-item { font-size: 12px; color: #92400e; }
+
+.import-done {
+  text-align: center;
+  padding: 32px 0;
+}
+.import-done-icon {
+  font-size: 40px;
+  color: #16a34a;
+  margin-bottom: 12px;
+}
+.import-done p { font-size: 16px; font-weight: 600; color: var(--text); }
 
 /* ============================================================
    INTERVIEW BREAKDOWN (Dashboard)
@@ -824,8 +1227,8 @@ h1, h2, h3 { font-weight: 600; }
 /* Students pool column */
 .board-students-col {
   position: sticky;
-  top: 122px;
-  max-height: calc(100vh - 150px);
+  top: 170px; /* 62 header + 48 cohort bar + 48 tab bar + 12 gap */
+  max-height: calc(100vh - 190px);
   display: flex;
   flex-direction: column;
 }

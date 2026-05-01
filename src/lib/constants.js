@@ -37,6 +37,7 @@ export const SCHOOL_DEFAULTS = {
   },
 }
 
+// Legacy UNITS_BY_DIVISION used in the students tab unit dropdown
 export const UNITS_BY_DIVISION = {
   Surgical: [
     '4N - General Surgery',
@@ -61,6 +62,26 @@ export const UNITS_BY_DIVISION = {
     'NICU - Neonatal ICU',
     'Step-Down / SDU',
     'Emergency Department',
+  ],
+}
+
+// Full Cedars-Sinai unit roster for the Unit Setup Panel (Part 3)
+export const UNIT_ROSTER = {
+  Surgical: [
+    '7NE', '7NW', '8SE', '8SW', '8NE', '8NW',
+    '3SPT', '3SW', '4S', '3 PACU', '6 PACU', '7 GI PACU',
+  ],
+  Medical: [
+    '3SE', '3SW', '4SE', '4SW', '4NE/4NW',
+    '5SE', '5SW', '5NE', '5NW', '6SE', '6SW', '7SE', '7SW',
+  ],
+  'Critical Care': [
+    '6NE', '6NW', '3SCCT', '4SCCT', '5SCCT',
+    '6SCCT', '7SCCT', '8SCCT', 'CMC',
+  ],
+  Specialty: [
+    'Labor and Delivery', 'PACU', 'NICU', 'PICU',
+    'Pediatrics', 'Postpartum', '3 South',
   ],
 }
 
@@ -94,25 +115,17 @@ export const INTERVIEW_OUTCOMES = [
   'Declined',
 ]
 
-export const SHIFT_OPTIONS = ['Day', 'Night', 'Either']
+export const SHIFT_OPTIONS = ['Day', 'Night', 'Either', 'Day and Night']
 
-// The 14 Cedars-Sinai units available for matching
+// The 14 Cedars-Sinai units available for matching preference dropdowns
 export const UNIT_NAMES = [
-  '4 NE/NW',
-  '4 SE/SW',
-  '5 SCCT',
-  '5 SE/SW',
-  '6 NE',
-  '6 NW',
-  '6 SE/SW',
-  '7 NE/NW',
-  '8 NE/NW',
-  '8 SE/SW',
-  'Labor & Delivery',
-  'NICU',
-  'PACU',
-  'Pediatrics',
+  '4 NE/NW', '4 SE/SW', '5 SCCT', '5 SE/SW',
+  '6 NE', '6 NW', '6 SE/SW', '7 NE/NW',
+  '8 NE/NW', '8 SE/SW', 'Labor & Delivery',
+  'NICU', 'PACU', 'Pediatrics',
 ]
+
+export const COHORT_STATUSES = ['Active', 'Completed', 'Archived']
 
 // Clinical area groupings for yellow (same-area) compatibility
 export const UNIT_AREAS = {
@@ -132,23 +145,14 @@ export const UNIT_AREAS = {
   '4 NE/NW': 'Medical-Surgical',
 }
 
-/**
- * Returns 'green' | 'yellow' | 'gray' for a student vs a unit.
- * Green  = unit is in the student's top-3 preferences
- * Yellow = unit shares a clinical area with one of their preferences
- * Gray   = no match
- */
 export function getCompatibility(student, unitName) {
   const prefs = [
     student.unit_preference_1,
     student.unit_preference_2,
     student.unit_preference_3,
   ].filter(Boolean)
-
   if (prefs.includes(unitName)) return 'green'
-
   const unitArea = UNIT_AREAS[unitName]
   if (unitArea && prefs.some(p => UNIT_AREAS[p] === unitArea)) return 'yellow'
-
   return 'gray'
 }

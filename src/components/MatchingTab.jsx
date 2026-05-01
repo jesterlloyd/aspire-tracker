@@ -1,22 +1,27 @@
 import { useState } from 'react'
 import UnitCard from './UnitCard'
 import StudentMatchCard from './StudentMatchCard'
+import UnitSetupPanel from './UnitSetupPanel'
+import ImportUnitsCSV from './ImportUnitsCSV'
 
-export default function MatchingTab({ students, units, matches, onMatch, onUnmatch, onUpdateMatch }) {
-  const [selectedStudent, setSelectedStudent] = useState(null)
+export default function MatchingTab({
+  students, units, matches, cohortId,
+  onMatch, onUnmatch, onUpdateMatch, onRefreshUnits,
+}) {
+  const [selectedStudent,  setSelectedStudent]  = useState(null)
+  const [showUnitSetup,    setShowUnitSetup]    = useState(false)
+  const [showImportUnits,  setShowImportUnits]  = useState(false)
 
   const participating   = units.filter(u => u.is_participating)
   const totalSlots      = participating.reduce((s, u) => s + u.total_slots,     0)
   const slotsRemaining  = participating.reduce((s, u) => s + u.slots_remaining, 0)
-
   const matchedStudents = students.filter(s =>  s.matched_unit_id)
   const unmatchedAll    = students.filter(s => !s.matched_unit_id && s.interview_outcome !== 'Declined')
   const activeUnmatched = unmatchedAll.filter(s => s.interview_outcome !== 'Accepted with Reservations')
   const waitlisted      = students.filter(s => !s.matched_unit_id && s.interview_outcome === 'Accepted with Reservations')
   const declined        = students.filter(s =>  s.interview_outcome === 'Declined')
 
-  const handleStudentSelect = student =>
-    setSelectedStudent(prev => prev?.id === student.id ? null : student)
+  const handleStudentSelect = s => setSelectedStudent(prev => prev?.id === s.id ? null : s)
 
   const handleSlotClick = unit => {
     if (!selectedStudent) return
@@ -25,48 +30,35 @@ export default function MatchingTab({ students, units, matches, onMatch, onUnmat
   }
 
   const exportCSV = () => {
-    const headers = [
-      'Student Name', 'School', 'School Email', 'Personal Email', 'Phone',
-      'Matched Unit', 'Preceptor Assigned', 'Shift Assigned', 'Unit Contact', 'Notes',
-    ]
+    const headers = ['Student Name','School','School Email','Personal Email','Phone','Matched Unit','Preceptor Assigned','Shift Assigned','Unit Contact','Notes']
     const rows = matchedStudents.map(s => {
       const unit  = units.find(u => u.id === s.matched_unit_id)
       const match = matches.find(m => m.student_id === s.id)
-      return [
-        s.name, s.school, s.school_email, s.personal_email, s.phone,
-        unit?.unit_name        || '',
-        match?.preceptor_assigned || '',
-        match?.shift_assigned     || '',
-        unit?.contact_person   || '',
-        match?.notes           || '',
-      ]
+      return [s.name, s.school, s.school_email, s.personal_email, s.phone,
+        unit?.unit_name || '', match?.preceptor_assigned || '', match?.shift_assigned || '',
+        unit?.contact_person || '', match?.notes || '']
     })
-    const csv = [headers, ...rows]
-      .map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
-      .join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href     = url
-    a.download = `aspire-matches-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
+    const csv = [headers,...rows].map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'})
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href=url; a.download=`aspire-matches-${new Date().toISOString().slice(0,10)}.csv`; a.click()
     URL.revokeObjectURL(url)
   }
 
   const summaryStats = [
-    { label: 'Total Slots',        value: totalSlots,             color: '#1a3a6b' },
-    { label: 'Slots Remaining',    value: slotsRemaining,         color: '#0d9488' },
-    { label: 'Students',           value: students.length,        color: '#64748b' },
-    { label: 'Matched',            value: matchedStudents.length, color: '#16a34a' },
-    { label: 'Unmatched',          value: activeUnmatched.length, color: '#2563eb' },
-    { label: 'Waitlisted',         value: waitlisted.length,      color: '#ca8a04' },
-    { label: 'Declined',           value: declined.length,        color: '#dc2626' },
+    { label: 'Total Slots',     value: totalSlots,             color: '#1a3a6b' },
+    { label: 'Slots Remaining', value: slotsRemaining,         color: '#0d9488' },
+    { label: 'Students',        value: students.length,        color: '#64748b' },
+    { label: 'Matched',         value: matchedStudents.length, color: '#16a34a' },
+    { label: 'Unmatched',       value: activeUnmatched.length, color: '#2563eb' },
+    { label: 'Waitlisted',      value: waitlisted.length,      color: '#ca8a04' },
+    { label: 'Declined',        value: declined.length,        color: '#dc2626' },
   ]
 
   return (
     <div className="matching-tab">
 
-      {/* ── Section 1: Summary ── */}
+      {/* ── Summary ── */}
       <div className="match-summary">
         {summaryStats.map(s => (
           <div key={s.label} className="match-stat-card">
@@ -76,118 +68,119 @@ export default function MatchingTab({ students, units, matches, onMatch, onUnmat
         ))}
       </div>
 
-      {/* ── Selection hint banner ── */}
+      {/* ── Unit management toolbar ── */}
+      <div className="matching-toolbar">
+        <div className="matching-toolbar-left">
+          <button className="btn btn-primary" onClick={() => setShowUnitSetup(true)}>
+            ⚙ Set Up Units
+          </button>
+          <button className="btn btn-outline-modal" style={{ background: '#fff' }} onClick={() => setShowImportUnits(true)}>
+            ↑ Import Units from CSV
+          </button>
+        </div>
+        {participating.length === 0 && (
+          <span className="toolbar-hint">No participating units yet. Set up units to start matching.</span>
+        )}
+      </div>
+
+      {/* ── Selection banner ── */}
       {selectedStudent && (
         <div className="selection-banner">
-          <span>
-            Placing <strong>{selectedStudent.name}</strong> —
-            click an open slot on any unit card below
-          </span>
-          <button className="btn-cancel-select" onClick={() => setSelectedStudent(null)}>
-            Cancel
-          </button>
+          <span>Placing <strong>{selectedStudent.name}</strong> — click an open slot on any unit card</span>
+          <button className="btn-cancel-select" onClick={() => setSelectedStudent(null)}>Cancel</button>
         </div>
       )}
 
-      {/* ── Section 2: Matching Board ── */}
-      <div className="matching-board">
-        {/* Left: unit cards */}
-        <div className="board-units-col">
-          <div className="board-col-label">
-            Clinical Units <span className="board-col-count">({participating.length})</span>
-          </div>
-          <div className="units-grid">
-            {participating.map(unit => (
-              <UnitCard
-                key={unit.id}
-                unit={unit}
-                matchedStudents={students.filter(s => s.matched_unit_id === unit.id)}
-                matches={matches}
-                selectedStudent={selectedStudent}
-                onSlotClick={() => handleSlotClick(unit)}
-                onUnmatch={student => onUnmatch(student, unit)}
-                onUpdateMatch={onUpdateMatch}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Right: student pool */}
-        <div className="board-students-col">
-          <div className="board-col-label">
-            Student Pool{' '}
-            <span className="board-col-count">({unmatchedAll.length} available)</span>
-          </div>
-          <div className="students-pool">
-            {unmatchedAll.length === 0 ? (
-              <div className="pool-empty">All students matched or declined.</div>
-            ) : (
-              unmatchedAll.map(s => (
-                <StudentMatchCard
-                  key={s.id}
-                  student={s}
-                  units={units}
-                  isSelected={selectedStudent?.id === s.id}
-                  onSelect={handleStudentSelect}
+      {/* ── Matching Board ── */}
+      {participating.length > 0 ? (
+        <div className="matching-board">
+          <div className="board-units-col">
+            <div className="board-col-label">
+              Clinical Units <span className="board-col-count">({participating.length})</span>
+            </div>
+            <div className="units-grid">
+              {participating.map(unit => (
+                <UnitCard
+                  key={unit.id}
+                  unit={unit}
+                  matchedStudents={students.filter(s => s.matched_unit_id === unit.id)}
+                  matches={matches}
+                  selectedStudent={selectedStudent}
+                  onSlotClick={() => handleSlotClick(unit)}
+                  onUnmatch={student => onUnmatch(student, unit)}
+                  onUpdateMatch={onUpdateMatch}
                 />
-              ))
-            )}
+              ))}
+            </div>
+          </div>
+          <div className="board-students-col">
+            <div className="board-col-label">
+              Student Pool <span className="board-col-count">({unmatchedAll.length} available)</span>
+            </div>
+            <div className="students-pool">
+              {unmatchedAll.length === 0
+                ? <div className="pool-empty">All students matched or declined.</div>
+                : unmatchedAll.map(s => (
+                    <StudentMatchCard
+                      key={s.id} student={s} units={units}
+                      isSelected={selectedStudent?.id === s.id}
+                      onSelect={handleStudentSelect}
+                    />
+                  ))
+              }
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="state-box">
+          <p>No participating units set up for this cohort.</p>
+          <p style={{ fontSize: 13, color: '#64748b', marginTop: 6 }}>
+            Click "Set Up Units" above to choose which units are participating this cohort.
+          </p>
+        </div>
+      )}
 
-      {/* ── Section 3: Holding Areas ── */}
+      {/* ── Holding Areas ── */}
       <div className="holding-areas">
-        <HoldingSection
-          title="Unmatched Students"
-          subtitle="Accepted or Pending Interview — not yet placed"
-          students={activeUnmatched}
-          units={units}
-          selectedStudent={selectedStudent}
-          onSelect={handleStudentSelect}
-          emptyMessage="No unmatched students."
-        />
-        <HoldingSection
-          title="Waitlisted Students"
-          subtitle="Accepted with Reservations — awaiting placement"
-          students={waitlisted}
-          units={units}
-          selectedStudent={selectedStudent}
-          onSelect={handleStudentSelect}
-          showBestFit
-          emptyMessage="No waitlisted students."
-        />
-        <HoldingSection
-          title="Declined"
-          subtitle="Not pursuing placement at this time"
-          students={declined}
-          units={units}
-          selectedStudent={null}
-          onSelect={() => {}}
-          isReadOnly
-          emptyMessage="No declined students."
-        />
+        <HoldingSection title="Unmatched Students" subtitle="Accepted or Pending Interview — not yet placed"
+          students={activeUnmatched} units={units} selectedStudent={selectedStudent}
+          onSelect={handleStudentSelect} emptyMessage="No unmatched students." />
+        <HoldingSection title="Waitlisted Students" subtitle="Accepted with Reservations — awaiting placement"
+          students={waitlisted} units={units} selectedStudent={selectedStudent}
+          onSelect={handleStudentSelect} showBestFit emptyMessage="No waitlisted students." />
+        <HoldingSection title="Declined" subtitle="Not pursuing placement at this time"
+          students={declined} units={units} selectedStudent={null}
+          onSelect={() => {}} isReadOnly emptyMessage="No declined students." />
       </div>
 
-      {/* ── Section 4: Export ── */}
+      {/* ── Export ── */}
       <div className="match-export-row">
-        <button className="btn btn-primary" onClick={exportCSV}>
-          ↓ Export Matches CSV
-        </button>
-        <span className="export-hint">
-          {matchedStudents.length} student{matchedStudents.length !== 1 ? 's' : ''} matched
-        </span>
+        <button className="btn btn-primary" onClick={exportCSV}>↓ Export Matches CSV</button>
+        <span className="export-hint">{matchedStudents.length} student{matchedStudents.length !== 1 ? 's' : ''} matched</span>
       </div>
 
+      {/* ── Overlays ── */}
+      {showUnitSetup && (
+        <UnitSetupPanel
+          cohortId={cohortId}
+          currentUnits={units}
+          students={students}
+          onSaved={onRefreshUnits}
+          onClose={() => setShowUnitSetup(false)}
+        />
+      )}
+      {showImportUnits && (
+        <ImportUnitsCSV
+          cohortId={cohortId}
+          onImported={onRefreshUnits}
+          onClose={() => setShowImportUnits(false)}
+        />
+      )}
     </div>
   )
 }
 
-function HoldingSection({
-  title, subtitle, students, units,
-  selectedStudent, onSelect,
-  showBestFit, isReadOnly, emptyMessage,
-}) {
+function HoldingSection({ title, subtitle, students, units, selectedStudent, onSelect, showBestFit, isReadOnly, emptyMessage }) {
   return (
     <div className="holding-section">
       <div className="holding-header">
@@ -198,21 +191,14 @@ function HoldingSection({
         <span className="holding-count">{students.length}</span>
       </div>
       <div className="holding-cards">
-        {students.length === 0 ? (
-          <div className="holding-empty">{emptyMessage}</div>
-        ) : (
-          students.map(s => (
-            <StudentMatchCard
-              key={s.id}
-              student={s}
-              units={units}
-              isSelected={selectedStudent?.id === s.id}
-              onSelect={onSelect}
-              isReadOnly={isReadOnly}
-              showBestFit={showBestFit}
-            />
-          ))
-        )}
+        {students.length === 0
+          ? <div className="holding-empty">{emptyMessage}</div>
+          : students.map(s => (
+              <StudentMatchCard key={s.id} student={s} units={units}
+                isSelected={selectedStudent?.id === s.id} onSelect={onSelect}
+                isReadOnly={isReadOnly} showBestFit={showBestFit} />
+            ))
+        }
       </div>
     </div>
   )
