@@ -1,7 +1,7 @@
 export default function Dashboard({ students }) {
   const total        = students.length
   const placedInUnit = students.filter(s => s.matched_unit_id).length
-  const accepted     = students.filter(s => s.status === 'Accepted').length
+  const accepted     = students.filter(s => s.interview_outcome === 'Accepted').length
   const ngrpHired    = students.filter(s => s.ngrp_outcome === 'Hired').length
 
   const stats = [
