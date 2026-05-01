@@ -7,8 +7,16 @@ import MatchingTab from './components/MatchingTab'
 import CohortBar from './components/CohortBar'
 import NewCohortModal from './components/NewCohortModal'
 import ManageCohortModal from './components/ManageCohortModal'
+import LoginPage from './components/LoginPage'
 
-export default function App() {
+// Public routes that bypass the password gate
+function isPublicRoute() {
+  const p = window.location.pathname
+  return p.startsWith('/unit-form') || p.startsWith('/school-form')
+}
+
+// MainApp contains all hooks — must not be rendered conditionally
+function MainApp() {
   // ── Cohort state ─────────────────────────────────────────────────
   const [cohorts,         setCohorts]         = useState([])
   const [activeCohortId,  setActiveCohortId]  = useState(null)
@@ -375,4 +383,13 @@ export default function App() {
       )}
     </div>
   )
+}
+
+// Thin auth wrapper — only one hook here, safe to return early
+export default function App() {
+  const [authed, setAuthed] = useState(
+    () => isPublicRoute() || sessionStorage.getItem('aspire_auth') === '1'
+  )
+  if (!authed) return <LoginPage onSuccess={() => setAuthed(true)} />
+  return <MainApp />
 }
