@@ -118,6 +118,55 @@ body { min-height: 100vh; }
 }
 .btn-clear:hover { background: var(--nova-tint); }
 
+/* Logout button — lives in Nightfall header */
+.btn-logout {
+  background: var(--pearl);
+  color: var(--nightfall);
+  border: 1.5px solid var(--pearl);
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.btn-logout:hover { background: var(--nova); border-color: var(--nova); }
+
+.logout-confirm-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.logout-confirm-text {
+  font-size: 13px;
+  color: rgba(255,255,255,0.8);
+  white-space: nowrap;
+}
+.btn-logout-yes {
+  background: var(--cs-red);
+  color: var(--pearl);
+  border: none;
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+.btn-logout-yes:hover { opacity: 0.85; }
+.btn-logout-no {
+  background: transparent;
+  color: var(--pearl);
+  border: 1px solid rgba(255,255,255,0.4);
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.btn-logout-no:hover { background: rgba(255,255,255,0.1); }
+
 /* ================================================================
    COHORT BAR — Nightfall (attached to header)
    ================================================================ */

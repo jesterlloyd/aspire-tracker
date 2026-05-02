@@ -12,11 +12,12 @@ import UnitFormPage from './components/UnitFormPage'
 import SchoolFormPage from './components/SchoolFormPage'
 import PendingStudentSubmissions from './components/PendingStudentSubmissions'
 
-function MainApp() {
+function MainApp({ onLogout }) {
   const [cohorts,           setCohorts]           = useState([])
   const [activeCohortId,    setActiveCohortId]    = useState(null)
   const [showNewCohort,     setShowNewCohort]     = useState(false)
   const [showManageCohort,  setShowManageCohort]  = useState(false)
+  const [confirmLogout,     setConfirmLogout]     = useState(false)
 
   const [students,           setStudents]           = useState([])
   const [units,              setUnits]              = useState([])
@@ -300,6 +301,15 @@ function MainApp() {
                 <button className="btn btn-accent" onClick={() => setShowAddModal(true)}>+ Add Student</button>
               </>
             )}
+            {!confirmLogout ? (
+              <button className="btn-logout" onClick={() => setConfirmLogout(true)}>Log out</button>
+            ) : (
+              <div className="logout-confirm-inline">
+                <span className="logout-confirm-text">Are you sure?</span>
+                <button className="btn-logout-yes" onClick={onLogout}>Log out</button>
+                <button className="btn-logout-no"  onClick={() => setConfirmLogout(false)}>Cancel</button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -381,9 +391,16 @@ function MainApp() {
 
 export default function App() {
   const path = window.location.pathname
+  // Auth check runs before anything else — MainApp never mounts unless authed
   const [authed, setAuthed] = useState(() => sessionStorage.getItem('aspire_auth') === '1')
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('aspire_auth')
+    setAuthed(false)
+  }
+
   if (path.startsWith('/unit-form'))   return <UnitFormPage />
   if (path.startsWith('/school-form')) return <SchoolFormPage />
   if (!authed) return <LoginPage onSuccess={() => setAuthed(true)} />
-  return <MainApp />
+  return <MainApp onLogout={handleLogout} />
 }
