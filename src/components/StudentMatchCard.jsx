@@ -1,4 +1,5 @@
 import { UNIT_AREAS } from '../lib/constants'
+import { displayName } from '../lib/utils'
 
 const PILL_CLASS = {
   'Pending Interview':        'pill-gray',
@@ -53,7 +54,7 @@ export default function StudentMatchCard({
       role={!isReadOnly ? 'button' : undefined}
     >
       <div className="smc-top">
-        <span className="smc-name">{student.name}</span>
+        <span className="smc-name">{displayName(student)}</span>
         <span className={`interview-pill ${pillClass}`}>{outcome}</span>
       </div>
       <div className="smc-school">{student.school}</div>

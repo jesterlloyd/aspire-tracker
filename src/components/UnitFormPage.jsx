@@ -88,7 +88,7 @@ export default function UnitFormPage() {
       <div className="uf-page">
         <div className="uf-card" style={{ textAlign: 'center', padding: '56px 40px' }}>
           <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
-          <h2 className="uf-title" style={{ marginBottom: 12 }}>ASPIRE Program: Unit Availability Form</h2>
+          <h2 className="uf-title" style={{ marginBottom: 12 }}>ASPIRE Tracker: Unit Availability Form</h2>
           <p style={{ color: 'var(--raven-muted)', fontSize: 15, lineHeight: 1.6 }}>
             Submissions are not currently open. Please contact the ASPIRE team for more information.
           </p>
@@ -117,7 +117,7 @@ export default function UnitFormPage() {
       <div className="uf-card">
         <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
         <div className="uf-header">
-          <h1 className="uf-title">ASPIRE Program: Unit Availability Form</h1>
+          <h1 className="uf-title">ASPIRE Tracker: Unit Availability Form</h1>
           {cohortName && <div className="uf-cohort-badge">{cohortName}</div>}
           <p className="uf-subtitle">
             Thank you for your interest in hosting ASPIRE students. Please complete this form

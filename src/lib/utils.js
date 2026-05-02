@@ -1,4 +1,17 @@
 /**
+ * Returns "Last, First" when both name parts exist, falls back to the name field.
+ * Handles pre-migration records that only have the combined name column.
+ */
+export function displayName(student) {
+  const f = student?.first_name?.trim()
+  const l = student?.last_name?.trim()
+  if (l && f) return `${l}, ${f}`
+  if (l) return l
+  if (f) return f
+  return student?.name || ''
+}
+
+/**
  * Parses a CSV string into { headers, rows }.
  * Handles quoted fields containing commas and escaped quotes.
  */

@@ -118,6 +118,23 @@ body { min-height: 100vh; }
 }
 .btn-clear:hover { background: var(--nova-tint); }
 
+/* Destructive filled — cs-red background for confirm modal */
+.btn-destructive-filled {
+  background: var(--cs-red); color: var(--pearl); border: none;
+  padding: 8px 16px; border-radius: 4px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: opacity 0.12s;
+}
+.btn-destructive-filled:hover { opacity: 0.85; }
+
+/* Confirm delete modal sizing */
+.confirm-delete-modal { max-width: 420px; }
+.confirm-delete-warning { font-size: 14px; color: var(--text-secondary); line-height: 1.55; }
+
+/* Sort group in student list controls */
+.sort-group { display: flex; align-items: center; gap: 6px; }
+.sort-label-text { font-size: 12px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+
 /* Logout button — lives in Nightfall header */
 .btn-logout {
   background: var(--pearl);

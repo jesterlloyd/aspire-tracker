@@ -21,7 +21,7 @@ export default function LoginPage({ onSuccess }) {
     <div className="login-page">
       <div className="login-card">
         <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="login-logo" />
-        <h1 className="login-title">ASPIRE Placement Tracker</h1>
+        <h1 className="login-title">ASPIRE Tracker</h1>
         <form onSubmit={handleSubmit} className="login-form">
           <div className="login-field">
             <label className="login-label">Enter access code</label>

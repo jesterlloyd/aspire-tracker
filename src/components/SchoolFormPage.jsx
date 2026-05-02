@@ -4,13 +4,13 @@ import { PROGRAM_TYPES, SCHOOLS } from '../lib/constants'
 
 const newStudent = () => ({
   _key: Date.now() + Math.random(),
-  name: '', email: '', phone: '', program_type: '', term_dates: '', hours_required: '',
+  first_name: '', last_name: '', email: '', phone: '', program_type: '', term_dates: '', hours_required: '',
 })
 
 export default function SchoolFormPage() {
   const [cohortId,   setCohortId]   = useState(null)
   const [cohortName, setCohortName] = useState('')
-  const [open,       setOpen]       = useState(null)  // null=loading, true, false
+  const [open,       setOpen]       = useState(null)
 
   const [coord, setCoord] = useState({ school: '', name: '', email: '', notes: '' })
   const [rows,  setRows]  = useState([newStudent()])
@@ -20,12 +20,8 @@ export default function SchoolFormPage() {
   const [error,      setError]      = useState(null)
 
   useEffect(() => {
-    supabase
-      .from('cohorts')
-      .select('id, name')
-      .eq('accepting_submissions', true)
-      .limit(1)
-      .single()
+    supabase.from('cohorts').select('id, name').eq('accepting_submissions', true)
+      .limit(1).single()
       .then(({ data }) => {
         if (data) { setCohortId(data.id); setCohortName(data.name); setOpen(true) }
         else setOpen(false)
@@ -43,8 +39,8 @@ export default function SchoolFormPage() {
     if (!coord.school.trim() || !coord.name.trim() || !coord.email.trim()) {
       setError('Please fill in your school and contact information.'); return
     }
-    const invalid = rows.find(r => !r.name.trim() || !r.email.trim())
-    if (invalid) { setError('Each student requires a name and email address.'); return }
+    const invalid = rows.find(r => !r.first_name?.trim() || !r.last_name?.trim() || !r.email.trim())
+    if (invalid) { setError('Each student requires a first name, last name, and email.'); return }
 
     setSubmitting(true)
     setError(null)
@@ -53,7 +49,9 @@ export default function SchoolFormPage() {
       school:            coord.school.trim(),
       coordinator_name:  coord.name.trim(),
       coordinator_email: coord.email.trim(),
-      student_name:      r.name.trim(),
+      student_name:      `${r.first_name.trim()} ${r.last_name.trim()}`,
+      first_name:        r.first_name.trim(),
+      last_name:         r.last_name.trim(),
       student_email:     r.email.trim(),
       student_phone:     r.phone.trim(),
       program_type:      r.program_type,
@@ -69,58 +67,47 @@ export default function SchoolFormPage() {
     setSubmitted(true)
   }
 
-  // ── Loading ─────────────────────────────────────────────────────
-  if (open === null) {
-    return (
-      <div className="uf-page">
-        <div className="uf-card" style={{ textAlign: 'center', padding: '60px 40px' }}>
-          <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
-          <p style={{ color: 'var(--raven-muted)' }}>Loading…</p>
-        </div>
+  if (open === null) return (
+    <div className="uf-page">
+      <div className="uf-card" style={{ textAlign: 'center', padding: '60px 40px' }}>
+        <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
+        <p style={{ color: 'var(--text-secondary)' }}>Loading…</p>
       </div>
-    )
-  }
+    </div>
+  )
 
-  // ── Closed ───────────────────────────────────────────────────────
-  if (open === false) {
-    return (
-      <div className="uf-page">
-        <div className="uf-card" style={{ textAlign: 'center', padding: '56px 40px' }}>
-          <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
-          <h2 className="uf-title" style={{ marginBottom: 12 }}>ASPIRE Program: Student Placement Request</h2>
-          <p style={{ color: 'var(--raven-muted)', fontSize: 15, lineHeight: 1.6 }}>
-            Submissions are not currently open. Please contact the ASPIRE team for more information.
-          </p>
-        </div>
+  if (open === false) return (
+    <div className="uf-page">
+      <div className="uf-card" style={{ textAlign: 'center', padding: '56px 40px' }}>
+        <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
+        <h2 className="uf-title" style={{ marginBottom: 12 }}>ASPIRE Tracker: Student Placement Request</h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 15, lineHeight: 1.6 }}>
+          Submissions are not currently open. Please contact the ASPIRE team for more information.
+        </p>
       </div>
-    )
-  }
+    </div>
+  )
 
-  // ── Confirmation ─────────────────────────────────────────────────
-  if (submitted) {
-    return (
-      <div className="uf-page">
-        <div className="uf-card uf-card-confirm">
-          <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
-          <div className="uf-confirm-icon">✓</div>
-          <h2 className="uf-confirm-title">Thank you, {coord.school}.</h2>
-          <p className="uf-confirm-msg">
-            Your students have been submitted for the ASPIRE Program. The ASPIRE team will be in
-            touch regarding next steps.
-          </p>
-        </div>
+  if (submitted) return (
+    <div className="uf-page">
+      <div className="uf-card uf-card-confirm">
+        <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
+        <div className="uf-confirm-icon">✓</div>
+        <h2 className="uf-confirm-title">Thank you, {coord.school}.</h2>
+        <p className="uf-confirm-msg">
+          Your students have been submitted for the ASPIRE Program. The ASPIRE team will be in touch regarding next steps.
+        </p>
       </div>
-    )
-  }
+    </div>
+  )
 
-  // ── Form ─────────────────────────────────────────────────────────
   return (
     <div className="uf-page">
       <div className="uf-card sf-card">
         <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
 
         <div className="uf-header">
-          <h1 className="uf-title">ASPIRE Program: Student Placement Request</h1>
+          <h1 className="uf-title">ASPIRE Tracker: Student Placement Request</h1>
           {cohortName && <div className="uf-cohort-badge">{cohortName}</div>}
           <p className="uf-subtitle">
             Please complete this form to submit your students for consideration in the upcoming
@@ -136,8 +123,7 @@ export default function SchoolFormPage() {
             <div className="sf-section-title">School Information</div>
             <div className="uf-field">
               <label className="uf-label">School or University Name *</label>
-              <select className="uf-input" value={coord.school}
-                onChange={e => setC('school', e.target.value)}>
+              <select className="uf-input" value={coord.school} onChange={e => setC('school', e.target.value)}>
                 <option value="">Select your school…</option>
                 {SCHOOLS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -147,7 +133,7 @@ export default function SchoolFormPage() {
                 <label className="uf-label">Your Name (Placement Coordinator) *</label>
                 <input className="uf-input" value={coord.name}
                   onChange={e => setC('name', e.target.value)}
-                  placeholder="First Last" />
+                  placeholder="First Last, Title" />
               </div>
               <div className="uf-field">
                 <label className="uf-label">Your Email Address *</label>
@@ -167,33 +153,44 @@ export default function SchoolFormPage() {
                 <div className="sf-student-header">
                   <span className="sf-student-num">Student {idx + 1}</span>
                   {rows.length > 1 && (
-                    <button type="button" className="sf-remove-btn"
-                      onClick={() => removeRow(row._key)}>
+                    <button type="button" className="sf-remove-btn" onClick={() => removeRow(row._key)}>
                       Remove
                     </button>
                   )}
                 </div>
+
+                {/* First + Last name side by side */}
                 <div className="sf-row-2">
                   <div className="uf-field">
-                    <label className="uf-label">Full Name *</label>
-                    <input className="uf-input" value={row.name}
-                      onChange={e => updRow(row._key, 'name', e.target.value)}
-                      placeholder="First Last" />
+                    <label className="uf-label">First Name *</label>
+                    <input className="uf-input" value={row.first_name}
+                      onChange={e => updRow(row._key, 'first_name', e.target.value)}
+                      placeholder="First" />
                   </div>
+                  <div className="uf-field">
+                    <label className="uf-label">Last Name *</label>
+                    <input className="uf-input" value={row.last_name}
+                      onChange={e => updRow(row._key, 'last_name', e.target.value)}
+                      placeholder="Last" />
+                  </div>
+                </div>
+
+                <div className="sf-row-2">
                   <div className="uf-field">
                     <label className="uf-label">Student Email *</label>
                     <input className="uf-input" type="email" value={row.email}
                       onChange={e => updRow(row._key, 'email', e.target.value)}
                       placeholder="student@school.edu" />
                   </div>
-                </div>
-                <div className="sf-row-3">
                   <div className="uf-field">
                     <label className="uf-label">Phone (optional)</label>
                     <input className="uf-input" value={row.phone}
                       onChange={e => updRow(row._key, 'phone', e.target.value)}
                       placeholder="(555) 000-0000" />
                   </div>
+                </div>
+
+                <div className="sf-row-3">
                   <div className="uf-field">
                     <label className="uf-label">Program Type</label>
                     <select className="uf-input" value={row.program_type}
@@ -208,12 +205,12 @@ export default function SchoolFormPage() {
                       onChange={e => updRow(row._key, 'term_dates', e.target.value)}
                       placeholder="e.g. Jun 1 – Aug 7, 2026" />
                   </div>
-                </div>
-                <div className="uf-field" style={{ maxWidth: 140 }}>
-                  <label className="uf-label">Hours Required</label>
-                  <input className="uf-input" type="number" min="0" value={row.hours_required}
-                    onChange={e => updRow(row._key, 'hours_required', e.target.value)}
-                    placeholder="e.g. 144" />
+                  <div className="uf-field">
+                    <label className="uf-label">Hours Required</label>
+                    <input className="uf-input" type="number" min="0" value={row.hours_required}
+                      onChange={e => updRow(row._key, 'hours_required', e.target.value)}
+                      placeholder="e.g. 144" />
+                  </div>
                 </div>
               </div>
             ))}
@@ -235,9 +232,7 @@ export default function SchoolFormPage() {
 
           <div className="uf-submit-row">
             <button type="submit" className="uf-submit-btn" disabled={submitting}>
-              {submitting
-                ? 'Submitting…'
-                : `Submit ${rows.length} Student${rows.length !== 1 ? 's' : ''}`}
+              {submitting ? 'Submitting…' : `Submit ${rows.length} Student${rows.length !== 1 ? 's' : ''}`}
             </button>
           </div>
         </form>

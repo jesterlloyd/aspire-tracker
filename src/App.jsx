@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './lib/supabase'
+import { displayName } from './lib/utils'
 import Dashboard from './components/Dashboard'
 import StudentList from './components/StudentList'
 import AddStudentModal from './components/AddStudentModal'
@@ -223,7 +224,9 @@ function MainApp({ onLogout }) {
   const approveStudentSubmission = async sub => {
     const activeCohort = cohorts.find(c => c.id === activeCohortId)
     const { data: studentData, error } = await supabase.from('students').insert({
-      name: sub.student_name, school_email: sub.student_email,
+      name:       sub.first_name && sub.last_name ? `${sub.first_name} ${sub.last_name}` : sub.student_name,
+      first_name: sub.first_name || '',
+      last_name:  sub.last_name  || '', school_email: sub.student_email,
       phone: sub.student_phone || '', school: sub.school,
       aspire_cohort: activeCohort?.name || '', term_dates: sub.term_dates || '',
       hours_required: sub.hours_required || 0, hours_completed: 0,
@@ -250,7 +253,7 @@ function MainApp({ onLogout }) {
       'NGRP Cohort Target','NGRP Outcome','GPA Verified','BLS Current','Health Cleared',
       'Background Check','Coordinators','Notes']
     const rows = students.map(s => [
-      s.name,s.school_email,s.personal_email,s.phone,s.school,s.aspire_cohort,
+      displayName(s),s.school_email,s.personal_email,s.phone,s.school,s.aspire_cohort,
       s.term_dates,s.hours_required,s.hours_completed,s.unit,s.preceptor_name,
       s.status,s.ngrp_cohort_target,s.ngrp_outcome,
       s.gpa_verified?'Yes':'No',s.bls_current?'Yes':'No',
@@ -290,8 +293,7 @@ function MainApp({ onLogout }) {
           <div className="header-brand">
             <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="32" />
             <div>
-              <h1 className="header-title">ASPIRE Placement Tracker</h1>
-              <p className="header-sub">Cedars-Sinai Medical Center</p>
+              <h1 className="header-title">ASPIRE Tracker</h1>
             </div>
           </div>
           <div className="header-actions">

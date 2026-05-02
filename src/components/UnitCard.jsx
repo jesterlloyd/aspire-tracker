@@ -1,5 +1,7 @@
 import { useState, useRef } from 'react'
 import { getCompatibility } from '../lib/constants'
+import { displayName } from '../lib/utils'
+import ConfirmDeleteModal from './ConfirmDeleteModal'
 
 const COMPAT_TITLE = {
   green:  'Top preference match',
@@ -19,74 +21,75 @@ export default function UnitCard({
   const compat      = selectedStudent ? getCompatibility(selectedStudent, unit.unit_name) : null
 
   return (
-    <div className={`unit-card${compat ? ` uc-compat-${compat}` : ''}`}>
+    <>
+      <div className={`unit-card${compat ? ` uc-compat-${compat}` : ''}`}>
 
-      {/* ── Dark header strip ── */}
-      <div className="uc-header">
-        <div className="uc-name-row">
-          <span className="uc-name">{unit.unit_name}</span>
-          {compat && <span className={`compat-dot dot-${compat}`} title={COMPAT_TITLE[compat]} />}
-          <button className="uc-delete-btn" onClick={() => setConfirmDelete(true)} title="Delete unit">✕</button>
+        {/* ── Dark header strip ── */}
+        <div className="uc-header">
+          <div className="uc-name-row">
+            <span className="uc-name">{unit.unit_name}</span>
+            {compat && <span className={`compat-dot dot-${compat}`} title={COMPAT_TITLE[compat]} />}
+            <button className="uc-delete-btn" onClick={() => setConfirmDelete(true)} title="Delete unit">✕</button>
+          </div>
+          <div className="uc-contact">{unit.contact_person}</div>
         </div>
-        <div className="uc-contact">{unit.contact_person}</div>
 
-        {confirmDelete && (
-          <div className="uc-delete-confirm">
-            <span>Delete {unit.unit_name}? Matched students will be unmatched.</span>
-            <div className="uc-delete-confirm-btns">
-              <button className="uc-del-yes" onClick={onDelete}>Delete</button>
-              <button className="uc-del-no"  onClick={() => setConfirmDelete(false)}>Cancel</button>
+        {/* ── Light body ── */}
+        <div className="uc-body">
+          <div className="uc-meta">
+            <span className="shift-pill">{unit.shift_preference}</span>
+            <span className="slot-count">{unit.slots_remaining} of {unit.total_slots} open</span>
+          </div>
+
+          {unit.preceptors && (
+            <div className="uc-preceptors">
+              <span className="uc-preceptors-label">Preceptors:</span> {unit.preceptors}
             </div>
-          </div>
-        )}
-      </div>
+          )}
 
-      {/* ── Light body ── */}
-      <div className="uc-body">
-        <div className="uc-meta">
-          <span className="shift-pill">{unit.shift_preference}</span>
-          <span className="slot-count">{unit.slots_remaining} of {unit.total_slots} open</span>
-        </div>
+          {unit.considerations && (
+            <div className="uc-considerations">
+              <button className="considerations-toggle" onClick={() => setShowConsiderations(p => !p)}>
+                {showConsiderations ? '▾' : '▸'} Considerations
+              </button>
+              {showConsiderations && <p className="considerations-text">{unit.considerations}</p>}
+            </div>
+          )}
 
-        {unit.preceptors && (
-          <div className="uc-preceptors">
-            <span className="uc-preceptors-label">Preceptors:</span> {unit.preceptors}
-          </div>
-        )}
-
-        {unit.considerations && (
-          <div className="uc-considerations">
-            <button className="considerations-toggle" onClick={() => setShowConsiderations(p => !p)}>
-              {showConsiderations ? '▾' : '▸'} Considerations
-            </button>
-            {showConsiderations && <p className="considerations-text">{unit.considerations}</p>}
-          </div>
-        )}
-
-        <div className="slot-list">
-          {matchedStudents.map(student => {
-            const match = matches.find(m => m.student_id === student.id && m.unit_id === unit.id)
-            return (
-              <FilledSlot
-                key={student.id}
-                student={student}
-                match={match}
-                onUnmatch={() => onUnmatch(student)}
-                onUpdateMatch={onUpdateMatch}
+          <div className="slot-list">
+            {matchedStudents.map(student => {
+              const match = matches.find(m => m.student_id === student.id && m.unit_id === unit.id)
+              return (
+                <FilledSlot
+                  key={student.id}
+                  student={student}
+                  match={match}
+                  onUnmatch={() => onUnmatch(student)}
+                  onUpdateMatch={onUpdateMatch}
+                />
+              )
+            })}
+            {Array.from({ length: emptyCount }).map((_, i) => (
+              <EmptySlot
+                key={i}
+                hasSelected={!!selectedStudent}
+                compat={compat}
+                onClick={selectedStudent ? onSlotClick : undefined}
               />
-            )
-          })}
-          {Array.from({ length: emptyCount }).map((_, i) => (
-            <EmptySlot
-              key={i}
-              hasSelected={!!selectedStudent}
-              compat={compat}
-              onClick={selectedStudent ? onSlotClick : undefined}
-            />
-          ))}
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+
+      {confirmDelete && (
+        <ConfirmDeleteModal
+          title={`Delete ${unit.unit_name}?`}
+          warning="This action cannot be undone. Any students matched to this unit will be returned to unmatched."
+          onConfirm={() => { setConfirmDelete(false); onDelete() }}
+          onClose={() => setConfirmDelete(false)}
+        />
+      )}
+    </>
   )
 }
 
@@ -111,7 +114,7 @@ function FilledSlot({ student, match, onUnmatch, onUpdateMatch }) {
   return (
     <div className="slot slot-filled">
       <div className="slot-filled-header">
-        <span className="slot-student-name">{student.name}</span>
+        <span className="slot-student-name">{displayName(student)}</span>
         <button className="unmatch-btn" onClick={onUnmatch} title="Remove match">✕</button>
       </div>
       <input className="slot-preceptor-input" placeholder="Assign preceptor…"

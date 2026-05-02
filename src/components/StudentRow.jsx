@@ -1,14 +1,10 @@
 import { useState, useRef, useCallback } from 'react'
 import {
-  SCHOOLS,
-  UNITS_BY_DIVISION,
-  ASPIRE_STATUSES,
-  NGRP_OUTCOMES,
-  COHORTS,
-  INTERVIEW_OUTCOMES,
-  SHIFT_OPTIONS,
-  UNIT_NAMES,
+  SCHOOLS, UNITS_BY_DIVISION, ASPIRE_STATUSES, NGRP_OUTCOMES, COHORTS,
+  INTERVIEW_OUTCOMES, SHIFT_OPTIONS, UNIT_NAMES,
 } from '../lib/constants'
+import { displayName } from '../lib/utils'
+import ConfirmDeleteModal from './ConfirmDeleteModal'
 
 const STATUS_CLASS = {
   'Form Sent':      'badge-gray',
@@ -19,38 +15,55 @@ const STATUS_CLASS = {
   'Completed':      'badge-navy',
   'Declined':       'badge-red',
 }
-
 const NGRP_CLASS = {
-  'Pending':    'badge-gray',
-  'Applied':    'badge-blue',
-  'Interviewed':'badge-purple',
-  'Offered':    'badge-amber',
-  'Hired':      'badge-green',
-  'Declined':   'badge-red',
+  'Pending':'badge-gray', 'Applied':'badge-blue', 'Interviewed':'badge-purple',
+  'Offered':'badge-amber', 'Hired':'badge-green', 'Declined':'badge-red',
 }
 
 export default function StudentRow({ student, units = [], onUpdate, onDelete }) {
-  const [expanded,       setExpanded]       = useState(false)
-  const [data,           setData]           = useState(student)
-  const [saveState,      setSaveState]      = useState('idle')
-  const [confirmDelete,  setConfirmDelete]  = useState(false)
-  const timerRef = useRef(null)
+  const [expanded,      setExpanded]      = useState(false)
+  const [data,          setData]          = useState(student)
+  const [saveState,     setSaveState]     = useState('idle')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const timerRef        = useRef(null)
+  const pendingNameSave = useRef(null)
 
-  const doSave = useCallback(
-    async (field, value) => {
-      setSaveState('saving')
-      const err = await onUpdate(student.id, { [field]: value })
-      setSaveState(err ? 'error' : 'saved')
-      if (!err) setTimeout(() => setSaveState('idle'), 2000)
-    },
-    [student.id, onUpdate]
-  )
+  const doSave = useCallback(async (field, value) => {
+    setSaveState('saving')
+    const err = await onUpdate(student.id, { [field]: value })
+    setSaveState(err ? 'error' : 'saved')
+    if (!err) setTimeout(() => setSaveState('idle'), 2000)
+  }, [student.id, onUpdate])
 
   const handleText = (field, value) => {
     setData(prev => ({ ...prev, [field]: value }))
     setSaveState('saving')
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => doSave(field, value), 600)
+  }
+
+  // Handles first_name / last_name — computes + saves all three fields together
+  const handleNameField = (field, value) => {
+    setData(prev => {
+      const updated = { ...prev, [field]: value }
+      updated.name = `${updated.first_name || ''} ${updated.last_name || ''}`.trim()
+      pendingNameSave.current = {
+        first_name: updated.first_name || '',
+        last_name:  updated.last_name  || '',
+        name:       updated.name,
+      }
+      return updated
+    })
+    setSaveState('saving')
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(async () => {
+      if (pendingNameSave.current) {
+        const err = await onUpdate(student.id, pendingNameSave.current)
+        setSaveState(err ? 'error' : 'saved')
+        if (!err) setTimeout(() => setSaveState('idle'), 2000)
+        pendingNameSave.current = null
+      }
+    }, 600)
   }
 
   const handleNum = (field, raw) => {
@@ -79,6 +92,8 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete }) 
     ? (units.find(u => u.id === data.matched_unit_id)?.unit_name || '—')
     : (data.matched_unit_id ? '(loading…)' : '—')
 
+  const dname = displayName(data)
+
   return (
     <div className={`student-row${expanded ? ' expanded' : ''}`}>
       {/* ── Collapsed header ── */}
@@ -87,7 +102,7 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete }) 
           <span className={`chevron${expanded ? ' open' : ''}`}>›</span>
         </div>
         <div className="col-name">
-          <span className="student-name">{data.name}</span>
+          <span className="student-name">{dname}</span>
           {data.school_email && data.school_email !== 'pending' && (
             <span className="student-email">{data.school_email}</span>
           )}
@@ -95,26 +110,16 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete }) 
         <div className="col-school">{data.school}</div>
         <div className="col-cohort">{data.aspire_cohort}</div>
         <div className="col-status">
-          {data.status && (
-            <span className={`badge ${STATUS_CLASS[data.status] || 'badge-gray'}`}>
-              {data.status}
-            </span>
-          )}
+          {data.status && <span className={`badge ${STATUS_CLASS[data.status] || 'badge-gray'}`}>{data.status}</span>}
         </div>
         <div className="col-ngrp">
-          {data.ngrp_outcome && (
-            <span className={`badge ${NGRP_CLASS[data.ngrp_outcome] || 'badge-gray'}`}>
-              {data.ngrp_outcome}
-            </span>
-          )}
+          {data.ngrp_outcome && <span className={`badge ${NGRP_CLASS[data.ngrp_outcome] || 'badge-gray'}`}>{data.ngrp_outcome}</span>}
         </div>
         <div className="col-hours">
           {data.hours_required > 0 && (
             <div className="hours-wrap">
               <span className="hours-text">{data.hours_completed || 0}/{data.hours_required}</span>
-              <div className="hours-bar">
-                <div className="hours-bar-fill" style={{ width: `${hoursProgress}%` }} />
-              </div>
+              <div className="hours-bar"><div className="hours-bar-fill" style={{ width: `${hoursProgress}%` }} /></div>
             </div>
           )}
         </div>
@@ -124,7 +129,7 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete }) 
       {expanded && (
         <div className="row-expand" onClick={e => e.stopPropagation()}>
           <div className="expand-topbar">
-            <span className="expand-title">Editing — {data.name}</span>
+            <span className="expand-title">Editing — {dname}</span>
             <span className={`save-status save-${saveState}`}>
               {saveState === 'saving' && '· Saving…'}
               {saveState === 'saved'  && '✓ Saved'}
@@ -132,12 +137,15 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete }) 
             </span>
           </div>
 
-          {/* Contact */}
+          {/* Contact — first/last name + contact fields */}
           <div className="form-section">
             <div className="section-label">Contact Information</div>
-            <div className="form-grid form-grid-4">
-              <Field label="Full Name">
-                <input className="form-input" value={data.name || ''} onChange={e => handleText('name', e.target.value)} />
+            <div className="form-grid form-grid-5">
+              <Field label="First Name">
+                <input className="form-input" value={data.first_name || ''} onChange={e => handleNameField('first_name', e.target.value)} />
+              </Field>
+              <Field label="Last Name">
+                <input className="form-input" value={data.last_name || ''} onChange={e => handleNameField('last_name', e.target.value)} />
               </Field>
               <Field label="School Email">
                 <input className="form-input" value={data.school_email || ''} onChange={e => handleText('school_email', e.target.value)} />
@@ -261,17 +269,11 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete }) 
             <div className="section-label">Compliance</div>
             <div className="compliance-grid">
               {[
-                ['gpa_verified',    'GPA Verified'],
-                ['bls_current',     'BLS Current'],
-                ['health_cleared',  'Health Cleared'],
-                ['background_check','Background Check'],
+                ['gpa_verified','GPA Verified'],['bls_current','BLS Current'],
+                ['health_cleared','Health Cleared'],['background_check','Background Check'],
               ].map(([field, label]) => (
                 <label key={field} className="checkbox-item">
-                  <input
-                    type="checkbox"
-                    checked={data[field] || false}
-                    onChange={e => handleCheck(field, e.target.checked)}
-                  />
+                  <input type="checkbox" checked={data[field] || false} onChange={e => handleCheck(field, e.target.checked)} />
                   <span className={data[field] ? 'check-label checked' : 'check-label'}>{label}</span>
                 </label>
               ))}
@@ -292,23 +294,20 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete }) 
 
           {/* Delete */}
           <div className="delete-zone">
-            {!confirmDelete ? (
-              <button className="btn btn-destructive" onClick={() => setConfirmDelete(true)}>
-                Delete Student
-              </button>
-            ) : (
-              <div className="delete-confirm-row">
-                <span className="delete-confirm-msg">Delete {data.name}? This cannot be undone.</span>
-                <button className="btn btn-destructive" onClick={() => onDelete(student.id)}>
-                  Yes, Delete
-                </button>
-                <button className="btn btn-secondary-outline" onClick={() => setConfirmDelete(false)}>
-                  Cancel
-                </button>
-              </div>
-            )}
+            <button className="btn btn-destructive" onClick={() => setConfirmDelete(true)}>
+              Delete Student
+            </button>
           </div>
         </div>
+      )}
+
+      {confirmDelete && (
+        <ConfirmDeleteModal
+          title={`Delete ${dname}?`}
+          warning="This action cannot be undone. Any match assignments for this student will also be cleared."
+          onConfirm={() => { setConfirmDelete(false); onDelete(student.id) }}
+          onClose={() => setConfirmDelete(false)}
+        />
       )}
     </div>
   )
