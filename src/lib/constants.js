@@ -130,6 +130,7 @@ export const COHORT_STATUSES = ['Planning', 'Active', 'Completed', 'Archived']
 export const PROGRAM_TYPES = [
   'BSN Semester',
   'BSN Trimester',
+  'BSN Quarter',
   'Accelerated BSN',
   'LVN to BSN',
   'MECN',

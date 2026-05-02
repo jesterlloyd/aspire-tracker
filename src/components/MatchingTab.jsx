@@ -49,13 +49,13 @@ export default function MatchingTab({
   }
 
   const summaryStats = [
-    { label: 'Total Slots',     value: totalSlots,             color: '#dc1e34' },
-    { label: 'Slots Remaining', value: slotsRemaining,         color: '#dc1e34' },
-    { label: 'Students',        value: students.length,        color: '#dc1e34' },
-    { label: 'Matched',         value: matchedStudents.length, color: '#dc1e34' },
-    { label: 'Unmatched',       value: activeUnmatched.length, color: '#dc1e34' },
-    { label: 'Waitlisted',      value: waitlisted.length,      color: '#dc1e34' },
-    { label: 'Declined',        value: declined.length,        color: '#dc1e34' },
+    { label: 'Total Slots',     value: totalSlots,             bg: '#ffffff', color: '#1d2567', border: '#d1d5db' },
+    { label: 'Slots Remaining', value: slotsRemaining,         bg: '#dceff8', color: '#1d2567', border: '#b8d8eb' },
+    { label: 'Students',        value: students.length,        bg: '#f4f1ec', color: '#191919', border: '#d4cfc8' },
+    { label: 'Matched',         value: matchedStudents.length, bg: '#dcfce7', color: '#166534', border: '#a7f3d0' },
+    { label: 'Unmatched',       value: activeUnmatched.length, bg: '#fef3c7', color: '#92400e', border: '#fde68a' },
+    { label: 'Waitlisted',      value: waitlisted.length,      bg: '#ede9fe', color: '#5b21b6', border: '#ddd6fe' },
+    { label: 'Declined',        value: declined.length,        bg: '#fee2e2', color: '#991b1b', border: '#fecaca' },
   ]
 
   return (
@@ -64,9 +64,10 @@ export default function MatchingTab({
       {/* ── Summary ── */}
       <div className="match-summary">
         {summaryStats.map(s => (
-          <div key={s.label} className="match-stat-card">
-            <div className="match-stat-value">{s.value}</div>
-            <div className="match-stat-label">{s.label}</div>
+          <div key={s.label} className="match-stat-card"
+            style={{ background: s.bg, borderColor: s.border }}>
+            <div className="match-stat-value" style={{ color: s.color }}>{s.value}</div>
+            <div className="match-stat-label" style={{ color: s.color }}>{s.label}</div>
           </div>
         ))}
       </div>
