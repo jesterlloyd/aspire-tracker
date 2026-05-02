@@ -38,14 +38,10 @@ export default function PendingSubmissions({ submissions, onApprove, onReject })
                   <span className="ps-chip">{sub.total_slots} slot{sub.total_slots !== 1 ? 's' : ''}</span>
                   {sub.shift_preference && <span className="ps-chip">{sub.shift_preference}</span>}
                   {sub.preceptors && (
-                    <div className="ps-detail-row">
-                      <strong>Preceptors:</strong> {sub.preceptors}
-                    </div>
+                    <div className="ps-detail-row"><strong>Preceptors:</strong> {sub.preceptors}</div>
                   )}
                   {sub.considerations && (
-                    <div className="ps-detail-row">
-                      <strong>Considerations:</strong> {sub.considerations}
-                    </div>
+                    <div className="ps-detail-row"><strong>Considerations:</strong> {sub.considerations}</div>
                   )}
                 </>
               ) : (
@@ -53,12 +49,11 @@ export default function PendingSubmissions({ submissions, onApprove, onReject })
               )}
             </div>
 
+            {/* Approve always visible — guard on is_participating is in App.jsx */}
             <div className="ps-actions">
-              {sub.is_participating && (
-                <button className="ps-btn ps-btn-approve" onClick={() => onApprove(sub)}>
-                  ✓ Approve &amp; Add to Board
-                </button>
-              )}
+              <button className="ps-btn ps-btn-approve" onClick={() => onApprove(sub)}>
+                ✓ {sub.is_participating ? 'Approve & Add Unit' : 'Mark Reviewed'}
+              </button>
               <button className="ps-btn ps-btn-reject" onClick={() => onReject(sub)}>
                 ✕ Reject
               </button>

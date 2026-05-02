@@ -9,7 +9,7 @@ export default function MatchingTab({
   students, units, matches, cohortId,
   pendingSubmissions = [],
   onMatch, onUnmatch, onUpdateMatch, onRefreshUnits,
-  onApproveSubmission, onRejectSubmission,
+  onApproveSubmission, onRejectSubmission, onDeleteUnit,
 }) {
   const [selectedStudent,  setSelectedStudent]  = useState(null)
   const [showUnitSetup,    setShowUnitSetup]    = useState(false)
@@ -65,7 +65,7 @@ export default function MatchingTab({
       <div className="match-summary">
         {summaryStats.map(s => (
           <div key={s.label} className="match-stat-card">
-            <div className="match-stat-value" style={{ color: s.color }}>{s.value}</div>
+            <div className="match-stat-value">{s.value}</div>
             <div className="match-stat-label">{s.label}</div>
           </div>
         ))}
@@ -121,6 +121,7 @@ export default function MatchingTab({
                   onSlotClick={() => handleSlotClick(unit)}
                   onUnmatch={student => onUnmatch(student, unit)}
                   onUpdateMatch={onUpdateMatch}
+                  onDelete={() => onDeleteUnit(unit)}
                 />
               ))}
             </div>

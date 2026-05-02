@@ -5,7 +5,7 @@ import ImportStudentsCSV from './ImportStudentsCSV'
 
 export default function StudentList({
   students, allStudents, units = [], cohortId,
-  search, filters, onSearch, onFilter, onUpdate, onRefresh,
+  search, filters, onSearch, onFilter, onUpdate, onDelete, onRefresh,
 }) {
   const [showImport, setShowImport] = useState(false)
 
@@ -76,7 +76,7 @@ export default function StudentList({
           <div className="table-empty">No students match your search or filters.</div>
         ) : (
           students.map(s => (
-            <StudentRow key={s.id} student={s} units={units} onUpdate={onUpdate} />
+            <StudentRow key={s.id} student={s} units={units} onUpdate={onUpdate} onDelete={onDelete} />
           ))
         )}
       </div>

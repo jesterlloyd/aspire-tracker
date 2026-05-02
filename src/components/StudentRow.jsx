@@ -29,10 +29,11 @@ const NGRP_CLASS = {
   'Declined':   'badge-red',
 }
 
-export default function StudentRow({ student, units = [], onUpdate }) {
-  const [expanded, setExpanded] = useState(false)
-  const [data, setData]         = useState(student)
-  const [saveState, setSaveState] = useState('idle')
+export default function StudentRow({ student, units = [], onUpdate, onDelete }) {
+  const [expanded,       setExpanded]       = useState(false)
+  const [data,           setData]           = useState(student)
+  const [saveState,      setSaveState]      = useState('idle')
+  const [confirmDelete,  setConfirmDelete]  = useState(false)
   const timerRef = useRef(null)
 
   const doSave = useCallback(
@@ -287,6 +288,25 @@ export default function StudentRow({ student, units = [], onUpdate }) {
                 <textarea className="form-textarea" rows={3} value={data.notes || ''} onChange={e => handleText('notes', e.target.value)} />
               </Field>
             </div>
+          </div>
+
+          {/* Delete */}
+          <div className="delete-zone">
+            {!confirmDelete ? (
+              <button className="btn btn-destructive" onClick={() => setConfirmDelete(true)}>
+                Delete Student
+              </button>
+            ) : (
+              <div className="delete-confirm-row">
+                <span className="delete-confirm-msg">Delete {data.name}? This cannot be undone.</span>
+                <button className="btn btn-destructive" onClick={() => onDelete(student.id)}>
+                  Yes, Delete
+                </button>
+                <button className="btn btn-secondary-outline" onClick={() => setConfirmDelete(false)}>
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -8,15 +8,11 @@ const COMPAT_TITLE = {
 }
 
 export default function UnitCard({
-  unit,
-  matchedStudents,
-  matches,
-  selectedStudent,
-  onSlotClick,
-  onUnmatch,
-  onUpdateMatch,
+  unit, matchedStudents, matches,
+  selectedStudent, onSlotClick, onUnmatch, onUpdateMatch, onDelete,
 }) {
   const [showConsiderations, setShowConsiderations] = useState(false)
+  const [confirmDelete,      setConfirmDelete]      = useState(false)
 
   const filledCount = matchedStudents.length
   const emptyCount  = Math.max(0, unit.total_slots - filledCount)
@@ -24,72 +20,71 @@ export default function UnitCard({
 
   return (
     <div className={`unit-card${compat ? ` uc-compat-${compat}` : ''}`}>
-      {/* Header */}
+
+      {/* ── Dark header strip ── */}
       <div className="uc-header">
         <div className="uc-name-row">
           <span className="uc-name">{unit.unit_name}</span>
-          {compat && (
-            <span
-              className={`compat-dot dot-${compat}`}
-              title={COMPAT_TITLE[compat]}
-            />
-          )}
+          {compat && <span className={`compat-dot dot-${compat}`} title={COMPAT_TITLE[compat]} />}
+          <button className="uc-delete-btn" onClick={() => setConfirmDelete(true)} title="Delete unit">✕</button>
         </div>
         <div className="uc-contact">{unit.contact_person}</div>
-        <div className="uc-meta">
-          <span className="shift-pill">{unit.shift_preference}</span>
-          <span className="slot-count">
-            {unit.slots_remaining} of {unit.total_slots} open
-          </span>
-        </div>
+
+        {confirmDelete && (
+          <div className="uc-delete-confirm">
+            <span>Delete {unit.unit_name}? Matched students will be unmatched.</span>
+            <div className="uc-delete-confirm-btns">
+              <button className="uc-del-yes" onClick={onDelete}>Delete</button>
+              <button className="uc-del-no"  onClick={() => setConfirmDelete(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Preceptors */}
-      {unit.preceptors && (
-        <div className="uc-preceptors">
-          <span className="uc-preceptors-label">Preceptors:</span> {unit.preceptors}
+      {/* ── Light body ── */}
+      <div className="uc-body">
+        <div className="uc-meta">
+          <span className="shift-pill">{unit.shift_preference}</span>
+          <span className="slot-count">{unit.slots_remaining} of {unit.total_slots} open</span>
         </div>
-      )}
 
-      {/* Collapsible considerations */}
-      {unit.considerations && (
-        <div className="uc-considerations">
-          <button
-            className="considerations-toggle"
-            onClick={() => setShowConsiderations(p => !p)}
-          >
-            {showConsiderations ? '▾' : '▸'} Considerations
-          </button>
-          {showConsiderations && (
-            <p className="considerations-text">{unit.considerations}</p>
-          )}
-        </div>
-      )}
+        {unit.preceptors && (
+          <div className="uc-preceptors">
+            <span className="uc-preceptors-label">Preceptors:</span> {unit.preceptors}
+          </div>
+        )}
 
-      {/* Slots */}
-      <div className="slot-list">
-        {matchedStudents.map(student => {
-          const match = matches.find(
-            m => m.student_id === student.id && m.unit_id === unit.id
-          )
-          return (
-            <FilledSlot
-              key={student.id}
-              student={student}
-              match={match}
-              onUnmatch={() => onUnmatch(student)}
-              onUpdateMatch={onUpdateMatch}
+        {unit.considerations && (
+          <div className="uc-considerations">
+            <button className="considerations-toggle" onClick={() => setShowConsiderations(p => !p)}>
+              {showConsiderations ? '▾' : '▸'} Considerations
+            </button>
+            {showConsiderations && <p className="considerations-text">{unit.considerations}</p>}
+          </div>
+        )}
+
+        <div className="slot-list">
+          {matchedStudents.map(student => {
+            const match = matches.find(m => m.student_id === student.id && m.unit_id === unit.id)
+            return (
+              <FilledSlot
+                key={student.id}
+                student={student}
+                match={match}
+                onUnmatch={() => onUnmatch(student)}
+                onUpdateMatch={onUpdateMatch}
+              />
+            )
+          })}
+          {Array.from({ length: emptyCount }).map((_, i) => (
+            <EmptySlot
+              key={i}
+              hasSelected={!!selectedStudent}
+              compat={compat}
+              onClick={selectedStudent ? onSlotClick : undefined}
             />
-          )
-        })}
-        {Array.from({ length: emptyCount }).map((_, i) => (
-          <EmptySlot
-            key={i}
-            hasSelected={!!selectedStudent}
-            compat={compat}
-            onClick={selectedStudent ? onSlotClick : undefined}
-          />
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -105,11 +100,9 @@ function FilledSlot({ student, match, onUnmatch, onUpdateMatch }) {
     if (!match) return
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(
-      () => onUpdateMatch(match.id, match.student_id, { preceptor_assigned: val }),
-      600
+      () => onUpdateMatch(match.id, match.student_id, { preceptor_assigned: val }), 600
     )
   }
-
   const saveShift = val => {
     setShift(val)
     if (match) onUpdateMatch(match.id, match.student_id, { shift_assigned: val })
@@ -119,21 +112,11 @@ function FilledSlot({ student, match, onUnmatch, onUpdateMatch }) {
     <div className="slot slot-filled">
       <div className="slot-filled-header">
         <span className="slot-student-name">{student.name}</span>
-        <button className="unmatch-btn" onClick={onUnmatch} title="Remove match">
-          ✕
-        </button>
+        <button className="unmatch-btn" onClick={onUnmatch} title="Remove match">✕</button>
       </div>
-      <input
-        className="slot-preceptor-input"
-        placeholder="Assign preceptor…"
-        value={preceptor}
-        onChange={e => savePreceptor(e.target.value)}
-      />
-      <select
-        className="slot-shift-select"
-        value={shift}
-        onChange={e => saveShift(e.target.value)}
-      >
+      <input className="slot-preceptor-input" placeholder="Assign preceptor…"
+        value={preceptor} onChange={e => savePreceptor(e.target.value)} />
+      <select className="slot-shift-select" value={shift} onChange={e => saveShift(e.target.value)}>
         <option value="">Shift…</option>
         <option value="Day">Day</option>
         <option value="Night">Night</option>
@@ -147,10 +130,7 @@ function FilledSlot({ student, match, onUnmatch, onUpdateMatch }) {
 function EmptySlot({ hasSelected, compat, onClick }) {
   const ready = hasSelected && !!onClick
   return (
-    <div
-      className={`slot slot-empty${ready ? ' slot-ready' : ''}`}
-      onClick={ready ? onClick : undefined}
-    >
+    <div className={`slot slot-empty${ready ? ' slot-ready' : ''}`} onClick={ready ? onClick : undefined}>
       {ready
         ? <span className="slot-ready-text">{compat === 'green' ? '★ Place here' : 'Place here'}</span>
         : <span className="slot-open-text">Open slot</span>}

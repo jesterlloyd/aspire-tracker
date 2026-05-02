@@ -43,7 +43,7 @@ export default function Dashboard({ students }) {
       <div className="dashboard">
         {stats.map(stat => (
           <div key={stat.label} className="stat-card">
-            <div className="stat-value" style={{ color: stat.color }}>{stat.value}</div>
+            <div className="stat-value">{stat.value}</div>
             <div className="stat-label">{stat.label}</div>
             <div className="stat-bar">
               <div
