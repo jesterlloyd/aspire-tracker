@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { PROGRAM_TYPES } from '../lib/constants'
+import { PROGRAM_TYPES, SCHOOLS } from '../lib/constants'
 
 const newStudent = () => ({
   _key: Date.now() + Math.random(),
@@ -136,9 +136,11 @@ export default function SchoolFormPage() {
             <div className="sf-section-title">School Information</div>
             <div className="uf-field">
               <label className="uf-label">School or University Name *</label>
-              <input className="uf-input" value={coord.school}
-                onChange={e => setC('school', e.target.value)}
-                placeholder="e.g. Cal State LA, CSULB, WCU" />
+              <select className="uf-input" value={coord.school}
+                onChange={e => setC('school', e.target.value)}>
+                <option value="">Select your school…</option>
+                {SCHOOLS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
             <div className="sf-row-2">
               <div className="uf-field">

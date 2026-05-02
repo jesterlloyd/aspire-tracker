@@ -2,18 +2,20 @@ export const SCHOOLS = [
   'Azusa Pacific University',
   'Cal State LA',
   'Cal State Long Beach',
-  'WCU Anaheim',
-  'WCU North Hollywood',
+  'Cal State Northridge',
+  'UCLA',
+  'West Coast University Anaheim',
+  'West Coast University North Hollywood',
 ]
 
 export const SCHOOL_DEFAULTS = {
-  'WCU North Hollywood': {
+  'West Coast University North Hollywood': {
     term_dates: 'Jun 8 - Aug 18, 2026',
     hours_required: 90,
     coordinators:
       'Therese Sandoval (ThSandoval@westcoastuniversity.edu); Laura Nunez (lNunez@westcoastuniversity.edu); Silvia St George (sStgeorge@westcoastuniversity.edu); Tony Kim (ToKim@westcoastuniversity.edu)',
   },
-  'WCU Anaheim': {
+  'West Coast University Anaheim': {
     term_dates: 'Jun 8 - Aug 16, 2026',
     hours_required: 90,
     coordinators:
@@ -35,6 +37,9 @@ export const SCHOOL_DEFAULTS = {
     coordinators:
       'Marissa Grafil Ramirez (Marissa.Ramirez119@calstatela.edu); Alyssa Marie Manlangit (amanlan3@calstatela.edu)',
   },
+  // Cal State Northridge and UCLA: add coordinators/dates when known
+  'Cal State Northridge': {},
+  'UCLA': {},
 }
 
 // Legacy UNITS_BY_DIVISION used in the students tab unit dropdown
