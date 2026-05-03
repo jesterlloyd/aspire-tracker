@@ -3,7 +3,7 @@ import { ASPIRE_STATUSES } from '../lib/constants'
 import StudentRow from './StudentRow'
 import ImportStudentsCSV from './ImportStudentsCSV'
 
-const ASPIRE_ORDER = ['Form Sent','Form Returned','Interviewed','Accepted','Active Rotation','Completed','Declined']
+const ASPIRE_ORDER = ['Pending Outreach','Form Sent','Interviewed','Accepted','Active Rotation','Completed','Declined']
 const NGRP_ORDER   = ['Pending','Applied','Interviewed','Offered','Hired','Declined']
 
 function sortStudents(students, sortBy) {

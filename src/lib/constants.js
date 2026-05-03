@@ -91,8 +91,8 @@ export const UNIT_ROSTER = {
 }
 
 export const ASPIRE_STATUSES = [
+  'Pending Outreach',
   'Form Sent',
-  'Form Returned',
   'Interviewed',
   'Accepted',
   'Active Rotation',

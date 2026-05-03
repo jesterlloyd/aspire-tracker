@@ -244,7 +244,6 @@ body { min-height: 100vh; }
   background: var(--nightfall);
   border-bottom: 1px solid rgba(159,175,248,0.15);
   padding: 0 24px; display: flex;
-  position: sticky; top: 110px; z-index: 150;
 }
 .tab-btn {
   padding: 13px 22px; border: none; background: none;
@@ -381,8 +380,9 @@ body { min-height: 100vh; }
   display: inline-block; padding: 3px 8px; border-radius: 4px;
   font-size: 11px; font-weight: 600; white-space: nowrap; letter-spacing: 0.02em;
 }
-.badge-gray   { background: var(--sand); color: var(--text-secondary); border: 1px solid var(--border); }
-.badge-blue   { background: #dbeafe; color: #1d4ed8; }
+.badge-gray    { background: var(--sand); color: var(--text-secondary); border: 1px solid var(--border); }
+.badge-pending { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+.badge-blue    { background: #dbeafe; color: #1d4ed8; }
 .badge-purple { background: #ede9fe; color: #5b21b6; }
 .badge-green  { background: var(--nightfall); color: var(--pearl); }
 .badge-teal   { background: var(--marina); color: var(--nightfall); }

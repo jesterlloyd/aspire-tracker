@@ -294,7 +294,7 @@ function MainApp({ onLogout }) {
             <div className="header-brand">
               <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="32" />
               <div>
-                <h1 className="header-title">ASPIRE Tracker</h1>
+                <h1 className="header-title">ASPIRE Program Tracker</h1>
               </div>
             </div>
             <div className="header-actions">
@@ -322,25 +322,25 @@ function MainApp({ onLogout }) {
             onSelect={handleCohortSwitch} onNew={() => setShowNewCohort(true)}
             onManage={() => setShowManageCohort(true)} />
         )}
-      </div>
 
-      {cohorts.length > 0 && (
-        <div className="tab-bar">
-          <button className={`tab-btn${activeTab === 'students' ? ' active' : ''}`} onClick={() => setActiveTab('students')}>
-            Students
-            {pendingStudentSubs.length > 0 && <span className="tab-badge">{pendingStudentSubs.length}</span>}
-          </button>
-          <button className={`tab-btn${activeTab === 'matching' ? ' active' : ''}`} onClick={() => setActiveTab('matching')}>
-            Matching
-            {pendingSubmissions.length > 0 && <span className="tab-badge">{pendingSubmissions.length}</span>}
-          </button>
-        </div>
-      )}
+        {cohorts.length > 0 && (
+          <div className="tab-bar">
+            <button className={`tab-btn${activeTab === 'students' ? ' active' : ''}`} onClick={() => setActiveTab('students')}>
+              Students
+              {pendingStudentSubs.length > 0 && <span className="tab-badge">{pendingStudentSubs.length}</span>}
+            </button>
+            <button className={`tab-btn${activeTab === 'matching' ? ' active' : ''}`} onClick={() => setActiveTab('matching')}>
+              Matching
+              {pendingSubmissions.length > 0 && <span className="tab-badge">{pendingSubmissions.length}</span>}
+            </button>
+          </div>
+        )}
+      </div>
 
       <main className="app-main">
         {cohorts.length === 0 && !loading && (
           <div className="state-box" style={{ marginTop: 40 }}>
-            <p style={{ marginBottom: 8, fontSize: 16, fontWeight: 600 }}>Welcome to ASPIRE Placement Tracker</p>
+            <p style={{ marginBottom: 8, fontSize: 16, fontWeight: 600 }}>Welcome to ASPIRE Program Tracker</p>
             <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>Get started by creating your first cohort.</p>
             <button className="btn btn-primary" onClick={() => setShowNewCohort(true)}>+ Create First Cohort</button>
           </div>

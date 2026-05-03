@@ -8,7 +8,7 @@ import ConfirmDeleteModal from './ConfirmDeleteModal'
 
 const STATUS_CLASS = {
   'Form Sent':      'badge-gray',
-  'Form Returned':  'badge-blue',
+  'Pending Outreach': 'badge-pending',
   'Interviewed':    'badge-purple',
   'Accepted':       'badge-green',
   'Active Rotation':'badge-teal',
