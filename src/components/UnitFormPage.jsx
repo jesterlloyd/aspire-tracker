@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
+const PAGE_TITLE = 'ASPIRE Program: Unit Availability Form'
+
 export default function UnitFormPage() {
   const [cohortId,   setCohortId]    = useState(null)
   const [cohortName, setCohortName]  = useState('')
@@ -22,6 +24,7 @@ export default function UnitFormPage() {
   const [error,      setError]      = useState(null)
 
   useEffect(() => {
+    document.title = PAGE_TITLE
     supabase
       .from('cohorts')
       .select('id, name')
@@ -88,7 +91,7 @@ export default function UnitFormPage() {
       <div className="uf-page">
         <div className="uf-card" style={{ textAlign: 'center', padding: '56px 40px' }}>
           <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
-          <h2 className="uf-title" style={{ marginBottom: 12 }}>ASPIRE Tracker: Unit Availability Form</h2>
+          <h2 className="uf-title" style={{ marginBottom: 12 }}>{PAGE_TITLE}</h2>
           <p style={{ color: 'var(--raven-muted)', fontSize: 15, lineHeight: 1.6 }}>
             Submissions are not currently open. Please contact the ASPIRE team for more information.
           </p>
@@ -117,11 +120,11 @@ export default function UnitFormPage() {
       <div className="uf-card">
         <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
         <div className="uf-header">
-          <h1 className="uf-title">ASPIRE Tracker: Unit Availability Form</h1>
+          <h1 className="uf-title">{PAGE_TITLE}</h1>
           {cohortName && <div className="uf-cohort-badge">{cohortName}</div>}
-          <p className="uf-subtitle">
-            Thank you for your interest in hosting ASPIRE students. Please complete this form
-            to indicate your unit's availability for the upcoming rotation.
+          <p style={{ fontSize: '15px', color: 'var(--raven)', textAlign: 'center', lineHeight: 1.65 }}>
+            Thank you for your interest in hosting senior student nurses through the ASPIRE Program.
+            Please complete this form to indicate your unit's availability for the upcoming rotation.
           </p>
         </div>
 

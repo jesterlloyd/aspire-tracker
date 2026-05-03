@@ -38,11 +38,16 @@ body { min-height: 100vh; }
    ================================================================ */
 .app { min-height: 100vh; background: var(--sand); }
 
+/* Sticky top section — wraps header + cohort bar so no gap can appear between them */
+.top-section {
+  position: sticky; top: 0; z-index: 200;
+  background: var(--nightfall);
+  box-shadow: 0 2px 8px rgba(29,37,103,0.25);
+}
+
 /* App header — Nightfall */
 .app-header {
   background: var(--nightfall);
-  position: sticky; top: 0; z-index: 200;
-  box-shadow: 0 2px 8px rgba(29,37,103,0.25);
 }
 .header-inner {
   max-width: 1440px; margin: 0 auto;
@@ -190,7 +195,6 @@ body { min-height: 100vh; }
 .cohort-bar {
   background: var(--nightfall);
   border-bottom: 1px solid rgba(159,175,248,0.2);
-  position: sticky; top: 62px; z-index: 160;
 }
 .cohort-bar-inner {
   max-width: 1440px; margin: 0 auto; padding: 8px 24px;

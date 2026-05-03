@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PROGRAM_TYPES, SCHOOLS } from '../lib/constants'
 
+const PAGE_TITLE = 'ASPIRE Program Student Placement Request Form'
+
 const newStudent = () => ({
   _key: Date.now() + Math.random(),
   first_name: '', last_name: '', email: '', phone: '', program_type: '', term_dates: '', hours_required: '',
@@ -20,6 +22,7 @@ export default function SchoolFormPage() {
   const [error,      setError]      = useState(null)
 
   useEffect(() => {
+    document.title = PAGE_TITLE
     supabase.from('cohorts').select('id, name').eq('accepting_submissions', true)
       .limit(1).single()
       .then(({ data }) => {
@@ -80,7 +83,7 @@ export default function SchoolFormPage() {
     <div className="uf-page">
       <div className="uf-card" style={{ textAlign: 'center', padding: '56px 40px' }}>
         <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
-        <h2 className="uf-title" style={{ marginBottom: 12 }}>ASPIRE Tracker: Student Placement Request</h2>
+        <h2 className="uf-title" style={{ marginBottom: 12 }}>{PAGE_TITLE}</h2>
         <p style={{ color: 'var(--text-secondary)', fontSize: 15, lineHeight: 1.6 }}>
           Submissions are not currently open. Please contact the ASPIRE team for more information.
         </p>
@@ -107,12 +110,8 @@ export default function SchoolFormPage() {
         <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
 
         <div className="uf-header">
-          <h1 className="uf-title">ASPIRE Tracker: Student Placement Request</h1>
+          <h1 className="uf-title">{PAGE_TITLE}</h1>
           {cohortName && <div className="uf-cohort-badge">{cohortName}</div>}
-          <p className="uf-subtitle">
-            Please complete this form to submit your students for consideration in the upcoming
-            ASPIRE rotation at Cedars-Sinai.
-          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="uf-form">

@@ -288,39 +288,41 @@ function MainApp({ onLogout }) {
 
   return (
     <div className="app">
-      <header className="app-header">
-        <div className="header-inner">
-          <div className="header-brand">
-            <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="32" />
-            <div>
-              <h1 className="header-title">ASPIRE Tracker</h1>
+      <div className="top-section">
+        <header className="app-header">
+          <div className="header-inner">
+            <div className="header-brand">
+              <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="32" />
+              <div>
+                <h1 className="header-title">ASPIRE Tracker</h1>
+              </div>
+            </div>
+            <div className="header-actions">
+              {activeTab === 'students' && cohorts.length > 0 && (
+                <>
+                  <button className="btn btn-ghost" onClick={exportCSV}>↓ Export CSV</button>
+                  <button className="btn btn-accent" onClick={() => setShowAddModal(true)}>+ Add Student</button>
+                </>
+              )}
+              {!confirmLogout ? (
+                <button className="btn-logout" onClick={() => setConfirmLogout(true)}>Log out</button>
+              ) : (
+                <div className="logout-confirm-inline">
+                  <span className="logout-confirm-text">Are you sure?</span>
+                  <button className="btn-logout-yes" onClick={onLogout}>Log out</button>
+                  <button className="btn-logout-no"  onClick={() => setConfirmLogout(false)}>Cancel</button>
+                </div>
+              )}
             </div>
           </div>
-          <div className="header-actions">
-            {activeTab === 'students' && cohorts.length > 0 && (
-              <>
-                <button className="btn btn-ghost" onClick={exportCSV}>↓ Export CSV</button>
-                <button className="btn btn-accent" onClick={() => setShowAddModal(true)}>+ Add Student</button>
-              </>
-            )}
-            {!confirmLogout ? (
-              <button className="btn-logout" onClick={() => setConfirmLogout(true)}>Log out</button>
-            ) : (
-              <div className="logout-confirm-inline">
-                <span className="logout-confirm-text">Are you sure?</span>
-                <button className="btn-logout-yes" onClick={onLogout}>Log out</button>
-                <button className="btn-logout-no"  onClick={() => setConfirmLogout(false)}>Cancel</button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+        </header>
 
-      {cohorts.length > 0 && (
-        <CohortBar cohorts={cohorts} activeCohortId={activeCohortId}
-          onSelect={handleCohortSwitch} onNew={() => setShowNewCohort(true)}
-          onManage={() => setShowManageCohort(true)} />
-      )}
+        {cohorts.length > 0 && (
+          <CohortBar cohorts={cohorts} activeCohortId={activeCohortId}
+            onSelect={handleCohortSwitch} onNew={() => setShowNewCohort(true)}
+            onManage={() => setShowManageCohort(true)} />
+        )}
+      </div>
 
       {cohorts.length > 0 && (
         <div className="tab-bar">
