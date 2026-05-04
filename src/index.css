@@ -919,6 +919,77 @@ body { min-height: 100vh; }
 .sf-add-btn:hover { border-color: var(--nightfall); color: var(--nightfall); }
 
 /* ================================================================
+   ACCESS MANAGEMENT TAB
+   ================================================================ */
+.access-tab { display: flex; flex-direction: column; gap: 16px; }
+
+.am-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.am-stat-card { border-radius: 6px; padding: 16px 18px; border: 1px solid; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.am-stat-value { font-size: 32px; font-weight: 700; line-height: 1; margin-bottom: 5px; }
+.am-stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+
+.am-filter-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.am-incomplete-toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--raven); cursor: pointer; user-select: none; }
+.am-incomplete-toggle input { accent-color: var(--nightfall); width: 15px; height: 15px; cursor: pointer; }
+
+.am-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--pearl); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.am-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+
+.am-th {
+  padding: 10px 12px; text-align: left;
+  font-size: 11px; font-weight: 700; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  background: var(--sand); border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+}
+.am-sortable { cursor: pointer; user-select: none; }
+.am-sortable:hover { color: var(--raven); }
+.am-sort-icon { opacity: 0.35; font-size: 10px; }
+
+.am-td { padding: 8px 12px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
+.am-row:last-child .am-td { border-bottom: none; }
+.am-row:hover { background: rgba(244,241,236,0.5); }
+.am-row-highlight { animation: am-highlight-fade 2.5s ease-out forwards; }
+@keyframes am-highlight-fade {
+  0%   { background: rgba(159,175,248,0.28); }
+  100% { background: transparent; }
+}
+.am-td-name   { font-weight: 600; color: var(--raven); white-space: nowrap; min-width: 150px; }
+.am-td-school { color: var(--text-secondary); white-space: nowrap; min-width: 120px; }
+
+.am-access-cell { display: flex; align-items: center; gap: 6px; min-width: 80px; }
+.am-checkbox { width: 15px; height: 15px; accent-color: #16a34a; cursor: pointer; flex-shrink: 0; }
+.am-date-input {
+  width: 90px; padding: 3px 7px;
+  border: 1px solid var(--border); border-radius: 3px;
+  font-size: 12px; color: var(--raven); background: var(--pearl);
+  outline: none; transition: border-color 0.12s;
+}
+.am-date-input:focus { border-color: var(--nova); box-shadow: 0 0 0 2px var(--nova-tint); }
+.am-date-input::placeholder { color: #9ca3af; }
+
+.am-notes-input {
+  width: 140px; padding: 3px 7px;
+  border: 1px solid var(--border); border-radius: 3px;
+  font-size: 12px; color: var(--raven); background: var(--pearl);
+  outline: none; transition: border-color 0.12s;
+}
+.am-notes-input:focus { border-color: var(--nova); box-shadow: 0 0 0 2px var(--nova-tint); }
+.am-notes-input::placeholder { color: #9ca3af; }
+
+.am-done-pill { background: #dcfce7; color: #166534; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+.am-empty { padding: 48px; text-align: center; color: var(--text-secondary); font-size: 14px; }
+
+/* CS-Link Access summary inside student expanded row */
+.am-access-summary-readonly { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-top: 4px; }
+.am-summary-item { display: flex; align-items: center; gap: 6px; padding: 5px 10px; background: var(--sand); border-radius: 4px; border: 1px solid var(--border-lt); }
+.am-summary-item-done { background: #f0fdf4; border-color: #bbf7d0; }
+.am-summary-check { font-size: 13px; font-weight: 700; color: #9ca3af; flex-shrink: 0; }
+.am-summary-item-done .am-summary-check { color: #16a34a; }
+.am-summary-label { font-size: 12px; font-weight: 600; color: var(--raven); flex: 1; }
+.am-summary-date  { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+
+/* ================================================================
    RESPONSIVE
    ================================================================ */
 @media (max-width: 1100px) {

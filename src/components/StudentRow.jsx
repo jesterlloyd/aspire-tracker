@@ -20,7 +20,14 @@ const NGRP_CLASS = {
   'Offered':'badge-amber', 'Hired':'badge-green', 'Declined':'badge-red',
 }
 
-export default function StudentRow({ student, units = [], onUpdate, onDelete }) {
+const ACCESS_SUMMARY_FIELDS = [
+  { key: 'access_non_employee',      dateKey: 'access_non_employee_date',       label: 'Non-Employee Access' },
+  { key: 'access_hybrid_student',    dateKey: 'access_hybrid_student_date',     label: 'Hybrid Student Nurse' },
+  { key: 'access_extended_end_date', dateKey: 'access_extended_end_date_value', label: 'Extended End Date' },
+  { key: 'access_reactivated',       dateKey: 'access_reactivated_date',        label: 'Reactivated CW Access' },
+]
+
+export default function StudentRow({ student, units = [], onUpdate, onDelete, onSwitchToAccess }) {
   const [expanded,      setExpanded]      = useState(false)
   const [data,          setData]          = useState(student)
   const [saveState,     setSaveState]     = useState('idle')
@@ -290,6 +297,32 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete }) 
                 <textarea className="form-textarea" rows={3} value={data.notes || ''} onChange={e => handleText('notes', e.target.value)} />
               </Field>
             </div>
+          </div>
+
+          {/* CS-Link Access */}
+          <div className="form-section">
+            <div className="section-label">CS-Link Access</div>
+            <div className="am-access-summary-readonly">
+              {ACCESS_SUMMARY_FIELDS.map(({ key, dateKey, label }) => (
+                <div key={key} className={`am-summary-item${data[key] ? ' am-summary-item-done' : ''}`}>
+                  <span className="am-summary-check">{data[key] ? '✓' : '○'}</span>
+                  <span className="am-summary-label">{label}</span>
+                  {data[key] && data[dateKey] && (
+                    <span className="am-summary-date">{data[dateKey]}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            {onSwitchToAccess && (
+              <button
+                type="button"
+                className="btn-clear"
+                style={{ marginTop: 10, fontSize: 12, color: 'var(--nightfall)', paddingLeft: 0 }}
+                onClick={() => onSwitchToAccess(student.id)}
+              >
+                Manage in Access Tab →
+              </button>
+            )}
           </div>
 
           {/* Delete */}

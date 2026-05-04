@@ -14,6 +14,7 @@ import SchoolFormPage from './components/SchoolFormPage'
 import StudentIntakeFormPage from './components/StudentIntakeFormPage'
 import PendingStudentSubmissions from './components/PendingStudentSubmissions'
 import PendingIntakeSubmissions from './components/PendingIntakeSubmissions'
+import AccessTab from './components/AccessTab'
 
 function MainApp({ onLogout }) {
   const [cohorts,           setCohorts]           = useState([])
@@ -31,10 +32,11 @@ function MainApp({ onLogout }) {
   const [loading,            setLoading]            = useState(true)
   const [dbError,            setDbError]            = useState(null)
 
-  const [activeTab,    setActiveTab]    = useState('students')
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [search,       setSearch]       = useState('')
-  const [filters,      setFilters]      = useState({ school: '', status: '', cohort: '' })
+  const [activeTab,      setActiveTab]      = useState('students')
+  const [accessFocusId,  setAccessFocusId]  = useState(null)
+  const [showAddModal,   setShowAddModal]   = useState(false)
+  const [search,         setSearch]         = useState('')
+  const [filters,        setFilters]        = useState({ school: '', status: '', cohort: '' })
 
   useEffect(() => {
     supabase.from('cohorts').select('*').order('created_at', { ascending: false })
@@ -115,6 +117,14 @@ function MainApp({ onLogout }) {
   }
   const handleCohortSwitch = id => {
     setActiveCohortId(id); setSearch(''); setFilters({ school: '', status: '', cohort: '' })
+  }
+
+  const switchToAccess = (studentId) => {
+    setActiveTab('access')
+    setAccessFocusId(studentId)
+    setTimeout(() => {
+      document.getElementById(`access-row-${studentId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 150)
   }
 
   // ── Student CRUD ──────────────────────────────────────────────────
@@ -380,6 +390,9 @@ function MainApp({ onLogout }) {
                 <span className="tab-badge">{pendingStudentSubs.length + pendingIntakeSubs.length}</span>
               )}
             </button>
+            <button className={`tab-btn${activeTab === 'access' ? ' active' : ''}`} onClick={() => setActiveTab('access')}>
+              Access Management
+            </button>
             <button className={`tab-btn${activeTab === 'matching' ? ' active' : ''}`} onClick={() => setActiveTab('matching')}>
               Matching
               {pendingSubmissions.length > 0 && <span className="tab-badge">{pendingSubmissions.length}</span>}
@@ -423,8 +436,17 @@ function MainApp({ onLogout }) {
               onSearch={setSearch} onFilter={setFilter}
               onUpdate={updateStudent} onDelete={deleteStudent}
               onRefresh={() => fetchStudents(activeCohortId)}
+              onSwitchToAccess={switchToAccess}
             />
           </>
+        )}
+
+        {!loading && !dbError && cohorts.length > 0 && activeTab === 'access' && (
+          <AccessTab
+            students={students}
+            onUpdate={updateStudent}
+            focusStudentId={accessFocusId}
+          />
         )}
 
         {!loading && !dbError && cohorts.length > 0 && activeTab === 'matching' && (

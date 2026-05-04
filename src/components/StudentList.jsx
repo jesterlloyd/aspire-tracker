@@ -27,6 +27,7 @@ function sortStudents(students, sortBy) {
 export default function StudentList({
   students, allStudents, units = [], cohortId,
   search, filters, onSearch, onFilter, onUpdate, onDelete, onRefresh,
+  onSwitchToAccess,
 }) {
   const [showImport, setShowImport] = useState(false)
   const [sortBy,     setSortBy]     = useState('last_name_asc')
@@ -105,7 +106,7 @@ export default function StudentList({
         ) : (
           sorted.map(s => (
             <StudentRow key={s.id} student={s} units={units}
-              onUpdate={onUpdate} onDelete={onDelete} />
+              onUpdate={onUpdate} onDelete={onDelete} onSwitchToAccess={onSwitchToAccess} />
           ))
         )}
       </div>
