@@ -58,7 +58,9 @@ function MainApp({ onLogout }) {
         if (error) { setDbError(error.message); setLoading(false); return }
         if (data?.length > 0) {
           setCohorts(data)
-          setActiveCohortId((data.find(c => c.status === 'Active') || data[0]).id)
+          const saved    = localStorage.getItem('aspire_active_cohort_id')
+          const restored = saved && data.find(c => c.id === saved)
+          setActiveCohortId(restored ? restored.id : (data.find(c => c.status === 'Active') || data[0]).id)
         } else setLoading(false)
       })
   }, [])
@@ -114,7 +116,9 @@ function MainApp({ onLogout }) {
   const createCohort = async d => {
     const { data, error } = await supabase.from('cohorts').insert(d).select().single()
     if (!error && data) {
-      setCohorts(prev => [data, ...prev]); setActiveCohortId(data.id)
+      setCohorts(prev => [data, ...prev])
+      localStorage.setItem('aspire_active_cohort_id', data.id)
+      setActiveCohortId(data.id)
       setStudents([]); setUnits([]); setMatches([])
       setSubmissions([]); setStudentSubmissions([]); setShowNewCohort(false)
     }
@@ -130,6 +134,7 @@ function MainApp({ onLogout }) {
     return error || null
   }
   const handleCohortSwitch = id => {
+    localStorage.setItem('aspire_active_cohort_id', id)
     setActiveCohortId(id); setSearch(''); setFilters({ school: '', status: '', cohort: '' })
   }
 
@@ -298,7 +303,7 @@ function MainApp({ onLogout }) {
     const notesContent = [
       sub.gender         && `Gender: ${sub.gender}`,
       sub.date_of_birth  && `DOB: ${sub.date_of_birth}`,
-      sub.cs_affiliation && `CS Affiliation: ${sub.cs_affiliation}${sub.cs_department ? ` — ${sub.cs_department}` : ''}`,
+      sub.cs_affiliation && `CS Affiliation: ${sub.cs_affiliation}${sub.cs_department ? ` — ${sub.cs_department}` : ''}${sub.cs_role ? ` (${sub.cs_role})` : ''}`,
       sub.prior_healthcare_experience && `Healthcare Experience: ${sub.prior_healthcare_experience}`,
       sub.additional_notes,
     ].filter(Boolean).join('\n')
@@ -315,6 +320,9 @@ function MainApp({ onLogout }) {
       ngrp_outcome:      'Pending',
       gpa_verified: false, bls_current: false, health_cleared: false, background_check: false,
       notes:             notesContent,
+      unit_preference_1: sub.unit_preference_1 || '',
+      unit_preference_2: sub.unit_preference_2 || '',
+      unit_preference_3: sub.unit_preference_3 || '',
       cohort_id:         activeCohortId,
     }).select().single()
     if (error) { console.error(error); return }

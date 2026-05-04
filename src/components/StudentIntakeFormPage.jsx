@@ -12,25 +12,31 @@ const CS_AFFILIATIONS = [
   'Current Employee', 'Former Employee', 'Volunteer', 'No prior affiliation',
 ]
 
+const CS_WITH_DEPT = ['Current Employee', 'Former Employee', 'Volunteer']
+
 const initForm = () => ({
   first_name: '', last_name: '', personal_email: '', phone: '',
   date_of_birth: '', ssn_last4: '', gender: '',
   has_prior_experience: null,
   exp_roles: Object.fromEntries(EXP_ROLES.map(r => [r, false])),
   exp_other_desc: '',
-  cs_affiliation: '', cs_department: '',
+  cs_affiliation: '', cs_department: '', cs_role: '',
+  unit_preference_1: '', unit_preference_2: '', unit_preference_3: '',
   additional_notes: '',
 })
 
 export default function StudentIntakeFormPage() {
-  const [cohortId,   setCohortId]   = useState(null)
-  const [cohortName, setCohortName] = useState('')
-  const [open,       setOpen]       = useState(null)
-  const [form,       setForm]       = useState(initForm())
-  const [submitting, setSubmitting] = useState(false)
-  const [submitted,  setSubmitted]  = useState(false)
-  const [error,      setError]      = useState(null)
+  const [cohortId,      setCohortId]      = useState(null)
+  const [cohortName,    setCohortName]    = useState('')
+  const [open,          setOpen]          = useState(null)
+  const [form,          setForm]          = useState(initForm())
+  const [availableUnits, setAvailableUnits] = useState([])
+  const [unitsLoaded,   setUnitsLoaded]   = useState(false)
+  const [submitting,    setSubmitting]    = useState(false)
+  const [submitted,     setSubmitted]     = useState(false)
+  const [error,         setError]         = useState(null)
 
+  // Load accepting cohort
   useEffect(() => {
     document.title = PAGE_TITLE
     supabase.from('cohorts').select('id, name').eq('accepting_submissions', true)
@@ -40,6 +46,20 @@ export default function StudentIntakeFormPage() {
         else setOpen(false)
       })
   }, [])
+
+  // Load participating units for the active cohort
+  useEffect(() => {
+    if (!cohortId) return
+    supabase.from('units')
+      .select('unit_name')
+      .eq('is_participating', true)
+      .eq('cohort_id', cohortId)
+      .order('unit_name')
+      .then(({ data }) => {
+        setAvailableUnits((data || []).map(u => u.unit_name))
+        setUnitsLoaded(true)
+      })
+  }, [cohortId])
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
   const toggleRole = r => setForm(p => ({ ...p, exp_roles: { ...p.exp_roles, [r]: !p.exp_roles[r] } }))
@@ -84,12 +104,20 @@ export default function StudentIntakeFormPage() {
       prior_healthcare_experience,
       cs_affiliation:             form.cs_affiliation,
       cs_department:              form.cs_department.trim(),
+      cs_role:                    form.cs_role.trim(),
+      unit_preference_1:          form.unit_preference_1,
+      unit_preference_2:          form.unit_preference_2,
+      unit_preference_3:          form.unit_preference_3,
       additional_notes:           form.additional_notes.trim(),
       review_status:              'Pending',
       cohort_id:                  cohortId,
     })
 
-    if (err) { setError('Something went wrong. Please try again.'); setSubmitting(false); return }
+    if (err) {
+      setError('Something went wrong. Please try again or contact the ASPIRE team.')
+      setSubmitting(false)
+      return
+    }
     setSubmitted(true)
   }
 
@@ -268,19 +296,89 @@ export default function StudentIntakeFormPage() {
               </div>
             </div>
 
-            {['Current Employee', 'Former Employee', 'Volunteer'].includes(form.cs_affiliation) && (
-              <div className="uf-field">
-                <label className="uf-label">If employee or volunteer, which department?</label>
-                <input className="uf-input" value={form.cs_department}
-                  onChange={e => set('cs_department', e.target.value)}
-                  placeholder="e.g. 6 NW, Labor and Delivery, Radiology" />
+            {CS_WITH_DEPT.includes(form.cs_affiliation) && (
+              <div className="sf-row-2">
+                <div className="uf-field">
+                  <label className="uf-label">Department (optional)</label>
+                  <input className="uf-input" value={form.cs_department}
+                    onChange={e => set('cs_department', e.target.value)}
+                    placeholder="e.g. 6 NW, Labor and Delivery, Radiology" />
+                </div>
+                <div className="uf-field">
+                  <label className="uf-label">Role or Job Title (optional)</label>
+                  <input className="uf-input" value={form.cs_role}
+                    onChange={e => set('cs_role', e.target.value)}
+                    placeholder="e.g. RN, Patient Care Tech, Volunteer" />
+                </div>
               </div>
             )}
           </div>
 
-          {/* ── Section 3: Additional Notes ── */}
+          {/* ── Section 3: Unit Placement Preferences ── */}
           <div className="uf-section">
-            <div className="sf-section-title">Section 3: Additional Notes</div>
+            <div className="sf-section-title">Section 3: Unit Placement Preferences</div>
+
+            {!unitsLoaded ? (
+              <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Loading unit options…</p>
+            ) : availableUnits.length === 0 ? (
+              <p style={{ color: 'var(--text-secondary)', fontSize: 14, lineHeight: 1.65 }}>
+                Unit availability is still being finalized. You may submit the form now and update
+                your preferences later.
+              </p>
+            ) : (
+              <>
+                <div className="uf-field">
+                  <label className="uf-label">First Preference (optional)</label>
+                  <select className="uf-input" value={form.unit_preference_1}
+                    onChange={e => {
+                      const v = e.target.value
+                      setForm(p => ({
+                        ...p,
+                        unit_preference_1: v,
+                        unit_preference_2: p.unit_preference_2 === v ? '' : p.unit_preference_2,
+                        unit_preference_3: p.unit_preference_3 === v ? '' : p.unit_preference_3,
+                      }))
+                    }}>
+                    <option value="">No preference</option>
+                    {availableUnits.map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
+
+                <div className="uf-field">
+                  <label className="uf-label">Second Preference (optional)</label>
+                  <select className="uf-input" value={form.unit_preference_2}
+                    onChange={e => {
+                      const v = e.target.value
+                      setForm(p => ({
+                        ...p,
+                        unit_preference_2: v,
+                        unit_preference_3: p.unit_preference_3 === v ? '' : p.unit_preference_3,
+                      }))
+                    }}>
+                    <option value="">No preference</option>
+                    {availableUnits
+                      .filter(u => u !== form.unit_preference_1)
+                      .map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
+
+                <div className="uf-field">
+                  <label className="uf-label">Third Preference (optional)</label>
+                  <select className="uf-input" value={form.unit_preference_3}
+                    onChange={e => set('unit_preference_3', e.target.value)}>
+                    <option value="">No preference</option>
+                    {availableUnits
+                      .filter(u => u !== form.unit_preference_1 && u !== form.unit_preference_2)
+                      .map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* ── Section 4: Additional Notes ── */}
+          <div className="uf-section">
+            <div className="sf-section-title">Section 4: Additional Notes</div>
             <div className="uf-field">
               <label className="uf-label">Is there anything else you would like the ASPIRE team to know? (optional)</label>
               <textarea className="uf-textarea" rows={4} value={form.additional_notes}

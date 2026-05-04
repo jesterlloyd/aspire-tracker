@@ -51,6 +51,14 @@ function IntakeCard({ sub, onApprove, onReject }) {
           <div className="ps-detail-row">
             <strong>CS Affiliation:</strong> {sub.cs_affiliation}
             {sub.cs_department && ` — ${sub.cs_department}`}
+            {sub.cs_role && ` (${sub.cs_role})`}
+          </div>
+        )}
+        {(sub.unit_preference_1 || sub.unit_preference_2 || sub.unit_preference_3) && (
+          <div className="ps-detail-row">
+            <strong>Unit Preferences:</strong>{' '}
+            {[sub.unit_preference_1, sub.unit_preference_2, sub.unit_preference_3]
+              .filter(Boolean).join(' › ')}
           </div>
         )}
         {sub.additional_notes && (
