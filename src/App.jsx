@@ -16,6 +16,20 @@ import PendingStudentSubmissions from './components/PendingStudentSubmissions'
 import PendingIntakeSubmissions from './components/PendingIntakeSubmissions'
 import AccessTab from './components/AccessTab'
 
+function computeMatchSummary(matchList) {
+  const total  = matchList.length
+  const top    = matchList.filter(m => m.match_quality === 'top_choice').length
+  const second = matchList.filter(m => m.match_quality === 'second_choice').length
+  return {
+    total_matched:            total,
+    top_choice_count:         top,
+    second_choice_count:      second,
+    other_count:              total - top - second,
+    top_choice_percentage:    total > 0 ? Math.round((top    / total) * 100) : 0,
+    second_choice_percentage: total > 0 ? Math.round((second / total) * 100) : 0,
+  }
+}
+
 function MainApp({ onLogout }) {
   const [cohorts,           setCohorts]           = useState([])
   const [activeCohortId,    setActiveCohortId]    = useState(null)
@@ -119,6 +133,12 @@ function MainApp({ onLogout }) {
     setActiveCohortId(id); setSearch(''); setFilters({ school: '', status: '', cohort: '' })
   }
 
+  const updateCohortMatchSummary = (newMatchList) => {
+    const summary = computeMatchSummary(newMatchList)
+    supabase.from('cohorts').update({ match_quality_summary: summary }).eq('id', activeCohortId)
+    setCohorts(prev => prev.map(c => c.id === activeCohortId ? { ...c, match_quality_summary: summary } : c))
+  }
+
   const switchToAccess = (studentId) => {
     setActiveTab('access')
     setAccessFocusId(studentId)
@@ -165,6 +185,8 @@ function MainApp({ onLogout }) {
         ? { ...s, matched_unit_id: null, matched_preceptor: '', shift_assigned: '', interview_outcome: 'Pending Interview' }
         : s
     ))
+    const newMatchList = matches.filter(m => m.unit_id !== unit.id)
+    updateCohortMatchSummary(newMatchList)
     setMatches(prev => prev.filter(m => m.unit_id !== unit.id))
     setUnits(prev => prev.filter(u => u.id !== unit.id))
   }
@@ -183,6 +205,7 @@ function MainApp({ onLogout }) {
     await supabase.from('students')
       .update({ matched_unit_id: unit.id, interview_outcome: 'Accepted', match_quality }).eq('id', student.id)
     await supabase.from('units').update({ slots_remaining: newRemaining }).eq('id', unit.id)
+    updateCohortMatchSummary([...matches, m])
     setMatches(prev => [...prev, m])
     setStudents(prev => prev.map(s =>
       s.id === student.id ? { ...s, matched_unit_id: unit.id, interview_outcome: 'Accepted', match_quality } : s
@@ -198,6 +221,7 @@ function MainApp({ onLogout }) {
       .eq('id', student.id)
     const newRemaining = unit.slots_remaining + 1
     await supabase.from('units').update({ slots_remaining: newRemaining }).eq('id', unit.id)
+    updateCohortMatchSummary(match ? matches.filter(m => m.id !== match.id) : matches)
     if (match) setMatches(prev => prev.filter(m => m.id !== match.id))
     setStudents(prev => prev.map(s =>
       s.id === student.id

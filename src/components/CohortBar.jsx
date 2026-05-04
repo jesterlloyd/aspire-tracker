@@ -35,6 +35,11 @@ export default function CohortBar({ cohorts, activeCohortId, onSelect, onNew, on
           {active?.start_date && active?.end_date && (
             <span className="cohort-dates">{active.start_date} – {active.end_date}</span>
           )}
+          {active?.match_quality_summary?.total_matched > 0 && (
+            <span className="cohort-match-quality">
+              {active.match_quality_summary.top_choice_percentage}% top choice placements
+            </span>
+          )}
         </div>
         <div className="cohort-bar-actions">
           {active && (

@@ -42,12 +42,13 @@ export default function MatchingTab({
   }
 
   const exportCSV = () => {
-    const headers = ['Student Name','School','School Email','Personal Email','Phone','Matched Unit','Preceptor Assigned','Shift Assigned','Unit Contact','Notes']
+    const headers = ['Student Name','School','School Email','Personal Email','Phone','Matched Unit','Match Quality','Preceptor Assigned','Shift Assigned','Unit Contact','Notes']
     const rows = matchedStudents.map(s => {
       const unit  = units.find(u => u.id === s.matched_unit_id)
       const match = matches.find(m => m.student_id === s.id)
       return [s.name, s.school, s.school_email, s.personal_email, s.phone,
-        unit?.unit_name || '', match?.preceptor_assigned || '', match?.shift_assigned || '',
+        unit?.unit_name || '', match?.match_quality || s.match_quality || '',
+        match?.preceptor_assigned || '', match?.shift_assigned || '',
         unit?.contact_person || '', match?.notes || '']
     })
     const csv = [headers,...rows].map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n')
