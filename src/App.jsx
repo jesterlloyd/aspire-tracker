@@ -11,7 +11,9 @@ import ManageCohortModal from './components/ManageCohortModal'
 import LoginPage from './components/LoginPage'
 import UnitFormPage from './components/UnitFormPage'
 import SchoolFormPage from './components/SchoolFormPage'
+import StudentIntakeFormPage from './components/StudentIntakeFormPage'
 import PendingStudentSubmissions from './components/PendingStudentSubmissions'
+import PendingIntakeSubmissions from './components/PendingIntakeSubmissions'
 
 function MainApp({ onLogout }) {
   const [cohorts,           setCohorts]           = useState([])
@@ -25,6 +27,7 @@ function MainApp({ onLogout }) {
   const [matches,            setMatches]            = useState([])
   const [submissions,        setSubmissions]        = useState([])
   const [studentSubmissions, setStudentSubmissions] = useState([])
+  const [intakeSubmissions,  setIntakeSubmissions]  = useState([])
   const [loading,            setLoading]            = useState(true)
   const [dbError,            setDbError]            = useState(null)
 
@@ -51,6 +54,7 @@ function MainApp({ onLogout }) {
       fetchStudents(activeCohortId), fetchUnits(activeCohortId),
       fetchMatches(activeCohortId),  fetchSubmissions(activeCohortId),
       fetchStudentSubmissions(activeCohortId),
+      fetchIntakeSubmissions(activeCohortId),
     ]).finally(() => setLoading(false))
   }, [activeCohortId])
 
@@ -77,11 +81,17 @@ function MainApp({ onLogout }) {
       .eq('cohort_id', id).order('submitted_at', { ascending: false })
     setStudentSubmissions(data || [])
   }
+  const fetchIntakeSubmissions = async id => {
+    const { data } = await supabase.from('student_intake_submissions').select('*')
+      .eq('cohort_id', id).order('submitted_at', { ascending: false })
+    setIntakeSubmissions(data || [])
+  }
   const refreshAll = () => {
     if (!activeCohortId) return
     fetchStudents(activeCohortId); fetchUnits(activeCohortId)
     fetchMatches(activeCohortId);  fetchSubmissions(activeCohortId)
     fetchStudentSubmissions(activeCohortId)
+    fetchIntakeSubmissions(activeCohortId)
   }
 
   // ── Cohort CRUD ───────────────────────────────────────────────────
@@ -249,6 +259,41 @@ function MainApp({ onLogout }) {
     setStudentSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: 'Rejected' } : s))
   }
 
+  const approveIntakeSubmission = async sub => {
+    const activeCohort = cohorts.find(c => c.id === activeCohortId)
+    const notesContent = [
+      sub.gender         && `Gender: ${sub.gender}`,
+      sub.date_of_birth  && `DOB: ${sub.date_of_birth}`,
+      sub.cs_affiliation && `CS Affiliation: ${sub.cs_affiliation}${sub.cs_department ? ` — ${sub.cs_department}` : ''}`,
+      sub.prior_healthcare_experience && `Healthcare Experience: ${sub.prior_healthcare_experience}`,
+      sub.additional_notes,
+    ].filter(Boolean).join('\n')
+    const { data: studentData, error } = await supabase.from('students').insert({
+      name:              `${sub.first_name} ${sub.last_name}`,
+      first_name:        sub.first_name,
+      last_name:         sub.last_name,
+      personal_email:    sub.personal_email,
+      phone:             sub.phone || '',
+      aspire_cohort:     activeCohort?.name || '',
+      hours_required:    0, hours_completed: 0,
+      status:            'Pending Outreach',
+      interview_outcome: 'Pending Interview',
+      ngrp_outcome:      'Pending',
+      gpa_verified: false, bls_current: false, health_cleared: false, background_check: false,
+      notes:             notesContent,
+      cohort_id:         activeCohortId,
+    }).select().single()
+    if (error) { console.error(error); return }
+    await supabase.from('student_intake_submissions').update({ review_status: 'Approved' }).eq('id', sub.id)
+    setIntakeSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: 'Approved' } : s))
+    setStudents(prev => [...prev, studentData].sort((a, b) => (a.school + a.name).localeCompare(b.school + b.name)))
+  }
+
+  const rejectIntakeSubmission = async sub => {
+    await supabase.from('student_intake_submissions').update({ review_status: 'Rejected' }).eq('id', sub.id)
+    setIntakeSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: 'Rejected' } : s))
+  }
+
   // ── CSV export ────────────────────────────────────────────────────
   const exportCSV = () => {
     const headers = ['Name','School Email','Personal Email','Phone','School','ASPIRE Cohort',
@@ -288,6 +333,7 @@ function MainApp({ onLogout }) {
   const activeCohort        = cohorts.find(c => c.id === activeCohortId)
   const pendingSubmissions  = submissions.filter(s => s.review_status === 'Pending')
   const pendingStudentSubs  = studentSubmissions.filter(s => s.review_status === 'Pending')
+  const pendingIntakeSubs   = intakeSubmissions.filter(s => s.review_status === 'Pending')
 
   return (
     <div className="app">
@@ -330,7 +376,9 @@ function MainApp({ onLogout }) {
           <div className="tab-bar">
             <button className={`tab-btn${activeTab === 'students' ? ' active' : ''}`} onClick={() => setActiveTab('students')}>
               Students
-              {pendingStudentSubs.length > 0 && <span className="tab-badge">{pendingStudentSubs.length}</span>}
+              {(pendingStudentSubs.length + pendingIntakeSubs.length) > 0 && (
+                <span className="tab-badge">{pendingStudentSubs.length + pendingIntakeSubs.length}</span>
+              )}
             </button>
             <button className={`tab-btn${activeTab === 'matching' ? ' active' : ''}`} onClick={() => setActiveTab('matching')}>
               Matching
@@ -362,6 +410,10 @@ function MainApp({ onLogout }) {
             {pendingStudentSubs.length > 0 && (
               <PendingStudentSubmissions submissions={pendingStudentSubs}
                 onApprove={approveStudentSubmission} onReject={rejectStudentSubmission} />
+            )}
+            {pendingIntakeSubs.length > 0 && (
+              <PendingIntakeSubmissions submissions={pendingIntakeSubs}
+                onApprove={approveIntakeSubmission} onReject={rejectIntakeSubmission} />
             )}
             <Dashboard students={students} />
             <StudentList
@@ -406,8 +458,9 @@ export default function App() {
     setAuthed(false)
   }
 
-  if (path.startsWith('/unit-form'))   return <UnitFormPage />
-  if (path.startsWith('/school-form')) return <SchoolFormPage />
+  if (path.startsWith('/unit-form'))    return <UnitFormPage />
+  if (path.startsWith('/school-form'))  return <SchoolFormPage />
+  if (path.startsWith('/student-form')) return <StudentIntakeFormPage />
   if (!authed) return <LoginPage onSuccess={() => setAuthed(true)} />
   return <MainApp onLogout={handleLogout} />
 }
