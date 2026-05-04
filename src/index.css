@@ -920,6 +920,138 @@ body { min-height: 100vh; }
 .sf-add-btn:hover { border-color: var(--nightfall); color: var(--nightfall); }
 
 /* ================================================================
+   PUBLIC FORM INFO BOX
+   ================================================================ */
+.uf-info-box {
+  background: var(--marina); border-left: 3px solid var(--nightfall);
+  border-radius: 0 4px 4px 0; padding: 12px 14px;
+  font-size: 14px; font-weight: 400; color: #4a5568; line-height: 1.6;
+  margin-bottom: 4px;
+}
+
+/* ================================================================
+   INTERVIEW TAB — OVERVIEW
+   ================================================================ */
+.interview-tab { display: flex; flex-direction: column; gap: 16px; }
+
+.iv-summary { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; }
+.iv-stat-card { border-radius: 6px; padding: 14px 16px; border: 1px solid; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.iv-stat-value { font-size: 28px; font-weight: 700; line-height: 1; margin-bottom: 5px; }
+.iv-stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+
+.iv-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.iv-hint { font-size: 13px; color: var(--text-secondary); font-style: italic; }
+
+.iv-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--pearl); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.iv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.iv-th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; background: var(--sand); border-bottom: 2px solid var(--border); white-space: nowrap; }
+.iv-sortable { cursor: pointer; user-select: none; }
+.iv-sortable:hover { color: var(--raven); }
+.iv-td { padding: 10px 12px; border-bottom: 1px solid var(--border-lt); vertical-align: middle; }
+.iv-row { cursor: pointer; transition: background 0.1s; }
+.iv-row:hover { background: rgba(244,241,236,0.6); }
+.iv-row:last-child .iv-td { border-bottom: none; }
+.iv-td-name   { font-weight: 600; color: var(--raven); white-space: nowrap; min-width: 150px; }
+.iv-td-school { color: var(--text-secondary); min-width: 110px; }
+.iv-td-score  { font-weight: 600; color: var(--nightfall); }
+.iv-empty { padding: 48px; text-align: center; color: var(--text-secondary); }
+
+.iv-status-badge { display: inline-block; padding: 2px 9px; border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.iv-status-done  { background: #dcfce7; color: #166534; }
+.iv-status-wip   { background: #fef3c7; color: #92400e; }
+.iv-status-none  { background: var(--sand); color: var(--text-secondary); border: 1px solid var(--border); }
+.iv-rec-badge { display: inline-block; padding: 2px 9px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+
+/* ================================================================
+   INTERVIEW SESSION
+   ================================================================ */
+.iv-session { display: flex; flex-direction: column; gap: 0; }
+
+.iv-session-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.iv-back-btn { background: none; border: 1px solid var(--border); border-radius: 4px; color: var(--nightfall); font-size: 13px; font-weight: 600; cursor: pointer; padding: 7px 14px; transition: background 0.12s; }
+.iv-back-btn:hover { background: var(--sand); }
+.iv-save-indicator { font-size: 12px; font-weight: 600; }
+.iv-saving { color: var(--text-secondary); }
+.iv-saved  { color: #16a34a; }
+
+.iv-student-bar {
+  background: var(--nightfall); border-radius: 6px;
+  padding: 12px 18px; display: flex; align-items: center; gap: 14px;
+  flex-wrap: wrap; margin-bottom: 20px;
+}
+.iv-student-bar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.iv-student-name  { font-size: 17px; font-weight: 700; color: var(--pearl); }
+.iv-student-school { font-size: 13px; color: var(--nova); opacity: 0.85; }
+.iv-pref-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.iv-pref-pill { font-size: 12px; font-weight: 500; color: var(--nightfall); background: rgba(255,255,255,0.85); padding: 2px 9px; border-radius: 4px; white-space: nowrap; }
+
+.iv-form-body { display: flex; flex-direction: column; gap: 0; }
+
+.iv-section { background: var(--pearl); border: 1px solid var(--border); border-radius: 6px; padding: 20px 24px; margin-bottom: 12px; }
+.iv-section-title { font-size: 13px; font-weight: 700; color: var(--nightfall); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border-lt); }
+
+.iv-ref-toggle { background: none; border: 1px solid var(--border-lt); border-radius: 4px; color: var(--text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; padding: 5px 10px; margin-bottom: 12px; transition: background 0.1s, color 0.1s; }
+.iv-ref-toggle:hover { background: var(--sand); color: var(--raven); }
+.iv-ref-panel { background: var(--sand); border-radius: 4px; padding: 12px 14px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 6px; }
+.iv-ref-row { font-size: 13px; color: var(--raven); line-height: 1.5; }
+
+.iv-prompt { font-size: 14px; color: var(--nightfall); font-style: italic; line-height: 1.6; margin-bottom: 12px; background: var(--nova-tint); padding: 10px 14px; border-radius: 4px; border-left: 3px solid var(--nova); }
+
+.iv-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.iv-field { display: flex; flex-direction: column; gap: 5px; }
+.iv-label { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.iv-input { padding: 8px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; color: var(--raven); background: var(--pearl); outline: none; transition: border-color 0.12s; }
+.iv-input:focus { border-color: var(--nova); box-shadow: 0 0 0 2px var(--nova-tint); }
+.iv-textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; color: var(--raven); background: var(--pearl); outline: none; resize: vertical; line-height: 1.5; transition: border-color 0.12s; }
+.iv-textarea:focus { border-color: var(--nova); box-shadow: 0 0 0 2px var(--nova-tint); }
+.iv-readonly { padding: 8px 10px; background: var(--sand); border: 1px solid var(--border-lt); border-radius: 4px; font-size: 14px; color: var(--raven); min-height: 36px; line-height: 1.5; }
+.iv-readonly-tall { min-height: 80px; white-space: pre-wrap; }
+
+.iv-questions { display: flex; flex-direction: column; gap: 6px; }
+.iv-question { padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 13px; color: var(--raven); cursor: pointer; line-height: 1.5; transition: background 0.1s, border-color 0.1s, color 0.1s; }
+.iv-question:hover { border-color: var(--nightfall); color: var(--nightfall); background: rgba(29,37,103,0.03); }
+.iv-question-sel { background: var(--nightfall) !important; border-color: var(--nightfall) !important; color: var(--pearl) !important; }
+
+.iv-score-tiles { display: flex; gap: 8px; margin-top: 4px; }
+.iv-score-tile { flex: 1; padding: 10px 4px; text-align: center; border-radius: 6px; border: 2px solid; transition: all 0.12s; min-width: 0; }
+.iv-score-num  { font-size: 20px; font-weight: 700; line-height: 1; }
+.iv-score-desc { font-size: 10px; font-weight: 600; margin-top: 3px; line-height: 1.2; }
+
+/* Composite card */
+.iv-composite-card { background: var(--pearl); border: 2px solid var(--nightfall); border-radius: 8px; padding: 20px 24px; margin-bottom: 12px; }
+.iv-composite-main { font-size: 20px; font-weight: 700; color: var(--nightfall); margin-bottom: 8px; }
+.iv-composite-num  { font-size: 28px; }
+.iv-composite-breakdown { display: flex; gap: 20px; font-size: 13px; color: var(--text-secondary); font-weight: 600; }
+
+/* Recommendation section */
+.iv-rec-section { background: var(--pearl); border: 1px solid var(--border); border-top: 3px solid var(--nightfall); border-radius: 6px; padding: 20px 24px; margin-bottom: 12px; }
+.iv-rec-heading { font-size: 18px; font-weight: 700; color: var(--raven); margin-bottom: 6px; }
+.iv-rec-subtext { font-size: 13px; color: #6b7280; margin-bottom: 16px; line-height: 1.5; }
+.iv-rec-tiles { display: flex; gap: 12px; }
+.iv-rec-tile { flex: 1; padding: 16px 12px; text-align: center; border-radius: 8px; font-size: 14px; font-weight: 700; border: 2px solid; transition: all 0.12s; line-height: 1.35; }
+
+/* Confirm / complete zone */
+.iv-complete-zone { margin-top: 4px; margin-bottom: 16px; }
+.iv-complete-btn { width: 100%; background: var(--nightfall); color: var(--pearl); border: none; border-radius: 6px; padding: 16px; font-size: 16px; font-weight: 700; cursor: pointer; transition: background 0.12s; }
+.iv-complete-btn:hover { background: var(--nightfall85); }
+.iv-confirm-box { background: var(--marina); border: 1.5px solid var(--nightfall); border-radius: 6px; padding: 16px 18px; margin-bottom: 8px; }
+.iv-confirm-msg { font-size: 14px; color: var(--raven); line-height: 1.55; margin-bottom: 12px; }
+.iv-confirm-actions { display: flex; gap: 10px; }
+.iv-locked-notice { text-align: center; font-size: 13px; font-weight: 600; color: #16a34a; padding: 12px; background: #f0fdf4; border-radius: 6px; margin-bottom: 12px; }
+
+/* Interview summary in StudentRow */
+.iv-summary-readonly { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--border-lt); border-radius: 6px; overflow: hidden; }
+.iv-summary-row { display: flex; align-items: baseline; gap: 10px; padding: 6px 12px; border-bottom: 1px solid var(--border-lt); }
+.iv-summary-row:last-child { border-bottom: none; }
+.iv-summary-comments { padding: 6px 12px; border-bottom: 1px solid var(--border-lt); }
+.iv-summary-lbl { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; min-width: 140px; flex-shrink: 0; }
+.iv-summary-val { font-size: 13px; color: var(--raven); }
+.iv-rec-badge-sm { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+
+/* Composite score mini badge in collapsed student row */
+.iv-score-mini { display: inline-block; margin-left: 5px; font-size: 11px; font-weight: 600; color: var(--nightfall); background: var(--marina); padding: 1px 6px; border-radius: 4px; vertical-align: middle; }
+
+/* ================================================================
    ACCESS MANAGEMENT TAB
    ================================================================ */
 .access-tab { display: flex; flex-direction: column; gap: 16px; }

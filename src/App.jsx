@@ -15,6 +15,8 @@ import StudentIntakeFormPage from './components/StudentIntakeFormPage'
 import PendingStudentSubmissions from './components/PendingStudentSubmissions'
 import PendingIntakeSubmissions from './components/PendingIntakeSubmissions'
 import AccessTab from './components/AccessTab'
+import InterviewTab from './components/InterviewTab'
+import InterviewersModal from './components/InterviewersModal'
 
 function computeMatchSummary(matchList) {
   const total  = matchList.length
@@ -43,12 +45,14 @@ function MainApp({ onLogout }) {
   const [submissions,        setSubmissions]        = useState([])
   const [studentSubmissions, setStudentSubmissions] = useState([])
   const [intakeSubmissions,  setIntakeSubmissions]  = useState([])
+  const [interviews,         setInterviews]         = useState([])
   const [loading,            setLoading]            = useState(true)
   const [dbError,            setDbError]            = useState(null)
 
-  const [activeTab,      setActiveTab]      = useState('students')
-  const [accessFocusId,  setAccessFocusId]  = useState(null)
-  const [showAddModal,   setShowAddModal]   = useState(false)
+  const [activeTab,             setActiveTab]             = useState('students')
+  const [accessFocusId,         setAccessFocusId]         = useState(null)
+  const [showAddModal,          setShowAddModal]          = useState(false)
+  const [showInterviewersModal, setShowInterviewersModal] = useState(false)
   const [search,         setSearch]         = useState('')
   const [filters,        setFilters]        = useState({ school: '', status: '', cohort: '' })
 
@@ -73,6 +77,7 @@ function MainApp({ onLogout }) {
       fetchMatches(activeCohortId),  fetchSubmissions(activeCohortId),
       fetchStudentSubmissions(activeCohortId),
       fetchIntakeSubmissions(activeCohortId),
+      fetchInterviews(activeCohortId),
     ]).finally(() => setLoading(false))
   }, [activeCohortId])
 
@@ -104,12 +109,17 @@ function MainApp({ onLogout }) {
       .eq('cohort_id', id).order('submitted_at', { ascending: false })
     setIntakeSubmissions(data || [])
   }
+  const fetchInterviews = async id => {
+    const { data } = await supabase.from('interviews').select('*').eq('cohort_id', id)
+    setInterviews(data || [])
+  }
   const refreshAll = () => {
     if (!activeCohortId) return
     fetchStudents(activeCohortId); fetchUnits(activeCohortId)
     fetchMatches(activeCohortId);  fetchSubmissions(activeCohortId)
     fetchStudentSubmissions(activeCohortId)
     fetchIntakeSubmissions(activeCohortId)
+    fetchInterviews(activeCohortId)
   }
 
   // ── Cohort CRUD ───────────────────────────────────────────────────
@@ -341,14 +351,20 @@ function MainApp({ onLogout }) {
     const headers = ['Name','School Email','Personal Email','Phone','School','ASPIRE Cohort',
       'Term Dates','Hours Required','Hours Completed','Unit','Preceptor','ASPIRE Status',
       'NGRP Cohort Target','NGRP Outcome','GPA Verified','BLS Current','Health Cleared',
-      'Background Check','Coordinators','Notes']
+      'Background Check','Coordinators','Notes',
+      'Interview Date','Interviewer Name','CJ Score','PP Score','GA Score',
+      'Composite Score','Overall Recommendation','Interviewer Suggested Unit','Summary Comments']
     const rows = students.map(s => [
       displayName(s),s.school_email,s.personal_email,s.phone,s.school,s.aspire_cohort,
       s.term_dates,s.hours_required,s.hours_completed,s.unit,s.preceptor_name,
       s.status,s.ngrp_cohort_target,s.ngrp_outcome,
       s.gpa_verified?'Yes':'No',s.bls_current?'Yes':'No',
       s.health_cleared?'Yes':'No',s.background_check?'Yes':'No',
-      s.coordinators,s.notes])
+      s.coordinators,s.notes,
+      s.interview_date||'',s.interviewer_name||'',
+      s.cj_score||'',s.pp_score||'',s.ga_score||'',
+      s.composite_score||'',s.overall_recommendation||'',
+      s.interviewer_suggested_unit||'',s.summary_comments||''])
     const csv = [headers,...rows]
       .map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n')
     const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'})
@@ -411,7 +427,8 @@ function MainApp({ onLogout }) {
         {cohorts.length > 0 && (
           <CohortBar cohorts={cohorts} activeCohortId={activeCohortId}
             onSelect={handleCohortSwitch} onNew={() => setShowNewCohort(true)}
-            onManage={() => setShowManageCohort(true)} />
+            onManage={() => setShowManageCohort(true)}
+            onManageInterviewers={() => setShowInterviewersModal(true)} />
         )}
 
         {cohorts.length > 0 && (
@@ -421,6 +438,9 @@ function MainApp({ onLogout }) {
               {(pendingStudentSubs.length + pendingIntakeSubs.length) > 0 && (
                 <span className="tab-badge">{pendingStudentSubs.length + pendingIntakeSubs.length}</span>
               )}
+            </button>
+            <button className={`tab-btn${activeTab === 'interviews' ? ' active' : ''}`} onClick={() => setActiveTab('interviews')}>
+              Interviews
             </button>
             <button className={`tab-btn${activeTab === 'access' ? ' active' : ''}`} onClick={() => setActiveTab('access')}>
               Access Management
@@ -473,6 +493,16 @@ function MainApp({ onLogout }) {
           </>
         )}
 
+        {!loading && !dbError && cohorts.length > 0 && activeTab === 'interviews' && (
+          <InterviewTab
+            students={students}
+            interviews={interviews}
+            cohortId={activeCohortId}
+            onStudentUpdate={updateStudent}
+            onInterviewsChange={() => fetchInterviews(activeCohortId)}
+          />
+        )}
+
         {!loading && !dbError && cohorts.length > 0 && activeTab === 'access' && (
           <AccessTab
             students={students}
@@ -497,6 +527,9 @@ function MainApp({ onLogout }) {
       {showNewCohort && <NewCohortModal onSave={createCohort} onClose={() => setShowNewCohort(false)} />}
       {showManageCohort && activeCohort && (
         <ManageCohortModal cohort={activeCohort} onSave={updateCohort} onClose={() => setShowManageCohort(false)} />
+      )}
+      {showInterviewersModal && (
+        <InterviewersModal onClose={() => setShowInterviewersModal(false)} />
       )}
     </div>
   )

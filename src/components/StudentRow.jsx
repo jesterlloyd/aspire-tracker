@@ -118,6 +118,9 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
         <div className="col-cohort">{data.aspire_cohort}</div>
         <div className="col-status">
           {data.status && <span className={`badge ${STATUS_CLASS[data.status] || 'badge-gray'}`}>{data.status}</span>}
+          {data.composite_score > 0 && (
+            <span className="iv-score-mini">{data.composite_score}/15</span>
+          )}
         </div>
         <div className="col-ngrp">
           {data.ngrp_outcome && <span className={`badge ${NGRP_CLASS[data.ngrp_outcome] || 'badge-gray'}`}>{data.ngrp_outcome}</span>}
@@ -297,6 +300,71 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
                 <textarea className="form-textarea" rows={3} value={data.notes || ''} onChange={e => handleText('notes', e.target.value)} />
               </Field>
             </div>
+          </div>
+
+          {/* Interview Summary */}
+          <div className="form-section">
+            <div className="section-label">Interview Summary</div>
+            {!data.interview_date && !data.interviewer_name && !data.composite_score ? (
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>No interview on record.</p>
+            ) : (
+              <div className="iv-summary-readonly">
+                <div className="iv-summary-row">
+                  <span className="iv-summary-lbl">Date</span>
+                  <span className="iv-summary-val">{data.interview_date || '—'}</span>
+                </div>
+                <div className="iv-summary-row">
+                  <span className="iv-summary-lbl">Interviewer</span>
+                  <span className="iv-summary-val">{data.interviewer_name || '—'}</span>
+                </div>
+                <div className="iv-summary-row">
+                  <span className="iv-summary-lbl">CJ Score</span>
+                  <span className="iv-summary-val">{data.cj_score > 0 ? `${data.cj_score}/5` : '—'}</span>
+                </div>
+                <div className="iv-summary-row">
+                  <span className="iv-summary-lbl">PP Score</span>
+                  <span className="iv-summary-val">{data.pp_score > 0 ? `${data.pp_score}/5` : '—'}</span>
+                </div>
+                <div className="iv-summary-row">
+                  <span className="iv-summary-lbl">GA Score</span>
+                  <span className="iv-summary-val">{data.ga_score > 0 ? `${data.ga_score}/5` : '—'}</span>
+                </div>
+                <div className="iv-summary-row">
+                  <span className="iv-summary-lbl">Composite</span>
+                  <span className="iv-summary-val" style={{ fontWeight: 700, color: 'var(--nightfall)' }}>
+                    {data.composite_score > 0 ? `${data.composite_score}/15` : '—'}
+                  </span>
+                </div>
+                <div className="iv-summary-row">
+                  <span className="iv-summary-lbl">Recommendation</span>
+                  <span className="iv-summary-val">
+                    {data.overall_recommendation
+                      ? <span className="iv-rec-badge-sm" style={{
+                          background: data.overall_recommendation === 'Recommend' ? '#dcfce7'
+                            : data.overall_recommendation === 'Recommend with Reservations' ? '#fef3c7'
+                            : '#fee2e2',
+                          color: data.overall_recommendation === 'Recommend' ? '#166534'
+                            : data.overall_recommendation === 'Recommend with Reservations' ? '#92400e'
+                            : '#991b1b',
+                        }}>
+                          {data.overall_recommendation}
+                        </span>
+                      : '—'
+                    }
+                  </span>
+                </div>
+                <div className="iv-summary-row">
+                  <span className="iv-summary-lbl">Suggested Unit</span>
+                  <span className="iv-summary-val">{data.interviewer_suggested_unit || '—'}</span>
+                </div>
+                {data.summary_comments && (
+                  <div className="iv-summary-comments">
+                    <span className="iv-summary-lbl">Summary Comments</span>
+                    <p style={{ fontSize: 13, color: 'var(--raven)', marginTop: 4, lineHeight: 1.5 }}>{data.summary_comments}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* CS-Link Access */}

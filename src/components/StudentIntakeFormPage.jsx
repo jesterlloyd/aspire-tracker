@@ -318,6 +318,14 @@ export default function StudentIntakeFormPage() {
           <div className="uf-section">
             <div className="sf-section-title">Section 3: Unit Placement Preferences</div>
 
+            {unitsLoaded && availableUnits.length > 0 && (
+              <div className="uf-info-box">
+                The units listed below have confirmed their availability to host ASPIRE students for
+                this rotation cycle. Units not listed have not opted in for this cycle or are still
+                being confirmed. This list is updated as unit responses are received.
+              </div>
+            )}
+
             {!unitsLoaded ? (
               <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Loading unit options…</p>
             ) : availableUnits.length === 0 ? (
