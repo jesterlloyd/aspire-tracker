@@ -1,12 +1,10 @@
 import { useState, useRef } from 'react'
-import { getCompatibility } from '../lib/constants'
 import { displayName } from '../lib/utils'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 
 const COMPAT_TITLE = {
-  green:  'Top preference match',
-  yellow: 'Same clinical area',
-  gray:   'No preference overlap',
+  green:  '1st choice preference',
+  yellow: '2nd choice preference',
 }
 
 export default function UnitCard({
@@ -18,7 +16,11 @@ export default function UnitCard({
 
   const filledCount = matchedStudents.length
   const emptyCount  = Math.max(0, unit.total_slots - filledCount)
-  const compat      = selectedStudent ? getCompatibility(selectedStudent, unit.unit_name) : null
+  const compat      = selectedStudent
+    ? (selectedStudent.unit_preference_1 === unit.unit_name ? 'green'
+      : selectedStudent.unit_preference_2 === unit.unit_name ? 'yellow'
+      : null)
+    : null
 
   return (
     <>
@@ -59,11 +61,15 @@ export default function UnitCard({
           <div className="slot-list">
             {matchedStudents.map(student => {
               const match = matches.find(m => m.student_id === student.id && m.unit_id === unit.id)
+              const matchQuality = student.unit_preference_1 === unit.unit_name ? 'top_choice'
+                : student.unit_preference_2 === unit.unit_name ? 'second_choice'
+                : 'other'
               return (
                 <FilledSlot
                   key={student.id}
                   student={student}
                   match={match}
+                  matchQuality={matchQuality}
                   onUnmatch={() => onUnmatch(student)}
                   onUpdateMatch={onUpdateMatch}
                 />
@@ -93,7 +99,7 @@ export default function UnitCard({
   )
 }
 
-function FilledSlot({ student, match, onUnmatch, onUpdateMatch }) {
+function FilledSlot({ student, match, matchQuality, onUnmatch, onUpdateMatch }) {
   const [preceptor, setPreceptor] = useState(match?.preceptor_assigned || '')
   const [shift,     setShift]     = useState(match?.shift_assigned     || '')
   const timerRef = useRef(null)
@@ -114,7 +120,11 @@ function FilledSlot({ student, match, onUnmatch, onUpdateMatch }) {
   return (
     <div className="slot slot-filled">
       <div className="slot-filled-header">
-        <span className="slot-student-name">{displayName(student)}</span>
+        <div className="slot-name-group">
+          <span className="slot-student-name">{displayName(student)}</span>
+          {matchQuality === 'top_choice'    && <span className="slot-quality-badge slot-quality-top">★ Top Choice</span>}
+          {matchQuality === 'second_choice' && <span className="slot-quality-badge slot-quality-2nd">✓ 2nd Choice</span>}
+        </div>
         <button className="unmatch-btn" onClick={onUnmatch} title="Remove match">✕</button>
       </div>
       <input className="slot-preceptor-input" placeholder="Assign preceptor…"

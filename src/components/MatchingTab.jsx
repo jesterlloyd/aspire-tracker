@@ -24,6 +24,15 @@ export default function MatchingTab({
   const waitlisted      = students.filter(s => !s.matched_unit_id && s.interview_outcome === 'Accepted with Reservations')
   const declined        = students.filter(s =>  s.interview_outcome === 'Declined')
 
+  const perfectMatches = matchedStudents.filter(s => {
+    const u = units.find(u => u.id === s.matched_unit_id)
+    return u && s.unit_preference_1 === u.unit_name
+  }).length
+  const secondChoiceMatches = matchedStudents.filter(s => {
+    const u = units.find(u => u.id === s.matched_unit_id)
+    return u && s.unit_preference_2 === u.unit_name
+  }).length
+
   const handleStudentSelect = s => setSelectedStudent(prev => prev?.id === s.id ? null : s)
 
   const handleSlotClick = unit => {
@@ -53,6 +62,8 @@ export default function MatchingTab({
     { label: 'Slots Remaining', value: slotsRemaining,         bg: '#dceff8', color: '#1d2567', border: '#b8d8eb' },
     { label: 'Students',        value: students.length,        bg: '#f4f1ec', color: '#191919', border: '#d4cfc8' },
     { label: 'Matched',         value: matchedStudents.length, bg: '#dcfce7', color: '#166534', border: '#a7f3d0' },
+    { label: 'Perfect Matches', value: perfectMatches,         bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
+    { label: '2nd Choice',      value: secondChoiceMatches,    bg: '#fefce8', color: '#ca8a04', border: '#fde68a' },
     { label: 'Unmatched',       value: activeUnmatched.length, bg: '#fef3c7', color: '#92400e', border: '#fde68a' },
     { label: 'Waitlisted',      value: waitlisted.length,      bg: '#ede9fe', color: '#5b21b6', border: '#ddd6fe' },
     { label: 'Declined',        value: declined.length,        bg: '#fee2e2', color: '#991b1b', border: '#fecaca' },

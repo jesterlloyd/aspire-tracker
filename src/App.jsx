@@ -152,17 +152,20 @@ function MainApp({ onLogout }) {
   // ── Matching ──────────────────────────────────────────────────────
   const createMatch = async (student, unit) => {
     if (!activeCohortId) return
+    const match_quality = unit.unit_name === student.unit_preference_1 ? 'top_choice'
+      : unit.unit_name === student.unit_preference_2 ? 'second_choice'
+      : 'other'
     const { data: m, error } = await supabase.from('matches')
-      .insert({ student_id: student.id, unit_id: unit.id, cohort_id: activeCohortId })
+      .insert({ student_id: student.id, unit_id: unit.id, cohort_id: activeCohortId, match_quality })
       .select().single()
     if (error) { console.error(error); return }
     const newRemaining = Math.max(0, unit.slots_remaining - 1)
     await supabase.from('students')
-      .update({ matched_unit_id: unit.id, interview_outcome: 'Accepted' }).eq('id', student.id)
+      .update({ matched_unit_id: unit.id, interview_outcome: 'Accepted', match_quality }).eq('id', student.id)
     await supabase.from('units').update({ slots_remaining: newRemaining }).eq('id', unit.id)
     setMatches(prev => [...prev, m])
     setStudents(prev => prev.map(s =>
-      s.id === student.id ? { ...s, matched_unit_id: unit.id, interview_outcome: 'Accepted' } : s
+      s.id === student.id ? { ...s, matched_unit_id: unit.id, interview_outcome: 'Accepted', match_quality } : s
     ))
     setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, slots_remaining: newRemaining } : u))
   }
@@ -171,14 +174,14 @@ function MainApp({ onLogout }) {
     const match = matches.find(m => m.student_id === student.id && m.unit_id === unit.id)
     if (match) await supabase.from('matches').delete().eq('id', match.id)
     await supabase.from('students')
-      .update({ matched_unit_id: null, matched_preceptor: '', shift_assigned: '', interview_outcome: 'Pending Interview' })
+      .update({ matched_unit_id: null, matched_preceptor: '', shift_assigned: '', interview_outcome: 'Pending Interview', match_quality: null })
       .eq('id', student.id)
     const newRemaining = unit.slots_remaining + 1
     await supabase.from('units').update({ slots_remaining: newRemaining }).eq('id', unit.id)
     if (match) setMatches(prev => prev.filter(m => m.id !== match.id))
     setStudents(prev => prev.map(s =>
       s.id === student.id
-        ? { ...s, matched_unit_id: null, matched_preceptor: '', shift_assigned: '', interview_outcome: 'Pending Interview' }
+        ? { ...s, matched_unit_id: null, matched_preceptor: '', shift_assigned: '', interview_outcome: 'Pending Interview', match_quality: null }
         : s
     ))
     setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, slots_remaining: newRemaining } : u))

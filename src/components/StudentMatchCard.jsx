@@ -65,13 +65,10 @@ export default function StudentMatchCard({
         </div>
       )}
 
-      {prefs.length > 0 && (
-        <ol className="smc-prefs">
-          {prefs.map((p, i) => (
-            <li key={i} className="smc-pref-item">{p}</li>
-          ))}
-        </ol>
-      )}
+      <div className="smc-pref-pills">
+        <PrefPill rank="1st" name={student.unit_preference_1} />
+        <PrefPill rank="2nd" name={student.unit_preference_2} />
+      </div>
 
       {student.matched_unit_id && (
         <div className="smc-matched">✓ Matched</div>
@@ -84,4 +81,10 @@ export default function StudentMatchCard({
       )}
     </div>
   )
+}
+
+function PrefPill({ rank, name }) {
+  return name
+    ? <span className="smc-pref-pill"><span className="smc-pref-rank">{rank}:</span> {name}</span>
+    : <span className="smc-pref-pill smc-pref-unset"><span className="smc-pref-rank">{rank}:</span> Not set</span>
 }
