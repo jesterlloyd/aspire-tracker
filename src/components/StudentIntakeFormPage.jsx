@@ -66,6 +66,8 @@ export default function StudentIntakeFormPage() {
 
   const set        = (k, v) => setForm(p => ({ ...p, [k]: v }))
   const toggleRole = r => setForm(p => ({ ...p, exp_roles: { ...p.exp_roles, [r]: !p.exp_roles[r] } }))
+  const getPopulation = unitName =>
+    unitName ? (unitPopMap[unitName] || PATIENT_POPULATIONS[unitName] || null) : null
 
   const handleSubmit = async e => {
     e.preventDefault()
@@ -435,7 +437,9 @@ export default function StudentIntakeFormPage() {
                     <option value="">Select a unit…</option>
                     {availableUnits.map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
-                  {(() => { const p = unitPopMap[form.unit_preference_1] || PATIENT_POPULATIONS[form.unit_preference_1]; return p && form.unit_preference_1 ? <p style={{ fontSize: 13, color: '#6b7280', fontStyle: 'italic', marginTop: 4 }}>{p}</p> : null })()}
+                  {getPopulation(form.unit_preference_1) && (
+                    <p className="uf-unit-pop">{getPopulation(form.unit_preference_1)}</p>
+                  )}
                 </div>
                 <div className="uf-field">
                   <label className="uf-label">Second Preference (optional)</label>
@@ -451,7 +455,9 @@ export default function StudentIntakeFormPage() {
                     {availableUnits.filter(u => u !== form.unit_preference_1)
                       .map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
-                  {(() => { const p = unitPopMap[form.unit_preference_2] || PATIENT_POPULATIONS[form.unit_preference_2]; return p && form.unit_preference_2 ? <p style={{ fontSize: 13, color: '#6b7280', fontStyle: 'italic', marginTop: 4 }}>{p}</p> : null })()}
+                  {getPopulation(form.unit_preference_2) && (
+                    <p className="uf-unit-pop">{getPopulation(form.unit_preference_2)}</p>
+                  )}
                 </div>
                 <div className="uf-field">
                   <label className="uf-label">Third Preference (optional)</label>
@@ -461,7 +467,9 @@ export default function StudentIntakeFormPage() {
                     {availableUnits.filter(u => u !== form.unit_preference_1 && u !== form.unit_preference_2)
                       .map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
-                  {(() => { const p = unitPopMap[form.unit_preference_3] || PATIENT_POPULATIONS[form.unit_preference_3]; return p && form.unit_preference_3 ? <p style={{ fontSize: 13, color: '#6b7280', fontStyle: 'italic', marginTop: 4 }}>{p}</p> : null })()}
+                  {getPopulation(form.unit_preference_3) && (
+                    <p className="uf-unit-pop">{getPopulation(form.unit_preference_3)}</p>
+                  )}
                 </div>
               </>
             )}

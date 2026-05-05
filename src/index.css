@@ -1077,6 +1077,8 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* ================================================================
    PUBLIC FORM INFO BOX
    ================================================================ */
+.uf-unit-pop { font-size: 13px; color: #6b7280; font-style: italic; margin-top: 4px; line-height: 1.4; }
+
 .uf-info-box {
   background: var(--marina); border-left: 3px solid var(--nightfall);
   border-radius: 0 4px 4px 0; padding: 12px 14px;

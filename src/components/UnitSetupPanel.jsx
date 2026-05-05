@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { UNIT_ROSTER, SHIFT_OPTIONS, PATIENT_POPULATIONS } from '../lib/constants'
+import { UNIT_ROSTER, SHIFT_OPTIONS, PATIENT_POPULATIONS, UNIT_DIVISION_MAP } from '../lib/constants'
 
 function buildInitialSetup(currentUnits) {
   const setup = {}
@@ -52,6 +52,7 @@ export default function UnitSetupPanel({ cohortId, currentUnits, students, onSav
           preceptors:         cfg.preceptors,
           considerations:     cfg.considerations,
           patient_population: cfg.patient_population || PATIENT_POPULATIONS[unitName] || '',
+          division:           UNIT_DIVISION_MAP[unitName] || '',
           is_participating:   true,
           cohort_id:          cohortId,
         }

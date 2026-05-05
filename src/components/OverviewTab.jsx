@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP } from '../lib/constants'
 
-const DIVISIONS = ['Surgical Division', 'Medical Division', 'Critical Care Division', 'Specialty']
+// Matches the 'division' column values written by fix_divisions.sql
+const DIVISIONS = ['Surgical', 'Medical', 'Critical Care', 'Specialty']
 
 const FORM_SUBJECT = 'Complete Your ASPIRE Intake Form | Cedars-Sinai'
 const buildFormBody = (recipientName = 'ASPIRE Student') =>
@@ -45,11 +46,11 @@ export default function OverviewTab({ students, units, onStudentUpdate }) {
     setTimeout(() => setToast(null), 3000)
   }
 
-  // Unit Supply — exact division lookup
+  // Unit Supply — prefer the 'division' column from Supabase, fall back to constants map
   const unitsByDiv = {}
   DIVISIONS.forEach(d => { unitsByDiv[d] = [] })
   participating.forEach(u => {
-    const div = UNIT_DIVISION_MAP[u.unit_name] || 'Medical Division'
+    const div = u.division || UNIT_DIVISION_MAP[u.unit_name] || 'Medical'
     if (!unitsByDiv[div]) unitsByDiv[div] = []
     unitsByDiv[div].push(u)
   })

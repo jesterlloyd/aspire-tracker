@@ -133,27 +133,27 @@ export const PATIENT_POPULATIONS = {
   'Float Pool': 'Float Pool',
 }
 
-// Static reverse lookup: unit_name -> division name (explicit to avoid initialization issues)
+// Reverse lookup: unit_name -> division (matches the 'division' column values in Supabase)
 export const UNIT_DIVISION_MAP = {
-  '7NE': 'Surgical Division',  '7NW': 'Surgical Division',
-  '8SE': 'Surgical Division',  '8SW': 'Surgical Division',
-  '8NE': 'Surgical Division',  '8NW': 'Surgical Division',
-  'ACUs': 'Surgical Division',
+  '7NE': 'Surgical',  '7NW': 'Surgical',
+  '8SE': 'Surgical',  '8SW': 'Surgical',
+  '8NE': 'Surgical',  '8NW': 'Surgical',
+  'ACUs': 'Surgical',
 
-  '3SE': 'Medical Division',   '3SW': 'Medical Division',
-  '4SE': 'Medical Division',   '4SW': 'Medical Division',
-  '4NE/4NW': 'Medical Division',
-  '5SE': 'Medical Division',   '5SW': 'Medical Division',
-  '5NE': 'Medical Division',   '5NW': 'Medical Division',
-  '6SE': 'Medical Division',   '6SW': 'Medical Division',
-  '7SE': 'Medical Division',   '7SW': 'Medical Division',
+  '3SE': 'Medical',   '3SW': 'Medical',
+  '4SE': 'Medical',   '4SW': 'Medical',
+  '4NE/4NW': 'Medical',
+  '5SE': 'Medical',   '5SW': 'Medical',
+  '5NE': 'Medical',   '5NW': 'Medical',
+  '6SE': 'Medical',   '6SW': 'Medical',
+  '7SE': 'Medical',   '7SW': 'Medical',
 
-  '6NE': 'Critical Care Division', '6NW': 'Critical Care Division',
-  '3SCCT': 'Critical Care Division', '4SCCT': 'Critical Care Division',
-  '5SCCT': 'Critical Care Division', '6SCCT': 'Critical Care Division',
-  '7SCCT': 'Critical Care Division', '8SCCT': 'Critical Care Division',
-  'CMC':   'Critical Care Division', 'MSCCT': 'Critical Care Division',
-  '6SE PFT': 'Critical Care Division', '6NE ABG': 'Critical Care Division',
+  '6NE': 'Critical Care', '6NW': 'Critical Care',
+  '3SCCT': 'Critical Care', '4SCCT': 'Critical Care',
+  '5SCCT': 'Critical Care', '6SCCT': 'Critical Care',
+  '7SCCT': 'Critical Care', '8SCCT': 'Critical Care',
+  'CMC':   'Critical Care', 'MSCCT': 'Critical Care',
+  '6SE PFT': 'Critical Care', '6NE ABG': 'Critical Care',
 
   'Labor and Delivery': 'Specialty', 'PACU': 'Specialty',
   'NICU': 'Specialty', 'PICU': 'Specialty',
