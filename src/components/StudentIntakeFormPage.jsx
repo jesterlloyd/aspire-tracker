@@ -119,33 +119,51 @@ export default function StudentIntakeFormPage() {
     setSubmitting(true)
     setError(null)
 
-    const emailInput = form.school_email.trim()
-
-    // Case-insensitive lookup by school_email first
-    const { data: bySchoolEmail } = await supabase.from('students')
+    // Step 1: Get the accepting cohort fresh at submit time
+    const { data: acceptingCohort } = await supabase
+      .from('cohorts')
       .select('id')
-      .eq('cohort_id', cohortId)
-      .ilike('school_email', emailInput)
-      .limit(1).maybeSingle()
+      .eq('accepting_submissions', true)
+      .maybeSingle()
 
-    // Fallback: search by personal_email if school_email lookup found nothing
-    let student = bySchoolEmail
-    if (!student) {
-      const { data: byPersonalEmail } = await supabase.from('students')
-        .select('id')
-        .eq('cohort_id', cohortId)
-        .ilike('personal_email', emailInput)
-        .limit(1).maybeSingle()
-      student = byPersonalEmail
+    if (!acceptingCohort) {
+      setError('This form is not currently accepting submissions. Please contact the ASPIRE team.')
+      setSubmitting(false)
+      return
     }
 
-    if (!student) {
+    // Step 2: Look up student by school_email (case-insensitive, trimmed)
+    const cleanEmail = form.school_email.trim().toLowerCase()
+
+    const { data: studentBySchool } = await supabase
+      .from('students')
+      .select('*')
+      .eq('cohort_id', acceptingCohort.id)
+      .ilike('school_email', cleanEmail)
+      .maybeSingle()
+
+    // Step 3: If not found by school_email, try personal_email as fallback
+    let foundStudent = studentBySchool
+    if (!foundStudent) {
+      const { data: studentByPersonal } = await supabase
+        .from('students')
+        .select('*')
+        .eq('cohort_id', acceptingCohort.id)
+        .ilike('personal_email', cleanEmail)
+        .maybeSingle()
+      foundStudent = studentByPersonal
+    }
+
+    // Step 4: If still not found, show the error message
+    if (!foundStudent) {
       setError('We could not find your information in our system for the current cycle. Please contact the ASPIRE team to confirm your school email on file.')
       setSubmitting(false)
       return
     }
 
-    const studentId = student.id
+    // Step 5: Proceed with updating the found student record
+    const studentId     = foundStudent.id
+    const activeCohortId = acceptingCohort.id
 
     // Upload files if provided
     let resume_url = ''
@@ -153,7 +171,7 @@ export default function StudentIntakeFormPage() {
 
     if (resumeFile) {
       const ext = resumeFile.name.split('.').pop()
-      const path = `${cohortId}/${studentId}/resume.${ext}`
+      const path = `${activeCohortId}/${studentId}/resume.${ext}`
       const { error: uploadErr } = await supabase.storage
         .from('student-files').upload(path, resumeFile, { upsert: true, contentType: resumeFile.type })
       if (!uploadErr) {
@@ -163,7 +181,7 @@ export default function StudentIntakeFormPage() {
     }
     if (headshotFile) {
       const ext = headshotFile.name.split('.').pop()
-      const path = `${cohortId}/${studentId}/headshot.${ext}`
+      const path = `${activeCohortId}/${studentId}/headshot.${ext}`
       const { error: uploadErr } = await supabase.storage
         .from('student-files').upload(path, headshotFile, { upsert: true, contentType: headshotFile.type })
       if (!uploadErr) {
