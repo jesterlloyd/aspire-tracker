@@ -119,7 +119,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
   const persist = async (updates) => {
     setSaveStatus('saving')
-    const payload = { ...updates, composite_score: (updates.cj_score ?? form.cj_score || 0) + (updates.pp_score ?? form.pp_score || 0) + (updates.ga_score ?? form.ga_score || 0), updated_at: new Date().toISOString() }
+    const payload = { ...updates, composite_score: (updates.cj_score ?? (form.cj_score || 0)) + (updates.pp_score ?? (form.pp_score || 0)) + (updates.ga_score ?? (form.ga_score || 0)), updated_at: new Date().toISOString() }
     let id = rubricId
     if (!id) {
       if (!form.interviewer_name) { setSaveStatus('idle'); return }
