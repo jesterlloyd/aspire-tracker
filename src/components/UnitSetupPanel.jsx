@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { UNIT_ROSTER, SHIFT_OPTIONS, PATIENT_POPULATIONS, UNIT_DIVISION_MAP } from '../lib/constants'
+import { UNITS_BY_DIVISION, SHIFT_OPTIONS, PATIENT_POPULATION_MAP, UNIT_DIVISION_MAP } from '../lib/constants'
 
 function buildInitialSetup(currentUnits) {
   const setup = {}
-  for (const units of Object.values(UNIT_ROSTER)) {
+  for (const units of Object.values(UNITS_BY_DIVISION)) {
     for (const name of units) {
       const ex = currentUnits.find(u => u.unit_name === name)
       setup[name] = {
@@ -14,7 +14,7 @@ function buildInitialSetup(currentUnits) {
         contact:            ex?.contact_person     ?? '',
         preceptors:         ex?.preceptors         ?? '',
         considerations:     ex?.considerations     ?? '',
-        patient_population: ex?.patient_population ?? PATIENT_POPULATIONS[name] ?? '',
+        patient_population: ex?.patient_population ?? PATIENT_POPULATION_MAP[name] ?? '',
         showConsiderations: !!(ex?.considerations),
         existingId:         ex?.id                 ?? null,
       }
@@ -51,7 +51,7 @@ export default function UnitSetupPanel({ cohortId, currentUnits, students, onSav
           shift_preference:   cfg.shift,
           preceptors:         cfg.preceptors,
           considerations:     cfg.considerations,
-          patient_population: cfg.patient_population || PATIENT_POPULATIONS[unitName] || '',
+          patient_population: cfg.patient_population || PATIENT_POPULATION_MAP[unitName] || '',
           division:           UNIT_DIVISION_MAP[unitName] || '',
           is_participating:   true,
           cohort_id:          cohortId,
@@ -94,13 +94,13 @@ export default function UnitSetupPanel({ cohortId, currentUnits, students, onSav
         {error && <div className="error-msg" style={{ margin: '0 24px 16px' }}>{error}</div>}
 
         <div className="fsp-body">
-          {Object.entries(UNIT_ROSTER).map(([division, units]) => (
+          {Object.entries(UNITS_BY_DIVISION).map(([division, units]) => (
             <div key={division} className="usp-division">
               <div className="usp-division-label">{division}</div>
               <div className="usp-unit-list">
                 {units.map(unitName => {
                   const cfg = setup[unitName] || {}
-                  const pop = PATIENT_POPULATIONS[unitName]
+                  const pop = PATIENT_POPULATION_MAP[unitName]
                   return (
                     <div key={unitName} className={`usp-unit-row${cfg.checked ? ' usp-checked' : ''}`}>
                       <label className="usp-checkbox-label">

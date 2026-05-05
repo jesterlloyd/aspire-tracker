@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import {
-  SCHOOLS, UNITS_BY_DIVISION, ASPIRE_STATUSES, NGRP_OUTCOMES, COHORTS,
-  INTERVIEW_OUTCOMES, SHIFT_OPTIONS, UNIT_NAMES,
+  SCHOOLS, ASPIRE_STATUSES, NGRP_OUTCOMES, COHORTS,
+  INTERVIEW_OUTCOMES, SHIFT_OPTIONS,
 } from '../lib/constants'
 import { displayName } from '../lib/utils'
 import { supabase } from '../lib/supabase'

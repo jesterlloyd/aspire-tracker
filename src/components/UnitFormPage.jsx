@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { UNIT_ROSTER, PATIENT_POPULATION_MAP } from '../lib/constants'
+import { UNITS_BY_DIVISION, PATIENT_POPULATION_MAP } from '../lib/constants'
 
 const PAGE_TITLE = 'ASPIRE Program: Unit Availability Form'
 
@@ -133,7 +133,7 @@ export default function UnitFormPage() {
               <select className="uf-input" value={form.unit_name}
                 onChange={e => set('unit_name', e.target.value)}>
                 <option value="">Select your unit or department…</option>
-                {Object.entries(UNIT_ROSTER).map(([division, units]) => (
+                {Object.entries(UNITS_BY_DIVISION).map(([division, units]) => (
                   <optgroup key={division} label={division}>
                     {units.map(u => {
                       const desc = PATIENT_POPULATION_MAP[u]
