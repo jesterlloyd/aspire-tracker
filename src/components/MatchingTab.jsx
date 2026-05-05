@@ -1,18 +1,23 @@
 import { useState } from 'react'
-import PipelineUnitCard from './PipelineUnitCard'
+import EmbedUnitCard from './EmbedUnitCard'
 import StudentMatchCard from './StudentMatchCard'
 import UnitSetupPanel from './UnitSetupPanel'
 import ImportUnitsCSV from './ImportUnitsCSV'
+import { UNIT_DIVISION_MAP } from '../lib/constants'
 
 export default function MatchingTab({
   students, units, matches, cohortId,
   onMatch, onUnmatch, onUpdateMatch, onRefreshUnits, onDeleteUnit,
 }) {
-  const [selectedStudent, setSelectedStudent] = useState(null)
-  const [showUnitSetup,   setShowUnitSetup]   = useState(false)
-  const [showImportUnits, setShowImportUnits] = useState(false)
-  const [poolSearch,      setPoolSearch]      = useState('')
-  const [poolSchool,      setPoolSchool]      = useState('')
+  const [selectedStudent,   setSelectedStudent]   = useState(null)
+  const [showUnitSetup,     setShowUnitSetup]     = useState(false)
+  const [showImportUnits,   setShowImportUnits]   = useState(false)
+  const [poolSearch,        setPoolSearch]        = useState('')
+  const [poolSchool,        setPoolSchool]        = useState('')
+  const [divFilter,         setDivFilter]         = useState('')
+  const [sortMode,          setSortMode]          = useState('alpha')
+  const [fadingStudentIds,  setFadingStudentIds]  = useState(new Set())
+  const [fadeInStudentIds,  setFadeInStudentIds]  = useState(new Set())
 
   const participating   = units.filter(u => u.is_participating)
   const totalSlots      = participating.reduce((s, u) => s + u.total_slots,     0)
@@ -21,12 +26,6 @@ export default function MatchingTab({
   const matchedStudents = students.filter(s =>  s.matched_unit_id)
   const unmatchedAll    = students.filter(s => !s.matched_unit_id)
   const poolSchools     = [...new Set(students.map(s => s.school).filter(Boolean))].sort()
-
-  const filteredPool = unmatchedAll.filter(s => {
-    if (poolSearch && !`${s.first_name||''} ${s.last_name||''} ${s.name||''}`.toLowerCase().includes(poolSearch.toLowerCase())) return false
-    if (poolSchool && s.school !== poolSchool) return false
-    return true
-  })
 
   const perfectMatches = matchedStudents.filter(s => {
     const u = units.find(u => u.id === s.matched_unit_id)
@@ -37,12 +36,61 @@ export default function MatchingTab({
     return u && s.unit_preference_2 === u.unit_name
   }).length
 
+  // Filter + sort units
+  let displayUnits = [...participating]
+  if (divFilter) {
+    displayUnits = displayUnits.filter(u =>
+      (u.division || UNIT_DIVISION_MAP[u.unit_name] || 'Medical') === divFilter
+    )
+  }
+  if (sortMode === 'alpha') {
+    displayUnits.sort((a, b) => a.unit_name.localeCompare(b.unit_name))
+  } else if (sortMode === 'division') {
+    displayUnits.sort((a, b) => {
+      const da = a.division || UNIT_DIVISION_MAP[a.unit_name] || 'Medical'
+      const db = b.division || UNIT_DIVISION_MAP[b.unit_name] || 'Medical'
+      return da.localeCompare(db) || a.unit_name.localeCompare(b.unit_name)
+    })
+  } else if (sortMode === 'most-available') {
+    displayUnits.sort((a, b) => b.slots_remaining - a.slots_remaining)
+  }
+
+  // Pool: include fading-out students temporarily for exit animation
+  const poolBase = [
+    ...unmatchedAll,
+    ...students.filter(s => fadingStudentIds.has(s.id) && s.matched_unit_id),
+  ]
+  const filteredPool = poolBase.filter(s => {
+    if (fadingStudentIds.has(s.id)) return true // always show during exit animation
+    if (poolSearch && !`${s.first_name||''} ${s.last_name||''} ${s.name||''}`.toLowerCase().includes(poolSearch.toLowerCase())) return false
+    if (poolSchool && s.school !== poolSchool) return false
+    return true
+  })
+
   const handleStudentSelect = s => setSelectedStudent(prev => prev?.id === s.id ? null : s)
 
-  const handleDotClick = unit => {
+  const handleSlotClick = unit => {
     if (!selectedStudent) return
+    const id = selectedStudent.id
+    // Start exit animation
+    setFadingStudentIds(prev => new Set([...prev, id]))
+    setTimeout(() => {
+      setFadingStudentIds(prev => { const n = new Set(prev); n.delete(id); return n })
+    }, 280)
     onMatch(selectedStudent, unit)
     setSelectedStudent(null)
+  }
+
+  const handleUnmatch = (student, unit) => {
+    onUnmatch(student, unit)
+    // Fade-in when student returns to pool
+    const id = student.id
+    setTimeout(() => {
+      setFadeInStudentIds(prev => new Set([...prev, id]))
+      setTimeout(() => {
+        setFadeInStudentIds(prev => { const n = new Set(prev); n.delete(id); return n })
+      }, 450)
+    }, 80)
   }
 
   const exportCSV = () => {
@@ -56,81 +104,85 @@ export default function MatchingTab({
         unit?.contact_person || '', match?.notes || '']
     })
     const csv = [headers,...rows].map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n')
-    const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'})
-    const url = URL.createObjectURL(blob)
+    const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'}); const url = URL.createObjectURL(blob)
     const a = document.createElement('a'); a.href=url; a.download=`aspire-matches-${new Date().toISOString().slice(0,10)}.csv`; a.click()
     URL.revokeObjectURL(url)
   }
 
   const summaryStats = [
-    { label: 'Total Slots',     value: totalSlots,             bg: '#ffffff', color: '#1d2567', border: '#d1d5db' },
-    { label: 'Slots Remaining', value: slotsRemaining,         bg: '#dceff8', color: '#1d2567', border: '#b8d8eb' },
-    { label: 'Students',        value: students.length,        bg: '#f4f1ec', color: '#191919', border: '#d4cfc8' },
-    { label: 'Matched',         value: matchedStudents.length, bg: '#dcfce7', color: '#166534', border: '#a7f3d0' },
-    { label: 'Perfect Matches', value: perfectMatches,         bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
-    { label: '2nd Choice',      value: secondChoiceMatches,    bg: '#fefce8', color: '#ca8a04', border: '#fde68a' },
-    { label: 'Unmatched',       value: unmatchedAll.length,    bg: '#fef3c7', color: '#92400e', border: '#fde68a' },
+    { label:'Total Slots',     value:totalSlots,             bg:'#ffffff', color:'#1d2567', border:'#d1d5db' },
+    { label:'Slots Remaining', value:slotsRemaining,         bg:'#dceff8', color:'#1d2567', border:'#b8d8eb' },
+    { label:'Students',        value:students.length,        bg:'#f4f1ec', color:'#191919', border:'#d4cfc8' },
+    { label:'Matched',         value:matchedStudents.length, bg:'#dcfce7', color:'#166534', border:'#a7f3d0' },
+    { label:'Perfect Matches', value:perfectMatches,         bg:'#f0fdf4', color:'#16a34a', border:'#bbf7d0' },
+    { label:'2nd Choice',      value:secondChoiceMatches,    bg:'#fefce8', color:'#ca8a04', border:'#fde68a' },
+    { label:'Unmatched',       value:unmatchedAll.length,    bg:'#fef3c7', color:'#92400e', border:'#fde68a' },
   ]
 
   return (
-    <div className="matching-tab pipeline-board">
+    <div className="matching-tab embed-tab">
 
       {/* ── Summary banner ── */}
-      <div className="match-summary pipeline-banner">
+      <div className="match-summary embed-banner">
         {summaryStats.map(s => (
-          <div key={s.label} className="match-stat-card" style={{ background: s.bg, borderColor: s.border }}>
-            <div className="match-stat-value" style={{ color: s.color }}>{s.value}</div>
-            <div className="match-stat-label" style={{ color: s.color }}>{s.label}</div>
+          <div key={s.label} className="match-stat-card" style={{ background:s.bg, borderColor:s.border }}>
+            <div className="match-stat-value" style={{ color:s.color }}>{s.value}</div>
+            <div className="match-stat-label" style={{ color:s.color }}>{s.label}</div>
           </div>
         ))}
       </div>
 
-      {/* ── Pipeline zones ── */}
-      <div className="pipeline-zones-container">
+      {/* ── Matching board ── */}
+      <div className="embed-board">
 
-        {/* ── Zone 1: Unit Board ── */}
-        <div className="pipeline-zone pipeline-units-zone">
-          <div className="pipeline-zone-header">
-            <div className="pzh-left">
-              <span className="pzh-title">Units</span>
-              <span className="pzh-badge" style={{ background:'var(--marina)', color:'var(--nightfall)' }}>
-                {totalSlots} slots available
-              </span>
-              <span className="pzh-badge" style={{ background:'#dcfce7', color:'#166534' }}>
-                {unitsWithOpen} open
-              </span>
+        {/* ── Left: Units panel ── */}
+        <div className="embed-units-panel">
+          <div className="embed-units-header">
+            <div className="embed-uh-left">
+              <span className="embed-panel-title">Units</span>
+              <span className="embed-badge-marina">{totalSlots} slots available</span>
+              <span className="embed-badge-green">{unitsWithOpen} open</span>
             </div>
-            <div className="pzh-right">
-              <button className="btn btn-primary" style={{ fontSize:12, padding:'5px 12px' }} onClick={() => setShowUnitSetup(true)}>
+            <div className="embed-uh-right">
+              <select className="embed-ctrl-select" value={divFilter} onChange={e => setDivFilter(e.target.value)}>
+                <option value="">All Divisions</option>
+                <option value="Surgical">Surgical</option>
+                <option value="Medical">Medical</option>
+                <option value="Critical Care">Critical Care</option>
+                <option value="Specialty">Specialty</option>
+              </select>
+              <select className="embed-ctrl-select" value={sortMode} onChange={e => setSortMode(e.target.value)}>
+                <option value="alpha">A–Z</option>
+                <option value="division">By Division</option>
+                <option value="most-available">Most Available</option>
+              </select>
+              <button className="btn btn-primary" style={{ fontSize:12, padding:'5px 11px' }} onClick={() => setShowUnitSetup(true)}>
                 ⚙ Set Up Units
               </button>
-              <button className="btn btn-outline-modal" style={{ fontSize:12, padding:'5px 12px', background:'#fff' }} onClick={() => setShowImportUnits(true)}>
-                ↑ Import CSV
-              </button>
-              <button className="btn btn-outline-modal" style={{ fontSize:12, padding:'5px 12px', background:'#fff' }} onClick={exportCSV}>
-                ↓ Export Matches
+              <button className="btn btn-outline-modal" style={{ fontSize:12, padding:'5px 11px', background:'#fff' }} onClick={exportCSV}>
+                ↓ Export CSV
               </button>
             </div>
           </div>
 
-          <div className="pipeline-zone-body">
+          <div className="embed-units-body">
             {participating.length === 0 ? (
               <div className="state-box" style={{ margin:16 }}>
                 <p>No participating units set up for this cohort.</p>
-                <p style={{ fontSize:13, color:'#64748b', marginTop:6 }}>
-                  Click "Set Up Units" to get started.
-                </p>
+                <p style={{ fontSize:13, color:'#64748b', marginTop:6 }}>Click "Set Up Units" to get started.</p>
               </div>
             ) : (
-              <div className="pipeline-unit-grid">
-                {participating.map(unit => (
-                  <PipelineUnitCard
+              <div className="embed-unit-grid">
+                {displayUnits.map(unit => (
+                  <EmbedUnitCard
                     key={unit.id}
                     unit={unit}
                     matchedStudents={students.filter(s => s.matched_unit_id === unit.id)}
+                    matches={matches}
                     selectedStudent={selectedStudent}
-                    onDotClick={() => handleDotClick(unit)}
-                    onUnmatch={student => onUnmatch(student, unit)}
+                    onSlotClick={() => handleSlotClick(unit)}
+                    onUnmatch={student => handleUnmatch(student, unit)}
+                    onUpdateMatch={onUpdateMatch}
                     onDelete={() => onDeleteUnit(unit)}
                   />
                 ))}
@@ -139,69 +191,48 @@ export default function MatchingTab({
           </div>
         </div>
 
-        {/* ── Divider ── */}
-        <div className="pipeline-divider">
-          <span className="pipeline-divider-label">▲ Units &nbsp;&nbsp; ▼ Students</span>
-        </div>
-
-        {/* ── Zone 2: Student Pool ── */}
-        <div className="pipeline-zone pipeline-students-zone">
-          <div className="pipeline-zone-header pipeline-zone-header-dark">
-            <span className="pzh-title-light">Student Pool</span>
-            <div className="pzh-search-group">
+        {/* ── Right: Student pool ── */}
+        <div className="embed-students-panel">
+          <div className="embed-students-header">
+            <span className="embed-pool-title">Student Pool</span>
+            <div className="embed-pool-filters">
               <input
-                className="pipeline-search-input"
+                className="embed-pool-search"
                 placeholder="Search by name…"
                 value={poolSearch}
                 onChange={e => setPoolSearch(e.target.value)}
               />
-              <select
-                className="pipeline-school-select"
-                value={poolSchool}
-                onChange={e => setPoolSchool(e.target.value)}
-              >
+              <select className="embed-pool-school" value={poolSchool} onChange={e => setPoolSchool(e.target.value)}>
                 <option value="">All Schools</option>
                 {poolSchools.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
-            <span className="pzh-count-light">
-              {filteredPool.length !== unmatchedAll.length
-                ? `Showing ${filteredPool.length} of ${unmatchedAll.length}`
-                : `${unmatchedAll.length} unmatched`}
-            </span>
+            <span className="embed-pool-count">{unmatchedAll.length} unmatched</span>
           </div>
 
-          <div className="pipeline-zone-body">
-            {selectedStudent && (
-              <div className="pipeline-selection-banner">
-                <span>
-                  Placing <strong>{selectedStudent.first_name || selectedStudent.name}</strong> — click an empty dot on a unit above
-                </span>
-                <button className="btn-cancel-select" onClick={() => setSelectedStudent(null)}>Cancel</button>
+          <div className="embed-students-body">
+            {filteredPool.length === 0 ? (
+              <div className="pool-empty" style={{ padding:32, textAlign:'center' }}>
+                {unmatchedAll.length === 0
+                  ? 'All students have been matched.'
+                  : 'No students match the current filter.'}
               </div>
-            )}
-            <div className="pipeline-student-grid">
-              {filteredPool.length === 0 ? (
-                <div className="pool-empty" style={{ gridColumn:'1/-1' }}>
-                  {unmatchedAll.length === 0
-                    ? 'All students have been matched.'
-                    : 'No students match the current filter.'}
-                </div>
-              ) : (
-                filteredPool.map(s => (
+            ) : (
+              <div className="embed-student-list">
+                {filteredPool.map(s => (
                   <StudentMatchCard
                     key={s.id}
                     student={s}
-                    units={units}
                     isSelected={selectedStudent?.id === s.id}
                     onSelect={handleStudentSelect}
+                    isFading={fadingStudentIds.has(s.id)}
+                    isFadingIn={fadeInStudentIds.has(s.id)}
                   />
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-
       </div>
 
       {showUnitSetup && (

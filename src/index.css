@@ -1419,6 +1419,170 @@ a.doc-file-link:hover { text-decoration: underline; }
 .am-summary-date  { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
 
 /* ================================================================
+   EMBED TAB — MATCHING BOARD
+   ================================================================ */
+
+/* Outer container: fill viewport minus top section */
+.embed-tab {
+  display: flex; flex-direction: column;
+  height: calc(100vh - 194px); min-height: 500px;
+}
+.embed-banner { flex-shrink: 0; }
+
+/* Two-panel board */
+.embed-board {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: row;
+  border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;
+}
+
+/* ── Units panel (left, 58%) ── */
+.embed-units-panel {
+  flex: 58; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column;
+  border-right: 1px solid #e5e7eb;
+}
+.embed-units-header {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 16px;
+  background: #f4f1ec; border-bottom: 1px solid #e5e7eb;
+}
+.embed-uh-left  { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.embed-uh-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
+.embed-panel-title { font-size: 15px; font-weight: 700; color: var(--nightfall); white-space: nowrap; }
+.embed-badge-marina { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 20px; background: var(--marina); color: var(--nightfall); white-space: nowrap; }
+.embed-badge-green  { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 20px; background: #dcfce7; color: #166534; white-space: nowrap; }
+.embed-ctrl-select {
+  padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px;
+  font-size: 12px; color: var(--raven); background: #fff;
+  outline: none; cursor: pointer;
+}
+.embed-units-body { flex: 1; min-height: 0; overflow-y: auto; background: #fff; }
+.embed-unit-grid  { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 16px; }
+
+/* ── Students panel (right, 42%) ── */
+.embed-students-panel {
+  flex: 42; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column;
+}
+.embed-students-header {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px;
+  background: var(--nightfall);
+}
+.embed-pool-title   { font-size: 15px; font-weight: 700; color: var(--pearl); flex-shrink: 0; }
+.embed-pool-filters { display: flex; gap: 8px; flex: 1; }
+.embed-pool-search  {
+  flex: 1; padding: 5px 9px; border: 1px solid #4a5568; border-radius: 4px;
+  font-size: 13px; color: #191919; background: #fff; outline: none;
+}
+.embed-pool-search::placeholder { color: #9ca3af; }
+.embed-pool-search:focus { border-color: var(--nova); box-shadow: 0 0 0 2px var(--nova-tint); }
+.embed-pool-school  {
+  padding: 5px 8px; border: 1px solid #4a5568; border-radius: 4px;
+  font-size: 12px; color: #191919; background: #fff; outline: none; cursor: pointer; min-width: 100px;
+}
+.embed-pool-count   { font-size: 12px; color: var(--nova); flex-shrink: 0; white-space: nowrap; }
+.embed-students-body { flex: 1; min-height: 0; overflow-y: auto; background: var(--pearl); }
+.embed-student-list  { display: flex; flex-direction: column; gap: 10px; padding: 16px; }
+
+/* ── EmbedUnitCard ── */
+.euc-card {
+  background: #ffffff; border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  transition: box-shadow 0.15s, opacity 0.15s, background 0.15s;
+}
+.euc-header {
+  background: #1d2567; min-height: 40px; padding: 0 10px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.euc-name { font-size: 14px; font-weight: 700; color: #fff; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.euc-header-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.euc-compat-label { font-size: 11px; font-weight: 600; white-space: nowrap; }
+.euc-fill-badge   { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 20px; white-space: nowrap; }
+.euc-fill-open    { background: var(--marina); color: var(--nightfall); }
+.euc-fill-full    { background: #6b7280;       color: #ffffff; }
+.euc-del-btn { background: none; border: none; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 13px; padding: 2px 4px; border-radius: 3px; }
+.euc-del-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+.euc-slots { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+
+/* Filled slot pill */
+.euc-slot-filled {
+  background: #f0f9ff; border: 1.5px solid #0369a1;
+  border-radius: 6px; padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.euc-sf-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.euc-sf-left  { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.euc-quality-star { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; }
+.euc-sf-name  { font-size: 13px; font-weight: 600; color: var(--raven); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.euc-sf-unmatch { background: none; border: none; font-size: 14px; font-weight: 600; color: #9ca3af; cursor: pointer; padding: 0 4px; flex-shrink: 0; line-height: 1; }
+.euc-sf-unmatch:hover { color: #dc1e34; }
+.euc-sf-row { display: flex; align-items: center; gap: 6px; }
+.euc-sf-lbl    { font-size: 11px; font-weight: 500; color: #6b7280; white-space: nowrap; flex-shrink: 0; }
+.euc-sf-input  { flex: 1; padding: 3px 7px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; color: var(--raven); background: #fff; outline: none; }
+.euc-sf-input:focus { border-color: var(--nova); }
+.euc-sf-input::placeholder { color: #9ca3af; }
+.euc-sf-select { padding: 3px 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; color: var(--raven); background: #fff; outline: none; cursor: pointer; }
+
+/* Empty slot pill */
+.euc-slot-empty {
+  height: 36px; border-radius: 6px;
+  border: 1.5px dashed #1d2567; background: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 500; color: #9ca3af;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+  cursor: default;
+}
+.euc-slot-ready {
+  border-style: solid; border-color: #166534;
+  color: #166534; background: #f0fdf4; cursor: pointer;
+}
+.euc-slot-ready:hover { background: #dcfce7; }
+
+/* Tooltip */
+.euc-slot-tooltip {
+  position: absolute; bottom: calc(100% + 6px); left: 50%;
+  transform: translateX(-50%);
+  background: var(--nightfall); color: var(--pearl);
+  font-size: 12px; font-weight: 500;
+  padding: 8px 10px; border-radius: 6px;
+  white-space: nowrap; z-index: 50;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+/* Student card exit/enter animations */
+.smc-exit {
+  animation: smc-fadeout 260ms ease-out forwards;
+  pointer-events: none;
+}
+.smc-enter {
+  animation: smc-fadein 420ms ease-out;
+}
+@keyframes smc-fadeout {
+  0%   { opacity: 1; transform: scale(1);    max-height: 300px; }
+  100% { opacity: 0; transform: scale(0.95); max-height: 0; padding: 0; margin: 0; overflow: hidden; }
+}
+@keyframes smc-fadein {
+  0%   { opacity: 0; transform: scale(0.96); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Responsive — stack panels, allow page scroll */
+@media (max-width: 900px) {
+  .embed-tab   { height: auto; }
+  .embed-board { flex-direction: column; }
+  .embed-units-panel, .embed-students-panel { flex: none; min-height: 400px; }
+  .embed-units-body, .embed-students-body { overflow: visible; }
+  .embed-unit-grid { grid-template-columns: 1fr; }
+}
+
+/* ================================================================
    PIPELINE MATCHING BOARD
    ================================================================ */
 

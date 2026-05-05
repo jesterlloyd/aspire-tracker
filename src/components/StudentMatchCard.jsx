@@ -13,7 +13,9 @@ const PREF_STYLE = {
   '3rd': { background: '#f4f1ec', color: '#191919' },
 }
 
-export default function StudentMatchCard({ student, isSelected, onSelect, isReadOnly }) {
+export default function StudentMatchCard({
+  student, isSelected, onSelect, isReadOnly, isFading, isFadingIn,
+}) {
   const outcome   = student.interview_outcome || 'Pending Interview'
   const pillClass = PILL_CLASS[outcome] || 'pill-gray'
 
@@ -24,24 +26,25 @@ export default function StudentMatchCard({ student, isSelected, onSelect, isRead
 
   const isPending = outcome === 'Pending Interview' || (student.status && student.status !== 'Accepted')
 
+  const classes = [
+    'student-match-card',
+    isSelected  ? 'smc-selected'  : '',
+    isReadOnly  ? 'smc-readonly'  : '',
+    isFading    ? 'smc-exit'      : '',
+    isFadingIn  ? 'smc-enter'     : '',
+  ].filter(Boolean).join(' ')
+
   return (
     <div
-      className={[
-        'student-match-card',
-        isSelected ? 'smc-selected' : '',
-        isReadOnly ? 'smc-readonly' : '',
-      ].filter(Boolean).join(' ')}
+      className={classes}
       onClick={!isReadOnly ? () => onSelect(student) : undefined}
       role={!isReadOnly ? 'button' : undefined}
     >
-      {/* Row 1: Name + badges */}
+      {/* Row 1: Name + outcome pill */}
       <div className="smc-top">
         <span className="smc-name">{displayName(student)}</span>
         <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:3, flexShrink:0 }}>
           <span className={`interview-pill ${pillClass}`}>{outcome}</span>
-          <span style={{ background: gpaBg, color: gpaColor, fontSize:11, fontWeight:600, padding:'1px 6px', borderRadius:4 }}>
-            {gpaText}
-          </span>
           {isPending && (
             <span style={{ background:'#f3f4f6', color:'#6b7280', fontSize:10, fontWeight:600, padding:'1px 6px', borderRadius:4 }}>
               Pending
@@ -50,16 +53,21 @@ export default function StudentMatchCard({ student, isSelected, onSelect, isRead
         </div>
       </div>
 
-      {/* Row 2: School · Shift */}
-      <div className="smc-school">
-        {student.school}
-        {student.shift_availability && (
-          <span style={{ color:'#9ca3af', fontSize:11 }}> · {student.shift_availability}</span>
-        )}
+      {/* Row 2: School · Shift  |  GPA on right */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:3 }}>
+        <div className="smc-school">
+          {student.school}
+          {student.shift_availability && (
+            <span style={{ color:'#9ca3af', fontSize:11 }}> · {student.shift_availability}</span>
+          )}
+        </div>
+        <span style={{ background:gpaBg, color:gpaColor, fontSize:11, fontWeight:600, padding:'1px 6px', borderRadius:4, flexShrink:0, marginLeft:6 }}>
+          {gpaText}
+        </span>
       </div>
 
       {/* Row 3: Preference pills */}
-      <div className="smc-pref-pills">
+      <div className="smc-pref-pills" style={{ marginTop:6 }}>
         <PrefPill rank="1st" name={student.unit_preference_1} />
         <PrefPill rank="2nd" name={student.unit_preference_2} />
         <PrefPill rank="3rd" name={student.unit_preference_3} />

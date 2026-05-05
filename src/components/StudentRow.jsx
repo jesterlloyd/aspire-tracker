@@ -379,7 +379,9 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
                 <div className="form-readonly">{matchedUnitName}</div>
               </Field>
               <Field label="Matched Preceptor">
-                <div className="form-readonly">{data.matched_preceptor || '—'}</div>
+                <input className="form-input" value={data.matched_preceptor || ''}
+                  onChange={e => handleText('matched_preceptor', e.target.value)}
+                  placeholder="Assign preceptor…" />
               </Field>
               <Field label="NGRP Cohort Target">
                 <input className="form-input" value={data.ngrp_cohort_target || ''}
