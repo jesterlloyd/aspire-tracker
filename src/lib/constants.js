@@ -44,34 +44,33 @@ export const SCHOOL_DEFAULTS = {
 
 // ── Canonical unit list — single source of truth for all unit names ────────
 export const UNITS_BY_DIVISION = {
-  Surgical: [
-    '7NE/7NW',
-    '8SE',
-    '8SW',
-    '8NE',
-    '8NW',
+  'Surgical': [
+    '7 NE / 7 NW',
+    '8 SE / 8 SW',
+    '8 NE',
+    '8 NW',
     'Alternate Care Units, Clinical Decision Unit & IV Team',
   ],
-  Medical: [
-    '3SE/3SW',
-    '4SE/4SW',
-    '4NE/4NW',
-    '5SE/5SW',
-    '5NE/5NW',
-    '6SE/6SW',
-    '7SE/7SW',
+  'Medical': [
+    '3 SE / 3 SW',
+    '4 SE / 4 SW',
+    '4 NE / 4 NW',
+    '5 SE / 5 SW',
+    '5 NE / 5 NW',
+    '6 SE / 6 SW',
+    '7 SE / 7 SW',
   ],
   'Critical Care': [
-    '6NE',
-    '6NW',
-    '3SCCT',
-    '4SCCT',
-    '5SCCT',
-    '6SCCT',
-    '7SCCT',
-    '8SCCT',
+    '6 NE',
+    '6 NW',
+    '3 SCCT',
+    '4 SCCT',
+    '5 SCCT',
+    '6 SCCT',
+    '7 SCCT',
+    '8 SCCT',
   ],
-  Specialty: [
+  'Specialty': [
     'Labor and Delivery',
     'PACU',
     'NICU',
@@ -90,40 +89,41 @@ export const ALL_UNIT_NAMES = Object.values(UNITS_BY_DIVISION).flat()
 // Backward-compat alias so existing imports of UNIT_ROSTER keep working
 export const UNIT_ROSTER = UNITS_BY_DIVISION
 
-// Patient population descriptions — single source of truth
+// Patient population descriptions — single source of truth.
+// Empty string '' = no description shown (display unit name only).
 // Also acts as Layer-2 fallback when the DB patient_population column is empty.
 export const PATIENT_POPULATION_MAP = {
-  '7NE/7NW': 'Orthopedics, Surgical, Trauma',
-  '8SE': 'General Surgery, Colorectal, Urology, OB/GYN, Plastic Surgery, Gender Affirming, ENT, GYN, Trauma',
-  '8SW': 'General Surgery, Colorectal, Urology, OB/GYN, Plastic Surgery, Gender Affirming, ENT, GYN, Trauma',
-  '8NE': 'Neurosurgical, Neuro Step-down, Trauma Step-down',
-  '8NW': 'Spine Surgeries, Trauma, Lumbar Drains',
-  'Alternate Care Units, Clinical Decision Unit & IV Team': 'Medical/Surgical Overflow, Clinical Decision Unit, IV Team',
-  '3SE/3SW': 'Medical Observation Unit, Telemetry',
-  '4SE/4SW': 'Medicine, Oncology, PCU, Bone Marrow Transplants',
-  '4NE/4NW': 'Monitored, Stroke, Epilepsy, Medical, PCU',
-  '5SE/5SW': 'Medical, PCU',
-  '5NE/5NW': 'PCU, Monitored Post Cardiac Cath Care',
-  '6SE/6SW': 'Advanced Heart Failure, PCU',
-  '7SE/7SW': 'PCU, Generic Medical',
-  '6NE': 'PCU, Heart Transplant, Lung Transplant, Mechanical Circulatory Support',
-  '6NW': 'PCU, Kidney/Pancreas Transplant, Liver Transplant, Hepatobiliary, Trauma, Thoracic',
-  '3SCCT': 'Medicine Telemetry',
-  '4SCCT': 'Medicine Cardiac Care Intensive Care Unit',
-  '5SCCT': 'Surgical Trauma Transplant Intensive Care Unit',
-  '6SCCT': 'Surgical Cardiac Intensive Care Unit',
-  '7SCCT': 'Medicine Respiratory Intensive Care Unit',
-  '8SCCT': 'Neuroscience Intensive Care Unit',
-  'Labor and Delivery': 'Labor and Delivery',
+  '7 NE / 7 NW': 'Orthopedics, Surgical, Trauma',
+  '8 SE / 8 SW': 'General Surgery',
+  '8 NE': 'Neurosurgical, Neuro Step-down, Trauma Step-down',
+  '8 NW': 'Spine Surgeries, Trauma, Lumbar Drains',
+  'Alternate Care Units, Clinical Decision Unit & IV Team': '',
+  '3 SE / 3 SW': 'Medical Observation Unit, Telemetry',
+  '4 SE / 4 SW': 'Medicine, Oncology, PCU, Bone Marrow Transplants',
+  '4 NE / 4 NW': 'Monitored, Stroke, Epilepsy, Medical, PCU',
+  '5 SE / 5 SW': 'Medical, PCU, Safety Quad',
+  '5 NE / 5 NW': 'PCU, Monitored Post Cardiac Cath Care',
+  '6 SE / 6 SW': 'Advanced Heart Failure, PCU',
+  '7 SE / 7 SW': 'PCU, General Medical',
+  '6 NE': 'PCU, Heart Transplant, Lung Transplant, Mechanical Circulatory Support',
+  '6 NW': 'PCU, Kidney/Pancreas Transplant, Liver Transplant, Hepatobiliary, Trauma, Thoracic',
+  '3 SCCT': 'Medicine Telemetry',
+  '4 SCCT': 'Medicine Cardiac Care Intensive Care Unit',
+  '5 SCCT': 'Surgical Trauma Transplant Intensive Care Unit',
+  '6 SCCT': 'Surgical Cardiac Intensive Care Unit',
+  '7 SCCT': 'Medicine Respiratory Intensive Care Unit',
+  '8 SCCT': 'Neuroscience Intensive Care Unit',
+  'Labor and Delivery': '',
   'PACU': 'Post-Anesthesia Care Unit',
   'NICU': 'Neonatal Intensive Care Unit',
   'PICU': 'Pediatric Intensive Care Unit',
-  'Pediatrics': 'Pediatrics',
-  'Postpartum': 'Postpartum',
+  'Pediatrics': '',
+  'Postpartum': '',
   'Operating Room': 'Perioperative Care',
   'Emergency Department': 'Emergency and Acute Care',
-  'Float Pool': 'Float Pool',
-  // Legacy single-unit keys kept for backward-compat lookups against old DB records
+  'Float Pool': '',
+  // Legacy keys for backward-compat display of old DB records not yet migrated
+  '7NE/7NW': 'Orthopedics, Surgical, Trauma',
   '7NE': 'Orthopedics, Surgical, Trauma',
   '7NW': 'Orthopedics, Surgical, Trauma',
   '3SE': 'Medical Observation Unit, Telemetry',
@@ -145,30 +145,37 @@ export const PATIENT_POPULATION_MAP = {
 export const PATIENT_POPULATIONS = PATIENT_POPULATION_MAP
 
 // Reverse lookup: unit_name -> division (matches 'division' column in Supabase).
-// Includes both new combined names and legacy single names for loose matching.
+// Canonical spaced names first; legacy compact names kept for backward-compat.
 export const UNIT_DIVISION_MAP = {
-  '7NE/7NW': 'Surgical', '8SE': 'Surgical', '8SW': 'Surgical',
-  '8NE': 'Surgical', '8NW': 'Surgical',
+  // Canonical (spaced) names
+  '7 NE / 7 NW': 'Surgical', '8 SE / 8 SW': 'Surgical',
+  '8 NE': 'Surgical', '8 NW': 'Surgical',
   'Alternate Care Units, Clinical Decision Unit & IV Team': 'Surgical',
-  // legacy single names
-  '7NE': 'Surgical', '7NW': 'Surgical', 'ACUs': 'Surgical',
-
-  '3SE/3SW': 'Medical', '4SE/4SW': 'Medical', '4NE/4NW': 'Medical',
-  '5SE/5SW': 'Medical', '5NE/5NW': 'Medical', '6SE/6SW': 'Medical', '7SE/7SW': 'Medical',
-  // legacy single names
-  '3SE': 'Medical', '3SW': 'Medical', '4SE': 'Medical', '4SW': 'Medical',
-  '5SE': 'Medical', '5SW': 'Medical', '5NE': 'Medical', '5NW': 'Medical',
-  '6SE': 'Medical', '6SW': 'Medical', '7SE': 'Medical', '7SW': 'Medical',
-
-  '6NE': 'Critical Care', '6NW': 'Critical Care',
-  '3SCCT': 'Critical Care', '4SCCT': 'Critical Care', '5SCCT': 'Critical Care',
-  '6SCCT': 'Critical Care', '7SCCT': 'Critical Care', '8SCCT': 'Critical Care',
-
+  '3 SE / 3 SW': 'Medical', '4 SE / 4 SW': 'Medical', '4 NE / 4 NW': 'Medical',
+  '5 SE / 5 SW': 'Medical', '5 NE / 5 NW': 'Medical',
+  '6 SE / 6 SW': 'Medical', '7 SE / 7 SW': 'Medical',
+  '6 NE': 'Critical Care', '6 NW': 'Critical Care',
+  '3 SCCT': 'Critical Care', '4 SCCT': 'Critical Care', '5 SCCT': 'Critical Care',
+  '6 SCCT': 'Critical Care', '7 SCCT': 'Critical Care', '8 SCCT': 'Critical Care',
   'Labor and Delivery': 'Specialty', 'PACU': 'Specialty',
   'NICU': 'Specialty', 'PICU': 'Specialty',
   'Pediatrics': 'Specialty', 'Postpartum': 'Specialty',
   'Operating Room': 'Specialty', 'Emergency Department': 'Specialty',
   'Float Pool': 'Specialty',
+  // Legacy compact names for backward-compat
+  '7NE/7NW': 'Surgical', '7NE': 'Surgical', '7NW': 'Surgical',
+  '8SE/8SW': 'Surgical', '8SE': 'Surgical', '8SW': 'Surgical',
+  '8NE': 'Surgical', '8NW': 'Surgical', 'ACUs': 'Surgical',
+  '3SE/3SW': 'Medical', '3SE': 'Medical', '3SW': 'Medical',
+  '4SE/4SW': 'Medical', '4SE': 'Medical', '4SW': 'Medical',
+  '4NE/4NW': 'Medical',
+  '5SE/5SW': 'Medical', '5SE': 'Medical', '5SW': 'Medical',
+  '5NE/5NW': 'Medical', '5NE': 'Medical', '5NW': 'Medical',
+  '6SE/6SW': 'Medical', '6SE': 'Medical', '6SW': 'Medical',
+  '7SE/7SW': 'Medical', '7SE': 'Medical', '7SW': 'Medical',
+  '6NE': 'Critical Care', '6NW': 'Critical Care',
+  '3SCCT': 'Critical Care', '4SCCT': 'Critical Care', '5SCCT': 'Critical Care',
+  '6SCCT': 'Critical Care', '7SCCT': 'Critical Care', '8SCCT': 'Critical Care',
 }
 
 export const ASPIRE_STATUSES = [
