@@ -1057,8 +1057,11 @@ a.doc-file-link:hover { text-decoration: underline; }
 .ov-student-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 18px 8px 36px; border-bottom: 1px solid var(--border-lt); gap: 10px; }
 .ov-student-row:last-child { border-bottom: none; }
 .ov-student-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.ov-student-name { font-size: 14px; font-weight: 500; color: var(--raven); }
-.ov-student-meta { font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ov-student-name    { font-size: 14px; font-weight: 500; color: var(--raven); }
+.ov-student-contact { font-size: 13px; color: #6b7280; display: block; }
+.ov-student-grad    { font-size: 12px; color: #9ca3af; display: block; }
+.ov-student-meta    { font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ov-coord-line      { font-size: 13px; color: #6b7280; margin-top: 1px; }
 .ov-hours-badge  { background: var(--sand); color: var(--text-secondary); font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; }
 .ov-empty { padding: 24px 18px; font-size: 13px; color: var(--text-secondary); }
 

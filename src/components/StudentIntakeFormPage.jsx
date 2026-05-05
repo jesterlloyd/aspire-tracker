@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { PATIENT_POPULATIONS } from '../lib/constants'
 
 const PAGE_TITLE = 'ASPIRE Program: Student Information Form'
 
@@ -434,11 +435,7 @@ export default function StudentIntakeFormPage() {
                     <option value="">Select a unit…</option>
                     {availableUnits.map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
-                  {form.unit_preference_1 && unitPopMap[form.unit_preference_1] && (
-                    <p style={{ fontSize: 13, color: '#6b7280', fontStyle: 'italic', marginTop: 4 }}>
-                      {unitPopMap[form.unit_preference_1]}
-                    </p>
-                  )}
+                  {(() => { const p = unitPopMap[form.unit_preference_1] || PATIENT_POPULATIONS[form.unit_preference_1]; return p && form.unit_preference_1 ? <p style={{ fontSize: 13, color: '#6b7280', fontStyle: 'italic', marginTop: 4 }}>{p}</p> : null })()}
                 </div>
                 <div className="uf-field">
                   <label className="uf-label">Second Preference (optional)</label>
@@ -454,11 +451,7 @@ export default function StudentIntakeFormPage() {
                     {availableUnits.filter(u => u !== form.unit_preference_1)
                       .map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
-                  {form.unit_preference_2 && unitPopMap[form.unit_preference_2] && (
-                    <p style={{ fontSize: 13, color: '#6b7280', fontStyle: 'italic', marginTop: 4 }}>
-                      {unitPopMap[form.unit_preference_2]}
-                    </p>
-                  )}
+                  {(() => { const p = unitPopMap[form.unit_preference_2] || PATIENT_POPULATIONS[form.unit_preference_2]; return p && form.unit_preference_2 ? <p style={{ fontSize: 13, color: '#6b7280', fontStyle: 'italic', marginTop: 4 }}>{p}</p> : null })()}
                 </div>
                 <div className="uf-field">
                   <label className="uf-label">Third Preference (optional)</label>
@@ -468,11 +461,7 @@ export default function StudentIntakeFormPage() {
                     {availableUnits.filter(u => u !== form.unit_preference_1 && u !== form.unit_preference_2)
                       .map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
-                  {form.unit_preference_3 && unitPopMap[form.unit_preference_3] && (
-                    <p style={{ fontSize: 13, color: '#6b7280', fontStyle: 'italic', marginTop: 4 }}>
-                      {unitPopMap[form.unit_preference_3]}
-                    </p>
-                  )}
+                  {(() => { const p = unitPopMap[form.unit_preference_3] || PATIENT_POPULATIONS[form.unit_preference_3]; return p && form.unit_preference_3 ? <p style={{ fontSize: 13, color: '#6b7280', fontStyle: 'italic', marginTop: 4 }}>{p}</p> : null })()}
                 </div>
               </>
             )}

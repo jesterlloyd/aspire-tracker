@@ -218,9 +218,11 @@ export default function OverviewTab({ students, units, onStudentUpdate }) {
                     <span className="ov-chevron">{open ? '▾' : '▸'}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <span className="ov-group-name">{school}</span>
-                      {coord && (
-                        <div style={{ fontSize: 13, color: '#6b7280', marginTop: 1 }}>
-                          {coord.name}{coord.email ? ` · ${coord.email}` : ''}
+                      {coord && (coord.name || coord.email) && (
+                        <div className="ov-coord-line">
+                          {coord.name}
+                          {coord.name && coord.email ? ' | ' : ''}
+                          {coord.email}
                         </div>
                       )}
                     </div>
@@ -240,9 +242,18 @@ export default function OverviewTab({ students, units, onStudentUpdate }) {
                         <div key={s.id} className="ov-student-row">
                           <div className="ov-student-info">
                             <span className="ov-student-name">{displayName(s)}</span>
-                            <span className="ov-student-meta">
-                              {[s.program_type, s.term_dates].filter(Boolean).join(' · ')}
-                            </span>
+                            {(s.school_email || s.phone) && (
+                              <span className="ov-student-contact">
+                                {s.school_email}
+                                {s.school_email && s.phone ? ' · ' : ''}
+                                {s.phone}
+                              </span>
+                            )}
+                            {s.estimated_graduation && (
+                              <span className="ov-student-grad">
+                                Est. Graduation: {s.estimated_graduation}
+                              </span>
+                            )}
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                             {s.hours_required > 0 && (

@@ -98,8 +98,8 @@ export const PATIENT_POPULATIONS = {
   '8NE': 'Neurosurgical, Neuro Step-down, Trauma Step-down',
   '8NW': 'Spine Surgeries, Trauma, Lumbar Drains',
   'ACUs': 'Medical/Surgical Unit Overflow',
-  '3SE': 'Medical Observation, Telemetry',
-  '3SW': 'Medical Observation, Telemetry',
+  '3SE': 'Medical Observation Unit, Telemetry',
+  '3SW': 'Medical Observation Unit, Telemetry',
   '4SE': 'Medicine, Oncology, PCU, Bone Marrow Transplants',
   '4SW': 'Medicine, Oncology, PCU, Bone Marrow Transplants',
   '4NE/4NW': 'Monitored, Stroke, Epilepsy, Medical, PCU',
@@ -133,11 +133,33 @@ export const PATIENT_POPULATIONS = {
   'Float Pool': 'Float Pool',
 }
 
-// Build reverse lookup: unit_name -> division name
-export const UNIT_DIVISION_MAP = {}
-Object.entries(UNIT_ROSTER).forEach(([div, units]) => {
-  units.forEach(u => { UNIT_DIVISION_MAP[u] = div })
-})
+// Static reverse lookup: unit_name -> division name (explicit to avoid initialization issues)
+export const UNIT_DIVISION_MAP = {
+  '7NE': 'Surgical Division',  '7NW': 'Surgical Division',
+  '8SE': 'Surgical Division',  '8SW': 'Surgical Division',
+  '8NE': 'Surgical Division',  '8NW': 'Surgical Division',
+  'ACUs': 'Surgical Division',
+
+  '3SE': 'Medical Division',   '3SW': 'Medical Division',
+  '4SE': 'Medical Division',   '4SW': 'Medical Division',
+  '4NE/4NW': 'Medical Division',
+  '5SE': 'Medical Division',   '5SW': 'Medical Division',
+  '5NE': 'Medical Division',   '5NW': 'Medical Division',
+  '6SE': 'Medical Division',   '6SW': 'Medical Division',
+  '7SE': 'Medical Division',   '7SW': 'Medical Division',
+
+  '6NE': 'Critical Care Division', '6NW': 'Critical Care Division',
+  '3SCCT': 'Critical Care Division', '4SCCT': 'Critical Care Division',
+  '5SCCT': 'Critical Care Division', '6SCCT': 'Critical Care Division',
+  '7SCCT': 'Critical Care Division', '8SCCT': 'Critical Care Division',
+  'CMC':   'Critical Care Division', 'MSCCT': 'Critical Care Division',
+  '6SE PFT': 'Critical Care Division', '6NE ABG': 'Critical Care Division',
+
+  'Labor and Delivery': 'Specialty', 'PACU': 'Specialty',
+  'NICU': 'Specialty', 'PICU': 'Specialty',
+  'Pediatrics': 'Specialty', 'Postpartum': 'Specialty',
+  '3 South': 'Specialty', 'Float Pool': 'Specialty',
+}
 
 export const ASPIRE_STATUSES = [
   'Pending Outreach',

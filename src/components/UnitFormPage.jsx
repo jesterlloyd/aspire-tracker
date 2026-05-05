@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { UNIT_ROSTER } from '../lib/constants'
 
 const PAGE_TITLE = 'ASPIRE Program: Unit Availability Form'
 
@@ -37,8 +38,8 @@ export default function UnitFormPage() {
 
   const handleSubmit = async e => {
     e.preventDefault()
-    if (!form.unit_name.trim() || !form.contact_person.trim() || !form.contact_email.trim()) {
-      setError('Please fill in all required fields.'); return
+    if (!form.unit_name || !form.contact_person.trim() || !form.contact_email.trim()) {
+      setError('Please select your unit and fill in all required fields.'); return
     }
     if (form.is_participating === null) {
       setError('Please indicate whether your unit will be participating.'); return
@@ -127,10 +128,16 @@ export default function UnitFormPage() {
 
           <div className="uf-section">
             <div className="uf-field">
-              <label className="uf-label">Unit or Department Name *</label>
-              <input className="uf-input" value={form.unit_name}
-                onChange={e => set('unit_name', e.target.value)}
-                placeholder="e.g. 6 NW, Labor and Delivery, NICU" />
+              <label className="uf-label">Select Your Unit or Department *</label>
+              <select className="uf-input" value={form.unit_name}
+                onChange={e => set('unit_name', e.target.value)}>
+                <option value="">Select your unit or department…</option>
+                {Object.entries(UNIT_ROSTER).map(([division, units]) => (
+                  <optgroup key={division} label={division}>
+                    {units.map(u => <option key={u} value={u}>{u}</option>)}
+                  </optgroup>
+                ))}
+              </select>
             </div>
             <div className="uf-field">
               <label className="uf-label">Your Name and Title *</label>
