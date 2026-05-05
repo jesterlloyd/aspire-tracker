@@ -173,7 +173,13 @@ function MainApp({ onLogout }) {
 
   const deleteStudent = async id => {
     await supabase.from('students').delete().eq('id', id)
+    // Belt-and-suspenders: explicitly remove related records in case CASCADE is not yet applied
+    await supabase.from('interviews').delete().eq('student_id', id)
+    await supabase.from('matches').delete().eq('student_id', id)
+    // Refetch all affected state so every tab reflects the deletion immediately
     setStudents(prev => prev.filter(s => s.id !== id))
+    setInterviews(prev => prev.filter(iv => iv.student_id !== id))
+    setMatches(prev => prev.filter(m => m.student_id !== id))
   }
 
   // ── Unit CRUD ────────────────────────────────────────────────
