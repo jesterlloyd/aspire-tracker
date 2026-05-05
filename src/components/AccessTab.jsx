@@ -77,12 +77,11 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
   return (
     <div className="access-tab">
 
-      {/* ── Summary banner ── */}
-      <div className="am-summary">
-        <StatCard label="Total Students"      value={totalCount} bg="#ffffff" color="#1d2567" border="#d1d5db" />
-        <StatCard label="Non-Employee Done"   value={nonEmpDone} bg="#f0fdf4" color="#16a34a" border="#bbf7d0" />
-        <StatCard label="Hybrid Access Done"  value={hybridDone} bg="#eff6ff" color="#1d4ed8" border="#bfdbfe" />
-        <StatCard label="All Access Complete" value={allDone}    bg="#dcfce7" color="#166534" border="#a7f3d0" />
+      {/* ── Compact stats pills ── */}
+      <div className="am-compact-stats">
+        <span className="am-stat-pill">Non-Employee Done: <strong>{nonEmpDone}</strong></span>
+        <span className="am-stat-pill">Hybrid Done: <strong>{hybridDone}</strong></span>
+        <span className="am-stat-pill am-stat-pill-green">All Complete: <strong>{allDone}</strong></span>
       </div>
 
       {/* ── Filter row ── */}
@@ -122,6 +121,7 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
                 <th key={c.boolKey} className="am-th">{c.label}</th>
               ))}
               <th className="am-th">Access Notes</th>
+              <th className="am-th">Progress</th>
               <th className="am-th"></th>
             </tr>
           </thead>
@@ -196,6 +196,15 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
           onChange={e => saveDebounced('access_notes', e.target.value)}
           placeholder="Notes…"
         />
+      </td>
+      <td className="am-td">
+        {(() => {
+          const n = ACCESS_COLS.filter(c => data[c.boolKey]).length
+          const bg    = n === 4 ? '#dcfce7' : n === 0 ? '#f3f4f6' : '#fef3c7'
+          const color = n === 4 ? '#166534' : n === 0 ? '#9ca3af' : '#92400e'
+          const label = n === 4 ? '✓ Done' : `${n}/4`
+          return <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:bg, color }}>{label}</span>
+        })()}
       </td>
       <td className="am-td">
         {done && <span className="am-done-pill">All Done</span>}

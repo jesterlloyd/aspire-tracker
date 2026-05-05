@@ -1,0 +1,129 @@
+import { useState } from 'react'
+import ImportStudentsCSV from './ImportStudentsCSV'
+
+const STATUS_CLASS = {
+  'Form Sent':'badge-gray','Pending Outreach':'badge-pending',
+  'Interviewed':'badge-purple','Accepted':'badge-green',
+  'Active Rotation':'badge-teal','Completed':'badge-navy','Declined':'badge-red',
+}
+
+const ACCESS_KEYS = ['access_non_employee','access_hybrid_student','access_extended_end_date','access_reactivated']
+
+function accessBadge(s) {
+  const n = ACCESS_KEYS.filter(k => s[k]).length
+  if (n === 4)  return { label: '✓ Done', bg: '#dcfce7', color: '#166534' }
+  if (n === 0)  return { label: '0/4', bg: '#f3f4f6', color: '#9ca3af' }
+  return { label: `${n}/4`, bg: '#fef3c7', color: '#92400e' }
+}
+
+function gpaBadge(gpa) {
+  if (gpa == null) return { text: 'GPA: N/A', bg: 'var(--sand)', color: 'var(--raven)' }
+  const v = parseFloat(gpa)
+  if (v >= 3.5) return { text: `GPA: ${v.toFixed(2)}`, bg: '#dcfce7', color: '#166534' }
+  if (v >= 3.0) return { text: `GPA: ${v.toFixed(2)}`, bg: '#fef3c7', color: '#92400e' }
+  return { text: `GPA: ${v.toFixed(2)}`, bg: 'var(--sand)', color: 'var(--raven)' }
+}
+
+export default function StudentListPanel({
+  students, allStudents, selectedStudentId, onSelect,
+  localSearch, setLocalSearch, filterSchool, setFilterSchool,
+  filterStatus, setFilterStatus, sortBy, setSortBy,
+  needsAttention, setNeedsAttention,
+  cohortId, onRefresh,
+}) {
+  const [showImport, setShowImport] = useState(false)
+
+  const schools  = [...new Set(allStudents.map(s => s.school).filter(Boolean))].sort()
+
+  return (
+    <div className="pl-container">
+      {/* Controls */}
+      <div className="pl-controls">
+        <input className="search-input" style={{ flex:1, minWidth:120 }}
+          placeholder="Search by name or email…"
+          value={localSearch} onChange={e => setLocalSearch(e.target.value)} />
+        <select className="filter-select" value={filterSchool} onChange={e => setFilterSchool(e.target.value)}>
+          <option value="">All Schools</option>
+          {schools.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select className="filter-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+          <option value="">All Statuses</option>
+          {['Pending Outreach','Form Sent','Interviewed','Accepted','Active Rotation','Completed','Declined'].map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <select className="filter-select" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+          <option value="last_name_asc">Last Name A–Z</option>
+          <option value="last_name_desc">Last Name Z–A</option>
+          <option value="school_asc">School A–Z</option>
+          <option value="gpa_desc">GPA High–Low</option>
+          <option value="status">ASPIRE Status</option>
+          <option value="needs_attention">Needs Attention First</option>
+        </select>
+        <button className={`pl-needs-btn${needsAttention ? ' pl-needs-active' : ''}`}
+          onClick={() => setNeedsAttention(p => !p)}>
+          ⚠ Needs Attention
+        </button>
+        <button className="btn-import-students" onClick={() => setShowImport(true)} title="Import from CSV">
+          ↑ Import
+        </button>
+      </div>
+
+      <div className="pl-meta">{students.length} of {allStudents.length} students</div>
+
+      {/* Rows */}
+      <div className="pl-list">
+        {students.length === 0 ? (
+          <div className="pl-empty">No students match the current filters.</div>
+        ) : students.map(s => {
+          const initials = `${(s.first_name||'')[0]||''}${(s.last_name||'')[0]||''}`.toUpperCase() || '?'
+          const name = `${s.last_name||''}${s.last_name&&s.first_name?', ':''}${s.first_name||''}` || s.name || '—'
+          const gpa = gpaBadge(s.cumulative_gpa)
+          const acc = accessBadge(s)
+          const sel = s.id === selectedStudentId
+          const hasContact = s.personal_email?.trim() || s.phone?.trim()
+
+          return (
+            <div key={s.id}
+              className={`pl-row${sel ? ' pl-selected' : ''}`}
+              onClick={() => onSelect(s.id)}>
+              {/* Avatar */}
+              {s.headshot_url
+                ? <img src={s.headshot_url} alt="" className="pl-avatar-img" />
+                : <div className="pl-avatar-initials">{initials}</div>
+              }
+              {/* Center */}
+              <div className="pl-center">
+                <div className="pl-name">{name}</div>
+                <div className="pl-school">
+                  {s.school || '—'}{s.program_type ? ` · ${s.program_type}` : ''}
+                </div>
+                {hasContact ? (
+                  <div className="pl-contact">
+                    {s.personal_email}{s.personal_email && s.phone ? ' · ' : ''}{s.phone}
+                  </div>
+                ) : (
+                  <div className="pl-contact pl-contact-missing">Personal info not yet submitted</div>
+                )}
+              </div>
+              {/* Right badges */}
+              <div className="pl-right">
+                <span style={{ fontSize:11, fontWeight:600, padding:'1px 6px', borderRadius:4, background:gpa.bg, color:gpa.color }}>
+                  {gpa.text}
+                </span>
+                {s.status && <span className={`badge ${STATUS_CLASS[s.status]||'badge-gray'}`} style={{ fontSize:10 }}>{s.status}</span>}
+                <span style={{ fontSize:11, fontWeight:600, padding:'1px 6px', borderRadius:4, background:acc.bg, color:acc.color }}>
+                  {acc.label}
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {showImport && (
+        <ImportStudentsCSV cohortId={cohortId} onImported={onRefresh} onClose={() => setShowImport(false)} />
+      )}
+    </div>
+  )
+}

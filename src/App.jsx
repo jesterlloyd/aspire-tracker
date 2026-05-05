@@ -392,10 +392,8 @@ function MainApp({ onLogout }) {
 
         {!loading && !dbError && cohorts.length > 0 && activeTab === 'profiles' && (
           <StudentProfilesTab
-            students={filteredStudents} allStudents={students}
+            students={students}
             units={units} cohortId={activeCohortId}
-            search={search} filters={filters}
-            onSearch={setSearch} onFilter={setFilter}
             onUpdate={updateStudent} onDelete={deleteStudent}
             onRefresh={() => fetchStudents(activeCohortId)}
             onSwitchToAccess={switchToAccess}
