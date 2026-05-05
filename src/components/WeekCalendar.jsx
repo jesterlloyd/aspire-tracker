@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { displayName } from '../lib/utils'
+import EditScheduleModal from './EditScheduleModal'
 
 const DAYS = ['Mon','Tue','Wed','Thu','Fri']
 
@@ -57,8 +58,9 @@ function interviewerInitials(assignedStr) {
   return `${initials(names[0])} +${names.length - 1}`.toUpperCase()
 }
 
-export default function WeekCalendar({ students, rubrics, onOpenSession, onSchedule, onManageInterviewers }) {
-  const [weekOffset, setWeekOffset] = useState(0)
+export default function WeekCalendar({ students, rubrics, onOpenRubric, onSchedule, onManageInterviewers, onStudentUpdate }) {
+  const [weekOffset,     setWeekOffset]     = useState(0)
+  const [editingStudent, setEditingStudent] = useState(null)
   const dates = getWeekDates(weekOffset)
 
   const start = dates[0]
@@ -115,8 +117,8 @@ export default function WeekCalendar({ students, rubrics, onOpenSession, onSched
                   return (
                     <div key={s.id} className="week-cal-block"
                       style={{ background: c.bg, color: c.color }}
-                      onClick={() => onOpenSession(s.id)}
-                      title={`${displayName(s)} · ${s.school || ''} · ${s.interview_scheduled_time || ''}`}>
+                      onClick={() => setEditingStudent(s)}
+                      title={`${displayName(s)} · ${s.school || ''} · ${s.interview_scheduled_time || ''} — Click to edit schedule`}>
                       <div className="week-cal-block-name">{last}{last && first ? ', ' : ''}{first}</div>
                       <div className="week-cal-block-meta">
                         {acronym && (
@@ -137,6 +139,14 @@ export default function WeekCalendar({ students, rubrics, onOpenSession, onSched
           )
         })}
       </div>
+      {editingStudent && (
+        <EditScheduleModal
+          student={editingStudent}
+          onClose={() => setEditingStudent(null)}
+          onSaved={async () => { if (onStudentUpdate) await onStudentUpdate(); setEditingStudent(null) }}
+          onOpenRubric={id => { setEditingStudent(null); onOpenRubric && onOpenRubric(id) }}
+        />
+      )}
     </div>
   )
 }

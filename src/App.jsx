@@ -57,7 +57,10 @@ function MainApp({ onLogout }) {
   const [loading,   setLoading]   = useState(true)
   const [dbError,   setDbError]   = useState(null)
 
-  const [activeTab,    setActiveTab]    = useState('overview')
+  const [activeTab,    setActiveTab]    = useState(() => {
+    const saved = localStorage.getItem('aspire_active_tab')
+    return ['overview','profiles','interviews','matching'].includes(saved) ? saved : 'overview'
+  })
   const [profilesView, setProfilesView] = useState('records')
   const [accessFocusId, setAccessFocusId] = useState(null)
   const [showAddModal,  setShowAddModal] = useState(false)
@@ -138,6 +141,11 @@ function MainApp({ onLogout }) {
     setActiveCohortId(id); setSearch(''); setFilters({ school: '', status: '', cohort: '' })
   }
 
+  const switchTab = tab => {
+    localStorage.setItem('aspire_active_tab', tab)
+    setActiveTab(tab)
+  }
+
   const updateCohortMatchSummary = (newMatchList) => {
     const summary = computeMatchSummary(newMatchList)
     supabase.from('cohorts').update({ match_quality_summary: summary }).eq('id', activeCohortId)
@@ -145,7 +153,7 @@ function MainApp({ onLogout }) {
   }
 
   const switchToAccess = (studentId) => {
-    setActiveTab('profiles')
+    switchTab('profiles')
     setProfilesView('access')
     setAccessFocusId(studentId)
     setTimeout(() => {
@@ -341,19 +349,19 @@ function MainApp({ onLogout }) {
 
         {cohorts.length > 0 && (
           <div className="tab-bar">
-            <button className={`tab-btn${activeTab === 'overview'   ? ' active' : ''}`} onClick={() => setActiveTab('overview')} aria-label="Aggregate tab">
+            <button className={`tab-btn${activeTab === 'overview'   ? ' active' : ''}`} onClick={() => switchTab('overview')} aria-label="Aggregate tab">
               <span>Aggregate</span>
               <span className="tab-aspire-hint">A</span>
             </button>
-            <button className={`tab-btn${activeTab === 'profiles'   ? ' active' : ''}`} onClick={() => setActiveTab('profiles')} aria-label="Student Profiles tab">
+            <button className={`tab-btn${activeTab === 'profiles'   ? ' active' : ''}`} onClick={() => switchTab('profiles')} aria-label="Student Profiles tab">
               <span>Student Profiles</span>
               <span className="tab-aspire-hint">S · P</span>
             </button>
-            <button className={`tab-btn${activeTab === 'interviews' ? ' active' : ''}`} onClick={() => setActiveTab('interviews')} aria-label="Interview Rubric tab">
+            <button className={`tab-btn${activeTab === 'interviews' ? ' active' : ''}`} onClick={() => switchTab('interviews')} aria-label="Interview Rubric tab">
               <span>Interview Rubric</span>
               <span className="tab-aspire-hint">I · R</span>
             </button>
-            <button className={`tab-btn${activeTab === 'matching'   ? ' active' : ''}`} onClick={() => setActiveTab('matching')} aria-label="Embed tab">
+            <button className={`tab-btn${activeTab === 'matching'   ? ' active' : ''}`} onClick={() => switchTab('matching')} aria-label="Embed tab">
               <span>Embed</span>
               <span className="tab-aspire-hint">E</span>
             </button>

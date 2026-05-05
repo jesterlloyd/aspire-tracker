@@ -80,6 +80,9 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const [confirmReset,   setConfirmReset]   = useState(false)
   const [confirmUnlock,  setConfirmUnlock]  = useState(false)
   const [refOpen,        setRefOpen]        = useState({ cj:false, pp:false, ga:false })
+  const [scriptOpen,     setScriptOpen]     = useState(false)
+  const [legendOpen,     setLegendOpen]     = useState(false)
+  const [closingOpen,    setClosingOpen]    = useState(false)
   const [flagging,       setFlagging]       = useState(false)
   const [flagNote,       setFlagNote]       = useState(student.flag_note || '')
   const [isFlagged,      setIsFlagged]      = useState(!!student.flagged_for_second_interview)
@@ -103,26 +106,28 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
   // When interviewer_name changes, try to load their existing rubric
   const handleInterviewerChange = async (name) => {
-    const f = { ...form, interviewer_name: name }
     if (name) {
       const existing = studentRubrics.find(r => r.interviewer_name === name && r.status !== 'Completed')
       if (existing) {
         setForm(existing); setRubricId(existing.id); return
       }
-      // If this interviewer has a completed rubric, start fresh for a new one
     }
-    setForm(f)
+    setForm(p => ({ ...p, interviewer_name: name }))
     setRubricId(null)
+    // Selecting an interviewer is a meaningful action — create record immediately
+    if (name) persist({ interviewer_name: name }, true)
   }
 
   const composite = (form.cj_score || 0) + (form.pp_score || 0) + (form.ga_score || 0)
 
-  const persist = async (updates) => {
+  // createIfNeeded=false: only update existing record, never create
+  // createIfNeeded=true: create record on first meaningful edit
+  const persist = async (updates, createIfNeeded = false) => {
     setSaveStatus('saving')
     const payload = { ...updates, composite_score: (updates.cj_score ?? (form.cj_score || 0)) + (updates.pp_score ?? (form.pp_score || 0)) + (updates.ga_score ?? (form.ga_score || 0)), updated_at: new Date().toISOString() }
     let id = rubricId
     if (!id) {
-      if (!form.interviewer_name) { setSaveStatus('idle'); return }
+      if (!createIfNeeded || !form.interviewer_name) { setSaveStatus('idle'); return }
       const { data, error } = await supabase.from('interview_rubrics').insert({
         student_id: student.id, cohort_id: cohortId, ...initForm(), ...form, ...payload,
       }).select().single()
@@ -136,14 +141,21 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     if (onRubricsChange) onRubricsChange()
   }
 
+  // Debounced save — never creates a new record
   const saveText = (field, value) => {
     setForm(p => ({ ...p, [field]: value }))
     clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => persist({ [field]: value }), 800)
+    timerRef.current = setTimeout(() => persist({ [field]: value }, false), 800)
   }
+  // Immediate non-creating save (date, time, etc.)
   const saveImmediate = (field, value) => {
     setForm(p => ({ ...p, [field]: value }))
-    persist({ [field]: value })
+    persist({ [field]: value }, false)
+  }
+  // Immediate save for meaningful edits — creates record if first interaction
+  const saveMeaningful = (field, value) => {
+    setForm(p => ({ ...p, [field]: value }))
+    persist({ [field]: value }, true)
   }
   const savePreference = async (field, value) => {
     setPrefs(p => ({ ...p, [field]: value }))
@@ -354,6 +366,63 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
           )}
 
           <div className="rub-form-body">
+
+            {/* ── Opening Script ── */}
+            <div className="rub-script-card">
+              <button className="rub-script-toggle" onClick={() => setScriptOpen(p => !p)}>
+                {scriptOpen ? '▾ Hide Script' : '▸ Show Script'}&nbsp;&nbsp;<span style={{ fontWeight:400 }}>Interview Opening Script</span>
+              </button>
+              {scriptOpen && (
+                <div className="rub-script-body">
+                  <p className="rub-script-heading">Getting Started</p>
+                  <p>Begin by introducing yourself and your role. Then invite the student to briefly introduce themselves.</p>
+                  <p>Once you are both settled, say:</p>
+                  <p className="rub-script-quote">"Thanks for being here today. The goal of this interview is to get a better sense of your clinical readiness and explore how we can best support your transition into professional nursing practice."</p>
+                  <p className="rub-script-heading">Introduce the ASPIRE Program</p>
+                  <p className="rub-script-quote">"The ASPIRE Program offers senior nursing students the opportunity to complete their final clinical rotation at Cedars-Sinai Medical Center. It is designed to support a seamless transition into our New Graduate RN Residency Program through personalized unit and preceptor matching, mentorship, application guidance, and connection to a strong nursing community."</p>
+                  <p className="rub-script-heading">Explain the Interview Format</p>
+                  <p className="rub-script-quote">"This is a structured, rubric-based interview. I will be asking at least one question in each of three areas: Clinical Judgment, Professional Presence, and Goal Alignment. These are grounded in the AACN Essentials for nursing practice. There are no right or wrong answers. We simply want to hear your honest thoughts and experiences. I may take notes as we go, and we will close with a brief recommendation. Take all the time you need before answering. Ready to begin?"</p>
+                  <p>Then ask:</p>
+                  <p className="rub-script-quote">"Before we dive in, can you share your top three unit choices and tell me a bit about why you are interested in rotating there?"</p>
+                </div>
+              )}
+            </div>
+
+            {/* ── Domain Ratings Legend ── */}
+            <div className="rub-script-card">
+              <button className="rub-script-toggle" onClick={() => setLegendOpen(p => !p)}>
+                {legendOpen ? '▾ Hide Scoring Guide' : '▸ Show Scoring Guide'}&nbsp;&nbsp;<span style={{ fontWeight:400 }}>Scoring Guide</span>
+              </button>
+              {legendOpen && (
+                <div className="rub-legend-card">
+                  <table className="rub-legend-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width:48 }}>Score</th>
+                        <th style={{ width:160 }}>Label</th>
+                        <th>Description</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        { s:1, bg:'#fee2e2', color:'#991b1b', label:'Not Yet Ready',             desc:'Response is vague, unclear, unsafe, or lacks insight' },
+                        { s:2, bg:'#fef3c7', color:'#92400e', label:'Emerging',                  desc:'Some awareness is present but reasoning or insight is limited' },
+                        { s:3, bg:'#e0f2fe', color:'#0369a1', label:'Competent',                 desc:'Response is appropriate, safe, and acceptable for student level' },
+                        { s:4, bg:'#dcfce7', color:'#166534', label:'Strong',                    desc:'Response is thoughtful, clear, and demonstrates good judgment or maturity' },
+                        { s:5, bg:'#1d2567', color:'#ffffff', label:'Highly Aligned / Practice-Ready', desc:'Response is insightful, well-articulated, reflective, and strongly aligned with expected readiness' },
+                      ].map(row => (
+                        <tr key={row.s} style={{ background: row.bg }}>
+                          <td style={{ color: row.color, fontWeight:700, fontSize:14, textAlign:'center' }}>{row.s}</td>
+                          <td style={{ color: row.color, fontWeight:600, fontSize:13 }}>{row.label}</td>
+                          <td style={{ color: row.color, fontSize:13 }}>{row.desc}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
             {/* Section 1: Interview Info */}
             <div className="iv-section" id="s1">
               <div className="iv-section-title">Section 1: Interview Info</div>
@@ -436,7 +505,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                       return (!locked || sel) ? (
                         <div key={qi} className={`iv-question-card${sel ? ' iv-question-card-sel' : ''}`}
                           style={{ borderColor: sel ? color : '#d1d5db', background: sel ? color : '#fff', cursor: locked ? 'default' : 'pointer' }}
-                          onClick={!locked ? () => saveImmediate(qField, q) : undefined}>
+                          onClick={!locked ? () => saveMeaningful(qField, q) : undefined}>
                           <div className="iv-question-radio" style={{ border:`2px solid ${sel ? '#fff' : '#9ca3af'}`, background: sel ? '#fff' : 'transparent' }}>
                             {sel && <div className="iv-question-radio-dot" style={{ background: color }} />}
                           </div>
@@ -458,7 +527,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                         return (!locked || sel) ? (
                           <div key={s} className="iv-score-tile"
                             style={{ background: sel ? c.bg : '#fff', borderColor: sel ? c.border : '#d1d5db', cursor: locked ? 'default' : 'pointer' }}
-                            onClick={!locked ? () => saveImmediate(sField, s) : undefined}>
+                            onClick={!locked ? () => saveMeaningful(sField, s) : undefined}>
                             <div className="iv-score-num" style={{ color: sel ? c.color : '#191919' }}>{s}</div>
                             <div className="iv-score-desc" style={{ color: sel ? c.color : '#6b7280' }}>{SCORE_LABELS[s]}</div>
                           </div>
@@ -502,7 +571,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                     ? sel && <div key={opt.value} className="iv-rec-tile" style={{ background:opt.bg, color:opt.color, border:`2px solid ${opt.border}` }}>{opt.label}</div>
                     : <div key={opt.value} className="iv-rec-tile"
                         style={{ background: sel ? opt.bg : '#fff', color: sel ? opt.color : 'var(--text-secondary)', border:`2px solid ${sel ? opt.border : 'var(--border)'}`, cursor:'pointer' }}
-                        onClick={() => saveImmediate('individual_recommendation', opt.value)}>{opt.label}</div>
+                        onClick={() => saveMeaningful('individual_recommendation', opt.value)}>{opt.label}</div>
                 })}
               </div>
               <p style={{ fontSize:12, color:'#6b7280', marginTop:10, lineHeight:1.5 }}>
@@ -518,6 +587,25 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                 {locked ? <div className="iv-readonly iv-readonly-tall">{form.summary_comments || '—'}</div>
                   : <textarea className="iv-textarea iv-notes-textarea" rows={4} value={form.summary_comments} onChange={e => saveText('summary_comments', e.target.value)} placeholder="Overall impressions, strengths, areas for development…" />}
               </div>
+            </div>
+
+            {/* ── Closing Script ── */}
+            <div className="rub-script-card">
+              <button className="rub-script-toggle" onClick={() => setClosingOpen(p => !p)}>
+                {closingOpen ? '▾ Hide Script' : '▸ Show Script'}&nbsp;&nbsp;<span style={{ fontWeight:400 }}>Interview Closing Script</span>
+              </button>
+              {closingOpen && (
+                <div className="rub-script-body">
+                  <p className="rub-script-heading">Closing the Interview</p>
+                  <p>Invite the student to ask any questions they may have:</p>
+                  <p className="rub-script-quote">"Before we wrap up, what questions do you have for us?"</p>
+                  <p>Take notes on any notable questions or comments in the Student Questions section above.</p>
+                  <p>Then close with:</p>
+                  <p className="rub-script-quote">"Thank you so much for your time today. It was wonderful speaking with you. From here, our team will review your rubric and work with unit leadership to find a preceptor who is a great fit for your learning goals. Once a placement is confirmed, we will reach out with your rotation schedule and orientation details.</p>
+                  <p className="rub-script-quote">If you have not already, please email Jester a copy of your résumé and a professional headshot. We also use headshots for your badge, so a clear, professional photo works best.</p>
+                  <p className="rub-script-quote">Matching can take some time depending on unit availability, so we appreciate your patience. You will hear from us regardless of the outcome. In the meantime, feel free to reach out if you have any questions. We are rooting for you!"</p>
+                </div>
+              )}
             </div>
 
             {/* Action buttons */}

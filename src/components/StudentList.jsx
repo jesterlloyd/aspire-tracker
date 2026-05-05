@@ -16,7 +16,10 @@ function sortStudents(students, sortBy) {
       case 'last_name_desc':  return lb.localeCompare(la)
       case 'first_name_asc':  return fa.localeCompare(fb)
       case 'first_name_desc': return fb.localeCompare(fa)
-      case 'school_asc':      return (a.school || '').localeCompare(b.school || '')
+      case 'school_asc': {
+        const sc = (a.school || '').localeCompare(b.school || '')
+        return sc !== 0 ? sc : (a.last_name || a.name || '').toLowerCase().localeCompare((b.last_name || b.name || '').toLowerCase())
+      }
       case 'status':          return ASPIRE_ORDER.indexOf(a.status) - ASPIRE_ORDER.indexOf(b.status)
       case 'ngrp':            return NGRP_ORDER.indexOf(a.ngrp_outcome) - NGRP_ORDER.indexOf(b.ngrp_outcome)
       default:                return la.localeCompare(lb)  // last_name_asc

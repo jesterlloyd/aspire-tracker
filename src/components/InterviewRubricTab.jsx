@@ -89,7 +89,9 @@ export default function InterviewRubricTab({
     if (sortBy === 'last_name') {
       av = (a.last_name || a.name || '').toLowerCase(); bv = (b.last_name || b.name || '').toLowerCase()
     } else if (sortBy === 'school') {
-      av = (a.school||'').toLowerCase(); bv = (b.school||'').toLowerCase()
+      const sc = (a.school||'').toLowerCase().localeCompare((b.school||'').toLowerCase())
+      if (sc !== 0) return sortDir === 'asc' ? sc : -sc
+      av = (a.last_name || a.name || '').toLowerCase(); bv = (b.last_name || b.name || '').toLowerCase()
     } else if (sortBy === 'iv_status') {
       av = ivStatusOrder[getStudentIvStatus(a, rubrics)] ?? 9; bv = ivStatusOrder[getStudentIvStatus(b, rubrics)] ?? 9
       return sortDir === 'asc' ? av - bv : bv - av
@@ -107,9 +109,10 @@ export default function InterviewRubricTab({
       <WeekCalendar
         students={students}
         rubrics={rubrics}
-        onOpenSession={id => setSelectedStudentId(id)}
+        onOpenRubric={id => setSelectedStudentId(id)}
         onSchedule={() => setShowScheduleModal(true)}
         onManageInterviewers={onManageInterviewers}
+        onStudentUpdate={onRubricsChange}
       />
 
       {/* Summary cards */}
