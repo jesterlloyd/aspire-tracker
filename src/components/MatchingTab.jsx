@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import UnitCard from './UnitCard'
+import PipelineUnitCard from './PipelineUnitCard'
 import StudentMatchCard from './StudentMatchCard'
 import UnitSetupPanel from './UnitSetupPanel'
 import ImportUnitsCSV from './ImportUnitsCSV'
@@ -17,11 +17,13 @@ export default function MatchingTab({
   const participating   = units.filter(u => u.is_participating)
   const totalSlots      = participating.reduce((s, u) => s + u.total_slots,     0)
   const slotsRemaining  = participating.reduce((s, u) => s + u.slots_remaining, 0)
+  const unitsWithOpen   = participating.filter(u => u.slots_remaining > 0).length
   const matchedStudents = students.filter(s =>  s.matched_unit_id)
   const unmatchedAll    = students.filter(s => !s.matched_unit_id)
   const poolSchools     = [...new Set(students.map(s => s.school).filter(Boolean))].sort()
-  const filteredPool    = unmatchedAll.filter(s => {
-    if (poolSearch && !`${s.first_name || ''} ${s.last_name || ''} ${s.name || ''}`.toLowerCase().includes(poolSearch.toLowerCase())) return false
+
+  const filteredPool = unmatchedAll.filter(s => {
+    if (poolSearch && !`${s.first_name||''} ${s.last_name||''} ${s.name||''}`.toLowerCase().includes(poolSearch.toLowerCase())) return false
     if (poolSchool && s.school !== poolSchool) return false
     return true
   })
@@ -37,7 +39,7 @@ export default function MatchingTab({
 
   const handleStudentSelect = s => setSelectedStudent(prev => prev?.id === s.id ? null : s)
 
-  const handleSlotClick = unit => {
+  const handleDotClick = unit => {
     if (!selectedStudent) return
     onMatch(selectedStudent, unit)
     setSelectedStudent(null)
@@ -71,10 +73,10 @@ export default function MatchingTab({
   ]
 
   return (
-    <div className="matching-tab">
+    <div className="matching-tab pipeline-board">
 
-      {/* ── Summary ── */}
-      <div className="match-summary">
+      {/* ── Summary banner ── */}
+      <div className="match-summary pipeline-banner">
         {summaryStats.map(s => (
           <div key={s.label} className="match-stat-card" style={{ background: s.bg, borderColor: s.border }}>
             <div className="match-stat-value" style={{ color: s.color }}>{s.value}</div>
@@ -83,103 +85,123 @@ export default function MatchingTab({
         ))}
       </div>
 
-      {/* ── Unit management toolbar ── */}
-      <div className="matching-toolbar">
-        <div className="matching-toolbar-left">
-          <button className="btn btn-primary" onClick={() => setShowUnitSetup(true)}>
-            ⚙ Set Up Units
-          </button>
-          <button className="btn btn-outline-modal" style={{ background: '#fff' }} onClick={() => setShowImportUnits(true)}>
-            ↑ Import Units from CSV
-          </button>
-        </div>
-        {participating.length === 0 && (
-          <span className="toolbar-hint">No participating units yet. Set up units to start matching.</span>
-        )}
-      </div>
+      {/* ── Pipeline zones ── */}
+      <div className="pipeline-zones-container">
 
-      {/* ── Selection banner ── */}
-      {selectedStudent && (
-        <div className="selection-banner">
-          <span>Placing <strong>{selectedStudent.name}</strong> — click an open slot on any unit card</span>
-          <button className="btn-cancel-select" onClick={() => setSelectedStudent(null)}>Cancel</button>
-        </div>
-      )}
-
-      {/* ── Matching Board ── */}
-      {participating.length > 0 ? (
-        <div className="matching-board">
-
-          {/* ── Units panel (65%) ── */}
-          <div className="board-units-col">
-            <div className="board-panel-header">
-              <span className="board-panel-title">Units</span>
-              <span className="board-panel-badge">{totalSlots} slot{totalSlots !== 1 ? 's' : ''}</span>
+        {/* ── Zone 1: Unit Board ── */}
+        <div className="pipeline-zone pipeline-units-zone">
+          <div className="pipeline-zone-header">
+            <div className="pzh-left">
+              <span className="pzh-title">Units</span>
+              <span className="pzh-badge" style={{ background:'var(--marina)', color:'var(--nightfall)' }}>
+                {totalSlots} slots available
+              </span>
+              <span className="pzh-badge" style={{ background:'#dcfce7', color:'#166534' }}>
+                {unitsWithOpen} open
+              </span>
             </div>
-            <div className="units-grid">
-              {participating.map(unit => (
-                <UnitCard
-                  key={unit.id}
-                  unit={unit}
-                  matchedStudents={students.filter(s => s.matched_unit_id === unit.id)}
-                  matches={matches}
-                  selectedStudent={selectedStudent}
-                  onSlotClick={() => handleSlotClick(unit)}
-                  onUnmatch={student => onUnmatch(student, unit)}
-                  onUpdateMatch={onUpdateMatch}
-                  onDelete={() => onDeleteUnit(unit)}
-                />
-              ))}
+            <div className="pzh-right">
+              <button className="btn btn-primary" style={{ fontSize:12, padding:'5px 12px' }} onClick={() => setShowUnitSetup(true)}>
+                ⚙ Set Up Units
+              </button>
+              <button className="btn btn-outline-modal" style={{ fontSize:12, padding:'5px 12px', background:'#fff' }} onClick={() => setShowImportUnits(true)}>
+                ↑ Import CSV
+              </button>
+              <button className="btn btn-outline-modal" style={{ fontSize:12, padding:'5px 12px', background:'#fff' }} onClick={exportCSV}>
+                ↓ Export Matches
+              </button>
             </div>
           </div>
 
-          {/* ── Students panel (35%) ── */}
-          <div className="board-students-col">
-            <div className="board-panel-header">
-              <span className="board-panel-title">Students</span>
-              <span className="board-pool-count">
-                {filteredPool.length !== unmatchedAll.length
-                  ? `${filteredPool.length} of ${unmatchedAll.length}`
-                  : `${unmatchedAll.length} unmatched`}
-              </span>
-            </div>
-            <div className="pool-filter-row">
-              <input className="pool-search-input" placeholder="Search by name…"
-                value={poolSearch} onChange={e => setPoolSearch(e.target.value)} />
-              <select className="pool-school-select" value={poolSchool} onChange={e => setPoolSchool(e.target.value)}>
+          <div className="pipeline-zone-body">
+            {participating.length === 0 ? (
+              <div className="state-box" style={{ margin:16 }}>
+                <p>No participating units set up for this cohort.</p>
+                <p style={{ fontSize:13, color:'#64748b', marginTop:6 }}>
+                  Click "Set Up Units" to get started.
+                </p>
+              </div>
+            ) : (
+              <div className="pipeline-unit-grid">
+                {participating.map(unit => (
+                  <PipelineUnitCard
+                    key={unit.id}
+                    unit={unit}
+                    matchedStudents={students.filter(s => s.matched_unit_id === unit.id)}
+                    selectedStudent={selectedStudent}
+                    onDotClick={() => handleDotClick(unit)}
+                    onUnmatch={student => onUnmatch(student, unit)}
+                    onDelete={() => onDeleteUnit(unit)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Divider ── */}
+        <div className="pipeline-divider">
+          <span className="pipeline-divider-label">▲ Units &nbsp;&nbsp; ▼ Students</span>
+        </div>
+
+        {/* ── Zone 2: Student Pool ── */}
+        <div className="pipeline-zone pipeline-students-zone">
+          <div className="pipeline-zone-header pipeline-zone-header-dark">
+            <span className="pzh-title-light">Student Pool</span>
+            <div className="pzh-search-group">
+              <input
+                className="pipeline-search-input"
+                placeholder="Search by name…"
+                value={poolSearch}
+                onChange={e => setPoolSearch(e.target.value)}
+              />
+              <select
+                className="pipeline-school-select"
+                value={poolSchool}
+                onChange={e => setPoolSchool(e.target.value)}
+              >
                 <option value="">All Schools</option>
                 {poolSchools.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
-            <div className="students-pool">
-              {filteredPool.length === 0
-                ? <div className="pool-empty" style={{ gridColumn: '1 / -1' }}>
-                    {unmatchedAll.length === 0 ? 'All students have been matched.' : 'No students match the current filter.'}
-                  </div>
-                : filteredPool.map(s => (
-                    <StudentMatchCard
-                      key={s.id} student={s} units={units}
-                      isSelected={selectedStudent?.id === s.id}
-                      onSelect={handleStudentSelect}
-                    />
-                  ))
-              }
+            <span className="pzh-count-light">
+              {filteredPool.length !== unmatchedAll.length
+                ? `Showing ${filteredPool.length} of ${unmatchedAll.length}`
+                : `${unmatchedAll.length} unmatched`}
+            </span>
+          </div>
+
+          <div className="pipeline-zone-body">
+            {selectedStudent && (
+              <div className="pipeline-selection-banner">
+                <span>
+                  Placing <strong>{selectedStudent.first_name || selectedStudent.name}</strong> — click an empty dot on a unit above
+                </span>
+                <button className="btn-cancel-select" onClick={() => setSelectedStudent(null)}>Cancel</button>
+              </div>
+            )}
+            <div className="pipeline-student-grid">
+              {filteredPool.length === 0 ? (
+                <div className="pool-empty" style={{ gridColumn:'1/-1' }}>
+                  {unmatchedAll.length === 0
+                    ? 'All students have been matched.'
+                    : 'No students match the current filter.'}
+                </div>
+              ) : (
+                filteredPool.map(s => (
+                  <StudentMatchCard
+                    key={s.id}
+                    student={s}
+                    units={units}
+                    isSelected={selectedStudent?.id === s.id}
+                    onSelect={handleStudentSelect}
+                  />
+                ))
+              )}
             </div>
           </div>
         </div>
-      ) : (
-        <div className="state-box">
-          <p>No participating units set up for this cohort.</p>
-          <p style={{ fontSize: 13, color: '#64748b', marginTop: 6 }}>
-            Click "Set Up Units" above to choose which units are participating this cohort.
-          </p>
-        </div>
-      )}
 
-      {/* ── Export ── */}
-      <div className="match-export-row">
-        <button className="btn btn-primary" onClick={exportCSV}>↓ Export Matches CSV</button>
-        <span className="export-hint">{matchedStudents.length} student{matchedStudents.length !== 1 ? 's' : ''} matched</span>
       </div>
 
       {showUnitSetup && (
