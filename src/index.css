@@ -6,6 +6,11 @@
 
 * { font-family: 'DM Sans', sans-serif; box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Remove number input spin buttons globally */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
+
 :root {
   --nightfall:   #1d2567;
   --nightfall85: rgba(29,37,103,0.85);
@@ -1523,18 +1528,41 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* Pipeline Unit Card */
 .pz-unit-card {
   background: #ffffff; border-radius: 10px;
-  border: 1px solid #e5e7eb; border-left: 4px solid #16a34a;
+  border: 1px solid #e5e7eb; border-top: 4px solid #16a34a;
+  border-left: none;
   min-height: 160px; overflow: hidden;
-  display: flex; flex-direction: column;
+  display: flex; flex-direction: row;
   transition: box-shadow 0.15s, opacity 0.15s, background 0.15s;
 }
+
+/* Division spine — vertical colored bar on the left */
+.pzuc-spine {
+  width: 28px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 9px 0 0 9px;
+}
+.pzuc-spine-label {
+  font-size: 11px; font-weight: 600; color: #ffffff;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);   /* bottom-to-top reading */
+  white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-height: 100px;
+  letter-spacing: 0.04em;
+}
+
+/* Content area (everything to the right of the spine) */
+.pzuc-content {
+  flex: 1; min-width: 0; display: flex; flex-direction: column;
+  border-radius: 0 9px 9px 0;
+  overflow: hidden;
+}
+
 .pzuc-header {
   background: #1d2567; height: 38px; padding: 0 10px;
   display: flex; align-items: center; justify-content: space-between;
   gap: 6px; flex-shrink: 0;
 }
 .pzuc-name { font-size: 13px; font-weight: 600; color: #ffffff; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pzuc-div-badge { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
 .pzuc-del-btn { background: none; border: none; color: rgba(255,255,255,0.4); cursor: pointer; font-size: 12px; padding: 2px 4px; border-radius: 3px; flex-shrink: 0; transition: background 0.1s, color 0.1s; }
 .pzuc-del-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
 

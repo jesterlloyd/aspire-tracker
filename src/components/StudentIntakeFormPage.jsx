@@ -318,7 +318,7 @@ export default function StudentIntakeFormPage() {
             <div className="sf-row-2">
               <div className="uf-field">
                 <label className="uf-label">Cumulative GPA (on a 4.0 scale) *</label>
-                <input className="uf-input" type="number" step="0.01" min="0" max="4"
+                <input className="uf-input" type="text" inputMode="decimal" pattern="[0-9.]*"
                   value={form.cumulative_gpa}
                   onChange={e => set('cumulative_gpa', e.target.value)}
                   placeholder="e.g. 3.75" style={{ maxWidth: 160 }} />

@@ -229,7 +229,9 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
                 <div className="form-readonly">{data.term_dates || '—'}</div>
               </Field>
               <Field label="Hours Required">
-                <div className="form-readonly">{data.hours_required ?? '—'}</div>
+                <input className="form-input" type="text" inputMode="numeric" pattern="[0-9]*"
+                  value={data.hours_required ?? ''}
+                  onChange={e => handleNum('hours_required', e.target.value)} />
               </Field>
               <Field label="Estimated Graduation">
                 <div className="form-readonly">{data.estimated_graduation || '—'}</div>
@@ -270,7 +272,7 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
                 </select>
               </Field>
               <Field label="Cumulative GPA">
-                <input className="form-input" type="number" step="0.01" min="0" max="4"
+                <input className="form-input" type="text" inputMode="decimal" pattern="[0-9.]*"
                   value={data.cumulative_gpa ?? ''} placeholder="0.00"
                   onChange={e => handleDecimal('cumulative_gpa', e.target.value)} />
                 {data.cumulative_gpa != null && (

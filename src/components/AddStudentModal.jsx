@@ -103,7 +103,7 @@ export default function AddStudentModal({ cohortId, onAdd, onClose }) {
               </div>
               <div className="form-field">
                 <label className="form-label">Hours Required</label>
-                <input className="form-input" type="number" min="0"
+                <input className="form-input" type="text" inputMode="numeric" pattern="[0-9]*"
                   value={form.hours_required || ''}
                   onChange={e => set('hours_required', parseInt(e.target.value) || 0)} />
               </div>

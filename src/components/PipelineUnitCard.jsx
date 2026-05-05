@@ -3,11 +3,12 @@ import { UNIT_DIVISION_MAP } from '../lib/constants'
 import { displayName } from '../lib/utils'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 
-const DIV_BADGE = {
-  'Surgical':      { bg: '#78350f', color: '#fde68a' },
-  'Medical':       { bg: '#1d2567', color: '#9faff8' },
-  'Critical Care': { bg: '#7f1d1d', color: '#fca5a5' },
-  'Specialty':     { bg: '#365314', color: '#d9f99d' },
+// Division spine colors (vertical left spine)
+const DIV_SPINE = {
+  'Surgical':      '#b45309',
+  'Medical':       '#1d4ed8',
+  'Critical Care': '#b91c1c',
+  'Specialty':     '#166534',
 }
 
 export default function PipelineUnitCard({
@@ -19,8 +20,11 @@ export default function PipelineUnitCard({
   const emptyCount  = Math.max(0, unit.total_slots - filledCount)
   const isFull      = emptyCount === 0
 
-  const division = unit.division || UNIT_DIVISION_MAP[unit.unit_name] || 'Medical'
-  const badge    = DIV_BADGE[division] || DIV_BADGE['Medical']
+  const division   = unit.division || UNIT_DIVISION_MAP[unit.unit_name] || 'Medical'
+  const spineColor = DIV_SPINE[division] || DIV_SPINE['Medical']
+
+  // Top border color reflects fill status
+  const topBorder = isFull ? '#9ca3af' : emptyCount === 1 ? '#ca8a04' : '#16a34a'
 
   const compat = selectedStudent
     ? (selectedStudent.unit_preference_1 === unit.unit_name ? 'green'
@@ -29,7 +33,6 @@ export default function PipelineUnitCard({
       : null)
     : null
 
-  const leftBorder = isFull ? '#9ca3af' : emptyCount === 1 ? '#ca8a04' : '#16a34a'
   const glow = compat === 'green'  ? '0 0 0 3px #16a34a'
              : compat === 'yellow' ? '0 0 0 3px #ca8a04'
              : compat === 'blue'   ? '0 0 0 3px #0369a1'
@@ -42,46 +45,52 @@ export default function PipelineUnitCard({
   return (
     <>
       <div className="pz-unit-card" style={{
-        borderLeft: `4px solid ${leftBorder}`,
-        background: bgTint,
+        borderTop: `4px solid ${topBorder}`,
+        borderLeft: 'none',
         boxShadow: glow,
         opacity: selectedStudent && isFull ? 0.55 : 1,
+        display: 'flex',
+        flexDirection: 'row',
+        background: bgTint,
       }}>
-        {/* Header strip */}
-        <div className="pzuc-header">
-          <span className="pzuc-name" title={unit.unit_name}>{unit.unit_name}</span>
-          <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
-            <span className="pzuc-div-badge" style={{ background: badge.bg, color: badge.color }}>
-              {division}
-            </span>
+        {/* Vertical division spine */}
+        <div className="pzuc-spine" style={{ background: spineColor }}>
+          <span className="pzuc-spine-label">{division}</span>
+        </div>
+
+        {/* Card content */}
+        <div className="pzuc-content">
+          {/* Header strip */}
+          <div className="pzuc-header">
+            <span className="pzuc-name" title={unit.unit_name}>{unit.unit_name}</span>
             <button className="pzuc-del-btn" onClick={() => setConfirmDelete(true)} title="Delete unit">✕</button>
           </div>
-        </div>
 
-        {/* Dot row */}
-        <div className="pz-dot-row">
-          {matchedStudents.map(student => (
-            <FilledDot key={student.id} student={student} onUnmatch={() => onUnmatch(student)} />
-          ))}
-          {Array.from({ length: emptyCount }).map((_, i) => (
-            <EmptyDot
-              key={i}
-              hasSelected={!!selectedStudent}
-              compat={compat}
-              onClick={selectedStudent ? onDotClick : undefined}
-            />
-          ))}
-        </div>
+          {/* Dot row */}
+          <div className="pz-dot-row">
+            {matchedStudents.map(student => (
+              <FilledDot key={student.id} student={student} onUnmatch={() => onUnmatch(student)} />
+            ))}
+            {Array.from({ length: emptyCount }).map((_, i) => (
+              <EmptyDot
+                key={i}
+                hasSelected={!!selectedStudent}
+                compat={compat}
+                onClick={selectedStudent ? onDotClick : undefined}
+              />
+            ))}
+          </div>
 
-        {/* Footer */}
-        <div className="pzuc-footer">
-          {unit.shift_preference && (
-            <span className="pzuc-shift-pill">{unit.shift_preference}</span>
-          )}
-          {isFull && <span className="pzuc-full-pill">Full</span>}
-          {unit.contact_person && (
-            <span className="pzuc-contact">{unit.contact_person}</span>
-          )}
+          {/* Footer */}
+          <div className="pzuc-footer">
+            {unit.shift_preference && (
+              <span className="pzuc-shift-pill">{unit.shift_preference}</span>
+            )}
+            {isFull && <span className="pzuc-full-pill">Full</span>}
+            {unit.contact_person && (
+              <span className="pzuc-contact">{unit.contact_person}</span>
+            )}
+          </div>
         </div>
       </div>
 

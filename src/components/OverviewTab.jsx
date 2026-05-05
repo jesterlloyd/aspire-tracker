@@ -54,6 +54,10 @@ export default function OverviewTab({ students, units, onStudentUpdate }) {
     if (!unitsByDiv[div]) unitsByDiv[div] = []
     unitsByDiv[div].push(u)
   })
+  // Sort units alphabetically within each division
+  Object.keys(unitsByDiv).forEach(div => {
+    unitsByDiv[div].sort((a, b) => (a.unit_name || '').localeCompare(b.unit_name || ''))
+  })
 
   const toggleUnitGroup   = div => setUnitGroupsOpen(p => ({ ...p, [div]: !p[div] }))
   const expandAllUnits    = () => setUnitGroupsOpen(Object.fromEntries(DIVISIONS.map(d => [d, true])))
@@ -239,7 +243,12 @@ export default function OverviewTab({ students, units, onStudentUpdate }) {
                           Send Form to School
                         </button>
                       </div>
-                      {sStudents.map(s => (
+                      {[...sStudents].sort((a, b) => {
+                        const la = (a.last_name || '').toLowerCase()
+                        const lb = (b.last_name || '').toLowerCase()
+                        if (la !== lb) return la.localeCompare(lb)
+                        return (a.first_name || '').toLowerCase().localeCompare((b.first_name || '').toLowerCase())
+                      }).map(s => (
                         <div key={s.id} className="ov-student-row">
                           <div className="ov-student-info">
                             <span className="ov-student-name">{displayName(s)}</span>

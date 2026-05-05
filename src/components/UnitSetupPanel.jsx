@@ -116,7 +116,7 @@ export default function UnitSetupPanel({ cohortId, currentUnits, students, onSav
                         <div className="usp-unit-fields">
                           <div className="usp-field-group">
                             <label className="usp-field-label">Slots</label>
-                            <input className="usp-input usp-input-sm" type="number" min="1" max="20"
+                            <input className="usp-input usp-input-sm" type="text" inputMode="numeric" pattern="[0-9]*"
                               value={cfg.slots}
                               onChange={e => upd(unitName, 'slots', parseInt(e.target.value) || 1)} />
                           </div>

@@ -254,7 +254,7 @@ export default function SchoolFormPage() {
                   </div>
                   <div className="uf-field">
                     <label className="uf-label">Hours Required</label>
-                    <input className="uf-input" type="number" min="0" value={row.hours_required}
+                    <input className="uf-input" type="text" inputMode="numeric" pattern="[0-9]*" value={row.hours_required}
                       onChange={e => updRow(row._key, 'hours_required', e.target.value)} placeholder="e.g. 144" />
                   </div>
                 </div>
