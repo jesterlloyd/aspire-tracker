@@ -116,6 +116,10 @@ export default function StudentIntakeFormPage() {
       setError('Please share why you are interested in Cedars-Sinai (at least 50 characters).'); return
     }
 
+    // DEBUG: show exactly what email value will be queried
+    const debugEmail = form.school_email.trim().toLowerCase()
+    alert(`Email being searched: "${debugEmail}" | Length: ${debugEmail?.length} | Type: ${typeof debugEmail}`)
+
     setSubmitting(true)
     setError(null)
 
