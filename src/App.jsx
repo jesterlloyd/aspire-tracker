@@ -3,7 +3,7 @@ import { supabase } from './lib/supabase'
 import { displayName } from './lib/utils'
 import OverviewTab from './components/OverviewTab'
 import StudentProfilesTab from './components/StudentProfilesTab'
-import InterviewTab from './components/InterviewTab'
+import InterviewRubricTab from './components/InterviewRubricTab'
 import MatchingTab from './components/MatchingTab'
 import AddStudentModal from './components/AddStudentModal'
 import CohortBar from './components/CohortBar'
@@ -103,7 +103,7 @@ function MainApp({ onLogout }) {
     setMatches(data || [])
   }
   const fetchInterviews = async id => {
-    const { data } = await supabase.from('interviews').select('*').eq('cohort_id', id)
+    const { data } = await supabase.from('interview_rubrics').select('*').eq('cohort_id', id)
     setInterviews(data || [])
   }
   const refreshAll = () => {
@@ -175,6 +175,7 @@ function MainApp({ onLogout }) {
     await supabase.from('students').delete().eq('id', id)
     // Belt-and-suspenders: explicitly remove related records in case CASCADE is not yet applied
     await supabase.from('interviews').delete().eq('student_id', id)
+    await supabase.from('interview_rubrics').delete().eq('student_id', id)
     await supabase.from('matches').delete().eq('student_id', id)
     // Refetch all affected state so every tab reflects the deletion immediately
     setStudents(prev => prev.filter(s => s.id !== id))
@@ -403,12 +404,12 @@ function MainApp({ onLogout }) {
         )}
 
         {!loading && !dbError && cohorts.length > 0 && activeTab === 'interviews' && (
-          <InterviewTab
+          <InterviewRubricTab
             students={students}
-            interviews={interviews}
+            rubrics={interviews}
             cohortId={activeCohortId}
             onStudentUpdate={updateStudent}
-            onInterviewsChange={() => fetchInterviews(activeCohortId)}
+            onRubricsChange={() => fetchInterviews(activeCohortId)}
           />
         )}
 

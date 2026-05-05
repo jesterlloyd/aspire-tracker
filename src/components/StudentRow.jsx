@@ -406,62 +406,61 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
           {/* Interview Summary */}
           <div className="form-section">
             <div className="section-label">Interview Summary</div>
-            {!data.interview_date && !data.interviewer_name && !data.composite_score ? (
+            {!data.rubric_count && !data.interview_scheduled_date ? (
               <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>No interview on record.</p>
             ) : (
               <div className="iv-summary-readonly">
+                {data.interview_scheduled_date && (
+                  <div className="iv-summary-row">
+                    <span className="iv-summary-lbl">Scheduled</span>
+                    <span className="iv-summary-val">
+                      {data.interview_scheduled_date}{data.interview_scheduled_time ? ` at ${data.interview_scheduled_time}` : ''}
+                    </span>
+                  </div>
+                )}
                 <div className="iv-summary-row">
-                  <span className="iv-summary-lbl">Date</span>
-                  <span className="iv-summary-val">{data.interview_date || '—'}</span>
+                  <span className="iv-summary-lbl">Rubrics Submitted</span>
+                  <span className="iv-summary-val" style={{ fontWeight: 700 }}>{data.rubric_count || 0}</span>
                 </div>
                 <div className="iv-summary-row">
-                  <span className="iv-summary-lbl">Interviewer</span>
-                  <span className="iv-summary-val">{data.interviewer_name || '—'}</span>
-                </div>
-                <div className="iv-summary-row">
-                  <span className="iv-summary-lbl">CJ Score</span>
-                  <span className="iv-summary-val">{data.cj_score > 0 ? `${data.cj_score}/5` : '—'}</span>
-                </div>
-                <div className="iv-summary-row">
-                  <span className="iv-summary-lbl">PP Score</span>
-                  <span className="iv-summary-val">{data.pp_score > 0 ? `${data.pp_score}/5` : '—'}</span>
-                </div>
-                <div className="iv-summary-row">
-                  <span className="iv-summary-lbl">GA Score</span>
-                  <span className="iv-summary-val">{data.ga_score > 0 ? `${data.ga_score}/5` : '—'}</span>
-                </div>
-                <div className="iv-summary-row">
-                  <span className="iv-summary-lbl">Composite</span>
+                  <span className="iv-summary-lbl">Avg Composite</span>
                   <span className="iv-summary-val" style={{ fontWeight: 700, color: 'var(--nightfall)' }}>
-                    {data.composite_score > 0 ? `${data.composite_score}/15` : '—'}
+                    {data.avg_composite_score > 0 ? `${parseFloat(data.avg_composite_score).toFixed(1)}/15` : '—'}
                   </span>
                 </div>
+                {data.avg_composite_score > 0 && (
+                  <>
+                    <div className="iv-summary-row">
+                      <span className="iv-summary-lbl">Avg CJ</span>
+                      <span className="iv-summary-val">{parseFloat(data.avg_cj_score||0).toFixed(1)}/5</span>
+                    </div>
+                    <div className="iv-summary-row">
+                      <span className="iv-summary-lbl">Avg PP</span>
+                      <span className="iv-summary-val">{parseFloat(data.avg_pp_score||0).toFixed(1)}/5</span>
+                    </div>
+                    <div className="iv-summary-row">
+                      <span className="iv-summary-lbl">Avg GA</span>
+                      <span className="iv-summary-val">{parseFloat(data.avg_ga_score||0).toFixed(1)}/5</span>
+                    </div>
+                  </>
+                )}
                 <div className="iv-summary-row">
-                  <span className="iv-summary-lbl">Recommendation</span>
+                  <span className="iv-summary-lbl">Auto Recommendation</span>
                   <span className="iv-summary-val">
-                    {data.overall_recommendation
+                    {data.auto_recommendation
                       ? <span className="iv-rec-badge-sm" style={{
-                          background: data.overall_recommendation === 'Recommend' ? '#dcfce7'
-                            : data.overall_recommendation === 'Recommend with Reservations' ? '#fef3c7'
-                            : '#fee2e2',
-                          color: data.overall_recommendation === 'Recommend' ? '#166534'
-                            : data.overall_recommendation === 'Recommend with Reservations' ? '#92400e'
-                            : '#991b1b',
-                        }}>
-                          {data.overall_recommendation}
-                        </span>
-                      : '—'
-                    }
+                          background: data.auto_recommendation === 'Recommend' ? '#dcfce7' : data.auto_recommendation === 'Recommend with Reservations' ? '#fef3c7' : '#fee2e2',
+                          color:      data.auto_recommendation === 'Recommend' ? '#166534' : data.auto_recommendation === 'Recommend with Reservations' ? '#92400e' : '#991b1b',
+                        }}>{data.auto_recommendation}</span>
+                      : '—'}
                   </span>
                 </div>
-                <div className="iv-summary-row">
-                  <span className="iv-summary-lbl">Suggested Unit</span>
-                  <span className="iv-summary-val">{data.interviewer_suggested_unit || '—'}</span>
-                </div>
-                {data.summary_comments && (
-                  <div className="iv-summary-comments">
-                    <span className="iv-summary-lbl">Summary Comments</span>
-                    <p style={{ fontSize: 13, color: 'var(--raven)', marginTop: 4, lineHeight: 1.5 }}>{data.summary_comments}</p>
+                {data.flagged_for_second_interview && (
+                  <div className="iv-summary-row">
+                    <span className="iv-summary-lbl">Flagged</span>
+                    <span className="iv-summary-val" style={{ color:'#991b1b', fontWeight:600 }}>
+                      🚩 Second Interview{data.flag_note ? ` — ${data.flag_note}` : ''}
+                    </span>
                   </div>
                 )}
               </div>
