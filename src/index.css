@@ -247,16 +247,25 @@ body { min-height: 100vh; }
   padding: 0 24px; display: flex;
 }
 .tab-btn {
-  padding: 13px 22px; border: none; background: none;
+  padding: 10px 22px 8px; border: none; background: none;
   font-size: 14px; font-weight: 600;
   color: rgba(159,175,248,0.7);
   cursor: pointer;
   border-bottom: 3px solid transparent;
   margin-bottom: -1px;
   transition: color 0.15s, border-color 0.15s;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
 }
 .tab-btn:hover { color: var(--pearl); }
 .tab-btn.active { color: var(--pearl); border-bottom-color: var(--nova); }
+
+.tab-aspire-hint {
+  font-size: 10px; font-weight: 700; line-height: 1;
+  color: rgba(159,175,248,0.55); letter-spacing: 0.06em;
+  transition: color 0.15s;
+}
+.tab-btn.active .tab-aspire-hint { color: rgba(255,255,255,0.75); }
+.tab-btn:hover .tab-aspire-hint  { color: rgba(255,255,255,0.6); }
 
 .tab-badge {
   display: inline-flex; align-items: center; justify-content: center;

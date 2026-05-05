@@ -19,7 +19,7 @@ export default function UnitFormPage() {
   const [error,      setError]      = useState(null)
 
   useEffect(() => {
-    document.title = PAGE_TITLE
+    document.title = 'ASPIRE Program Tracker'
     supabase.from('cohorts').select('id, name').eq('accepting_submissions', true)
       .limit(1).single()
       .then(({ data }) => {

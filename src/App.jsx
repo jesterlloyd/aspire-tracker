@@ -325,17 +325,21 @@ function MainApp({ onLogout }) {
 
         {cohorts.length > 0 && (
           <div className="tab-bar">
-            <button className={`tab-btn${activeTab === 'overview'   ? ' active' : ''}`} onClick={() => setActiveTab('overview')}>
-              Overview
+            <button className={`tab-btn${activeTab === 'overview'   ? ' active' : ''}`} onClick={() => setActiveTab('overview')} aria-label="Aggregate tab">
+              <span>Aggregate</span>
+              <span className="tab-aspire-hint">A</span>
             </button>
-            <button className={`tab-btn${activeTab === 'profiles'   ? ' active' : ''}`} onClick={() => setActiveTab('profiles')}>
-              Student Profiles
+            <button className={`tab-btn${activeTab === 'profiles'   ? ' active' : ''}`} onClick={() => setActiveTab('profiles')} aria-label="Student Profiles tab">
+              <span>Student Profiles</span>
+              <span className="tab-aspire-hint">S · P</span>
             </button>
-            <button className={`tab-btn${activeTab === 'interviews' ? ' active' : ''}`} onClick={() => setActiveTab('interviews')}>
-              Interviews
+            <button className={`tab-btn${activeTab === 'interviews' ? ' active' : ''}`} onClick={() => setActiveTab('interviews')} aria-label="Interview Rubric tab">
+              <span>Interview Rubric</span>
+              <span className="tab-aspire-hint">I · R</span>
             </button>
-            <button className={`tab-btn${activeTab === 'matching'   ? ' active' : ''}`} onClick={() => setActiveTab('matching')}>
-              Matching
+            <button className={`tab-btn${activeTab === 'matching'   ? ' active' : ''}`} onClick={() => setActiveTab('matching')} aria-label="Embed tab">
+              <span>Embed</span>
+              <span className="tab-aspire-hint">E</span>
             </button>
           </div>
         )}
