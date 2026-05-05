@@ -70,6 +70,12 @@ export default function StudentIntakeFormPage() {
   const getPopulation = unitName =>
     unitName ? (unitPopMap[unitName] || PATIENT_POPULATION_MAP[unitName] || null) : null
 
+  // Returns "UnitName - Description" for dropdown option labels, or just "UnitName" if no description.
+  const getOptionLabel = unitName => {
+    const desc = unitPopMap[unitName] || PATIENT_POPULATION_MAP[unitName]
+    return desc ? `${unitName} - ${desc}` : unitName
+  }
+
   const handleSubmit = async e => {
     e.preventDefault()
 
@@ -436,7 +442,7 @@ export default function StudentIntakeFormPage() {
                       }))
                     }}>
                     <option value="">Select a unit…</option>
-                    {availableUnits.map(u => <option key={u} value={u}>{u}</option>)}
+                    {availableUnits.map(u => <option key={u} value={u}>{getOptionLabel(u)}</option>)}
                   </select>
                   {getPopulation(form.unit_preference_1) && (
                     <p className="uf-unit-pop">{getPopulation(form.unit_preference_1)}</p>
@@ -454,7 +460,7 @@ export default function StudentIntakeFormPage() {
                     }}>
                     <option value="">No preference</option>
                     {availableUnits.filter(u => u !== form.unit_preference_1)
-                      .map(u => <option key={u} value={u}>{u}</option>)}
+                      .map(u => <option key={u} value={u}>{getOptionLabel(u)}</option>)}
                   </select>
                   {getPopulation(form.unit_preference_2) && (
                     <p className="uf-unit-pop">{getPopulation(form.unit_preference_2)}</p>
@@ -466,7 +472,7 @@ export default function StudentIntakeFormPage() {
                     onChange={e => set('unit_preference_3', e.target.value)}>
                     <option value="">No preference</option>
                     {availableUnits.filter(u => u !== form.unit_preference_1 && u !== form.unit_preference_2)
-                      .map(u => <option key={u} value={u}>{u}</option>)}
+                      .map(u => <option key={u} value={u}>{getOptionLabel(u)}</option>)}
                   </select>
                   {getPopulation(form.unit_preference_3) && (
                     <p className="uf-unit-pop">{getPopulation(form.unit_preference_3)}</p>
