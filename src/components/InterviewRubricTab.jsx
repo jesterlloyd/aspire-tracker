@@ -26,7 +26,7 @@ const ROW_BORDER = {
 }
 
 export default function InterviewRubricTab({
-  students, rubrics, cohortId, onStudentUpdate, onRubricsChange,
+  students, rubrics, cohortId, onStudentUpdate, onRubricsChange, onManageInterviewers,
 }) {
   const [selectedStudentId,   setSelectedStudentId]   = useState(null)
   const [showScheduleModal,   setShowScheduleModal]   = useState(false)
@@ -109,6 +109,7 @@ export default function InterviewRubricTab({
         rubrics={rubrics}
         onOpenSession={id => setSelectedStudentId(id)}
         onSchedule={() => setShowScheduleModal(true)}
+        onManageInterviewers={onManageInterviewers}
       />
 
       {/* Summary cards */}
@@ -136,17 +137,21 @@ export default function InterviewRubricTab({
               <th className="iv-th iv-sortable" onClick={() => toggleSort('last_name')}>Student Name <SortIcon field="last_name" /></th>
               <th className="iv-th iv-sortable" onClick={() => toggleSort('school')}>School <SortIcon field="school" /></th>
               <th className="iv-th">Scheduled</th>
+              <th className="iv-th">Interviewers</th>
               <th className="iv-th">ASPIRE Status</th>
               <th className="iv-th iv-sortable" onClick={() => toggleSort('iv_status')}>Interview Status <SortIcon field="iv_status" /></th>
               <th className="iv-th">Rubrics</th>
               <th className="iv-th iv-sortable" onClick={() => toggleSort('score')}>Avg Score <SortIcon field="score" /></th>
-              <th className="iv-th">Auto Rec.</th>
+              <th className="iv-th" style={{ position:'relative', whiteSpace:'nowrap' }}>
+                Auto Result
+                <span className="iv-th-info" title="Calculated automatically from the average composite score across all submitted rubrics. ≥12 = Recommend, 8–11 = Recommend with Reservations, &lt;8 = Do Not Recommend.">ℹ</span>
+              </th>
               <th className="iv-th">Flag</th>
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 ? (
-              <tr><td colSpan={9} className="iv-empty">No students match the current search.</td></tr>
+              <tr><td colSpan={10} className="iv-empty">No students match the current search.</td></tr>
             ) : sorted.map(s => {
               const ivStatus = getStudentIvStatus(s, rubrics)
               const borderColor = ROW_BORDER[ivStatus] || '#d1d5db'
@@ -168,6 +173,14 @@ export default function InterviewRubricTab({
                   <td className="iv-td" style={{ fontSize:12, color:'var(--text-secondary)', whiteSpace:'nowrap' }}>
                     {s.interview_scheduled_date
                       ? `${s.interview_scheduled_date}${s.interview_scheduled_time ? ' ' + s.interview_scheduled_time : ''}`
+                      : '—'}
+                  </td>
+                  <td className="iv-td" style={{ fontSize:12, color:'var(--text-secondary)' }}>
+                    {s.interview_assigned_interviewers
+                      ? s.interview_assigned_interviewers.split(',').map(n => n.trim()).filter(Boolean).map(n => {
+                          const parts = n.split(' ').filter(Boolean)
+                          return parts.length >= 2 ? `${parts[0][0]}${parts[parts.length-1][0]}`.toUpperCase() : n.slice(0,2).toUpperCase()
+                        }).join(', ')
                       : '—'}
                   </td>
                   <td className="iv-td">

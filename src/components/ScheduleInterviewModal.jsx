@@ -1,23 +1,36 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 
+// 15-minute increments 7:00 AM – 6:00 PM
 const TIME_SLOTS = []
 for (let h = 7; h <= 18; h++) {
-  TIME_SLOTS.push(`${String(h).padStart(2,'0')}:00`)
-  if (h < 18) TIME_SLOTS.push(`${String(h).padStart(2,'0')}:30`)
+  for (let m = 0; m < 60; m += 15) {
+    if (h === 18 && m > 0) break
+    TIME_SLOTS.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`)
+  }
 }
 
 export default function ScheduleInterviewModal({ students, onClose, onSaved }) {
-  const [studentId, setStudentId] = useState('')
-  const [date,      setDate]      = useState('')
-  const [time,      setTime]      = useState('09:00')
-  const [duration,  setDuration]  = useState(45)
-  const [saving,    setSaving]    = useState(false)
-  const [error,     setError]     = useState(null)
+  const [studentId,    setStudentId]    = useState('')
+  const [date,         setDate]         = useState('')
+  const [time,         setTime]         = useState('09:00')
+  const [duration,     setDuration]     = useState(45)
+  const [assigned,     setAssigned]     = useState([]) // selected interviewer names
+  const [interviewers, setInterviewers] = useState([])
+  const [saving,       setSaving]       = useState(false)
+  const [error,        setError]        = useState(null)
 
-  // Only offer students not yet scheduled or without a completed interview
+  useEffect(() => {
+    supabase.from('interviewers').select('name').eq('is_active', true).order('name')
+      .then(({ data }) => setInterviewers((data || []).map(i => i.name)))
+  }, [])
+
   const eligible = students.filter(s => !s.interview_scheduled_date || !s.interview_scheduled_date.trim())
+
+  const toggleInterviewer = name => {
+    setAssigned(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name])
+  }
 
   const handleSave = async () => {
     if (!studentId || !date) { setError('Please select a student and date.'); return }
@@ -26,6 +39,7 @@ export default function ScheduleInterviewModal({ students, onClose, onSaved }) {
       interview_scheduled_date: date,
       interview_scheduled_time: time,
       interview_duration_minutes: duration,
+      interview_assigned_interviewers: assigned.join(', '),
     }).eq('id', studentId)
     if (err) { setError(err.message); setSaving(false); return }
     await onSaved()
@@ -71,6 +85,27 @@ export default function ScheduleInterviewModal({ students, onClose, onSaved }) {
                 <option value={45}>45 minutes</option>
               </select>
             </div>
+          </div>
+          <div className="form-field">
+            <label className="form-label">Assign Interviewers (optional)</label>
+            {interviewers.length === 0 ? (
+              <p style={{ fontSize:12, color:'var(--text-secondary)' }}>No interviewers found. Add them via Manage Interviewers.</p>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:160, overflowY:'auto', padding:'4px 0' }}>
+                {interviewers.map(name => (
+                  <label key={name} style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, cursor:'pointer' }}>
+                    <input type="checkbox" checked={assigned.includes(name)} onChange={() => toggleInterviewer(name)}
+                      style={{ accentColor:'var(--nightfall)', width:15, height:15 }} />
+                    {name}
+                  </label>
+                ))}
+              </div>
+            )}
+            {assigned.length > 0 && (
+              <div style={{ fontSize:11, color:'var(--text-secondary)', marginTop:4 }}>
+                Selected: {assigned.join(', ')}
+              </div>
+            )}
           </div>
         </div>
         <div className="modal-footer">

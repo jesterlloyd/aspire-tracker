@@ -27,7 +27,37 @@ function blockColor(student, rubrics) {
   return { bg: '#dceff8', color: '#1d2567', label: 'Scheduled' }
 }
 
-export default function WeekCalendar({ students, rubrics, onOpenSession, onSchedule }) {
+const SCHOOL_ACRONYMS = {
+  'Azusa Pacific University': 'APU',
+  'Cal State LA': 'CSULA',
+  'California State University, Los Angeles': 'CSULA',
+  'Cal State Long Beach': 'CSULB',
+  'California State University, Long Beach': 'CSULB',
+  'Cal State Northridge': 'CSUN',
+  'California State University, Northridge': 'CSUN',
+  'UCLA': 'UCLA',
+  'University of California, Los Angeles': 'UCLA',
+  'West Coast University Anaheim': 'WCU-A',
+  'West Coast University, Orange County': 'WCU-A',
+  'West Coast University North Hollywood': 'WCU-NH',
+  'West Coast University, North Hollywood': 'WCU-NH',
+}
+
+function interviewerInitials(assignedStr) {
+  if (!assignedStr || !assignedStr.trim()) return null
+  const names = assignedStr.split(',').map(n => n.trim()).filter(Boolean)
+  if (names.length === 0) return null
+  const initials = n => {
+    const parts = n.split(' ').filter(Boolean)
+    // Use first letter of first word + first letter of last word
+    return parts.length >= 2 ? parts[0][0] + parts[parts.length - 1][0] : parts[0].slice(0, 2)
+  }
+  if (names.length === 1) return initials(names[0]).toUpperCase()
+  if (names.length === 2) return `${initials(names[0])}, ${initials(names[1])}`.toUpperCase()
+  return `${initials(names[0])} +${names.length - 1}`.toUpperCase()
+}
+
+export default function WeekCalendar({ students, rubrics, onOpenSession, onSchedule, onManageInterviewers }) {
   const [weekOffset, setWeekOffset] = useState(0)
   const dates = getWeekDates(weekOffset)
 
@@ -46,10 +76,18 @@ export default function WeekCalendar({ students, rubrics, onOpenSession, onSched
           <button className="week-cal-arrow" onClick={() => setWeekOffset(o => o + 1)}>›</button>
           <button className="week-cal-arrow" onClick={() => setWeekOffset(0)} title="Today" style={{ fontSize:11 }}>Today</button>
         </div>
-        <button className="btn btn-outline-modal" style={{ fontSize:12, padding:'5px 12px', background:'#fff' }}
-          onClick={onSchedule}>
-          + Schedule Interview
-        </button>
+        <div style={{ display:'flex', gap:8 }}>
+          {onManageInterviewers && (
+            <button className="btn btn-outline-modal" style={{ fontSize:12, padding:'5px 12px', background:'#fff' }}
+              onClick={onManageInterviewers}>
+              👥 Manage Interviewers
+            </button>
+          )}
+          <button className="btn btn-outline-modal" style={{ fontSize:12, padding:'5px 12px', background:'#fff' }}
+            onClick={onSchedule}>
+            + Schedule Interview
+          </button>
+        </div>
       </div>
 
       <div className="week-cal-grid">
@@ -72,15 +110,25 @@ export default function WeekCalendar({ students, rubrics, onOpenSession, onSched
                   const c = blockColor(s, rubrics)
                   const last  = s.last_name  || ''
                   const first = s.first_name || ''
+                  const acronym  = SCHOOL_ACRONYMS[s.school] || null
+                  const ivInits  = interviewerInitials(s.interview_assigned_interviewers)
                   return (
                     <div key={s.id} className="week-cal-block"
                       style={{ background: c.bg, color: c.color }}
                       onClick={() => onOpenSession(s.id)}
-                      title={`${displayName(s)} · ${s.interview_scheduled_time || ''}`}>
+                      title={`${displayName(s)} · ${s.school || ''} · ${s.interview_scheduled_time || ''}`}>
                       <div className="week-cal-block-name">{last}{last && first ? ', ' : ''}{first}</div>
-                      {s.interview_scheduled_time && (
-                        <div className="week-cal-block-time">{s.interview_scheduled_time}</div>
-                      )}
+                      <div className="week-cal-block-meta">
+                        {acronym && (
+                          <span className="week-cal-school-pill">{acronym}</span>
+                        )}
+                        {ivInits && (
+                          <span className="week-cal-iv-pill">{ivInits}</span>
+                        )}
+                        {s.interview_scheduled_time && (
+                          <span className="week-cal-block-time">{s.interview_scheduled_time}</span>
+                        )}
+                      </div>
                     </div>
                   )
                 })}
