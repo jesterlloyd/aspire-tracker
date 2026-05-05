@@ -119,12 +119,25 @@ export default function StudentIntakeFormPage() {
     setSubmitting(true)
     setError(null)
 
-    // Find existing student by school_email in this cohort
-    const { data: student } = await supabase.from('students')
+    const emailInput = form.school_email.trim()
+
+    // Case-insensitive lookup by school_email first
+    const { data: bySchoolEmail } = await supabase.from('students')
       .select('id')
       .eq('cohort_id', cohortId)
-      .eq('school_email', form.school_email.trim().toLowerCase())
+      .ilike('school_email', emailInput)
       .limit(1).maybeSingle()
+
+    // Fallback: search by personal_email if school_email lookup found nothing
+    let student = bySchoolEmail
+    if (!student) {
+      const { data: byPersonalEmail } = await supabase.from('students')
+        .select('id')
+        .eq('cohort_id', cohortId)
+        .ilike('personal_email', emailInput)
+        .limit(1).maybeSingle()
+      student = byPersonalEmail
+    }
 
     if (!student) {
       setError('We could not find your information in our system for the current cycle. Please contact the ASPIRE team to confirm your school email on file.')
