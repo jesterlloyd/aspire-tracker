@@ -18,9 +18,10 @@ export default function SchoolFormPage() {
   const [coord, setCoord] = useState({ school: '', name: '', email: '', notes: '' })
   const [rows,  setRows]  = useState([newStudent()])
 
-  const [submitting, setSubmitting] = useState(false)
-  const [result,     setResult]     = useState(null) // { added: [], skipped: [] }
-  const [error,      setError]      = useState(null)
+  const [submitting,  setSubmitting]  = useState(false)
+  const [result,      setResult]      = useState(null)
+  const [error,       setError]       = useState(null)
+  const [debugError,  setDebugError]  = useState(null)
 
   useEffect(() => {
     document.title = PAGE_TITLE
@@ -45,8 +46,15 @@ export default function SchoolFormPage() {
     const invalid = rows.find(r => !r.first_name?.trim() || !r.last_name?.trim() || !r.email.trim())
     if (invalid) { setError('Each student requires a first name, last name, and email.'); return }
 
+    // Guard: cohort must be set before attempting any insert
+    if (!cohortId) {
+      setError('Submissions are not currently open. Please contact the ASPIRE team.')
+      return
+    }
+
     setSubmitting(true)
     setError(null)
+    setDebugError(null)
 
     const added = []
     const skipped = []
@@ -92,6 +100,8 @@ export default function SchoolFormPage() {
       })
 
       if (insertErr) {
+        console.error('Supabase insert error:', insertErr)
+        setDebugError(`Error code: ${insertErr.code} — ${insertErr.message}`)
         setError('Something went wrong while adding students. Please try again.')
         setSubmitting(false)
         return
@@ -276,6 +286,11 @@ export default function SchoolFormPage() {
             <button type="submit" className="uf-submit-btn" disabled={submitting}>
               {submitting ? 'Submitting…' : `Submit ${rows.length} Student${rows.length !== 1 ? 's' : ''}`}
             </button>
+            {debugError && (
+              <p style={{ fontSize: 12, color: '#991b1b', marginTop: 8, fontFamily: 'monospace', background: '#fee2e2', padding: '6px 10px', borderRadius: 4 }}>
+                Debug: {debugError}
+              </p>
+            )}
           </div>
         </form>
       </div>

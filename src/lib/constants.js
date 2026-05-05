@@ -133,6 +133,52 @@ export const PATIENT_POPULATIONS = {
   'Float Pool': 'Float Pool',
 }
 
+// Hardcoded fallback map for patient population descriptions.
+// Used when the units table patient_population column is empty or missing.
+// Layer 2 of the two-layer approach: constants always win over an empty DB value.
+export const PATIENT_POPULATION_MAP = {
+  '7NE': 'Orthopedics, Surgical, Trauma',
+  '7NW': 'Orthopedics, Surgical, Trauma',
+  '8SE': 'General Surgery, Colorectal, Urology, OB/GYN, Plastic Surgery, Gender Affirming, ENT, GYN, Trauma',
+  '8SW': 'General Surgery, Colorectal, Urology, OB/GYN, Plastic Surgery, Gender Affirming, ENT, GYN, Trauma',
+  '8NE': 'Neurosurgical, Neuro Step-down, Trauma Step-down',
+  '8NW': 'Spine Surgeries, Trauma, Lumbar Drains',
+  'ACUs': 'Medical/Surgical Unit Overflow',
+  '3SE': 'Medical Observation Unit, Telemetry',
+  '3SW': 'Medical Observation Unit, Telemetry',
+  '4SE': 'Medicine, Oncology, PCU, Bone Marrow Transplants',
+  '4SW': 'Medicine, Oncology, PCU, Bone Marrow Transplants',
+  '4NE/4NW': 'Monitored, Stroke, Epilepsy, Medical, PCU',
+  '5SE': 'Medical, PCU',
+  '5SW': 'Medicine, PCU, Safety Quad',
+  '5NE': 'PCU, Monitored Post Cardiac Cath Care',
+  '5NW': 'PCU, Monitored Post Cardiac Cath Care',
+  '6SE': 'Advanced Heart Failure, PCU',
+  '6SW': 'Advanced Heart Failure, PCU',
+  '7SE': 'PCU, Generic Medical, Diabetes',
+  '7SW': 'PCU, Generic Medical, Surgery Overflow',
+  '6NE': 'PCU, Heart Transplant, Lung Transplant, Mechanical Circulatory Support',
+  '6NW': 'PCU, Kidney/Pancreas Transplant, Liver Transplant, Hepatobiliary, Trauma, Thoracic',
+  '3SCCT': 'Medicine Telemetry',
+  '4SCCT': 'Medicine Cardiac Care Intensive Care Unit',
+  '5SCCT': 'Surgical Trauma Transplant Intensive Care Unit',
+  '6SCCT': 'Surgical Cardiac Intensive Care Unit',
+  '7SCCT': 'Medicine Respiratory Intensive Care Unit',
+  '8SCCT': 'Neuroscience Intensive Care Unit',
+  'CMC': 'Monitored',
+  'MSCCT': 'Respiratory Therapy Department',
+  '6SE PFT': 'Pulmonary Function Lab',
+  '6NE ABG': 'Arterial Blood Gas Lab',
+  'Labor and Delivery': 'Labor and Delivery',
+  'PACU': 'Post-Anesthesia Care Unit',
+  'NICU': 'Neonatal Intensive Care Unit',
+  'PICU': 'Pediatric Intensive Care Unit',
+  'Pediatrics': 'Pediatrics',
+  'Postpartum': 'Postpartum',
+  '3 South': 'Medical/Surgical',
+  'Float Pool': 'Float Pool',
+}
+
 // Reverse lookup: unit_name -> division (matches the 'division' column values in Supabase)
 export const UNIT_DIVISION_MAP = {
   '7NE': 'Surgical',  '7NW': 'Surgical',

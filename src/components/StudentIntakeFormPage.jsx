@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { PATIENT_POPULATIONS } from '../lib/constants'
+import { PATIENT_POPULATION_MAP } from '../lib/constants'
 
 const PAGE_TITLE = 'ASPIRE Program: Student Information Form'
 
@@ -66,8 +66,9 @@ export default function StudentIntakeFormPage() {
 
   const set        = (k, v) => setForm(p => ({ ...p, [k]: v }))
   const toggleRole = r => setForm(p => ({ ...p, exp_roles: { ...p.exp_roles, [r]: !p.exp_roles[r] } }))
+  // Layer 1: DB value from unitPopMap. Layer 2: hardcoded PATIENT_POPULATION_MAP fallback.
   const getPopulation = unitName =>
-    unitName ? (unitPopMap[unitName] || PATIENT_POPULATIONS[unitName] || null) : null
+    unitName ? (unitPopMap[unitName] || PATIENT_POPULATION_MAP[unitName] || null) : null
 
   const handleSubmit = async e => {
     e.preventDefault()
