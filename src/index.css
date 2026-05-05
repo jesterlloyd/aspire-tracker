@@ -920,9 +920,59 @@ body { min-height: 100vh; }
 .sf-add-btn:hover { border-color: var(--nightfall); color: var(--nightfall); }
 
 /* ================================================================
-   FILE INPUT
+   DOCUMENT UPLOAD
    ================================================================ */
-.uf-file-input { font-size: 13px; color: var(--raven); padding: 4px 0; }
+.doc-section { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+.doc-upload-area { display: flex; flex-direction: column; gap: 8px; }
+.doc-area-label  { font-size: 14px; font-weight: 600; color: var(--raven); }
+
+.doc-upload-zone {
+  border: 2px dashed var(--border); border-radius: 6px;
+  padding: 20px 16px; text-align: center; cursor: pointer;
+  background: var(--pearl);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  transition: border-color 0.12s, background 0.12s;
+  min-height: 110px; justify-content: center;
+}
+.doc-upload-zone:hover { border-color: var(--nightfall); background: rgba(29,37,103,0.02); }
+.doc-zone-icon { font-size: 22px; }
+.doc-zone-text { font-size: 13px; color: var(--text-secondary); line-height: 1.4; }
+.doc-zone-btn {
+  background: var(--pearl); color: var(--nightfall);
+  border: 1.5px solid var(--nightfall); border-radius: 4px;
+  padding: 5px 14px; font-size: 13px; font-weight: 600;
+  cursor: pointer; margin-top: 2px; transition: background 0.12s;
+}
+.doc-zone-btn:hover { background: var(--sand); }
+
+.doc-existing-file {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; background: var(--sand);
+  border-radius: 6px; border: 1px solid var(--border-lt);
+  min-height: 110px;
+}
+.doc-file-link {
+  font-size: 13px; font-weight: 600; color: var(--nightfall);
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  text-decoration: none;
+}
+a.doc-file-link:hover { text-decoration: underline; }
+.doc-headshot-preview { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid var(--border); }
+.doc-replace-btn {
+  background: none; border: 1px solid var(--border); border-radius: 4px;
+  color: var(--raven); font-size: 12px; font-weight: 600;
+  cursor: pointer; padding: 4px 10px; white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s;
+  flex-shrink: 0;
+}
+.doc-replace-btn:hover { background: var(--pearl); border-color: var(--nightfall); }
+.doc-replace-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.doc-status { font-size: 12px; font-weight: 600; }
+.doc-uploading { color: var(--text-secondary); }
+.doc-success   { color: #16a34a; }
+.doc-error     { color: var(--cs-red); }
 
 /* ================================================================
    OVERVIEW TAB

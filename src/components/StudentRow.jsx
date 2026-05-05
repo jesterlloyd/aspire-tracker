@@ -4,6 +4,7 @@ import {
   INTERVIEW_OUTCOMES, SHIFT_OPTIONS, UNIT_NAMES,
 } from '../lib/constants'
 import { displayName } from '../lib/utils'
+import { supabase } from '../lib/supabase'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 
 const STATUS_CLASS = {
@@ -28,12 +29,18 @@ const ACCESS_SUMMARY_FIELDS = [
 ]
 
 export default function StudentRow({ student, units = [], onUpdate, onDelete, onSwitchToAccess }) {
-  const [expanded,      setExpanded]      = useState(false)
-  const [data,          setData]          = useState(student)
-  const [saveState,     setSaveState]     = useState('idle')
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const timerRef        = useRef(null)
-  const pendingNameSave = useRef(null)
+  const [expanded,       setExpanded]       = useState(false)
+  const [data,           setData]           = useState(student)
+  const [saveState,      setSaveState]      = useState('idle')
+  const [confirmDelete,  setConfirmDelete]  = useState(false)
+  const [uploadingRes,   setUploadingRes]   = useState(false)
+  const [uploadingHead,  setUploadingHead]  = useState(false)
+  const [resumeMsg,      setResumeMsg]      = useState(null)
+  const [headMsg,        setHeadMsg]        = useState(null)
+  const timerRef         = useRef(null)
+  const pendingNameSave  = useRef(null)
+  const resumeInputRef   = useRef(null)
+  const headshotInputRef = useRef(null)
 
   const doSave = useCallback(async (field, value) => {
     setSaveState('saving')
@@ -89,6 +96,42 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
   const handleCheck = (field, value) => {
     setData(prev => ({ ...prev, [field]: value }))
     doSave(field, value)
+  }
+
+  const handleResumeUpload = async file => {
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) { setResumeMsg('error'); return }
+    setUploadingRes(true); setResumeMsg(null)
+    const ext  = file.name.split('.').pop()
+    const path = `${student.cohort_id}/${student.id}/resume.${ext}`
+    const { error } = await supabase.storage.from('student-files')
+      .upload(path, file, { upsert: true, contentType: file.type })
+    if (error) { setUploadingRes(false); setResumeMsg('error'); return }
+    const { data: urlData } = supabase.storage.from('student-files').getPublicUrl(path)
+    const url = urlData.publicUrl
+    setData(p => ({ ...p, resume_url: url }))
+    onUpdate(student.id, { resume_url: url })
+    setUploadingRes(false); setResumeMsg('success')
+    setTimeout(() => setResumeMsg(null), 3000)
+    if (resumeInputRef.current) resumeInputRef.current.value = ''
+  }
+
+  const handleHeadshotUpload = async file => {
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { setHeadMsg('error'); return }
+    setUploadingHead(true); setHeadMsg(null)
+    const ext  = file.name.split('.').pop()
+    const path = `${student.cohort_id}/${student.id}/headshot.${ext}`
+    const { error } = await supabase.storage.from('student-files')
+      .upload(path, file, { upsert: true, contentType: file.type })
+    if (error) { setUploadingHead(false); setHeadMsg('error'); return }
+    const { data: urlData } = supabase.storage.from('student-files').getPublicUrl(path)
+    const url = urlData.publicUrl
+    setData(p => ({ ...p, headshot_url: url }))
+    onUpdate(student.id, { headshot_url: url })
+    setUploadingHead(false); setHeadMsg('success')
+    setTimeout(() => setHeadMsg(null), 3000)
+    if (headshotInputRef.current) headshotInputRef.current.value = ''
   }
 
   const hoursProgress = data.hours_required > 0
@@ -391,6 +434,79 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
                 Manage in Access Tab →
               </button>
             )}
+          </div>
+
+          {/* Documents */}
+          <div className="form-section">
+            <div className="section-label">Documents</div>
+            <div className="doc-section">
+
+              {/* Resume */}
+              <div className="doc-upload-area">
+                <div className="doc-area-label">Resume</div>
+                <input ref={resumeInputRef} type="file" style={{ display: 'none' }}
+                  accept=".pdf,.doc,.docx"
+                  onChange={e => handleResumeUpload(e.target.files[0])} />
+                {data.resume_url ? (
+                  <div className="doc-existing-file">
+                    <a className="doc-file-link" href={data.resume_url}
+                      target="_blank" rel="noopener noreferrer">
+                      {decodeURIComponent(data.resume_url.split('/').pop()?.split('?')[0] || 'Resume')}
+                    </a>
+                    <button type="button" className="doc-replace-btn"
+                      disabled={uploadingRes}
+                      onClick={() => resumeInputRef.current?.click()}>
+                      Replace
+                    </button>
+                  </div>
+                ) : (
+                  <div className="doc-upload-zone"
+                    onClick={() => resumeInputRef.current?.click()}>
+                    <span className="doc-zone-icon">📄</span>
+                    <span className="doc-zone-text">Upload Resume (PDF or Word, max 10MB)</span>
+                    <button type="button" className="doc-zone-btn"
+                      onClick={e => { e.stopPropagation(); resumeInputRef.current?.click() }}>
+                      Choose File
+                    </button>
+                  </div>
+                )}
+                {uploadingRes && <span className="doc-status doc-uploading">Uploading…</span>}
+                {resumeMsg === 'success' && <span className="doc-status doc-success">✓ Uploaded successfully</span>}
+                {resumeMsg === 'error'   && <span className="doc-status doc-error">Upload failed or file too large.</span>}
+              </div>
+
+              {/* Headshot */}
+              <div className="doc-upload-area">
+                <div className="doc-area-label">Headshot</div>
+                <input ref={headshotInputRef} type="file" style={{ display: 'none' }}
+                  accept=".jpg,.jpeg,.png"
+                  onChange={e => handleHeadshotUpload(e.target.files[0])} />
+                {data.headshot_url ? (
+                  <div className="doc-existing-file">
+                    <img src={data.headshot_url} alt="Headshot" className="doc-headshot-preview" />
+                    <button type="button" className="doc-replace-btn"
+                      disabled={uploadingHead}
+                      onClick={() => headshotInputRef.current?.click()}>
+                      Replace
+                    </button>
+                  </div>
+                ) : (
+                  <div className="doc-upload-zone"
+                    onClick={() => headshotInputRef.current?.click()}>
+                    <span className="doc-zone-icon">🖼</span>
+                    <span className="doc-zone-text">Upload Headshot (JPG or PNG, max 5MB)</span>
+                    <button type="button" className="doc-zone-btn"
+                      onClick={e => { e.stopPropagation(); headshotInputRef.current?.click() }}>
+                      Choose File
+                    </button>
+                  </div>
+                )}
+                {uploadingHead && <span className="doc-status doc-uploading">Uploading…</span>}
+                {headMsg === 'success' && <span className="doc-status doc-success">✓ Uploaded successfully</span>}
+                {headMsg === 'error'   && <span className="doc-status doc-error">Upload failed or file too large.</span>}
+              </div>
+
+            </div>
           </div>
 
           {/* Delete */}

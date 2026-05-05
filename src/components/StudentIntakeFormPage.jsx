@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
 const PAGE_TITLE = 'ASPIRE Program: Student Information Form'
@@ -31,6 +31,8 @@ export default function StudentIntakeFormPage() {
   const [unitsLoaded,    setUnitsLoaded]    = useState(false)
   const [resumeFile,     setResumeFile]     = useState(null)
   const [headshotFile,   setHeadshotFile]   = useState(null)
+  const resumeInputRef   = useRef(null)
+  const headshotInputRef = useRef(null)
   const [submitting,     setSubmitting]     = useState(false)
   const [submitted,      setSubmitted]      = useState(false)
   const [error,          setError]          = useState(null)
@@ -425,29 +427,68 @@ export default function StudentIntakeFormPage() {
           {/* ── Section 4: Documents ── */}
           <div className="uf-section">
             <div className="sf-section-title">Section 4: Documents (Optional)</div>
-            <div className="sf-row-2">
-              <div className="uf-field">
-                <label className="uf-label">Resume (PDF or Word, max 10MB)</label>
-                <input type="file" className="uf-file-input"
-                  accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            <div className="doc-section">
+
+              {/* Resume */}
+              <div className="doc-upload-area">
+                <div className="doc-area-label">Resume</div>
+                <input ref={resumeInputRef} type="file" style={{ display: 'none' }}
+                  accept=".pdf,.doc,.docx"
                   onChange={e => {
                     const f = e.target.files[0]
                     if (f && f.size > 10 * 1024 * 1024) { setError('Resume must be under 10MB.'); return }
                     setResumeFile(f || null)
                   }} />
-                {resumeFile && <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{resumeFile.name}</span>}
+                {resumeFile ? (
+                  <div className="doc-existing-file">
+                    <span className="doc-file-link">📄 {resumeFile.name}</span>
+                    <button type="button" className="doc-replace-btn"
+                      onClick={() => { setResumeFile(null); if (resumeInputRef.current) resumeInputRef.current.value = '' }}>
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="doc-upload-zone" onClick={() => resumeInputRef.current?.click()}>
+                    <span className="doc-zone-icon">📄</span>
+                    <span className="doc-zone-text">Upload Resume (PDF or Word, max 10MB)</span>
+                    <button type="button" className="doc-zone-btn"
+                      onClick={e => { e.stopPropagation(); resumeInputRef.current?.click() }}>
+                      Choose File
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="uf-field">
-                <label className="uf-label">Headshot Photo (JPG or PNG, max 5MB)</label>
-                <input type="file" className="uf-file-input"
-                  accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+
+              {/* Headshot */}
+              <div className="doc-upload-area">
+                <div className="doc-area-label">Headshot</div>
+                <input ref={headshotInputRef} type="file" style={{ display: 'none' }}
+                  accept=".jpg,.jpeg,.png"
                   onChange={e => {
                     const f = e.target.files[0]
                     if (f && f.size > 5 * 1024 * 1024) { setError('Headshot must be under 5MB.'); return }
                     setHeadshotFile(f || null)
                   }} />
-                {headshotFile && <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{headshotFile.name}</span>}
+                {headshotFile ? (
+                  <div className="doc-existing-file">
+                    <span className="doc-file-link">🖼 {headshotFile.name}</span>
+                    <button type="button" className="doc-replace-btn"
+                      onClick={() => { setHeadshotFile(null); if (headshotInputRef.current) headshotInputRef.current.value = '' }}>
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div className="doc-upload-zone" onClick={() => headshotInputRef.current?.click()}>
+                    <span className="doc-zone-icon">🖼</span>
+                    <span className="doc-zone-text">Upload Headshot (JPG or PNG, max 5MB)</span>
+                    <button type="button" className="doc-zone-btn"
+                      onClick={e => { e.stopPropagation(); headshotInputRef.current?.click() }}>
+                      Choose File
+                    </button>
+                  </div>
+                )}
               </div>
+
             </div>
           </div>
 
