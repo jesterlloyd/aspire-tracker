@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { ASPIRE_STATUSES } from '../lib/constants'
-import { displayName, downloadCSV } from '../lib/utils'
+import { displayName, downloadCSV, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 
 const STATUS_CLASS = {
   'Form Sent':       'badge-gray',
@@ -12,14 +12,19 @@ const STATUS_CLASS = {
   'Declined':        'badge-red',
 }
 
-const ACCESS_COLS = [
-  { boolKey: 'access_non_employee',      dateKey: 'access_non_employee_date',       label: 'Non-Employee Access',   datePlaceholder: 'Date' },
-  { boolKey: 'access_hybrid_student',    dateKey: 'access_hybrid_student_date',     label: 'Hybrid Student Nurse',  datePlaceholder: 'Date' },
-  { boolKey: 'access_extended_end_date', dateKey: 'access_extended_end_date_value', label: 'Extended End Date',     datePlaceholder: 'New end date' },
-  { boolKey: 'access_reactivated',       dateKey: 'access_reactivated_date',        label: 'Reactivated CW Access', datePlaceholder: 'Date' },
-]
+const STAGE1_ACTION_LABELS = {
+  add_non_employee:  'Add Non-Employee',
+  assignment_change: 'Assignment Change',
+  extend_end_date:   'Extend Project End Date',
+  reactivate:        'Reactivate',
+  not_applicable:    'Not Applicable',
+}
 
-const allComplete = s => ACCESS_COLS.every(c => s[c.boolKey])
+const CEDARS_STATUS_OPTIONS = [
+  { value: 'new',      label: 'New' },
+  { value: 'former',   label: 'Former' },
+  { value: 'employee', label: 'Employee' },
+]
 
 export default function AccessTab({ students, onUpdate, focusStudentId }) {
   const [sortBy,         setSortBy]         = useState('last_name')
@@ -28,15 +33,16 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
   const [filterStatus,   setFilterStatus]   = useState('')
   const [incompleteOnly, setIncompleteOnly] = useState(false)
 
-  const totalCount = students.length
-  const nonEmpDone = students.filter(s => s.access_non_employee).length
-  const hybridDone = students.filter(s => s.access_hybrid_student).length
-  const allDone    = students.filter(allComplete).length
+  const schools = [...new Set(students.map(s => s.school).filter(Boolean))].sort()
+
+  // Stats using new status model
+  const statusCounts = { not_started:0, stage1_pending:0, account_active:0, cslink_pending:0, complete:0 }
+  students.forEach(s => { statusCounts[getCsLinkStatus(s)]++ })
 
   let filtered = students
   if (filterSchool)   filtered = filtered.filter(s => s.school === filterSchool)
   if (filterStatus)   filtered = filtered.filter(s => s.status === filterStatus)
-  if (incompleteOnly) filtered = filtered.filter(s => !allComplete(s))
+  if (incompleteOnly) filtered = filtered.filter(s => getCsLinkStatus(s) !== 'complete')
 
   const sorted = [...filtered].sort((a, b) => {
     const av = (sortBy === 'last_name' ? (a.last_name || a.name || '') : (a.school || '')).toLowerCase()
@@ -50,48 +56,50 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
     else { setSortBy(field); setSortDir('asc') }
   }
 
-  const schools = [...new Set(students.map(s => s.school).filter(Boolean))].sort()
-
   const exportCSV = () => {
     const headers = [
-      'Student Name', 'School', 'Personal Email',
-      'Non-Employee Access', 'Non-Employee Date',
-      'Hybrid Student Access', 'Hybrid Student Date',
-      'Extended End Date', 'Extended End Date Value',
-      'Reactivated CW Access', 'Reactivated Date',
-      'Access Notes',
+      'Student Name', 'School', 'Cedars Status', 'Stage 1 Action',
+      'Stage 1 Submitted Date', 'Stage 1 Complete Date',
+      'CS-Link Requested Date', 'CS-Link Complete Date',
+      'CS Access Notes', 'Workflow Status',
     ]
     const rows = sorted.map(s => [
-      displayName(s), s.school || '', s.personal_email || '',
-      s.access_non_employee      ? 'Yes' : 'No', s.access_non_employee_date       || '',
-      s.access_hybrid_student    ? 'Yes' : 'No', s.access_hybrid_student_date     || '',
-      s.access_extended_end_date ? 'Yes' : 'No', s.access_extended_end_date_value || '',
-      s.access_reactivated       ? 'Yes' : 'No', s.access_reactivated_date        || '',
-      s.access_notes || '',
+      displayName(s), s.school || '',
+      s.cs_cedars_status || '',
+      STAGE1_ACTION_LABELS[s.cs_stage1_action] || s.cs_stage1_action || '',
+      s.cs_stage1_submitted_date || '',
+      s.cs_stage1_complete_date  || '',
+      s.cs_link_requested_date   || '',
+      s.cs_link_complete_date    || '',
+      s.cs_access_notes          || '',
+      CS_LINK_STATUS_CONFIG[getCsLinkStatus(s)]?.label || '',
     ])
     const csv = [headers, ...rows]
       .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
-    downloadCSV(csv, `aspire-access-${new Date().toISOString().slice(0, 10)}.csv`)
+    downloadCSV(csv, `aspire-cslink-${new Date().toISOString().slice(0, 10)}.csv`)
   }
 
   return (
     <div className="access-tab">
 
-      {/* ── Compact stats pills ── */}
+      {/* Compact stats */}
       <div className="am-compact-stats">
-        <span className="am-stat-pill">Non-Employee Done: <strong>{nonEmpDone}</strong></span>
-        <span className="am-stat-pill">Hybrid Done: <strong>{hybridDone}</strong></span>
-        <span className="am-stat-pill am-stat-pill-green">All Complete: <strong>{allDone}</strong></span>
+        {Object.entries(CS_LINK_STATUS_CONFIG).map(([key, cfg]) => (
+          <span key={key} className="am-stat-pill"
+            style={{ color: cfg.text, fontWeight: statusCounts[key] > 0 ? 700 : 400 }}>
+            {cfg.label}: <strong>{statusCounts[key]}</strong>
+          </span>
+        ))}
       </div>
 
-      {/* ── Filter row ── */}
+      {/* Filter row */}
       <div className="am-filter-row">
         <select className="filter-select" value={filterSchool} onChange={e => setFilterSchool(e.target.value)}>
           <option value="">All Schools</option>
           {schools.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <select className="filter-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-          <option value="">All Statuses</option>
+          <option value="">All ASPIRE Statuses</option>
           {ASPIRE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <label className="am-incomplete-toggle">
@@ -103,43 +111,31 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
         </button>
       </div>
 
-      {/* ── Table ── */}
+      {/* Table */}
       <div className="am-table-wrap">
         <table className="am-table">
           <thead>
             <tr>
               <th className="am-th am-sortable" onClick={() => toggleSort('last_name')}>
-                Student Name&nbsp;
-                {sortBy === 'last_name' ? (sortDir === 'asc' ? '↑' : '↓') : <span className="am-sort-icon">↕</span>}
+                Student Name&nbsp;{sortBy === 'last_name' ? (sortDir === 'asc' ? '↑' : '↓') : <span className="am-sort-icon">↕</span>}
               </th>
               <th className="am-th am-sortable" onClick={() => toggleSort('school')}>
-                School&nbsp;
-                {sortBy === 'school' ? (sortDir === 'asc' ? '↑' : '↓') : <span className="am-sort-icon">↕</span>}
+                School&nbsp;{sortBy === 'school' ? (sortDir === 'asc' ? '↑' : '↓') : <span className="am-sort-icon">↕</span>}
               </th>
+              <th className="am-th">Cedars Status</th>
+              <th className="am-th">Stage 1 Action</th>
+              <th className="am-th">Stage 1 Done</th>
+              <th className="am-th">CS-Link Done</th>
               <th className="am-th">Status</th>
-              {ACCESS_COLS.map(c => (
-                <th key={c.boolKey} className="am-th">{c.label}</th>
-              ))}
-              <th className="am-th">Access Notes</th>
-              <th className="am-th">Progress</th>
-              <th className="am-th"></th>
+              <th className="am-th">Notes</th>
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="am-empty">No students match the current filters.</td>
-              </tr>
-            ) : (
-              sorted.map(s => (
-                <AccessRow
-                  key={s.id}
-                  student={s}
-                  onUpdate={onUpdate}
-                  isHighlighted={focusStudentId === s.id}
-                />
-              ))
-            )}
+              <tr><td colSpan={8} className="am-empty">No students match the current filters.</td></tr>
+            ) : sorted.map(s => (
+              <AccessRow key={s.id} student={s} onUpdate={onUpdate} isHighlighted={focusStudentId === s.id} />
+            ))}
           </tbody>
         </table>
       </div>
@@ -148,98 +144,84 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
 }
 
 function AccessRow({ student, onUpdate, isHighlighted }) {
-  const [data,   setData]   = useState(student)
+  const [data, setData] = useState({ ...student })
   const timerRef = useRef(null)
 
-  const saveImmediate = (field, value) => {
-    setData(prev => ({ ...prev, [field]: value }))
+  const save = (field, value) => {
+    setData(p => ({ ...p, [field]: value }))
     onUpdate(student.id, { [field]: value })
   }
   const saveDebounced = (field, value) => {
-    setData(prev => ({ ...prev, [field]: value }))
+    setData(p => ({ ...p, [field]: value }))
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => onUpdate(student.id, { [field]: value }), 600)
   }
 
-  const done = ACCESS_COLS.every(c => data[c.boolKey])
+  const status    = getCsLinkStatus(data)
+  const statusCfg = CS_LINK_STATUS_CONFIG[status]
 
   return (
-    <tr
-      id={`access-row-${student.id}`}
-      className={`am-row${isHighlighted ? ' am-row-highlight' : ''}`}
-    >
+    <tr id={`access-row-${student.id}`} className={`am-row${isHighlighted ? ' am-row-highlight' : ''}`}>
       <td className="am-td am-td-name">{displayName(student)}</td>
       <td className="am-td am-td-school">{student.school || '—'}</td>
+
+      {/* Cedars Status dropdown */}
       <td className="am-td">
-        {student.status && (
-          <span className={`badge ${STATUS_CLASS[student.status] || 'badge-gray'}`}>
-            {student.status}
-          </span>
-        )}
+        <select className="am-notes-input" style={{ width:100 }} value={data.cs_cedars_status||''}
+          onChange={e => {
+            const v = e.target.value
+            const extras = v === 'employee'
+              ? { cs_stage1_action:'not_applicable', cs_stage1_submitted:true, cs_stage1_complete:true }
+              : v === 'new' ? { cs_stage1_action:'add_non_employee' } : {}
+            setData(p => ({ ...p, cs_cedars_status:v, ...extras }))
+            onUpdate(student.id, { cs_cedars_status:v, ...extras })
+          }}>
+          <option value="">—</option>
+          {CEDARS_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
       </td>
-      {ACCESS_COLS.map(c => (
-        <td key={c.boolKey} className="am-td">
-          <AccessCell
-            checked={data[c.boolKey] || false}
-            dateValue={data[c.dateKey] || ''}
-            datePlaceholder={c.datePlaceholder}
-            onCheck={v => saveImmediate(c.boolKey, v)}
-            onDate={v  => saveDebounced(c.dateKey, v)}
-          />
-        </td>
-      ))}
-      <td className="am-td">
-        <input
-          className="am-notes-input"
-          type="text"
-          value={data.access_notes || ''}
-          onChange={e => saveDebounced('access_notes', e.target.value)}
-          placeholder="Notes…"
-        />
+
+      {/* Stage 1 Action label */}
+      <td className="am-td" style={{ fontSize:12, color:'var(--text-secondary)' }}>
+        {data.cs_stage1_action ? (STAGE1_ACTION_LABELS[data.cs_stage1_action] || data.cs_stage1_action) : '—'}
       </td>
+
+      {/* Stage 1 Complete */}
       <td className="am-td">
-        {(() => {
-          const n = ACCESS_COLS.filter(c => data[c.boolKey]).length
-          const bg    = n === 4 ? '#dcfce7' : n === 0 ? '#f3f4f6' : '#fef3c7'
-          const color = n === 4 ? '#166534' : n === 0 ? '#9ca3af' : '#92400e'
-          const label = n === 4 ? '✓ Done' : `${n}/4`
-          return <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:bg, color }}>{label}</span>
-        })()}
+        <div className="am-access-cell">
+          <input type="checkbox" className="am-checkbox" checked={data.cs_stage1_complete||false}
+            onChange={e => save('cs_stage1_complete', e.target.checked)} />
+          {data.cs_stage1_complete && (
+            <input type="text" className="am-date-input" value={data.cs_stage1_complete_date||''}
+              onChange={e => saveDebounced('cs_stage1_complete_date', e.target.value)} placeholder="Date" />
+          )}
+        </div>
       </td>
+
+      {/* CS-Link Complete */}
       <td className="am-td">
-        {done && <span className="am-done-pill">All Done</span>}
+        <div className="am-access-cell">
+          <input type="checkbox" className="am-checkbox" checked={data.cs_link_complete||false}
+            onChange={e => save('cs_link_complete', e.target.checked)} />
+          {data.cs_link_complete && (
+            <input type="text" className="am-date-input" value={data.cs_link_complete_date||''}
+              onChange={e => saveDebounced('cs_link_complete_date', e.target.value)} placeholder="Date" />
+          )}
+        </div>
+      </td>
+
+      {/* Status badge */}
+      <td className="am-td">
+        <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:statusCfg.bg, color:statusCfg.text, whiteSpace:'nowrap' }}>
+          {statusCfg.label}
+        </span>
+      </td>
+
+      {/* Notes */}
+      <td className="am-td">
+        <input className="am-notes-input" type="text" value={data.cs_access_notes||''}
+          onChange={e => saveDebounced('cs_access_notes', e.target.value)} placeholder="Notes…" />
       </td>
     </tr>
-  )
-}
-
-function AccessCell({ checked, dateValue, datePlaceholder, onCheck, onDate }) {
-  return (
-    <div className="am-access-cell">
-      <input
-        type="checkbox"
-        className="am-checkbox"
-        checked={checked}
-        onChange={e => onCheck(e.target.checked)}
-      />
-      {checked && (
-        <input
-          type="text"
-          className="am-date-input"
-          value={dateValue}
-          onChange={e => onDate(e.target.value)}
-          placeholder={datePlaceholder}
-        />
-      )}
-    </div>
-  )
-}
-
-function StatCard({ label, value, bg, color, border }) {
-  return (
-    <div className="am-stat-card" style={{ background: bg, borderColor: border }}>
-      <div className="am-stat-value" style={{ color }}>{value}</div>
-      <div className="am-stat-label" style={{ color }}>{label}</div>
-    </div>
   )
 }

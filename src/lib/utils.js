@@ -64,3 +64,22 @@ export function downloadCSV(content, filename) {
   a.click()
   URL.revokeObjectURL(url)
 }
+
+/** Computes the overall CS-Link workflow status from a student record. */
+export function getCsLinkStatus(student) {
+  if (!student.cs_cedars_status) return 'not_started'
+  if (student.cs_link_complete)  return 'complete'
+  if (student.cs_link_requested) return 'cslink_pending'
+  if (student.cs_cedars_status === 'employee') return 'account_active'
+  if (student.cs_stage1_complete) return 'account_active'
+  if (student.cs_stage1_submitted) return 'stage1_pending'
+  return 'not_started'
+}
+
+export const CS_LINK_STATUS_CONFIG = {
+  not_started:    { label: 'Not Started',      bg: '#f3f4f6', text: '#6b7280' },
+  stage1_pending: { label: 'Pending Account',  bg: '#fef3c7', text: '#92400e' },
+  account_active: { label: 'Account Active',   bg: '#eff6ff', text: '#1d4ed8' },
+  cslink_pending: { label: 'CS-Link Pending',  bg: '#ede9fe', text: '#5b21b6' },
+  complete:       { label: '✓ CS-Link Active', bg: '#dcfce7', text: '#166534' },
+}

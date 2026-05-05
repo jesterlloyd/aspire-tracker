@@ -1212,6 +1212,19 @@ a.doc-file-link:hover { text-decoration: underline; }
 .sp-nav-btn:hover:not(:disabled) { background: var(--sand); }
 .sp-nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
+/* CS-Link workflow steps in side panel */
+.csw-step { padding: 12px; background: #fafafa; border: 1px solid #e5e7eb; border-radius: 6px; margin-bottom: 8px; }
+.csw-step-dim { opacity: 0.45; pointer-events: none; }
+.csw-step-label { font-size: 13px; font-weight: 600; color: var(--nightfall); margin-bottom: 8px; }
+.csw-check-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.csw-check-label { display: flex; align-items: center; gap: 7px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--raven); }
+.csw-date-input { padding: 4px 8px; border: 1px solid var(--border); border-radius: 4px; font-size: 12px; color: var(--raven); background: var(--pearl); outline: none; width: 110px; }
+.csw-date-input:focus { border-color: var(--nova); }
+.csw-note { font-size: 12px; color: #6b7280; margin-top: 6px; line-height: 1.5; }
+.csw-info-green { background: #f0fdf4; border: 1px solid #a7f3d0; border-radius: 4px; padding: 8px 12px; font-size: 13px; color: #166534; line-height: 1.5; }
+.csw-info-gray  { background: var(--sand); border: 1px solid var(--border-lt); border-radius: 4px; padding: 8px 12px; font-size: 13px; color: var(--text-secondary); font-style: italic; }
+.csw-success-banner { background: #dcfce7; border: 1px solid #a7f3d0; border-radius: 4px; padding: 8px 12px; font-size: 13px; font-weight: 700; color: #166534; margin-top: 8px; }
+
 /* AccessTab compact stats */
 .am-compact-stats {
   display: flex; align-items: center; justify-content: flex-end; gap: 10px;

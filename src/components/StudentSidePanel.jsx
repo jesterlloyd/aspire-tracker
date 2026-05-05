@@ -1,18 +1,31 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { displayName } from '../lib/utils'
+import { displayName, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 import {
   ASPIRE_STATUSES, NGRP_OUTCOMES, INTERVIEW_OUTCOMES,
   SHIFT_OPTIONS, COHORTS,
 } from '../lib/constants'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 
-const ACCESS_FIELDS = [
-  { key:'access_non_employee',      dateKey:'access_non_employee_date',       label:'Non-Employee Access',   placeholder:'Date' },
-  { key:'access_hybrid_student',    dateKey:'access_hybrid_student_date',     label:'Hybrid Student Nurse',  placeholder:'Date' },
-  { key:'access_extended_end_date', dateKey:'access_extended_end_date_value', label:'Extended End Date',     placeholder:'New end date' },
-  { key:'access_reactivated',       dateKey:'access_reactivated_date',        label:'Reactivated CW Access', placeholder:'Date' },
+const CEDARS_STATUS_OPTIONS = [
+  { value: 'new',      label: 'New to Cedars-Sinai (no prior rotation or employment)' },
+  { value: 'former',   label: 'Former Student or Rotation (has been here before)' },
+  { value: 'employee', label: 'Current Cedars-Sinai Employee or Volunteer' },
 ]
+
+const STAGE1_ACTION_OPTIONS = [
+  { value: 'assignment_change', label: 'Assignment Change' },
+  { value: 'extend_end_date',   label: 'Extend Project End Date' },
+  { value: 'reactivate',        label: 'Reactivate Former Non-Employee' },
+]
+
+const STAGE1_ACTION_LABELS = {
+  add_non_employee: 'Add Non-Employee',
+  assignment_change: 'Assignment Change',
+  extend_end_date: 'Extend Project End Date',
+  reactivate: 'Reactivate',
+  not_applicable: 'Not Applicable',
+}
 
 const CS_AFFILIATIONS = ['Current Employee','Former Employee','Volunteer','No prior affiliation']
 const CS_WITH_DEPT    = ['Current Employee','Former Employee','Volunteer']
@@ -135,10 +148,8 @@ export default function StudentSidePanel({
   const matchedUnitName    = data.matched_unit_id && units.length > 0
     ? (units.find(u => u.id === data.matched_unit_id)?.unit_name || '—') : '—'
 
-  const accessCount = ACCESS_FIELDS.filter(f => data[f.key]).length
-  const accColor = accessCount === 4 ? '#166534' : accessCount === 0 ? '#9ca3af' : '#92400e'
-  const accBg    = accessCount === 4 ? '#dcfce7' : accessCount === 0 ? '#f3f4f6' : '#fef3c7'
-  const accLabel = accessCount === 4 ? '✓ 4/4 complete' : `${accessCount}/4 complete`
+  const csStatus    = getCsLinkStatus(data)
+  const csStatusCfg = CS_LINK_STATUS_CONFIG[csStatus]
 
   const initials = `${(student.first_name||'')[0]||''}${(student.last_name||'')[0]||''}`.toUpperCase() || '?'
 
@@ -338,25 +349,157 @@ export default function StudentSidePanel({
             </div>
           </div>
 
-          {/* 8. CS-Link Access */}
+          {/* 8. CS-Link Access Workflow */}
           <div className="sp-section">
             <SectionHeader title="CS-Link Access">
-              <span style={{ fontSize:12, fontWeight:600, padding:'1px 8px', borderRadius:4, background:accBg, color:accColor }}>{accLabel}</span>
+              <span style={{ fontSize:11, fontWeight:600, padding:'2px 9px', borderRadius:20, background:csStatusCfg.bg, color:csStatusCfg.text }}>
+                {csStatusCfg.label}
+              </span>
             </SectionHeader>
-            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              {ACCESS_FIELDS.map(f => (
-                <div key={f.key} className="sp-access-row">
-                  <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', fontSize:13, fontWeight:500, flex:1 }}>
-                    <input type="checkbox" checked={data[f.key]||false} onChange={e => handleCheck(f.key, e.target.checked)}
-                      style={{ accentColor:'var(--nightfall)', width:15, height:15 }} />
-                    {f.label}
+
+            {/* Step 1: Cedars-Sinai History */}
+            <div className="csw-step">
+              <div className="csw-step-label">Step 1: Student's Cedars-Sinai Status</div>
+              <select className="sp-select" value={data.cs_cedars_status||''}
+                onChange={e => {
+                  const v = e.target.value
+                  const extras = v === 'employee'
+                    ? { cs_stage1_action:'not_applicable', cs_stage1_submitted:true, cs_stage1_complete:true }
+                    : v === 'new'
+                    ? { cs_stage1_action:'add_non_employee', cs_stage1_submitted:false, cs_stage1_complete:false }
+                    : { cs_stage1_action:'', cs_stage1_submitted:false, cs_stage1_complete:false }
+                  setData(p => ({ ...p, cs_cedars_status:v, ...extras }))
+                  onUpdate(student.id, { cs_cedars_status:v, ...extras })
+                }}>
+                <option value="">Select status…</option>
+                {CEDARS_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+
+            {/* Step 2: Stage 1 Action */}
+            {data.cs_cedars_status && (
+              <div className={`csw-step${!data.cs_cedars_status ? ' csw-step-dim' : ''}`}>
+                <div className="csw-step-label">Step 2: Service Center Request</div>
+
+                {data.cs_cedars_status === 'employee' && (
+                  <div className="csw-info-green">Stage 1 not required. Current Cedars-Sinai employees already have a worker record. Proceed directly to adding CS-Link access.</div>
+                )}
+
+                {data.cs_cedars_status === 'new' && (
+                  <>
+                    <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)', marginBottom:8 }}>Add Non-Employee</div>
+                    <p className="csw-note">Submit an Add Non-Employee request in the Service Center for this student.</p>
+                    <div className="csw-check-row">
+                      <label className="csw-check-label">
+                        <input type="checkbox" checked={data.cs_stage1_submitted||false}
+                          onChange={e => { handleCheck('cs_stage1_submitted', e.target.checked) }}
+                          style={{ accentColor:'var(--nightfall)', width:14, height:14 }} />
+                        Submitted to Service Center
+                      </label>
+                      {data.cs_stage1_submitted && (
+                        <input className="csw-date-input" value={data.cs_stage1_submitted_date||''}
+                          placeholder="Date" onChange={e => handleText('cs_stage1_submitted_date', e.target.value)} />
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {data.cs_cedars_status === 'former' && (
+                  <>
+                    <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)', marginBottom:8 }}>Update Non-Employee</div>
+                    <Field label="Request Type:">
+                      <select className="sp-select" value={data.cs_stage1_action||''}
+                        onChange={e => handleSelect('cs_stage1_action', e.target.value)}>
+                        <option value="">Select type…</option>
+                        {STAGE1_ACTION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </Field>
+                    <div className="csw-check-row">
+                      <label className="csw-check-label">
+                        <input type="checkbox" checked={data.cs_stage1_submitted||false}
+                          onChange={e => handleCheck('cs_stage1_submitted', e.target.checked)}
+                          style={{ accentColor:'var(--nightfall)', width:14, height:14 }} />
+                        Submitted to Service Center
+                      </label>
+                      {data.cs_stage1_submitted && (
+                        <input className="csw-date-input" value={data.cs_stage1_submitted_date||''}
+                          placeholder="Date" onChange={e => handleText('cs_stage1_submitted_date', e.target.value)} />
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Step 3: Account Active Confirmation */}
+            {(data.cs_stage1_submitted || data.cs_cedars_status === 'employee') && (
+              <div className="csw-step">
+                <div className="csw-step-label">Step 3: Contingent Worker Account Active</div>
+                {data.cs_cedars_status === 'employee' ? (
+                  <div className="csw-info-gray">Not applicable for current employees.</div>
+                ) : (
+                  <>
+                    <div className="csw-check-row">
+                      <label className="csw-check-label">
+                        <input type="checkbox" checked={data.cs_stage1_complete||false}
+                          onChange={e => handleCheck('cs_stage1_complete', e.target.checked)}
+                          style={{ accentColor:'var(--nightfall)', width:14, height:14 }} />
+                        Account is active in the system
+                      </label>
+                      {data.cs_stage1_complete && (
+                        <input className="csw-date-input" value={data.cs_stage1_complete_date||''}
+                          placeholder="Date" onChange={e => handleText('cs_stage1_complete_date', e.target.value)} />
+                      )}
+                    </div>
+                    <p className="csw-note">Confirm the Service Center request was processed and the student's account is active before adding CS-Link.</p>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Step 4: CS-Link Access */}
+            {(data.cs_stage1_complete || data.cs_cedars_status === 'employee') && (
+              <div className="csw-step">
+                <div className="csw-step-label">Step 4: Add CS-Link Access</div>
+                <div className="csw-check-row">
+                  <label className="csw-check-label">
+                    <input type="checkbox" checked={data.cs_link_requested||false}
+                      onChange={e => handleCheck('cs_link_requested', e.target.checked)}
+                      style={{ accentColor:'var(--nightfall)', width:14, height:14 }} />
+                    CS-Link access requested
                   </label>
-                  {data[f.key] && (
-                    <input className="am-date-input" value={data[f.dateKey]||''} placeholder={f.placeholder}
-                      onChange={e => handleText(f.dateKey, e.target.value)} style={{ width:120 }} />
+                  {data.cs_link_requested && (
+                    <input className="csw-date-input" value={data.cs_link_requested_date||''}
+                      placeholder="Date" onChange={e => handleText('cs_link_requested_date', e.target.value)} />
                   )}
                 </div>
-              ))}
+                {data.cs_link_requested && (
+                  <div className="csw-check-row" style={{ marginTop:6 }}>
+                    <label className="csw-check-label">
+                      <input type="checkbox" checked={data.cs_link_complete||false}
+                        onChange={e => handleCheck('cs_link_complete', e.target.checked)}
+                        style={{ accentColor:'#16a34a', width:14, height:14 }} />
+                      CS-Link confirmed active and working
+                    </label>
+                    {data.cs_link_complete && (
+                      <input className="csw-date-input" value={data.cs_link_complete_date||''}
+                        placeholder="Date" onChange={e => handleText('cs_link_complete_date', e.target.value)} />
+                    )}
+                  </div>
+                )}
+                <p className="csw-note">Only mark as complete once the student has confirmed their CS-Link access is working.</p>
+                {data.cs_link_complete && (
+                  <div className="csw-success-banner">✓ Access setup complete for this student.</div>
+                )}
+              </div>
+            )}
+
+            {/* Notes */}
+            <div style={{ marginTop:12 }}>
+              <Field label="Access Notes">
+                <textarea className="sp-textarea" rows={2} value={data.cs_access_notes||''}
+                  onChange={e => handleText('cs_access_notes', e.target.value)} placeholder="Add notes…" />
+              </Field>
             </div>
           </div>
 

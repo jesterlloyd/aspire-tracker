@@ -1,19 +1,11 @@
 import { useState } from 'react'
 import ImportStudentsCSV from './ImportStudentsCSV'
+import { getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 
 const STATUS_CLASS = {
   'Form Sent':'badge-gray','Pending Outreach':'badge-pending',
   'Interviewed':'badge-purple','Accepted':'badge-green',
   'Active Rotation':'badge-teal','Completed':'badge-navy','Declined':'badge-red',
-}
-
-const ACCESS_KEYS = ['access_non_employee','access_hybrid_student','access_extended_end_date','access_reactivated']
-
-function accessBadge(s) {
-  const n = ACCESS_KEYS.filter(k => s[k]).length
-  if (n === 4)  return { label: '✓ Done', bg: '#dcfce7', color: '#166534' }
-  if (n === 0)  return { label: '0/4', bg: '#f3f4f6', color: '#9ca3af' }
-  return { label: `${n}/4`, bg: '#fef3c7', color: '#92400e' }
 }
 
 function gpaBadge(gpa) {
@@ -78,8 +70,9 @@ export default function StudentListPanel({
         ) : students.map(s => {
           const initials = `${(s.first_name||'')[0]||''}${(s.last_name||'')[0]||''}`.toUpperCase() || '?'
           const name = `${s.last_name||''}${s.last_name&&s.first_name?', ':''}${s.first_name||''}` || s.name || '—'
-          const gpa = gpaBadge(s.cumulative_gpa)
-          const acc = accessBadge(s)
+          const gpa    = gpaBadge(s.cumulative_gpa)
+          const csKey  = getCsLinkStatus(s)
+          const acc    = CS_LINK_STATUS_CONFIG[csKey]
           const sel = s.id === selectedStudentId
           const hasContact = s.personal_email?.trim() || s.phone?.trim()
 
@@ -112,7 +105,7 @@ export default function StudentListPanel({
                   {gpa.text}
                 </span>
                 {s.status && <span className={`badge ${STATUS_CLASS[s.status]||'badge-gray'}`} style={{ fontSize:10 }}>{s.status}</span>}
-                <span style={{ fontSize:11, fontWeight:600, padding:'1px 6px', borderRadius:4, background:acc.bg, color:acc.color }}>
+                <span style={{ fontSize:11, fontWeight:600, padding:'1px 6px', borderRadius:4, background:acc.bg, color:acc.text }}>
                   {acc.label}
                 </span>
               </div>
