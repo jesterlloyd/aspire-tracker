@@ -527,15 +527,30 @@ body { min-height: 100vh; }
 .btn-cancel-select:hover { background: rgba(29,37,103,0.08); }
 
 /* Board */
-.matching-board { display: grid; grid-template-columns: 1fr 290px; gap: 16px; align-items: start; }
+.matching-board {
+  display: grid; grid-template-columns: 65fr 35fr;
+  align-items: start; border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden; background: var(--pearl);
+}
+.board-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; background: var(--sand); border-bottom: 1px solid #e5e7eb;
+  position: sticky; top: 170px; z-index: 5;
+}
+.board-panel-title { font-size: 14px; font-weight: 700; color: var(--nightfall); }
+.board-panel-badge { background: var(--marina); color: var(--nightfall); font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 20px; }
+.board-pool-count  { font-size: 12px; color: #6b7280; }
+
+.board-units-col   { min-width: 0; border-right: 2px solid #e5e7eb; }
+.units-grid        { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 14px; }
+
+.board-students-col { position: sticky; top: 170px; max-height: calc(100vh - 190px); display: flex; flex-direction: column; overflow: hidden; }
+.students-pool { overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; align-content: start; }
+.pool-empty { color: var(--text-secondary); font-size: 13px; text-align: center; padding: 32px 0; }
+
+/* Legacy labels kept for any remaining references */
 .board-col-label { font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
 .board-col-count { font-weight: 400; color: var(--text-secondary); }
-.board-units-col { min-width: 0; }
-.units-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(235px, 1fr)); gap: 12px; }
-
-.board-students-col { position: sticky; top: 170px; max-height: calc(100vh - 190px); display: flex; flex-direction: column; }
-.students-pool { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
-.pool-empty { color: var(--text-secondary); font-size: 13px; text-align: center; padding: 32px 0; }
 
 /* ================================================================
    UNIT CARD — Nightfall header + light body
@@ -548,18 +563,19 @@ body { min-height: 100vh; }
 }
 .uc-compat-green  { border: 3px solid #16a34a; background: #f0fdf4; }
 .uc-compat-yellow { border: 3px solid #ca8a04; background: #fefce8; }
+.uc-compat-blue   { border: 2px solid #0369a1; background: #eff6ff; }
 
 /* Dark header strip */
 .uc-header {
   background: var(--nightfall);
-  padding: 10px 14px 12px;
-  min-height: 44px;
+  padding: 8px 10px 8px;
+  min-height: 36px;
 }
 .uc-name-row {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 3px;
+  display: flex; align-items: center; gap: 6px; margin-bottom: 2px;
 }
-.uc-name    { font-size: 15px; font-weight: 600; color: var(--pearl); flex: 1; }
-.uc-contact { font-size: 12px; color: var(--nova); opacity: 0.85; }
+.uc-name    { font-size: 13px; font-weight: 600; color: var(--pearl); flex: 1; }
+.uc-contact { font-size: 11px; color: #6b7280; }
 
 /* Delete button in header */
 .uc-delete-btn {
@@ -648,8 +664,9 @@ body { min-height: 100vh; }
    STUDENT MATCH CARD
    ================================================================ */
 .student-match-card {
-  background: var(--pearl); border: 1px solid var(--border); border-radius: 6px;
-  padding: 10px 12px; cursor: pointer;
+  background: var(--pearl); border: 1px solid var(--border);
+  border-left: 3px solid #4f46e5;
+  border-radius: 6px; padding: 10px 12px; cursor: pointer;
   transition: background 0.12s, border-color 0.12s; user-select: none;
 }
 .student-match-card:hover:not(.smc-readonly) { background: var(--sand); border-color: var(--nightfall); }
@@ -663,8 +680,8 @@ body { min-height: 100vh; }
 .smc-pref-pills { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
 .smc-pref-pill {
   display: inline-flex; align-items: center; gap: 4px;
-  font-size: 12px; font-weight: 500;
-  padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 500;
+  padding: 2px 7px; border-radius: 4px;
   background: rgba(29,37,103,0.07); color: var(--nightfall);
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -991,20 +1008,21 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* ================================================================
    POOL FILTER (MatchingTab)
    ================================================================ */
-.pool-filter-row { display: flex; gap: 8px; padding: 8px 0 6px; }
+.pool-filter-row { display: flex; gap: 8px; padding: 8px 10px 6px; }
 .pool-search-input {
-  flex: 1; padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px;
-  font-size: 12px; color: var(--raven); background: rgba(255,255,255,0.08);
-  color: var(--pearl); outline: none;
+  flex: 1; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 4px;
+  font-size: 12px; color: #191919; background: #ffffff;
+  outline: none; transition: border-color 0.12s, box-shadow 0.12s;
 }
-.pool-search-input::placeholder { color: rgba(255,255,255,0.45); }
-.pool-search-input:focus { border-color: var(--nova); }
+.pool-search-input::placeholder { color: #9ca3af; }
+.pool-search-input:focus { border-color: #1d2567; box-shadow: 0 0 0 2px rgba(29,37,103,0.15); }
 .pool-school-select {
-  padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px;
-  font-size: 12px; background: rgba(255,255,255,0.08); color: var(--pearl);
-  outline: none; cursor: pointer; min-width: 100px;
+  padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px;
+  font-size: 12px; background: #ffffff; color: #191919;
+  outline: none; cursor: pointer; min-width: 110px;
 }
-.pool-school-select option { color: var(--raven); background: var(--pearl); }
+.pool-school-select:focus { border-color: #1d2567; box-shadow: 0 0 0 2px rgba(29,37,103,0.15); }
+.pool-school-select option { color: #191919; background: #ffffff; }
 
 /* ================================================================
    OVERVIEW SEND FORM BUTTONS
@@ -1407,5 +1425,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   .compliance-grid { grid-template-columns: repeat(2, 1fr); }
   .match-summary { grid-template-columns: repeat(2, 1fr); }
   .matching-board { grid-template-columns: 1fr; }
+  .units-grid     { grid-template-columns: repeat(2, 1fr); }
+  .students-pool  { grid-template-columns: 1fr; }
   .sf-row-2, .sf-row-3 { grid-template-columns: 1fr; }
 }

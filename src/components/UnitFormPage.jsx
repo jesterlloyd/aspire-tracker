@@ -147,7 +147,7 @@ export default function UnitFormPage() {
               )}
             </div>
             <div className="uf-field">
-              <label className="uf-label">Your Name and Title *</label>
+              <label className="uf-label">Your Name *</label>
               <input className="uf-input" value={form.contact_person}
                 onChange={e => set('contact_person', e.target.value)}
                 placeholder="e.g. Jane Smith, RN, Nurse Manager" />
@@ -185,7 +185,7 @@ export default function UnitFormPage() {
               <div className="uf-section">
                 <div className="uf-field">
                   <label className="uf-label">Number of students you can host *</label>
-                  <input className="uf-input uf-input-sm" type="number" min="1" max="10"
+                  <input className="uf-input uf-input-sm" type="text" inputMode="numeric" pattern="[0-9]*"
                     value={form.total_slots} onChange={e => set('total_slots', e.target.value)}
                     placeholder="1–10" />
                 </div>

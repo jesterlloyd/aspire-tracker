@@ -5,6 +5,7 @@ import ConfirmDeleteModal from './ConfirmDeleteModal'
 const COMPAT_TITLE = {
   green:  '1st choice preference',
   yellow: '2nd choice preference',
+  blue:   '3rd choice preference',
 }
 
 export default function UnitCard({
@@ -19,6 +20,7 @@ export default function UnitCard({
   const compat      = selectedStudent
     ? (selectedStudent.unit_preference_1 === unit.unit_name ? 'green'
       : selectedStudent.unit_preference_2 === unit.unit_name ? 'yellow'
+      : selectedStudent.unit_preference_3 === unit.unit_name ? 'blue'
       : null)
     : null
 

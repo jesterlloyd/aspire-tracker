@@ -5,7 +5,7 @@ const STATUS_CLASS = {
   Archived:  'cs-archived',
 }
 
-export default function CohortBar({ cohorts, activeCohortId, onSelect, onNew, onManage, onManageInterviewers }) {
+export default function CohortBar({ cohorts, activeCohortId, onSelect, onNew, onManage }) {
   const active = cohorts.find(c => c.id === activeCohortId)
 
   return (
@@ -42,7 +42,6 @@ export default function CohortBar({ cohorts, activeCohortId, onSelect, onNew, on
           )}
         </div>
         <div className="cohort-bar-actions">
-          <button className="btn-cohort-outline" onClick={onManageInterviewers}>👥 Interviewers</button>
           {active && (
             <button className="btn-cohort-outline" onClick={onManage}>⚙ Edit Cohort</button>
           )}

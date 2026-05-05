@@ -291,6 +291,13 @@ function MainApp({ onLogout }) {
               </div>
             </div>
             <div className="header-actions">
+              {activeTab === 'interviews' && cohorts.length > 0 && (
+                <button className="btn btn-outline-modal"
+                  style={{ fontSize: 13, fontWeight: 600 }}
+                  onClick={() => setShowInterviewersModal(true)}>
+                  Manage Interviewers
+                </button>
+              )}
               {activeTab === 'profiles' && profilesView === 'records' && cohorts.length > 0 && (
                 <>
                   <button className="btn btn-ghost" onClick={exportCSV}>↓ Export CSV</button>
@@ -313,8 +320,7 @@ function MainApp({ onLogout }) {
         {cohorts.length > 0 && (
           <CohortBar cohorts={cohorts} activeCohortId={activeCohortId}
             onSelect={handleCohortSwitch} onNew={() => setShowNewCohort(true)}
-            onManage={() => setShowManageCohort(true)}
-            onManageInterviewers={() => setShowInterviewersModal(true)} />
+            onManage={() => setShowManageCohort(true)} />
         )}
 
         {cohorts.length > 0 && (

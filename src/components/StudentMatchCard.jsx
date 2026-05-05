@@ -78,6 +78,7 @@ export default function StudentMatchCard({
       <div className="smc-pref-pills">
         <PrefPill rank="1st" name={student.unit_preference_1} />
         <PrefPill rank="2nd" name={student.unit_preference_2} />
+        <PrefPill rank="3rd" name={student.unit_preference_3} />
       </div>
 
       {student.matched_unit_id && (
