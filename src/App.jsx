@@ -411,6 +411,7 @@ function MainApp({ onLogout }) {
             cohortId={activeCohortId}
             onStudentUpdate={updateStudent}
             onRubricsChange={() => fetchInterviews(activeCohortId)}
+            onRefreshStudents={() => fetchStudents(activeCohortId)}
             onManageInterviewers={() => setShowInterviewersModal(true)}
           />
         )}

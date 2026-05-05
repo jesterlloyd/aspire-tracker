@@ -44,18 +44,19 @@ const SCHOOL_ACRONYMS = {
   'West Coast University, North Hollywood': 'WCU-NH',
 }
 
-function interviewerInitials(assignedStr) {
-  if (!assignedStr || !assignedStr.trim()) return null
-  const names = assignedStr.split(',').map(n => n.trim()).filter(Boolean)
-  if (names.length === 0) return null
-  const initials = n => {
-    const parts = n.split(' ').filter(Boolean)
-    // Use first letter of first word + first letter of last word
-    return parts.length >= 2 ? parts[0][0] + parts[parts.length - 1][0] : parts[0].slice(0, 2)
-  }
-  if (names.length === 1) return initials(names[0]).toUpperCase()
-  if (names.length === 2) return `${initials(names[0])}, ${initials(names[1])}`.toUpperCase()
-  return `${initials(names[0])} +${names.length - 1}`.toUpperCase()
+function getInitials(fullName) {
+  const parts = fullName.trim().split(' ').filter(Boolean)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return (parts[0][0] || '').toUpperCase()
+}
+
+function getInterviewerDisplay(assignedString) {
+  if (!assignedString || assignedString.trim() === '') return ''
+  const names = assignedString.split(',').map(n => n.trim()).filter(Boolean)
+  if (names.length === 0) return ''
+  if (names.length === 1) return getInitials(names[0])
+  if (names.length === 2) return `${getInitials(names[0])}, ${getInitials(names[1])}`
+  return `${getInitials(names[0])} +${names.length - 1}`
 }
 
 export default function WeekCalendar({ students, rubrics, onOpenRubric, onSchedule, onManageInterviewers, onStudentUpdate }) {
@@ -113,7 +114,7 @@ export default function WeekCalendar({ students, rubrics, onOpenRubric, onSchedu
                   const last  = s.last_name  || ''
                   const first = s.first_name || ''
                   const acronym  = SCHOOL_ACRONYMS[s.school] || null
-                  const ivInits  = interviewerInitials(s.interview_assigned_interviewers)
+                  const ivInits  = getInterviewerDisplay(s.interview_assigned_interviewers)
                   return (
                     <div key={s.id} className="week-cal-block"
                       style={{ background: c.bg, color: c.color }}
@@ -124,7 +125,7 @@ export default function WeekCalendar({ students, rubrics, onOpenRubric, onSchedu
                         {acronym && (
                           <span className="week-cal-school-pill">{acronym}</span>
                         )}
-                        {ivInits && (
+                        {ivInits && ivInits.length > 0 && (
                           <span className="week-cal-iv-pill">{ivInits}</span>
                         )}
                         {s.interview_scheduled_time && (

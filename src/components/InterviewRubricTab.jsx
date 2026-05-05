@@ -26,7 +26,7 @@ const ROW_BORDER = {
 }
 
 export default function InterviewRubricTab({
-  students, rubrics, cohortId, onStudentUpdate, onRubricsChange, onManageInterviewers,
+  students, rubrics, cohortId, onStudentUpdate, onRubricsChange, onRefreshStudents, onManageInterviewers,
 }) {
   const [selectedStudentId,   setSelectedStudentId]   = useState(null)
   const [showScheduleModal,   setShowScheduleModal]   = useState(false)
@@ -112,7 +112,7 @@ export default function InterviewRubricTab({
         onOpenRubric={id => setSelectedStudentId(id)}
         onSchedule={() => setShowScheduleModal(true)}
         onManageInterviewers={onManageInterviewers}
-        onStudentUpdate={onRubricsChange}
+        onStudentUpdate={onRefreshStudents || onRubricsChange}
       />
 
       {/* Summary cards */}

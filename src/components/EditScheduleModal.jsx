@@ -11,17 +11,19 @@ for (let h = 7; h <= 18; h++) {
 }
 
 export default function EditScheduleModal({ student, onClose, onSaved, onOpenRubric }) {
-  const [date,         setDate]         = useState(student.interview_scheduled_date || '')
-  const [time,         setTime]         = useState(student.interview_scheduled_time || '09:00')
-  const [duration,     setDuration]     = useState(student.interview_duration_minutes || 45)
-  const [assigned,     setAssigned]     = useState(
+  const [date,           setDate]           = useState(student.interview_scheduled_date || '')
+  const [time,           setTime]           = useState(student.interview_scheduled_time || '09:00')
+  const [duration,       setDuration]       = useState(student.interview_duration_minutes || 45)
+  const [assigned,       setAssigned]       = useState(
     student.interview_assigned_interviewers
       ? student.interview_assigned_interviewers.split(',').map(s => s.trim()).filter(Boolean)
       : []
   )
-  const [interviewers, setInterviewers] = useState([])
-  const [saving,       setSaving]       = useState(false)
-  const [error,        setError]        = useState(null)
+  const [interviewers,   setInterviewers]   = useState([])
+  const [saving,         setSaving]         = useState(false)
+  const [deleting,       setDeleting]       = useState(false)
+  const [confirmDelete,  setConfirmDelete]  = useState(false)
+  const [error,          setError]          = useState(null)
 
   useEffect(() => {
     supabase.from('interviewers').select('name').eq('is_active', true).order('name')
@@ -35,12 +37,25 @@ export default function EditScheduleModal({ student, onClose, onSaved, onOpenRub
     if (!date) { setError('Please select a date.'); return }
     setSaving(true); setError(null)
     const { error: err } = await supabase.from('students').update({
-      interview_scheduled_date: date,
-      interview_scheduled_time: time,
-      interview_duration_minutes: duration,
+      interview_scheduled_date:        date,
+      interview_scheduled_time:        time,
+      interview_duration_minutes:      duration,
       interview_assigned_interviewers: assigned.join(', '),
     }).eq('id', student.id)
     if (err) { setError(err.message); setSaving(false); return }
+    await onSaved()
+    onClose()
+  }
+
+  const handleDelete = async () => {
+    setDeleting(true)
+    const { error: err } = await supabase.from('students').update({
+      interview_scheduled_date:        '',
+      interview_scheduled_time:        '',
+      interview_duration_minutes:      null,
+      interview_assigned_interviewers: '',
+    }).eq('id', student.id)
+    if (err) { setError(err.message); setDeleting(false); setConfirmDelete(false); return }
     await onSaved()
     onClose()
   }
@@ -55,8 +70,31 @@ export default function EditScheduleModal({ student, onClose, onSaved, onOpenRub
           </div>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
+
         <div className="modal-body" style={{ display:'flex', flexDirection:'column', gap:14 }}>
           {error && <div className="error-msg">{error}</div>}
+
+          {confirmDelete && (
+            <div style={{ background:'#fee2e2', border:'1px solid #fca5a5', borderRadius:6, padding:'12px 14px', display:'flex', flexDirection:'column', gap:10 }}>
+              <p style={{ fontSize:13, color:'#991b1b', fontWeight:600, margin:0 }}>
+                Remove the scheduled interview for {displayName(student)}?
+              </p>
+              <p style={{ fontSize:12, color:'#991b1b', margin:0 }}>
+                This will clear their scheduled date, time, and interviewer assignments.
+              </p>
+              <div style={{ display:'flex', gap:8 }}>
+                <button className="btn btn-destructive-filled" onClick={handleDelete} disabled={deleting}
+                  style={{ fontSize:12, padding:'5px 14px' }}>
+                  {deleting ? 'Removing…' : 'Yes, Remove'}
+                </button>
+                <button className="btn btn-outline-modal" onClick={() => setConfirmDelete(false)}
+                  style={{ fontSize:12, padding:'5px 14px' }}>
+                  Keep It
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="form-field">
             <label className="form-label">Date *</label>
             <input className="form-input" type="date" value={date} onChange={e => setDate(e.target.value)} />
@@ -91,20 +129,31 @@ export default function EditScheduleModal({ student, onClose, onSaved, onOpenRub
                 ))}
               </div>
             )}
+            {assigned.length > 0 && (
+              <div style={{ fontSize:11, color:'var(--text-secondary)', marginTop:4 }}>
+                Assigned: {assigned.join(', ')}
+              </div>
+            )}
           </div>
         </div>
+
         <div className="modal-footer" style={{ justifyContent:'space-between' }}>
-          <button className="btn btn-outline-modal"
-            style={{ color:'var(--nightfall)', borderColor:'var(--nightfall)' }}
-            onClick={() => { onClose(); onOpenRubric(student.id) }}>
-            Open Interview Rubric →
-          </button>
-          <div style={{ display:'flex', gap:8 }}>
-            <button className="btn btn-outline-modal" onClick={onClose}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleSave} disabled={saving || !date}>
-              {saving ? 'Saving…' : 'Save'}
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            <button className="btn btn-outline-modal"
+              style={{ color:'var(--nightfall)', borderColor:'var(--nightfall)' }}
+              onClick={() => { onClose(); onOpenRubric(student.id) }}>
+              Open Interview Rubric →
+            </button>
+            <button
+              style={{ background:'var(--pearl)', border:'1.5px solid var(--cs-red)', color:'var(--cs-red)', borderRadius:4, padding:'6px 14px', fontSize:13, fontWeight:600, cursor:'pointer', transition:'background 0.12s' }}
+              onClick={() => setConfirmDelete(true)}
+              disabled={deleting}>
+              Delete Interview
             </button>
           </div>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving || !date}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
         </div>
       </div>
     </div>
