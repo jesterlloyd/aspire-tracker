@@ -15,6 +15,20 @@ import SchoolFormPage from './components/SchoolFormPage'
 import StudentIntakeFormPage from './components/StudentIntakeFormPage'
 import InterviewersModal from './components/InterviewersModal'
 
+/*
+  COHORT ISOLATION CONTRACT
+
+  Every data query MUST filter by activeCohortId.
+  Every new record MUST include cohort_id: activeCohortId.
+  Switching cohorts MUST clear all local state and refetch.
+  App rules (constants, logic, validation) are NEVER cohort-specific.
+  Public forms use the cohort where accepting_submissions = true.
+
+  To add a new data type: always include cohort_id in the table,
+  always filter by activeCohortId in queries,
+  always pass activeCohortId when creating records.
+*/
+
 function computeMatchSummary(matchList) {
   const total  = matchList.length
   const top    = matchList.filter(m => m.match_quality === 'top_choice').length
@@ -66,6 +80,8 @@ function MainApp({ onLogout }) {
 
   useEffect(() => {
     if (!activeCohortId) return
+    // Clear stale data from previous cohort immediately so no cross-cohort bleed
+    setStudents([]); setUnits([]); setMatches([]); setInterviews([])
     setLoading(true); setDbError(null)
     Promise.all([
       fetchStudents(activeCohortId), fetchUnits(activeCohortId),
@@ -103,7 +119,7 @@ function MainApp({ onLogout }) {
       setCohorts(prev => [data, ...prev])
       localStorage.setItem('aspire_active_cohort_id', data.id)
       setActiveCohortId(data.id)
-      setStudents([]); setUnits([]); setMatches([])
+      setStudents([]); setUnits([]); setMatches([]); setInterviews([])
       setShowNewCohort(false)
     }
     return error || null
