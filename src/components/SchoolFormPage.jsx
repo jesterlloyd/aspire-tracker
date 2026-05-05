@@ -6,7 +6,8 @@ const PAGE_TITLE = 'ASPIRE Program Student Placement Request Form'
 
 const newStudent = () => ({
   _key: Date.now() + Math.random(),
-  first_name: '', last_name: '', email: '', phone: '', program_type: '', term_dates: '', hours_required: '',
+  first_name: '', last_name: '', email: '', phone: '',
+  program_type: '', term_dates: '', hours_required: '', estimated_graduation: '',
 })
 
 export default function SchoolFormPage() {
@@ -18,7 +19,7 @@ export default function SchoolFormPage() {
   const [rows,  setRows]  = useState([newStudent()])
 
   const [submitting, setSubmitting] = useState(false)
-  const [submitted,  setSubmitted]  = useState(false)
+  const [result,     setResult]     = useState(null) // { added: [], skipped: [] }
   const [error,      setError]      = useState(null)
 
   useEffect(() => {
@@ -31,10 +32,9 @@ export default function SchoolFormPage() {
       })
   }, [])
 
-  const setC = (k, v) => setCoord(p => ({ ...p, [k]: v }))
-  const updRow = (key, field, val) =>
-    setRows(prev => prev.map(r => r._key === key ? { ...r, [field]: val } : r))
-  const addRow    = () => setRows(prev => [...prev, newStudent()])
+  const setC    = (k, v) => setCoord(p => ({ ...p, [k]: v }))
+  const updRow  = (key, field, val) => setRows(prev => prev.map(r => r._key === key ? { ...r, [field]: val } : r))
+  const addRow  = () => setRows(prev => [...prev, newStudent()])
   const removeRow = key => setRows(prev => prev.filter(r => r._key !== key))
 
   const handleSubmit = async e => {
@@ -48,26 +48,58 @@ export default function SchoolFormPage() {
     setSubmitting(true)
     setError(null)
 
-    const records = rows.map(r => ({
-      school:            coord.school.trim(),
-      coordinator_name:  coord.name.trim(),
-      coordinator_email: coord.email.trim(),
-      student_name:      `${r.first_name.trim()} ${r.last_name.trim()}`,
-      first_name:        r.first_name.trim(),
-      last_name:         r.last_name.trim(),
-      student_email:     r.email.trim(),
-      student_phone:     r.phone.trim(),
-      program_type:      r.program_type,
-      term_dates:        r.term_dates.trim(),
-      hours_required:    parseInt(r.hours_required) || 0,
-      notes:             coord.notes.trim(),
-      review_status:     'Pending',
-      cohort_id:         cohortId,
-    }))
+    const added = []
+    const skipped = []
 
-    const { error: err } = await supabase.from('student_submissions').insert(records)
-    if (err) { setError('Something went wrong. Please try again.'); setSubmitting(false); return }
-    setSubmitted(true)
+    for (const r of rows) {
+      const schoolEmail = r.email.trim()
+
+      // Check for existing student with same school_email in this cohort
+      const { data: existing } = await supabase.from('students')
+        .select('id').eq('cohort_id', cohortId).eq('school_email', schoolEmail)
+        .limit(1).maybeSingle()
+
+      if (existing) {
+        skipped.push(`${r.first_name.trim()} ${r.last_name.trim()}`)
+        continue
+      }
+
+      const { error: insertErr } = await supabase.from('students').insert({
+        name:                    `${r.first_name.trim()} ${r.last_name.trim()}`,
+        first_name:              r.first_name.trim(),
+        last_name:               r.last_name.trim(),
+        school_email:            schoolEmail,
+        phone:                   r.phone.trim(),
+        school:                  coord.school.trim(),
+        program_type:            r.program_type,
+        term_dates:              r.term_dates.trim(),
+        hours_required:          parseInt(r.hours_required) || 0,
+        hours_completed:         0,
+        estimated_graduation:    r.estimated_graduation.trim(),
+        status:                  'Pending Outreach',
+        interview_outcome:       'Pending Interview',
+        ngrp_outcome:            'Pending',
+        submitted_via:           'school_form',
+        school_coordinator_name:  coord.name.trim(),
+        school_coordinator_email: coord.email.trim(),
+        aspire_cohort:           cohortName,
+        gpa_verified:            false,
+        bls_current:             false,
+        health_cleared:          false,
+        background_check:        false,
+        coordinators:            coord.notes.trim(),
+        cohort_id:               cohortId,
+      })
+
+      if (insertErr) {
+        setError('Something went wrong while adding students. Please try again.')
+        setSubmitting(false)
+        return
+      }
+      added.push(`${r.first_name.trim()} ${r.last_name.trim()}`)
+    }
+
+    setResult({ added, skipped })
   }
 
   if (open === null) return (
@@ -91,15 +123,29 @@ export default function SchoolFormPage() {
     </div>
   )
 
-  if (submitted) return (
+  if (result) return (
     <div className="uf-page">
       <div className="uf-card uf-card-confirm">
         <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
         <div className="uf-confirm-icon">✓</div>
         <h2 className="uf-confirm-title">Thank you, {coord.school}.</h2>
-        <p className="uf-confirm-msg">
-          Your students have been submitted for the ASPIRE Program. The ASPIRE team will be in touch regarding next steps.
-        </p>
+        {result.added.length > 0 && (
+          <p className="uf-confirm-msg">
+            <strong>{result.added.length} student{result.added.length !== 1 ? 's' : ''} added
+            </strong> to the ASPIRE Program for {cohortName}.
+          </p>
+        )}
+        {result.skipped.length > 0 && (
+          <p className="uf-confirm-msg" style={{ marginTop: 12, color: 'var(--text-secondary)', fontSize: 14 }}>
+            <strong>{result.skipped.length} skipped</strong> (already on file):{' '}
+            {result.skipped.join(', ')}
+          </p>
+        )}
+        {result.added.length === 0 && result.skipped.length > 0 && (
+          <p className="uf-confirm-msg" style={{ marginTop: 8, fontSize: 13, color: 'var(--text-secondary)' }}>
+            All submitted students were already in the system. Please contact the ASPIRE team if changes are needed.
+          </p>
+        )}
       </div>
     </div>
   )
@@ -117,7 +163,6 @@ export default function SchoolFormPage() {
         <form onSubmit={handleSubmit} className="uf-form">
           {error && <div className="error-msg" style={{ marginBottom: 8 }}>{error}</div>}
 
-          {/* School / Coordinator info */}
           <div className="uf-section">
             <div className="sf-section-title">School Information</div>
             <div className="uf-field">
@@ -131,19 +176,16 @@ export default function SchoolFormPage() {
               <div className="uf-field">
                 <label className="uf-label">Your Name (Placement Coordinator) *</label>
                 <input className="uf-input" value={coord.name}
-                  onChange={e => setC('name', e.target.value)}
-                  placeholder="First Last, Title" />
+                  onChange={e => setC('name', e.target.value)} placeholder="First Last, Title" />
               </div>
               <div className="uf-field">
                 <label className="uf-label">Your Email Address *</label>
                 <input className="uf-input" type="email" value={coord.email}
-                  onChange={e => setC('email', e.target.value)}
-                  placeholder="coordinator@school.edu" />
+                  onChange={e => setC('email', e.target.value)} placeholder="coordinator@school.edu" />
               </div>
             </div>
           </div>
 
-          {/* Student rows */}
           <div className="uf-section">
             <div className="sf-section-title">Students</div>
 
@@ -158,25 +200,22 @@ export default function SchoolFormPage() {
                   )}
                 </div>
 
-                {/* First + Last name side by side */}
                 <div className="sf-row-2">
                   <div className="uf-field">
                     <label className="uf-label">First Name *</label>
                     <input className="uf-input" value={row.first_name}
-                      onChange={e => updRow(row._key, 'first_name', e.target.value)}
-                      placeholder="First" />
+                      onChange={e => updRow(row._key, 'first_name', e.target.value)} placeholder="First" />
                   </div>
                   <div className="uf-field">
                     <label className="uf-label">Last Name *</label>
                     <input className="uf-input" value={row.last_name}
-                      onChange={e => updRow(row._key, 'last_name', e.target.value)}
-                      placeholder="Last" />
+                      onChange={e => updRow(row._key, 'last_name', e.target.value)} placeholder="Last" />
                   </div>
                 </div>
 
                 <div className="sf-row-2">
                   <div className="uf-field">
-                    <label className="uf-label">Student Email *</label>
+                    <label className="uf-label">School Email *</label>
                     <input className="uf-input" type="email" value={row.email}
                       onChange={e => updRow(row._key, 'email', e.target.value)}
                       placeholder="student@school.edu" />
@@ -184,8 +223,7 @@ export default function SchoolFormPage() {
                   <div className="uf-field">
                     <label className="uf-label">Phone (optional)</label>
                     <input className="uf-input" value={row.phone}
-                      onChange={e => updRow(row._key, 'phone', e.target.value)}
-                      placeholder="(555) 000-0000" />
+                      onChange={e => updRow(row._key, 'phone', e.target.value)} placeholder="(555) 000-0000" />
                   </div>
                 </div>
 
@@ -207,9 +245,15 @@ export default function SchoolFormPage() {
                   <div className="uf-field">
                     <label className="uf-label">Hours Required</label>
                     <input className="uf-input" type="number" min="0" value={row.hours_required}
-                      onChange={e => updRow(row._key, 'hours_required', e.target.value)}
-                      placeholder="e.g. 144" />
+                      onChange={e => updRow(row._key, 'hours_required', e.target.value)} placeholder="e.g. 144" />
                   </div>
+                </div>
+
+                <div className="uf-field">
+                  <label className="uf-label">Estimated Graduation Date</label>
+                  <input className="uf-input" value={row.estimated_graduation}
+                    onChange={e => updRow(row._key, 'estimated_graduation', e.target.value)}
+                    placeholder="e.g. May 2027" />
                 </div>
               </div>
             ))}
@@ -219,7 +263,6 @@ export default function SchoolFormPage() {
             </button>
           </div>
 
-          {/* Notes */}
           <div className="uf-section">
             <div className="uf-field">
               <label className="uf-label">Additional notes for the ASPIRE team (optional)</label>

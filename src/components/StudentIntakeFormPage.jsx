@@ -7,14 +7,11 @@ const EXP_ROLES = [
   'CNA', 'Medical Assistant', 'EMT', 'Phlebotomist',
   'Unit Secretary', 'Patient Care Technician', 'Other',
 ]
-
-const CS_AFFILIATIONS = [
-  'Current Employee', 'Former Employee', 'Volunteer', 'No prior affiliation',
-]
-
-const CS_WITH_DEPT = ['Current Employee', 'Former Employee', 'Volunteer']
+const CS_AFFILIATIONS = ['Current Employee', 'Former Employee', 'Volunteer', 'No prior affiliation']
+const CS_WITH_DEPT    = ['Current Employee', 'Former Employee', 'Volunteer']
 
 const initForm = () => ({
+  school_email: '',
   first_name: '', last_name: '', personal_email: '', phone: '',
   date_of_birth: '', ssn_last4: '', gender: '',
   has_prior_experience: null,
@@ -26,17 +23,18 @@ const initForm = () => ({
 })
 
 export default function StudentIntakeFormPage() {
-  const [cohortId,      setCohortId]      = useState(null)
-  const [cohortName,    setCohortName]    = useState('')
-  const [open,          setOpen]          = useState(null)
-  const [form,          setForm]          = useState(initForm())
+  const [cohortId,       setCohortId]       = useState(null)
+  const [cohortName,     setCohortName]     = useState('')
+  const [open,           setOpen]           = useState(null)
+  const [form,           setForm]           = useState(initForm())
   const [availableUnits, setAvailableUnits] = useState([])
-  const [unitsLoaded,   setUnitsLoaded]   = useState(false)
-  const [submitting,    setSubmitting]    = useState(false)
-  const [submitted,     setSubmitted]     = useState(false)
-  const [error,         setError]         = useState(null)
+  const [unitsLoaded,    setUnitsLoaded]    = useState(false)
+  const [resumeFile,     setResumeFile]     = useState(null)
+  const [headshotFile,   setHeadshotFile]   = useState(null)
+  const [submitting,     setSubmitting]     = useState(false)
+  const [submitted,      setSubmitted]      = useState(false)
+  const [error,          setError]          = useState(null)
 
-  // Load accepting cohort
   useEffect(() => {
     document.title = PAGE_TITLE
     supabase.from('cohorts').select('id, name').eq('accepting_submissions', true)
@@ -47,32 +45,29 @@ export default function StudentIntakeFormPage() {
       })
   }, [])
 
-  // Load participating units for the active cohort
   useEffect(() => {
     if (!cohortId) return
-    supabase.from('units')
-      .select('unit_name')
-      .eq('is_participating', true)
-      .eq('cohort_id', cohortId)
-      .order('unit_name')
+    supabase.from('units').select('unit_name')
+      .eq('is_participating', true).eq('cohort_id', cohortId).order('unit_name')
       .then(({ data }) => {
         setAvailableUnits((data || []).map(u => u.unit_name))
         setUnitsLoaded(true)
       })
   }, [cohortId])
 
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
+  const set        = (k, v) => setForm(p => ({ ...p, [k]: v }))
   const toggleRole = r => setForm(p => ({ ...p, exp_roles: { ...p.exp_roles, [r]: !p.exp_roles[r] } }))
 
   const handleSubmit = async e => {
     e.preventDefault()
 
+    if (!form.school_email.trim()) {
+      setError('Please enter your school email address.'); return
+    }
     if (!form.first_name.trim() || !form.last_name.trim() || !form.personal_email.trim() || !form.phone.trim()) {
       setError('Please fill in all required personal information fields.'); return
     }
-    if (!form.date_of_birth) {
-      setError('Please enter your date of birth.'); return
-    }
+    if (!form.date_of_birth) { setError('Please enter your date of birth.'); return }
     if (!/^\d{4}$/.test(form.ssn_last4.trim())) {
       setError('SSN last 4 digits must be exactly 4 numbers.'); return
     }
@@ -82,9 +77,60 @@ export default function StudentIntakeFormPage() {
     if (!form.cs_affiliation) {
       setError('Please select your Cedars-Sinai affiliation status.'); return
     }
+    if (CS_WITH_DEPT.includes(form.cs_affiliation)) {
+      if (!form.cs_department.trim()) {
+        setError('Please enter your department.'); return
+      }
+      if (!form.cs_role.trim()) {
+        setError('Please enter your role or job title.'); return
+      }
+    }
+    if (!form.unit_preference_1) {
+      setError('Please select at least your first unit preference.'); return
+    }
 
     setSubmitting(true)
     setError(null)
+
+    // Find existing student by school_email in this cohort
+    const { data: student } = await supabase.from('students')
+      .select('id')
+      .eq('cohort_id', cohortId)
+      .eq('school_email', form.school_email.trim().toLowerCase())
+      .limit(1).maybeSingle()
+
+    if (!student) {
+      setError('We could not find your information in our system for the current cycle. Please contact the ASPIRE team to confirm your school email on file.')
+      setSubmitting(false)
+      return
+    }
+
+    const studentId = student.id
+
+    // Upload files if provided
+    let resume_url = ''
+    let headshot_url = ''
+
+    if (resumeFile) {
+      const ext = resumeFile.name.split('.').pop()
+      const path = `${cohortId}/${studentId}/resume.${ext}`
+      const { error: uploadErr } = await supabase.storage
+        .from('student-files').upload(path, resumeFile, { upsert: true, contentType: resumeFile.type })
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from('student-files').getPublicUrl(path)
+        resume_url = urlData.publicUrl
+      }
+    }
+    if (headshotFile) {
+      const ext = headshotFile.name.split('.').pop()
+      const path = `${cohortId}/${studentId}/headshot.${ext}`
+      const { error: uploadErr } = await supabase.storage
+        .from('student-files').upload(path, headshotFile, { upsert: true, contentType: headshotFile.type })
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from('student-files').getPublicUrl(path)
+        headshot_url = urlData.publicUrl
+      }
+    }
 
     const selectedRoles = Object.entries(form.exp_roles)
       .filter(([, v]) => v)
@@ -93,27 +139,29 @@ export default function StudentIntakeFormPage() {
       ? 'No prior experience'
       : selectedRoles.length > 0 ? selectedRoles.join(', ') : 'Yes (no roles specified)'
 
-    const { error: err } = await supabase.from('student_intake_submissions').insert({
+    const updates = {
       first_name:                 form.first_name.trim(),
       last_name:                  form.last_name.trim(),
+      name:                       `${form.first_name.trim()} ${form.last_name.trim()}`,
       personal_email:             form.personal_email.trim(),
       phone:                      form.phone.trim(),
       date_of_birth:              form.date_of_birth,
       ssn_last4:                  form.ssn_last4.trim(),
       gender:                     form.gender,
-      prior_healthcare_experience,
       cs_affiliation:             form.cs_affiliation,
       cs_department:              form.cs_department.trim(),
       cs_role:                    form.cs_role.trim(),
+      prior_healthcare_experience,
       unit_preference_1:          form.unit_preference_1,
       unit_preference_2:          form.unit_preference_2,
       unit_preference_3:          form.unit_preference_3,
-      additional_notes:           form.additional_notes.trim(),
-      review_status:              'Pending',
-      cohort_id:                  cohortId,
-    })
+      submitted_via:              'student_form',
+      ...(resume_url   && { resume_url }),
+      ...(headshot_url && { headshot_url }),
+    }
 
-    if (err) {
+    const { error: updateErr } = await supabase.from('students').update(updates).eq('id', studentId)
+    if (updateErr) {
       setError('Something went wrong. Please try again or contact the ASPIRE team.')
       setSubmitting(false)
       return
@@ -159,7 +207,6 @@ export default function StudentIntakeFormPage() {
     <div className="uf-page">
       <div className="uf-card sf-card">
         <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
-
         <div className="uf-header">
           <h1 className="uf-title">{PAGE_TITLE}</h1>
           {cohortName && <div className="uf-cohort-badge">{cohortName}</div>}
@@ -175,6 +222,16 @@ export default function StudentIntakeFormPage() {
           {/* ── Section 1: Personal Information ── */}
           <div className="uf-section">
             <div className="sf-section-title">Section 1: Personal Information</div>
+
+            <div className="uf-field">
+              <label className="uf-label">School or University Email Address *</label>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                Enter the email address your school coordinator used to register you with the ASPIRE Program.
+              </p>
+              <input className="uf-input" type="email" value={form.school_email}
+                onChange={e => set('school_email', e.target.value)}
+                placeholder="yourname@school.edu" />
+            </div>
 
             <div className="sf-row-2">
               <div className="uf-field">
@@ -205,8 +262,7 @@ export default function StudentIntakeFormPage() {
             <div className="uf-field">
               <label className="uf-label">Date of Birth *</label>
               <input className="uf-input" type="date" value={form.date_of_birth}
-                onChange={e => set('date_of_birth', e.target.value)}
-                style={{ maxWidth: 220 }} />
+                onChange={e => set('date_of_birth', e.target.value)} style={{ maxWidth: 220 }} />
             </div>
 
             <div className="uf-field">
@@ -215,8 +271,7 @@ export default function StudentIntakeFormPage() {
                 This information is used solely for system access creation and is handled securely.
               </p>
               <input className="uf-input uf-input-sm" type="text" inputMode="numeric"
-                maxLength={4} placeholder="••••"
-                value={form.ssn_last4}
+                maxLength={4} placeholder="••••" value={form.ssn_last4}
                 onChange={e => set('ssn_last4', e.target.value.replace(/\D/g, '').slice(0, 4))} />
             </div>
 
@@ -225,11 +280,8 @@ export default function StudentIntakeFormPage() {
               <select className="uf-input" value={form.gender} onChange={e => set('gender', e.target.value)}
                 style={{ maxWidth: 280 }}>
                 <option value="">Select…</option>
-                <option>Male</option>
-                <option>Female</option>
-                <option>Non-binary</option>
-                <option>Prefer not to say</option>
-                <option>Other</option>
+                <option>Male</option><option>Female</option>
+                <option>Non-binary</option><option>Prefer not to say</option><option>Other</option>
               </select>
             </div>
           </div>
@@ -242,16 +294,12 @@ export default function StudentIntakeFormPage() {
               <label className="uf-label">Do you have prior healthcare experience? *</label>
               <div className="uf-radio-group">
                 <label className="uf-radio-label">
-                  <input type="radio" name="has_exp"
-                    checked={form.has_prior_experience === true}
-                    onChange={() => set('has_prior_experience', true)} />
-                  <span>Yes</span>
+                  <input type="radio" name="has_exp" checked={form.has_prior_experience === true}
+                    onChange={() => set('has_prior_experience', true)} /><span>Yes</span>
                 </label>
                 <label className="uf-radio-label">
-                  <input type="radio" name="has_exp"
-                    checked={form.has_prior_experience === false}
-                    onChange={() => set('has_prior_experience', false)} />
-                  <span>No</span>
+                  <input type="radio" name="has_exp" checked={form.has_prior_experience === false}
+                    onChange={() => set('has_prior_experience', false)} /><span>No</span>
                 </label>
               </div>
             </div>
@@ -263,14 +311,12 @@ export default function StudentIntakeFormPage() {
                   <div className="uf-checkbox-group">
                     {EXP_ROLES.map(r => (
                       <label key={r} className="uf-check-label">
-                        <input type="checkbox" checked={form.exp_roles[r]}
-                          onChange={() => toggleRole(r)} />
+                        <input type="checkbox" checked={form.exp_roles[r]} onChange={() => toggleRole(r)} />
                         <span>{r}</span>
                       </label>
                     ))}
                   </div>
                 </div>
-
                 {form.exp_roles['Other'] && (
                   <div className="uf-field">
                     <label className="uf-label">If Other, please describe</label>
@@ -287,10 +333,8 @@ export default function StudentIntakeFormPage() {
               <div className="uf-radio-group">
                 {CS_AFFILIATIONS.map(a => (
                   <label key={a} className="uf-radio-label">
-                    <input type="radio" name="cs_affiliation"
-                      checked={form.cs_affiliation === a}
-                      onChange={() => set('cs_affiliation', a)} />
-                    <span>{a}</span>
+                    <input type="radio" name="cs_affiliation" checked={form.cs_affiliation === a}
+                      onChange={() => set('cs_affiliation', a)} /><span>{a}</span>
                   </label>
                 ))}
               </div>
@@ -299,13 +343,13 @@ export default function StudentIntakeFormPage() {
             {CS_WITH_DEPT.includes(form.cs_affiliation) && (
               <div className="sf-row-2">
                 <div className="uf-field">
-                  <label className="uf-label">Department (optional)</label>
+                  <label className="uf-label">Department *</label>
                   <input className="uf-input" value={form.cs_department}
                     onChange={e => set('cs_department', e.target.value)}
                     placeholder="e.g. 6 NW, Labor and Delivery, Radiology" />
                 </div>
                 <div className="uf-field">
-                  <label className="uf-label">Role or Job Title (optional)</label>
+                  <label className="uf-label">Role or Job Title *</label>
                   <input className="uf-input" value={form.cs_role}
                     onChange={e => set('cs_role', e.target.value)}
                     placeholder="e.g. RN, Patient Care Tech, Volunteer" />
@@ -336,47 +380,41 @@ export default function StudentIntakeFormPage() {
             ) : (
               <>
                 <div className="uf-field">
-                  <label className="uf-label">First Preference (optional)</label>
+                  <label className="uf-label">First Preference *</label>
                   <select className="uf-input" value={form.unit_preference_1}
                     onChange={e => {
                       const v = e.target.value
                       setForm(p => ({
-                        ...p,
-                        unit_preference_1: v,
+                        ...p, unit_preference_1: v,
                         unit_preference_2: p.unit_preference_2 === v ? '' : p.unit_preference_2,
                         unit_preference_3: p.unit_preference_3 === v ? '' : p.unit_preference_3,
                       }))
                     }}>
-                    <option value="">No preference</option>
+                    <option value="">Select a unit…</option>
                     {availableUnits.map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
                 </div>
-
                 <div className="uf-field">
                   <label className="uf-label">Second Preference (optional)</label>
                   <select className="uf-input" value={form.unit_preference_2}
                     onChange={e => {
                       const v = e.target.value
                       setForm(p => ({
-                        ...p,
-                        unit_preference_2: v,
+                        ...p, unit_preference_2: v,
                         unit_preference_3: p.unit_preference_3 === v ? '' : p.unit_preference_3,
                       }))
                     }}>
                     <option value="">No preference</option>
-                    {availableUnits
-                      .filter(u => u !== form.unit_preference_1)
+                    {availableUnits.filter(u => u !== form.unit_preference_1)
                       .map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
                 </div>
-
                 <div className="uf-field">
                   <label className="uf-label">Third Preference (optional)</label>
                   <select className="uf-input" value={form.unit_preference_3}
                     onChange={e => set('unit_preference_3', e.target.value)}>
                     <option value="">No preference</option>
-                    {availableUnits
-                      .filter(u => u !== form.unit_preference_1 && u !== form.unit_preference_2)
+                    {availableUnits.filter(u => u !== form.unit_preference_1 && u !== form.unit_preference_2)
                       .map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
                 </div>
@@ -384,9 +422,38 @@ export default function StudentIntakeFormPage() {
             )}
           </div>
 
-          {/* ── Section 4: Additional Notes ── */}
+          {/* ── Section 4: Documents ── */}
           <div className="uf-section">
-            <div className="sf-section-title">Section 4: Additional Notes</div>
+            <div className="sf-section-title">Section 4: Documents (Optional)</div>
+            <div className="sf-row-2">
+              <div className="uf-field">
+                <label className="uf-label">Resume (PDF or Word, max 10MB)</label>
+                <input type="file" className="uf-file-input"
+                  accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  onChange={e => {
+                    const f = e.target.files[0]
+                    if (f && f.size > 10 * 1024 * 1024) { setError('Resume must be under 10MB.'); return }
+                    setResumeFile(f || null)
+                  }} />
+                {resumeFile && <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{resumeFile.name}</span>}
+              </div>
+              <div className="uf-field">
+                <label className="uf-label">Headshot Photo (JPG or PNG, max 5MB)</label>
+                <input type="file" className="uf-file-input"
+                  accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                  onChange={e => {
+                    const f = e.target.files[0]
+                    if (f && f.size > 5 * 1024 * 1024) { setError('Headshot must be under 5MB.'); return }
+                    setHeadshotFile(f || null)
+                  }} />
+                {headshotFile && <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{headshotFile.name}</span>}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Section 5: Additional Notes ── */}
+          <div className="uf-section">
+            <div className="sf-section-title">Section 5: Additional Notes</div>
             <div className="uf-field">
               <label className="uf-label">Is there anything else you would like the ASPIRE team to know? (optional)</label>
               <textarea className="uf-textarea" rows={4} value={form.additional_notes}

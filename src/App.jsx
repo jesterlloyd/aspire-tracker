@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './lib/supabase'
 import { displayName } from './lib/utils'
-import Dashboard from './components/Dashboard'
-import StudentList from './components/StudentList'
-import AddStudentModal from './components/AddStudentModal'
+import OverviewTab from './components/OverviewTab'
+import StudentProfilesTab from './components/StudentProfilesTab'
+import InterviewTab from './components/InterviewTab'
 import MatchingTab from './components/MatchingTab'
+import AddStudentModal from './components/AddStudentModal'
 import CohortBar from './components/CohortBar'
 import NewCohortModal from './components/NewCohortModal'
 import ManageCohortModal from './components/ManageCohortModal'
@@ -12,10 +13,6 @@ import LoginPage from './components/LoginPage'
 import UnitFormPage from './components/UnitFormPage'
 import SchoolFormPage from './components/SchoolFormPage'
 import StudentIntakeFormPage from './components/StudentIntakeFormPage'
-import PendingStudentSubmissions from './components/PendingStudentSubmissions'
-import PendingIntakeSubmissions from './components/PendingIntakeSubmissions'
-import AccessTab from './components/AccessTab'
-import InterviewTab from './components/InterviewTab'
 import InterviewersModal from './components/InterviewersModal'
 
 function computeMatchSummary(matchList) {
@@ -33,28 +30,26 @@ function computeMatchSummary(matchList) {
 }
 
 function MainApp({ onLogout }) {
-  const [cohorts,           setCohorts]           = useState([])
-  const [activeCohortId,    setActiveCohortId]    = useState(null)
-  const [showNewCohort,     setShowNewCohort]     = useState(false)
-  const [showManageCohort,  setShowManageCohort]  = useState(false)
-  const [confirmLogout,     setConfirmLogout]     = useState(false)
+  const [cohorts,          setCohorts]          = useState([])
+  const [activeCohortId,   setActiveCohortId]   = useState(null)
+  const [showNewCohort,    setShowNewCohort]    = useState(false)
+  const [showManageCohort, setShowManageCohort] = useState(false)
+  const [confirmLogout,    setConfirmLogout]    = useState(false)
 
-  const [students,           setStudents]           = useState([])
-  const [units,              setUnits]              = useState([])
-  const [matches,            setMatches]            = useState([])
-  const [submissions,        setSubmissions]        = useState([])
-  const [studentSubmissions, setStudentSubmissions] = useState([])
-  const [intakeSubmissions,  setIntakeSubmissions]  = useState([])
-  const [interviews,         setInterviews]         = useState([])
-  const [loading,            setLoading]            = useState(true)
-  const [dbError,            setDbError]            = useState(null)
+  const [students,  setStudents]  = useState([])
+  const [units,     setUnits]     = useState([])
+  const [matches,   setMatches]   = useState([])
+  const [interviews, setInterviews] = useState([])
+  const [loading,   setLoading]   = useState(true)
+  const [dbError,   setDbError]   = useState(null)
 
-  const [activeTab,             setActiveTab]             = useState('students')
-  const [accessFocusId,         setAccessFocusId]         = useState(null)
-  const [showAddModal,          setShowAddModal]          = useState(false)
+  const [activeTab,    setActiveTab]    = useState('overview')
+  const [profilesView, setProfilesView] = useState('records')
+  const [accessFocusId, setAccessFocusId] = useState(null)
+  const [showAddModal,  setShowAddModal] = useState(false)
   const [showInterviewersModal, setShowInterviewersModal] = useState(false)
-  const [search,         setSearch]         = useState('')
-  const [filters,        setFilters]        = useState({ school: '', status: '', cohort: '' })
+  const [search,  setSearch]  = useState('')
+  const [filters, setFilters] = useState({ school: '', status: '', cohort: '' })
 
   useEffect(() => {
     supabase.from('cohorts').select('*').order('created_at', { ascending: false })
@@ -74,40 +69,22 @@ function MainApp({ onLogout }) {
     setLoading(true); setDbError(null)
     Promise.all([
       fetchStudents(activeCohortId), fetchUnits(activeCohortId),
-      fetchMatches(activeCohortId),  fetchSubmissions(activeCohortId),
-      fetchStudentSubmissions(activeCohortId),
-      fetchIntakeSubmissions(activeCohortId),
-      fetchInterviews(activeCohortId),
+      fetchMatches(activeCohortId),  fetchInterviews(activeCohortId),
     ]).finally(() => setLoading(false))
   }, [activeCohortId])
 
-  const fetchStudents = async id => {
+  const fetchStudents  = async id => {
     const { data, error } = await supabase.from('students').select('*')
       .eq('cohort_id', id).order('school').order('name')
     if (error) setDbError(error.message); else setStudents(data || [])
   }
-  const fetchUnits = async id => {
+  const fetchUnits     = async id => {
     const { data } = await supabase.from('units').select('*').eq('cohort_id', id).order('unit_name')
     setUnits(data || [])
   }
-  const fetchMatches = async id => {
+  const fetchMatches   = async id => {
     const { data } = await supabase.from('matches').select('*').eq('cohort_id', id)
     setMatches(data || [])
-  }
-  const fetchSubmissions = async id => {
-    const { data } = await supabase.from('unit_submissions').select('*')
-      .eq('cohort_id', id).order('submitted_at', { ascending: false })
-    setSubmissions(data || [])
-  }
-  const fetchStudentSubmissions = async id => {
-    const { data } = await supabase.from('student_submissions').select('*')
-      .eq('cohort_id', id).order('submitted_at', { ascending: false })
-    setStudentSubmissions(data || [])
-  }
-  const fetchIntakeSubmissions = async id => {
-    const { data } = await supabase.from('student_intake_submissions').select('*')
-      .eq('cohort_id', id).order('submitted_at', { ascending: false })
-    setIntakeSubmissions(data || [])
   }
   const fetchInterviews = async id => {
     const { data } = await supabase.from('interviews').select('*').eq('cohort_id', id)
@@ -116,13 +93,10 @@ function MainApp({ onLogout }) {
   const refreshAll = () => {
     if (!activeCohortId) return
     fetchStudents(activeCohortId); fetchUnits(activeCohortId)
-    fetchMatches(activeCohortId);  fetchSubmissions(activeCohortId)
-    fetchStudentSubmissions(activeCohortId)
-    fetchIntakeSubmissions(activeCohortId)
-    fetchInterviews(activeCohortId)
+    fetchMatches(activeCohortId);  fetchInterviews(activeCohortId)
   }
 
-  // ── Cohort CRUD ───────────────────────────────────────────────────
+  // ── Cohort CRUD ──────────────────────────────────────────────
   const createCohort = async d => {
     const { data, error } = await supabase.from('cohorts').insert(d).select().single()
     if (!error && data) {
@@ -130,7 +104,7 @@ function MainApp({ onLogout }) {
       localStorage.setItem('aspire_active_cohort_id', data.id)
       setActiveCohortId(data.id)
       setStudents([]); setUnits([]); setMatches([])
-      setSubmissions([]); setStudentSubmissions([]); setShowNewCohort(false)
+      setShowNewCohort(false)
     }
     return error || null
   }
@@ -155,14 +129,15 @@ function MainApp({ onLogout }) {
   }
 
   const switchToAccess = (studentId) => {
-    setActiveTab('access')
+    setActiveTab('profiles')
+    setProfilesView('access')
     setAccessFocusId(studentId)
     setTimeout(() => {
       document.getElementById(`access-row-${studentId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }, 150)
   }
 
-  // ── Student CRUD ──────────────────────────────────────────────────
+  // ── Student CRUD ─────────────────────────────────────────────
   const updateStudent = useCallback(async (id, updates) => {
     const { error } = await supabase.from('students').update(updates).eq('id', id)
     if (!error) setStudents(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s))
@@ -185,7 +160,7 @@ function MainApp({ onLogout }) {
     setStudents(prev => prev.filter(s => s.id !== id))
   }
 
-  // ── Unit CRUD ─────────────────────────────────────────────────────
+  // ── Unit CRUD ────────────────────────────────────────────────
   const deleteUnit = async unit => {
     const matchedIds = students.filter(s => s.matched_unit_id === unit.id).map(s => s.id)
     if (matchedIds.length > 0) {
@@ -206,7 +181,7 @@ function MainApp({ onLogout }) {
     setUnits(prev => prev.filter(u => u.id !== unit.id))
   }
 
-  // ── Matching ──────────────────────────────────────────────────────
+  // ── Matching ─────────────────────────────────────────────────
   const createMatch = async (student, unit) => {
     if (!activeCohortId) return
     const match_quality = unit.unit_name === student.unit_preference_1 ? 'top_choice'
@@ -260,93 +235,7 @@ function MainApp({ onLogout }) {
     }
   }
 
-  // ── Submission review ─────────────────────────────────────────────
-  const approveSubmission = async sub => {
-    // Only create a unit record if the unit is participating
-    if (sub.is_participating && sub.total_slots > 0) {
-      const { data: unitData, error } = await supabase.from('units').insert({
-        unit_name: sub.unit_name, contact_person: sub.contact_person,
-        total_slots: sub.total_slots, slots_remaining: sub.total_slots,
-        shift_preference: sub.shift_preference, preceptors: sub.preceptors,
-        considerations: sub.considerations, is_participating: true,
-        cohort_id: activeCohortId,
-      }).select().single()
-      if (error) { console.error(error); return }
-      setUnits(prev => [...prev, unitData].sort((a, b) => a.unit_name.localeCompare(b.unit_name)))
-    }
-    await supabase.from('unit_submissions').update({ review_status: 'Approved' }).eq('id', sub.id)
-    setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: 'Approved' } : s))
-  }
-
-  const rejectSubmission = async sub => {
-    await supabase.from('unit_submissions').update({ review_status: 'Rejected' }).eq('id', sub.id)
-    setSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: 'Rejected' } : s))
-  }
-
-  const approveStudentSubmission = async sub => {
-    const activeCohort = cohorts.find(c => c.id === activeCohortId)
-    const { data: studentData, error } = await supabase.from('students').insert({
-      name:       sub.first_name && sub.last_name ? `${sub.first_name} ${sub.last_name}` : sub.student_name,
-      first_name: sub.first_name || '',
-      last_name:  sub.last_name  || '', school_email: sub.student_email,
-      phone: sub.student_phone || '', school: sub.school,
-      aspire_cohort: activeCohort?.name || '', term_dates: sub.term_dates || '',
-      hours_required: sub.hours_required || 0, hours_completed: 0,
-      status: 'Form Sent', interview_outcome: 'Pending Interview', ngrp_outcome: 'Pending',
-      gpa_verified: false, bls_current: false, health_cleared: false, background_check: false,
-      coordinators: sub.coordinator_name ? `${sub.coordinator_name} (${sub.coordinator_email})` : '',
-      cohort_id: activeCohortId,
-    }).select().single()
-    if (error) { console.error(error); return }
-    await supabase.from('student_submissions').update({ review_status: 'Approved' }).eq('id', sub.id)
-    setStudentSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: 'Approved' } : s))
-    setStudents(prev => [...prev, studentData].sort((a, b) => (a.school + a.name).localeCompare(b.school + b.name)))
-  }
-
-  const rejectStudentSubmission = async sub => {
-    await supabase.from('student_submissions').update({ review_status: 'Rejected' }).eq('id', sub.id)
-    setStudentSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: 'Rejected' } : s))
-  }
-
-  const approveIntakeSubmission = async sub => {
-    const activeCohort = cohorts.find(c => c.id === activeCohortId)
-    const notesContent = [
-      sub.gender         && `Gender: ${sub.gender}`,
-      sub.date_of_birth  && `DOB: ${sub.date_of_birth}`,
-      sub.cs_affiliation && `CS Affiliation: ${sub.cs_affiliation}${sub.cs_department ? ` — ${sub.cs_department}` : ''}${sub.cs_role ? ` (${sub.cs_role})` : ''}`,
-      sub.prior_healthcare_experience && `Healthcare Experience: ${sub.prior_healthcare_experience}`,
-      sub.additional_notes,
-    ].filter(Boolean).join('\n')
-    const { data: studentData, error } = await supabase.from('students').insert({
-      name:              `${sub.first_name} ${sub.last_name}`,
-      first_name:        sub.first_name,
-      last_name:         sub.last_name,
-      personal_email:    sub.personal_email,
-      phone:             sub.phone || '',
-      aspire_cohort:     activeCohort?.name || '',
-      hours_required:    0, hours_completed: 0,
-      status:            'Pending Outreach',
-      interview_outcome: 'Pending Interview',
-      ngrp_outcome:      'Pending',
-      gpa_verified: false, bls_current: false, health_cleared: false, background_check: false,
-      notes:             notesContent,
-      unit_preference_1: sub.unit_preference_1 || '',
-      unit_preference_2: sub.unit_preference_2 || '',
-      unit_preference_3: sub.unit_preference_3 || '',
-      cohort_id:         activeCohortId,
-    }).select().single()
-    if (error) { console.error(error); return }
-    await supabase.from('student_intake_submissions').update({ review_status: 'Approved' }).eq('id', sub.id)
-    setIntakeSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: 'Approved' } : s))
-    setStudents(prev => [...prev, studentData].sort((a, b) => (a.school + a.name).localeCompare(b.school + b.name)))
-  }
-
-  const rejectIntakeSubmission = async sub => {
-    await supabase.from('student_intake_submissions').update({ review_status: 'Rejected' }).eq('id', sub.id)
-    setIntakeSubmissions(prev => prev.map(s => s.id === sub.id ? { ...s, review_status: 'Rejected' } : s))
-  }
-
-  // ── CSV export ────────────────────────────────────────────────────
+  // ── CSV export ───────────────────────────────────────────────
   const exportCSV = () => {
     const headers = ['Name','School Email','Personal Email','Phone','School','ASPIRE Cohort',
       'Term Dates','Hours Required','Hours Completed','Unit','Preceptor','ASPIRE Status',
@@ -388,10 +277,7 @@ function MainApp({ onLogout }) {
     return true
   })
 
-  const activeCohort        = cohorts.find(c => c.id === activeCohortId)
-  const pendingSubmissions  = submissions.filter(s => s.review_status === 'Pending')
-  const pendingStudentSubs  = studentSubmissions.filter(s => s.review_status === 'Pending')
-  const pendingIntakeSubs   = intakeSubmissions.filter(s => s.review_status === 'Pending')
+  const activeCohort = cohorts.find(c => c.id === activeCohortId)
 
   return (
     <div className="app">
@@ -405,7 +291,7 @@ function MainApp({ onLogout }) {
               </div>
             </div>
             <div className="header-actions">
-              {activeTab === 'students' && cohorts.length > 0 && (
+              {activeTab === 'profiles' && profilesView === 'records' && cohorts.length > 0 && (
                 <>
                   <button className="btn btn-ghost" onClick={exportCSV}>↓ Export CSV</button>
                   <button className="btn btn-accent" onClick={() => setShowAddModal(true)}>+ Add Student</button>
@@ -433,21 +319,17 @@ function MainApp({ onLogout }) {
 
         {cohorts.length > 0 && (
           <div className="tab-bar">
-            <button className={`tab-btn${activeTab === 'students' ? ' active' : ''}`} onClick={() => setActiveTab('students')}>
-              Students
-              {(pendingStudentSubs.length + pendingIntakeSubs.length) > 0 && (
-                <span className="tab-badge">{pendingStudentSubs.length + pendingIntakeSubs.length}</span>
-              )}
+            <button className={`tab-btn${activeTab === 'overview'   ? ' active' : ''}`} onClick={() => setActiveTab('overview')}>
+              Overview
+            </button>
+            <button className={`tab-btn${activeTab === 'profiles'   ? ' active' : ''}`} onClick={() => setActiveTab('profiles')}>
+              Student Profiles
             </button>
             <button className={`tab-btn${activeTab === 'interviews' ? ' active' : ''}`} onClick={() => setActiveTab('interviews')}>
               Interviews
             </button>
-            <button className={`tab-btn${activeTab === 'access' ? ' active' : ''}`} onClick={() => setActiveTab('access')}>
-              Access Management
-            </button>
-            <button className={`tab-btn${activeTab === 'matching' ? ' active' : ''}`} onClick={() => setActiveTab('matching')}>
+            <button className={`tab-btn${activeTab === 'matching'   ? ' active' : ''}`} onClick={() => setActiveTab('matching')}>
               Matching
-              {pendingSubmissions.length > 0 && <span className="tab-badge">{pendingSubmissions.length}</span>}
             </button>
           </div>
         )}
@@ -470,27 +352,22 @@ function MainApp({ onLogout }) {
           </div>
         )}
 
-        {!loading && !dbError && cohorts.length > 0 && activeTab === 'students' && (
-          <>
-            {pendingStudentSubs.length > 0 && (
-              <PendingStudentSubmissions submissions={pendingStudentSubs}
-                onApprove={approveStudentSubmission} onReject={rejectStudentSubmission} />
-            )}
-            {pendingIntakeSubs.length > 0 && (
-              <PendingIntakeSubmissions submissions={pendingIntakeSubs}
-                onApprove={approveIntakeSubmission} onReject={rejectIntakeSubmission} />
-            )}
-            <Dashboard students={students} />
-            <StudentList
-              students={filteredStudents} allStudents={students}
-              units={units} cohortId={activeCohortId}
-              search={search} filters={filters}
-              onSearch={setSearch} onFilter={setFilter}
-              onUpdate={updateStudent} onDelete={deleteStudent}
-              onRefresh={() => fetchStudents(activeCohortId)}
-              onSwitchToAccess={switchToAccess}
-            />
-          </>
+        {!loading && !dbError && cohorts.length > 0 && activeTab === 'overview' && (
+          <OverviewTab students={students} units={units} />
+        )}
+
+        {!loading && !dbError && cohorts.length > 0 && activeTab === 'profiles' && (
+          <StudentProfilesTab
+            students={filteredStudents} allStudents={students}
+            units={units} cohortId={activeCohortId}
+            search={search} filters={filters}
+            onSearch={setSearch} onFilter={setFilter}
+            onUpdate={updateStudent} onDelete={deleteStudent}
+            onRefresh={() => fetchStudents(activeCohortId)}
+            onSwitchToAccess={switchToAccess}
+            view={profilesView} onViewChange={setProfilesView}
+            accessFocusId={accessFocusId}
+          />
         )}
 
         {!loading && !dbError && cohorts.length > 0 && activeTab === 'interviews' && (
@@ -503,21 +380,12 @@ function MainApp({ onLogout }) {
           />
         )}
 
-        {!loading && !dbError && cohorts.length > 0 && activeTab === 'access' && (
-          <AccessTab
-            students={students}
-            onUpdate={updateStudent}
-            focusStudentId={accessFocusId}
-          />
-        )}
-
         {!loading && !dbError && cohorts.length > 0 && activeTab === 'matching' && (
           <MatchingTab
             students={students} units={units} matches={matches}
-            cohortId={activeCohortId} pendingSubmissions={pendingSubmissions}
+            cohortId={activeCohortId}
             onMatch={createMatch} onUnmatch={unmatch} onUpdateMatch={updateMatch}
             onRefreshUnits={() => fetchUnits(activeCohortId)}
-            onApproveSubmission={approveSubmission} onRejectSubmission={rejectSubmission}
             onDeleteUnit={deleteUnit}
           />
         )}
@@ -537,7 +405,6 @@ function MainApp({ onLogout }) {
 
 export default function App() {
   const path = window.location.pathname
-  // Auth check runs before anything else — MainApp never mounts unless authed
   const [authed, setAuthed] = useState(() => sessionStorage.getItem('aspire_auth') === '1')
 
   const handleLogout = () => {

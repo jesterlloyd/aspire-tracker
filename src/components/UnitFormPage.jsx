@@ -4,20 +4,14 @@ import { supabase } from '../lib/supabase'
 const PAGE_TITLE = 'ASPIRE Program: Unit Availability Form'
 
 export default function UnitFormPage() {
-  const [cohortId,   setCohortId]    = useState(null)
-  const [cohortName, setCohortName]  = useState('')
-  const [open,       setOpen]        = useState(null) // null=loading, true=open, false=closed
-  const [form,       setForm]        = useState({
-    unit_name:        '',
-    contact_person:   '',
-    contact_email:    '',
-    is_participating: null,
-    total_slots:      '',
-    shift_day:        false,
-    shift_night:      false,
-    shift_either:     false,
-    preceptors:       '',
-    considerations:   '',
+  const [cohortId,   setCohortId]   = useState(null)
+  const [cohortName, setCohortName] = useState('')
+  const [open,       setOpen]       = useState(null)
+  const [form,       setForm]       = useState({
+    unit_name: '', contact_person: '', contact_email: '',
+    is_participating: null, total_slots: '',
+    shift_day: false, shift_night: false, shift_either: false,
+    preceptors: '', considerations: '',
   })
   const [submitting, setSubmitting] = useState(false)
   const [submitted,  setSubmitted]  = useState(false)
@@ -25,12 +19,8 @@ export default function UnitFormPage() {
 
   useEffect(() => {
     document.title = PAGE_TITLE
-    supabase
-      .from('cohorts')
-      .select('id, name')
-      .eq('accepting_submissions', true)
-      .limit(1)
-      .single()
+    supabase.from('cohorts').select('id, name').eq('accepting_submissions', true)
+      .limit(1).single()
       .then(({ data }) => {
         if (data) { setCohortId(data.id); setCohortName(data.name); setOpen(true) }
         else setOpen(false)
@@ -48,26 +38,35 @@ export default function UnitFormPage() {
   const handleSubmit = async e => {
     e.preventDefault()
     if (!form.unit_name.trim() || !form.contact_person.trim() || !form.contact_email.trim()) {
-      setError('Please fill in all required fields.')
-      return
+      setError('Please fill in all required fields.'); return
     }
     if (form.is_participating === null) {
-      setError('Please indicate whether your unit will be participating.')
-      return
+      setError('Please indicate whether your unit will be participating.'); return
     }
+
     setSubmitting(true)
     setError(null)
 
-    const { error: err } = await supabase.from('unit_submissions').insert({
+    // Check for duplicate unit_name in this cohort
+    const { data: existing } = await supabase.from('units')
+      .select('id').eq('cohort_id', cohortId).eq('unit_name', form.unit_name.trim())
+      .limit(1).maybeSingle()
+
+    if (existing) {
+      setError("It looks like your unit has already submitted a response for this cycle. Please contact the ASPIRE team if you need to make changes.")
+      setSubmitting(false)
+      return
+    }
+
+    const { error: err } = await supabase.from('units').insert({
       unit_name:        form.unit_name.trim(),
       contact_person:   form.contact_person.trim(),
-      contact_email:    form.contact_email.trim(),
       is_participating: form.is_participating,
       total_slots:      form.is_participating ? (parseInt(form.total_slots) || 0) : 0,
+      slots_remaining:  form.is_participating ? (parseInt(form.total_slots) || 0) : 0,
       shift_preference: form.is_participating ? shiftPref : '',
       preceptors:       form.is_participating ? form.preceptors.trim() : '',
       considerations:   form.is_participating ? form.considerations.trim() : '',
-      review_status:    'Pending',
       cohort_id:        cohortId,
     })
 
@@ -75,45 +74,40 @@ export default function UnitFormPage() {
     setSubmitted(true)
   }
 
-  if (open === null) {
-    return (
-      <div className="uf-page">
-        <div className="uf-card" style={{ textAlign: 'center', padding: '60px 40px' }}>
-          <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
-          <p style={{ color: 'var(--raven-muted)' }}>Loading…</p>
-        </div>
+  if (open === null) return (
+    <div className="uf-page">
+      <div className="uf-card" style={{ textAlign: 'center', padding: '60px 40px' }}>
+        <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
+        <p style={{ color: 'var(--text-secondary)' }}>Loading…</p>
       </div>
-    )
-  }
+    </div>
+  )
 
-  if (open === false) {
-    return (
-      <div className="uf-page">
-        <div className="uf-card" style={{ textAlign: 'center', padding: '56px 40px' }}>
-          <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
-          <h2 className="uf-title" style={{ marginBottom: 12 }}>{PAGE_TITLE}</h2>
-          <p style={{ color: 'var(--raven-muted)', fontSize: 15, lineHeight: 1.6 }}>
-            Submissions are not currently open. Please contact the ASPIRE team for more information.
-          </p>
-        </div>
+  if (open === false) return (
+    <div className="uf-page">
+      <div className="uf-card" style={{ textAlign: 'center', padding: '56px 40px' }}>
+        <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
+        <h2 className="uf-title" style={{ marginBottom: 12 }}>{PAGE_TITLE}</h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 15, lineHeight: 1.6 }}>
+          Submissions are not currently open. Please contact the ASPIRE team for more information.
+        </p>
       </div>
-    )
-  }
+    </div>
+  )
 
-  if (submitted) {
-    return (
-      <div className="uf-page">
-        <div className="uf-card uf-card-confirm">
-          <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
-          <div className="uf-confirm-icon">✓</div>
-          <h2 className="uf-confirm-title">Thank you, {form.unit_name}.</h2>
-          <p className="uf-confirm-msg">
-            Your response has been received. The ASPIRE team will follow up with next steps.
-          </p>
-        </div>
+  if (submitted) return (
+    <div className="uf-page">
+      <div className="uf-card uf-card-confirm">
+        <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
+        <div className="uf-confirm-icon">✓</div>
+        <h2 className="uf-confirm-title">Thank you, {form.unit_name}.</h2>
+        <p className="uf-confirm-msg">
+          Your unit's availability has been recorded for the ASPIRE Program. The team will be in
+          touch with next steps.
+        </p>
       </div>
-    )
-  }
+    </div>
+  )
 
   return (
     <div className="uf-page">

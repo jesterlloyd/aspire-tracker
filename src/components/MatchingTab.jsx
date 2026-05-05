@@ -3,26 +3,20 @@ import UnitCard from './UnitCard'
 import StudentMatchCard from './StudentMatchCard'
 import UnitSetupPanel from './UnitSetupPanel'
 import ImportUnitsCSV from './ImportUnitsCSV'
-import PendingSubmissions from './PendingSubmissions'
 
 export default function MatchingTab({
   students, units, matches, cohortId,
-  pendingSubmissions = [],
-  onMatch, onUnmatch, onUpdateMatch, onRefreshUnits,
-  onApproveSubmission, onRejectSubmission, onDeleteUnit,
+  onMatch, onUnmatch, onUpdateMatch, onRefreshUnits, onDeleteUnit,
 }) {
-  const [selectedStudent,  setSelectedStudent]  = useState(null)
-  const [showUnitSetup,    setShowUnitSetup]    = useState(false)
-  const [showImportUnits,  setShowImportUnits]  = useState(false)
+  const [selectedStudent, setSelectedStudent] = useState(null)
+  const [showUnitSetup,   setShowUnitSetup]   = useState(false)
+  const [showImportUnits, setShowImportUnits] = useState(false)
 
   const participating   = units.filter(u => u.is_participating)
   const totalSlots      = participating.reduce((s, u) => s + u.total_slots,     0)
   const slotsRemaining  = participating.reduce((s, u) => s + u.slots_remaining, 0)
   const matchedStudents = students.filter(s =>  s.matched_unit_id)
-  const unmatchedAll    = students.filter(s => !s.matched_unit_id && s.interview_outcome !== 'Declined')
-  const activeUnmatched = unmatchedAll.filter(s => s.interview_outcome !== 'Accepted with Reservations')
-  const waitlisted      = students.filter(s => !s.matched_unit_id && s.interview_outcome === 'Accepted with Reservations')
-  const declined        = students.filter(s =>  s.interview_outcome === 'Declined')
+  const unmatchedAll    = students.filter(s => !s.matched_unit_id)
 
   const perfectMatches = matchedStudents.filter(s => {
     const u = units.find(u => u.id === s.matched_unit_id)
@@ -65,9 +59,7 @@ export default function MatchingTab({
     { label: 'Matched',         value: matchedStudents.length, bg: '#dcfce7', color: '#166534', border: '#a7f3d0' },
     { label: 'Perfect Matches', value: perfectMatches,         bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
     { label: '2nd Choice',      value: secondChoiceMatches,    bg: '#fefce8', color: '#ca8a04', border: '#fde68a' },
-    { label: 'Unmatched',       value: activeUnmatched.length, bg: '#fef3c7', color: '#92400e', border: '#fde68a' },
-    { label: 'Waitlisted',      value: waitlisted.length,      bg: '#ede9fe', color: '#5b21b6', border: '#ddd6fe' },
-    { label: 'Declined',        value: declined.length,        bg: '#fee2e2', color: '#991b1b', border: '#fecaca' },
+    { label: 'Unmatched',       value: unmatchedAll.length,    bg: '#fef3c7', color: '#92400e', border: '#fde68a' },
   ]
 
   return (
@@ -76,22 +68,12 @@ export default function MatchingTab({
       {/* ── Summary ── */}
       <div className="match-summary">
         {summaryStats.map(s => (
-          <div key={s.label} className="match-stat-card"
-            style={{ background: s.bg, borderColor: s.border }}>
+          <div key={s.label} className="match-stat-card" style={{ background: s.bg, borderColor: s.border }}>
             <div className="match-stat-value" style={{ color: s.color }}>{s.value}</div>
             <div className="match-stat-label" style={{ color: s.color }}>{s.label}</div>
           </div>
         ))}
       </div>
-
-      {/* ── Pending submissions review queue ── */}
-      {pendingSubmissions.length > 0 && (
-        <PendingSubmissions
-          submissions={pendingSubmissions}
-          onApprove={onApproveSubmission}
-          onReject={onRejectSubmission}
-        />
-      )}
 
       {/* ── Unit management toolbar ── */}
       <div className="matching-toolbar">
@@ -141,11 +123,11 @@ export default function MatchingTab({
           </div>
           <div className="board-students-col">
             <div className="board-col-label">
-              Student Pool <span className="board-col-count">({unmatchedAll.length} available)</span>
+              Student Pool <span className="board-col-count">({unmatchedAll.length} unmatched)</span>
             </div>
             <div className="students-pool">
               {unmatchedAll.length === 0
-                ? <div className="pool-empty">All students matched or declined.</div>
+                ? <div className="pool-empty">All students have been matched.</div>
                 : unmatchedAll.map(s => (
                     <StudentMatchCard
                       key={s.id} student={s} units={units}
@@ -166,66 +148,20 @@ export default function MatchingTab({
         </div>
       )}
 
-      {/* ── Holding Areas ── */}
-      <div className="holding-areas">
-        <HoldingSection title="Unmatched Students" subtitle="Accepted or Pending Interview — not yet placed"
-          students={activeUnmatched} units={units} selectedStudent={selectedStudent}
-          onSelect={handleStudentSelect} emptyMessage="No unmatched students." />
-        <HoldingSection title="Waitlisted Students" subtitle="Accepted with Reservations — awaiting placement"
-          students={waitlisted} units={units} selectedStudent={selectedStudent}
-          onSelect={handleStudentSelect} showBestFit emptyMessage="No waitlisted students." />
-        <HoldingSection title="Declined" subtitle="Not pursuing placement at this time"
-          students={declined} units={units} selectedStudent={null}
-          onSelect={() => {}} isReadOnly emptyMessage="No declined students." />
-      </div>
-
       {/* ── Export ── */}
       <div className="match-export-row">
         <button className="btn btn-primary" onClick={exportCSV}>↓ Export Matches CSV</button>
         <span className="export-hint">{matchedStudents.length} student{matchedStudents.length !== 1 ? 's' : ''} matched</span>
       </div>
 
-      {/* ── Overlays ── */}
       {showUnitSetup && (
-        <UnitSetupPanel
-          cohortId={cohortId}
-          currentUnits={units}
-          students={students}
-          onSaved={onRefreshUnits}
-          onClose={() => setShowUnitSetup(false)}
-        />
+        <UnitSetupPanel cohortId={cohortId} currentUnits={units} students={students}
+          onSaved={onRefreshUnits} onClose={() => setShowUnitSetup(false)} />
       )}
       {showImportUnits && (
-        <ImportUnitsCSV
-          cohortId={cohortId}
-          onImported={onRefreshUnits}
-          onClose={() => setShowImportUnits(false)}
-        />
+        <ImportUnitsCSV cohortId={cohortId} onImported={onRefreshUnits}
+          onClose={() => setShowImportUnits(false)} />
       )}
-    </div>
-  )
-}
-
-function HoldingSection({ title, subtitle, students, units, selectedStudent, onSelect, showBestFit, isReadOnly, emptyMessage }) {
-  return (
-    <div className="holding-section">
-      <div className="holding-header">
-        <div>
-          <span className="holding-title">{title}</span>
-          {subtitle && <span className="holding-subtitle"> — {subtitle}</span>}
-        </div>
-        <span className="holding-count">{students.length}</span>
-      </div>
-      <div className="holding-cards">
-        {students.length === 0
-          ? <div className="holding-empty">{emptyMessage}</div>
-          : students.map(s => (
-              <StudentMatchCard key={s.id} student={s} units={units}
-                isSelected={selectedStudent?.id === s.id} onSelect={onSelect}
-                isReadOnly={isReadOnly} showBestFit={showBestFit} />
-            ))
-        }
-      </div>
     </div>
   )
 }
