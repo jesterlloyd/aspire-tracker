@@ -359,7 +359,7 @@ export default function StudentSidePanel({
 
             {/* Step 1: Cedars-Sinai History */}
             <div className="csw-step">
-              <div className="csw-step-label">Step 1: Student's Cedars-Sinai Status</div>
+              <div className="csw-step-label">Step 1: Cedars-Sinai Status</div>
               <select className="sp-select" value={data.cs_cedars_status||''}
                 onChange={e => {
                   const v = e.target.value

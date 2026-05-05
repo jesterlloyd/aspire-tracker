@@ -46,7 +46,7 @@ export default function OverviewTab({ students, units, onStudentUpdate }) {
     setTimeout(() => setToast(null), 3000)
   }
 
-  // Unit Supply — prefer the 'division' column from Supabase, fall back to constants map
+  // Clinical Placement Availability — prefer the 'division' column from Supabase, fall back to constants map
   const unitsByDiv = {}
   DIVISIONS.forEach(d => { unitsByDiv[d] = [] })
   participating.forEach(u => {
@@ -63,7 +63,7 @@ export default function OverviewTab({ students, units, onStudentUpdate }) {
   const expandAllUnits    = () => setUnitGroupsOpen(Object.fromEntries(DIVISIONS.map(d => [d, true])))
   const collapseAllUnits  = () => setUnitGroupsOpen({})
 
-  // Student Demand — group by school
+  // Student Placement Requests — group by school
   const schoolMap = {}
   students.forEach(s => {
     const key = s.school || 'Unknown School'
@@ -141,11 +141,11 @@ export default function OverviewTab({ students, units, onStudentUpdate }) {
 
       <div className="ov-panels">
 
-        {/* ── Unit Supply ── */}
+        {/* ── Clinical Placement Availability ── */}
         <div className="ov-panel">
           <div className="ov-panel-header">
             <div>
-              <div className="ov-panel-title">Unit Supply</div>
+              <div className="ov-panel-title">Clinical Placement Availability</div>
               <div className="ov-panel-sub">{participating.length} Units · {totalSlots} Slots Available</div>
             </div>
             <div className="ov-expand-toggle">
@@ -199,11 +199,11 @@ export default function OverviewTab({ students, units, onStudentUpdate }) {
           </div>
         </div>
 
-        {/* ── Student Demand ── */}
+        {/* ── Student Placement Requests ── */}
         <div className="ov-panel">
           <div className="ov-panel-header">
             <div>
-              <div className="ov-panel-title">Student Demand</div>
+              <div className="ov-panel-title">Student Placement Requests</div>
               <div className="ov-panel-sub">{schools.length} School{schools.length !== 1 ? 's' : ''} · {totalStudents} Students</div>
             </div>
             <div className="ov-expand-toggle">

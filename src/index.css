@@ -1482,7 +1482,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* ================================================================
    ACCESS MANAGEMENT TAB
    ================================================================ */
-.access-tab { display: flex; flex-direction: column; gap: 16px; }
+.access-tab { display: flex; flex-direction: column; gap: 16px; height: 100%; }
 
 .am-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 .am-stat-card { border-radius: 6px; padding: 16px 18px; border: 1px solid; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
@@ -1493,8 +1493,9 @@ a.doc-file-link:hover { text-decoration: underline; }
 .am-incomplete-toggle { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--raven); cursor: pointer; user-select: none; }
 .am-incomplete-toggle input { accent-color: var(--nightfall); width: 15px; height: 15px; cursor: pointer; }
 
-.am-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--pearl); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.am-table-wrap { overflow-x: auto; overflow-y: auto; flex: 1; min-height: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--pearl); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 .am-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.am-table thead th { position: sticky; top: 0; z-index: 10; background: var(--sand); }
 
 .am-th {
   padding: 10px 12px; text-align: left;

@@ -27,11 +27,10 @@ const CEDARS_STATUS_OPTIONS = [
 ]
 
 export default function AccessTab({ students, onUpdate, focusStudentId }) {
-  const [sortBy,         setSortBy]         = useState('last_name')
-  const [sortDir,        setSortDir]        = useState('asc')
-  const [filterSchool,   setFilterSchool]   = useState('')
-  const [filterStatus,   setFilterStatus]   = useState('')
-  const [incompleteOnly, setIncompleteOnly] = useState(false)
+  const [sortBy,       setSortBy]       = useState('last_name')
+  const [sortDir,      setSortDir]      = useState('asc')
+  const [filterSchool, setFilterSchool] = useState('')
+  const [filterStatus, setFilterStatus] = useState('')
 
   const schools = [...new Set(students.map(s => s.school).filter(Boolean))].sort()
 
@@ -40,9 +39,8 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
   students.forEach(s => { statusCounts[getCsLinkStatus(s)]++ })
 
   let filtered = students
-  if (filterSchool)   filtered = filtered.filter(s => s.school === filterSchool)
-  if (filterStatus)   filtered = filtered.filter(s => s.status === filterStatus)
-  if (incompleteOnly) filtered = filtered.filter(s => getCsLinkStatus(s) !== 'complete')
+  if (filterSchool) filtered = filtered.filter(s => s.school === filterSchool)
+  if (filterStatus) filtered = filtered.filter(s => s.status === filterStatus)
 
   const sorted = [...filtered].sort((a, b) => {
     const av = (sortBy === 'last_name' ? (a.last_name || a.name || '') : (a.school || '')).toLowerCase()
@@ -58,7 +56,7 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
 
   const exportCSV = () => {
     const headers = [
-      'Student Name', 'School', 'Cedars Status', 'Stage 1 Action',
+      'Student Name', 'School', 'Cedars-Sinai Status', 'Stage 1 Action',
       'Stage 1 Submitted Date', 'Stage 1 Complete Date',
       'CS-Link Requested Date', 'CS-Link Complete Date',
       'CS Access Notes', 'Workflow Status',
@@ -102,10 +100,6 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
           <option value="">All ASPIRE Statuses</option>
           {ASPIRE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <label className="am-incomplete-toggle">
-          <input type="checkbox" checked={incompleteOnly} onChange={e => setIncompleteOnly(e.target.checked)} />
-          <span>Show incomplete only</span>
-        </label>
         <button className="btn btn-primary" style={{ marginLeft: 'auto' }} onClick={exportCSV}>
           ↓ Export Access Log CSV
         </button>
@@ -122,7 +116,7 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
               <th className="am-th am-sortable" onClick={() => toggleSort('school')}>
                 School&nbsp;{sortBy === 'school' ? (sortDir === 'asc' ? '↑' : '↓') : <span className="am-sort-icon">↕</span>}
               </th>
-              <th className="am-th">Cedars Status</th>
+              <th className="am-th">Cedars-Sinai Status</th>
               <th className="am-th">Stage 1 Action</th>
               <th className="am-th">Stage 1 Done</th>
               <th className="am-th">CS-Link Done</th>
@@ -165,7 +159,7 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
       <td className="am-td am-td-name">{displayName(student)}</td>
       <td className="am-td am-td-school">{student.school || '—'}</td>
 
-      {/* Cedars Status dropdown */}
+      {/* Cedars-Sinai Status dropdown */}
       <td className="am-td">
         <select className="am-notes-input" style={{ width:100 }} value={data.cs_cedars_status||''}
           onChange={e => {
