@@ -105,35 +105,36 @@ export default function InterviewRubricTab({
 
   return (
     <div className="rub-tab">
-      {/* Week Calendar */}
-      <WeekCalendar
-        students={students}
-        rubrics={rubrics}
-        onOpenRubric={id => setSelectedStudentId(id)}
-        onSchedule={() => setShowScheduleModal(true)}
-        onManageInterviewers={onManageInterviewers}
-        onStudentUpdate={onRefreshStudents || onRubricsChange}
-      />
 
-      {/* Summary cards */}
-      <div className="iv-summary">
-        {summaryStats.map(s => (
-          <div key={s.label} className="iv-stat-card" style={{ background:s.bg, borderColor:s.border }}>
-            <div className="iv-stat-value" style={{ color:s.color }}>{s.value}</div>
-            <div className="iv-stat-label" style={{ color:s.color }}>{s.label}</div>
-          </div>
-        ))}
+      {/* Frozen: calendar + summary cards — never scroll */}
+      <div className="rub-frozen">
+        <WeekCalendar
+          students={students}
+          rubrics={rubrics}
+          onOpenRubric={id => setSelectedStudentId(id)}
+          onSchedule={() => setShowScheduleModal(true)}
+          onManageInterviewers={onManageInterviewers}
+          onStudentUpdate={onRefreshStudents || onRubricsChange}
+        />
+        <div className="iv-summary">
+          {summaryStats.map(s => (
+            <div key={s.label} className="iv-stat-card" style={{ background:s.bg, borderColor:s.border }}>
+              <div className="iv-stat-value" style={{ color:s.color }}>{s.value}</div>
+              <div className="iv-stat-label" style={{ color:s.color }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Search */}
-      <div className="iv-toolbar">
-        <input className="search-input" style={{ maxWidth:320 }} placeholder="Search by name or school…"
-          value={search} onChange={e => setSearch(e.target.value)} />
-        <span className="iv-hint">Click any row to open the interview rubric session.</span>
-      </div>
+      {/* Scrollable: search + table */}
+      <div className="rub-scroll-area">
+        <div className="iv-toolbar">
+          <input className="search-input" style={{ maxWidth:320 }} placeholder="Search by name or school…"
+            value={search} onChange={e => setSearch(e.target.value)} />
+          <span className="iv-hint">Click any row to open the interview rubric session.</span>
+        </div>
 
-      {/* Table */}
-      <div className="iv-table-wrap">
+        <div className="iv-table-wrap">
         <table className="iv-table">
           <thead>
             <tr>
@@ -223,6 +224,7 @@ export default function InterviewRubricTab({
           </tbody>
         </table>
       </div>
+      </div>{/* end rub-scroll-area */}
 
       {showScheduleModal && (
         <ScheduleInterviewModal

@@ -283,7 +283,7 @@ body { min-height: 100vh; }
 /* ================================================================
    DASHBOARD
    ================================================================ */
-.dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+.dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 12px; }
 
 .stat-card {
   background: var(--pearl);
@@ -1100,8 +1100,13 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* ================================================================
    STUDENT PROFILES TAB
    ================================================================ */
-.student-profiles-tab { display: flex; flex-direction: column; gap: 0; }
-.profiles-view-toggle { display: flex; gap: 0; margin-bottom: 20px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; width: fit-content; }
+.student-profiles-tab {
+  display: flex; flex-direction: column;
+  height: calc(100vh - 194px); overflow: hidden;
+}
+.profiles-frozen     { flex-shrink: 0; padding-bottom: 12px; }
+.profiles-scroll-area { flex: 1; overflow-y: auto; min-height: 0; }
+.profiles-view-toggle { display: flex; gap: 0; margin-bottom: 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; width: fit-content; }
 .profiles-toggle-btn { background: var(--pearl); color: var(--text-secondary); border: none; padding: 9px 20px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.12s, color 0.12s; }
 .profiles-toggle-btn:hover { background: var(--sand); }
 .profiles-toggle-btn.active { background: var(--nightfall); color: var(--pearl); }
@@ -1449,7 +1454,12 @@ a.doc-file-link:hover { text-decoration: underline; }
 .week-cal-empty { font-size: 11px; color: #9ca3af; text-align: center; padding: 20px 6px; }
 
 /* Rubric Tab container */
-.rub-tab { display: flex; flex-direction: column; gap: 16px; }
+.rub-tab {
+  display: flex; flex-direction: column;
+  height: calc(100vh - 194px); overflow: hidden;
+}
+.rub-frozen     { flex-shrink: 0; }
+.rub-scroll-area { flex: 1; overflow-y: auto; min-height: 0; padding: 16px 0 0; }
 
 /* Two-panel session */
 .rub-session {
