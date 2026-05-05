@@ -11,12 +11,20 @@ export default function MatchingTab({
   const [selectedStudent, setSelectedStudent] = useState(null)
   const [showUnitSetup,   setShowUnitSetup]   = useState(false)
   const [showImportUnits, setShowImportUnits] = useState(false)
+  const [poolSearch,      setPoolSearch]      = useState('')
+  const [poolSchool,      setPoolSchool]      = useState('')
 
   const participating   = units.filter(u => u.is_participating)
   const totalSlots      = participating.reduce((s, u) => s + u.total_slots,     0)
   const slotsRemaining  = participating.reduce((s, u) => s + u.slots_remaining, 0)
   const matchedStudents = students.filter(s =>  s.matched_unit_id)
   const unmatchedAll    = students.filter(s => !s.matched_unit_id)
+  const poolSchools     = [...new Set(students.map(s => s.school).filter(Boolean))].sort()
+  const filteredPool    = unmatchedAll.filter(s => {
+    if (poolSearch && !`${s.first_name || ''} ${s.last_name || ''} ${s.name || ''}`.toLowerCase().includes(poolSearch.toLowerCase())) return false
+    if (poolSchool && s.school !== poolSchool) return false
+    return true
+  })
 
   const perfectMatches = matchedStudents.filter(s => {
     const u = units.find(u => u.id === s.matched_unit_id)
@@ -125,10 +133,18 @@ export default function MatchingTab({
             <div className="board-col-label">
               Student Pool <span className="board-col-count">({unmatchedAll.length} unmatched)</span>
             </div>
+            <div className="pool-filter-row">
+              <input className="pool-search-input" placeholder="Search by student name…"
+                value={poolSearch} onChange={e => setPoolSearch(e.target.value)} />
+              <select className="pool-school-select" value={poolSchool} onChange={e => setPoolSchool(e.target.value)}>
+                <option value="">All Schools</option>
+                {poolSchools.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
             <div className="students-pool">
-              {unmatchedAll.length === 0
-                ? <div className="pool-empty">All students have been matched.</div>
-                : unmatchedAll.map(s => (
+              {filteredPool.length === 0
+                ? <div className="pool-empty">{unmatchedAll.length === 0 ? 'All students have been matched.' : 'No students match the current filter.'}</div>
+                : filteredPool.map(s => (
                     <StudentMatchCard
                       key={s.id} student={s} units={units}
                       isSelected={selectedStudent?.id === s.id}

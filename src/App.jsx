@@ -353,7 +353,7 @@ function MainApp({ onLogout }) {
         )}
 
         {!loading && !dbError && cohorts.length > 0 && activeTab === 'overview' && (
-          <OverviewTab students={students} units={units} />
+          <OverviewTab students={students} units={units} onStudentUpdate={updateStudent} />
         )}
 
         {!loading && !dbError && cohorts.length > 0 && activeTab === 'profiles' && (

@@ -14,12 +14,13 @@ const initForm = () => ({
   school_email: '',
   first_name: '', last_name: '', personal_email: '', phone: '',
   date_of_birth: '', ssn_last4: '', gender: '',
+  cumulative_gpa: '', shift_availability: '',
   has_prior_experience: null,
   exp_roles: Object.fromEntries(EXP_ROLES.map(r => [r, false])),
   exp_other_desc: '',
   cs_affiliation: '', cs_department: '', cs_role: '',
   unit_preference_1: '', unit_preference_2: '', unit_preference_3: '',
-  additional_notes: '',
+  interest_statement: '',
 })
 
 export default function StudentIntakeFormPage() {
@@ -28,6 +29,7 @@ export default function StudentIntakeFormPage() {
   const [open,           setOpen]           = useState(null)
   const [form,           setForm]           = useState(initForm())
   const [availableUnits, setAvailableUnits] = useState([])
+  const [unitPopMap,     setUnitPopMap]     = useState({})
   const [unitsLoaded,    setUnitsLoaded]    = useState(false)
   const [resumeFile,     setResumeFile]     = useState(null)
   const [headshotFile,   setHeadshotFile]   = useState(null)
@@ -49,10 +51,14 @@ export default function StudentIntakeFormPage() {
 
   useEffect(() => {
     if (!cohortId) return
-    supabase.from('units').select('unit_name')
+    supabase.from('units').select('unit_name, patient_population')
       .eq('is_participating', true).eq('cohort_id', cohortId).order('unit_name')
       .then(({ data }) => {
-        setAvailableUnits((data || []).map(u => u.unit_name))
+        const units = data || []
+        setAvailableUnits(units.map(u => u.unit_name))
+        const map = {}
+        units.forEach(u => { if (u.patient_population) map[u.unit_name] = u.patient_population })
+        setUnitPopMap(map)
         setUnitsLoaded(true)
       })
   }, [cohortId])
@@ -89,6 +95,15 @@ export default function StudentIntakeFormPage() {
     }
     if (!form.unit_preference_1) {
       setError('Please select at least your first unit preference.'); return
+    }
+    if (!form.cumulative_gpa || isNaN(parseFloat(form.cumulative_gpa))) {
+      setError('Please enter your cumulative GPA.'); return
+    }
+    if (!form.shift_availability) {
+      setError('Please select your shift preference.'); return
+    }
+    if (!form.interest_statement.trim() || form.interest_statement.trim().length < 50) {
+      setError('Please share why you are interested in Cedars-Sinai (at least 50 characters).'); return
     }
 
     setSubmitting(true)
@@ -157,6 +172,9 @@ export default function StudentIntakeFormPage() {
       unit_preference_1:          form.unit_preference_1,
       unit_preference_2:          form.unit_preference_2,
       unit_preference_3:          form.unit_preference_3,
+      cumulative_gpa:             parseFloat(form.cumulative_gpa) || null,
+      shift_availability:         form.shift_availability,
+      interest_statement:         form.interest_statement.trim(),
       submitted_via:              'student_form',
       ...(resume_url   && { resume_url }),
       ...(headshot_url && { headshot_url }),
@@ -286,6 +304,27 @@ export default function StudentIntakeFormPage() {
                 <option>Non-binary</option><option>Prefer not to say</option><option>Other</option>
               </select>
             </div>
+
+            <div className="sf-row-2">
+              <div className="uf-field">
+                <label className="uf-label">Cumulative GPA (on a 4.0 scale) *</label>
+                <input className="uf-input" type="number" step="0.01" min="0" max="4"
+                  value={form.cumulative_gpa}
+                  onChange={e => set('cumulative_gpa', e.target.value)}
+                  placeholder="e.g. 3.75" style={{ maxWidth: 160 }} />
+              </div>
+              <div className="uf-field">
+                <label className="uf-label">Shift Preference *</label>
+                <select className="uf-input" value={form.shift_availability}
+                  onChange={e => set('shift_availability', e.target.value)}
+                  style={{ maxWidth: 220 }}>
+                  <option value="">Select…</option>
+                  <option value="Day">Day</option>
+                  <option value="Night">Night</option>
+                  <option value="Either">Either</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* ── Section 2: Background and Affiliation ── */}
@@ -395,6 +434,11 @@ export default function StudentIntakeFormPage() {
                     <option value="">Select a unit…</option>
                     {availableUnits.map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
+                  {form.unit_preference_1 && unitPopMap[form.unit_preference_1] && (
+                    <p style={{ fontSize: 13, color: '#6b7280', fontStyle: 'italic', marginTop: 4 }}>
+                      {unitPopMap[form.unit_preference_1]}
+                    </p>
+                  )}
                 </div>
                 <div className="uf-field">
                   <label className="uf-label">Second Preference (optional)</label>
@@ -410,6 +454,11 @@ export default function StudentIntakeFormPage() {
                     {availableUnits.filter(u => u !== form.unit_preference_1)
                       .map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
+                  {form.unit_preference_2 && unitPopMap[form.unit_preference_2] && (
+                    <p style={{ fontSize: 13, color: '#6b7280', fontStyle: 'italic', marginTop: 4 }}>
+                      {unitPopMap[form.unit_preference_2]}
+                    </p>
+                  )}
                 </div>
                 <div className="uf-field">
                   <label className="uf-label">Third Preference (optional)</label>
@@ -419,6 +468,11 @@ export default function StudentIntakeFormPage() {
                     {availableUnits.filter(u => u !== form.unit_preference_1 && u !== form.unit_preference_2)
                       .map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
+                  {form.unit_preference_3 && unitPopMap[form.unit_preference_3] && (
+                    <p style={{ fontSize: 13, color: '#6b7280', fontStyle: 'italic', marginTop: 4 }}>
+                      {unitPopMap[form.unit_preference_3]}
+                    </p>
+                  )}
                 </div>
               </>
             )}
@@ -492,14 +546,20 @@ export default function StudentIntakeFormPage() {
             </div>
           </div>
 
-          {/* ── Section 5: Additional Notes ── */}
+          {/* ── Your Interest ── */}
           <div className="uf-section">
-            <div className="sf-section-title">Section 5: Additional Notes</div>
+            <div className="sf-section-title">Your Interest</div>
             <div className="uf-field">
-              <label className="uf-label">Is there anything else you would like the ASPIRE team to know? (optional)</label>
-              <textarea className="uf-textarea" rows={4} value={form.additional_notes}
-                onChange={e => set('additional_notes', e.target.value)}
-                placeholder="Any additional information, accommodations needed, or context you'd like to share…" />
+              <label className="uf-label">Why are you interested in completing your senior rotation at Cedars-Sinai? *</label>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                Minimum 50 characters required.
+              </p>
+              <textarea className="uf-textarea" rows={5} value={form.interest_statement}
+                onChange={e => set('interest_statement', e.target.value)}
+                placeholder="Share what draws you to Cedars-Sinai and what you hope to gain from this experience." />
+              <p style={{ fontSize: 12, color: form.interest_statement.length >= 50 ? '#16a34a' : 'var(--text-secondary)', marginTop: 4 }}>
+                {form.interest_statement.length} / 50 minimum
+              </p>
             </div>
           </div>
 

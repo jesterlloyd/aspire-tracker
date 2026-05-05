@@ -33,6 +33,7 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
   const [data,           setData]           = useState(student)
   const [saveState,      setSaveState]      = useState('idle')
   const [confirmDelete,  setConfirmDelete]  = useState(false)
+  const [showSSN,        setShowSSN]        = useState(false)
   const [uploadingRes,   setUploadingRes]   = useState(false)
   const [uploadingHead,  setUploadingHead]  = useState(false)
   const [resumeMsg,      setResumeMsg]      = useState(null)
@@ -96,6 +97,14 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
   const handleCheck = (field, value) => {
     setData(prev => ({ ...prev, [field]: value }))
     doSave(field, value)
+  }
+
+  const handleDecimal = (field, raw) => {
+    const value = raw === '' ? null : parseFloat(raw)
+    setData(prev => ({ ...prev, [field]: value }))
+    setSaveState('saving')
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => doSave(field, value), 600)
   }
 
   const handleResumeUpload = async file => {
@@ -190,18 +199,12 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
             </span>
           </div>
 
-          {/* Contact — first/last name + contact fields */}
+          {/* 1. Contact Information */}
           <div className="form-section">
             <div className="section-label">Contact Information</div>
-            <div className="form-grid form-grid-5">
-              <Field label="First Name">
-                <input className="form-input" value={data.first_name || ''} onChange={e => handleNameField('first_name', e.target.value)} />
-              </Field>
-              <Field label="Last Name">
-                <input className="form-input" value={data.last_name || ''} onChange={e => handleNameField('last_name', e.target.value)} />
-              </Field>
+            <div className="form-grid form-grid-3">
               <Field label="School Email">
-                <input className="form-input" value={data.school_email || ''} onChange={e => handleText('school_email', e.target.value)} />
+                <div className="form-readonly">{data.school_email || '—'}</div>
               </Field>
               <Field label="Personal Email">
                 <input className="form-input" value={data.personal_email || ''} onChange={e => handleText('personal_email', e.target.value)} />
@@ -212,58 +215,173 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
             </div>
           </div>
 
-          {/* Academic */}
+          {/* 2. Program Details */}
           <div className="form-section">
-            <div className="section-label">Academic Information</div>
-            <div className="form-grid form-grid-5">
+            <div className="section-label">Program Details</div>
+            <div className="form-grid form-grid-3">
               <Field label="School">
-                <select className="form-select" value={data.school || ''} onChange={e => handleSelect('school', e.target.value)}>
-                  <option value="">Select…</option>
-                  {SCHOOLS.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <div className="form-readonly">{data.school || '—'}</div>
               </Field>
-              <Field label="ASPIRE Cohort">
-                <select className="form-select" value={data.aspire_cohort || ''} onChange={e => handleSelect('aspire_cohort', e.target.value)}>
-                  <option value="">Select…</option>
-                  {COHORTS.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+              <Field label="Program Type">
+                <div className="form-readonly">{data.program_type || '—'}</div>
               </Field>
               <Field label="Term Dates">
-                <input className="form-input" value={data.term_dates || ''} onChange={e => handleText('term_dates', e.target.value)} />
+                <div className="form-readonly">{data.term_dates || '—'}</div>
               </Field>
-              <Field label="Hrs Required">
-                <input className="form-input" type="number" min="0" value={data.hours_required || ''} onChange={e => handleNum('hours_required', e.target.value)} />
+              <Field label="Hours Required">
+                <div className="form-readonly">{data.hours_required ?? '—'}</div>
               </Field>
-              <Field label="Hrs Completed">
-                <input className="form-input" type="number" min="0" value={data.hours_completed || ''} onChange={e => handleNum('hours_completed', e.target.value)} />
+              <Field label="Estimated Graduation">
+                <div className="form-readonly">{data.estimated_graduation || '—'}</div>
               </Field>
             </div>
           </div>
 
-          {/* Placement */}
+          {/* 3. Personal Information */}
           <div className="form-section">
-            <div className="section-label">Placement Information</div>
-            <div className="form-grid form-grid-5">
-              <Field label="Unit">
-                <select className="form-select" value={data.unit || ''} onChange={e => handleSelect('unit', e.target.value)}>
-                  <option value="">Select unit…</option>
-                  {Object.entries(UNITS_BY_DIVISION).map(([div, unitList]) => (
-                    <optgroup key={div} label={`── ${div} ──`}>
-                      {unitList.map(u => <option key={u} value={u}>{u}</option>)}
-                    </optgroup>
-                  ))}
+            <div className="section-label">Personal Information</div>
+            <div className="form-grid form-grid-3">
+              <Field label="First Name">
+                <input className="form-input" value={data.first_name || ''} onChange={e => handleNameField('first_name', e.target.value)} />
+              </Field>
+              <Field label="Last Name">
+                <input className="form-input" value={data.last_name || ''} onChange={e => handleNameField('last_name', e.target.value)} />
+              </Field>
+              <Field label="Date of Birth">
+                <input className="form-input" type="date" value={data.date_of_birth || ''} onChange={e => handleText('date_of_birth', e.target.value)} />
+              </Field>
+              <Field label="Last 4 SSN">
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input className="form-input" type={showSSN ? 'text' : 'password'}
+                    value={data.ssn_last4 || ''} maxLength={4}
+                    onChange={e => handleText('ssn_last4', e.target.value.replace(/\D/g,'').slice(0,4))} />
+                  <button type="button" className="btn-clear"
+                    style={{ flexShrink: 0, padding: '4px 8px', fontSize: 11 }}
+                    onClick={() => setShowSSN(p => !p)}>
+                    {showSSN ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </Field>
+              <Field label="Gender">
+                <select className="form-select" value={data.gender || ''} onChange={e => handleSelect('gender', e.target.value)}>
+                  <option value="">Select…</option>
+                  <option>Male</option><option>Female</option>
+                  <option>Non-binary</option><option>Prefer not to say</option><option>Other</option>
                 </select>
               </Field>
-              <Field label="Preceptor Name">
-                <input className="form-input" value={data.preceptor_name || ''} onChange={e => handleText('preceptor_name', e.target.value)} />
+              <Field label="Cumulative GPA">
+                <input className="form-input" type="number" step="0.01" min="0" max="4"
+                  value={data.cumulative_gpa ?? ''} placeholder="0.00"
+                  onChange={e => handleDecimal('cumulative_gpa', e.target.value)} />
+                {data.cumulative_gpa != null && (
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                    {parseFloat(data.cumulative_gpa).toFixed(2)} / 4.0
+                  </div>
+                )}
               </Field>
+              <Field label="Shift Preference">
+                <select className="form-select" value={data.shift_availability || ''} onChange={e => handleSelect('shift_availability', e.target.value)}>
+                  <option value="">Select…</option>
+                  <option>Day</option><option>Night</option><option>Either</option>
+                </select>
+              </Field>
+            </div>
+          </div>
+
+          {/* 4. Background and Affiliation */}
+          <div className="form-section">
+            <div className="section-label">Background and Affiliation</div>
+            <div className="form-grid form-grid-2">
+              <Field label="Prior Healthcare Experience">
+                <input className="form-input" value={data.prior_healthcare_experience || ''}
+                  onChange={e => handleText('prior_healthcare_experience', e.target.value)}
+                  placeholder="e.g. CNA, EMT, Medical Assistant" />
+              </Field>
+              <Field label="CS Affiliation">
+                <select className="form-select" value={data.cs_affiliation || ''} onChange={e => handleSelect('cs_affiliation', e.target.value)}>
+                  <option value="">Select…</option>
+                  <option>Current Employee</option><option>Former Employee</option>
+                  <option>Volunteer</option><option>No prior affiliation</option>
+                </select>
+              </Field>
+              {['Current Employee','Former Employee','Volunteer'].includes(data.cs_affiliation) && (
+                <>
+                  <Field label="CS Department">
+                    <input className="form-input" value={data.cs_department || ''} onChange={e => handleText('cs_department', e.target.value)} />
+                  </Field>
+                  <Field label="CS Role / Job Title">
+                    <input className="form-input" value={data.cs_role || ''} onChange={e => handleText('cs_role', e.target.value)} />
+                  </Field>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* 5. Interest Statement */}
+          <div className="form-section">
+            <div className="section-label">Interest Statement</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--nightfall)', marginBottom: 8 }}>
+              Why are you interested in completing your senior rotation at Cedars-Sinai?
+            </div>
+            {data.interest_statement ? (
+              <div className="sr-interest-block">{data.interest_statement}</div>
+            ) : (
+              <p style={{ fontSize: 14, color: '#9ca3af', fontStyle: 'italic' }}>Not yet submitted.</p>
+            )}
+          </div>
+
+          {/* 6. Unit Preferences */}
+          <div className="form-section">
+            <div className="section-label">Unit Preferences</div>
+            <div className="form-grid form-grid-3">
+              {['unit_preference_1','unit_preference_2','unit_preference_3'].map((field, i) => (
+                <Field key={field} label={`Preference ${i+1}`}>
+                  <select className="form-select" value={data[field] || ''} onChange={e => handleSelect(field, e.target.value)}>
+                    <option value="">Select…</option>
+                    {units.filter(u => u.is_participating).map(u => (
+                      <option key={u.id} value={u.unit_name}>{u.unit_name}</option>
+                    ))}
+                  </select>
+                </Field>
+              ))}
+            </div>
+          </div>
+
+          {/* 7. Placement and Outcomes */}
+          <div className="form-section">
+            <div className="section-label">Placement and Outcomes</div>
+            <div className="form-grid form-grid-3">
               <Field label="ASPIRE Status">
-                <select className="form-select" value={data.status || ''} onChange={e => handleSelect('status', e.target.value)}>
-                  {ASPIRE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {data.status && <span className={`badge ${STATUS_CLASS[data.status] || 'badge-gray'}`}>{data.status}</span>}
+                  <select className="form-select" value={data.status || ''} onChange={e => handleSelect('status', e.target.value)}>
+                    {ASPIRE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </Field>
+              <Field label="Interview Outcome">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {data.interview_outcome && (
+                    <span className={`interview-pill ${
+                      data.interview_outcome === 'Accepted' ? 'pill-green' :
+                      data.interview_outcome === 'Accepted with Reservations' ? 'pill-yellow' :
+                      data.interview_outcome === 'Declined' ? 'pill-red' : 'pill-gray'
+                    }`}>{data.interview_outcome}</span>
+                  )}
+                  <select className="form-select" value={data.interview_outcome || ''} onChange={e => handleSelect('interview_outcome', e.target.value)}>
+                    {INTERVIEW_OUTCOMES.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+              </Field>
+              <Field label="Matched Unit">
+                <div className="form-readonly">{matchedUnitName}</div>
+              </Field>
+              <Field label="Matched Preceptor">
+                <div className="form-readonly">{data.matched_preceptor || '—'}</div>
               </Field>
               <Field label="NGRP Cohort Target">
-                <input className="form-input" value={data.ngrp_cohort_target || ''} onChange={e => handleText('ngrp_cohort_target', e.target.value)} placeholder="e.g. Spring 2027" />
+                <input className="form-input" value={data.ngrp_cohort_target || ''}
+                  onChange={e => handleText('ngrp_cohort_target', e.target.value)} placeholder="e.g. Spring 2027" />
               </Field>
               <Field label="NGRP Outcome">
                 <select className="form-select" value={data.ngrp_outcome || ''} onChange={e => handleSelect('ngrp_outcome', e.target.value)}>
@@ -273,76 +391,12 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
             </div>
           </div>
 
-          {/* ASPIRE Matching */}
+          {/* Notes */}
           <div className="form-section">
-            <div className="section-label">ASPIRE Matching</div>
-            <div className="form-grid form-grid-5">
-              <Field label="Interview Outcome">
-                <select className="form-select" value={data.interview_outcome || 'Pending Interview'} onChange={e => handleSelect('interview_outcome', e.target.value)}>
-                  {INTERVIEW_OUTCOMES.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </Field>
-              <Field label="Shift Availability">
-                <select className="form-select" value={data.shift_availability || ''} onChange={e => handleSelect('shift_availability', e.target.value)}>
-                  <option value="">Select…</option>
-                  {SHIFT_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </Field>
-              <Field label="Unit Preference 1">
-                <select className="form-select" value={data.unit_preference_1 || ''} onChange={e => handleSelect('unit_preference_1', e.target.value)}>
-                  <option value="">Select…</option>
-                  {UNIT_NAMES.map(u => <option key={u} value={u}>{u}</option>)}
-                </select>
-              </Field>
-              <Field label="Unit Preference 2">
-                <select className="form-select" value={data.unit_preference_2 || ''} onChange={e => handleSelect('unit_preference_2', e.target.value)}>
-                  <option value="">Select…</option>
-                  {UNIT_NAMES.map(u => <option key={u} value={u}>{u}</option>)}
-                </select>
-              </Field>
-              <Field label="Unit Preference 3">
-                <select className="form-select" value={data.unit_preference_3 || ''} onChange={e => handleSelect('unit_preference_3', e.target.value)}>
-                  <option value="">Select…</option>
-                  {UNIT_NAMES.map(u => <option key={u} value={u}>{u}</option>)}
-                </select>
-              </Field>
-            </div>
-            <div className="form-grid form-grid-2" style={{ marginTop: 10 }}>
-              <Field label="Matched Unit (read-only)">
-                <div className="form-readonly">{matchedUnitName}</div>
-              </Field>
-              <Field label="Matched Preceptor (read-only)">
-                <div className="form-readonly">{data.matched_preceptor || '—'}</div>
-              </Field>
-            </div>
-          </div>
-
-          {/* Compliance */}
-          <div className="form-section">
-            <div className="section-label">Compliance</div>
-            <div className="compliance-grid">
-              {[
-                ['gpa_verified','GPA Verified'],['bls_current','BLS Current'],
-                ['health_cleared','Health Cleared'],['background_check','Background Check'],
-              ].map(([field, label]) => (
-                <label key={field} className="checkbox-item">
-                  <input type="checkbox" checked={data[field] || false} onChange={e => handleCheck(field, e.target.checked)} />
-                  <span className={data[field] ? 'check-label checked' : 'check-label'}>{label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Coordinators & Notes */}
-          <div className="form-section">
-            <div className="form-grid form-grid-2">
-              <Field label="School Coordinators">
-                <textarea className="form-textarea" rows={3} value={data.coordinators || ''} onChange={e => handleText('coordinators', e.target.value)} />
-              </Field>
-              <Field label="Notes">
-                <textarea className="form-textarea" rows={3} value={data.notes || ''} onChange={e => handleText('notes', e.target.value)} />
-              </Field>
-            </div>
+            <div className="section-label">Notes</div>
+            <Field label="">
+              <textarea className="form-textarea" rows={3} value={data.notes || ''} onChange={e => handleText('notes', e.target.value)} />
+            </Field>
           </div>
 
           {/* Interview Summary */}

@@ -43,6 +43,11 @@ export default function StudentMatchCard({
       })()
     : null
 
+  const gpa      = student.cumulative_gpa
+  const gpaBg    = gpa == null ? 'var(--sand)'  : gpa >= 3.5 ? '#dcfce7' : gpa >= 3.0 ? '#fef3c7' : 'var(--sand)'
+  const gpaColor = gpa == null ? 'var(--raven)' : gpa >= 3.5 ? '#166534' : gpa >= 3.0 ? '#92400e' : 'var(--raven)'
+  const gpaText  = gpa != null ? `GPA: ${parseFloat(gpa).toFixed(2)}` : 'GPA: N/A'
+
   return (
     <div
       className={[
@@ -55,7 +60,12 @@ export default function StudentMatchCard({
     >
       <div className="smc-top">
         <span className="smc-name">{displayName(student)}</span>
-        <span className={`interview-pill ${pillClass}`}>{outcome}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+          <span style={{ background: gpaBg, color: gpaColor, fontSize: 12, fontWeight: 600, padding: '1px 7px', borderRadius: 4 }}>
+            {gpaText}
+          </span>
+          <span className={`interview-pill ${pillClass}`}>{outcome}</span>
+        </div>
       </div>
       <div className="smc-school">{student.school}</div>
 

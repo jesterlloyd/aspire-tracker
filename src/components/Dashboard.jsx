@@ -35,38 +35,23 @@ export default function Dashboard({ students }) {
   ]
 
   return (
-    <>
-      <div className="dashboard">
-        {stats.map(stat => (
-          <div key={stat.label} className="stat-card" style={{
-            background: stat.bg,
-            borderColor: stat.border,
-            ...(stat.leftBorder ? { borderLeft: stat.leftBorder } : {}),
-          }}>
-            <div className="stat-value" style={{ color: stat.color }}>{stat.value}</div>
-            <div className="stat-label" style={{ color: stat.color }}>{stat.label}</div>
-            <div className="stat-bar">
-              <div className="stat-bar-fill" style={{ width: `${stat.pct}%`, background: stat.barColor }} />
-            </div>
-            <div className="stat-pct" style={{ color: stat.color, opacity: 0.7 }}>
-              {total ? Math.round(stat.pct) : 0}% of total
-            </div>
+    <div className="dashboard">
+      {stats.map(stat => (
+        <div key={stat.label} className="stat-card" style={{
+          background: stat.bg,
+          borderColor: stat.border,
+          ...(stat.leftBorder ? { borderLeft: stat.leftBorder } : {}),
+        }}>
+          <div className="stat-value" style={{ color: stat.color }}>{stat.value}</div>
+          <div className="stat-label" style={{ color: stat.color }}>{stat.label}</div>
+          <div className="stat-bar">
+            <div className="stat-bar-fill" style={{ width: `${stat.pct}%`, background: stat.barColor }} />
           </div>
-        ))}
-      </div>
-
-      <div className="interview-breakdown">
-        <div className="breakdown-label">Interview Outcomes</div>
-        <div className="breakdown-pills">
-          {interviewStats.map(s => (
-            <div key={s.label} className="breakdown-pill"
-              style={{ background: s.bg, borderColor: s.border }}>
-              <span className="bp-value" style={{ color: s.color }}>{s.value}</span>
-              <span className="bp-label" style={{ color: s.color }}>{s.label}</span>
-            </div>
-          ))}
+          <div className="stat-pct" style={{ color: stat.color, opacity: 0.7 }}>
+            {total ? Math.round(stat.pct) : 0}% of total
+          </div>
         </div>
-      </div>
-    </>
+      ))}
+    </div>
   )
 }

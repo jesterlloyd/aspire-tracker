@@ -70,25 +70,74 @@ export const UNITS_BY_DIVISION = {
   ],
 }
 
-// Full Cedars-Sinai unit roster for the Unit Setup Panel (Part 3)
+// Full Cedars-Sinai unit roster for the Unit Setup Panel
 export const UNIT_ROSTER = {
-  Surgical: [
-    '7NE', '7NW', '8SE', '8SW', '8NE', '8NW',
-    '3SPT', '3SW', '4S', '3 PACU', '6 PACU', '7 GI PACU',
+  'Surgical Division': [
+    '7NE', '7NW', '8SE', '8SW', '8NE', '8NW', 'ACUs',
   ],
-  Medical: [
+  'Medical Division': [
     '3SE', '3SW', '4SE', '4SW', '4NE/4NW',
     '5SE', '5SW', '5NE', '5NW', '6SE', '6SW', '7SE', '7SW',
   ],
-  'Critical Care': [
+  'Critical Care Division': [
     '6NE', '6NW', '3SCCT', '4SCCT', '5SCCT',
-    '6SCCT', '7SCCT', '8SCCT', 'CMC',
+    '6SCCT', '7SCCT', '8SCCT', 'CMC', 'MSCCT', '6SE PFT', '6NE ABG',
   ],
   Specialty: [
     'Labor and Delivery', 'PACU', 'NICU', 'PICU',
-    'Pediatrics', 'Postpartum', 'Float Pool', '3 South',
+    'Pediatrics', 'Postpartum', '3 South', 'Float Pool',
   ],
 }
+
+// Pre-seeded patient population descriptions per unit
+export const PATIENT_POPULATIONS = {
+  '7NE': 'Orthopedics, Surgical, Trauma',
+  '7NW': 'Orthopedics, Surgical, Trauma',
+  '8SE': 'General Surgery, Colorectal, Urology, OB/GYN, Plastic Surgery, Gender Affirming, ENT, GYN, Trauma',
+  '8SW': 'General Surgery, Colorectal, Urology, OB/GYN, Plastic Surgery, Gender Affirming, ENT, GYN, Trauma',
+  '8NE': 'Neurosurgical, Neuro Step-down, Trauma Step-down',
+  '8NW': 'Spine Surgeries, Trauma, Lumbar Drains',
+  'ACUs': 'Medical/Surgical Unit Overflow',
+  '3SE': 'Medical Observation, Telemetry',
+  '3SW': 'Medical Observation, Telemetry',
+  '4SE': 'Medicine, Oncology, PCU, Bone Marrow Transplants',
+  '4SW': 'Medicine, Oncology, PCU, Bone Marrow Transplants',
+  '4NE/4NW': 'Monitored, Stroke, Epilepsy, Medical, PCU',
+  '5SE': 'Medical, PCU',
+  '5SW': 'Medicine, PCU, Safety Quad',
+  '5NE': 'PCU, Monitored Post Cardiac Cath Care',
+  '5NW': 'PCU, Monitored Post Cardiac Cath Care',
+  '6SE': 'Advanced Heart Failure, PCU',
+  '6SW': 'Advanced Heart Failure, PCU',
+  '7SE': 'PCU, Generic Medical, Diabetes',
+  '7SW': 'PCU, Generic Medical, Surgery Overflow',
+  '6NE': 'PCU, Heart Transplant, Lung Transplant, Mechanical Circulatory Support',
+  '6NW': 'PCU, Kidney/Pancreas Transplant, Liver Transplant, Hepatobiliary, Trauma, Thoracic',
+  '3SCCT': 'Medicine Telemetry',
+  '4SCCT': 'Medicine Cardiac Care Intensive Care Unit',
+  '5SCCT': 'Surgical Trauma Transplant Intensive Care Unit',
+  '6SCCT': 'Surgical Cardiac Intensive Care Unit',
+  '7SCCT': 'Medicine Respiratory Intensive Care Unit',
+  '8SCCT': 'Neuroscience Intensive Care Unit',
+  'CMC': 'Monitored',
+  'MSCCT': 'Respiratory Therapy Department',
+  '6SE PFT': 'Pulmonary Function Lab',
+  '6NE ABG': 'Arterial Blood Gas Lab',
+  'Labor and Delivery': 'Labor and Delivery',
+  'PACU': 'Post-Anesthesia Care Unit',
+  'NICU': 'Neonatal Intensive Care Unit',
+  'PICU': 'Pediatric Intensive Care Unit',
+  'Pediatrics': 'Pediatrics',
+  'Postpartum': 'Postpartum',
+  '3 South': 'Medical/Surgical',
+  'Float Pool': 'Float Pool',
+}
+
+// Build reverse lookup: unit_name -> division name
+export const UNIT_DIVISION_MAP = {}
+Object.entries(UNIT_ROSTER).forEach(([div, units]) => {
+  units.forEach(u => { UNIT_DIVISION_MAP[u] = div })
+})
 
 export const ASPIRE_STATUSES = [
   'Pending Outreach',

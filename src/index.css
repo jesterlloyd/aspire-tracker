@@ -975,6 +975,50 @@ a.doc-file-link:hover { text-decoration: underline; }
 .doc-error     { color: var(--cs-red); }
 
 /* ================================================================
+   INTEREST STATEMENT BLOCK (StudentRow)
+   ================================================================ */
+.sr-interest-block {
+  background: var(--marina);
+  border-left: 3px solid var(--nightfall);
+  border-radius: 0 4px 4px 0;
+  padding: 16px;
+  font-size: 14px;
+  color: var(--raven);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* ================================================================
+   POOL FILTER (MatchingTab)
+   ================================================================ */
+.pool-filter-row { display: flex; gap: 8px; padding: 8px 0 6px; }
+.pool-search-input {
+  flex: 1; padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px;
+  font-size: 12px; color: var(--raven); background: rgba(255,255,255,0.08);
+  color: var(--pearl); outline: none;
+}
+.pool-search-input::placeholder { color: rgba(255,255,255,0.45); }
+.pool-search-input:focus { border-color: var(--nova); }
+.pool-school-select {
+  padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px;
+  font-size: 12px; background: rgba(255,255,255,0.08); color: var(--pearl);
+  outline: none; cursor: pointer; min-width: 100px;
+}
+.pool-school-select option { color: var(--raven); background: var(--pearl); }
+
+/* ================================================================
+   OVERVIEW SEND FORM BUTTONS
+   ================================================================ */
+.ov-school-actions { padding: 8px 18px 4px 36px; }
+.ov-send-btn {
+  background: none; border: 1.5px solid var(--nightfall); border-radius: 4px;
+  color: var(--nightfall); font-size: 12px; font-weight: 600;
+  cursor: pointer; padding: 4px 12px; transition: background 0.12s;
+}
+.ov-send-btn:hover { background: rgba(29,37,103,0.06); }
+.ov-send-btn-sm { font-size: 11px; padding: 3px 9px; }
+
+/* ================================================================
    OVERVIEW TAB
    ================================================================ */
 .overview-tab { display: flex; flex-direction: column; gap: 24px; }
