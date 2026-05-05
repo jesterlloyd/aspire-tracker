@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { UNIT_ROSTER } from '../lib/constants'
+import { UNIT_ROSTER, PATIENT_POPULATION_MAP } from '../lib/constants'
 
 const PAGE_TITLE = 'ASPIRE Program: Unit Availability Form'
 
@@ -60,15 +60,16 @@ export default function UnitFormPage() {
     }
 
     const { error: err } = await supabase.from('units').insert({
-      unit_name:        form.unit_name.trim(),
-      contact_person:   form.contact_person.trim(),
-      is_participating: form.is_participating,
-      total_slots:      form.is_participating ? (parseInt(form.total_slots) || 0) : 0,
-      slots_remaining:  form.is_participating ? (parseInt(form.total_slots) || 0) : 0,
-      shift_preference: form.is_participating ? shiftPref : '',
-      preceptors:       form.is_participating ? form.preceptors.trim() : '',
-      considerations:   form.is_participating ? form.considerations.trim() : '',
-      cohort_id:        cohortId,
+      unit_name:          form.unit_name.trim(),
+      contact_person:     form.contact_person.trim(),
+      is_participating:   form.is_participating,
+      total_slots:        form.is_participating ? (parseInt(form.total_slots) || 0) : 0,
+      slots_remaining:    form.is_participating ? (parseInt(form.total_slots) || 0) : 0,
+      shift_preference:   form.is_participating ? shiftPref : '',
+      preceptors:         form.is_participating ? form.preceptors.trim() : '',
+      considerations:     form.is_participating ? form.considerations.trim() : '',
+      patient_population: PATIENT_POPULATION_MAP[form.unit_name.trim()] || '',
+      cohort_id:          cohortId,
     })
 
     if (err) { setError('Something went wrong. Please try again.'); setSubmitting(false); return }
@@ -134,10 +135,16 @@ export default function UnitFormPage() {
                 <option value="">Select your unit or department…</option>
                 {Object.entries(UNIT_ROSTER).map(([division, units]) => (
                   <optgroup key={division} label={division}>
-                    {units.map(u => <option key={u} value={u}>{u}</option>)}
+                    {units.map(u => {
+                      const desc = PATIENT_POPULATION_MAP[u]
+                      return <option key={u} value={u}>{desc ? `${u} - ${desc}` : u}</option>
+                    })}
                   </optgroup>
                 ))}
               </select>
+              {form.unit_name && PATIENT_POPULATION_MAP[form.unit_name] && (
+                <p className="uf-unit-pop">{PATIENT_POPULATION_MAP[form.unit_name]}</p>
+              )}
             </div>
             <div className="uf-field">
               <label className="uf-label">Your Name and Title *</label>
