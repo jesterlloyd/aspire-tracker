@@ -62,6 +62,7 @@ export default function UnitFormPage() {
     const { error: err } = await supabase.from('units').insert({
       unit_name:          form.unit_name.trim(),
       contact_person:     form.contact_person.trim(),
+      contact_email:      form.contact_email.trim(),
       is_participating:   form.is_participating,
       total_slots:        form.is_participating ? (parseInt(form.total_slots) || 0) : 0,
       slots_remaining:    form.is_participating ? (parseInt(form.total_slots) || 0) : 0,
