@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { ASPIRE_STATUSES } from '../lib/constants'
+import { ASPIRE_STATUSES, ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
 import StudentRow from './StudentRow'
 import ImportStudentsCSV from './ImportStudentsCSV'
 
-const ASPIRE_ORDER = ['Pending Outreach','Form Sent','Interviewed','Accepted','Active Rotation','Completed','Declined']
+const ASPIRE_ORDER = ASPIRE_STATUS_SORT_ORDER
 const NGRP_ORDER   = ['Pending','Applied','Interviewed','Offered','Hired','Declined']
 
 function sortStudents(students, sortBy) {

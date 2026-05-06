@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { PATIENT_POPULATION_MAP } from '../lib/constants'
+import { setAspireStatus } from '../lib/statusUtils'
 
 const PAGE_TITLE = 'ASPIRE Program: Student Information Form'
 
@@ -227,6 +228,7 @@ export default function StudentIntakeFormPage() {
       setSubmitting(false)
       return
     }
+    await setAspireStatus(studentId, 'Form Received')
     setSubmitted(true)
   }
 

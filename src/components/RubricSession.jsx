@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
-import { PATIENT_POPULATION_MAP, UNITS_BY_DIVISION } from '../lib/constants'
+import { PATIENT_POPULATION_MAP, UNITS_BY_DIVISION, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 
 // ── Domain data ──────────────────────────────────────────────
 const CJ_QUESTIONS = [
@@ -88,12 +88,13 @@ async function recalculateStudentAverages(studentId, supabase) {
   const avgGa        = rubrics.reduce((sum, r) => sum + (r.ga_score        || 0), 0) / count
   const avgComposite = rubrics.reduce((sum, r) => sum + (r.composite_score || 0), 0) / count
 
-  let autoRec         = 'Do Not Recommend at This Time'
+  let autoRec          = 'Do Not Recommend at This Time'
   let interviewOutcome = 'Declined'
+  let aspireStatus     = 'Declined'
   if (avgComposite >= 12) {
-    autoRec = 'Recommend'; interviewOutcome = 'Accepted'
+    autoRec = 'Recommend'; interviewOutcome = 'Accepted'; aspireStatus = 'Interviewed'
   } else if (avgComposite >= 8) {
-    autoRec = 'Recommend with Reservations'; interviewOutcome = 'Accepted with Reservations'
+    autoRec = 'Recommend with Reservations'; interviewOutcome = 'Accepted with Reservations'; aspireStatus = 'Interviewed'
   }
 
   return {
@@ -104,6 +105,7 @@ async function recalculateStudentAverages(studentId, supabase) {
     rubric_count:        count,
     auto_recommendation: autoRec,
     interview_outcome:   interviewOutcome,
+    status:              aspireStatus,
   }
 }
 
@@ -344,9 +346,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     setForm(p => ({ ...p, status:'Completed', composite_score: composite }))
     // Fetch all completed rubrics fresh from DB so stale local state can never affect the result
     const recalc = await recalculateStudentAverages(student.id, supabase)
-    if (recalc) {
-      await onStudentUpdate(student.id, { ...recalc, status: 'Interviewed' })
-    }
+    if (recalc) await onStudentUpdate(student.id, recalc)
   }
 
   const handleReset = async () => {
@@ -425,7 +425,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
             }
             <div className="rub-student-name">{displayName(student)}</div>
             <div className="rub-student-school">{student.school}</div>
-            {student.status && <span className={`badge badge-gray`} style={{ marginTop:4 }}>{student.status}</span>}
+            {student.status && (() => { const cfg = ASPIRE_STATUS_CONFIG[student.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']; return <span style={{ marginTop:4, fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}` }}>{student.status}</span> })()}
             {student.cumulative_gpa != null && (
               <span style={{ fontSize:11, fontWeight:600, background:'#dcfce7', color:'#166534', padding:'1px 7px', borderRadius:4, marginTop:4 }}>
                 GPA: {parseFloat(student.cumulative_gpa).toFixed(2)}
@@ -543,6 +543,23 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
               {saveStatus === 'saved'  && <span style={{ color:'#16a34a', fontSize:11 }}>✓</span>}
             </div>
           </div>
+
+          {/* Student status banner */}
+          {(student.status || student.interview_outcome) && (
+            <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', background:'var(--sand)', border:'1px solid var(--border)', borderRadius:6, padding:'8px 14px', marginBottom:12, fontSize:12 }}>
+              {student.status && (() => { const cfg = ASPIRE_STATUS_CONFIG[student.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']; return <><span style={{ color:'var(--text-secondary)', fontWeight:500 }}>ASPIRE Status:</span><span style={{ fontWeight:700, padding:'2px 8px', borderRadius:20, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}` }}>{student.status}</span></> })()}
+              {student.interview_outcome && (
+                <>
+                  <span style={{ color:'var(--text-secondary)', fontWeight:500, marginLeft:4 }}>Interview Outcome:</span>
+                  <span style={{ fontWeight:700, padding:'2px 8px', borderRadius:20,
+                    background: student.interview_outcome === 'Accepted' ? '#dcfce7' : student.interview_outcome === 'Accepted with Reservations' ? '#fef3c7' : student.interview_outcome === 'Declined' ? '#fee2e2' : '#f3f4f6',
+                    color: student.interview_outcome === 'Accepted' ? '#166534' : student.interview_outcome === 'Accepted with Reservations' ? '#92400e' : student.interview_outcome === 'Declined' ? '#991b1b' : '#6b7280' }}>
+                    {student.interview_outcome}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Existing rubrics banner */}
           {studentRubrics.length > 0 && (

@@ -4,7 +4,8 @@ import StudentListPanel from './StudentListPanel'
 import StudentSidePanel from './StudentSidePanel'
 import AccessTab from './AccessTab'
 
-const ASPIRE_ORDER = ['Pending Outreach','Form Sent','Interviewed','Accepted','Active Rotation','Completed','Declined']
+import { ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
+const ASPIRE_ORDER = ASPIRE_STATUS_SORT_ORDER
 
 function sortStudentsList(students, sortBy) {
   return [...students].sort((a, b) => {

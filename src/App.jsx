@@ -224,12 +224,12 @@ function MainApp({ onLogout }) {
     if (error) { console.error(error); return }
     const newRemaining = Math.max(0, unit.slots_remaining - 1)
     await supabase.from('students')
-      .update({ matched_unit_id: unit.id, interview_outcome: 'Accepted', match_quality }).eq('id', student.id)
+      .update({ matched_unit_id: unit.id, interview_outcome: 'Accepted', match_quality, status: 'Placed' }).eq('id', student.id)
     await supabase.from('units').update({ slots_remaining: newRemaining }).eq('id', unit.id)
     updateCohortMatchSummary([...matches, m])
     setMatches(prev => [...prev, m])
     setStudents(prev => prev.map(s =>
-      s.id === student.id ? { ...s, matched_unit_id: unit.id, interview_outcome: 'Accepted', match_quality } : s
+      s.id === student.id ? { ...s, matched_unit_id: unit.id, interview_outcome: 'Accepted', match_quality, status: 'Placed' } : s
     ))
     setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, slots_remaining: newRemaining } : u))
   }
@@ -238,7 +238,7 @@ function MainApp({ onLogout }) {
     const match = matches.find(m => m.student_id === student.id && m.unit_id === unit.id)
     if (match) await supabase.from('matches').delete().eq('id', match.id)
     await supabase.from('students')
-      .update({ matched_unit_id: null, matched_preceptor: '', shift_assigned: '', match_quality: null, interview_outcome: 'Pending Interview' })
+      .update({ matched_unit_id: null, matched_preceptor: '', shift_assigned: '', match_quality: null, interview_outcome: 'Pending Interview', status: 'Interviewed' })
       .eq('id', student.id)
     const newRemaining = unit.slots_remaining + 1
     await supabase.from('units').update({ slots_remaining: newRemaining }).eq('id', unit.id)
@@ -246,7 +246,7 @@ function MainApp({ onLogout }) {
     if (match) setMatches(prev => prev.filter(m => m.id !== match.id))
     setStudents(prev => prev.map(s =>
       s.id === student.id
-        ? { ...s, matched_unit_id: null, matched_preceptor: '', shift_assigned: '', match_quality: null, interview_outcome: 'Pending Interview' }
+        ? { ...s, matched_unit_id: null, matched_preceptor: '', shift_assigned: '', match_quality: null, interview_outcome: 'Pending Interview', status: 'Interviewed' }
         : s
     ))
     setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, slots_remaining: newRemaining } : u))

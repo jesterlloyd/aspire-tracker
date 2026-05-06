@@ -181,8 +181,34 @@ export const UNIT_DIVISION_MAP = {
 export const ASPIRE_STATUSES = [
   'Pending Outreach',
   'Form Sent',
+  'Form Received',
+  'Interview Scheduled',
   'Interviewed',
-  'Accepted',
+  'Placed',
+  'Active Rotation',
+  'Completed',
+  'Declined',
+]
+
+export const ASPIRE_STATUS_CONFIG = {
+  'Pending Outreach':   { bg: '#f3f4f6', text: '#6b7280',  border: '#d1d5db' },
+  'Form Sent':          { bg: '#eff6ff', text: '#1d4ed8',  border: '#bfdbfe' },
+  'Form Received':      { bg: '#dbeafe', text: '#1e40af',  border: '#93c5fd' },
+  'Interview Scheduled':{ bg: '#ede9fe', text: '#5b21b6',  border: '#c4b5fd' },
+  'Interviewed':        { bg: '#fef3c7', text: '#92400e',  border: '#fcd34d' },
+  'Placed':             { bg: '#dcfce7', text: '#166534',  border: '#86efac' },
+  'Active Rotation':    { bg: '#d1fae5', text: '#065f46',  border: '#6ee7b7' },
+  'Completed':          { bg: '#f0fdf4', text: '#14532d',  border: '#4ade80' },
+  'Declined':           { bg: '#fee2e2', text: '#991b1b',  border: '#fca5a5' },
+}
+
+export const ASPIRE_STATUS_SORT_ORDER = [
+  'Pending Outreach',
+  'Form Sent',
+  'Form Received',
+  'Interview Scheduled',
+  'Interviewed',
+  'Placed',
   'Active Rotation',
   'Completed',
   'Declined',

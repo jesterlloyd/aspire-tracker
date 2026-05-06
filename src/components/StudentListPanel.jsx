@@ -1,12 +1,7 @@
 import { useState, useEffect } from 'react'
 import ImportStudentsCSV from './ImportStudentsCSV'
 import { getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
-
-const STATUS_CLASS = {
-  'Form Sent':'badge-gray','Pending Outreach':'badge-pending',
-  'Interviewed':'badge-purple','Accepted':'badge-green',
-  'Active Rotation':'badge-teal','Completed':'badge-navy','Declined':'badge-red',
-}
+import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 
 function gpaBadge(gpa) {
   if (gpa == null) return { text: 'GPA: N/A', bg: 'var(--sand)', color: 'var(--raven)' }
@@ -109,7 +104,7 @@ export default function StudentListPanel({
                 <span style={{ fontSize:11, fontWeight:600, padding:'1px 6px', borderRadius:4, background:gpa.bg, color:gpa.color }}>
                   {gpa.text}
                 </span>
-                {s.status && <span className={`badge ${STATUS_CLASS[s.status]||'badge-gray'}`} style={{ fontSize:10 }}>{s.status}</span>}
+                {s.status && (() => { const cfg = ASPIRE_STATUS_CONFIG[s.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']; return <span style={{ fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:10, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}` }}>{s.status}</span> })()}
                 <span style={{ fontSize:11, fontWeight:600, padding:'1px 6px', borderRadius:4, background:acc.bg, color:acc.text }}>
                   {acc.label}
                 </span>

@@ -71,7 +71,7 @@ export default function ImportStudentsCSV({ cohortId, onImported, onClose }) {
       unit_preference_2:  r.unit_preference_2 || '',
       unit_preference_3:  r.unit_preference_3 || '',
       notes:             r.notes || '',
-      status:            'Form Sent',
+      status:            'Pending Outreach',
       ngrp_outcome:      'Pending',
       gpa_verified:      false,
       bls_current:       false,

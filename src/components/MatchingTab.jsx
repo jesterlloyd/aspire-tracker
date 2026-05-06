@@ -5,6 +5,10 @@ import UnitSetupPanel from './UnitSetupPanel'
 import ImportUnitsCSV from './ImportUnitsCSV'
 import { UNIT_DIVISION_MAP } from '../lib/constants'
 
+const POOL_ELIGIBLE_STATUSES = new Set([
+  'Pending Outreach', 'Form Sent', 'Form Received', 'Interview Scheduled', 'Interviewed',
+])
+
 export default function MatchingTab({
   students, units, matches, cohortId,
   onMatch, onUnmatch, onUpdateMatch, onRefreshUnits, onDeleteUnit,
@@ -24,7 +28,9 @@ export default function MatchingTab({
   const slotsRemaining  = participating.reduce((s, u) => s + u.slots_remaining, 0)
   const unitsWithOpen   = participating.filter(u => u.slots_remaining > 0).length
   const matchedStudents = students.filter(s =>  s.matched_unit_id)
-  const unmatchedAll    = students.filter(s => !s.matched_unit_id)
+  // Pool only shows students who are unmatched AND have an eligible ASPIRE status
+  // (excludes Placed, Active Rotation, Completed, Declined)
+  const unmatchedAll    = students.filter(s => !s.matched_unit_id && POOL_ELIGIBLE_STATUSES.has(s.status))
   const poolSchools     = [...new Set(students.map(s => s.school).filter(Boolean))].sort()
 
   const perfectMatches = matchedStudents.filter(s => {

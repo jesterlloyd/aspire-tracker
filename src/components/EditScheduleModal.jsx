@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
+import { setAspireStatus } from '../lib/statusUtils'
 
 const TIME_SLOTS = []
 for (let h = 7; h <= 18; h++) {
@@ -43,6 +44,7 @@ export default function EditScheduleModal({ student, onClose, onSaved, onOpenRub
       interview_assigned_interviewers: assigned.join(', '),
     }).eq('id', student.id)
     if (err) { setError(err.message); setSaving(false); return }
+    await setAspireStatus(student.id, 'Interview Scheduled')
     await onSaved()
     onClose()
   }

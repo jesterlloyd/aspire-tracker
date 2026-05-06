@@ -3,12 +3,7 @@ import { displayName } from '../lib/utils'
 import RubricSession from './RubricSession'
 import WeekCalendar from './WeekCalendar'
 import ScheduleInterviewModal from './ScheduleInterviewModal'
-
-const STATUS_CLASS = {
-  'Form Sent':'badge-gray','Pending Outreach':'badge-pending',
-  'Interviewed':'badge-purple','Accepted':'badge-green',
-  'Active Rotation':'badge-teal','Completed':'badge-navy','Declined':'badge-red',
-}
+import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 
 function getStudentIvStatus(student, rubrics) {
   const sRubrics = rubrics.filter(r => r.student_id === student.id)
@@ -188,7 +183,7 @@ export default function InterviewRubricTab({
                       : '—'}
                   </td>
                   <td className="iv-td">
-                    {s.status && <span className={`badge ${STATUS_CLASS[s.status]||'badge-gray'}`}>{s.status}</span>}
+                    {s.status && (() => { const cfg = ASPIRE_STATUS_CONFIG[s.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']; return <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, whiteSpace:'nowrap' }}>{s.status}</span> })()}
                   </td>
                   <td className="iv-td">
                     <span className={`iv-status-badge iv-status-${ivStatus === 'Completed' ? 'done' : ivStatus === 'In Progress' ? 'wip' : 'none'}`}>

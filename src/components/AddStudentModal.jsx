@@ -6,7 +6,7 @@ const BLANK = {
   school_email: '', personal_email: '', phone: '',
   school: '', aspire_cohort: 'Summer 2026', term_dates: '',
   hours_required: 0, hours_completed: 0, unit: '', preceptor_name: '',
-  status: 'Form Sent', ngrp_cohort_target: '', ngrp_outcome: 'Pending',
+  status: 'Pending Outreach', ngrp_cohort_target: '', ngrp_outcome: 'Pending',
   gpa_verified: false, bls_current: false, health_cleared: false,
   background_check: false, coordinators: '', notes: '',
 }

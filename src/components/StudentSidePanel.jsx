@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 import {
-  ASPIRE_STATUSES, NGRP_OUTCOMES, INTERVIEW_OUTCOMES,
+  ASPIRE_STATUSES, ASPIRE_STATUS_CONFIG, NGRP_OUTCOMES, INTERVIEW_OUTCOMES,
   SHIFT_OPTIONS, COHORTS,
 } from '../lib/constants'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
@@ -352,8 +352,9 @@ export default function StudentSidePanel({
             <div className="sp-grid-2">
               <Field label="ASPIRE Status">
                 <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                  {data.status && <span className={`badge ${{'Form Sent':'badge-gray','Pending Outreach':'badge-pending','Interviewed':'badge-purple','Accepted':'badge-green','Active Rotation':'badge-teal','Completed':'badge-navy','Declined':'badge-red'}[data.status]||'badge-gray'}`}>{data.status}</span>}
+                  {data.status && (() => { const cfg = ASPIRE_STATUS_CONFIG[data.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']; return <span style={{ fontSize:11, fontWeight:700, padding:'2px 10px', borderRadius:20, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, alignSelf:'flex-start' }}>{data.status}</span> })()}
                   <select className="sp-select" value={data.status||''} onChange={e => handleSelect('status', e.target.value)}>
+                    <option value="">Select status…</option>
                     {ASPIRE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>

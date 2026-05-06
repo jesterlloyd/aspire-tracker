@@ -1,10 +1,11 @@
 import { displayName } from '../lib/utils'
+import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 
-const PILL_CLASS = {
-  'Pending Interview':          'pill-gray',
-  'Accepted':                   'pill-green',
-  'Accepted with Reservations': 'pill-yellow',
-  'Declined':                   'pill-red',
+const OUTCOME_STYLE = {
+  'Accepted':                   { bg:'#dcfce7', color:'#166534' },
+  'Accepted with Reservations': { bg:'#fef3c7', color:'#92400e' },
+  'Declined':                   { bg:'#fee2e2', color:'#991b1b' },
+  'Pending Interview':          { bg:'#f3f4f6', color:'#6b7280' },
 }
 
 const PREF_STYLE = {
@@ -16,15 +17,14 @@ const PREF_STYLE = {
 export default function StudentMatchCard({
   student, isSelected, onSelect, isReadOnly, isFading, isFadingIn,
 }) {
-  const outcome   = student.interview_outcome || 'Pending Interview'
-  const pillClass = PILL_CLASS[outcome] || 'pill-gray'
+  const outcome     = student.interview_outcome || 'Pending Interview'
+  const outcomeCfg  = OUTCOME_STYLE[outcome] || OUTCOME_STYLE['Pending Interview']
+  const statusCfg   = ASPIRE_STATUS_CONFIG[student.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']
 
   const gpa      = student.cumulative_gpa
   const gpaBg    = gpa == null ? 'var(--sand)'  : gpa >= 3.5 ? '#dcfce7' : gpa >= 3.0 ? '#fef3c7' : 'var(--sand)'
   const gpaColor = gpa == null ? 'var(--raven)' : gpa >= 3.5 ? '#166534' : gpa >= 3.0 ? '#92400e' : 'var(--raven)'
   const gpaText  = gpa != null ? `GPA: ${parseFloat(gpa).toFixed(2)}` : 'GPA: N/A'
-
-  const isPending = outcome === 'Pending Interview' || (student.status && student.status !== 'Accepted')
 
   const classes = [
     'student-match-card',
@@ -40,16 +40,21 @@ export default function StudentMatchCard({
       onClick={!isReadOnly ? () => onSelect(student) : undefined}
       role={!isReadOnly ? 'button' : undefined}
     >
-      {/* Row 1: Name + outcome pill */}
+      {/* Row 1: Name + status pills */}
       <div className="smc-top">
         <span className="smc-name">{displayName(student)}</span>
         <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:3, flexShrink:0 }}>
-          <span className={`interview-pill ${pillClass}`}>{outcome}</span>
-          {isPending && (
-            <span style={{ background:'#f3f4f6', color:'#6b7280', fontSize:10, fontWeight:600, padding:'1px 6px', borderRadius:4 }}>
-              Pending
+          {student.status && (
+            <span style={{ fontSize:10, fontWeight:700, padding:'1px 7px', borderRadius:10, background:statusCfg.bg, color:statusCfg.text, border:`1px solid ${statusCfg.border}`, whiteSpace:'nowrap' }}>
+              {student.status}
             </span>
           )}
+          <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+            <span style={{ fontSize:10, color:'#6b7280' }}>Interview:</span>
+            <span style={{ fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:10, background:outcomeCfg.bg, color:outcomeCfg.color, whiteSpace:'nowrap' }}>
+              {outcome}
+            </span>
+          </div>
         </div>
       </div>
 
