@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { PATIENT_POPULATION_MAP, UNITS_BY_DIVISION } from '../lib/constants'
@@ -25,6 +25,8 @@ const GA_QUESTIONS = [
   'What drew you to Cedars-Sinai for your senior preceptorship, and how do you see this experience supporting your growth as a nurse?',
   'What personal strengths or qualities do you bring that make you a good fit for the ASPIRE Program?',
 ]
+const DOMAIN_QUESTIONS = { cj: CJ_QUESTIONS, pp: PP_QUESTIONS, ga: GA_QUESTIONS }
+
 const DOMAIN_REF = {
   cj: { desc:'Ability to observe, interpret, prioritize, and respond to patient needs using integrated clinical knowledge and critical thinking.', basis:"Tanner's Clinical Judgment Model and Benner's Novice to Expert framework.", listen:'Patient safety awareness, prioritization, logical reasoning, situational awareness.' },
   pp: { desc:'Demonstrates professional behavior, emotional intelligence, and readiness to function as part of a healthcare team.', basis:'QSEN competencies for teamwork, communication, and patient-centered care.', listen:'Self-reflection, receptiveness to feedback, professionalism under stress, accountability.' },
@@ -91,10 +93,16 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     unit_preference_2: student.unit_preference_2 || '',
     unit_preference_3: student.unit_preference_3 || '',
   })
-  const timerRef = useRef(null)
+  const timerRef      = useRef(null)
+  const customQTimers = useRef({})
+
+  // ── Session state ─────────────────────────────────────────
+  const [activeSession,    setActiveSession]    = useState(null)
+  const [previousSessions, setPreviousSessions] = useState([])
+  const [sessionLoading,   setSessionLoading]   = useState(true)
 
   // Rubrics for this student
-  const studentRubrics = rubrics.filter(r => r.student_id === student.id)
+  const studentRubrics  = rubrics.filter(r => r.student_id === student.id)
   const completedRubrics = studentRubrics.filter(r => r.status === 'Completed')
 
   useEffect(() => {
@@ -103,6 +111,109 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     supabase.from('units').select('unit_name').eq('is_participating', true).eq('cohort_id', cohortId).order('unit_name')
       .then(({ data }) => setAvailUnits((data || []).map(u => u.unit_name)))
   }, [cohortId])
+
+  // ── Load or create interview session ─────────────────────
+  useEffect(() => {
+    let cancelled = false
+    async function loadSession() {
+      setSessionLoading(true)
+      const { data: sessions } = await supabase
+        .from('interview_sessions')
+        .select('*')
+        .eq('student_id', student.id)
+        .eq('cohort_id', cohortId)
+        .order('session_number', { ascending: true })
+      if (cancelled) return
+
+      if (!sessions || sessions.length === 0) {
+        const { data: newSession } = await supabase
+          .from('interview_sessions')
+          .insert({ student_id: student.id, cohort_id: cohortId, session_number: 1 })
+          .select().single()
+        if (!cancelled) { setActiveSession(newSession); setPreviousSessions([]) }
+      } else {
+        const latest = sessions[sessions.length - 1]
+        const allCompleted = studentRubrics.length > 0 && studentRubrics.every(r => r.status === 'Completed')
+        if (allCompleted) {
+          const nextNum = latest.session_number + 1
+          const existingNext = sessions.find(s => s.session_number === nextNum)
+          if (existingNext) {
+            if (!cancelled) {
+              setActiveSession(existingNext)
+              setPreviousSessions(sessions.filter(s => s.session_number < existingNext.session_number))
+            }
+          } else {
+            const { data: newSession } = await supabase
+              .from('interview_sessions')
+              .insert({ student_id: student.id, cohort_id: cohortId, session_number: nextNum })
+              .select().single()
+            if (!cancelled) { setActiveSession(newSession); setPreviousSessions(sessions) }
+          }
+        } else {
+          if (!cancelled) {
+            setActiveSession(latest)
+            setPreviousSessions(sessions.slice(0, -1))
+          }
+        }
+      }
+      if (!cancelled) setSessionLoading(false)
+    }
+    loadSession()
+    return () => { cancelled = true }
+  }, [student.id, cohortId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Realtime subscription on active session ───────────────
+  useEffect(() => {
+    if (!activeSession?.id) return
+    const channel = supabase
+      .channel(`interview-session-${activeSession.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'interview_sessions',
+        filter: `id=eq.${activeSession.id}`,
+      }, payload => {
+        setActiveSession(prev => ({ ...prev, ...payload.new }))
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [activeSession?.id])
+
+  // ── Sync session question selections into local form state ─
+  useEffect(() => {
+    if (!activeSession) return
+    const updates = {}
+    for (const domain of ['cj', 'pp', 'ga']) {
+      const idx = activeSession[`${domain}_question_index`]
+      if (idx != null) {
+        updates[`${domain}_question_asked`] = idx === 0
+          ? (activeSession[`${domain}_question_text`] || '')
+          : (DOMAIN_QUESTIONS[domain][idx - 1] || '')
+      }
+    }
+    if (Object.keys(updates).length > 0) setForm(p => ({ ...p, ...updates }))
+  }, [
+    activeSession?.cj_question_index, activeSession?.pp_question_index, activeSession?.ga_question_index,
+    activeSession?.cj_question_text,  activeSession?.pp_question_text,  activeSession?.ga_question_text,
+  ]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Per-domain previous session data ─────────────────────
+  const domainPrevData = useMemo(() => {
+    const result = {}
+    for (const domain of ['cj', 'pp', 'ga']) {
+      const usedIndexes = new Set()
+      let prevCustomText = null
+      for (const ps of previousSessions) {
+        const idx = ps[`${domain}_question_index`]
+        if (idx != null) {
+          if (idx === 0) prevCustomText = ps[`${domain}_question_text`] || null
+          else usedIndexes.add(idx - 1) // convert to 0-based
+        }
+      }
+      result[domain] = { usedIndexes, prevCustomText, allPresetAsked: usedIndexes.size >= 5 }
+    }
+    return result
+  }, [previousSessions])
 
   // When interviewer_name changes, try to load their existing rubric
   const handleInterviewerChange = async (name) => {
@@ -121,7 +232,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const composite = (form.cj_score || 0) + (form.pp_score || 0) + (form.ga_score || 0)
 
   // createIfNeeded=false: only update existing record, never create
-  // createIfNeeded=true: create record on first meaningful edit
+  // createIfNeeded=true:  create record on first meaningful edit
   const persist = async (updates, createIfNeeded = false) => {
     setSaveStatus('saving')
     const payload = { ...updates, composite_score: (updates.cj_score ?? (form.cj_score || 0)) + (updates.pp_score ?? (form.pp_score || 0)) + (updates.ga_score ?? (form.ga_score || 0)), updated_at: new Date().toISOString() }
@@ -162,10 +273,47 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     await onStudentUpdate(student.id, { [field]: value })
   }
 
+  // ── Question locking: first click writes to shared session ─
+  const lockQuestion = async (domain, questionIndex, questionText) => {
+    if (!activeSession || !form.interviewer_name) return
+    if (activeSession[`${domain}_question_index`] != null) return // already locked
+    const updates = {
+      [`${domain}_question_index`]: questionIndex,
+      [`${domain}_locked_by`]:      form.interviewer_name,
+      updated_at: new Date().toISOString(),
+    }
+    setActiveSession(p => ({ ...p, ...updates }))
+    await supabase.from('interview_sessions').update(updates).eq('id', activeSession.id)
+  }
+
+  // ── Custom question (Other) text — debounced save to session ─
+  const updateCustomQuestion = (domain, text) => {
+    setActiveSession(p => ({ ...p, [`${domain}_question_text`]: text }))
+    clearTimeout(customQTimers.current[domain])
+    customQTimers.current[domain] = setTimeout(async () => {
+      await supabase.from('interview_sessions').update({
+        [`${domain}_question_text`]: text,
+        updated_at: new Date().toISOString(),
+      }).eq('id', activeSession.id)
+    }, 600)
+  }
+
   const handleMarkComplete = async () => {
     setConfirmComplete(false)
-    await persist({ ...form, status:'Completed', composite_score: composite })
-    setForm(p => ({ ...p, status:'Completed', composite_score: composite }))
+    // Write session's authoritative question choices to the rubric for historical reference
+    const qUpdates = {}
+    if (activeSession) {
+      for (const domain of ['cj', 'pp', 'ga']) {
+        const idx = activeSession[`${domain}_question_index`]
+        if (idx != null) {
+          qUpdates[`${domain}_question_asked`] = idx === 0
+            ? (activeSession[`${domain}_question_text`] || '')
+            : (DOMAIN_QUESTIONS[domain][idx - 1] || '')
+        }
+      }
+    }
+    await persist({ ...form, ...qUpdates, status:'Completed', composite_score: composite })
+    setForm(p => ({ ...p, ...qUpdates, status:'Completed', composite_score: composite }))
     // Recalculate averages from all completed rubrics (including this one)
     const allCompleted = [...completedRubrics.filter(r => r.id !== rubricId), { ...form, cj_score: form.cj_score||0, pp_score: form.pp_score||0, ga_score: form.ga_score||0, status:'Completed' }]
     const n = allCompleted.length
@@ -174,13 +322,11 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     const avgPP   = allCompleted.reduce((s,r) => s + (r.pp_score||0), 0) / n
     const avgGA   = allCompleted.reduce((s,r) => s + (r.ga_score||0), 0) / n
     const avgComp = avgCJ + avgPP + avgGA
-    const autoRec = getAutoRec(avgComp)
-    const outcome = getInterviewOutcome(avgComp)
     await onStudentUpdate(student.id, {
       avg_cj_score: +avgCJ.toFixed(2), avg_pp_score: +avgPP.toFixed(2),
       avg_ga_score: +avgGA.toFixed(2), avg_composite_score: +avgComp.toFixed(2),
-      auto_recommendation: autoRec, rubric_count: n,
-      interview_outcome: outcome, status: 'Interviewed',
+      auto_recommendation: getAutoRec(avgComp), rubric_count: n,
+      interview_outcome: getInterviewOutcome(avgComp), status: 'Interviewed',
     })
   }
 
@@ -475,12 +621,23 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
             {/* Sections 3-5: Domains */}
             {[
-              { key:'cj', snum:3, title:'Clinical Judgment', color:'#1d2567', questions:CJ_QUESTIONS },
+              { key:'cj', snum:3, title:'Clinical Judgment',    color:'#1d2567', questions:CJ_QUESTIONS },
               { key:'pp', snum:4, title:'Professional Presence', color:'#0d7a8a', questions:PP_QUESTIONS },
-              { key:'ga', snum:5, title:'Goal Alignment', color:'#166534', questions:GA_QUESTIONS },
+              { key:'ga', snum:5, title:'Goal Alignment',        color:'#166534', questions:GA_QUESTIONS },
             ].map(({ key, snum, title, color, questions }) => {
-              const qField = `${key}_question_asked`, sField = `${key}_score`, nField = `${key}_notes`
-              const ref = DOMAIN_REF[key]
+              const sField = `${key}_score`
+              const nField = `${key}_notes`
+              const ref    = DOMAIN_REF[key]
+
+              // Session state for this domain
+              const sessionQIndex   = activeSession?.[`${key}_question_index`] ?? null
+              const sessionLockedBy = activeSession?.[`${key}_locked_by`] || ''
+              const sessionCustom   = activeSession?.[`${key}_question_text`] || ''
+              const isDomainLocked  = sessionQIndex != null
+
+              // Previous session data
+              const { usedIndexes: prevUsed, prevCustomText, allPresetAsked } = domainPrevData[key] || { usedIndexes: new Set(), prevCustomText: null, allPresetAsked: false }
+
               return (
                 <div className="iv-domain-card" key={key} id={`s${snum}`} style={{ borderTopColor: color }}>
                   <div className="iv-domain-header">
@@ -498,27 +655,153 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                       <p className="iv-ref-row"><strong>Listen for:</strong> {ref.listen}</p>
                     </div>
                   )}
-                  <p className="iv-prompt">Ask at least one of the following:</p>
-                  <div className="iv-questions">
-                    {questions.map((q, qi) => {
-                      const sel = form[qField] === q
-                      return (!locked || sel) ? (
-                        <div key={qi} className={`iv-question-card${sel ? ' iv-question-card-sel' : ''}`}
-                          style={{ borderColor: sel ? color : '#d1d5db', background: sel ? color : '#fff', cursor: locked ? 'default' : 'pointer' }}
-                          onClick={!locked ? () => saveMeaningful(qField, q) : undefined}>
-                          <div className="iv-question-radio" style={{ border:`2px solid ${sel ? '#fff' : '#9ca3af'}`, background: sel ? '#fff' : 'transparent' }}>
-                            {sel && <div className="iv-question-radio-dot" style={{ background: color }} />}
+
+                  {/* Question selector label */}
+                  <p style={{ fontWeight:600, fontSize:14, color:'var(--raven)', marginBottom:4, marginTop:18 }}>
+                    Select the question that was asked:
+                  </p>
+                  <p style={{ fontSize:12, color:'#6b7280', marginBottom:14, lineHeight:1.5 }}>
+                    One question per domain is asked during the interview. The first interviewer to select locks the choice for all rubrics in this session.
+                  </p>
+
+                  {/* All preset questions previously asked — info banner */}
+                  {allPresetAsked && !locked && (
+                    <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:6, padding:'8px 12px', marginBottom:12, fontSize:13, color:'#1d4ed8' }}>
+                      All preset questions have been asked in previous sessions. Use Other to ask a new question.
+                    </div>
+                  )}
+
+                  {/* Question tiles */}
+                  {sessionLoading ? (
+                    <div style={{ fontSize:13, color:'#6b7280', padding:'12px 0' }}>Loading session…</div>
+                  ) : (
+                    <div className="iv-questions">
+                      {/* Preset question tiles */}
+                      {questions.map((q, qi) => {
+                        // Determine selection: from session if available, else from form text for completed rubrics (backward compat)
+                        const isThisSelected = isDomainLocked
+                          ? sessionQIndex === qi + 1
+                          : (locked && form[`${key}_question_asked`] === q)
+                        const isPrevAsked = prevUsed.has(qi)
+                        const canSelect   = !locked && !isDomainLocked && !isPrevAsked && !!form.interviewer_name
+                        const isGrayed    = !isThisSelected && (isDomainLocked || isPrevAsked)
+
+                        if (locked && !isThisSelected) return null
+
+                        return (
+                          <div key={qi}
+                            className={`iv-question-card${isThisSelected ? ' iv-question-card-sel' : ''}`}
+                            style={{
+                              borderColor: isThisSelected ? color : isPrevAsked ? '#e5e7eb' : '#d1d5db',
+                              background:  isThisSelected ? color : isPrevAsked ? '#f4f1ec' : '#fff',
+                              opacity:     isGrayed ? (isPrevAsked ? 0.65 : 0.4) : 1,
+                              cursor:      canSelect ? 'pointer' : 'default',
+                              pointerEvents: canSelect ? 'auto' : 'none',
+                            }}
+                            onClick={canSelect ? () => lockQuestion(key, qi + 1, q) : undefined}>
+                            <div className="iv-question-radio"
+                              style={{ border:`2px solid ${isThisSelected ? '#fff' : '#9ca3af'}`, background: isThisSelected ? '#fff' : 'transparent', flexShrink:0 }}>
+                              {isThisSelected && <div className="iv-question-radio-dot" style={{ background: color }} />}
+                            </div>
+                            <div style={{ flex:1 }}>
+                              <span style={{ fontSize:14, color: isThisSelected ? '#fff' : isPrevAsked ? '#9ca3af' : '#191919', textDecoration: isPrevAsked ? 'line-through' : 'none' }}>
+                                {q}
+                              </span>
+                              {isPrevAsked && (
+                                <div style={{ fontSize:10, fontWeight:500, color:'#6b7280', marginTop:2 }}>Previously asked</div>
+                              )}
+                              {isThisSelected && isDomainLocked && (
+                                <div style={{ fontSize:11, color:'rgba(255,255,255,0.8)', marginTop:4 }}>
+                                  {sessionLockedBy === form.interviewer_name ? 'You selected this' : `Selected by ${sessionLockedBy}`}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <span style={{ color: sel ? '#fff' : '#191919' }}>{q}</span>
-                        </div>
-                      ) : null
-                    })}
-                  </div>
+                        )
+                      })}
+
+                      {/* Other / Custom Question tile */}
+                      {(() => {
+                        const isOtherSelected = isDomainLocked
+                          ? sessionQIndex === 0
+                          : (locked && !!form[`${key}_question_asked`] && !questions.includes(form[`${key}_question_asked`]))
+                        const canSelectOther = !locked && !isDomainLocked && !!form.interviewer_name
+                        const isGrayedOther  = !isOtherSelected && isDomainLocked
+
+                        if (locked && !isOtherSelected) return null
+
+                        return (
+                          <div key="other">
+                            <div
+                              className={`iv-question-card${isOtherSelected ? ' iv-question-card-sel' : ''}`}
+                              style={{
+                                borderColor:   isOtherSelected ? color : '#d1d5db',
+                                background:    isOtherSelected ? color : '#fff',
+                                opacity:       isGrayedOther ? 0.4 : 1,
+                                cursor:        canSelectOther ? 'pointer' : 'default',
+                                pointerEvents: canSelectOther ? 'auto' : 'none',
+                              }}
+                              onClick={canSelectOther ? () => lockQuestion(key, 0, '') : undefined}>
+                              <div className="iv-question-radio"
+                                style={{ border:`2px solid ${isOtherSelected ? '#fff' : '#9ca3af'}`, background: isOtherSelected ? '#fff' : 'transparent', flexShrink:0 }}>
+                                {isOtherSelected && <div className="iv-question-radio-dot" style={{ background: color }} />}
+                              </div>
+                              <div style={{ flex:1 }}>
+                                <span style={{ fontWeight:500, fontSize:14, color: isOtherSelected ? '#fff' : '#191919' }}>
+                                  Other / Custom Question
+                                </span>
+                                {prevCustomText && (
+                                  <div style={{ fontSize:11, color: isOtherSelected ? 'rgba(255,255,255,0.75)' : '#9ca3af', fontStyle:'italic', marginTop:4 }}>
+                                    Previous custom question: {prevCustomText}
+                                  </div>
+                                )}
+                                {isOtherSelected && isDomainLocked && (
+                                  <div style={{ fontSize:11, color:'rgba(255,255,255,0.8)', marginTop:4 }}>
+                                    {sessionLockedBy === form.interviewer_name ? 'You selected this' : `Selected by ${sessionLockedBy}`}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Custom question input — shown when Other is selected */}
+                            {isOtherSelected && (
+                              <div style={{ marginTop:8 }}>
+                                <label style={{ display:'block', fontSize:13, fontWeight:500, color:'var(--raven)', marginBottom:6 }}>
+                                  Type the custom question asked:
+                                </label>
+                                {locked ? (
+                                  <div className="iv-readonly">{sessionCustom || form[`${key}_question_asked`] || '—'}</div>
+                                ) : sessionCustom && sessionLockedBy !== form.interviewer_name ? (
+                                  // Read-only for interviewers who didn't type it
+                                  <div style={{ padding:'10px 14px', background:'#f9fafb', borderRadius:6, border:'1px solid #e5e7eb', fontSize:13, color:'var(--raven)', lineHeight:1.6 }}>
+                                    {sessionCustom}
+                                    <div style={{ fontSize:11, color:'#6b7280', marginTop:6 }}>Typed by {sessionLockedBy}</div>
+                                  </div>
+                                ) : (
+                                  <textarea
+                                    className="iv-textarea iv-notes-textarea"
+                                    rows={3}
+                                    placeholder="Enter the question you asked the student…"
+                                    value={sessionCustom}
+                                    onChange={e => updateCustomQuestion(key, e.target.value)}
+                                  />
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Notes */}
                   <div className="iv-field" style={{ marginTop:14 }}>
                     <label className="iv-label iv-score-label">Notes and Response Summary</label>
                     {locked ? <div className="iv-readonly iv-readonly-tall">{form[nField] || '—'}</div>
                       : <textarea className="iv-textarea iv-notes-textarea" rows={3} value={form[nField]} onChange={e => saveText(nField, e.target.value)} placeholder="Key points from the student's response…" />}
                   </div>
+
+                  {/* Score tiles */}
                   <div className="iv-field" style={{ marginTop:14 }}>
                     <label className="iv-label iv-score-label">Rate this domain:</label>
                     <div className="iv-score-tiles">
