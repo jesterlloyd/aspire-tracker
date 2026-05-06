@@ -297,8 +297,11 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const timerRef = useRef(null)
 
   // Tracks which domains are in "Other / Custom" mode per rubric instance
-  const [otherClicked,   setOtherClicked]   = useState({ cj: false, pp: false, ga: false })
-  const [headshotError,  setHeadshotError]  = useState(false)
+  const [otherClicked,    setOtherClicked]    = useState({ cj: false, pp: false, ga: false })
+  const [headshotError,   setHeadshotError]   = useState(false)
+  const [showValidation,  setShowValidation]  = useState(false)
+  const [unitAvailability,setUnitAvailability]= useState([null, null, null])
+  const [availLoading,    setAvailLoading]    = useState(true)
 
   useEffect(() => { setHeadshotError(false) }, [student.headshot_url])
 
@@ -313,6 +316,29 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       .then(({ data }) => setAvailUnits((data || []).map(u => u.unit_name)))
   }, [cohortId])
 
+  // Load unit availability snapshot for each of the student's 3 preferences
+  const loadUnitAvailability = async () => {
+    setAvailLoading(true)
+    const prefFields = [student.unit_preference_1, student.unit_preference_2, student.unit_preference_3]
+    const results = await Promise.all(prefFields.map(async unitName => {
+      if (!unitName) return null
+      const [unitRes, d1, d2, d3] = await Promise.all([
+        supabase.from('units').select('slots_remaining, total_slots')
+          .eq('unit_name', unitName).eq('cohort_id', cohortId).maybeSingle(),
+        supabase.from('students').select('id', { count:'exact', head:true })
+          .eq('cohort_id', cohortId).eq('unit_preference_1', unitName),
+        supabase.from('students').select('id', { count:'exact', head:true })
+          .eq('cohort_id', cohortId).eq('unit_preference_2', unitName),
+        supabase.from('students').select('id', { count:'exact', head:true })
+          .eq('cohort_id', cohortId).eq('unit_preference_3', unitName),
+      ])
+      return { unit: unitRes.data, demand1: d1.count||0, demand2: d2.count||0, demand3: d3.count||0 }
+    }))
+    setUnitAvailability(results)
+    setAvailLoading(false)
+  }
+
+  useEffect(() => { loadUnitAvailability() }, [student.id, cohortId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // When interviewer_name changes, try to load their existing rubric
   const handleInterviewerChange = async (name) => {
@@ -420,16 +446,35 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
   const locked = form.status === 'Completed'
 
-  // Progress steps fill state
+  // Derived question-selected flags (preset text OR Other tile clicked)
+  const hasQCj = !!form.cj_question_asked || otherClicked.cj
+  const hasQPp = !!form.pp_question_asked || otherClicked.pp
+  const hasQGa = !!form.ga_question_asked || otherClicked.ga
+
+  // Tri-state progress steps: 'empty' | 'partial' | 'complete'
+  const stepSt = (complete, partial) => complete ? 'complete' : partial ? 'partial' : 'empty'
   const steps = [
-    { id:'s1', label:'Info',         filled: !!(form.interview_date && form.interviewer_name) },
-    { id:'s2', label:'Preferences',  filled: !!(prefs.unit_preference_1) },
-    { id:'s3', label:'Clinical',     filled: form.cj_score > 0 },
-    { id:'s4', label:'Professional', filled: form.pp_score > 0 },
-    { id:'s5', label:'Goal',         filled: form.ga_score > 0 },
-    { id:'s6', label:'Questions',    filled: false },
-    { id:'s7', label:'Recommendation', filled: !!form.individual_recommendation },
+    { id:'s1', label:'Info',           status: stepSt(!!(form.interview_date && form.interviewer_name), !!(form.interview_date || form.interviewer_name)) },
+    { id:'s2', label:'Preferences',    status: stepSt(!!prefs.unit_preference_1, false) },
+    { id:'s3', label:'Clinical',       status: stepSt(hasQCj && form.cj_score > 0, hasQCj || form.cj_score > 0) },
+    { id:'s4', label:'Professional',   status: stepSt(hasQPp && form.pp_score > 0, hasQPp || form.pp_score > 0) },
+    { id:'s5', label:'Goal',           status: stepSt(hasQGa && form.ga_score > 0, hasQGa || form.ga_score > 0) },
+    { id:'s6', label:'Questions',      status: form.student_questions ? 'partial' : 'empty' },
+    { id:'s7', label:'Recommendation', status: stepSt(!!form.individual_recommendation, false) },
   ]
+
+  // Validation errors — computed live, gate Mark Complete
+  const validationErrors = !locked ? [
+    !form.interviewer_name                       && 'Interviewer name is required in Section 1',
+    !form.interview_date                         && 'Date of interview is required in Section 1',
+    (!form.cj_question_asked && !otherClicked.cj) && 'A question must be selected for Clinical Judgment',
+    !form.cj_score                               && 'A score must be selected for Clinical Judgment',
+    (!form.pp_question_asked && !otherClicked.pp) && 'A question must be selected for Professional Presence',
+    !form.pp_score                               && 'A score must be selected for Professional Presence',
+    (!form.ga_question_asked && !otherClicked.ga) && 'A question must be selected for Goal Alignment',
+    !form.ga_score                               && 'A score must be selected for Goal Alignment',
+    !form.individual_recommendation              && 'Overall recommendation is required',
+  ].filter(Boolean) : []
 
   const initials = `${(student.first_name||'')[0]||''}${(student.last_name||'')[0]||''}`.toUpperCase()
 
@@ -486,17 +531,65 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
             }
           </div>
 
-          {/* Preferences */}
+          {/* Preferences with availability */}
           <div className="rub-divider" />
           <div className="rub-left-section">
-            <div className="rub-left-lbl">Submitted Preferences</div>
-            {['unit_preference_1','unit_preference_2','unit_preference_3'].map((f, i) => {
-              const val = student[f]
-              const desc = val ? PATIENT_POPULATION_MAP[val] : null
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+              <div className="rub-left-lbl" style={{ marginBottom:0 }}>Submitted Preferences</div>
+              <button onClick={loadUnitAvailability} disabled={availLoading}
+                style={{ fontSize:12, fontWeight:500, color:'var(--nightfall)', background:'none', border:'none', cursor:availLoading?'default':'pointer', display:'flex', alignItems:'center', gap:4, padding:0, opacity:availLoading?0.5:1 }}>
+                <span style={{ display:'inline-block', animation: availLoading ? 'spin 1s linear infinite' : 'none' }}>↻</span> Refresh
+              </button>
+            </div>
+            {[
+              { pref: student.unit_preference_1, rank: '1st Choice', idx: 0 },
+              { pref: student.unit_preference_2, rank: '2nd Choice', idx: 1 },
+              { pref: student.unit_preference_3, rank: '3rd Choice', idx: 2 },
+            ].map(({ pref, rank, idx }) => {
+              const avail = unitAvailability[idx]
+              const unit  = avail?.unit ?? null
+              const d1 = avail?.demand1 ?? 0, d2 = avail?.demand2 ?? 0, d3 = avail?.demand3 ?? 0
+              const slots = unit?.slots_remaining ?? 0
+              const highDemand = unit && d1 >= slots + 2
+
+              const slotsBadge = unit
+                ? slots > 1  ? { label:`${slots} slots open`, bg:'#dcfce7', color:'#166534' }
+                : slots === 1 ? { label:'1 slot left',        bg:'#fef3c7', color:'#92400e' }
+                :               { label:'Full',               bg:'#fee2e2', color:'#991b1b', bold:true }
+                : null
+
               return (
-                <div key={f} style={{ marginBottom:6 }}>
-                  <div style={{ fontSize:12, fontWeight:600, color:'var(--nightfall)' }}>{i+1}. {val || <span style={{ color:'#9ca3af' }}>Not submitted</span>}</div>
-                  {desc && <div style={{ fontSize:11, color:'#6b7280', fontStyle:'italic' }}>{desc}</div>}
+                <div key={rank} style={{ marginBottom:12, paddingBottom:10, borderBottom:'1px solid #f0f0f0' }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:4 }}>
+                    <div style={{ fontSize:11, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em' }}>{rank}</div>
+                    {highDemand && <span style={{ fontSize:10, fontWeight:600, padding:'1px 6px', borderRadius:4, background:'#fef3c7', color:'#92400e' }}>High demand</span>}
+                  </div>
+                  {!pref ? (
+                    <div style={{ fontSize:12, color:'#9ca3af', fontStyle:'italic' }}>Not submitted</div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize:13, fontWeight:600, color:'var(--nightfall)', marginBottom:4 }}>{pref}</div>
+                      {availLoading ? (
+                        <div className="avail-skeleton" />
+                      ) : !unit ? (
+                        <div style={{ fontSize:11, color:'#9ca3af', fontStyle:'italic' }}>Not participating this cycle</div>
+                      ) : (
+                        <>
+                          <div style={{ marginBottom:3 }}>
+                            <span style={{ fontSize:11, fontWeight: slotsBadge.bold ? 700 : 600, padding:'1px 7px', borderRadius:4, background:slotsBadge.bg, color:slotsBadge.color }}>
+                              {slotsBadge.label}
+                            </span>
+                          </div>
+                          <div style={{ fontSize:11, color:'#6b7280' }}>1st: {d1} · 2nd: {d2} · 3rd: {d3}</div>
+                          {slots === 0 && (
+                            <div style={{ marginTop:6, padding:'8px 10px', background:'#fee2e2', borderLeft:'3px solid var(--cs-red)', borderRadius:4, fontSize:12, color:'#991b1b', lineHeight:1.5 }}>
+                              This unit is currently full. Consider exploring alternatives during the interview.
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </>
+                  )}
                 </div>
               )
             })}
@@ -564,12 +657,21 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
         <div className="rub-right" id="rub-right-scroll">
           {/* Sticky progress bar */}
           <div className="rub-progress-bar">
-            {steps.map((s, i) => (
-              <div key={s.id} className="rub-step" onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior:'smooth', block:'start' })}>
-                <div className={`rub-step-circle${s.filled ? ' rub-step-done' : ''}`}>{s.filled ? '✓' : i+1}</div>
-                <span className="rub-step-label">{s.label}</span>
-              </div>
-            ))}
+            {steps.map((s, i) => {
+              const done    = s.status === 'complete'
+              const partial = s.status === 'partial'
+              const circleStyle = done
+                ? { borderColor:'#16a34a', background:'#dcfce7', color:'#166534' }
+                : partial
+                ? { borderColor:'#ca8a04', background:'#fef3c7', color:'#92400e' }
+                : {}
+              return (
+                <div key={s.id} className="rub-step" onClick={() => document.getElementById(s.id)?.scrollIntoView({ behavior:'smooth', block:'start' })}>
+                  <div className="rub-step-circle" style={circleStyle}>{done ? '✓' : i+1}</div>
+                  <span className="rub-step-label">{s.label}</span>
+                </div>
+              )
+            })}
             <div className="rub-save-dot">
               {saveStatus === 'saving' && <span style={{ color:'#6b7280', fontSize:11 }}>…</span>}
               {saveStatus === 'saved'  && <span style={{ color:'#16a34a', fontSize:11 }}>✓</span>}
@@ -590,6 +692,13 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                   </span>
                 </>
               )}
+            </div>
+          )}
+
+          {/* No-name banner — shown until interviewer selects their name */}
+          {!locked && !form.interviewer_name && (
+            <div style={{ background:'var(--sand)', border:'1px solid var(--border)', borderRadius:6, padding:'10px 14px', marginBottom:12, fontSize:13, color:'var(--nightfall)', fontWeight:500 }}>
+              Select your name in Section 1 to begin saving your rubric.
             </div>
           )}
 
@@ -907,9 +1016,25 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
             {/* Action buttons */}
             {!locked && (
               <div className="iv-complete-zone">
+                {/* Validation summary panel */}
+                {showValidation && validationErrors.length > 0 && (
+                  <div style={{ background:'var(--marina)', borderLeft:'3px solid var(--cs-red)', borderRadius:6, padding:'12px 16px', marginBottom:14 }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:'#dc1e34', marginBottom:8 }}>Please complete the following before submitting:</div>
+                    {validationErrors.map((e, i) => (
+                      <div key={i} style={{ fontSize:14, color:'var(--nightfall)', lineHeight:1.6 }}>• {e}</div>
+                    ))}
+                  </div>
+                )}
                 <div className="iv-action-row">
                   <button className="iv-reset-btn" onClick={() => setConfirmReset(true)}>Reset Form</button>
-                  <button className="iv-complete-btn" onClick={() => setConfirmComplete(true)}>Mark My Rubric Complete</button>
+                  <button className="iv-complete-btn"
+                    style={{ opacity: validationErrors.length > 0 ? 0.5 : 1 }}
+                    onClick={() => {
+                      if (validationErrors.length > 0) { setShowValidation(true); return }
+                      setShowValidation(false); setConfirmComplete(true)
+                    }}>
+                    Mark My Rubric Complete
+                  </button>
                 </div>
               </div>
             )}

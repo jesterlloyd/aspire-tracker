@@ -1650,6 +1650,22 @@ a.doc-file-link:hover { text-decoration: underline; }
 .rub-save-dot { margin-left: auto; font-size: 11px; }
 .rub-form-body { padding: 16px; display: flex; flex-direction: column; gap: 0; }
 
+/* Unit availability skeleton shimmer */
+@keyframes shimmer {
+  0%   { opacity: 0.4; }
+  50%  { opacity: 0.9; }
+  100% { opacity: 0.4; }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.avail-skeleton {
+  height: 34px; background: var(--sand); border-radius: 6;
+  animation: shimmer 1.4s ease-in-out infinite;
+  margin-bottom: 4px;
+}
+
 /* All rubrics section */
 .rub-all-section { background: var(--pearl); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-top: 16px; }
 .rub-all-title { font-size: 14px; font-weight: 700; color: var(--nightfall); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-lt); }

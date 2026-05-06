@@ -156,6 +156,10 @@ export default function InterviewRubricTab({
               const ivStatus = getStudentIvStatus(s, rubrics)
               const borderColor = ROW_BORDER[ivStatus] || '#d1d5db'
               const rubCount = rubrics.filter(r => r.student_id === s.id).length
+              const hasIncomplete = rubrics.some(r =>
+                r.student_id === s.id && r.status === 'In Progress' &&
+                (!r.cj_score || !r.pp_score || !r.ga_score || !r.individual_recommendation)
+              )
               const avgScore = parseFloat(s.avg_composite_score) || 0
               const rec = s.auto_recommendation
               const recColor = rec === 'Recommend' ? '#166534' : rec === 'Recommend with Reservations' ? '#92400e' : rec ? '#991b1b' : null
@@ -187,8 +191,15 @@ export default function InterviewRubricTab({
                     {s.status && (() => { const cfg = ASPIRE_STATUS_CONFIG[s.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']; return <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, whiteSpace:'nowrap' }}>{s.status}</span> })()}
                   </td>
                   <td className="iv-td">
-                    <span className={`iv-status-badge iv-status-${ivStatus === 'Completed' ? 'done' : ivStatus === 'In Progress' ? 'wip' : 'none'}`}>
-                      {ivStatus}
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:5 }}>
+                      <span className={`iv-status-badge iv-status-${ivStatus === 'Completed' ? 'done' : ivStatus === 'In Progress' ? 'wip' : 'none'}`}>
+                        {ivStatus}
+                      </span>
+                      {ivStatus === 'In Progress' && hasIncomplete && (
+                        <span style={{ fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:4, background:'#fef3c7', color:'#92400e', whiteSpace:'nowrap' }}>
+                          Incomplete
+                        </span>
+                      )}
                     </span>
                   </td>
                   <td className="iv-td" style={{ fontSize:13, fontWeight:600, color:'var(--nightfall)', textAlign:'center' }}>
