@@ -60,6 +60,7 @@ export default function StudentSidePanel({
   const [uploadingHead, setUploadingHead] = useState(false)
   const [resumeMsg,     setResumeMsg]     = useState(null)
   const [headMsg,       setHeadMsg]       = useState(null)
+  const [headshotError, setHeadshotError] = useState(false)
   const timerRef        = useRef(null)
   const pendingNameSave = useRef(null)
   const resumeRef       = useRef(null)
@@ -67,6 +68,7 @@ export default function StudentSidePanel({
 
   // Reset data when student changes (prev/next navigation)
   useEffect(() => { setData({ ...student }); setSaveStatus('idle') }, [student.id])
+  useEffect(() => { setHeadshotError(false) }, [data.headshot_url])
 
   const currentIndex = sortedStudents.findIndex(s => s.id === student.id)
   const prevStudent  = currentIndex > 0 ? sortedStudents[currentIndex - 1] : null
@@ -165,7 +167,9 @@ export default function StudentSidePanel({
     }
     const { data: urlData } = supabase.storage.from('student-files').getPublicUrl(path)
     const url = urlData.publicUrl
-    setData(p => ({ ...p, headshot_url: url }))
+    setHeadshotError(false)
+    // Cache-bust for local display only so browser doesn't serve the old cached image
+    setData(p => ({ ...p, headshot_url: `${url}?t=${Date.now()}` }))
     onUpdate(student.id, { headshot_url: url })
     setUploadingHead(false)
     setHeadMsg('success')
@@ -188,11 +192,11 @@ export default function StudentSidePanel({
         {/* Sticky header */}
         <div className="sp-header">
           <div className="sp-header-left">
-            {data.headshot_url
-              ? <img src={data.headshot_url} alt="" className="sp-header-avatar"
-                  onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex' }} />
-              : null}
-            <div className="sp-header-initials" style={{ display: data.headshot_url ? 'none' : undefined }}>{initials}</div>
+            {data.headshot_url && !headshotError
+              ? <img src={data.headshot_url} alt={`${student.first_name} ${student.last_name}`} className="sp-header-avatar"
+                  onError={() => setHeadshotError(true)} />
+              : <div className="sp-header-initials">{initials}</div>
+            }
             <div>
               <div className="sp-header-name">{displayName(student)}</div>
               <div className="sp-header-school">{student.school}</div>

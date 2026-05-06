@@ -96,7 +96,10 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const timerRef = useRef(null)
 
   // Tracks which domains are in "Other / Custom" mode per rubric instance
-  const [otherClicked, setOtherClicked] = useState({ cj: false, pp: false, ga: false })
+  const [otherClicked,   setOtherClicked]   = useState({ cj: false, pp: false, ga: false })
+  const [headshotError,  setHeadshotError]  = useState(false)
+
+  useEffect(() => { setHeadshotError(false) }, [student.headshot_url])
 
   // Rubrics for this student
   const studentRubrics  = rubrics.filter(r => r.student_id === student.id)
@@ -244,9 +247,11 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
         <div className="rub-left">
           {/* Student card */}
           <div className="rub-student-card">
-            {student.headshot_url ? <img src={student.headshot_url} alt="headshot" className="rub-headshot"
-              onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex' }} /> : null}
-            <div className="rub-initials" style={{ display: student.headshot_url ? 'none' : undefined }}>{initials}</div>
+            {student.headshot_url && !headshotError
+              ? <img src={student.headshot_url} alt={`${student.first_name} ${student.last_name}`} className="rub-headshot"
+                  onError={() => setHeadshotError(true)} />
+              : <div className="rub-initials">{initials}</div>
+            }
             <div className="rub-student-name">{displayName(student)}</div>
             <div className="rub-student-school">{student.school}</div>
             {student.status && <span className={`badge badge-gray`} style={{ marginTop:4 }}>{student.status}</span>}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import ImportStudentsCSV from './ImportStudentsCSV'
 import { getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 
@@ -23,7 +23,11 @@ export default function StudentListPanel({
   needsAttention, setNeedsAttention,
   cohortId, onRefresh,
 }) {
-  const [showImport, setShowImport] = useState(false)
+  const [showImport,  setShowImport]  = useState(false)
+  const [imgErrors,   setImgErrors]   = useState({})
+
+  // Clear all image errors when the underlying student list changes (cohort switch, import, etc.)
+  useEffect(() => { setImgErrors({}) }, [allStudents])
 
   const schools  = [...new Set(allStudents.map(s => s.school).filter(Boolean))].sort()
 
@@ -81,9 +85,11 @@ export default function StudentListPanel({
               className={`pl-row${sel ? ' pl-selected' : ''}`}
               onClick={() => onSelect(s.id)}>
               {/* Avatar */}
-              {s.headshot_url ? <img src={s.headshot_url} alt="" className="pl-avatar-img"
-                onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex' }} /> : null}
-              <div className="pl-avatar-initials" style={{ display: s.headshot_url ? 'none' : undefined }}>{initials}</div>
+              {s.headshot_url && !imgErrors[s.id]
+                ? <img src={s.headshot_url} alt={`${s.first_name} ${s.last_name}`} className="pl-avatar-img"
+                    onError={() => setImgErrors(p => ({ ...p, [s.id]: true }))} />
+                : <div className="pl-avatar-initials">{initials}</div>
+              }
               {/* Center */}
               <div className="pl-center">
                 <div className="pl-name">{name}</div>
