@@ -5,10 +5,10 @@ export default function Dashboard({ students }) {
   const ngrpHired    = students.filter(s => s.ngrp_outcome === 'Hired').length
 
   const stats = [
-    { label: 'Total Students', value: total,        bg: '#ffffff', color: '#1d2567', border: '#d1d5db', barColor: '#9faff8', leftBorder: '4px solid #1d2567', pct: 100 },
-    { label: 'Placed in Unit', value: placedInUnit, bg: '#dceff8', color: '#1d2567', border: '#b8d8eb', barColor: '#1d2567', pct: total ? (placedInUnit / total) * 100 : 0 },
-    { label: 'Accepted',       value: accepted,     bg: '#dcfce7', color: '#166534', border: '#a7f3d0', barColor: '#166534', pct: total ? (accepted     / total) * 100 : 0 },
-    { label: 'NGRP Hired',     value: ngrpHired,    bg: '#ede9fe', color: '#5b21b6', border: '#ddd6fe', barColor: '#5b21b6', pct: total ? (ngrpHired    / total) * 100 : 0 },
+    { label: 'Total Students', value: total,        cardClass: 'card-pearl',   color: '#1d2567', barColor: '#9faff8', pct: 100 },
+    { label: 'Placed in Unit', value: placedInUnit, cardClass: 'card-marina',  color: '#1d2567', barColor: '#1d2567', pct: total ? (placedInUnit / total) * 100 : 0 },
+    { label: 'Accepted',       value: accepted,     cardClass: 'card-green',   color: '#166534', barColor: '#166534', pct: total ? (accepted     / total) * 100 : 0 },
+    { label: 'NGRP Hired',     value: ngrpHired,    cardClass: 'card-purple',  color: '#5b21b6', barColor: '#5b21b6', pct: total ? (ngrpHired    / total) * 100 : 0 },
   ]
 
   const interviewStats = [
@@ -37,17 +37,13 @@ export default function Dashboard({ students }) {
   return (
     <div className="dashboard">
       {stats.map(stat => (
-        <div key={stat.label} className="stat-card" style={{
-          background: stat.bg,
-          borderColor: stat.border,
-          ...(stat.leftBorder ? { borderLeft: stat.leftBorder } : {}),
-        }}>
-          <div className="stat-value" style={{ color: stat.color }}>{stat.value}</div>
-          <div className="stat-label" style={{ color: stat.color }}>{stat.label}</div>
+        <div key={stat.label} className={`summary-card ${stat.cardClass}`}>
+          <div className="summary-card-value" style={{ color: stat.color }}>{stat.value}</div>
+          <div className="summary-card-label" style={{ color: stat.color }}>{stat.label}</div>
           <div className="stat-bar">
             <div className="stat-bar-fill" style={{ width: `${stat.pct}%`, background: stat.barColor }} />
           </div>
-          <div className="stat-pct" style={{ color: stat.color, opacity: 0.7 }}>
+          <div className="summary-card-sub" style={{ color: stat.color }}>
             {total ? Math.round(stat.pct) : 0}% of total
           </div>
         </div>

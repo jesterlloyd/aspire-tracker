@@ -283,6 +283,51 @@ body { min-height: 100vh; }
 /* ================================================================
    DASHBOARD
    ================================================================ */
+/* ── Shared summary card system ─────────────────────────────
+   Base class applied to ALL summary cards across ALL tabs.
+   Color variant classes provide background, border, and tinted shadow.
+   ──────────────────────────────────────────────────────────── */
+.summary-card {
+  border-radius: 12px;
+  padding: 20px 24px;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid transparent;
+  transition: box-shadow 0.2s ease;
+}
+.summary-card-value {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 700;
+  font-size: 36px;
+  line-height: 1;
+}
+.summary-card-label {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.summary-card-sub {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 400;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.card-pearl     { background: #ffffff;  border-color: #e5e7eb; box-shadow: 0 4px 12px rgba(29,37,103,0.08); }
+.card-nightfall { background: #1d2567;  border-color: #1d2567; box-shadow: 0 4px 12px rgba(29,37,103,0.25); color: #ffffff; }
+.card-marina    { background: #dceff8;  border-color: #9dd6f2; box-shadow: 0 4px 12px rgba(29,37,103,0.10); }
+.card-green     { background: #dcfce7;  border-color: #bbf7d0; box-shadow: 0 4px 12px rgba(22,101,52,0.12); }
+.card-darkgreen { background: #d1fae5;  border-color: #6ee7b7; box-shadow: 0 4px 12px rgba(6,95,70,0.12); }
+.card-amber     { background: #fef3c7;  border-color: #fcd34d; box-shadow: 0 4px 12px rgba(146,64,14,0.10); }
+.card-red       { background: #fee2e2;  border-color: #fca5a5; box-shadow: 0 4px 12px rgba(153,27,27,0.10); }
+.card-purple    { background: #ede9fe;  border-color: #c4b5fd; box-shadow: 0 4px 12px rgba(91,33,182,0.10); }
+.card-indigo    { background: #eff6ff;  border-color: #bfdbfe; box-shadow: 0 4px 12px rgba(29,78,216,0.10); }
+.card-neutral   { background: #f9fafb;  border-color: #e5e7eb; box-shadow: 0 4px 12px rgba(0,0,0,0.07); }
+
 .dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 12px; }
 
 .stat-card {
@@ -290,11 +335,10 @@ body { min-height: 100vh; }
   border-radius: 6px; padding: 20px 22px 16px;
   border: 1px solid var(--border);
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-  /* bg, borderColor, and borderLeft set via inline styles per card */
 }
 .stat-value  { font-size: 36px; font-weight: 700; color: var(--nightfall); line-height: 1; letter-spacing: -0.5px; margin-bottom: 4px; }
-.stat-label  { font-size: 12px; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 14px; }
-.stat-bar    { height: 4px; background: var(--sand-dark); border-radius: 2px; overflow: hidden; margin-bottom: 6px; }
+.stat-label  { font-size: 12px; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+.stat-bar    { height: 4px; background: var(--sand-dark); border-radius: 2px; overflow: hidden; }
 .stat-bar-fill { height: 100%; background: var(--nova); border-radius: 2px; transition: width 0.5s ease; }
 .stat-pct    { font-size: 11px; color: var(--text-secondary); }
 

@@ -40,13 +40,13 @@ export default function InterviewRubricTab({
   const recommended   = students.filter(s => s.auto_recommendation === 'Recommend').length
 
   const summaryStats = [
-    { label:'Total',          value:total,        bg:'#ffffff', color:'#1d2567', border:'#d1d5db' },
-    { label:'Scheduled',      value:scheduled,    bg:'#eff6ff', color:'#1d4ed8', border:'#bfdbfe' },
-    { label:'Completed',      value:completed,    bg:'#dcfce7', color:'#166534', border:'#a7f3d0' },
-    { label:'In Progress',    value:inProgress,   bg:'#fef3c7', color:'#92400e', border:'#fde68a' },
-    { label:'Not Scheduled',  value:notScheduled, bg:'#f4f1ec', color:'#191919', border:'#d4cfc8' },
-    { label:'Flagged',        value:flagged,       bg:'#ede9fe', color:'#5b21b6', border:'#ddd6fe' },
-    { label:'Recommended',    value:recommended,  bg:'#f0fdf4', color:'#16a34a', border:'#bbf7d0' },
+    { label:'Total',          value:total,        cardClass:'card-pearl',     color:'#1d2567' },
+    { label:'Scheduled',      value:scheduled,    cardClass:'card-indigo',    color:'#1d4ed8' },
+    { label:'Completed',      value:completed,    cardClass:'card-green',     color:'#166534' },
+    { label:'In Progress',    value:inProgress,   cardClass:'card-amber',     color:'#92400e' },
+    { label:'Not Scheduled',  value:notScheduled, cardClass:'card-neutral',   color:'#6b7280' },
+    { label:'Flagged',        value:flagged,      cardClass:'card-red',       color:'#991b1b' },
+    { label:'Recommended',    value:recommended,  cardClass:'card-darkgreen', color:'#065f46' },
   ]
 
   // If student selected → session
@@ -114,9 +114,9 @@ export default function InterviewRubricTab({
         />
         <div className="iv-summary">
           {summaryStats.map(s => (
-            <div key={s.label} className="iv-stat-card" style={{ background:s.bg, borderColor:s.border }}>
-              <div className="iv-stat-value" style={{ color:s.color }}>{s.value}</div>
-              <div className="iv-stat-label" style={{ color:s.color }}>{s.label}</div>
+            <div key={s.label} className={`summary-card ${s.cardClass}`}>
+              <div className="summary-card-value" style={{ color:s.color }}>{s.value}</div>
+              <div className="summary-card-label" style={{ color:s.color }}>{s.label}</div>
             </div>
           ))}
         </div>

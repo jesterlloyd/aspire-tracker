@@ -110,10 +110,10 @@ export default function OverviewTab({ students, units, onStudentUpdate }) {
   }
 
   // ── Hero card ─────────────────────────────────────────────
-  const HeroCard = ({ value, label, bg, valueColor = 'var(--nightfall)', borderColor = 'var(--nightfall)' }) => (
-    <div className="ov-hero-card" style={{ background: bg, borderLeft: `4px solid ${borderColor}` }}>
-      <div className="ov-hero-num"   style={{ color: valueColor }}>{value}</div>
-      <div className="ov-hero-label" style={{ color: valueColor }}>{label}</div>
+  const HeroCard = ({ value, label, cardClass, valueColor }) => (
+    <div className={`summary-card ${cardClass}`}>
+      <div className="summary-card-value" style={{ color: valueColor }}>{value}</div>
+      <div className="summary-card-label" style={{ color: valueColor }}>{label}</div>
     </div>
   )
 
@@ -134,21 +134,19 @@ export default function OverviewTab({ students, units, onStudentUpdate }) {
 
         {/* Five hero cards */}
         <div className="ov-hero">
-          <HeroCard value={totalSlots}    label="Total Slots"         bg="var(--pearl)" />
-          <HeroCard value={slotsFilled}   label="Slots Filled"        bg="#dcfce7"        valueColor="#166534" borderColor="#166534" />
+          <HeroCard value={totalSlots}    label="Total Slots"          cardClass="card-pearl"   valueColor="var(--nightfall)" />
+          <HeroCard value={slotsFilled}   label="Slots Filled"         cardClass="card-green"   valueColor="#166534" />
           <HeroCard
             value={Math.max(0, netRemaining)} label="Slots Remaining"
-            bg={netRemaining <= 0 ? '#fee2e2' : 'var(--marina)'}
+            cardClass={netRemaining <= 0 ? 'card-red' : 'card-marina'}
             valueColor={netRemaining <= 0 ? '#991b1b' : 'var(--nightfall)'}
-            borderColor={netRemaining <= 0 ? '#991b1b' : 'var(--nightfall)'}
           />
-          <HeroCard value={totalStudents} label="Students Requesting"  bg="var(--sand)"   valueColor="var(--raven)" borderColor="var(--raven)" />
+          <HeroCard value={totalStudents} label="Students Requesting"  cardClass="card-neutral" valueColor="var(--raven)" />
           <HeroCard
             value={gap}
             label={isShort ? 'spots short' : 'fully covered'}
-            bg={isShort ? '#fef3c7' : '#dcfce7'}
+            cardClass={isShort ? 'card-amber' : 'card-green'}
             valueColor={isShort ? '#92400e' : '#166534'}
-            borderColor={isShort ? '#92400e' : '#166534'}
           />
         </div>
 

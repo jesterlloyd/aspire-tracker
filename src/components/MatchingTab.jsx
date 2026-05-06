@@ -116,13 +116,13 @@ export default function MatchingTab({
   }
 
   const summaryStats = [
-    { label:'Total Slots',     value:totalSlots,             bg:'#ffffff', color:'#1d2567', border:'#d1d5db' },
-    { label:'Slots Remaining', value:slotsRemaining,         bg:'#dceff8', color:'#1d2567', border:'#b8d8eb' },
-    { label:'Students',        value:students.length,        bg:'#f4f1ec', color:'#191919', border:'#d4cfc8' },
-    { label:'Matched',         value:matchedStudents.length, bg:'#dcfce7', color:'#166534', border:'#a7f3d0' },
-    { label:'Perfect Matches', value:perfectMatches,         bg:'#f0fdf4', color:'#16a34a', border:'#bbf7d0' },
-    { label:'2nd Choice',      value:secondChoiceMatches,    bg:'#fefce8', color:'#ca8a04', border:'#fde68a' },
-    { label:'Unmatched',       value:unmatchedAll.length,    bg:'#fef3c7', color:'#92400e', border:'#fde68a' },
+    { label:'Total Slots',     value:totalSlots,             cardClass:'card-pearl',     color:'#1d2567' },
+    { label:'Slots Remaining', value:slotsRemaining,         cardClass:'card-marina',    color:'#1d2567' },
+    { label:'Students',        value:students.length,        cardClass:'card-neutral',   color:'var(--raven)' },
+    { label:'Matched',         value:matchedStudents.length, cardClass:'card-green',     color:'#166534' },
+    { label:'Perfect Matches', value:perfectMatches,         cardClass:'card-darkgreen', color:'#065f46' },
+    { label:'2nd Choice',      value:secondChoiceMatches,    cardClass:'card-amber',     color:'#92400e' },
+    { label:'Unmatched',       value:unmatchedAll.length,    cardClass:'card-amber',     color:'#92400e' },
   ]
 
   return (
@@ -131,9 +131,9 @@ export default function MatchingTab({
       {/* ── Summary banner ── */}
       <div className="match-summary embed-banner">
         {summaryStats.map(s => (
-          <div key={s.label} className="match-stat-card" style={{ background:s.bg, borderColor:s.border }}>
-            <div className="match-stat-value" style={{ color:s.color }}>{s.value}</div>
-            <div className="match-stat-label" style={{ color:s.color }}>{s.label}</div>
+          <div key={s.label} className={`summary-card ${s.cardClass}`}>
+            <div className="summary-card-value" style={{ color:s.color }}>{s.value}</div>
+            <div className="summary-card-label" style={{ color:s.color }}>{s.label}</div>
           </div>
         ))}
       </div>
