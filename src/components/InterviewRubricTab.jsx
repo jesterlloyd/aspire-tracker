@@ -4,6 +4,7 @@ import RubricSession from './RubricSession'
 import WeekCalendar from './WeekCalendar'
 import ScheduleInterviewModal from './ScheduleInterviewModal'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
+import ScoreFlag from './ScoreFlag'
 
 function getStudentIvStatus(student, rubrics) {
   const sRubrics = rubrics.filter(r => r.student_id === student.id)
@@ -205,8 +206,11 @@ export default function InterviewRubricTab({
                   </td>
                   <td className="iv-td">
                     {rec && recColor && (
-                      <span style={{ fontSize:11, fontWeight:600, padding:'1px 7px', borderRadius:4, background:recBg, color:recColor, whiteSpace:'nowrap' }}>
-                        {rec === 'Recommend' ? 'Recommend' : rec === 'Recommend with Reservations' ? 'With Reservations' : 'Do Not Recommend'}
+                      <span style={{ display:'inline-flex', alignItems:'center', gap:3 }}>
+                        <span style={{ fontSize:11, fontWeight:600, padding:'1px 7px', borderRadius:4, background:recBg, color:recColor, whiteSpace:'nowrap' }}>
+                          {rec === 'Recommend' ? 'Recommend' : rec === 'Recommend with Reservations' ? 'With Reservations' : 'Do Not Recommend'}
+                        </span>
+                        <ScoreFlag message={s.score_flag ? s.score_flag_message : ''} />
                       </span>
                     )}
                   </td>

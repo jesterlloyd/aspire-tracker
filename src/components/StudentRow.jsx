@@ -6,6 +6,7 @@ import {
 import { displayName } from '../lib/utils'
 import { supabase } from '../lib/supabase'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
+import ScoreFlag from './ScoreFlag'
 
 const STATUS_CLASS = {
   'Form Sent':      'badge-gray',
@@ -446,12 +447,15 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
                 )}
                 <div className="iv-summary-row">
                   <span className="iv-summary-lbl">Auto Recommendation</span>
-                  <span className="iv-summary-val">
+                  <span className="iv-summary-val" style={{ display:'flex', alignItems:'center', gap:4 }}>
                     {data.auto_recommendation
-                      ? <span className="iv-rec-badge-sm" style={{
-                          background: data.auto_recommendation === 'Recommend' ? '#dcfce7' : data.auto_recommendation === 'Recommend with Reservations' ? '#fef3c7' : '#fee2e2',
-                          color:      data.auto_recommendation === 'Recommend' ? '#166534' : data.auto_recommendation === 'Recommend with Reservations' ? '#92400e' : '#991b1b',
-                        }}>{data.auto_recommendation}</span>
+                      ? <>
+                          <span className="iv-rec-badge-sm" style={{
+                            background: data.auto_recommendation === 'Recommend' ? '#dcfce7' : data.auto_recommendation === 'Recommend with Reservations' ? '#fef3c7' : '#fee2e2',
+                            color:      data.auto_recommendation === 'Recommend' ? '#166534' : data.auto_recommendation === 'Recommend with Reservations' ? '#92400e' : '#991b1b',
+                          }}>{data.auto_recommendation}</span>
+                          <ScoreFlag message={data.score_flag ? data.score_flag_message : ''} />
+                        </>
                       : '—'}
                   </span>
                 </div>

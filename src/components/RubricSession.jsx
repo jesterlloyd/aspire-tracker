@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { PATIENT_POPULATION_MAP, UNITS_BY_DIVISION, ASPIRE_STATUS_CONFIG } from '../lib/constants'
+import ScoreFlag from './ScoreFlag'
 
 // ── Domain data ──────────────────────────────────────────────
 const CJ_QUESTIONS = [
@@ -76,7 +77,7 @@ const getInterviewOutcome = avg => {
 async function recalculateStudentAverages(studentId, supabase) {
   const { data: rubrics, error } = await supabase
     .from('interview_rubrics')
-    .select('cj_score, pp_score, ga_score, composite_score')
+    .select('cj_score, pp_score, ga_score, composite_score, individual_recommendation')
     .eq('student_id', studentId)
     .eq('status', 'Completed')
 
@@ -88,13 +89,42 @@ async function recalculateStudentAverages(studentId, supabase) {
   const avgGa        = rubrics.reduce((sum, r) => sum + (r.ga_score        || 0), 0) / count
   const avgComposite = rubrics.reduce((sum, r) => sum + (r.composite_score || 0), 0) / count
 
-  let autoRec          = 'Do Not Recommend at This Time'
-  let interviewOutcome = 'Declined'
-  let aspireStatus     = 'Declined'
-  if (avgComposite >= 12) {
-    autoRec = 'Recommend'; interviewOutcome = 'Accepted'; aspireStatus = 'Interviewed'
-  } else if (avgComposite >= 8) {
-    autoRec = 'Recommend with Reservations'; interviewOutcome = 'Accepted with Reservations'; aspireStatus = 'Interviewed'
+  // Majority vote from individual_recommendation fields
+  const recs             = rubrics.map(r => r.individual_recommendation).filter(Boolean)
+  const recommendCount   = recs.filter(r => r === 'Recommend').length
+  const reservationsCount= recs.filter(r => r === 'Recommend with Reservations').length
+  const declineCount     = recs.filter(r => r === 'Do Not Recommend at This Time' || r === 'Do Not Recommend').length
+
+  let autoRec
+  if (recs.length === 0 || declineCount > recs.length / 2) {
+    autoRec = 'Do Not Recommend at This Time'
+  } else if (recommendCount > recs.length / 2) {
+    autoRec = 'Recommend'
+  } else if (reservationsCount > recs.length / 2) {
+    autoRec = 'Recommend with Reservations'
+  } else {
+    // Tie goes to more cautious
+    autoRec = reservationsCount >= recommendCount ? 'Recommend with Reservations' : 'Recommend'
+  }
+
+  // Score discrepancy flag
+  let scoreFlag        = false
+  let scoreFlagMessage = ''
+  if (autoRec === 'Recommend' && avgComposite < 12) {
+    scoreFlag = true
+    scoreFlagMessage = `Average composite score is ${avgComposite.toFixed(1)}/15, below the Recommend threshold of 12/15. Review scores before finalizing.`
+  } else if (autoRec === 'Recommend with Reservations' && avgComposite < 8) {
+    scoreFlag = true
+    scoreFlagMessage = `Average composite score is ${avgComposite.toFixed(1)}/15, below the Recommend with Reservations threshold of 8/15. Review scores before finalizing.`
+  }
+
+  let interviewOutcome, aspireStatus
+  if (autoRec === 'Recommend') {
+    interviewOutcome = 'Accepted';           aspireStatus = 'Interviewed'
+  } else if (autoRec === 'Recommend with Reservations') {
+    interviewOutcome = 'Accepted with Reservations'; aspireStatus = 'Interviewed'
+  } else {
+    interviewOutcome = 'Declined';           aspireStatus = 'Declined'
   }
 
   return {
@@ -104,6 +134,8 @@ async function recalculateStudentAverages(studentId, supabase) {
     avg_composite_score: Math.round(avgComposite * 100) / 100,
     rubric_count:        count,
     auto_recommendation: autoRec,
+    score_flag:          scoreFlag,
+    score_flag_message:  scoreFlagMessage,
     interview_outcome:   interviewOutcome,
     status:              aspireStatus,
   }
@@ -894,12 +926,19 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                 ))}
                 <div className="rub-avg-display">
                   <span>Average Composite: <strong>{student.avg_composite_score ? parseFloat(student.avg_composite_score).toFixed(1) : '—'}/15</strong></span>
-                  {student.auto_recommendation && (
-                    <span style={{ marginLeft:16, fontSize:13, fontWeight:700,
-                      color: student.auto_recommendation === 'Recommend' ? '#166534' : student.auto_recommendation === 'Recommend with Reservations' ? '#92400e' : '#991b1b' }}>
-                      Auto: {student.auto_recommendation}
-                    </span>
-                  )}
+                  {student.auto_recommendation && (() => {
+                    const rec = student.auto_recommendation
+                    const recColor = rec === 'Recommend' ? '#166534' : rec === 'Recommend with Reservations' ? '#92400e' : '#991b1b'
+                    const recBg    = rec === 'Recommend' ? '#dcfce7' : rec === 'Recommend with Reservations' ? '#fef3c7' : '#fee2e2'
+                    return (
+                      <span style={{ marginLeft:16, display:'inline-flex', alignItems:'center', gap:4 }}>
+                        <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:recBg, color:recColor }}>
+                          {rec === 'Recommend' ? 'Recommend' : rec === 'Recommend with Reservations' ? 'With Reservations' : 'Do Not Recommend'}
+                        </span>
+                        <ScoreFlag message={student.score_flag ? student.score_flag_message : ''} />
+                      </span>
+                    )
+                  })()}
                 </div>
               </div>
             )}
