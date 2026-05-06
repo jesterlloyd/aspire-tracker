@@ -72,6 +72,41 @@ const getInterviewOutcome = avg => {
   return 'Declined'
 }
 
+// ── Recalculate student averages from fresh DB fetch ─────────
+async function recalculateStudentAverages(studentId, supabase) {
+  const { data: rubrics, error } = await supabase
+    .from('interview_rubrics')
+    .select('cj_score, pp_score, ga_score, composite_score')
+    .eq('student_id', studentId)
+    .eq('status', 'Completed')
+
+  if (error || !rubrics || rubrics.length === 0) return null
+
+  const count        = rubrics.length
+  const avgCj        = rubrics.reduce((sum, r) => sum + (r.cj_score        || 0), 0) / count
+  const avgPp        = rubrics.reduce((sum, r) => sum + (r.pp_score        || 0), 0) / count
+  const avgGa        = rubrics.reduce((sum, r) => sum + (r.ga_score        || 0), 0) / count
+  const avgComposite = rubrics.reduce((sum, r) => sum + (r.composite_score || 0), 0) / count
+
+  let autoRec         = 'Do Not Recommend at This Time'
+  let interviewOutcome = 'Declined'
+  if (avgComposite >= 12) {
+    autoRec = 'Recommend'; interviewOutcome = 'Accepted'
+  } else if (avgComposite >= 8) {
+    autoRec = 'Recommend with Reservations'; interviewOutcome = 'Accepted with Reservations'
+  }
+
+  return {
+    avg_cj_score:        Math.round(avgCj        * 100) / 100,
+    avg_pp_score:        Math.round(avgPp        * 100) / 100,
+    avg_ga_score:        Math.round(avgGa        * 100) / 100,
+    avg_composite_score: Math.round(avgComposite * 100) / 100,
+    rubric_count:        count,
+    auto_recommendation: autoRec,
+    interview_outcome:   interviewOutcome,
+  }
+}
+
 // ── Editable rubric card in the consolidated view ────────────
 function RubricCard({ r, interviewers, onSave }) {
   const [editing, setEditing] = useState(false)
@@ -307,20 +342,11 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     setConfirmComplete(false)
     await persist({ ...form, status:'Completed', composite_score: composite })
     setForm(p => ({ ...p, status:'Completed', composite_score: composite }))
-    // Recalculate averages from all completed rubrics (including this one)
-    const allCompleted = [...completedRubrics.filter(r => r.id !== rubricId), { ...form, cj_score: form.cj_score||0, pp_score: form.pp_score||0, ga_score: form.ga_score||0, status:'Completed' }]
-    const n = allCompleted.length
-    if (n === 0) return
-    const avgCJ   = allCompleted.reduce((s,r) => s + (r.cj_score||0), 0) / n
-    const avgPP   = allCompleted.reduce((s,r) => s + (r.pp_score||0), 0) / n
-    const avgGA   = allCompleted.reduce((s,r) => s + (r.ga_score||0), 0) / n
-    const avgComp = avgCJ + avgPP + avgGA
-    await onStudentUpdate(student.id, {
-      avg_cj_score: +avgCJ.toFixed(2), avg_pp_score: +avgPP.toFixed(2),
-      avg_ga_score: +avgGA.toFixed(2), avg_composite_score: +avgComp.toFixed(2),
-      auto_recommendation: getAutoRec(avgComp), rubric_count: n,
-      interview_outcome: getInterviewOutcome(avgComp), status: 'Interviewed',
-    })
+    // Fetch all completed rubrics fresh from DB so stale local state can never affect the result
+    const recalc = await recalculateStudentAverages(student.id, supabase)
+    if (recalc) {
+      await onStudentUpdate(student.id, { ...recalc, status: 'Interviewed' })
+    }
   }
 
   const handleReset = async () => {
@@ -353,22 +379,11 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       .update({ ...updates, composite_score: composite, updated_at: new Date().toISOString() })
       .eq('id', rubricId)
     if (onRubricsChange) onRubricsChange()
-    // Recalculate averages immediately using updated values
-    const updatedRubrics = completedRubrics.map(r => r.id === rubricId ? { ...r, ...updates } : r)
-    const n = updatedRubrics.length
-    if (n === 0) return
-    const avgCJ   = updatedRubrics.reduce((s, r) => s + (r.cj_score||0), 0) / n
-    const avgPP   = updatedRubrics.reduce((s, r) => s + (r.pp_score||0), 0) / n
-    const avgGA   = updatedRubrics.reduce((s, r) => s + (r.ga_score||0), 0) / n
-    const avgComp = avgCJ + avgPP + avgGA
-    await onStudentUpdate(student.id, {
-      avg_cj_score:        +avgCJ.toFixed(2),
-      avg_pp_score:        +avgPP.toFixed(2),
-      avg_ga_score:        +avgGA.toFixed(2),
-      avg_composite_score: +avgComp.toFixed(2),
-      auto_recommendation: getAutoRec(avgComp),
-      rubric_count:        n,
-    })
+    // Fetch all completed rubrics fresh from DB so stale local state can never affect the result
+    const recalc = await recalculateStudentAverages(student.id, supabase)
+    if (recalc) {
+      await onStudentUpdate(student.id, recalc)
+    }
   }
 
   const locked = form.status === 'Completed'
