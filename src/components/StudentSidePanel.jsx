@@ -114,32 +114,61 @@ export default function StudentSidePanel({
   }
 
   const handleResumeUpload = async file => {
-    if (!file || file.size > 10*1024*1024) { setResumeMsg('error'); return }
+    if (!file || file.size > 10*1024*1024) { setResumeMsg('File too large (max 10 MB)'); return }
+    if (!student.id || !student.cohort_id) {
+      console.error('Missing student id or cohort_id for resume upload', { id: student.id, cohort_id: student.cohort_id })
+      setResumeMsg('Upload failed: student record not found')
+      return
+    }
     setUploadingRes(true)
+    setResumeMsg(null)
     const ext  = file.name.split('.').pop()
     const path = `${student.cohort_id}/${student.id}/resume.${ext}`
-    const { error } = await supabase.storage.from('student-files').upload(path, file, { upsert:true, contentType:file.type })
-    if (error) { setUploadingRes(false); setResumeMsg('error'); return }
+    const { error } = await supabase.storage
+      .from('student-files')
+      .upload(path, file, { cacheControl: '3600', upsert: true })
+    if (error) {
+      console.error('Resume upload error:', error)
+      setUploadingRes(false)
+      setResumeMsg(`Upload failed: ${error.message}`)
+      return
+    }
     const { data: urlData } = supabase.storage.from('student-files').getPublicUrl(path)
     const url = urlData.publicUrl
     setData(p => ({ ...p, resume_url: url }))
     onUpdate(student.id, { resume_url: url })
-    setUploadingRes(false); setResumeMsg('success')
+    setUploadingRes(false)
+    setResumeMsg('success')
     setTimeout(() => setResumeMsg(null), 3000)
     if (resumeRef.current) resumeRef.current.value = ''
   }
+
   const handleHeadshotUpload = async file => {
-    if (!file || file.size > 5*1024*1024) { setHeadMsg('error'); return }
+    if (!file || file.size > 5*1024*1024) { setHeadMsg('File too large (max 5 MB)'); return }
+    if (!student.id || !student.cohort_id) {
+      console.error('Missing student id or cohort_id for headshot upload', { id: student.id, cohort_id: student.cohort_id })
+      setHeadMsg('Upload failed: student record not found')
+      return
+    }
     setUploadingHead(true)
+    setHeadMsg(null)
     const ext  = file.name.split('.').pop()
     const path = `${student.cohort_id}/${student.id}/headshot.${ext}`
-    const { error } = await supabase.storage.from('student-files').upload(path, file, { upsert:true, contentType:file.type })
-    if (error) { setUploadingHead(false); setHeadMsg('error'); return }
+    const { error } = await supabase.storage
+      .from('student-files')
+      .upload(path, file, { cacheControl: '3600', upsert: true })
+    if (error) {
+      console.error('Headshot upload error:', error)
+      setUploadingHead(false)
+      setHeadMsg(`Upload failed: ${error.message}`)
+      return
+    }
     const { data: urlData } = supabase.storage.from('student-files').getPublicUrl(path)
     const url = urlData.publicUrl
     setData(p => ({ ...p, headshot_url: url }))
     onUpdate(student.id, { headshot_url: url })
-    setUploadingHead(false); setHeadMsg('success')
+    setUploadingHead(false)
+    setHeadMsg('success')
     setTimeout(() => setHeadMsg(null), 3000)
     if (headshotRef.current) headshotRef.current.value = ''
   }
@@ -527,7 +556,7 @@ export default function StudentSidePanel({
                 )}
                 {uploadingRes && <span className="doc-status doc-uploading">Uploading…</span>}
                 {resumeMsg === 'success' && <span className="doc-status doc-success">✓ Uploaded</span>}
-                {resumeMsg === 'error'   && <span className="doc-status doc-error">Upload failed.</span>}
+                {resumeMsg && resumeMsg !== 'success' && <span className="doc-status doc-error" style={{ color:'var(--cs-red)' }}>{resumeMsg}</span>}
               </div>
               <div className="doc-upload-area">
                 <div className="doc-area-label">Headshot</div>
@@ -547,7 +576,7 @@ export default function StudentSidePanel({
                 )}
                 {uploadingHead && <span className="doc-status doc-uploading">Uploading…</span>}
                 {headMsg === 'success' && <span className="doc-status doc-success">✓ Uploaded</span>}
-                {headMsg === 'error'   && <span className="doc-status doc-error">Upload failed.</span>}
+                {headMsg && headMsg !== 'success' && <span className="doc-status doc-error" style={{ color:'var(--cs-red)' }}>{headMsg}</span>}
               </div>
             </div>
           </div>
