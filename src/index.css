@@ -1053,13 +1053,50 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* ================================================================
    OVERVIEW TAB
    ================================================================ */
-.overview-tab { display: flex; flex-direction: column; gap: 24px; }
+/* Aggregate tab — sticky header + scrollable body layout */
+.overview-tab {
+  display: flex; flex-direction: column;
+  height: calc(100vh - 194px);
+  overflow: hidden;
+}
+.aggregate-sticky-header {
+  flex-shrink: 0;
+  background: var(--sand);
+  z-index: 10;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0;
+}
+.aggregate-panel-headers {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  margin-top: 16px;
+}
+.aggregate-panel-hdr {
+  background: var(--pearl);
+  border: 1px solid var(--border); border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 14px 18px; gap: 12px;
+}
+.aggregate-scrollable-content {
+  flex: 1; overflow-y: auto; min-height: 0;
+}
+.ov-panels-body {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  align-items: start; padding-bottom: 24px;
+}
+.ov-panel-body {
+  background: var(--pearl);
+  border: 1px solid var(--border); border-top: none;
+  border-radius: 0 0 8px 8px;
+  overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
 
-.ov-hero { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+.ov-hero { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 0; }
 .ov-hero-card { border-radius: 8px; padding: 20px 22px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
 .ov-hero-num   { font-size: 48px; font-weight: 700; line-height: 1; margin-bottom: 6px; }
 .ov-hero-label { font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
 
+/* Keep these for any legacy references */
 .ov-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
 .ov-panel  { background: var(--pearl); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 .ov-panel-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--border-lt); gap: 12px; }
