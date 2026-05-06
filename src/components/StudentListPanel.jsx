@@ -81,10 +81,9 @@ export default function StudentListPanel({
               className={`pl-row${sel ? ' pl-selected' : ''}`}
               onClick={() => onSelect(s.id)}>
               {/* Avatar */}
-              {s.headshot_url
-                ? <img src={s.headshot_url} alt="" className="pl-avatar-img" />
-                : <div className="pl-avatar-initials">{initials}</div>
-              }
+              {s.headshot_url ? <img src={s.headshot_url} alt="" className="pl-avatar-img"
+                onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex' }} /> : null}
+              <div className="pl-avatar-initials" style={{ display: s.headshot_url ? 'none' : undefined }}>{initials}</div>
               {/* Center */}
               <div className="pl-center">
                 <div className="pl-name">{name}</div>

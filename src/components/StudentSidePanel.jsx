@@ -188,10 +188,11 @@ export default function StudentSidePanel({
         {/* Sticky header */}
         <div className="sp-header">
           <div className="sp-header-left">
-            {student.headshot_url
-              ? <img src={student.headshot_url} alt="" className="sp-header-avatar" />
-              : <div className="sp-header-initials">{initials}</div>
-            }
+            {data.headshot_url
+              ? <img src={data.headshot_url} alt="" className="sp-header-avatar"
+                  onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex' }} />
+              : null}
+            <div className="sp-header-initials" style={{ display: data.headshot_url ? 'none' : undefined }}>{initials}</div>
             <div>
               <div className="sp-header-name">{displayName(student)}</div>
               <div className="sp-header-school">{student.school}</div>
