@@ -260,6 +260,14 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                 GPA: {parseFloat(student.cumulative_gpa).toFixed(2)}
               </span>
             )}
+            {student.resume_url && (
+              <a href={student.resume_url} target="_blank" rel="noopener noreferrer"
+                style={{ marginTop:8, display:'inline-block', fontSize:12, fontWeight:600,
+                  color:'var(--nightfall)', border:'1px solid var(--nightfall)',
+                  borderRadius:4, padding:'3px 10px', textDecoration:'none' }}>
+                📄 View Resume
+              </a>
+            )}
           </div>
 
           {/* Scheduled info */}
