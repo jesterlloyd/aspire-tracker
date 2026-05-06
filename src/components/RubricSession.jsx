@@ -72,6 +72,138 @@ const getInterviewOutcome = avg => {
   return 'Declined'
 }
 
+// ── Editable rubric card in the consolidated view ────────────
+function RubricCard({ r, interviewers, onSave }) {
+  const [editing, setEditing] = useState(false)
+  const [saving,  setSaving]  = useState(false)
+  const [editForm, setEditForm] = useState({
+    interviewer_name:         r.interviewer_name || '',
+    cj_score:                 r.cj_score || 0,
+    pp_score:                 r.pp_score || 0,
+    ga_score:                 r.ga_score || 0,
+    individual_recommendation: r.individual_recommendation || '',
+    summary_comments:         r.summary_comments || '',
+  })
+
+  const comp = (r.cj_score||0) + (r.pp_score||0) + (r.ga_score||0)
+  const rec = r.individual_recommendation
+  const recColor = rec === 'Recommend' ? '#166534' : rec === 'Recommend with Reservations' ? '#92400e' : rec ? '#991b1b' : null
+  const recBg    = rec === 'Recommend' ? '#dcfce7' : rec === 'Recommend with Reservations' ? '#fef3c7' : rec ? '#fee2e2' : null
+
+  const scoreRow = (domain, label, color) => {
+    const field = `${domain}_score`
+    return (
+      <div>
+        <div style={{ fontSize:11, fontWeight:600, color, marginBottom:4 }}>{label}</div>
+        <div style={{ display:'flex', gap:4 }}>
+          {[1,2,3,4,5].map(n => {
+            const sel = editForm[field] === n
+            return (
+              <div key={n} onClick={() => setEditForm(p => ({ ...p, [field]: n }))}
+                style={{ width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center',
+                  borderRadius:4, border:`1.5px solid ${sel ? color : '#d1d5db'}`,
+                  background: sel ? color : '#fff', color: sel ? '#fff' : '#191919',
+                  fontSize:13, fontWeight:700, cursor:'pointer', flexShrink:0 }}>
+                {n}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    await onSave(r.id, editForm)
+    setSaving(false)
+    setEditing(false)
+  }
+
+  const handleCancel = () => {
+    setEditForm({
+      interviewer_name:         r.interviewer_name || '',
+      cj_score:                 r.cj_score || 0,
+      pp_score:                 r.pp_score || 0,
+      ga_score:                 r.ga_score || 0,
+      individual_recommendation: r.individual_recommendation || '',
+      summary_comments:         r.summary_comments || '',
+    })
+    setEditing(false)
+  }
+
+  if (!editing) {
+    return (
+      <div className="rub-rubric-card">
+        <div className="rub-rc-top">
+          <span className="rub-rc-name">{r.interviewer_name || 'Unknown'}</span>
+          <span className="rub-rc-date">{r.interview_date}</span>
+          <span className="rub-rc-score">{comp}/15</span>
+          {rec && recColor && <span style={{ fontSize:11, fontWeight:600, padding:'1px 7px', borderRadius:4, background:recBg, color:recColor }}>{rec}</span>}
+          <button className="btn btn-outline-modal"
+            style={{ fontSize:11, padding:'2px 10px', marginLeft:'auto', flexShrink:0 }}
+            onClick={() => setEditing(true)}>
+            Edit
+          </button>
+        </div>
+        <div className="rub-rc-scores">
+          <span>CJ: {r.cj_score||0}/5</span>
+          <span>PP: {r.pp_score||0}/5</span>
+          <span>GA: {r.ga_score||0}/5</span>
+        </div>
+        {r.summary_comments && <p className="rub-rc-comments">{r.summary_comments}</p>}
+      </div>
+    )
+  }
+
+  return (
+    <div className="rub-rubric-card" style={{ background:'#f9fafb', border:'1.5px solid var(--nova)', gap:10 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
+        <div>
+          <div style={{ fontSize:11, fontWeight:600, color:'var(--text-secondary)', marginBottom:4 }}>Interviewer</div>
+          <select className="iv-input" style={{ fontSize:12, padding:'4px 8px', width:'100%' }}
+            value={editForm.interviewer_name}
+            onChange={e => setEditForm(p => ({ ...p, interviewer_name: e.target.value }))}>
+            <option value="">—</option>
+            {interviewers.map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+        <div>
+          <div style={{ fontSize:11, fontWeight:600, color:'var(--text-secondary)', marginBottom:4 }}>Recommendation</div>
+          <select className="iv-input" style={{ fontSize:12, padding:'4px 8px', width:'100%' }}
+            value={editForm.individual_recommendation}
+            onChange={e => setEditForm(p => ({ ...p, individual_recommendation: e.target.value }))}>
+            <option value="">—</option>
+            {REC_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={{ display:'flex', gap:16, marginBottom:10, flexWrap:'wrap' }}>
+        {scoreRow('cj', 'CJ Score', '#1d2567')}
+        {scoreRow('pp', 'PP Score', '#0d7a8a')}
+        {scoreRow('ga', 'GA Score', '#166534')}
+      </div>
+      <div style={{ marginBottom:10 }}>
+        <div style={{ fontSize:11, fontWeight:600, color:'var(--text-secondary)', marginBottom:4 }}>Summary Comments</div>
+        <textarea className="iv-textarea iv-notes-textarea" rows={3} style={{ fontSize:12 }}
+          value={editForm.summary_comments}
+          onChange={e => setEditForm(p => ({ ...p, summary_comments: e.target.value }))}
+          placeholder="Summary comments…" />
+      </div>
+      <div style={{ display:'flex', gap:8 }}>
+        <button className="btn btn-primary" style={{ fontSize:12, padding:'5px 14px' }}
+          onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving…' : 'Save Changes'}
+        </button>
+        <button className="btn btn-outline-modal" style={{ fontSize:12, padding:'5px 14px' }}
+          onClick={handleCancel} disabled={saving}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function RubricSession({ student, rubrics, cohortId, onBack, onStudentUpdate, onRubricsChange }) {
   const [form,           setForm]           = useState(initForm())
   const [rubricId,       setRubricId]       = useState(null)
@@ -213,6 +345,30 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const handleUnflag = async () => {
     setIsFlagged(false)
     await onStudentUpdate(student.id, { flagged_for_second_interview: false, flag_note: '' })
+  }
+
+  const handleRubricEdit = async (rubricId, updates) => {
+    const composite = (updates.cj_score||0) + (updates.pp_score||0) + (updates.ga_score||0)
+    await supabase.from('interview_rubrics')
+      .update({ ...updates, composite_score: composite, updated_at: new Date().toISOString() })
+      .eq('id', rubricId)
+    if (onRubricsChange) onRubricsChange()
+    // Recalculate averages immediately using updated values
+    const updatedRubrics = completedRubrics.map(r => r.id === rubricId ? { ...r, ...updates } : r)
+    const n = updatedRubrics.length
+    if (n === 0) return
+    const avgCJ   = updatedRubrics.reduce((s, r) => s + (r.cj_score||0), 0) / n
+    const avgPP   = updatedRubrics.reduce((s, r) => s + (r.pp_score||0), 0) / n
+    const avgGA   = updatedRubrics.reduce((s, r) => s + (r.ga_score||0), 0) / n
+    const avgComp = avgCJ + avgPP + avgGA
+    await onStudentUpdate(student.id, {
+      avg_cj_score:        +avgCJ.toFixed(2),
+      avg_pp_score:        +avgPP.toFixed(2),
+      avg_ga_score:        +avgGA.toFixed(2),
+      avg_composite_score: +avgComp.toFixed(2),
+      auto_recommendation: getAutoRec(avgComp),
+      rubric_count:        n,
+    })
   }
 
   const locked = form.status === 'Completed'
@@ -701,28 +857,9 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
             {completedRubrics.length > 0 && (
               <div className="rub-all-section">
                 <div className="rub-all-title">All Rubrics for This Student ({completedRubrics.length})</div>
-                {completedRubrics.map(r => {
-                  const comp = (r.cj_score||0)+(r.pp_score||0)+(r.ga_score||0)
-                  const rec = r.individual_recommendation
-                  const recColor = rec === 'Recommend' ? '#166534' : rec === 'Recommend with Reservations' ? '#92400e' : '#991b1b'
-                  const recBg = rec === 'Recommend' ? '#dcfce7' : rec === 'Recommend with Reservations' ? '#fef3c7' : '#fee2e2'
-                  return (
-                    <div key={r.id} className="rub-rubric-card">
-                      <div className="rub-rc-top">
-                        <span className="rub-rc-name">{r.interviewer_name || 'Unknown'}</span>
-                        <span className="rub-rc-date">{r.interview_date}</span>
-                        <span className="rub-rc-score">{comp}/15</span>
-                        {rec && <span style={{ fontSize:11, fontWeight:600, padding:'1px 7px', borderRadius:4, background:recBg, color:recColor }}>{rec}</span>}
-                      </div>
-                      <div className="rub-rc-scores">
-                        <span>CJ: {r.cj_score||0}/5</span>
-                        <span>PP: {r.pp_score||0}/5</span>
-                        <span>GA: {r.ga_score||0}/5</span>
-                      </div>
-                      {r.summary_comments && <p className="rub-rc-comments">{r.summary_comments}</p>}
-                    </div>
-                  )
-                })}
+                {completedRubrics.map(r => (
+                  <RubricCard key={r.id} r={r} interviewers={interviewers} onSave={handleRubricEdit} />
+                ))}
                 <div className="rub-avg-display">
                   <span>Average Composite: <strong>{student.avg_composite_score ? parseFloat(student.avg_composite_score).toFixed(1) : '—'}/15</strong></span>
                   {student.auto_recommendation && (
