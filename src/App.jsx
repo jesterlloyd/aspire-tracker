@@ -146,6 +146,14 @@ function MainApp({ onLogout }) {
     setActiveTab(tab)
   }
 
+  // Refetch students and units whenever the Aggregate tab becomes active
+  useEffect(() => {
+    if (activeTab === 'overview' && activeCohortId) {
+      fetchStudents(activeCohortId)
+      fetchUnits(activeCohortId)
+    }
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const updateCohortMatchSummary = (newMatchList) => {
     const summary = computeMatchSummary(newMatchList)
     supabase.from('cohorts').update({ match_quality_summary: summary }).eq('id', activeCohortId)

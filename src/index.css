@@ -1055,10 +1055,10 @@ a.doc-file-link:hover { text-decoration: underline; }
    ================================================================ */
 .overview-tab { display: flex; flex-direction: column; gap: 24px; }
 
-.ov-hero { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-.ov-hero-card { border-radius: 10px; padding: 28px 32px; text-align: center; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-.ov-hero-num   { font-size: 48px; font-weight: 700; line-height: 1; margin-bottom: 8px; }
-.ov-hero-label { font-size: 16px; font-weight: 500; }
+.ov-hero { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+.ov-hero-card { border-radius: 8px; padding: 20px 22px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+.ov-hero-num   { font-size: 48px; font-weight: 700; line-height: 1; margin-bottom: 6px; }
+.ov-hero-label { font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
 
 .ov-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
 .ov-panel  { background: var(--pearl); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
