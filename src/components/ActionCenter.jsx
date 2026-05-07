@@ -25,7 +25,7 @@ function fmtIvDate(s) {
 function openHref(href) { const a=document.createElement('a'); a.href=href; a.click() }
 
 // ── Reusable card wrapper ────────────────────────────────────
-function ActionCard({ title, borderColor, icon, count, children }) {
+function ActionCard({ title, borderColor, icon, count, children, badgeBg = '#6b7280' }) {
   const [open, setOpen] = useState(count > 0)
   if (count === 0) return (
     <div style={{ borderLeft:`4px solid #e5e7eb`, background:'#f9fafb', borderRadius:6,
@@ -42,7 +42,7 @@ function ActionCard({ title, borderColor, icon, count, children }) {
         onClick={() => setOpen(p=>!p)}>
         <span style={{ fontSize:16 }}>{icon}</span>
         <span style={{ fontSize:14, fontWeight:600, color:'var(--raven)', flex:1 }}>{title}</span>
-        <span style={{ background:'#1d2567', color:'#ffffff', fontFamily:'DM Sans,sans-serif',
+        <span style={{ background:badgeBg, color:'#ffffff', fontFamily:'DM Sans,sans-serif',
           fontWeight:700, fontSize:11, minWidth:20, height:20, borderRadius:10,
           display:'flex', alignItems:'center', justifyContent:'center',
           padding:'0 6px', flexShrink:0 }}>{count}</span>
@@ -506,7 +506,7 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
             <div style={{ flex:1, overflowY:'auto', padding:'0 16px 12px' }}>
 
               {/* 1: Student Form */}
-              <ActionCard title="Send Student Form" borderColor="#e5e7eb" icon="📧" count={act1.length}>
+              <ActionCard title="Send Student Form" borderColor="#e5e7eb" icon="📧" count={act1.length} badgeBg="#6b7280">
                 {act1.map(s => (
                   <SRow key={s.id} student={s} pending={isPend(s.id,'student_form')}
                     onOpenMail={() => { openHref(buildStudentFormEmail(s)); setPend(s.id,'student_form') }}
@@ -517,7 +517,7 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
               </ActionCard>
 
               {/* 2: Scheduling Link */}
-              <ActionCard title="Send Interview Scheduling Link" borderColor="#dbeafe" icon="📅" count={act2.length}>
+              <ActionCard title="Send Interview Scheduling Link" borderColor="#dbeafe" icon="📅" count={act2.length} badgeBg="#1d4ed8">
                 {act2.map(s => (
                   <SRow key={s.id} student={s} pending={isPend(s.id,'scheduling_link')}
                     onOpenMail={() => { openHref(buildSchedulingLinkEmail(s)); setPend(s.id,'scheduling_link') }}
@@ -526,7 +526,7 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
               </ActionCard>
 
               {/* 3: Interview Reminder */}
-              <ActionCard title="Interview Reminder" borderColor="#ede9fe" icon="🔔" count={act3.length}>
+              <ActionCard title="Interview Reminder" borderColor="#ede9fe" icon="🔔" count={act3.length} badgeBg="#7c3aed">
                 {act3.map(s => (
                   <SRow key={s.id} student={s} pending={isPend(s.id,'interview_reminder')}
                     onOpenMail={() => { openHref(buildInterviewReminderEmail(s)); setPend(s.id,'interview_reminder') }}
@@ -535,7 +535,7 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
               </ActionCard>
 
               {/* 4: Unit Leader Notification */}
-              <ActionCard title="Unit Leader Placement Notification" borderColor="#dcfce7" icon="✅" count={act4.length}>
+              <ActionCard title="Unit Leader Placement Notification" borderColor="#dcfce7" icon="✅" count={act4.length} badgeBg="#166534">
                 {act4.map(s => {
                   const unit = units.find(u => u.id === s.matched_unit_id)
                   const m    = matches.find(m => m.student_id === s.id)
@@ -559,7 +559,7 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
               </ActionCard>
 
               {/* 5: Preceptor Welcome */}
-              <ActionCard title="Preceptor Welcome Email" borderColor="#fef3c7" icon="👋" count={act5.length}>
+              <ActionCard title="Preceptor Welcome Email" borderColor="#fef3c7" icon="👋" count={act5.length} badgeBg="#92400e">
                 {act5.map(s => {
                   const unit = units.find(u => u.id === s.matched_unit_id)
                   const missingEmail = !s.preceptor_email
@@ -578,7 +578,7 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
               </ActionCard>
 
               {/* 6: CS-Link (internal flag only) */}
-              <ActionCard title="CS-Link Access Not Started" borderColor="#fee2e2" icon="🔗" count={act6.length}>
+              <ActionCard title="CS-Link Access Not Started" borderColor="#fee2e2" icon="🔗" count={act6.length} badgeBg="#991b1b">
                 <div style={{ padding:'8px 14px 4px', fontSize:12, color:'#6b7280', lineHeight:1.5 }}>
                   These students need a CS-Link access request submitted in the Service Center. Go to their Student Profile and complete Step 2 under CS-Link Access.
                 </div>
@@ -642,7 +642,7 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
               )}
 
               {/* 8: Midpoint Check-In */}
-              <ActionCard title="Midpoint Student Check-In" borderColor="#eff6ff" icon="💬" count={act8.length}>
+              <ActionCard title="Midpoint Student Check-In" borderColor="#eff6ff" icon="💬" count={act8.length} badgeBg="#1e40af">
                 {act8.map(s => (
                   <SRow key={s.id} student={s} pending={isPend(s.id,'midpoint_checkin')}
                     onOpenMail={() => { openHref(buildMidpointCheckinEmail(s)); setPend(s.id,'midpoint_checkin') }}
@@ -651,7 +651,7 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
               </ActionCard>
 
               {/* 9: Midpoint Preceptor Eval */}
-              <ActionCard title="Midpoint Preceptor Evaluation" borderColor="#fef3c7" icon="📊" count={act9.length}>
+              <ActionCard title="Midpoint Preceptor Evaluation" borderColor="#fef3c7" icon="📊" count={act9.length} badgeBg="#92400e">
                 {act9.map(s => (
                   <SRow key={s.id} student={s} pending={isPend(s.id,'midpoint_eval')}
                     warning={!s.preceptor_email ? 'Preceptor email missing' : null}
@@ -661,7 +661,7 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
               </ActionCard>
 
               {/* 10: Post-Program Survey */}
-              <ActionCard title="Post-Program Student Survey" borderColor="#dcfce7" icon="📋" count={act10.length}>
+              <ActionCard title="Post-Program Student Survey" borderColor="#dcfce7" icon="📋" count={act10.length} badgeBg="#166534">
                 {act10.map(s => (
                   <SRow key={s.id} student={s} pending={isPend(s.id,'post_survey')}
                     onOpenMail={() => { openHref(buildPostSurveyEmail(s)); setPend(s.id,'post_survey') }}
@@ -670,7 +670,7 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
               </ActionCard>
 
               {/* 11: Certificate */}
-              <ActionCard title="Certificate of Completion" borderColor="#d1fae5" icon="🎓" count={act11.length}>
+              <ActionCard title="Certificate of Completion" borderColor="#d1fae5" icon="🎓" count={act11.length} badgeBg="#065f46">
                 {act11.map(s => (
                   <SRow key={s.id} student={s} pending={isPend(s.id,'certificate')}
                     onOpenMail={() => { openHref(buildCertificateEmail(s)); setPend(s.id,'certificate') }}
@@ -679,7 +679,7 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
               </ActionCard>
 
               {/* 12: End Preceptor Eval */}
-              <ActionCard title="End Preceptor Evaluation" borderColor="#e5e7eb" icon="📝" count={act12.length}>
+              <ActionCard title="End Preceptor Evaluation" borderColor="#e5e7eb" icon="📝" count={act12.length} badgeBg="#374151">
                 {act12.map(s => (
                   <SRow key={s.id} student={s} pending={isPend(s.id,'end_eval')}
                     warning={!s.preceptor_email ? 'Preceptor email missing' : null}
