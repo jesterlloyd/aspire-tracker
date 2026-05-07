@@ -6,7 +6,7 @@ import {
   SHIFT_OPTIONS, COHORTS,
 } from '../lib/constants'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
-import { TYPE_LABELS, TYPE_COLORS } from './ActionCenter'
+import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
