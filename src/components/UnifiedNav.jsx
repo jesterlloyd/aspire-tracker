@@ -10,6 +10,18 @@ const COHORT_STATUS_COLORS = {
   Archived:  { bg:'#f3f4f6', color:'#9ca3af' },
 }
 
+function formatCohortDateShort(dateString) {
+  if (!dateString) return ''
+  // Parse as local date to avoid UTC-offset day shift
+  const [y, m, d] = dateString.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month:'short', day:'numeric' })
+}
+function formatCohortDateRange(startDate, endDate) {
+  if (!startDate && !endDate) return ''
+  if (!endDate) return formatCohortDateShort(startDate)
+  return `${formatCohortDateShort(startDate)} – ${formatCohortDateShort(endDate)}`
+}
+
 function ChevronDown() {
   return (
     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -187,14 +199,14 @@ export default function UnifiedNav({
         <div style={{
           display:'flex', alignItems:'center', gap:8,
           border:'1px solid rgba(255,255,255,0.15)', borderRadius:6, padding:'0 10px',
-          height:34, cursor:'pointer',
+          height:34, cursor:'pointer', minWidth:160, maxWidth:240, overflow:'hidden',
         }}
           onClick={() => setCohortOpen(p => !p)}>
           {/* Status dot */}
           <span style={{ width:7, height:7, borderRadius:'50%', flexShrink:0,
             background: activeCohort?.accepting_submissions ? '#4ade80' : '#9ca3af' }} />
           {/* Cohort name */}
-          <span style={{ fontSize:14, fontWeight:600, color:'#fff', maxWidth:160,
+          <span style={{ fontSize:14, fontWeight:600, color:'#fff', flex:1, minWidth:0,
             whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
             {activeCohort?.name || 'Select Cohort'}
           </span>
@@ -233,7 +245,7 @@ export default function UnifiedNav({
                     </div>
                     {(c.start_date || c.end_date) && (
                       <div style={{ fontSize:12, color: isSelected ? 'rgba(255,255,255,0.7)' : '#6b7280' }}>
-                        {c.start_date||''}{c.start_date&&c.end_date?' – ':''}{c.end_date||''}
+                        {formatCohortDateRange(c.start_date, c.end_date)}
                       </div>
                     )}
                   </div>
