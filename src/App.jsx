@@ -13,6 +13,7 @@ import LoginPage from './components/LoginPage'
 import UnitFormPage from './components/UnitFormPage'
 import SchoolFormPage from './components/SchoolFormPage'
 import StudentIntakeFormPage from './components/StudentIntakeFormPage'
+import InterviewSchedulePage from './components/InterviewSchedulePage'
 import InterviewersModal from './components/InterviewersModal'
 
 /*
@@ -54,6 +55,8 @@ function MainApp({ onLogout }) {
   const [units,     setUnits]     = useState([])
   const [matches,   setMatches]   = useState([])
   const [interviews, setInterviews] = useState([])
+  const [ivSessions, setIvSessions] = useState([])
+  const [ivSlots,    setIvSlots]    = useState([])
   const [loading,   setLoading]   = useState(true)
   const [dbError,   setDbError]   = useState(null)
 
@@ -84,11 +87,12 @@ function MainApp({ onLogout }) {
   useEffect(() => {
     if (!activeCohortId) return
     // Clear stale data from previous cohort immediately so no cross-cohort bleed
-    setStudents([]); setUnits([]); setMatches([]); setInterviews([])
+    setStudents([]); setUnits([]); setMatches([]); setInterviews([]); setIvSessions([]); setIvSlots([])
     setLoading(true); setDbError(null)
     Promise.all([
       fetchStudents(activeCohortId), fetchUnits(activeCohortId),
       fetchMatches(activeCohortId),  fetchInterviews(activeCohortId),
+      fetchIvSessions(activeCohortId), fetchIvSlots(activeCohortId),
     ]).finally(() => setLoading(false))
   }, [activeCohortId])
 
@@ -109,10 +113,26 @@ function MainApp({ onLogout }) {
     const { data } = await supabase.from('interview_rubrics').select('*').eq('cohort_id', id)
     setInterviews(data || [])
   }
+  const fetchIvSessions = async id => {
+    const { data } = await supabase.from('interview_sessions').select('*').eq('cohort_id', id)
+    setIvSessions(data || [])
+  }
+  const fetchIvSlots = async id => {
+    const { data } = await supabase.from('interview_slots').select('*').eq('cohort_id', id)
+    setIvSlots(data || [])
+  }
+  const updateIvSession = (studentId, updates) => {
+    setIvSessions(prev => {
+      const exists = prev.find(s => s.student_id === studentId)
+      if (exists) return prev.map(s => s.student_id === studentId ? { ...s, ...updates } : s)
+      return [...prev, { student_id: studentId, cohort_id: activeCohortId, ...updates }]
+    })
+  }
   const refreshAll = () => {
     if (!activeCohortId) return
     fetchStudents(activeCohortId); fetchUnits(activeCohortId)
     fetchMatches(activeCohortId);  fetchInterviews(activeCohortId)
+    fetchIvSessions(activeCohortId); fetchIvSlots(activeCohortId)
   }
 
   // ── Cohort CRUD ──────────────────────────────────────────────
@@ -365,9 +385,13 @@ function MainApp({ onLogout }) {
               <span>Student Profiles</span>
               <span className="tab-aspire-hint">S · P</span>
             </button>
-            <button className={`tab-btn${activeTab === 'interviews' ? ' active' : ''}`} onClick={() => switchTab('interviews')} aria-label="Interview Rubric tab">
+            <button className={`tab-btn${activeTab === 'interviews' ? ' active' : ''}`} onClick={() => switchTab('interviews')} aria-label="Interview Rubric tab" style={{ position:'relative' }}>
               <span>Interview Rubric</span>
               <span className="tab-aspire-hint">I · R</span>
+              {(() => {
+                const cnt = ivSessions.filter(s => s.self_scheduled && !s.teams_meeting_booked).length
+                return cnt > 0 ? <span className="ir-tab-badge">{cnt >= 10 ? '9+' : cnt}</span> : null
+              })()}
             </button>
             <button className={`tab-btn${activeTab === 'matching'   ? ' active' : ''}`} onClick={() => switchTab('matching')} aria-label="Embed tab">
               <span>Embed</span>
@@ -415,10 +439,13 @@ function MainApp({ onLogout }) {
             students={students}
             rubrics={interviews}
             cohortId={activeCohortId}
+            sessions={ivSessions}
+            slots={ivSlots}
             onStudentUpdate={updateStudent}
             onRubricsChange={() => fetchInterviews(activeCohortId)}
             onRefreshStudents={() => fetchStudents(activeCohortId)}
             onManageInterviewers={() => setShowInterviewersModal(true)}
+            onUpdateSession={updateIvSession}
           />
         )}
 
@@ -454,9 +481,10 @@ export default function App() {
     setAuthed(false)
   }
 
-  if (path.startsWith('/unit-form'))    return <UnitFormPage />
-  if (path.startsWith('/school-form'))  return <SchoolFormPage />
-  if (path.startsWith('/student-form')) return <StudentIntakeFormPage />
+  if (path.startsWith('/unit-form'))           return <UnitFormPage />
+  if (path.startsWith('/school-form'))         return <SchoolFormPage />
+  if (path.startsWith('/student-form'))        return <StudentIntakeFormPage />
+  if (path.startsWith('/interview-schedule'))  return <InterviewSchedulePage />
   if (!authed) return <LoginPage onSuccess={() => setAuthed(true)} />
   return <MainApp onLogout={handleLogout} />
 }

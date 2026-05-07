@@ -21,8 +21,34 @@ const ROW_BORDER = {
   'Not Scheduled': '#d1d5db',
 }
 
+function buildSchedulingMailto(student) {
+  const to = student.school_email || ''
+  const subject = 'Schedule Your ASPIRE Interview'
+  const body = `Dear ${student.first_name || 'ASPIRE Student'},
+
+Thank you for completing your ASPIRE Student Profile. The next step in the process is to schedule your interview with the Nursing Professional Development team.
+
+Please use the link below to view available times and select one that works for your schedule:
+
+https://aspire-tracker.vercel.app/interview-schedule
+
+When prompted, enter your school email address to access your scheduling page.
+
+Your interview will be conducted via Microsoft Teams. The meeting link will be sent to you separately after you book your slot.
+
+If you have any questions, please don't hesitate to reach out.
+
+Warm regards,
+Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN
+Brawerman Nursing Institute | Cedars-Sinai Medical Center
+JesterLloyd.Bautista@cshs.org | 310-248-8964`
+  return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+}
+
 export default function InterviewRubricTab({
-  students, rubrics, cohortId, onStudentUpdate, onRubricsChange, onRefreshStudents, onManageInterviewers,
+  students, rubrics, cohortId,
+  sessions = [], slots = [],
+  onStudentUpdate, onRubricsChange, onRefreshStudents, onManageInterviewers, onUpdateSession,
 }) {
   const [selectedStudentId,   setSelectedStudentId]   = useState(null)
   const [showScheduleModal,   setShowScheduleModal]   = useState(false)
@@ -107,10 +133,14 @@ export default function InterviewRubricTab({
         <WeekCalendar
           students={students}
           rubrics={rubrics}
+          cohortId={cohortId}
+          sessions={sessions}
+          slots={slots}
           onOpenRubric={id => setSelectedStudentId(id)}
           onSchedule={() => setShowScheduleModal(true)}
           onManageInterviewers={onManageInterviewers}
           onStudentUpdate={onRefreshStudents || onRubricsChange}
+          onUpdateSession={onUpdateSession}
         />
         <div className="iv-summary">
           {summaryStats.map(s => (
@@ -172,6 +202,13 @@ export default function InterviewRubricTab({
                   <td className="iv-td iv-td-name">
                     {s.flagged_for_second_interview && <span style={{ marginRight:5 }}>🚩</span>}
                     {displayName(s)}
+                    {s.status === 'Form Received' && (
+                      <button title="Send scheduling link"
+                        onClick={e => { e.stopPropagation(); const a = document.createElement('a'); a.href = buildSchedulingMailto(s); a.click() }}
+                        style={{ marginLeft:6, background:'none', border:'none', cursor:'pointer', fontSize:13, color:'#6b7280', padding:'0 2px', verticalAlign:'middle' }}>
+                        ✉
+                      </button>
+                    )}
                   </td>
                   <td className="iv-td iv-td-school">{s.school || '—'}</td>
                   <td className="iv-td" style={{ fontSize:12, color:'var(--text-secondary)', whiteSpace:'nowrap' }}>

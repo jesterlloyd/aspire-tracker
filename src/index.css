@@ -1731,6 +1731,85 @@ a.doc-file-link:hover { text-decoration: underline; }
 .rub-save-dot { margin-left: auto; font-size: 11px; }
 .rub-form-body { padding: 16px; display: flex; flex-direction: column; gap: 0; }
 
+/* ── IR tab notification badge ─────────────────────────────── */
+.ir-tab-badge {
+  position: absolute; top: -6px; right: -6px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--cs-red); color: #fff;
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'DM Sans', sans-serif;
+  pointer-events: none; z-index: 5;
+}
+
+/* ── Month calendar ─────────────────────────────────────────── */
+.month-cal-header-row {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  background: var(--sand); border-bottom: 1px solid var(--border);
+}
+.month-cal-dow {
+  padding: 6px 8px; font-size: 11px; font-weight: 700;
+  color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em;
+  text-align: center;
+}
+.month-cal-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  border-left: 1px solid var(--border-lt);
+}
+.month-cal-day {
+  min-height: 80px; padding: 4px 6px;
+  background: var(--pearl); cursor: pointer;
+  border-right: 1px solid var(--border-lt); border-bottom: 1px solid var(--border-lt);
+  transition: background 0.1s;
+}
+.month-cal-day:hover { background: #f9fafb; }
+.month-cal-day-sel   { background: #eff6ff !important; }
+.month-cal-day-num-wrap { margin-bottom: 3px; }
+.month-cal-day-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  font-size: 12px; font-weight: 600; color: var(--raven);
+}
+.month-cal-today-num { background: var(--nightfall); color: #fff; }
+.month-cal-pill {
+  font-size: 10px; font-weight: 500; padding: 1px 4px; border-radius: 3px;
+  margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: block;
+}
+.month-cal-slot-pill {
+  font-size: 10px; color: #9ca3af; padding: 1px 4px; border-radius: 3px;
+  border: 1px dashed #d1d5db; background: var(--sand);
+  margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: block;
+}
+
+/* ── Day Detail Panel ─────────────────────────────────────── */
+.day-detail-panel {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  width: 360px; background: var(--pearl);
+  border-left: 1px solid var(--border); border-radius: 0 0 8px 0;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.10); z-index: 20;
+  display: flex; flex-direction: column;
+}
+.day-detail-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--border-lt); flex-shrink: 0;
+}
+.day-detail-body { flex: 1; overflow-y: auto; padding: 14px 16px; }
+.day-detail-section-title {
+  font-size: 11px; font-weight: 700; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;
+}
+.day-detail-entry {
+  padding: 10px 12px; border-radius: 6px;
+  background: #f9fafb; margin-bottom: 8px;
+  border-left-width: 3px; border-left-style: solid;
+}
+.day-detail-slot {
+  padding: 7px 10px; border-radius: 6px; border: 1px dashed var(--border);
+  background: var(--sand); margin-bottom: 6px; font-size: 13px;
+}
+
 /* Unit availability skeleton shimmer */
 @keyframes shimmer {
   0%   { opacity: 0.4; }
