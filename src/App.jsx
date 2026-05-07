@@ -15,6 +15,7 @@ import SchoolFormPage from './components/SchoolFormPage'
 import StudentIntakeFormPage from './components/StudentIntakeFormPage'
 import InterviewSchedulePage from './components/InterviewSchedulePage'
 import InterviewersModal from './components/InterviewersModal'
+import ActionCenter from './components/ActionCenter'
 
 /*
   COHORT ISOLATION CONTRACT
@@ -55,8 +56,10 @@ function MainApp({ onLogout }) {
   const [units,     setUnits]     = useState([])
   const [matches,   setMatches]   = useState([])
   const [interviews, setInterviews] = useState([])
-  const [ivSessions, setIvSessions] = useState([])
-  const [ivSlots,    setIvSlots]    = useState([])
+  const [ivSessions,    setIvSessions]    = useState([])
+  const [ivSlots,       setIvSlots]       = useState([])
+  const [communications,setCommunications]= useState([])
+  const [showActionCenter, setShowActionCenter] = useState(false)
   const [loading,   setLoading]   = useState(true)
   const [dbError,   setDbError]   = useState(null)
 
@@ -87,12 +90,13 @@ function MainApp({ onLogout }) {
   useEffect(() => {
     if (!activeCohortId) return
     // Clear stale data from previous cohort immediately so no cross-cohort bleed
-    setStudents([]); setUnits([]); setMatches([]); setInterviews([]); setIvSessions([]); setIvSlots([])
+    setStudents([]); setUnits([]); setMatches([]); setInterviews([]); setIvSessions([]); setIvSlots([]); setCommunications([])
     setLoading(true); setDbError(null)
     Promise.all([
       fetchStudents(activeCohortId), fetchUnits(activeCohortId),
       fetchMatches(activeCohortId),  fetchInterviews(activeCohortId),
       fetchIvSessions(activeCohortId), fetchIvSlots(activeCohortId),
+      fetchCommunications(activeCohortId),
     ]).finally(() => setLoading(false))
   }, [activeCohortId])
 
@@ -128,11 +132,19 @@ function MainApp({ onLogout }) {
       return [...prev, { student_id: studentId, cohort_id: activeCohortId, ...updates }]
     })
   }
+  const fetchCommunications = async id => {
+    const { data } = await supabase.from('communications').select('*').eq('cohort_id', id).order('sent_at', { ascending: false })
+    setCommunications(data || [])
+  }
+  const logCommunication = comm => {
+    setCommunications(prev => [comm, ...prev])
+  }
   const refreshAll = () => {
     if (!activeCohortId) return
     fetchStudents(activeCohortId); fetchUnits(activeCohortId)
     fetchMatches(activeCohortId);  fetchInterviews(activeCohortId)
     fetchIvSessions(activeCohortId); fetchIvSlots(activeCohortId)
+    fetchCommunications(activeCohortId)
   }
 
   // ── Cohort CRUD ──────────────────────────────────────────────
@@ -327,6 +339,30 @@ function MainApp({ onLogout }) {
     URL.revokeObjectURL(url)
   }
 
+  // ── Action Center badge count ────────────────────────────────
+  const actionBadgeCount = (() => {
+    if (!students.length) return 0
+    const hasSent = (sid, type) => communications.some(c => c.student_id === sid && c.type === type)
+    const now = new Date()
+    const td  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
+    const in48 = new Date(now.getTime() + 48*3600*1000)
+    const t48 = `${in48.getFullYear()}-${String(in48.getMonth()+1).padStart(2,'0')}-${String(in48.getDate()).padStart(2,'0')}`
+    return (
+      students.filter(s => s.status==='Pending Outreach').length +
+      students.filter(s => s.status==='Form Received' && !s.interview_scheduled_date).length +
+      students.filter(s => s.interview_scheduled_date >= td && s.interview_scheduled_date <= t48 && !hasSent(s.id,'interview_reminder')).length +
+      matches.filter(m => { const s=students.find(st=>st.id===m.student_id); return s?.status==='Placed'&&!m.notification_sent }).length +
+      students.filter(s => s.status==='Placed'&&s.matched_preceptor&&!hasSent(s.id,'preceptor_welcome')).length +
+      students.filter(s => ['Placed','Active Rotation'].includes(s.status)&&!s.cs_link_complete).length +
+      (activeCohort&&!activeCohort.orientation_sent_at&&students.some(s=>s.status==='Placed')?1:0) +
+      students.filter(s => s.status==='Active Rotation'&&!hasSent(s.id,'midpoint_checkin')).length +
+      students.filter(s => s.status==='Active Rotation'&&!hasSent(s.id,'midpoint_eval')).length +
+      students.filter(s => s.status==='Completed'&&!hasSent(s.id,'post_survey')).length +
+      students.filter(s => s.status==='Completed'&&!hasSent(s.id,'certificate')).length +
+      students.filter(s => s.status==='Completed'&&!hasSent(s.id,'end_eval')).length
+    )
+  })()
+
   const setFilter = (k, v) => setFilters(p => ({ ...p, [k]: v }))
   const filteredStudents = students.filter(s => {
     if (search) {
@@ -355,6 +391,25 @@ function MainApp({ onLogout }) {
               </div>
             </div>
             <div className="header-actions">
+              {/* Bell icon + Action Center */}
+              {cohorts.length > 0 && (
+                <button onClick={() => setShowActionCenter(true)}
+                  style={{ position:'relative', background:'none', border:'none', cursor:'pointer', padding:'4px 6px', lineHeight:1 }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                  </svg>
+                  {actionBadgeCount > 0 && (
+                    <span style={{ position:'absolute', top:-4, right:-4,
+                      minWidth:18, height:18, borderRadius:9, background:'#dc1e34',
+                      color:'#fff', fontSize:11, fontWeight:700, fontFamily:'DM Sans',
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      padding:'0 3px', lineHeight:1, border:'2px solid var(--nightfall)' }}>
+                      {actionBadgeCount >= 10 ? '9+' : actionBadgeCount}
+                    </span>
+                  )}
+                </button>
+              )}
               {!confirmLogout ? (
                 <button className="btn-logout" onClick={() => setConfirmLogout(true)}>Log out</button>
               ) : (
@@ -468,6 +523,22 @@ function MainApp({ onLogout }) {
       )}
       {showInterviewersModal && (
         <InterviewersModal onClose={() => setShowInterviewersModal(false)} />
+      )}
+      {showActionCenter && (
+        <ActionCenter
+          isOpen={showActionCenter}
+          onClose={() => setShowActionCenter(false)}
+          students={students}
+          units={units}
+          matches={matches}
+          cohortId={activeCohortId}
+          activeCohort={activeCohort}
+          communications={communications}
+          onLogCommunication={logCommunication}
+          onMatchUpdate={updateMatch}
+          onStudentUpdate={updateStudent}
+          onNavigateToProfiles={id => { switchTab('profiles'); setShowActionCenter(false) }}
+        />
       )}
     </div>
   )

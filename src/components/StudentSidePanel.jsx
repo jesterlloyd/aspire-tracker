@@ -6,6 +6,14 @@ import {
   SHIFT_OPTIONS, COHORTS,
 } from '../lib/constants'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
+import { TYPE_LABELS, TYPE_COLORS } from './ActionCenter'
+
+function fmtCommTs(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' at ' +
+    d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})
+}
 
 const CEDARS_STATUS_OPTIONS = [
   { value: 'new',      label: 'New to Cedars-Sinai (no prior rotation or employment)' },
@@ -69,6 +77,14 @@ export default function StudentSidePanel({
   // Reset data when student changes (prev/next navigation)
   useEffect(() => { setData({ ...student }); setSaveStatus('idle') }, [student.id])
   useEffect(() => { setHeadshotError(false) }, [data.headshot_url])
+
+  const [studentComms, setStudentComms] = useState([])
+  useEffect(() => {
+    if (!student.id) return
+    supabase.from('communications').select('*').eq('student_id', student.id)
+      .order('sent_at', { ascending: false })
+      .then(({ data }) => setStudentComms(data || []))
+  }, [student.id])
 
   const currentIndex = sortedStudents.findIndex(s => s.id === student.id)
   const prevStudent  = currentIndex > 0 ? sortedStudents[currentIndex - 1] : null
@@ -387,6 +403,15 @@ export default function StudentSidePanel({
               <Field label="Matched Preceptor">
                 <input className="sp-input" value={data.matched_preceptor||''} onChange={e => handleText('matched_preceptor', e.target.value)} placeholder="Assign preceptor…" />
               </Field>
+              <Field label="Preceptor Email">
+                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                  <input className="sp-input" type="email" value={data.preceptor_email||''} onChange={e => handleText('preceptor_email', e.target.value)} placeholder="preceptor@cshs.org" />
+                  {data.preceptor_email && (
+                    <button className="sp-copy-btn" title="Email preceptor"
+                      onClick={() => { const a=document.createElement('a'); a.href=`mailto:${data.preceptor_email}`; a.click() }}>✉</button>
+                  )}
+                </div>
+              </Field>
               <Field label="NGRP Cohort Target">
                 <input className="sp-input" value={data.ngrp_cohort_target||''} onChange={e => handleText('ngrp_cohort_target', e.target.value)} placeholder="e.g. Spring 2027" />
               </Field>
@@ -605,6 +630,29 @@ export default function StudentSidePanel({
           <div className="sp-section">
             <SectionHeader title="Notes" />
             <textarea className="sp-textarea" rows={4} value={data.notes||''} onChange={e => handleText('notes', e.target.value)} placeholder="Add notes…" />
+          </div>
+
+          {/* Communication History */}
+          <div className="sp-section">
+            <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:10 }}>
+              Communication History
+            </div>
+            {studentComms.length === 0 ? (
+              <p style={{ fontSize:13, color:'#9ca3af', fontStyle:'italic' }}>No communications sent yet.</p>
+            ) : studentComms.map(c => (
+              <div key={c.id} style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8, padding:'6px 0', borderBottom:'1px solid var(--border-lt)' }}>
+                <div style={{ display:'flex', alignItems:'flex-start', gap:7 }}>
+                  <span style={{ width:6, height:6, borderRadius:'50%', background: TYPE_COLORS[c.type]||'#9ca3af', flexShrink:0, marginTop:4, display:'inline-block' }} />
+                  <div>
+                    <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)' }}>{TYPE_LABELS[c.type]||c.type}</div>
+                    {(c.sent_to_name||c.sent_to_email) && (
+                      <div style={{ fontSize:12, color:'#6b7280' }}>{c.sent_to_name||c.sent_to_email}</div>
+                    )}
+                  </div>
+                </div>
+                <span style={{ fontSize:11, color:'#9ca3af', whiteSpace:'nowrap', flexShrink:0 }}>{fmtCommTs(c.sent_at)}</span>
+              </div>
+            ))}
           </div>
 
           {/* Delete */}
