@@ -593,13 +593,18 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
               {showAct7 && (
                 <div style={{ borderLeft:'4px solid #d1fae5', border:'1px solid #d1fae5',
                   borderLeftWidth:4, borderRadius:6, marginBottom:8, background:'#fff' }}>
-                  <div style={{ padding:'10px 14px', borderBottom:'1px solid #d1fae5' }}>
-                    <span style={{ fontSize:16, marginRight:8 }}>🎉</span>
-                    <span style={{ fontSize:14, fontWeight:600, color:'var(--raven)' }}>
-                      Orientation Email + Pre-Program Survey
-                    </span>
-                    <span style={{ marginLeft:8, fontSize:11, fontWeight:700, padding:'2px 8px',
-                      borderRadius:20, background:'#d1fae5', color:'#059669' }}>1</span>
+                  <div style={{ padding:'10px 14px', borderBottom:'1px solid #d1fae5',
+                    display:'flex', alignItems:'center', justifyContent:'space-between', width:'100%' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:10, flex:1 }}>
+                      <span style={{ fontSize:16 }}>🎉</span>
+                      <span style={{ fontSize:14, fontWeight:600, color:'var(--raven)', flex:1 }}>
+                        Orientation Email + Pre-Program Survey
+                      </span>
+                    </div>
+                    <span style={{ background:'#065f46', color:'#ffffff', fontFamily:'DM Sans,sans-serif',
+                      fontWeight:700, fontSize:11, minWidth:20, height:20, borderRadius:10,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      padding:'0 6px', flexShrink:0, marginLeft:8 }}>1</span>
                   </div>
                   <div style={{ padding:'12px 14px' }}>
                     <div style={{ fontSize:12, color:'#6b7280', marginBottom:10 }}>

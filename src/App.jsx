@@ -371,7 +371,7 @@ function MainApp({ onLogout }) {
       students.filter(s => s.interview_scheduled_date >= td && s.interview_scheduled_date <= t48 && !hasSent(s.id,'interview_reminder')).length +
       matches.filter(m => { const s=students.find(st=>st.id===m.student_id); return s?.status==='Placed'&&!m.notification_sent }).length +
       students.filter(s => s.status==='Placed'&&s.matched_preceptor&&!hasSent(s.id,'preceptor_welcome')).length +
-      students.filter(s => ['Placed','Active Rotation'].includes(s.status)&&!s.cs_link_complete).length +
+      students.filter(s => ['Form Received','Interview Scheduled','Interviewed','Placed','Active Rotation'].includes(s.status)&&(!s.cs_cedars_status||!s.cs_stage1_submitted)).length +
       (activeCohort&&!activeCohort.orientation_sent_at&&students.some(s=>s.status==='Placed')?1:0) +
       students.filter(s => s.status==='Active Rotation'&&!hasSent(s.id,'midpoint_checkin')).length +
       students.filter(s => s.status==='Active Rotation'&&!hasSent(s.id,'midpoint_eval')).length +
