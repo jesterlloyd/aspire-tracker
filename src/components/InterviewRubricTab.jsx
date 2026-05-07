@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { displayName } from '../lib/utils'
 import RubricSession from './RubricSession'
 import WeekCalendar from './WeekCalendar'
@@ -56,6 +56,22 @@ export default function InterviewRubricTab({
   const [search,              setSearch]              = useState('')
   const [sortBy,              setSortBy]              = useState('last_name')
   const [sortDir,             setSortDir]             = useState('asc')
+  // Calendar view mode lifted here so the tab container layout can respond
+  const [calMode,             setCalMode]             = useState('week')
+  const [showScrollHint,      setShowScrollHint]      = useState(true)
+  const summaryRef = useRef(null)
+
+  // Hide scroll hint once user has scrolled past the summary cards (month mode only)
+  useEffect(() => {
+    if (calMode !== 'month' || !summaryRef.current) return
+    setShowScrollHint(true) // reset on entering month mode
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowScrollHint(entry.isIntersecting),
+      { threshold: 0.1 }
+    )
+    observer.observe(summaryRef.current)
+    return () => observer.disconnect()
+  }, [calMode])
 
   // ── Stats ──────────────────────────────────────────────────
   const total         = students.length
@@ -126,11 +142,13 @@ export default function InterviewRubricTab({
     return sortDir === 'asc' ? cmp : -cmp
   })
 
-  return (
-    <div className="rub-tab">
+  const isMonth = calMode === 'month'
 
-      {/* Frozen: calendar + summary cards — never scroll */}
-      <div className="rub-frozen">
+  return (
+    <div className={isMonth ? 'rub-tab-month' : 'rub-tab'}>
+
+      {/* Calendar + summary cards — frozen in week, flows in month */}
+      <div className={isMonth ? '' : 'rub-frozen'}>
         <WeekCalendar
           students={students}
           rubrics={rubrics}
@@ -142,8 +160,10 @@ export default function InterviewRubricTab({
           onManageInterviewers={onManageInterviewers}
           onStudentUpdate={onRefreshStudents || onRubricsChange}
           onUpdateSession={onUpdateSession}
+          calMode={calMode}
+          onCalModeChange={setCalMode}
         />
-        <div className="iv-summary">
+        <div ref={summaryRef} className="iv-summary">
           {summaryStats.map(s => (
             <div key={s.label} className={`summary-card ${s.cardClass}`}>
               <div className="summary-card-value" style={{ color:s.color }}>{s.value}</div>
@@ -151,10 +171,16 @@ export default function InterviewRubricTab({
             </div>
           ))}
         </div>
+        {/* Scroll hint — only in month mode, hides after scrolling past summary */}
+        {isMonth && showScrollHint && (
+          <div style={{ textAlign:'center', padding:'10px 0 4px', fontSize:12, color:'#9ca3af', userSelect:'none' }}>
+            ↓ Scroll down to see student list
+          </div>
+        )}
       </div>
 
-      {/* Scrollable: search + table */}
-      <div className="rub-scroll-area">
+      {/* Student list — independent scroll in week, natural flow in month */}
+      <div className={isMonth ? 'rub-scroll-area-month' : 'rub-scroll-area'}>
         <div className="iv-toolbar">
           <input className="search-input" style={{ maxWidth:320 }} placeholder="Search by name or school…"
             value={search} onChange={e => setSearch(e.target.value)} />

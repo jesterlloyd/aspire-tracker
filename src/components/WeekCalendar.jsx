@@ -171,8 +171,12 @@ export default function WeekCalendar({
   students, rubrics, cohortId,
   sessions = [], slots = [],
   onOpenRubric, onSchedule, onManageInterviewers, onStudentUpdate, onUpdateSession,
+  // Allow parent to lift calMode so the tab layout can respond to view changes
+  calMode: calModeProp, onCalModeChange,
 }) {
-  const [calMode,        setCalMode]        = useState('week')
+  const [calModeInternal, setCalModeInternal] = useState('week')
+  const calMode    = calModeProp ?? calModeInternal
+  const setCalMode = v => { setCalModeInternal(v); onCalModeChange?.(v) }
   const [weekOffset,     setWeekOffset]     = useState(0)
   const [monthDate,      setMonthDate]      = useState(() => { const n=new Date(); return {year:n.getFullYear(),month:n.getMonth()} })
   const [editingStudent, setEditingStudent] = useState(null)

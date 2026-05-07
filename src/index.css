@@ -1682,6 +1682,10 @@ a.doc-file-link:hover { text-decoration: underline; }
 .rub-frozen     { flex-shrink: 0; }
 .rub-scroll-area { flex: 1; overflow-y: auto; min-height: 0; padding: 16px 0 0; }
 
+/* Month view: natural full-page scroll — no fixed height constraints */
+.rub-tab-month       { display: block; height: auto; overflow: visible; }
+.rub-scroll-area-month { padding: 16px 0 0; }
+
 /* Two-panel session */
 .rub-session {
   display: flex; flex-direction: column;
