@@ -209,20 +209,36 @@ export default function UnifiedNav({
       {/* ── Center-right: Cohort cluster ── */}
       <div ref={cohortRef} style={{ position:'relative', flexShrink:0 }}>
         <div style={{
-          display:'flex', alignItems:'center', gap:8,
+          display:'flex', alignItems:'center', gap:6,
           border:'1px solid rgba(255,255,255,0.15)', borderRadius:6, padding:'0 10px',
-          height:34, cursor:'pointer', minWidth:160, maxWidth:240, overflow:'hidden',
+          height:34, cursor:'pointer', minWidth:160, maxWidth:360,
         }}
           onClick={() => setCohortOpen(p => !p)}>
           {/* Status dot */}
           <span style={{ width:7, height:7, borderRadius:'50%', flexShrink:0,
             background: activeCohort?.accepting_submissions ? '#4ade80' : '#9ca3af' }} />
           {/* Cohort name */}
-          <span style={{ fontSize:14, fontWeight:600, color:'#fff', flex:1, minWidth:0,
-            whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+          <span style={{ fontSize:14, fontWeight:600, color:'#fff', minWidth:0,
+            whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', flexShrink:1 }}>
             {activeCohort?.name || 'Select Cohort'}
           </span>
-          <span style={{ color:'rgba(255,255,255,0.7)' }}><ChevronDown /></span>
+          {/* Active badge */}
+          {activeCohort?.status === 'Active' && (
+            <span style={{ fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:20,
+              background:'#dcfce7', color:'#166534', border:'1px solid #bbf7d0',
+              boxShadow:'0 0 6px rgba(22,163,74,0.2)', whiteSpace:'nowrap', flexShrink:0 }}>
+              Active
+            </span>
+          )}
+          {/* Accepting Submissions badge */}
+          {activeCohort?.accepting_submissions && (
+            <span style={{ fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:20,
+              background:'#dbeafe', color:'#1e40af', border:'1px solid #bfdbfe',
+              boxShadow:'0 0 6px rgba(29,78,216,0.2)', whiteSpace:'nowrap', flexShrink:0 }}>
+              Accepting Submissions
+            </span>
+          )}
+          <span style={{ color:'rgba(255,255,255,0.7)', flexShrink:0 }}><ChevronDown /></span>
         </div>
 
         {/* Cohort dropdown */}
@@ -268,9 +284,10 @@ export default function UnifiedNav({
                         color:isSelected?'#fff':sc.color }}>{c.status}</span>
                     )}
                     {c.accepting_submissions && (
-                      <span style={{ fontSize:11, fontWeight:500, padding:'1px 7px', borderRadius:20,
-                        background:isSelected?'rgba(74,222,128,0.25)':'#dcfce7', color:isSelected?'#fff':'#166534' }}>
-                        Accepting
+                      <span style={{ fontSize:11, fontWeight:600, padding:'1px 7px', borderRadius:20,
+                        background:isSelected?'rgba(191,219,254,0.3)':'#dbeafe',
+                        color:isSelected?'#fff':'#1e40af' }}>
+                        Accepting Submissions
                       </span>
                     )}
                   </div>
@@ -301,22 +318,6 @@ export default function UnifiedNav({
           +
         </button>
       </div>
-
-      {/* Active + Accepting Submissions status badges */}
-      {activeCohort?.status === 'Active' && (
-        <span style={{
-          fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:20,
-          background:'#16a34a', color:'#fff', flexShrink:0,
-          boxShadow:'0 0 8px rgba(22,163,74,0.5)',
-        }}>Active</span>
-      )}
-      {activeCohort?.accepting_submissions && (
-        <span style={{
-          fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:20,
-          background:'#1d4ed8', color:'#fff', flexShrink:0,
-          boxShadow:'0 0 8px rgba(29,78,216,0.5)',
-        }}>Accepting</span>
-      )}
 
       {/* ── Spacer ── */}
       <div style={{ flex:1 }} />
