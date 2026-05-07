@@ -217,8 +217,8 @@ export default function UnifiedNav({
           {/* Status dot — green if accepting submissions, gray otherwise */}
           <span style={{ width:7, height:7, borderRadius:'50%', flexShrink:0,
             background: activeCohort?.accepting_submissions ? '#4ade80' : '#9ca3af' }} />
-          {/* Cohort name — no truncation */}
-          <span style={{ fontSize:14, fontWeight:600, color:'#fff', whiteSpace:'nowrap' }}>
+          {/* Cohort name — no truncation, no constraints */}
+          <span style={{ fontSize:14, fontWeight:600, color:'#fff' }}>
             {activeCohort?.name || 'Select Cohort'}
           </span>
           <span style={{ color:'rgba(255,255,255,0.7)', flexShrink:0 }}><ChevronDown /></span>
@@ -227,7 +227,7 @@ export default function UnifiedNav({
         {/* Cohort dropdown */}
         {cohortOpen && (
           <div style={{
-            position:'absolute', top:'calc(100% + 6px)', left:0, width:320,
+            position:'absolute', top:'calc(100% + 6px)', left:0, width:380,
             background:'var(--pearl)', border:'1px solid #e5e7eb', borderRadius:12,
             boxShadow:'0 8px 24px rgba(0,0,0,0.12)', zIndex:300, overflow:'hidden',
           }}>
@@ -241,42 +241,39 @@ export default function UnifiedNav({
                 <div key={c.id}
                   onClick={() => { onSelectCohort(c.id); setCohortOpen(false) }}
                   style={{
-                    height:44, padding:'0 16px', display:'flex', alignItems:'center',
-                    justifyContent:'space-between', cursor:'pointer',
-                    background: isSelected ? 'var(--nightfall)' : 'transparent',
+                    padding:'14px 16px', cursor:'pointer',
+                    // FIX 3: light highlight with left accent border; never dark background
+                    background: isSelected ? '#e8edf8' : 'transparent',
+                    borderLeft: isSelected ? '3px solid #1d2567' : '3px solid transparent',
                     transition:'background 0.1s',
                   }}
                   onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background='var(--sand)' }}
                   onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background='transparent' }}>
-                  <div style={{ minWidth:0 }}>
-                    <div style={{ fontSize:14, fontWeight:600,
-                      color: isSelected ? '#fff' : 'var(--raven)',
-                      whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                      {c.name}
-                    </div>
-                    {(c.start_date || c.end_date) && (
-                      <div style={{ fontSize:12, color: isSelected ? 'rgba(255,255,255,0.7)' : '#6b7280' }}>
-                        {formatCohortDateRange(c.start_date, c.end_date)}
-                      </div>
-                    )}
+                  {/* Line 1: cohort name — no truncation, always Raven */}
+                  <div style={{ fontSize:15, fontWeight:600, color:'#374151' }}>
+                    {c.name}
                   </div>
-                  <div style={{ display:'flex', gap:4, flexShrink:0, marginLeft:8, flexWrap:'wrap', justifyContent:'flex-end' }}>
-                    {c.status && (
-                      <span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20,
-                        background: isSelected ? 'rgba(255,255,255,0.15)' : sc.bg,
-                        color: isSelected ? '#fff' : sc.color,
-                        border: `1px solid ${isSelected ? 'rgba(255,255,255,0.2)' : sc.bg}` }}>
-                        {c.status}
-                      </span>
-                    )}
-                    {c.accepting_submissions && (
-                      <span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20,
-                        background: isSelected ? 'rgba(191,219,254,0.25)' : '#dbeafe',
-                        color: isSelected ? '#fff' : '#1e40af',
-                        border: `1px solid ${isSelected ? 'rgba(191,219,254,0.4)' : '#bfdbfe'}` }}>
-                        Accepting Submissions
-                      </span>
-                    )}
+                  {/* Line 2: date range left, badges right */}
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:3 }}>
+                    <span style={{ fontSize:12, color:'#6b7280' }}>
+                      {formatCohortDateRange(c.start_date, c.end_date) || ' '}
+                    </span>
+                    <div style={{ display:'flex', gap:4, flexShrink:0, marginLeft:8 }}>
+                      {/* Status badge — fixed colors regardless of selection */}
+                      {c.status && (
+                        <span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20,
+                          background: sc.bg, color: sc.color, border:`1px solid ${sc.bg}` }}>
+                          {c.status}
+                        </span>
+                      )}
+                      {/* Accepting Submissions badge — fixed colors regardless of selection */}
+                      {c.accepting_submissions && (
+                        <span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20,
+                          background:'#dbeafe', color:'#1e40af', border:'1px solid #bfdbfe' }}>
+                          Accepting Submissions
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )
