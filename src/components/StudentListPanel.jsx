@@ -16,7 +16,7 @@ export default function StudentListPanel({
   localSearch, setLocalSearch, filterSchool, setFilterSchool,
   filterStatus, setFilterStatus, sortBy, setSortBy,
   needsAttention, setNeedsAttention,
-  cohortId, onRefresh,
+  cohortId, onRefresh, onExportCSV, onAddStudent,
 }) {
   const [showImport,  setShowImport]  = useState(false)
   const [imgErrors,   setImgErrors]   = useState({})
@@ -58,6 +58,16 @@ export default function StudentListPanel({
         <button className="btn-import-students" onClick={() => setShowImport(true)} title="Import from CSV">
           ↑ Import
         </button>
+        {onAddStudent && (
+          <button className="btn-import-students" onClick={onAddStudent} title="Add student">
+            + Add
+          </button>
+        )}
+        {onExportCSV && (
+          <button className="btn-import-students" onClick={onExportCSV} title="Export CSV">
+            ↓ Export
+          </button>
+        )}
       </div>
 
       <div className="pl-meta">{students.length} of {allStudents.length} students</div>

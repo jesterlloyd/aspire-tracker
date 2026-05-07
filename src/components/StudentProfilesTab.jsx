@@ -40,6 +40,7 @@ export default function StudentProfilesTab({
   onUpdate, onDelete, onRefresh, onSwitchToAccess,
   view, onViewChange,
   accessFocusId,
+  onExportCSV, onAddStudent,
 }) {
   const [selectedStudentId, setSelectedStudentId] = useState(null)
   const [localSearch,       setLocalSearch]       = useState('')
@@ -109,6 +110,8 @@ export default function StudentProfilesTab({
               needsAttention={needsAttention} setNeedsAttention={setNeedsAttention}
               cohortId={cohortId}
               onRefresh={onRefresh}
+              onExportCSV={onExportCSV}
+              onAddStudent={onAddStudent}
             />
           </div>
           <div className="profiles-detail-col">

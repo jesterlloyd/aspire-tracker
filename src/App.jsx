@@ -318,7 +318,9 @@ function MainApp({ onLogout }) {
     const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'})
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href=url; a.download=`aspire-${new Date().toISOString().slice(0,10)}.csv`; a.click()
+    const cohortSlug = (activeCohort?.name || 'cohort').toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'')
+    const dateSlug = new Date().toISOString().slice(0,10)
+    a.href=url; a.download=`aspire_students_${cohortSlug}_${dateSlug}.csv`; a.click()
     URL.revokeObjectURL(url)
   }
 
@@ -350,12 +352,6 @@ function MainApp({ onLogout }) {
               </div>
             </div>
             <div className="header-actions">
-              {activeTab === 'profiles' && profilesView === 'records' && cohorts.length > 0 && (
-                <>
-                  <button className="btn btn-ghost" onClick={exportCSV}>↓ Export CSV</button>
-                  <button className="btn btn-accent" onClick={() => setShowAddModal(true)}>+ Add Student</button>
-                </>
-              )}
               {!confirmLogout ? (
                 <button className="btn-logout" onClick={() => setConfirmLogout(true)}>Log out</button>
               ) : (
@@ -431,6 +427,8 @@ function MainApp({ onLogout }) {
             onSwitchToAccess={switchToAccess}
             view={profilesView} onViewChange={setProfilesView}
             accessFocusId={accessFocusId}
+            onExportCSV={exportCSV}
+            onAddStudent={() => setShowAddModal(true)}
           />
         )}
 

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import EditScheduleModal from './EditScheduleModal'
-import AvailabilityManagerModal from './AvailabilityManagerModal'
+
 
 const DAYS_WEEK = ['Mon','Tue','Wed','Thu','Fri']
 const DAYS_ALL  = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
@@ -37,7 +37,19 @@ function getMonthGrid(year, month) {
   return days
 }
 
-function fmtDate(d) { return d.toISOString().slice(0, 10) }
+// Use local date components to avoid UTC-offset day shifts
+function fmtDate(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function parseLocalDate(dateStr) {
+  if (!dateStr) return null
+  const [y, mo, d] = dateStr.split('-').map(Number)
+  return new Date(y, mo - 1, d)
+}
 
 function fmtTime(t) {
   if (!t) return ''
@@ -111,7 +123,6 @@ export default function WeekCalendar({
   const [monthDate,         setMonthDate]         = useState(() => { const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() } })
   const [editingStudent,    setEditingStudent]    = useState(null)
   const [selectedDay,       setSelectedDay]       = useState(null) // Day Detail Panel
-  const [showAvailMgr,      setShowAvailMgr]      = useState(false)
 
   const scheduledStudents = students.filter(s => s.interview_scheduled_date)
 
@@ -138,7 +149,7 @@ export default function WeekCalendar({
     else { const n = new Date(); setMonthDate({ year: n.getFullYear(), month: n.getMonth() }) }
   }
 
-  const today = fmtDate(new Date())
+  const todayStr = fmtDate(new Date()) // local date string, no UTC shift
 
   // ── Day Detail Panel data ─────────────────────────────────
   const dayStudents = selectedDay
@@ -207,10 +218,6 @@ export default function WeekCalendar({
             </button>
           )}
           <button className="btn btn-outline-modal" style={{ fontSize:12, padding:'5px 12px', background:'#fff' }}
-            onClick={() => setShowAvailMgr(true)}>
-            📅 Manage Availability
-          </button>
-          <button className="btn btn-outline-modal" style={{ fontSize:12, padding:'5px 12px', background:'#fff' }}
             onClick={onSchedule}>
             + Schedule Interview
           </button>
@@ -222,7 +229,7 @@ export default function WeekCalendar({
         <div className="week-cal-grid">
           {dates.map((d, i) => {
             const dateStr = fmtDate(d)
-            const isToday = today === dateStr
+            const isToday = todayStr === dateStr
             const dayStudents = scheduledStudents.filter(s => s.interview_scheduled_date === dateStr)
               .sort((a, b) => (a.interview_scheduled_time || '').localeCompare(b.interview_scheduled_time || ''))
             return (
@@ -272,7 +279,7 @@ export default function WeekCalendar({
               const dateStr   = fmtDate(d)
               const isToday   = today === dateStr
               const inMonth   = d.getMonth() === monthDate.month
-              const isPast    = dateStr < today
+              const isPast    = dateStr < todayStr
               const interviews = scheduledStudents.filter(s => s.interview_scheduled_date === dateStr)
               const daySlots  = slots.filter(sl => sl.slot_date === dateStr && !sl.is_booked)
               const isSelected = selectedDay === dateStr
@@ -321,7 +328,7 @@ export default function WeekCalendar({
             <div className="day-detail-panel" onClick={e => e.stopPropagation()}>
               <div className="day-detail-header">
                 <div style={{ fontSize:18, fontWeight:700, color:'var(--nightfall)' }}>
-                  {new Date(selectedDay + 'T12:00:00').toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' })}
+                  {parseLocalDate(selectedDay)?.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' })}
                 </div>
                 <button onClick={() => setSelectedDay(null)}
                   style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'var(--text-secondary)' }}>×</button>
@@ -384,9 +391,6 @@ export default function WeekCalendar({
           onSaved={async () => { if (onStudentUpdate) await onStudentUpdate(); setEditingStudent(null) }}
           onOpenRubric={id => { setEditingStudent(null); onOpenRubric && onOpenRubric(id) }}
         />
-      )}
-      {showAvailMgr && cohortId && (
-        <AvailabilityManagerModal cohortId={cohortId} onClose={() => setShowAvailMgr(false)} />
       )}
     </div>
   )

@@ -3,6 +3,7 @@ import { displayName } from '../lib/utils'
 import RubricSession from './RubricSession'
 import WeekCalendar from './WeekCalendar'
 import ScheduleInterviewModal from './ScheduleInterviewModal'
+import AvailabilitySection from './AvailabilitySection'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import ScoreFlag from './ScoreFlag'
 
@@ -142,6 +143,7 @@ export default function InterviewRubricTab({
           onStudentUpdate={onRefreshStudents || onRubricsChange}
           onUpdateSession={onUpdateSession}
         />
+        <AvailabilitySection cohortId={cohortId} />
         <div className="iv-summary">
           {summaryStats.map(s => (
             <div key={s.label} className={`summary-card ${s.cardClass}`}>
