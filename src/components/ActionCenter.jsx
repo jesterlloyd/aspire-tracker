@@ -351,7 +351,12 @@ export default function ActionCenter({
     return m && !m.notification_sent
   })
   const act5  = students.filter(s => s.status === 'Placed' && s.matched_preceptor && !hasSent(s.id, 'preceptor_welcome'))
-  const act6  = students.filter(s => ['Placed','Active Rotation'].includes(s.status) && !s.cs_link_complete)
+  // Show when ASPIRE is progressing but Service Center Step 2 has not been submitted yet.
+  // Clears when cs_stage1_submitted = true (Step 2 checkbox ticked).
+  const act6  = students.filter(s =>
+    ['Form Received','Interview Scheduled','Interviewed','Placed','Active Rotation'].includes(s.status) &&
+    (!s.cs_cedars_status || !s.cs_stage1_submitted)
+  )
   const placedStudents = students.filter(s => s.status === 'Placed')
   const showAct7 = activeCohort && !activeCohort.orientation_sent_at && placedStudents.length > 0 && !oriDone
   const act8  = students.filter(s => s.status === 'Active Rotation' && !hasSent(s.id, 'midpoint_checkin'))
@@ -574,6 +579,9 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
 
               {/* 6: CS-Link (internal flag only) */}
               <ActionCard title="CS-Link Access Not Started" borderColor="#fee2e2" icon="🔗" count={act6.length}>
+                <div style={{ padding:'8px 14px 4px', fontSize:12, color:'#6b7280', lineHeight:1.5 }}>
+                  These students need a CS-Link access request submitted in the Service Center. Go to their Student Profile and complete Step 2 under CS-Link Access.
+                </div>
                 {act6.map(s => (
                   <SRow key={s.id} student={s} noMail
                     linkLabel="Go to Profile →"

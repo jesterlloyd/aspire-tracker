@@ -535,7 +535,7 @@ function MainApp({ onLogout }) {
           onLogCommunication={logCommunication}
           onMatchUpdate={updateMatch}
           onStudentUpdate={updateStudent}
-          onNavigateToProfiles={id => { switchTab('profiles'); setShowActionCenter(false) }}
+          onNavigateToProfiles={id => { setFocusStudentId(id); switchTab('profiles'); setShowActionCenter(false) }}
         />
       )}
     </div>
