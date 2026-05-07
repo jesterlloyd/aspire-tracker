@@ -11,7 +11,7 @@ const POOL_ELIGIBLE_STATUSES = new Set([
 
 export default function MatchingTab({
   students, units, matches, cohortId,
-  onMatch, onUnmatch, onUpdateMatch, onRefreshUnits, onDeleteUnit,
+  onMatch, onUnmatch, onUpdateMatch, onRefreshUnits, onDeleteUnit, highlightUnitId,
 }) {
   const [selectedStudent,   setSelectedStudent]   = useState(null)
   const [showUnitSetup,     setShowUnitSetup]     = useState(false)
@@ -190,6 +190,7 @@ export default function MatchingTab({
                     onUnmatch={student => handleUnmatch(student, unit)}
                     onUpdateMatch={onUpdateMatch}
                     onDelete={() => onDeleteUnit(unit)}
+                    isHighlighted={highlightUnitId === unit.id}
                   />
                 ))}
               </div>

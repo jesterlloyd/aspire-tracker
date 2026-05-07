@@ -246,6 +246,13 @@ body { min-height: 100vh; }
 /* ================================================================
    TAB BAR — Nightfall
    ================================================================ */
+/* Unit highlight pulse from global search */
+@keyframes unit-highlight {
+  0%   { box-shadow: 0 0 0 3px var(--nightfall); }
+  50%  { box-shadow: 0 0 0 6px rgba(29,37,103,0.4); }
+  100% { box-shadow: none; }
+}
+
 .tab-bar {
   background: var(--nightfall);
   border-bottom: 1px solid rgba(159,175,248,0.15);
@@ -1100,7 +1107,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* Aggregate tab — sticky header + scrollable body layout */
 .overview-tab {
   display: flex; flex-direction: column;
-  height: calc(100vh - 194px);
+  height: calc(100vh - 152px);
   overflow: hidden;
 }
 .aggregate-sticky-header {
@@ -1183,7 +1190,7 @@ a.doc-file-link:hover { text-decoration: underline; }
    ================================================================ */
 .student-profiles-tab {
   display: flex; flex-direction: column;
-  height: calc(100vh - 194px); overflow: hidden;
+  height: calc(100vh - 152px); overflow: hidden;
 }
 .profiles-frozen      { flex-shrink: 0; padding-bottom: 8px; }
 .profiles-scroll-area { flex: 1; overflow-y: auto; min-height: 0; }
@@ -1677,7 +1684,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* Rubric Tab container */
 .rub-tab {
   display: flex; flex-direction: column;
-  height: calc(100vh - 194px); overflow: hidden;
+  height: calc(100vh - 152px); overflow: hidden;
 }
 .rub-frozen     { flex-shrink: 0; }
 .rub-scroll-area { flex: 1; overflow-y: auto; min-height: 0; padding: 16px 0 0; }
@@ -1689,7 +1696,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* Two-panel session */
 .rub-session {
   display: flex; flex-direction: column;
-  height: calc(100vh - 194px); min-height: 500px;
+  height: calc(100vh - 152px); min-height: 500px;
 }
 .rub-topbar { flex-shrink: 0; display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .rub-panels {
@@ -1905,7 +1912,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* Outer container: fill viewport minus top section */
 .embed-tab {
   display: flex; flex-direction: column;
-  height: calc(100vh - 194px); min-height: 500px;
+  height: calc(100vh - 152px); min-height: 500px;
 }
 .embed-banner { flex-shrink: 0; }
 
@@ -2070,7 +2077,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .pipeline-board {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 218px); /* top-section ~170px + app-main padding 48px */
+  height: calc(100vh - 176px); /* top-section ~104px + app-main padding 48px + extra 24px */
   min-height: 520px;
 }
 .pipeline-banner { flex-shrink: 0; margin-bottom: 0 !important; }

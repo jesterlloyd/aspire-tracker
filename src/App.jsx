@@ -6,7 +6,7 @@ import StudentProfilesTab from './components/StudentProfilesTab'
 import InterviewRubricTab from './components/InterviewRubricTab'
 import MatchingTab from './components/MatchingTab'
 import AddStudentModal from './components/AddStudentModal'
-import CohortBar from './components/CohortBar'
+import UnifiedNav from './components/UnifiedNav'
 import NewCohortModal from './components/NewCohortModal'
 import ManageCohortModal from './components/ManageCohortModal'
 import LoginPage from './components/LoginPage'
@@ -69,8 +69,10 @@ function MainApp({ onLogout }) {
   })
   const [profilesView, setProfilesView] = useState('records')
   const [accessFocusId, setAccessFocusId] = useState(null)
-  const [showAddModal,  setShowAddModal] = useState(false)
+  const [showAddModal,       setShowAddModal]       = useState(false)
   const [showInterviewersModal, setShowInterviewersModal] = useState(false)
+  const [focusStudentId,     setFocusStudentId]     = useState(null)
+  const [highlightUnitId,    setHighlightUnitId]    = useState(null)
   const [search,  setSearch]  = useState('')
   const [filters, setFilters] = useState({ school: '', status: '', cohort: '' })
 
@@ -424,34 +426,27 @@ function MainApp({ onLogout }) {
         </header>
 
         {cohorts.length > 0 && (
-          <CohortBar cohorts={cohorts} activeCohortId={activeCohortId}
-            onSelect={handleCohortSwitch} onNew={() => setShowNewCohort(true)}
-            onManage={() => setShowManageCohort(true)} />
-        )}
-
-        {cohorts.length > 0 && (
-          <div className="tab-bar">
-            <button className={`tab-btn${activeTab === 'overview'   ? ' active' : ''}`} onClick={() => switchTab('overview')} aria-label="Aggregate tab">
-              <span>Aggregate</span>
-              <span className="tab-aspire-hint">A</span>
-            </button>
-            <button className={`tab-btn${activeTab === 'profiles'   ? ' active' : ''}`} onClick={() => switchTab('profiles')} aria-label="Student Profiles tab">
-              <span>Student Profiles</span>
-              <span className="tab-aspire-hint">S · P</span>
-            </button>
-            <button className={`tab-btn${activeTab === 'interviews' ? ' active' : ''}`} onClick={() => switchTab('interviews')} aria-label="Interview Rubric tab" style={{ position:'relative' }}>
-              <span>Interview Rubric</span>
-              <span className="tab-aspire-hint">I · R</span>
-              {(() => {
-                const cnt = ivSessions.filter(s => s.self_scheduled && !s.teams_meeting_booked).length
-                return cnt > 0 ? <span className="ir-tab-badge">{cnt >= 10 ? '9+' : cnt}</span> : null
-              })()}
-            </button>
-            <button className={`tab-btn${activeTab === 'matching'   ? ' active' : ''}`} onClick={() => switchTab('matching')} aria-label="Embed tab">
-              <span>Embed</span>
-              <span className="tab-aspire-hint">E</span>
-            </button>
-          </div>
+          <UnifiedNav
+            cohorts={cohorts}
+            activeCohortId={activeCohortId}
+            activeCohort={activeCohort}
+            activeTab={activeTab}
+            ivSessions={ivSessions}
+            onSelectCohort={handleCohortSwitch}
+            onNewCohort={() => setShowNewCohort(true)}
+            onEditCohort={() => setShowManageCohort(true)}
+            onSwitchTab={switchTab}
+            students={students}
+            units={units}
+            matches={matches}
+            cohortId={activeCohortId}
+            onSelectStudent={id => { setFocusStudentId(id); switchTab('profiles') }}
+            onSelectUnit={id => {
+              setHighlightUnitId(id)
+              switchTab('matching')
+              setTimeout(() => setHighlightUnitId(null), 2500)
+            }}
+          />
         )}
       </div>
 
@@ -487,6 +482,8 @@ function MainApp({ onLogout }) {
             accessFocusId={accessFocusId}
             onExportCSV={exportCSV}
             onAddStudent={() => setShowAddModal(true)}
+            focusStudentId={focusStudentId}
+            onClearFocusStudent={() => setFocusStudentId(null)}
           />
         )}
 
@@ -512,6 +509,7 @@ function MainApp({ onLogout }) {
             onMatch={createMatch} onUnmatch={unmatch} onUpdateMatch={updateMatch}
             onRefreshUnits={() => fetchUnits(activeCohortId)}
             onDeleteUnit={deleteUnit}
+            highlightUnitId={highlightUnitId}
           />
         )}
       </main>

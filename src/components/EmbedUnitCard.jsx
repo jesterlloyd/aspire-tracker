@@ -17,7 +17,7 @@ function openMailto(href) {
 
 export default function EmbedUnitCard({
   unit, matchedStudents, matches, selectedStudent,
-  onSlotClick, onUnmatch, onUpdateMatch, onDelete,
+  onSlotClick, onUnmatch, onUpdateMatch, onDelete, isHighlighted,
 }) {
   const [confirmUnmatch, setConfirmUnmatch] = useState(null)
   const [confirmDelete,  setConfirmDelete]  = useState(false)
@@ -135,8 +135,9 @@ export default function EmbedUnitCard({
 
       <div className="euc-card" style={{
         background: bgTint,
-        boxShadow: glow,
+        boxShadow: isHighlighted ? '0 0 0 2px var(--nightfall), 0 0 0 4px rgba(29,37,103,0.3)' : glow,
         opacity: selectedStudent && isFull ? 0.5 : 1,
+        animation: isHighlighted ? 'unit-highlight 2s ease-out' : undefined,
       }}>
         {/* Header */}
         <div className="euc-header">

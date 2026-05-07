@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Dashboard from './Dashboard'
 import StudentListPanel from './StudentListPanel'
 import StudentSidePanel from './StudentSidePanel'
@@ -41,8 +41,17 @@ export default function StudentProfilesTab({
   view, onViewChange,
   accessFocusId,
   onExportCSV, onAddStudent,
+  focusStudentId, onClearFocusStudent,
 }) {
   const [selectedStudentId, setSelectedStudentId] = useState(null)
+
+  // Open specific student from global search
+  useEffect(() => {
+    if (focusStudentId) {
+      setSelectedStudentId(focusStudentId)
+      onClearFocusStudent?.()
+    }
+  }, [focusStudentId]) // eslint-disable-line
   const [localSearch,       setLocalSearch]       = useState('')
   const [filterSchool,      setFilterSchool]      = useState('')
   const [filterStatus,      setFilterStatus]      = useState('')
