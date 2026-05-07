@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import EditScheduleModal from './EditScheduleModal'
+import AvailabilityManagerModal from './AvailabilityManagerModal'
 
 
 const DAYS_WEEK = ['Mon','Tue','Wed','Thu','Fri']
@@ -46,8 +47,11 @@ function fmtDate(d) {
 }
 
 function parseLocalDate(dateStr) {
-  if (!dateStr) return null
-  const [y, mo, d] = dateStr.split('-').map(Number)
+  if (!dateStr || typeof dateStr !== 'string') return null
+  const parts = dateStr.split('-')
+  if (parts.length !== 3) return null
+  const [y, mo, d] = parts.map(Number)
+  if (isNaN(y) || isNaN(mo) || isNaN(d)) return null
   return new Date(y, mo - 1, d)
 }
 
@@ -123,6 +127,7 @@ export default function WeekCalendar({
   const [monthDate,         setMonthDate]         = useState(() => { const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() } })
   const [editingStudent,    setEditingStudent]    = useState(null)
   const [selectedDay,       setSelectedDay]       = useState(null) // Day Detail Panel
+  const [showAvailMgr,      setShowAvailMgr]      = useState(false)
 
   const scheduledStudents = students.filter(s => s.interview_scheduled_date)
 
@@ -218,6 +223,10 @@ export default function WeekCalendar({
             </button>
           )}
           <button className="btn btn-outline-modal" style={{ fontSize:12, padding:'5px 12px', background:'#fff' }}
+            onClick={() => setShowAvailMgr(true)}>
+            📅 Manage Availability
+          </button>
+          <button className="btn btn-outline-modal" style={{ fontSize:12, padding:'5px 12px', background:'#fff' }}
             onClick={onSchedule}>
             + Schedule Interview
           </button>
@@ -277,7 +286,7 @@ export default function WeekCalendar({
           <div className="month-cal-grid">
             {monthDays.map((d, i) => {
               const dateStr   = fmtDate(d)
-              const isToday   = today === dateStr
+              const isToday   = todayStr === dateStr
               const inMonth   = d.getMonth() === monthDate.month
               const isPast    = dateStr < todayStr
               const interviews = scheduledStudents.filter(s => s.interview_scheduled_date === dateStr)
@@ -391,6 +400,9 @@ export default function WeekCalendar({
           onSaved={async () => { if (onStudentUpdate) await onStudentUpdate(); setEditingStudent(null) }}
           onOpenRubric={id => { setEditingStudent(null); onOpenRubric && onOpenRubric(id) }}
         />
+      )}
+      {showAvailMgr && cohortId && (
+        <AvailabilityManagerModal cohortId={cohortId} onClose={() => setShowAvailMgr(false)} />
       )}
     </div>
   )
