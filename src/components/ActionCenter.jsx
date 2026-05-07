@@ -42,8 +42,10 @@ function ActionCard({ title, borderColor, icon, count, children }) {
         onClick={() => setOpen(p=>!p)}>
         <span style={{ fontSize:16 }}>{icon}</span>
         <span style={{ fontSize:14, fontWeight:600, color:'var(--raven)', flex:1 }}>{title}</span>
-        <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20,
-          background:borderColor, color:'#fff', minWidth:20, textAlign:'center' }}>{count}</span>
+        <span style={{ background:'#1d2567', color:'#ffffff', fontFamily:'DM Sans,sans-serif',
+          fontWeight:700, fontSize:11, minWidth:20, height:20, borderRadius:10,
+          display:'flex', alignItems:'center', justifyContent:'center',
+          padding:'0 6px', flexShrink:0 }}>{count}</span>
         <span style={{ fontSize:12, color:'#9ca3af' }}>{open?'▾':'▸'}</span>
       </div>
       {open && <div style={{ borderTop:`1px solid ${borderColor}` }}>{children}</div>}
