@@ -213,10 +213,13 @@ function MainApp({ onLogout }) {
     await supabase.from('interviews').delete().eq('student_id', id)
     await supabase.from('interview_rubrics').delete().eq('student_id', id)
     await supabase.from('matches').delete().eq('student_id', id)
+    await supabase.from('interview_sessions').delete().eq('student_id', id)
     // Refetch all affected state so every tab reflects the deletion immediately
     setStudents(prev => prev.filter(s => s.id !== id))
     setInterviews(prev => prev.filter(iv => iv.student_id !== id))
     setMatches(prev => prev.filter(m => m.student_id !== id))
+    // Update ivSessions immediately so the I·R tab badge recalculates without a reload
+    setIvSessions(prev => prev.filter(s => s.student_id !== id))
   }
 
   // ── Unit CRUD ────────────────────────────────────────────────

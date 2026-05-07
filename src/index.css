@@ -1782,12 +1782,11 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 .month-cal-day {
   min-height: 80px; padding: 4px 6px;
-  background: var(--pearl); cursor: pointer;
+  background: var(--pearl);
   border-right: 1px solid var(--border-lt); border-bottom: 1px solid var(--border-lt);
   transition: background 0.1s;
 }
 .month-cal-day:hover { background: #f9fafb; }
-.month-cal-day-sel   { background: #eff6ff !important; }
 .month-cal-day-num-wrap { margin-bottom: 3px; }
 .month-cal-day-num {
   display: inline-flex; align-items: center; justify-content: center;
@@ -1795,6 +1794,19 @@ a.doc-file-link:hover { text-decoration: underline; }
   font-size: 12px; font-weight: 600; color: var(--raven);
 }
 .month-cal-today-num { background: var(--nightfall); color: #fff; }
+
+/* ── FIX 2: Unified interview pill — same in week and month views ── */
+.cal-iv-pill {
+  min-height: 36px; padding: 4px 6px; border-radius: 4px;
+  margin-bottom: 3px; cursor: pointer; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: center;
+  transition: opacity 0.1s;
+}
+.cal-iv-pill:hover { opacity: 0.85; }
+.cal-iv-pill-name { font-size: 12px; font-weight: 600; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-iv-pill-meta { display: flex; gap: 4px; margin-top: 2px; flex-wrap: wrap; }
+.cal-iv-pill-meta span { font-size: 10px; opacity: 0.85; }
+
 .month-cal-pill {
   font-size: 10px; font-weight: 500; padding: 1px 4px; border-radius: 3px;
   margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
