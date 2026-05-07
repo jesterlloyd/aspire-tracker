@@ -10,11 +10,23 @@ const COHORT_STATUS_COLORS = {
   Archived:  { bg:'#f3f4f6', color:'#9ca3af' },
 }
 
-function formatCohortDateShort(dateString) {
-  if (!dateString) return ''
-  // Parse as local date to avoid UTC-offset day shift
-  const [y, m, d] = dateString.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month:'short', day:'numeric' })
+function formatCohortDateShort(dateInput) {
+  if (!dateInput) return ''
+  // ISO format: "2026-05-04" — parse as local time to avoid UTC-offset day shift
+  if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateInput)) {
+    const [y, m, d] = dateInput.split('T')[0].split('-').map(Number)
+    return new Date(y, m - 1, d).toLocaleDateString('en-US', { month:'short', day:'numeric' })
+  }
+  // Any other parseable string: try native parsing
+  if (typeof dateInput === 'string') {
+    const parsed = new Date(dateInput)
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toLocaleDateString('en-US', { month:'short', day:'numeric' })
+    }
+    // Fallback: strip the 4-digit year from whatever text was stored
+    return dateInput.replace(/,?\s*\d{4}/, '').trim()
+  }
+  return ''
 }
 function formatCohortDateRange(startDate, endDate) {
   if (!startDate && !endDate) return ''
@@ -289,6 +301,22 @@ export default function UnifiedNav({
           +
         </button>
       </div>
+
+      {/* Active + Accepting Submissions status badges */}
+      {activeCohort?.status === 'Active' && (
+        <span style={{
+          fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:20,
+          background:'#16a34a', color:'#fff', flexShrink:0,
+          boxShadow:'0 0 8px rgba(22,163,74,0.5)',
+        }}>Active</span>
+      )}
+      {activeCohort?.accepting_submissions && (
+        <span style={{
+          fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:20,
+          background:'#1d4ed8', color:'#fff', flexShrink:0,
+          boxShadow:'0 0 8px rgba(29,78,216,0.5)',
+        }}>Accepting</span>
+      )}
 
       {/* ── Spacer ── */}
       <div style={{ flex:1 }} />
