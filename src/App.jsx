@@ -339,7 +339,23 @@ function MainApp({ onLogout }) {
     URL.revokeObjectURL(url)
   }
 
-  // ── Action Center badge count ────────────────────────────────
+  const setFilter = (k, v) => setFilters(p => ({ ...p, [k]: v }))
+  const filteredStudents = students.filter(s => {
+    if (search) {
+      const q = search.toLowerCase()
+      if (!s.name?.toLowerCase().includes(q) &&
+          !s.school_email?.toLowerCase().includes(q) &&
+          !s.personal_email?.toLowerCase().includes(q)) return false
+    }
+    if (filters.school && s.school !== filters.school) return false
+    if (filters.status && s.status !== filters.status)  return false
+    if (filters.cohort && s.aspire_cohort !== filters.cohort) return false
+    return true
+  })
+
+  const activeCohort = cohorts.find(c => c.id === activeCohortId)
+
+  // ── Action Center badge count — must be after activeCohort ───
   const actionBadgeCount = (() => {
     if (!students.length) return 0
     const hasSent = (sid, type) => communications.some(c => c.student_id === sid && c.type === type)
@@ -362,22 +378,6 @@ function MainApp({ onLogout }) {
       students.filter(s => s.status==='Completed'&&!hasSent(s.id,'end_eval')).length
     )
   })()
-
-  const setFilter = (k, v) => setFilters(p => ({ ...p, [k]: v }))
-  const filteredStudents = students.filter(s => {
-    if (search) {
-      const q = search.toLowerCase()
-      if (!s.name?.toLowerCase().includes(q) &&
-          !s.school_email?.toLowerCase().includes(q) &&
-          !s.personal_email?.toLowerCase().includes(q)) return false
-    }
-    if (filters.school && s.school !== filters.school) return false
-    if (filters.status && s.status !== filters.status)  return false
-    if (filters.cohort && s.aspire_cohort !== filters.cohort) return false
-    return true
-  })
-
-  const activeCohort = cohorts.find(c => c.id === activeCohortId)
 
   return (
     <div className="app">
