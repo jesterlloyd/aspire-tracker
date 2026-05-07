@@ -30,7 +30,7 @@ function generateSlotTimes(startTime, endTime, durationMin) {
   return slots
 }
 
-export default function AvailabilityManagerModal({ cohortId, onClose }) {
+export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSaved }) {
   const [blocks,       setBlocks]       = useState([])
   const [interviewers, setInterviewers] = useState([])
   const [saving,       setSaving]       = useState(false)
@@ -80,6 +80,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose }) {
     await loadBlocks()
     setForm(p => ({ ...p, block_date: '', start_time: '09:00', end_time: '12:00', interviewer_name: '' }))
     setSaving(false)
+    onBlockSaved?.() // notify calendar to refresh slots
   }
 
   const toggleActive = async (block) => {

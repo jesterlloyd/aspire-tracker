@@ -499,6 +499,7 @@ function MainApp({ onLogout }) {
             onRefreshStudents={() => fetchStudents(activeCohortId)}
             onManageInterviewers={() => setShowInterviewersModal(true)}
             onUpdateSession={updateIvSession}
+            onRefreshSlots={() => fetchIvSlots(activeCohortId)}
           />
         )}
 

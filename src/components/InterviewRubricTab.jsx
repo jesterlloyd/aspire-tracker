@@ -49,7 +49,7 @@ JesterLloyd.Bautista@cshs.org | 310-248-8964`
 export default function InterviewRubricTab({
   students, rubrics, cohortId,
   sessions = [], slots = [],
-  onStudentUpdate, onRubricsChange, onRefreshStudents, onManageInterviewers, onUpdateSession,
+  onStudentUpdate, onRubricsChange, onRefreshStudents, onManageInterviewers, onUpdateSession, onRefreshSlots,
 }) {
   const [selectedStudentId,   setSelectedStudentId]   = useState(null)
   const [showScheduleModal,   setShowScheduleModal]   = useState(false)
@@ -160,6 +160,7 @@ export default function InterviewRubricTab({
           onManageInterviewers={onManageInterviewers}
           onStudentUpdate={onRefreshStudents || onRubricsChange}
           onUpdateSession={onUpdateSession}
+          onRefreshSlots={onRefreshSlots}
           calMode={calMode}
           onCalModeChange={setCalMode}
         />

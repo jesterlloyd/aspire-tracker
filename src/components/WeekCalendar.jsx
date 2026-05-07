@@ -171,6 +171,7 @@ export default function WeekCalendar({
   students, rubrics, cohortId,
   sessions = [], slots = [],
   onOpenRubric, onSchedule, onManageInterviewers, onStudentUpdate, onUpdateSession,
+  onRefreshSlots,
   // Allow parent to lift calMode so the tab layout can respond to view changes
   calMode: calModeProp, onCalModeChange,
 }) {
@@ -181,9 +182,12 @@ export default function WeekCalendar({
   const [monthDate,      setMonthDate]      = useState(() => { const n=new Date(); return {year:n.getFullYear(),month:n.getMonth()} })
   const [editingStudent, setEditingStudent] = useState(null)
   const [showAvailMgr,   setShowAvailMgr]   = useState(false)
-  // FIX 1: unified block popover
-  const [blockPopover,   setBlockPopover]   = useState(null) // { student, position }
+  // Per-block popover (clicking a specific interview pill)
+  const [blockPopover,   setBlockPopover]   = useState(null)
   const blockPopoverRef  = useRef(null)
+  // Day-level popover (clicking empty space in a month day cell)
+  const [dayPopover,     setDayPopover]     = useState(null) // { dateStr, top, left }
+  const dayPopoverRef    = useRef(null)
 
   const scheduledStudents = students.filter(s => s.interview_scheduled_date)
 
@@ -197,6 +201,17 @@ export default function WeekCalendar({
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [blockPopover])
+
+  // Close day popover on outside click
+  useEffect(() => {
+    if (!dayPopover) return
+    const handler = e => {
+      if (dayPopoverRef.current && !dayPopoverRef.current.contains(e.target))
+        setDayPopover(null)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [dayPopover])
 
   const dates     = getWeekDates(weekOffset)
   const monthDays = getMonthGrid(monthDate.year, monthDate.month)
@@ -246,6 +261,28 @@ export default function WeekCalendar({
     setBlockPopover({ student, position: { top, left }, session: getSessionForStudent(student.id) })
   }
 
+  // Day cell click (month view) — shows interviews + available slots for that day
+  const handleDayClick = (dateStr, e) => {
+    if (dayPopover?.dateStr === dateStr) { setDayPopover(null); return }
+    setBlockPopover(null) // close any open block popover
+    const rect   = e.currentTarget.getBoundingClientRect()
+    const calEl  = document.querySelector('.month-cal-grid')
+    const calRect = calEl ? calEl.getBoundingClientRect() : rect
+    const popW = 320, popMaxH = 480, margin = 8
+    const isRightHalf = (rect.left + rect.width/2) > (calRect.left + calRect.width/2)
+    let left, top
+    if (!isRightHalf && rect.right + margin + popW <= window.innerWidth) {
+      left = rect.right + margin; top = rect.top
+    } else if (isRightHalf && rect.left - margin - popW >= 0) {
+      left = rect.left - margin - popW; top = rect.top
+    } else {
+      left = rect.left; top = rect.bottom + margin
+    }
+    left = Math.max(margin, Math.min(left, window.innerWidth  - popW    - margin))
+    top  = Math.max(margin, Math.min(top,  window.innerHeight - popMaxH - margin))
+    setDayPopover({ dateStr, top, left })
+  }
+
   return (
     <div className="week-cal">
       {/* Header */}
@@ -284,10 +321,11 @@ export default function WeekCalendar({
       {calMode === 'week' && (
         <div className="week-cal-grid week-cal-grid-7">
           {dates.map((d, i) => {
-            const dateStr  = fmtDate(d)
-            const isToday  = todayStr === dateStr
-            const dayStuds = scheduledStudents.filter(s => s.interview_scheduled_date === dateStr)
+            const dateStr   = fmtDate(d)
+            const isToday   = todayStr === dateStr
+            const dayStuds  = scheduledStudents.filter(s => s.interview_scheduled_date === dateStr)
               .sort((a,b) => (a.interview_scheduled_time||'').localeCompare(b.interview_scheduled_time||''))
+            const weekSlots = slots.filter(sl => sl.slot_date === dateStr && !sl.is_booked)
             return (
               <div key={i} className={`week-cal-col${isToday?' week-cal-today':''}`}>
                 <div className="week-cal-day-label">
@@ -295,12 +333,24 @@ export default function WeekCalendar({
                   <span className="week-cal-day-num">{d.getDate()}</span>
                 </div>
                 <div className="week-cal-blocks">
-                  {dayStuds.length === 0
+                  {dayStuds.length === 0 && weekSlots.length === 0
                     ? <div className="week-cal-empty">No interviews</div>
-                    : dayStuds.map(s => (
-                        <InterviewPill key={s.id} student={s} session={getSessionForStudent(s.id)} rubrics={rubrics}
-                          onClick={e => handleBlockClick(s, e)} />
-                      ))
+                    : <>
+                        {dayStuds.map(s => (
+                          <InterviewPill key={s.id} student={s} session={getSessionForStudent(s.id)} rubrics={rubrics}
+                            onClick={e => handleBlockClick(s, e)} />
+                        ))}
+                        {weekSlots.map(sl => (
+                          <div key={sl.id} style={{
+                            background:'rgba(220,239,248,0.6)', border:'1.5px dashed #9dd6f2',
+                            borderRadius:4, color:'#1d2567', fontSize:10, padding:'2px 6px',
+                            marginBottom:3, display:'flex', gap:4, alignItems:'center',
+                          }}>
+                            <span style={{ fontWeight:500 }}>{fmtTime(sl.slot_time)}</span>
+                            {sl.interviewer_name && <span style={{ color:'#6b7280' }}>{getInitials(sl.interviewer_name)}</span>}
+                          </div>
+                        ))}
+                      </>
                   }
                 </div>
               </div>
@@ -324,7 +374,9 @@ export default function WeekCalendar({
               const interviews = scheduledStudents.filter(s => s.interview_scheduled_date === dateStr)
               const openSlots  = slots.filter(sl => sl.slot_date === dateStr && !sl.is_booked)
               return (
-                <div key={i} className="month-cal-day" style={{ opacity: !inMonth || isPast ? 0.45 : 1 }}>
+                <div key={i} className="month-cal-day"
+                  style={{ opacity: !inMonth || isPast ? 0.45 : 1 }}
+                  onClick={e => handleDayClick(dateStr, e)}>
                   <div className="month-cal-day-num-wrap">
                     <span className={`month-cal-day-num${isToday?' month-cal-today-num':''}`}>{d.getDate()}</span>
                   </div>
@@ -371,7 +423,75 @@ export default function WeekCalendar({
         />
       )}
       {showAvailMgr && cohortId && (
-        <AvailabilityManagerModal cohortId={cohortId} onClose={() => setShowAvailMgr(false)} />
+        <AvailabilityManagerModal cohortId={cohortId}
+          onClose={() => setShowAvailMgr(false)}
+          onBlockSaved={() => onRefreshSlots?.()}
+        />
+      )}
+
+      {/* Day-level detail popover — FIX 1: restored month view day click */}
+      {dayPopover && (
+        <div ref={dayPopoverRef} onClick={e => e.stopPropagation()}
+          style={{
+            position:'fixed', top:dayPopover.top, left:dayPopover.left,
+            width:320, maxHeight:480, overflowY:'auto',
+            background:'var(--pearl)', border:'1px solid #e5e7eb',
+            borderRadius:12, boxShadow:'0 8px 24px rgba(0,0,0,0.12)',
+            zIndex:202, animation:'cal-popover-in 150ms ease',
+          }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+            padding:'12px 14px', borderBottom:'1px solid var(--border-lt)', flexShrink:0 }}>
+            <div style={{ fontSize:15, fontWeight:700, color:'var(--nightfall)' }}>
+              {parseLocalDate(dayPopover.dateStr)?.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}
+            </div>
+            <button onClick={() => setDayPopover(null)}
+              style={{ background:'none', border:'none', fontSize:18, cursor:'pointer', color:'var(--text-secondary)', lineHeight:1 }}>×</button>
+          </div>
+          <div style={{ padding:'12px 14px' }}>
+            {/* Scheduled Interviews */}
+            <div className="day-detail-section-title">Scheduled Interviews</div>
+            {(() => {
+              const dayStuds = scheduledStudents.filter(s => s.interview_scheduled_date === dayPopover.dateStr)
+                .sort((a,b) => (a.interview_scheduled_time||'').localeCompare(b.interview_scheduled_time||''))
+              if (dayStuds.length === 0) return <p style={{ fontSize:13, color:'#9ca3af', margin:'6px 0 12px' }}>No interviews scheduled.</p>
+              return dayStuds.map(s => {
+                const session  = getSessionForStudent(s.id)
+                const isBooked = !!session?.teams_meeting_booked
+                return (
+                  <div key={s.id} className="day-detail-entry"
+                    style={{ borderLeft: isBooked ? '3px solid #16a34a' : '3px solid var(--border)' }}>
+                    <div style={{ fontSize:14, fontWeight:600, color:'var(--nightfall)' }}>{s.last_name}{s.last_name&&s.first_name?', ':''}{s.first_name}</div>
+                    <div style={{ fontSize:12, color:'var(--text-secondary)', marginTop:2 }}>
+                      {s.school} · {fmtTime(s.interview_scheduled_time)}
+                      {s.interview_duration_minutes ? ` (${s.interview_duration_minutes} min)` : ''}
+                      {s.interview_assigned_interviewers ? ` · ${s.interview_assigned_interviewers}` : ''}
+                    </div>
+                    <label style={{ display:'flex', alignItems:'center', gap:6, marginTop:6, fontSize:12, cursor:'pointer' }}>
+                      <input type="checkbox" checked={isBooked} onChange={e => handleTeamsToggle(s, e.target.checked)} />
+                      <span style={{ color: isBooked ? '#166534' : 'var(--text-secondary)' }}>
+                        {isBooked ? '✓ Teams Meeting Booked' : 'Teams Meeting Booked'}
+                      </span>
+                    </label>
+                  </div>
+                )
+              })
+            })()}
+            {/* Available Slots */}
+            <div className="day-detail-section-title" style={{ marginTop:12 }}>Available Slots</div>
+            {(() => {
+              const daySlots = slots.filter(sl => sl.slot_date === dayPopover.dateStr && !sl.is_booked)
+                .sort((a,b) => a.slot_time.localeCompare(b.slot_time))
+              if (daySlots.length === 0) return <p style={{ fontSize:13, color:'#9ca3af', margin:'6px 0' }}>No open slots for this day.</p>
+              return daySlots.map(sl => (
+                <div key={sl.id} className="day-detail-slot">
+                  <span style={{ fontSize:13, fontWeight:500, color:'var(--nightfall)' }}>{fmtTime(sl.slot_time)}</span>
+                  <span style={{ fontSize:12, color:'var(--text-secondary)' }}> · {sl.duration_minutes} min</span>
+                  {sl.interviewer_name && <span style={{ fontSize:12, color:'var(--text-secondary)' }}> · {sl.interviewer_name}</span>}
+                </div>
+              ))
+            })()}
+          </div>
+        </div>
       )}
     </div>
   )
