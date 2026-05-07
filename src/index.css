@@ -1650,7 +1650,12 @@ a.doc-file-link:hover { text-decoration: underline; }
 .week-cal-arrow { background: none; border: 1px solid var(--border); border-radius: 4px; padding: 3px 9px; cursor: pointer; font-size: 14px; transition: background 0.1s; }
 .week-cal-arrow:hover { background: var(--pearl); }
 .week-cal-label { font-size: 13px; font-weight: 600; color: var(--nightfall); min-width: 180px; text-align: center; }
-.week-cal-grid { display: grid; grid-template-columns: repeat(5, 1fr); border-top: 1px solid #e5e7eb; min-height: 160px; }
+.week-cal-grid         { display: grid; grid-template-columns: repeat(5, 1fr); border-top: 1px solid #e5e7eb; min-height: 160px; }
+.week-cal-grid-7       { grid-template-columns: repeat(7, 1fr); }
+@keyframes cal-popover-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1);    }
+}
 .week-cal-col { border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; }
 .week-cal-col:last-child { border-right: none; }
 .week-cal-today .week-cal-day-label { background: var(--nightfall); color: var(--pearl); }

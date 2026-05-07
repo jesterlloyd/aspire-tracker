@@ -477,9 +477,6 @@ export default function StudentIntakeFormPage() {
                     <option value="">Select a unit…</option>
                     {availableUnits.map(u => <option key={u} value={u}>{getOptionLabel(u)}</option>)}
                   </select>
-                  {getPopulation(form.unit_preference_1) && (
-                    <p className="uf-unit-pop">{getPopulation(form.unit_preference_1)}</p>
-                  )}
                 </div>
                 <div className="uf-field">
                   <label className="uf-label">Second Preference (optional)</label>
@@ -495,9 +492,6 @@ export default function StudentIntakeFormPage() {
                     {availableUnits.filter(u => u !== form.unit_preference_1)
                       .map(u => <option key={u} value={u}>{getOptionLabel(u)}</option>)}
                   </select>
-                  {getPopulation(form.unit_preference_2) && (
-                    <p className="uf-unit-pop">{getPopulation(form.unit_preference_2)}</p>
-                  )}
                 </div>
                 <div className="uf-field">
                   <label className="uf-label">Third Preference (optional)</label>
@@ -507,9 +501,6 @@ export default function StudentIntakeFormPage() {
                     {availableUnits.filter(u => u !== form.unit_preference_1 && u !== form.unit_preference_2)
                       .map(u => <option key={u} value={u}>{getOptionLabel(u)}</option>)}
                   </select>
-                  {getPopulation(form.unit_preference_3) && (
-                    <p className="uf-unit-pop">{getPopulation(form.unit_preference_3)}</p>
-                  )}
                 </div>
               </>
             )}
