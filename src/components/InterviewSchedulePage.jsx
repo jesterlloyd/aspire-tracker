@@ -15,7 +15,15 @@ function fmtTime(timeStr) {
   return `${hr}:${String(m).padStart(2,'0')} ${ampm}`
 }
 
-function buildNotificationMailto(student, slot) {
+const JESTER_EMAIL = 'JesterLloyd.Bautista@cshs.org'
+
+function buildNotificationMailto(student, slot, interviewerEmail) {
+  // TO = interviewer if known, else fall back to Jester
+  const toEmail = interviewerEmail || JESTER_EMAIL
+  const noEmailNote = !interviewerEmail
+    ? '\n\nNote: Interviewer email not found. Please forward to the assigned interviewer.'
+    : ''
+
   const subject = `New ASPIRE Interview Booking – ${student.last_name}, ${student.first_name} | ${slot.slot_date} at ${slot.slot_time}`
   const body = `A student has self-scheduled an ASPIRE interview. Please create a Teams meeting for this appointment.
 
@@ -28,9 +36,11 @@ Duration: ${slot.duration_minutes} minutes
 
 Please create the Microsoft Teams meeting and send the student the link at their school email: ${student.school_email}
 
-This is an automated notification from the ASPIRE Program Tracker.`
+This is an automated notification from the ASPIRE Program Tracker.${noEmailNote}`
 
-  return `mailto:JesterLloyd.Bautista@cshs.org?bcc=${encodeURIComponent('Krystal.Rodriguez@cshs.org')}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  // Jester always in BCC as program lead; TO is the interviewer (or Jester if unknown)
+  const bcc = toEmail === JESTER_EMAIL ? 'Krystal.Rodriguez@cshs.org' : `${JESTER_EMAIL},Krystal.Rodriguez@cshs.org`
+  return `mailto:${encodeURIComponent(toEmail)}?bcc=${encodeURIComponent(bcc)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }
 
 // Statuses that qualify a student for scheduling
@@ -134,8 +144,16 @@ export default function InterviewSchedulePage() {
       setBookedSlot(selected)
       setScreen('confirmed')
 
-      // Notify Jester via mailto
-      const mailto = buildNotificationMailto(student, selected)
+      // Look up interviewer email by matching slot's interviewer_name
+      let interviewerEmail = null
+      if (selected.interviewer_name?.trim()) {
+        const { data: iviewr } = await supabase.from('interviewers')
+          .select('email').ilike('name', selected.interviewer_name.trim()).limit(1).maybeSingle()
+        interviewerEmail = iviewr?.email?.trim() || null
+      }
+
+      // Open notification mailto — TO: interviewer (or Jester fallback), BCC: Jester always
+      const mailto = buildNotificationMailto(student, selected, interviewerEmail)
       const a = document.createElement('a')
       a.href = mailto; a.click()
     } catch (err) {
