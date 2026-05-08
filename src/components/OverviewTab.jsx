@@ -327,7 +327,7 @@ export default function OverviewTab({ students, units, onStudentUpdate }) {
                               {/* Info */}
                               <div className="ov-student-info" style={{ flex:1 }}>
                                 <span className="ov-student-name">{displayName(s)}</span>
-                                {s.personal_email && <span className="ov-student-contact">{s.personal_email}</span>}
+                                {s.school_email && <span className="ov-student-contact">{s.school_email}</span>}
                                 {s.phone && <span style={{ fontSize:12, color:'#9ca3af' }}>{s.phone}</span>}
                               </div>
                               {/* Right: ASPIRE status + placed label + Send Form if Pending Outreach */}
