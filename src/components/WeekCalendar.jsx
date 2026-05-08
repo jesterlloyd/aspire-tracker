@@ -64,6 +64,14 @@ function getInitials(n) {
   const p = n.trim().split(' ').filter(Boolean)
   return p.length >= 2 ? (p[0][0]+p[p.length-1][0]).toUpperCase() : (p[0]?.[0]||'').toUpperCase()
 }
+function getSlotGroupInitials(interviewers) {
+  const valid = interviewers.filter(Boolean)
+  if (!valid.length) return ''
+  if (valid.length === 1) return getInitials(valid[0])
+  if (valid.length === 2) return `${getInitials(valid[0])} · ${getInitials(valid[1])}`
+  return `${getInitials(valid[0])} +${valid.length - 1}`
+}
+
 function getInterviewerDisplay(s) {
   if (!s?.trim()) return ''
   const names = s.split(',').map(n=>n.trim()).filter(Boolean)
@@ -145,10 +153,13 @@ function InterviewBlockPopover({ student, session, position, onClose, onEditSche
 
 // ── Pill used by BOTH week and month views ────────────────────────────────────
 function InterviewPill({ student, session, rubrics, onClick }) {
-  const c       = blockColor(student, rubrics)
-  const acronym = SCHOOL_ACRONYMS[student.school] || null
-  const ivInits = getInterviewerDisplay(student.interview_assigned_interviewers)
+  const c        = blockColor(student, rubrics)
+  const ivInits  = getInterviewerDisplay(student.interview_assigned_interviewers)
   const needsDot = !session?.teams_meeting_booked
+  // Part B: truncated last name (max 6 chars) + interviewer initials
+  const ln = (student.last_name||'').trim()
+  const nameStr  = ln.length > 6 ? ln.slice(0,5) + '…' : ln
+  const pillName = ivInits ? `${nameStr} · ${ivInits}` : nameStr
   return (
     <div className="cal-iv-pill" style={{ position:'relative', background:c.bg, color:c.color }}
       onClick={onClick}>
@@ -157,12 +168,12 @@ function InterviewPill({ student, session, rubrics, onClick }) {
           borderRadius:'50%', background:'#dc1e34', border:'1.5px solid #fff',
           display:'block', zIndex:2 }} />
       )}
-      <div className="cal-iv-pill-name">{student.last_name}</div>
-      <div className="cal-iv-pill-meta">
-        {acronym  && <span>{acronym}</span>}
-        {ivInits  && <span>{ivInits}</span>}
-        {student.interview_scheduled_time && <span>{student.interview_scheduled_time}</span>}
-      </div>
+      <div className="cal-iv-pill-name">{pillName}</div>
+      {student.interview_scheduled_time && (
+        <div className="cal-iv-pill-meta">
+          <span>{student.interview_scheduled_time}</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -380,19 +391,53 @@ export default function WeekCalendar({
                   <div className="month-cal-day-num-wrap">
                     <span className={`month-cal-day-num${isToday?' month-cal-today-num':''}`}>{d.getDate()}</span>
                   </div>
-                  {/* FIX 2: same pill content as week view */}
-                  {interviews.map(s => (
-                    <InterviewPill key={s.id} student={s} session={getSessionForStudent(s.id)} rubrics={rubrics}
-                      onClick={e => handleBlockClick(s, e)} />
-                  ))}
-                  {openSlots.slice(0,1).map(sl => (
-                    <div key={sl.id} className="month-cal-slot-pill">
-                      {fmtTime(sl.slot_time)} {sl.interviewer_name ? getInitials(sl.interviewer_name) : ''}
-                    </div>
-                  ))}
-                  {openSlots.length > 1 && (
-                    <div className="month-cal-slot-pill" style={{color:'#9ca3af'}}>+{openSlots.length-1} open</div>
-                  )}
+                  {/* Part A+C: group slots by time, combine initials, limit to 2 shown + overflow */}
+                  {(() => {
+                    // Group open slots by slot_time
+                    const slotMap = {}
+                    openSlots.forEach(sl => {
+                      if (!slotMap[sl.slot_time]) slotMap[sl.slot_time] = []
+                      slotMap[sl.slot_time].push(sl)
+                    })
+                    const slotGroups = Object.entries(slotMap)
+                      .sort(([a],[b]) => a.localeCompare(b))
+                      .map(([time, sls]) => ({ time, interviewers: sls.map(s=>s.interviewer_name).filter(Boolean) }))
+
+                    // Build flat list: interview pills first, then slot group pills
+                    const interviewItems = interviews.map(s => ({ kind:'iv', s }))
+                    const slotItems      = slotGroups.map(g => ({ kind:'slot', g }))
+                    const allItems       = [...interviewItems, ...slotItems]
+                    const SHOW           = 2
+                    const shown          = allItems.slice(0, SHOW)
+                    const remaining      = allItems.length - SHOW
+
+                    return (
+                      <>
+                        {shown.map((item, idx) => item.kind === 'iv'
+                          ? <InterviewPill key={item.s.id} student={item.s}
+                              session={getSessionForStudent(item.s.id)} rubrics={rubrics}
+                              onClick={e => handleBlockClick(item.s, e)} />
+                          : <div key={item.g.time} style={{
+                              background:'rgba(220,239,248,0.85)', border:'1.5px dashed #9dd6f2',
+                              borderRadius:4, padding:'2px 5px', fontSize:10,
+                              display:'flex', gap:3, alignItems:'center',
+                              cursor:'pointer', whiteSpace:'nowrap', overflow:'hidden', marginBottom:3,
+                            }}>
+                              <span style={{ fontWeight:600, color:'#1d2567' }}>{fmtTime(item.g.time)}</span>
+                              {item.g.interviewers.length > 0 && (
+                                <span style={{ color:'#6b7280' }}>{getSlotGroupInitials(item.g.interviewers)}</span>
+                              )}
+                            </div>
+                        )}
+                        {remaining > 0 && (
+                          <div style={{ fontSize:10, fontWeight:500, color:'#1d4ed8',
+                            cursor:'pointer', marginTop:1, paddingLeft:2 }}>
+                            +{remaining} more
+                          </div>
+                        )}
+                      </>
+                    )
+                  })()}
                 </div>
               )
             })}
@@ -434,11 +479,13 @@ export default function WeekCalendar({
         <div ref={dayPopoverRef} onClick={e => e.stopPropagation()}
           style={{
             position:'fixed', top:dayPopover.top, left:dayPopover.left,
-            width:320, maxHeight:480, overflowY:'auto',
+            width:320, maxHeight:480,
             background:'var(--pearl)', border:'1px solid #e5e7eb',
             borderRadius:12, boxShadow:'0 8px 24px rgba(0,0,0,0.12)',
             zIndex:202, animation:'cal-popover-in 150ms ease',
+            display:'flex', flexDirection:'column',
           }}>
+          {/* Sticky header */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
             padding:'12px 14px', borderBottom:'1px solid var(--border-lt)', flexShrink:0 }}>
             <div style={{ fontSize:15, fontWeight:700, color:'var(--nightfall)' }}>
@@ -447,7 +494,8 @@ export default function WeekCalendar({
             <button onClick={() => setDayPopover(null)}
               style={{ background:'none', border:'none', fontSize:18, cursor:'pointer', color:'var(--text-secondary)', lineHeight:1 }}>×</button>
           </div>
-          <div style={{ padding:'12px 14px' }}>
+          {/* Scrollable body — Part D */}
+          <div style={{ padding:'12px 14px', overflowY:'auto', maxHeight:400 }}>
             {/* Scheduled Interviews */}
             <div className="day-detail-section-title">Scheduled Interviews</div>
             {(() => {
