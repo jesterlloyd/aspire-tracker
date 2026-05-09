@@ -493,30 +493,60 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       <div className="rub-panels">
         {/* ── Left panel ── */}
         <div className="rub-left">
-          {/* Student card */}
-          <div className="rub-student-card">
-            {student.headshot_url && !headshotError
-              ? <img src={student.headshot_url} alt={`${student.first_name} ${student.last_name}`} className="rub-headshot"
-                  onError={() => setHeadshotError(true)} />
-              : <div className="rub-initials">{initials}</div>
-            }
-            <div className="rub-student-name">{displayName(student)}</div>
-            <div className="rub-student-school">{student.school}</div>
-            {student.status && (() => { const cfg = ASPIRE_STATUS_CONFIG[student.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']; return <span style={{ marginTop:4, fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}` }}>{student.status}</span> })()}
-            {student.cumulative_gpa != null && (
-              <span style={{ fontSize:11, fontWeight:600, background:'#dcfce7', color:'#166534', padding:'1px 7px', borderRadius:4, marginTop:4 }}>
-                GPA: {parseFloat(student.cumulative_gpa).toFixed(2)}
+          {/* Contact-style header — gradient, centered, read-only reference */}
+          <div style={{
+            background:'linear-gradient(to bottom, #dceff8, #ffffff)',
+            minHeight:180, textAlign:'center', padding:'20px 16px 14px',
+            borderBottom:'1px solid #e5e7eb', flexShrink:0,
+          }}>
+            {/* Photo 80px */}
+            <div style={{ display:'flex', justifyContent:'center', marginBottom:10 }}>
+              {student.headshot_url && !headshotError
+                ? <img src={student.headshot_url} alt={`${student.first_name} ${student.last_name}`}
+                    onError={() => setHeadshotError(true)}
+                    style={{ width:80, height:80, borderRadius:'50%', objectFit:'cover',
+                      border:'3px solid var(--pearl)', boxShadow:'0 4px 16px rgba(29,37,103,0.15)' }} />
+                : <div style={{ width:80, height:80, borderRadius:'50%', background:'var(--nightfall)',
+                    color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
+                    fontSize:28, fontWeight:700, border:'3px solid var(--pearl)',
+                    boxShadow:'0 4px 16px rgba(29,37,103,0.15)' }}>{initials}</div>
+              }
+            </div>
+            {/* First Last */}
+            <div style={{ fontSize:20, fontWeight:700, color:'var(--nightfall)', marginBottom:4 }}>
+              {student.first_name} {student.last_name}
+            </div>
+            {/* School · Program */}
+            <div style={{ fontSize:13, color:'#6b7280', marginBottom:8 }}>
+              {student.school}{student.program_type ? ` · ${student.program_type}` : ''}
+            </div>
+            {/* ASPIRE Status pill */}
+            {student.status && (() => {
+              const cfg = ASPIRE_STATUS_CONFIG[student.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']
+              return <span style={{ fontSize:11, fontWeight:700, padding:'2px 9px', borderRadius:20,
+                background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, display:'inline-block' }}>
+                {student.status}
               </span>
-            )}
-            {student.resume_url && (
-              <a href={student.resume_url} target="_blank" rel="noopener noreferrer"
-                style={{ marginTop:8, display:'inline-block', fontSize:12, fontWeight:600,
-                  color:'var(--nightfall)', border:'1px solid var(--nightfall)',
-                  borderRadius:4, padding:'3px 10px', textDecoration:'none' }}>
-                📄 View Resume
-              </a>
-            )}
+            })()}
           </div>
+
+          {/* GPA + Resume link below gradient header */}
+          {(student.cumulative_gpa != null || student.resume_url) && (
+            <div style={{ padding:'8px 14px', display:'flex', flexWrap:'wrap', gap:6, borderBottom:'1px solid #f0f0f0', flexShrink:0 }}>
+              {student.cumulative_gpa != null && (
+                <span style={{ fontSize:11, fontWeight:600, background:'#dcfce7', color:'#166534', padding:'2px 8px', borderRadius:4 }}>
+                  GPA: {parseFloat(student.cumulative_gpa).toFixed(2)}
+                </span>
+              )}
+              {student.resume_url && (
+                <a href={student.resume_url} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize:11, fontWeight:600, color:'var(--nightfall)', border:'1px solid var(--nightfall)',
+                    borderRadius:4, padding:'2px 8px', textDecoration:'none' }}>
+                  📄 View Resume
+                </a>
+              )}
+            </div>
+          )}
 
           {/* Scheduled info */}
           <div className="rub-divider" />
