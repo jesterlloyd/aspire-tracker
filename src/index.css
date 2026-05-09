@@ -1196,23 +1196,33 @@ a.doc-file-link:hover { text-decoration: underline; }
 .profiles-scroll-area { flex: 1; overflow-y: auto; min-height: 0; }
 .profiles-view-toggle { display: flex; gap: 0; margin-bottom: 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; width: fit-content; }
 
-/* Two-column split */
-.profiles-split {
-  flex: 1; min-height: 0; overflow: hidden;
-  display: flex; flex-direction: row;
+/* Full-width list (no student selected) */
+.profiles-full-container { width: 100%; height: calc(100vh - 152px); overflow: hidden; }
+.profiles-list-full { height: 100%; overflow-y: auto; }
+
+/* Slide-in panel layout */
+.profiles-slide-container {
+  display: flex; height: calc(100vh - 152px); overflow: hidden;
 }
-.profiles-list-col {
-  width: 45%; flex-shrink: 0; border-right: 1px solid #e5e7eb;
-  overflow-y: auto; height: 100%;
+.profiles-list-narrow {
+  width: 40%; min-width: 320px; flex-shrink: 0;
+  border-right: 1px solid #e5e7eb; overflow-y: auto; height: 100%;
 }
-.profiles-detail-col {
+.profiles-panel-slide {
   flex: 1; overflow-y: auto; height: 100%; background: var(--pearl);
+  animation: slideInRight 250ms ease;
 }
-.profiles-empty-panel {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  height: 100%; text-align: center; padding: 40px;
-  background: var(--sand);
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
+
+/* Legacy — keep for any remaining refs */
+.profiles-split { flex: 1; min-height: 0; overflow: hidden; display: flex; }
+.profiles-list-col { width: 45%; flex-shrink: 0; border-right: 1px solid #e5e7eb; overflow-y: auto; height: 100%; }
+.profiles-detail-col { flex: 1; overflow-y: auto; height: 100%; background: var(--pearl); }
+.profiles-empty-panel { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 40px; background: var(--sand); }
 
 /* Student list panel */
 .pl-container { display: flex; flex-direction: column; height: 100%; }

@@ -262,30 +262,68 @@ export default function StudentSidePanel({
     <>
       <div className="sp-container">
         {/* Sticky header */}
-        <div className="sp-header">
-          <div className="sp-header-left">
-            {data.headshot_url && !headshotError
-              ? <img src={data.headshot_url} alt={`${student.first_name} ${student.last_name}`} className="sp-header-avatar"
-                  onError={() => setHeadshotError(true)} />
-              : <div className="sp-header-initials">{initials}</div>
-            }
-            <div>
-              <div className="sp-header-name">{displayName(student)}</div>
-              <div className="sp-header-school">{student.school}</div>
-            </div>
-          </div>
-          <div className="sp-header-right">
-            <span className={`sp-save-status${saveStatus !== 'idle' ? ' sp-save-visible' : ''}`}>
-              {saveStatus === 'saving' && '…'}
-              {saveStatus === 'saved'  && '✓ Saved'}
-              {saveStatus === 'error'  && '✗ Error'}
-            </span>
-            <button className="sp-close-btn" onClick={onClose}>×</button>
-          </div>
-        </div>
-
         {/* Scrollable content */}
         <div className="sp-content">
+
+          {/* Hero header card */}
+          <div style={{ background:'linear-gradient(to bottom, #dceff8, #ffffff)', minHeight:220, position:'relative', textAlign:'center', padding:'24px 20px 20px' }}>
+            {/* X close button */}
+            <button onClick={onClose}
+              style={{ position:'absolute', top:16, right:16, width:28, height:28, borderRadius:'50%',
+                background:'var(--pearl)', border:'none', cursor:'pointer', fontSize:14, fontWeight:700,
+                color:'var(--raven)', display:'flex', alignItems:'center', justifyContent:'center',
+                boxShadow:'0 1px 4px rgba(0,0,0,0.12)', zIndex:2, lineHeight:1 }}
+              onMouseEnter={e => e.currentTarget.style.background='#f3f4f6'}
+              onMouseLeave={e => e.currentTarget.style.background='var(--pearl)'}>
+              ×
+            </button>
+            {/* Save status pill */}
+            {saveStatus !== 'idle' && (
+              <div style={{ position:'absolute', top:14, left:'50%', transform:'translateX(-50%)', fontSize:11, fontWeight:500,
+                color: saveStatus==='saved'?'#166534':'#6b7280', background:'rgba(255,255,255,0.85)',
+                padding:'2px 10px', borderRadius:20, whiteSpace:'nowrap', zIndex:2 }}>
+                {saveStatus==='saving'?'Saving…':'✓ Saved'}
+              </div>
+            )}
+            {/* Photo */}
+            <div style={{ display:'flex', justifyContent:'center', marginBottom:12 }}>
+              {data.headshot_url && !headshotError
+                ? <img src={data.headshot_url} alt={`${student.first_name} ${student.last_name}`}
+                    onError={() => setHeadshotError(true)}
+                    style={{ width:96, height:96, borderRadius:'50%', objectFit:'cover',
+                      border:'3px solid var(--pearl)', boxShadow:'0 4px 16px rgba(29,37,103,0.15)' }} />
+                : <div style={{ width:96, height:96, borderRadius:'50%', background:'var(--nightfall)',
+                    color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
+                    fontSize:32, fontWeight:700, border:'3px solid var(--pearl)',
+                    boxShadow:'0 4px 16px rgba(29,37,103,0.15)' }}>{initials}</div>
+              }
+            </div>
+            {/* Name */}
+            <div style={{ fontSize:22, fontWeight:700, color:'var(--nightfall)', marginBottom:4 }}>
+              {student.first_name} {student.last_name}
+            </div>
+            {/* School · Program */}
+            <div style={{ fontSize:14, color:'#6b7280', marginBottom:10 }}>
+              {student.school}{student.program_type ? ` · ${student.program_type}` : ''}
+            </div>
+            {/* ASPIRE Status pill */}
+            {data.status && (() => {
+              const cfg = ASPIRE_STATUS_CONFIG[data.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']
+              return <span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20,
+                background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, display:'inline-block', marginBottom:12 }}>
+                {data.status}
+              </span>
+            })()}
+            {/* Action icon row */}
+            <div style={{ display:'flex', justifyContent:'center', gap:24, marginTop:4 }}>
+              <button title="Send email" onClick={() => { const a=document.createElement('a'); a.href=`mailto:${data.personal_email||data.school_email||''}`; a.click() }}
+                style={{ background:'none', border:'none', cursor:'pointer', fontSize:16, color:'#6b7280', lineHeight:1 }}>✉</button>
+              <button title="Call" onClick={() => { if(data.phone){ const a=document.createElement('a'); a.href=`tel:${data.phone}`; a.click() } }}
+                style={{ background:'none', border:'none', cursor:data.phone?'pointer':'default', fontSize:16, color:data.phone?'#6b7280':'#d1d5db', lineHeight:1 }}>📞</button>
+              <button title="Edit profile" onClick={() => { const inp=document.querySelector('.sp-content .sp-input'); if(inp){inp.scrollIntoView({behavior:'smooth',block:'center'}); inp.focus()} }}
+                style={{ background:'none', border:'none', cursor:'pointer', fontSize:16, color:'#6b7280', lineHeight:1 }}>✏</button>
+            </div>
+          </div>
 
           {/* 1. Contact Information */}
           <div className="sp-section">

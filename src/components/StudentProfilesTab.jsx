@@ -77,9 +77,14 @@ export default function StudentProfilesTab({
   }, [students, localSearch, filterSchool, filterStatus, sortBy, needsAttention])
 
   const selectedStudent = selectedStudentId ? students.find(s => s.id === selectedStudentId) : null
+  const panelStudent    = selectedStudent
 
-  // If selected student is no longer in filtered list, keep them in panel but allow close
-  const panelStudent = selectedStudent
+  // Escape key closes panel
+  useEffect(() => {
+    const handler = e => { if (e.key === 'Escape') setSelectedStudentId(null) }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [])
 
   return (
     <div className="student-profiles-tab">
@@ -103,10 +108,10 @@ export default function StudentProfilesTab({
         </div>
       </div>
 
-      {/* Profiles: two-column split */}
+      {/* Profiles: full-width list, panel slides in on selection */}
       {view === 'records' && (
-        <div className="profiles-split">
-          <div className="profiles-list-col">
+        <div className={panelStudent ? 'profiles-slide-container' : 'profiles-full-container'}>
+          <div className={panelStudent ? 'profiles-list-narrow' : 'profiles-list-full'}>
             <StudentListPanel
               students={filteredSorted}
               allStudents={students}
@@ -121,10 +126,11 @@ export default function StudentProfilesTab({
               onRefresh={onRefresh}
               onExportCSV={onExportCSV}
               onAddStudent={onAddStudent}
+              compressed={!!panelStudent}
             />
           </div>
-          <div className="profiles-detail-col">
-            {panelStudent ? (
+          {panelStudent && (
+            <div className="profiles-panel-slide" key={panelStudent.id}>
               <StudentSidePanel
                 student={panelStudent}
                 sortedStudents={filteredSorted}
@@ -134,15 +140,8 @@ export default function StudentProfilesTab({
                 onDelete={onDelete}
                 units={units}
               />
-            ) : (
-              <div className="profiles-empty-panel">
-                <div style={{ fontSize:40, marginBottom:12, opacity:0.25 }}>👤</div>
-                <div style={{ fontSize:14, color:'#9ca3af', fontWeight:400 }}>
-                  Select a student to view their profile
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -17,6 +17,7 @@ export default function StudentListPanel({
   filterStatus, setFilterStatus, sortBy, setSortBy,
   needsAttention, setNeedsAttention,
   cohortId, onRefresh, onExportCSV, onAddStudent,
+  compressed = false,
 }) {
   const [showImport,  setShowImport]  = useState(false)
   const [imgErrors,   setImgErrors]   = useState({})
@@ -101,13 +102,13 @@ export default function StudentListPanel({
                 <div className="pl-school">
                   {s.school || '—'}{s.program_type ? ` · ${s.program_type}` : ''}
                 </div>
-                {hasContact ? (
+                {!compressed && (hasContact ? (
                   <div className="pl-contact">
                     {s.personal_email}{s.personal_email && s.phone ? ' · ' : ''}{s.phone}
                   </div>
                 ) : (
                   <div className="pl-contact pl-contact-missing">Personal info not yet submitted</div>
-                )}
+                ))}
               </div>
               {/* Right badges */}
               <div className="pl-right">
