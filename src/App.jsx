@@ -17,6 +17,7 @@ import InterviewSchedulePage from './components/InterviewSchedulePage'
 import ShiftLogPage from './components/ShiftLogPage'
 import InterviewersModal from './components/InterviewersModal'
 import ActionCenter from './components/ActionCenter'
+import Keith from './components/Keith'
 
 /*
   COHORT ISOLATION CONTRACT
@@ -405,7 +406,7 @@ function MainApp({ onLogout }) {
             {/* Right: Bell + Log out */}
             <div style={{ display:'flex', alignItems:'center', gap:12 }}>
               {cohorts.length > 0 && (
-                <button onClick={() => setShowActionCenter(true)}
+                <button id="keith-bell-trigger" onClick={() => setShowActionCenter(true)}
                   style={{ position:'relative', background:'none', border:'none', cursor:'pointer', padding:'4px 6px', lineHeight:1 }}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -556,6 +557,12 @@ function MainApp({ onLogout }) {
           onNavigateToProfiles={id => { setFocusStudentId(id); switchTab('profiles'); setShowActionCenter(false) }}
         />
       )}
+      <Keith
+        activeTab={activeTab}
+        setActiveTab={switchTab}
+        cohortName={activeCohort?.name}
+        isAuthenticated={true}
+      />
     </div>
   )
 }
