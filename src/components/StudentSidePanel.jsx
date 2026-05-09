@@ -36,6 +36,17 @@ const STAGE1_ACTION_LABELS = {
   not_applicable: 'Not Applicable',
 }
 
+const PROGRAM_TYPES = [
+  'BSN (Semester)',
+  'BSN (Trimester)',
+  'Accelerated BSN',
+  'LVN to BSN',
+  'RN to BSN',
+  "Master's Entry Clinical Nurse (MECN)",
+  "Entry-Level Master's in Nursing (ELMN)",
+  'Other',
+]
+
 const CS_AFFILIATIONS = ['Current Employee','Former Employee','Volunteer','No prior affiliation']
 const CS_WITH_DEPT    = ['Current Employee','Former Employee','Volunteer']
 const GENDER_OPTIONS  = ['Male','Female','Non-binary','Prefer not to say','Other']
@@ -279,23 +290,26 @@ export default function StudentSidePanel({
 
   return (
     <>
-      <div className="sp-container">
-        {/* Sticky header */}
+      <div className="sp-container" style={{ position:'relative' }}>
+        {/* X close button — pinned to panel top-right, outside the rounded card */}
+        <button onClick={onClose}
+          style={{ position:'absolute', top:16, right:16, width:28, height:28, borderRadius:'50%',
+            background:'var(--pearl)', border:'none', cursor:'pointer', fontSize:14, fontWeight:700,
+            color:'var(--raven)', display:'flex', alignItems:'center', justifyContent:'center',
+            boxShadow:'0 1px 4px rgba(0,0,0,0.12)', zIndex:10, lineHeight:1 }}
+          onMouseEnter={e => e.currentTarget.style.background='#f3f4f6'}
+          onMouseLeave={e => e.currentTarget.style.background='var(--pearl)'}>
+          ×
+        </button>
+
         {/* Scrollable content */}
         <div className="sp-content">
 
-          {/* Hero header card */}
-          <div style={{ background:'linear-gradient(to bottom, #dceff8, #ffffff)', minHeight:220, position:'relative', textAlign:'center', padding:'24px 20px 20px' }}>
-            {/* X close button */}
-            <button onClick={onClose}
-              style={{ position:'absolute', top:16, right:16, width:28, height:28, borderRadius:'50%',
-                background:'var(--pearl)', border:'none', cursor:'pointer', fontSize:14, fontWeight:700,
-                color:'var(--raven)', display:'flex', alignItems:'center', justifyContent:'center',
-                boxShadow:'0 1px 4px rgba(0,0,0,0.12)', zIndex:2, lineHeight:1 }}
-              onMouseEnter={e => e.currentTarget.style.background='#f3f4f6'}
-              onMouseLeave={e => e.currentTarget.style.background='var(--pearl)'}>
-              ×
-            </button>
+          {/* Hero header card — rounded */}
+          <div style={{ margin:'12px 12px 0', borderRadius:16,
+            background:'linear-gradient(to bottom, #dceff8, #ffffff)',
+            padding:'24px 20px 20px', boxShadow:'0 2px 8px rgba(29,37,103,0.08)',
+            overflow:'hidden', textAlign:'center', position:'relative' }}>
             {/* Save status pill */}
             {saveStatus !== 'idle' && (
               <div style={{ position:'absolute', top:14, left:'50%', transform:'translateX(-50%)', fontSize:11, fontWeight:500,
@@ -382,7 +396,12 @@ export default function StudentSidePanel({
             <SectionHeader title="Program Details" />
             <div className="sp-grid-2">
               <Field label="School"><div className="sp-readonly">{data.school||'—'}</div></Field>
-              <Field label="Program Type"><div className="sp-readonly">{data.program_type||'—'}</div></Field>
+              <Field label="Program Type">
+                <select className="sp-select" value={data.program_type||''} onChange={e => handleSelect('program_type', e.target.value)}>
+                  <option value="">Select…</option>
+                  {PROGRAM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </Field>
               <Field label="Term Dates"><div className="sp-readonly">{data.term_dates||'—'}</div></Field>
               <Field label="Hours Required">
                 <input className="sp-input" type="text" inputMode="numeric" pattern="[0-9]*"

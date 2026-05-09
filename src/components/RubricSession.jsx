@@ -493,11 +493,13 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       <div className="rub-panels">
         {/* ── Left panel ── */}
         <div className="rub-left">
-          {/* Contact-style header — gradient, centered, read-only reference */}
+          {/* Contact-style header — gradient card, centered, read-only reference */}
+          <div style={{ flexShrink:0, padding:'12px 12px 0' }}>
           <div style={{
+            borderRadius:16,
             background:'linear-gradient(to bottom, #dceff8, #ffffff)',
-            minHeight:180, textAlign:'center', padding:'20px 16px 14px',
-            borderBottom:'1px solid #e5e7eb', flexShrink:0,
+            textAlign:'center', padding:'20px 16px 16px',
+            boxShadow:'0 2px 8px rgba(29,37,103,0.08)', overflow:'hidden',
           }}>
             {/* Photo 80px */}
             <div style={{ display:'flex', justifyContent:'center', marginBottom:10 }}>
@@ -529,6 +531,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
               </span>
             })()}
           </div>
+          </div>{/* end header card wrapper */}
 
           {/* GPA + Resume link below gradient header */}
           {(student.cumulative_gpa != null || student.resume_url) && (
