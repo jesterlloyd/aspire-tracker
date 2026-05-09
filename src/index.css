@@ -1142,7 +1142,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
-.ov-hero { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 0; }
+.ov-hero { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-top: 16px; margin-bottom: 0; }
 .ov-hero-card { border-radius: 8px; padding: 20px 22px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
 .ov-hero-num   { font-size: 48px; font-weight: 700; line-height: 1; margin-bottom: 6px; }
 .ov-hero-label { font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }

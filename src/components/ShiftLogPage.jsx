@@ -198,8 +198,9 @@ export default function ShiftLogPage() {
   const remaining = Math.max(0, required - approved)
   const pct       = required > 0 ? Math.min(100, (approved/required)*100) : 0
 
-  const INPUT = { width:'100%', height:52, fontSize:16, padding:'0 14px', borderRadius:12,
-    border:'1px solid #e5e7eb', fontFamily:'DM Sans,sans-serif', outline:'none', boxSizing:'border-box' }
+  const INPUT = { width:'100%', maxWidth:'100%', height:52, fontSize:16, padding:'0 14px', borderRadius:12,
+    border:'1px solid #e5e7eb', fontFamily:'DM Sans,sans-serif', outline:'none', boxSizing:'border-box',
+    display:'block', WebkitAppearance:'none', appearance:'none', overflow:'hidden' }
   const BTN_PRIMARY = { width:'100%', height:52, fontSize:16, fontWeight:700, fontFamily:'DM Sans,sans-serif',
     background:'var(--nightfall)', color:'#fff', border:'none', borderRadius:12, cursor:'pointer' }
 
@@ -265,7 +266,7 @@ export default function ShiftLogPage() {
             </div>
 
             {/* Shift form */}
-            <div style={{ background:'#fff', borderRadius:16, padding:'20px', boxShadow:'0 2px 8px rgba(0,0,0,0.06)' }}>
+            <div style={{ background:'#fff', borderRadius:16, padding:'20px', boxShadow:'0 2px 8px rgba(0,0,0,0.06)', overflow:'hidden', boxSizing:'border-box', width:'100%' }}>
               {formErrors.length > 0 && (
                 <div style={{ background:'#fee2e2', border:'1px solid #fca5a5', borderRadius:8, padding:'12px 14px', fontSize:14, color:'#991b1b', marginBottom:16 }}>
                   {formErrors.map((e,i) => <div key={i}>• {e}</div>)}
