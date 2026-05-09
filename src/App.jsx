@@ -561,6 +561,8 @@ function MainApp({ onLogout }) {
         activeTab={activeTab}
         setActiveTab={switchTab}
         cohortName={activeCohort?.name}
+        cohortId={activeCohortId}
+        supabase={supabase}
         isAuthenticated={true}
       />
     </div>

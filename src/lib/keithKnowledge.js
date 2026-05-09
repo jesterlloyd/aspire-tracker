@@ -71,55 +71,161 @@ export const SUGGESTED_PROMPTS = [
   { label: 'How does CS-Link access work?', category: 'info' },
 ];
 
-export function generateStaticResponse(userMessage, cohortName) {
+export function generateStaticResponse(userMessage, cohortName, context) {
   const msg = userMessage.toLowerCase();
   const cohort = cohortName || 'the current cohort';
 
+  const nameList = (students, max = 8) => {
+    if (!students || students.length === 0) return null;
+    const names = students.slice(0, max).map(s => `${s.last_name}, ${s.first_name}`);
+    const extra = students.length > max ? `\n...and ${students.length - max} more` : '';
+    return names.join('\n') + extra;
+  };
+
   if (msg.includes('follow-up') || msg.includes('action') || msg.includes('needs attention')) {
+    if (context) {
+      const items = [];
+      if (context.needsStudentForm.length) items.push(`• ${context.needsStudentForm.length} student${context.needsStudentForm.length > 1 ? 's' : ''} need the student form link (Pending Outreach)`);
+      if (context.needsSchedulingLink.length) items.push(`• ${context.needsSchedulingLink.length} student${context.needsSchedulingLink.length > 1 ? 's' : ''} need an interview scheduling link (Form Received)`);
+      if (context.needsCsLink.length) items.push(`• ${context.needsCsLink.length} student${context.needsCsLink.length > 1 ? 's' : ''} still need CS-Link access started`);
+      if (context.needsBadge.length) items.push(`• ${context.needsBadge.length} student${context.needsBadge.length > 1 ? 's' : ''} need a badge created (Placed)`);
+      if (context.pendingShiftReviews) items.push(`• ${context.pendingShiftReviews} shift log${context.pendingShiftReviews > 1 ? 's' : ''} pending review`);
+      if (items.length === 0) {
+        return { text: `Great news! No urgent follow-up items found in ${cohort} right now. Check the Action Center for any minor items.` };
+      }
+      return {
+        text: `Here is what needs attention in ${cohort}:\n\n${items.join('\n')}\n\nOpen the Action Center for one-click email buttons for each of these.`,
+        action: { label: 'Open Action Center', type: 'bell' },
+      };
+    }
     return {
-      text: `Here are the most common follow-up actions in the Action Center:\n\n• Students with status Pending Outreach need their student form link sent.\n• Students with Form Received but no scheduled interview need the scheduling link.\n• Placed students with no CS-Link submission started need Service Center action.\n• Placed students whose unit leader has not been notified need the placement email.\n\nOpen the Action Center (bell icon) to see your full list with one-click email buttons.`,
+      text: `Open the Action Center (bell icon) to see your full follow-up list with one-click email buttons for: student forms, scheduling links, CS-Link access, unit notifications, and more.`,
       action: { label: 'Open Action Center', type: 'bell' },
     };
   }
 
-  if (msg.includes('summarize') || msg.includes('summary') || msg.includes('overview') || msg.includes('cohort')) {
+  if (msg.includes('summarize') || msg.includes('summary') || msg.includes('overview') || (msg.includes('cohort') && !msg.includes('switch'))) {
+    if (context) {
+      const statusLines = Object.entries({
+        'Pending Outreach':    context.needsStudentForm.length,
+        'Form Received':       (context.byStatus['Form Received'] || []).length,
+        'Interview Scheduled': (context.byStatus['Interview Scheduled'] || []).length,
+        'Interviewed':         context.interviewed.length,
+        'Placed':              context.placed.length,
+        'Active Rotation':     context.activeRotation.length,
+        'Completed':           context.completed.length,
+        'Declined':            (context.byStatus['Declined'] || []).length,
+      }).filter(([, count]) => count > 0).map(([status, count]) => `• ${status}: ${count}`).join('\n');
+      return {
+        text: `${cohort} Summary\n\n${context.totalStudents} total students\n${context.totalSlots} unit slots (${context.totalRemaining} remaining)\n\nStatus breakdown:\n${statusLines || '• No students yet'}\n\nOn campus today: ${context.onCampusToday.length} student${context.onCampusToday.length !== 1 ? 's' : ''}`,
+        action: { label: 'Go to Aggregate', type: 'tab', tab: 'overview' },
+      };
+    }
     return {
-      text: `To get a full summary of ${cohort}, head to the Aggregate tab. You will see:\n\n• Total slots available across all participating units\n• How many slots are filled and remaining\n• Total students requesting placement\n• Students grouped by school with placement status\n• The On Campus Today panel for active rotation students\n\nFor a student-by-student breakdown, the Student Profiles tab with the Needs Attention filter is the best starting point.`,
+      text: `Head to the Aggregate tab for a full cohort overview including slot availability, student counts by school, and placement status.`,
       action: { label: 'Go to Aggregate', type: 'tab', tab: 'overview' },
     };
   }
 
-  if (msg.includes('ready for rotation') || msg.includes('rotation ready') || msg.includes('placed')) {
+  if (msg.includes('ready for rotation') || msg.includes('rotation ready') || (msg.includes('placed') && !msg.includes('placement'))) {
+    if (context) {
+      const list = nameList(context.placed);
+      return {
+        text: context.placed.length === 0
+          ? `No students are currently Placed in ${cohort}. Check the Embed tab to start matching.`
+          : `${context.placed.length} student${context.placed.length > 1 ? 's are' : ' is'} Placed and ready for rotation:\n\n${list}\n\nBefore rotation starts, confirm CS-Link access, badge creation, and that the preceptor welcome email has been sent.`,
+        action: { label: 'Go to Embed', type: 'tab', tab: 'matching' },
+      };
+    }
     return {
-      text: `Students who are ready for rotation have ASPIRE Status of Placed or Active Rotation. They have been matched to a unit in the Embed board and have a preceptor assigned.\n\nBefore rotation starts, confirm:\n✓ CS-Link access is complete\n✓ Badge has been created\n✓ Preceptor welcome email has been sent\n✓ Orientation email with pre-program survey has been sent\n\nCheck the Action Center for any of these that are still pending.`,
+      text: `Students who are ready for rotation have ASPIRE Status of Placed or Active Rotation. Check the Embed tab for matched students and the Action Center for any pending pre-rotation items.`,
       action: { label: 'Go to Embed', type: 'tab', tab: 'matching' },
     };
   }
 
   if (msg.includes('cs-link') || msg.includes('cslink') || msg.includes('access')) {
+    if (context) {
+      const list = nameList(context.needsCsLink);
+      return {
+        text: context.needsCsLink.length === 0
+          ? `All students in ${cohort} have CS-Link access started. Check the CS-Link Access tab to confirm completions.`
+          : `${context.needsCsLink.length} student${context.needsCsLink.length > 1 ? 's need' : ' needs'} CS-Link access started:\n\n${list}\n\nGo to Student Profiles → CS-Link Access to process these.`,
+        action: { label: 'Go to CS-Link Access', type: 'tab', tab: 'profiles' },
+      };
+    }
     return {
-      text: `CS-Link access is a two-stage process:\n\nStage 1 – Service Center Request:\n• New students: Submit Add Non-Employee\n• Former students: Submit Assignment Change, Extend End Date, or Reactivate\n• Current Cedars employees: Skip Stage 1\n\nStage 2 – Add CS-Link Access (everyone)\n\nThe Action Center flags all students from Form Received onwards who haven't had Stage 1 submitted. Go to Student Profiles → CS-Link Access for the bulk tracking table.`,
-      action: { label: 'Go to CS-Link Access', type: 'tab', tab: 'profiles' },
+      text: `CS-Link access is a two-stage process. Stage 1 is a Service Center request (Add Non-Employee, Assignment Change, etc.). Stage 2 is adding CS-Link access. The Action Center flags all students from Form Received onwards who haven't had Stage 1 submitted.`,
+      action: { label: 'Go to Student Profiles', type: 'tab', tab: 'profiles' },
     };
   }
 
-  if (msg.includes('interview') || msg.includes('rubric') || msg.includes('scheduled')) {
+  if (msg.includes('interview') && (msg.includes('need') || msg.includes('still') || msg.includes('who') || msg.includes('schedule') || msg.includes('rubric'))) {
+    if (context) {
+      const unscheduled = (context.byStatus['Form Received'] || []).filter(s => !s.interview_scheduled_date);
+      const list = nameList(unscheduled);
+      return {
+        text: unscheduled.length === 0
+          ? `All Form Received students in ${cohort} have their interviews scheduled. Check the Interview Rubric tab for upcoming interviews.`
+          : `${unscheduled.length} student${unscheduled.length > 1 ? 's have' : ' has'} submitted their form but not yet scheduled an interview:\n\n${list}\n\nSend them the scheduling link from the Action Center.`,
+        action: { label: 'Go to Interview Rubric', type: 'tab', tab: 'interviews' },
+      };
+    }
     return {
-      text: `Students who still need an interview have ASPIRE Status of Form Received or Interview Scheduled (but not yet Interviewed).\n\nTo manage interviews:\n• The Interview Rubric tab calendar shows all scheduled and available slots\n• The student list shows Interview Status per student\n• Use the Action Center to send scheduling links to Form Received students in one click\n• The Availability Manager lets you create bookable slots for students to self-schedule`,
+      text: `Check the Interview Rubric tab student list for Interview Status per student. The Action Center sends scheduling links with one click.`,
       action: { label: 'Go to Interview Rubric', type: 'tab', tab: 'interviews' },
     };
   }
 
-  if (msg.includes('on campus') || msg.includes('campus today') || msg.includes('who is here')) {
+  if (msg.includes('on campus') || msg.includes('campus today') || msg.includes('who is here') || msg.includes('today')) {
+    if (context) {
+      if (context.onCampusToday.length === 0) {
+        return {
+          text: `No students have logged shifts for today (${context.todayStr}) yet in ${cohort}. They log hours at /shift-log using the QR code on their badge.`,
+          action: { label: 'Go to Aggregate', type: 'tab', tab: 'overview' },
+        };
+      }
+      const campusList = context.onCampusToday.map(s => `• ${s.student.last_name}, ${s.student.first_name} – ${s.unit} (${s.shiftType}, ${s.hours} hrs)`).join('\n');
+      return {
+        text: `${context.onCampusToday.length} student${context.onCampusToday.length !== 1 ? 's are' : ' is'} on campus today:\n\n${campusList}`,
+        action: { label: 'Go to Aggregate', type: 'tab', tab: 'overview' },
+      };
+    }
     return {
-      text: `The On Campus Today panel in the Aggregate tab shows every student who submitted a shift log for today's date with an approved status.\n\nStudents log their shifts at /shift-log using the QR code on their badge. If you do not see a student you expected, they may not have logged their shift yet today, or their shift log may be pending review.\n\nYou can also check the Clinical Hours section in any student's profile to see their full shift history.`,
+      text: `The On Campus Today panel in the Aggregate tab shows students who logged shifts for today using the QR code on their badge.`,
       action: { label: 'Go to Aggregate', type: 'tab', tab: 'overview' },
     };
   }
 
+  if (msg.includes('badge')) {
+    if (context && context.needsBadge.length > 0) {
+      const list = nameList(context.needsBadge);
+      return {
+        text: `${context.needsBadge.length} Placed student${context.needsBadge.length > 1 ? 's need' : ' needs'} a badge created:\n\n${list}\n\nCreate their badges in Canva and check the Badge Created box in each student's profile under Placement and Outcomes.`,
+        action: { label: 'Go to Student Profiles', type: 'tab', tab: 'profiles' },
+      };
+    }
+    if (context && context.needsBadge.length === 0 && context.placed.length > 0) {
+      return { text: `All Placed students in ${cohort} have their badges created. Great job!` };
+    }
+    return {
+      text: `Student badges contain a universal QR code linking to /shift-log. Create them in Canva and mark Badge Created in each student's profile under Placement and Outcomes. The Action Center flags Placed students without badges.`,
+      action: { label: 'Go to Student Profiles', type: 'tab', tab: 'profiles' },
+    };
+  }
+
+  if (msg.includes('nearing') || msg.includes('almost done') || msg.includes('hours')) {
+    if (context && context.nearingCompletion.length > 0) {
+      const list = context.nearingCompletion.map(s => `• ${s.last_name}, ${s.first_name} – ${s.approved_hours}/${s.hours_required} hrs`).join('\n');
+      return {
+        text: `${context.nearingCompletion.length} student${context.nearingCompletion.length !== 1 ? 's are' : ' is'} nearing completion (80% or more of required hours):\n\n${list}\n\nStart preparing their post-rotation materials: survey link, certificate, and preceptor end evaluation.`,
+        action: { label: 'Go to Student Profiles', type: 'tab', tab: 'profiles' },
+      };
+    }
+  }
+
   if (msg.includes('unit leader') && (msg.includes('email') || msg.includes('draft') || msg.includes('notify'))) {
     return {
-      text: `Here is a unit leader placement notification email template. Fill in the student and unit details before sending:\n\n---\n\n${ASPIRE_KNOWLEDGE.emailTemplates.unitLeader('[Student Name]', '[School]', '[Unit Name]')}`,
+      text: `Here is a unit leader placement notification email template:\n\n---\n\n${ASPIRE_KNOWLEDGE.emailTemplates.unitLeader('[Student Name]', '[School]', '[Unit Name]')}`,
       hasCopy: true,
       action: { label: 'Go to Embed', type: 'tab', tab: 'matching' },
     };
@@ -127,35 +233,24 @@ export function generateStaticResponse(userMessage, cohortName) {
 
   if (msg.includes('student form') && (msg.includes('email') || msg.includes('draft') || msg.includes('send'))) {
     return {
-      text: `Here is the student form outreach email template:\n\n---\n\n${ASPIRE_KNOWLEDGE.emailTemplates.studentForm('[Student First Name]')}`,
+      text: `Here is the student form outreach email:\n\n---\n\n${ASPIRE_KNOWLEDGE.emailTemplates.studentForm('[Student First Name]')}`,
       hasCopy: true,
     };
   }
 
   if (msg.includes('scheduling') || msg.includes('interview link') || (msg.includes('schedule') && msg.includes('email'))) {
     return {
-      text: `Here is the interview scheduling link email template:\n\n---\n\n${ASPIRE_KNOWLEDGE.emailTemplates.schedulingLink('[Student First Name]')}`,
+      text: `Here is the interview scheduling link email:\n\n---\n\n${ASPIRE_KNOWLEDGE.emailTemplates.schedulingLink('[Student First Name]')}`,
       hasCopy: true,
     };
   }
 
   if (msg.includes('status') || msg.includes('journey') || msg.includes('workflow')) {
-    return {
-      text: `The ASPIRE Status Journey has 9 stages:\n\n1. Pending Outreach – Added, not yet contacted\n2. Form Sent – Form link sent\n3. Form Received – Student submitted their profile\n4. Interview Scheduled – Interview booked\n5. Interviewed – All rubrics complete\n6. Placed – Matched to a unit\n7. Active Rotation – Currently on their rotation\n8. Completed – Rotation finished\n9. Declined – Did not proceed\n\nStatuses update automatically when you take actions in the app. Active Rotation and Completed are set manually.`,
-    };
+    return { text: ASPIRE_KNOWLEDGE.statusJourney };
   }
 
   if (msg.includes('aspire') || msg.includes('program') || msg.includes('what is')) {
-    return {
-      text: `The ASPIRE Program stands for Affiliate Students' Pathway from Internship to Residency Experience. It is a senior nursing student placement program at Cedars-Sinai Medical Center.\n\nASPIRE offers final-semester students a hands-on bedside clinical rotation, pairs them with experienced preceptors, and provides a clear pathway into the New Graduate RN Residency Program (NGRP).\n\nThe program supports students from 7 affiliated schools across BSN, ABSN, MECN, and ELMN programs. Students must have a 3.0 GPA or above and commit to a minimum of 90 clinical hours.`,
-    };
-  }
-
-  if (msg.includes('badge')) {
-    return {
-      text: `Student badges contain a universal QR code that links to /shift-log, where students log their clinical hours. The QR code is the same for all students.\n\nYou create badges in Canva using your existing template. The app tracks badge status (created or not) in the Student Profile under Placement and Outcomes.\n\nThe Action Center flags Placed students whose badge has not been created yet.`,
-      action: { label: 'Go to Student Profiles', type: 'tab', tab: 'profiles' },
-    };
+    return { text: ASPIRE_KNOWLEDGE.program };
   }
 
   if (msg.includes('ngrp') || msg.includes('residency')) {
@@ -165,6 +260,112 @@ export function generateStaticResponse(userMessage, cohortName) {
   }
 
   return {
-    text: `I'm Keith, your ASPIRE Program assistant. I can help with:\n\n• Summarizing cohort status\n• Identifying students who need follow-up\n• Explaining the ASPIRE workflow and status journey\n• Drafting common ASPIRE emails\n• Explaining the CS-Link access process\n• Answering questions about any tab in the app\n\nTry one of the suggested prompts below, or ask me anything about ASPIRE operations.`,
+    text: `I'm Keith, your ASPIRE Program assistant. Try asking me:\n\n• "Who needs follow-up today?"\n• "Summarize this cohort"\n• "Who is on campus today?"\n• "Who still needs an interview?"\n• "Who is missing CS-Link access?"\n• "Draft a unit leader email"\n\nOr ask anything about ASPIRE operations.`,
   };
+}
+
+export async function getKeithContext(supabase, cohortId) {
+  if (!supabase || !cohortId) return null;
+
+  try {
+    const { data: students } = await supabase
+      .from('students')
+      .select(`
+        id, first_name, last_name, school, program_type, status,
+        interview_scheduled_date, interview_outcome, auto_recommendation,
+        matched_unit_id, matched_preceptor, cs_stage1_submitted,
+        cs_link_complete, badge_created, approved_hours, hours_required,
+        avg_composite_score, rubric_count, unit_preference_1,
+        unit_preference_2, unit_preference_3
+      `)
+      .eq('cohort_id', cohortId);
+
+    if (!students) return null;
+
+    const { data: units } = await supabase
+      .from('units')
+      .select('id, unit_name, division, total_slots, slots_remaining, is_participating')
+      .eq('cohort_id', cohortId)
+      .eq('is_participating', true);
+
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+    const { data: todayShifts } = await supabase
+      .from('student_shift_logs')
+      .select('student_id, unit_name, shift_type, total_hours, status')
+      .eq('cohort_id', cohortId)
+      .eq('shift_date', todayStr)
+      .eq('status', 'approved');
+
+    const { data: pendingShifts } = await supabase
+      .from('student_shift_logs')
+      .select('id, student_id')
+      .eq('cohort_id', cohortId)
+      .eq('status', 'needs_review');
+
+    const studentMap = {};
+    students.forEach(s => { studentMap[s.id] = s; });
+
+    const byStatus = {};
+    students.forEach(s => {
+      if (!byStatus[s.status]) byStatus[s.status] = [];
+      byStatus[s.status].push(s);
+    });
+
+    const needsStudentForm     = byStatus['Pending Outreach'] || [];
+    const needsSchedulingLink  = (byStatus['Form Received'] || []).filter(s => !s.interview_scheduled_date);
+    const interviewed          = byStatus['Interviewed'] || [];
+    const placed               = byStatus['Placed'] || [];
+    const activeRotation       = byStatus['Active Rotation'] || [];
+    const completed            = byStatus['Completed'] || [];
+
+    const needsCsLink = students.filter(s =>
+      ['Form Received', 'Interview Scheduled', 'Interviewed', 'Placed', 'Active Rotation'].includes(s.status)
+      && !s.cs_stage1_submitted
+    );
+    const needsBadge = students.filter(s => s.status === 'Placed' && !s.badge_created);
+
+    const onCampusToday = (todayShifts || []).map(shift => ({
+      student: studentMap[shift.student_id],
+      unit: shift.unit_name,
+      shiftType: shift.shift_type,
+      hours: shift.total_hours,
+    })).filter(s => s.student);
+
+    const nearingCompletion = activeRotation.filter(s =>
+      s.hours_required && s.approved_hours >= s.hours_required * 0.8
+    );
+
+    const totalSlots     = (units || []).reduce((sum, u) => sum + (u.total_slots     || 0), 0);
+    const totalRemaining = (units || []).reduce((sum, u) => sum + (u.slots_remaining || 0), 0);
+    const fullUnits      = (units || []).filter(u => (u.slots_remaining || 0) === 0);
+    const availableUnits = (units || []).filter(u => (u.slots_remaining || 0) > 0);
+
+    return {
+      totalStudents: students.length,
+      byStatus,
+      needsStudentForm,
+      needsSchedulingLink,
+      interviewed,
+      placed,
+      activeRotation,
+      completed,
+      needsCsLink,
+      needsBadge,
+      onCampusToday,
+      nearingCompletion,
+      units: units || [],
+      totalSlots,
+      totalRemaining,
+      fullUnits,
+      availableUnits,
+      pendingShiftReviews: (pendingShifts || []).length,
+      studentMap,
+      todayStr,
+    };
+  } catch (err) {
+    console.error('Keith context error:', err);
+    return null;
+  }
 }

@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { SUGGESTED_PROMPTS, generateStaticResponse } from '../lib/keithKnowledge';
+import { SUGGESTED_PROMPTS, generateStaticResponse, getKeithContext } from '../lib/keithKnowledge';
 
-export default function Keith({ activeTab, setActiveTab, cohortName, isAuthenticated }) {
+export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, supabase, isAuthenticated }) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
+  const [context, setContext] = useState(null);
+  const [contextLoading, setContextLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -21,6 +23,20 @@ export default function Keith({ activeTab, setActiveTab, cohortName, isAuthentic
   useEffect(() => {
     if (isOpen && inputRef.current) inputRef.current.focus();
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && cohortId && supabase && !context) {
+      setContextLoading(true);
+      getKeithContext(supabase, cohortId).then(ctx => {
+        setContext(ctx);
+        setContextLoading(false);
+      });
+    }
+  }, [isOpen, cohortId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setContext(null);
+  }, [cohortId]);
 
   const welcomeMessage = {
     id: 'welcome',
@@ -39,7 +55,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, isAuthentic
 
     await new Promise(resolve => setTimeout(resolve, 600));
 
-    const response = generateStaticResponse(text, cohortName);
+    const response = generateStaticResponse(text, cohortName, context);
     const keithMessage = {
       id: Date.now() + 1,
       role: 'keith',
@@ -162,9 +178,23 @@ export default function Keith({ activeTab, setActiveTab, cohortName, isAuthentic
                 <div style={{ fontFamily: 'DM Sans', fontWeight: 400, fontSize: '12px', color: 'rgba(255,255,255,0.65)' }}>ASPIRE Program Assistant</div>
               </div>
               <button
+                onClick={() => setMessages([])}
+                title="New conversation"
+                style={{
+                  marginLeft: 'auto',
+                  background: 'none', border: 'none',
+                  color: 'rgba(255,255,255,0.55)', cursor: 'pointer',
+                  padding: '4px 8px', fontSize: '13px',
+                  fontFamily: 'DM Sans', borderRadius: '6px',
+                  transition: 'color 0.15s ease',
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.9)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.55)'}
+              >↺ New</button>
+              <button
                 onClick={() => setIsOpen(false)}
                 style={{
-                  marginLeft: 'auto', background: 'none', border: 'none',
+                  background: 'none', border: 'none',
                   color: 'rgba(255,255,255,0.65)', cursor: 'pointer',
                   fontSize: '18px', lineHeight: 1, padding: '4px',
                 }}
@@ -367,7 +397,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, isAuthentic
               fontFamily: 'DM Sans', fontSize: '10px',
               color: '#9ca3af', textAlign: 'center',
             }}>
-              Keith · Phase 1 · Static knowledge · Live AI coming in Phase 3
+              Keith · {contextLoading ? 'Loading cohort data...' : context ? `Live data: ${cohortName}` : 'Static knowledge'} · Phase 2
             </div>
           </div>
         </>
