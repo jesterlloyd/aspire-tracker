@@ -276,7 +276,9 @@ export default function ShiftLogPage() {
                 {/* Date */}
                 <div style={{ marginBottom:18 }}>
                   <label style={{ fontSize:14, fontWeight:600, color:'var(--raven)', display:'block', marginBottom:6 }}>Date of Shift</label>
-                  <input style={INPUT} type="date" value={shiftDate} max={today}
+                  <input style={{ ...INPUT, color:'#374151', WebkitTextFillColor:'#374151',
+                    fontWeight:500, textAlign:'center', background:'#f3f4f6' }}
+                    type="date" value={shiftDate} max={today}
                     onChange={e => setShiftDate(e.target.value)} />
                 </div>
 
