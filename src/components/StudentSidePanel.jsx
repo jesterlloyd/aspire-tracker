@@ -7,6 +7,7 @@ import {
 } from '../lib/constants'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
+import { downloadFile, buildStudentFilename } from '../lib/fileUtils'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
@@ -73,6 +74,24 @@ export default function StudentSidePanel({
   const pendingNameSave = useRef(null)
   const resumeRef       = useRef(null)
   const headshotRef     = useRef(null)
+
+  const [dlHeadshotHeader, setDlHeadshotHeader] = useState(false)
+  const [dlResume,         setDlResume]         = useState(false)
+  const [dlPhotoDoc,       setDlPhotoDoc]       = useState(false)
+  const [downloadErr,      setDownloadErr]      = useState(null)
+
+  const showDlError = () => {
+    setDownloadErr('Download failed. The file may have been removed. Try re-uploading.')
+    setTimeout(() => setDownloadErr(null), 4000)
+  }
+  const doDownload = async (url, filename, setter) => {
+    setter(true)
+    try {
+      const ext = url.split('.').pop().split('?')[0] || 'bin'
+      await downloadFile(url, `${filename}.${ext}`)
+    } catch { showDlError() }
+    setTimeout(() => setter(false), 1000)
+  }
 
   // Reset data when student changes (prev/next navigation)
   useEffect(() => { setData({ ...student }); setSaveStatus('idle') }, [student.id])
@@ -298,6 +317,18 @@ export default function StudentSidePanel({
                     boxShadow:'0 4px 16px rgba(29,37,103,0.15)' }}>{initials}</div>
               }
             </div>
+            {/* Download photo link (only when headshot exists) */}
+            {data.headshot_url && !headshotError && (
+              <div style={{ marginBottom:8 }}>
+                <button onClick={() => doDownload(data.headshot_url, buildStudentFilename(student,'headshot'), setDlHeadshotHeader)}
+                  style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, fontWeight:500,
+                    color:'#1d4ed8', textDecoration:'none', padding:0, fontFamily:'DM Sans,sans-serif' }}
+                  onMouseEnter={e=>e.currentTarget.style.textDecoration='underline'}
+                  onMouseLeave={e=>e.currentTarget.style.textDecoration='none'}>
+                  {dlHeadshotHeader ? 'Downloading…' : '↓ Download Photo'}
+                </button>
+              </div>
+            )}
             {/* Name */}
             <div style={{ fontSize:22, fontWeight:700, color:'var(--nightfall)', marginBottom:4 }}>
               {student.first_name} {student.last_name}
@@ -692,6 +723,12 @@ export default function StudentSidePanel({
                     <a className="doc-file-link" href={data.resume_url} target="_blank" rel="noopener noreferrer">
                       {decodeURIComponent(data.resume_url.split('/').pop()?.split('?')[0] || 'Resume')}
                     </a>
+                    <button onClick={() => doDownload(data.resume_url, buildStudentFilename(student,'resume'), setDlResume)}
+                      disabled={dlResume}
+                      style={{ background:'var(--pearl)', border:'1px solid var(--nightfall)', color:'var(--nightfall)',
+                        fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px', cursor:'pointer', flexShrink:0 }}>
+                      {dlResume ? '…' : '↓ Resume'}
+                    </button>
                     <button className="doc-replace-btn" disabled={uploadingRes} onClick={() => resumeRef.current?.click()}>Replace</button>
                   </div>
                 ) : (
@@ -712,6 +749,12 @@ export default function StudentSidePanel({
                 {data.headshot_url ? (
                   <div className="doc-existing-file">
                     <img src={data.headshot_url} alt="Headshot" className="doc-headshot-preview" />
+                    <button onClick={() => doDownload(data.headshot_url, buildStudentFilename(student,'headshot'), setDlPhotoDoc)}
+                      disabled={dlPhotoDoc}
+                      style={{ background:'var(--pearl)', border:'1px solid var(--nightfall)', color:'var(--nightfall)',
+                        fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px', cursor:'pointer', flexShrink:0 }}>
+                      {dlPhotoDoc ? '…' : '↓ Photo'}
+                    </button>
                     <button className="doc-replace-btn" disabled={uploadingHead} onClick={() => headshotRef.current?.click()}>Replace</button>
                   </div>
                 ) : (
@@ -854,6 +897,14 @@ export default function StudentSidePanel({
           </div>
 
           {/* Prev / Next */}
+          {/* Download error toast */}
+          {downloadErr && (
+            <div style={{ margin:'8px 16px', padding:'10px 14px', background:'#fee2e2',
+              border:'1px solid #fca5a5', borderRadius:8, fontSize:13, color:'#991b1b', lineHeight:1.5 }}>
+              {downloadErr}
+            </div>
+          )}
+
           <div className="sp-nav-row">
             <button className="sp-nav-btn" disabled={!prevStudent} onClick={() => prevStudent && onSelectStudent(prevStudent.id)}>
               ← {prevStudent ? displayName(prevStudent) : 'No previous'}
