@@ -1361,7 +1361,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .iv-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .iv-hint { font-size: 13px; color: var(--text-secondary); font-style: italic; }
 
-.iv-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; background: var(--pearl); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.iv-table-wrap { overflow-x: auto; overflow-y: auto; flex: 1; min-height: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--pearl); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 .iv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .iv-th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; background: var(--sand); border-bottom: 2px solid var(--border); white-space: nowrap; }
 .iv-sortable { cursor: pointer; user-select: none; }
@@ -1697,7 +1697,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   height: calc(100vh - 164px); overflow: hidden;
 }
 .rub-frozen     { flex-shrink: 0; }
-.rub-scroll-area { flex: 1; overflow-y: auto; min-height: 0; padding: 16px 0 0; }
+.rub-scroll-area { flex: 1; min-height: 0; padding: 16px 0 0; display: flex; flex-direction: column; }
 
 /* Month view: natural full-page scroll — no fixed height constraints */
 .rub-tab-month       { display: block; height: auto; overflow: visible; }

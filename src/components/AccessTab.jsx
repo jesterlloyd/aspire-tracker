@@ -127,7 +127,8 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
 }
 
 function AccessRow({ student, onUpdate, isHighlighted }) {
-  const [data, setData] = useState({ ...student })
+  const [data,   setData]   = useState({ ...student })
+  const [imgErr, setImgErr] = useState(false)
   const timerRef = useRef(null)
 
   // Re-sync whenever the student prop changes (e.g. side panel updated a field)
@@ -149,8 +150,21 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
   return (
     <tr id={`access-row-${student.id}`} className={`am-row${isHighlighted ? ' am-row-highlight' : ''}`}>
 
-      {/* Col 1: Student Name */}
-      <td className="am-td am-td-name">{displayName(student)}</td>
+      {/* Col 1: Student Name — avatar + name */}
+      <td className="am-td am-td-name">
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          {student.headshot_url && !imgErr
+            ? <img src={student.headshot_url} alt="" onError={() => setImgErr(true)}
+                style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
+            : <div style={{ width:32, height:32, borderRadius:'50%', background:'#1d2567', color:'#fff',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:11, fontWeight:700, flexShrink:0 }}>
+                {`${(student.first_name||'')[0]||''}${(student.last_name||'')[0]||''}`.toUpperCase()||'?'}
+              </div>
+          }
+          <span>{displayName(student)}</span>
+        </div>
+      </td>
 
       {/* Col 2: School */}
       <td className="am-td am-td-school">{student.school || '—'}</td>
