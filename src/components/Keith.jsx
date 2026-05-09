@@ -79,6 +79,18 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
         setMessages(prev => [...prev, keithMessage]);
         setIsTyping(false);
         return;
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Could not parse error' }));
+        console.error('Keith API error:', response.status, errorData);
+        const errorMessage = {
+          id: Date.now() + 1,
+          role: 'keith',
+          text: `API error ${response.status}: ${errorData.error || 'Unknown error'}. Details: ${JSON.stringify(errorData.details || errorData.message || '')}`,
+          isAI: false,
+        };
+        setMessages(prev => [...prev, errorMessage]);
+        setIsTyping(false);
+        return;
       }
     } catch (err) {
       console.warn('Keith API call failed:', err.message);
