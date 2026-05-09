@@ -145,9 +145,7 @@ export default function MatchingTab({
         <div className="embed-units-panel">
           <div className="embed-units-header">
             <div className="embed-uh-left">
-              <span className="embed-panel-title">Units</span>
-              <span className="embed-badge-marina">{totalSlots} slots available</span>
-              <span className="embed-badge-green">{unitsWithOpen} open</span>
+              <span className="embed-panel-title">Unit Pool</span>
             </div>
             <div className="embed-uh-right">
               <select className="embed-ctrl-select" value={divFilter} onChange={e => setDivFilter(e.target.value)}>
@@ -214,7 +212,6 @@ export default function MatchingTab({
                 {poolSchools.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
-            <span className="embed-pool-count">{unmatchedAll.length} unmatched</span>
           </div>
 
           <div className="embed-students-body">

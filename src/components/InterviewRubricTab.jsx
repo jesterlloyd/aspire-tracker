@@ -190,7 +190,7 @@ export default function InterviewRubricTab({
 
         <div className="iv-table-wrap">
         <table className="iv-table">
-          <thead>
+          <thead style={!isMonth ? { position:'sticky', top:0, zIndex:10 } : {}}>
             <tr>
               <th className="iv-th iv-sortable" onClick={() => toggleSort('last_name')}>Student Name <SortIcon field="last_name" /></th>
               <th className="iv-th iv-sortable" onClick={() => toggleSort('school')}>School <SortIcon field="school" /></th>

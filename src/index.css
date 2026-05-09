@@ -1948,12 +1948,12 @@ a.doc-file-link:hover { text-decoration: underline; }
 .embed-units-header {
   flex-shrink: 0;
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  padding: 10px 16px;
-  background: #f4f1ec; border-bottom: 1px solid #e5e7eb;
+  padding: 12px 16px;
+  background: var(--nightfall); border-bottom: 1px solid #e5e7eb;
 }
 .embed-uh-left  { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
 .embed-uh-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
-.embed-panel-title { font-size: 15px; font-weight: 700; color: var(--nightfall); white-space: nowrap; }
+.embed-panel-title { font-size: 15px; font-weight: 700; color: var(--pearl); white-space: nowrap; }
 .embed-badge-marina { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 20px; background: var(--marina); color: var(--nightfall); white-space: nowrap; }
 .embed-badge-green  { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 20px; background: #dcfce7; color: #166534; white-space: nowrap; }
 .embed-ctrl-select {
