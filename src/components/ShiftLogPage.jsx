@@ -53,17 +53,24 @@ export default function ShiftLogPage() {
     e.preventDefault()
     setError(null); setLoading(true)
     try {
-      const { data: cohort } = await supabase.from('cohorts')
-        .select('id').or('accepting_submissions.eq.true,status.eq.Active').limit(1).single()
-      if (!cohort) { setError('No active cohort found. Please contact the ASPIRE team.'); setLoading(false); return }
-      setCohortId(cohort.id)
+      // Search across all non-Archived cohorts so Active Rotation students can log hours
+      // regardless of whether their cohort is still accepting intake submissions.
+      const { data: stu } = await supabase
+        .from('students')
+        .select('*, cohorts!inner(id, name, status, accepting_submissions)')
+        .ilike('school_email', email.trim())
+        .not('cohorts.status', 'eq', 'Archived')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
 
-      const { data: stu } = await supabase.from('students')
-        .select('*').eq('cohort_id', cohort.id).ilike('school_email', email.trim()).limit(1).maybeSingle()
-      if (!stu) {
+      if (!stu || stu.cohorts?.status === 'Archived') {
         setError(`We could not find your email in the current ASPIRE cohort. Please check the spelling or contact ${JESTER}.`)
         setLoading(false); return
       }
+
+      // Use the cohort_id from the student's own record
+      setCohortId(stu.cohort_id)
       setStudent(stu)
       setPreceptorName(stu.matched_preceptor || '')
 
