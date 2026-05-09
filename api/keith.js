@@ -24,14 +24,13 @@ function safeList(arr) {
 function buildSystemPrompt(context, cohortName) {
   const cohort = cohortName || 'the current cohort';
   let liveData = 'LIVE COHORT DATA: Not available.';
-
   if (context) {
     try {
       const statusSummary = Object.entries(context.byStatus || {})
         .map(([s, arr]) => `  ${s}: ${Array.isArray(arr) ? arr.length : 0}`)
         .join('\n');
       const onCampus = Array.isArray(context.onCampusToday) && context.onCampusToday.length > 0
-        ? context.onCampusToday.map(s => `${s.student?.last_name || '?'}, ${s.student?.first_name || '?'} at ${s.unit} (${s.shiftType})`).join('; ')
+        ? context.onCampusToday.map(s => `${s.student?.last_name}, ${s.student?.first_name} at ${s.unit} (${s.shiftType})`).join('; ')
         : 'None today';
       const activeList = Array.isArray(context.activeRotation) && context.activeRotation.length > 0
         ? context.activeRotation.map(s => `${s.last_name}, ${s.first_name} (${s.approved_hours || 0}/${s.hours_required || 0} hrs)`).join('; ')
@@ -51,39 +50,24 @@ Active rotation: ${activeList}
 Completed: ${safeList(context.completed)}
 Pending shift log reviews: ${context.pendingShiftReviews || 0}`;
     } catch (e) {
-      liveData = `LIVE COHORT DATA: Error – ${e.message}`;
+      liveData = `LIVE COHORT DATA: Error - ${e.message}`;
     }
   }
-
   return `You are Keith, the ASPIRE Program AI assistant at Cedars-Sinai Medical Center, named in honor of Keith Hoshal who created the program.
 
-ASPIRE (Affiliate Students' Pathway from Internship to Residency Experience) places senior nursing students at Cedars-Sinai for their final clinical rotation with a pathway into the New Graduate RN Residency Program (NGRP).
+ASPIRE places senior nursing students at Cedars-Sinai for their final clinical rotation with a pathway into the NGRP.
 
-Your users: Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN (Program Lead) and Krystal Rodriguez, DNP, RN, NPD-BC, CNOR (Co-Lead).
+Your users: Jester Lloyd Bautista PhD MSN RN NPD-BC CCRN SCRN (Program Lead) and Krystal Rodriguez DNP RN NPD-BC CNOR (Co-Lead).
 
-ASPIRE STATUS JOURNEY:
-Pending Outreach → Form Sent → Form Received → Interview Scheduled → Interviewed → Placed → Active Rotation → Completed → Declined
+ASPIRE STATUS JOURNEY: Pending Outreach, Form Sent, Form Received, Interview Scheduled, Interviewed, Placed, Active Rotation, Completed, Declined.
 
-CS-LINK WORKFLOW:
-Stage 1: New = Add Non-Employee. Former = Assignment Change / Extend End Date / Reactivate. Cedars employees = skip Stage 1.
-Stage 2: Add CS-Link for everyone.
+CS-LINK: Stage 1 for new students is Add Non-Employee. Former students need Assignment Change or Extend End Date or Reactivate. Cedars employees skip Stage 1. Stage 2 is Add CS-Link for everyone.
 
-PRECEPTOR WELCOME EMAIL FORMAT:
-Subject: ASPIRE Program – Student Preceptor Assignment
-Dear [Preceptor First Name],
-Thank you so much for agreeing to precept one of our senior nursing students through the ASPIRE Program. Your willingness to teach, mentor, and support our students truly makes a difference.
-Student: [Name] | School: [School] | Program: [Program] | Rotation Dates: [Dates] | Hours Required: [Hours] | Email: [Email] | Phone: [Phone]
-[Student] will reach out directly to coordinate schedules. Please attach: ASPIRE Brochure and Pre-licensure Student General Guidelines.
-Reminders: Preceptor pay (contact Dr. Krystal Rodriguez) | Avoid being in charge while precepting | Floating acceptable if comfortable.
-Kind regards,
-Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN
-Nursing Professional Development Practitioner
-Geri and Richard Brawerman Nursing Institute
-JesterLloyd.Bautista@cshs.org | 310-248-8964
+EMAIL SIGNATURE: Jester Lloyd Bautista PhD MSN RN NPD-BC CCRN SCRN | Nursing Professional Development Practitioner | Geri and Richard Brawerman Nursing Institute | JesterLloyd.Bautista@cshs.org | 310-248-8964
 
-PRIVACY RULES: Never include DOB, last 4 SSN, or sensitive identifiers. Never fabricate student data. Draft emails only, never send automatically.
+PRIVACY: Never include DOB, SSN, or sensitive identifiers. Never fabricate data. Draft emails only.
 
-RESPONSE STYLE: Warm, concise, professional. Under 200 words unless drafting a full email. Suggest a concrete next action. Use Last Name, First Name format.
+STYLE: Warm, concise, professional. Under 200 words unless drafting a full email. Suggest next actions. Last Name First Name format for lists.
 
 ${liveData}
 Current cohort: ${cohort}`;
@@ -117,8 +101,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Valid messages array required' });
   }
 
-  const systemPrompt = buildSystemPrompt(context, cohortName);
-
   const anthropicMessages = messages
     .filter(m => m.role && m.text)
     .map(m => ({
@@ -129,7 +111,7 @@ export default async function handler(req, res) {
   const requestBody = JSON.stringify({
     model: 'claude-sonnet-4-20250514',
     max_tokens: 1024,
-    system: systemPrompt,
+    system: buildSystemPrompt(context, cohortName),
     messages: anthropicMessages,
   });
 
@@ -147,21 +129,13 @@ export default async function handler(req, res) {
 
   try {
     const result = await httpsPost(options, requestBody);
-
     if (result.status !== 200) {
-      console.error('Anthropic error:', result.status, JSON.stringify(result.body));
       return res.status(502).json({ error: 'Anthropic API error', details: result.body });
     }
-
     const text = result.body?.content?.[0]?.text;
-    if (!text) {
-      return res.status(502).json({ error: 'Unexpected AI response format' });
-    }
-
+    if (!text) return res.status(502).json({ error: 'Unexpected AI response format' });
     return res.status(200).json({ response: text });
-
   } catch (err) {
-    console.error('Keith error:', err.message);
     return res.status(500).json({ error: 'Failed to reach AI service', message: err.message });
   }
 }
