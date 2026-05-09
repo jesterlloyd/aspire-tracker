@@ -1,21 +1,3 @@
-import https from 'https';
-
-function httpsPost(options, body) {
-  return new Promise((resolve, reject) => {
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => { data += chunk; });
-      res.on('end', () => {
-        try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
-        catch (e) { resolve({ status: res.statusCode, body: data }); }
-      });
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
-}
-
 function safeList(arr) {
   if (!Array.isArray(arr) || arr.length === 0) return 'None';
   return arr.map(s => `${s.last_name || '?'}, ${s.first_name || '?'}`).join('; ');
@@ -155,27 +137,28 @@ export default async function handler(req, res) {
     messages: anthropicMessages,
   });
 
-  const options = {
-    hostname: 'api.anthropic.com',
-    path: '/v1/messages',
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(requestBody),
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-  };
-
   try {
-    const result = await httpsPost(options, requestBody);
-    if (result.status !== 200) {
-      console.error('Anthropic error:', result.status, JSON.stringify(result.body));
-      return res.status(502).json({ error: 'Anthropic API error', details: result.body });
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: requestBody,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('Anthropic error:', response.status, JSON.stringify(data));
+      return res.status(502).json({ error: 'Anthropic API error', details: data });
     }
-    const text = result.body?.content?.[0]?.text;
+
+    const text = data?.content?.[0]?.text;
     if (!text) return res.status(502).json({ error: 'Unexpected AI response format' });
     return res.status(200).json({ response: text });
+
   } catch (err) {
     console.error('Keith error:', err.message);
     return res.status(500).json({ error: 'Failed to reach AI service', message: err.message });
