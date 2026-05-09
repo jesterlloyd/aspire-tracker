@@ -317,18 +317,6 @@ export default function StudentSidePanel({
                     boxShadow:'0 4px 16px rgba(29,37,103,0.15)' }}>{initials}</div>
               }
             </div>
-            {/* Download photo link (only when headshot exists) */}
-            {data.headshot_url && !headshotError && (
-              <div style={{ marginBottom:8 }}>
-                <button onClick={() => doDownload(data.headshot_url, buildStudentFilename(student,'headshot'), setDlHeadshotHeader)}
-                  style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, fontWeight:500,
-                    color:'#1d4ed8', textDecoration:'none', padding:0, fontFamily:'DM Sans,sans-serif' }}
-                  onMouseEnter={e=>e.currentTarget.style.textDecoration='underline'}
-                  onMouseLeave={e=>e.currentTarget.style.textDecoration='none'}>
-                  {dlHeadshotHeader ? 'Downloading…' : '↓ Download Photo'}
-                </button>
-              </div>
-            )}
             {/* Name */}
             <div style={{ fontSize:22, fontWeight:700, color:'var(--nightfall)', marginBottom:4 }}>
               {student.first_name} {student.last_name}
