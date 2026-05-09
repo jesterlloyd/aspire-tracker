@@ -537,8 +537,8 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
         {/* Drawer body */}
         <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
 
-          {/* Action Items — 65% */}
-          <div style={{ flex:'0 0 65%', display:'flex', flexDirection:'column', overflow:'hidden', borderBottom:'1px solid #e5e7eb' }}>
+          {/* Action Items — expands to full height when Recent Communications is absent */}
+          <div style={{ flex: recentComms.length > 0 ? '0 0 65%' : 1, display:'flex', flexDirection:'column', overflow:'hidden', borderBottom: recentComms.length > 0 ? '1px solid #e5e7eb' : 'none' }}>
             <div style={{ padding:'12px 16px 6px', flexShrink:0 }}>
               <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em' }}>
                 Action Items
