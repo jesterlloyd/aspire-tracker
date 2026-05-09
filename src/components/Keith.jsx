@@ -53,15 +53,44 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     setInput('');
     setIsTyping(true);
 
-    await new Promise(resolve => setTimeout(resolve, 600));
+    // Include last 10 messages for context window efficiency
+    const conversationHistory = [...messages, userMessage].slice(-10);
 
-    const response = generateStaticResponse(text, cohortName, context);
+    try {
+      const response = await fetch('/api/keith', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: conversationHistory,
+          context,
+          cohortName,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const keithMessage = {
+          id: Date.now() + 1,
+          role: 'keith',
+          text: data.response,
+          hasCopy: data.response.includes('Subject:'),
+        };
+        setMessages(prev => [...prev, keithMessage]);
+        setIsTyping(false);
+        return;
+      }
+    } catch (err) {
+      console.warn('Keith API unavailable, falling back to static:', err);
+    }
+
+    // Fallback to Phase 2 static responses if API unavailable
+    await new Promise(resolve => setTimeout(resolve, 600));
+    const staticResponse = generateStaticResponse(text, cohortName, context);
     const keithMessage = {
       id: Date.now() + 1,
       role: 'keith',
-      ...response,
+      ...staticResponse,
     };
-
     setMessages(prev => [...prev, keithMessage]);
     setIsTyping(false);
   };
@@ -452,7 +481,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
               fontFamily: 'DM Sans', fontSize: '10px',
               color: '#9ca3af', textAlign: 'center',
             }}>
-              Keith · {contextLoading ? 'Loading cohort data...' : context ? `Live data: ${cohortName}` : 'Static knowledge'} · Phase 2
+              Keith · {contextLoading ? 'Loading cohort data...' : context ? `Live data · ${cohortName}` : 'Static mode'} · Powered by Claude
             </div>
           </div>
         </>
