@@ -45,6 +45,11 @@ export default function SchoolFormPage() {
     }
     const invalid = rows.find(r => !r.first_name?.trim() || !r.last_name?.trim() || !r.email.trim())
     if (invalid) { setError('Each student requires a first name, last name, and email.'); return }
+    const underMinHours = rows.find(r => (parseInt(r.hours_required) || 0) < 90)
+    if (underMinHours) {
+      setError(`Hours required must be at least 90 for all students. The ASPIRE Program minimum is 90 hours. Please check the entry for ${underMinHours.first_name || 'a student'} ${underMinHours.last_name || ''}.`)
+      return
+    }
 
     // Guard: cohort must be set before attempting any insert
     if (!cohortId) {

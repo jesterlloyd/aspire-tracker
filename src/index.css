@@ -1766,6 +1766,12 @@ a.doc-file-link:hover { text-decoration: underline; }
 .avail-section-chevron { font-size: 13px; color: var(--text-secondary); }
 .avail-section-body { padding: 14px 16px; border-top: 1px solid var(--border-lt); }
 
+/* Campus today pulse animation */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.6; transform: scale(1.25); }
+}
+
 /* ── IR tab notification badge ─────────────────────────────── */
 .ir-tab-badge {
   position: absolute; top: -6px; right: -6px;

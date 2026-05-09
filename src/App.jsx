@@ -14,6 +14,7 @@ import UnitFormPage from './components/UnitFormPage'
 import SchoolFormPage from './components/SchoolFormPage'
 import StudentIntakeFormPage from './components/StudentIntakeFormPage'
 import InterviewSchedulePage from './components/InterviewSchedulePage'
+import ShiftLogPage from './components/ShiftLogPage'
 import InterviewersModal from './components/InterviewersModal'
 import ActionCenter from './components/ActionCenter'
 
@@ -377,7 +378,11 @@ function MainApp({ onLogout }) {
       students.filter(s => s.status==='Active Rotation'&&!hasSent(s.id,'midpoint_eval')).length +
       students.filter(s => s.status==='Completed'&&!hasSent(s.id,'post_survey')).length +
       students.filter(s => s.status==='Completed'&&!hasSent(s.id,'certificate')).length +
-      students.filter(s => s.status==='Completed'&&!hasSent(s.id,'end_eval')).length
+      students.filter(s => s.status==='Completed'&&!hasSent(s.id,'end_eval')).length +
+      // Act 14: completed hours needing certificate
+      students.filter(s => ['Active Rotation','Completed'].includes(s.status)&&parseFloat(s.approved_hours||0)>=parseFloat(s.hours_required||0)&&parseFloat(s.hours_required||0)>0&&!hasSent(s.id,'certificate')).length +
+      // Act 16: badge not created
+      students.filter(s => s.status==='Placed'&&!s.badge_created).length
     )
   })()
 
@@ -468,7 +473,7 @@ function MainApp({ onLogout }) {
         )}
 
         {!loading && !dbError && cohorts.length > 0 && activeTab === 'overview' && (
-          <OverviewTab students={students} units={units} onStudentUpdate={updateStudent} />
+          <OverviewTab students={students} units={units} onStudentUpdate={updateStudent} cohortId={activeCohortId} />
         )}
 
         {!loading && !dbError && cohorts.length > 0 && activeTab === 'profiles' && (
@@ -556,6 +561,7 @@ export default function App() {
   if (path.startsWith('/school-form'))         return <SchoolFormPage />
   if (path.startsWith('/student-form'))        return <StudentIntakeFormPage />
   if (path.startsWith('/interview-schedule'))  return <InterviewSchedulePage />
+  if (path.startsWith('/shift-log'))            return <ShiftLogPage />
   if (!authed) return <LoginPage onSuccess={() => setAuthed(true)} />
   return <MainApp onLogout={handleLogout} />
 }

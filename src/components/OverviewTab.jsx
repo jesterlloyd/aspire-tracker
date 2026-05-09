@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 
@@ -30,11 +31,27 @@ function openMailto(bcc, body) {
   a.click()
 }
 
-export default function OverviewTab({ students, units, onStudentUpdate }) {
+export default function OverviewTab({ students, units, onStudentUpdate, cohortId }) {
   const [unitGroupsOpen,   setUnitGroupsOpen]   = useState({})
   const [schoolGroupsOpen, setSchoolGroupsOpen] = useState({})
   const [toast,            setToast]            = useState(null)
   const [imgErrors,        setImgErrors]        = useState({})
+  const [campusOpen,       setCampusOpen]       = useState(true)
+  const [campusLogs,       setCampusLogs]       = useState([])
+  const [campusLoading,    setCampusLoading]    = useState(false)
+
+  const todayStr = (() => { const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}` })()
+
+  const loadCampusLogs = async () => {
+    if (!cohortId) return
+    setCampusLoading(true)
+    const { data } = await supabase.from('student_shift_logs')
+      .select('*').eq('cohort_id', cohortId).eq('shift_date', todayStr).eq('status', 'approved')
+    setCampusLogs(data || [])
+    setCampusLoading(false)
+  }
+
+  useEffect(() => { loadCampusLogs() }, [cohortId]) // eslint-disable-line
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(null), 3000) }
 
@@ -183,6 +200,70 @@ export default function OverviewTab({ students, units, onStudentUpdate }) {
 
       {/* ════════ SCROLLABLE CONTENT ════════ */}
       <div className="aggregate-scrollable-content">
+
+        {/* ── Who is on Campus Today ── */}
+        <div style={{ marginBottom:16, border:'1px solid var(--border)', borderRadius:8, overflow:'hidden' }}>
+          {/* Section header */}
+          <div style={{ background:'var(--nightfall)', height:36, padding:'0 20px', display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}
+            onClick={() => setCampusOpen(p => !p)}>
+            <span style={{ width:8, height:8, borderRadius:'50%', background:'#4ade80', flexShrink:0,
+              animation:'pulse 2s infinite', display:'inline-block' }} />
+            <span style={{ fontSize:14, fontWeight:600, color:'#fff', flex:1 }}>On Campus Today</span>
+            <span style={{ fontSize:14, fontWeight:600, color:'#fff' }}>{campusLogs.length}</span>
+            <button onClick={e => { e.stopPropagation(); loadCampusLogs() }}
+              style={{ background:'none', border:'none', cursor:'pointer', fontSize:13, color:'rgba(255,255,255,0.7)', lineHeight:1, padding:'0 4px' }}
+              title="Refresh">↻</button>
+            <span style={{ color:'rgba(255,255,255,0.7)', fontSize:13 }}>{campusOpen?'▾':'▸'}</span>
+          </div>
+          {/* Section body */}
+          {campusOpen && (
+            <div style={{ background:'var(--pearl)', padding:'12px 16px' }}>
+              {campusLoading ? (
+                <div style={{ fontSize:13, color:'#9ca3af', textAlign:'center', padding:'8px 0' }}>Loading…</div>
+              ) : campusLogs.length === 0 ? (
+                <div style={{ fontSize:13, color:'#9ca3af', textAlign:'center', padding:'12px 0' }}>No shifts logged for today yet.</div>
+              ) : (
+                <div style={{ display:'flex', gap:10, overflowX:'auto', paddingBottom:4 }}>
+                  {campusLogs.map(log => {
+                    const stu = students.find(s => s.id === log.student_id)
+                    if (!stu) return null
+                    const initials = `${(stu.first_name||'')[0]||''}${(stu.last_name||'')[0]||''}`.toUpperCase()||'?'
+                    const isNight = log.shift_type === 'Night'
+                    return (
+                      <div key={log.id} style={{ width:180, flexShrink:0, background:'#fff', borderRadius:8,
+                        padding:12, border:'1px solid #e5e7eb', boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
+                          {stu.headshot_url
+                            ? <img src={stu.headshot_url} alt="" style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
+                            : <div style={{ width:32, height:32, borderRadius:'50%', background:'var(--nightfall)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, flexShrink:0 }}>{initials}</div>
+                          }
+                          <div style={{ minWidth:0 }}>
+                            <div style={{ fontSize:13, fontWeight:600, color:'var(--nightfall)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                              {stu.last_name}{stu.last_name&&stu.first_name?', ':''}{stu.first_name}
+                            </div>
+                            <div style={{ fontSize:12, color:'#6b7280', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                              {log.unit_name||'—'}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                          <span style={{ fontSize:10, fontWeight:600, padding:'1px 7px', borderRadius:10,
+                            background:isNight?'#1d2567':'#eff6ff', color:isNight?'#fff':'#1d4ed8' }}>
+                            {log.shift_type||'Day'}
+                          </span>
+                          <span style={{ fontSize:12, fontWeight:500, color:'#166534' }}>
+                            {log.total_hours} hrs today
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="ov-panels-body">
 
           {/* ── Clinical Placement Availability (body only) ── */}
@@ -330,8 +411,21 @@ export default function OverviewTab({ students, units, onStudentUpdate }) {
                                 {s.school_email && <span className="ov-student-contact">{s.school_email}</span>}
                                 {s.phone && <span style={{ fontSize:12, color:'#9ca3af' }}>{s.phone}</span>}
                               </div>
-                              {/* Right: ASPIRE status + placed label + Send Form if Pending Outreach */}
+                              {/* Right: ASPIRE status + hours badge + placed label + Send Form */}
                               <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>
+                              {/* Hours progress badge */}
+                              {(() => {
+                                const req = parseFloat(s.hours_required||0)
+                                const apv = parseFloat(s.approved_hours||0)
+                                if (!req) return null
+                                const pct = apv / req
+                                const color = pct >= 1 ? '#166534' : pct >= 0.5 ? 'var(--nightfall)' : '#6b7280'
+                                return (
+                                  <span style={{ fontSize:11, fontWeight:600, color, whiteSpace:'nowrap' }}>
+                                    {apv}/{req} hrs
+                                  </span>
+                                )
+                              })()}
                                 {s.status && (
                                   <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:statusCfg.bg, color:statusCfg.text, border:`1px solid ${statusCfg.border}`, whiteSpace:'nowrap' }}>
                                     {s.status}

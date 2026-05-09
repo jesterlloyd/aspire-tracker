@@ -78,6 +78,62 @@ export default function StudentSidePanel({
   useEffect(() => { setData({ ...student }); setSaveStatus('idle') }, [student.id])
   useEffect(() => { setHeadshotError(false) }, [data.headshot_url])
 
+  const [shiftLogs,    setShiftLogs]    = useState([])
+  const [adjustingId,  setAdjustingId]  = useState(null)
+  const [adjustHours,  setAdjustHours]  = useState('')
+  const [adminNote,    setAdminNote]    = useState('')
+  const adminNoteTimer = useRef(null)
+
+  useEffect(() => {
+    if (!student.id) return
+    supabase.from('student_shift_logs').select('*').eq('student_id', student.id)
+      .order('shift_date', { ascending: false })
+      .then(({ data }) => setShiftLogs(data || []))
+  }, [student.id])
+
+  const handleApproveShift = async (log) => {
+    const hours = parseFloat(log.total_hours||0)
+    await supabase.from('student_shift_logs').update({
+      status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: 'Admin',
+    }).eq('id', log.id)
+    const newApproved = parseFloat(data.approved_hours||0) + hours
+    const newPending  = Math.max(0, parseFloat(data.pending_hours||0) - hours)
+    await onUpdate(student.id, { approved_hours: newApproved, pending_hours: newPending })
+    setData(p => ({ ...p, approved_hours: newApproved, pending_hours: newPending }))
+    setShiftLogs(prev => prev.map(l => l.id===log.id ? { ...l, status:'approved', reviewed_at: new Date().toISOString() } : l))
+  }
+
+  const handleRejectShift = async (log) => {
+    const hours = parseFloat(log.total_hours||0)
+    await supabase.from('student_shift_logs').update({
+      status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: 'Admin',
+    }).eq('id', log.id)
+    const newPending = Math.max(0, parseFloat(data.pending_hours||0) - hours)
+    await onUpdate(student.id, { pending_hours: newPending })
+    setData(p => ({ ...p, pending_hours: newPending }))
+    setShiftLogs(prev => prev.map(l => l.id===log.id ? { ...l, status:'rejected' } : l))
+  }
+
+  const handleAdjustShift = async (log) => {
+    const newHours = parseFloat(adjustHours)
+    if (isNaN(newHours) || newHours <= 0) return
+    const oldHours = parseFloat(log.total_hours||0)
+    const diff = newHours - oldHours
+    await supabase.from('student_shift_logs').update({ total_hours: newHours, reviewed_at: new Date().toISOString(), reviewed_by: 'Admin' }).eq('id', log.id)
+    if (log.status === 'approved') {
+      const newApproved = Math.max(0, parseFloat(data.approved_hours||0) + diff)
+      await onUpdate(student.id, { approved_hours: newApproved })
+      setData(p => ({ ...p, approved_hours: newApproved }))
+    } else if (log.status === 'needs_review') {
+      const newApproved = parseFloat(data.approved_hours||0) + newHours
+      const newPending  = Math.max(0, parseFloat(data.pending_hours||0) - oldHours)
+      await onUpdate(student.id, { approved_hours: newApproved, pending_hours: newPending })
+      setData(p => ({ ...p, approved_hours: newApproved, pending_hours: newPending }))
+    }
+    setShiftLogs(prev => prev.map(l => l.id===log.id ? { ...l, total_hours: newHours, status:'approved' } : l))
+    setAdjustingId(null); setAdjustHours('')
+  }
+
   const [studentComms, setStudentComms] = useState([])
   useEffect(() => {
     if (!student.id) return
@@ -421,6 +477,14 @@ export default function StudentSidePanel({
                 </select>
               </Field>
             </div>
+            {/* Badge Created — bottom of Placement section */}
+            <label style={{ display:'flex', alignItems:'center', gap:8, marginTop:10, cursor:'pointer', fontSize:13, color:'var(--raven)' }}>
+              <input type="checkbox" checked={!!data.badge_created}
+                onChange={e => handleSelect('badge_created', e.target.checked)}
+                style={{ width:16, height:16, accentColor:'#16a34a' }} />
+              <span>Badge Created</span>
+              {data.badge_created && <span style={{ fontSize:12, color:'#166534', fontWeight:600 }}>✓ Badge Created</span>}
+            </label>
           </div>
 
           {/* 8. CS-Link Access Workflow */}
@@ -624,6 +688,97 @@ export default function StudentSidePanel({
                 {headMsg && headMsg !== 'success' && <span className="doc-status doc-error" style={{ color:'var(--cs-red)' }}>{headMsg}</span>}
               </div>
             </div>
+          </div>
+
+          {/* Clinical Hours */}
+          <div className="sp-section">
+            <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:10 }}>
+              Clinical Hours
+            </div>
+            {/* Summary numbers */}
+            {(() => {
+              const req = parseFloat(data.hours_required||0)
+              const apv = parseFloat(data.approved_hours||0)
+              const pnd = parseFloat(data.pending_hours||0)
+              const rem = Math.max(0, req - apv)
+              const pct = req > 0 ? Math.min(100, (apv/req)*100) : 0
+              return (
+                <>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:6, marginBottom:10 }}>
+                    {[['Required',req],['Approved',apv],['Pending',pnd],['Remaining',rem]].map(([lbl,val]) => (
+                      <div key={lbl} style={{ textAlign:'center' }}>
+                        <div style={{ fontSize:20, fontWeight:700, color:'var(--nightfall)', lineHeight:1 }}>{val}</div>
+                        <div style={{ fontSize:11, fontWeight:500, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.04em', marginTop:2 }}>{lbl}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ height:10, borderRadius:12, background:'#f3f4f6', overflow:'hidden', marginBottom:12 }}>
+                    <div style={{ height:'100%', borderRadius:12, width:`${pct}%`,
+                      background: pct>=100?'#166534':pct>=80?'#166534':'var(--nightfall)',
+                      transition:'width 600ms ease' }}>
+                      {pct>=100 && <span style={{fontSize:9,color:'#fff',paddingLeft:4}}>✓</span>}
+                    </div>
+                  </div>
+                </>
+              )
+            })()}
+            {/* Shift log table */}
+            {shiftLogs.length === 0 ? (
+              <p style={{ fontSize:13, color:'#9ca3af', fontStyle:'italic', margin:0 }}>No shifts logged yet.</p>
+            ) : (
+              <div style={{ overflowX:'auto' }}>
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                  <thead>
+                    <tr style={{ background:'var(--sand)' }}>
+                      {['Date','Hrs','Unit','Preceptor','Type','Status',''].map(h => (
+                        <th key={h} style={{ padding:'5px 8px', textAlign:'left', fontWeight:700, color:'#6b7280', fontSize:10, textTransform:'uppercase', letterSpacing:'0.04em', whiteSpace:'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shiftLogs.map(log => (
+                      <tr key={log.id} style={{ borderBottom:'1px solid var(--border-lt)' }}>
+                        <td style={{ padding:'6px 8px', whiteSpace:'nowrap' }}>
+                          {log.shift_date ? new Date(log.shift_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—'}
+                        </td>
+                        <td style={{ padding:'6px 8px', fontWeight:600, color:'var(--nightfall)' }}>{log.total_hours}</td>
+                        <td style={{ padding:'6px 8px', color:'#6b7280', maxWidth:80, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{log.unit_name||'—'}</td>
+                        <td style={{ padding:'6px 8px', color:'#6b7280', maxWidth:80, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{log.preceptor_name||'—'}</td>
+                        <td style={{ padding:'6px 8px' }}>
+                          <span style={{ fontSize:10, padding:'1px 6px', borderRadius:10,
+                            background:log.shift_type==='Night'?'#1d2567':'#eff6ff',
+                            color:log.shift_type==='Night'?'#fff':'#1d4ed8' }}>{log.shift_type||'Day'}</span>
+                        </td>
+                        <td style={{ padding:'6px 8px' }}>
+                          {log.status==='approved' && <span style={{ fontSize:10, padding:'1px 6px', borderRadius:10, background:'#dcfce7', color:'#166534', fontWeight:600 }}>Approved</span>}
+                          {log.status==='needs_review' && <span style={{ fontSize:10, padding:'1px 6px', borderRadius:10, background:'#fef3c7', color:'#92400e', fontWeight:600 }}>Pending</span>}
+                          {log.status==='rejected' && <span style={{ fontSize:10, padding:'1px 6px', borderRadius:10, background:'#fee2e2', color:'#991b1b', fontWeight:600 }}>Rejected</span>}
+                        </td>
+                        <td style={{ padding:'6px 8px', whiteSpace:'nowrap' }}>
+                          {log.status==='needs_review' && (
+                            adjustingId===log.id ? (
+                              <span style={{ display:'flex', gap:4, alignItems:'center' }}>
+                                <input type="number" step="0.5" min="0.5" max="14" value={adjustHours}
+                                  onChange={e=>setAdjustHours(e.target.value)}
+                                  style={{ width:52, padding:'2px 4px', fontSize:12, border:'1px solid #e5e7eb', borderRadius:4 }} />
+                                <button onClick={()=>handleAdjustShift(log)} style={{ fontSize:11, padding:'2px 6px', background:'#166534', color:'#fff', border:'none', borderRadius:4, cursor:'pointer' }}>✓</button>
+                                <button onClick={()=>setAdjustingId(null)} style={{ fontSize:11, padding:'2px 6px', background:'#9ca3af', color:'#fff', border:'none', borderRadius:4, cursor:'pointer' }}>✕</button>
+                              </span>
+                            ) : (
+                              <span style={{ display:'flex', gap:4 }}>
+                                <button onClick={()=>handleApproveShift(log)} style={{ fontSize:11, padding:'2px 6px', background:'#166534', color:'#fff', border:'none', borderRadius:4, cursor:'pointer' }}>Approve</button>
+                                <button onClick={()=>{ setAdjustingId(log.id); setAdjustHours(log.total_hours) }} style={{ fontSize:11, padding:'2px 6px', background:'var(--nightfall)', color:'#fff', border:'none', borderRadius:4, cursor:'pointer' }}>Adjust</button>
+                                <button onClick={()=>handleRejectShift(log)} style={{ fontSize:11, padding:'2px 6px', background:'#991b1b', color:'#fff', border:'none', borderRadius:4, cursor:'pointer' }}>Reject</button>
+                              </span>
+                            )
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* 10. Notes */}

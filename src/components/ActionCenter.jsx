@@ -307,11 +307,23 @@ export default function ActionCenter({
   communications, onLogCommunication, onMatchUpdate, onStudentUpdate,
   onNavigateToProfiles,
 }) {
-  const [pending, setPending]     = useState({}) // { studentId_type: bool }
+  const [pending, setPending]     = useState({})
   const [oriFields, setOriFields] = useState({ date:'', time:'', location:'' })
   const [copyOk,    setCopyOk]    = useState(false)
   const [oriDone,   setOriDone]   = useState(false)
   const drawerRef = useRef(null)
+
+  // Shift log data for new action categories
+  const [shiftLogs,     setShiftLogs]     = useState([])
+  const [shiftLogsLoaded, setShiftLogsLoaded] = useState(false)
+  useEffect(() => {
+    if (!isOpen || !cohortId || shiftLogsLoaded) return
+    supabase.from('student_shift_logs').select('*').eq('cohort_id', cohortId)
+      .order('submitted_at', { ascending: false })
+      .then(({ data }) => { setShiftLogs(data || []); setShiftLogsLoaded(true) })
+  }, [isOpen, cohortId]) // eslint-disable-line
+  // Reset when cohort changes
+  useEffect(() => { setShiftLogs([]); setShiftLogsLoaded(false) }, [cohortId])
 
   const hasSent = (sid, type) =>
     communications.some(c => c.student_id === sid && c.type === type)
@@ -364,6 +376,35 @@ export default function ActionCenter({
   const act10 = students.filter(s => s.status === 'Completed' && !hasSent(s.id, 'post_survey'))
   const act11 = students.filter(s => s.status === 'Completed' && !hasSent(s.id, 'certificate'))
   const act12 = students.filter(s => s.status === 'Completed' && !hasSent(s.id, 'end_eval'))
+
+  // ── New shift-log based actions ──────────────────────────────
+  // Act 13: Shift logs needing review
+  const act13 = shiftLogs.filter(l => l.status === 'needs_review' && !l.reviewed_at)
+    .map(l => ({ ...l, student: students.find(s => s.id === l.student_id) }))
+    .filter(l => l.student)
+
+  // Act 14: Completed required hours (need certificate)
+  const act14 = students.filter(s =>
+    ['Active Rotation','Completed'].includes(s.status) &&
+    parseFloat(s.approved_hours||0) >= parseFloat(s.hours_required||0) &&
+    parseFloat(s.hours_required||0) > 0 &&
+    !hasSent(s.id, 'certificate')
+  )
+
+  // Act 15: Not logged recently (Active Rotation, no log in 7 days)
+  const sevenDaysAgo = new Date(Date.now() - 7*24*3600*1000).toISOString()
+  const act15 = students.filter(s => {
+    if (s.status !== 'Active Rotation') return false
+    const recentLog = shiftLogs.find(l => l.student_id === s.id && l.submitted_at >= sevenDaysAgo)
+    return !recentLog
+  }).map(s => {
+    const lastLog = shiftLogs.filter(l => l.student_id === s.id).sort((a,b) => b.submitted_at?.localeCompare(a.submitted_at||'')||0)[0]
+    const daysSince = lastLog ? Math.floor((Date.now() - new Date(lastLog.submitted_at).getTime()) / (24*3600*1000)) : null
+    return { ...s, daysSince }
+  })
+
+  // Act 16: Badge not created (Placed, badge_created = false)
+  const act16 = students.filter(s => s.status === 'Placed' && !s.badge_created)
 
   // ── Orientation email builder ────────────────────────────
   const buildOrientationTable = () => {
@@ -690,6 +731,44 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
                     warning={!s.preceptor_email ? 'Preceptor email missing' : null}
                     onOpenMail={s.preceptor_email ? () => { openHref(buildEndEvalEmail(s)); setPend(s.id,'end_eval') } : undefined}
                     onMarkSent={() => logComm({ type:'end_eval', student:s, sentToEmail:s.preceptor_email })} />
+                ))}
+              </ActionCard>
+
+              {/* 13: Shift Log Needs Review */}
+              <ActionCard title="Shift Log Needs Review" borderColor="#fef3c7" icon="📋" count={act13.length} badgeBg="#92400e">
+                {act13.map(item => item.student && (
+                  <SRow key={item.id} student={item.student} noMail
+                    warning={`${item.shift_date} · ${item.total_hours}h${Array.isArray(item.exception_flags)&&item.exception_flags.length>0?' · '+item.exception_flags.map(f=>f.replace(/_/g,' ')).join(', '):''}`}
+                    linkLabel="Review →"
+                    onLink={() => { onClose(); onNavigateToProfiles?.(item.student.id) }} />
+                ))}
+              </ActionCard>
+
+              {/* 14: Completed Required Hours */}
+              <ActionCard title="Student Completed Required Hours" borderColor="#dcfce7" icon="🏆" count={act14.length} badgeBg="#166534">
+                {act14.map(s => (
+                  <SRow key={s.id} student={s} pending={isPend(s.id,'certificate')}
+                    onOpenMail={() => { openHref(buildCertificateEmail(s)); setPend(s.id,'certificate') }}
+                    onMarkSent={() => logComm({ type:'certificate', student:s, sentToEmail:s.personal_email||s.school_email })} />
+                ))}
+              </ActionCard>
+
+              {/* 15: Not Logged Recently */}
+              <ActionCard title="Student Not Logged Recently" borderColor="#fee2e2" icon="⏰" count={act15.length} badgeBg="#991b1b">
+                {act15.map(s => (
+                  <SRow key={s.id} student={s} noMail
+                    warning={s.daysSince === null ? 'No shifts logged yet' : `${s.daysSince} days since last log`}
+                    linkLabel="Go to Profile →"
+                    onLink={() => { onClose(); onNavigateToProfiles?.(s.id) }} />
+                ))}
+              </ActionCard>
+
+              {/* 16: Badge Not Created */}
+              <ActionCard title="Badge Not Created" borderColor="#f3f4f6" icon="🪪" count={act16.length} badgeBg="#6b7280">
+                {act16.map(s => (
+                  <SRow key={s.id} student={s} noMail
+                    linkLabel="Mark Created →"
+                    onLink={() => { onClose(); onNavigateToProfiles?.(s.id) }} />
                 ))}
               </ActionCard>
 
