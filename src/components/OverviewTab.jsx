@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
+import StatCard from './StatCard'
+import { Layers, CheckSquare, Clock, GraduationCap, AlertTriangle } from 'lucide-react'
 
 const DIVISIONS = ['Surgical', 'Medical', 'Critical Care', 'Specialty']
 
@@ -57,15 +59,18 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(null), 3000) }
 
   // ── Derived values ──────────────────────────────────────────
-  const participating  = units.filter(u => u.is_participating)
-  const totalSlots     = participating.reduce((s, u) => s + (u.total_slots     || 0), 0)
-  const slotsRemaining = participating.reduce((s, u) => s + (u.slots_remaining || 0), 0)
-  const totalStudents  = students.length
-  const slotsFilled    = students.filter(s => s.matched_unit_id).length
-  const placedCount    = slotsFilled
-  const netRemaining   = totalSlots - slotsFilled
-  const gap            = Math.abs(totalStudents - totalSlots)
-  const isShort        = totalStudents > totalSlots
+  const participating       = units.filter(u => u.is_participating)
+  const totalSlots          = participating.reduce((s, u) => s + (u.total_slots     || 0), 0)
+  const slotsRemaining      = participating.reduce((s, u) => s + (u.slots_remaining || 0), 0)
+  const totalStudents       = students.length
+  const slotsFilled         = students.filter(s => s.matched_unit_id).length
+  const placedCount         = slotsFilled
+  const netRemaining        = totalSlots - slotsFilled
+  const gap                 = totalStudents - totalSlots  // positive = short on slots
+  const isShort             = gap > 0
+  const participatingUnits  = participating.length
+  const studentsRequesting  = totalStudents
+  const activeSchools       = Object.keys((() => { const m = {}; students.forEach(s => { if (s.school) m[s.school] = 1 }); return m })()).length
 
   const filledByUnit = {}
   students.forEach(s => {
@@ -126,14 +131,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     if (onStudentUpdate) await onStudentUpdate(student.id, { status: 'Form Sent' })
     showToast(`Form sent to ${displayName(student)}. Status updated to Form Sent.`)
   }
-
-  // ── Hero card ─────────────────────────────────────────────
-  const HeroCard = ({ value, label, cardClass, valueColor }) => (
-    <div className={`summary-card ${cardClass}`}>
-      <div className="summary-card-value" style={{ color: valueColor }}>{value}</div>
-      <div className="summary-card-label" style={{ color: valueColor }}>{label}</div>
-    </div>
-  )
 
   return (
     <div className="overview-tab">
@@ -211,21 +208,41 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
           )}
         </div>
 
-        {/* Five hero cards */}
-        <div className="ov-hero">
-          <HeroCard value={totalSlots}    label="Total Slots"          cardClass="card-pearl"   valueColor="var(--nightfall)" />
-          <HeroCard value={slotsFilled}   label="Slots Filled"         cardClass="card-green"   valueColor="#166534" />
-          <HeroCard
-            value={Math.max(0, netRemaining)} label="Slots Remaining"
-            cardClass={netRemaining <= 0 ? 'card-red' : 'card-marina'}
-            valueColor={netRemaining <= 0 ? '#991b1b' : 'var(--nightfall)'}
+        {/* Five hero stat cards */}
+        <div className="stat-cards-row" style={{ padding:'12px 16px' }}>
+          <StatCard
+            value={totalSlots}
+            label="Total Slots"
+            sublabel={`${participatingUnits} units`}
+            icon={Layers}
+            colorScheme="nightfall"
           />
-          <HeroCard value={totalStudents} label="Students Requesting"  cardClass="card-neutral" valueColor="var(--raven)" />
-          <HeroCard
-            value={gap}
-            label={isShort ? 'spots short' : 'fully covered'}
-            cardClass={isShort ? 'card-amber' : 'card-green'}
-            valueColor={isShort ? '#92400e' : '#166534'}
+          <StatCard
+            value={slotsFilled}
+            label="Slots Filled"
+            sublabel={`${Math.round((slotsFilled / totalSlots) * 100) || 0}% capacity`}
+            icon={CheckSquare}
+            colorScheme="green"
+          />
+          <StatCard
+            value={slotsRemaining}
+            label="Slots Remaining"
+            icon={Clock}
+            colorScheme={slotsRemaining === 0 ? 'red' : 'marina'}
+          />
+          <StatCard
+            value={studentsRequesting}
+            label="Students Requesting"
+            sublabel={`${activeSchools} schools`}
+            icon={GraduationCap}
+            colorScheme="neutral"
+          />
+          <StatCard
+            value={Math.abs(gap)}
+            label={gap > 0 ? 'Spots Short' : 'Fully Covered'}
+            sublabel={gap > 0 ? 'More students than slots' : 'Enough slots for all'}
+            icon={AlertTriangle}
+            colorScheme={gap > 0 ? 'amber' : 'darkgreen'}
           />
         </div>
 

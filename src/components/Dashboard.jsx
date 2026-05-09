@@ -1,53 +1,42 @@
+import StatCard from './StatCard'
+import { Users, MapPin, CheckCircle, Briefcase } from 'lucide-react'
+
 export default function Dashboard({ students }) {
-  const total        = students.length
-  const placedInUnit = students.filter(s => s.matched_unit_id).length
-  const accepted     = students.filter(s => s.interview_outcome === 'Accepted').length
-  const ngrpHired    = students.filter(s => s.ngrp_outcome === 'Hired').length
-
-  const stats = [
-    { label: 'Total Students', value: total,        cardClass: 'card-pearl',   color: '#1d2567', barColor: '#9faff8', pct: 100 },
-    { label: 'Placed in Unit', value: placedInUnit, cardClass: 'card-marina',  color: '#1d2567', barColor: '#1d2567', pct: total ? (placedInUnit / total) * 100 : 0 },
-    { label: 'Accepted',       value: accepted,     cardClass: 'card-green',   color: '#166534', barColor: '#166534', pct: total ? (accepted     / total) * 100 : 0 },
-    { label: 'NGRP Hired',     value: ngrpHired,    cardClass: 'card-purple',  color: '#5b21b6', barColor: '#5b21b6', pct: total ? (ngrpHired    / total) * 100 : 0 },
-  ]
-
-  const interviewStats = [
-    {
-      label: 'Pending Interview',
-      value: students.filter(s => !s.interview_outcome || s.interview_outcome === 'Pending Interview').length,
-      color: '#191919', bg: '#f4f1ec', border: '#d4cfc8',
-    },
-    {
-      label: 'Accepted',
-      value: students.filter(s => s.interview_outcome === 'Accepted').length,
-      color: '#166534', bg: '#dcfce7', border: '#a7f3d0',
-    },
-    {
-      label: 'Accepted w/ Reservations',
-      value: students.filter(s => s.interview_outcome === 'Accepted with Reservations').length,
-      color: '#92400e', bg: '#fef3c7', border: '#fde68a',
-    },
-    {
-      label: 'Declined',
-      value: students.filter(s => s.interview_outcome === 'Declined').length,
-      color: '#991b1b', bg: '#fee2e2', border: '#fecaca',
-    },
-  ]
+  const totalStudents  = students.length
+  const placedCount    = students.filter(s => s.matched_unit_id).length
+  const acceptedCount  = students.filter(s => s.interview_outcome === 'Accepted').length
+  const ngrpHiredCount = students.filter(s => s.ngrp_outcome === 'Hired').length
 
   return (
-    <div className="dashboard">
-      {stats.map(stat => (
-        <div key={stat.label} className={`summary-card ${stat.cardClass}`}>
-          <div className="summary-card-value" style={{ color: stat.color }}>{stat.value}</div>
-          <div className="summary-card-label" style={{ color: stat.color }}>{stat.label}</div>
-          <div className="stat-bar">
-            <div className="stat-bar-fill" style={{ width: `${stat.pct}%`, background: stat.barColor }} />
-          </div>
-          <div className="summary-card-sub" style={{ color: stat.color }}>
-            {total ? Math.round(stat.pct) : 0}% of total
-          </div>
-        </div>
-      ))}
+    <div className="stat-cards-row" style={{ padding:'12px 16px' }}>
+      <StatCard
+        value={totalStudents}
+        label="Total Students"
+        sublabel="100% of total"
+        icon={Users}
+        colorScheme="nightfall"
+      />
+      <StatCard
+        value={placedCount}
+        label="Placed in Unit"
+        sublabel={`${Math.round((placedCount / totalStudents) * 100) || 0}% of total`}
+        icon={MapPin}
+        colorScheme="marina"
+      />
+      <StatCard
+        value={acceptedCount}
+        label="Accepted"
+        sublabel={`${Math.round((acceptedCount / totalStudents) * 100) || 0}% of total`}
+        icon={CheckCircle}
+        colorScheme="green"
+      />
+      <StatCard
+        value={ngrpHiredCount}
+        label="NGRP Hired"
+        sublabel={`${Math.round((ngrpHiredCount / totalStudents) * 100) || 0}% of total`}
+        icon={Briefcase}
+        colorScheme="purple"
+      />
     </div>
   )
 }
