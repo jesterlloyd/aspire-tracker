@@ -3,7 +3,7 @@ import EmbedUnitCard from './EmbedUnitCard'
 import StudentMatchCard from './StudentMatchCard'
 import UnitSetupPanel from './UnitSetupPanel'
 import ImportUnitsCSV from './ImportUnitsCSV'
-import { UNIT_DIVISION_MAP } from '../lib/constants'
+import { UNIT_DIVISION_MAP, ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
 
 const POOL_ELIGIBLE_STATUSES = new Set([
   'Pending Outreach', 'Form Sent', 'Form Received', 'Interview Scheduled', 'Interviewed',
@@ -18,6 +18,7 @@ export default function MatchingTab({
   const [showImportUnits,   setShowImportUnits]   = useState(false)
   const [poolSearch,        setPoolSearch]        = useState('')
   const [poolSchool,        setPoolSchool]        = useState('')
+  const [poolSort,          setPoolSort]          = useState('last_name_asc')
   const [divFilter,         setDivFilter]         = useState('')
   const [sortMode,          setSortMode]          = useState('alpha')
   const [fadingStudentIds,  setFadingStudentIds]  = useState(new Set())
@@ -71,6 +72,31 @@ export default function MatchingTab({
     if (poolSearch && !`${s.first_name||''} ${s.last_name||''} ${s.name||''}`.toLowerCase().includes(poolSearch.toLowerCase())) return false
     if (poolSchool && s.school !== poolSchool) return false
     return true
+  })
+
+  // Sort the filtered pool while preserving fading students at original positions
+  const sortedPool = [...filteredPool].sort((a, b) => {
+    // Fading students stay sorted normally (they vanish in <300ms anyway)
+    const la = (a.last_name || a.name || '').toLowerCase()
+    const lb = (b.last_name || b.name || '').toLowerCase()
+    switch (poolSort) {
+      case 'last_name_desc': return lb.localeCompare(la)
+      case 'school_asc':     return (a.school||'').localeCompare(b.school||'') || la.localeCompare(lb)
+      case 'gpa_desc': {
+        const ga = parseFloat(a.cumulative_gpa)||0, gb = parseFloat(b.cumulative_gpa)||0
+        return gb - ga || la.localeCompare(lb)
+      }
+      case 'score_desc': {
+        const sa = parseFloat(a.avg_composite_score)||0, sb = parseFloat(b.avg_composite_score)||0
+        return sb - sa || la.localeCompare(lb)
+      }
+      case 'status': {
+        const ia = ASPIRE_STATUS_SORT_ORDER.indexOf(a.status)
+        const ib = ASPIRE_STATUS_SORT_ORDER.indexOf(b.status)
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || la.localeCompare(lb)
+      }
+      default: return la.localeCompare(lb) // last_name_asc
+    }
   })
 
   const handleStudentSelect = s => setSelectedStudent(prev => prev?.id === s.id ? null : s)
@@ -211,6 +237,15 @@ export default function MatchingTab({
                 <option value="">All Schools</option>
                 {poolSchools.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
+              <select className="embed-pool-school" value={poolSort} onChange={e => setPoolSort(e.target.value)}
+                title="Sort student pool">
+                <option value="last_name_asc">↑↓ Last Name A–Z</option>
+                <option value="last_name_desc">↑↓ Last Name Z–A</option>
+                <option value="school_asc">↑↓ School A–Z</option>
+                <option value="gpa_desc">↑↓ GPA High–Low</option>
+                <option value="score_desc">↑↓ Score High–Low</option>
+                <option value="status">↑↓ ASPIRE Status</option>
+              </select>
             </div>
           </div>
 
@@ -223,7 +258,7 @@ export default function MatchingTab({
               </div>
             ) : (
               <div className="embed-student-list">
-                {filteredPool.map(s => (
+                {sortedPool.map(s => (
                   <StudentMatchCard
                     key={s.id}
                     student={s}

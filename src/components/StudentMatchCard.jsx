@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { displayName } from '../lib/utils'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 
@@ -17,6 +18,8 @@ const PREF_STYLE = {
 export default function StudentMatchCard({
   student, isSelected, onSelect, isReadOnly, isFading, isFadingIn,
 }) {
+  const [imgErr, setImgErr] = useState(false)
+
   const outcome     = student.interview_outcome || 'Pending Interview'
   const outcomeCfg  = OUTCOME_STYLE[outcome] || OUTCOME_STYLE['Pending Interview']
   const statusCfg   = ASPIRE_STATUS_CONFIG[student.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']
@@ -40,8 +43,18 @@ export default function StudentMatchCard({
       onClick={!isReadOnly ? () => onSelect(student) : undefined}
       role={!isReadOnly ? 'button' : undefined}
     >
-      {/* Row 1: Name + status pills */}
+      {/* Row 1: Avatar + Name + status pills */}
       <div className="smc-top">
+        {/* 36px circular avatar */}
+        {student.headshot_url && !imgErr
+          ? <img src={student.headshot_url} alt="" onError={() => setImgErr(true)}
+              style={{ width:36, height:36, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
+          : <div style={{ width:36, height:36, borderRadius:'50%', background:'#1d2567', color:'#fff',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:12, fontWeight:700, flexShrink:0 }}>
+              {`${(student.first_name||'')[0]||''}${(student.last_name||'')[0]||''}`.toUpperCase()||'?'}
+            </div>
+        }
         <span className="smc-name">{displayName(student)}</span>
         <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:3, flexShrink:0 }}>
           {student.status && (

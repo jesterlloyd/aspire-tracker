@@ -7,6 +7,23 @@ import ScheduleInterviewModal from './ScheduleInterviewModal'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import ScoreFlag from './ScoreFlag'
 
+// Circular avatar for the IR student list table
+function IrAvatar({ student }) {
+  const [err, setErr] = useState(false)
+  const initials = `${(student.first_name||'')[0]||''}${(student.last_name||'')[0]||''}`.toUpperCase() || '?'
+  return (
+    <td className="iv-td" style={{ width:44, paddingLeft:12, paddingRight:4 }}>
+      {student.headshot_url && !err
+        ? <img src={student.headshot_url} alt="" onError={() => setErr(true)}
+            style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', display:'block', flexShrink:0 }} />
+        : <div style={{ width:32, height:32, borderRadius:'50%', background:'#1d2567', color:'#fff',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:12, fontWeight:700, flexShrink:0 }}>{initials}</div>
+      }
+    </td>
+  )
+}
+
 function getStudentIvStatus(student, rubrics) {
   const sRubrics = rubrics.filter(r => r.student_id === student.id)
   if (sRubrics.some(r => r.status === 'Completed'))   return 'Completed'
@@ -192,6 +209,7 @@ export default function InterviewRubricTab({
         <table className="iv-table">
           <thead style={!isMonth ? { position:'sticky', top:0, zIndex:10 } : {}}>
             <tr>
+              <th className="iv-th" style={{ width:44, padding:'10px 4px 10px 12px' }} />
               <th className="iv-th iv-sortable" onClick={() => toggleSort('last_name')}>Student Name <SortIcon field="last_name" /></th>
               <th className="iv-th iv-sortable" onClick={() => toggleSort('school')}>School <SortIcon field="school" /></th>
               <th className="iv-th">Scheduled</th>
@@ -209,7 +227,7 @@ export default function InterviewRubricTab({
           </thead>
           <tbody>
             {sorted.length === 0 ? (
-              <tr><td colSpan={10} className="iv-empty">No students match the current search.</td></tr>
+              <tr><td colSpan={11} className="iv-empty">No students match the current search.</td></tr>
             ) : sorted.map(s => {
               const ivStatus = getStudentIvStatus(s, rubrics)
               const borderColor = ROW_BORDER[ivStatus] || '#d1d5db'
@@ -227,6 +245,7 @@ export default function InterviewRubricTab({
                 <tr key={s.id} className="iv-row"
                   style={{ borderLeft:`4px solid ${borderColor}` }}
                   onClick={() => setSelectedStudentId(s.id)}>
+                  <IrAvatar student={s} />
                   <td className="iv-td iv-td-name">
                     {s.flagged_for_second_interview && <span style={{ marginRight:5 }}>🚩</span>}
                     {displayName(s)}
