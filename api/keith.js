@@ -1,28 +1,50 @@
+// api/keith.js
+// Ensure fetch is available (Node 18+)
+const fetchFn = globalThis.fetch || require('node-fetch');
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { messages, context, cohortName } = req.body;
-
   if (!process.env.ANTHROPIC_API_KEY) {
-    console.error('ANTHROPIC_API_KEY not set');
-    return res.status(500).json({ error: 'API key not configured' });
+    console.error('ANTHROPIC_API_KEY environment variable is not set');
+    return res.status(500).json({ error: 'API key not configured on server' });
+  }
+
+  let body = req.body;
+  if (!body) {
+    return res.status(400).json({ error: 'Request body is missing' });
+  }
+
+  const { messages, context, cohortName } = body;
+
+  if (!messages || !Array.isArray(messages)) {
+    return res.status(400).json({ error: 'Messages array is required' });
   }
 
   const systemPrompt = buildSystemPrompt(context, cohortName);
 
+  const anthropicMessages = messages
+    .filter(m => m.role && m.text)
+    .map(m => ({
+      role: m.role === 'keith' ? 'assistant' : 'user',
+      content: String(m.text),
+    }));
+
+  if (anthropicMessages.length === 0) {
+    return res.status(400).json({ error: 'No valid messages provided' });
+  }
+
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetchFn('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -33,105 +55,118 @@ module.exports = async function handler(req, res) {
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1024,
         system: systemPrompt,
-        messages: messages.map(m => ({
-          role: m.role === 'keith' ? 'assistant' : 'user',
-          content: m.text,
-        })),
+        messages: anthropicMessages,
       }),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Anthropic error:', data);
-      return res.status(502).json({ error: 'AI service error', details: data });
+      console.error('Anthropic API returned error:', JSON.stringify(data));
+      return res.status(502).json({
+        error: 'Anthropic API error',
+        status: response.status,
+        details: data,
+      });
     }
 
-    const text = data.content?.[0]?.text || 'I had trouble generating a response. Please try again.';
+    const text = data?.content?.[0]?.text;
+    if (!text) {
+      console.error('Unexpected Anthropic response shape:', JSON.stringify(data));
+      return res.status(502).json({ error: 'Unexpected response from AI service' });
+    }
+
     return res.status(200).json({ response: text });
 
   } catch (err) {
-    console.error('Keith handler error:', err.message);
-    return res.status(500).json({ error: 'Internal error', message: err.message });
+    console.error('Keith fetch error:', err.message, err.stack);
+    return res.status(500).json({
+      error: 'Failed to reach AI service',
+      message: err.message,
+    });
   }
 };
 
 function buildSystemPrompt(context, cohortName) {
   const cohort = cohortName || 'the current cohort';
 
-  let liveData = '';
+  let liveData = 'LIVE COHORT DATA: Not available. Answer from ASPIRE program knowledge only.';
+
   if (context) {
-    const statusSummary = Object.entries(context.byStatus || {})
-      .map(([status, students]) => `  ${status}: ${students.length}`)
-      .join('\n');
+    try {
+      const statusSummary = Object.entries(context.byStatus || {})
+        .map(([status, students]) => `  ${status}: ${Array.isArray(students) ? students.length : 0}`)
+        .join('\n');
 
-    const onCampus = (context.onCampusToday || [])
-      .map(s => `${s.student?.last_name}, ${s.student?.first_name} at ${s.unit} (${s.shiftType})`)
-      .join(', ') || 'None logged today';
+      const onCampus = Array.isArray(context.onCampusToday) && context.onCampusToday.length > 0
+        ? context.onCampusToday.map(s => `${s.student?.last_name || '?'}, ${s.student?.first_name || '?'} at ${s.unit} (${s.shiftType})`).join(', ')
+        : 'None logged today';
 
-    const needsFollowUp = [
-      context.needsStudentForm?.length ? `${context.needsStudentForm.length} need student form sent` : null,
-      context.needsSchedulingLink?.length ? `${context.needsSchedulingLink.length} need interview scheduling link` : null,
-      context.needsCsLink?.length ? `${context.needsCsLink.length} need CS-Link access started` : null,
-      context.needsBadge?.length ? `${context.needsBadge.length} need badge created` : null,
-      context.pendingShiftReviews ? `${context.pendingShiftReviews} shift logs pending review` : null,
-    ].filter(Boolean).join(', ') || 'None';
+      const safeList = (arr) => Array.isArray(arr) && arr.length > 0
+        ? arr.map(s => `${s.last_name || '?'}, ${s.first_name || '?'}`).join('; ')
+        : 'None';
 
-    liveData = `
-LIVE COHORT DATA (${cohort}):
+      liveData = `LIVE COHORT DATA (${cohort}):
 Total students: ${context.totalStudents || 0}
 Total unit slots: ${context.totalSlots || 0} (${context.totalRemaining || 0} remaining)
-Status breakdown:\n${statusSummary || '  No students yet'}
-Action items: ${needsFollowUp}
+Status breakdown:
+${statusSummary || '  No students yet'}
 On campus today: ${onCampus}
-Students needing student form: ${(context.needsStudentForm || []).map(s => `${s.last_name}, ${s.first_name}`).join('; ') || 'None'}
-Students needing scheduling link: ${(context.needsSchedulingLink || []).map(s => `${s.last_name}, ${s.first_name}`).join('; ') || 'None'}
-Students needing CS-Link started: ${(context.needsCsLink || []).map(s => `${s.last_name}, ${s.first_name}`).join('; ') || 'None'}
-Students needing badge: ${(context.needsBadge || []).map(s => `${s.last_name}, ${s.first_name}`).join('; ') || 'None'}
-Placed students: ${(context.placed || []).map(s => `${s.last_name}, ${s.first_name} → ${s.matched_unit_id || 'unit TBD'}`).join('; ') || 'None'}
-Active rotation: ${(context.activeRotation || []).map(s => `${s.last_name}, ${s.first_name} (${s.approved_hours || 0}/${s.hours_required || 0} hrs)`).join('; ') || 'None'}
-Completed: ${(context.completed || []).map(s => `${s.last_name}, ${s.first_name}`).join('; ') || 'None'}`;
-  } else {
-    liveData = 'LIVE COHORT DATA: Not available. Answer from ASPIRE program knowledge only.';
+Needs student form: ${safeList(context.needsStudentForm)}
+Needs scheduling link: ${safeList(context.needsSchedulingLink)}
+Needs CS-Link started: ${safeList(context.needsCsLink)}
+Needs badge: ${safeList(context.needsBadge)}
+Placed: ${safeList(context.placed)}
+Active rotation: ${Array.isArray(context.activeRotation) && context.activeRotation.length > 0
+  ? context.activeRotation.map(s => `${s.last_name}, ${s.first_name} (${s.approved_hours || 0}/${s.hours_required || 0} hrs)`).join('; ')
+  : 'None'}
+Completed: ${safeList(context.completed)}
+Pending shift reviews: ${context.pendingShiftReviews || 0}`;
+    } catch (e) {
+      console.error('Error building live data section:', e.message);
+      liveData = `LIVE COHORT DATA: Error processing context - ${e.message}`;
+    }
   }
 
-  return `You are Keith, the AI assistant for the ASPIRE Program Tracker at Cedars-Sinai Medical Center. You were named in honor of Keith Hoshal, the creator of the ASPIRE Program.
+  return `You are Keith, the AI assistant for the ASPIRE Program Tracker at Cedars-Sinai Medical Center, named in honor of Keith Hoshal who created the ASPIRE Program.
 
-ASPIRE stands for Affiliate Students' Pathway from Internship to Residency Experience. It places senior nursing students at Cedars-Sinai for their final clinical rotation and provides a pathway into the New Graduate RN Residency Program (NGRP).
+ASPIRE (Affiliate Students' Pathway from Internship to Residency Experience) places senior nursing students at Cedars-Sinai for their final clinical rotation with a pathway into the New Graduate RN Residency Program (NGRP).
 
-Your user is Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN (Program Lead) or Krystal Rodriguez, DNP, RN, NPD-BC, CNOR (Program Co-Lead).
+Your users are Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN (Program Lead) and Krystal Rodriguez, DNP, RN, NPD-BC, CNOR (Co-Lead).
 
-ASPIRE STATUS JOURNEY: Pending Outreach → Form Sent → Form Received → Interview Scheduled → Interviewed → Placed → Active Rotation → Completed → Declined
+ASPIRE STATUS JOURNEY:
+Pending Outreach → Form Sent → Form Received → Interview Scheduled → Interviewed → Placed → Active Rotation → Completed → Declined
 
-CS-LINK WORKFLOW: Stage 1 (Service Center): new students need Add Non-Employee, former students need Assignment Change/Extend End Date/Reactivate, Cedars employees skip Stage 1. Stage 2: Add CS-Link access for everyone.
+CS-LINK WORKFLOW:
+Stage 1 (Service Center): New students = Add Non-Employee. Former students = Assignment Change, Extend End Date, or Reactivate. Cedars employees = skip Stage 1.
+Stage 2: Add CS-Link access for everyone.
 
-EMAIL SIGNATURE TO USE IN ALL DRAFTED EMAILS:
+PRECEPTOR WELCOME EMAIL TEMPLATE:
+Subject: ASPIRE Program – Student Preceptor Assignment
+Dear [Preceptor First Name],
+Thank you so much for agreeing to precept one of our senior nursing students through the ASPIRE Program. Your willingness to teach, mentor, and support our students truly makes a difference in shaping the next generation of nurses at Cedars-Sinai.
+[Student details: name, school, program, rotation dates, hours, email, phone]
+[Student] will reach out to you directly to introduce themselves and coordinate schedules.
+Please remember to attach before sending: ASPIRE Brochure and Pre-licensure Student General Guidelines.
+Reminders: Preceptor pay (contact Dr. Krystal Rodriguez), avoid being in charge while precepting, floating is acceptable if comfortable and appropriate.
+Kind regards,
 Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN
 Nursing Professional Development Practitioner
 Geri and Richard Brawerman Nursing Institute
 JesterLloyd.Bautista@cshs.org | 310-248-8964
 
-PRECEPTOR WELCOME EMAIL FORMAT (use this when asked to draft preceptor emails):
-- Address preceptor by first name
-- Thank them for agreeing to precept
-- Include student name, school, program, rotation dates, hours required, student email, student phone
-- Note: student will reach out to coordinate schedules
-- Remind them to expect: Student Parking Data Form, Pre-licensure Student General Guidelines
-- Mention preceptor pay (refer to Dr. Krystal Rodriguez), coverage, and floating
-- Warm closing
-- Full email signature
-
 PRIVACY RULES - NEVER VIOLATE:
-- Never include DOB, last 4 SSN, or sensitive identifiers in any response
-- Never fabricate student data not present in the live context
+- Never include DOB, last 4 SSN, or sensitive identifiers
+- Never fabricate student data not in the live context
 - Draft emails only, never send automatically
+- Identify students by first and last name only
 
 RESPONSE STYLE:
-- Warm, concise, professional - like a knowledgeable colleague
+- Warm, concise, professional
 - Under 200 words unless drafting a full email
-- Always suggest a concrete next action
+- Suggest a concrete next action when relevant
 - Use Last Name, First Name format for student lists
-- If data is unavailable, say so honestly
+- If asked about a specific student, use only their data from the live context
 
 ${liveData}
 
