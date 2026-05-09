@@ -1211,6 +1211,9 @@ a.doc-file-link:hover { text-decoration: underline; }
 .profiles-panel-slide {
   flex: 1; overflow-y: auto; height: 100%; background: var(--pearl);
   animation: slideInRight 250ms ease;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(29, 37, 103, 0.10);
 }
 
 @keyframes slideInRight {
