@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { displayName } from '../lib/utils'
 import InterviewSession from './InterviewSession'
+import StatCard from './StatCard'
+import { Users, BadgeCheck, Loader, CalendarX, ThumbsUp, TrendingUp, UserX } from 'lucide-react'
 
 const STATUS_CLASS = {
   'Form Sent':'badge-gray','Pending Outreach':'badge-pending',
@@ -36,15 +38,6 @@ export default function InterviewTab({ students, interviews, cohortId, onStudent
   const withReserv      = interviews.filter(iv => iv.overall_recommendation === 'Recommend with Reservations').length
   const notRecommended  = interviews.filter(iv => iv.overall_recommendation === 'Do Not Recommend at This Time').length
 
-  const summaryStats = [
-    { label:'Total Students',               value:total,         bg:'#ffffff', color:'#1d2567', border:'#d1d5db' },
-    { label:'Completed',                    value:completed,     bg:'#dcfce7', color:'#166534', border:'#a7f3d0' },
-    { label:'In Progress',                  value:inProgress,    bg:'#fef3c7', color:'#92400e', border:'#fde68a' },
-    { label:'Not Yet Interviewed',          value:notYet,        bg:'#f4f1ec', color:'#191919', border:'#d4cfc8' },
-    { label:'Recommended',                  value:recommended,   bg:'#f0fdf4', color:'#16a34a', border:'#bbf7d0' },
-    { label:'With Reservations',            value:withReserv,    bg:'#fefce8', color:'#ca8a04', border:'#fde68a' },
-    { label:'Not Recommended',              value:notRecommended,bg:'#fee2e2', color:'#991b1b', border:'#fecaca' },
-  ]
 
   // If a student is selected, show InterviewSession
   const selectedStudent = selectedStudentId ? students.find(s => s.id === selectedStudentId) : null
@@ -104,13 +97,14 @@ export default function InterviewTab({ students, interviews, cohortId, onStudent
   return (
     <div className="interview-tab">
       {/* Summary banner */}
-      <div className="iv-summary">
-        {summaryStats.map(s => (
-          <div key={s.label} className="iv-stat-card" style={{ background: s.bg, borderColor: s.border }}>
-            <div className="iv-stat-value" style={{ color: s.color }}>{s.value}</div>
-            <div className="iv-stat-label" style={{ color: s.color }}>{s.label}</div>
-          </div>
-        ))}
+      <div className="stat-cards-row" style={{ padding:'12px 16px' }}>
+        <StatCard value={total}          label="Total Students"      icon={Users}      colorScheme="neutral" />
+        <StatCard value={completed}      label="Completed"           icon={BadgeCheck} colorScheme="green" />
+        <StatCard value={inProgress}     label="In Progress"         icon={Loader}     colorScheme="amber" />
+        <StatCard value={notYet}         label="Not Yet Interviewed" icon={CalendarX}  colorScheme="neutral" />
+        <StatCard value={recommended}    label="Recommended"         icon={ThumbsUp}   colorScheme="darkgreen" />
+        <StatCard value={withReserv}     label="With Reservations"   icon={TrendingUp} colorScheme="amber" />
+        <StatCard value={notRecommended} label="Not Recommended"     icon={UserX}      colorScheme="red" />
       </div>
 
       {/* Search */}
