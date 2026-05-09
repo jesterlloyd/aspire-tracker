@@ -100,30 +100,80 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
           position: 'fixed',
           bottom: '24px',
           right: '24px',
-          width: '56px',
-          height: '56px',
+          width: '60px',
+          height: '60px',
           borderRadius: '50%',
-          background: isOpen ? '#374151' : '#1d2567',
+          background: 'none',
           border: 'none',
           cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 4px 16px rgba(29,37,103,0.35)',
+          padding: '0',
           zIndex: 1000,
-          transition: 'all 0.2s ease',
+          transition: 'transform 0.2s ease',
           transform: isOpen ? 'scale(0.95)' : 'scale(1)',
         }}
         onMouseEnter={e => { if (!isOpen) e.currentTarget.style.transform = 'scale(1.08)'; }}
-        onMouseLeave={e => { if (!isOpen) e.currentTarget.style.transform = 'scale(1)'; }}
+        onMouseLeave={e => { if (!isOpen) e.currentTarget.style.transform = isOpen ? 'scale(0.95)' : 'scale(1)'; }}
       >
-        <span style={{
-          fontFamily: 'DM Sans, sans-serif',
-          fontWeight: 700,
-          fontSize: '20px',
-          color: '#ffffff',
-          letterSpacing: '-0.5px',
-        }}>K</span>
+        {/* Orb */}
+        <div style={{
+          width: '60px',
+          height: '60px',
+          borderRadius: '50%',
+          position: 'relative',
+          overflow: 'hidden',
+          background: 'radial-gradient(circle at 35% 35%, #1e0a5e, #060318)',
+          boxShadow: isOpen
+            ? '0 0 0 2px rgba(139,92,246,0.6), 0 0 24px rgba(99,102,241,0.7), 0 0 48px rgba(56,189,248,0.35)'
+            : '0 0 0 1.5px rgba(99,102,241,0.4), 0 0 14px rgba(99,102,241,0.35), 0 4px 20px rgba(0,0,0,0.5)',
+          transition: 'box-shadow 0.3s ease',
+        }}>
+          {/* Purple swirl arm - rotates clockwise */}
+          <div style={{
+            position: 'absolute',
+            inset: '-8px',
+            borderRadius: '42% 58% 65% 35% / 38% 42% 58% 62%',
+            background: 'linear-gradient(140deg, rgba(167,139,250,0.92) 0%, rgba(109,40,217,0.55) 45%, transparent 75%)',
+            animation: `keithSpin ${isOpen ? '2.5s' : '4s'} linear infinite`,
+            filter: 'blur(2.5px)',
+          }} />
+          {/* Cyan swirl arm - rotates counter-clockwise */}
+          <div style={{
+            position: 'absolute',
+            inset: '-8px',
+            borderRadius: '58% 42% 35% 65% / 62% 58% 42% 38%',
+            background: 'linear-gradient(320deg, rgba(56,189,248,0.92) 0%, rgba(14,165,233,0.55) 45%, transparent 75%)',
+            animation: `keithSpin ${isOpen ? '2.5s' : '4s'} linear infinite reverse`,
+            filter: 'blur(2.5px)',
+          }} />
+          {/* Inner glow layer */}
+          <div style={{
+            position: 'absolute',
+            inset: '8px',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle at 45% 40%, rgba(99,102,241,0.5) 0%, transparent 70%)',
+            animation: 'keithGlow 2.5s ease-in-out infinite',
+          }} />
+          {/* Bright center glow */}
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '18px',
+            height: '18px',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.98) 0%, rgba(186,230,253,0.75) 40%, transparent 100%)',
+            animation: 'keithPulse 2.5s ease-in-out infinite',
+          }} />
+          {/* Outer rim highlight */}
+          <div style={{
+            position: 'absolute',
+            inset: '0',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.12) 0%, transparent 60%)',
+            pointerEvents: 'none',
+          }} />
+        </div>
       </button>
 
       {/* Drawer */}
@@ -165,13 +215,18 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
               gap: '12px',
               flexShrink: 0,
             }}>
+              {/* Header orb — static, no animation */}
               <div style={{
                 width: '36px', height: '36px', borderRadius: '50%',
-                background: 'rgba(255,255,255,0.15)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0,
+                position: 'relative', overflow: 'hidden', flexShrink: 0,
+                background: 'radial-gradient(circle at 35% 35%, #1e0a5e, #060318)',
+                boxShadow: '0 0 0 1px rgba(99,102,241,0.5), 0 0 8px rgba(99,102,241,0.3)',
               }}>
-                <span style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '16px', color: '#ffffff' }}>K</span>
+                <div style={{ position: 'absolute', inset: '-4px', borderRadius: '42% 58% 65% 35% / 38% 42% 58% 62%', background: 'linear-gradient(140deg, rgba(167,139,250,0.85) 0%, rgba(109,40,217,0.5) 45%, transparent 75%)', filter: 'blur(1.5px)' }} />
+                <div style={{ position: 'absolute', inset: '-4px', borderRadius: '58% 42% 35% 65% / 62% 58% 42% 38%', background: 'linear-gradient(320deg, rgba(56,189,248,0.85) 0%, rgba(14,165,233,0.5) 45%, transparent 75%)', filter: 'blur(1.5px)' }} />
+                <div style={{ position: 'absolute', inset: '5px', borderRadius: '50%', background: 'radial-gradient(circle at 45% 40%, rgba(99,102,241,0.45) 0%, transparent 70%)' }} />
+                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '10px', height: '10px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(186,230,253,0.7) 40%, transparent 100%)' }} />
+                <div style={{ position: 'absolute', inset: '0', borderRadius: '50%', background: 'radial-gradient(circle at 30% 25%, rgba(255,255,255,0.12) 0%, transparent 60%)', pointerEvents: 'none' }} />
               </div>
               <div>
                 <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '16px', color: '#ffffff' }}>Keith</div>
@@ -412,6 +467,18 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
         @keyframes keithDot {
           0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
           30% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes keithSpin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes keithPulse {
+          0%, 100% { opacity: 0.75; transform: translate(-50%, -50%) scale(0.95); }
+          50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+        }
+        @keyframes keithGlow {
+          0%, 100% { opacity: 0.7; }
+          50% { opacity: 1; }
         }
       `}</style>
     </>
