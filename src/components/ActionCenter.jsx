@@ -775,41 +775,39 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
             </div>
           </div>
 
-          {/* Recent Communications — 35% */}
-          <div style={{ flex:'0 0 35%', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-            <div style={{ padding:'12px 16px 6px', flexShrink:0 }}>
-              <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em' }}>
-                Recent Communications
-              </div>
-            </div>
-            <div style={{ flex:1, overflowY:'auto', padding:'0 16px 12px' }}>
-              {recentComms.length === 0 ? (
-                <div style={{ textAlign:'center', padding:'20px 0', fontSize:13, color:'#9ca3af' }}>
-                  No communications sent yet for this cohort.
+          {/* Recent Communications — only rendered when entries exist */}
+          {recentComms.length > 0 && (
+            <div style={{ flex:'0 0 35%', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+              <div style={{ padding:'12px 16px 6px', flexShrink:0 }}>
+                <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+                  Recent Communications
                 </div>
-              ) : recentComms.map((c, i) => (
-                <div key={c.id} style={{ padding:'8px 0', borderBottom:'1px solid #f3f4f6' }}>
-                  <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:8 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                      <span style={{ width:6, height:6, borderRadius:'50%',
-                        background: TYPE_COLORS[c.type]||'#9ca3af', flexShrink:0, display:'inline-block' }} />
-                      <span style={{ fontSize:13, fontWeight:600, color:'var(--raven)' }}>
-                        {TYPE_LABELS[c.type]||c.type}
+              </div>
+              <div style={{ flex:1, overflowY:'auto', padding:'0 16px 12px' }}>
+                {recentComms.map((c, i) => (
+                  <div key={c.id} style={{ padding:'8px 0', borderBottom:'1px solid #f3f4f6' }}>
+                    <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:8 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                        <span style={{ width:6, height:6, borderRadius:'50%',
+                          background: TYPE_COLORS[c.type]||'#9ca3af', flexShrink:0, display:'inline-block' }} />
+                        <span style={{ fontSize:13, fontWeight:600, color:'var(--raven)' }}>
+                          {TYPE_LABELS[c.type]||c.type}
+                        </span>
+                      </div>
+                      <span style={{ fontSize:11, color:'#9ca3af', whiteSpace:'nowrap', flexShrink:0 }}>
+                        {fmtTs(c.sent_at)}
                       </span>
                     </div>
-                    <span style={{ fontSize:11, color:'#9ca3af', whiteSpace:'nowrap', flexShrink:0 }}>
-                      {fmtTs(c.sent_at)}
-                    </span>
+                    {c.sent_to_name && (
+                      <div style={{ fontSize:12, color:'#6b7280', marginLeft:14, marginTop:2 }}>
+                        {c.sent_to_name}
+                      </div>
+                    )}
                   </div>
-                  {c.sent_to_name && (
-                    <div style={{ fontSize:12, color:'#6b7280', marginLeft:14, marginTop:2 }}>
-                      {c.sent_to_name}
-                    </div>
-                  )}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
         </div>
       </div>
