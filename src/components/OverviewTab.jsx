@@ -148,7 +148,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       <div className="aggregate-sticky-header">
 
         {/* ── On Campus Today compact strip ── */}
-        <div style={{ background:'var(--nightfall)', borderBottom:'1px solid #e5e7eb' }}>
+        <div style={{ background:'var(--nightfall)', borderBottom:'1px solid #e5e7eb', borderRadius:12, overflow:'hidden' }}>
           {/* Header row */}
           <div style={{ display:'flex', alignItems:'center', gap:8, padding:'0 24px', height:48, cursor:'pointer' }}
             onClick={() => setCampusOpen(p => !p)}>

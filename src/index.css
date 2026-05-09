@@ -1983,18 +1983,20 @@ a.doc-file-link:hover { text-decoration: underline; }
   display: flex; align-items: center; gap: 10px;
   padding: 12px 16px;
   background: var(--nightfall);
+  overflow: visible;
 }
 .embed-pool-title   { font-size: 15px; font-weight: 700; color: var(--pearl); flex-shrink: 0; }
-.embed-pool-filters { display: flex; gap: 8px; flex: 1; }
+.embed-pool-filters { display: flex; gap: 6px; flex: 1; min-width: 0; overflow: visible; }
 .embed-pool-search  {
-  flex: 1; padding: 5px 9px; border: 1px solid #4a5568; border-radius: 4px;
+  flex: 1; min-width: 0; padding: 5px 9px; border: 1px solid #4a5568; border-radius: 4px;
   font-size: 13px; color: #191919; background: #fff; outline: none;
 }
 .embed-pool-search::placeholder { color: #9ca3af; }
 .embed-pool-search:focus { border-color: var(--nova); box-shadow: 0 0 0 2px var(--nova-tint); }
 .embed-pool-school  {
   padding: 5px 8px; border: 1px solid #4a5568; border-radius: 4px;
-  font-size: 12px; color: #191919; background: #fff; outline: none; cursor: pointer; min-width: 100px;
+  font-size: 12px; color: #191919; background: #fff; outline: none; cursor: pointer;
+  min-width: 100px; flex-shrink: 0;
 }
 .embed-pool-count   { font-size: 12px; color: var(--nova); flex-shrink: 0; white-space: nowrap; }
 .embed-students-body { flex: 1; min-height: 0; overflow-y: auto; background: var(--pearl); }
