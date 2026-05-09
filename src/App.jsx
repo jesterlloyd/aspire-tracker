@@ -391,14 +391,19 @@ function MainApp({ onLogout }) {
       <div className="top-section">
         <header className="app-header">
           <div className="header-inner">
-            <div className="header-brand">
-              <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="32" />
-              <div>
+            {/* Left: Logo + divider + title block */}
+            <div style={{ display:'flex', alignItems:'center', gap:16, flex:1 }}>
+              <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="36" />
+              <div style={{ width:1, height:32, background:'rgba(255,255,255,0.2)', flexShrink:0 }} />
+              <div style={{ display:'flex', flexDirection:'column', justifyContent:'center' }}>
                 <h1 className="header-title">ASPIRE Program Tracker</h1>
+                <p style={{ margin:0, fontSize:11, color:'rgba(255,255,255,0.6)', fontWeight:400, letterSpacing:'0.01em', lineHeight:1.3 }}>
+                  Affiliate Students' Pathway from Internship to Residency Experience
+                </p>
               </div>
             </div>
-            <div className="header-actions">
-              {/* Bell icon + Action Center */}
+            {/* Right: Bell + Log out */}
+            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
               {cohorts.length > 0 && (
                 <button onClick={() => setShowActionCenter(true)}
                   style={{ position:'relative', background:'none', border:'none', cursor:'pointer', padding:'4px 6px', lineHeight:1 }}>
@@ -418,7 +423,14 @@ function MainApp({ onLogout }) {
                 </button>
               )}
               {!confirmLogout ? (
-                <button className="btn-logout" onClick={() => setConfirmLogout(true)}>Log out</button>
+                <button onClick={() => setConfirmLogout(true)}
+                  style={{ border:'1.5px solid rgba(255,255,255,0.8)', color:'#fff', background:'transparent',
+                    fontFamily:'DM Sans,sans-serif', fontSize:13, fontWeight:600, borderRadius:8,
+                    padding:'8px 18px', cursor:'pointer', transition:'background 0.15s, color 0.15s' }}
+                  onMouseEnter={e => { e.currentTarget.style.background='#fff'; e.currentTarget.style.color='var(--nightfall)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#fff' }}>
+                  Log out
+                </button>
               ) : (
                 <div className="logout-confirm-inline">
                   <span className="logout-confirm-text">Are you sure?</span>
