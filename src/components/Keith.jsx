@@ -73,6 +73,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
           id: Date.now() + 1,
           role: 'keith',
           text: data.response,
+          isAI: true,
           hasCopy: data.response.includes('Subject:'),
         };
         setMessages(prev => [...prev, keithMessage]);
@@ -80,7 +81,8 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
         return;
       }
     } catch (err) {
-      console.warn('Keith API unavailable, falling back to static:', err);
+      console.warn('Keith API call failed:', err.message);
+      // Continue to static fallback below
     }
 
     // Fallback to Phase 2 static responses if API unavailable
@@ -90,6 +92,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
       id: Date.now() + 1,
       role: 'keith',
       ...staticResponse,
+      isAI: false,
     };
     setMessages(prev => [...prev, keithMessage]);
     setIsTyping(false);
@@ -363,6 +366,16 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                     }}>
                       {formatText(msg.text)}
                     </div>
+                    {msg.role === 'keith' && (
+                      <div style={{
+                        fontSize: '9px',
+                        color: msg.isAI ? '#166534' : '#9ca3af',
+                        marginTop: '2px',
+                        paddingLeft: '2px',
+                      }}>
+                        {msg.isAI ? '✦ Keith AI' : '◦ Static'}
+                      </div>
+                    )}
                   </div>
 
                   {/* Copy button for email drafts */}
