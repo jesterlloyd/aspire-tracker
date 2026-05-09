@@ -6,6 +6,8 @@ import ScheduleInterviewModal from './ScheduleInterviewModal'
 
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import ScoreFlag from './ScoreFlag'
+import StatCard from './StatCard'
+import { Users, CalendarCheck, BadgeCheck, Loader, CalendarX, Flag, ThumbsUp } from 'lucide-react'
 
 // Circular avatar for the IR student list table
 function IrAvatar({ student }) {
@@ -99,15 +101,6 @@ export default function InterviewRubricTab({
   const flagged       = students.filter(s => s.flagged_for_second_interview).length
   const recommended   = students.filter(s => s.auto_recommendation === 'Recommend').length
 
-  const summaryStats = [
-    { label:'Total',          value:total,        cardClass:'card-pearl',     color:'#1d2567' },
-    { label:'Scheduled',      value:scheduled,    cardClass:'card-indigo',    color:'#1d4ed8' },
-    { label:'Completed',      value:completed,    cardClass:'card-green',     color:'#166534' },
-    { label:'In Progress',    value:inProgress,   cardClass:'card-amber',     color:'#92400e' },
-    { label:'Not Scheduled',  value:notScheduled, cardClass:'card-neutral',   color:'#6b7280' },
-    { label:'Flagged',        value:flagged,      cardClass:'card-red',       color:'#991b1b' },
-    { label:'Recommended',    value:recommended,  cardClass:'card-darkgreen', color:'#065f46' },
-  ]
 
   // If student selected → session
   const selectedStudent = selectedStudentId ? students.find(s => s.id === selectedStudentId) : null
@@ -181,13 +174,14 @@ export default function InterviewRubricTab({
           calMode={calMode}
           onCalModeChange={setCalMode}
         />
-        <div ref={summaryRef} className="iv-summary">
-          {summaryStats.map(s => (
-            <div key={s.label} className={`summary-card ${s.cardClass}`}>
-              <div className="summary-card-value" style={{ color:s.color }}>{s.value}</div>
-              <div className="summary-card-label" style={{ color:s.color }}>{s.label}</div>
-            </div>
-          ))}
+        <div ref={summaryRef} className="stat-cards-row" style={{ padding:'12px 16px' }}>
+          <StatCard value={total}        label="Total"         icon={Users}         colorScheme="neutral" />
+          <StatCard value={scheduled}    label="Scheduled"     icon={CalendarCheck} colorScheme="indigo" />
+          <StatCard value={completed}    label="Completed"     icon={BadgeCheck}    colorScheme="green" />
+          <StatCard value={inProgress}   label="In Progress"   icon={Loader}        colorScheme="amber" />
+          <StatCard value={notScheduled} label="Not Scheduled" icon={CalendarX}     colorScheme="neutral" />
+          <StatCard value={flagged}      label="Flagged"       icon={Flag}          colorScheme="red" />
+          <StatCard value={recommended}  label="Recommended"   icon={ThumbsUp}      colorScheme="darkgreen" />
         </div>
         {/* Scroll hint — only in month mode, hides after scrolling past summary */}
         {isMonth && showScrollHint && (

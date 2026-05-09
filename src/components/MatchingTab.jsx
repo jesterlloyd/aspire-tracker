@@ -4,6 +4,8 @@ import StudentMatchCard from './StudentMatchCard'
 import UnitSetupPanel from './UnitSetupPanel'
 import ImportUnitsCSV from './ImportUnitsCSV'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
+import StatCard from './StatCard'
+import { Layers, Clock, Users, MapPin, Star, TrendingUp, UserX } from 'lucide-react'
 
 const POOL_ELIGIBLE_STATUSES = new Set([
   'Pending Outreach', 'Form Sent', 'Form Received', 'Interview Scheduled', 'Interviewed',
@@ -141,27 +143,27 @@ export default function MatchingTab({
     URL.revokeObjectURL(url)
   }
 
-  const summaryStats = [
-    { label:'Total Slots',     value:totalSlots,             cardClass:'card-pearl',     color:'#1d2567' },
-    { label:'Slots Remaining', value:slotsRemaining,         cardClass:'card-marina',    color:'#1d2567' },
-    { label:'Students',        value:students.length,        cardClass:'card-neutral',   color:'var(--raven)' },
-    { label:'Matched',         value:matchedStudents.length, cardClass:'card-green',     color:'#166534' },
-    { label:'Perfect Matches', value:perfectMatches,         cardClass:'card-darkgreen', color:'#065f46' },
-    { label:'2nd Choice',      value:secondChoiceMatches,    cardClass:'card-amber',     color:'#92400e' },
-    { label:'Unmatched',       value:unmatchedAll.length,    cardClass:'card-amber',     color:'#92400e' },
-  ]
+  const studentsCount  = students.length
+  const matchedCount   = matchedStudents.length
+  const unmatchedCount = unmatchedAll.length
 
   return (
     <div className="matching-tab embed-tab">
 
       {/* ── Summary banner ── */}
-      <div className="match-summary embed-banner">
-        {summaryStats.map(s => (
-          <div key={s.label} className={`summary-card ${s.cardClass}`}>
-            <div className="summary-card-value" style={{ color:s.color }}>{s.value}</div>
-            <div className="summary-card-label" style={{ color:s.color }}>{s.label}</div>
-          </div>
-        ))}
+      <div className="stat-cards-row" style={{ padding:'12px 16px' }}>
+        <StatCard value={totalSlots}    label="Total Slots"     icon={Layers}    colorScheme="nightfall" />
+        <StatCard value={slotsRemaining} label="Slots Remaining" icon={Clock}    colorScheme="marina" />
+        <StatCard value={studentsCount} label="Students"        icon={Users}     colorScheme="neutral" />
+        <StatCard value={matchedCount}  label="Matched"         icon={MapPin}    colorScheme="green" />
+        <StatCard value={perfectMatches} label="Perfect Matches" icon={Star}     colorScheme="darkgreen" />
+        <StatCard value={secondChoiceMatches} label="2nd Choice" icon={TrendingUp} colorScheme="amber" />
+        <StatCard
+          value={unmatchedCount}
+          label="Unmatched"
+          icon={UserX}
+          colorScheme={unmatchedCount > 0 ? 'amber' : 'green'}
+        />
       </div>
 
       {/* ── Matching board ── */}
