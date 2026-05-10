@@ -565,7 +565,7 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
               <ActionCard title="Send Student Form" borderColor="#e5e7eb" icon="📧" count={act1.length} badgeBg="#6b7280">
                 {act1.map(s => (
                   <SRow key={s.id} student={s} pending={isPend(s.id,'student_form')}
-                    onOpenMail={() => { openHref(buildStudentFormEmail(s)); setPend(s.id,'student_form') }}
+                    onOpenMail={() => { openHref(buildStudentFormEmail(s)); setPend(s.id,'student_form'); if (s.status === 'Pending Outreach') onStudentUpdate?.(s.id, { status: 'Form Sent' }) }}
                     onMarkSent={() => logComm({ type:'student_form', student:s,
                       sentToEmail:s.school_email,
                       after: () => onStudentUpdate?.(s.id,{status:'Form Sent'}) })} />

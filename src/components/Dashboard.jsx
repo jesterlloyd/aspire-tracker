@@ -4,7 +4,7 @@ import { Users, MapPin, CheckCircle, Briefcase } from 'lucide-react'
 export default function Dashboard({ students }) {
   const totalStudents  = students.length
   const placedCount    = students.filter(s => s.matched_unit_id).length
-  const acceptedCount  = students.filter(s => s.interview_outcome === 'Accepted').length
+  const acceptedCount  = students.filter(s => s.status === 'Placed').length
   const ngrpHiredCount = students.filter(s => s.ngrp_outcome === 'Hired').length
 
   return (
@@ -25,7 +25,7 @@ export default function Dashboard({ students }) {
       />
       <StatCard
         value={acceptedCount}
-        label="Accepted"
+        label="Placed"
         sublabel={`${Math.round((acceptedCount / totalStudents) * 100) || 0}% of total`}
         icon={CheckCircle}
         colorScheme="green"

@@ -8,6 +8,7 @@ import {
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { downloadFile, buildStudentFilename } from '../lib/fileUtils'
+import { DECLINE_REASONS } from '../lib/statuses'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
@@ -73,10 +74,12 @@ export default function StudentSidePanel({
   student, sortedStudents, onSelectStudent, onClose,
   onUpdate, onDelete, units,
 }) {
-  const [data,          setData]          = useState({ ...student })
-  const [saveStatus,    setSaveStatus]    = useState('idle')
-  const [showSSN,       setShowSSN]       = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [data,             setData]             = useState({ ...student })
+  const [saveStatus,       setSaveStatus]       = useState('idle')
+  const [showSSN,          setShowSSN]          = useState(false)
+  const [confirmDelete,    setConfirmDelete]    = useState(false)
+  const [showDeclineModal, setShowDeclineModal] = useState(false)
+  const [declineReason,    setDeclineReason]    = useState('')
   const [uploadingRes,  setUploadingRes]  = useState(false)
   const [uploadingHead, setUploadingHead] = useState(false)
   const [resumeMsg,     setResumeMsg]     = useState(null)
@@ -288,6 +291,17 @@ export default function StudentSidePanel({
   const csStatusCfg = CS_LINK_STATUS_CONFIG[csStatus]
 
   const initials = `${(student.first_name||'')[0]||''}${(student.last_name||'')[0]||''}`.toUpperCase() || '?'
+
+  const confirmDecline = async () => {
+    const updates = { status: 'Declined', decline_reason: declineReason }
+    setData(p => ({ ...p, ...updates }))
+    setSaveStatus('saving')
+    const err = await onUpdate(student.id, updates)
+    setSaveStatus(err ? 'error' : 'saved')
+    if (!err) setTimeout(() => setSaveStatus('idle'), 1800)
+    setShowDeclineModal(false)
+    setDeclineReason('')
+  }
 
   return (
     <>
@@ -516,10 +530,18 @@ export default function StudentSidePanel({
               <Field label="ASPIRE Status">
                 <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
                   {data.status && (() => { const cfg = ASPIRE_STATUS_CONFIG[data.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']; return <span style={{ fontSize:11, fontWeight:700, padding:'2px 10px', borderRadius:20, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, alignSelf:'flex-start' }}>{data.status}</span> })()}
-                  <select className="sp-select" value={data.status||''} onChange={e => handleSelect('status', e.target.value)}>
+                  <select className="sp-select" value={data.status||''} onChange={e => {
+                    if (e.target.value === 'Declined') { setShowDeclineModal(true) }
+                    else handleSelect('status', e.target.value)
+                  }}>
                     <option value="">Select status…</option>
                     {ASPIRE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
+                  {data.decline_reason && (
+                    <div style={{ fontSize:11, color:'#991b1b', marginTop:2 }}>
+                      Reason: {data.decline_reason}
+                    </div>
+                  )}
                 </div>
               </Field>
               <Field label="Interview Outcome">
@@ -934,6 +956,62 @@ export default function StudentSidePanel({
           onConfirm={() => { setConfirmDelete(false); onDelete(student.id); onClose() }}
           onClose={() => setConfirmDelete(false)}
         />
+      )}
+
+      {showDeclineModal && (
+        <div style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(0,0,0,0.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 2000,
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 16,
+            padding: 28, width: 400,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+          }}>
+            <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: 18, color: '#1d2567', marginBottom: 8 }}>
+              Decline Student
+            </div>
+            <div style={{ fontFamily: 'DM Sans', fontSize: 14, color: '#6b7280', marginBottom: 20 }}>
+              Please select a reason for declining this student. This will be recorded for program reporting.
+            </div>
+            <select
+              value={declineReason}
+              onChange={e => setDeclineReason(e.target.value)}
+              style={{
+                width: '100%', padding: '10px 12px',
+                border: '1px solid #e5e7eb', borderRadius: 8,
+                fontFamily: 'DM Sans', fontSize: 14,
+                marginBottom: 20,
+              }}
+            >
+              <option value="">Select a reason...</option>
+              {DECLINE_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => { setShowDeclineModal(false); setDeclineReason('') }}
+                style={{
+                  padding: '8px 18px', borderRadius: 8,
+                  border: '1px solid #e5e7eb', background: '#f9fafb',
+                  fontFamily: 'DM Sans', cursor: 'pointer',
+                }}
+              >Cancel</button>
+              <button
+                onClick={confirmDecline}
+                disabled={!declineReason}
+                style={{
+                  padding: '8px 18px', borderRadius: 8,
+                  background: declineReason ? '#dc1e34' : '#e5e7eb',
+                  border: 'none', color: '#fff',
+                  fontFamily: 'DM Sans', fontWeight: 600,
+                  cursor: declineReason ? 'pointer' : 'default',
+                }}
+              >Confirm Decline</button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )
