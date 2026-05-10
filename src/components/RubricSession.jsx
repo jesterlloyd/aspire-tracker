@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { PATIENT_POPULATION_MAP, UNITS_BY_DIVISION, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import ScoreFlag from './ScoreFlag'
+import { logEvent, eventExists } from '../lib/logEvent'
 
 // ── Domain data ──────────────────────────────────────────────
 const CJ_QUESTIONS = [
@@ -405,6 +406,17 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     // Fetch all completed rubrics fresh from DB so stale local state can never affect the result
     const recalc = await recalculateStudentAverages(student.id, supabase)
     if (recalc) await onStudentUpdate(student.id, recalc)
+    // Auto-log interview event on first rubric completion
+    const already = await eventExists(supabase, student.id, 'interview')
+    if (!already) {
+      await logEvent(supabase, {
+        studentId: student.id,
+        cohortId: student.cohort_id,
+        eventType: 'interview',
+        notes: `Rubric submitted. Score: ${composite}/15`,
+        auto: true,
+      })
+    }
   }
 
   const handleReset = async () => {

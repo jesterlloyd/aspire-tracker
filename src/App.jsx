@@ -19,6 +19,7 @@ import InterviewersModal from './components/InterviewersModal'
 import ActionCenter from './components/ActionCenter'
 import Keith from './components/Keith'
 import FeedbackPanel from './components/FeedbackPanel'
+import { logEvent, eventExists } from './lib/logEvent'
 
 /*
   COHORT ISOLATION CONTRACT
@@ -280,6 +281,10 @@ function MainApp({ onLogout }) {
       s.id === student.id ? { ...s, matched_unit_id: unit.id, interview_outcome: 'Accepted', match_quality, status: 'Placed' } : s
     ))
     setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, slots_remaining: newRemaining } : u))
+    const alreadyPlaced = await eventExists(supabase, student.id, 'placement')
+    if (!alreadyPlaced) {
+      await logEvent(supabase, { studentId: student.id, cohortId: activeCohortId, eventType: 'placement', notes: `Placed in ${unit.unit_name}`, auto: true })
+    }
   }
 
   const unmatch = async (student, unit) => {

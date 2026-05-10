@@ -10,6 +10,7 @@ import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { downloadFile, buildStudentFilename } from '../lib/fileUtils'
 import { DECLINE_REASONS } from '../lib/statuses'
 import { EVENT_TYPES, EVENT_TYPE_LABELS, getEventColor } from '../lib/eventTypes'
+import { logEvent, eventExists } from '../lib/logEvent'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
@@ -621,9 +622,18 @@ export default function StudentSidePanel({
               <Field label="ASPIRE Status">
                 <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
                   {data.status && (() => { const cfg = ASPIRE_STATUS_CONFIG[data.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']; return <span style={{ fontSize:11, fontWeight:700, padding:'2px 10px', borderRadius:20, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, alignSelf:'flex-start' }}>{data.status}</span> })()}
-                  <select className="sp-select" value={data.status||''} onChange={e => {
-                    if (e.target.value === 'Declined') { setShowDeclineModal(true) }
-                    else handleSelect('status', e.target.value)
+                  <select className="sp-select" value={data.status||''} onChange={async e => {
+                    const newStatus = e.target.value
+                    if (newStatus === 'Declined') { setShowDeclineModal(true) }
+                    else {
+                      handleSelect('status', newStatus)
+                      const statusEventMap = { 'Form Sent': 'form_sent', 'Form Received': 'form_received', 'Placed': 'placement', 'Completed': 'completion' }
+                      const eventType = statusEventMap[newStatus]
+                      if (eventType) {
+                        const already = await eventExists(supabase, student.id, eventType)
+                        if (!already) await logEvent(supabase, { studentId: student.id, cohortId: student.cohort_id, eventType, notes: `Manual status change to ${newStatus}`, auto: false })
+                      }
+                    }
                   }}>
                     <option value="">Select status…</option>
                     {ASPIRE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -1008,7 +1018,7 @@ export default function StudentSidePanel({
                     <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'block', marginBottom:3 }}>Event Type</label>
                     <select className="sp-select" value={newEvent.event_type}
                       onChange={e => setNewEvent(p => ({ ...p, event_type: e.target.value }))}>
-                      {EVENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      {EVENT_TYPES.filter(t => t.manual).map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                   </div>
                   <div>
@@ -1042,8 +1052,11 @@ export default function StudentSidePanel({
                   <div key={ev.id} style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
                     <div style={{ width:10, height:10, borderRadius:'50%', background:getEventColor(ev.event_type), marginTop:3, flexShrink:0 }} />
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:13, fontWeight:600, color:'#1d2567', fontFamily:'DM Sans,sans-serif' }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:'#1d2567', fontFamily:'DM Sans,sans-serif', display:'flex', alignItems:'center', gap:4 }}>
                         {EVENT_TYPE_LABELS[ev.event_type] || ev.event_type}
+                        {ev.created_by === 'system' && (
+                          <span style={{ fontFamily:'DM Sans', fontSize:9, fontWeight:600, background:'#f0f9ff', color:'#0369a1', border:'1px solid #bae6fd', borderRadius:4, padding:'1px 5px', textTransform:'uppercase', letterSpacing:'0.05em' }}>Auto</span>
+                        )}
                       </div>
                       <div style={{ fontSize:12, color:'#6b7280', fontFamily:'DM Sans,sans-serif' }}>
                         {ev.event_date}{ev.event_time ? ` · ${ev.event_time}` : ''}{ev.notes ? ` · ${ev.notes}` : ''}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { logEvent, eventExists } from '../lib/logEvent'
 
 const JESTER = 'JesterLloyd.Bautista@cshs.org'
 
@@ -170,6 +171,33 @@ export default function ShiftLogPage() {
       if (status === 'approved') {
         newApprovedVal = currentApproved + hours
         await supabase.from('students').update({ approved_hours: newApprovedVal }).eq('id', student.id)
+
+        // Automation 5: Rotation Start — first approved shift
+        const { data: existingShifts } = await supabase
+          .from('student_shift_logs').select('id')
+          .eq('student_id', student.id).eq('status', 'approved').limit(2)
+        const isFirstShift = existingShifts && existingShifts.length === 1
+        const alreadyRotStart = await eventExists(supabase, student.id, 'rotation_start')
+        if (isFirstShift && !alreadyRotStart) {
+          await logEvent(supabase, {
+            studentId: student.id, cohortId,
+            eventType: 'rotation_start',
+            notes: `First shift logged: ${isDiffUnit ? diffUnitName.trim() : unitName}`,
+            auto: true,
+          })
+        }
+
+        // Automation 6: Rotation End — required hours met
+        const hoursNowMet = hoursReq > 0 && newApprovedVal >= hoursReq
+        const alreadyRotEnd = await eventExists(supabase, student.id, 'rotation_end')
+        if (hoursNowMet && !alreadyRotEnd) {
+          await logEvent(supabase, {
+            studentId: student.id, cohortId,
+            eventType: 'rotation_end',
+            notes: `Required hours met: ${newApprovedVal}/${hoursReq} hrs`,
+            auto: true,
+          })
+        }
       } else {
         newPendingVal = currentPending + hours
         await supabase.from('students').update({ pending_hours: newPendingVal }).eq('id', student.id)

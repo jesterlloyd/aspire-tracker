@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { PATIENT_POPULATION_MAP } from '../lib/constants'
 import { setAspireStatus } from '../lib/statusUtils'
+import { logEvent, eventExists } from '../lib/logEvent'
 
 const PAGE_TITLE = 'ASPIRE Program: Student Information Form'
 
@@ -229,6 +230,16 @@ export default function StudentIntakeFormPage() {
       return
     }
     await setAspireStatus(studentId, 'Form Received')
+    const alreadyLogged = await eventExists(supabase, studentId, 'form_received')
+    if (!alreadyLogged) {
+      await logEvent(supabase, {
+        studentId,
+        cohortId: acceptingCohort.id,
+        eventType: 'form_received',
+        notes: 'Student submitted /student-form',
+        auto: true,
+      })
+    }
     setSubmitted(true)
   }
 
