@@ -486,7 +486,7 @@ function MainApp({ onLogout }) {
         )}
 
         {!loading && !dbError && cohorts.length > 0 && activeTab === 'overview' && (
-          <OverviewTab students={students} units={units} onStudentUpdate={updateStudent} cohortId={activeCohortId} />
+          <OverviewTab students={students} units={units} onStudentUpdate={updateStudent} cohortId={activeCohortId} cohort={activeCohort} />
         )}
 
         {!loading && !dbError && cohorts.length > 0 && activeTab === 'profiles' && (

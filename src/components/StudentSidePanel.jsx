@@ -9,6 +9,7 @@ import ConfirmDeleteModal from './ConfirmDeleteModal'
 import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { downloadFile, buildStudentFilename } from '../lib/fileUtils'
 import { DECLINE_REASONS } from '../lib/statuses'
+import { EVENT_TYPES, EVENT_TYPE_LABELS, getEventColor } from '../lib/eventTypes'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
@@ -175,6 +176,42 @@ export default function StudentSidePanel({
       .order('sent_at', { ascending: false })
       .then(({ data }) => setStudentComms(data || []))
   }, [student.id])
+
+  // Program events
+  const [studentEvents,   setStudentEvents]   = useState([])
+  const [showEventForm,   setShowEventForm]   = useState(false)
+  const [savingEvent,     setSavingEvent]     = useState(false)
+  const [newEvent, setNewEvent] = useState({ event_type: 'note', event_date: '', event_time: '', notes: '' })
+
+  useEffect(() => {
+    if (!student.id) return
+    supabase.from('program_events').select('*').eq('student_id', student.id)
+      .order('event_date', { ascending: false })
+      .then(({ data }) => setStudentEvents(data || []))
+  }, [student.id])
+
+  const handleAddEvent = async () => {
+    if (!newEvent.event_date) return
+    setSavingEvent(true)
+    const { data } = await supabase.from('program_events').insert({
+      student_id:  student.id,
+      cohort_id:   student.cohort_id,
+      event_type:  newEvent.event_type,
+      event_date:  newEvent.event_date,
+      event_time:  newEvent.event_time || null,
+      notes:       newEvent.notes,
+      created_by:  'coordinator',
+    }).select().single()
+    if (data) setStudentEvents(prev => [data, ...prev])
+    setNewEvent({ event_type: 'note', event_date: '', event_time: '', notes: '' })
+    setShowEventForm(false)
+    setSavingEvent(false)
+  }
+
+  const handleDeleteEvent = async (id) => {
+    await supabase.from('program_events').delete().eq('id', id)
+    setStudentEvents(prev => prev.filter(e => e.id !== id))
+  }
 
   const currentIndex = sortedStudents.findIndex(s => s.id === student.id)
   const prevStudent  = currentIndex > 0 ? sortedStudents[currentIndex - 1] : null
@@ -896,6 +933,77 @@ export default function StudentSidePanel({
           <div className="sp-section">
             <SectionHeader title="Notes" />
             <textarea className="sp-textarea" rows={4} value={data.notes||''} onChange={e => handleText('notes', e.target.value)} placeholder="Add notes…" />
+          </div>
+
+          {/* Program Timeline */}
+          <div className="sp-section">
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+              <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+                Program Timeline
+              </div>
+              <button onClick={() => setShowEventForm(p => !p)}
+                style={{ fontSize:12, color:'var(--nightfall)', background:'none', border:'1px solid var(--nightfall)', borderRadius:6, padding:'3px 10px', cursor:'pointer', fontFamily:'DM Sans,sans-serif' }}>
+                {showEventForm ? 'Cancel' : '+ Add Event'}
+              </button>
+            </div>
+
+            {showEventForm && (
+              <div style={{ background:'#f9fafb', border:'1px solid #e5e7eb', borderRadius:8, padding:12, marginBottom:12 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8 }}>
+                  <div>
+                    <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'block', marginBottom:3 }}>Event Type</label>
+                    <select className="sp-select" value={newEvent.event_type}
+                      onChange={e => setNewEvent(p => ({ ...p, event_type: e.target.value }))}>
+                      {EVENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'block', marginBottom:3 }}>Date *</label>
+                    <input className="sp-input" type="date" value={newEvent.event_date}
+                      onChange={e => setNewEvent(p => ({ ...p, event_date: e.target.value }))} />
+                  </div>
+                </div>
+                <div style={{ marginBottom:8 }}>
+                  <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'block', marginBottom:3 }}>Time (optional)</label>
+                  <input className="sp-input" type="time" value={newEvent.event_time}
+                    onChange={e => setNewEvent(p => ({ ...p, event_time: e.target.value }))} style={{ maxWidth:130 }} />
+                </div>
+                <div style={{ marginBottom:10 }}>
+                  <label style={{ fontSize:11, fontWeight:600, color:'#6b7280', display:'block', marginBottom:3 }}>Notes (optional)</label>
+                  <input className="sp-input" type="text" value={newEvent.notes}
+                    onChange={e => setNewEvent(p => ({ ...p, notes: e.target.value }))} placeholder="Optional note…" />
+                </div>
+                <button onClick={handleAddEvent} disabled={!newEvent.event_date || savingEvent}
+                  style={{ background:'var(--nightfall)', color:'#fff', border:'none', borderRadius:6, padding:'6px 14px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:13, cursor:'pointer' }}>
+                  {savingEvent ? 'Saving…' : 'Save Event'}
+                </button>
+              </div>
+            )}
+
+            {studentEvents.length === 0 ? (
+              <p style={{ fontSize:13, color:'#9ca3af', fontStyle:'italic', margin:0 }}>No events logged yet.</p>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {studentEvents.map(ev => (
+                  <div key={ev.id} style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
+                    <div style={{ width:10, height:10, borderRadius:'50%', background:getEventColor(ev.event_type), marginTop:3, flexShrink:0 }} />
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:'#1d2567', fontFamily:'DM Sans,sans-serif' }}>
+                        {EVENT_TYPE_LABELS[ev.event_type] || ev.event_type}
+                      </div>
+                      <div style={{ fontSize:12, color:'#6b7280', fontFamily:'DM Sans,sans-serif' }}>
+                        {ev.event_date}{ev.event_time ? ` · ${ev.event_time}` : ''}{ev.notes ? ` · ${ev.notes}` : ''}
+                      </div>
+                    </div>
+                    <button onClick={() => handleDeleteEvent(ev.id)}
+                      style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:'#d1d5db', padding:'0 2px', lineHeight:1 }}
+                      title="Delete event"
+                      onMouseEnter={e => e.currentTarget.style.color='#991b1b'}
+                      onMouseLeave={e => e.currentTarget.style.color='#d1d5db'}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Communication History */}

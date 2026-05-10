@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import StatCard from './StatCard'
+import CohortGantt from './CohortGantt'
 import { Layers, CheckSquare, Clock, GraduationCap, AlertTriangle } from 'lucide-react'
 
 const DIVISIONS = ['Surgical', 'Medical', 'Critical Care', 'Specialty']
@@ -33,7 +34,7 @@ function openMailto(bcc, body) {
   a.click()
 }
 
-export default function OverviewTab({ students, units, onStudentUpdate, cohortId }) {
+export default function OverviewTab({ students, units, onStudentUpdate, cohortId, cohort }) {
   const [unitGroupsOpen,   setUnitGroupsOpen]   = useState({})
   const [schoolGroupsOpen, setSchoolGroupsOpen] = useState({})
   const [toast,            setToast]            = useState(null)
@@ -41,6 +42,17 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [campusOpen,       setCampusOpen]       = useState(false)
   const [campusLogs,       setCampusLogs]       = useState([])
   const [campusLoading,    setCampusLoading]    = useState(false)
+  const [showTimeline,     setShowTimeline]     = useState(false)
+  const [cohortEvents,     setCohortEvents]     = useState([])
+  const [eventsLoaded,     setEventsLoaded]     = useState(false)
+
+  useEffect(() => {
+    if (!showTimeline || eventsLoaded || !cohortId) return
+    supabase.from('program_events').select('*').eq('cohort_id', cohortId)
+      .then(({ data }) => { setCohortEvents(data || []); setEventsLoaded(true) })
+  }, [showTimeline, cohortId, eventsLoaded])
+
+  useEffect(() => { setCohortEvents([]); setEventsLoaded(false) }, [cohortId])
 
   const todayStr = (() => { const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}` })()
 
@@ -269,6 +281,12 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
               </div>
             </div>
             <div className="ov-expand-toggle">
+              <button onClick={() => setShowTimeline(p => !p)}
+                style={{ color: showTimeline ? 'var(--nightfall)' : undefined,
+                  fontWeight: showTimeline ? 700 : undefined }}>
+                {showTimeline ? '▲ Timeline' : '▼ Timeline'}
+              </button>
+              <span style={{ color:'var(--border)' }}>·</span>
               <button onClick={expandAllSchools}>Expand All</button>
               <span style={{ color:'var(--border)' }}>·</span>
               <button onClick={collapseAllSchools}>Collapse All</button>
@@ -279,6 +297,24 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
       {/* ════════ SCROLLABLE CONTENT ════════ */}
       <div className="aggregate-scrollable-content">
+
+        {/* ── Cohort Gantt timeline ── */}
+        {showTimeline && (
+          <div style={{ borderBottom:'1px solid #e5e7eb', background:'#fff', padding:'16px 0 8px' }}>
+            <div style={{ padding:'0 16px 10px', fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:14, color:'var(--nightfall)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <span>Student Timeline</span>
+              <button onClick={() => setShowTimeline(false)}
+                style={{ fontSize:12, background:'none', border:'none', cursor:'pointer', color:'#9ca3af' }}>Close ✕</button>
+            </div>
+            {cohortEvents.length === 0 ? (
+              <div style={{ padding:'24px', textAlign:'center', fontFamily:'DM Sans,sans-serif', fontSize:14, color:'#9ca3af', fontStyle:'italic' }}>
+                No timeline data yet. Log orientation and rotation dates in student profiles to populate this chart.
+              </div>
+            ) : (
+              <CohortGantt students={students} events={cohortEvents} cohort={cohort} />
+            )}
+          </div>
+        )}
 
         <div className="ov-panels-body">
 
