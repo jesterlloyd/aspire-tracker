@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import ImportStudentsCSV from './ImportStudentsCSV'
 import { getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
+import { ASPIRE_STATUSES } from '../lib/statuses'
 
 function gpaBadge(gpa) {
   if (gpa == null) return { text: 'GPA: N/A', bg: 'var(--sand)', color: 'var(--raven)' }
@@ -40,8 +41,8 @@ export default function StudentListPanel({
         </select>
         <select className="filter-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
           <option value="">All Statuses</option>
-          {['Pending Outreach','Form Sent','Interviewed','Accepted','Active Rotation','Completed','Declined'].map(s => (
-            <option key={s} value={s}>{s}</option>
+          {ASPIRE_STATUSES.map(s => (
+            <option key={s.value} value={s.value}>{s.label}</option>
           ))}
         </select>
         <select className="filter-select" value={sortBy} onChange={e => setSortBy(e.target.value)}>
