@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { COHORT_STATUSES } from '../lib/constants'
+import { Eye, EyeOff } from 'lucide-react'
 
 export default function ManageCohortModal({ cohort, onSave, onClose }) {
-  const [form, setForm]     = useState({ ...cohort })
-  const [saving, setSaving] = useState(false)
-  const [error,  setError]  = useState(null)
+  const [form, setForm]         = useState({ ...cohort })
+  const [saving, setSaving]     = useState(false)
+  const [error,  setError]      = useState(null)
+  const [showPwd, setShowPwd]   = useState(false)
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
@@ -14,12 +16,13 @@ export default function ManageCohortModal({ cohort, onSave, onClose }) {
     setSaving(true)
     setError(null)
     const err = await onSave(cohort.id, {
-      name:                 form.name,
-      status:               form.status,
-      start_date:           form.start_date,
-      end_date:             form.end_date,
-      notes:                form.notes,
+      name:                  form.name,
+      status:                form.status,
+      start_date:            form.start_date,
+      end_date:              form.end_date,
+      notes:                 form.notes,
       accepting_submissions: !!form.accepting_submissions,
+      school_form_password:  form.school_form_password || '',
     })
     if (err) { setError(err.message || 'Failed to save.'); setSaving(false) }
     else onClose()
@@ -66,6 +69,28 @@ export default function ManageCohortModal({ cohort, onSave, onClose }) {
             <div className="form-field">
               <label className="form-label">Notes</label>
               <textarea className="form-textarea" rows={3} value={form.notes || ''} onChange={e => set('notes', e.target.value)} />
+            </div>
+
+            {/* School Form Password */}
+            <div className="form-field">
+              <label className="form-label">School Form Password</label>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input
+                  className="form-input"
+                  type={showPwd ? 'text' : 'password'}
+                  value={form.school_form_password || ''}
+                  onChange={e => set('school_form_password', e.target.value)}
+                  placeholder="Set a password for school coordinators"
+                  style={{ paddingRight: 40 }}
+                />
+                <button type="button" onClick={() => setShowPwd(p => !p)}
+                  style={{ position: 'absolute', right: 10, background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', display: 'flex', alignItems: 'center', padding: 0 }}>
+                  {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4, lineHeight: 1.5 }}>
+                Required. Share this password with authorized school placement coordinators each cohort cycle. The form is locked for everyone until a password is set.
+              </div>
             </div>
 
             {/* Accepting submissions toggle */}

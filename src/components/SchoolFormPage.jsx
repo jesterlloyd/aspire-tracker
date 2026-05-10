@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { PROGRAM_TYPES, SCHOOLS } from '../lib/constants'
 
 const PAGE_TITLE = 'ASPIRE Program Student Placement Request Form'
+const JESTER_EMAIL = 'JesterLloyd.Bautista@cshs.org'
 
 const newStudent = () => ({
   _key: Date.now() + Math.random(),
@@ -10,10 +11,19 @@ const newStudent = () => ({
   program_type: '', term_dates: '', hours_required: '', estimated_graduation: '',
 })
 
+// pageState: 'loading' | 'unavailable' | 'password' | 'verified'
 export default function SchoolFormPage() {
-  const [cohortId,   setCohortId]   = useState(null)
-  const [cohortName, setCohortName] = useState('')
-  const [open,       setOpen]       = useState(null)
+  const [cohortId,    setCohortId]    = useState(null)
+  const [cohortName,  setCohortName]  = useState('')
+  const [pageState,   setPageState]   = useState('loading')
+
+  // Password gate
+  const [pwdInput,    setPwdInput]    = useState('')
+  const [pwdError,    setPwdError]    = useState(null)
+  const [pwdChecking, setPwdChecking] = useState(false)
+
+  // Keep open as alias for legacy form rendering
+  const open = pageState === 'verified'
 
   const [coord, setCoord] = useState({ school: '', name: '', email: '', notes: '' })
   const [rows,  setRows]  = useState([newStudent()])
@@ -25,12 +35,26 @@ export default function SchoolFormPage() {
 
   useEffect(() => {
     document.title = 'ASPIRE Program Tracker'
-    supabase.from('cohorts').select('id, name').eq('accepting_submissions', true)
-      .limit(1).single()
-      .then(({ data }) => {
-        if (data) { setCohortId(data.id); setCohortName(data.name); setOpen(true) }
-        else setOpen(false)
-      })
+    const init = async () => {
+      const { data } = await supabase
+        .from('cohorts').select('id, name')
+        .eq('accepting_submissions', true)
+        .limit(1).single()
+
+      if (!data) { setPageState('unavailable'); return }
+
+      setCohortId(data.id)
+      setCohortName(data.name)
+
+      try {
+        const { data: requiresPwd } = await supabase
+          .rpc('school_form_requires_password', { p_cohort_id: data.id })
+        setPageState(requiresPwd ? 'password' : 'unavailable')
+      } catch {
+        setPageState('unavailable')
+      }
+    }
+    init()
   }, [])
 
   const setC    = (k, v) => setCoord(p => ({ ...p, [k]: v }))
@@ -117,7 +141,8 @@ export default function SchoolFormPage() {
     setResult({ added, skipped })
   }
 
-  if (open === null) return (
+  // ── State 1: Loading ─────────────────────────────────────────
+  if (pageState === 'loading') return (
     <div className="uf-page">
       <div className="uf-card" style={{ textAlign: 'center', padding: '60px 40px' }}>
         <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
@@ -126,18 +151,96 @@ export default function SchoolFormPage() {
     </div>
   )
 
-  if (open === false) return (
+  // ── State 2: Unavailable (no cohort open or no password set) ──
+  if (pageState === 'unavailable') return (
     <div className="uf-page">
       <div className="uf-card" style={{ textAlign: 'center', padding: '56px 40px' }}>
         <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
-        <h2 className="uf-title" style={{ marginBottom: 12 }}>{PAGE_TITLE}</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 15, lineHeight: 1.6 }}>
-          Submissions are not currently open. Please contact the ASPIRE team for more information.
+        <h2 style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 700, fontSize: 24,
+          color: 'var(--nightfall)', marginBottom: 16 }}>Form Unavailable</h2>
+        <p style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 400, fontSize: 15,
+          color: '#6b7280', lineHeight: 1.6, marginBottom: 8 }}>
+          The ASPIRE school submission form is not currently accepting registrations. This may mean
+          the current cohort cycle has not yet opened, or the form is temporarily closed.
+        </p>
+        <p style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 400, fontSize: 15,
+          color: '#6b7280', lineHeight: 1.6 }}>
+          If you believe this is an error, please contact the ASPIRE Program team at{' '}
+          <a href={`mailto:${JESTER_EMAIL}`}
+            style={{ color: 'var(--nightfall)', textDecoration: 'underline' }}>{JESTER_EMAIL}</a>.
         </p>
       </div>
     </div>
   )
 
+  // ── State 3: Password screen ──────────────────────────────────
+  if (pageState === 'password') return (
+    <div className="uf-page">
+      <div className="uf-card" style={{ textAlign: 'center', padding: '48px 40px', maxWidth: 440 }}>
+        <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
+        <h2 style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 700, fontSize: 22,
+          color: 'var(--nightfall)', margin: '0 0 10px' }}>School Coordinator Access</h2>
+        <p style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 400, fontSize: 14,
+          color: '#6b7280', lineHeight: 1.6, marginBottom: 24 }}>
+          Please enter the cohort password provided by the ASPIRE Program team to access this form.
+        </p>
+        <form onSubmit={async e => {
+          e.preventDefault()
+          if (!pwdInput.trim()) return
+          setPwdChecking(true)
+          setPwdError(null)
+          try {
+            const { data: ok, error: rpcErr } = await supabase
+              .rpc('verify_school_form_password', {
+                p_cohort_id: cohortId,
+                p_entered_password: pwdInput.trim(),
+              })
+            if (rpcErr) throw rpcErr
+            if (ok) {
+              setPageState('verified')
+            } else {
+              setPwdError('Incorrect password. Please check with the ASPIRE Program team and try again.')
+              setPwdInput('')
+            }
+          } catch {
+            setPwdError('Unable to verify at this time. Please try again.')
+          }
+          setPwdChecking(false)
+        }}>
+          <input
+            type="password"
+            value={pwdInput}
+            onChange={e => { setPwdInput(e.target.value); setPwdError(null) }}
+            placeholder="Enter cohort password"
+            style={{
+              width: '100%', height: 52, fontSize: 16, padding: '0 14px',
+              borderRadius: 12, border: `1px solid ${pwdError ? '#dc1e34' : '#e5e7eb'}`,
+              fontFamily: 'DM Sans, sans-serif', outline: 'none',
+              boxSizing: 'border-box', marginBottom: 8,
+            }}
+            autoFocus
+          />
+          {pwdError && (
+            <p style={{ fontSize: 14, color: '#dc1e34', margin: '0 0 12px',
+              fontFamily: 'DM Sans, sans-serif', textAlign: 'left' }}>
+              {pwdError}
+            </p>
+          )}
+          <button type="submit" disabled={pwdChecking || !pwdInput.trim()}
+            style={{
+              width: '100%', height: 52, fontSize: 15, fontWeight: 700,
+              fontFamily: 'DM Sans, sans-serif',
+              background: 'var(--nightfall)', color: '#fff',
+              border: 'none', borderRadius: 12, cursor: 'pointer',
+            }}>
+            {pwdChecking ? 'Verifying…' : 'Access Form'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+
+  // ── Confirmation screen (after successful submit) ─────────────
   if (result) return (
     <div className="uf-page">
       <div className="uf-card uf-card-confirm">
