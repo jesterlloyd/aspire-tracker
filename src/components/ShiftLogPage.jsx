@@ -28,7 +28,7 @@ export default function ShiftLogPage() {
   // Form fields
   const today = fmtLocalDate(new Date())
   const [shiftDate,         setShiftDate]         = useState(today)
-  const [hours,             setHours]             = useState(8)
+  const [hours,             setHours]             = useState(12)
   const [shiftType,         setShiftType]         = useState('Day')
   const [isDiffUnit,        setIsDiffUnit]        = useState(false)
   const [diffUnitName,      setDiffUnitName]      = useState('')
@@ -184,7 +184,7 @@ export default function ShiftLogPage() {
   }
 
   const resetForm = () => {
-    setShiftDate(today); setHours(8); setShiftType('Day')
+    setShiftDate(today); setHours(12); setShiftType('Day')
     setIsDiffUnit(false); setDiffUnitName(''); setDiffUnitReason('')
     setPreceptorChanged(false)
     setLearningHighlight(''); setSupportNeeded(''); setAttestation(false)
@@ -298,8 +298,8 @@ export default function ShiftLogPage() {
                 {/* Shift type */}
                 <div style={{ marginBottom:18 }}>
                   <label style={{ fontSize:14, fontWeight:600, color:'var(--raven)', display:'block', marginBottom:6 }}>Shift Type</label>
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-                    {['Day','Night'].map(t => (
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
+                    {['Day','Night','Mid'].map(t => (
                       <button key={t} type="button" onClick={() => setShiftType(t)}
                         style={{ height:48, borderRadius:10, fontSize:15, fontWeight:600, cursor:'pointer', border:`2px solid var(--nightfall)`,
                           background: shiftType===t ? 'var(--nightfall)' : '#fff',
