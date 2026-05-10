@@ -42,7 +42,7 @@ export default function StudentIntakeFormPage() {
   const [error,          setError]          = useState(null)
 
   useEffect(() => {
-    document.title = 'ASPIRE Program Tracker'
+    document.title = 'ASPIRE Intelligence'
     supabase.from('cohorts').select('id, name').eq('accepting_submissions', true)
       .limit(1).single()
       .then(({ data }) => {

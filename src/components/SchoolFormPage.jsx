@@ -34,7 +34,7 @@ export default function SchoolFormPage() {
   const [debugError,  setDebugError]  = useState(null)
 
   useEffect(() => {
-    document.title = 'ASPIRE Program Tracker'
+    document.title = 'ASPIRE Intelligence'
     const init = async () => {
       const { data } = await supabase
         .from('cohorts').select('id, name')

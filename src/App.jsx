@@ -397,7 +397,7 @@ function MainApp({ onLogout }) {
               <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="36" />
               <div style={{ width:1, height:32, background:'rgba(255,255,255,0.2)', flexShrink:0 }} />
               <div style={{ display:'flex', flexDirection:'column', justifyContent:'center' }}>
-                <h1 className="header-title">ASPIRE Program Tracker</h1>
+                <h1 className="header-title">ASPIRE Intelligence</h1>
                 <p style={{ margin:0, fontSize:11, color:'rgba(255,255,255,0.6)', fontWeight:400, letterSpacing:'0.01em', lineHeight:1.3 }}>
                   Affiliate Students' Pathway from Internship to Residency Experience
                 </p>
@@ -471,7 +471,7 @@ function MainApp({ onLogout }) {
       <main className="app-main">
         {cohorts.length === 0 && !loading && (
           <div className="state-box" style={{ marginTop: 40 }}>
-            <p style={{ marginBottom: 8, fontSize: 16, fontWeight: 600 }}>Welcome to ASPIRE Program Tracker</p>
+            <p style={{ marginBottom: 8, fontSize: 16, fontWeight: 600 }}>Welcome to ASPIRE Intelligence</p>
             <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>Get started by creating your first cohort.</p>
             <button className="btn btn-primary" onClick={() => setShowNewCohort(true)}>+ Create First Cohort</button>
           </div>

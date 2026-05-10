@@ -60,7 +60,7 @@ Duration: ${slot.duration_minutes} minutes
 
 Please create the Microsoft Teams meeting and send the student the link at their school email: ${student.school_email}
 
-This is an automated notification from the ASPIRE Program Tracker.${noEmailNote}`
+This is an automated notification from the ASPIRE Intelligence.${noEmailNote}`
   const bcc = toEmail === JESTER_EMAIL ? 'Krystal.Rodriguez@cshs.org' : `${JESTER_EMAIL},Krystal.Rodriguez@cshs.org`
   return `mailto:${encodeURIComponent(toEmail)}?bcc=${encodeURIComponent(bcc)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }

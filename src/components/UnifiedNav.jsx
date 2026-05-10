@@ -174,11 +174,14 @@ export default function UnifiedNav({
               }}
               onMouseEnter={e => { if (!isActive) e.currentTarget.style.background='rgba(255,255,255,0.08)' }}
               onMouseLeave={e => { if (!isActive) e.currentTarget.style.background='transparent' }}>
-              {/* Colored acronym badge */}
+              {/* Acronym badge — frosted glass when unselected, solid white when selected */}
               <span style={{
                 width:24, height:24, borderRadius:6, flexShrink:0,
-                background: badge, display:'flex', alignItems:'center', justifyContent:'center',
-                fontSize:11, fontWeight:700, color:'#fff',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:11, fontWeight:700,
+                background: isActive ? '#ffffff' : 'rgba(255,255,255,0.15)',
+                color: isActive ? '#1d2567' : '#ffffff',
+                border: isActive ? 'none' : '1px solid rgba(255,255,255,0.3)',
               }}>
                 {id === 'overview' ? 'A' : id === 'profiles' ? 'SP' : id === 'interviews' ? 'IR' : 'E'}
               </span>
