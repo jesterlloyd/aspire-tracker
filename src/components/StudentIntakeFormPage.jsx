@@ -362,9 +362,9 @@ export default function StudentIntakeFormPage() {
                   onChange={e => set('shift_availability', e.target.value)}
                   style={{ maxWidth: 220 }}>
                   <option value="">Select…</option>
-                  <option value="Day">Day</option>
-                  <option value="Night">Night</option>
-                  <option value="Either">Either</option>
+                  <option value="Day Shift Preferred">Day Shift Preferred</option>
+                  <option value="Night Shift Preferred">Night Shift Preferred</option>
+                  <option value="No Preference">No Preference</option>
                 </select>
               </div>
             </div>

@@ -234,7 +234,7 @@ export const INTERVIEW_OUTCOMES = [
   'Declined',
 ]
 
-export const SHIFT_OPTIONS = ['Day', 'Night', 'Either', 'Day and Night']
+export const SHIFT_OPTIONS = ['Day Shift Preferred', 'Night Shift Preferred', 'No Preference']
 
 // Backward-compat alias — use ALL_UNIT_NAMES going forward
 export const UNIT_NAMES = ALL_UNIT_NAMES
