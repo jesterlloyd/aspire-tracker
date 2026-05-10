@@ -128,7 +128,7 @@ export default function ShiftLogPage() {
     e.preventDefault()
     const errs = []
     if (shiftDate > today) errs.push('Shift date cannot be in the future.')
-    if (hours < 1 || hours > 14) errs.push('Hours must be between 1 and 14.')
+    if (hours < 1 || hours > 13) errs.push('Hours must be between 1 and 13.')
     if (!attestation) errs.push('You must confirm the attestation before submitting.')
     if (isDiffUnit && !diffUnitReason.trim()) errs.push('Please explain why you worked at a different unit.')
     setFormErrors(errs)
@@ -290,7 +290,7 @@ export default function ShiftLogPage() {
                     <button type="button" onClick={() => setHours(h => Math.max(1, +(h-0.5).toFixed(1)))}
                       style={{ width:48, height:48, borderRadius:24, fontSize:24, border:'2px solid var(--nightfall)', background:'#fff', cursor:'pointer', fontWeight:700, color:'var(--nightfall)' }}>−</button>
                     <span style={{ fontSize:32, fontWeight:700, color:'var(--nightfall)', minWidth:64, textAlign:'center' }}>{hours}</span>
-                    <button type="button" onClick={() => setHours(h => Math.min(14, +(h+0.5).toFixed(1)))}
+                    <button type="button" onClick={() => setHours(h => Math.min(13, +(h+0.5).toFixed(1)))}
                       style={{ width:48, height:48, borderRadius:24, fontSize:24, border:'2px solid var(--nightfall)', background:'#fff', cursor:'pointer', fontWeight:700, color:'var(--nightfall)' }}>+</button>
                   </div>
                 </div>
@@ -414,9 +414,31 @@ export default function ShiftLogPage() {
               </div>
             </div>
 
-            {celebration && (
-              <div style={{ background:'#dcfce7', border:'1px solid #bbf7d0', borderRadius:10, padding:'14px 16px', marginBottom:16, fontSize:14, color:'#166534', lineHeight:1.6 }}>
-                🎉 <strong>Congratulations!</strong> You have completed your required {required} hours for the ASPIRE Program. Your certificate of completion will be sent to you soon.
+            {/* Milestone: just crossed the threshold this shift */}
+            {celebration && newApproved >= required && (
+              <div style={{ background:'#dcfce7', border:'1px solid #86efac', borderRadius:16, padding:'20px', marginBottom:16, textAlign:'center' }}>
+                <div style={{ fontSize:36, marginBottom:8 }}>⭐</div>
+                <div style={{ fontSize:20, fontWeight:700, color:'#166534', marginBottom:8, fontFamily:'DM Sans,sans-serif' }}>
+                  You've Completed Your Required Hours!
+                </div>
+                <p style={{ fontSize:14, color:'#166534', lineHeight:1.6, margin:'0 0 16px' }}>
+                  Congratulations on completing your {required} required hours for the ASPIRE Program at Cedars-Sinai. Your coordinator will be in touch soon with your Certificate of Completion.
+                </p>
+                <button
+                  onClick={() => {
+                    const subject = encodeURIComponent(`ASPIRE Hours Completed - ${student.first_name} ${student.last_name}`)
+                    const body = encodeURIComponent(`Hi Jester,\n\nI have completed my required ${required} hours for the ASPIRE Program rotation.\n\nStudent: ${student.last_name}, ${student.first_name}\nSchool: ${student.school}\nTotal Approved Hours: ${newApproved}\n\nThank you!`)
+                    window.location.href = `mailto:JesterLloyd.Bautista@cshs.org?subject=${subject}&body=${body}`
+                  }}
+                  style={{ background:'var(--nightfall)', color:'#fff', border:'none', borderRadius:10, padding:'12px 24px', fontSize:15, fontWeight:700, fontFamily:'DM Sans,sans-serif', cursor:'pointer' }}>
+                  Remind My Coordinator
+                </button>
+              </div>
+            )}
+            {/* Already over required hours — logging additional shifts */}
+            {!celebration && newApproved >= required && required > 0 && (
+              <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:10, padding:'12px 16px', marginBottom:16, fontSize:14, color:'#166534', lineHeight:1.6, textAlign:'center' }}>
+                You have logged <strong>{newApproved}</strong> hours, exceeding your required <strong>{required}</strong>. Great dedication!
               </div>
             )}
 

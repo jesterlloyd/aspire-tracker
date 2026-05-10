@@ -230,16 +230,24 @@ ${SIG}`)
 }
 
 function buildCertificateEmail(s) {
-  return mailto(s.personal_email||s.school_email, 'Your ASPIRE Program Certificate of Completion',
+  return mailto(s.personal_email||s.school_email, 'Congratulations on Completing the ASPIRE Program!',
 `Dear ${s.first_name},
 
-Thank you for completing the ASPIRE Program Evaluation. We truly appreciate your feedback!
+Congratulations on successfully completing your ASPIRE Program rotation at Cedars-Sinai Medical Center! This is a tremendous milestone in your nursing journey, and we are incredibly proud of your dedication, commitment, and growth throughout this experience.
 
 Please find your Certificate of Completion attached to this email. You are welcome to print or save a copy for your records.
 
-Please remember to attach the certificate PDF before sending.
+Before we close out your rotation, we have two quick requests:
 
-We are honored to have been part of your nursing journey and wish you continued success as you prepare for licensure and future practice.
+1. Post-Program Survey (for you): Please take 10 to 15 minutes to complete the ASPIRE Clinical Readiness Survey. Your feedback helps us improve the program:
+https://forms.cloud.microsoft/r/GWAdKLuM8J
+
+2. Preceptor Evaluation (for your preceptor): Please share this link with ${s.matched_preceptor || 'your preceptor'} and kindly ask them to complete the ASPIRE Preceptor Feedback Questionnaire:
+https://forms.cloud.microsoft/r/brGDMzFXgy
+
+We are honored to have been part of your nursing journey. Many ASPIRE graduates go on to become strong candidates for our New Graduate RN Residency Program, and we look forward to seeing where your career takes you.
+
+Please remember to attach the Certificate of Completion PDF before sending.
 
 ${KR_SIG}`)
 }
@@ -374,7 +382,14 @@ export default function ActionCenter({
   const act8  = students.filter(s => s.status === 'Active Rotation' && !hasSent(s.id, 'midpoint_checkin'))
   const act9  = students.filter(s => s.status === 'Active Rotation' && !hasSent(s.id, 'midpoint_eval'))
   const act10 = students.filter(s => s.status === 'Completed' && !hasSent(s.id, 'post_survey'))
-  const act11 = students.filter(s => s.status === 'Completed' && !hasSent(s.id, 'certificate'))
+  const act11 = students.filter(s =>
+    !hasSent(s.id, 'certificate') && (
+      s.status === 'Completed' ||
+      (s.status === 'Active Rotation' &&
+        parseFloat(s.approved_hours||0) >= parseFloat(s.hours_required||0) &&
+        parseFloat(s.hours_required||0) > 0)
+    )
+  )
   const act12 = students.filter(s => s.status === 'Completed' && !hasSent(s.id, 'end_eval'))
 
   // ── New shift-log based actions ──────────────────────────────
