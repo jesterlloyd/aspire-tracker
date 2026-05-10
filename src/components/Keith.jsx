@@ -2,13 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { SUGGESTED_PROMPTS, generateStaticResponse, getKeithContext } from '../lib/keithKnowledge';
 
 export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, supabase, isAuthenticated }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [copiedId, setCopiedId] = useState(null);
-  const [context, setContext] = useState(null);
+  const [isOpen,       setIsOpen]       = useState(false);
+  const [messages,     setMessages]     = useState([]);
+  const [input,        setInput]        = useState('');
+  const [isTyping,     setIsTyping]     = useState(false);
+  const [copiedId,     setCopiedId]     = useState(null);
+  const [context,      setContext]      = useState(null);
   const [contextLoading, setContextLoading] = useState(false);
+  const [showTooltip,  setShowTooltip]  = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -136,6 +137,28 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
 
   return (
     <>
+      {/* Tooltip */}
+      {showTooltip && !isOpen && (
+        <div style={{
+          position: 'fixed',
+          bottom: '92px',
+          right: '24px',
+          background: '#1d2567',
+          color: '#ffffff',
+          fontFamily: 'DM Sans',
+          fontSize: '12px',
+          fontWeight: 500,
+          padding: '6px 12px',
+          borderRadius: '8px',
+          whiteSpace: 'nowrap',
+          zIndex: 1001,
+          pointerEvents: 'none',
+          boxShadow: '0 2px 8px rgba(29,37,103,0.25)',
+        }}>
+          Ask Keith
+        </div>
+      )}
+
       {/* Floating button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
@@ -155,8 +178,8 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
           transition: 'transform 0.2s ease',
           transform: isOpen ? 'scale(0.95)' : 'scale(1)',
         }}
-        onMouseEnter={e => { if (!isOpen) e.currentTarget.style.transform = 'scale(1.08)'; }}
-        onMouseLeave={e => { if (!isOpen) e.currentTarget.style.transform = isOpen ? 'scale(0.95)' : 'scale(1)'; }}
+        onMouseEnter={e => { setShowTooltip(true); if (!isOpen) e.currentTarget.style.transform = 'scale(1.08)'; }}
+        onMouseLeave={e => { setShowTooltip(false); if (!isOpen) e.currentTarget.style.transform = isOpen ? 'scale(0.95)' : 'scale(1)'; }}
       >
         {/* Orb */}
         <div style={{
