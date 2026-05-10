@@ -39,6 +39,7 @@ const STAGE1_ACTION_LABELS = {
 const PROGRAM_TYPES = [
   'BSN (Semester)',
   'BSN (Trimester)',
+  'BSN (Quarter)',
   'Accelerated BSN',
   'LVN to BSN',
   'RN to BSN',
