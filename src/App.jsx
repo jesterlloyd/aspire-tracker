@@ -18,6 +18,7 @@ import ShiftLogPage from './components/ShiftLogPage'
 import InterviewersModal from './components/InterviewersModal'
 import ActionCenter from './components/ActionCenter'
 import Keith from './components/Keith'
+import FeedbackPanel from './components/FeedbackPanel'
 
 /*
   COHORT ISOLATION CONTRACT
@@ -563,6 +564,11 @@ function MainApp({ onLogout }) {
         cohortName={activeCohort?.name}
         cohortId={activeCohortId}
         supabase={supabase}
+        isAuthenticated={true}
+      />
+      <FeedbackPanel
+        activeTab={activeTab}
+        cohortName={activeCohort?.name}
         isAuthenticated={true}
       />
     </div>
