@@ -113,6 +113,13 @@ export default function StudentSidePanel({
   useEffect(() => { setData({ ...student }); setSaveStatus('idle') }, [student.id])
   useEffect(() => { setHeadshotError(false) }, [data.headshot_url])
 
+  const [editingInterest, setEditingInterest] = useState(false)
+  const [interestDraft,   setInterestDraft]   = useState(student?.interest_statement || '')
+  useEffect(() => {
+    setInterestDraft(student?.interest_statement || '')
+    setEditingInterest(false)
+  }, [student?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const [shiftLogs,    setShiftLogs]    = useState([])
   const [adjustingId,  setAdjustingId]  = useState(null)
   const [adjustHours,  setAdjustHours]  = useState('')
@@ -539,10 +546,57 @@ export default function StudentSidePanel({
           {/* 5. Interest Statement */}
           <div className="sp-section">
             <SectionHeader title="Interest Statement" />
-            {data.interest_statement
-              ? <div className="sr-interest-block">{data.interest_statement}</div>
-              : <p style={{ fontSize:14, color:'#9ca3af', fontStyle:'italic' }}>Not yet submitted.</p>
-            }
+            {!editingInterest ? (
+              <div
+                onClick={() => setEditingInterest(true)}
+                style={{
+                  fontFamily: 'DM Sans',
+                  fontSize: '13px',
+                  color: data.interest_statement ? '#374151' : '#9ca3af',
+                  lineHeight: 1.6,
+                  padding: '10px 12px',
+                  borderRadius: '8px',
+                  border: '1px solid transparent',
+                  cursor: 'text',
+                  minHeight: '80px',
+                  transition: 'border-color 0.15s ease, background 0.15s ease',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor='#e5e7eb'; e.currentTarget.style.background='#f9fafb' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='transparent' }}
+              >
+                {data.interest_statement || 'Click to add interest statement...'}
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                <textarea
+                  value={interestDraft}
+                  onChange={e => setInterestDraft(e.target.value)}
+                  autoFocus
+                  rows={5}
+                  style={{
+                    width:'100%', padding:'10px 12px',
+                    border:'1px solid #0ea5e9', borderRadius:8,
+                    fontFamily:'DM Sans', fontSize:13,
+                    color:'#374151', lineHeight:1.6,
+                    resize:'vertical', outline:'none', boxSizing:'border-box',
+                  }}
+                />
+                <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+                  <button
+                    onClick={() => { setInterestDraft(data.interest_statement || ''); setEditingInterest(false) }}
+                    style={{ padding:'6px 14px', borderRadius:8, border:'1px solid #e5e7eb', background:'#f9fafb', fontFamily:'DM Sans', fontSize:12, cursor:'pointer' }}
+                  >Cancel</button>
+                  <button
+                    onClick={async () => {
+                      const err = await onUpdate(student.id, { interest_statement: interestDraft })
+                      if (!err) setData(p => ({ ...p, interest_statement: interestDraft }))
+                      setEditingInterest(false)
+                    }}
+                    style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'#0ea5e9', color:'#fff', fontFamily:'DM Sans', fontSize:12, fontWeight:600, cursor:'pointer' }}
+                  >Save</button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 6. Unit Preferences */}
