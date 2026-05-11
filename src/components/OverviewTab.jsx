@@ -6,8 +6,10 @@ import StatCard from './StatCard'
 import CohortGantt from './CohortGantt'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
+import SyncIndicator from './SyncIndicator'
 import { Layers, CheckSquare, Clock, GraduationCap, AlertTriangle, MapPin, Users, Copy } from 'lucide-react'
 import { calculatePriorities } from '../lib/priorities'
+import { useLastSynced } from '../hooks/useLastSynced'
 
 const DIVISIONS = ['Surgical', 'Medical', 'Critical Care', 'Specialty']
 
@@ -48,6 +50,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [campusLogs,       setCampusLogs]       = useState([])
   const [campusLoading,    setCampusLoading]    = useState(false)
   const [timelineExpanded, setTimelineExpanded] = useState(false)
+  const { markSynced: markAggregateSynced, display: aggregateSyncDisplay } = useLastSynced()
   const [cohortEvents,     setCohortEvents]     = useState([])
   const [eventsLoaded,     setEventsLoaded]     = useState(false)
 
@@ -69,6 +72,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     setCampusLogs(data || [])
     setCampusLoading(false)
     if ((data||[]).length > 0) setCampusOpen(true)
+    markAggregateSynced()
   }
 
   useEffect(() => { loadCampusLogs() }, [cohortId]) // eslint-disable-line
@@ -321,6 +325,11 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
             icon={AlertTriangle}
             colorScheme={gap > 0 ? 'amber' : 'darkgreen'}
           />
+        </div>
+
+        {/* Sync indicator below stat cards */}
+        <div style={{ display:'flex', justifyContent:'flex-end', marginTop:'4px', marginBottom:'4px', paddingRight:'4px' }}>
+          <SyncIndicator display={aggregateSyncDisplay} align="right" />
         </div>
 
         {/* Frozen panel headers — two columns matching the panels below */}

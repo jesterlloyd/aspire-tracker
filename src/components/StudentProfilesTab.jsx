@@ -5,6 +5,7 @@ import StudentSidePanel from './StudentSidePanel'
 import AccessTab from './AccessTab'
 
 import { ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
+import { useLastSynced } from '../hooks/useLastSynced'
 const ASPIRE_ORDER = ASPIRE_STATUS_SORT_ORDER
 
 function sortStudentsList(students, sortBy) {
@@ -45,6 +46,10 @@ export default function StudentProfilesTab({
   toast,
 }) {
   const [selectedStudentId, setSelectedStudentId] = useState(null)
+  const { markSynced: markProfilesSynced, display: profilesSyncDisplay } = useLastSynced()
+
+  // Mark synced whenever students data arrives
+  useEffect(() => { if (students.length >= 0) markProfilesSynced() }, [students]) // eslint-disable-line
 
   // Open specific student from global search
   useEffect(() => {
@@ -127,6 +132,7 @@ export default function StudentProfilesTab({
               onRefresh={onRefresh}
               onExportCSV={onExportCSV}
               onAddStudent={onAddStudent}
+              syncDisplay={profilesSyncDisplay}
               compressed={!!panelStudent}
             />
           </div>

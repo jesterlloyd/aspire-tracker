@@ -7,7 +7,9 @@ import { UNIT_DIVISION_MAP, ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
 import StatCard from './StatCard'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
+import SyncIndicator from './SyncIndicator'
 import { Layers, Clock, Users, MapPin, Star, TrendingUp, UserX, ClipboardList } from 'lucide-react'
+import { useLastSynced } from '../hooks/useLastSynced'
 
 const POOL_ELIGIBLE_STATUSES = new Set([
   'Pending Outreach', 'Form Sent', 'Form Received', 'Interview Scheduled', 'Interviewed',
@@ -150,6 +152,10 @@ export default function MatchingTab({
     URL.revokeObjectURL(url)
   }
 
+  const { markSynced: markEmbedSynced, display: embedSyncDisplay } = useLastSynced()
+  // Mark synced whenever data arrives
+  useEffect(() => { if (students.length >= 0) markEmbedSynced() }, [students]) // eslint-disable-line
+
   const studentsCount  = students.length
   const matchedCount   = matchedStudents.length
   const unmatchedCount = unmatchedAll.length
@@ -171,6 +177,11 @@ export default function MatchingTab({
           icon={UserX}
           colorScheme={unmatchedCount > 0 ? 'amber' : 'green'}
         />
+      </div>
+
+      {/* Sync indicator below stat cards */}
+      <div style={{ display:'flex', justifyContent:'flex-end', marginTop:'4px', marginBottom:'8px', paddingRight:'4px' }}>
+        <SyncIndicator display={embedSyncDisplay} align="right" />
       </div>
 
       {/* ── Matching board ── */}

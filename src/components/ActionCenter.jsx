@@ -9,7 +9,9 @@ import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 export { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { logEvent, eventExists } from '../lib/logEvent'
 import EmptyState from './EmptyState'
+import SyncIndicator from './SyncIndicator'
 import { Star } from 'lucide-react'
+import { useLastSynced } from '../hooks/useLastSynced'
 
 function fmtLocalDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
@@ -328,14 +330,17 @@ export default function ActionCenter({
   const drawerRef = useRef(null)
 
   // Shift log data for new action categories
+  const { markSynced: markActionSynced, display: actionSyncDisplay } = useLastSynced()
   const [shiftLogs,     setShiftLogs]     = useState([])
   const [shiftLogsLoaded, setShiftLogsLoaded] = useState(false)
   useEffect(() => {
     if (!isOpen || !cohortId || shiftLogsLoaded) return
     supabase.from('student_shift_logs').select('*').eq('cohort_id', cohortId)
       .order('submitted_at', { ascending: false })
-      .then(({ data }) => { setShiftLogs(data || []); setShiftLogsLoaded(true) })
+      .then(({ data }) => { setShiftLogs(data || []); setShiftLogsLoaded(true); markActionSynced() })
   }, [isOpen, cohortId]) // eslint-disable-line
+  // Mark synced when Action Center opens with existing data
+  useEffect(() => { if (isOpen && shiftLogsLoaded) markActionSynced() }, [isOpen]) // eslint-disable-line
   // Reset when cohort changes
   useEffect(() => { setShiftLogs([]); setShiftLogsLoaded(false) }, [cohortId])
 
@@ -552,7 +557,12 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
           </svg>
-          <span style={{ fontSize:16, fontWeight:700, color:'#fff', flex:1 }}>Action Center</span>
+          <div style={{ flex:1, display:'flex', flexDirection:'column', justifyContent:'center' }}>
+            <span style={{ fontSize:16, fontWeight:700, color:'#fff' }}>Action Center</span>
+            <div style={{ paddingTop:'2px' }}>
+              <SyncIndicator display={actionSyncDisplay} align="left" dark={true} />
+            </div>
+          </div>
           <button onClick={onClose}
             style={{ background:'none', border:'none', color:'#fff', fontSize:20, cursor:'pointer', lineHeight:1 }}>×</button>
         </div>

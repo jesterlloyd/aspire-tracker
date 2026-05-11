@@ -5,6 +5,7 @@ import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { ASPIRE_STATUSES } from '../lib/statuses'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
+import SyncIndicator from './SyncIndicator'
 import { Users } from 'lucide-react'
 import { calculateProfileCompletion, getCompletionColor } from '../lib/profileCompletion'
 
@@ -22,6 +23,7 @@ export default function StudentListPanel({
   filterStatus, setFilterStatus, sortBy, setSortBy,
   needsAttention, setNeedsAttention,
   cohortId, onRefresh, onExportCSV, onAddStudent,
+  syncDisplay,
   compressed = false,
 }) {
   const [showImport,  setShowImport]  = useState(false)
@@ -79,7 +81,10 @@ export default function StudentListPanel({
         )}
       </div>
 
-      <div className="pl-meta">{students.length} of {allStudents.length} students</div>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'8px', padding:'0 12px' }}>
+        <span className="pl-meta" style={{ margin:0 }}>{students.length} of {allStudents.length} students</span>
+        <SyncIndicator display={syncDisplay} align="right" />
+      </div>
 
       {/* Rows */}
       <div className="pl-list">

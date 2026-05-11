@@ -16,6 +16,8 @@ import { generateStudentSummary } from '../lib/generateSummary'
 import { Copy, Check } from 'lucide-react'
 // All external navigation must use openLink helpers (src/lib/openLink.js)
 import { openMailtoLink } from '../lib/openLink'
+import SyncIndicator from './SyncIndicator'
+import { useLastSynced } from '../hooks/useLastSynced'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
@@ -143,12 +145,14 @@ export default function StudentSidePanel({
   const [adminNote,    setAdminNote]    = useState('')
   const adminNoteTimer = useRef(null)
 
+  const { markSynced: markHoursSynced, display: hoursSyncDisplay } = useLastSynced()
+
   useEffect(() => {
     if (!student.id) return
     supabase.from('student_shift_logs').select('*').eq('student_id', student.id)
       .order('shift_date', { ascending: false })
-      .then(({ data }) => setShiftLogs(data || []))
-  }, [student.id])
+      .then(({ data }) => { setShiftLogs(data || []); markHoursSynced() })
+  }, [student.id]) // eslint-disable-line
 
   const handleApproveShift = async (log) => {
     const hours = parseFloat(log.total_hours||0)
@@ -964,8 +968,11 @@ export default function StudentSidePanel({
 
           {/* Clinical Hours */}
           <div className="sp-section">
-            <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:10 }}>
-              Clinical Hours
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+              <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:12, color:'#374151', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+                Clinical Hours
+              </span>
+              <SyncIndicator display={hoursSyncDisplay} align="right" />
             </div>
             {/* Summary numbers */}
             {(() => {
