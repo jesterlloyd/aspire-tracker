@@ -16,6 +16,7 @@ const POOL_ELIGIBLE_STATUSES = new Set([
 export default function MatchingTab({
   students, units, matches, cohortId,
   onMatch, onUnmatch, onUpdateMatch, onRefreshUnits, onDeleteUnit, highlightUnitId,
+  toast,
 }) {
   const [selectedStudent,   setSelectedStudent]   = useState(null)
   const [showUnitSetup,     setShowUnitSetup]     = useState(false)
@@ -107,6 +108,10 @@ export default function MatchingTab({
 
   const handleSlotClick = unit => {
     if (!selectedStudent) return
+    if (unit.slots_remaining <= 0) {
+      toast?.warning('No slots available', 'This unit has no remaining open slots.')
+      return
+    }
     const id = selectedStudent.id
     // Start exit animation
     setFadingStudentIds(prev => new Set([...prev, id]))

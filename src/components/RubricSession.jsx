@@ -274,7 +274,7 @@ function RubricCard({ r, interviewers, onSave }) {
   )
 }
 
-export default function RubricSession({ student, rubrics, cohortId, onBack, onStudentUpdate, onRubricsChange }) {
+export default function RubricSession({ student, rubrics, cohortId, onBack, onStudentUpdate, onRubricsChange, toast }) {
   const [form,           setForm]           = useState(initForm())
   const [rubricId,       setRubricId]       = useState(null)
   const [interviewers,   setInterviewers]   = useState([])
@@ -417,6 +417,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
         auto: true,
       })
     }
+    toast?.success('Rubric submitted', `Interview scored ${composite}/15.`)
   }
 
   const handleReset = async () => {

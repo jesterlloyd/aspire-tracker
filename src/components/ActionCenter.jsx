@@ -316,7 +316,7 @@ export default function ActionCenter({
   isOpen, onClose,
   students, units, matches, cohortId, activeCohort,
   communications, onLogCommunication, onMatchUpdate, onStudentUpdate,
-  onNavigateToProfiles,
+  onNavigateToProfiles, toast,
 }) {
   const [pending, setPending]     = useState({})
   const [oriFields, setOriFields] = useState({ date:'', time:'', location:'' })
@@ -354,6 +354,8 @@ export default function ActionCenter({
     if (data && onLogCommunication) onLogCommunication(data)
     if (after) await after()
     if (student) setPending(p => { const n={...p}; delete n[`${student.id}_${type}`]; return n })
+    if (type === 'unit_notification') toast?.success('Notification sent', 'Unit leader email marked as sent.')
+    if (type === 'certificate') toast?.success('Certificate sent', 'Email marked as sent. Remember to attach the PDF.')
   }
 
   // ── Action category queries ──────────────────────────────

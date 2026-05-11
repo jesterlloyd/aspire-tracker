@@ -74,7 +74,7 @@ function Field({ label, children }) {
 
 export default function StudentSidePanel({
   student, sortedStudents, onSelectStudent, onClose,
-  onUpdate, onDelete, units,
+  onUpdate, onDelete, units, toast,
 }) {
   const [data,             setData]             = useState({ ...student })
   const [saveStatus,       setSaveStatus]       = useState('idle')
@@ -144,6 +144,7 @@ export default function StudentSidePanel({
     await onUpdate(student.id, { approved_hours: newApproved, pending_hours: newPending })
     setData(p => ({ ...p, approved_hours: newApproved, pending_hours: newPending }))
     setShiftLogs(prev => prev.map(l => l.id===log.id ? { ...l, status:'approved', reviewed_at: new Date().toISOString() } : l))
+    toast?.success('Shift approved', `${hours} hours approved for ${student.first_name}.`)
   }
 
   const handleRejectShift = async (log) => {
@@ -230,7 +231,8 @@ export default function StudentSidePanel({
     const err = await onUpdate(student.id, { [field]: value })
     setSaveStatus(err ? 'error' : 'saved')
     if (!err) setTimeout(() => setSaveStatus('idle'), 1800)
-  }, [student.id, onUpdate])
+    if (err) toast?.error('Save failed', 'Unable to save changes. Please try again.')
+  }, [student.id, onUpdate, toast])
 
   const handleText = (field, value) => {
     setData(p => ({ ...p, [field]: value }))
@@ -346,6 +348,7 @@ export default function StudentSidePanel({
     if (!err) setTimeout(() => setSaveStatus('idle'), 1800)
     setShowDeclineModal(false)
     setDeclineReason('')
+    toast?.info('Student declined', `${student.first_name} has been marked as declined.`)
   }
 
   return (
@@ -627,6 +630,7 @@ export default function StudentSidePanel({
                     if (newStatus === 'Declined') { setShowDeclineModal(true) }
                     else {
                       handleSelect('status', newStatus)
+                      toast?.success('Status updated', `${student.first_name} moved to ${newStatus}.`)
                       const statusEventMap = { 'Form Sent': 'form_sent', 'Form Received': 'form_received', 'Placed': 'placement', 'Completed': 'completion' }
                       const eventType = statusEventMap[newStatus]
                       if (eventType) {
@@ -680,7 +684,7 @@ export default function StudentSidePanel({
             {/* Badge Created — bottom of Placement section */}
             <label style={{ display:'flex', alignItems:'center', gap:8, marginTop:10, cursor:'pointer', fontSize:13, color:'var(--raven)' }}>
               <input type="checkbox" checked={!!data.badge_created}
-                onChange={e => handleSelect('badge_created', e.target.checked)}
+                onChange={e => { handleSelect('badge_created', e.target.checked); if (e.target.checked) toast?.success('Badge issued', `Badge marked as created for ${student.first_name}.`) }}
                 style={{ width:16, height:16, accentColor:'#16a34a' }} />
               <span>Badge Created</span>
               {data.badge_created && <span style={{ fontSize:12, color:'#166534', fontWeight:600 }}>✓ Badge Created</span>}

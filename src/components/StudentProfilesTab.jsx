@@ -42,6 +42,7 @@ export default function StudentProfilesTab({
   accessFocusId,
   onExportCSV, onAddStudent,
   focusStudentId, onClearFocusStudent,
+  toast,
 }) {
   const [selectedStudentId, setSelectedStudentId] = useState(null)
 
@@ -139,6 +140,7 @@ export default function StudentProfilesTab({
                 onUpdate={onUpdate}
                 onDelete={onDelete}
                 units={units}
+                toast={toast}
               />
             </div>
           )}

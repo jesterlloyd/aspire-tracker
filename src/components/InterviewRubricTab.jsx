@@ -70,6 +70,7 @@ export default function InterviewRubricTab({
   students, rubrics, cohortId,
   sessions = [], slots = [],
   onStudentUpdate, onRubricsChange, onRefreshStudents, onManageInterviewers, onUpdateSession, onRefreshSlots,
+  toast,
 }) {
   const [selectedStudentId,   setSelectedStudentId]   = useState(null)
   const [showScheduleModal,   setShowScheduleModal]   = useState(false)
@@ -114,6 +115,7 @@ export default function InterviewRubricTab({
         onBack={() => setSelectedStudentId(null)}
         onStudentUpdate={onStudentUpdate}
         onRubricsChange={onRubricsChange}
+        toast={toast}
       />
     )
   }

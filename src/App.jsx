@@ -20,6 +20,8 @@ import ActionCenter from './components/ActionCenter'
 import Keith from './components/Keith'
 import FeedbackPanel from './components/FeedbackPanel'
 import { logEvent, eventExists } from './lib/logEvent'
+import { useToast } from './hooks/useToast'
+import { ToastContainer } from './components/Toast'
 
 /*
   COHORT ISOLATION CONTRACT
@@ -50,6 +52,7 @@ function computeMatchSummary(matchList) {
 }
 
 function MainApp({ onLogout }) {
+  const { toasts, removeToast, toast } = useToast()
   const [cohorts,          setCohorts]          = useState([])
   const [activeCohortId,   setActiveCohortId]   = useState(null)
   const [showNewCohort,    setShowNewCohort]    = useState(false)
@@ -285,6 +288,7 @@ function MainApp({ onLogout }) {
     if (!alreadyPlaced) {
       await logEvent(supabase, { studentId: student.id, cohortId: activeCohortId, eventType: 'placement', notes: `Placed in ${unit.unit_name}`, auto: true })
     }
+    toast.success('Student placed', `${student.first_name} matched to ${unit.unit_name}.`)
   }
 
   const unmatch = async (student, unit) => {
@@ -492,7 +496,7 @@ function MainApp({ onLogout }) {
         )}
 
         {!loading && !dbError && cohorts.length > 0 && activeTab === 'overview' && (
-          <OverviewTab students={students} units={units} onStudentUpdate={updateStudent} cohortId={activeCohortId} cohort={activeCohort} />
+          <OverviewTab students={students} units={units} onStudentUpdate={updateStudent} cohortId={activeCohortId} cohort={activeCohort} toast={toast} />
         )}
 
         {!loading && !dbError && cohorts.length > 0 && activeTab === 'profiles' && (
@@ -508,6 +512,7 @@ function MainApp({ onLogout }) {
             onAddStudent={() => setShowAddModal(true)}
             focusStudentId={focusStudentId}
             onClearFocusStudent={() => setFocusStudentId(null)}
+            toast={toast}
           />
         )}
 
@@ -524,6 +529,7 @@ function MainApp({ onLogout }) {
             onManageInterviewers={() => setShowInterviewersModal(true)}
             onUpdateSession={updateIvSession}
             onRefreshSlots={() => fetchIvSlots(activeCohortId)}
+            toast={toast}
           />
         )}
 
@@ -535,6 +541,7 @@ function MainApp({ onLogout }) {
             onRefreshUnits={() => fetchUnits(activeCohortId)}
             onDeleteUnit={deleteUnit}
             highlightUnitId={highlightUnitId}
+            toast={toast}
           />
         )}
       </main>
@@ -561,6 +568,7 @@ function MainApp({ onLogout }) {
           onMatchUpdate={updateMatch}
           onStudentUpdate={updateStudent}
           onNavigateToProfiles={id => { setFocusStudentId(id); switchTab('profiles'); setShowActionCenter(false) }}
+          toast={toast}
         />
       )}
       <Keith
@@ -576,6 +584,7 @@ function MainApp({ onLogout }) {
         cohortName={activeCohort?.name}
         isAuthenticated={true}
       />
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   )
 }
