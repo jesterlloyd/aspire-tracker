@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { getAvatarUrl } from '../lib/getAvatar';
 import { X, UserPlus, Shield, Clock, CheckCircle, XCircle, Mail } from 'lucide-react';
 
 const ROLE_OPTIONS = [
@@ -215,6 +216,9 @@ export default function UserManagement({ isOpen, onClose }) {
                         background:u.is_active ? '#ffffff' : '#fafafa', opacity:u.is_active ? 1 : 0.65,
                       }}>
                         <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:'12px' }}>
+                          <div style={{ width:'36px', height:'36px', borderRadius:'50%', overflow:'hidden', flexShrink:0 }}>
+                            <img src={getAvatarUrl(u)} alt={u.full_name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                          </div>
                           <div style={{ flex:1, minWidth:0 }}>
                             <div style={{ display:'flex', alignItems:'center', gap:'8px', flexWrap:'wrap' }}>
                               <span style={{ fontWeight:700, fontSize:'13px', color:'#1D2567' }}>{u.full_name}</span>

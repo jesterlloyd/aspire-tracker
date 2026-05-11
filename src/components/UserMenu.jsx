@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
+import { getAvatarUrl } from '../lib/getAvatar';
 import { LogOut, Users, ChevronDown } from 'lucide-react';
 
 const ROLE_LABELS = {
@@ -62,16 +64,11 @@ export default function UserMenu({ onOpenUserManagement }) {
         onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'}
         onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.10)'}
       >
-        {/* Avatar */}
-        <div style={{
-          width: '26px', height: '26px', borderRadius: '50%',
-          background: roleStyle.bg,
-          border: '1.5px solid rgba(255,255,255,0.3)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'DM Sans', fontWeight: 700, fontSize: '10px',
-          color: '#ffffff', flexShrink: 0,
-        }}>
-          {initials}
+        {/* Avatar — DiceBear or custom photo */}
+        <div style={{ width:'26px', height:'26px', borderRadius:'50%', overflow:'hidden', flexShrink:0, border:'1.5px solid rgba(255,255,255,0.3)' }}>
+          <img src={getAvatarUrl(userProfile)} alt={userProfile.full_name}
+            style={{ width:'100%', height:'100%', objectFit:'cover' }}
+            onError={e => { e.target.style.display='none'; e.target.parentNode.style.background=roleStyle.bg; e.target.parentNode.style.display='flex'; e.target.parentNode.style.alignItems='center'; e.target.parentNode.style.justifyContent='center'; e.target.parentNode.innerHTML=`<span style="font-family:DM Sans;font-weight:700;font-size:10px;color:#fff">${initials}</span>` }} />
         </div>
 
         {/* Name + role */}
@@ -101,21 +98,28 @@ export default function UserMenu({ onOpenUserManagement }) {
             minWidth: '200px', zIndex: 999, overflow: 'hidden',
           }}>
             {/* Profile info */}
-            <div style={{ padding: '14px 16px', borderBottom: '1px solid #f3f4f6' }}>
-              <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '13px', color: '#1D2567' }}>
-                {userProfile.full_name}
+            <div style={{ padding:'14px 16px', borderBottom:'1px solid #f3f4f6', display:'flex', alignItems:'center', gap:'12px' }}>
+              <div style={{ width:'40px', height:'40px', borderRadius:'50%', overflow:'hidden', flexShrink:0 }}>
+                <img src={getAvatarUrl(userProfile)} alt={userProfile.full_name}
+                  style={{ width:'100%', height:'100%', objectFit:'cover' }} />
               </div>
-              <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#9ca3af', marginTop: '2px' }}>
-                {userProfile.email}
+              <div>
+                <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'13px', color:'#1D2567' }}>{userProfile.full_name}</div>
+                <div style={{ fontFamily:'DM Sans', fontSize:'11px', color:'#9ca3af', marginTop:'2px' }}>{userProfile.email}</div>
+                <span style={{ display:'inline-block', marginTop:'5px', background:roleStyle.bg, color:roleStyle.color, fontFamily:'DM Sans', fontWeight:700, fontSize:'10px', padding:'2px 8px', borderRadius:'20px' }}>
+                  {userProfile.is_owner ? 'Owner' : roleStyle.label}
+                </span>
+                <button
+                  onClick={() => {
+                    const url = prompt('Enter a photo URL (leave blank for auto-generated avatar):')
+                    if (url !== null) {
+                      supabase.from('user_profiles').update({ avatar_url: url.trim() || '' }).eq('id', userProfile.id).then(() => window.location.reload())
+                    }
+                  }}
+                  style={{ background:'none', border:'none', fontFamily:'DM Sans', fontSize:'11px', color:'#9ca3af', cursor:'pointer', textDecoration:'underline', padding:0, marginTop:'4px', display:'block' }}>
+                  Update photo URL
+                </button>
               </div>
-              <span style={{
-                display: 'inline-block', marginTop: '6px',
-                background: roleStyle.bg, color: roleStyle.color,
-                fontFamily: 'DM Sans', fontWeight: 700, fontSize: '10px',
-                padding: '2px 8px', borderRadius: '20px',
-              }}>
-                {roleStyle.label}
-              </span>
             </div>
 
             {/* Sign out */}

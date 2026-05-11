@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 
 const TIME_SLOTS_15 = []
 for (let h = 7; h <= 18; h++) {
@@ -31,6 +32,7 @@ function generateSlotTimes(startTime, endTime, durationMin) {
 }
 
 export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSaved }) {
+  const { userProfile, isAdmin } = useAuth()
   const [blocks,       setBlocks]       = useState([])
   const [interviewers, setInterviewers] = useState([])
   const [saving,       setSaving]       = useState(false)
@@ -66,7 +68,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
     if (!form.interviewer_name) return
     setSaving(true)
     const { data: block, error } = await supabase.from('interview_availability_blocks')
-      .insert({ ...form, cohort_id: cohortId, duration_minutes: Number(form.duration_minutes) })
+      .insert({ ...form, cohort_id: cohortId, duration_minutes: Number(form.duration_minutes), created_by_user_id: userProfile?.id || null })
       .select().single()
     if (error || !block) { setSaving(false); return }
 
@@ -93,9 +95,17 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
     setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, is_active: !b.is_active } : b))
   }
 
+  const canDeleteBlock = (block) => {
+    if (isAdmin) return true
+    return block.created_by_user_id === userProfile?.id
+  }
+
   const deleteBlock = async (blockId) => {
-    await supabase.from('interview_availability_blocks').delete().eq('id', blockId)
-    setBlocks(prev => prev.filter(b => b.id !== blockId))
+    const { error } = await supabase.from('interview_availability_blocks').delete().eq('id', blockId)
+    if (!error) {
+      await loadBlocks()     // refresh blocks list
+      onBlockSaved?.()       // refresh calendar slots
+    }
   }
 
   return (
@@ -185,14 +195,18 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
                     <td style={{ padding:'8px 10px' }}>{b.block_date}</td>
                     <td style={{ padding:'8px 10px' }}>{fmtTime(b.start_time)}</td>
                     <td style={{ padding:'8px 10px' }}>{fmtTime(b.end_time)}</td>
-                    <td style={{ padding:'8px 10px' }}>{b.interviewer_name || 'ASPIRE Team'}</td>
+                    <td style={{ padding:'8px 10px' }}>
+                      <span>{b.interviewer_name || 'ASPIRE Team'}</span>
+                    </td>
                     <td style={{ padding:'8px 10px' }}>{b.duration_minutes} min</td>
                     <td style={{ padding:'8px 10px' }}>
                       <input type="checkbox" checked={b.is_active} onChange={() => toggleActive(b)} />
                     </td>
                     <td style={{ padding:'8px 10px' }}>
-                      <button onClick={() => deleteBlock(b.id)}
-                        style={{ background:'none', border:'none', cursor:'pointer', color:'var(--cs-red)', fontSize:14 }}>✕</button>
+                      {canDeleteBlock(b) && (
+                        <button onClick={() => deleteBlock(b.id)}
+                          style={{ background:'none', border:'none', cursor:'pointer', color:'var(--cs-red)', fontSize:14 }}>✕</button>
+                      )}
                     </td>
                   </tr>
                 ))}
