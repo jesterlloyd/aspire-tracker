@@ -314,24 +314,26 @@ export default function ShiftLogPage() {
                 {/* Hours */}
                 <div style={{ marginBottom:18 }}>
                   <label style={{ fontSize:14, fontWeight:600, color:'var(--raven)', display:'block', marginBottom:6 }}>Hours Worked</label>
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:20 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:12, width:'100%' }}>
                     <button type="button" onClick={() => setHours(h => Math.max(1, +(h-0.5).toFixed(1)))}
-                      style={{ width:48, height:48, borderRadius:24, fontSize:24, border:'2px solid var(--nightfall)', background:'#fff', cursor:'pointer', fontWeight:700, color:'var(--nightfall)' }}>−</button>
-                    <span style={{ fontSize:32, fontWeight:700, color:'var(--nightfall)', minWidth:64, textAlign:'center' }}>{hours}</span>
+                      style={{ width:48, height:48, borderRadius:'50%', fontSize:22, border:'2px solid var(--nightfall)', background:'#fff', cursor:'pointer', fontWeight:700, color:'var(--nightfall)', flexShrink:0 }}>−</button>
+                    <span style={{ flex:1, fontSize:28, fontWeight:700, color:'var(--nightfall)', textAlign:'center', minHeight:56, display:'flex', alignItems:'center', justifyContent:'center' }}>{hours}</span>
                     <button type="button" onClick={() => setHours(h => Math.min(13, +(h+0.5).toFixed(1)))}
-                      style={{ width:48, height:48, borderRadius:24, fontSize:24, border:'2px solid var(--nightfall)', background:'#fff', cursor:'pointer', fontWeight:700, color:'var(--nightfall)' }}>+</button>
+                      style={{ width:48, height:48, borderRadius:'50%', fontSize:22, border:'2px solid var(--nightfall)', background:'#fff', cursor:'pointer', fontWeight:700, color:'var(--nightfall)', flexShrink:0 }}>+</button>
                   </div>
                 </div>
 
                 {/* Shift type */}
                 <div style={{ marginBottom:18 }}>
                   <label style={{ fontSize:14, fontWeight:600, color:'var(--raven)', display:'block', marginBottom:6 }}>Shift Type</label>
-                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10 }}>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8 }}>
                     {['Day','Night','Mid'].map(t => (
                       <button key={t} type="button" onClick={() => setShiftType(t)}
-                        style={{ height:48, borderRadius:10, fontSize:15, fontWeight:600, cursor:'pointer', border:`2px solid var(--nightfall)`,
-                          background: shiftType===t ? 'var(--nightfall)' : '#fff',
-                          color: shiftType===t ? '#fff' : 'var(--nightfall)' }}>
+                        style={{ padding:'12px 8px', borderRadius:10, fontSize:14, fontWeight:700, cursor:'pointer',
+                          border: `2px solid ${shiftType===t ? '#1D2567' : '#e5e7eb'}`,
+                          background: shiftType===t ? '#1D2567' : '#f9fafb',
+                          color: shiftType===t ? '#ffffff' : '#374151',
+                          fontFamily:'DM Sans,sans-serif' }}>
                         {t}
                       </button>
                     ))}

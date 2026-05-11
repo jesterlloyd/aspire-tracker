@@ -336,7 +336,7 @@ export default function StudentIntakeFormPage() {
             <div className="uf-field">
               <label className="uf-label">Date of Birth *</label>
               <input className="uf-input" type="date" value={form.date_of_birth}
-                onChange={e => set('date_of_birth', e.target.value)} style={{ maxWidth: 220 }} />
+                onChange={e => set('date_of_birth', e.target.value)} />
             </div>
 
             <div className="uf-field">
@@ -352,26 +352,26 @@ export default function StudentIntakeFormPage() {
             <div className="uf-field">
               <label className="uf-label">Gender</label>
               <select className="uf-input" value={form.gender} onChange={e => set('gender', e.target.value)}
-                style={{ maxWidth: 280 }}>
+  >
                 <option value="">Select…</option>
                 <option>Male</option><option>Female</option>
                 <option>Non-binary</option><option>Prefer not to say</option><option>Other</option>
               </select>
             </div>
 
-            <div className="sf-row-2">
+            <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
               <div className="uf-field">
                 <label className="uf-label">Cumulative GPA (on a 4.0 scale) *</label>
                 <input className="uf-input" type="text" inputMode="decimal" pattern="[0-9.]*"
                   value={form.cumulative_gpa}
                   onChange={e => set('cumulative_gpa', e.target.value)}
-                  placeholder="e.g. 3.75" style={{ maxWidth: 160 }} />
+                  placeholder="e.g. 3.75" />
               </div>
               <div className="uf-field">
                 <label className="uf-label">Shift Preference *</label>
                 <select className="uf-input" value={form.shift_availability}
                   onChange={e => set('shift_availability', e.target.value)}
-                  style={{ maxWidth: 220 }}>
+                >
                   <option value="">Select…</option>
                   <option value="Day Shift Preferred">Day Shift Preferred</option>
                   <option value="Night Shift Preferred">Night Shift Preferred</option>

@@ -232,7 +232,7 @@ export default function InterviewSchedulePage() {
 
   return (
     <div className="uf-page">
-      <div className="uf-card" style={{ maxWidth:600 }}>
+      <div className="uf-card" style={{ maxWidth:480 }}>
         <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
 
         {/* ── Screen 1: Identify ── */}
@@ -281,12 +281,14 @@ export default function InterviewSchedulePage() {
               {/* Calendar header */}
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px', borderBottom:'1px solid #f3f4f6' }}>
                 <button onClick={prevMonth} disabled={!canGoPrev}
-                  style={{ background:'none', border:'none', fontSize:18, cursor:canGoPrev?'pointer':'default',
-                    color:canGoPrev?'var(--nightfall)':'#d1d5db', lineHeight:1, padding:'0 4px' }}>‹</button>
+                  style={{ width:44, height:44, borderRadius:'50%', background:'none', border:'none', fontSize:20,
+                    cursor:canGoPrev?'pointer':'default', color:canGoPrev?'var(--nightfall)':'#d1d5db',
+                    display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>‹</button>
                 <span style={{ fontSize:15, fontWeight:700, color:'var(--nightfall)' }}>{monthLabel}</span>
                 <button onClick={nextMonth} disabled={!canGoNext}
-                  style={{ background:'none', border:'none', fontSize:18, cursor:canGoNext?'pointer':'default',
-                    color:canGoNext?'var(--nightfall)':'#d1d5db', lineHeight:1, padding:'0 4px' }}>›</button>
+                  style={{ width:44, height:44, borderRadius:'50%', background:'none', border:'none', fontSize:20,
+                    cursor:canGoNext?'pointer':'default', color:canGoNext?'var(--nightfall)':'#d1d5db',
+                    display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>›</button>
               </div>
               {/* Day headers */}
               <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', background:'#f9fafb' }}>
@@ -396,7 +398,7 @@ export default function InterviewSchedulePage() {
                   Selected: <strong>{fmtDisplayDate(selectedDate)} · {fmtTimeRange(selectedCard.time, selectedCard.duration)}</strong>
                 </div>
                 <button onClick={handleBook} disabled={booking}
-                  style={{ padding:13, borderRadius:8, background:'var(--nightfall)', color:'#fff', fontSize:15, fontWeight:700, border:'none', cursor:'pointer' }}>
+                  style={{ width:'100%', minHeight:52, borderRadius:12, background:'var(--nightfall)', color:'#fff', fontSize:16, fontWeight:700, border:'none', cursor:'pointer' }}>
                   {booking ? 'Booking your slot…' : 'Confirm This Time →'}
                 </button>
               </div>
@@ -413,12 +415,12 @@ export default function InterviewSchedulePage() {
             </h2>
             <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:8, padding:'20px 24px', textAlign:'left', lineHeight:1.8, fontSize:14, color:'var(--raven)' }}>
               <p style={{ marginBottom:12 }}>Your ASPIRE interview has been scheduled successfully. Here are your details:</p>
-              <div style={{ display:'grid', gridTemplateColumns:'auto 1fr', gap:'4px 16px', fontWeight:500 }}>
-                <span style={{ color:'#6b7280' }}>Date:</span>       <span>{fmtDisplayDate(bookedSlot.slot_date)}</span>
-                <span style={{ color:'#6b7280' }}>Time:</span>       <span>{fmtTime(bookedSlot.slot_time)} Pacific Time</span>
-                <span style={{ color:'#6b7280' }}>Duration:</span>   <span>{bookedSlot.duration_minutes} minutes</span>
-                <span style={{ color:'#6b7280' }}>Format:</span>     <span>Microsoft Teams (link to be sent separately)</span>
-                <span style={{ color:'#6b7280' }}>Interviewer:</span><span>ASPIRE Team</span>
+              <div style={{ display:'flex', flexDirection:'column', gap:'6px', fontWeight:500 }}>
+                <div><span style={{ color:'#6b7280' }}>Date: </span><span>{fmtDisplayDate(bookedSlot.slot_date)}</span></div>
+                <div><span style={{ color:'#6b7280' }}>Time: </span><span>{fmtTime(bookedSlot.slot_time)} Pacific Time</span></div>
+                <div><span style={{ color:'#6b7280' }}>Duration: </span><span>{bookedSlot.duration_minutes} minutes</span></div>
+                <div><span style={{ color:'#6b7280' }}>Format: </span><span>Microsoft Teams (link to be sent separately)</span></div>
+                <div><span style={{ color:'#6b7280' }}>Interviewer: </span><span>ASPIRE Team</span></div>
               </div>
               <p style={{ marginTop:16, fontSize:13 }}>
                 Please watch your email for further instructions including the Teams meeting link.
@@ -441,7 +443,7 @@ export default function InterviewSchedulePage() {
               You Already Have an Interview Scheduled
             </h2>
             <div style={{ background:'var(--marina)', border:'1px solid #9dd6f2', borderRadius:8, padding:'20px 24px', textAlign:'left', lineHeight:1.8, fontSize:14 }}>
-              <div style={{ display:'grid', gridTemplateColumns:'auto 1fr', gap:'4px 16px', fontWeight:500 }}>
+              <div style={{ display:'flex', flexDirection:'column', gap:'6px', fontWeight:500 }}>
                 <span style={{ color:'#6b7280' }}>Date:</span>
                 <span>{fmtDisplayDate(student.interview_scheduled_date)}</span>
                 <span style={{ color:'#6b7280' }}>Time:</span>
