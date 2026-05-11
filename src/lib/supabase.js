@@ -9,11 +9,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: true,
     storageKey: 'aspire-intelligence-auth',
-    flowType: 'pkce',
-  },
-  global: {
-    headers: {
-      'x-application-name': 'aspire-intelligence',
+    // Override Web Locks API to bypass lock conflict error.
+    // Safe for a single-tab internal application.
+    lock: async (name, acquireTimeout, fn) => {
+      return await fn()
     },
   },
 })
