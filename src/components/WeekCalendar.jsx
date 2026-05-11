@@ -319,7 +319,10 @@ export default function WeekCalendar({
         <div style={{ display:'flex', gap:8 }}>
           {onManageInterviewers && (
             <button className="btn btn-outline-modal" style={{fontSize:12,padding:'5px 12px',background:'#fff'}}
-              onClick={onManageInterviewers}>👥 Manage Interviewers</button>
+              onClick={onManageInterviewers}
+              title="Manage interview panel members (separate from app user accounts)">
+              👥 Manage Interviewers
+            </button>
           )}
           <button className="btn btn-outline-modal" style={{fontSize:12,padding:'5px 12px',background:'#fff'}}
             onClick={()=>setShowAvailMgr(true)}>📅 Manage Availability</button>
