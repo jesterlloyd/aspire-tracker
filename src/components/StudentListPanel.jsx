@@ -3,6 +3,7 @@ import ImportStudentsCSV from './ImportStudentsCSV'
 import { getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { ASPIRE_STATUSES } from '../lib/statuses'
+import StatusLegendPopover from './StatusLegendPopover'
 
 function gpaBadge(gpa) {
   if (gpa == null) return { text: 'GPA: N/A', bg: 'var(--sand)', color: 'var(--raven)' }
@@ -39,12 +40,15 @@ export default function StudentListPanel({
           <option value="">All Schools</option>
           {schools.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select className="filter-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
-          <option value="">All Statuses</option>
-          {ASPIRE_STATUSES.map(s => (
-            <option key={s.value} value={s.value}>{s.label}</option>
-          ))}
-        </select>
+        <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+          <select className="filter-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+            <option value="">All Statuses</option>
+            {ASPIRE_STATUSES.map(s => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </select>
+          <StatusLegendPopover position="bottom-left" />
+        </div>
         <select className="filter-select" value={sortBy} onChange={e => setSortBy(e.target.value)}>
           <option value="last_name_asc">Last Name A–Z</option>
           <option value="last_name_desc">Last Name Z–A</option>

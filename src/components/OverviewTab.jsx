@@ -4,6 +4,7 @@ import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import StatCard from './StatCard'
 import CohortGantt from './CohortGantt'
+import StatusLegendPopover from './StatusLegendPopover'
 import { Layers, CheckSquare, Clock, GraduationCap, AlertTriangle } from 'lucide-react'
 
 const DIVISIONS = ['Surgical', 'Medical', 'Critical Care', 'Specialty']
@@ -275,7 +276,10 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
           </div>
           <div className="aggregate-panel-hdr">
             <div>
-              <div className="ov-panel-title">Student Placement Requests</div>
+              <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                <span className="ov-panel-title">Student Placement Requests</span>
+                <StatusLegendPopover position="bottom-left" />
+              </div>
               <div className="ov-panel-sub">
                 {schools.length} School{schools.length !== 1 ? 's' : ''} · {totalStudents} Students · {placedCount} Placed
               </div>

@@ -5,6 +5,7 @@ import UnitSetupPanel from './UnitSetupPanel'
 import ImportUnitsCSV from './ImportUnitsCSV'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
 import StatCard from './StatCard'
+import StatusLegendPopover from './StatusLegendPopover'
 import { Layers, Clock, Users, MapPin, Star, TrendingUp, UserX } from 'lucide-react'
 
 const POOL_ELIGIBLE_STATUSES = new Set([
@@ -227,7 +228,10 @@ export default function MatchingTab({
         {/* ── Right: Student pool ── */}
         <div className="embed-students-panel">
           <div className="embed-students-header">
-            <span className="embed-pool-title">Student Pool</span>
+            <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+              <span className="embed-pool-title">Student Pool</span>
+              <StatusLegendPopover position="bottom-right" dark={true} />
+            </div>
             <div className="embed-pool-filters">
               <input
                 className="embed-pool-search"
