@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { RefreshCw } from 'lucide-react'
 
-export default function InterviewersModal({ onClose, toast }) {
+export default function InterviewersModal({ isOpen, onClose, toast }) {
   const [interviewers, setInterviewers] = useState([])
   const [loading,      setLoading]      = useState(false)
   const [newName,      setNewName]      = useState('')
@@ -11,31 +11,41 @@ export default function InterviewersModal({ onClose, toast }) {
   const [editingEmail, setEditingEmail] = useState({}) // { [id]: value }
   const [savingEmail,  setSavingEmail]  = useState({}) // { [id]: bool }
 
-  // Bug A fixed: no is_active filter — show all interviewers in management panel
   const fetchInterviewers = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('interviewers')
-      .select('id, name, email, is_active')
-      .order('name', { ascending: true })
-    if (error) {
-      console.error('Fetch interviewers error:', error.message, error.details)
-      toast?.error('Load failed', error.message)
-      setLoading(false)
-      return
+    try {
+      const result = await Promise.race([
+        supabase
+          .from('interviewers')
+          .select('id, name, email, is_active')
+          .order('name', { ascending: true }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Request timed out')), 5000)
+        ),
+      ])
+      const { data, error } = result
+      if (error) {
+        console.error('Fetch interviewers error:', error.message)
+        setInterviewers([])
+        return
+      }
+      const list = data || []
+      setInterviewers(list)
+      const init = {}
+      list.forEach(i => { init[i.id] = i.email || '' })
+      setEditingEmail(init)
+    } catch (err) {
+      console.error('Fetch interviewers exception:', err.message)
+      setInterviewers([])
+    } finally {
+      setLoading(false) // Always runs no matter what
     }
-    const list = data || []
-    setInterviewers(list)
-    // Seed local email edits
-    const init = {}
-    list.forEach(i => { init[i.id] = i.email || '' })
-    setEditingEmail(init)
-    setLoading(false)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
+  // Re-fetch every time the modal opens
   useEffect(() => {
-    fetchInterviewers()
-  }, [fetchInterviewers])
+    if (isOpen) fetchInterviewers()
+  }, [isOpen, fetchInterviewers])
 
   // Bug D fixed: email is optional
   const handleAdd = async () => {
@@ -125,8 +135,14 @@ export default function InterviewersModal({ onClose, toast }) {
               Loading interviewers...
             </div>
           ) : interviewers.length === 0 ? (
-            <div style={{ padding:'24px', textAlign:'center', color:'#9ca3af', fontSize:'13px' }}>
-              No interviewers found. Add your first interviewer below.
+            <div style={{ padding:'24px', textAlign:'center' }}>
+              <div style={{ fontFamily:'DM Sans,sans-serif', fontSize:'13px', color:'#9ca3af', marginBottom:'12px' }}>
+                Could not load interviewers. Check your connection and try again.
+              </div>
+              <button onClick={fetchInterviewers}
+                style={{ padding:'8px 18px', background:'#1D2567', border:'none', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'13px', color:'#ffffff', cursor:'pointer' }}>
+                Try Again
+              </button>
             </div>
           ) : (
             <>
