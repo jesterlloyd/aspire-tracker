@@ -2,108 +2,121 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { RefreshCw } from 'lucide-react'
 
+// ── Cache utilities ───────────────────────────────────────────
+const INTERVIEWERS_CACHE_KEY = 'aspire_interviewers_v1'
+
+const loadInterviewersFromCache = () => {
+  try {
+    const raw = localStorage.getItem(INTERVIEWERS_CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : null
+  } catch { return null }
+}
+
+const saveInterviewersToCache = (data) => {
+  try { localStorage.setItem(INTERVIEWERS_CACHE_KEY, JSON.stringify(data)) } catch {}
+}
+
 export default function InterviewersModal({ isOpen, onClose, toast }) {
   const [interviewers, setInterviewers] = useState([])
   const [loading,      setLoading]      = useState(false)
-  const [fetchError,   setFetchError]   = useState(false)
   const [newName,      setNewName]      = useState('')
   const [newEmail,     setNewEmail]     = useState('')
   const [saving,       setSaving]       = useState(false)
   const [editingEmail, setEditingEmail] = useState({})
   const [savingEmail,  setSavingEmail]  = useState({})
 
-  const fetchWithRetry = async (maxAttempts = 3) => {
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        const { data, error } = await supabase
-          .from('interviewers')
-          .select('id, name, email, is_active')
-          .order('name', { ascending: true })
-        if (error) {
-          console.warn(`Interviewers fetch attempt ${attempt} error:`, error.message)
-          if (attempt < maxAttempts) { await new Promise(r => setTimeout(r, 800 * attempt)); continue }
-          return null
-        }
-        return data || []
-      } catch (err) {
-        console.warn(`Interviewers fetch attempt ${attempt} exception:`, err.message)
-        if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 800 * attempt))
-      }
-    }
-    return null
-  }
-
+  // Cache-first fetch: show cached data instantly, refresh in background
   const fetchInterviewers = useCallback(async () => {
-    setLoading(true)
-    setFetchError(false)
-    const data = await fetchWithRetry(3)
-    if (data === null) {
-      setFetchError(true)
-      setInterviewers([])
-    } else {
-      setInterviewers(data)
-      setFetchError(false)
+    // Step A: Load from cache immediately — no spinner if cache exists
+    const cached = loadInterviewersFromCache()
+    if (cached && cached.length > 0) {
+      setInterviewers(cached)
+      setLoading(false)
       const init = {}
-      data.forEach(i => { init[i.id] = i.email || '' })
+      cached.forEach(i => { init[i.id] = i.email || '' })
       setEditingEmail(init)
+    } else {
+      setLoading(true)
     }
-    setLoading(false)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Re-fetch every time the modal opens
+    // Step B: Fetch fresh from Supabase in background
+    try {
+      const { data, error } = await supabase
+        .from('interviewers')
+        .select('id, name, email, is_active')
+        .order('name', { ascending: true })
+
+      if (error) {
+        console.error('Interviewers fetch error:', error.message)
+        setLoading(false)
+        return // Cache still shows — don't clear the list
+      }
+
+      if (data && data.length > 0) {
+        setInterviewers(data)
+        saveInterviewersToCache(data) // Seed/update cache with fresh data
+        const init = {}
+        data.forEach(i => { init[i.id] = i.email || '' })
+        setEditingEmail(init)
+      }
+    } catch (err) {
+      console.error('Interviewers fetch exception:', err.message)
+      // Cache still shows — don't clear the list
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (isOpen) fetchInterviewers()
   }, [isOpen, fetchInterviewers])
 
+  // ── Mutation handlers — all update cache in sync ──────────────
   const handleAdd = async () => {
     const name = newName.trim()
     if (!name) return
     setSaving(true)
-    let saved = false
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      const { data, error } = await supabase
-        .from('interviewers')
-        .insert({ name, email: newEmail.trim() || '', is_active: true })
-        .select('id, name, email, is_active')
-        .single()
-      if (!error && data) {
-        saved = true
-        setInterviewers(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
-        setEditingEmail(prev => ({ ...prev, [data.id]: data.email || '' }))
-        setNewName('')
-        setNewEmail('')
-        toast?.success('Interviewer added', `${data.name} added.`)
-        break
-      }
-      console.warn(`Add attempt ${attempt} failed:`, error?.message)
-      if (attempt < 2) await new Promise(r => setTimeout(r, 800))
-    }
-    if (!saved) toast?.error('Add failed', 'Could not add interviewer. Please try again.')
+    const { data, error } = await supabase
+      .from('interviewers')
+      .insert({ name, email: newEmail.trim() || '', is_active: true })
+      .select('id, name, email, is_active')
+      .single()
     setSaving(false)
+    if (error) {
+      console.error('Add error:', error.message)
+      toast?.error('Add failed', error.message)
+      return
+    }
+    const updated = [...interviewers, data].sort((a, b) => a.name.localeCompare(b.name))
+    setInterviewers(updated)
+    saveInterviewersToCache(updated)
+    setEditingEmail(prev => ({ ...prev, [data.id]: data.email || '' }))
+    setNewName('')
+    setNewEmail('')
+    toast?.success('Interviewer added', `${data.name} added.`)
   }
 
   const handleSaveEmail = async (id) => {
     const trimmedEmail = (editingEmail[id] ?? '').trim()
     setSavingEmail(p => ({ ...p, [id]: true }))
-    let saved = false
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      const { data, error } = await supabase
-        .from('interviewers')
-        .update({ email: trimmedEmail })
-        .eq('id', id)
-        .select('id, name, email')
-        .single()
-      if (!error && data) {
-        saved = true
-        setInterviewers(prev => prev.map(i => i.id === id ? { ...i, email: trimmedEmail } : i))
-        toast?.success('Email saved', `${data.name}'s email updated.`)
-        break
-      }
-      console.warn(`Email save attempt ${attempt} failed:`, error?.message)
-      if (attempt < 2) await new Promise(r => setTimeout(r, 800))
-    }
-    if (!saved) toast?.error('Save failed', 'Could not save email. Please try again.')
+    const { data, error } = await supabase
+      .from('interviewers')
+      .update({ email: trimmedEmail })
+      .eq('id', id)
+      .select('id, name, email')
+      .single()
     setSavingEmail(p => ({ ...p, [id]: false }))
+    if (error) {
+      console.error('Email update error:', error.message)
+      toast?.error('Save failed', error.message)
+      return
+    }
+    const updated = interviewers.map(i => i.id === id ? { ...i, email: trimmedEmail } : i)
+    setInterviewers(updated)
+    saveInterviewersToCache(updated)
+    toast?.success('Email saved', `${data.name}'s email updated.`)
   }
 
   const handleToggleActive = async (id, currentActive) => {
@@ -112,9 +125,10 @@ export default function InterviewersModal({ isOpen, onClose, toast }) {
       .update({ is_active: !currentActive })
       .eq('id', id)
     if (error) { toast?.error('Failed', error.message); return }
+    const updated = interviewers.map(i => i.id === id ? { ...i, is_active: !currentActive } : i)
+    setInterviewers(updated)
+    saveInterviewersToCache(updated)
     toast?.success(!currentActive ? 'Interviewer restored' : 'Interviewer removed', '')
-    // Direct state update — no re-fetch to avoid hang
-    setInterviewers(prev => prev.map(i => i.id === id ? { ...i, is_active: !currentActive } : i))
   }
 
   const canAdd = newName.trim()
@@ -132,7 +146,6 @@ export default function InterviewersModal({ isOpen, onClose, toast }) {
             </div>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            {/* Refresh button — Step 3 */}
             <button onClick={fetchInterviewers} title="Refresh list"
               style={{ background:'var(--nightfall)', border:'none', borderRadius:6, padding:'5px 10px', cursor:'pointer', color:'#fff', fontFamily:'DM Sans,sans-serif', fontSize:12, display:'flex', alignItems:'center', gap:4 }}>
               <RefreshCw size={12} />
@@ -147,37 +160,26 @@ export default function InterviewersModal({ isOpen, onClose, toast }) {
             Interviewers appear in the rubric form dropdown. Email addresses are used for scheduling notifications.
           </p>
 
-          {loading && (
+          {/* Only show spinner when truly no data at all */}
+          {loading && interviewers.length === 0 && (
             <div style={{ padding:'20px', textAlign:'center', color:'#9ca3af', fontSize:'13px' }}>
               Loading interviewers...
             </div>
           )}
 
-          {!loading && fetchError && (
-            <div style={{ padding:'20px', textAlign:'center' }}>
-              <div style={{ fontFamily:'DM Sans,sans-serif', fontSize:'13px', color:'#991b1b', marginBottom:'12px' }}>
-                Could not load interviewers. This is usually a temporary connection issue.
-              </div>
-              <button onClick={fetchInterviewers}
-                style={{ padding:'8px 18px', background:'#1D2567', border:'none', borderRadius:'8px', fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'13px', color:'#ffffff', cursor:'pointer' }}>
-                Try Again
-              </button>
-            </div>
-          )}
-
-          {!loading && !fetchError && interviewers.length === 0 && (
+          {!loading && interviewers.length === 0 && (
             <div style={{ padding:'20px', textAlign:'center', color:'#9ca3af', fontSize:'13px' }}>
               No interviewers yet. Add your first one below.
             </div>
           )}
 
-          {!loading && !fetchError && interviewers.length > 0 && (
+          {/* List renders even while background refresh is in progress */}
+          {interviewers.length > 0 && (
             <>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1.2fr auto auto', gap:10, padding:'6px 0', marginBottom:4 }}>
                 <div style={{ fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'0.04em' }}>Name</div>
                 <div style={{ fontSize:11, fontWeight:700, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'0.04em' }}>Email</div>
-                <div />
-                <div />
+                <div /><div />
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
                 {interviewers.map(i => (
