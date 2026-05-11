@@ -5,7 +5,8 @@ import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import StatCard from './StatCard'
 import CohortGantt from './CohortGantt'
 import StatusLegendPopover from './StatusLegendPopover'
-import { Layers, CheckSquare, Clock, GraduationCap, AlertTriangle } from 'lucide-react'
+import EmptyState from './EmptyState'
+import { Layers, CheckSquare, Clock, GraduationCap, AlertTriangle, MapPin, Users } from 'lucide-react'
 
 const DIVISIONS = ['Surgical', 'Medical', 'Critical Care', 'Specialty']
 
@@ -183,6 +184,13 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
             <span style={{ fontSize:11, color:'rgba(255,255,255,0.4)' }}>{campusOpen?'▲':'▼'}</span>
           </div>
           {/* Expanded student cards */}
+          {campusOpen && campusLogs.length === 0 && (
+            <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', background:'rgba(255,255,255,0.04)' }}>
+              <EmptyState compact icon={<Clock />}
+                heading="No students on campus today"
+                subtext="Students appear here after scanning the badge QR code and submitting a shift log." />
+            </div>
+          )}
           {campusOpen && campusLogs.length > 0 && (
             <div style={{ padding:'0 16px 12px', display:'flex', gap:12, overflowX:'auto' }}>
               {campusLogs.map(log => {
@@ -367,7 +375,9 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                 )
               })}
               {participating.length === 0 && (
-                <p className="ov-empty">No participating units set up for this cohort.</p>
+                <EmptyState icon={<MapPin />}
+                  heading="No units configured"
+                  subtext="Add participating units using the Set Up Units button to begin placement planning." />
               )}
             </div>
           </div>
@@ -485,7 +495,9 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                 )
               })}
               {students.length === 0 && (
-                <p className="ov-empty">No students in this cohort yet.</p>
+                <EmptyState icon={<GraduationCap />}
+                  heading="No student requests yet"
+                  subtext="Students will appear here after their school coordinator submits the school form." />
               )}
             </div>
           </div>
@@ -515,9 +527,9 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
           {timelineExpanded && (
             <div style={{ borderTop:'1px solid rgba(255,255,255,0.1)', background:'#ffffff', padding:20 }}>
               {cohortEvents.length === 0 ? (
-                <div style={{ textAlign:'center', fontFamily:'DM Sans,sans-serif', fontSize:14, color:'#9ca3af', fontStyle:'italic', padding:'8px 0' }}>
-                  No timeline data yet. Log orientation and rotation dates in student profiles to populate this chart.
-                </div>
+                <EmptyState icon={<Clock />}
+                  heading="No timeline data yet"
+                  subtext="Log orientation and rotation dates in student profiles to populate the cohort timeline. Events will also appear automatically as students progress through the program." />
               ) : (
                 <CohortGantt students={students} events={cohortEvents} cohort={cohort} />
               )}

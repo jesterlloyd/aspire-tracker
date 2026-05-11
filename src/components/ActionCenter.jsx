@@ -8,6 +8,8 @@ import { buildUnitLeaderEmail } from '../lib/emailUtils'
 import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 export { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { logEvent, eventExists } from '../lib/logEvent'
+import EmptyState from './EmptyState'
+import { Star } from 'lucide-react'
 
 function fmtLocalDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
@@ -561,6 +563,15 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
               </div>
             </div>
             <div style={{ flex:1, overflowY:'auto', padding:'0 16px 12px' }}>
+
+              {/* All-clear state */}
+              {act1.length + act2.length + act3.length + act4.length + act5.length + act6.length +
+               (showAct7 ? 1 : 0) + act8.length + act9.length + act10.length + act11.length +
+               act12.length + act13.length + act14.length + act15.length + act16.length === 0 && (
+                <EmptyState compact icon={<Star />}
+                  heading="All caught up!"
+                  subtext="No pending action items for this cohort right now." />
+              )}
 
               {/* 1: Student Form */}
               <ActionCard title="Send Student Form" borderColor="#e5e7eb" icon="📧" count={act1.length} badgeBg="#6b7280">

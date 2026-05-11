@@ -7,7 +7,8 @@ import ScheduleInterviewModal from './ScheduleInterviewModal'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import ScoreFlag from './ScoreFlag'
 import StatCard from './StatCard'
-import { Users, CalendarCheck, BadgeCheck, Loader, CalendarX, Flag, ThumbsUp } from 'lucide-react'
+import EmptyState from './EmptyState'
+import { Users, CalendarCheck, BadgeCheck, Loader, CalendarX, Flag, ThumbsUp, ClipboardList } from 'lucide-react'
 
 // Circular avatar for the IR student list table
 function IrAvatar({ student }) {
@@ -221,7 +222,11 @@ export default function InterviewRubricTab({
           </thead>
           <tbody>
             {sorted.length === 0 ? (
-              <tr><td colSpan={11} className="iv-empty">No students match the current search.</td></tr>
+              <tr><td colSpan={11} style={{ padding: 0, border: 'none' }}>
+                <EmptyState compact icon={<ClipboardList />}
+                  heading="No interview records yet"
+                  subtext="Interview records appear here after students are added to the cohort and interviews are scheduled." />
+              </td></tr>
             ) : sorted.map(s => {
               const ivStatus = getStudentIvStatus(s, rubrics)
               const borderColor = ROW_BORDER[ivStatus] || '#d1d5db'

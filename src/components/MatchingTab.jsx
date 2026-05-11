@@ -6,7 +6,8 @@ import ImportUnitsCSV from './ImportUnitsCSV'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
 import StatCard from './StatCard'
 import StatusLegendPopover from './StatusLegendPopover'
-import { Layers, Clock, Users, MapPin, Star, TrendingUp, UserX } from 'lucide-react'
+import EmptyState from './EmptyState'
+import { Layers, Clock, Users, MapPin, Star, TrendingUp, UserX, ClipboardList } from 'lucide-react'
 
 const POOL_ELIGIBLE_STATUSES = new Set([
   'Pending Outreach', 'Form Sent', 'Form Received', 'Interview Scheduled', 'Interviewed',
@@ -200,10 +201,9 @@ export default function MatchingTab({
 
           <div className="embed-units-body">
             {participating.length === 0 ? (
-              <div className="state-box" style={{ margin:16 }}>
-                <p>No participating units set up for this cohort.</p>
-                <p style={{ fontSize:13, color:'#64748b', marginTop:6 }}>Click "Set Up Units" to get started.</p>
-              </div>
+              <EmptyState icon={<MapPin />}
+                heading="No units in the pool"
+                subtext="Use Set Up Units to add participating units and their available slots." />
             ) : (
               <div className="embed-unit-grid">
                 {displayUnits.map(unit => (
@@ -255,11 +255,13 @@ export default function MatchingTab({
 
           <div className="embed-students-body">
             {filteredPool.length === 0 ? (
-              <div className="pool-empty" style={{ padding:32, textAlign:'center' }}>
-                {unmatchedAll.length === 0
-                  ? 'All students have been matched.'
-                  : 'No students match the current filter.'}
-              </div>
+              unmatchedAll.length === 0
+                ? <EmptyState icon={<Star />}
+                    heading="All students matched"
+                    subtext="Every available student has been placed. Check the Student Profiles tab to review placements." />
+                : <EmptyState icon={<Users />}
+                    heading="No students ready for matching"
+                    subtext="Students appear here after completing their interview and being recommended for placement." />
             ) : (
               <div className="embed-student-list">
                 {sortedPool.map(s => (

@@ -4,6 +4,8 @@ import { getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { ASPIRE_STATUSES } from '../lib/statuses'
 import StatusLegendPopover from './StatusLegendPopover'
+import EmptyState from './EmptyState'
+import { Users } from 'lucide-react'
 
 function gpaBadge(gpa) {
   if (gpa == null) return { text: 'GPA: N/A', bg: 'var(--sand)', color: 'var(--raven)' }
@@ -81,7 +83,15 @@ export default function StudentListPanel({
       {/* Rows */}
       <div className="pl-list">
         {students.length === 0 ? (
-          <div className="pl-empty">No students match the current filters.</div>
+          allStudents.length === 0
+            ? <EmptyState icon={<Users />}
+                heading="No students in this cohort"
+                subtext="Students are added when school coordinators submit the school form, or you can add them manually."
+                action={onAddStudent}
+                actionLabel="+ Add Student" />
+            : <EmptyState compact icon={<Users />}
+                heading="No students match this filter"
+                subtext="Try a different status, school, or search term." />
         ) : students.map(s => {
           const initials = `${(s.first_name||'')[0]||''}${(s.last_name||'')[0]||''}`.toUpperCase() || '?'
           const name = `${s.last_name||''}${s.last_name&&s.first_name?', ':''}${s.first_name||''}` || s.name || '—'
