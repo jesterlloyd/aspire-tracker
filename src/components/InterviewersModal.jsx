@@ -88,10 +88,10 @@ export default function InterviewersModal({ isOpen, onClose }) {
             'Content-Type': 'application/json',
             'apikey': supabaseKey,
             'Authorization': `Bearer ${supabaseKey}`,
-            'Prefer': 'return=representation',
           },
           body: JSON.stringify({ email: emailToSave }),
-        })
+        }),
+        30000
       )
       if (!response.ok) {
         const errText = await response.text()
@@ -147,13 +147,13 @@ export default function InterviewersModal({ isOpen, onClose }) {
             'Content-Type': 'application/json',
             'apikey': supabaseKey,
             'Authorization': `Bearer ${supabaseKey}`,
-            'Prefer': 'return=representation',
           },
           body: JSON.stringify({
             name: newName.trim(),
             email: newEmail.trim() || '',
           }),
-        })
+        }),
+        30000
       )
       if (!response.ok) {
         const errText = await response.text()
@@ -161,16 +161,18 @@ export default function InterviewersModal({ isOpen, onClose }) {
         alert(`Could not add interviewer.\n\n${errText}`)
         return
       }
-      const data = await response.json()
-      const newRecord = Array.isArray(data) ? data[0] : data
-      if (!newRecord?.id) {
-        alert('Interviewer may have been added. Please refresh to confirm.')
-        return
+      // 204 No Content on success — fetch updated list to get real id
+      const { data } = await supabase
+        .from('interviewers')
+        .select('id, name, email')
+        .order('name', { ascending: true })
+      if (data) {
+        setInterviewers(data)
+        saveCache(data)
+        const emailMap = {}
+        data.forEach(i => { emailMap[i.id] = i.email || '' })
+        setEditEmails(emailMap)
       }
-      const updated = [...interviewers, newRecord].sort((a, b) => a.name.localeCompare(b.name))
-      setInterviewers(updated)
-      saveCache(updated)
-      setEditEmails(prev => ({ ...prev, [newRecord.id]: newRecord.email || '' }))
       setNewName('')
       setNewEmail('')
       setShowAdd(false)
