@@ -11,6 +11,7 @@ import NewCohortModal from './components/NewCohortModal'
 import ManageCohortModal from './components/ManageCohortModal'
 import { useAuth } from './contexts/AuthContext'
 import LoginNew from './pages/Login'
+import UserMenu from './components/UserMenu'
 import UnitFormPage from './components/UnitFormPage'
 import SchoolFormPage from './components/SchoolFormPage'
 import StudentIntakeFormPage from './components/StudentIntakeFormPage'
@@ -67,6 +68,7 @@ function MainApp({ onLogout }) {
   const [showNewCohort,    setShowNewCohort]    = useState(false)
   const [showManageCohort, setShowManageCohort] = useState(false)
   const [confirmLogout,    setConfirmLogout]    = useState(false)
+  const [showUserManagement, setShowUserManagement] = useState(false)
 
   const [students,  setStudents]  = useState([])
   const [units,     setUnits]     = useState([])
@@ -447,8 +449,8 @@ function MainApp({ onLogout }) {
                 </p>
               </div>
             </div>
-            {/* Right: Bell + Log out */}
-            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            {/* Right: Bell + UserMenu */}
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
               {cohorts.length > 0 && (
                 <button id="keith-bell-trigger" onClick={() => setShowActionCenter(true)}
                   title="Open Action Center"
@@ -468,22 +470,7 @@ function MainApp({ onLogout }) {
                   )}
                 </button>
               )}
-              {!confirmLogout ? (
-                <button onClick={() => setConfirmLogout(true)}
-                  style={{ border:'1.5px solid rgba(255,255,255,0.8)', color:'#fff', background:'transparent',
-                    fontFamily:'DM Sans,sans-serif', fontSize:13, fontWeight:600, borderRadius:8,
-                    padding:'8px 18px', cursor:'pointer', transition:'background 0.15s, color 0.15s' }}
-                  onMouseEnter={e => { e.currentTarget.style.background='#fff'; e.currentTarget.style.color='var(--nightfall)' }}
-                  onMouseLeave={e => { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='#fff' }}>
-                  Log out
-                </button>
-              ) : (
-                <div className="logout-confirm-inline">
-                  <span className="logout-confirm-text">Are you sure?</span>
-                  <button className="btn-logout-yes" onClick={onLogout}>Log out</button>
-                  <button className="btn-logout-no"  onClick={() => setConfirmLogout(false)}>Cancel</button>
-                </div>
-              )}
+              <UserMenu onOpenUserManagement={() => setShowUserManagement(true)} />
             </div>
           </div>
         </header>
