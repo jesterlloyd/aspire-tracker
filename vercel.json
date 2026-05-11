@@ -6,8 +6,7 @@
     }
   ],
   "functions": {
-    "api/keith.js": {
-      "maxDuration": 30
-    }
+    "api/keith.js":       { "maxDuration": 30 },
+    "api/invite-user.js": { "maxDuration": 10 }
   }
 }

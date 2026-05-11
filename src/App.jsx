@@ -9,7 +9,8 @@ import AddStudentModal from './components/AddStudentModal'
 import UnifiedNav from './components/UnifiedNav'
 import NewCohortModal from './components/NewCohortModal'
 import ManageCohortModal from './components/ManageCohortModal'
-import LoginPage from './components/LoginPage'
+import { useAuth } from './contexts/AuthContext'
+import LoginNew from './pages/Login'
 import UnitFormPage from './components/UnitFormPage'
 import SchoolFormPage from './components/SchoolFormPage'
 import StudentIntakeFormPage from './components/StudentIntakeFormPage'
@@ -607,18 +608,50 @@ function MainApp({ onLogout }) {
 
 export default function App() {
   const path = window.location.pathname
-  const [authed, setAuthed] = useState(() => sessionStorage.getItem('aspire_auth') === '1')
+  const { user, userProfile, loading, signOut } = useAuth()
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('aspire_auth')
-    setAuthed(false)
-  }
+  // Public routes — never require auth
+  const publicPaths = ['/unit-form', '/school-form', '/student-form', '/interview-schedule', '/shift-log']
+  const isPublicRoute = publicPaths.some(p => path.startsWith(p))
 
   if (path.startsWith('/unit-form'))           return <UnitFormPage />
   if (path.startsWith('/school-form'))         return <SchoolFormPage />
   if (path.startsWith('/student-form'))        return <StudentIntakeFormPage />
   if (path.startsWith('/interview-schedule'))  return <InterviewSchedulePage />
   if (path.startsWith('/shift-log'))            return <ShiftLogPage />
-  if (!authed) return <LoginPage onSuccess={() => setAuthed(true)} />
-  return <MainApp onLogout={handleLogout} />
+
+  // Loading state while Supabase checks session
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: '#F4F1EC',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '14px', color: '#9ca3af' }}>
+          Loading ASPIRE Intelligence...
+        </div>
+      </div>
+    )
+  }
+
+  // Not signed in → show new Supabase login page
+  if (!user) return <LoginNew />
+
+  // Signed in but profile is inactive
+  if (user && userProfile && !userProfile.is_active) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: '#F4F1EC',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'DM Sans, sans-serif',
+      }}>
+        <div style={{ textAlign: 'center', color: '#991b1b' }}>
+          <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>Account Deactivated</div>
+          <div style={{ fontSize: '14px', color: '#6b7280' }}>Contact JesterLloyd.Bautista@cshs.org for access.</div>
+        </div>
+      </div>
+    )
+  }
+
+  return <MainApp onLogout={signOut} />
 }
