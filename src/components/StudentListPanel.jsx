@@ -6,6 +6,7 @@ import { ASPIRE_STATUSES } from '../lib/statuses'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
 import { Users } from 'lucide-react'
+import { calculateProfileCompletion, getCompletionColor } from '../lib/profileCompletion'
 
 function gpaBadge(gpa) {
   if (gpa == null) return { text: 'GPA: N/A', bg: 'var(--sand)', color: 'var(--raven)' }
@@ -125,6 +126,21 @@ export default function StudentListPanel({
                   <div className="pl-contact pl-contact-missing">Personal info not yet submitted</div>
                 ))}
               </div>
+              {/* Completion indicator */}
+              {(() => {
+                const completion = calculateProfileCompletion(s)
+                const colors = getCompletionColor(completion.status)
+                return (
+                  <div style={{ display:'flex', alignItems:'center', gap:'6px', marginTop:'3px' }}>
+                    <div style={{ width:'60px', height:'4px', borderRadius:'2px', background:'#f3f4f6', flexShrink:0 }}>
+                      <div style={{ width:`${completion.percentage}%`, height:'100%', borderRadius:'2px', background:colors.bar, transition:'width 0.3s ease' }} />
+                    </div>
+                    <span style={{ fontFamily:'DM Sans,sans-serif', fontSize:'10px', fontWeight:600, color:colors.text, whiteSpace:'nowrap' }}>
+                      {completion.percentage === 100 ? '✓ Complete' : `${completion.percentage}%`}
+                    </span>
+                  </div>
+                )
+              })()}
               {/* Right badges */}
               <div className="pl-right">
                 <span style={{ fontSize:11, fontWeight:600, padding:'1px 6px', borderRadius:4, background:gpa.bg, color:gpa.color }}>

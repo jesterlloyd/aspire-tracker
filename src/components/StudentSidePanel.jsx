@@ -11,6 +11,7 @@ import { downloadFile, buildStudentFilename } from '../lib/fileUtils'
 import { DECLINE_REASONS } from '../lib/statuses'
 import { EVENT_TYPES, EVENT_TYPE_LABELS, getEventColor } from '../lib/eventTypes'
 import { logEvent, eventExists } from '../lib/logEvent'
+import { calculateProfileCompletion, getCompletionColor } from '../lib/profileCompletion'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
@@ -419,6 +420,32 @@ export default function StudentSidePanel({
               <button title="Edit profile" onClick={() => { const inp=document.querySelector('.sp-content .sp-input'); if(inp){inp.scrollIntoView({behavior:'smooth',block:'center'}); inp.focus()} }}
                 style={{ background:'none', border:'none', cursor:'pointer', fontSize:16, color:'#6b7280', lineHeight:1 }}>✏</button>
             </div>
+            {/* Profile completion summary */}
+            {(() => {
+              const completion = calculateProfileCompletion(data)
+              const colors = getCompletionColor(completion.status)
+              return (
+                <div style={{ margin:'12px 0 0', padding:'10px 14px', background:colors.bg, borderRadius:10, display:'flex', flexDirection:'column', gap:6 }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:12, color:colors.text }}>
+                      Profile {completion.percentage}% complete
+                    </span>
+                    <span style={{ fontFamily:'DM Sans,sans-serif', fontSize:11, color:colors.text, opacity:0.8 }}>
+                      {completion.completed}/{completion.total} items
+                    </span>
+                  </div>
+                  <div style={{ height:5, borderRadius:3, background:'rgba(0,0,0,0.08)' }}>
+                    <div style={{ width:`${completion.percentage}%`, height:'100%', borderRadius:3, background:colors.bar, transition:'width 0.3s ease' }} />
+                  </div>
+                  {completion.missing.length > 0 && (
+                    <div style={{ fontFamily:'DM Sans,sans-serif', fontSize:11, color:colors.text, opacity:0.85 }}>
+                      Missing: {completion.missing.slice(0, 3).join(', ')}
+                      {completion.missing.length > 3 && ` +${completion.missing.length - 3} more`}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
 
           {/* 1. Contact Information */}
