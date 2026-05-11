@@ -42,15 +42,15 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [campusOpen,       setCampusOpen]       = useState(false)
   const [campusLogs,       setCampusLogs]       = useState([])
   const [campusLoading,    setCampusLoading]    = useState(false)
-  const [showTimeline,     setShowTimeline]     = useState(false)
+  const [timelineExpanded, setTimelineExpanded] = useState(false)
   const [cohortEvents,     setCohortEvents]     = useState([])
   const [eventsLoaded,     setEventsLoaded]     = useState(false)
 
   useEffect(() => {
-    if (!showTimeline || eventsLoaded || !cohortId) return
+    if (!timelineExpanded || eventsLoaded || !cohortId) return
     supabase.from('program_events').select('*').eq('cohort_id', cohortId)
       .then(({ data }) => { setCohortEvents(data || []); setEventsLoaded(true) })
-  }, [showTimeline, cohortId, eventsLoaded])
+  }, [timelineExpanded, cohortId, eventsLoaded])
 
   useEffect(() => { setCohortEvents([]); setEventsLoaded(false) }, [cohortId])
 
@@ -281,12 +281,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
               </div>
             </div>
             <div className="ov-expand-toggle">
-              <button onClick={() => setShowTimeline(p => !p)}
-                style={{ color: showTimeline ? 'var(--nightfall)' : undefined,
-                  fontWeight: showTimeline ? 700 : undefined }}>
-                {showTimeline ? '▲ Timeline' : '▼ Timeline'}
-              </button>
-              <span style={{ color:'var(--border)' }}>·</span>
               <button onClick={expandAllSchools}>Expand All</button>
               <span style={{ color:'var(--border)' }}>·</span>
               <button onClick={collapseAllSchools}>Collapse All</button>
@@ -297,24 +291,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
       {/* ════════ SCROLLABLE CONTENT ════════ */}
       <div className="aggregate-scrollable-content">
-
-        {/* ── Cohort Gantt timeline ── */}
-        {showTimeline && (
-          <div style={{ borderBottom:'1px solid #e5e7eb', background:'#fff', padding:'16px 0 8px' }}>
-            <div style={{ padding:'0 16px 10px', fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:14, color:'var(--nightfall)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-              <span>Student Timeline</span>
-              <button onClick={() => setShowTimeline(false)}
-                style={{ fontSize:12, background:'none', border:'none', cursor:'pointer', color:'#9ca3af' }}>Close ✕</button>
-            </div>
-            {cohortEvents.length === 0 ? (
-              <div style={{ padding:'24px', textAlign:'center', fontFamily:'DM Sans,sans-serif', fontSize:14, color:'#9ca3af', fontStyle:'italic' }}>
-                No timeline data yet. Log orientation and rotation dates in student profiles to populate this chart.
-              </div>
-            ) : (
-              <CohortGantt students={students} events={cohortEvents} cohort={cohort} />
-            )}
-          </div>
-        )}
 
         <div className="ov-panels-body">
 
@@ -511,6 +487,40 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
           </div>
 
         </div>
+
+        {/* ── Program Timeline strip — below both panels ── */}
+        <div style={{ background:'#1D2567', borderRadius:12, overflow:'hidden', margin:'16px 0' }}>
+          {/* Collapsed header */}
+          <div
+            onClick={() => setTimelineExpanded(p => !p)}
+            style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 20px', cursor:'pointer', userSelect:'none' }}
+          >
+            <span style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, transition:'background 0.2s ease',
+              background: timelineExpanded ? '#9FAFF8' : 'rgba(255,255,255,0.4)' }} />
+            <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:13, color:'#ffffff' }}>
+              Program Timeline
+            </span>
+            <span style={{ fontFamily:'DM Sans,sans-serif', fontSize:12, color:'rgba(255,255,255,0.5)', marginLeft:4 }}>
+              {timelineExpanded ? 'Gantt chart view' : 'Click to expand'}
+            </span>
+            <span style={{ marginLeft:'auto', color:'rgba(255,255,255,0.5)', fontSize:12,
+              transform: timelineExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition:'transform 0.2s ease' }}>▼</span>
+          </div>
+
+          {/* Expanded Gantt */}
+          {timelineExpanded && (
+            <div style={{ borderTop:'1px solid rgba(255,255,255,0.1)', background:'#ffffff', padding:20 }}>
+              {cohortEvents.length === 0 ? (
+                <div style={{ textAlign:'center', fontFamily:'DM Sans,sans-serif', fontSize:14, color:'#9ca3af', fontStyle:'italic', padding:'8px 0' }}>
+                  No timeline data yet. Log orientation and rotation dates in student profiles to populate this chart.
+                </div>
+              ) : (
+                <CohortGantt students={students} events={cohortEvents} cohort={cohort} />
+              )}
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   )

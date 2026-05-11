@@ -179,14 +179,18 @@ export default function UnifiedNav({
               {(() => {
                 const badgeKey = id === 'overview' ? 'aggregate' : id === 'profiles' ? 'studentProfiles' : id === 'interviews' ? 'interviewRubric' : 'embed'
                 const b = TAB_BADGES[badgeKey]
+                const isAggregate = id === 'overview'
+                const badgeStyle = isAggregate
+                  ? isActive
+                    ? { background: '#9FAFF8', border: '1px solid #7b8ef0', color: '#1D2567' }
+                    : { background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.30)', color: '#ffffff' }
+                  : { background: b.bg, border: `1px solid ${b.border}`, color: b.color }
                 return (
                   <span style={{
                     width:24, height:24, borderRadius:6, flexShrink:0,
                     display:'flex', alignItems:'center', justifyContent:'center',
                     fontSize:11, fontWeight:700,
-                    background: b.bg,
-                    color: b.color,
-                    border: `1px solid ${b.border}`,
+                    ...badgeStyle,
                   }}>
                     {id === 'overview' ? 'A' : id === 'profiles' ? 'SP' : id === 'interviews' ? 'IR' : 'E'}
                   </span>

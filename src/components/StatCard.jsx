@@ -78,9 +78,8 @@ export default function StatCard({
       onClick={onClick}
       style={{
         background: scheme.bg,
-        border: `1px solid ${scheme.border}`,
         borderRadius: '12px',
-        boxShadow: `0 2px 8px ${scheme.shadow}, 0 0 0 1px ${scheme.border}`,
+        boxShadow: `0 2px 12px ${scheme.shadow}, 0 1px 4px rgba(0,0,0,0.06)`,
         padding: '14px 16px',
         display: 'flex',
         alignItems: 'center',
@@ -94,13 +93,13 @@ export default function StatCard({
       onMouseEnter={e => {
         if (onClick) {
           e.currentTarget.style.transform = 'translateY(-2px)';
-          e.currentTarget.style.boxShadow = `0 8px 20px ${scheme.shadow}, 0 0 0 1px ${scheme.border}`;
+          e.currentTarget.style.boxShadow = `0 8px 24px ${scheme.shadow}, 0 1px 4px rgba(0,0,0,0.06)`;
         }
       }}
       onMouseLeave={e => {
         if (onClick) {
           e.currentTarget.style.transform = 'translateY(0)';
-          e.currentTarget.style.boxShadow = `0 2px 8px ${scheme.shadow}, 0 0 0 1px ${scheme.border}`;
+          e.currentTarget.style.boxShadow = `0 2px 12px ${scheme.shadow}, 0 1px 4px rgba(0,0,0,0.06)`;
         }
       }}
     >
