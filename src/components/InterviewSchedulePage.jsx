@@ -219,7 +219,7 @@ export default function InterviewSchedulePage() {
         interviewerEmail = iv?.email?.trim() || null
       }
       const mailto = buildNotificationMailto(student, chosen, interviewerEmail)
-      const a = document.createElement('a'); a.href = mailto; a.click()
+      window.open(mailto, '_blank')
     } catch (err) { console.error('Booking error:', err) }
     setBooking(false)
   }
@@ -350,7 +350,7 @@ export default function InterviewSchedulePage() {
             {!hasAnySlots && (
               <div style={{ textAlign:'center', padding:'24px 0', fontSize:14, color:'#6b7280' }}>
                 No interview times are currently available. Please check back soon or contact the ASPIRE team at{' '}
-                <a href={`mailto:${JESTER_EMAIL}`} style={{ color:'var(--nightfall)' }}>{JESTER_EMAIL}</a>.
+                <a href={`mailto:${JESTER_EMAIL}`} target="_blank" rel="noopener noreferrer" style={{ color:'var(--nightfall)' }}>{JESTER_EMAIL}</a>.
               </div>
             )}
 
@@ -425,7 +425,7 @@ export default function InterviewSchedulePage() {
               <p style={{ marginTop:16, fontSize:13 }}>
                 Please watch your email for further instructions including the Teams meeting link.
                 If you need to reschedule, please email{' '}
-                <a href="mailto:JesterLloyd.Bautista@cshs.org" style={{ color:'var(--nightfall)' }}>JesterLloyd.Bautista@cshs.org</a>{' '}
+                <a href="mailto:JesterLloyd.Bautista@cshs.org" target="_blank" rel="noopener noreferrer" style={{ color:'var(--nightfall)' }}>JesterLloyd.Bautista@cshs.org</a>{' '}
                 at least 24 hours before your interview.
               </p>
               <p style={{ marginTop:8, fontSize:13 }}>
@@ -453,7 +453,7 @@ export default function InterviewSchedulePage() {
               </div>
               <p style={{ marginTop:14, fontSize:13, color:'var(--text-secondary)' }}>
                 To reschedule, please email{' '}
-                <a href="mailto:JesterLloyd.Bautista@cshs.org" style={{ color:'var(--nightfall)' }}>
+                <a href="mailto:JesterLloyd.Bautista@cshs.org" target="_blank" rel="noopener noreferrer" style={{ color:'var(--nightfall)' }}>
                   JesterLloyd.Bautista@cshs.org
                 </a>{' '}
                 at least 24 hours before your interview.

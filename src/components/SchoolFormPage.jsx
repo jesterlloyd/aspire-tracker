@@ -166,7 +166,7 @@ export default function SchoolFormPage() {
         <p style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 400, fontSize: 15,
           color: '#6b7280', lineHeight: 1.6 }}>
           If you believe this is an error, please contact the ASPIRE Program team at{' '}
-          <a href={`mailto:${JESTER_EMAIL}`}
+          <a href={`mailto:${JESTER_EMAIL}`} target="_blank" rel="noopener noreferrer"
             style={{ color: 'var(--nightfall)', textDecoration: 'underline' }}>{JESTER_EMAIL}</a>.
         </p>
       </div>

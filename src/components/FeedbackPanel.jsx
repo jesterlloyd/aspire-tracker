@@ -1,5 +1,7 @@
+// All external navigation must use openLink helpers (src/lib/openLink.js)
 import { useState } from 'react';
 import { MessageCircle } from 'lucide-react';
+import { openMailtoLink } from '../lib/openLink';
 
 export default function FeedbackPanel({ activeTab, cohortName, isAuthenticated }) {
   const [isOpen,      setIsOpen]      = useState(false);
@@ -24,7 +26,7 @@ export default function FeedbackPanel({ activeTab, cohortName, isAuthenticated }
       `Category: ${category}\nReported from: ${tabLabel} · ${cohortName || 'Unknown cohort'}\n\n${message}\n\n---\nSent via ASPIRE Intelligence feedback panel`
     );
 
-    window.location.href = `mailto:JesterLloyd.Bautista@cshs.org?subject=${subject}&body=${body}`;
+    openMailtoLink(`mailto:JesterLloyd.Bautista@cshs.org?subject=${subject}&body=${body}`);
 
     setMessage('');
     setCategory('');

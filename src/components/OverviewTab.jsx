@@ -31,10 +31,12 @@ Warm regards,
 Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN
 Brawerman Nursing Institute | Cedars-Sinai Medical Center`
 
+// All external navigation must use openLink helpers (src/lib/openLink.js)
 function openMailto(bcc, body) {
-  const a = document.createElement('a')
-  a.href = `mailto:?bcc=${encodeURIComponent(bcc)}&subject=${encodeURIComponent(FORM_SUBJECT)}&body=${encodeURIComponent(body)}`
-  a.click()
+  window.open(
+    `mailto:?bcc=${encodeURIComponent(bcc)}&subject=${encodeURIComponent(FORM_SUBJECT)}&body=${encodeURIComponent(body)}`,
+    '_blank'
+  )
 }
 
 export default function OverviewTab({ students, units, onStudentUpdate, cohortId, cohort, toast }) {

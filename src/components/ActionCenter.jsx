@@ -25,7 +25,8 @@ function fmtIvDate(s) {
   const [y,m,d] = s.split('-').map(Number)
   return new Date(y,m-1,d).toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})
 }
-function openHref(href) { const a=document.createElement('a'); a.href=href; a.click() }
+// All external navigation must use openLink helpers (src/lib/openLink.js)
+function openHref(href) { window.open(href, '_blank', 'noopener,noreferrer'); }
 
 // ── Reusable card wrapper ────────────────────────────────────
 function ActionCard({ title, borderColor, icon, count, children, badgeBg = '#6b7280' }) {

@@ -14,6 +14,8 @@ import { logEvent, eventExists } from '../lib/logEvent'
 import { calculateProfileCompletion, getCompletionColor } from '../lib/profileCompletion'
 import { generateStudentSummary } from '../lib/generateSummary'
 import { Copy, Check } from 'lucide-react'
+// All external navigation must use openLink helpers (src/lib/openLink.js)
+import { openMailtoLink } from '../lib/openLink'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
@@ -426,7 +428,7 @@ export default function StudentSidePanel({
             })()}
             {/* Action icon row */}
             <div style={{ display:'flex', justifyContent:'center', gap:24, marginTop:4 }}>
-              <button title="Send email" onClick={() => { const a=document.createElement('a'); a.href=`mailto:${data.personal_email||data.school_email||''}`; a.click() }}
+              <button title="Send email" onClick={() => { openMailtoLink(`mailto:${data.personal_email||data.school_email||''}`) }}
                 style={{ background:'none', border:'none', cursor:'pointer', fontSize:16, color:'#6b7280', lineHeight:1 }}>✉</button>
               <button title="Call" onClick={() => { if(data.phone){ const a=document.createElement('a'); a.href=`tel:${data.phone}`; a.click() } }}
                 style={{ background:'none', border:'none', cursor:data.phone?'pointer':'default', fontSize:16, color:data.phone?'#6b7280':'#d1d5db', lineHeight:1 }}>📞</button>
@@ -494,9 +496,7 @@ export default function StudentSidePanel({
                   onClick={() => {
                     const subject = 'Schedule Your ASPIRE Interview'
                     const body = `Dear ${data.first_name || 'ASPIRE Student'},\n\nThank you for completing your ASPIRE Student Profile. The next step in the process is to schedule your interview with the Nursing Professional Development team.\n\nPlease use the link below to view available times and select one that works for your schedule:\n\nhttps://aspire-tracker.vercel.app/interview-schedule\n\nWhen prompted, enter your school email address to access your scheduling page.\n\nYour interview will be conducted via Microsoft Teams. The meeting link will be sent to you separately after you book your slot.\n\nIf you have any questions, please don't hesitate to reach out.\n\nWarm regards,\nJester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN\nBrawerman Nursing Institute | Cedars-Sinai Medical Center\nJesterLloyd.Bautista@cshs.org | 310-248-8964`
-                    const a = document.createElement('a')
-                    a.href = `mailto:${encodeURIComponent(data.school_email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-                    a.click()
+                    openMailtoLink(`mailto:${encodeURIComponent(data.school_email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`)
                   }}>
                   ✉ Send Scheduling Link
                 </button>
@@ -724,7 +724,7 @@ export default function StudentSidePanel({
                   <input className="sp-input" type="email" value={data.preceptor_email||''} onChange={e => handleText('preceptor_email', e.target.value)} placeholder="preceptor@cshs.org" />
                   {data.preceptor_email && (
                     <button className="sp-copy-btn" title="Email preceptor"
-                      onClick={() => { const a=document.createElement('a'); a.href=`mailto:${data.preceptor_email}`; a.click() }}>✉</button>
+                      onClick={() => { openMailtoLink(`mailto:${data.preceptor_email}`) }}>✉</button>
                   )}
                 </div>
               </Field>

@@ -1,6 +1,8 @@
+// All external navigation must use openLink helpers (src/lib/openLink.js)
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { logEvent, eventExists } from '../lib/logEvent'
+import { openMailtoLink } from '../lib/openLink'
 
 const JESTER = 'JesterLloyd.Bautista@cshs.org'
 
@@ -371,7 +373,7 @@ export default function ShiftLogPage() {
                   {preceptorChanged && (
                     <div style={{ marginTop:6, fontSize:13, color:'#92400e', background:'#fef3c7', borderRadius:8, padding:'8px 12px' }}>
                       Changed preceptor noted. Please inform the ASPIRE team by emailing{' '}
-                      <a href={`mailto:${JESTER}`} style={{ color:'var(--nightfall)' }}>{JESTER}</a>.
+                      <a href={`mailto:${JESTER}`} target="_blank" rel="noopener noreferrer" style={{ color:'var(--nightfall)' }}>{JESTER}</a>.
                     </div>
                   )}
                 </div>
@@ -458,7 +460,7 @@ export default function ShiftLogPage() {
                   onClick={() => {
                     const subject = encodeURIComponent(`ASPIRE Hours Completed - ${student.first_name} ${student.last_name}`)
                     const body = encodeURIComponent(`Hi Jester,\n\nI have completed my required ${required} hours for the ASPIRE Program rotation.\n\nStudent: ${student.last_name}, ${student.first_name}\nSchool: ${student.school}\nTotal Approved Hours: ${newApproved}\n\nThank you!`)
-                    window.location.href = `mailto:JesterLloyd.Bautista@cshs.org?subject=${subject}&body=${body}`
+                    openMailtoLink(`mailto:JesterLloyd.Bautista@cshs.org?subject=${subject}&body=${body}`)
                   }}
                   style={{ background:'var(--nightfall)', color:'#fff', border:'none', borderRadius:10, padding:'12px 24px', fontSize:15, fontWeight:700, fontFamily:'DM Sans,sans-serif', cursor:'pointer' }}>
                   Remind My Coordinator
@@ -477,7 +479,7 @@ export default function ShiftLogPage() {
               Log Another Shift
             </button>
             <p style={{ fontSize:13, color:'#6b7280', margin:0 }}>
-              To edit or delete a previous entry, email <a href={`mailto:${JESTER}`} style={{ color:'var(--nightfall)' }}>{JESTER}</a>.
+              To edit or delete a previous entry, email <a href={`mailto:${JESTER}`} target="_blank" rel="noopener noreferrer" style={{ color:'var(--nightfall)' }}>{JESTER}</a>.
             </p>
           </div>
         )}
