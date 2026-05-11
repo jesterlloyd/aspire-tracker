@@ -227,24 +227,28 @@ export default function MatchingTab({
 
         {/* ── Right: Student pool ── */}
         <div className="embed-students-panel">
-          <div className="embed-students-header">
+          {/* Two-row header */}
+          <div style={{ background:'#1D2567', padding:'10px 14px 8px', display:'flex', flexDirection:'column', gap:'8px', flexShrink:0 }}>
+            {/* Row 1: Title + legend icon */}
             <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-              <span className="embed-pool-title">Student Pool</span>
+              <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:15, color:'#ffffff' }}>Student Pool</span>
               <StatusLegendPopover position="bottom-right" dark={true} />
             </div>
-            <div className="embed-pool-filters">
+            {/* Row 2: Search + school filter + sort */}
+            <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
               <input
-                className="embed-pool-search"
                 placeholder="Search by name…"
                 value={poolSearch}
                 onChange={e => setPoolSearch(e.target.value)}
+                style={{ flex:1, minWidth:0, padding:'6px 10px', borderRadius:8, border:'none', background:'rgba(255,255,255,0.12)', color:'#ffffff', fontFamily:'DM Sans,sans-serif', fontSize:12, outline:'none' }}
               />
-              <select className="embed-pool-school" value={poolSchool} onChange={e => setPoolSchool(e.target.value)}>
+              <select value={poolSchool} onChange={e => setPoolSchool(e.target.value)}
+                style={{ padding:'6px 8px', borderRadius:8, border:'none', background:'rgba(255,255,255,0.12)', color:'#ffffff', fontFamily:'DM Sans,sans-serif', fontSize:12, outline:'none', minWidth:90 }}>
                 <option value="">All Schools</option>
                 {poolSchools.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-              <select className="embed-pool-school" value={poolSort} onChange={e => setPoolSort(e.target.value)}
-                title="Sort student pool">
+              <select value={poolSort} onChange={e => setPoolSort(e.target.value)} title="Sort student pool"
+                style={{ padding:'6px 8px', borderRadius:8, border:'none', background:'rgba(255,255,255,0.12)', color:'#ffffff', fontFamily:'DM Sans,sans-serif', fontSize:12, outline:'none', minWidth:90 }}>
                 <option value="last_name_asc">↑↓ Last Name A–Z</option>
                 <option value="last_name_desc">↑↓ Last Name Z–A</option>
                 <option value="school_asc">↑↓ School A–Z</option>

@@ -55,6 +55,7 @@ const STATUS_DESCRIPTIONS = [
 export default function StatusLegendPopover({ position = 'bottom-left', dark = false }) {
   const [isOpen,      setIsOpen]      = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipPos,  setTooltipPos]  = useState({ top: 0, left: 0 });
   const popoverRef = useRef(null);
   const triggerRef = useRef(null);
 
@@ -90,7 +91,11 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
       <button
         ref={triggerRef}
         onClick={() => setIsOpen(!isOpen)}
-        onMouseEnter={() => setShowTooltip(true)}
+        onMouseEnter={e => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          setTooltipPos({ top: rect.top - 32, left: rect.left + rect.width / 2 });
+          setShowTooltip(true);
+        }}
         onMouseLeave={() => setShowTooltip(false)}
         onFocus={() => setShowTooltip(false)}
         title="View status legend"
@@ -104,15 +109,19 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
         <Info size={15} strokeWidth={2} />
       </button>
 
-      {/* Hover tooltip */}
+      {/* Hover tooltip — fixed position to escape overflow:hidden parents */}
       {showTooltip && !isOpen && (
         <div style={{
-          position: 'absolute', bottom: '100%', left: '50%',
-          transform: 'translateX(-50%)', marginBottom: '6px',
+          position: 'fixed',
+          top: tooltipPos.top,
+          left: tooltipPos.left,
+          transform: 'translateX(-50%)',
           background: '#1D2567', color: '#ffffff',
           fontFamily: 'DM Sans', fontSize: '11px', fontWeight: 500,
           padding: '4px 10px', borderRadius: '6px',
-          whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 100,
+          whiteSpace: 'nowrap', pointerEvents: 'none',
+          zIndex: 9999,
+          boxShadow: '0 2px 8px rgba(29,37,103,0.25)',
         }}>
           View status legend
         </div>
