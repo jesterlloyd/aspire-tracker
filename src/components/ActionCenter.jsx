@@ -40,15 +40,17 @@ function ActionCard({ title, borderColor, icon, count, children, badgeBg = '#6b7
   )
   return (
     <div style={{ borderLeft:`4px solid ${borderColor}`, border:`1px solid ${borderColor}`,
-      borderLeftWidth:4, borderRadius:6, marginBottom:8, background:'#fff', overflow:'hidden' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', cursor:'pointer' }}
-        onClick={() => setOpen(p=>!p)}>
+      borderLeftWidth:4, borderRadius:8, marginBottom:8, background:'#fff', overflow:'hidden' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 16px', cursor:'pointer',
+        transition:'background 0.12s ease' }}
+        onClick={() => setOpen(p=>!p)}
+        onMouseEnter={e => e.currentTarget.style.background='#fafafa'}
+        onMouseLeave={e => e.currentTarget.style.background='transparent'}>
         <span style={{ fontSize:16 }}>{icon}</span>
-        <span style={{ fontSize:14, fontWeight:600, color:'var(--raven)', flex:1 }}>{title}</span>
+        <span style={{ fontSize:13, fontWeight:600, color:'var(--raven)', flex:1 }}>{title}</span>
         <span style={{ background:badgeBg, color:'#ffffff', fontFamily:'DM Sans,sans-serif',
-          fontWeight:700, fontSize:11, minWidth:20, height:20, borderRadius:10,
-          display:'flex', alignItems:'center', justifyContent:'center',
-          padding:'0 6px', flexShrink:0 }}>{count}</span>
+          fontWeight:700, fontSize:11, padding:'2px 8px', borderRadius:20,
+          minWidth:24, textAlign:'center', flexShrink:0 }}>{count}</span>
         <span style={{ fontSize:12, color:'#9ca3af' }}>{open?'▾':'▸'}</span>
       </div>
       {open && <div style={{ borderTop:`1px solid ${borderColor}` }}>{children}</div>}

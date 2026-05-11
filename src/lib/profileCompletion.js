@@ -2,12 +2,12 @@ export function calculateProfileCompletion(student) {
   const checks = [
     {
       key: 'photo',
-      label: 'Profile photo',
+      label: 'Photo',
       complete: !!student?.headshot_url,
     },
     {
       key: 'gpa',
-      label: 'GPA on file',
+      label: 'GPA',
       complete: !!student?.cumulative_gpa && student.cumulative_gpa > 0,
     },
     {
@@ -17,7 +17,7 @@ export function calculateProfileCompletion(student) {
     },
     {
       key: 'phone',
-      label: 'Phone number',
+      label: 'Phone',
       complete: !!student?.phone,
     },
     {
@@ -42,22 +42,22 @@ export function calculateProfileCompletion(student) {
     },
     {
       key: 'resume',
-      label: 'Resume uploaded',
+      label: 'Resume',
       complete: !!student?.resume_url,
     },
     {
       key: 'interview',
-      label: 'Interview completed',
+      label: 'Interview',
       complete: ['Interviewed', 'Placed', 'Active Rotation', 'Completed'].includes(student?.status),
     },
     {
       key: 'placement',
-      label: 'Unit placement',
+      label: 'Placement',
       complete: !!student?.matched_unit_id,
     },
     {
       key: 'cs_link',
-      label: 'CS-Link complete',
+      label: 'CS-Link access',
       complete: !!student?.cs_link_complete,
     },
   ];

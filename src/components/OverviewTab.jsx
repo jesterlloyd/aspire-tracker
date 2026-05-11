@@ -216,7 +216,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         </div>
 
         {/* ── On Campus Today compact strip — second, contextual ── */}
-        <div style={{ background:'#191919', borderBottom:'1px solid #333', borderRadius:12, overflow:'hidden' }}>
+        <div style={{ background:'#1D2567', borderBottom:'1px solid rgba(255,255,255,0.08)', borderRadius:12, overflow:'hidden' }}>
           {/* Header row */}
           <div style={{ display:'flex', alignItems:'center', gap:8, padding:'0 24px', height:48, cursor:'pointer' }}
             onClick={() => setCampusOpen(p => !p)}>
@@ -563,7 +563,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         </div>
 
         {/* ── Program Timeline strip — below both panels ── */}
-        <div style={{ background:'#191919', borderRadius:12, overflow:'hidden', margin:'16px 0' }}>
+        <div style={{ background:'#1D2567', borderRadius:12, overflow:'hidden', margin:'16px 0' }}>
           {/* Collapsed header */}
           <div
             onClick={() => setTimelineExpanded(p => !p)}

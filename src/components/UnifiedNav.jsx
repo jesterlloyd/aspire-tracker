@@ -147,7 +147,7 @@ export default function UnifiedNav({
     else if (e.key === 'Escape') { setSearchOpen(false); setQuery(''); inputRef.current?.blur() }
   }
 
-  const CMD_BG = '#191919'
+  const CMD_BG = 'linear-gradient(180deg, #141928 0%, #111525 100%)'
 
   return (
     <nav style={{

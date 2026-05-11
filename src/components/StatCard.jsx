@@ -88,7 +88,7 @@ export default function StatCard({
         cursor: onClick ? 'pointer' : 'default',
         transition: 'box-shadow 0.2s ease, transform 0.15s ease',
         flex: '1',
-        minWidth: '120px',
+        minWidth: '130px',
       }}
       onMouseEnter={e => {
         if (onClick) {
