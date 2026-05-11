@@ -1,54 +1,91 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext({});
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser]               = useState(null);
   const [userProfile, setUserProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]         = useState(true);
+  const loadingRef = useRef(false); // Prevent concurrent profile loads
 
   const loadUserProfile = async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+
     try {
       const { data, error } = await supabase.rpc('get_my_profile');
-      if (!error && data && data.length > 0) {
+      if (error) {
+        console.error('Profile load error:', error.message);
+        return;
+      }
+      if (data && data.length > 0) {
         setUserProfile(data[0]);
-        await supabase
+        // Update last login without blocking
+        supabase
           .from('user_profiles')
           .update({ last_login_at: new Date().toISOString() })
-          .eq('auth_user_id', data[0].id);
+          .eq('auth_user_id', data[0].auth_user_id)
+          .then(() => {});
       }
     } catch (err) {
-      console.error('Error loading profile:', err);
+      console.error('Profile load exception:', err.message);
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        loadUserProfile();
-      } else {
-        setLoading(false);
-      }
-    });
+    let mounted = true;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+    const initAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (!mounted) return;
+
+        if (error) {
+          console.error('Session error:', error.message);
+          setLoading(false);
+          return;
+        }
+
         if (session?.user) {
           setUser(session.user);
           await loadUserProfile();
         } else {
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('Auth init error:', err.message);
+        if (mounted) setLoading(false);
+      }
+    };
+
+    initAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+
+        if (event === 'SIGNED_IN' && session?.user) {
+          setUser(session.user);
+          await loadUserProfile();
+        } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setUserProfile(null);
           setLoading(false);
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          setUser(session.user);
+          // Don't reload profile on token refresh, just update user
         }
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const signOut = async () => {

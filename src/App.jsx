@@ -54,6 +54,14 @@ function computeMatchSummary(matchList) {
 
 function MainApp({ onLogout }) {
   const { toasts, removeToast, toast } = useToast()
+
+  // One-time cleanup of old shared-password auth storage keys
+  useEffect(() => {
+    ['aspire_auth', 'aspire_password', 'app_authenticated', 'isAuthenticated'].forEach(key => {
+      localStorage.removeItem(key)
+      sessionStorage.removeItem(key)
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [cohorts,          setCohorts]          = useState([])
   const [activeCohortId,   setActiveCohortId]   = useState(null)
   const [showNewCohort,    setShowNewCohort]    = useState(false)
@@ -85,16 +93,26 @@ function MainApp({ onLogout }) {
   const [filters, setFilters] = useState({ school: '', status: '', cohort: '' })
 
   useEffect(() => {
-    supabase.from('cohorts').select('*').order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (error) { setDbError(error.message); setLoading(false); return }
-        if (data?.length > 0) {
-          setCohorts(data)
-          const saved    = localStorage.getItem('aspire_active_cohort_id')
-          const restored = saved && data.find(c => c.id === saved)
-          setActiveCohortId(restored ? restored.id : (data.find(c => c.status === 'Active') || data[0]).id)
-        } else setLoading(false)
-      })
+    const loadCohorts = async () => {
+      const { data, error } = await supabase.from('cohorts').select('*').order('created_at', { ascending: false })
+      if (error) {
+        // Retry once on lock/session errors before showing the error state
+        if (error.message?.toLowerCase().includes('lock') || error.code === 'PGRST301') {
+          setTimeout(loadCohorts, 1500)
+          return
+        }
+        setDbError(error.message)
+        setLoading(false)
+        return
+      }
+      if (data?.length > 0) {
+        setCohorts(data)
+        const saved    = localStorage.getItem('aspire_active_cohort_id')
+        const restored = saved && data.find(c => c.id === saved)
+        setActiveCohortId(restored ? restored.id : (data.find(c => c.status === 'Active') || data[0]).id)
+      } else setLoading(false)
+    }
+    loadCohorts()
   }, [])
 
   useEffect(() => {
@@ -506,8 +524,12 @@ function MainApp({ onLogout }) {
         {loading && cohorts.length > 0 && <div className="state-box"><div className="spinner" /><p>Loading…</p></div>}
         {dbError && (
           <div className="state-box error-box">
-            <p><strong>Database error:</strong> {dbError}</p>
-            <p style={{ marginTop: 8, fontSize: 13, color: '#6b7280' }}>Make sure you have run all SQL migrations in the Supabase SQL Editor.</p>
+            <p><strong>Unable to load data.</strong></p>
+            <p style={{ marginTop: 8, fontSize: 13, color: '#6b7280' }}>
+              {dbError.toLowerCase().includes('jwt') || dbError.toLowerCase().includes('auth')
+                ? 'Your session may have expired. Try signing out and back in.'
+                : 'Check your connection or contact the ASPIRE team if this persists.'}
+            </p>
             <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={refreshAll}>Retry</button>
           </div>
         )}
