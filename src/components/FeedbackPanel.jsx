@@ -67,15 +67,15 @@ export default function FeedbackPanel({ activeTab, cohortName, isAuthenticated }
           width: '52px',
           height: '52px',
           borderRadius: '50%',
-          background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+          background: 'linear-gradient(135deg, #930045, #6d0033)',
           border: 'none',
           cursor: 'pointer',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           boxShadow: isOpen
-            ? '0 0 0 2px rgba(14,165,233,0.5), 0 0 20px rgba(14,165,233,0.4)'
-            : '0 4px 16px rgba(14,165,233,0.35)',
+            ? '0 0 0 2px rgba(147,0,69,0.5), 0 0 20px rgba(147,0,69,0.4)'
+            : '0 4px 16px rgba(147,0,69,0.35)',
           zIndex: 1000,
           transition: 'all 0.2s ease',
         }}
@@ -111,7 +111,7 @@ export default function FeedbackPanel({ activeTab, cohortName, isAuthenticated }
 
             {/* Header */}
             <div style={{
-              background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+              background: 'linear-gradient(135deg, #930045, #6d0033)',
               padding: '16px 20px',
               display: 'flex',
               alignItems: 'center',
@@ -153,12 +153,12 @@ export default function FeedbackPanel({ activeTab, cohortName, isAuthenticated }
                         flex: 1,
                         padding: '8px 4px',
                         borderRadius: '10px',
-                        border: `2px solid ${category === cat.value ? '#0ea5e9' : '#e5e7eb'}`,
-                        background: category === cat.value ? '#eff6ff' : '#f9fafb',
+                        border: `2px solid ${category === cat.value ? '#930045' : '#e5e7eb'}`,
+                        background: category === cat.value ? '#fff0f6' : '#f9fafb',
                         fontFamily: 'DM Sans',
                         fontSize: '12px',
                         fontWeight: category === cat.value ? 600 : 400,
-                        color: category === cat.value ? '#0284c7' : '#6b7280',
+                        color: category === cat.value ? '#930045' : '#6b7280',
                         cursor: 'pointer',
                         transition: 'all 0.15s ease',
                         display: 'flex',
@@ -203,20 +203,20 @@ export default function FeedbackPanel({ activeTab, cohortName, isAuthenticated }
                     boxSizing: 'border-box',
                     lineHeight: 1.6,
                   }}
-                  onFocus={e => e.currentTarget.style.borderColor = '#0ea5e9'}
+                  onFocus={e => e.currentTarget.style.borderColor = '#930045'}
                   onBlur={e => e.currentTarget.style.borderColor = '#e5e7eb'}
                 />
               </div>
 
               {/* Context note */}
               <div style={{
-                background: '#f0f9ff',
-                border: '1px solid #bae6fd',
+                background: '#fff0f6',
+                border: '1px solid #f9a8d4',
                 borderRadius: '8px',
                 padding: '8px 12px',
                 fontFamily: 'DM Sans',
                 fontSize: '11px',
-                color: '#0369a1',
+                color: '#930045',
               }}>
                 📍 Will include: {activeTab ? `${activeTab} tab` : 'current tab'} · {cohortName || 'current cohort'}
               </div>
@@ -229,7 +229,7 @@ export default function FeedbackPanel({ activeTab, cohortName, isAuthenticated }
                   width: '100%',
                   padding: '12px',
                   borderRadius: '10px',
-                  background: category && message.trim() ? 'linear-gradient(135deg, #0ea5e9, #0284c7)' : '#e5e7eb',
+                  background: category && message.trim() ? 'linear-gradient(135deg, #930045, #6d0033)' : '#e5e7eb',
                   border: 'none',
                   color: category && message.trim() ? '#ffffff' : '#9ca3af',
                   fontFamily: 'DM Sans',

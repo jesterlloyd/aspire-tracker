@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
+import { TAB_BADGES } from '../lib/brand'
 
 const COHORT_STATUS_COLORS = {
   Planning:  { bg:'#dbeafe', color:'#1d4ed8' },
@@ -146,7 +147,7 @@ export default function UnifiedNav({
     else if (e.key === 'Escape') { setSearchOpen(false); setQuery(''); inputRef.current?.blur() }
   }
 
-  const CMD_BG = '#16205a'
+  const CMD_BG = '#191919'
 
   return (
     <nav style={{
@@ -174,22 +175,23 @@ export default function UnifiedNav({
               }}
               onMouseEnter={e => { if (!isActive) e.currentTarget.style.background='rgba(255,255,255,0.08)' }}
               onMouseLeave={e => { if (!isActive) e.currentTarget.style.background='transparent' }}>
-              {/* Acronym badge — Aggregate gets frosted glass fix; SP/IR/E keep their colors always */}
-              <span style={{
-                width:24, height:24, borderRadius:6, flexShrink:0,
-                display:'flex', alignItems:'center', justifyContent:'center',
-                fontSize:11, fontWeight:700, color:'#ffffff',
-                ...(id === 'overview'
-                  ? { background: isActive ? '#1d2567' : 'rgba(255,255,255,0.18)',
-                      border: isActive ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(255,255,255,0.35)' }
-                  : id === 'profiles'
-                  ? { background: '#166534', border: 'none' }
-                  : id === 'interviews'
-                  ? { background: '#0e7490', border: 'none' }
-                  : { background: '#92400e', border: 'none' }),
-              }}>
-                {id === 'overview' ? 'A' : id === 'profiles' ? 'SP' : id === 'interviews' ? 'IR' : 'E'}
-              </span>
+              {/* Acronym badge — CS brand palette per tab */}
+              {(() => {
+                const badgeKey = id === 'overview' ? 'aggregate' : id === 'profiles' ? 'studentProfiles' : id === 'interviews' ? 'interviewRubric' : 'embed'
+                const b = TAB_BADGES[badgeKey]
+                return (
+                  <span style={{
+                    width:24, height:24, borderRadius:6, flexShrink:0,
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    fontSize:11, fontWeight:700,
+                    background: b.bg,
+                    color: b.color,
+                    border: `1px solid ${b.border}`,
+                  }}>
+                    {id === 'overview' ? 'A' : id === 'profiles' ? 'SP' : id === 'interviews' ? 'IR' : 'E'}
+                  </span>
+                )
+              })()}
               {/* Line icon */}
               <span style={{ lineHeight:0, opacity: isActive ? 0.7 : 0.65 }}>
                 <Icon />

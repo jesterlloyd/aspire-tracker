@@ -50,9 +50,9 @@ body { min-height: 100vh; }
   box-shadow: 0 2px 8px rgba(29,37,103,0.25);
 }
 
-/* App header — Nightfall */
+/* App header — Raven (CS brand) */
 .app-header {
-  background: var(--nightfall);
+  background: #191919;
 }
 .header-inner {
   max-width: 1440px; margin: 0 auto;

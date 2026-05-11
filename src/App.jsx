@@ -400,7 +400,7 @@ function MainApp({ onLogout }) {
           <div className="header-inner">
             {/* Left: Logo + divider + title block */}
             <div style={{ display:'flex', alignItems:'center', gap:16, flex:1 }}>
-              <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="36" />
+              <img src="/cs-logo-rev.png" alt="Cedars-Sinai" style={{ height:'32px', width:'auto', objectFit:'contain' }} />
               <div style={{ width:1, height:32, background:'rgba(255,255,255,0.2)', flexShrink:0 }} />
               <div style={{ display:'flex', flexDirection:'column', justifyContent:'center' }}>
                 <h1 className="header-title">ASPIRE Intelligence</h1>
