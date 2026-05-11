@@ -14,19 +14,31 @@ export function AuthProvider({ children }) {
     loadingRef.current = true;
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) {
+        setLoading(false);
+        loadingRef.current = false;
+        return;
+      }
+
       const { data, error } = await supabase.rpc('get_my_profile');
       if (error) {
         console.error('Profile load error:', error.message);
+        setLoading(false);
+        loadingRef.current = false;
         return;
       }
+
       if (data && data.length > 0) {
         setUserProfile(data[0]);
-        // Update last login without blocking
-        supabase
-          .from('user_profiles')
-          .update({ last_login_at: new Date().toISOString() })
-          .eq('auth_user_id', data[0].auth_user_id)
-          .then(() => {});
+        // Guard: only update if auth_user_id is defined
+        if (user.id) {
+          supabase
+            .from('user_profiles')
+            .update({ last_login_at: new Date().toISOString() })
+            .eq('auth_user_id', user.id)
+            .then(() => {});
+        }
       }
     } catch (err) {
       console.error('Profile load exception:', err.message);

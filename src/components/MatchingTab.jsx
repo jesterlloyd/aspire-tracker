@@ -10,6 +10,7 @@ import EmptyState from './EmptyState'
 import SyncIndicator from './SyncIndicator'
 import { Layers, Clock, Users, MapPin, Star, TrendingUp, UserX, ClipboardList } from 'lucide-react'
 import { useLastSynced } from '../hooks/useLastSynced'
+import { useAuth } from '../contexts/AuthContext'
 
 const POOL_ELIGIBLE_STATUSES = new Set([
   'Pending Outreach', 'Form Sent', 'Form Received', 'Interview Scheduled', 'Interviewed',
