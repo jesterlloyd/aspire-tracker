@@ -77,7 +77,7 @@ export function getCsLinkStatus(student) {
 }
 
 export const CS_LINK_STATUS_CONFIG = {
-  not_started:    { label: 'Not Started',      bg: '#f3f4f6', text: '#6b7280' },
+  not_started:    { label: 'CS-Link Not Started', bg: '#f3f4f6', text: '#6b7280' },
   stage1_pending: { label: 'Pending Account',  bg: '#fef3c7', text: '#92400e' },
   account_active: { label: 'Account Active',   bg: '#eff6ff', text: '#1d4ed8' },
   cslink_pending: { label: 'CS-Link Pending',  bg: '#ede9fe', text: '#5b21b6' },

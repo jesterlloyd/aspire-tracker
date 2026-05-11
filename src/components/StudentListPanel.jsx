@@ -55,11 +55,11 @@ export default function StudentListPanel({
           <option value="school_asc">School A–Z</option>
           <option value="gpa_desc">GPA High–Low</option>
           <option value="status">ASPIRE Status</option>
-          <option value="needs_attention">Needs Attention First</option>
+          <option value="needs_attention">Review Needed First</option>
         </select>
         <button className={`pl-needs-btn${needsAttention ? ' pl-needs-active' : ''}`}
           onClick={() => setNeedsAttention(p => !p)}>
-          ⚠ Needs Attention
+          ⚠ Review Needed
         </button>
         <button className="btn-import-students" onClick={() => setShowImport(true)} title="Import from CSV">
           ↑ Import

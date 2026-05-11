@@ -232,28 +232,28 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
           />
           <StatCard
             value={slotsFilled}
-            label="Slots Filled"
-            sublabel={`${Math.round((slotsFilled / totalSlots) * 100) || 0}% capacity`}
+            label="Slots Placed"
+            sublabel={`${Math.round((slotsFilled / totalSlots) * 100) || 0}% of total capacity`}
             icon={CheckSquare}
             colorScheme="green"
           />
           <StatCard
             value={slotsRemaining}
-            label="Slots Remaining"
+            label="Open Slots"
             icon={Clock}
             colorScheme={slotsRemaining === 0 ? 'red' : 'marina'}
           />
           <StatCard
             value={studentsRequesting}
-            label="Students Requesting"
+            label="Student Requests"
             sublabel={`${activeSchools} schools`}
             icon={GraduationCap}
             colorScheme="neutral"
           />
           <StatCard
             value={Math.abs(gap)}
-            label={gap > 0 ? 'Spots Short' : 'Fully Covered'}
-            sublabel={gap > 0 ? 'More students than slots' : 'Enough slots for all'}
+            label={gap > 0 ? 'Placement Gap' : 'Fully Covered'}
+            sublabel={gap > 0 ? 'More requests than open slots' : 'Enough slots for all'}
             icon={AlertTriangle}
             colorScheme={gap > 0 ? 'amber' : 'darkgreen'}
           />

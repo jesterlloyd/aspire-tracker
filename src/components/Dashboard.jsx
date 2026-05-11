@@ -12,13 +12,13 @@ export default function Dashboard({ students }) {
       <StatCard
         value={totalStudents}
         label="Total Students"
-        sublabel="100% of total"
+        sublabel="all enrolled students"
         icon={Users}
         colorScheme="nightfall"
       />
       <StatCard
         value={placedCount}
-        label="Placed in Unit"
+        label="Students Placed"
         sublabel={`${Math.round((placedCount / totalStudents) * 100) || 0}% of total`}
         icon={MapPin}
         colorScheme="marina"
@@ -33,7 +33,7 @@ export default function Dashboard({ students }) {
       <StatCard
         value={ngrpHiredCount}
         label="NGRP Hired"
-        sublabel={`${Math.round((ngrpHiredCount / totalStudents) * 100) || 0}% of total`}
+        sublabel={ngrpHiredCount === 0 ? 'no hires recorded' : `${Math.round((ngrpHiredCount / totalStudents) * 100)}% of total`}
         icon={Briefcase}
         colorScheme="purple"
       />

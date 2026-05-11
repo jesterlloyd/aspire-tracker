@@ -154,7 +154,7 @@ export default function MatchingTab({
       {/* ── Summary banner ── */}
       <div className="stat-cards-row" style={{ padding:'12px 16px' }}>
         <StatCard value={totalSlots}    label="Total Slots"     icon={Layers}    colorScheme="nightfall" />
-        <StatCard value={slotsRemaining} label="Slots Remaining" icon={Clock}    colorScheme="marina" />
+        <StatCard value={slotsRemaining} label="Open Slots"      icon={Clock}    colorScheme="marina" />
         <StatCard value={studentsCount} label="Students"        icon={Users}     colorScheme="neutral" />
         <StatCard value={matchedCount}  label="Matched"         icon={MapPin}    colorScheme="green" />
         <StatCard value={perfectMatches} label="Perfect Matches" icon={Star}     colorScheme="darkgreen" />
