@@ -1957,8 +1957,9 @@ a.doc-file-link:hover { text-decoration: underline; }
 .embed-units-header {
   flex-shrink: 0;
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  padding: 12px 16px;
-  background: var(--nightfall); border-bottom: 1px solid #e5e7eb;
+  padding: 12px 14px;
+  min-height: 52px;
+  background: #191919; border-bottom: 1px solid #333;
 }
 .embed-uh-left  { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
 .embed-uh-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
