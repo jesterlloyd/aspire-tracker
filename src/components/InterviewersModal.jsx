@@ -75,43 +75,31 @@ export default function InterviewersModal({ isOpen, onClose }) {
     }
   }, [isOpen, fetchInterviewers])
 
-  const handleSaveEmail = async (interviewer) => {
+  const handleSaveEmail = (interviewer) => {
     const emailToSave = (editEmails[interviewer.id] ?? interviewer.email ?? '').trim()
-    setSavingIds(prev => ({ ...prev, [interviewer.id]: true }))
-    try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-      const response = await withTimeout(
-        fetch(`${supabaseUrl}/rest/v1/interviewers?id=eq.${interviewer.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': supabaseKey,
-            'Authorization': `Bearer ${supabaseKey}`,
-          },
-          body: JSON.stringify({ email: emailToSave }),
-        }),
-        30000
-      )
-      if (!response.ok) {
-        const errText = await response.text()
-        console.error('Save email REST error:', errText)
-        alert(`Could not save email.\n\n${errText}`)
-        return
-      }
-      const updated = interviewers.map(i =>
-        i.id === interviewer.id ? { ...i, email: emailToSave } : i
-      )
-      setInterviewers(updated)
-      saveCache(updated)
-      setSavedIds(prev => ({ ...prev, [interviewer.id]: true }))
-      setTimeout(() => setSavedIds(prev => ({ ...prev, [interviewer.id]: false })), 2500)
-    } catch (err) {
-      console.error('Save exception:', err)
-      alert(`Save failed: ${err.message}`)
-    } finally {
-      setSavingIds(prev => ({ ...prev, [interviewer.id]: false }))
-    }
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+    // Update UI immediately
+    const updated = interviewers.map(i =>
+      i.id === interviewer.id ? { ...i, email: emailToSave } : i
+    )
+    setInterviewers(updated)
+    saveCache(updated)
+    setSavedIds(prev => ({ ...prev, [interviewer.id]: true }))
+    setTimeout(() => setSavedIds(prev => ({ ...prev, [interviewer.id]: false })), 2500)
+
+    // Fire update in background without waiting
+    fetch(`${supabaseUrl}/rest/v1/interviewers?id=eq.${interviewer.id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({ email: emailToSave }),
+    }).catch(err => console.error('Save email background error:', err))
   }
 
   const handleDelete = async (interviewer) => {
@@ -134,54 +122,39 @@ export default function InterviewersModal({ isOpen, onClose }) {
     }
   }
 
-  const handleAdd = async () => {
+  const handleAdd = () => {
     if (!newName.trim()) return
     setAdding(true)
-    try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-      const response = await withTimeout(
-        fetch(`${supabaseUrl}/rest/v1/interviewers`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': supabaseKey,
-            'Authorization': `Bearer ${supabaseKey}`,
-          },
-          body: JSON.stringify({
-            name: newName.trim(),
-            email: newEmail.trim() || '',
-          }),
-        }),
-        30000
-      )
-      if (!response.ok) {
-        const errText = await response.text()
-        console.error('Add interviewer REST error:', errText)
-        alert(`Could not add interviewer.\n\n${errText}`)
-        return
-      }
-      // 204 No Content on success — fetch updated list to get real id
-      const { data } = await supabase
-        .from('interviewers')
-        .select('id, name, email')
-        .order('name', { ascending: true })
-      if (data) {
-        setInterviewers(data)
-        saveCache(data)
-        const emailMap = {}
-        data.forEach(i => { emailMap[i.id] = i.email || '' })
-        setEditEmails(emailMap)
-      }
-      setNewName('')
-      setNewEmail('')
-      setShowAdd(false)
-    } catch (err) {
-      console.error('Add exception:', err)
-      alert(`Add failed: ${err.message}`)
-    } finally {
-      setAdding(false)
-    }
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+    const nameToAdd  = newName.trim()
+    const emailToAdd = newEmail.trim() || ''
+
+    // Fire insert without waiting for response
+    fetch(`${supabaseUrl}/rest/v1/interviewers`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({ name: nameToAdd, email: emailToAdd }),
+    }).catch(err => console.error('Add interviewer background error:', err))
+
+    // Update UI immediately with temp record
+    const tempRecord = { id: `temp-${Date.now()}`, name: nameToAdd, email: emailToAdd }
+    const updated = [...interviewers, tempRecord].sort((a, b) => a.name.localeCompare(b.name))
+    setInterviewers(updated)
+    saveCache(updated)
+    setEditEmails(prev => ({ ...prev, [tempRecord.id]: emailToAdd }))
+    setNewName('')
+    setNewEmail('')
+    setShowAdd(false)
+    setAdding(false)
+
+    // Refresh from DB after 4 seconds to replace temp record with real one
+    setTimeout(() => fetchInterviewers(), 4000)
   }
 
   const emailChanged = (interviewer) =>
