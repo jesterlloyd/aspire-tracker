@@ -34,22 +34,49 @@ function generateSlotTimes(startTime, endTime, durationMin) {
 export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSaved }) {
   const { userProfile, isAdmin } = useAuth()
   const [blocks,       setBlocks]       = useState([])
-  const [interviewers, setInterviewers] = useState([])
+  const [interviewers, setInterviewers] = useState([])  // full objects {id,name,email}
   const [saving,       setSaving]       = useState(false)
   const [form,         setForm]         = useState({
     block_date: '', start_time: '09:00', end_time: '12:00',
-    interviewer_name: 'ASPIRE Team', duration_minutes: 30,
+    interviewer_name: '', duration_minutes: 30,
   })
+
+  // Match current user to their interviewer record by email or name
+  const myInterviewerRecord = interviewers.find(i =>
+    i.email?.toLowerCase() === userProfile?.email?.toLowerCase() ||
+    i.name?.toLowerCase() === userProfile?.full_name?.toLowerCase()
+  )
 
   useEffect(() => {
     loadBlocks()
-    supabase.from('interviewers').select('id, name').eq('is_active', true).order('name')
+
+    // Cache-first interviewer fetch
+    try {
+      const cached = localStorage.getItem('aspire_interviewers_v1')
+      if (cached) {
+        const data = JSON.parse(cached)
+        if (data?.length > 0) setInterviewers(data)
+      }
+    } catch {}
+
+    supabase.from('interviewers').select('id, name, email').order('name', { ascending: true })
       .then(({ data, error }) => {
-        if (error) { console.error('Interviewer fetch error:', error.message); return }
-        console.log('Interviewers loaded:', data?.length, data)
-        setInterviewers((data || []).map(i => i.name))
+        if (!error && data) {
+          setInterviewers(data)
+          try { localStorage.setItem('aspire_interviewers_v1', JSON.stringify(data)) } catch {}
+        }
       })
   }, []) // eslint-disable-line
+
+  // Pre-fill form with current user's interviewer name when records load
+  useEffect(() => {
+    if (myInterviewerRecord) {
+      setForm(prev => ({
+        ...prev,
+        interviewer_name: prev.interviewer_name || myInterviewerRecord.name,
+      }))
+    }
+  }, [myInterviewerRecord?.name]) // eslint-disable-line
 
   const loadBlocks = async () => {
     const { data } = await supabase.from('interview_availability_blocks')
@@ -65,10 +92,14 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
 
   const handleAddBlock = async () => {
     if (!form.block_date || !form.start_time || !form.end_time) return
-    if (!form.interviewer_name) return
+    // For non-admins, use their matched interviewer name
+    const interviewerName = isAdmin
+      ? form.interviewer_name
+      : (myInterviewerRecord?.name || userProfile?.full_name || '')
+    if (!interviewerName) return
     setSaving(true)
     const { data: block, error } = await supabase.from('interview_availability_blocks')
-      .insert({ ...form, cohort_id: cohortId, duration_minutes: Number(form.duration_minutes), created_by_user_id: userProfile?.id || null })
+      .insert({ ...form, interviewer_name: interviewerName, cohort_id: cohortId, duration_minutes: Number(form.duration_minutes), created_by_user_id: userProfile?.id || null })
       .select().single()
     if (error || !block) { setSaving(false); return }
 
@@ -85,7 +116,8 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
       })))
     }
     await loadBlocks()
-    setForm(p => ({ ...p, block_date: '', start_time: '09:00', end_time: '12:00', interviewer_name: 'ASPIRE Team' }))
+    const defaultName = isAdmin ? (form.interviewer_name || '') : (myInterviewerRecord?.name || userProfile?.full_name || '')
+    setForm(p => ({ ...p, block_date: '', start_time: '09:00', end_time: '12:00', interviewer_name: defaultName }))
     setSaving(false)
     onBlockSaved?.() // notify calendar to refresh slots
   }
@@ -140,13 +172,19 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
               <div className="form-field">
-                <label className="form-label">Interviewer Name *</label>
-                <select className="form-select" value={form.interviewer_name} onChange={e => set('interviewer_name', e.target.value)}>
-                  <option value="ASPIRE Team">ASPIRE Team</option>
-                  {interviewers.map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
+                <label className="form-label">Your Name *</label>
+                {isAdmin ? (
+                  <select className="form-select" value={form.interviewer_name} onChange={e => set('interviewer_name', e.target.value)}>
+                    <option value="">Select interviewer...</option>
+                    {interviewers.map(i => <option key={i.id} value={i.name}>{i.name}</option>)}
+                  </select>
+                ) : (
+                  <div style={{ padding:'8px 12px', border:'1px solid #e5e7eb', borderRadius:6, fontSize:13, color:'#374151', background:'#f9fafb' }}>
+                    {myInterviewerRecord?.name || userProfile?.full_name || 'Your name'}
+                  </div>
+                )}
                 <div style={{ fontSize:11, color:'#9ca3af', marginTop:3 }}>
-                  Students see "ASPIRE Team" on the scheduling page.
+                  Students see "ASPIRE Team" on the scheduling page. Internally assigned to you.
                 </div>
               </div>
               <div className="form-field">
@@ -175,8 +213,15 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
             </button>
           </div>
 
-          {/* Existing blocks table */}
-          {blocks.length === 0 ? (
+          {/* Existing blocks — admins see all, interviewers see only their own */}
+          {(() => {
+            const visibleBlocks = isAdmin
+              ? blocks
+              : blocks.filter(b =>
+                  b.interviewer_name === myInterviewerRecord?.name ||
+                  b.interviewer_name === userProfile?.full_name
+                )
+            return visibleBlocks.length === 0 ? (
             <p style={{ textAlign:'center', color:'var(--text-secondary)', fontSize:14, padding:'16px 0' }}>
               No availability blocks yet. Add one above.
             </p>
@@ -190,7 +235,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
                 </tr>
               </thead>
               <tbody>
-                {blocks.map(b => (
+                {visibleBlocks.map(b => (
                   <tr key={b.id} style={{ borderBottom:'1px solid var(--border-lt)', opacity: b.is_active ? 1 : 0.5 }}>
                     <td style={{ padding:'8px 10px' }}>{b.block_date}</td>
                     <td style={{ padding:'8px 10px' }}>{fmtTime(b.start_time)}</td>
@@ -212,7 +257,8 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
                 ))}
               </tbody>
             </table>
-          )}
+          )
+          })()}
         </div>
 
         <div className="modal-footer">
