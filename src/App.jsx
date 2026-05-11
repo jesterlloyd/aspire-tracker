@@ -583,7 +583,7 @@ function MainApp({ onLogout }) {
         <ManageCohortModal cohort={activeCohort} onSave={updateCohort} onClose={() => setShowManageCohort(false)} />
       )}
       {showInterviewersModal && (
-        <InterviewersModal onClose={() => setShowInterviewersModal(false)} />
+        <InterviewersModal onClose={() => setShowInterviewersModal(false)} toast={toast} />
       )}
       {showActionCenter && (
         <ActionCenter
