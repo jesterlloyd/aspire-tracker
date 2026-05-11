@@ -529,7 +529,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
               fontFamily: 'DM Sans', fontSize: '10px',
               color: '#9ca3af', textAlign: 'center',
             }}>
-              Keith · {contextLoading ? 'Loading cohort data...' : context ? `Live data · ${cohortName}` : 'Static mode'} · Powered by Claude
+              Keith · Live data · {cohortName || 'No cohort'} · Powered by Claude
             </div>
           </div>
         </>
