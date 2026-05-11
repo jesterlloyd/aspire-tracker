@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
@@ -7,6 +7,7 @@ import CohortGantt from './CohortGantt'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
 import { Layers, CheckSquare, Clock, GraduationCap, AlertTriangle, MapPin, Users, Copy } from 'lucide-react'
+import { calculatePriorities } from '../lib/priorities'
 
 const DIVISIONS = ['Surgical', 'Medical', 'Critical Care', 'Specialty']
 
@@ -247,6 +248,38 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
             </div>
           )}
         </div>
+
+        {/* Today's Priorities strip */}
+        {(() => {
+          const priorities = calculatePriorities(students, units)
+          const cohortName = cohort?.name || 'this cohort'
+          if (priorities.length === 0) return (
+            <div style={{ background:'#f0fdf4', borderRadius:12, padding:'10px 18px', display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ width:8, height:8, borderRadius:'50%', background:'#16a34a', flexShrink:0 }} />
+              <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:13, color:'#166534' }}>
+                All caught up. No urgent items for {cohortName}.
+              </span>
+            </div>
+          )
+          return (
+            <div style={{ background:'#191919', borderRadius:12, padding:'11px 18px', display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+              <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:12, color:'rgba(255,255,255,0.5)', textTransform:'uppercase', letterSpacing:'0.06em', marginRight:6, flexShrink:0 }}>
+                Today's Priorities
+              </span>
+              {priorities.map((p, i) => (
+                <React.Fragment key={i}>
+                  <span style={{ display:'inline-flex', alignItems:'center', gap:5, background:p.bg, borderRadius:20, padding:'3px 10px', fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:12, color:p.color, whiteSpace:'nowrap' }}>
+                    <span style={{ fontWeight:800, fontSize:13 }}>{p.count}</span>
+                    {p.label}
+                  </span>
+                  {i < priorities.length - 1 && (
+                    <span style={{ color:'rgba(255,255,255,0.2)', fontSize:14, fontWeight:300 }}>·</span>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          )
+        })()}
 
         {/* Five hero stat cards */}
         <div className="stat-cards-row" style={{ padding:'12px 16px' }}>
