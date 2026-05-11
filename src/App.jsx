@@ -267,6 +267,11 @@ function MainApp({ onLogout }) {
   // ── Matching ─────────────────────────────────────────────────
   const createMatch = async (student, unit) => {
     if (!activeCohortId) return
+    // Guard: only place students who have completed an interview
+    if (!['Interviewed', 'Placed'].includes(student.status)) {
+      toast.warning('Interview required', `${student.first_name} has not completed an interview yet. Complete the interview before placing.`)
+      return
+    }
     const match_quality = unit.unit_name === student.unit_preference_1 ? 'top_choice'
       : unit.unit_name === student.unit_preference_2 ? 'second_choice'
       : 'other'
@@ -292,10 +297,19 @@ function MainApp({ onLogout }) {
   }
 
   const unmatch = async (student, unit) => {
+    // Check for existing interview rubrics to determine correct revert status
+    const { data: rubrics } = await supabase
+      .from('interview_rubrics')
+      .select('id')
+      .eq('student_id', student.id)
+      .limit(1)
+    const hasInterview = rubrics && rubrics.length > 0
+    const revertStatus = hasInterview ? 'Interviewed' : 'Form Received'
+
     const match = matches.find(m => m.student_id === student.id && m.unit_id === unit.id)
     if (match) await supabase.from('matches').delete().eq('id', match.id)
     await supabase.from('students')
-      .update({ matched_unit_id: null, matched_preceptor: '', shift_assigned: '', match_quality: null, interview_outcome: 'Pending Interview', status: 'Interviewed' })
+      .update({ matched_unit_id: null, matched_preceptor: '', shift_assigned: '', match_quality: null, interview_outcome: 'Pending Interview', status: revertStatus })
       .eq('id', student.id)
     const newRemaining = unit.slots_remaining + 1
     await supabase.from('units').update({ slots_remaining: newRemaining }).eq('id', unit.id)
@@ -303,10 +317,11 @@ function MainApp({ onLogout }) {
     if (match) setMatches(prev => prev.filter(m => m.id !== match.id))
     setStudents(prev => prev.map(s =>
       s.id === student.id
-        ? { ...s, matched_unit_id: null, matched_preceptor: '', shift_assigned: '', match_quality: null, interview_outcome: 'Pending Interview', status: 'Interviewed' }
+        ? { ...s, matched_unit_id: null, matched_preceptor: '', shift_assigned: '', match_quality: null, interview_outcome: 'Pending Interview', status: revertStatus }
         : s
     ))
     setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, slots_remaining: newRemaining } : u))
+    toast.info('Student unmatched', `${student.first_name} moved back to ${revertStatus}.`)
   }
 
   const updateMatch = async (matchId, studentId, updates) => {
