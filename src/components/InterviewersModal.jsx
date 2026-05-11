@@ -79,21 +79,24 @@ export default function InterviewersModal({ isOpen, onClose }) {
     const emailToSave = (editEmails[interviewer.id] ?? interviewer.email ?? '').trim()
     setSavingIds(prev => ({ ...prev, [interviewer.id]: true }))
     try {
-      const { data, error } = await withTimeout(
-        supabase
-          .from('interviewers')
-          .update({ email: emailToSave })
-          .eq('id', interviewer.id)
-          .select('id, name, email')
-          .single()
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      const response = await withTimeout(
+        fetch(`${supabaseUrl}/rest/v1/interviewers?id=eq.${interviewer.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Prefer': 'return=representation',
+          },
+          body: JSON.stringify({ email: emailToSave }),
+        })
       )
-      if (error) {
-        console.error('Save email error:', JSON.stringify(error))
-        alert(`Could not save email.\n\nError: ${error.message}\nCode: ${error.code}`)
-        return
-      }
-      if (!data) {
-        alert('Save appeared to succeed but no record was returned. Please refresh.')
+      if (!response.ok) {
+        const errText = await response.text()
+        console.error('Save email REST error:', errText)
+        alert(`Could not save email.\n\n${errText}`)
         return
       }
       const updated = interviewers.map(i =>
@@ -104,7 +107,7 @@ export default function InterviewersModal({ isOpen, onClose }) {
       setSavedIds(prev => ({ ...prev, [interviewer.id]: true }))
       setTimeout(() => setSavedIds(prev => ({ ...prev, [interviewer.id]: false })), 2500)
     } catch (err) {
-      console.error('Save email exception:', err)
+      console.error('Save exception:', err)
       alert(`Save failed: ${err.message}`)
     } finally {
       setSavingIds(prev => ({ ...prev, [interviewer.id]: false }))
@@ -135,22 +138,39 @@ export default function InterviewersModal({ isOpen, onClose }) {
     if (!newName.trim()) return
     setAdding(true)
     try {
-      const { data, error } = await withTimeout(
-        supabase
-          .from('interviewers')
-          .insert({ name: newName.trim(), email: newEmail.trim() || '' })
-          .select('id, name, email')
-          .single()
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      const response = await withTimeout(
+        fetch(`${supabaseUrl}/rest/v1/interviewers`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Prefer': 'return=representation',
+          },
+          body: JSON.stringify({
+            name: newName.trim(),
+            email: newEmail.trim() || '',
+          }),
+        })
       )
-      if (error) {
-        console.error('Add error:', JSON.stringify(error))
-        alert(`Could not add interviewer.\n\nError: ${error.message}\nCode: ${error.code}`)
+      if (!response.ok) {
+        const errText = await response.text()
+        console.error('Add interviewer REST error:', errText)
+        alert(`Could not add interviewer.\n\n${errText}`)
         return
       }
-      const updated = [...interviewers, data].sort((a, b) => a.name.localeCompare(b.name))
+      const data = await response.json()
+      const newRecord = Array.isArray(data) ? data[0] : data
+      if (!newRecord?.id) {
+        alert('Interviewer may have been added. Please refresh to confirm.')
+        return
+      }
+      const updated = [...interviewers, newRecord].sort((a, b) => a.name.localeCompare(b.name))
       setInterviewers(updated)
       saveCache(updated)
-      setEditEmails(prev => ({ ...prev, [data.id]: data.email || '' }))
+      setEditEmails(prev => ({ ...prev, [newRecord.id]: newRecord.email || '' }))
       setNewName('')
       setNewEmail('')
       setShowAdd(false)
