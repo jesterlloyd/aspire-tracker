@@ -327,7 +327,8 @@ export default function ActionCenter({
   const [pending, setPending]     = useState({})
   const [oriFields, setOriFields] = useState({ date:'', time:'', location:'' })
   const [copyOk,    setCopyOk]    = useState(false)
-  const [oriDone,   setOriDone]   = useState(false)
+  const [oriDone,         setOriDone]         = useState(false)
+  const [showRecentComms, setShowRecentComms] = useState(false)
   const drawerRef = useRef(null)
 
   // Shift log data for new action categories
@@ -393,7 +394,9 @@ export default function ActionCenter({
     (!s.cs_cedars_status || !s.cs_stage1_submitted)
   )
   const placedStudents = students.filter(s => s.status === 'Placed')
-  const showAct7 = activeCohort && !activeCohort.orientation_sent_at && placedStudents.length > 0 && !oriDone
+  const orientationComplete = !!activeCohort?.orientation_sent_at ||
+    communications.some(c => c.type === 'orientation_email')
+  const showAct7 = activeCohort && !orientationComplete && placedStudents.length > 0 && !oriDone
   const act8  = students.filter(s => s.status === 'Active Rotation' && !hasSent(s.id, 'midpoint_checkin'))
   const act9  = students.filter(s => s.status === 'Active Rotation' && !hasSent(s.id, 'midpoint_eval'))
   const act10 = students.filter(s => s.status === 'Completed' && !hasSent(s.id, 'post_survey'))
@@ -522,7 +525,9 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
     const now = new Date().toISOString()
     await supabase.from('cohorts').update({ orientation_sent_at: now }).eq('id', cohortId)
     for (const s of placedStudents) {
-      await logComm({ type:'orientation_survey', student:s, sentToEmail:s.personal_email||s.school_email, sentToName:`${s.last_name}, ${s.first_name}` })
+      await logComm({ type:'orientation_email', student:s, sentToEmail:s.personal_email||s.school_email, sentToName:`${s.last_name}, ${s.first_name}` })
+      // Also mark individual student orientation_sent_at if column exists
+      await supabase.from('students').update({ orientation_sent_at: now }).eq('id', s.id)
     }
     setOriDone(true)
   }
@@ -572,8 +577,8 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
         {/* Drawer body */}
         <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
 
-          {/* Action Items — expands to full height when Recent Communications is absent */}
-          <div style={{ flex: recentComms.length > 0 ? '0 0 65%' : 1, display:'flex', flexDirection:'column', overflow:'hidden', borderBottom: recentComms.length > 0 ? '1px solid #e5e7eb' : 'none' }}>
+          {/* Action Items — fills available height; comms section is collapsible below */}
+          <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
             <div style={{ padding:'12px 16px 6px', flexShrink:0 }}>
               <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em' }}>
                 Action Items
@@ -826,37 +831,35 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
             </div>
           </div>
 
-          {/* Recent Communications — only rendered when entries exist */}
+          {/* Recent Communications — collapsible, only rendered when entries exist */}
           {recentComms.length > 0 && (
-            <div style={{ flex:'0 0 35%', display:'flex', flexDirection:'column', overflow:'hidden' }}>
-              <div style={{ padding:'12px 16px 6px', flexShrink:0 }}>
-                <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+            <div style={{ flexShrink:0, borderTop:'1px solid #f3f4f6' }}>
+              <div
+                onClick={() => setShowRecentComms(p => !p)}
+                style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 20px', cursor:'pointer' }}>
+                <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:11, textTransform:'uppercase', letterSpacing:'0.06em', color:'#9ca3af' }}>
                   Recent Communications
-                </div>
+                </span>
+                <span style={{ color:'#9ca3af', fontSize:12, display:'inline-block', transform: showRecentComms ? 'rotate(180deg)' : 'rotate(0deg)', transition:'transform 0.2s ease' }}>▼</span>
               </div>
-              <div style={{ flex:1, overflowY:'auto', padding:'0 16px 12px' }}>
-                {recentComms.map((c, i) => (
-                  <div key={c.id} style={{ padding:'8px 0', borderBottom:'1px solid #f3f4f6' }}>
-                    <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:8 }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                        <span style={{ width:6, height:6, borderRadius:'50%',
-                          background: TYPE_COLORS[c.type]||'#9ca3af', flexShrink:0, display:'inline-block' }} />
-                        <span style={{ fontSize:13, fontWeight:600, color:'var(--raven)' }}>
-                          {TYPE_LABELS[c.type]||c.type}
-                        </span>
+              {showRecentComms && (
+                <div style={{ maxHeight:220, overflowY:'auto', padding:'0 16px 12px' }}>
+                  {recentComms.map((c, i) => (
+                    <div key={c.id} style={{ padding:'8px 0', borderBottom:'1px solid #f3f4f6' }}>
+                      <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:8 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                          <span style={{ width:6, height:6, borderRadius:'50%', background: TYPE_COLORS[c.type]||'#9ca3af', flexShrink:0, display:'inline-block' }} />
+                          <span style={{ fontSize:13, fontWeight:600, color:'var(--raven)' }}>{TYPE_LABELS[c.type]||c.type}</span>
+                        </div>
+                        <span style={{ fontSize:11, color:'#9ca3af', whiteSpace:'nowrap', flexShrink:0 }}>{fmtTs(c.sent_at)}</span>
                       </div>
-                      <span style={{ fontSize:11, color:'#9ca3af', whiteSpace:'nowrap', flexShrink:0 }}>
-                        {fmtTs(c.sent_at)}
-                      </span>
+                      {c.sent_to_name && (
+                        <div style={{ fontSize:12, color:'#6b7280', marginLeft:14, marginTop:2 }}>{c.sent_to_name}</div>
+                      )}
                     </div>
-                    {c.sent_to_name && (
-                      <div style={{ fontSize:12, color:'#6b7280', marginLeft:14, marginTop:2 }}>
-                        {c.sent_to_name}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

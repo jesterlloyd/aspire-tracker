@@ -36,13 +36,17 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
   const [saving,       setSaving]       = useState(false)
   const [form,         setForm]         = useState({
     block_date: '', start_time: '09:00', end_time: '12:00',
-    interviewer_name: '', duration_minutes: 30,
+    interviewer_name: 'ASPIRE Team', duration_minutes: 30,
   })
 
   useEffect(() => {
     loadBlocks()
-    supabase.from('interviewers').select('name').eq('is_active', true).order('name')
-      .then(({ data }) => setInterviewers((data || []).map(i => i.name)))
+    supabase.from('interviewers').select('id, name').eq('is_active', true).order('name')
+      .then(({ data, error }) => {
+        if (error) { console.error('Interviewer fetch error:', error.message); return }
+        console.log('Interviewers loaded:', data?.length, data)
+        setInterviewers((data || []).map(i => i.name))
+      })
   }, []) // eslint-disable-line
 
   const loadBlocks = async () => {
@@ -59,6 +63,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
 
   const handleAddBlock = async () => {
     if (!form.block_date || !form.start_time || !form.end_time) return
+    if (!form.interviewer_name) return
     setSaving(true)
     const { data: block, error } = await supabase.from('interview_availability_blocks')
       .insert({ ...form, cohort_id: cohortId, duration_minutes: Number(form.duration_minutes) })
@@ -78,7 +83,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
       })))
     }
     await loadBlocks()
-    setForm(p => ({ ...p, block_date: '', start_time: '09:00', end_time: '12:00', interviewer_name: '' }))
+    setForm(p => ({ ...p, block_date: '', start_time: '09:00', end_time: '12:00', interviewer_name: 'ASPIRE Team' }))
     setSaving(false)
     onBlockSaved?.() // notify calendar to refresh slots
   }
@@ -125,11 +130,14 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
               <div className="form-field">
-                <label className="form-label">Interviewer</label>
+                <label className="form-label">Interviewer Name *</label>
                 <select className="form-select" value={form.interviewer_name} onChange={e => set('interviewer_name', e.target.value)}>
-                  <option value="">ASPIRE Team</option>
+                  <option value="ASPIRE Team">ASPIRE Team</option>
                   {interviewers.map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
+                <div style={{ fontSize:11, color:'#9ca3af', marginTop:3 }}>
+                  Students see "ASPIRE Team" on the scheduling page.
+                </div>
               </div>
               <div className="form-field">
                 <label className="form-label">Slot Duration</label>
