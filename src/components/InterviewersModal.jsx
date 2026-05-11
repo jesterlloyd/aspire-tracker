@@ -15,6 +15,15 @@ const saveCache = (data) => {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)) } catch {}
 }
 
+// Wraps any Supabase operation with an 8 second timeout
+const withTimeout = (promise, ms = 8000) =>
+  Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`Request timed out after ${ms / 1000}s`)), ms)
+    ),
+  ])
+
 export default function InterviewersModal({ isOpen, onClose }) {
   const [interviewers, setInterviewers] = useState([])
   const [loading,      setLoading]      = useState(false)
@@ -67,54 +76,90 @@ export default function InterviewersModal({ isOpen, onClose }) {
   }, [isOpen, fetchInterviewers])
 
   const handleSaveEmail = async (interviewer) => {
-    const email = editEmails[interviewer.id] ?? interviewer.email ?? ''
+    const emailToSave = (editEmails[interviewer.id] ?? interviewer.email ?? '').trim()
     setSavingIds(prev => ({ ...prev, [interviewer.id]: true }))
     try {
-      const { error } = await supabase
-        .from('interviewers')
-        .update({ email: email.trim() })
-        .eq('id', interviewer.id)
-      if (error) { alert(`Save failed: ${error.message}`); return }
+      const { data, error } = await withTimeout(
+        supabase
+          .from('interviewers')
+          .update({ email: emailToSave })
+          .eq('id', interviewer.id)
+          .select('id, name, email')
+          .single()
+      )
+      if (error) {
+        console.error('Save email error:', JSON.stringify(error))
+        alert(`Could not save email.\n\nError: ${error.message}\nCode: ${error.code}`)
+        return
+      }
+      if (!data) {
+        alert('Save appeared to succeed but no record was returned. Please refresh.')
+        return
+      }
       const updated = interviewers.map(i =>
-        i.id === interviewer.id ? { ...i, email: email.trim() } : i
+        i.id === interviewer.id ? { ...i, email: emailToSave } : i
       )
       setInterviewers(updated)
       saveCache(updated)
       setSavedIds(prev => ({ ...prev, [interviewer.id]: true }))
       setTimeout(() => setSavedIds(prev => ({ ...prev, [interviewer.id]: false })), 2500)
     } catch (err) {
-      alert(`Error: ${err.message}`)
+      console.error('Save email exception:', err)
+      alert(`Save failed: ${err.message}`)
     } finally {
       setSavingIds(prev => ({ ...prev, [interviewer.id]: false }))
     }
   }
 
   const handleDelete = async (interviewer) => {
-    if (!confirm(`Remove ${interviewer.name} from the interviewers list?`)) return
-    const { error } = await supabase.from('interviewers').delete().eq('id', interviewer.id)
-    if (error) { alert(`Delete failed: ${error.message}`); return }
-    const updated = interviewers.filter(i => i.id !== interviewer.id)
-    setInterviewers(updated)
-    saveCache(updated)
+    if (!window.confirm(`Remove ${interviewer.name} from the interviewers list?`)) return
+    try {
+      const { error } = await withTimeout(
+        supabase.from('interviewers').delete().eq('id', interviewer.id)
+      )
+      if (error) {
+        console.error('Delete error:', JSON.stringify(error))
+        alert(`Could not delete ${interviewer.name}.\n\nError: ${error.message}\nCode: ${error.code}`)
+        return
+      }
+      const updated = interviewers.filter(i => i.id !== interviewer.id)
+      setInterviewers(updated)
+      saveCache(updated)
+    } catch (err) {
+      console.error('Delete exception:', err)
+      alert(`Delete failed: ${err.message}`)
+    }
   }
 
   const handleAdd = async () => {
     if (!newName.trim()) return
     setAdding(true)
-    const { data, error } = await supabase
-      .from('interviewers')
-      .insert({ name: newName.trim(), email: newEmail.trim() || '' })
-      .select('id, name, email')
-      .single()
-    if (error) { alert(`Add failed: ${error.message}`); setAdding(false); return }
-    const updated = [...interviewers, data].sort((a, b) => a.name.localeCompare(b.name))
-    setInterviewers(updated)
-    saveCache(updated)
-    setEditEmails(prev => ({ ...prev, [data.id]: data.email || '' }))
-    setNewName('')
-    setNewEmail('')
-    setShowAdd(false)
-    setAdding(false)
+    try {
+      const { data, error } = await withTimeout(
+        supabase
+          .from('interviewers')
+          .insert({ name: newName.trim(), email: newEmail.trim() || '' })
+          .select('id, name, email')
+          .single()
+      )
+      if (error) {
+        console.error('Add error:', JSON.stringify(error))
+        alert(`Could not add interviewer.\n\nError: ${error.message}\nCode: ${error.code}`)
+        return
+      }
+      const updated = [...interviewers, data].sort((a, b) => a.name.localeCompare(b.name))
+      setInterviewers(updated)
+      saveCache(updated)
+      setEditEmails(prev => ({ ...prev, [data.id]: data.email || '' }))
+      setNewName('')
+      setNewEmail('')
+      setShowAdd(false)
+    } catch (err) {
+      console.error('Add exception:', err)
+      alert(`Add failed: ${err.message}`)
+    } finally {
+      setAdding(false)
+    }
   }
 
   const emailChanged = (interviewer) =>
