@@ -12,6 +12,7 @@ import ManageCohortModal from './components/ManageCohortModal'
 import { useAuth } from './contexts/AuthContext'
 import LoginNew from './pages/Login'
 import UserMenu from './components/UserMenu'
+import UserManagement from './components/UserManagement'
 import UnitFormPage from './components/UnitFormPage'
 import SchoolFormPage from './components/SchoolFormPage'
 import StudentIntakeFormPage from './components/StudentIntakeFormPage'
@@ -24,6 +25,7 @@ import FeedbackPanel from './components/FeedbackPanel'
 import { logEvent, eventExists } from './lib/logEvent'
 import { useToast } from './hooks/useToast'
 import { ToastContainer } from './components/Toast'
+import { logActivity } from './lib/logActivity'
 
 /*
   COHORT ISOLATION CONTRACT
@@ -55,6 +57,7 @@ function computeMatchSummary(matchList) {
 
 function MainApp({ onLogout }) {
   const { toasts, removeToast, toast } = useToast()
+  const { userProfile: currentUserProfile } = useAuth()
 
   // One-time cleanup of old shared-password auth storage keys
   useEffect(() => {
@@ -315,6 +318,7 @@ function MainApp({ onLogout }) {
       await logEvent(supabase, { studentId: student.id, cohortId: activeCohortId, eventType: 'placement', notes: `Placed in ${unit.unit_name}`, auto: true })
     }
     toast.success('Student placed', `${student.first_name} matched to ${unit.unit_name}.`)
+    logActivity({ userProfile: currentUserProfile, actionType:'student_matched', entityType:'student', entityId:student.id, cohortId:activeCohortId, description:`${currentUserProfile?.full_name} matched ${student.first_name} ${student.last_name} to ${unit.unit_name}`, metadata:{ unit: unit.unit_name } })
   }
 
   const unmatch = async (student, unit) => {
@@ -343,6 +347,7 @@ function MainApp({ onLogout }) {
     ))
     setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, slots_remaining: newRemaining } : u))
     toast.info('Student unmatched', `${student.first_name} moved back to ${revertStatus}.`)
+    logActivity({ userProfile: currentUserProfile, actionType:'match_removed', entityType:'student', entityId:student.id, cohortId:activeCohortId, description:`${currentUserProfile?.full_name} removed ${student.first_name} ${student.last_name} from ${unit.unit_name}` })
   }
 
   const updateMatch = async (matchId, studentId, updates) => {
@@ -611,6 +616,10 @@ function MainApp({ onLogout }) {
         isAuthenticated={true}
       />
       <ToastContainer toasts={toasts} removeToast={removeToast} />
+      <UserManagement
+        isOpen={showUserManagement}
+        onClose={() => setShowUserManagement(false)}
+      />
     </div>
   )
 }

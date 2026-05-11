@@ -4,6 +4,8 @@ import { displayName } from '../lib/utils'
 import { PATIENT_POPULATION_MAP, UNITS_BY_DIVISION, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import ScoreFlag from './ScoreFlag'
 import { logEvent, eventExists } from '../lib/logEvent'
+import { logActivity } from '../lib/logActivity'
+import { useAuth } from '../contexts/AuthContext'
 
 // ── Domain data ──────────────────────────────────────────────
 const CJ_QUESTIONS = [
@@ -275,6 +277,7 @@ function RubricCard({ r, interviewers, onSave }) {
 }
 
 export default function RubricSession({ student, rubrics, cohortId, onBack, onStudentUpdate, onRubricsChange, toast }) {
+  const { userProfile } = useAuth()
   const [form,           setForm]           = useState(initForm())
   const [rubricId,       setRubricId]       = useState(null)
   const [interviewers,   setInterviewers]   = useState([])
@@ -418,6 +421,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       })
     }
     toast?.success('Rubric submitted', `Interview scored ${composite}/15.`)
+    logActivity({ userProfile, actionType:'rubric_submitted', entityType:'student', entityId:student.id, cohortId, description:`${userProfile?.full_name} submitted interview rubric for ${student.first_name} ${student.last_name}. Score: ${composite}/15`, metadata:{ score: composite } })
   }
 
   const handleReset = async () => {

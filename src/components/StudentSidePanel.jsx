@@ -19,6 +19,7 @@ import { openMailtoLink } from '../lib/openLink'
 import SyncIndicator from './SyncIndicator'
 import { useLastSynced } from '../hooks/useLastSynced'
 import { useAuth } from '../contexts/AuthContext'
+import { logActivity } from '../lib/logActivity'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
@@ -91,7 +92,7 @@ export default function StudentSidePanel({
   const [showDeclineModal, setShowDeclineModal] = useState(false)
   const [declineReason,    setDeclineReason]    = useState('')
   const [summaryCopied,    setSummaryCopied]    = useState(false)
-  const { canEdit } = useAuth()
+  const { canEdit, userProfile } = useAuth()
   const [uploadingRes,  setUploadingRes]  = useState(false)
   const [uploadingHead, setUploadingHead] = useState(false)
   const [resumeMsg,     setResumeMsg]     = useState(null)
@@ -691,8 +692,10 @@ export default function StudentSidePanel({
                     const newStatus = e.target.value
                     if (newStatus === 'Declined') { setShowDeclineModal(true) }
                     else {
+                      const oldStatus = data.status
                       handleSelect('status', newStatus)
                       toast?.success('Status updated', `${student.first_name} moved to ${newStatus}.`)
+                      logActivity({ userProfile, actionType:'student_profile_updated', entityType:'student', entityId:student.id, cohortId:student.cohort_id, description:`${userProfile?.full_name} changed ${student.first_name} ${student.last_name}'s status to ${newStatus}`, metadata:{ from:oldStatus, to:newStatus } })
                       const statusEventMap = { 'Form Sent': 'form_sent', 'Form Received': 'form_received', 'Placed': 'placement', 'Completed': 'completion' }
                       const eventType = statusEventMap[newStatus]
                       if (eventType) {
@@ -746,7 +749,7 @@ export default function StudentSidePanel({
             {/* Badge Created — bottom of Placement section */}
             <label style={{ display:'flex', alignItems:'center', gap:8, marginTop:10, cursor:'pointer', fontSize:13, color:'var(--raven)' }}>
               <input type="checkbox" checked={!!data.badge_created}
-                onChange={e => { handleSelect('badge_created', e.target.checked); if (e.target.checked) toast?.success('Badge issued', `Badge marked as created for ${student.first_name}.`) }}
+                onChange={e => { handleSelect('badge_created', e.target.checked); if (e.target.checked) { toast?.success('Badge issued', `Badge marked as created for ${student.first_name}.`); logActivity({ userProfile, actionType:'badge_issued', entityType:'student', entityId:student.id, cohortId:student.cohort_id, description:`${userProfile?.full_name} marked badge as created for ${student.first_name} ${student.last_name}` }) } }}
                 style={{ width:16, height:16, accentColor:'#16a34a' }} />
               <span>Badge Created</span>
               {data.badge_created && <span style={{ fontSize:12, color:'#166534', fontWeight:600 }}>✓ Badge Created</span>}
