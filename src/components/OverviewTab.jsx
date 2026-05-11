@@ -6,7 +6,7 @@ import StatCard from './StatCard'
 import CohortGantt from './CohortGantt'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
-import { Layers, CheckSquare, Clock, GraduationCap, AlertTriangle, MapPin, Users } from 'lucide-react'
+import { Layers, CheckSquare, Clock, GraduationCap, AlertTriangle, MapPin, Users, Copy } from 'lucide-react'
 
 const DIVISIONS = ['Surgical', 'Medical', 'Critical Care', 'Specialty']
 
@@ -36,10 +36,10 @@ function openMailto(bcc, body) {
   a.click()
 }
 
-export default function OverviewTab({ students, units, onStudentUpdate, cohortId, cohort }) {
+export default function OverviewTab({ students, units, onStudentUpdate, cohortId, cohort, toast }) {
   const [unitGroupsOpen,   setUnitGroupsOpen]   = useState({})
   const [schoolGroupsOpen, setSchoolGroupsOpen] = useState({})
-  const [toast,            setToast]            = useState(null)
+  const [localToast,       setLocalToast]       = useState(null)
   const [imgErrors,        setImgErrors]        = useState({})
   const [campusOpen,       setCampusOpen]       = useState(false)
   const [campusLogs,       setCampusLogs]       = useState([])
@@ -70,7 +70,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
   useEffect(() => { loadCampusLogs() }, [cohortId]) // eslint-disable-line
 
-  const showToast = msg => { setToast(msg); setTimeout(() => setToast(null), 3000) }
+  const showToast = msg => { setLocalToast(msg); setTimeout(() => setLocalToast(null), 3000) }
 
   // ── Derived values ──────────────────────────────────────────
   const participating       = units.filter(u => u.is_participating)
@@ -85,6 +85,25 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const participatingUnits  = participating.length
   const studentsRequesting  = totalStudents
   const activeSchools       = Object.keys((() => { const m = {}; students.forEach(s => { if (s.school) m[s.school] = 1 }); return m })()).length
+  const activeCount         = students.filter(s => s.status === 'Active Rotation').length
+  const completedCount      = students.filter(s => s.status === 'Completed').length
+
+  const handleCopyCohortSummary = async () => {
+    const cohortName = cohort?.name || 'Unknown Cohort'
+    const schoolCount = activeSchools
+    const lines = [
+      `ASPIRE ${cohortName} Cohort Summary`,
+      `Generated: ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
+      `Total Students: ${totalStudents}`,
+      `Placed: ${placedCount} (${totalStudents ? Math.round((placedCount/totalStudents)*100) : 0}%)`,
+      `Active Rotation: ${activeCount}`,
+      `Completed: ${completedCount}`,
+      `Open Slots: ${slotsRemaining} of ${totalSlots}`,
+      `Schools: ${schoolCount} affiliated partner schools`,
+    ].join('\n')
+    await navigator.clipboard.writeText(lines)
+    toast?.success('Cohort summary copied', 'Ready to paste into an email or report.')
+  }
 
   const filledByUnit = {}
   students.forEach(s => {
@@ -149,13 +168,13 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   return (
     <div className="overview-tab">
       {/* Toast — fixed, lives outside scroll containers */}
-      {toast && (
+      {localToast && (
         <div style={{
           position:'fixed', top:80, right:24, zIndex:9999,
           background:'var(--nightfall)', color:'var(--pearl)',
           fontSize:14, fontWeight:500, padding:'12px 18px',
           borderRadius:6, boxShadow:'0 4px 16px rgba(0,0,0,0.25)', maxWidth:360,
-        }}>{toast}</div>
+        }}>{localToast}</div>
       )}
 
       {/* ════════ STICKY HEADER ════════ */}
@@ -287,6 +306,10 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
               <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
                 <span className="ov-panel-title">Student Placement Requests</span>
                 <StatusLegendPopover position="bottom-left" />
+                <button onClick={handleCopyCohortSummary} title="Copy cohort summary"
+                  style={{ background:'none', border:'none', cursor:'pointer', color:'#9ca3af', padding:'4px', display:'flex', alignItems:'center' }}>
+                  <Copy size={14} />
+                </button>
               </div>
               <div className="ov-panel-sub">
                 {schools.length} School{schools.length !== 1 ? 's' : ''} · {totalStudents} Students · {placedCount} Placed

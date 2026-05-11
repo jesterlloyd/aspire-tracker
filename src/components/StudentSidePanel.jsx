@@ -12,6 +12,8 @@ import { DECLINE_REASONS } from '../lib/statuses'
 import { EVENT_TYPES, EVENT_TYPE_LABELS, getEventColor } from '../lib/eventTypes'
 import { logEvent, eventExists } from '../lib/logEvent'
 import { calculateProfileCompletion, getCompletionColor } from '../lib/profileCompletion'
+import { generateStudentSummary } from '../lib/generateSummary'
+import { Copy, Check } from 'lucide-react'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
@@ -83,6 +85,7 @@ export default function StudentSidePanel({
   const [confirmDelete,    setConfirmDelete]    = useState(false)
   const [showDeclineModal, setShowDeclineModal] = useState(false)
   const [declineReason,    setDeclineReason]    = useState('')
+  const [summaryCopied,    setSummaryCopied]    = useState(false)
   const [uploadingRes,  setUploadingRes]  = useState(false)
   const [uploadingHead, setUploadingHead] = useState(false)
   const [resumeMsg,     setResumeMsg]     = useState(null)
@@ -120,7 +123,17 @@ export default function StudentSidePanel({
   useEffect(() => {
     setInterestDraft(student?.interest_statement || '')
     setEditingInterest(false)
+    setSummaryCopied(false)
   }, [student?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleCopySummary = async () => {
+    const unitNameForSummary = matchedUnitName !== '—' ? matchedUnitName : null
+    const summary = generateStudentSummary(student, unitNameForSummary, student.aspire_cohort)
+    await navigator.clipboard.writeText(summary)
+    setSummaryCopied(true)
+    toast?.success('Summary copied', 'Student summary is ready to paste.')
+    setTimeout(() => setSummaryCopied(false), 2500)
+  }
 
   const [shiftLogs,    setShiftLogs]    = useState([])
   const [adjustingId,  setAdjustingId]  = useState(null)
@@ -420,6 +433,22 @@ export default function StudentSidePanel({
               <button title="Edit profile" onClick={() => { const inp=document.querySelector('.sp-content .sp-input'); if(inp){inp.scrollIntoView({behavior:'smooth',block:'center'}); inp.focus()} }}
                 style={{ background:'none', border:'none', cursor:'pointer', fontSize:16, color:'#6b7280', lineHeight:1 }}>✏</button>
             </div>
+            {/* Copy Summary button */}
+            <button onClick={handleCopySummary}
+              style={{
+                display:'flex', alignItems:'center', gap:'6px',
+                padding:'6px 14px', borderRadius:'8px',
+                border:`1px solid ${summaryCopied ? '#86efac' : '#e5e7eb'}`,
+                background: summaryCopied ? '#f0fdf4' : '#f9fafb',
+                fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'12px',
+                color: summaryCopied ? '#166534' : '#374151',
+                cursor:'pointer', transition:'all 0.2s ease',
+                width:'100%', justifyContent:'center', marginTop:'8px',
+              }}>
+              {summaryCopied
+                ? <><Check size={13} /> Copied!</>
+                : <><Copy size={13} /> Copy Student Summary</>}
+            </button>
             {/* Profile completion summary */}
             {(() => {
               const completion = calculateProfileCompletion(data)
