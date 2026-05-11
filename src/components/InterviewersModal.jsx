@@ -47,48 +47,55 @@ export default function InterviewersModal({ isOpen, onClose, toast }) {
     if (isOpen) fetchInterviewers()
   }, [isOpen, fetchInterviewers])
 
-  // Bug D fixed: email is optional
   const handleAdd = async () => {
     const name = newName.trim()
     if (!name) return
     setSaving(true)
-    const { error } = await supabase.from('interviewers').insert({
-      name,
-      email: newEmail.trim() || '',
-      is_active: true,
-    })
+    const { data, error } = await supabase
+      .from('interviewers')
+      .insert({ name, email: newEmail.trim() || '', is_active: true })
+      .select('id, name, email, is_active')
+      .single()
+    setSaving(false)
     if (error) {
       console.error('Insert error:', error.message, error.details)
       toast?.error('Failed to add', error.message)
-      setSaving(false)
       return
     }
+    // Direct state update — no re-fetch to avoid hang
+    setInterviewers(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
+    setEditingEmail(prev => ({ ...prev, [data.id]: data.email || '' }))
     setNewName('')
     setNewEmail('')
-    setSaving(false)
-    toast?.success('Interviewer added', `${name} added.`)
-    fetchInterviewers()
+    toast?.success('Interviewer added', `${data.name} added successfully.`)
   }
 
-  // Bug C fixed: explicit save with feedback, no debounce timer
   const handleSaveEmail = async (id) => {
-    const value = editingEmail[id] ?? ''
+    const trimmedEmail = (editingEmail[id] ?? '').trim()
     setSavingEmail(p => ({ ...p, [id]: true }))
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('interviewers')
-      .update({ email: value.trim() })
+      .update({ email: trimmedEmail })
       .eq('id', id)
+      .select('id, name, email')
+      .single()
     setSavingEmail(p => ({ ...p, [id]: false }))
     if (error) {
-      console.error('Update email error:', error.message)
-      toast?.error('Update failed', error.message)
+      console.error('Email update failed:', error.message, error.code, error.details)
+      toast?.error('Save failed', `Could not save email: ${error.message}`)
       return
     }
-    toast?.success('Email saved', 'Interviewer email updated.')
-    fetchInterviewers()
+    if (!data) {
+      console.error('Update returned no data - record may not exist')
+      toast?.error('Save failed', 'Record not found. Try refreshing.')
+      return
+    }
+    console.log('Email saved successfully:', data)
+    toast?.success('Email saved', `${data.name}'s email updated.`)
+    // Direct state update — no re-fetch to avoid hang
+    setInterviewers(prev => prev.map(i => i.id === id ? { ...i, email: trimmedEmail } : i))
   }
 
-  // Bug E: already correct — uses id
   const handleToggleActive = async (id, currentActive) => {
     const { error } = await supabase
       .from('interviewers')
@@ -96,7 +103,8 @@ export default function InterviewersModal({ isOpen, onClose, toast }) {
       .eq('id', id)
     if (error) { toast?.error('Failed', error.message); return }
     toast?.success(!currentActive ? 'Interviewer restored' : 'Interviewer removed', '')
-    fetchInterviewers()
+    // Direct state update — no re-fetch to avoid hang
+    setInterviewers(prev => prev.map(i => i.id === id ? { ...i, is_active: !currentActive } : i))
   }
 
   const canAdd = newName.trim()
