@@ -9,6 +9,7 @@ import ScoreFlag from './ScoreFlag'
 import StatCard from './StatCard'
 import EmptyState from './EmptyState'
 import { Users, CalendarCheck, BadgeCheck, Loader, CalendarX, Flag, ThumbsUp, ClipboardList } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 
 // Circular avatar for the IR student list table
 function IrAvatar({ student }) {
@@ -72,6 +73,7 @@ export default function InterviewRubricTab({
   onStudentUpdate, onRubricsChange, onRefreshStudents, onManageInterviewers, onUpdateSession, onRefreshSlots,
   toast,
 }) {
+  const { canInterview, isViewer } = useAuth()
   const [selectedStudentId,   setSelectedStudentId]   = useState(null)
   const [showScheduleModal,   setShowScheduleModal]   = useState(false)
   const [search,              setSearch]              = useState('')
@@ -104,9 +106,21 @@ export default function InterviewRubricTab({
   const recommended   = students.filter(s => s.auto_recommendation === 'Recommend').length
 
 
-  // If student selected → session
+  // If student selected → session (viewers see read-only, interviewers get full form)
   const selectedStudent = selectedStudentId ? students.find(s => s.id === selectedStudentId) : null
   if (selectedStudent) {
+    if (isViewer) {
+      // Viewers: back to list, no rubric form
+      return (
+        <div style={{ padding:'32px', textAlign:'center', color:'#9ca3af', fontFamily:'DM Sans,sans-serif' }}>
+          <div style={{ fontSize:14, marginBottom:12 }}>Rubric submission requires Interviewer access or above.</div>
+          <button onClick={() => setSelectedStudentId(null)}
+            style={{ background:'#1D2567', color:'#fff', border:'none', borderRadius:8, padding:'8px 18px', fontFamily:'DM Sans,sans-serif', fontWeight:600, cursor:'pointer' }}>
+            ← Back to list
+          </button>
+        </div>
+      )
+    }
     return (
       <RubricSession
         student={selectedStudent}

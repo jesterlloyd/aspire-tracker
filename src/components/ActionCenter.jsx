@@ -12,6 +12,7 @@ import EmptyState from './EmptyState'
 import SyncIndicator from './SyncIndicator'
 import { Star } from 'lucide-react'
 import { useLastSynced } from '../hooks/useLastSynced'
+import { useAuth } from '../contexts/AuthContext'
 
 function fmtLocalDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
@@ -330,6 +331,7 @@ export default function ActionCenter({
   const drawerRef = useRef(null)
 
   // Shift log data for new action categories
+  const { canEdit } = useAuth()
   const { markSynced: markActionSynced, display: actionSyncDisplay } = useLastSynced()
   const [shiftLogs,     setShiftLogs]     = useState([])
   const [shiftLogsLoaded, setShiftLogsLoaded] = useState(false)
@@ -588,8 +590,8 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
                   subtext="No pending action items for this cohort right now." />
               )}
 
-              {/* 1: Student Form */}
-              <ActionCard title="Send Student Form" borderColor="#e5e7eb" icon="📧" count={act1.length} badgeBg="#6b7280">
+              {/* 1: Student Form — admin/owner only */}
+              {canEdit && <ActionCard title="Send Student Form" borderColor="#e5e7eb" icon="📧" count={act1.length} badgeBg="#6b7280">
                 {act1.map(s => (
                   <SRow key={s.id} student={s} pending={isPend(s.id,'student_form')}
                     onOpenMail={async () => {
@@ -604,7 +606,7 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
                       sentToEmail:s.school_email,
                       after: () => onStudentUpdate?.(s.id,{status:'Form Sent'}) })} />
                 ))}
-              </ActionCard>
+              </ActionCard>}
 
               {/* 2: Scheduling Link */}
               <ActionCard title="Send Interview Scheduling Link" borderColor="#dbeafe" icon="📅" count={act2.length} badgeBg="#1d4ed8">
@@ -624,8 +626,8 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
                 ))}
               </ActionCard>
 
-              {/* 4: Unit Leader Notification */}
-              <ActionCard title="Unit Leader Placement Notification" borderColor="#dcfce7" icon="✅" count={act4.length} badgeBg="#166534">
+              {/* 4: Unit Leader Notification — admin/owner only */}
+              {canEdit && <ActionCard title="Unit Leader Placement Notification" borderColor="#dcfce7" icon="✅" count={act4.length} badgeBg="#166534">
                 {act4.map(s => {
                   const unit = units.find(u => u.id === s.matched_unit_id)
                   const m    = matches.find(m => m.student_id === s.id)
@@ -646,7 +648,7 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
                         after: () => m && onMatchUpdate?.(m.id, s.id, { notification_sent:true }) })} />
                   )
                 })}
-              </ActionCard>
+              </ActionCard>}
 
               {/* 5: Preceptor Welcome */}
               <ActionCard title="Preceptor Welcome Email" borderColor="#fef3c7" icon="👋" count={act5.length} badgeBg="#92400e">
@@ -667,8 +669,8 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
                 })}
               </ActionCard>
 
-              {/* 6: CS-Link (internal flag only) */}
-              <ActionCard title="CS-Link Access Not Started" borderColor="#fee2e2" icon="🔗" count={act6.length} badgeBg="#991b1b">
+              {/* 6: CS-Link — admin/owner only */}
+              {canEdit && <ActionCard title="CS-Link Access Not Started" borderColor="#fee2e2" icon="🔗" count={act6.length} badgeBg="#991b1b">
                 <div style={{ padding:'8px 14px 4px', fontSize:12, color:'#6b7280', lineHeight:1.5 }}>
                   These students need a CS-Link access request submitted in the Service Center. Go to their Student Profile and complete Step 2 under CS-Link Access.
                 </div>
@@ -677,10 +679,10 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
                     linkLabel="Go to Profile →"
                     onLink={() => { onClose(); onNavigateToProfiles?.(s.id) }} />
                 ))}
-              </ActionCard>
+              </ActionCard>}
 
-              {/* 7: Orientation (cohort-level) */}
-              {showAct7 && (
+              {/* 7: Orientation (cohort-level) — admin/owner only */}
+              {canEdit && showAct7 && (
                 <div style={{ borderLeft:'4px solid #d1fae5', border:'1px solid #d1fae5',
                   borderLeftWidth:4, borderRadius:6, marginBottom:8, background:'#fff' }}>
                   <div style={{ padding:'10px 14px', borderBottom:'1px solid #d1fae5',
@@ -732,7 +734,7 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
                   </div>
                 </div>
               )}
-              {!showAct7 && (
+              {canEdit && !showAct7 && (
                 <ActionCard title="Orientation Email + Pre-Program Survey" borderColor="#d1fae5" icon="🎉" count={0} />
               )}
 
@@ -812,14 +814,14 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
                 ))}
               </ActionCard>
 
-              {/* 16: Badge Not Created */}
-              <ActionCard title="Badge Not Created" borderColor="#f3f4f6" icon="🪪" count={act16.length} badgeBg="#6b7280">
+              {/* 16: Badge Not Created — admin/owner only */}
+              {canEdit && <ActionCard title="Badge Not Created" borderColor="#f3f4f6" icon="🪪" count={act16.length} badgeBg="#6b7280">
                 {act16.map(s => (
                   <SRow key={s.id} student={s} noMail
                     linkLabel="Mark Created →"
                     onLink={() => { onClose(); onNavigateToProfiles?.(s.id) }} />
                 ))}
-              </ActionCard>
+              </ActionCard>}
 
             </div>
           </div>

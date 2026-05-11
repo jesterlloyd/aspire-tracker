@@ -18,6 +18,7 @@ import { Copy, Check } from 'lucide-react'
 import { openMailtoLink } from '../lib/openLink'
 import SyncIndicator from './SyncIndicator'
 import { useLastSynced } from '../hooks/useLastSynced'
+import { useAuth } from '../contexts/AuthContext'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
@@ -90,6 +91,7 @@ export default function StudentSidePanel({
   const [showDeclineModal, setShowDeclineModal] = useState(false)
   const [declineReason,    setDeclineReason]    = useState('')
   const [summaryCopied,    setSummaryCopied]    = useState(false)
+  const { canEdit } = useAuth()
   const [uploadingRes,  setUploadingRes]  = useState(false)
   const [uploadingHead, setUploadingHead] = useState(false)
   const [resumeMsg,     setResumeMsg]     = useState(null)
@@ -439,8 +441,8 @@ export default function StudentSidePanel({
               <button title="Edit profile" onClick={() => { const inp=document.querySelector('.sp-content .sp-input'); if(inp){inp.scrollIntoView({behavior:'smooth',block:'center'}); inp.focus()} }}
                 style={{ background:'none', border:'none', cursor:'pointer', fontSize:16, color:'#6b7280', lineHeight:1 }}>✏</button>
             </div>
-            {/* Copy Summary button */}
-            <button onClick={handleCopySummary}
+            {/* Copy Summary button — admin/owner only */}
+            {canEdit && <button onClick={handleCopySummary}
               style={{
                 display:'flex', alignItems:'center', gap:'6px',
                 padding:'6px 14px', borderRadius:'8px',
@@ -454,7 +456,7 @@ export default function StudentSidePanel({
               {summaryCopied
                 ? <><Check size={13} /> Copied!</>
                 : <><Copy size={13} /> Copy Student Summary</>}
-            </button>
+            </button>}
             {/* Profile completion summary */}
             {(() => {
               const completion = calculateProfileCompletion(data)
@@ -685,7 +687,7 @@ export default function StudentSidePanel({
               <Field label="ASPIRE Status">
                 <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
                   {data.status && (() => { const cfg = ASPIRE_STATUS_CONFIG[data.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']; return <span style={{ fontSize:11, fontWeight:700, padding:'2px 10px', borderRadius:20, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, alignSelf:'flex-start' }}>{data.status}</span> })()}
-                  <select className="sp-select" value={data.status||''} onChange={async e => {
+                  {canEdit && <select className="sp-select" value={data.status||''} onChange={async e => {
                     const newStatus = e.target.value
                     if (newStatus === 'Declined') { setShowDeclineModal(true) }
                     else {
@@ -701,7 +703,7 @@ export default function StudentSidePanel({
                   }}>
                     <option value="">Select status…</option>
                     {ASPIRE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                  </select>}
                   {data.decline_reason && (
                     <div style={{ fontSize:11, color:'#991b1b', marginTop:2 }}>
                       Reason: {data.decline_reason}
@@ -751,8 +753,8 @@ export default function StudentSidePanel({
             </label>
           </div>
 
-          {/* 8. CS-Link Access Workflow */}
-          <div className="sp-section">
+          {/* 8. CS-Link Access Workflow — editors only */}
+          {canEdit && <div className="sp-section">
             <SectionHeader title="CS-Link Access">
               <span style={{ fontSize:11, fontWeight:600, padding:'2px 9px', borderRadius:20, background:csStatusCfg.bg, color:csStatusCfg.text }}>
                 {csStatusCfg.label}
@@ -903,7 +905,7 @@ export default function StudentSidePanel({
                   onChange={e => handleText('cs_access_notes', e.target.value)} placeholder="Add notes…" />
               </Field>
             </div>
-          </div>
+          </div>}
 
           {/* 9. Documents */}
           <div className="sp-section">

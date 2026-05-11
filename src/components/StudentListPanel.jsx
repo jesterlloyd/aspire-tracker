@@ -8,6 +8,7 @@ import EmptyState from './EmptyState'
 import SyncIndicator from './SyncIndicator'
 import { Users } from 'lucide-react'
 import { calculateProfileCompletion, getCompletionColor } from '../lib/profileCompletion'
+import { useAuth } from '../contexts/AuthContext'
 
 function gpaBadge(gpa) {
   if (gpa == null) return { text: 'GPA: N/A', bg: 'var(--sand)', color: 'var(--raven)' }
@@ -26,6 +27,7 @@ export default function StudentListPanel({
   syncDisplay,
   compressed = false,
 }) {
+  const { canEdit } = useAuth()
   const [showImport,  setShowImport]  = useState(false)
   const [imgErrors,   setImgErrors]   = useState({})
 
@@ -62,19 +64,23 @@ export default function StudentListPanel({
           <option value="status">ASPIRE Status</option>
           <option value="needs_attention">Review Needed First</option>
         </select>
-        <button className={`pl-needs-btn${needsAttention ? ' pl-needs-active' : ''}`}
-          onClick={() => setNeedsAttention(p => !p)}>
-          ⚠ Review Needed
-        </button>
-        <button className="btn-import-students" onClick={() => setShowImport(true)} title="Import from CSV">
-          ↑ Import
-        </button>
-        {onAddStudent && (
+        {canEdit && (
+          <button className={`pl-needs-btn${needsAttention ? ' pl-needs-active' : ''}`}
+            onClick={() => setNeedsAttention(p => !p)}>
+            ⚠ Review Needed
+          </button>
+        )}
+        {canEdit && (
+          <button className="btn-import-students" onClick={() => setShowImport(true)} title="Import from CSV">
+            ↑ Import
+          </button>
+        )}
+        {canEdit && onAddStudent && (
           <button className="btn-import-students" onClick={onAddStudent} title="Add student">
             + Add
           </button>
         )}
-        {onExportCSV && (
+        {canEdit && onExportCSV && (
           <button className="btn-import-students" onClick={onExportCSV} title="Export CSV">
             ↓ Export
           </button>
@@ -93,7 +99,7 @@ export default function StudentListPanel({
             ? <EmptyState icon={<Users />}
                 heading="No students in this cohort"
                 subtext="Students are added when school coordinators submit the school form, or you can add them manually."
-                action={onAddStudent}
+                action={canEdit ? onAddStudent : undefined}
                 actionLabel="+ Add Student" />
             : <EmptyState compact icon={<Users />}
                 heading="No students match this filter"

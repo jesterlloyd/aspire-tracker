@@ -152,9 +152,30 @@ export default function MatchingTab({
     URL.revokeObjectURL(url)
   }
 
+  const { canEdit } = useAuth()
   const { markSynced: markEmbedSynced, display: embedSyncDisplay } = useLastSynced()
   // Mark synced whenever data arrives
   useEffect(() => { if (students.length >= 0) markEmbedSynced() }, [students]) // eslint-disable-line
+
+  // Non-editors see a lock screen
+  if (!canEdit) {
+    return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'400px', padding:'48px 24px', textAlign:'center' }}>
+        <div style={{ width:'64px', height:'64px', borderRadius:'50%', background:'#f3f4f6', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:'20px' }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <div style={{ fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:18, color:'#374151', marginBottom:10 }}>
+          Placement decisions are made by the program leads.
+        </div>
+        <div style={{ fontFamily:'DM Sans,sans-serif', fontSize:14, color:'#9ca3af', lineHeight:1.7, maxWidth:'360px' }}>
+          If you have a unit recommendation for a student, please include it in the interview rubric notes section. Jester and Krystal will review your recommendations during the placement process.
+        </div>
+      </div>
+    )
+  }
 
   const studentsCount  = students.length
   const matchedCount   = matchedStudents.length

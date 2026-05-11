@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { TAB_BADGES } from '../lib/brand'
+import { useAuth } from '../contexts/AuthContext'
 
 const COHORT_STATUS_COLORS = {
   Planning:  { bg:'#dbeafe', color:'#1d4ed8' },
@@ -63,6 +64,7 @@ export default function UnifiedNav({
   students = [], units = [], matches = [], cohortId,
   onSelectStudent, onSelectUnit,
 }) {
+  const { canEdit } = useAuth()
   const [cohortOpen,   setCohortOpen]   = useState(false)
   const [query,        setQuery]        = useState('')
   const [results,      setResults]      = useState({ students:[], units:[], placements:[] })
@@ -237,18 +239,20 @@ export default function UnifiedNav({
           <span style={{ color:'rgba(255,255,255,0.6)', flexShrink:0, lineHeight:0 }}><ChevronDown /></span>
           {/* Thin divider + edit/new icons inside pill */}
           <div style={{ width:1, height:20, background:'rgba(255,255,255,0.15)', margin:'0 2px', flexShrink:0 }} />
-          {activeCohort && (
+          {canEdit && activeCohort && (
             <button title="Edit Cohort" onClick={e => { e.stopPropagation(); onEditCohort() }}
               style={{ background:'none', border:'none', cursor:'pointer', padding:'2px 4px',
                 color:'rgba(255,255,255,0.7)', lineHeight:1, fontSize:13 }}
               onMouseEnter={e => e.currentTarget.style.color='#fff'}
               onMouseLeave={e => e.currentTarget.style.color='rgba(255,255,255,0.7)'}>✏</button>
           )}
-          <button title="New Cohort" onClick={e => { e.stopPropagation(); onNewCohort() }}
-            style={{ background:'none', border:'none', cursor:'pointer', padding:'2px 4px',
-              color:'rgba(255,255,255,0.7)', lineHeight:1, fontSize:15, fontWeight:300 }}
-            onMouseEnter={e => e.currentTarget.style.color='#fff'}
-            onMouseLeave={e => e.currentTarget.style.color='rgba(255,255,255,0.7)'}>+</button>
+          {canEdit && (
+            <button title="New Cohort" onClick={e => { e.stopPropagation(); onNewCohort() }}
+              style={{ background:'none', border:'none', cursor:'pointer', padding:'2px 4px',
+                color:'rgba(255,255,255,0.7)', lineHeight:1, fontSize:15, fontWeight:300 }}
+              onMouseEnter={e => e.currentTarget.style.color='#fff'}
+              onMouseLeave={e => e.currentTarget.style.color='rgba(255,255,255,0.7)'}>+</button>
+          )}
         </div>
 
         {/* Cohort dropdown */}
