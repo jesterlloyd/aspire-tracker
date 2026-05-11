@@ -9,10 +9,21 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: true,
     storageKey: 'aspire-intelligence-auth',
-    // Override Web Locks API to bypass lock conflict error.
-    // Safe for a single-tab internal application.
-    lock: async (name, acquireTimeout, fn) => {
-      return await fn()
+    storage: window?.localStorage,
+    // Bypass Web Locks API entirely — prevents lock conflict errors
+    lock: async (_name, _acquireTimeout, fn) => fn(),
+  },
+  realtime: {
+    params: { eventsPerSecond: 10 },
+  },
+  global: {
+    headers: { 'x-application-name': 'aspire-intelligence' },
+    fetch: (...args) => {
+      // 12 second abort timeout on every Supabase request
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 12000)
+      return fetch(...args, { signal: controller.signal })
+        .finally(() => clearTimeout(timeout))
     },
   },
 })
