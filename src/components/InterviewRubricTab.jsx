@@ -4,6 +4,7 @@ import RubricSession from './RubricSession'
 import InterviewCalendar from './InterviewCalendar'
 import TodaysInterviews from './TodaysInterviews'
 import InterviewSetupChecklist from './InterviewSetupChecklist'
+import InterviewersModal from './InterviewersModal'
 
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import ScoreFlag from './ScoreFlag'
@@ -79,7 +80,8 @@ export default function InterviewRubricTab({
   const [search,            setSearch]            = useState('')
   const [sortBy,            setSortBy]            = useState('last_name')
   const [sortDir,           setSortDir]           = useState('asc')
-  const [activeFilter,      setActiveFilter]      = useState(null)
+  const [activeFilter,           setActiveFilter]           = useState(null)
+  const [showManageInterviewers, setShowManageInterviewers] = useState(false)
 
   const handleCardClick = (key) => setActiveFilter(prev => prev === key ? null : key)
 
@@ -236,6 +238,18 @@ export default function InterviewRubricTab({
         <div className="iv-toolbar">
           <input className="search-input" style={{ maxWidth:320 }} placeholder="Search by name or school…"
             value={search} onChange={e => setSearch(e.target.value)} />
+          <button
+            onClick={() => setShowManageInterviewers(true)}
+            style={{
+              padding: '7px 14px', background: '#f3f4ff',
+              border: '1px solid #e0e7ff', borderRadius: '8px',
+              fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#1D2567',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <Users size={13} /> Manage Interviewers
+          </button>
           <span className="iv-hint">Click any row to open the interview rubric session.</span>
         </div>
 
@@ -357,6 +371,11 @@ export default function InterviewRubricTab({
         </table>
       </div>
       </div>{/* end student list */}
+
+      <InterviewersModal
+        isOpen={showManageInterviewers}
+        onClose={() => setShowManageInterviewers(false)}
+      />
     </div>
   )
 }
