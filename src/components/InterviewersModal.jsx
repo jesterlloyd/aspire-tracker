@@ -41,7 +41,7 @@ export default function InterviewersModal({ isOpen, onClose }) {
 
     // Background refresh from Supabase via dedicated client
     try {
-      const { data, error } = await db
+      const { data, error } = await supabase
         .from('interviewers')
         .select('id, name, email, color')
         .order('name', { ascending: true })
@@ -66,15 +66,22 @@ export default function InterviewersModal({ isOpen, onClose }) {
     }
   }, [isOpen, fetchInterviewers])
 
+  const callProxy = async (body) => {
+    const response = await fetch('/api/manage-interviewers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const data = await response.json()
+    if (!response.ok) throw new Error(data.error || 'Request failed')
+    return data
+  }
+
   const handleSaveEmail = async (interviewer) => {
     const emailToSave = (editEmails[interviewer.id] ?? interviewer.email ?? '').trim()
     setSavingIds(prev => ({ ...prev, [interviewer.id]: true }))
     try {
-      const { error } = await supabase.rpc('update_interviewer_email', {
-        p_id: interviewer.id,
-        p_email: emailToSave,
-      })
-      if (error) { alert(`Could not save: ${error.message}`); return }
+      await callProxy({ action: 'update_email', id: interviewer.id, email: emailToSave })
       const updated = interviewers.map(i =>
         i.id === interviewer.id ? { ...i, email: emailToSave } : i
       )
@@ -92,7 +99,7 @@ export default function InterviewersModal({ isOpen, onClose }) {
   const handleDelete = async (interviewer) => {
     if (!window.confirm(`Remove ${interviewer.name}?`)) return
     try {
-      const { error } = await db
+      const { error } = await supabase
         .from('interviewers')
         .delete()
         .eq('id', interviewer.id)
@@ -109,17 +116,8 @@ export default function InterviewersModal({ isOpen, onClose }) {
     if (!newName.trim()) return
     setAdding(true)
     try {
-      const { data, error } = await supabase.rpc('add_interviewer', {
-        p_name: newName.trim(),
-        p_email: newEmail.trim() || '',
-      })
-      if (error) { alert(`Could not add: ${error.message}`); return }
-      const newRecord = Array.isArray(data) ? data[0] : data
-      if (!newRecord) {
-        alert('Interviewer may have been added. Refreshing list.')
-        await fetchInterviewers()
-        return
-      }
+      const result = await callProxy({ action: 'add', name: newName.trim(), email: newEmail.trim() || '' })
+      const newRecord = result.data
       const updated = [...interviewers, newRecord].sort((a, b) => a.name.localeCompare(b.name))
       setInterviewers(updated)
       saveCache(updated)
@@ -192,15 +190,16 @@ export default function InterviewersModal({ isOpen, onClose }) {
                       style={{ width:'22px', height:'22px', border:'none', background:'none', cursor:'pointer', padding:0, borderRadius:'4px' }}
                       onChange={async (e) => {
                         const newColor = e.target.value
-                        await supabase.rpc('update_interviewer_color', {
-                          p_id: interviewer.id,
-                          p_color: newColor,
-                        })
-                        const updated = interviewers.map(i =>
-                          i.id === interviewer.id ? { ...i, color: newColor } : i
-                        )
-                        setInterviewers(updated)
-                        saveCache(updated)
+                        try {
+                          await callProxy({ action: 'update_color', id: interviewer.id, color: newColor })
+                          const updated = interviewers.map(i =>
+                            i.id === interviewer.id ? { ...i, color: newColor } : i
+                          )
+                          setInterviewers(updated)
+                          saveCache(updated)
+                        } catch (err) {
+                          console.error('Color update failed:', err.message)
+                        }
                       }}
                     />
                     <span style={{ fontWeight:700, fontSize:'14px', color:'#1D2567' }}>{interviewer.name}</span>
