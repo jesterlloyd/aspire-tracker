@@ -8,13 +8,15 @@ import { useAuth } from '../contexts/AuthContext'
 import { X, Trash2, CheckCircle, Clock } from 'lucide-react'
 
 // ─── Popover: Create Block ────────────────────────────────────────────────────
-function CreatePopover({ date, startTime, endTime, position, interviewers, myRecord, isAdmin, cohortId, userProfile, onSave, onClose }) {
+function CreatePopover({ date, startTime, endTime, position, interviewerProfiles, isAdmin, cohortId, userProfile, onSave, onClose }) {
   const [form, setForm] = useState({
     block_date:       date || '',
     start_time:       startTime || '09:00',
     end_time:         endTime   || '12:00',
     duration_minutes: 30,
-    interviewer_name: myRecord?.name || (interviewers[0]?.name || ''),
+    interviewer_name: !isAdmin && userProfile?.can_conduct_interviews
+      ? userProfile.full_name
+      : (interviewerProfiles[0]?.full_name || ''),
   })
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState('')
@@ -143,13 +145,14 @@ function CreatePopover({ date, startTime, endTime, position, interviewers, myRec
             <select value={form.interviewer_name}
               onChange={e => setForm(p => ({ ...p, interviewer_name: e.target.value }))}
               style={inputStyle}>
-              {interviewers.map(i => (
-                <option key={i.id} value={i.name}>{i.name}</option>
+              <option value="">Select interviewer...</option>
+              {interviewerProfiles.map(p => (
+                <option key={p.id} value={p.full_name}>{p.full_name}</option>
               ))}
             </select>
           ) : (
             <div style={{ ...inputStyle, background: '#f9fafb', color: '#374151', fontWeight: 600 }}>
-              {myRecord?.name || userProfile?.full_name || '—'}
+              {userProfile?.full_name || '—'}
             </div>
           )}
         </div>
@@ -453,49 +456,51 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const { userProfile, isAdmin } = useAuth()
   const calendarRef = useRef(null)
 
-  const [blocks,       setBlocks]       = useState([])
-  const [slots,        setSlots]        = useState([])
-  const [interviewers, setInterviewers] = useState([])
-  const [colorMap,     setColorMap]     = useState({})
+  const [blocks,             setBlocks]             = useState([])
+  const [slots,              setSlots]              = useState([])
+  const [interviewerProfiles, setInterviewerProfiles] = useState([])
+  const [colorMap,           setColorMap]           = useState({})
   const [createPopover, setCreatePopover] = useState(null)
   const [blockPopover,  setBlockPopover]  = useState(null)
   const [dayPopover,    setDayPopover]    = useState(null)
 
-  const myRecord = interviewers.find(i =>
-    i.email?.toLowerCase() === userProfile?.email?.toLowerCase() ||
-    i.name?.toLowerCase()  === userProfile?.full_name?.toLowerCase()
-  )
-
   const fetchData = useCallback(async () => {
     if (!cohortId) return
 
-    const [blocksRes, slotsRes, intRes] = await Promise.all([
+    const [blocksRes, slotsRes, profilesRes] = await Promise.all([
       supabase.from('interview_availability_blocks')
         .select('*').eq('cohort_id', cohortId).eq('is_active', true),
       supabase.from('interview_slots')
         .select(`*, students!booked_by_student_id (id, first_name, last_name, school)`)
         .eq('cohort_id', cohortId),
-      supabase.from('interviewers').select('id, name, email, color'),
+      supabase.from('user_profiles')
+        .select('id, full_name, email, interviewer_color, can_conduct_interviews, is_active, login_enabled')
+        .eq('can_conduct_interviews', true)
+        .eq('is_active', true)
+        .order('full_name', { ascending: true }),
     ])
 
-    const interviewerList = intRes.data || []
-    setInterviewers(interviewerList)
+    const profiles = profilesRes.data || []
+    setInterviewerProfiles(profiles)
 
     const cm = {}
-    interviewerList.forEach(i => { cm[i.name] = i.color || '#1D2567' })
+    profiles.forEach(p => { cm[p.full_name] = p.interviewer_color || '#1D2567' })
     setColorMap(cm)
 
     let allBlocks = blocksRes.data || []
     let allSlots  = slotsRes.data  || []
 
-    if (!isAdmin && myRecord) {
-      allBlocks = allBlocks.filter(b => b.interviewer_name === myRecord.name)
-      allSlots  = allSlots.filter(s => s.interviewer_name  === myRecord.name)
+    if (!isAdmin) {
+      const myName = userProfile?.full_name
+      if (myName) {
+        allBlocks = allBlocks.filter(b => b.interviewer_name === myName)
+        allSlots  = allSlots.filter(s => s.interviewer_name  === myName)
+      }
     }
 
     setBlocks(allBlocks)
     setSlots(allSlots)
-  }, [cohortId, isAdmin, myRecord?.name]) // eslint-disable-line
+  }, [cohortId, isAdmin, userProfile?.full_name]) // eslint-disable-line
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -504,7 +509,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
     const bookedCount = blockSlots.filter(s => s.is_booked).length
     const openCount   = blockSlots.filter(s => !s.is_booked).length
     const color       = colorMap[block.interviewer_name] || '#1D2567'
-    const isMine      = myRecord?.name === block.interviewer_name
+    const isMine      = userProfile?.full_name === block.interviewer_name
 
     return {
       id:    block.id,
@@ -628,7 +633,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const canDeleteBlock = (block) =>
     isAdmin ||
     block.created_by_user_id === userProfile?.id ||
-    block.interviewer_name   === myRecord?.name
+    block.interviewer_name   === userProfile?.full_name
 
   const closeAll = () => { setCreatePopover(null); setBlockPopover(null); setDayPopover(null) }
 
@@ -719,13 +724,13 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
         display: 'flex', gap: '16px', alignItems: 'center',
         padding: '10px 4px', marginTop: '8px', flexWrap: 'wrap',
       }}>
-        {interviewers.map(i => (
-          <div key={i.id} style={{
+        {interviewerProfiles.map(p => (
+          <div key={p.id} style={{
             display: 'flex', alignItems: 'center', gap: '6px',
             fontFamily: 'DM Sans', fontSize: '11px', color: '#6b7280',
           }}>
-            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: i.color || '#1D2567', flexShrink: 0 }} />
-            {i.name.split(' ')[0]}
+            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: p.interviewer_color || '#1D2567', flexShrink: 0 }} />
+            {p.full_name.split(' ')[0]}
           </div>
         ))}
         {!isAdmin && (
@@ -733,7 +738,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
             Showing your availability only
           </span>
         )}
-        <span style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#9ca3af', marginLeft: interviewers.length ? 0 : 'auto' }}>
+        <span style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#9ca3af', marginLeft: interviewerProfiles.length ? 0 : 'auto' }}>
           Click any day to add availability
         </span>
       </div>
@@ -744,8 +749,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
           startTime={createPopover.startTime}
           endTime={createPopover.endTime}
           position={createPopover.position}
-          interviewers={interviewers}
-          myRecord={myRecord}
+          interviewerProfiles={interviewerProfiles}
           isAdmin={isAdmin}
           cohortId={cohortId}
           userProfile={userProfile}

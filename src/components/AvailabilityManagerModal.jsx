@@ -44,7 +44,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
   // Match current user to their interviewer record by email or name
   const myInterviewerRecord = interviewers.find(i =>
     i.email?.toLowerCase() === userProfile?.email?.toLowerCase() ||
-    i.name?.toLowerCase() === userProfile?.full_name?.toLowerCase()
+    (i.full_name || i.name)?.toLowerCase() === userProfile?.full_name?.toLowerCase()
   )
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
       }
     } catch {}
 
-    supabase.from('interviewers').select('id, name, email').order('name', { ascending: true })
+    supabase.from('user_profiles').select('id, full_name, email, interviewer_color').eq('can_conduct_interviews', true).eq('is_active', true).order('full_name', { ascending: true })
       .then(({ data, error }) => {
         if (!error && data) {
           setInterviewers(data)
@@ -73,7 +73,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
     if (myInterviewerRecord) {
       setForm(prev => ({
         ...prev,
-        interviewer_name: prev.interviewer_name || myInterviewerRecord.name,
+        interviewer_name: prev.interviewer_name || myInterviewerRecord.full_name || myInterviewerRecord.name,
       }))
     }
   }, [myInterviewerRecord?.name]) // eslint-disable-line
@@ -197,7 +197,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
                 {isAdmin ? (
                   <select className="form-select" value={form.interviewer_name} onChange={e => set('interviewer_name', e.target.value)}>
                     <option value="">Select interviewer...</option>
-                    {interviewers.map(i => <option key={i.id} value={i.name}>{i.name}</option>)}
+                    {interviewers.map(i => <option key={i.id} value={i.full_name || i.name}>{i.full_name || i.name}</option>)}
                   </select>
                 ) : (
                   <div style={{ padding:'8px 12px', border:'1px solid #e5e7eb', borderRadius:6, fontSize:13, color:'#374151', background:'#f9fafb' }}>

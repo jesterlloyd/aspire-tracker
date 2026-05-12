@@ -88,6 +88,16 @@ export default function UserManagement({ isOpen, onClose }) {
     fetchUsers();
   };
 
+  const handleToggleInterviewer = async (userId, currentValue) => {
+    await supabase.from('user_profiles').update({ can_conduct_interviews: !currentValue }).eq('id', userId);
+    fetchUsers();
+  };
+
+  const handleUpdateInterviewerColor = async (userId, color) => {
+    await supabase.from('user_profiles').update({ interviewer_color: color }).eq('id', userId);
+    fetchUsers();
+  };
+
   if (!isOpen || !isOwner) return null;
 
   const inputStyle = {
@@ -250,6 +260,40 @@ export default function UserManagement({ isOpen, onClose }) {
                             </div>
                           )}
                         </div>
+                        {!isCurrentUser && !u.is_owner && (
+                          <div style={{ borderTop:'1px solid #f3f4f6', marginTop:'10px', paddingTop:'10px', display:'flex', flexDirection:'column', gap:'8px' }}>
+                            {/* Can Conduct Interviews toggle */}
+                            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                              <div>
+                                <div style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#374151' }}>Can Conduct Interviews</div>
+                                <div style={{ fontFamily:'DM Sans', fontSize:'11px', color:'#9ca3af' }}>Appears in scheduling dropdowns</div>
+                              </div>
+                              <button onClick={() => handleToggleInterviewer(u.id, u.can_conduct_interviews)} style={{
+                                width:'40px', height:'22px', borderRadius:'11px', border:'none',
+                                background: u.can_conduct_interviews ? '#1D2567' : '#e5e7eb',
+                                position:'relative', cursor:'pointer', transition:'background 0.2s ease', flexShrink:0,
+                              }}>
+                                <div style={{
+                                  position:'absolute', top:'3px', left: u.can_conduct_interviews ? '21px' : '3px',
+                                  width:'16px', height:'16px', borderRadius:'50%', background:'#ffffff',
+                                  transition:'left 0.2s ease', boxShadow:'0 1px 3px rgba(0,0,0,0.2)',
+                                }} />
+                              </button>
+                            </div>
+                            {/* Color picker — only when can conduct interviews */}
+                            {u.can_conduct_interviews && (
+                              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                                <span style={{ fontFamily:'DM Sans', fontSize:'12px', color:'#374151' }}>Interview Color</span>
+                                <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                                  <div style={{ width:'20px', height:'20px', borderRadius:'50%', background: u.interviewer_color || '#1D2567', border:'2px solid rgba(0,0,0,0.1)' }} />
+                                  <input type="color" value={u.interviewer_color || '#1D2567'}
+                                    onChange={e => handleUpdateInterviewerColor(u.id, e.target.value)}
+                                    style={{ width:'28px', height:'28px', border:'none', borderRadius:'6px', cursor:'pointer', padding:'2px', background:'none' }} />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

@@ -23,8 +23,8 @@ export default function ScheduleInterviewModal({ students, defaults, onClose, on
   const [error,        setError]        = useState(null)
 
   useEffect(() => {
-    supabase.from('interviewers').select('name').order('name')
-      .then(({ data }) => setInterviewers((data || []).map(i => i.name)))
+    supabase.from('user_profiles').select('id, full_name').eq('can_conduct_interviews', true).eq('is_active', true).order('full_name', { ascending: true })
+      .then(({ data }) => setInterviewers((data || []).map(p => p.full_name)))
   }, [])
 
   useEffect(() => {

@@ -232,8 +232,8 @@ export default function InterviewSchedulePage() {
 
       let interviewerEmail = null
       if (chosen.interviewer_name?.trim()) {
-        const { data: iv } = await supabase.from('interviewers')
-          .select('email').ilike('name', chosen.interviewer_name.trim()).limit(1).maybeSingle()
+        const { data: iv } = await supabase.from('user_profiles')
+          .select('email').ilike('full_name', chosen.interviewer_name.trim()).eq('can_conduct_interviews', true).limit(1).maybeSingle()
         interviewerEmail = iv?.email?.trim() || null
       }
       const mailto = buildNotificationMailto(student, chosen, interviewerEmail)

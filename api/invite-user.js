@@ -35,19 +35,25 @@ export default async function handler(req, res) {
 
     if (error) return res.status(400).json({ error: error.message });
 
-    // Pre-create the user profile with the assigned role
-    const { error: profileError } = await supabaseAdmin
+    // Check if a temp record already exists for this email
+    const { data: existingProfile } = await supabaseAdmin
       .from('user_profiles')
-      .upsert({
-        auth_user_id: data.user.id,
-        full_name,
-        email,
-        role,
-        is_owner: false,
-        is_active: true,
-      }, { onConflict: 'auth_user_id' });
+      .select('id, can_conduct_interviews, interviewer_color')
+      .eq('email', email)
+      .maybeSingle();
 
-    if (profileError) console.error('Profile pre-creation error:', profileError.message);
+    if (existingProfile) {
+      const { error: profileError } = await supabaseAdmin
+        .from('user_profiles')
+        .update({ auth_user_id: data.user.id, login_enabled: true, full_name, role })
+        .eq('id', existingProfile.id);
+      if (profileError) console.error('Profile update error:', profileError.message);
+    } else {
+      const { error: profileError } = await supabaseAdmin
+        .from('user_profiles')
+        .insert({ auth_user_id: data.user.id, full_name, email, role, is_owner: false, is_active: true, login_enabled: true });
+      if (profileError) console.error('Profile creation error:', profileError.message);
+    }
 
     return res.status(200).json({ success: true, message: `Invitation sent to ${email}` });
   } catch (err) {
