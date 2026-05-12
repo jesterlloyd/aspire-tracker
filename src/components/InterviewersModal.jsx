@@ -183,11 +183,22 @@ export default function InterviewersModal({ isOpen, onClose }) {
               <div key={interviewer.id} style={{ border:'1px solid #f3f4f6', borderRadius:'12px', padding:'14px 16px', background:'#fafafa' }}>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                    <div style={{
+                      width:'28px', height:'28px', borderRadius:'50%',
+                      background: interviewer.color || '#1D2567',
+                      flexShrink:0,
+                      border:'2px solid rgba(0,0,0,0.08)',
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      fontFamily:'DM Sans', fontWeight:700, fontSize:'10px',
+                      color:'#ffffff',
+                    }}>
+                      {interviewer.name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
+                    </div>
                     <input
                       type="color"
                       value={interviewer.color || '#1D2567'}
-                      title="Interviewer color"
-                      style={{ width:'22px', height:'22px', border:'none', background:'none', cursor:'pointer', padding:0, borderRadius:'4px' }}
+                      title="Change color"
+                      style={{ width:'28px', height:'28px', border:'none', borderRadius:'6px', cursor:'pointer', padding:'2px', background:'none' }}
                       onChange={async (e) => {
                         const newColor = e.target.value
                         try {
