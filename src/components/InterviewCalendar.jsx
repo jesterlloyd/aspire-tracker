@@ -1,0 +1,511 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react'
+import FullCalendar from '@fullcalendar/react'
+import dayGridPlugin    from '@fullcalendar/daygrid'
+import timeGridPlugin   from '@fullcalendar/timegrid'
+import interactionPlugin from '@fullcalendar/interaction'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
+import { X, Trash2, CheckCircle, Clock } from 'lucide-react'
+
+// ─── Popover: Create Block ────────────────────────────────────────────────────
+function CreatePopover({ date, position, interviewers, myRecord, isAdmin, cohortId, userProfile, onSave, onClose }) {
+  const [form, setForm] = useState({
+    block_date:       date || '',
+    start_time:       '09:00',
+    end_time:         '12:00',
+    duration_minutes: 30,
+    interviewer_name: myRecord?.name || (interviewers[0]?.name || ''),
+  })
+  const [saving, setSaving] = useState(false)
+  const [error,  setError]  = useState('')
+
+  const handleSave = async () => {
+    if (!form.block_date || !form.start_time || !form.end_time) {
+      setError('Please fill in all fields.'); return
+    }
+    const [sh, sm] = form.start_time.split(':').map(Number)
+    const [eh, em] = form.end_time.split(':').map(Number)
+    if (eh * 60 + em <= sh * 60 + sm) {
+      setError('End time must be after start time.'); return
+    }
+    setSaving(true); setError('')
+    try {
+      const res = await fetch('/api/availability', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action:             'create_block',
+          cohort_id:          cohortId,
+          interviewer_name:   form.interviewer_name,
+          block_date:         form.block_date,
+          start_time:         form.start_time,
+          end_time:           form.end_time,
+          duration_minutes:   form.duration_minutes,
+          created_by_user_id: userProfile?.id || null,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error); return }
+      onSave(data)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputStyle = {
+    width: '100%', padding: '8px 10px',
+    border: '1px solid #e5e7eb', borderRadius: '8px',
+    fontFamily: 'DM Sans', fontSize: '13px',
+    outline: 'none', boxSizing: 'border-box', color: '#374151',
+  }
+  const labelStyle = {
+    fontFamily: 'DM Sans', fontWeight: 600, fontSize: '11px', color: '#6b7280',
+    display: 'block', marginBottom: '4px',
+    textTransform: 'uppercase', letterSpacing: '0.04em',
+  }
+
+  const slotCount = (() => {
+    if (!form.start_time || !form.end_time || !form.duration_minutes) return 0
+    const [sh, sm] = form.start_time.split(':').map(Number)
+    const [eh, em] = form.end_time.split(':').map(Number)
+    const total = eh * 60 + em - (sh * 60 + sm)
+    return total > 0 ? Math.floor(total / form.duration_minutes) : 0
+  })()
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top:  Math.min(position.y, window.innerHeight - 440),
+      left: Math.min(position.x, window.innerWidth  - 300),
+      width: '280px', background: '#ffffff',
+      borderRadius: '16px', zIndex: 9999,
+      boxShadow: '0 8px 40px rgba(29,37,103,0.22)',
+      overflow: 'hidden',
+    }}>
+      <div style={{
+        background: 'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)',
+        padding: '14px 16px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <span style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '14px', color: '#ffffff' }}>
+          Add Availability
+        </span>
+        <button onClick={onClose} style={{
+          background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '6px',
+          width: '26px', height: '26px', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', cursor: 'pointer', color: '#ffffff',
+        }}>
+          <X size={14} />
+        </button>
+      </div>
+
+      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div>
+          <label style={labelStyle}>Date</label>
+          <input type="date" value={form.block_date}
+            onChange={e => setForm(p => ({ ...p, block_date: e.target.value }))}
+            style={inputStyle} />
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+          <div>
+            <label style={labelStyle}>Start</label>
+            <input type="time" value={form.start_time}
+              onChange={e => setForm(p => ({ ...p, start_time: e.target.value }))}
+              style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>End</label>
+            <input type="time" value={form.end_time}
+              onChange={e => setForm(p => ({ ...p, end_time: e.target.value }))}
+              style={inputStyle} />
+          </div>
+        </div>
+
+        <div>
+          <label style={labelStyle}>Slot Duration</label>
+          <select value={form.duration_minutes}
+            onChange={e => setForm(p => ({ ...p, duration_minutes: parseInt(e.target.value) }))}
+            style={inputStyle}>
+            <option value={15}>15 minutes</option>
+            <option value={20}>20 minutes</option>
+            <option value={30}>30 minutes</option>
+            <option value={45}>45 minutes</option>
+            <option value={60}>60 minutes</option>
+          </select>
+        </div>
+
+        <div>
+          <label style={labelStyle}>Interviewer</label>
+          {isAdmin ? (
+            <select value={form.interviewer_name}
+              onChange={e => setForm(p => ({ ...p, interviewer_name: e.target.value }))}
+              style={inputStyle}>
+              {interviewers.map(i => (
+                <option key={i.id} value={i.name}>{i.name}</option>
+              ))}
+            </select>
+          ) : (
+            <div style={{ ...inputStyle, background: '#f9fafb', color: '#374151', fontWeight: 600 }}>
+              {myRecord?.name || userProfile?.full_name || '—'}
+            </div>
+          )}
+        </div>
+
+        {slotCount > 0 && (
+          <div style={{
+            background: '#f0f3ff', borderRadius: '8px', padding: '8px 12px',
+            fontFamily: 'DM Sans', fontSize: '12px', color: '#1D2567',
+            display: 'flex', alignItems: 'center', gap: '6px',
+          }}>
+            <CheckCircle size={13} color="#1D2567" />
+            {slotCount} slot{slotCount !== 1 ? 's' : ''} will be created
+          </div>
+        )}
+
+        {error && (
+          <div style={{
+            background: '#fef2f2', borderRadius: '8px', padding: '8px 12px',
+            fontSize: '12px', color: '#991b1b', fontFamily: 'DM Sans',
+          }}>
+            {error}
+          </div>
+        )}
+
+        <button onClick={handleSave} disabled={saving} style={{
+          width: '100%', padding: '10px',
+          background: saving ? '#e5e7eb' : '#1D2567',
+          border: 'none', borderRadius: '10px',
+          fontFamily: 'DM Sans', fontWeight: 700, fontSize: '13px', color: '#ffffff',
+          cursor: saving ? 'default' : 'pointer',
+        }}>
+          {saving ? 'Creating...' : 'Create Block'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Popover: Block Details ───────────────────────────────────────────────────
+function BlockPopover({ block, slots, position, canDelete, onDelete, onClose }) {
+  const booked    = slots.filter(s => s.is_booked).length
+  const open      = slots.filter(s => !s.is_booked).length
+  const [deleting, setDeleting] = useState(false)
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete this block? ${open} open slot${open !== 1 ? 's' : ''} will be removed.`)) return
+    setDeleting(true)
+    await onDelete(block.id)
+    setDeleting(false)
+  }
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top:  Math.min(position.y, window.innerHeight - 280),
+      left: Math.min(position.x, window.innerWidth  - 260),
+      width: '250px', background: '#ffffff',
+      borderRadius: '14px', zIndex: 9999,
+      boxShadow: '0 8px 32px rgba(29,37,103,0.20)',
+      overflow: 'hidden',
+    }}>
+      <div style={{
+        background: block.color || '#1D2567',
+        padding: '12px 14px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div>
+          <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '13px', color: '#ffffff' }}>
+            {block.interviewer_name || 'ASPIRE Team'}
+          </div>
+          <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: 'rgba(255,255,255,0.7)', marginTop: '2px' }}>
+            {new Date(block.block_date + 'T12:00:00').toLocaleDateString('en-US', {
+              weekday: 'short', month: 'short', day: 'numeric',
+            })}
+          </div>
+        </div>
+        <button onClick={onClose} style={{
+          background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '6px',
+          width: '26px', height: '26px', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', cursor: 'pointer', color: '#ffffff',
+        }}>
+          <X size={13} />
+        </button>
+      </div>
+
+      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'DM Sans', fontSize: '13px', color: '#374151' }}>
+          <Clock size={13} color="#9ca3af" />
+          {block.start_time} – {block.end_time}
+          <span style={{ color: '#9ca3af', fontSize: '11px' }}>({block.duration_minutes}min slots)</span>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ flex: 1, background: '#f0fdf4', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
+            <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '18px', color: '#166534' }}>{open}</div>
+            <div style={{ fontFamily: 'DM Sans', fontSize: '10px', color: '#16a34a' }}>Open</div>
+          </div>
+          <div style={{ flex: 1, background: '#eff6ff', borderRadius: '8px', padding: '8px', textAlign: 'center' }}>
+            <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '18px', color: '#1e40af' }}>{booked}</div>
+            <div style={{ fontFamily: 'DM Sans', fontSize: '10px', color: '#3b82f6' }}>Booked</div>
+          </div>
+        </div>
+
+        {canDelete && (
+          <button onClick={handleDelete} disabled={deleting} style={{
+            width: '100%', padding: '9px',
+            background: deleting ? '#f3f4f6' : '#fef2f2',
+            border: '1px solid #fecaca', borderRadius: '8px',
+            fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#dc2626',
+            cursor: deleting ? 'default' : 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+          }}>
+            <Trash2 size={13} />
+            {deleting ? 'Deleting...' : booked > 0 ? `Delete block (${booked} booked)` : 'Delete block'}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Calendar ────────────────────────────────────────────────────────────
+export default function InterviewCalendar({ cohortId, activeCohort }) {
+  const { userProfile, isAdmin } = useAuth()
+  const calendarRef = useRef(null)
+
+  const [blocks,       setBlocks]       = useState([])
+  const [slots,        setSlots]        = useState([])
+  const [interviewers, setInterviewers] = useState([])
+  const [colorMap,     setColorMap]     = useState({})
+  const [createPopover, setCreatePopover] = useState(null)
+  const [blockPopover,  setBlockPopover]  = useState(null)
+
+  const myRecord = interviewers.find(i =>
+    i.email?.toLowerCase() === userProfile?.email?.toLowerCase() ||
+    i.name?.toLowerCase()  === userProfile?.full_name?.toLowerCase()
+  )
+
+  const fetchData = useCallback(async () => {
+    if (!cohortId) return
+
+    const [blocksRes, slotsRes, intRes] = await Promise.all([
+      supabase.from('interview_availability_blocks')
+        .select('*').eq('cohort_id', cohortId).eq('is_active', true),
+      supabase.from('interview_slots')
+        .select('*').eq('cohort_id', cohortId),
+      supabase.from('interviewers').select('id, name, email, color'),
+    ])
+
+    const interviewerList = intRes.data || []
+    setInterviewers(interviewerList)
+
+    const cm = {}
+    interviewerList.forEach(i => { cm[i.name] = i.color || '#1D2567' })
+    setColorMap(cm)
+
+    let allBlocks = blocksRes.data || []
+    let allSlots  = slotsRes.data  || []
+
+    if (!isAdmin && myRecord) {
+      allBlocks = allBlocks.filter(b => b.interviewer_name === myRecord.name)
+      allSlots  = allSlots.filter(s => s.interviewer_name  === myRecord.name)
+    }
+
+    setBlocks(allBlocks)
+    setSlots(allSlots)
+  }, [cohortId, isAdmin, myRecord?.name]) // eslint-disable-line
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  const calendarEvents = blocks.map(block => {
+    const blockSlots  = slots.filter(s => s.block_id === block.id)
+    const bookedCount = blockSlots.filter(s => s.is_booked).length
+    const openCount   = blockSlots.filter(s => !s.is_booked).length
+    const color       = colorMap[block.interviewer_name] || '#1D2567'
+    const isMine      = myRecord?.name === block.interviewer_name
+
+    return {
+      id:    block.id,
+      title: openCount > 0
+        ? `${block.interviewer_name?.split(' ')[0]} · ${openCount} open`
+        : `${block.interviewer_name?.split(' ')[0]} · Full`,
+      start: `${block.block_date}T${block.start_time}`,
+      end:   `${block.block_date}T${block.end_time}`,
+      backgroundColor: isAdmin ? (isMine ? color : color + '88') : color,
+      borderColor:  color,
+      textColor:    '#ffffff',
+      extendedProps: { block, blockSlots, color },
+    }
+  })
+
+  const handleDateClick = (info) => {
+    setBlockPopover(null)
+    setCreatePopover({
+      date:     info.dateStr.split('T')[0],
+      position: { x: info.jsEvent.clientX + 8, y: info.jsEvent.clientY - 20 },
+    })
+  }
+
+  const handleEventClick = (info) => {
+    setCreatePopover(null)
+    const { block, blockSlots, color } = info.event.extendedProps
+    setBlockPopover({
+      block: { ...block, color },
+      slots: blockSlots,
+      position: { x: info.jsEvent.clientX + 8, y: info.jsEvent.clientY - 20 },
+    })
+  }
+
+  const handleSaveBlock = () => {
+    setCreatePopover(null)
+    fetchData()
+  }
+
+  const handleDeleteBlock = async (blockId) => {
+    const res  = await fetch('/api/availability', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete_block', block_id: blockId }),
+    })
+    const data = await res.json()
+    if (!res.ok) { alert(data.error); return }
+    setBlockPopover(null)
+    fetchData()
+  }
+
+  const canDeleteBlock = (block) =>
+    isAdmin ||
+    block.created_by_user_id === userProfile?.id ||
+    block.interviewer_name   === myRecord?.name
+
+  const closeAll = () => { setCreatePopover(null); setBlockPopover(null) }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      {(createPopover || blockPopover) && (
+        <div onClick={closeAll} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
+      )}
+
+      <div style={{
+        background: '#ffffff', borderRadius: '16px',
+        border: '1px solid #f3f4f6',
+        boxShadow: '0 2px 12px rgba(29,37,103,0.07)',
+        overflow: 'hidden',
+      }}>
+        <style>{`
+          .fc { font-family: 'DM Sans', sans-serif; }
+          .fc-toolbar-title {
+            font-family: 'DM Sans', sans-serif !important;
+            font-weight: 700 !important; font-size: 16px !important;
+            color: #1D2567 !important;
+          }
+          .fc-button {
+            font-family: 'DM Sans', sans-serif !important;
+            font-weight: 600 !important; font-size: 12px !important;
+            border-radius: 8px !important; text-transform: capitalize !important;
+            padding: 6px 14px !important;
+          }
+          .fc-button-primary { background: #1D2567 !important; border-color: #1D2567 !important; }
+          .fc-button-primary:not(.fc-button-active):hover { background: #141928 !important; }
+          .fc-button-active { background: #141928 !important; border-color: #141928 !important; }
+          .fc-day-today { background: #f0f3ff !important; }
+          .fc-day-today .fc-daygrid-day-number {
+            background: #1D2567; color: #ffffff; border-radius: 50%;
+            width: 24px; height: 24px;
+            display: flex; align-items: center; justify-content: center;
+          }
+          .fc-daygrid-day-number { font-weight: 600; font-size: 12px; color: #374151; padding: 4px 6px; }
+          .fc-col-header-cell-cushion {
+            font-weight: 700; font-size: 11px; text-transform: uppercase;
+            letter-spacing: 0.05em; color: #6b7280;
+          }
+          .fc-daygrid-event {
+            border-radius: 6px !important; border: none !important;
+            padding: 2px 6px !important; font-size: 11px !important;
+            font-weight: 600 !important; cursor: pointer !important;
+          }
+          .fc-event-title { font-weight: 600 !important; }
+          .fc-daygrid-day:hover { background: #f8f9ff !important; cursor: pointer; }
+          .fc-timegrid-slot { cursor: pointer; }
+          .fc-timegrid-slot:hover { background: #f0f3ff !important; }
+          .fc th { border-color: #f3f4f6 !important; }
+          .fc td { border-color: #f3f4f6 !important; }
+        `}</style>
+
+        <FullCalendar
+          ref={calendarRef}
+          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+          initialView="dayGridMonth"
+          headerToolbar={{
+            left:   'prev,next today',
+            center: 'title',
+            right:  'dayGridMonth,timeGridWeek',
+          }}
+          buttonText={{ today: 'Today', month: 'Month', week: 'Week' }}
+          events={calendarEvents}
+          dateClick={handleDateClick}
+          eventClick={handleEventClick}
+          height="auto"
+          dayMaxEvents={3}
+          moreLinkText={n => `+${n} more`}
+          nowIndicator={true}
+          slotMinTime="07:00:00"
+          slotMaxTime="20:00:00"
+          allDaySlot={false}
+        />
+      </div>
+
+      {/* Legend */}
+      <div style={{
+        display: 'flex', gap: '16px', alignItems: 'center',
+        padding: '10px 4px', marginTop: '8px', flexWrap: 'wrap',
+      }}>
+        {interviewers.map(i => (
+          <div key={i.id} style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            fontFamily: 'DM Sans', fontSize: '11px', color: '#6b7280',
+          }}>
+            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: i.color || '#1D2567', flexShrink: 0 }} />
+            {i.name.split(' ')[0]}
+          </div>
+        ))}
+        {!isAdmin && (
+          <span style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#9ca3af', marginLeft: 'auto' }}>
+            Showing your availability only
+          </span>
+        )}
+        <span style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#9ca3af', marginLeft: interviewers.length ? 0 : 'auto' }}>
+          Click any day to add availability
+        </span>
+      </div>
+
+      {createPopover && (
+        <CreatePopover
+          date={createPopover.date}
+          position={createPopover.position}
+          interviewers={interviewers}
+          myRecord={myRecord}
+          isAdmin={isAdmin}
+          cohortId={cohortId}
+          userProfile={userProfile}
+          onSave={handleSaveBlock}
+          onClose={closeAll}
+        />
+      )}
+
+      {blockPopover && (
+        <BlockPopover
+          block={blockPopover.block}
+          slots={blockPopover.slots}
+          position={blockPopover.position}
+          canDelete={canDeleteBlock(blockPopover.block)}
+          onDelete={handleDeleteBlock}
+          onClose={closeAll}
+        />
+      )}
+    </div>
+  )
+}
