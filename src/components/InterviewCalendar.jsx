@@ -449,7 +449,7 @@ function DayPopover({ date, blocks, slots, colorMap, position, canDelete, onDele
 }
 
 // ─── Main Calendar ────────────────────────────────────────────────────────────
-export default function InterviewCalendar({ cohortId, activeCohort }) {
+export default function InterviewCalendar({ cohortId, activeCohort, onDataChanged }) {
   const { userProfile, isAdmin } = useAuth()
   const calendarRef = useRef(null)
 
@@ -590,6 +590,7 @@ export default function InterviewCalendar({ cohortId, activeCohort }) {
     if (!res.ok) { alert(data.error); return }
     setBlockPopover(null)
     fetchData()
+    onDataChanged?.()
   }
 
   const handleCancelBooking = async (slot) => {
@@ -617,6 +618,7 @@ export default function InterviewCalendar({ cohortId, activeCohort }) {
       if (!res.ok) { alert(`Could not cancel: ${data.error}`); return }
       setBlockPopover(null)
       fetchData()
+      onDataChanged?.()
     } catch (err) {
       alert(`Cancel failed: ${err.message}`)
     }

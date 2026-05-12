@@ -82,6 +82,14 @@ export default function InterviewRubricTab({
   const [sortDir,           setSortDir]           = useState('asc')
   const [activeFilter,           setActiveFilter]           = useState(null)
   const [showManageInterviewers, setShowManageInterviewers] = useState(false)
+  const [calendarVersion,        setCalendarVersion]        = useState(0)
+
+  // Re-fetch students whenever the calendar makes a write (cancel, delete)
+  useEffect(() => {
+    if (calendarVersion === 0) return
+    onRefreshStudents?.()
+    onRubricsChange?.()
+  }, [calendarVersion]) // eslint-disable-line
 
   const handleCardClick = (key) => setActiveFilter(prev => prev === key ? null : key)
 
@@ -181,7 +189,11 @@ export default function InterviewRubricTab({
         }}
       />
       <InterviewSetupChecklist cohortId={cohortId} cohort={cohort} />
-      <InterviewCalendar cohortId={cohortId} activeCohort={cohort} />
+      <InterviewCalendar
+        cohortId={cohortId}
+        activeCohort={cohort}
+        onDataChanged={() => setCalendarVersion(v => v + 1)}
+      />
 
       <div className="stat-cards-row" style={{ padding:'12px 16px' }}>
         {[
