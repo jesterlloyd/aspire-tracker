@@ -1,6 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { createClient } from '@supabase/supabase-js'
 import { X, Save, Plus, Trash2, Check, Loader } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+
+// Dedicated lightweight client for interviewers table only.
+// No auth overhead — interviewers table has public access policy.
+const db = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  }
+)
 
 const CACHE_KEY = 'aspire_interviewers_v1'
 
@@ -14,15 +28,6 @@ const loadCache = () => {
 const saveCache = (data) => {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)) } catch {}
 }
-
-// Wraps any Supabase operation with an 8 second timeout
-const withTimeout = (promise, ms = 8000) =>
-  Promise.race([
-    promise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`Request timed out after ${ms / 1000}s`)), ms)
-    ),
-  ])
 
 export default function InterviewersModal({ isOpen, onClose }) {
   const [interviewers, setInterviewers] = useState([])
@@ -48,9 +53,9 @@ export default function InterviewersModal({ isOpen, onClose }) {
       setLoading(true)
     }
 
-    // Background refresh from Supabase
+    // Background refresh from Supabase via dedicated client
     try {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('interviewers')
         .select('id, name, email')
         .order('name', { ascending: true })
@@ -75,86 +80,67 @@ export default function InterviewersModal({ isOpen, onClose }) {
     }
   }, [isOpen, fetchInterviewers])
 
-  const handleSaveEmail = (interviewer) => {
+  const handleSaveEmail = async (interviewer) => {
     const emailToSave = (editEmails[interviewer.id] ?? interviewer.email ?? '').trim()
-
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-    // Update UI immediately
-    const updated = interviewers.map(i =>
-      i.id === interviewer.id ? { ...i, email: emailToSave } : i
-    )
-    setInterviewers(updated)
-    saveCache(updated)
-    setSavedIds(prev => ({ ...prev, [interviewer.id]: true }))
-    setTimeout(() => setSavedIds(prev => ({ ...prev, [interviewer.id]: false })), 2500)
-
-    // Fire update in background without waiting
-    fetch(`${supabaseUrl}/rest/v1/interviewers?id=eq.${interviewer.id}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`,
-      },
-      body: JSON.stringify({ email: emailToSave }),
-    }).catch(err => console.error('Save email background error:', err))
+    setSavingIds(prev => ({ ...prev, [interviewer.id]: true }))
+    try {
+      const { error } = await db
+        .from('interviewers')
+        .update({ email: emailToSave })
+        .eq('id', interviewer.id)
+      if (error) { alert(`Could not save: ${error.message}`); return }
+      const updated = interviewers.map(i =>
+        i.id === interviewer.id ? { ...i, email: emailToSave } : i
+      )
+      setInterviewers(updated)
+      saveCache(updated)
+      setSavedIds(prev => ({ ...prev, [interviewer.id]: true }))
+      setTimeout(() => setSavedIds(prev => ({ ...prev, [interviewer.id]: false })), 2500)
+    } catch (err) {
+      alert(`Save failed: ${err.message}`)
+    } finally {
+      setSavingIds(prev => ({ ...prev, [interviewer.id]: false }))
+    }
   }
 
   const handleDelete = async (interviewer) => {
-    if (!window.confirm(`Remove ${interviewer.name} from the interviewers list?`)) return
+    if (!window.confirm(`Remove ${interviewer.name}?`)) return
     try {
-      const { error } = await withTimeout(
-        supabase.from('interviewers').delete().eq('id', interviewer.id)
-      )
-      if (error) {
-        console.error('Delete error:', JSON.stringify(error))
-        alert(`Could not delete ${interviewer.name}.\n\nError: ${error.message}\nCode: ${error.code}`)
-        return
-      }
+      const { error } = await db
+        .from('interviewers')
+        .delete()
+        .eq('id', interviewer.id)
+      if (error) { alert(`Could not delete: ${error.message}`); return }
       const updated = interviewers.filter(i => i.id !== interviewer.id)
       setInterviewers(updated)
       saveCache(updated)
     } catch (err) {
-      console.error('Delete exception:', err)
       alert(`Delete failed: ${err.message}`)
     }
   }
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newName.trim()) return
     setAdding(true)
-
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-    const nameToAdd  = newName.trim()
-    const emailToAdd = newEmail.trim() || ''
-
-    // Fire insert without waiting for response
-    fetch(`${supabaseUrl}/rest/v1/interviewers`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`,
-      },
-      body: JSON.stringify({ name: nameToAdd, email: emailToAdd }),
-    }).catch(err => console.error('Add interviewer background error:', err))
-
-    // Update UI immediately with temp record
-    const tempRecord = { id: `temp-${Date.now()}`, name: nameToAdd, email: emailToAdd }
-    const updated = [...interviewers, tempRecord].sort((a, b) => a.name.localeCompare(b.name))
-    setInterviewers(updated)
-    saveCache(updated)
-    setEditEmails(prev => ({ ...prev, [tempRecord.id]: emailToAdd }))
-    setNewName('')
-    setNewEmail('')
-    setShowAdd(false)
-    setAdding(false)
-
-    // Refresh from DB after 4 seconds to replace temp record with real one
-    setTimeout(() => fetchInterviewers(), 4000)
+    try {
+      const { data, error } = await db
+        .from('interviewers')
+        .insert({ name: newName.trim(), email: newEmail.trim() || '' })
+        .select('id, name, email')
+        .single()
+      if (error) { alert(`Could not add: ${error.message}`); return }
+      const updated = [...interviewers, data].sort((a, b) => a.name.localeCompare(b.name))
+      setInterviewers(updated)
+      saveCache(updated)
+      setEditEmails(prev => ({ ...prev, [data.id]: data.email || '' }))
+      setNewName('')
+      setNewEmail('')
+      setShowAdd(false)
+    } catch (err) {
+      alert(`Add failed: ${err.message}`)
+    } finally {
+      setAdding(false)
+    }
   }
 
   const emailChanged = (interviewer) =>
