@@ -8,11 +8,11 @@ import { useAuth } from '../contexts/AuthContext'
 import { X, Trash2, CheckCircle, Clock } from 'lucide-react'
 
 // ─── Popover: Create Block ────────────────────────────────────────────────────
-function CreatePopover({ date, position, interviewers, myRecord, isAdmin, cohortId, userProfile, onSave, onClose }) {
+function CreatePopover({ date, startTime, endTime, position, interviewers, myRecord, isAdmin, cohortId, userProfile, onSave, onClose }) {
   const [form, setForm] = useState({
     block_date:       date || '',
-    start_time:       '09:00',
-    end_time:         '12:00',
+    start_time:       startTime || '09:00',
+    end_time:         endTime   || '12:00',
     duration_minutes: 30,
     interviewer_name: myRecord?.name || (interviewers[0]?.name || ''),
   })
@@ -328,7 +328,7 @@ function BlockPopover({ block, slots, position, canDelete, onDelete, onCancelBoo
 }
 
 // ─── Popover: Day Overview ────────────────────────────────────────────────────
-function DayPopover({ date, blocks, slots, colorMap, canDelete, onDeleteBlock, onAddNew, onClose }) {
+function DayPopover({ date, blocks, slots, colorMap, position, canDelete, onDeleteBlock, onAddNew, onClose }) {
   const [deleting, setDeleting] = useState(null)
 
   const dateLabel = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
@@ -351,9 +351,8 @@ function DayPopover({ date, blocks, slots, colorMap, canDelete, onDeleteBlock, o
   return (
     <div style={{
       position: 'fixed',
-      top:  Math.min(100, window.innerHeight - 420),
-      left: '50%',
-      transform: 'translateX(-50%)',
+      top:  Math.max(10, Math.min(position.y - 20, window.innerHeight - 440)),
+      left: Math.max(10, Math.min(position.x + 8, window.innerWidth - 320)),
       width: '300px', background: '#ffffff',
       borderRadius: '16px', zIndex: 9999,
       boxShadow: '0 8px 40px rgba(29,37,103,0.22)',
@@ -523,21 +522,39 @@ export default function InterviewCalendar({ cohortId, activeCohort }) {
 
   const handleDateClick = (info) => {
     const clickedDate = info.dateStr.split('T')[0]
-    const dayBlocks   = blocks.filter(b => b.block_date === clickedDate)
+    const currentView = calendarRef.current?.getApi()?.view?.type
+    const isWeekView  = currentView === 'timeGridWeek'
+
     setBlockPopover(null)
-    if (dayBlocks.length > 0) {
-      setCreatePopover(null)
-      setDayPopover({
-        date:     clickedDate,
-        blocks:   dayBlocks,
-        position: { x: info.jsEvent.clientX + 8, y: info.jsEvent.clientY - 20 },
+    setDayPopover(null)
+
+    if (isWeekView) {
+      const clickedTime = info.dateStr.includes('T')
+        ? info.dateStr.split('T')[1].slice(0, 5)
+        : '09:00'
+      const [h, m] = clickedTime.split(':').map(Number)
+      const endH   = Math.min(h + 2, 19)
+      const endTime = `${endH.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+      setCreatePopover({
+        date:      clickedDate,
+        startTime: clickedTime,
+        endTime,
+        position:  { x: info.jsEvent.clientX, y: info.jsEvent.clientY },
       })
     } else {
-      setDayPopover(null)
-      setCreatePopover({
-        date:     clickedDate,
-        position: { x: info.jsEvent.clientX + 8, y: info.jsEvent.clientY - 20 },
-      })
+      const dayBlocks = blocks.filter(b => b.block_date === clickedDate)
+      if (dayBlocks.length > 0) {
+        setDayPopover({
+          date:     clickedDate,
+          blocks:   dayBlocks,
+          position: { x: info.jsEvent.clientX, y: info.jsEvent.clientY },
+        })
+      } else {
+        setCreatePopover({
+          date:     clickedDate,
+          position: { x: info.jsEvent.clientX, y: info.jsEvent.clientY },
+        })
+      }
     }
   }
 
@@ -580,32 +597,61 @@ export default function InterviewCalendar({ cohortId, activeCohort }) {
     if (!studentId) { alert('No student linked to this slot.'); return }
 
     try {
+      // 1. Clear the slot booking
       const { error: slotError } = await supabase
         .from('interview_slots')
         .update({ is_booked: false, booked_by_student_id: null, booked_at: null })
         .eq('id', slot.id)
       if (slotError) { alert(`Could not cancel slot: ${slotError.message}`); return }
 
-      const { error: studentError } = await supabase
+      // 2. Clean up interview_session linked to this slot (only if no rubric data)
+      const { data: session } = await supabase
+        .from('interview_sessions')
+        .select('id, cj_question_text, pp_question_text, ga_question_text')
+        .eq('slot_id', slot.id)
+        .maybeSingle()
+      if (session) {
+        const hasRubricData = session.cj_question_text || session.pp_question_text || session.ga_question_text
+        if (!hasRubricData) {
+          await supabase.from('interview_sessions').delete().eq('id', session.id)
+        }
+      }
+
+      // 3. Clean up any orphaned sessions linked by student_id (no rubric data)
+      const { data: studentSessions } = await supabase
+        .from('interview_sessions')
+        .select('id, cj_question_text, pp_question_text, ga_question_text')
+        .eq('student_id', studentId)
+      if (studentSessions?.length > 0) {
+        for (const sess of studentSessions) {
+          const hasData = sess.cj_question_text || sess.pp_question_text || sess.ga_question_text
+          if (!hasData) {
+            await supabase.from('interview_sessions').delete().eq('id', sess.id)
+          }
+        }
+      }
+
+      // 4. Revert student status unconditionally
+      await supabase
         .from('students')
         .update({ status: 'Form Received' })
         .eq('id', studentId)
-        .eq('status', 'Interview Scheduled')
-      if (studentError) console.error('Student status revert error:', studentError.message)
 
+      // 5. Log cancellation event
       try {
         await supabase.from('program_events').insert({
           student_id: studentId,
           cohort_id:  cohortId,
           event_type: 'interview_cancelled',
           event_date: new Date().toISOString().split('T')[0],
-          notes:      `Interview booking cancelled. Slot: ${slot.slot_date} ${slot.slot_time}`,
+          notes:      `Booking cancelled for ${slot.slot_date} at ${slot.slot_time}`,
           created_by: userProfile?.full_name || 'System',
         })
       } catch (logErr) {
-        console.warn('Event log error:', logErr.message)
+        console.warn('Event log:', logErr.message)
       }
 
+      // 6. Refresh
       fetchData()
       setBlockPopover(null)
     } catch (err) {
@@ -729,6 +775,8 @@ export default function InterviewCalendar({ cohortId, activeCohort }) {
       {createPopover && (
         <CreatePopover
           date={createPopover.date}
+          startTime={createPopover.startTime}
+          endTime={createPopover.endTime}
           position={createPopover.position}
           interviewers={interviewers}
           myRecord={myRecord}
@@ -758,6 +806,7 @@ export default function InterviewCalendar({ cohortId, activeCohort }) {
           blocks={dayPopover.blocks}
           slots={slots}
           colorMap={colorMap}
+          position={dayPopover.position}
           canDelete={isAdmin || true}
           onDeleteBlock={async (blockId) => {
             await handleDeleteBlock(blockId)

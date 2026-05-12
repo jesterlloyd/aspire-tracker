@@ -78,8 +78,9 @@ export default function InterviewSchedulePage() {
   const [student,     setStudent]     = useState(null)
   const [cohortId,    setCohortId]    = useState(null)
   const [slots,       setSlots]       = useState([])
-  const [booking,     setBooking]     = useState(false)
-  const [bookedSlot,  setBookedSlot]  = useState(null)
+  const [booking,         setBooking]         = useState(false)
+  const [bookedSlot,      setBookedSlot]      = useState(null)
+  const [existingBooking, setExistingBooking] = useState(null)
 
   // Calendar state
   const [calMonth,     setCalMonth]     = useState(null) // { year, month }
@@ -87,6 +88,17 @@ export default function InterviewSchedulePage() {
   const [selectedCard, setSelectedCard] = useState(null) // { time, duration, slots[] }
 
   useEffect(() => { document.title = 'Schedule Your ASPIRE Interview' }, [])
+
+  const checkExistingBooking = async (studentId) => {
+    const { data, error } = await supabase
+      .from('interview_slots')
+      .select('id, slot_date, slot_time, interviewer_name, duration_minutes')
+      .eq('booked_by_student_id', studentId)
+      .eq('is_booked', true)
+      .maybeSingle()
+    if (error) { console.error('Booking check error:', error.message); return null }
+    return data
+  }
 
   // ── Screen 1: Look up student ─────────────────────────────────
   const handleIdentify = async e => {
@@ -109,7 +121,13 @@ export default function InterviewSchedulePage() {
         setLoading(false); return
       }
       setStudent(stu)
-      if (stu.interview_scheduled_date) { setScreen('existing'); setLoading(false); return }
+      const activeBooking = await checkExistingBooking(stu.id)
+      if (activeBooking) {
+        setExistingBooking(activeBooking)
+        setScreen('existing')
+        setLoading(false)
+        return
+      }
 
       const now = fmtLocalDate(new Date())
       const { data: available } = await supabase.from('interview_slots')
@@ -445,9 +463,9 @@ export default function InterviewSchedulePage() {
             <div style={{ background:'var(--marina)', border:'1px solid #9dd6f2', borderRadius:8, padding:'20px 24px', textAlign:'left', lineHeight:1.8, fontSize:14 }}>
               <div style={{ display:'flex', flexDirection:'column', gap:'6px', fontWeight:500 }}>
                 <span style={{ color:'#6b7280' }}>Date:</span>
-                <span>{fmtDisplayDate(student.interview_scheduled_date)}</span>
+                <span>{fmtDisplayDate(existingBooking?.slot_date || student.interview_scheduled_date)}</span>
                 <span style={{ color:'#6b7280' }}>Time:</span>
-                <span>{fmtTime(student.interview_scheduled_time)} Pacific Time</span>
+                <span>{fmtTime(existingBooking?.slot_time || student.interview_scheduled_time)} Pacific Time</span>
                 <span style={{ color:'#6b7280' }}>Format:</span>
                 <span>Microsoft Teams</span>
               </div>
