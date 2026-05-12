@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { displayName } from '../lib/utils'
 import RubricSession from './RubricSession'
 import InterviewCalendar from './InterviewCalendar'
@@ -10,7 +10,7 @@ import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import ScoreFlag from './ScoreFlag'
 import StatCard from './StatCard'
 import EmptyState from './EmptyState'
-import { Users, CalendarCheck, BadgeCheck, Loader, CalendarX, Flag, ThumbsUp, ClipboardList } from 'lucide-react'
+import { Users, CalendarCheck, BadgeCheck, Loader, CalendarX, Flag, ThumbsUp, ClipboardList, RefreshCw } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 // Circular avatar for the IR student list table
@@ -82,14 +82,16 @@ export default function InterviewRubricTab({
   const [sortDir,           setSortDir]           = useState('asc')
   const [activeFilter,           setActiveFilter]           = useState(null)
   const [showManageInterviewers, setShowManageInterviewers] = useState(false)
-  const [calendarVersion,        setCalendarVersion]        = useState(0)
+  const [refreshKey,             setRefreshKey]             = useState(0)
 
-  // Re-fetch students whenever the calendar makes a write (cancel, delete)
+  const triggerRefresh = useCallback(() => setRefreshKey(k => k + 1), [])
+
+  // Re-fetch students and rubrics whenever triggerRefresh fires
   useEffect(() => {
-    if (calendarVersion === 0) return
+    if (refreshKey === 0) return
     onRefreshStudents?.()
     onRubricsChange?.()
-  }, [calendarVersion]) // eslint-disable-line
+  }, [refreshKey]) // eslint-disable-line
 
   const handleCardClick = (key) => setActiveFilter(prev => prev === key ? null : key)
 
@@ -192,7 +194,7 @@ export default function InterviewRubricTab({
       <InterviewCalendar
         cohortId={cohortId}
         activeCohort={cohort}
-        onDataChanged={() => setCalendarVersion(v => v + 1)}
+        onDataChanged={triggerRefresh}
       />
 
       <div className="stat-cards-row" style={{ padding:'12px 16px' }}>
@@ -261,6 +263,18 @@ export default function InterviewRubricTab({
             }}
           >
             <Users size={13} /> Manage Interviewers
+          </button>
+          <button
+            onClick={triggerRefresh}
+            title="Refresh interview data"
+            style={{
+              padding: '7px 12px', background: '#f3f4ff',
+              border: '1px solid #e0e7ff', borderRadius: '8px',
+              fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#1D2567',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px',
+            }}
+          >
+            <RefreshCw size={13} /> Refresh
           </button>
           <span className="iv-hint">Click any row to open the interview rubric session.</span>
         </div>

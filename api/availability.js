@@ -199,14 +199,15 @@ export default async function handler(req, res) {
 
       // 5. Log event
       if (cid) {
-        await db.from('program_events').insert({
+        const { error: logErr } = await db.from('program_events').insert({
           student_id:  student_id,
           cohort_id:   cid,
           event_type:  'interview_cancelled',
           event_date:  new Date().toISOString().split('T')[0],
           notes:       'Interview booking cancelled.',
           created_by:  cancelled_by || 'System',
-        }).catch(err => console.warn('Event log:', err.message))
+        })
+        if (logErr) console.warn('Event log error:', logErr.message)
       }
 
       return res.status(200).json({ success: true })

@@ -573,6 +573,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const handleSaveBlock = () => {
     setCreatePopover(null)
     fetchData()
+    onDataChanged?.()
   }
 
   const handleDeleteBlock = async (blockId) => {
