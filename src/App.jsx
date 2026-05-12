@@ -552,6 +552,7 @@ function MainApp({ onLogout }) {
             students={students}
             rubrics={interviews}
             cohortId={activeCohortId}
+            cohort={activeCohort}
             sessions={ivSessions}
             slots={ivSlots}
             onStudentUpdate={updateStudent}

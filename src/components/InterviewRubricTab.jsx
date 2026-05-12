@@ -3,6 +3,8 @@ import { displayName } from '../lib/utils'
 import RubricSession from './RubricSession'
 import WeekCalendar from './WeekCalendar'
 import ScheduleInterviewModal from './ScheduleInterviewModal'
+import TodaysInterviews from './TodaysInterviews'
+import InterviewSetupChecklist from './InterviewSetupChecklist'
 
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import ScoreFlag from './ScoreFlag'
@@ -68,7 +70,7 @@ JesterLloyd.Bautista@cshs.org | 310-248-8964`
 }
 
 export default function InterviewRubricTab({
-  students, rubrics, cohortId,
+  students, rubrics, cohortId, cohort,
   sessions = [], slots = [],
   onStudentUpdate, onRubricsChange, onRefreshStudents, onManageInterviewers, onUpdateSession, onRefreshSlots,
   toast,
@@ -79,10 +81,13 @@ export default function InterviewRubricTab({
   const [search,              setSearch]              = useState('')
   const [sortBy,              setSortBy]              = useState('last_name')
   const [sortDir,             setSortDir]             = useState('asc')
+  const [activeFilter,        setActiveFilter]        = useState(null)
   // Calendar view mode lifted here so the tab container layout can respond
   const [calMode,             setCalMode]             = useState('week')
   const [showScrollHint,      setShowScrollHint]      = useState(true)
   const summaryRef = useRef(null)
+
+  const handleCardClick = (key) => setActiveFilter(prev => prev === key ? null : key)
 
   // Hide scroll hint once user has scrolled past the summary cards (month mode only)
   useEffect(() => {
@@ -144,7 +149,19 @@ export default function InterviewRubricTab({
       ? <span style={{ marginLeft:3 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>
       : <span style={{ marginLeft:3, opacity:0.3 }}>↕</span>
 
-  const filtered = students.filter(s => {
+  const baseStudents = activeFilter
+    ? students.filter(s => {
+        if (activeFilter === 'scheduled')     return !!s.interview_scheduled_date && getStudentIvStatus(s, rubrics) !== 'Completed'
+        if (activeFilter === 'completed')     return getStudentIvStatus(s, rubrics) === 'Completed'
+        if (activeFilter === 'in_progress')   return getStudentIvStatus(s, rubrics) === 'In Progress'
+        if (activeFilter === 'not_scheduled') return !s.interview_scheduled_date
+        if (activeFilter === 'flagged')       return !!s.flagged_for_second_interview
+        if (activeFilter === 'recommended')   return s.auto_recommendation === 'Recommend'
+        return true
+      })
+    : students
+
+  const filtered = baseStudents.filter(s => {
     if (!search) return true
     const q = search.toLowerCase()
     return displayName(s).toLowerCase().includes(q) || (s.school||'').toLowerCase().includes(q)
@@ -176,6 +193,13 @@ export default function InterviewRubricTab({
 
       {/* Calendar + summary cards — frozen in week, flows in month */}
       <div className={isMonth ? '' : 'rub-frozen'}>
+        <TodaysInterviews
+          cohortId={cohortId}
+          onStartRubric={(session) => {
+            if (session?.students?.id) setSelectedStudentId(session.students.id)
+          }}
+        />
+        <InterviewSetupChecklist cohortId={cohortId} cohort={cohort} />
         <WeekCalendar
           students={students}
           rubrics={rubrics}
@@ -192,13 +216,39 @@ export default function InterviewRubricTab({
           onCalModeChange={setCalMode}
         />
         <div ref={summaryRef} className="stat-cards-row" style={{ padding:'12px 16px' }}>
-          <StatCard value={total}        label="Total"         icon={Users}         colorScheme="neutral" />
-          <StatCard value={scheduled}    label="Scheduled"     icon={CalendarCheck} colorScheme="indigo" />
-          <StatCard value={completed}    label="Completed"     icon={BadgeCheck}    colorScheme="green" />
-          <StatCard value={inProgress}   label="In Progress"   icon={Loader}        colorScheme="amber" />
-          <StatCard value={notScheduled} label="Not Scheduled" icon={CalendarX}     colorScheme="neutral" />
-          <StatCard value={flagged}      label="Flagged"       icon={Flag}          colorScheme="red" />
-          <StatCard value={recommended}  label="Recommended"   icon={ThumbsUp}      colorScheme="darkgreen" />
+          {[
+            { key: null,            value: total,        label: 'Total',         icon: Users,         colorScheme: 'neutral'   },
+            { key: 'scheduled',     value: scheduled,    label: 'Scheduled',     icon: CalendarCheck, colorScheme: 'indigo'    },
+            { key: 'completed',     value: completed,    label: 'Completed',     icon: BadgeCheck,    colorScheme: 'green'     },
+            { key: 'in_progress',   value: inProgress,   label: 'In Progress',   icon: Loader,        colorScheme: 'amber'     },
+            { key: 'not_scheduled', value: notScheduled, label: 'Not Scheduled', icon: CalendarX,     colorScheme: 'neutral'   },
+            { key: 'flagged',       value: flagged,      label: 'Flagged',       icon: Flag,          colorScheme: 'red'       },
+            { key: 'recommended',   value: recommended,  label: 'Recommended',   icon: ThumbsUp,      colorScheme: 'darkgreen' },
+          ].map(({ key, value, label, icon, colorScheme }) => {
+            const isActive = activeFilter === key || (key === null && activeFilter === null)
+            return (
+              <div
+                key={label}
+                onClick={() => key === null ? setActiveFilter(null) : handleCardClick(key)}
+                style={{
+                  cursor: 'pointer', position: 'relative',
+                  outline: activeFilter !== null && (activeFilter === key) ? '2px solid #1D2567' : '2px solid transparent',
+                  borderRadius: '12px',
+                  transform: activeFilter === key ? 'translateY(-2px)' : 'none',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <StatCard value={value} label={label} icon={icon} colorScheme={colorScheme} />
+                {activeFilter === key && key !== null && (
+                  <div style={{
+                    position: 'absolute', top: '5px', right: '8px',
+                    fontFamily: 'DM Sans', fontSize: '9px',
+                    color: '#1D2567', fontWeight: 700,
+                  }}>✕ CLEAR</div>
+                )}
+              </div>
+            )
+          })}
         </div>
         {/* Scroll hint — only in month mode, hides after scrolling past summary */}
         {isMonth && showScrollHint && (
@@ -210,6 +260,24 @@ export default function InterviewRubricTab({
 
       {/* Student list — independent scroll in week, natural flow in month */}
       <div className={isMonth ? 'rub-scroll-area-month' : 'rub-scroll-area'}>
+        {activeFilter && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '10px',
+            padding: '7px 14px', marginBottom: '8px',
+            background: '#f0f3ff', borderRadius: '8px',
+            border: '1px solid #e0e7ff',
+          }}>
+            <span style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#1D2567' }}>
+              Showing: {activeFilter.replace('_', ' ')}
+            </span>
+            <button onClick={() => setActiveFilter(null)} style={{
+              background: 'none', border: 'none',
+              fontFamily: 'DM Sans', fontSize: '12px',
+              color: '#6b7280', cursor: 'pointer',
+              textDecoration: 'underline', padding: 0,
+            }}>Clear filter</button>
+          </div>
+        )}
         <div className="iv-toolbar">
           <input className="search-input" style={{ maxWidth:320 }} placeholder="Search by name or school…"
             value={search} onChange={e => setSearch(e.target.value)} />
