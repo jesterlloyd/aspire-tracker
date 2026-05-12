@@ -91,35 +91,47 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
     : []
 
   const handleAddBlock = async () => {
-    if (!form.block_date || !form.start_time || !form.end_time) return
-    // For non-admins, use their matched interviewer name
+    if (!form.block_date) { alert('Please select a date.'); return }
+    if (!form.start_time || !form.end_time) { alert('Please set a start and end time.'); return }
+    if (!form.duration_minutes) { alert('Please set a slot duration.'); return }
+
     const interviewerName = isAdmin
       ? form.interviewer_name
       : (myInterviewerRecord?.name || userProfile?.full_name || '')
-    if (!interviewerName) return
-    setSaving(true)
-    const { data: block, error } = await supabase.from('interview_availability_blocks')
-      .insert({ ...form, interviewer_name: interviewerName, cohort_id: cohortId, duration_minutes: Number(form.duration_minutes), created_by_user_id: userProfile?.id || null })
-      .select().single()
-    if (error || !block) { setSaving(false); return }
+    if (!interviewerName) { alert('Please select an interviewer.'); return }
 
-    // Generate individual slots
-    const slotTimes = generateSlotTimes(form.start_time, form.end_time, Number(form.duration_minutes))
-    if (slotTimes.length > 0) {
-      await supabase.from('interview_slots').insert(slotTimes.map(t => ({
-        block_id:         block.id,
-        cohort_id:        cohortId,
-        slot_date:        form.block_date,
-        slot_time:        t,
-        duration_minutes: Number(form.duration_minutes),
-        interviewer_name: form.interviewer_name,
-      })))
+    const [sh, sm] = form.start_time.split(':').map(Number)
+    const [eh, em] = form.end_time.split(':').map(Number)
+    if (eh * 60 + em <= sh * 60 + sm) { alert('End time must be after start time.'); return }
+
+    setSaving(true)
+    try {
+      const response = await fetch('/api/availability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action:             'create_block',
+          cohort_id:          cohortId,
+          interviewer_name:   interviewerName,
+          block_date:         form.block_date,
+          start_time:         form.start_time,
+          end_time:           form.end_time,
+          duration_minutes:   form.duration_minutes,
+          created_by_user_id: userProfile?.id || null,
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) { alert(`Could not create block: ${data.error}`); return }
+
+      const defaultName = isAdmin ? (form.interviewer_name || '') : (myInterviewerRecord?.name || userProfile?.full_name || '')
+      setForm(p => ({ ...p, block_date: '', start_time: '09:00', end_time: '12:00', interviewer_name: defaultName }))
+      await loadBlocks()
+      onBlockSaved?.()
+    } catch (err) {
+      alert(`Error: ${err.message}`)
+    } finally {
+      setSaving(false)
     }
-    await loadBlocks()
-    const defaultName = isAdmin ? (form.interviewer_name || '') : (myInterviewerRecord?.name || userProfile?.full_name || '')
-    setForm(p => ({ ...p, block_date: '', start_time: '09:00', end_time: '12:00', interviewer_name: defaultName }))
-    setSaving(false)
-    onBlockSaved?.() // notify calendar to refresh slots
   }
 
   const toggleActive = async (block) => {
@@ -133,10 +145,19 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
   }
 
   const deleteBlock = async (blockId) => {
-    const { error } = await supabase.from('interview_availability_blocks').delete().eq('id', blockId)
-    if (!error) {
-      await loadBlocks()     // refresh blocks list
-      onBlockSaved?.()       // refresh calendar slots
+    if (!window.confirm('Delete this availability block? Unbooked slots will be removed.')) return
+    try {
+      const response = await fetch('/api/availability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete_block', block_id: blockId }),
+      })
+      const data = await response.json()
+      if (!response.ok) { alert(data.error); return }
+      await loadBlocks()
+      onBlockSaved?.()
+    } catch (err) {
+      alert(`Delete failed: ${err.message}`)
     }
   }
 
@@ -206,10 +227,28 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
                 {previewSlots.map(fmtTime).join(', ')}
               </div>
             )}
-            <button className="btn btn-primary" onClick={handleAddBlock}
-              disabled={saving || !form.block_date || !form.start_time || !form.end_time || previewSlots.length === 0}
-              style={{ fontSize:13 }}>
-              {saving ? 'Saving…' : `+ Add Block${previewSlots.length > 0 ? ` (${previewSlots.length} slots)` : ''}`}
+            <button onClick={handleAddBlock} disabled={saving}
+              style={{
+                width: '100%', padding: '11px',
+                background: saving ? '#e5e7eb' : '#1D2567',
+                border: 'none', borderRadius: '10px',
+                fontFamily: 'DM Sans', fontWeight: 700,
+                fontSize: '13px', color: '#ffffff',
+                cursor: saving ? 'default' : 'pointer',
+                display: 'flex', alignItems: 'center',
+                justifyContent: 'center', gap: '8px',
+              }}>
+              {saving ? (
+                <>
+                  <span style={{
+                    width: '12px', height: '12px',
+                    border: '2px solid rgba(255,255,255,0.3)',
+                    borderTopColor: '#fff', borderRadius: '50%',
+                    display: 'inline-block', animation: 'spin 0.8s linear infinite',
+                  }} />
+                  Creating slots...
+                </>
+              ) : `+ Add Block${previewSlots.length > 0 ? ` (${previewSlots.length} slots)` : ''}`}
             </button>
           </div>
 
