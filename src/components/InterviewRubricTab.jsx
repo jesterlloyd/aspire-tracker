@@ -82,6 +82,7 @@ export default function InterviewRubricTab({
   const [sortBy,              setSortBy]              = useState('last_name')
   const [sortDir,             setSortDir]             = useState('asc')
   const [activeFilter,        setActiveFilter]        = useState(null)
+  const [scheduleDefaults,    setScheduleDefaults]    = useState(null)
   // Calendar view mode lifted here so the tab container layout can respond
   const [calMode,             setCalMode]             = useState('week')
   const [showScrollHint,      setShowScrollHint]      = useState(true)
@@ -195,8 +196,9 @@ export default function InterviewRubricTab({
       <div className={isMonth ? '' : 'rub-frozen'}>
         <TodaysInterviews
           cohortId={cohortId}
-          onStartRubric={(session) => {
-            if (session?.students?.id) setSelectedStudentId(session.students.id)
+          onStartRubric={(arg) => {
+            if (arg?.student?.id) setSelectedStudentId(arg.student.id)
+            else if (arg?.students?.id) setSelectedStudentId(arg.students.id)
           }}
         />
         <InterviewSetupChecklist cohortId={cohortId} cohort={cohort} />
@@ -207,7 +209,10 @@ export default function InterviewRubricTab({
           sessions={sessions}
           slots={slots}
           onOpenRubric={id => setSelectedStudentId(id)}
-          onSchedule={() => setShowScheduleModal(true)}
+          onSchedule={(defaults) => {
+            setScheduleDefaults(defaults && typeof defaults === 'object' ? defaults : null)
+            setShowScheduleModal(true)
+          }}
           onManageInterviewers={onManageInterviewers}
           onStudentUpdate={onRefreshStudents || onRubricsChange}
           onUpdateSession={onUpdateSession}
@@ -406,8 +411,9 @@ export default function InterviewRubricTab({
       {showScheduleModal && (
         <ScheduleInterviewModal
           students={students}
-          onClose={() => setShowScheduleModal(false)}
-          onSaved={() => { onRubricsChange(); setShowScheduleModal(false) }}
+          defaults={scheduleDefaults}
+          onClose={() => { setShowScheduleModal(false); setScheduleDefaults(null) }}
+          onSaved={() => { onRubricsChange(); setShowScheduleModal(false); setScheduleDefaults(null) }}
         />
       )}
     </div>

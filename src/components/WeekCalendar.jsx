@@ -198,6 +198,8 @@ export default function WeekCalendar({
   const blockPopoverRef  = useRef(null)
   // Day-level popover (clicking empty space in a month day cell)
   const [dayPopover,     setDayPopover]     = useState(null) // { dateStr, top, left }
+  const [blocks,         setBlocks]         = useState([])
+  const [interviewerColors, setInterviewerColors] = useState({})
   const dayPopoverRef    = useRef(null)
 
   const scheduledStudents = students.filter(s => s.interview_scheduled_date)
@@ -294,6 +296,30 @@ export default function WeekCalendar({
     setDayPopover({ dateStr, top, left })
   }
 
+  useEffect(() => {
+    if (!cohortId) return
+    Promise.all([
+      supabase.from('interview_availability_blocks')
+        .select('id, block_date, start_time, end_time, duration_minutes, interviewer_name, is_active')
+        .eq('cohort_id', cohortId).eq('is_active', true),
+      supabase.from('interviewers').select('id, name, color'),
+    ]).then(([blocksRes, intRes]) => {
+      if (!blocksRes.error) setBlocks(blocksRes.data || [])
+      if (!intRes.error) setInterviewerColors(
+        Object.fromEntries((intRes.data || []).map(i => [i.name, i.color || '#1D2567']))
+      )
+    })
+  }, [cohortId])
+
+  const handleOpenSlotClick = (slot) => {
+    onSchedule?.({
+      slotId: slot.id,
+      date: slot.slot_date,
+      time: slot.slot_time,
+      interviewer: slot.interviewer_name,
+    })
+  }
+
   return (
     <div className="week-cal">
       {/* Header */}
@@ -327,7 +353,7 @@ export default function WeekCalendar({
           <button className="btn btn-outline-modal" style={{fontSize:12,padding:'5px 12px',background:'#fff'}}
             onClick={()=>setShowAvailMgr(true)}>📅 Manage Availability</button>
           <button className="btn btn-outline-modal" style={{fontSize:12,padding:'5px 12px',background:'#fff'}}
-            onClick={onSchedule}>+ Schedule Interview</button>
+            onClick={() => onSchedule?.()}>+ Schedule Interview</button>
         </div>
       </div>
 
@@ -339,7 +365,11 @@ export default function WeekCalendar({
             const isToday   = todayStr === dateStr
             const dayStuds  = scheduledStudents.filter(s => s.interview_scheduled_date === dateStr)
               .sort((a,b) => (a.interview_scheduled_time||'').localeCompare(b.interview_scheduled_time||''))
-            const weekSlots = slots.filter(sl => sl.slot_date === dateStr && !sl.is_booked)
+            const dayBlocks     = blocks.filter(b => b.block_date === dateStr)
+            const daySlots      = slots.filter(sl => sl.slot_date === dateStr)
+            const openSlotsList = daySlots.filter(sl => !sl.is_booked)
+            const totalSlots    = daySlots.length
+            const openCount     = openSlotsList.length
             return (
               <div key={i} className={`week-cal-col${isToday?' week-cal-today':''}`}>
                 <div className="week-cal-day-label">
@@ -347,21 +377,37 @@ export default function WeekCalendar({
                   <span className="week-cal-day-num">{d.getDate()}</span>
                 </div>
                 <div className="week-cal-blocks">
-                  {dayStuds.length === 0 && weekSlots.length === 0
+                  {dayStuds.length === 0 && dayBlocks.length === 0 && daySlots.length === 0
                     ? <div className="week-cal-empty">No interviews</div>
                     : <>
+                        {dayBlocks.length > 0 && (
+                          <div style={{
+                            background: '#f0f0ff',
+                            borderLeft: `3px solid ${interviewerColors[dayBlocks[0].interviewer_name] || '#6366f1'}`,
+                            borderRadius: 4, padding: '3px 6px', marginBottom: 3,
+                            fontSize: 10, fontFamily: 'DM Sans', color: '#4338ca', fontWeight: 600,
+                          }}>
+                            {openCount > 0 ? `${openCount} of ${totalSlots} open` : `${totalSlots} slots · Full`}
+                          </div>
+                        )}
                         {dayStuds.map(s => (
                           <InterviewPill key={s.id} student={s} session={getSessionForStudent(s.id)} rubrics={rubrics}
                             onClick={e => handleBlockClick(s, e)} />
                         ))}
-                        {weekSlots.map(sl => (
-                          <div key={sl.id} style={{
-                            background:'rgba(220,239,248,0.6)', border:'1.5px dashed #9dd6f2',
-                            borderRadius:4, color:'#1d2567', fontSize:10, padding:'2px 6px',
-                            marginBottom:3, display:'flex', gap:4, alignItems:'center',
-                          }}>
-                            <span style={{ fontWeight:500 }}>{fmtTime(sl.slot_time)}</span>
-                            {sl.interviewer_name && <span style={{ color:'#6b7280' }}>{getInitials(sl.interviewer_name)}</span>}
+                        {openSlotsList.map(sl => (
+                          <div key={sl.id}
+                            onClick={() => handleOpenSlotClick(sl)}
+                            style={{
+                              background: '#f5f3ff',
+                              borderLeft: `3px solid ${interviewerColors[sl.interviewer_name] || '#8b5cf6'}`,
+                              borderRadius: 4, padding: '3px 6px', marginBottom: 2,
+                              fontSize: 10, fontFamily: 'DM Sans', color: '#7c3aed',
+                              cursor: 'pointer', opacity: 0.85,
+                              display: 'flex', gap: 4, alignItems: 'center',
+                            }}>
+                            <span style={{ fontWeight: 500 }}>{fmtTime(sl.slot_time)}</span>
+                            {sl.interviewer_name && <span style={{ color: '#9ca3af' }}>{getInitials(sl.interviewer_name)}</span>}
+                            <span style={{ opacity: 0.7 }}>· Open</span>
                           </div>
                         ))}
                       </>
@@ -385,8 +431,12 @@ export default function WeekCalendar({
               const isToday    = todayStr === dateStr
               const inMonth    = d.getMonth() === monthDate.month
               const isPast     = dateStr < todayStr
-              const interviews = scheduledStudents.filter(s => s.interview_scheduled_date === dateStr)
-              const openSlots  = slots.filter(sl => sl.slot_date === dateStr && !sl.is_booked)
+              const interviews   = scheduledStudents.filter(s => s.interview_scheduled_date === dateStr)
+              const openSlots   = slots.filter(sl => sl.slot_date === dateStr && !sl.is_booked)
+              const dayBlocksM  = blocks.filter(b => b.block_date === dateStr)
+              const allDaySlotsM = slots.filter(sl => sl.slot_date === dateStr)
+              const openCountM  = openSlots.length
+              const totalSlotsM = allDaySlotsM.length
               return (
                 <div key={i} className="month-cal-day"
                   style={{ opacity: !inMonth || isPast ? 0.45 : 1 }}
@@ -404,7 +454,7 @@ export default function WeekCalendar({
                     })
                     const slotGroups = Object.entries(slotMap)
                       .sort(([a],[b]) => a.localeCompare(b))
-                      .map(([time, sls]) => ({ time, interviewers: sls.map(s=>s.interviewer_name).filter(Boolean) }))
+                      .map(([time, sls]) => ({ time, interviewers: sls.map(s=>s.interviewer_name).filter(Boolean), firstSlot: sls[0] }))
 
                     // Build flat list: interview pills first, then slot group pills
                     const interviewItems = interviews.map(s => ({ kind:'iv', s }))
@@ -416,19 +466,33 @@ export default function WeekCalendar({
 
                     return (
                       <>
+                        {dayBlocksM.length > 0 && (
+                          <div style={{
+                            background: '#f0f0ff',
+                            borderLeft: `3px solid ${interviewerColors[dayBlocksM[0].interviewer_name] || '#6366f1'}`,
+                            borderRadius: 3, padding: '2px 5px', marginBottom: 2,
+                            fontSize: 9, fontFamily: 'DM Sans', color: '#4338ca', fontWeight: 600,
+                            whiteSpace: 'nowrap', overflow: 'hidden',
+                          }}>
+                            {openCountM > 0 ? `${openCountM}/${totalSlotsM} open` : `${totalSlotsM} · Full`}
+                          </div>
+                        )}
                         {shown.map((item, idx) => item.kind === 'iv'
                           ? <InterviewPill key={item.s.id} student={item.s}
                               session={getSessionForStudent(item.s.id)} rubrics={rubrics}
                               onClick={e => handleBlockClick(item.s, e)} />
-                          : <div key={item.g.time} style={{
-                              background:'rgba(220,239,248,0.85)', border:'1.5px dashed #9dd6f2',
-                              borderRadius:4, padding:'2px 5px', fontSize:10,
-                              display:'flex', gap:3, alignItems:'center',
-                              cursor:'pointer', whiteSpace:'nowrap', overflow:'hidden', marginBottom:3,
-                            }}>
-                              <span style={{ fontWeight:600, color:'#1d2567' }}>{fmtTime(item.g.time)}</span>
+                          : <div key={item.g.time}
+                              onClick={e => { e.stopPropagation(); handleOpenSlotClick(item.g.firstSlot) }}
+                              style={{
+                                background: '#f5f3ff',
+                                borderLeft: `3px solid ${interviewerColors[item.g.interviewers[0]] || '#8b5cf6'}`,
+                                borderRadius: 4, padding: '2px 5px', fontSize: 10,
+                                display: 'flex', gap: 3, alignItems: 'center',
+                                cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', marginBottom: 3,
+                              }}>
+                              <span style={{ fontWeight: 600, color: '#7c3aed' }}>{fmtTime(item.g.time)}</span>
                               {item.g.interviewers.length > 0 && (
-                                <span style={{ color:'#6b7280' }}>{getSlotGroupInitials(item.g.interviewers)}</span>
+                                <span style={{ color: '#9ca3af' }}>{getSlotGroupInitials(item.g.interviewers)}</span>
                               )}
                             </div>
                         )}
@@ -447,6 +511,31 @@ export default function WeekCalendar({
           </div>
         </>
       )}
+
+      {/* Calendar legend */}
+      <div style={{
+        display: 'flex', gap: '16px', alignItems: 'center',
+        padding: '8px 4px', marginTop: '4px',
+        fontFamily: 'DM Sans', fontSize: '11px', color: '#6b7280',
+        flexWrap: 'wrap',
+      }}>
+        {[
+          { color: '#f0f0ff', border: '#6366f1', label: 'Availability block' },
+          { color: '#f5f3ff', border: '#8b5cf6', label: 'Open slot' },
+          { color: '#dcfce7', border: '#16a34a', label: 'Booked' },
+        ].map(item => (
+          <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <div style={{
+              width: '14px', height: '10px', borderRadius: '2px',
+              background: item.color, borderLeft: `3px solid ${item.border}`,
+            }} />
+            <span>{item.label}</span>
+          </div>
+        ))}
+        <div style={{ marginLeft: 'auto', fontSize: '10px', color: '#9ca3af' }}>
+          Colored border = interviewer
+        </div>
+      </div>
 
       {/* FIX 1: unified block popover — same content in both views */}
       {blockPopover && (

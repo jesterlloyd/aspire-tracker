@@ -12,7 +12,7 @@ for (let h = 7; h <= 18; h++) {
   }
 }
 
-export default function ScheduleInterviewModal({ students, onClose, onSaved }) {
+export default function ScheduleInterviewModal({ students, defaults, onClose, onSaved }) {
   const [studentId,    setStudentId]    = useState('')
   const [date,         setDate]         = useState('')
   const [time,         setTime]         = useState('09:00')
@@ -23,9 +23,17 @@ export default function ScheduleInterviewModal({ students, onClose, onSaved }) {
   const [error,        setError]        = useState(null)
 
   useEffect(() => {
-    supabase.from('interviewers').select('name').eq('is_active', true).order('name')
+    supabase.from('interviewers').select('name').order('name')
       .then(({ data }) => setInterviewers((data || []).map(i => i.name)))
   }, [])
+
+  useEffect(() => {
+    if (defaults?.slotId) {
+      if (defaults.date)       setDate(defaults.date)
+      if (defaults.time)       setTime(defaults.time)
+      if (defaults.interviewer) setAssigned([defaults.interviewer])
+    }
+  }, [defaults])
 
   const eligible = students.filter(s => !s.interview_scheduled_date || !s.interview_scheduled_date.trim())
 

@@ -25,15 +25,21 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
     const localDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
     try {
       const { data, error } = await supabase
-        .from('interview_sessions')
+        .from('interview_slots')
         .select(`
-          id, scheduled_date, scheduled_time,
-          status, interview_flag, interviewer_name,
-          students ( id, first_name, last_name, school )
+          id, slot_date, slot_time, duration_minutes,
+          interviewer_name, is_booked, booked_by_student_id,
+          students!booked_by_student_id (
+            id, first_name, last_name, school
+          ),
+          interview_sessions!slot_id (
+            id, interview_flag
+          )
         `)
         .eq('cohort_id', cohortId)
-        .eq('scheduled_date', localDate)
-        .order('scheduled_time', { ascending: true })
+        .eq('slot_date', localDate)
+        .eq('is_booked', true)
+        .order('slot_time', { ascending: true })
       if (!error && data) setSessions(data)
     } catch (err) {
       console.error('TodaysInterviews:', err.message)
@@ -105,11 +111,12 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
             </thead>
             <tbody>
               {sessions.map((s, i) => {
-                const st   = s.students
-                const name = st ? `${st.first_name} ${st.last_name}` : '—'
-                const flag = FLAG_STYLES[s.interview_flag]
-                const time = s.scheduled_time
-                  ? new Date(`2000-01-01T${s.scheduled_time}`)
+                const student = Array.isArray(s.students) ? s.students[0] : s.students
+                const session = Array.isArray(s.interview_sessions) ? s.interview_sessions[0] : s.interview_sessions
+                const name    = student ? `${student.first_name} ${student.last_name}` : '—'
+                const flag    = FLAG_STYLES[session?.interview_flag]
+                const time    = s.slot_time
+                  ? new Date(`2000-01-01T${s.slot_time}`)
                       .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
                   : '—'
 
@@ -125,7 +132,7 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
                       <span style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '13px', color: '#374151' }}>{name}</span>
                     </td>
                     <td style={{ padding: '10px 14px' }}>
-                      <span style={{ fontFamily: 'DM Sans', fontSize: '12px', color: '#6b7280' }}>{st?.school || '—'}</span>
+                      <span style={{ fontFamily: 'DM Sans', fontSize: '12px', color: '#6b7280' }}>{student?.school || '—'}</span>
                     </td>
                     <td style={{ padding: '10px 14px' }}>
                       <span style={{ fontFamily: 'DM Sans', fontSize: '12px', color: '#374151' }}>{s.interviewer_name || 'ASPIRE Team'}</span>
@@ -138,18 +145,15 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
                             fontSize: '10px', padding: '3px 8px', borderRadius: '20px',
                           }}>{flag.label}</span>
                         : <span style={{
-                            background: s.status === 'completed' ? '#f0fdf4' : '#eff6ff',
-                            color: s.status === 'completed' ? '#166534' : '#1e40af',
+                            background: '#eff6ff', color: '#1e40af',
                             fontFamily: 'DM Sans', fontWeight: 700,
                             fontSize: '10px', padding: '3px 8px', borderRadius: '20px',
-                          }}>
-                            {s.status === 'completed' ? 'Completed' : 'Scheduled'}
-                          </span>
+                          }}>Booked</span>
                       }
                     </td>
                     <td style={{ padding: '10px 14px' }}>
                       <button
-                        onClick={() => onStartRubric?.(s)}
+                        onClick={() => onStartRubric?.({ slotId: s.id, sessionId: session?.id, student, slot: s })}
                         style={{
                           padding: '5px 12px', background: '#1D2567',
                           border: 'none', borderRadius: '6px', cursor: 'pointer',

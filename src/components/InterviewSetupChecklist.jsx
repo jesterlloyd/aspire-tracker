@@ -16,7 +16,7 @@ export default function InterviewSetupChecklist({ cohortId, cohort }) {
       const [
         { count: iCount },
         { count: bCount },
-        { count: sCount },
+        { count: bookedCount },
         { count: eCount },
         { count: rCount },
       ] = await Promise.all([
@@ -24,10 +24,12 @@ export default function InterviewSetupChecklist({ cohortId, cohort }) {
           .select('*', { count: 'exact', head: true }),
         supabase.from('interview_availability_blocks')
           .select('*', { count: 'exact', head: true })
-          .eq('cohort_id', cohortId),
-        supabase.from('interview_sessions')
+          .eq('cohort_id', cohortId)
+          .eq('is_active', true),
+        supabase.from('interview_slots')
           .select('*', { count: 'exact', head: true })
-          .eq('cohort_id', cohortId),
+          .eq('cohort_id', cohortId)
+          .eq('is_booked', true),
         supabase.from('students')
           .select('*', { count: 'exact', head: true })
           .eq('cohort_id', cohortId)
@@ -46,7 +48,7 @@ export default function InterviewSetupChecklist({ cohortId, cohort }) {
         {
           label: 'Availability blocks created',
           done: (bCount || 0) > 0,
-          detail: `${bCount || 0} block${bCount !== 1 ? 's' : ''}`,
+          detail: `${bCount || 0} active block${bCount !== 1 ? 's' : ''}`,
         },
         {
           label: 'Student scheduling link active',
@@ -59,9 +61,9 @@ export default function InterviewSetupChecklist({ cohortId, cohort }) {
           detail: `${eCount || 0} eligible`,
         },
         {
-          label: 'Interviews scheduled',
-          done: (sCount || 0) > 0,
-          detail: `${sCount || 0} scheduled`,
+          label: 'Interviews booked',
+          done: (bookedCount || 0) > 0,
+          detail: `${bookedCount || 0} booked`,
         },
         {
           label: 'Rubrics submitted',
