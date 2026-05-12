@@ -1,20 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '../lib/supabase'
 import { X, Save, Plus, Trash2, Check, Loader } from 'lucide-react'
-
-// Dedicated lightweight client for interviewers table only.
-// No auth overhead — interviewers table has public access policy.
-const db = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-      detectSessionInUrl: false,
-    },
-  }
-)
 
 const CACHE_KEY = 'aspire_interviewers_v1'
 
@@ -84,7 +70,7 @@ export default function InterviewersModal({ isOpen, onClose }) {
     const emailToSave = (editEmails[interviewer.id] ?? interviewer.email ?? '').trim()
     setSavingIds(prev => ({ ...prev, [interviewer.id]: true }))
     try {
-      const { error } = await db.rpc('update_interviewer_email', {
+      const { error } = await supabase.rpc('update_interviewer_email', {
         p_id: interviewer.id,
         p_email: emailToSave,
       })
@@ -123,7 +109,7 @@ export default function InterviewersModal({ isOpen, onClose }) {
     if (!newName.trim()) return
     setAdding(true)
     try {
-      const { data, error } = await db.rpc('add_interviewer', {
+      const { data, error } = await supabase.rpc('add_interviewer', {
         p_name: newName.trim(),
         p_email: newEmail.trim() || '',
       })
@@ -206,7 +192,7 @@ export default function InterviewersModal({ isOpen, onClose }) {
                       style={{ width:'22px', height:'22px', border:'none', background:'none', cursor:'pointer', padding:0, borderRadius:'4px' }}
                       onChange={async (e) => {
                         const newColor = e.target.value
-                        await db.rpc('update_interviewer_color', {
+                        await supabase.rpc('update_interviewer_color', {
                           p_id: interviewer.id,
                           p_color: newColor,
                         })
