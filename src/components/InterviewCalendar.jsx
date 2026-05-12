@@ -211,7 +211,7 @@ function BlockPopover({ block, slots, position, canDelete, onDelete, onCancelBoo
     const name = student ? `${student.first_name} ${student.last_name}` : 'this student'
     if (!window.confirm(`Cancel ${name}'s booking?`)) return
     setCancelling(slot.id)
-    await onCancelBooking(slot.id)
+    await onCancelBooking(slot)
     setCancelling(null)
   }
 
@@ -327,6 +327,128 @@ function BlockPopover({ block, slots, position, canDelete, onDelete, onCancelBoo
   )
 }
 
+// ─── Popover: Day Overview ────────────────────────────────────────────────────
+function DayPopover({ date, blocks, slots, colorMap, canDelete, onDeleteBlock, onAddNew, onClose }) {
+  const [deleting, setDeleting] = useState(null)
+
+  const dateLabel = new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
+  })
+
+  const handleDelete = async (block) => {
+    const blockSlots  = slots.filter(s => s.block_id === block.id)
+    const bookedCount = blockSlots.filter(s => s.is_booked).length
+    if (bookedCount > 0) {
+      alert(`Cancel ${bookedCount} booking${bookedCount !== 1 ? 's' : ''} before deleting this block.`)
+      return
+    }
+    if (!window.confirm(`Delete ${block.interviewer_name}'s block (${block.start_time}–${block.end_time})?`)) return
+    setDeleting(block.id)
+    await onDeleteBlock(block.id)
+    setDeleting(null)
+  }
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top:  Math.min(100, window.innerHeight - 420),
+      left: '50%',
+      transform: 'translateX(-50%)',
+      width: '300px', background: '#ffffff',
+      borderRadius: '16px', zIndex: 9999,
+      boxShadow: '0 8px 40px rgba(29,37,103,0.22)',
+      overflow: 'hidden',
+    }}>
+      <div style={{
+        background: 'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)',
+        padding: '14px 16px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div>
+          <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '14px', color: '#ffffff' }}>
+            {dateLabel}
+          </div>
+          <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: 'rgba(255,255,255,0.6)', marginTop: '2px' }}>
+            {blocks.length} block{blocks.length !== 1 ? 's' : ''} scheduled
+          </div>
+        </div>
+        <button onClick={onClose} style={{
+          background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '6px',
+          width: '26px', height: '26px', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', cursor: 'pointer', color: '#ffffff',
+        }}>
+          <X size={14} />
+        </button>
+      </div>
+
+      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {blocks.map(block => {
+          const blockSlots  = slots.filter(s => s.block_id === block.id)
+          const openCount   = blockSlots.filter(s => !s.is_booked).length
+          const bookedCount = blockSlots.filter(s => s.is_booked).length
+          const color       = colorMap[block.interviewer_name] || '#1D2567'
+
+          return (
+            <div key={block.id} style={{ border: '1px solid #f3f4f6', borderRadius: '10px', overflow: 'hidden' }}>
+              <div style={{
+                background: color, padding: '8px 12px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+                <div>
+                  <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '12px', color: '#ffffff' }}>
+                    {block.interviewer_name}
+                  </div>
+                  <div style={{ fontFamily: 'DM Sans', fontSize: '10px', color: 'rgba(255,255,255,0.75)' }}>
+                    {block.start_time} – {block.end_time} · {block.duration_minutes}min slots
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <span style={{
+                    background: 'rgba(255,255,255,0.2)',
+                    fontFamily: 'DM Sans', fontWeight: 700, fontSize: '10px', color: '#ffffff',
+                    padding: '2px 7px', borderRadius: '20px',
+                  }}>
+                    {openCount} open · {bookedCount} booked
+                  </span>
+                  {canDelete && (
+                    <button
+                      onClick={() => handleDelete(block)}
+                      disabled={deleting === block.id}
+                      title="Delete block"
+                      style={{
+                        background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '6px',
+                        width: '24px', height: '24px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: deleting === block.id ? 'default' : 'pointer', color: '#ffffff',
+                      }}
+                    >
+                      {deleting === block.id ? <span style={{ fontSize: '10px' }}>...</span> : <Trash2 size={11} />}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+
+        <button
+          onClick={() => onAddNew(date)}
+          style={{
+            width: '100%', padding: '9px',
+            background: '#f3f4ff', border: '1.5px dashed #c7d2fe',
+            borderRadius: '10px', cursor: 'pointer',
+            fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#1D2567',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+            marginTop: '2px',
+          }}
+        >
+          + Add availability for this day
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Calendar ────────────────────────────────────────────────────────────
 export default function InterviewCalendar({ cohortId, activeCohort }) {
   const { userProfile, isAdmin } = useAuth()
@@ -338,6 +460,7 @@ export default function InterviewCalendar({ cohortId, activeCohort }) {
   const [colorMap,     setColorMap]     = useState({})
   const [createPopover, setCreatePopover] = useState(null)
   const [blockPopover,  setBlockPopover]  = useState(null)
+  const [dayPopover,    setDayPopover]    = useState(null)
 
   const myRecord = interviewers.find(i =>
     i.email?.toLowerCase() === userProfile?.email?.toLowerCase() ||
@@ -399,15 +522,29 @@ export default function InterviewCalendar({ cohortId, activeCohort }) {
   })
 
   const handleDateClick = (info) => {
+    const clickedDate = info.dateStr.split('T')[0]
+    const dayBlocks   = blocks.filter(b => b.block_date === clickedDate)
     setBlockPopover(null)
-    setCreatePopover({
-      date:     info.dateStr.split('T')[0],
-      position: { x: info.jsEvent.clientX + 8, y: info.jsEvent.clientY - 20 },
-    })
+    if (dayBlocks.length > 0) {
+      setCreatePopover(null)
+      setDayPopover({
+        date:     clickedDate,
+        blocks:   dayBlocks,
+        position: { x: info.jsEvent.clientX + 8, y: info.jsEvent.clientY - 20 },
+      })
+    } else {
+      setDayPopover(null)
+      setCreatePopover({
+        date:     clickedDate,
+        position: { x: info.jsEvent.clientX + 8, y: info.jsEvent.clientY - 20 },
+      })
+    }
   }
 
   const handleEventClick = (info) => {
+    info.jsEvent.stopPropagation()
     setCreatePopover(null)
+    setDayPopover(null)
     const { block, blockSlots, color } = info.event.extendedProps
     setBlockPopover({
       block: { ...block, color },
@@ -422,6 +559,11 @@ export default function InterviewCalendar({ cohortId, activeCohort }) {
   }
 
   const handleDeleteBlock = async (blockId) => {
+    console.log('handleDeleteBlock called with:', blockId)
+    if (!blockId) {
+      alert('Error: No block ID found. Please close this popover and try again.')
+      return
+    }
     const res  = await fetch('/api/availability', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -433,13 +575,42 @@ export default function InterviewCalendar({ cohortId, activeCohort }) {
     fetchData()
   }
 
-  const handleCancelBooking = async (slotId) => {
-    const { error } = await supabase
-      .from('interview_slots')
-      .update({ is_booked: false, booked_by_student_id: null, booked_at: null })
-      .eq('id', slotId)
-    if (error) { alert(`Could not cancel booking: ${error.message}`); return }
-    fetchData()
+  const handleCancelBooking = async (slot) => {
+    const studentId = slot.booked_by_student_id
+    if (!studentId) { alert('No student linked to this slot.'); return }
+
+    try {
+      const { error: slotError } = await supabase
+        .from('interview_slots')
+        .update({ is_booked: false, booked_by_student_id: null, booked_at: null })
+        .eq('id', slot.id)
+      if (slotError) { alert(`Could not cancel slot: ${slotError.message}`); return }
+
+      const { error: studentError } = await supabase
+        .from('students')
+        .update({ status: 'Form Received' })
+        .eq('id', studentId)
+        .eq('status', 'Interview Scheduled')
+      if (studentError) console.error('Student status revert error:', studentError.message)
+
+      try {
+        await supabase.from('program_events').insert({
+          student_id: studentId,
+          cohort_id:  cohortId,
+          event_type: 'interview_cancelled',
+          event_date: new Date().toISOString().split('T')[0],
+          notes:      `Interview booking cancelled. Slot: ${slot.slot_date} ${slot.slot_time}`,
+          created_by: userProfile?.full_name || 'System',
+        })
+      } catch (logErr) {
+        console.warn('Event log error:', logErr.message)
+      }
+
+      fetchData()
+      setBlockPopover(null)
+    } catch (err) {
+      alert(`Cancellation failed: ${err.message}`)
+    }
   }
 
   const canDeleteBlock = (block) =>
@@ -447,11 +618,11 @@ export default function InterviewCalendar({ cohortId, activeCohort }) {
     block.created_by_user_id === userProfile?.id ||
     block.interviewer_name   === myRecord?.name
 
-  const closeAll = () => { setCreatePopover(null); setBlockPopover(null) }
+  const closeAll = () => { setCreatePopover(null); setBlockPopover(null); setDayPopover(null) }
 
   return (
     <div style={{ position: 'relative' }}>
-      {(createPopover || blockPopover) && (
+      {(createPopover || blockPopover || dayPopover) && (
         <div onClick={closeAll} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
       )}
 
@@ -577,6 +748,33 @@ export default function InterviewCalendar({ cohortId, activeCohort }) {
           canDelete={canDeleteBlock(blockPopover.block)}
           onDelete={handleDeleteBlock}
           onCancelBooking={handleCancelBooking}
+          onClose={closeAll}
+        />
+      )}
+
+      {dayPopover && (
+        <DayPopover
+          date={dayPopover.date}
+          blocks={dayPopover.blocks}
+          slots={slots}
+          colorMap={colorMap}
+          canDelete={isAdmin || true}
+          onDeleteBlock={async (blockId) => {
+            await handleDeleteBlock(blockId)
+            const remaining = blocks.filter(b => b.block_date === dayPopover.date && b.id !== blockId)
+            if (remaining.length === 0) {
+              setDayPopover(null)
+            } else {
+              setDayPopover(prev => ({ ...prev, blocks: remaining }))
+            }
+          }}
+          onAddNew={(date) => {
+            setDayPopover(null)
+            setCreatePopover({
+              date,
+              position: { x: window.innerWidth / 2 - 140, y: 120 },
+            })
+          }}
           onClose={closeAll}
         />
       )}

@@ -97,10 +97,26 @@ export default async function handler(req, res) {
     // DELETE BLOCK + ITS SLOTS
     if (action === 'delete_block') {
       const { block_id } = payload
-      if (!block_id) return res.status(400).json({ error: 'block_id required' })
 
-      // Remove unbooked slots first
-      await db.from('interview_slots').delete().eq('block_id', block_id).eq('is_booked', false)
+      // Strict validation — never delete without a valid UUID
+      if (!block_id || typeof block_id !== 'string' || block_id.length < 10) {
+        console.error('delete_block called with invalid block_id:', block_id)
+        return res.status(400).json({ error: 'Invalid block_id. Delete aborted.' })
+      }
+
+      console.log('Deleting block:', block_id)
+
+      // Delete only unbooked slots for this specific block
+      const { error: slotsError } = await db
+        .from('interview_slots')
+        .delete()
+        .eq('block_id', block_id)
+        .eq('is_booked', false)
+
+      if (slotsError) {
+        console.error('Slot delete error:', slotsError.message)
+        return res.status(400).json({ error: slotsError.message })
+      }
 
       // Check for remaining booked slots
       const { count } = await db
@@ -111,12 +127,17 @@ export default async function handler(req, res) {
 
       if ((count || 0) > 0) {
         return res.status(400).json({
-          error: `Cannot delete: ${count} booked slot${count !== 1 ? 's' : ''} exist in this block. Cancel those bookings first.`,
+          error: `Cannot delete: ${count} booked slot${count !== 1 ? 's' : ''} in this block. Cancel those bookings first.`,
         })
       }
 
-      const { error } = await db.from('interview_availability_blocks').delete().eq('id', block_id)
-      if (error) return res.status(400).json({ error: error.message })
+      // Delete the block itself
+      const { error: blockError } = await db
+        .from('interview_availability_blocks')
+        .delete()
+        .eq('id', block_id)
+
+      if (blockError) return res.status(400).json({ error: blockError.message })
       return res.status(200).json({ success: true })
     }
 
