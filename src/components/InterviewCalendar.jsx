@@ -594,68 +594,31 @@ export default function InterviewCalendar({ cohortId, activeCohort }) {
 
   const handleCancelBooking = async (slot) => {
     const studentId = slot.booked_by_student_id
+    const student   = Array.isArray(slot.students) ? slot.students[0] : slot.students
+    const name      = student ? `${student.first_name} ${student.last_name}` : 'this student'
+
     if (!studentId) { alert('No student linked to this slot.'); return }
 
+    if (!window.confirm(`Cancel ${name}'s booking? Their status will return to Form Received.`)) return
+
     try {
-      // 1. Clear the slot booking
-      const { error: slotError } = await supabase
-        .from('interview_slots')
-        .update({ is_booked: false, booked_by_student_id: null, booked_at: null })
-        .eq('id', slot.id)
-      if (slotError) { alert(`Could not cancel slot: ${slotError.message}`); return }
-
-      // 2. Clean up interview_session linked to this slot (only if no rubric data)
-      const { data: session } = await supabase
-        .from('interview_sessions')
-        .select('id, cj_question_text, pp_question_text, ga_question_text')
-        .eq('slot_id', slot.id)
-        .maybeSingle()
-      if (session) {
-        const hasRubricData = session.cj_question_text || session.pp_question_text || session.ga_question_text
-        if (!hasRubricData) {
-          await supabase.from('interview_sessions').delete().eq('id', session.id)
-        }
-      }
-
-      // 3. Clean up any orphaned sessions linked by student_id (no rubric data)
-      const { data: studentSessions } = await supabase
-        .from('interview_sessions')
-        .select('id, cj_question_text, pp_question_text, ga_question_text')
-        .eq('student_id', studentId)
-      if (studentSessions?.length > 0) {
-        for (const sess of studentSessions) {
-          const hasData = sess.cj_question_text || sess.pp_question_text || sess.ga_question_text
-          if (!hasData) {
-            await supabase.from('interview_sessions').delete().eq('id', sess.id)
-          }
-        }
-      }
-
-      // 4. Revert student status unconditionally
-      await supabase
-        .from('students')
-        .update({ status: 'Form Received' })
-        .eq('id', studentId)
-
-      // 5. Log cancellation event
-      try {
-        await supabase.from('program_events').insert({
-          student_id: studentId,
-          cohort_id:  cohortId,
-          event_type: 'interview_cancelled',
-          event_date: new Date().toISOString().split('T')[0],
-          notes:      `Booking cancelled for ${slot.slot_date} at ${slot.slot_time}`,
-          created_by: userProfile?.full_name || 'System',
-        })
-      } catch (logErr) {
-        console.warn('Event log:', logErr.message)
-      }
-
-      // 6. Refresh
-      fetchData()
+      const res = await fetch('/api/availability', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action:       'cancel_booking',
+          slot_id:      slot.id,
+          student_id:   studentId,
+          cohort_id:    cohortId,
+          cancelled_by: userProfile?.full_name || 'Coordinator',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { alert(`Could not cancel: ${data.error}`); return }
       setBlockPopover(null)
+      fetchData()
     } catch (err) {
-      alert(`Cancellation failed: ${err.message}`)
+      alert(`Cancel failed: ${err.message}`)
     }
   }
 

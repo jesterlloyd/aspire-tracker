@@ -141,6 +141,77 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true })
     }
 
+    // CANCEL BOOKING
+    if (action === 'cancel_booking') {
+      const { slot_id, student_id, cohort_id: cid, cancelled_by } = payload
+
+      if (!slot_id || !student_id) {
+        return res.status(400).json({ error: 'slot_id and student_id are required' })
+      }
+
+      console.log('Cancelling booking:', { slot_id, student_id })
+
+      // 1. Clear the slot
+      const { error: slotError } = await db
+        .from('interview_slots')
+        .update({ is_booked: false, booked_by_student_id: null, booked_at: null })
+        .eq('id', slot_id)
+        .eq('booked_by_student_id', student_id)
+
+      if (slotError) {
+        console.error('Slot clear error:', slotError.message)
+        return res.status(400).json({ error: slotError.message })
+      }
+
+      // 2. Delete sessions for this slot with no rubric data
+      const { data: sessions } = await db
+        .from('interview_sessions')
+        .select('id, cj_question_text, pp_question_text, ga_question_text')
+        .eq('slot_id', slot_id)
+
+      if (sessions?.length > 0) {
+        for (const sess of sessions) {
+          const hasRubric = sess.cj_question_text || sess.pp_question_text || sess.ga_question_text
+          if (!hasRubric) await db.from('interview_sessions').delete().eq('id', sess.id)
+        }
+      }
+
+      // 3. Delete orphaned sessions linked by student_id with no rubric data
+      const { data: studentSessions } = await db
+        .from('interview_sessions')
+        .select('id, cj_question_text, pp_question_text, ga_question_text')
+        .eq('student_id', student_id)
+
+      if (studentSessions?.length > 0) {
+        for (const sess of studentSessions) {
+          const hasRubric = sess.cj_question_text || sess.pp_question_text || sess.ga_question_text
+          if (!hasRubric) await db.from('interview_sessions').delete().eq('id', sess.id)
+        }
+      }
+
+      // 4. Revert student status
+      const { error: studentError } = await db
+        .from('students')
+        .update({ status: 'Form Received' })
+        .eq('id', student_id)
+
+      if (studentError) console.error('Student status revert error:', studentError.message)
+
+      // 5. Log event
+      if (cid) {
+        await db.from('program_events').insert({
+          student_id:  student_id,
+          cohort_id:   cid,
+          event_type:  'interview_cancelled',
+          event_date:  new Date().toISOString().split('T')[0],
+          notes:       'Interview booking cancelled.',
+          created_by:  cancelled_by || 'System',
+        }).catch(err => console.warn('Event log:', err.message))
+      }
+
+      return res.status(200).json({ success: true })
+    }
+
     return res.status(400).json({ error: `Unknown action: ${action}` })
 
   } catch (err) {
