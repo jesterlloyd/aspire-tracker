@@ -57,7 +57,7 @@ export default function InterviewersModal({ isOpen, onClose }) {
     try {
       const { data, error } = await db
         .from('interviewers')
-        .select('id, name, email')
+        .select('id, name, email, color')
         .order('name', { ascending: true })
       if (!error && data) {
         setInterviewers(data)
@@ -84,10 +84,10 @@ export default function InterviewersModal({ isOpen, onClose }) {
     const emailToSave = (editEmails[interviewer.id] ?? interviewer.email ?? '').trim()
     setSavingIds(prev => ({ ...prev, [interviewer.id]: true }))
     try {
-      const { error } = await db
-        .from('interviewers')
-        .update({ email: emailToSave })
-        .eq('id', interviewer.id)
+      const { error } = await db.rpc('update_interviewer_email', {
+        p_id: interviewer.id,
+        p_email: emailToSave,
+      })
       if (error) { alert(`Could not save: ${error.message}`); return }
       const updated = interviewers.map(i =>
         i.id === interviewer.id ? { ...i, email: emailToSave } : i
@@ -123,16 +123,21 @@ export default function InterviewersModal({ isOpen, onClose }) {
     if (!newName.trim()) return
     setAdding(true)
     try {
-      const { data, error } = await db
-        .from('interviewers')
-        .insert({ name: newName.trim(), email: newEmail.trim() || '' })
-        .select('id, name, email')
-        .single()
+      const { data, error } = await db.rpc('add_interviewer', {
+        p_name: newName.trim(),
+        p_email: newEmail.trim() || '',
+      })
       if (error) { alert(`Could not add: ${error.message}`); return }
-      const updated = [...interviewers, data].sort((a, b) => a.name.localeCompare(b.name))
+      const newRecord = Array.isArray(data) ? data[0] : data
+      if (!newRecord) {
+        alert('Interviewer may have been added. Refreshing list.')
+        await fetchInterviewers()
+        return
+      }
+      const updated = [...interviewers, newRecord].sort((a, b) => a.name.localeCompare(b.name))
       setInterviewers(updated)
       saveCache(updated)
-      setEditEmails(prev => ({ ...prev, [data.id]: data.email || '' }))
+      setEditEmails(prev => ({ ...prev, [newRecord.id]: newRecord.email || '' }))
       setNewName('')
       setNewEmail('')
       setShowAdd(false)
@@ -193,7 +198,27 @@ export default function InterviewersModal({ isOpen, onClose }) {
             {interviewers.map(interviewer => (
               <div key={interviewer.id} style={{ border:'1px solid #f3f4f6', borderRadius:'12px', padding:'14px 16px', background:'#fafafa' }}>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
-                  <span style={{ fontWeight:700, fontSize:'14px', color:'#1D2567' }}>{interviewer.name}</span>
+                  <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                    <input
+                      type="color"
+                      value={interviewer.color || '#1D2567'}
+                      title="Interviewer color"
+                      style={{ width:'22px', height:'22px', border:'none', background:'none', cursor:'pointer', padding:0, borderRadius:'4px' }}
+                      onChange={async (e) => {
+                        const newColor = e.target.value
+                        await db.rpc('update_interviewer_color', {
+                          p_id: interviewer.id,
+                          p_color: newColor,
+                        })
+                        const updated = interviewers.map(i =>
+                          i.id === interviewer.id ? { ...i, color: newColor } : i
+                        )
+                        setInterviewers(updated)
+                        saveCache(updated)
+                      }}
+                    />
+                    <span style={{ fontWeight:700, fontSize:'14px', color:'#1D2567' }}>{interviewer.name}</span>
+                  </div>
                   <button onClick={() => handleDelete(interviewer)} style={{
                     background:'none', border:'none', cursor:'pointer', color:'#dc1e34',
                     padding:'4px', borderRadius:'6px', display:'flex', alignItems:'center',
