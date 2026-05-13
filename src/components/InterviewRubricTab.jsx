@@ -80,9 +80,16 @@ export default function InterviewRubricTab({
   const [sortBy,            setSortBy]            = useState('last_name')
   const [sortDir,           setSortDir]           = useState('asc')
   const [activeFilter,           setActiveFilter]           = useState(null)
-  const [refreshKey,             setRefreshKey]             = useState(0)
+  const [refreshKey,   setRefreshKey]   = useState(0)
+  const [refreshing,   setRefreshing]   = useState(false)
 
   const triggerRefresh = useCallback(() => setRefreshKey(k => k + 1), [])
+
+  const handleRefresh = () => {
+    setRefreshing(true)
+    setRefreshKey(k => k + 1)
+    setTimeout(() => setRefreshing(false), 1000)
+  }
 
   // Re-fetch students and rubrics whenever triggerRefresh fires
   useEffect(() => {
@@ -251,17 +258,23 @@ export default function InterviewRubricTab({
           <input className="search-input" style={{ maxWidth:320 }} placeholder="Search by name or school…"
             value={search} onChange={e => setSearch(e.target.value)} />
           {/* Interviewers are now managed in User Management (top right) */}
+          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
           <button
-            onClick={triggerRefresh}
+            onClick={handleRefresh}
+            disabled={refreshing}
             title="Refresh interview data"
             style={{
-              padding: '7px 12px', background: '#f3f4ff',
+              padding: '7px 12px',
+              background: refreshing ? '#e5e7eb' : '#f3f4ff',
               border: '1px solid #e0e7ff', borderRadius: '8px',
               fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#1D2567',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px',
+              cursor: refreshing ? 'default' : 'pointer',
+              display: 'flex', alignItems: 'center', gap: '5px',
+              transition: 'all 0.15s ease',
             }}
           >
-            <RefreshCw size={13} /> Refresh
+            <RefreshCw size={13} style={{ animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }} />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
           </button>
           <span className="iv-hint">Click any row to open the interview rubric session.</span>
         </div>
