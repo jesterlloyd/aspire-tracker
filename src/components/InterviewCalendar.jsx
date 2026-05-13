@@ -464,8 +464,10 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const [createPopover, setCreatePopover] = useState(null)
   const [blockPopover,  setBlockPopover]  = useState(null)
   const [dayPopover,    setDayPopover]    = useState(null)
-  const [selectedDate,  setSelectedDate]  = useState(() => new Date().toISOString().split('T')[0])
-  const [activeFilter,  setActiveFilter]  = useState(null)
+  const [selectedDate,   setSelectedDate]   = useState(() => new Date().toISOString().split('T')[0])
+  const [activeFilter,   setActiveFilter]   = useState(null)
+  const [calendarTitle,  setCalendarTitle]  = useState('')
+  const [currentView,    setCurrentView]    = useState('dayGridMonth')
 
   const fetchData = useCallback(async () => {
     if (!cohortId) return
@@ -684,8 +686,20 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
     if (calendarRef.current) calendarRef.current.getApi().gotoDate(dateStr)
   }
 
-  const openCreateFromSidebar = () => {
-    setCreatePopover({ date: selectedDate, position: { x: 280, y: 120 } })
+  const handleDatesSet = (info) => {
+    setCalendarTitle(info.view.title)
+    setCurrentView(info.view.type)
+  }
+
+  const handleAddAvailabilityClick = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    setCreatePopover({
+      date:     selectedDate || new Date().toISOString().split('T')[0],
+      position: {
+        x: Math.max(8, rect.right - 280),
+        y: rect.bottom + 8,
+      },
+    })
   }
 
   return (
@@ -718,39 +732,77 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
         </div>
 
         {/* Right calendar panel */}
-        <div style={{ flex: 1, minWidth: 0, padding: '12px', display: 'flex', flexDirection: 'column' }}>
-          {/* Add Availability action — top right of calendar panel */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
-            <button
-              onClick={openCreateFromSidebar}
-              style={{
-                padding: '6px 14px', background: '#f3f4ff',
-                border: '1px solid #e0e7ff', borderRadius: '8px',
-                fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px',
-                color: '#1D2567', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '6px',
-              }}
-            >
-              <span style={{ fontSize: '14px', lineHeight: 1 }}>+</span> Add Availability
-            </button>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+
+          {/* Custom Calendar Toolbar */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 16px 12px', borderBottom:'1px solid #f3f4f6' }}>
+
+            {/* Left: prev/next + Today */}
+            <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+              <div style={{ display:'flex', alignItems:'center', border:'1px solid #e5e7eb', borderRadius:'9px', overflow:'hidden', height:'32px' }}>
+                <button
+                  onClick={() => calendarRef.current?.getApi().prev()}
+                  style={{ width:'34px', height:'32px', background:'none', border:'none', borderRight:'1px solid #e5e7eb', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#374151', transition:'background 0.15s ease' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                  title="Previous"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <button
+                  onClick={() => calendarRef.current?.getApi().next()}
+                  style={{ width:'34px', height:'32px', background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#374151', transition:'background 0.15s ease' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                  title="Next"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+              </div>
+              <button
+                onClick={() => calendarRef.current?.getApi().today()}
+                style={{ height:'32px', padding:'0 14px', background:'none', border:'1px solid #e5e7eb', borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#374151', transition:'all 0.15s ease' }}
+                onMouseEnter={e => { e.currentTarget.style.background='#f9fafb'; e.currentTarget.style.borderColor='#d1d5db' }}
+                onMouseLeave={e => { e.currentTarget.style.background='none'; e.currentTarget.style.borderColor='#e5e7eb' }}
+              >Today</button>
+            </div>
+
+            {/* Center: title */}
+            <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'15px', color:'#1D2567', letterSpacing:'-0.01em' }}>
+              {calendarTitle}
+            </div>
+
+            {/* Right: Add Availability + Month/Week toggle */}
+            <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+              <button
+                onClick={handleAddAvailabilityClick}
+                style={{ height:'32px', padding:'0 14px', background:'#1D2567', border:'none', borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#ffffff', display:'flex', alignItems:'center', gap:'6px', transition:'background 0.15s ease' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#141928'}
+                onMouseLeave={e => e.currentTarget.style.background = '#1D2567'}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Availability
+              </button>
+
+              <div style={{ display:'flex', alignItems:'center', background:'#f3f4f6', borderRadius:'9px', padding:'3px', gap:'2px', height:'32px', boxSizing:'border-box' }}>
+                {[{ view:'dayGridMonth', label:'Month' }, { view:'timeGridWeek', label:'Week' }].map(({ view, label }) => {
+                  const isActive = currentView === view
+                  return (
+                    <button
+                      key={view}
+                      onClick={() => { calendarRef.current?.getApi().changeView(view); setCurrentView(view) }}
+                      style={{ height:'26px', padding:'0 14px', background: isActive ? '#1D2567' : 'transparent', border:'none', borderRadius:'7px', fontFamily:'DM Sans', fontWeight: isActive ? 700 : 500, fontSize:'12px', color: isActive ? '#ffffff' : '#6b7280', cursor:'pointer', transition:'all 0.15s ease', whiteSpace:'nowrap' }}
+                      onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#e5e7eb' }}
+                      onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+                    >{label}</button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
 
           <style>{`
             .fc { font-family: 'DM Sans', sans-serif; }
-            .fc-toolbar-title {
-              font-family: 'DM Sans', sans-serif !important;
-              font-weight: 700 !important; font-size: 15px !important;
-              color: #1D2567 !important;
-            }
-            .fc-button {
-              font-family: 'DM Sans', sans-serif !important;
-              font-weight: 600 !important; font-size: 11px !important;
-              border-radius: 7px !important; text-transform: capitalize !important;
-              padding: 5px 12px !important;
-            }
-            .fc-button-primary { background: #1D2567 !important; border-color: #1D2567 !important; }
-            .fc-button-primary:not(.fc-button-active):hover { background: #141928 !important; }
-            .fc-button-active { background: #141928 !important; border-color: #141928 !important; }
             .fc-day-today { background: #f0f3ff !important; }
             .fc-day-today .fc-daygrid-day-number {
               background: #1D2567; color: #ffffff; border-radius: 50%;
@@ -794,12 +846,8 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
-            headerToolbar={{
-              left:   'prev,next today',
-              center: 'title',
-              right:  'dayGridMonth,timeGridWeek',
-            }}
-            buttonText={{ today: 'Today', month: 'Month', week: 'Week' }}
+            headerToolbar={false}
+            datesSet={handleDatesSet}
             events={calendarEvents}
             dateClick={handleDateClick}
             eventClick={handleEventClick}
