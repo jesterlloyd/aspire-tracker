@@ -37,12 +37,20 @@ export default function UserManagement({ isOpen, onClose }) {
 
   const fetchUsers = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
-    setUsers(data || []);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase.rpc('get_all_user_profiles');
+      if (error) {
+        console.error('UserManagement fetch error:', error.message);
+        setUsers([]);
+      } else {
+        setUsers(data || []);
+      }
+    } catch (err) {
+      console.error('UserManagement exception:', err.message);
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchActivityLogs = async () => {

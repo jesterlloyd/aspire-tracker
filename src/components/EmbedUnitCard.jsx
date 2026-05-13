@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { UNIT_DIVISION_MAP } from '../lib/constants'
 import { displayName } from '../lib/utils'
 import { buildUnitLeaderEmail } from '../lib/emailUtils'
+import { updateStudent } from '../lib/studentProxy'
 
 const COMPAT_LABEL = {
   green:  { text: '★ 1st Choice', color: '#16a34a' },
@@ -263,11 +264,19 @@ function FilledSlotPill({ student, match, unit, onUnmatch, onUpdateMatch, onNoti
     setPreceptor(val)
     if (!match) return
     clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => onUpdateMatch(match.id, student.id, { preceptor_assigned: val }), 500)
+    timerRef.current = setTimeout(() => {
+      onUpdateMatch(match.id, student.id, { preceptor_assigned: val })
+      updateStudent(student.id, { matched_preceptor: val })
+        .catch(err => console.error('preceptor proxy save:', err.message))
+    }, 500)
   }
   const saveShift = val => {
     setShift(val)
-    if (match) onUpdateMatch(match.id, student.id, { shift_assigned: val })
+    if (match) {
+      onUpdateMatch(match.id, student.id, { shift_assigned: val })
+      updateStudent(student.id, { shift_assigned: val })
+        .catch(err => console.error('shift proxy save:', err.message))
+    }
   }
 
   const isNotified  = !!match?.notification_sent
