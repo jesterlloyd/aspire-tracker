@@ -498,7 +498,19 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
     setSlots(allSlots)
   }, [cohortId, isAdmin, userProfile?.full_name]) // eslint-disable-line
 
-  useEffect(() => { fetchData() }, [fetchData])
+  // Fetch on cohortId availability / change (mount + cohort switch)
+  useEffect(() => {
+    if (cohortId) fetchData()
+  }, [cohortId]) // eslint-disable-line
+
+  // Re-fetch when page becomes visible (browser tab switch back)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && cohortId) fetchData()
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [cohortId, fetchData])
 
   const calendarEvents = blocks.map(block => {
     const blockSlots  = slots.filter(s => s.block_id === block.id)
@@ -573,7 +585,8 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
 
   const handleSaveBlock = () => {
     setCreatePopover(null)
-    fetchData()
+    setDayPopover(null)
+    setTimeout(() => fetchData(), 300)
     onDataChanged?.()
   }
 
