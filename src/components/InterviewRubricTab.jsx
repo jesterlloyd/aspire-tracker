@@ -102,7 +102,7 @@ export default function InterviewRubricTab({
 
   // ── Stats ──────────────────────────────────────────────────
   const total         = students.length
-  const scheduled     = students.filter(s => s.interview_scheduled_date && getStudentIvStatus(s, rubrics) !== 'Completed').length
+  const scheduled     = students.filter(s => s.status === 'Interview Scheduled').length
   const completed     = students.filter(s => getStudentIvStatus(s, rubrics) === 'Completed').length
   const inProgress    = students.filter(s => getStudentIvStatus(s, rubrics) === 'In Progress').length
   const notScheduled  = students.filter(s => !s.interview_scheduled_date).length
@@ -150,7 +150,7 @@ export default function InterviewRubricTab({
 
   const baseStudents = activeFilter
     ? students.filter(s => {
-        if (activeFilter === 'scheduled')     return !!s.interview_scheduled_date && getStudentIvStatus(s, rubrics) !== 'Completed'
+        if (activeFilter === 'scheduled')     return s.status === 'Interview Scheduled'
         if (activeFilter === 'completed')     return getStudentIvStatus(s, rubrics) === 'Completed'
         if (activeFilter === 'in_progress')   return getStudentIvStatus(s, rubrics) === 'In Progress'
         if (activeFilter === 'not_scheduled') return !s.interview_scheduled_date

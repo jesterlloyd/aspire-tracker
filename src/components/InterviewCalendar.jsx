@@ -473,11 +473,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
       supabase.from('interview_slots')
         .select(`*, students!booked_by_student_id (id, first_name, last_name, school)`)
         .eq('cohort_id', cohortId),
-      supabase.from('user_profiles')
-        .select('id, full_name, email, interviewer_color, can_conduct_interviews, is_active, login_enabled')
-        .eq('can_conduct_interviews', true)
-        .eq('is_active', true)
-        .order('full_name', { ascending: true }),
+      supabase.rpc('get_active_interviewers'),
     ])
 
     const profiles = profilesRes.data || []
