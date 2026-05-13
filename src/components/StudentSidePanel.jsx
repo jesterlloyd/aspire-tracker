@@ -728,6 +728,17 @@ export default function StudentSidePanel({
               <Field label="Matched Preceptor">
                 <input className="sp-input" value={data.matched_preceptor||''} onChange={e => handleText('matched_preceptor', e.target.value)} placeholder="Assign preceptor…" />
               </Field>
+              <Field label="Shift">
+                <select className="sp-select" value={data.shift_assigned||''} onChange={e => handleSelect('shift_assigned', e.target.value)}>
+                  <option value="">Select shift...</option>
+                  <option value="Day">Day</option>
+                  <option value="Night">Night</option>
+                  <option value="Mid">Mid</option>
+                  <option value="Either">Either</option>
+                  <option value="Variable">Variable</option>
+                  <option value="Day and Night">Day and Night</option>
+                </select>
+              </Field>
               <Field label="Preceptor Email">
                 <div style={{ display:'flex', gap:6, alignItems:'center' }}>
                   <input className="sp-input" type="email" value={data.preceptor_email||''} onChange={e => handleText('preceptor_email', e.target.value)} placeholder="preceptor@cshs.org" />

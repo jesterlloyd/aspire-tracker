@@ -332,6 +332,21 @@ function FilledSlotPill({ student, match, unit, onUnmatch, onUpdateMatch, onNoti
           <option value="Day and Night">Day and Night</option>
         </select>
       </div>
+      {(student.matched_preceptor || student.shift_assigned) && (
+        <div style={{ display:'flex', gap:'8px', alignItems:'center', marginTop:'6px', flexWrap:'wrap', paddingTop:'4px', borderTop:'1px solid #f3f4f6' }}>
+          {student.matched_preceptor && (
+            <span style={{ fontFamily:'DM Sans', fontSize:'11px', color:'#6b7280', display:'flex', alignItems:'center', gap:'4px' }}>
+              <span style={{ opacity:0.5 }}>👤</span>
+              {student.matched_preceptor}
+            </span>
+          )}
+          {student.shift_assigned && (
+            <span style={{ background:'#f0f3ff', fontFamily:'DM Sans', fontWeight:600, fontSize:'10px', color:'#1D2567', padding:'2px 8px', borderRadius:'20px' }}>
+              {student.shift_assigned} shift
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }
