@@ -81,6 +81,7 @@ export default function InterviewSchedulePage() {
   const [booking,         setBooking]         = useState(false)
   const [bookedSlot,      setBookedSlot]      = useState(null)
   const [existingBooking, setExistingBooking] = useState(null)
+  const [errorMessage,    setErrorMessage]    = useState('')
 
   // Calendar state
   const [calMonth,     setCalMonth]     = useState(null) // { year, month }
@@ -101,44 +102,68 @@ export default function InterviewSchedulePage() {
   }
 
   // ── Screen 1: Look up student ─────────────────────────────────
+  const doLookup = async () => {
+    const { data: cohort } = await supabase.from('cohorts')
+      .select('id, name').eq('accepting_submissions', true).limit(1).single()
+    if (!cohort) { setError('Scheduling is not currently open. Please contact the ASPIRE team.'); setLoading(false); return }
+    setCohortId(cohort.id)
+
+    const { data: stu } = await supabase.from('students')
+      .select('*').eq('cohort_id', cohort.id).ilike('school_email', email.trim()).limit(1).maybeSingle()
+    if (!stu) {
+      setError('We could not find your information. Please confirm your school email address or contact the ASPIRE team.')
+      setLoading(false); return
+    }
+    if (!ELIGIBLE_STATUSES.has(stu.status)) {
+      setError('You are not yet eligible to schedule an interview. Please complete the ASPIRE Student Profile first.')
+      setLoading(false); return
+    }
+    setStudent(stu)
+
+    const activeBooking = await checkExistingBooking(stu.id)
+    if (activeBooking) {
+      setExistingBooking(activeBooking)
+      setScreen('existing')
+      setLoading(false)
+      return
+    }
+
+    const now = fmtLocalDate(new Date())
+    const { data: available } = await supabase.from('interview_slots')
+      .select('*').eq('cohort_id', cohort.id).eq('is_booked', false).gte('slot_date', now)
+      .order('slot_date').order('slot_time')
+
+    if (!available || available.length === 0) {
+      setScreen('no_slots')
+      setLoading(false)
+      return
+    }
+
+    setSlots(available)
+    const n = new Date()
+    setCalMonth({ year: n.getFullYear(), month: n.getMonth() })
+    setSelectedDate(null); setSelectedCard(null)
+    setScreen('select')
+    setLoading(false)
+  }
+
   const handleIdentify = async e => {
     e.preventDefault()
     setError(null); setLoading(true)
     try {
-      const { data: cohort } = await supabase.from('cohorts')
-        .select('id, name').eq('accepting_submissions', true).limit(1).single()
-      if (!cohort) { setError('Scheduling is not currently open. Please contact the ASPIRE team.'); setLoading(false); return }
-      setCohortId(cohort.id)
-
-      const { data: stu } = await supabase.from('students')
-        .select('*').eq('cohort_id', cohort.id).ilike('school_email', email.trim()).limit(1).maybeSingle()
-      if (!stu) {
-        setError('We could not find your information. Please confirm your school email address or contact the ASPIRE team.')
-        setLoading(false); return
-      }
-      if (!ELIGIBLE_STATUSES.has(stu.status)) {
-        setError('You are not yet eligible to schedule an interview. Please complete the ASPIRE Student Profile first.')
-        setLoading(false); return
-      }
-      setStudent(stu)
-      const activeBooking = await checkExistingBooking(stu.id)
-      if (activeBooking) {
-        setExistingBooking(activeBooking)
-        setScreen('existing')
-        setLoading(false)
-        return
-      }
-
-      const now = fmtLocalDate(new Date())
-      const { data: available } = await supabase.from('interview_slots')
-        .select('*').eq('cohort_id', cohort.id).eq('is_booked', false).gte('slot_date', now)
-        .order('slot_date').order('slot_time')
-      setSlots(available || [])
-      const n = new Date()
-      setCalMonth({ year: n.getFullYear(), month: n.getMonth() })
-      setSelectedDate(null); setSelectedCard(null)
-      setScreen('select')
-    } catch (err) { setError('Something went wrong. Please try again.') }
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Lookup timed out')), 8000)
+      )
+      await Promise.race([doLookup(), timeoutPromise])
+    } catch (err) {
+      console.error('Lookup error:', err.message)
+      setLoading(false)
+      setScreen('error')
+      setErrorMessage(err.message.includes('timed out')
+        ? 'The lookup is taking too long. Please try again.'
+        : err.message
+      )
+    }
     setLoading(false)
   }
 
@@ -477,6 +502,44 @@ export default function InterviewSchedulePage() {
                 at least 24 hours before your interview.
               </p>
             </div>
+          </div>
+        )}
+        {/* ── Screen 5: No slots available ── */}
+        {screen === 'no_slots' && (
+          <div style={{ textAlign:'center', padding:'32px', fontFamily:'DM Sans' }}>
+            <div style={{ fontSize:'32px', marginBottom:'12px' }}>📅</div>
+            <div style={{ fontWeight:700, fontSize:'16px', color:'#374151', marginBottom:'8px' }}>
+              No interview slots available yet
+            </div>
+            <div style={{ fontSize:'13px', color:'#6b7280', lineHeight:1.6 }}>
+              Interview slots have not been posted yet for your cohort.
+              Please check back soon or contact your placement coordinator at{' '}
+              <a href={`mailto:${JESTER_EMAIL}`} target="_blank" rel="noopener noreferrer" style={{ color:'var(--nightfall)' }}>
+                {JESTER_EMAIL}
+              </a>.
+            </div>
+          </div>
+        )}
+
+        {/* ── Screen 6: Error / timeout ── */}
+        {screen === 'error' && (
+          <div style={{ textAlign:'center', padding:'32px', fontFamily:'DM Sans' }}>
+            <div style={{ fontSize:'32px', marginBottom:'12px' }}>⚠️</div>
+            <div style={{ fontWeight:700, fontSize:'16px', color:'#dc2626', marginBottom:'8px' }}>
+              Something went wrong
+            </div>
+            <div style={{ fontSize:'13px', color:'#6b7280', lineHeight:1.6, marginBottom:'16px' }}>
+              {errorMessage || 'An unexpected error occurred. Please try again.'}
+            </div>
+            <button
+              onClick={() => { setScreen('identify'); setError(null); setErrorMessage('') }}
+              style={{
+                padding:'9px 20px', background:'#1D2567', border:'none', borderRadius:'8px',
+                fontFamily:'DM Sans', fontWeight:600, fontSize:'13px', color:'#ffffff', cursor:'pointer',
+              }}
+            >
+              Try Again
+            </button>
           </div>
         )}
       </div>
