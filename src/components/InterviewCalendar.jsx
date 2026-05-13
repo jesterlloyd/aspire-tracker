@@ -523,37 +523,31 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
     const firstName   = block.interviewer_name?.split(' ')[0] || 'ASPIRE'
     const isMine      = userProfile?.full_name === block.interviewer_name
 
-    // Individual event per booked slot showing student name
     const bookedEvents = bookedSlots.map(slot => {
-      const student = Array.isArray(slot.students) ? slot.students[0] : slot.students
+      const student     = Array.isArray(slot.students) ? slot.students[0] : slot.students
       const studentName = student ? `${student.first_name} ${student.last_name}` : 'Booked'
-      const time = slot.slot_time
-        ? new Date(`2000-01-01T${slot.slot_time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-        : ''
+      const blockColor  = colorMap[block.interviewer_name] || '#3b82f6'
       return {
         id:    `booked-${slot.id}`,
-        title: `${studentName}${time ? ` · ${time}` : ''}`,
+        title: `${studentName}\n${slot.interviewer_name?.split(' ')[0] || 'ASPIRE'}`,
         start: `${slot.slot_date}T${slot.slot_time || '00:00'}`,
         end:   `${slot.slot_date}T${slot.slot_time || '00:00'}`,
-        backgroundColor: '#dcfce7',
-        borderColor:     '#16a34a',
-        textColor:       '#166534',
-        extendedProps:   { type: 'booked', slot, block, color },
+        backgroundColor: '#dbeafe',
+        borderColor:     blockColor,
+        textColor:       '#1e40af',
+        extendedProps:   { type: 'booked', slot, block, color: blockColor },
       }
     })
 
-    // Availability block event showing open slot count
     const availabilityEvent = openSlots.length > 0 ? {
       id:    block.id,
-      title: openSlots.length === 1
-        ? `Open · ${firstName} · 1 slot`
-        : `Open · ${firstName} · ${openSlots.length} slots`,
+      title: `Available · ${openSlots.length} slot${openSlots.length !== 1 ? 's' : ''}\n${firstName}`,
       start: `${block.block_date}T${block.start_time}`,
       end:   `${block.block_date}T${block.end_time}`,
-      backgroundColor: isAdmin ? (isMine ? color + '22' : color + '11') : color + '22',
-      borderColor: color,
-      textColor:   color,
-      extendedProps: { type: 'availability', block, blockSlots, color },
+      backgroundColor: `${color}18`,
+      borderColor:     color,
+      textColor:       color,
+      extendedProps:   { type: 'availability', block, blockSlots, color },
     } : null
 
     return [...(availabilityEvent ? [availabilityEvent] : []), ...bookedEvents]
@@ -700,100 +694,143 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
         <div onClick={closeAll} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
       )}
 
-      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-        {/* Left sidebar */}
-        <CalendarSidebar
-          blocks={blocks}
-          slots={slots}
-          interviewerProfiles={interviewerProfiles}
-          selectedDate={selectedDate}
-          onSelectDate={handleMiniCalendarSelect}
-          activeFilter={activeFilter}
-          onFilterChange={setActiveFilter}
-          onAddAvailability={openCreateFromSidebar}
-          onStartRubric={(slot) => { console.log('Open rubric for:', slot) }}
-        />
+      {/* Single unified calendar module */}
+      <div style={{
+        display: 'flex', background: '#ffffff',
+        borderRadius: '16px', border: '1px solid #f3f4f6',
+        boxShadow: '0 2px 12px rgba(29,37,103,0.07)',
+        overflow: 'hidden', marginBottom: '12px',
+      }}>
+        {/* Left sidebar panel */}
+        <div style={{
+          width: '260px', flexShrink: 0,
+          borderRight: '1px solid #f3f4f6',
+          padding: '20px 18px',
+          display: 'flex', flexDirection: 'column',
+          overflowY: 'auto',
+        }}>
+          <CalendarSidebar
+            blocks={blocks}
+            slots={slots}
+            selectedDate={selectedDate}
+            onSelectDate={handleMiniCalendarSelect}
+          />
+        </div>
 
-        {/* Main calendar */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            background: '#ffffff', borderRadius: '16px',
-            border: '1px solid #f3f4f6',
-            boxShadow: '0 2px 12px rgba(29,37,103,0.07)',
-            overflow: 'hidden',
-          }}>
-            <style>{`
-              .fc { font-family: 'DM Sans', sans-serif; }
-              .fc-toolbar-title {
-                font-family: 'DM Sans', sans-serif !important;
-                font-weight: 700 !important; font-size: 15px !important;
-                color: #1D2567 !important;
-              }
-              .fc-button {
-                font-family: 'DM Sans', sans-serif !important;
-                font-weight: 600 !important; font-size: 11px !important;
-                border-radius: 7px !important; text-transform: capitalize !important;
-                padding: 5px 12px !important;
-              }
-              .fc-button-primary { background: #1D2567 !important; border-color: #1D2567 !important; }
-              .fc-button-primary:not(.fc-button-active):hover { background: #141928 !important; }
-              .fc-button-active { background: #141928 !important; border-color: #141928 !important; }
-              .fc-day-today { background: #f0f3ff !important; }
-              .fc-day-today .fc-daygrid-day-number {
-                background: #1D2567; color: #ffffff; border-radius: 50%;
-                width: 24px; height: 24px;
-                display: flex; align-items: center; justify-content: center;
-                font-size: 12px;
-              }
-              .fc-daygrid-day-number { font-weight: 600; font-size: 12px; color: #374151; padding: 4px 6px; }
-              .fc-col-header-cell-cushion {
-                font-weight: 700; font-size: 10px; text-transform: uppercase;
-                letter-spacing: 0.06em; color: #6b7280;
-              }
-              .fc-daygrid-event {
-                border-radius: 5px !important; padding: 1px 5px !important;
-                font-size: 10px !important; font-weight: 600 !important;
-                cursor: pointer !important; margin-bottom: 1px !important;
-              }
-              .fc-daygrid-day:hover { background: #f8f9ff !important; cursor: pointer; }
-              .fc-timegrid-slot { cursor: pointer; height: 32px !important; }
-              .fc-timegrid-slot:hover { background: #f0f3ff !important; }
-              .fc-timegrid-slot-label { font-size: 10px !important; color: #9ca3af !important; }
-              .fc th, .fc td { border-color: #f3f4f6 !important; }
-              .fc-daygrid-event .fc-event-title {
-                font-size: 10px !important; font-weight: 600 !important;
-                white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-              }
-            `}</style>
-
-            <FullCalendar
-              ref={calendarRef}
-              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-              initialView="dayGridMonth"
-              headerToolbar={{
-                left:   'prev,next today',
-                center: 'title',
-                right:  'dayGridMonth,timeGridWeek',
+        {/* Right calendar panel */}
+        <div style={{ flex: 1, minWidth: 0, padding: '12px', display: 'flex', flexDirection: 'column' }}>
+          {/* Add Availability action — top right of calendar panel */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+            <button
+              onClick={openCreateFromSidebar}
+              style={{
+                padding: '6px 14px', background: '#f3f4ff',
+                border: '1px solid #e0e7ff', borderRadius: '8px',
+                fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px',
+                color: '#1D2567', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: '6px',
               }}
-              buttonText={{ today: 'Today', month: 'Month', week: 'Week' }}
-              events={calendarEvents}
-              dateClick={handleDateClick}
-              eventClick={handleEventClick}
-              height={580}
-              slotMinTime="07:00:00"
-              slotMaxTime="19:00:00"
-              slotDuration="00:30:00"
-              slotLabelInterval="01:00:00"
-              expandRows={true}
-              dayMaxEvents={3}
-              moreLinkText={n => `+${n}`}
-              nowIndicator={true}
-              allDaySlot={false}
-              scrollTime="08:00:00"
-            />
+            >
+              <span style={{ fontSize: '14px', lineHeight: 1 }}>+</span> Add Availability
+            </button>
           </div>
+
+          <style>{`
+            .fc { font-family: 'DM Sans', sans-serif; }
+            .fc-toolbar-title {
+              font-family: 'DM Sans', sans-serif !important;
+              font-weight: 700 !important; font-size: 15px !important;
+              color: #1D2567 !important;
+            }
+            .fc-button {
+              font-family: 'DM Sans', sans-serif !important;
+              font-weight: 600 !important; font-size: 11px !important;
+              border-radius: 7px !important; text-transform: capitalize !important;
+              padding: 5px 12px !important;
+            }
+            .fc-button-primary { background: #1D2567 !important; border-color: #1D2567 !important; }
+            .fc-button-primary:not(.fc-button-active):hover { background: #141928 !important; }
+            .fc-button-active { background: #141928 !important; border-color: #141928 !important; }
+            .fc-day-today { background: #f0f3ff !important; }
+            .fc-day-today .fc-daygrid-day-number {
+              background: #1D2567; color: #ffffff; border-radius: 50%;
+              width: 24px; height: 24px;
+              display: flex; align-items: center; justify-content: center; font-size: 12px;
+            }
+            .fc-daygrid-day-number { font-weight: 600; font-size: 12px; color: #374151; padding: 4px 6px; }
+            .fc-col-header-cell-cushion {
+              font-weight: 700; font-size: 10px; text-transform: uppercase;
+              letter-spacing: 0.06em; color: #6b7280;
+            }
+            .fc-daygrid-day { position: relative !important; }
+            .fc-daygrid-day:hover { background: #f8f9ff !important; cursor: pointer; }
+            .fc-daygrid-day:not(.fc-day-other):not(:has(.fc-daygrid-event)):hover::after {
+              content: '+ Add availability';
+              position: absolute; bottom: 6px; left: 50%;
+              transform: translateX(-50%);
+              font-family: 'DM Sans', sans-serif; font-size: 9px; font-weight: 600;
+              color: #c7d2fe; white-space: nowrap; pointer-events: none;
+              opacity: 0; animation: fadeInHint 0.2s ease forwards;
+            }
+            @keyframes fadeInHint { from { opacity: 0; } to { opacity: 1; } }
+            .fc-daygrid-event-harness { margin-bottom: 2px !important; }
+            .fc-daygrid-event {
+              padding: 3px 6px !important; border-radius: 6px !important;
+              border-left-width: 3px !important;
+              border-top: none !important; border-right: none !important; border-bottom: none !important;
+              cursor: pointer !important;
+            }
+            .fc-event-title {
+              font-size: 10px !important; font-weight: 600 !important;
+              line-height: 1.4 !important; white-space: pre-wrap !important;
+            }
+            .fc-timegrid-slot { cursor: pointer; height: 32px !important; }
+            .fc-timegrid-slot:hover { background: #f0f3ff !important; }
+            .fc-timegrid-slot-label { font-size: 10px !important; color: #9ca3af !important; }
+            .fc th, .fc td { border-color: #f3f4f6 !important; }
+          `}</style>
+
+          <FullCalendar
+            ref={calendarRef}
+            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            headerToolbar={{
+              left:   'prev,next today',
+              center: 'title',
+              right:  'dayGridMonth,timeGridWeek',
+            }}
+            buttonText={{ today: 'Today', month: 'Month', week: 'Week' }}
+            events={calendarEvents}
+            dateClick={handleDateClick}
+            eventClick={handleEventClick}
+            height={560}
+            slotMinTime="07:00:00"
+            slotMaxTime="19:00:00"
+            slotDuration="00:30:00"
+            slotLabelInterval="01:00:00"
+            expandRows={true}
+            dayMaxEvents={3}
+            moreLinkText={n => `+${n}`}
+            nowIndicator={true}
+            allDaySlot={false}
+            scrollTime="08:00:00"
+          />
         </div>
       </div>
+
+      {/* Interviewer legend — below the unified module */}
+      {interviewerProfiles?.length > 0 && (
+        <div style={{ display:'flex', gap:'16px', alignItems:'center', flexWrap:'wrap', padding:'8px 4px' }}>
+          {interviewerProfiles.map(p => (
+            <div key={p.id} style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+              <div style={{ width:'8px', height:'8px', borderRadius:'50%', background: p.interviewer_color || '#1D2567', flexShrink:0 }} />
+              <span style={{ fontFamily:'DM Sans', fontSize:'11px', color:'#6b7280' }}>
+                {p.full_name.split(' ')[0]} {p.full_name.split(' ')[1]?.[0]}.
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {createPopover && (
         <CreatePopover
