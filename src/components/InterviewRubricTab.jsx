@@ -80,8 +80,9 @@ export default function InterviewRubricTab({
   const [sortBy,            setSortBy]            = useState('last_name')
   const [sortDir,           setSortDir]           = useState('asc')
   const [activeFilter,           setActiveFilter]           = useState(null)
-  const [refreshKey,   setRefreshKey]   = useState(0)
-  const [refreshing,   setRefreshing]   = useState(false)
+  const [refreshKey,        setRefreshKey]        = useState(0)
+  const [refreshing,        setRefreshing]        = useState(false)
+  const [calendarCollapsed, setCalendarCollapsed] = useState(false)
 
   const triggerRefresh = useCallback(() => setRefreshKey(k => k + 1), [])
 
@@ -196,11 +197,60 @@ export default function InterviewRubricTab({
         }}
       />
       <InterviewSetupChecklist cohortId={cohortId} cohort={cohort} />
-      <InterviewCalendar
-        cohortId={cohortId}
-        activeCohort={cohort}
-        onDataChanged={triggerRefresh}
-      />
+
+      {/* Availability Calendar with collapse toggle */}
+      <div style={{ marginBottom: '20px' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          marginBottom: calendarCollapsed ? '0' : '12px',
+        }}>
+          <span style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '13px', color: '#1D2567' }}>
+            Availability Calendar
+          </span>
+          <button
+            onClick={() => setCalendarCollapsed(p => !p)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '6px 12px',
+              background: calendarCollapsed ? '#1D2567' : '#f3f4ff',
+              border: `1px solid ${calendarCollapsed ? '#1D2567' : '#e0e7ff'}`,
+              borderRadius: '8px', cursor: 'pointer',
+              fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px',
+              color: calendarCollapsed ? '#ffffff' : '#1D2567',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            {calendarCollapsed ? (
+              <>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+                Show Calendar
+              </>
+            ) : (
+              <>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="18 15 12 9 6 15"/>
+                </svg>
+                Focus Table View
+              </>
+            )}
+          </button>
+        </div>
+        <div style={{
+          overflow: 'hidden',
+          maxHeight: calendarCollapsed ? '0' : '900px',
+          opacity: calendarCollapsed ? 0 : 1,
+          transition: 'max-height 0.3s ease, opacity 0.2s ease',
+        }}>
+          <InterviewCalendar
+            key={`cal-${cohortId}-${refreshKey}`}
+            cohortId={cohortId}
+            activeCohort={cohort}
+            onDataChanged={triggerRefresh}
+          />
+        </div>
+      </div>
 
       <div className="stat-cards-row" style={{ padding:'12px 16px' }}>
         {[

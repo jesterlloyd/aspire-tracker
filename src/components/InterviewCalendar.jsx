@@ -512,25 +512,48 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [cohortId, fetchData])
 
-  const calendarEvents = blocks.map(block => {
-    const blockSlots  = slots.filter(s => s.block_id === block.id)
-    const bookedCount = blockSlots.filter(s => s.is_booked).length
-    const openCount   = blockSlots.filter(s => !s.is_booked).length
+  const calendarEvents = (blocks || []).flatMap(block => {
+    const blockSlots  = (slots || []).filter(s => s.block_id === block.id)
+    const bookedSlots = blockSlots.filter(s => s.is_booked)
+    const openSlots   = blockSlots.filter(s => !s.is_booked)
     const color       = colorMap[block.interviewer_name] || '#1D2567'
+    const firstName   = block.interviewer_name?.split(' ')[0] || 'ASPIRE'
     const isMine      = userProfile?.full_name === block.interviewer_name
 
-    return {
+    // Individual event per booked slot showing student name
+    const bookedEvents = bookedSlots.map(slot => {
+      const student = Array.isArray(slot.students) ? slot.students[0] : slot.students
+      const studentName = student ? `${student.first_name} ${student.last_name}` : 'Booked'
+      const time = slot.slot_time
+        ? new Date(`2000-01-01T${slot.slot_time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        : ''
+      return {
+        id:    `booked-${slot.id}`,
+        title: `${studentName}${time ? ` · ${time}` : ''}`,
+        start: `${slot.slot_date}T${slot.slot_time || '00:00'}`,
+        end:   `${slot.slot_date}T${slot.slot_time || '00:00'}`,
+        backgroundColor: '#dcfce7',
+        borderColor:     '#16a34a',
+        textColor:       '#166534',
+        extendedProps:   { type: 'booked', slot, block, color },
+      }
+    })
+
+    // Availability block event showing open slot count
+    const availabilityEvent = openSlots.length > 0 ? {
       id:    block.id,
-      title: openCount > 0
-        ? `${block.interviewer_name?.split(' ')[0]} · ${openCount} open`
-        : `${block.interviewer_name?.split(' ')[0]} · Full`,
+      title: openSlots.length === 1
+        ? `Open · ${firstName} · 1 slot`
+        : `Open · ${firstName} · ${openSlots.length} slots`,
       start: `${block.block_date}T${block.start_time}`,
       end:   `${block.block_date}T${block.end_time}`,
-      backgroundColor: isAdmin ? (isMine ? color : color + '88') : color,
-      borderColor:  color,
-      textColor:    '#ffffff',
-      extendedProps: { block, blockSlots, color },
-    }
+      backgroundColor: isAdmin ? (isMine ? color + '22' : color + '11') : color + '22',
+      borderColor: color,
+      textColor:   color,
+      extendedProps: { type: 'availability', block, blockSlots, color },
+    } : null
+
+    return [...(availabilityEvent ? [availabilityEvent] : []), ...bookedEvents]
   })
 
   const handleDateClick = (info) => {
@@ -575,7 +598,20 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
     info.jsEvent.stopPropagation()
     setCreatePopover(null)
     setDayPopover(null)
-    const { block, blockSlots, color } = info.event.extendedProps
+
+    const { type, block, blockSlots, color } = info.event.extendedProps
+
+    if (type === 'booked') {
+      // Show block popover with all slots so user can cancel the booking
+      const allBlockSlots = (slots || []).filter(s => s.block_id === block.id)
+      setBlockPopover({
+        block: { ...block, color },
+        slots: allBlockSlots,
+        position: { x: info.jsEvent.clientX + 8, y: info.jsEvent.clientY - 20 },
+      })
+      return
+    }
+
     setBlockPopover({
       block: { ...block, color },
       slots: blockSlots,
@@ -699,6 +735,10 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
           .fc-timegrid-slot { height: 32px !important; }
           .fc-timegrid-slot-label { font-size: 10px !important; color: #9ca3af !important; }
           .fc .fc-scrollgrid-section-body table { border-bottom: none !important; }
+          .fc-daygrid-event .fc-event-title {
+            font-size: 11px !important; font-weight: 600 !important;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          }
         `}</style>
 
         <FullCalendar
