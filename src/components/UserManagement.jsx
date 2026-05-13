@@ -86,25 +86,35 @@ export default function UserManagement({ isOpen, onClose }) {
     setInviteLoading(false);
   };
 
+  const adminProxy = async (body) => {
+    const res = await fetch('/api/admin-users', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const data = await res.json()
+    if (!res.ok) console.error('admin-users error:', data.error)
+    return res.ok
+  }
+
   const handleToggleActive = async (userId, currentActive) => {
-    await supabase.from('user_profiles').update({ is_active: !currentActive }).eq('id', userId);
-    fetchUsers();
-  };
+    await adminProxy({ action: 'toggle_active', user_id: userId, is_active: !currentActive })
+    fetchUsers()
+  }
 
   const handleChangeRole = async (userId, newRole) => {
-    await supabase.from('user_profiles').update({ role: newRole }).eq('id', userId);
-    fetchUsers();
-  };
+    await adminProxy({ action: 'update_role', user_id: userId, role: newRole })
+    fetchUsers()
+  }
 
   const handleToggleInterviewer = async (userId, currentValue) => {
-    await supabase.from('user_profiles').update({ can_conduct_interviews: !currentValue }).eq('id', userId);
-    fetchUsers();
-  };
+    await adminProxy({ action: 'toggle_interviewer', user_id: userId, can_conduct_interviews: !currentValue })
+    fetchUsers()
+  }
 
   const handleUpdateInterviewerColor = async (userId, color) => {
-    await supabase.from('user_profiles').update({ interviewer_color: color }).eq('id', userId);
-    fetchUsers();
-  };
+    await adminProxy({ action: 'update_interviewer_color', user_id: userId, interviewer_color: color })
+    fetchUsers()
+  }
 
   if (!isOpen || !isOwner) return null;
 

@@ -113,7 +113,7 @@ export default function UserMenu({ onOpenUserManagement }) {
                   onClick={() => {
                     const url = prompt('Enter a photo URL (leave blank for auto-generated avatar):')
                     if (url !== null) {
-                      supabase.from('user_profiles').update({ avatar_url: url.trim() || '' }).eq('id', userProfile.id).then(() => window.location.reload())
+                      fetch('/api/admin-users', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'update_avatar', user_id: userProfile.id, avatar_url: url.trim() || '' }) }).then(() => window.location.reload())
                     }
                   }}
                   style={{ background:'none', border:'none', fontFamily:'DM Sans', fontSize:'11px', color:'#9ca3af', cursor:'pointer', textDecoration:'underline', padding:0, marginTop:'4px', display:'block' }}>

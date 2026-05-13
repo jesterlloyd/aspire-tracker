@@ -31,14 +31,7 @@ export function AuthProvider({ children }) {
 
       if (data && data.length > 0) {
         setUserProfile(data[0]);
-        // Guard: only update if auth_user_id is defined
-        if (user.id) {
-          supabase
-            .from('user_profiles')
-            .update({ last_login_at: new Date().toISOString() })
-            .eq('auth_user_id', user.id)
-            .then(() => {});
-        }
+        // last_login_at is handled by the get_my_profile RPC — no separate update needed
       }
     } catch (err) {
       console.error('Profile load exception:', err.message);
@@ -109,13 +102,15 @@ export function AuthProvider({ children }) {
     userProfile,
     loading,
     signOut,
-    isOwner:           userProfile?.is_owner === true,
-    isAdmin:           ['owner', 'admin'].includes(userProfile?.role),
-    isInterviewer:     userProfile?.role === 'interviewer',
-    isViewer:          userProfile?.role === 'viewer',
-    canEdit:           ['owner', 'admin'].includes(userProfile?.role),
-    canInterview:      ['owner', 'admin', 'interviewer'].includes(userProfile?.role),
+    isOwner:            userProfile?.is_owner === true,
+    isAdmin:            ['owner', 'admin'].includes(userProfile?.role),
+    isInterviewer:      userProfile?.role === 'interviewer',
+    isViewer:           userProfile?.role === 'viewer',
+    canEdit:            ['owner', 'admin'].includes(userProfile?.role),
+    canInterview:       ['owner', 'admin', 'interviewer'].includes(userProfile?.role),
     canViewActivityLog: userProfile?.is_owner === true,
+    iAmInterviewer:     userProfile?.can_conduct_interviews === true,
+    myInterviewerColor: userProfile?.interviewer_color || '#1D2567',
   };
 
   return (

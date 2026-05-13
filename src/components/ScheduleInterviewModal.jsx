@@ -24,7 +24,7 @@ export default function ScheduleInterviewModal({ students, defaults, onClose, on
   const [error,        setError]        = useState(null)
 
   useEffect(() => {
-    supabase.from('user_profiles').select('id, full_name').eq('can_conduct_interviews', true).eq('is_active', true).order('full_name', { ascending: true })
+    supabase.rpc('get_active_interviewers')
       .then(({ data }) => setInterviewers((data || []).map(p => p.full_name)))
   }, [])
 

@@ -59,7 +59,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
       }
     } catch {}
 
-    supabase.from('user_profiles').select('id, full_name, email, interviewer_color').eq('can_conduct_interviews', true).eq('is_active', true).order('full_name', { ascending: true })
+    supabase.rpc('get_active_interviewers')
       .then(({ data, error }) => {
         if (!error && data) {
           setInterviewers(data)

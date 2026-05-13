@@ -13,17 +13,15 @@ export default function InterviewSetupChecklist({ cohortId, cohort }) {
 
   const runChecks = async () => {
     try {
+      const interviewersRes = await supabase.rpc('get_active_interviewers')
+      const iCount = (interviewersRes.data || []).length
+
       const [
-        { count: iCount },
         { count: bCount },
         { count: bookedCount },
         { count: eCount },
         { count: rCount },
       ] = await Promise.all([
-        supabase.from('user_profiles')
-          .select('*', { count: 'exact', head: true })
-          .eq('can_conduct_interviews', true)
-          .eq('is_active', true),
         supabase.from('interview_availability_blocks')
           .select('*', { count: 'exact', head: true })
           .eq('cohort_id', cohortId)
