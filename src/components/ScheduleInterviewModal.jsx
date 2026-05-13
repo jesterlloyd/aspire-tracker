@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { setAspireStatus } from '../lib/statusUtils'
+import { updateStudent as proxyUpdateStudent } from '../lib/studentProxy'
 
 // 15-minute increments 7:00 AM – 6:00 PM
 const TIME_SLOTS = []
@@ -44,13 +45,14 @@ export default function ScheduleInterviewModal({ students, defaults, onClose, on
   const handleSave = async () => {
     if (!studentId || !date) { setError('Please select a student and date.'); return }
     setSaving(true); setError(null)
-    const { error: err } = await supabase.from('students').update({
-      interview_scheduled_date: date,
-      interview_scheduled_time: time,
-      interview_duration_minutes: duration,
-      interview_assigned_interviewers: assigned.join(', '),
-    }).eq('id', studentId)
-    if (err) { setError(err.message); setSaving(false); return }
+    try {
+      await proxyUpdateStudent(studentId, {
+        interview_scheduled_date: date,
+        interview_scheduled_time: time,
+        interview_duration_minutes: duration,
+        interview_assigned_interviewers: assigned.join(', '),
+      })
+    } catch (err) { setError(err.message); setSaving(false); return }
     await setAspireStatus(studentId, 'Interview Scheduled')
     await onSaved()
     onClose()

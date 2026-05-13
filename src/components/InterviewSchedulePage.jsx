@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react'
-import { supabase } from '../lib/supabase'
 
 // ── Local date helpers ────────────────────────────────────────
 function fmtLocalDate(d) {
@@ -65,10 +64,6 @@ This is an automated notification from the ASPIRE Intelligence.${noEmailNote}`
   return `mailto:${encodeURIComponent(toEmail)}?bcc=${encodeURIComponent(bcc)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }
 
-const ELIGIBLE_STATUSES = new Set([
-  'Form Received', 'Interview Scheduled', 'Interviewed',
-  'Placed', 'Active Rotation', 'Completed',
-])
 
 export default function InterviewSchedulePage() {
   const [screen,      setScreen]      = useState('identify')
@@ -90,79 +85,42 @@ export default function InterviewSchedulePage() {
 
   useEffect(() => { document.title = 'Schedule Your ASPIRE Interview' }, [])
 
-  const checkExistingBooking = async (studentId) => {
-    const { data, error } = await supabase
-      .from('interview_slots')
-      .select('id, slot_date, slot_time, interviewer_name, duration_minutes')
-      .eq('booked_by_student_id', studentId)
-      .eq('is_booked', true)
-      .maybeSingle()
-    if (error) { console.error('Booking check error:', error.message); return null }
-    return data
-  }
-
   // ── Screen 1: Look up student ─────────────────────────────────
-  const doLookup = async () => {
-    const { data: cohort } = await supabase.from('cohorts')
-      .select('id, name').eq('accepting_submissions', true).limit(1).single()
-    if (!cohort) { setError('Scheduling is not currently open. Please contact the ASPIRE team.'); setLoading(false); return }
-    setCohortId(cohort.id)
-
-    const { data: stu } = await supabase.from('students')
-      .select('*').eq('cohort_id', cohort.id).ilike('school_email', email.trim()).limit(1).maybeSingle()
-    if (!stu) {
-      setError('We could not find your information. Please confirm your school email address or contact the ASPIRE team.')
-      setLoading(false); return
-    }
-    if (!ELIGIBLE_STATUSES.has(stu.status)) {
-      setError('You are not yet eligible to schedule an interview. Please complete the ASPIRE Student Profile first.')
-      setLoading(false); return
-    }
-    setStudent(stu)
-
-    const activeBooking = await checkExistingBooking(stu.id)
-    if (activeBooking) {
-      setExistingBooking(activeBooking)
-      setScreen('existing')
-      setLoading(false)
-      return
-    }
-
-    const now = fmtLocalDate(new Date())
-    const { data: available } = await supabase.from('interview_slots')
-      .select('*').eq('cohort_id', cohort.id).eq('is_booked', false).gte('slot_date', now)
-      .order('slot_date').order('slot_time')
-
-    if (!available || available.length === 0) {
-      setScreen('no_slots')
-      setLoading(false)
-      return
-    }
-
-    setSlots(available)
-    const n = new Date()
-    setCalMonth({ year: n.getFullYear(), month: n.getMonth() })
-    setSelectedDate(null); setSelectedCard(null)
-    setScreen('select')
-    setLoading(false)
-  }
-
   const handleIdentify = async e => {
     e.preventDefault()
     setError(null); setLoading(true)
     try {
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Lookup timed out')), 8000)
-      )
-      await Promise.race([doLookup(), timeoutPromise])
+      const res = await fetch('/api/interview-lookup', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email: email.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || 'Something went wrong. Please try again.'); setLoading(false); return }
+
+      if (data.hasExistingBooking) {
+        setStudent(data.student)
+        setExistingBooking(data.booking)
+        setScreen('existing')
+        setLoading(false)
+        return
+      }
+      if (data.noSlots) {
+        setStudent(data.student)
+        setScreen('no_slots')
+        setLoading(false)
+        return
+      }
+      setStudent(data.student)
+      setCohortId(data.cohortId)
+      setSlots(data.slots)
+      const n = new Date()
+      setCalMonth({ year: n.getFullYear(), month: n.getMonth() })
+      setSelectedDate(null); setSelectedCard(null)
+      setScreen('select')
     } catch (err) {
-      console.error('Lookup error:', err.message)
-      setLoading(false)
       setScreen('error')
-      setErrorMessage(err.message.includes('timed out')
-        ? 'The lookup is taking too long. Please try again.'
-        : err.message
-      )
+      setErrorMessage(err.message || 'Something went wrong. Please try again.')
     }
     setLoading(false)
   }
@@ -224,44 +182,21 @@ export default function InterviewSchedulePage() {
     if (!selectedCard || !student || !cohortId) return
     setBooking(true)
     try {
-      // Assign earliest created_at slot in the selected card
       const sorted = [...selectedCard.slots].sort((a,b) => (a.created_at||'').localeCompare(b.created_at||''))
       const chosen = sorted[0]
-      const now = new Date().toISOString()
 
-      await supabase.from('interview_slots').update({
-        is_booked: true, booked_by_student_id: student.id, booked_at: now,
-      }).eq('id', chosen.id)
+      const res = await fetch('/api/interview-book', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ studentId: student.id, cohortId, slotId: chosen.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) { alert(data.error || 'Booking failed. Please try again.'); setBooking(false); return }
 
-      const { data: existing } = await supabase.from('interview_sessions')
-        .select('id').eq('student_id', student.id).eq('cohort_id', cohortId).limit(1).maybeSingle()
-      if (existing) {
-        await supabase.from('interview_sessions').update({ self_scheduled:true, slot_id:chosen.id }).eq('id', existing.id)
-      } else {
-        await supabase.from('interview_sessions').insert({
-          student_id: student.id, cohort_id: cohortId,
-          self_scheduled: true, slot_id: chosen.id, session_number: 1,
-        })
-      }
-
-      await supabase.from('students').update({
-        interview_scheduled_date:   chosen.slot_date,
-        interview_scheduled_time:   chosen.slot_time,
-        interview_duration_minutes: chosen.duration_minutes,
-        status:                     'Interview Scheduled',
-        scheduling_viewed_at:       now,
-      }).eq('id', student.id)
-
-      setBookedSlot(chosen)
+      setBookedSlot(data.slot)
       setScreen('confirmed')
 
-      let interviewerEmail = null
-      if (chosen.interviewer_name?.trim()) {
-        const { data: iv } = await supabase.from('user_profiles')
-          .select('email').ilike('full_name', chosen.interviewer_name.trim()).eq('can_conduct_interviews', true).limit(1).maybeSingle()
-        interviewerEmail = iv?.email?.trim() || null
-      }
-      const mailto = buildNotificationMailto(student, chosen, interviewerEmail)
+      const mailto = buildNotificationMailto(student, data.slot, data.interviewerEmail)
       window.open(mailto, '_blank')
     } catch (err) { console.error('Booking error:', err) }
     setBooking(false)

@@ -9,6 +9,9 @@
     "api/keith.js":               { "maxDuration": 30 },
     "api/invite-user.js":         { "maxDuration": 10 },
     "api/manage-interviewers.js": { "maxDuration": 10 },
-    "api/availability.js":        { "maxDuration": 15 }
+    "api/availability.js":        { "maxDuration": 15 },
+    "api/interview-lookup.js":    { "maxDuration": 10 },
+    "api/interview-book.js":      { "maxDuration": 10 },
+    "api/student-update.js":      { "maxDuration": 10 }
   }
 }

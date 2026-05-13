@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './lib/supabase'
+import { updateStudent as proxyUpdateStudent } from './lib/studentProxy'
 import { displayName } from './lib/utils'
 import OverviewTab from './components/OverviewTab'
 import StudentProfilesTab from './components/StudentProfilesTab'
@@ -236,9 +237,13 @@ function MainApp({ onLogout }) {
 
   // ── Student CRUD ─────────────────────────────────────────────
   const updateStudent = useCallback(async (id, updates) => {
-    const { error } = await supabase.from('students').update(updates).eq('id', id)
-    if (!error) setStudents(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s))
-    return error || null
+    try {
+      await proxyUpdateStudent(id, updates)
+      setStudents(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s))
+      return null
+    } catch (err) {
+      return err
+    }
   }, [])
 
   const addStudent = async student => {
@@ -358,7 +363,7 @@ function MainApp({ onLogout }) {
       if (updates.preceptor_assigned !== undefined) su.matched_preceptor = updates.preceptor_assigned
       if (updates.shift_assigned     !== undefined) su.shift_assigned     = updates.shift_assigned
       if (Object.keys(su).length) {
-        await supabase.from('students').update(su).eq('id', studentId)
+        proxyUpdateStudent(studentId, su).catch(err => console.error('Match student update:', err.message))
         setStudents(prev => prev.map(s => s.id === studentId ? { ...s, ...su } : s))
       }
     }

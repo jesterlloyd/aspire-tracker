@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { setAspireStatus } from '../lib/statusUtils'
+import { updateStudent as proxyUpdateStudent } from '../lib/studentProxy'
 
 const TIME_SLOTS = []
 for (let h = 7; h <= 18; h++) {
@@ -37,13 +38,12 @@ export default function EditScheduleModal({ student, onClose, onSaved, onOpenRub
   const handleSave = async () => {
     if (!date) { setError('Please select a date.'); return }
     setSaving(true); setError(null)
-    const { error: err } = await supabase.from('students').update({
-      interview_scheduled_date:        date,
-      interview_scheduled_time:        time,
-      interview_duration_minutes:      duration,
-      interview_assigned_interviewers: assigned.join(', '),
-    }).eq('id', student.id)
-    if (err) { setError(err.message); setSaving(false); return }
+    try {
+      await proxyUpdateStudent(student.id, {
+        interview_scheduled_date: date, interview_scheduled_time: time,
+        interview_duration_minutes: duration, interview_assigned_interviewers: assigned.join(', '),
+      })
+    } catch (err) { setError(err.message); setSaving(false); return }
     await setAspireStatus(student.id, 'Interview Scheduled')
     await onSaved()
     onClose()
@@ -51,13 +51,12 @@ export default function EditScheduleModal({ student, onClose, onSaved, onOpenRub
 
   const handleDelete = async () => {
     setDeleting(true)
-    const { error: err } = await supabase.from('students').update({
-      interview_scheduled_date:        '',
-      interview_scheduled_time:        '',
-      interview_duration_minutes:      null,
-      interview_assigned_interviewers: '',
-    }).eq('id', student.id)
-    if (err) { setError(err.message); setDeleting(false); setConfirmDelete(false); return }
+    try {
+      await proxyUpdateStudent(student.id, {
+        interview_scheduled_date: '', interview_scheduled_time: '',
+        interview_duration_minutes: null, interview_assigned_interviewers: '',
+      })
+    } catch (err) { setError(err.message); setDeleting(false); setConfirmDelete(false); return }
     await onSaved()
     onClose()
   }

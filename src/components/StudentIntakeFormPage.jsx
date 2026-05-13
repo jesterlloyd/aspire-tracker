@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { PATIENT_POPULATION_MAP } from '../lib/constants'
 import { setAspireStatus } from '../lib/statusUtils'
 import { logEvent, eventExists } from '../lib/logEvent'
+import { updateStudent as proxyUpdateStudent } from '../lib/studentProxy'
 
 const PAGE_TITLE = 'ASPIRE Program: Student Information Form'
 
@@ -223,8 +224,9 @@ export default function StudentIntakeFormPage() {
       ...(headshot_url && { headshot_url }),
     }
 
-    const { error: updateErr } = await supabase.from('students').update(updates).eq('id', studentId)
-    if (updateErr) {
+    try {
+      await proxyUpdateStudent(studentId, updates)
+    } catch (updateErr) {
       setError('Something went wrong. Please try again or contact the ASPIRE team.')
       setSubmitting(false)
       return

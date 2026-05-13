@@ -8,6 +8,7 @@ import { buildUnitLeaderEmail } from '../lib/emailUtils'
 import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 export { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { logEvent, eventExists } from '../lib/logEvent'
+import { updateStudent as proxyUpdateStudent } from '../lib/studentProxy'
 import EmptyState from './EmptyState'
 import SyncIndicator from './SyncIndicator'
 import { Star } from 'lucide-react'
@@ -527,7 +528,7 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
     for (const s of placedStudents) {
       await logComm({ type:'orientation_email', student:s, sentToEmail:s.personal_email||s.school_email, sentToName:`${s.last_name}, ${s.first_name}` })
       // Also mark individual student orientation_sent_at if column exists
-      await supabase.from('students').update({ orientation_sent_at: now }).eq('id', s.id)
+      proxyUpdateStudent(s.id, { orientation_sent_at: now }).catch(err => console.warn('orientation update:', err.message))
     }
     setOriDone(true)
   }

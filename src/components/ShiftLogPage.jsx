@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { logEvent, eventExists } from '../lib/logEvent'
+import { updateStudent as proxyUpdateStudent } from '../lib/studentProxy'
 import { openMailtoLink } from '../lib/openLink'
 
 const JESTER = 'JesterLloyd.Bautista@cshs.org'
@@ -172,7 +173,7 @@ export default function ShiftLogPage() {
 
       if (status === 'approved') {
         newApprovedVal = currentApproved + hours
-        await supabase.from('students').update({ approved_hours: newApprovedVal }).eq('id', student.id)
+        proxyUpdateStudent(student.id, { approved_hours: newApprovedVal }).catch(err => console.warn('approved_hours update:', err.message))
 
         // Automation 5: Rotation Start — first approved shift
         const { data: existingShifts } = await supabase
@@ -202,7 +203,7 @@ export default function ShiftLogPage() {
         }
       } else {
         newPendingVal = currentPending + hours
-        await supabase.from('students').update({ pending_hours: newPendingVal }).eq('id', student.id)
+        proxyUpdateStudent(student.id, { pending_hours: newPendingVal }).catch(err => console.warn('pending_hours update:', err.message))
       }
 
       setNewApproved(newApprovedVal)
