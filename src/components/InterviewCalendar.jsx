@@ -8,6 +8,14 @@ import { useAuth } from '../contexts/AuthContext'
 import { X, Trash2, CheckCircle, Clock } from 'lucide-react'
 import CalendarSidebar from './CalendarSidebar'
 
+const hexToRgba = (hex, alpha) => {
+  if (!hex || !hex.startsWith('#')) return `rgba(29,37,103,${alpha})`
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
 // ─── Popover: Create Block ────────────────────────────────────────────────────
 function CreatePopover({ date, startTime, endTime, position, interviewerProfiles, isAdmin, cohortId, userProfile, onSave, onClose }) {
   const [form, setForm] = useState({
@@ -523,33 +531,42 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
     const openSlots   = blockSlots.filter(s => !s.is_booked)
     const color       = colorMap[block.interviewer_name] || '#1D2567'
     const firstName   = block.interviewer_name?.split(' ')[0] || 'ASPIRE'
-    const isMine      = userProfile?.full_name === block.interviewer_name
 
     const bookedEvents = bookedSlots.map(slot => {
       const student     = Array.isArray(slot.students) ? slot.students[0] : slot.students
       const studentName = student ? `${student.first_name} ${student.last_name}` : 'Booked'
-      const blockColor  = colorMap[block.interviewer_name] || '#3b82f6'
+      const timeStr     = slot.slot_time
+        ? new Date(`2000-01-01T${slot.slot_time}`).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' })
+        : ''
       return {
         id:    `booked-${slot.id}`,
-        title: `${studentName}\n${slot.interviewer_name?.split(' ')[0] || 'ASPIRE'}`,
+        title: studentName,
         start: `${slot.slot_date}T${slot.slot_time || '00:00'}`,
         end:   `${slot.slot_date}T${slot.slot_time || '00:00'}`,
-        backgroundColor: '#dbeafe',
-        borderColor:     blockColor,
-        textColor:       '#1e40af',
-        extendedProps:   { type: 'booked', slot, block, color: blockColor },
+        backgroundColor: 'transparent',
+        borderColor:     'transparent',
+        extendedProps:   {
+          type: 'booked', color, interviewer: firstName, studentName,
+          time: timeStr, flag: slot.interview_flag || null, slot, block,
+        },
       }
     })
 
     const availabilityEvent = openSlots.length > 0 ? {
       id:    block.id,
-      title: `Available · ${openSlots.length} slot${openSlots.length !== 1 ? 's' : ''}\n${firstName}`,
+      title: `${openSlots.length} open · ${firstName}`,
       start: `${block.block_date}T${block.start_time}`,
       end:   `${block.block_date}T${block.end_time}`,
-      backgroundColor: `${color}18`,
-      borderColor:     color,
-      textColor:       color,
-      extendedProps:   { type: 'availability', block, blockSlots, color },
+      backgroundColor: 'transparent',
+      borderColor:     'transparent',
+      extendedProps:   {
+        type: 'availability', color, interviewer: firstName,
+        openCount: openSlots.length,
+        startTime: block.start_time
+          ? new Date(`2000-01-01T${block.start_time}`).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' })
+          : '',
+        block, blockSlots,
+      },
     } : null
 
     return [...(availabilityEvent ? [availabilityEvent] : []), ...bookedEvents]
@@ -702,6 +719,63 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
     })
   }
 
+  const renderEventContent = (info) => {
+    const { type, color, interviewer, openCount, startTime, studentName, time, flag } = info.event.extendedProps
+    const ic = color || '#1D2567'
+
+    if (type === 'availability') {
+      return (
+        <div style={{ background: hexToRgba(ic, 0.08), borderLeft:`3px solid ${ic}`, borderRadius:'5px', padding:'2px 6px 3px', margin:'0 2px', cursor:'pointer', overflow:'hidden', width:'100%', boxSizing:'border-box' }}>
+          <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'10px', lineHeight:1.35, color:ic, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+            {openCount} open slot{openCount !== 1 ? 's' : ''}
+          </div>
+          <div style={{ fontFamily:'DM Sans', fontSize:'9px', color:'#6b7280', lineHeight:1.3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+            {startTime}{startTime && interviewer ? ' · ' : ''}{interviewer}
+          </div>
+        </div>
+      )
+    }
+
+    if (type === 'booked') {
+      if (flag === 'no_show') {
+        return (
+          <div style={{ background:'#FFFBEB', borderLeft:'3px solid #D97706', borderRadius:'5px', padding:'2px 6px 3px', margin:'0 2px', cursor:'pointer', overflow:'hidden', width:'100%', boxSizing:'border-box' }}>
+            <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'10px', color:'#92400E', lineHeight:1.35, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>⚠ {studentName}</div>
+            <div style={{ fontFamily:'DM Sans', fontSize:'9px', color:'#9CA3AF', lineHeight:1.3 }}>{time}{time && interviewer ? ' · ' : ''}{interviewer}</div>
+          </div>
+        )
+      }
+      if (flag === 'cancelled') {
+        return (
+          <div style={{ background:'#F3F4F6', borderLeft:'3px solid #9CA3AF', borderRadius:'5px', padding:'2px 6px 3px', margin:'0 2px', cursor:'pointer', overflow:'hidden', width:'100%', boxSizing:'border-box', opacity:0.75 }}>
+            <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'10px', color:'#6B7280', lineHeight:1.35, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', textDecoration:'line-through' }}>{studentName}</div>
+            <div style={{ fontFamily:'DM Sans', fontSize:'9px', color:'#9CA3AF', lineHeight:1.3 }}>Cancelled</div>
+          </div>
+        )
+      }
+      if (flag === 'needs_reschedule' || flag === 'rescheduled') {
+        return (
+          <div style={{ background:'#FEF3C7', borderLeft:'3px solid #F59E0B', borderRadius:'5px', padding:'2px 6px 3px', margin:'0 2px', cursor:'pointer', overflow:'hidden', width:'100%', boxSizing:'border-box' }}>
+            <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'10px', color:'#92400E', lineHeight:1.35, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>↺ {studentName}</div>
+            <div style={{ fontFamily:'DM Sans', fontSize:'9px', color:'#9CA3AF', lineHeight:1.3 }}>{time}{time && interviewer ? ' · ' : ''}{interviewer}</div>
+          </div>
+        )
+      }
+      return (
+        <div style={{ background: hexToRgba(ic, 0.13), borderLeft:`3px solid ${ic}`, borderRadius:'5px', padding:'2px 6px 3px', margin:'0 2px', cursor:'pointer', overflow:'hidden', width:'100%', boxSizing:'border-box' }}>
+          <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'10px', lineHeight:1.35, color:ic, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{studentName}</div>
+          <div style={{ fontFamily:'DM Sans', fontSize:'9px', color:'#6b7280', lineHeight:1.3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{time}{time && interviewer ? ' · ' : ''}{interviewer}</div>
+        </div>
+      )
+    }
+
+    return (
+      <div style={{ fontFamily:'DM Sans', fontSize:'10px', fontWeight:600, padding:'2px 6px', color:'#374151', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+        {info.event.title}
+      </div>
+    )
+  }
+
   return (
     <div style={{ position: 'relative' }}>
       {(createPopover || blockPopover || dayPopover) && (
@@ -827,15 +901,13 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
             @keyframes fadeInHint { from { opacity: 0; } to { opacity: 1; } }
             .fc-daygrid-event-harness { margin-bottom: 2px !important; }
             .fc-daygrid-event {
-              padding: 3px 6px !important; border-radius: 6px !important;
-              border-left-width: 3px !important;
-              border-top: none !important; border-right: none !important; border-bottom: none !important;
-              cursor: pointer !important;
+              border: none !important;
+              background: transparent !important;
+              box-shadow: none !important;
+              margin-bottom: 2px !important;
+              padding: 0 !important;
             }
-            .fc-event-title {
-              font-size: 10px !important; font-weight: 600 !important;
-              line-height: 1.4 !important; white-space: pre-wrap !important;
-            }
+            .fc-event-title-container { width: 100%; }
             .fc-timegrid-slot { cursor: pointer; height: 32px !important; }
             .fc-timegrid-slot:hover { background: #f0f3ff !important; }
             .fc-timegrid-slot-label { font-size: 10px !important; color: #9ca3af !important; }
@@ -849,6 +921,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
             headerToolbar={false}
             datesSet={handleDatesSet}
             events={calendarEvents}
+            eventContent={renderEventContent}
             dateClick={handleDateClick}
             eventClick={handleEventClick}
             height={560}
