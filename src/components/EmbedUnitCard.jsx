@@ -1,8 +1,7 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { UNIT_DIVISION_MAP } from '../lib/constants'
 import { displayName } from '../lib/utils'
 import { buildUnitLeaderEmail } from '../lib/emailUtils'
-import { updateStudent } from '../lib/studentProxy'
 
 const COMPAT_LABEL = {
   green:  { text: '★ 1st Choice', color: '#16a34a' },
@@ -246,11 +245,7 @@ export default function EmbedUnitCard({
   )
 }
 
-function FilledSlotPill({ student, match, unit, onUnmatch, onUpdateMatch, onNotify }) {
-  const [preceptor, setPreceptor] = useState(match?.preceptor_assigned || '')
-  const [shift,     setShift]     = useState(match?.shift_assigned     || '')
-  const timerRef = useRef(null)
-
+function FilledSlotPill({ student, match, unit, onUnmatch, onNotify }) {
   const quality = student.unit_preference_1 === unit.unit_name ? 'top'
     : student.unit_preference_2 === unit.unit_name ? '2nd'
     : student.unit_preference_3 === unit.unit_name ? '3rd'
@@ -259,25 +254,6 @@ function FilledSlotPill({ student, match, unit, onUnmatch, onUpdateMatch, onNoti
     : quality === '2nd'             ? { text:'★ 2nd', bg:'#fef3c7', color:'#92400e' }
     : quality === '3rd'             ? { text:'★ 3rd', bg:'#eff6ff', color:'#0369a1' }
     : null
-
-  const savePreceptor = val => {
-    setPreceptor(val)
-    if (!match) return
-    clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => {
-      onUpdateMatch(match.id, student.id, { preceptor_assigned: val })
-      updateStudent(student.id, { matched_preceptor: val })
-        .catch(err => console.error('preceptor proxy save:', err.message))
-    }, 500)
-  }
-  const saveShift = val => {
-    setShift(val)
-    if (match) {
-      onUpdateMatch(match.id, student.id, { shift_assigned: val })
-      updateStudent(student.id, { shift_assigned: val })
-        .catch(err => console.error('shift proxy save:', err.message))
-    }
-  }
 
   const isNotified  = !!match?.notification_sent
   const notifiedDate = match?.notified_at
@@ -311,26 +287,6 @@ function FilledSlotPill({ student, match, unit, onUnmatch, onUpdateMatch, onNoti
           }
           <button className="euc-sf-unmatch" onClick={onUnmatch} title="Unmatch student">×</button>
         </div>
-      </div>
-      <div className="euc-sf-row">
-        <span className="euc-sf-lbl">Preceptor:</span>
-        <input
-          className="euc-sf-input"
-          value={preceptor}
-          onChange={e => savePreceptor(e.target.value)}
-          placeholder="Assign preceptor…"
-          onClick={e => e.stopPropagation()}
-        />
-      </div>
-      <div className="euc-sf-row">
-        <span className="euc-sf-lbl">Shift:</span>
-        <select className="euc-sf-select" value={shift} onChange={e => saveShift(e.target.value)} onClick={e => e.stopPropagation()}>
-          <option value="">—</option>
-          <option value="Day">Day</option>
-          <option value="Night">Night</option>
-          <option value="Either">Either</option>
-          <option value="Day and Night">Day and Night</option>
-        </select>
       </div>
       {(student.matched_preceptor || student.shift_assigned) && (
         <div style={{ display:'flex', gap:'8px', alignItems:'center', marginTop:'6px', flexWrap:'wrap', paddingTop:'4px', borderTop:'1px solid #f3f4f6' }}>
