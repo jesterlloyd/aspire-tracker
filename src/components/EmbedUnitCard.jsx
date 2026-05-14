@@ -213,16 +213,6 @@ export default function EmbedUnitCard({
           {matchedStudents.map(raw => {
             const match   = matches.find(m => m.student_id === raw.id && m.unit_id === unit.id)
             const student = resolveMatchedStudent(match, null, studentMap) || raw
-            console.log('RESOLVE DEBUG:', {
-              rawId:          raw?.id,
-              rawFirstName:   raw?.first_name,
-              rawLastName:    raw?.last_name,
-              matchStudentId: match?.student_id,
-              studentMapSize: Object.keys(studentMap || {}).length,
-              foundInMap:     !!(match?.student_id && studentMap?.[match.student_id]),
-              resolvedFirst:  student?.first_name,
-              resolvedLast:   student?.last_name,
-            })
             return (
               <FilledSlotPill
                 key={student.id}
@@ -331,24 +321,25 @@ function FilledSlotPill({ student, match, unit, onUnmatch, onNotify }) {
       <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'6px' }}>
         {(() => {
           const avatarSrc = getStudentAvatar(student)
-          const initials  = `${student?.first_name?.[0] || ''}${student?.last_name?.[0] || ''}`.toUpperCase()
-          console.log('AVATAR DEBUG:', {
-            resolvedStudent:  student,
-            firstName:        student?.first_name,
-            lastName:         student?.last_name,
-            avatarSrc:        avatarSrc,
-            matchStudentId:   match?.student_id,
-            slotStudentId:    null, // slot not passed to FilledSlotPill
-          })
+          const firstName = student?.first_name || ''
+          const lastName  = student?.last_name  || ''
           return (
             <div style={{
               width:'36px', height:'36px', borderRadius:'50%',
               overflow:'hidden', flexShrink:0, border:'2px solid #e0e7ff',
+              position:'relative',
             }}>
               <img
                 src={avatarSrc}
-                alt={initials}
-                style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}
+                alt={`${firstName} ${lastName}`}
+                width="36"
+                height="36"
+                style={{
+                  display:'block',
+                  width:'36px', height:'36px',
+                  borderRadius:'50%',
+                  objectFit:'cover',
+                }}
               />
             </div>
           )
