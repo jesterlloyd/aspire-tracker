@@ -3,6 +3,11 @@ import { UNIT_DIVISION_MAP } from '../lib/constants'
 import { displayName } from '../lib/utils'
 import { buildUnitLeaderEmail } from '../lib/emailUtils'
 
+const getStudentAvatar = (s) => {
+  const seed = encodeURIComponent(`${s?.first_name || ''} ${s?.last_name || ''}`)
+  return `https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=1c2452&textColor=ffffff&fontSize=38&fontWeight=700`
+}
+
 const COMPAT_LABEL = {
   green:  { text: '★ 1st Choice', color: '#16a34a' },
   yellow: { text: '★ 2nd Choice', color: '#ca8a04' },
@@ -161,7 +166,7 @@ export default function EmbedUnitCard({
           <span className="euc-name" title={unit.unit_name}>{unit.unit_name}</span>
           <div className="euc-header-right">
             {compatInfo && (
-              <span className="euc-compat-label" style={{ color: compatInfo.color }}>
+              <span style={{ background:'#ffffff', fontFamily:'DM Sans', fontWeight:700, fontSize:'10px', color: compatInfo.color, padding:'3px 9px', borderRadius:'20px', flexShrink:0, whiteSpace:'nowrap', boxShadow:'0 1px 3px rgba(0,0,0,0.12)' }}>
                 {compatInfo.text}
               </span>
             )}
@@ -291,9 +296,25 @@ function FilledSlotPill({ student, match, unit, onUnmatch, onNotify }) {
           <button className="euc-sf-unmatch" onClick={onUnmatch} title="Unmatch student">×</button>
         </div>
       </div>
-      {/* Student name */}
-      <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'12px', color:'#1D2567', marginBottom:'5px' }}>
-        {student.first_name} {student.last_name}
+      {/* Avatar + name row */}
+      <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'6px' }}>
+        <div style={{ width:'36px', height:'36px', borderRadius:'50%', overflow:'hidden', flexShrink:0, border:'2px solid #e0e7ff' }}>
+          <img
+            src={getStudentAvatar(student)}
+            alt={`${student.first_name} ${student.last_name}`}
+            style={{ width:'100%', height:'100%', objectFit:'cover' }}
+          />
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'12px', color:'#1D2567', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+            {student.first_name} {student.last_name}
+          </div>
+          {student.school && (
+            <div style={{ fontFamily:'DM Sans', fontSize:'10px', color:'#9ca3af', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+              {student.school}
+            </div>
+          )}
+        </div>
       </div>
       {/* Preceptor + shift flags */}
       <div style={{ display:'flex', gap:'4px', flexWrap:'wrap' }}>
@@ -309,41 +330,30 @@ function FilledSlotPill({ student, match, unit, onUnmatch, onNotify }) {
 }
 
 function EmptySlotPill({ selectedStudent, compat, onClick }) {
-  const [showTip, setShowTip] = useState(false)
   const [hovered, setHovered] = useState(false)
   const isReady = !!selectedStudent && !!onClick
 
-  const tipQuality = compat === 'green'  ? 'Perfect match'
-                   : compat === 'yellow' ? '2nd choice'
-                   : compat === 'blue'   ? '3rd choice'
-                   : ''
-
   return (
-    <div style={{ position: 'relative' }}
-      onMouseEnter={() => { isReady && setShowTip(true); setHovered(true) }}
-      onMouseLeave={() => { setShowTip(false); setHovered(false) }}>
-      <div
-        className={`euc-slot-empty${isReady ? ' euc-slot-ready' : ''}`}
-        onClick={isReady ? onClick : undefined}>
-        {isReady
-          ? (hovered
-              ? `Place ${selectedStudent.first_name} here →`
-              : `Match ${displayName(selectedStudent)} here →`)
-          : (
-            <>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              Open Slot
-            </>
-          )}
-      </div>
-      {showTip && (
-        <div className="euc-slot-tooltip">
-          <div>Match {displayName(selectedStudent)} here</div>
-          {tipQuality && <div style={{ fontSize:10, opacity:0.8, marginTop:2 }}>{tipQuality}</div>}
-        </div>
-      )}
+    <div
+      onClick={isReady ? onClick : undefined}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        border: `1.5px dashed ${hovered && isReady ? '#a5b4fc' : '#c7d2fe'}`,
+        background: hovered && isReady ? '#f0f3ff' : '#f8f9ff',
+        borderRadius:'8px', padding:'8px 12px', marginBottom:'6px',
+        cursor: isReady ? 'pointer' : 'default',
+        display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
+        transition:'all 0.15s ease',
+      }}
+    >
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" strokeWidth="2.5" strokeLinecap="round">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      <span style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:'11px', color:'#a5b4fc' }}>
+        {isReady ? 'Place in this slot' : 'Open Slot'}
+      </span>
     </div>
   )
 }
