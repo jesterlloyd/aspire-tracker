@@ -189,10 +189,14 @@ export default async function handler(req, res) {
         }
       }
 
-      // 4. Revert student status
+      // 4. Revert student status and clear scheduled date/time fields
       const { error: studentError } = await db
         .from('students')
-        .update({ status: 'Form Received' })
+        .update({
+          status:                   'Form Received',
+          interview_scheduled_date: null,
+          interview_scheduled_time: null,
+        })
         .eq('id', student_id)
 
       if (studentError) console.error('Student status revert error:', studentError.message)
