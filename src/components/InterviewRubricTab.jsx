@@ -9,9 +9,8 @@ import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import ScoreFlag from './ScoreFlag'
 import StatCard from './StatCard'
 import EmptyState from './EmptyState'
-import { Users, CalendarCheck, BadgeCheck, Loader, CalendarX, Flag, ThumbsUp, ClipboardList, RefreshCw } from 'lucide-react'
+import { Users, CalendarCheck, BadgeCheck, Loader, CalendarX, Flag, ThumbsUp, ClipboardList } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { btnStyle, BUTTON } from '../lib/designTokens'
 
 // Circular avatar for the IR student list table
 function IrAvatar({ student }) {
@@ -77,21 +76,13 @@ export default function InterviewRubricTab({
 }) {
   const { canInterview, isViewer } = useAuth()
   const [selectedStudentId, setSelectedStudentId] = useState(null)
-  const [search,            setSearch]            = useState('')
   const [sortBy,            setSortBy]            = useState('last_name')
   const [sortDir,           setSortDir]           = useState('asc')
-  const [activeFilter,           setActiveFilter]           = useState(null)
+  const [activeFilter,      setActiveFilter]      = useState(null)
   const [refreshKey,        setRefreshKey]        = useState(0)
-  const [refreshing,        setRefreshing]        = useState(false)
   const [calendarCollapsed, setCalendarCollapsed] = useState(false)
 
   const triggerRefresh = useCallback(() => setRefreshKey(k => k + 1), [])
-
-  const handleRefresh = () => {
-    setRefreshing(true)
-    setRefreshKey(k => k + 1)
-    setTimeout(() => setRefreshing(false), 1000)
-  }
 
   // Re-fetch students and rubrics whenever triggerRefresh fires
   useEffect(() => {
@@ -162,12 +153,7 @@ export default function InterviewRubricTab({
       })
     : students
 
-  const filtered = baseStudents.filter(s => {
-    if (!search) return true
-    const q = search.toLowerCase()
-    return displayName(s).toLowerCase().includes(q) || (s.school||'').toLowerCase().includes(q)
-  })
-  const sorted = [...filtered].sort((a, b) => {
+  const sorted = [...baseStudents].sort((a, b) => {
     const ivStatusOrder = { Completed:0, 'In Progress':1, Scheduled:2, 'Not Scheduled':3 }
     let av, bv
     if (sortBy === 'last_name') {
@@ -200,38 +186,47 @@ export default function InterviewRubricTab({
       <InterviewSetupChecklist cohortId={cohortId} cohort={cohort} />
 
       {/* Availability Calendar with collapse toggle */}
-      <div style={{ marginBottom: '20px' }}>
+      <div style={{ marginBottom: '8px' }}>
+        {/* Calendar section header — toggle only, no label */}
         <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          display: 'flex', alignItems: 'center',
           marginBottom: calendarCollapsed ? '0' : '12px',
         }}>
-          <span style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '13px', color: '#1D2567' }}>
-            Availability Calendar
-          </span>
           <button
             onClick={() => setCalendarCollapsed(p => !p)}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
-              padding: '6px 12px',
+              padding: '6px 14px',
               background: calendarCollapsed ? '#1D2567' : '#f3f4ff',
               border: `1px solid ${calendarCollapsed ? '#1D2567' : '#e0e7ff'}`,
               borderRadius: '8px', cursor: 'pointer',
-              fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px',
+              fontFamily: 'DM Sans', fontWeight: 600,
+              fontSize: '12px',
               color: calendarCollapsed ? '#ffffff' : '#1D2567',
               transition: 'all 0.2s ease',
             }}
           >
             {calendarCollapsed ? (
               <>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="6 9 12 15 18 9"/>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
                 </svg>
                 Show Calendar
               </>
             ) : (
               <>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="18 15 12 9 6 15"/>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="8" y1="6" x2="21" y2="6"/>
+                  <line x1="8" y1="12" x2="21" y2="12"/>
+                  <line x1="8" y1="18" x2="21" y2="18"/>
+                  <line x1="3" y1="6" x2="3.01" y2="6"/>
+                  <line x1="3" y1="12" x2="3.01" y2="12"/>
+                  <line x1="3" y1="18" x2="3.01" y2="18"/>
                 </svg>
                 Focus Table View
               </>
@@ -286,7 +281,7 @@ export default function InterviewRubricTab({
       </div>
 
       {/* Student list */}
-      <div className="rub-scroll-area-month">
+      <div className="rub-scroll-area-month" style={{ marginTop: '8px' }}>
         {activeFilter && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: '10px',
@@ -305,28 +300,6 @@ export default function InterviewRubricTab({
             }}>Clear filter</button>
           </div>
         )}
-        <div className="iv-toolbar">
-          <input className="search-input" style={{ maxWidth:320 }} placeholder="Search by name or school…"
-            value={search} onChange={e => setSearch(e.target.value)} />
-          {/* Interviewers are now managed in User Management (top right) */}
-          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            title="Refresh interview data"
-            style={btnStyle('secondary', {
-              background: refreshing ? '#e5e7eb' : BUTTON.secondary.background,
-              cursor: refreshing ? 'default' : 'pointer',
-              height: '32px', fontSize: '12px', padding: '0 12px',
-            })}
-            onMouseEnter={e => { if (!refreshing) e.currentTarget.style.background = BUTTON.secondary.hover }}
-            onMouseLeave={e => { if (!refreshing) e.currentTarget.style.background = refreshing ? '#e5e7eb' : BUTTON.secondary.background }}
-          >
-            <RefreshCw size={13} style={{ animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
-          </button>
-          <span className="iv-hint">Click any row to open the interview rubric session.</span>
-        </div>
 
         <div className="iv-table-wrap">
         <table className="iv-table">
