@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { ASPIRE_STATUSES } from '../lib/constants'
 import { displayName, downloadCSV, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
+import StudentAvatar from './StudentAvatar'
 
 const STAGE1_ACTION_LABELS = {
   add_non_employee:  'Add Non-Employee',
@@ -128,7 +129,6 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
 
 function AccessRow({ student, onUpdate, isHighlighted }) {
   const [data,   setData]   = useState({ ...student })
-  const [imgErr, setImgErr] = useState(false)
   const timerRef = useRef(null)
 
   // Re-sync whenever the student prop changes (e.g. side panel updated a field)
@@ -153,15 +153,7 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
       {/* Col 1: Student Name — avatar + name */}
       <td className="am-td am-td-name">
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          {student.headshot_url && !imgErr
-            ? <img src={student.headshot_url} alt="" onError={() => setImgErr(true)}
-                style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
-            : <div style={{ width:32, height:32, borderRadius:'50%', background:'#1d2567', color:'#fff',
-                display:'flex', alignItems:'center', justifyContent:'center',
-                fontSize:11, fontWeight:700, flexShrink:0 }}>
-                {`${(student.first_name||'')[0]||''}${(student.last_name||'')[0]||''}`.toUpperCase()||'?'}
-              </div>
-          }
+          <StudentAvatar student={student} size={32} />
           <span>{displayName(student)}</span>
         </div>
       </td>

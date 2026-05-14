@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
+import StudentAvatar from './StudentAvatar'
 import {
   ASPIRE_STATUSES, ASPIRE_STATUS_CONFIG, NGRP_OUTCOMES, INTERVIEW_OUTCOMES,
   SHIFT_OPTIONS, COHORTS,
@@ -97,7 +98,6 @@ export default function StudentSidePanel({
   const [uploadingHead, setUploadingHead] = useState(false)
   const [resumeMsg,     setResumeMsg]     = useState(null)
   const [headMsg,       setHeadMsg]       = useState(null)
-  const [headshotError, setHeadshotError] = useState(false)
   const timerRef        = useRef(null)
   const pendingNameSave = useRef(null)
   const resumeRef       = useRef(null)
@@ -123,7 +123,6 @@ export default function StudentSidePanel({
 
   // Reset data when student changes (prev/next navigation)
   useEffect(() => { setData({ ...student }); setSaveStatus('idle') }, [student.id])
-  useEffect(() => { setHeadshotError(false) }, [data.headshot_url])
 
   const [editingInterest, setEditingInterest] = useState(false)
   const [interestDraft,   setInterestDraft]   = useState(student?.interest_statement || '')
@@ -343,8 +342,7 @@ export default function StudentSidePanel({
     }
     const { data: urlData } = supabase.storage.from('student-files').getPublicUrl(path)
     const url = urlData.publicUrl
-    setHeadshotError(false)
-    // Cache-bust for local display only so browser doesn't serve the old cached image
+    // Cache-bust so browser doesn't serve the old cached image
     setData(p => ({ ...p, headshot_url: `${url}?t=${Date.now()}` }))
     onUpdate(student.id, { headshot_url: url })
     setUploadingHead(false)
@@ -359,8 +357,6 @@ export default function StudentSidePanel({
 
   const csStatus    = getCsLinkStatus(data)
   const csStatusCfg = CS_LINK_STATUS_CONFIG[csStatus]
-
-  const initials = `${(student.first_name||'')[0]||''}${(student.last_name||'')[0]||''}`.toUpperCase() || '?'
 
   const confirmDecline = async () => {
     const updates = { status: 'Declined', decline_reason: declineReason }
@@ -406,16 +402,9 @@ export default function StudentSidePanel({
             )}
             {/* Photo */}
             <div style={{ display:'flex', justifyContent:'center', marginBottom:12 }}>
-              {data.headshot_url && !headshotError
-                ? <img src={data.headshot_url} alt={`${student.first_name} ${student.last_name}`}
-                    onError={() => setHeadshotError(true)}
-                    style={{ width:96, height:96, borderRadius:'50%', objectFit:'cover',
-                      border:'3px solid var(--pearl)', boxShadow:'0 4px 16px rgba(29,37,103,0.15)' }} />
-                : <div style={{ width:96, height:96, borderRadius:'50%', background:'var(--nightfall)',
-                    color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
-                    fontSize:32, fontWeight:700, border:'3px solid var(--pearl)',
-                    boxShadow:'0 4px 16px rgba(29,37,103,0.15)' }}>{initials}</div>
-              }
+              <StudentAvatar student={data} size={96}
+                style={{ border:'3px solid var(--pearl)', boxShadow:'0 4px 16px rgba(29,37,103,0.15)', fontSize:'32px' }}
+              />
             </div>
             {/* Name */}
             <div style={{ fontSize:22, fontWeight:700, color:'var(--nightfall)', marginBottom:4 }}>

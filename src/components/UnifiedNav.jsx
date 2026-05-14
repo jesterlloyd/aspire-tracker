@@ -6,6 +6,7 @@ import { TAB_BADGES } from '../lib/brand'
 import { useAuth } from '../contexts/AuthContext'
 import SyncIndicator from './SyncIndicator'
 import { useLastSynced } from '../hooks/useLastSynced'
+import StudentAvatar from './StudentAvatar'
 
 const COHORT_STATUS_COLORS = {
   Planning:  { bg:'#dbeafe', color:'#1d4ed8' },
@@ -373,15 +374,11 @@ export default function UnifiedNav({
                     {results.students.map((s, i) => {
                       const flatIdx = i, isActive = activeIdx === flatIdx
                       const cfg = ASPIRE_STATUS_CONFIG[s.status] || { bg:'#f3f4f6', text:'#6b7280', border:'#d1d5db' }
-                      const initials = `${(s.first_name||'')[0]||''}${(s.last_name||'')[0]||''}`.toUpperCase()||'?'
                       return (
                         <div key={s.id} onClick={() => handleResultClick({ type:'student', data:s })}
                           style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', cursor:'pointer', background: isActive ? 'var(--sand)' : 'transparent' }}
                           onMouseEnter={() => setActiveIdx(flatIdx)} onMouseLeave={() => setActiveIdx(-1)}>
-                          {s.headshot_url
-                            ? <img src={s.headshot_url} alt="" style={{ width:28,height:28,borderRadius:'50%',objectFit:'cover',flexShrink:0 }} />
-                            : <div style={{ width:28,height:28,borderRadius:'50%',background:'var(--nightfall)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,flexShrink:0 }}>{initials}</div>
-                          }
+                          <StudentAvatar student={s} size={28} />
                           <div style={{ flex:1, minWidth:0 }}>
                             <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
                               {s.last_name}{s.last_name&&s.first_name?', ':''}{s.first_name}

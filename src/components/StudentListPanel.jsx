@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import StudentAvatar from './StudentAvatar'
 import ImportStudentsCSV from './ImportStudentsCSV'
 import { getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
@@ -27,10 +28,6 @@ export default function StudentListPanel({
 }) {
   const { canEdit } = useAuth()
   const [showImport,  setShowImport]  = useState(false)
-  const [imgErrors,   setImgErrors]   = useState({})
-
-  // Clear all image errors when the underlying student list changes (cohort switch, import, etc.)
-  useEffect(() => { setImgErrors({}) }, [allStudents])
 
   const schools  = [...new Set(allStudents.map(s => s.school).filter(Boolean))].sort()
 
@@ -98,7 +95,6 @@ export default function StudentListPanel({
                 heading="No students match this filter"
                 subtext="Try a different status, school, or search term." />
         ) : students.map(s => {
-          const initials = `${(s.first_name||'')[0]||''}${(s.last_name||'')[0]||''}`.toUpperCase() || '?'
           const name = `${s.last_name||''}${s.last_name&&s.first_name?', ':''}${s.first_name||''}` || s.name || '—'
           const gpa    = gpaBadge(s.cumulative_gpa)
           const csKey  = getCsLinkStatus(s)
@@ -110,12 +106,7 @@ export default function StudentListPanel({
             <div key={s.id}
               className={`pl-row${sel ? ' pl-selected' : ''}`}
               onClick={() => onSelect(s.id)}>
-              {/* Avatar */}
-              {s.headshot_url && !imgErrors[s.id]
-                ? <img src={s.headshot_url} alt={`${s.first_name} ${s.last_name}`} className="pl-avatar-img"
-                    onError={() => setImgErrors(p => ({ ...p, [s.id]: true }))} />
-                : <div className="pl-avatar-initials">{initials}</div>
-              }
+              <StudentAvatar student={s} size={32} />
               {/* Center */}
               <div className="pl-center">
                 <div className="pl-name">{name}</div>

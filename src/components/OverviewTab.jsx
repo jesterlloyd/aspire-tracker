@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
+import StudentAvatar from './StudentAvatar'
 import StatCard from './StatCard'
 import CohortGantt from './CohortGantt'
 import StatusLegendPopover from './StatusLegendPopover'
@@ -43,7 +44,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [unitGroupsOpen,   setUnitGroupsOpen]   = useState({})
   const [schoolGroupsOpen, setSchoolGroupsOpen] = useState({})
   const [localToast,       setLocalToast]       = useState(null)
-  const [imgErrors,        setImgErrors]        = useState({})
   const [campusOpen,       setCampusOpen]       = useState(false)
   const [campusLogs,       setCampusLogs]       = useState([])
   const [campusLoading,    setCampusLoading]    = useState(false)
@@ -252,16 +252,12 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
               {campusLogs.map(log => {
                 const stu = students.find(s => s.id === log.student_id)
                 if (!stu) return null
-                const initials = `${(stu.first_name||'')[0]||''}${(stu.last_name||'')[0]||''}`.toUpperCase()||'?'
                 const isNight = log.shift_type === 'Night'
                 return (
                   <div key={log.id} style={{ width:160, flexShrink:0, background:'rgba(255,255,255,0.08)',
                     borderRadius:8, padding:12, border:'1px solid rgba(255,255,255,0.12)' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
-                      {stu.headshot_url
-                        ? <img src={stu.headshot_url} alt="" style={{ width:28, height:28, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
-                        : <div style={{ width:28, height:28, borderRadius:'50%', background:'rgba(255,255,255,0.15)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:700, flexShrink:0 }}>{initials}</div>
-                      }
+                      <StudentAvatar student={stu} size={28} />
                       <div style={{ minWidth:0 }}>
                         <div style={{ fontSize:12, fontWeight:600, color:'#fff', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
                           {stu.last_name}{stu.last_name&&stu.first_name?', ':''}{stu.first_name}
@@ -496,17 +492,11 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                         }).map(s => {
                           const statusCfg  = ASPIRE_STATUS_CONFIG[s.status] || { bg:'#f3f4f6', text:'#6b7280', border:'#d1d5db' }
                           const placedUnit = s.matched_unit_id ? units.find(u => u.id === s.matched_unit_id)?.unit_name : null
-                          const initials   = `${(s.first_name||'')[0]||''}${(s.last_name||'')[0]||''}`.toUpperCase() || '?'
                           const isPending  = s.status === 'Pending Outreach'
 
                           return (
                             <div key={s.id} className="ov-student-row">
-                              {/* Avatar */}
-                              {s.headshot_url && !imgErrors[s.id]
-                                ? <img src={s.headshot_url} alt="" onError={() => setImgErrors(p => ({...p, [s.id]:true}))}
-                                    style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
-                                : <div style={{ width:32, height:32, borderRadius:'50%', background:'var(--nightfall)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, flexShrink:0 }}>{initials}</div>
-                              }
+                              <StudentAvatar student={s} size={32} />
                               {/* Info */}
                               <div className="ov-student-info" style={{ flex:1 }}>
                                 <span className="ov-student-name">{displayName(s)}</span>

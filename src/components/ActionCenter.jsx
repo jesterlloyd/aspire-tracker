@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
+import StudentAvatar from './StudentAvatar'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { buildUnitLeaderEmail } from '../lib/emailUtils'
 
@@ -73,15 +74,11 @@ function ActionCard({ title, borderColor, icon, count, children, badgeBg = '#6b7
 
 // ── Student row ───────────────────────────────────────────────
 function SRow({ student, pending, onOpenMail, onMarkSent, noMail=false, warning=null, linkLabel=null, onLink=null }) {
-  const initials = `${(student.first_name||'')[0]||''}${(student.last_name||'')[0]||''}`.toUpperCase()||'?'
   const cfg = ASPIRE_STATUS_CONFIG[student.status]||{bg:'#f3f4f6',text:'#6b7280',border:'#d1d5db'}
   return (
     <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px',
       borderBottom:'1px solid #f9fafb' }}>
-      <div style={{ width:28,height:28,borderRadius:'50%',background:'var(--nightfall)',color:'#fff',
-        display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,flexShrink:0 }}>
-        {initials}
-      </div>
+      <StudentAvatar student={student} size={28} />
       <div style={{ flex:1, minWidth:0 }}>
         <div style={{ fontSize:13,fontWeight:500,color:'var(--raven)',whiteSpace:'nowrap',
           overflow:'hidden',textOverflow:'ellipsis' }}>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { displayName } from '../lib/utils'
+import StudentAvatar from './StudentAvatar'
 import RubricSession from './RubricSession'
 import InterviewCalendar from './InterviewCalendar'
 import TodaysInterviews from './TodaysInterviews'
@@ -12,19 +13,10 @@ import EmptyState from './EmptyState'
 import { Users, CalendarCheck, BadgeCheck, Loader, CalendarX, Flag, ThumbsUp, ClipboardList } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
-// Circular avatar for the IR student list table
 function IrAvatar({ student }) {
-  const [err, setErr] = useState(false)
-  const initials = `${(student.first_name||'')[0]||''}${(student.last_name||'')[0]||''}`.toUpperCase() || '?'
   return (
     <td className="iv-td" style={{ width:44, paddingLeft:12, paddingRight:4 }}>
-      {student.headshot_url && !err
-        ? <img src={student.headshot_url} alt="" onError={() => setErr(true)}
-            style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', display:'block', flexShrink:0 }} />
-        : <div style={{ width:32, height:32, borderRadius:'50%', background:'#1d2567', color:'#fff',
-            display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:12, fontWeight:700, flexShrink:0 }}>{initials}</div>
-      }
+      <StudentAvatar student={student} size={32} />
     </td>
   )
 }

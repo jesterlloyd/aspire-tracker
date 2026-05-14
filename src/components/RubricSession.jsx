@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
+import StudentAvatar from './StudentAvatar'
 import { PATIENT_POPULATION_MAP, UNITS_BY_DIVISION, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import ScoreFlag from './ScoreFlag'
 import { logEvent, eventExists } from '../lib/logEvent'
@@ -302,12 +303,10 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
   // Tracks which domains are in "Other / Custom" mode per rubric instance
   const [otherClicked,    setOtherClicked]    = useState({ cj: false, pp: false, ga: false })
-  const [headshotError,   setHeadshotError]   = useState(false)
   const [showValidation,  setShowValidation]  = useState(false)
   const [unitAvailability,setUnitAvailability]= useState([null, null, null])
   const [availLoading,    setAvailLoading]    = useState(true)
 
-  useEffect(() => { setHeadshotError(false) }, [student.headshot_url])
 
   // Rubrics for this student
   const studentRubrics  = rubrics.filter(r => r.student_id === student.id)
@@ -493,7 +492,6 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     !form.individual_recommendation              && 'Overall recommendation is required',
   ].filter(Boolean) : []
 
-  const initials = `${(student.first_name||'')[0]||''}${(student.last_name||'')[0]||''}`.toUpperCase()
 
   return (
     <div className="rub-session">
@@ -520,16 +518,9 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
           }}>
             {/* Photo 80px */}
             <div style={{ display:'flex', justifyContent:'center', marginBottom:10 }}>
-              {student.headshot_url && !headshotError
-                ? <img src={student.headshot_url} alt={`${student.first_name} ${student.last_name}`}
-                    onError={() => setHeadshotError(true)}
-                    style={{ width:80, height:80, borderRadius:'50%', objectFit:'cover',
-                      border:'3px solid var(--pearl)', boxShadow:'0 4px 16px rgba(29,37,103,0.15)' }} />
-                : <div style={{ width:80, height:80, borderRadius:'50%', background:'var(--nightfall)',
-                    color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
-                    fontSize:28, fontWeight:700, border:'3px solid var(--pearl)',
-                    boxShadow:'0 4px 16px rgba(29,37,103,0.15)' }}>{initials}</div>
-              }
+              <StudentAvatar student={student} size={80}
+                style={{ border:'3px solid var(--pearl)', boxShadow:'0 4px 16px rgba(29,37,103,0.15)', fontSize:'28px' }}
+              />
             </div>
             {/* First Last */}
             <div style={{ fontSize:20, fontWeight:700, color:'var(--nightfall)', marginBottom:4 }}>
