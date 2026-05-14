@@ -4,7 +4,10 @@ import { displayName } from '../lib/utils'
 import { buildUnitLeaderEmail } from '../lib/emailUtils'
 
 const getStudentAvatar = (s) => {
-  const seed = encodeURIComponent(`${s?.first_name || ''} ${s?.last_name || ''}`)
+  const first = s?.first_name || ''
+  const last  = s?.last_name  || ''
+  if (!first && !last) return null
+  const seed = encodeURIComponent(`${first} ${last}`)
   return `https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=1c2452&textColor=ffffff&fontSize=38&fontWeight=700`
 }
 
@@ -302,13 +305,33 @@ function FilledSlotPill({ student, match, unit, onUnmatch, onNotify }) {
       </div>
       {/* Avatar + name row */}
       <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'6px' }}>
-        <div style={{ width:'36px', height:'36px', borderRadius:'50%', overflow:'hidden', flexShrink:0, border:'2px solid #e0e7ff' }}>
-          <img
-            src={getStudentAvatar(student)}
-            alt={`${student.first_name} ${student.last_name}`}
-            style={{ width:'100%', height:'100%', objectFit:'cover' }}
-          />
-        </div>
+        {(() => {
+          const url = getStudentAvatar(student)
+          const initials = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`.toUpperCase()
+          if (!url) return (
+            <div style={{ width:'36px', height:'36px', borderRadius:'50%', flexShrink:0, border:'2px solid #e0e7ff', background:'#1D2567', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'DM Sans', fontWeight:700, fontSize:'12px', color:'#fff' }}>
+              {initials}
+            </div>
+          )
+          return (
+            <div style={{ width:'36px', height:'36px', borderRadius:'50%', overflow:'hidden', flexShrink:0, border:'2px solid #e0e7ff' }}>
+              <img
+                src={url}
+                alt={`${student.first_name} ${student.last_name}`}
+                style={{ width:'100%', height:'100%', objectFit:'cover' }}
+                onError={e => {
+                  e.target.style.display = 'none'
+                  const p = e.target.parentNode
+                  p.style.background = '#1D2567'
+                  p.style.display = 'flex'
+                  p.style.alignItems = 'center'
+                  p.style.justifyContent = 'center'
+                  p.innerHTML = `<span style="font-family:DM Sans;font-weight:700;font-size:12px;color:#fff">${initials}</span>`
+                }}
+              />
+            </div>
+          )
+        })()}
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'12px', color:'#1D2567', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
             {student.first_name} {student.last_name}

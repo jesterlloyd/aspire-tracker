@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { toLocalDateStr } from '../lib/designTokens'
 
 // ─── Mini Calendar ────────────────────────────────────────────────────────────
 function MiniCalendar({ blocks, slots, selectedDate, onSelectDate }) {
@@ -95,7 +96,7 @@ function MiniCalendar({ blocks, slots, selectedDate, onSelectDate }) {
 
 // ─── Today Snapshot ───────────────────────────────────────────────────────────
 function TodaySnapshot({ slots }) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = toLocalDateStr()
 
   const todayLabel = new Date().toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' })
 

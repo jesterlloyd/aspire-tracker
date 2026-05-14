@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { X, Trash2, CheckCircle, Clock } from 'lucide-react'
 import CalendarSidebar from './CalendarSidebar'
+import { toLocalDateStr } from '../lib/designTokens'
 
 const hexToRgba = (hex, alpha) => {
   if (!hex || !hex.startsWith('#')) return `rgba(29,37,103,${alpha})`
@@ -472,7 +473,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const [createPopover, setCreatePopover] = useState(null)
   const [blockPopover,  setBlockPopover]  = useState(null)
   const [dayPopover,    setDayPopover]    = useState(null)
-  const [selectedDate,   setSelectedDate]   = useState(() => new Date().toISOString().split('T')[0])
+  const [selectedDate,   setSelectedDate]   = useState(() => toLocalDateStr())
   const [activeFilter,   setActiveFilter]   = useState(null)
   const [calendarTitle,  setCalendarTitle]  = useState('')
   const [currentView,    setCurrentView]    = useState('dayGridMonth')
@@ -711,7 +712,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const handleAddAvailabilityClick = (e) => {
     const rect = e.currentTarget.getBoundingClientRect()
     setCreatePopover({
-      date:     selectedDate || new Date().toISOString().split('T')[0],
+      date:     selectedDate || toLocalDateStr(),
       position: {
         x: Math.max(8, rect.right - 280),
         y: rect.bottom + 8,
