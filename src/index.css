@@ -1099,12 +1099,14 @@ a.doc-file-link:hover { text-decoration: underline; }
    ================================================================ */
 .ov-school-actions { padding: 8px 18px 4px 36px; }
 .ov-send-btn {
-  background: none; border: 1.5px solid var(--nightfall); border-radius: 4px;
-  color: var(--nightfall); font-size: 12px; font-weight: 600;
-  cursor: pointer; padding: 4px 12px; transition: background 0.12s;
+  height: 30px; padding: 0 14px;
+  background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 9px;
+  color: #166534; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+  transition: all 0.15s ease; white-space: nowrap;
 }
-.ov-send-btn:hover { background: rgba(29,37,103,0.06); }
-.ov-send-btn-sm { font-size: 11px; padding: 3px 9px; }
+.ov-send-btn:hover { background: #dcfce7; }
+.ov-send-btn-sm { font-size: 11px; height: 26px; padding: 0 10px; }
 
 /* ================================================================
    OVERVIEW TAB
@@ -1120,31 +1122,32 @@ a.doc-file-link:hover { text-decoration: underline; }
   background: var(--sand);
   z-index: 10;
   border-bottom: 1px solid #e5e7eb;
-  padding-bottom: 0;
+  padding: 12px 20px 0;
 }
 .aggregate-panel-headers {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
   margin-top: 16px;
 }
 .aggregate-panel-hdr {
   background: var(--pearl);
-  border: 1px solid var(--border); border-bottom: none;
-  border-radius: 8px 8px 0 0;
+  border: 1px solid #e0e7ff; border-bottom: none;
+  border-radius: 14px 14px 0 0;
   display: flex; align-items: flex-start; justify-content: space-between;
   padding: 14px 18px; gap: 12px;
 }
 .aggregate-scrollable-content {
   flex: 1; overflow-y: auto; min-height: 0;
+  padding: 0 20px;
 }
 .ov-panels-body {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
   align-items: start; padding-bottom: 24px;
 }
 .ov-panel-body {
   background: var(--pearl);
-  border: 1px solid var(--border); border-top: none;
-  border-radius: 0 0 8px 8px;
-  overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  border: 1px solid #e0e7ff; border-top: none;
+  border-radius: 0 0 14px 14px;
+  overflow: hidden; box-shadow: 0 2px 12px rgba(29,37,103,0.07);
 }
 
 .ov-hero { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-top: 16px; margin-bottom: 0; }

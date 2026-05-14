@@ -201,7 +201,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
             </div>
           )
           return (
-            <div style={{ background:'#191919', borderRadius:12, padding:'11px 18px', display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+            <div style={{ background:'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)', borderRadius:14, padding:'11px 18px', display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
               <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:12, color:'rgba(255,255,255,0.5)', textTransform:'uppercase', letterSpacing:'0.06em', marginRight:6, flexShrink:0 }}>
                 Today's Priorities
               </span>
@@ -222,7 +222,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         </div>
 
         {/* ── On Campus Today compact strip — second, contextual ── */}
-        <div style={{ background:'#1D2567', borderBottom:'1px solid rgba(255,255,255,0.08)', borderRadius:12, overflow:'hidden' }}>
+        <div style={{ background:'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)', borderRadius:14, overflow:'hidden', boxShadow:'0 2px 12px rgba(29,37,103,0.07)', marginBottom:'4px' }}>
           {/* Header row */}
           <div style={{ display:'flex', alignItems:'center', gap:8, padding:'0 24px', height:48, cursor:'pointer' }}
             onClick={() => setCampusOpen(p => !p)}>
@@ -290,7 +290,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         </div>
 
         {/* Five hero stat cards */}
-        <div className="stat-cards-row" style={{ padding:'12px 16px', marginTop:'16px' }}>
+        <div className="stat-cards-row" style={{ padding:'12px 0', marginTop:'12px' }}>
           <StatCard
             value={totalSlots}
             label="Total Slots"
@@ -574,7 +574,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         </div>
 
         {/* ── Program Timeline strip — below both panels ── */}
-        <div style={{ background:'#1D2567', borderRadius:12, overflow:'hidden', margin:'16px 0' }}>
+        <div style={{ background:'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)', borderRadius:14, overflow:'hidden', margin:'16px 0', boxShadow:'0 2px 12px rgba(29,37,103,0.07)' }}>
           {/* Collapsed header */}
           <div
             onClick={() => setTimelineExpanded(p => !p)}
