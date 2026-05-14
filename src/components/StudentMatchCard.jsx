@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
+import StudentAvatar from './StudentAvatar'
 
 function getInterviewStatus(s) {
   if (s.auto_recommendation === 'Recommend')
@@ -42,8 +43,6 @@ export default function StudentMatchCard({
     return u ? (u.slots_remaining || 0) : null
   }
 
-  const initials = `${(student.first_name||'')[0]||''}${(student.last_name||'')[0]||''}`.toUpperCase() || '?'
-
   return (
     <div
       className={classes}
@@ -71,9 +70,7 @@ export default function StudentMatchCard({
 
       {/* Top row: avatar + name + pills */}
       <div style={{ display:'flex', alignItems:'flex-start', gap:'10px' }}>
-        <div style={{ width:'34px', height:'34px', borderRadius:'50%', background:'#1D2567', flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'DM Sans', fontWeight:700, fontSize:'12px', color:'#ffffff' }}>
-          {initials}
-        </div>
+        <StudentAvatar student={student} size={34} />
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'13px', color:'#1D2567', marginBottom:'2px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
             {student.last_name}, {student.first_name}

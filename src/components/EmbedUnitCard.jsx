@@ -2,20 +2,7 @@ import { useState } from 'react'
 import { UNIT_DIVISION_MAP } from '../lib/constants'
 import { displayName } from '../lib/utils'
 import { buildUnitLeaderEmail } from '../lib/emailUtils'
-
-const getStudentAvatar = (student) => {
-  const first    = student?.first_name?.trim()?.[0] || ''
-  const last     = student?.last_name?.trim()?.[0]  || ''
-  const initials = `${first}${last}`.toUpperCase()  || '?'
-  const svg = [
-    '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">',
-    '<circle cx="18" cy="18" r="18" fill="#1c2452"/>',
-    `<text x="18" y="23" text-anchor="middle" font-family="DM Sans,sans-serif" `,
-    `font-size="13" font-weight="700" fill="white">${initials}</text>`,
-    '</svg>',
-  ].join('')
-  return `data:image/svg+xml;base64,${btoa(svg)}`
-}
+import StudentAvatar from './StudentAvatar'
 
 const resolveMatchedStudent = (match, slot, studentMap) => {
   if (match?.student?.first_name) return match.student
@@ -319,31 +306,7 @@ function FilledSlotPill({ student, match, unit, onUnmatch, onNotify }) {
       </div>
       {/* Avatar + name row */}
       <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'6px' }}>
-        {(() => {
-          const avatarSrc = getStudentAvatar(student)
-          const firstName = student?.first_name || ''
-          const lastName  = student?.last_name  || ''
-          return (
-            <div style={{
-              width:'36px', height:'36px', borderRadius:'50%',
-              overflow:'hidden', flexShrink:0, border:'2px solid #e0e7ff',
-              position:'relative',
-            }}>
-              <img
-                src={avatarSrc}
-                alt={`${firstName} ${lastName}`}
-                width="36"
-                height="36"
-                style={{
-                  display:'block',
-                  width:'36px', height:'36px',
-                  borderRadius:'50%',
-                  objectFit:'cover',
-                }}
-              />
-            </div>
-          )
-        })()}
+        <StudentAvatar student={student} size={36} />
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'12px', color:'#1D2567', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
             {student.first_name} {student.last_name}
