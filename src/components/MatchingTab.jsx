@@ -276,7 +276,11 @@ export default function MatchingTab({
           <div className="embed-units-body">
             {/* Matching banner — shows when a student is selected */}
             <div style={{ padding:'12px 16px 0' }}>
-              <MatchingBanner student={selectedStudent} units={participating} />
+              <MatchingBanner
+                student={selectedStudent}
+                units={participating}
+                onClearSelection={() => setSelectedStudent(null)}
+              />
             </div>
             {participating.length === 0 ? (
               <EmptyState icon={<MapPin />}

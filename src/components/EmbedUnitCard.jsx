@@ -153,9 +153,13 @@ export default function EmbedUnitCard({
 
       <div className="euc-card" style={{
         background: bgTint,
-        border: compat ? `2px solid ${COMPAT_HEADER[compat]}` : '1px solid #e0e7ff',
+        border: compat
+          ? `2px solid ${COMPAT_HEADER[compat]}`
+          : selectedStudent
+          ? '1px solid #f3f4f6'
+          : '1px solid #e0e7ff',
         boxShadow: isHighlighted ? '0 0 0 2px var(--nightfall), 0 0 0 4px rgba(29,37,103,0.3)' : undefined,
-        opacity: selectedStudent && !compat && !isFull ? 0.55 : 1,
+        opacity: selectedStudent && !compat && !isFull ? 0.82 : 1,
         animation: isHighlighted ? 'unit-highlight 2s ease-out' : undefined,
         transition: 'all 0.2s ease',
       }}>
@@ -287,7 +291,7 @@ function FilledSlotPill({ student, match, unit, onUnmatch, onNotify }) {
         </span>
         <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
           <span style={{ fontFamily:'DM Sans', fontSize:'9px', fontWeight:600, color: isNotified ? '#16a34a' : '#d97706', display:'flex', alignItems:'center', gap:'3px' }}>
-            {isNotified ? '✓ Notified' : '⚠ Pending'}
+            {isNotified ? '✓ Unit notified' : '⚠ Notification pending'}
           </span>
           {!isNotified && (
             <button title="Notify unit leader" onClick={e => { e.stopPropagation(); onNotify(student, match) }}

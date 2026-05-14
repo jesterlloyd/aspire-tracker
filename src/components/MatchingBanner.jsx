@@ -6,7 +6,7 @@ const CHOICE_CONFIG = {
   '3rd': { label: '3rd', color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe' },
 }
 
-export default function MatchingBanner({ student, units }) {
+export default function MatchingBanner({ student, units, onClearSelection }) {
   if (!student) {
     return (
       <div style={{
@@ -65,21 +65,26 @@ export default function MatchingBanner({ student, units }) {
             <span style={{ color:'rgba(255,255,255,0.75)' }}>{interviewStatus}</span>
           </div>
         </div>
-        {recommendedUnit && (
-          <div style={{ background:'#f0fdf4', borderRadius:'8px', padding:'6px 12px', flexShrink:0, textAlign:'right' }}>
-            <div style={{ fontFamily:'DM Sans', fontSize:'9px', fontWeight:700, color:'#16a34a', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:'2px' }}>
-              Recommended
-            </div>
-            <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'12px', color:'#166534' }}>
-              {recommendedUnit.unit_name}
-            </div>
-          </div>
+        {/* Clear selection button */}
+        {onClearSelection && (
+          <button
+            onClick={onClearSelection}
+            title="Clear selection"
+            style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'7px', padding:'4px 10px', cursor:'pointer', display:'flex', alignItems:'center', gap:'5px', flexShrink:0, transition:'background 0.15s ease' }}
+            onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.22)'}
+            onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.12)'}
+          >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+            <span style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:'11px', color:'rgba(255,255,255,0.75)' }}>Clear</span>
+          </button>
         )}
       </div>
 
       {/* Preferences */}
       {prefs.length > 0 && (
-        <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
+        <div style={{ display:'flex', gap:'6px', flexWrap:'wrap', alignItems:'center' }}>
           {prefs.map(pref => {
             const unit = getUnit(pref.unitName)
             if (!unit) return null
@@ -99,6 +104,17 @@ export default function MatchingBanner({ student, units }) {
               </div>
             )
           })}
+          {/* Recommended pill — inline */}
+          {recommendedUnit && (
+            <div style={{ display:'flex', alignItems:'center', gap:'5px', background:'rgba(134,239,172,0.2)', border:'1px solid rgba(134,239,172,0.4)', borderRadius:'7px', padding:'5px 10px' }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#86efac" strokeWidth="2.5" strokeLinecap="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              <span style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'10px', color:'#86efac', whiteSpace:'nowrap' }}>
+                Recommended: {recommendedUnit.unit_name}
+              </span>
+            </div>
+          )}
         </div>
       )}
 
