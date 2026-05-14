@@ -561,7 +561,7 @@ body { min-height: 100vh; }
 /* ================================================================
    MATCHING TAB
    ================================================================ */
-.matching-tab { display: flex; flex-direction: column; gap: 20px; }
+.matching-tab { display: flex; flex-direction: column; gap: 8px; }
 
 .match-summary { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; }
 .match-stat-card {

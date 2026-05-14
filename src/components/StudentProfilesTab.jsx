@@ -63,6 +63,20 @@ export default function StudentProfilesTab({
   const [filterStatus,      setFilterStatus]      = useState('')
   const [sortBy,            setSortBy]            = useState('last_name_asc')
   const [needsAttention,    setNeedsAttention]    = useState(false)
+  const [activeCardFilter,  setActiveCardFilter]  = useState(null)
+
+  const CARD_FILTER_FNS = {
+    matched:    s => !!s.matched_unit_id,
+    Placed:     s => s.status === 'Placed',
+    ngrp_hired: s => s.ngrp_outcome === 'Hired',
+  }
+  const CARD_FILTER_LABELS = {
+    matched:    'Students Placed',
+    Placed:     'Placed',
+    ngrp_hired: 'NGRP Hired',
+  }
+
+  const handleCardFilter = (key) => setActiveCardFilter(prev => prev === key ? null : key)
 
   const filteredSorted = useMemo(() => {
     let list = students
@@ -79,8 +93,11 @@ export default function StudentProfilesTab({
     if (needsAttention) list = list.filter(s =>
       !s.personal_email?.trim() || s.cumulative_gpa == null || !s.unit_preference_1?.trim()
     )
+    if (activeCardFilter && CARD_FILTER_FNS[activeCardFilter]) {
+      list = list.filter(CARD_FILTER_FNS[activeCardFilter])
+    }
     return sortStudentsList(list, sortBy)
-  }, [students, localSearch, filterSchool, filterStatus, sortBy, needsAttention])
+  }, [students, localSearch, filterSchool, filterStatus, sortBy, needsAttention, activeCardFilter]) // eslint-disable-line
 
   const selectedStudent = selectedStudentId ? students.find(s => s.id === selectedStudentId) : null
   const panelStudent    = selectedStudent
@@ -97,7 +114,20 @@ export default function StudentProfilesTab({
 
       {/* Frozen: summary cards + view toggle */}
       <div className="profiles-frozen">
-        <Dashboard students={students} />
+        <Dashboard students={students} activeFilter={activeCardFilter} onFilterChange={handleCardFilter} />
+        {activeCardFilter && (
+          <div style={{ display:'flex', alignItems:'center', gap:'10px', padding:'7px 14px', marginBottom:'4px', background:'#f0f3ff', borderRadius:'8px', border:'1px solid #e0e7ff' }}>
+            <span style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#1D2567' }}>
+              Showing: {CARD_FILTER_LABELS[activeCardFilter] || activeCardFilter}
+            </span>
+            <button onClick={() => setActiveCardFilter(null)} style={{ background:'none', border:'none', fontFamily:'DM Sans', fontSize:'12px', color:'#6b7280', cursor:'pointer', textDecoration:'underline', padding:0 }}>
+              Clear filter
+            </button>
+            <span style={{ fontFamily:'DM Sans', fontSize:'11px', color:'#9ca3af', marginLeft:'auto' }}>
+              {filteredSorted.length} student{filteredSorted.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
         <div className="profiles-view-toggle">
           <button
             className={`profiles-toggle-btn${view === 'records' ? ' active' : ''}`}

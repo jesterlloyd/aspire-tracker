@@ -202,7 +202,7 @@ export default function MatchingTab({
       </div>
 
       {/* Sync indicator below stat cards */}
-      <div style={{ display:'flex', justifyContent:'flex-end', marginTop:'4px', marginBottom:'8px', paddingRight:'4px' }}>
+      <div style={{ display:'flex', justifyContent:'flex-end', marginTop:'2px', marginBottom:'2px', paddingRight:'4px' }}>
         <SyncIndicator display={embedSyncDisplay} align="right" />
       </div>
 
