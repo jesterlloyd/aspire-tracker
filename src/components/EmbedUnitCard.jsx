@@ -213,7 +213,16 @@ export default function EmbedUnitCard({
           {matchedStudents.map(raw => {
             const match   = matches.find(m => m.student_id === raw.id && m.unit_id === unit.id)
             const student = resolveMatchedStudent(match, null, studentMap) || raw
-            console.log('FilledSlot student:', student?.first_name, student?.last_name, '| studentMap size:', Object.keys(studentMap || {}).length)
+            console.log('RESOLVE DEBUG:', {
+              rawId:          raw?.id,
+              rawFirstName:   raw?.first_name,
+              rawLastName:    raw?.last_name,
+              matchStudentId: match?.student_id,
+              studentMapSize: Object.keys(studentMap || {}).length,
+              foundInMap:     !!(match?.student_id && studentMap?.[match.student_id]),
+              resolvedFirst:  student?.first_name,
+              resolvedLast:   student?.last_name,
+            })
             return (
               <FilledSlotPill
                 key={student.id}
@@ -323,6 +332,14 @@ function FilledSlotPill({ student, match, unit, onUnmatch, onNotify }) {
         {(() => {
           const avatarSrc = getStudentAvatar(student)
           const initials  = `${student?.first_name?.[0] || ''}${student?.last_name?.[0] || ''}`.toUpperCase()
+          console.log('AVATAR DEBUG:', {
+            resolvedStudent:  student,
+            firstName:        student?.first_name,
+            lastName:         student?.last_name,
+            avatarSrc:        avatarSrc,
+            matchStudentId:   match?.student_id,
+            slotStudentId:    null, // slot not passed to FilledSlotPill
+          })
           return (
             <div style={{
               width:'36px', height:'36px', borderRadius:'50%',
