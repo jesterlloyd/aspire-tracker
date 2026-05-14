@@ -3,12 +3,18 @@ import { UNIT_DIVISION_MAP } from '../lib/constants'
 import { displayName } from '../lib/utils'
 import { buildUnitLeaderEmail } from '../lib/emailUtils'
 
-const getStudentAvatar = (s) => {
-  const first = s?.first_name?.trim() || ''
-  const last  = s?.last_name?.trim()  || ''
-  if (!first && !last) return null
-  const seed = encodeURIComponent(`${first} ${last}`)
-  return `https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=1c2452&textColor=ffffff&fontSize=38&fontWeight=700`
+const getStudentAvatar = (student) => {
+  const first    = student?.first_name?.trim()?.[0] || ''
+  const last     = student?.last_name?.trim()?.[0]  || ''
+  const initials = `${first}${last}`.toUpperCase()  || '?'
+  const svg = [
+    '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">',
+    '<circle cx="18" cy="18" r="18" fill="#1c2452"/>',
+    `<text x="18" y="23" text-anchor="middle" font-family="DM Sans,sans-serif" `,
+    `font-size="13" font-weight="700" fill="white">${initials}</text>`,
+    '</svg>',
+  ].join('')
+  return `data:image/svg+xml;base64,${btoa(svg)}`
 }
 
 const resolveMatchedStudent = (match, slot, studentMap) => {
@@ -207,6 +213,7 @@ export default function EmbedUnitCard({
           {matchedStudents.map(raw => {
             const match   = matches.find(m => m.student_id === raw.id && m.unit_id === unit.id)
             const student = resolveMatchedStudent(match, null, studentMap) || raw
+            console.log('FilledSlot student:', student?.first_name, student?.last_name, '| studentMap size:', Object.keys(studentMap || {}).length)
             return (
               <FilledSlotPill
                 key={student.id}
@@ -314,24 +321,18 @@ function FilledSlotPill({ student, match, unit, onUnmatch, onNotify }) {
       {/* Avatar + name row */}
       <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'6px' }}>
         {(() => {
-          const avatarUrl = getStudentAvatar(student)
-          const initials  = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`.toUpperCase()
+          const avatarSrc = getStudentAvatar(student)
+          const initials  = `${student?.first_name?.[0] || ''}${student?.last_name?.[0] || ''}`.toUpperCase()
           return (
             <div style={{
               width:'36px', height:'36px', borderRadius:'50%',
               overflow:'hidden', flexShrink:0, border:'2px solid #e0e7ff',
-              background:'#1D2567', display:'flex', alignItems:'center',
-              justifyContent:'center', fontFamily:'DM Sans', fontWeight:700,
-              fontSize:'12px', color:'#ffffff',
             }}>
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={`${student.first_name} ${student.last_name}`}
-                  style={{ width:'100%', height:'100%', objectFit:'cover' }}
-                  onError={e => { e.target.style.display = 'none' }}
-                />
-              ) : (initials || '?')}
+              <img
+                src={avatarSrc}
+                alt={initials}
+                style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }}
+              />
             </div>
           )
         })()}

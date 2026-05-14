@@ -4,7 +4,7 @@
  */
 export function getAvatarUrl(userProfile) {
   if (!userProfile) return null;
-  if (userProfile.avatar_url) return userProfile.avatar_url;
+  if (userProfile.avatar_url && userProfile.avatar_url.trim() !== '') return userProfile.avatar_url;
 
   const seed = encodeURIComponent(userProfile.full_name || userProfile.email || 'User');
   const bg = getRoleColor(userProfile.role, userProfile.is_owner);

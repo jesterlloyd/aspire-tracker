@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { getAvatarUrl } from '../lib/getAvatar';
@@ -13,7 +13,40 @@ const ROLE_LABELS = {
 
 export default function UserMenu({ onOpenUserManagement }) {
   const { userProfile, signOut, isOwner } = useAuth();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen,    setIsOpen]    = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) { alert('Please upload a JPG, PNG, or WebP image.'); return; }
+    if (file.size > 2 * 1024 * 1024)    { alert('Image must be under 2MB.'); return; }
+
+    setUploading(true);
+    try {
+      const ext  = file.name.split('.').pop();
+      const path = `${userProfile.auth_user_id}/avatar.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars').upload(path, file, { upsert: true });
+      if (uploadError) { alert(`Upload failed: ${uploadError.message}`); return; }
+
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+
+      const { error: saveError } = await supabase.rpc('update_my_avatar', { p_url: publicUrl });
+      if (saveError) {
+        await supabase.from('user_profiles').update({ avatar_url: publicUrl }).eq('id', userProfile.id);
+      }
+      window.location.reload();
+    } catch (err) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   if (!userProfile) return null;
 
@@ -109,16 +142,39 @@ export default function UserMenu({ onOpenUserManagement }) {
                 <span style={{ display:'inline-block', marginTop:'5px', background:roleStyle.bg, color:roleStyle.color, fontFamily:'DM Sans', fontWeight:700, fontSize:'10px', padding:'2px 8px', borderRadius:'20px' }}>
                   {userProfile.is_owner ? 'Owner' : roleStyle.label}
                 </span>
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleAvatarUpload}
+                  style={{ display: 'none' }}
+                />
                 <button
-                  onClick={() => {
-                    const url = prompt('Enter a photo URL (leave blank for auto-generated avatar):')
-                    if (url !== null) {
-                      fetch('/api/admin-users', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'update_avatar', user_id: userProfile.id, avatar_url: url.trim() || '' }) }).then(() => window.location.reload())
-                    }
-                  }}
-                  style={{ background:'none', border:'none', fontFamily:'DM Sans', fontSize:'11px', color:'#9ca3af', cursor:'pointer', textDecoration:'underline', padding:0, marginTop:'4px', display:'block' }}>
-                  Update photo URL
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  style={{ background:'none', border:'none', fontFamily:'DM Sans', fontSize:'11px', color:'#6b7280', cursor: uploading ? 'default' : 'pointer', padding:0, marginTop:'4px', display:'flex', alignItems:'center', gap:'5px' }}
+                >
+                  {uploading ? (
+                    <>
+                      <div style={{ width:'10px', height:'10px', borderRadius:'50%', border:'2px solid #e5e7eb', borderTopColor:'#1D2567', animation:'spin 0.8s linear infinite', flexShrink:0 }} />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>{userProfile?.avatar_url ? 'Change Photo' : 'Upload Photo'}</>
+                  )}
                 </button>
+                {userProfile?.avatar_url && !uploading && (
+                  <button
+                    onClick={async () => {
+                      await supabase.rpc('update_my_avatar', { p_url: '' });
+                      window.location.reload();
+                    }}
+                    style={{ background:'none', border:'none', fontFamily:'DM Sans', fontSize:'10px', color:'#9ca3af', cursor:'pointer', padding:0, marginTop:'2px', display:'block' }}
+                  >
+                    Remove photo
+                  </button>
+                )}
               </div>
             </div>
 
