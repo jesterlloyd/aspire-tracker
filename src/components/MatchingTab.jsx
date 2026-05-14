@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import EmbedUnitCard from './EmbedUnitCard'
 import StudentMatchCard from './StudentMatchCard'
 import UnitSetupPanel from './UnitSetupPanel'
@@ -43,6 +43,7 @@ export default function MatchingTab({
   toast,
 }) {
   const [selectedStudent,   setSelectedStudent]   = useState(null)
+  const cardRefs = useRef({})
   const [showUnitSetup,     setShowUnitSetup]     = useState(false)
   const [showImportUnits,   setShowImportUnits]   = useState(false)
   const [poolSearch,        setPoolSearch]        = useState('')
@@ -127,6 +128,53 @@ export default function MatchingTab({
       default: return la.localeCompare(lb) // last_name_asc
     }
   })
+
+  const selectedIndex = useMemo(() =>
+    sortedPool.findIndex(s => s.id === selectedStudent?.id),
+  [sortedPool, selectedStudent?.id]) // eslint-disable-line
+
+  useEffect(() => {
+    if (selectedStudent?.id && cardRefs.current[selectedStudent.id]) {
+      cardRefs.current[selectedStudent.id].scrollIntoView({ behavior:'smooth', block:'nearest' })
+    }
+  }, [selectedStudent?.id])
+
+  const handlePrevStudent = () => {
+    if (selectedIndex > 0) handleStudentSelect(sortedPool[selectedIndex - 1])
+  }
+  const handleNextStudent = () => {
+    if (selectedIndex < sortedPool.length - 1) handleStudentSelect(sortedPool[selectedIndex + 1])
+  }
+
+  const getDisplayUnits = useMemo(() => {
+    if (!selectedStudent) return { preferred: [], others: displayUnits, hasFocus: false }
+    const prefNames = [
+      selectedStudent.unit_preference_1,
+      selectedStudent.unit_preference_2,
+      selectedStudent.unit_preference_3,
+    ].filter(Boolean)
+    const preferred = prefNames.map(name => displayUnits.find(u => u.unit_name === name)).filter(Boolean)
+    const prefSet   = new Set(prefNames)
+    const others    = displayUnits.filter(u => !prefSet.has(u.unit_name))
+    return { preferred, others, hasFocus: preferred.length > 0 }
+  }, [displayUnits, selectedStudent]) // eslint-disable-line
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!selectedStudent) return
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+        e.preventDefault()
+        if (selectedIndex < sortedPool.length - 1) handleStudentSelect(sortedPool[selectedIndex + 1])
+      }
+      if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        e.preventDefault()
+        if (selectedIndex > 0) handleStudentSelect(sortedPool[selectedIndex - 1])
+      }
+      if (e.key === 'Escape') setSelectedStudent(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selectedStudent?.id, selectedIndex, sortedPool]) // eslint-disable-line
 
   const handleStudentSelect = s => setSelectedStudent(prev => prev?.id === s.id ? null : s)
 
@@ -288,7 +336,39 @@ export default function MatchingTab({
                 subtext="Use Set Up Units to add participating units and their available slots." />
             ) : (
               <div className="embed-unit-grid">
-                {displayUnits.map(unit => (
+                {getDisplayUnits.preferred.map(unit => (
+                  <EmbedUnitCard
+                    key={unit.id}
+                    unit={unit}
+                    matchedStudents={students.filter(s => s.matched_unit_id === unit.id)}
+                    matches={matches}
+                    selectedStudent={selectedStudent}
+                    onSlotClick={() => handleSlotClick(unit)}
+                    onUnmatch={student => handleUnmatch(student, unit)}
+                    onUpdateMatch={onUpdateMatch}
+                    onDelete={() => onDeleteUnit(unit)}
+                    isHighlighted={highlightUnitId === unit.id}
+                  />
+                ))}
+                {getDisplayUnits.hasFocus && getDisplayUnits.others.length > 0 && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    padding: '8px 4px', margin: '4px 0',
+                    gridColumn: '1 / -1',
+                  }}>
+                    <div style={{ flex: 1, height: '1px', background: '#e0e7ff' }} />
+                    <span style={{
+                      fontFamily: 'DM Sans', fontWeight: 600,
+                      fontSize: '10px', color: '#9ca3af',
+                      textTransform: 'uppercase', letterSpacing: '0.06em',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      Other Available Units
+                    </span>
+                    <div style={{ flex: 1, height: '1px', background: '#e0e7ff' }} />
+                  </div>
+                )}
+                {getDisplayUnits.others.map(unit => (
                   <EmbedUnitCard
                     key={unit.id}
                     unit={unit}
@@ -341,6 +421,91 @@ export default function MatchingTab({
                 <option value="status">ASPIRE Status</option>
               </select>
             </div>
+            {/* Deck navigation — shown when students are available */}
+            {sortedPool.length > 0 && (
+              <div style={{
+                display: 'flex', alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 18px 10px',
+                borderTop: '1px solid rgba(255,255,255,0.08)',
+              }}>
+                <span style={{
+                  fontFamily: 'DM Sans', fontSize: '11px',
+                  color: 'rgba(255,255,255,0.55)',
+                }}>
+                  {selectedStudent
+                    ? `${selectedIndex + 1} of ${sortedPool.length}`
+                    : `${sortedPool.length} student${sortedPool.length !== 1 ? 's' : ''}`
+                  }
+                </span>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button
+                    onClick={handlePrevStudent}
+                    disabled={!selectedStudent || selectedIndex <= 0}
+                    title="Previous student"
+                    style={{
+                      width: '28px', height: '28px',
+                      background: 'rgba(255,255,255,0.1)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      borderRadius: '7px', cursor: selectedIndex > 0 ? 'pointer' : 'default',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      opacity: !selectedStudent || selectedIndex <= 0 ? 0.35 : 1,
+                      transition: 'all 0.15s ease',
+                    }}
+                    onMouseEnter={e => {
+                      if (selectedStudent && selectedIndex > 0)
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                      stroke="rgba(255,255,255,0.8)" strokeWidth="2.5" strokeLinecap="round">
+                      <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                  </button>
+                  <button
+                    onClick={handleNextStudent}
+                    disabled={!selectedStudent || selectedIndex >= sortedPool.length - 1}
+                    title="Next student"
+                    style={{
+                      width: '28px', height: '28px',
+                      background: 'rgba(255,255,255,0.1)',
+                      border: '1px solid rgba(255,255,255,0.15)',
+                      borderRadius: '7px',
+                      cursor: selectedStudent && selectedIndex < sortedPool.length - 1
+                        ? 'pointer' : 'default',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      opacity: !selectedStudent || selectedIndex >= sortedPool.length - 1
+                        ? 0.35 : 1,
+                      transition: 'all 0.15s ease',
+                    }}
+                    onMouseEnter={e => {
+                      if (selectedStudent && selectedIndex < sortedPool.length - 1)
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.2)'
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.1)'
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                      stroke="rgba(255,255,255,0.8)" strokeWidth="2.5" strokeLinecap="round">
+                      <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+            {selectedStudent && (
+              <div style={{
+                textAlign: 'center', paddingBottom: '6px',
+                fontFamily: 'DM Sans', fontSize: '9px',
+                color: 'rgba(255,255,255,0.3)',
+              }}>
+                ↑ ↓ to navigate · Esc to clear
+              </div>
+            )}
           </div>
 
           <div className="embed-students-body">
@@ -355,15 +520,16 @@ export default function MatchingTab({
             ) : (
               <div className="embed-student-list">
                 {sortedPool.map(s => (
-                  <StudentMatchCard
-                    key={s.id}
-                    student={s}
-                    isSelected={selectedStudent?.id === s.id}
-                    onSelect={handleStudentSelect}
-                    isFading={fadingStudentIds.has(s.id)}
-                    isFadingIn={fadeInStudentIds.has(s.id)}
-                    units={participating}
-                  />
+                  <div key={s.id} ref={el => { cardRefs.current[s.id] = el }}>
+                    <StudentMatchCard
+                      student={s}
+                      isSelected={selectedStudent?.id === s.id}
+                      onSelect={handleStudentSelect}
+                      isFading={fadingStudentIds.has(s.id)}
+                      isFadingIn={fadeInStudentIds.has(s.id)}
+                      units={participating}
+                    />
+                  </div>
                 ))}
               </div>
             )}

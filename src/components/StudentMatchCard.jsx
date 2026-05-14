@@ -50,13 +50,15 @@ export default function StudentMatchCard({
       onClick={!isReadOnly ? () => onSelect(student) : undefined}
       role={!isReadOnly ? 'button' : undefined}
       style={{
-        background:   isSelected ? '#f0f3ff' : '#ffffff',
+        background:   isSelected ? '#eef1ff' : '#ffffff',
         border:       isSelected ? '2px solid #1D2567' : '1px solid #f3f4f6',
         borderRadius: '12px',
         padding:      '12px 14px',
         cursor:       isReadOnly ? 'default' : 'pointer',
         transition:   'all 0.15s ease',
         marginBottom: '8px',
+        boxShadow:    isSelected ? '0 4px 16px rgba(29,37,103,0.18)' : '0 1px 3px rgba(0,0,0,0.04)',
+        transform:    isSelected ? 'scale(1.01)' : 'scale(1)',
         position:     'relative',
       }}
     >
