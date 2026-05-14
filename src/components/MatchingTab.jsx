@@ -5,6 +5,7 @@ import UnitSetupPanel from './UnitSetupPanel'
 import ImportUnitsCSV from './ImportUnitsCSV'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
 import { btnStyle, BUTTON } from '../lib/designTokens'
+import MatchingBanner from './MatchingBanner'
 import StatCard from './StatCard'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
@@ -12,6 +13,25 @@ import SyncIndicator from './SyncIndicator'
 import { Layers, Clock, Users, MapPin, Star, TrendingUp, UserX, ClipboardList } from 'lucide-react'
 import { useLastSynced } from '../hooks/useLastSynced'
 import { useAuth } from '../contexts/AuthContext'
+
+export const getInterviewStatus = (s) => {
+  if (s.auto_recommendation === 'Recommend')
+    return { label: 'Recommended',     color: '#166534', bg: '#f0fdf4' }
+  if (s.auto_recommendation === 'Do Not Recommend')
+    return { label: 'Not Recommended', color: '#991b1b', bg: '#fef2f2' }
+  if (parseFloat(s.avg_composite_score) > 0)
+    return { label: 'Rubric Submitted',color: '#1e40af', bg: '#eff6ff' }
+  if (s.interview_scheduled_date)
+    return { label: 'Scheduled',       color: '#92400e', bg: '#fffbeb' }
+  return null
+}
+
+export const MATCH_QUALITY_CONFIG = {
+  '1st':   { label: '★ 1st Choice Match', color: '#166534', bg: '#f0fdf4', border: '#86efac' },
+  '2nd':   { label: '2nd Choice Match',   color: '#92400e', bg: '#fffbeb', border: '#fde68a' },
+  '3rd':   { label: '3rd Choice Match',   color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe' },
+  'other': { label: 'Other Match',        color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
+}
 
 const POOL_ELIGIBLE_STATUSES = new Set([
   'Pending Outreach', 'Form Sent', 'Form Received', 'Interview Scheduled', 'Interviewed',
@@ -254,6 +274,10 @@ export default function MatchingTab({
           </div>
 
           <div className="embed-units-body">
+            {/* Matching banner — shows when a student is selected */}
+            <div style={{ padding:'12px 16px 0' }}>
+              <MatchingBanner student={selectedStudent} units={participating} />
+            </div>
             {participating.length === 0 ? (
               <EmptyState icon={<MapPin />}
                 heading="No units in the pool"
@@ -334,6 +358,7 @@ export default function MatchingTab({
                     onSelect={handleStudentSelect}
                     isFading={fadingStudentIds.has(s.id)}
                     isFadingIn={fadeInStudentIds.has(s.id)}
+                    units={participating}
                   />
                 ))}
               </div>

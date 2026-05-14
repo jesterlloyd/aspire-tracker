@@ -9,6 +9,19 @@ const COMPAT_LABEL = {
   blue:   { text: '★ 3rd Choice', color: '#0369a1' },
 }
 
+const MATCH_QUALITY_CONFIG = {
+  '1st':   { label: '★ 1st Choice Match', color: '#166534', bg: '#f0fdf4', border: '#86efac' },
+  '2nd':   { label: '2nd Choice Match',   color: '#92400e', bg: '#fffbeb', border: '#fde68a' },
+  '3rd':   { label: '3rd Choice Match',   color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe' },
+  'other': { label: 'Other Match',        color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
+}
+
+const COMPAT_HEADER = {
+  green:  '#16a34a',
+  yellow: '#d97706',
+  blue:   '#3b82f6',
+}
+
 function openMailto(href) {
   const a = document.createElement('a')
   a.href = href
@@ -135,12 +148,16 @@ export default function EmbedUnitCard({
 
       <div className="euc-card" style={{
         background: bgTint,
-        boxShadow: isHighlighted ? '0 0 0 2px var(--nightfall), 0 0 0 4px rgba(29,37,103,0.3)' : glow,
-        opacity: selectedStudent && isFull ? 0.5 : 1,
+        border: compat ? `2px solid ${COMPAT_HEADER[compat]}` : '1px solid #e0e7ff',
+        boxShadow: isHighlighted ? '0 0 0 2px var(--nightfall), 0 0 0 4px rgba(29,37,103,0.3)' : undefined,
+        opacity: selectedStudent && !compat && !isFull ? 0.55 : 1,
         animation: isHighlighted ? 'unit-highlight 2s ease-out' : undefined,
+        transition: 'all 0.2s ease',
       }}>
         {/* Header */}
-        <div className="euc-header">
+        <div className="euc-header" style={{
+          background: compat ? COMPAT_HEADER[compat] : 'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)',
+        }}>
           <span className="euc-name" title={unit.unit_name}>{unit.unit_name}</span>
           <div className="euc-header-right">
             {compatInfo && (
@@ -246,69 +263,54 @@ export default function EmbedUnitCard({
 }
 
 function FilledSlotPill({ student, match, unit, onUnmatch, onNotify }) {
-  const quality = student.unit_preference_1 === unit.unit_name ? 'top'
+  const qKey = student.unit_preference_1 === unit.unit_name ? '1st'
     : student.unit_preference_2 === unit.unit_name ? '2nd'
     : student.unit_preference_3 === unit.unit_name ? '3rd'
-    : null
-  const qBadge = quality === 'top' ? { text:'★ 1st', bg:'#dcfce7', color:'#166534' }
-    : quality === '2nd'             ? { text:'★ 2nd', bg:'#fef3c7', color:'#92400e' }
-    : quality === '3rd'             ? { text:'★ 3rd', bg:'#eff6ff', color:'#0369a1' }
-    : null
+    : 'other'
+  const qCfg = MATCH_QUALITY_CONFIG[qKey]
 
-  const isNotified  = !!match?.notification_sent
-  const notifiedDate = match?.notified_at
-    ? new Date(match.notified_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })
-    : null
+  const isNotified   = !!match?.notification_sent
+  const hasPreceptor = !!student.matched_preceptor
+  const hasShift     = !!student.shift_assigned
 
   return (
-    <div className="euc-slot-filled">
-      <div className="euc-sf-top">
-        <div className="euc-sf-left" style={{ flex:1, minWidth:0 }}>
-          {qBadge && (
-            <span className="euc-quality-star" style={{ background: qBadge.bg, color: qBadge.color }}>
-              {qBadge.text}
-            </span>
+    <div style={{ background:'#ffffff', border:'1px solid #f3f4f6', borderRadius:'8px', padding:'10px 12px', marginBottom:'6px' }}>
+      {/* Match quality + notification */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'6px' }}>
+        <span style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'9px', background:qCfg.bg, color:qCfg.color, border:`1px solid ${qCfg.border}`, padding:'2px 8px', borderRadius:'20px' }}>
+          {qCfg.label}
+        </span>
+        <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+          <span style={{ fontFamily:'DM Sans', fontSize:'9px', fontWeight:600, color: isNotified ? '#16a34a' : '#d97706', display:'flex', alignItems:'center', gap:'3px' }}>
+            {isNotified ? '✓ Notified' : '⚠ Pending'}
+          </span>
+          {!isNotified && (
+            <button title="Notify unit leader" onClick={e => { e.stopPropagation(); onNotify(student, match) }}
+              style={{ background:'none', border:'none', cursor:'pointer', fontSize:13, color:'#6b7280', padding:'0 2px', lineHeight:1 }}>✉</button>
           )}
-          <span className="euc-sf-name">{displayName(student)}</span>
-          {isNotified && notifiedDate && (
-            <span style={{ fontSize:10, color:'#166534', marginTop:1 }}>Notified {notifiedDate}</span>
-          )}
-        </div>
-        <div style={{ display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
-          {isNotified
-            ? <span title={`Unit leader notified on ${notifiedDate}`}
-                style={{ fontSize:12, color:'#166534', lineHeight:1, cursor:'default' }}>✓</span>
-            : <button
-                title="Notify unit leader about this placement"
-                onClick={e => { e.stopPropagation(); onNotify(student, match) }}
-                style={{ background:'none', border:'none', cursor:'pointer', fontSize:14, color:'#6b7280', padding:'0 2px', lineHeight:1 }}>
-                ✉
-              </button>
-          }
           <button className="euc-sf-unmatch" onClick={onUnmatch} title="Unmatch student">×</button>
         </div>
       </div>
-      {(student.matched_preceptor || student.shift_assigned) && (
-        <div style={{ display:'flex', gap:'8px', alignItems:'center', marginTop:'6px', flexWrap:'wrap', paddingTop:'4px', borderTop:'1px solid #f3f4f6' }}>
-          {student.matched_preceptor && (
-            <span style={{ fontFamily:'DM Sans', fontSize:'11px', color:'#6b7280', display:'flex', alignItems:'center', gap:'4px' }}>
-              <span style={{ opacity:0.5 }}>👤</span>
-              {student.matched_preceptor}
-            </span>
-          )}
-          {student.shift_assigned && (
-            <span style={{ background:'#f0f3ff', fontFamily:'DM Sans', fontWeight:600, fontSize:'10px', color:'#1D2567', padding:'2px 8px', borderRadius:'20px' }}>
-              {student.shift_assigned} shift
-            </span>
-          )}
-        </div>
-      )}
+      {/* Student name */}
+      <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'12px', color:'#1D2567', marginBottom:'5px' }}>
+        {student.first_name} {student.last_name}
+      </div>
+      {/* Preceptor + shift flags */}
+      <div style={{ display:'flex', gap:'4px', flexWrap:'wrap' }}>
+        <span style={{ fontFamily:'DM Sans', fontSize:'9px', fontWeight:600, color: hasPreceptor ? '#374151' : '#d97706', background: hasPreceptor ? '#f3f4f6' : '#fffbeb', padding:'2px 7px', borderRadius:'20px' }}>
+          {hasPreceptor ? `👤 ${student.matched_preceptor}` : '⚠ Preceptor needed'}
+        </span>
+        <span style={{ fontFamily:'DM Sans', fontSize:'9px', fontWeight:600, color: hasShift ? '#374151' : '#d97706', background: hasShift ? '#f3f4f6' : '#fffbeb', padding:'2px 7px', borderRadius:'20px' }}>
+          {hasShift ? `${student.shift_assigned} shift` : '⚠ Shift not set'}
+        </span>
+      </div>
     </div>
   )
 }
 
 function EmptySlotPill({ selectedStudent, compat, onClick }) {
   const [showTip, setShowTip] = useState(false)
+  const [hovered, setHovered] = useState(false)
   const isReady = !!selectedStudent && !!onClick
 
   const tipQuality = compat === 'green'  ? 'Perfect match'
@@ -318,13 +320,15 @@ function EmptySlotPill({ selectedStudent, compat, onClick }) {
 
   return (
     <div style={{ position: 'relative' }}
-      onMouseEnter={() => isReady && setShowTip(true)}
-      onMouseLeave={() => setShowTip(false)}>
+      onMouseEnter={() => { isReady && setShowTip(true); setHovered(true) }}
+      onMouseLeave={() => { setShowTip(false); setHovered(false) }}>
       <div
         className={`euc-slot-empty${isReady ? ' euc-slot-ready' : ''}`}
         onClick={isReady ? onClick : undefined}>
         {isReady
-          ? `Match ${displayName(selectedStudent)} here →`
+          ? (hovered
+              ? `Place ${selectedStudent.first_name} here →`
+              : `Match ${displayName(selectedStudent)} here →`)
           : (
             <>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
