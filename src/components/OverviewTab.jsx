@@ -238,6 +238,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
               : <span style={{ fontSize:13, color:'rgba(255,255,255,0.5)', marginLeft:4 }}>No shifts logged today</span>
             }
             <div style={{ flex:1 }} />
+            <SyncIndicator display={aggregateSyncDisplay} align="right" dark={true} />
             <button onClick={e => { e.stopPropagation(); loadCampusLogs() }}
               style={{ background:'none', border:'none', cursor:'pointer', fontSize:14, color:'rgba(255,255,255,0.6)', lineHeight:1, padding:'0 4px' }}
               title="Refresh">↻</button>
@@ -290,7 +291,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         </div>
 
         {/* Five hero stat cards */}
-        <div className="stat-cards-row" style={{ padding:'12px 0', marginTop:'12px' }}>
+        <div className="stat-cards-row" style={{ padding:'12px 0', marginTop:'12px', marginBottom:'10px' }}>
           <StatCard
             value={totalSlots}
             label="Total Slots"
@@ -325,11 +326,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
             icon={AlertTriangle}
             colorScheme={gap > 0 ? 'amber' : 'darkgreen'}
           />
-        </div>
-
-        {/* Sync indicator below stat cards */}
-        <div style={{ display:'flex', justifyContent:'flex-end', marginTop:'4px', marginBottom:'4px', paddingRight:'4px' }}>
-          <SyncIndicator display={aggregateSyncDisplay} align="right" />
         </div>
 
         {/* Frozen panel headers — two columns matching the panels below */}

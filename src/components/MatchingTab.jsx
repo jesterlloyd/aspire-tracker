@@ -254,8 +254,13 @@ export default function MatchingTab({
   return (
     <div className="matching-tab embed-tab">
 
+      {/* Sync timestamp — top right, above stat cards */}
+      <div style={{ display:'flex', justifyContent:'flex-end', padding:'4px 16px 0' }}>
+        <SyncIndicator display={embedSyncDisplay} align="right" />
+      </div>
+
       {/* ── Summary banner ── */}
-      <div className="stat-cards-row" style={{ padding:'12px 16px' }}>
+      <div className="stat-cards-row" style={{ padding:'6px 16px 12px' }}>
         <StatCard value={totalSlots}    label="Total Slots"     icon={Layers}    colorScheme="nightfall" />
         <StatCard value={slotsRemaining} label="Open Slots"      icon={Clock}    colorScheme="marina" />
         <StatCard value={studentsCount} label="Students"        icon={Users}     colorScheme="neutral" />
@@ -268,11 +273,6 @@ export default function MatchingTab({
           icon={UserX}
           colorScheme={unmatchedCount > 0 ? 'amber' : 'green'}
         />
-      </div>
-
-      {/* Sync indicator below stat cards */}
-      <div style={{ display:'flex', justifyContent:'flex-end', marginTop:'2px', marginBottom:'2px', paddingRight:'4px' }}>
-        <SyncIndicator display={embedSyncDisplay} align="right" />
       </div>
 
       {/* ── Matching board ── */}
@@ -342,6 +342,7 @@ export default function MatchingTab({
                     unit={unit}
                     matchedStudents={students.filter(s => s.matched_unit_id === unit.id)}
                     matches={matches}
+                    students={students}
                     selectedStudent={selectedStudent}
                     onSlotClick={() => handleSlotClick(unit)}
                     onUnmatch={student => handleUnmatch(student, unit)}
@@ -374,6 +375,7 @@ export default function MatchingTab({
                     unit={unit}
                     matchedStudents={students.filter(s => s.matched_unit_id === unit.id)}
                     matches={matches}
+                    students={students}
                     selectedStudent={selectedStudent}
                     onSlotClick={() => handleSlotClick(unit)}
                     onUnmatch={student => handleUnmatch(student, unit)}

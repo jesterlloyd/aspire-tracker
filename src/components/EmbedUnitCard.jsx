@@ -37,7 +37,7 @@ function openMailto(href) {
 }
 
 export default function EmbedUnitCard({
-  unit, matchedStudents, matches, selectedStudent,
+  unit, matchedStudents, matches, students, selectedStudent,
   onSlotClick, onUnmatch, onUpdateMatch, onDelete, isHighlighted,
 }) {
   const [confirmUnmatch, setConfirmUnmatch] = useState(null)
@@ -197,8 +197,12 @@ export default function EmbedUnitCard({
 
         {/* Slots */}
         <div className="euc-slots">
-          {matchedStudents.map(student => {
-            const match = matches.find(m => m.student_id === student.id && m.unit_id === unit.id)
+          {matchedStudents.map(raw => {
+            const match = matches.find(m => m.student_id === raw.id && m.unit_id === unit.id)
+            // Resolve full student record — matchedStudents may lack first_name/last_name
+            const student = (raw.first_name || raw.last_name)
+              ? raw
+              : (students || []).find(s => s.id === raw.id) || raw
             return (
               <FilledSlotPill
                 key={student.id}

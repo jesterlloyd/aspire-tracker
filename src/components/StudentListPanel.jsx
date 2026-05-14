@@ -85,11 +85,9 @@ export default function StudentListPanel({
             ↓ Export
           </button>
         )}
-      </div>
-
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'8px', padding:'0 12px' }}>
-        <span className="pl-meta" style={{ margin:0 }}>{students.length} of {allStudents.length} students</span>
-        <SyncIndicator display={syncDisplay} align="right" />
+        <div style={{ marginLeft:'auto' }}>
+          <SyncIndicator display={syncDisplay} align="right" />
+        </div>
       </div>
 
       {/* Rows */}
