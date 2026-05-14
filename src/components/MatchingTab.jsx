@@ -212,37 +212,44 @@ export default function MatchingTab({
 
         {/* ── Left: Units panel ── */}
         <div className="embed-units-panel">
-          <div className="embed-units-header">
-            <div className="embed-uh-left">
-              <span className="embed-panel-title">Unit Pool</span>
+          {/* Unit Pool header — two-row structure */}
+          <div style={{ background:'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)', borderRadius:'14px 14px 0 0' }}>
+            {/* Title bar */}
+            <div style={{ padding:'14px 18px', display:'flex', alignItems:'center', justifyContent:'space-between', minHeight:'52px', boxSizing:'border-box' }}>
+              <span style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'14px', color:'#ffffff' }}>Unit Pool</span>
+              <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                <button
+                  style={btnStyle('primary', { fontSize:'12px', height:'30px', padding:'0 12px' })}
+                  onMouseEnter={e => e.currentTarget.style.background = BUTTON.primary.hover}
+                  onMouseLeave={e => e.currentTarget.style.background = BUTTON.primary.background}
+                  onClick={() => setShowUnitSetup(true)}>
+                  ⚙ Set Up Units
+                </button>
+                <button
+                  style={{ fontSize:'12px', height:'30px', padding:'0 12px', background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'9px', fontFamily:'DM Sans', fontWeight:600, color:'#ffffff', cursor:'pointer', display:'inline-flex', alignItems:'center', gap:'6px', transition:'all 0.15s ease', whiteSpace:'nowrap', flexShrink:0 }}
+                  onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.22)'}
+                  onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.15)'}
+                  onClick={exportCSV}>
+                  ↓ Export CSV
+                </button>
+              </div>
             </div>
-            <div className="embed-uh-right">
-              <select className="embed-ctrl-select" value={divFilter} onChange={e => setDivFilter(e.target.value)}>
+            {/* Controls bar */}
+            <div style={{ padding:'10px 18px 12px', borderTop:'1px solid rgba(255,255,255,0.08)', display:'flex', alignItems:'center', gap:'8px', flexWrap:'wrap' }}>
+              <select value={divFilter} onChange={e => setDivFilter(e.target.value)}
+                style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'8px', padding:'6px 10px', fontFamily:'DM Sans', fontSize:'11px', color:'#ffffff', outline:'none', cursor:'pointer' }}>
                 <option value="">All Divisions</option>
                 <option value="Surgical">Surgical</option>
                 <option value="Medical">Medical</option>
                 <option value="Critical Care">Critical Care</option>
                 <option value="Specialty">Specialty</option>
               </select>
-              <select className="embed-ctrl-select" value={sortMode} onChange={e => setSortMode(e.target.value)}>
+              <select value={sortMode} onChange={e => setSortMode(e.target.value)}
+                style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'8px', padding:'6px 10px', fontFamily:'DM Sans', fontSize:'11px', color:'#ffffff', outline:'none', cursor:'pointer' }}>
                 <option value="alpha">A–Z</option>
                 <option value="division">By Division</option>
                 <option value="most-available">Most Available</option>
               </select>
-              <button
-                style={btnStyle('primary', { fontSize:'12px', height:'32px', padding:'0 12px' })}
-                onMouseEnter={e => e.currentTarget.style.background = BUTTON.primary.hover}
-                onMouseLeave={e => e.currentTarget.style.background = BUTTON.primary.background}
-                onClick={() => setShowUnitSetup(true)}>
-                ⚙ Set Up Units
-              </button>
-              <button
-                style={btnStyle('secondary', { fontSize:'12px', height:'32px', padding:'0 12px' })}
-                onMouseEnter={e => e.currentTarget.style.background = BUTTON.secondary.hover}
-                onMouseLeave={e => e.currentTarget.style.background = BUTTON.secondary.background}
-                onClick={exportCSV}>
-                ↓ Export CSV
-              </button>
             </div>
           </div>
 
@@ -274,30 +281,38 @@ export default function MatchingTab({
 
         {/* ── Right: Student pool ── */}
         <div className="embed-students-panel">
-          {/* Single-row header matching Unit Pool height */}
-          <div style={{ background:'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)', padding:'12px 14px', display:'flex', alignItems:'center', gap:'8px', minHeight:'52px', flexShrink:0, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
-            <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:15, color:'#ffffff', flexShrink:0 }}>Student Pool</span>
-            <StatusLegendPopover position="bottom-right" dark={true} />
-            <input
-              value={poolSearch}
-              onChange={e => setPoolSearch(e.target.value)}
-              placeholder="Search..."
-              style={{ flex:1, minWidth:0, padding:'5px 10px', borderRadius:6, border:'none', background:'rgba(255,255,255,0.12)', color:'#ffffff', fontFamily:'DM Sans,sans-serif', fontSize:12, outline:'none' }}
-            />
-            <select value={poolSchool} onChange={e => setPoolSchool(e.target.value)}
-              style={{ padding:'5px 8px', borderRadius:6, border:'none', background:'rgba(255,255,255,0.12)', color:'#ffffff', fontFamily:'DM Sans,sans-serif', fontSize:12, outline:'none', maxWidth:120 }}>
-              <option value="">All Schools</option>
-              {poolSchools.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <select value={poolSort} onChange={e => setPoolSort(e.target.value)} title="Sort student pool"
-              style={{ padding:'5px 8px', borderRadius:6, border:'none', background:'rgba(255,255,255,0.12)', color:'#ffffff', fontFamily:'DM Sans,sans-serif', fontSize:12, outline:'none', maxWidth:120 }}>
-              <option value="last_name_asc">↑↓ Last Name A–Z</option>
-              <option value="last_name_desc">↑↓ Last Name Z–A</option>
-              <option value="school_asc">↑↓ School A–Z</option>
-              <option value="gpa_desc">↑↓ GPA High–Low</option>
-              <option value="score_desc">↑↓ Score High–Low</option>
-              <option value="status">↑↓ ASPIRE Status</option>
-            </select>
+          {/* Student Pool header — two-row structure matching Unit Pool */}
+          <style>{`.sp-search::placeholder { color: rgba(255,255,255,0.45); }`}</style>
+          <div style={{ background:'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)', borderRadius:'14px 14px 0 0', flexShrink:0 }}>
+            {/* Title bar */}
+            <div style={{ padding:'14px 18px', display:'flex', alignItems:'center', justifyContent:'space-between', minHeight:'52px', boxSizing:'border-box' }}>
+              <span style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'14px', color:'#ffffff' }}>Student Pool</span>
+              <StatusLegendPopover position="bottom-right" dark={true} />
+            </div>
+            {/* Controls bar */}
+            <div style={{ padding:'10px 18px 12px', borderTop:'1px solid rgba(255,255,255,0.08)', display:'flex', alignItems:'center', gap:'8px', flexWrap:'wrap' }}>
+              <input
+                className="sp-search"
+                value={poolSearch}
+                onChange={e => setPoolSearch(e.target.value)}
+                placeholder="Search..."
+                style={{ flex:1, minWidth:'100px', background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'8px', padding:'7px 12px', fontFamily:'DM Sans', fontSize:'12px', color:'#ffffff', outline:'none' }}
+              />
+              <select value={poolSchool} onChange={e => setPoolSchool(e.target.value)}
+                style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'8px', padding:'6px 10px', fontFamily:'DM Sans', fontSize:'11px', color:'#ffffff', outline:'none', cursor:'pointer' }}>
+                <option value="">All Schools</option>
+                {poolSchools.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select value={poolSort} onChange={e => setPoolSort(e.target.value)} title="Sort student pool"
+                style={{ background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'8px', padding:'6px 10px', fontFamily:'DM Sans', fontSize:'11px', color:'#ffffff', outline:'none', cursor:'pointer' }}>
+                <option value="last_name_asc">Last Name A–Z</option>
+                <option value="last_name_desc">Last Name Z–A</option>
+                <option value="school_asc">School A–Z</option>
+                <option value="gpa_desc">GPA High–Low</option>
+                <option value="score_desc">Score High–Low</option>
+                <option value="status">ASPIRE Status</option>
+              </select>
+            </div>
           </div>
 
           <div className="embed-students-body">

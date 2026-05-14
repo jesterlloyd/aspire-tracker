@@ -735,10 +735,9 @@ body { min-height: 100vh; }
    STUDENT MATCH CARD
    ================================================================ */
 .student-match-card {
-  background: var(--pearl); border: 1px solid var(--border);
-  border-left: 3px solid #4f46e5;
-  border-radius: 6px; padding: 10px 12px; cursor: pointer;
-  transition: background 0.12s, border-color 0.12s; user-select: none;
+  background: var(--pearl); border: 1px solid #f3f4f6;
+  border-radius: 10px; padding: 12px 14px; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s; user-select: none;
 }
 .student-match-card:hover:not(.smc-readonly) { background: var(--sand); border-color: var(--nightfall); }
 .smc-selected { border-color: var(--nightfall) !important; border-left: 4px solid var(--nightfall) !important; box-shadow: 0 0 0 3px #1d2567; background: rgba(29,37,103,0.03); transform: scale(1.02); z-index: 1; position: relative; }
