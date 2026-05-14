@@ -69,3 +69,69 @@ export const TOKENS = {
     gap:       '12px',
   },
 };
+
+export const SPACING = {
+  pageTop:    '20px',
+  sectionGap: '16px',
+  panelPad:   '20px 24px',
+  columnGap:  '16px',
+  cardRadius: '14px',
+  innerRadius:'10px',
+};
+
+export const BUTTON = {
+  height:   '34px',
+  radius:   '9px',
+  font:     'DM Sans',
+  weight:   600,
+  fontSize: '13px',
+  padding:  '0 16px',
+  primary: {
+    background: '#1D2567',
+    border:     'none',
+    color:      '#ffffff',
+    hover:      '#141928',
+  },
+  secondary: {
+    background: '#f3f4ff',
+    border:     '1px solid #e0e7ff',
+    color:      '#1D2567',
+    hover:      '#e8ecff',
+  },
+  destructive: {
+    background: '#fef2f2',
+    border:     '1px solid #fecaca',
+    color:      '#dc2626',
+    hover:      '#fee2e2',
+  },
+  workflow: {
+    background: '#f0fdf4',
+    border:     '1px solid #bbf7d0',
+    color:      '#166534',
+    hover:      '#dcfce7',
+  },
+};
+
+export function btnStyle(type = 'primary', extra = {}) {
+  const b = BUTTON[type] || BUTTON.primary;
+  return {
+    height:         BUTTON.height,
+    padding:        BUTTON.padding,
+    background:     b.background,
+    border:         b.border || 'none',
+    borderRadius:   BUTTON.radius,
+    fontFamily:     BUTTON.font,
+    fontWeight:     BUTTON.weight,
+    fontSize:       BUTTON.fontSize,
+    color:          b.color,
+    cursor:         'pointer',
+    display:        'inline-flex',
+    alignItems:     'center',
+    justifyContent: 'center',
+    gap:            '6px',
+    transition:     'all 0.15s ease',
+    whiteSpace:     'nowrap',
+    flexShrink:     0,
+    ...extra,
+  };
+}

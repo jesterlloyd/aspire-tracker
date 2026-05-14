@@ -4,6 +4,7 @@ import StudentMatchCard from './StudentMatchCard'
 import UnitSetupPanel from './UnitSetupPanel'
 import ImportUnitsCSV from './ImportUnitsCSV'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
+import { btnStyle, BUTTON } from '../lib/designTokens'
 import StatCard from './StatCard'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
@@ -228,10 +229,18 @@ export default function MatchingTab({
                 <option value="division">By Division</option>
                 <option value="most-available">Most Available</option>
               </select>
-              <button className="btn btn-primary" style={{ fontSize:12, padding:'5px 11px' }} onClick={() => setShowUnitSetup(true)}>
+              <button
+                style={btnStyle('primary', { fontSize:'12px', height:'32px', padding:'0 12px' })}
+                onMouseEnter={e => e.currentTarget.style.background = BUTTON.primary.hover}
+                onMouseLeave={e => e.currentTarget.style.background = BUTTON.primary.background}
+                onClick={() => setShowUnitSetup(true)}>
                 ⚙ Set Up Units
               </button>
-              <button className="btn btn-outline-modal" style={{ fontSize:12, padding:'5px 11px', background:'#fff' }} onClick={exportCSV}>
+              <button
+                style={btnStyle('secondary', { fontSize:'12px', height:'32px', padding:'0 12px' })}
+                onMouseEnter={e => e.currentTarget.style.background = BUTTON.secondary.hover}
+                onMouseLeave={e => e.currentTarget.style.background = BUTTON.secondary.background}
+                onClick={exportCSV}>
                 ↓ Export CSV
               </button>
             </div>
@@ -266,7 +275,7 @@ export default function MatchingTab({
         {/* ── Right: Student pool ── */}
         <div className="embed-students-panel">
           {/* Single-row header matching Unit Pool height */}
-          <div style={{ background:'#191919', padding:'12px 14px', display:'flex', alignItems:'center', gap:'8px', minHeight:'52px', flexShrink:0, borderBottom:'1px solid #333' }}>
+          <div style={{ background:'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)', padding:'12px 14px', display:'flex', alignItems:'center', gap:'8px', minHeight:'52px', flexShrink:0, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>
             <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:15, color:'#ffffff', flexShrink:0 }}>Student Pool</span>
             <StatusLegendPopover position="bottom-right" dark={true} />
             <input

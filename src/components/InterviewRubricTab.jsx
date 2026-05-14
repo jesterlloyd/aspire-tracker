@@ -11,6 +11,7 @@ import StatCard from './StatCard'
 import EmptyState from './EmptyState'
 import { Users, CalendarCheck, BadgeCheck, Loader, CalendarX, Flag, ThumbsUp, ClipboardList, RefreshCw } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { btnStyle, BUTTON } from '../lib/designTokens'
 
 // Circular avatar for the IR student list table
 function IrAvatar({ student }) {
@@ -313,15 +314,13 @@ export default function InterviewRubricTab({
             onClick={handleRefresh}
             disabled={refreshing}
             title="Refresh interview data"
-            style={{
-              padding: '7px 12px',
-              background: refreshing ? '#e5e7eb' : '#f3f4ff',
-              border: '1px solid #e0e7ff', borderRadius: '8px',
-              fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#1D2567',
+            style={btnStyle('secondary', {
+              background: refreshing ? '#e5e7eb' : BUTTON.secondary.background,
               cursor: refreshing ? 'default' : 'pointer',
-              display: 'flex', alignItems: 'center', gap: '5px',
-              transition: 'all 0.15s ease',
-            }}
+              height: '32px', fontSize: '12px', padding: '0 12px',
+            })}
+            onMouseEnter={e => { if (!refreshing) e.currentTarget.style.background = BUTTON.secondary.hover }}
+            onMouseLeave={e => { if (!refreshing) e.currentTarget.style.background = refreshing ? '#e5e7eb' : BUTTON.secondary.background }}
           >
             <RefreshCw size={13} style={{ animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }} />
             {refreshing ? 'Refreshing...' : 'Refresh'}
