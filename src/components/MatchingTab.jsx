@@ -9,9 +9,7 @@ import MatchingBanner from './MatchingBanner'
 import StatCard from './StatCard'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
-import SyncIndicator from './SyncIndicator'
 import { Layers, Clock, Users, MapPin, Star, TrendingUp, UserX, ClipboardList } from 'lucide-react'
-import { useLastSynced } from '../hooks/useLastSynced'
 import { useAuth } from '../contexts/AuthContext'
 
 export const getInterviewStatus = (s) => {
@@ -223,9 +221,12 @@ export default function MatchingTab({
   }
 
   const { canEdit } = useAuth()
-  const { markSynced: markEmbedSynced, display: embedSyncDisplay } = useLastSynced()
-  // Mark synced whenever data arrives
-  useEffect(() => { if (students.length >= 0) markEmbedSynced() }, [students]) // eslint-disable-line
+
+  const studentMap = useMemo(() => {
+    const map = {}
+    ;(students || []).forEach(s => { map[s.id] = s })
+    return map
+  }, [students])
 
   // Non-editors see a lock screen
   if (!canEdit) {
@@ -253,11 +254,6 @@ export default function MatchingTab({
 
   return (
     <div className="matching-tab embed-tab">
-
-      {/* Sync timestamp — top right, above stat cards */}
-      <div style={{ display:'flex', justifyContent:'flex-end', padding:'4px 16px 0' }}>
-        <SyncIndicator display={embedSyncDisplay} align="right" />
-      </div>
 
       {/* ── Summary banner ── */}
       <div className="stat-cards-row" style={{ padding:'6px 16px 12px' }}>
@@ -342,7 +338,7 @@ export default function MatchingTab({
                     unit={unit}
                     matchedStudents={students.filter(s => s.matched_unit_id === unit.id)}
                     matches={matches}
-                    students={students}
+                    studentMap={studentMap}
                     selectedStudent={selectedStudent}
                     onSlotClick={() => handleSlotClick(unit)}
                     onUnmatch={student => handleUnmatch(student, unit)}
@@ -375,7 +371,7 @@ export default function MatchingTab({
                     unit={unit}
                     matchedStudents={students.filter(s => s.matched_unit_id === unit.id)}
                     matches={matches}
-                    students={students}
+                    studentMap={studentMap}
                     selectedStudent={selectedStudent}
                     onSlotClick={() => handleSlotClick(unit)}
                     onUnmatch={student => handleUnmatch(student, unit)}

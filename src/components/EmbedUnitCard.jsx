@@ -4,11 +4,18 @@ import { displayName } from '../lib/utils'
 import { buildUnitLeaderEmail } from '../lib/emailUtils'
 
 const getStudentAvatar = (s) => {
-  const first = s?.first_name || ''
-  const last  = s?.last_name  || ''
+  const first = s?.first_name?.trim() || ''
+  const last  = s?.last_name?.trim()  || ''
   if (!first && !last) return null
   const seed = encodeURIComponent(`${first} ${last}`)
   return `https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=1c2452&textColor=ffffff&fontSize=38&fontWeight=700`
+}
+
+const resolveMatchedStudent = (match, slot, studentMap) => {
+  if (match?.student?.first_name) return match.student
+  if (match?.student_id && studentMap?.[match.student_id]) return studentMap[match.student_id]
+  if (slot?.booked_by_student_id && studentMap?.[slot.booked_by_student_id]) return studentMap[slot.booked_by_student_id]
+  return null
 }
 
 const COMPAT_LABEL = {
@@ -37,7 +44,7 @@ function openMailto(href) {
 }
 
 export default function EmbedUnitCard({
-  unit, matchedStudents, matches, students, selectedStudent,
+  unit, matchedStudents, matches, studentMap, selectedStudent,
   onSlotClick, onUnmatch, onUpdateMatch, onDelete, isHighlighted,
 }) {
   const [confirmUnmatch, setConfirmUnmatch] = useState(null)
@@ -198,11 +205,8 @@ export default function EmbedUnitCard({
         {/* Slots */}
         <div className="euc-slots">
           {matchedStudents.map(raw => {
-            const match = matches.find(m => m.student_id === raw.id && m.unit_id === unit.id)
-            // Resolve full student record — matchedStudents may lack first_name/last_name
-            const student = (raw.first_name || raw.last_name)
-              ? raw
-              : (students || []).find(s => s.id === raw.id) || raw
+            const match   = matches.find(m => m.student_id === raw.id && m.unit_id === unit.id)
+            const student = resolveMatchedStudent(match, null, studentMap) || raw
             return (
               <FilledSlotPill
                 key={student.id}
@@ -310,29 +314,24 @@ function FilledSlotPill({ student, match, unit, onUnmatch, onNotify }) {
       {/* Avatar + name row */}
       <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'6px' }}>
         {(() => {
-          const url = getStudentAvatar(student)
-          const initials = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`.toUpperCase()
-          if (!url) return (
-            <div style={{ width:'36px', height:'36px', borderRadius:'50%', flexShrink:0, border:'2px solid #e0e7ff', background:'#1D2567', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'DM Sans', fontWeight:700, fontSize:'12px', color:'#fff' }}>
-              {initials}
-            </div>
-          )
+          const avatarUrl = getStudentAvatar(student)
+          const initials  = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`.toUpperCase()
           return (
-            <div style={{ width:'36px', height:'36px', borderRadius:'50%', overflow:'hidden', flexShrink:0, border:'2px solid #e0e7ff' }}>
-              <img
-                src={url}
-                alt={`${student.first_name} ${student.last_name}`}
-                style={{ width:'100%', height:'100%', objectFit:'cover' }}
-                onError={e => {
-                  e.target.style.display = 'none'
-                  const p = e.target.parentNode
-                  p.style.background = '#1D2567'
-                  p.style.display = 'flex'
-                  p.style.alignItems = 'center'
-                  p.style.justifyContent = 'center'
-                  p.innerHTML = `<span style="font-family:DM Sans;font-weight:700;font-size:12px;color:#fff">${initials}</span>`
-                }}
-              />
+            <div style={{
+              width:'36px', height:'36px', borderRadius:'50%',
+              overflow:'hidden', flexShrink:0, border:'2px solid #e0e7ff',
+              background:'#1D2567', display:'flex', alignItems:'center',
+              justifyContent:'center', fontFamily:'DM Sans', fontWeight:700,
+              fontSize:'12px', color:'#ffffff',
+            }}>
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={`${student.first_name} ${student.last_name}`}
+                  style={{ width:'100%', height:'100%', objectFit:'cover' }}
+                  onError={e => { e.target.style.display = 'none' }}
+                />
+              ) : (initials || '?')}
             </div>
           )
         })()}

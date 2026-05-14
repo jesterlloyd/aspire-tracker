@@ -4,6 +4,8 @@ import { displayName } from '../lib/utils'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { TAB_BADGES } from '../lib/brand'
 import { useAuth } from '../contexts/AuthContext'
+import SyncIndicator from './SyncIndicator'
+import { useLastSynced } from '../hooks/useLastSynced'
 
 const COHORT_STATUS_COLORS = {
   Planning:  { bg:'#dbeafe', color:'#1d4ed8' },
@@ -65,6 +67,7 @@ export default function UnifiedNav({
   onSelectStudent, onSelectUnit,
 }) {
   const { canEdit } = useAuth()
+  const { markSynced: markNavSynced, display: navSyncDisplay } = useLastSynced()
   const [cohortOpen,   setCohortOpen]   = useState(false)
   const [query,        setQuery]        = useState('')
   const [results,      setResults]      = useState({ students:[], units:[], placements:[] })
@@ -92,6 +95,9 @@ export default function UnifiedNav({
     window.addEventListener('resize', handler)
     return () => window.removeEventListener('resize', handler)
   }, [])
+
+  // Mark synced whenever cohort data refreshes
+  useEffect(() => { if (students.length >= 0) markNavSynced() }, [students]) // eslint-disable-line
 
   const sortedCohorts = [...cohorts].sort((a, b) => {
     const da = a.start_date || null, db = b.start_date || null
@@ -304,6 +310,11 @@ export default function UnifiedNav({
             })}
           </div>
         )}
+      </div>
+
+      {/* ── Sync timestamp ── */}
+      <div style={{ flexShrink:0 }}>
+        <SyncIndicator display={navSyncDisplay} align="right" dark={true} />
       </div>
 
       {/* ── Search bar ── */}
