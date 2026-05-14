@@ -80,6 +80,19 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, data })
     }
 
+    if (action === 'log_communication') {
+      const { student_id, cohort_id: cid, type, notes, sent_by } = payload
+      if (!student_id || !type) return res.status(400).json({ error: 'student_id and type are required' })
+      const { error } = await db.from('communications').insert({
+        student_id, cohort_id: cid || null, type,
+        notes: notes || '',
+        sent_at: new Date().toISOString(),
+        sent_by: sent_by || 'Coordinator',
+      })
+      if (error) return res.status(400).json({ error: error.message })
+      return res.status(200).json({ success: true })
+    }
+
     if (action === 'log_event') {
       const { student_id, cohort_id, event_type, notes, created_by } = payload
       if (!student_id || !event_type) return res.status(400).json({ error: 'student_id and event_type are required' })

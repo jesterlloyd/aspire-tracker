@@ -32,6 +32,14 @@ function fmtIvDate(s) {
 // All external navigation must use openLink helpers (src/lib/openLink.js)
 function openHref(href) { window.open(href, '_blank', 'noopener,noreferrer'); }
 
+// ── Priority config ───────────────────────────────────────────
+const PRIORITY_CONFIG = {
+  urgent:  { label: 'Urgent',  color: '#dc2626', bg: '#fef2f2', border: '#fecaca' },
+  high:    { label: 'High',    color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
+  routine: { label: 'Routine', color: '#1D2567', bg: '#f0f3ff', border: '#e0e7ff' },
+  fyi:     { label: 'FYI',     color: '#6b7280', bg: '#f9fafb', border: '#f3f4f6' },
+}
+
 // ── Reusable card wrapper ────────────────────────────────────
 function ActionCard({ title, borderColor, icon, count, children, badgeBg = '#6b7280' }) {
   const [open, setOpen] = useState(count > 0)
@@ -330,10 +338,13 @@ export default function ActionCenter({
   const [copyOk,    setCopyOk]    = useState(false)
   const [oriDone,         setOriDone]         = useState(false)
   const [showRecentComms, setShowRecentComms] = useState(false)
+  const [doneItems,       setDoneItems]       = useState(new Set())
+  const [markingDone,     setMarkingDone]     = useState(null)
+  const [activeACFilter,  setActiveACFilter]  = useState(null)
   const drawerRef = useRef(null)
 
   // Shift log data for new action categories
-  const { canEdit } = useAuth()
+  const { canEdit, userProfile } = useAuth()
   const { markSynced: markActionSynced, display: actionSyncDisplay } = useLastSynced()
   const [shiftLogs,     setShiftLogs]     = useState([])
   const [shiftLogsLoaded, setShiftLogsLoaded] = useState(false)
@@ -368,6 +379,36 @@ export default function ActionCenter({
     if (student) setPending(p => { const n={...p}; delete n[`${student.id}_${type}`]; return n })
     if (type === 'unit_notification') toast?.success('Notification sent', 'Unit leader email marked as sent.')
     if (type === 'certificate') toast?.success('Certificate sent', 'Email marked as sent. Remember to attach the PDF.')
+  }
+
+  const handleMarkDone = async (item) => {
+    setMarkingDone(item.id)
+    try {
+      if (item.markDoneType === 'log_communication') {
+        await fetch('/api/student-update', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ action:'log_communication', student_id:item.studentId, cohort_id:item.cohortId, type:item.markDonePayload?.type||item.actionType, notes:`Marked done by ${userProfile?.full_name}`, sent_by:userProfile?.full_name }),
+        })
+        if (item.emailHref) openHref(item.emailHref)
+      }
+      if (item.markDoneType === 'update_field') {
+        await fetch('/api/student-update', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ action:'update', student_id:item.studentId, fields:item.markDonePayload?.fields||{} }),
+        })
+      }
+      if (item.markDoneType === 'clear_flag') {
+        await fetch('/api/student-update', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ action:'update', student_id:item.studentId, fields:{ interview_flag: null } }),
+        })
+      }
+      try {
+        await supabase.from('activity_logs').insert({ user_id:userProfile?.id, user_name:userProfile?.full_name, user_role:userProfile?.role, action_type:item.actionType, entity_type:'student', entity_id:item.studentId, cohort_id:item.cohortId, description:`${userProfile?.full_name} marked "${item.title}" complete for ${item.studentName}`, metadata:{ completed_at: new Date().toISOString() } })
+      } catch (logErr) { console.warn('Activity log:', logErr.message) }
+      setDoneItems(prev => new Set([...prev, item.id]))
+    } catch (err) { alert(`Could not complete: ${err.message}`) }
+    finally { setMarkingDone(null) }
   }
 
   // ── Action category queries ──────────────────────────────
@@ -439,6 +480,43 @@ export default function ActionCenter({
 
   // Act 16: Badge not created (Placed, badge_created = false)
   const act16 = students.filter(s => s.status === 'Placed' && !s.badge_created)
+
+  // ── Unified actionItems array ────────────────────────────
+  const actionItems = [
+    ...(canEdit ? act1.map(s => ({ id:`${s.id}-sf`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'communication', priority:'routine', title:'Send Student Form', description:'Pending outreach — form not yet sent.', actionType:'student_form', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'student_form'}, emailHref:buildStudentFormEmail(s) })) : []),
+    ...act2.map(s => ({ id:`${s.id}-sl`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'interview', priority:'high', title:'Send Interview Scheduling Link', description:'Form received. Scheduling link not sent.', actionType:'interview_link_not_sent', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'scheduling_link'}, emailHref:buildSchedulingLinkEmail(s) })),
+    ...act3.map(s => ({ id:`${s.id}-ir`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'interview', priority:'high', title:'Send Interview Reminder', description:`Interview on ${s.interview_scheduled_date}. Reminder not sent.`, actionType:'interview_reminder_overdue', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'interview_reminder'}, emailHref:buildInterviewReminderEmail(s) })),
+    ...(canEdit ? act4.map(s => { const unit=units.find(u=>u.id===s.matched_unit_id); const m=matches.find(m=>m.student_id===s.id); const href=unit?buildUnitLeaderEmail({contactPersons:unit.contact_person||'Unit Leader',contactEmails:unit.contact_email||'',unitName:unit.unit_name,students:[{firstName:s.first_name,lastName:s.last_name||s.name,school:s.school||'',programType:s.program_type||'',termDates:s.term_dates||'',hoursRequired:s.hours_required||'',shiftPreference:s.shift_availability||'',preceptorAssigned:s.matched_preceptor||''}],isMultiStudent:false}):null; return { id:`${s.id}-un`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:'routine', title:'Unit Leader Placement Notification', description:`Placed in ${unit?.unit_name||'unit'}. Leader not yet notified.`, actionType:'unit_notification_needed', canMarkDone:!!href, markDoneType:'log_communication', markDonePayload:{type:'unit_notification'}, emailHref:href, matchId:m?.id } }) : []),
+    ...act5.map(s => { const unit=units.find(u=>u.id===s.matched_unit_id); return { id:`${s.id}-pw`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:'routine', title:'Preceptor Welcome Email', description:s.preceptor_email?`Preceptor: ${s.matched_preceptor}. Welcome email not sent.`:'Preceptor email missing.', actionType:'unit_notification_needed', canMarkDone:!!s.preceptor_email, markDoneType:'log_communication', markDonePayload:{type:'preceptor_welcome'}, emailHref:s.preceptor_email?buildPreceptorWelcomeEmail(s,unit?.contact_email):null, warning:!s.preceptor_email?'Missing preceptor email':null } }),
+    ...(canEdit ? act6.map(s => ({ id:`${s.id}-cs`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'cslink', priority:'routine', title:'CS-Link Access Not Started', description:'Service Center request not yet submitted.', actionType:'cslink_incomplete', canMarkDone:false, markDoneType:null, markDonePayload:null, navigateToProfile:true })) : []),
+    ...act8.map(s => ({ id:`${s.id}-mc`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'communication', priority:'routine', title:'Midpoint Student Check-In', description:'Active Rotation. Check-in email not sent.', actionType:'midpoint_checkin', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'midpoint_checkin'}, emailHref:buildMidpointCheckinEmail(s) })),
+    ...act9.map(s => ({ id:`${s.id}-me`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'communication', priority:'routine', title:'Midpoint Preceptor Evaluation', description:s.preceptor_email?'Request midpoint eval from preceptor.':'Preceptor email missing.', actionType:'midpoint_eval', canMarkDone:!!s.preceptor_email, markDoneType:'log_communication', markDonePayload:{type:'midpoint_eval'}, emailHref:s.preceptor_email?buildMidpointEvalEmail(s):null, warning:!s.preceptor_email?'Missing preceptor email':null })),
+    ...act10.map(s => ({ id:`${s.id}-ps`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'communication', priority:'fyi', title:'Post-Program Student Survey', description:'Program completed. Post-survey not sent.', actionType:'post_survey', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'post_survey'}, emailHref:buildPostSurveyEmail(s) })),
+    ...act11.map(s => ({ id:`${s.id}-cert`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'badge', priority:'fyi', title:'Certificate of Completion', description:'Hours met. Certificate not yet sent.', actionType:'hours_completed', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'certificate'}, emailHref:buildCertificateEmail(s) })),
+    ...act12.map(s => ({ id:`${s.id}-ee`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'communication', priority:'routine', title:'End Preceptor Evaluation', description:s.preceptor_email?'Request final evaluation from preceptor.':'Preceptor email missing.', actionType:'end_eval', canMarkDone:!!s.preceptor_email, markDoneType:'log_communication', markDonePayload:{type:'end_eval'}, emailHref:s.preceptor_email?buildEndEvalEmail(s):null, warning:!s.preceptor_email?'Missing preceptor email':null })),
+    ...act13.map(item => ({ id:`${item.id}-sr`, studentId:item.student_id, studentName:item.student?`${item.student.last_name}, ${item.student.first_name}`:'—', cohortId, student:item.student, category:'hours', priority:'routine', title:'Shift Log Needs Review', description:`${item.shift_date} · ${item.total_hours}h`, actionType:'shift_log_submitted', canMarkDone:false, markDoneType:null, navigateToProfile:true })),
+    ...act15.map(s => ({ id:`${s.id}-nl`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'hours', priority:'routine', title:'Student Not Logged Recently', description:s.daysSince===null?'No shifts logged yet.':`${s.daysSince} days since last log.`, actionType:'shift_log_submitted', canMarkDone:false, navigateToProfile:true })),
+    ...(canEdit ? act16.map(s => ({ id:`${s.id}-badge`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'badge', priority:'routine', title:'Badge Not Created', description:'Student placed. CS badge not yet created.', actionType:'badge_needed', canMarkDone:true, markDoneType:'update_field', markDonePayload:{fields:{badge_created:true}}, navigateToProfile:false })) : []),
+  ]
+
+  const filteredActionItems = activeACFilter
+    ? actionItems.filter(i => activeACFilter === 'urgent' ? i.priority === 'urgent' : i.category === activeACFilter)
+    : actionItems
+
+  const totalActionCount = actionItems.length
+  const urgentCount      = actionItems.filter(i => i.priority === 'urgent').length
+  const interviewCount   = actionItems.filter(i => i.category === 'interview').length
+  const cslinkCount      = actionItems.filter(i => i.category === 'cslink').length
+  const badgeCount       = actionItems.filter(i => i.category === 'badge').length
+
+  const SECTION_CONFIG = [
+    { key:'urgent',        label:'Urgent',          color:'#dc2626', filter: i => i.priority === 'urgent' },
+    { key:'interview',     label:'Interview',        color:'#d97706', filter: i => i.category === 'interview' && i.priority !== 'urgent' },
+    { key:'placement',     label:'Placement',        color:'#1D2567', filter: i => i.category === 'placement' && i.priority !== 'urgent' },
+    { key:'cslink',        label:'CS-Link',          color:'#5b21b6', filter: i => i.category === 'cslink' && i.priority !== 'urgent' },
+    { key:'badge',         label:'Badge & Hours',    color:'#0e7490', filter: i => ['badge','hours'].includes(i.category) && i.priority !== 'urgent' },
+    { key:'communication', label:'Communications',   color:'#374151', filter: i => i.category === 'communication' && i.priority !== 'urgent' },
+  ]
 
   // ── Orientation email builder ────────────────────────────
   const buildOrientationTable = () => {
@@ -578,114 +656,60 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
         {/* Drawer body */}
         <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
 
-          {/* Action Items — fills available height; comms section is collapsible below */}
+          {/* Action Items */}
           <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
-            <div style={{ padding:'12px 16px 6px', flexShrink:0 }}>
-              <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em' }}>
-                Action Items
+
+            {/* Summary header */}
+            <div style={{ padding:'16px 20px 14px', borderBottom:'1px solid #f3f4f6', background:'#fafbff', flexShrink:0 }}>
+              <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'15px', color:'#1D2567', marginBottom:'6px' }}>
+                Today's Action Center
+              </div>
+              <div style={{ fontFamily:'DM Sans', fontWeight:800, fontSize:'28px', color:'#1D2567', lineHeight:1, marginBottom:'8px' }}>
+                {totalActionCount}
+                <span style={{ fontFamily:'DM Sans', fontWeight:400, fontSize:'13px', color:'#9ca3af', marginLeft:'8px' }}>
+                  open item{totalActionCount !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div style={{ display:'flex', gap:'6px', flexWrap:'wrap' }}>
+                {[
+                  { label:`${urgentCount} urgent`,       show: urgentCount > 0,   color:'#dc2626', bg:'#fef2f2' },
+                  { label:`${interviewCount} interview`,  show: interviewCount > 0, color:'#d97706', bg:'#fffbeb' },
+                  { label:`${cslinkCount} CS-Link`,       show: cslinkCount > 0,   color:'#1D2567', bg:'#f0f3ff' },
+                  { label:`${badgeCount} badge`,          show: badgeCount > 0,    color:'#6b7280', bg:'#f3f4f6' },
+                ].filter(p => p.show).map(pill => (
+                  <span key={pill.label} style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:'11px', color:pill.color, background:pill.bg, padding:'3px 10px', borderRadius:'20px' }}>
+                    {pill.label}
+                  </span>
+                ))}
+                {totalActionCount === 0 && (
+                  <span style={{ fontFamily:'DM Sans', fontSize:'12px', color:'#9ca3af' }}>All clear — no actions needed right now.</span>
+                )}
               </div>
             </div>
-            <div style={{ flex:1, overflowY:'auto', padding:'0 16px 12px' }}>
+
+            {/* Filter tabs */}
+            <div style={{ display:'flex', gap:'4px', flexWrap:'wrap', padding:'10px 20px', borderBottom:'1px solid #f3f4f6', flexShrink:0 }}>
+              {[{key:null,label:'All'},{key:'urgent',label:'Urgent'},{key:'interview',label:'Interview'},{key:'placement',label:'Placement'},{key:'cslink',label:'CS-Link'},{key:'badge',label:'Badge'},{key:'hours',label:'Hours'},{key:'communication',label:'Comms'}].map(tab => {
+                const isActive = activeACFilter === tab.key
+                return (
+                  <button key={String(tab.key)} onClick={() => setActiveACFilter(tab.key)}
+                    style={{ padding:'4px 12px', background: isActive ? '#1D2567' : '#f3f4f6', border:'none', borderRadius:'20px', fontFamily:'DM Sans', fontWeight: isActive ? 700 : 500, fontSize:'11px', color: isActive ? '#ffffff' : '#6b7280', cursor:'pointer', transition:'all 0.15s ease' }}>
+                    {tab.label}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div style={{ flex:1, overflowY:'auto', padding:'0 0 12px' }}>
 
               {/* All-clear state */}
-              {act1.length + act2.length + act3.length + act4.length + act5.length + act6.length +
-               (showAct7 ? 1 : 0) + act8.length + act9.length + act10.length + act11.length +
-               act12.length + act13.length + act14.length + act15.length + act16.length === 0 && (
+              {totalActionCount === 0 && (
                 <EmptyState compact icon={<Star />}
                   heading="All caught up!"
                   subtext="No pending action items for this cohort right now." />
               )}
 
-              {/* 1: Student Form — admin/owner only */}
-              {canEdit && <ActionCard title="Send Student Form" borderColor="#e5e7eb" icon="📧" count={act1.length} badgeBg="#6b7280">
-                {act1.map(s => (
-                  <SRow key={s.id} student={s} pending={isPend(s.id,'student_form')}
-                    onOpenMail={async () => {
-                      openHref(buildStudentFormEmail(s)); setPend(s.id,'student_form');
-                      if (s.status === 'Pending Outreach') {
-                        onStudentUpdate?.(s.id, { status: 'Form Sent' });
-                        const already = await eventExists(supabase, s.id, 'form_sent');
-                        if (!already) await logEvent(supabase, { studentId: s.id, cohortId: s.cohort_id, eventType: 'form_sent', notes: 'Student form email sent from Action Center', auto: true });
-                      }
-                    }}
-                    onMarkSent={() => logComm({ type:'student_form', student:s,
-                      sentToEmail:s.school_email,
-                      after: () => onStudentUpdate?.(s.id,{status:'Form Sent'}) })} />
-                ))}
-              </ActionCard>}
-
-              {/* 2: Scheduling Link */}
-              <ActionCard title="Send Interview Scheduling Link" borderColor="#dbeafe" icon="📅" count={act2.length} badgeBg="#1d4ed8">
-                {act2.map(s => (
-                  <SRow key={s.id} student={s} pending={isPend(s.id,'scheduling_link')}
-                    onOpenMail={() => { openHref(buildSchedulingLinkEmail(s)); setPend(s.id,'scheduling_link') }}
-                    onMarkSent={() => logComm({ type:'scheduling_link', student:s, sentToEmail:s.school_email })} />
-                ))}
-              </ActionCard>
-
-              {/* 3: Interview Reminder */}
-              <ActionCard title="Interview Reminder" borderColor="#ede9fe" icon="🔔" count={act3.length} badgeBg="#7c3aed">
-                {act3.map(s => (
-                  <SRow key={s.id} student={s} pending={isPend(s.id,'interview_reminder')}
-                    onOpenMail={() => { openHref(buildInterviewReminderEmail(s)); setPend(s.id,'interview_reminder') }}
-                    onMarkSent={() => logComm({ type:'interview_reminder', student:s, sentToEmail:s.personal_email||s.school_email })} />
-                ))}
-              </ActionCard>
-
-              {/* 4: Unit Leader Notification — admin/owner only */}
-              {canEdit && <ActionCard title="Unit Leader Placement Notification" borderColor="#dcfce7" icon="✅" count={act4.length} badgeBg="#166534">
-                {act4.map(s => {
-                  const unit = units.find(u => u.id === s.matched_unit_id)
-                  const m    = matches.find(m => m.student_id === s.id)
-                  const href = unit ? buildUnitLeaderEmail({
-                    contactPersons: unit.contact_person||'Unit Leader',
-                    contactEmails:  unit.contact_email||'',
-                    unitName: unit.unit_name,
-                    students: [{ firstName:s.first_name, lastName:s.last_name||s.name, school:s.school||'',
-                      programType:s.program_type||'', termDates:s.term_dates||'', hoursRequired:s.hours_required||'',
-                      shiftPreference:s.shift_availability||'', preceptorAssigned:s.matched_preceptor||'' }],
-                    isMultiStudent: false,
-                  }) : null
-                  return (
-                    <SRow key={s.id} student={s} pending={isPend(s.id,'unit_notification')}
-                      onOpenMail={() => { if(href) { openHref(href); setPend(s.id,'unit_notification') } }}
-                      onMarkSent={() => logComm({ type:'unit_notification', student:s,
-                        sentToEmail: unit?.contact_email||'',
-                        after: () => m && onMatchUpdate?.(m.id, s.id, { notification_sent:true }) })} />
-                  )
-                })}
-              </ActionCard>}
-
-              {/* 5: Preceptor Welcome */}
-              <ActionCard title="Preceptor Welcome Email" borderColor="#fef3c7" icon="👋" count={act5.length} badgeBg="#92400e">
-                {act5.map(s => {
-                  const unit = units.find(u => u.id === s.matched_unit_id)
-                  const missingEmail = !s.preceptor_email
-                  return (
-                    <SRow key={s.id} student={s} pending={isPend(s.id,'preceptor_welcome')}
-                      warning={missingEmail ? 'Preceptor email missing' : null}
-                      linkLabel={missingEmail ? 'Add in Profile →' : null}
-                      onLink={() => { onClose(); onNavigateToProfiles?.(s.id) }}
-                      onOpenMail={missingEmail ? undefined : () => {
-                        openHref(buildPreceptorWelcomeEmail(s, unit?.contact_email))
-                        setPend(s.id,'preceptor_welcome')
-                      }}
-                      onMarkSent={() => logComm({ type:'preceptor_welcome', student:s, sentToEmail:s.preceptor_email })} />
-                  )
-                })}
-              </ActionCard>
-
-              {/* 6: CS-Link — admin/owner only */}
-              {canEdit && <ActionCard title="CS-Link Access Not Started" borderColor="#fee2e2" icon="🔗" count={act6.length} badgeBg="#991b1b">
-                <div style={{ padding:'8px 14px 4px', fontSize:12, color:'#6b7280', lineHeight:1.5 }}>
-                  These students need a CS-Link access request submitted in the Service Center. Go to their Student Profile and complete Step 2 under CS-Link Access.
-                </div>
-                {act6.map(s => (
-                  <SRow key={s.id} student={s} noMail
-                    linkLabel="Go to Profile →"
-                    onLink={() => { onClose(); onNavigateToProfiles?.(s.id) }} />
-                ))}
-              </ActionCard>}
+              {/* Orientation — special cohort-level action, kept separate */}
 
               {/* 7: Orientation (cohort-level) — admin/owner only */}
               {canEdit && showAct7 && (
@@ -744,108 +768,76 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
                 <ActionCard title="Orientation Email + Pre-Program Survey" borderColor="#d1fae5" icon="🎉" count={0} />
               )}
 
-              {/* 8: Midpoint Check-In */}
-              <ActionCard title="Midpoint Student Check-In" borderColor="#eff6ff" icon="💬" count={act8.length} badgeBg="#1e40af">
-                {act8.map(s => (
-                  <SRow key={s.id} student={s} pending={isPend(s.id,'midpoint_checkin')}
-                    onOpenMail={() => { openHref(buildMidpointCheckinEmail(s)); setPend(s.id,'midpoint_checkin') }}
-                    onMarkSent={() => logComm({ type:'midpoint_checkin', student:s, sentToEmail:s.personal_email||s.school_email })} />
-                ))}
-              </ActionCard>
-
-              {/* 9: Midpoint Preceptor Eval */}
-              <ActionCard title="Midpoint Preceptor Evaluation" borderColor="#fef3c7" icon="📊" count={act9.length} badgeBg="#92400e">
-                {act9.map(s => (
-                  <SRow key={s.id} student={s} pending={isPend(s.id,'midpoint_eval')}
-                    warning={!s.preceptor_email ? 'Preceptor email missing' : null}
-                    onOpenMail={s.preceptor_email ? () => { openHref(buildMidpointEvalEmail(s)); setPend(s.id,'midpoint_eval') } : undefined}
-                    onMarkSent={() => logComm({ type:'midpoint_eval', student:s, sentToEmail:s.preceptor_email })} />
-                ))}
-              </ActionCard>
-
-              {/* 10: Post-Program Survey */}
-              <ActionCard title="Post-Program Student Survey" borderColor="#dcfce7" icon="📋" count={act10.length} badgeBg="#166534">
-                {act10.map(s => (
-                  <SRow key={s.id} student={s} pending={isPend(s.id,'post_survey')}
-                    onOpenMail={() => { openHref(buildPostSurveyEmail(s)); setPend(s.id,'post_survey') }}
-                    onMarkSent={() => logComm({ type:'post_survey', student:s, sentToEmail:s.personal_email||s.school_email })} />
-                ))}
-              </ActionCard>
-
-              {/* 11: Certificate */}
-              <ActionCard title="Certificate of Completion" borderColor="#d1fae5" icon="🎓" count={act11.length} badgeBg="#065f46">
-                {act11.map(s => (
-                  <SRow key={s.id} student={s} pending={isPend(s.id,'certificate')}
-                    onOpenMail={() => { openHref(buildCertificateEmail(s)); setPend(s.id,'certificate') }}
-                    onMarkSent={() => logComm({ type:'certificate', student:s, sentToEmail:s.personal_email||s.school_email })} />
-                ))}
-              </ActionCard>
-
-              {/* 12: End Preceptor Eval */}
-              <ActionCard title="End Preceptor Evaluation" borderColor="#e5e7eb" icon="📝" count={act12.length} badgeBg="#374151">
-                {act12.map(s => (
-                  <SRow key={s.id} student={s} pending={isPend(s.id,'end_eval')}
-                    warning={!s.preceptor_email ? 'Preceptor email missing' : null}
-                    onOpenMail={s.preceptor_email ? () => { openHref(buildEndEvalEmail(s)); setPend(s.id,'end_eval') } : undefined}
-                    onMarkSent={() => logComm({ type:'end_eval', student:s, sentToEmail:s.preceptor_email })} />
-                ))}
-              </ActionCard>
-
-              {/* 13: Shift Log Needs Review */}
-              <ActionCard title="Shift Log Needs Review" borderColor="#fef3c7" icon="📋" count={act13.length} badgeBg="#92400e">
-                {act13.map(item => item.student && (
-                  <SRow key={item.id} student={item.student} noMail
-                    warning={`${item.shift_date} · ${item.total_hours}h${Array.isArray(item.exception_flags)&&item.exception_flags.length>0?' · '+item.exception_flags.map(f=>f.replace(/_/g,' ')).join(', '):''}`}
-                    linkLabel="Review →"
-                    onLink={() => { onClose(); onNavigateToProfiles?.(item.student.id) }} />
-                ))}
-              </ActionCard>
-
-              {/* 14: Completed Required Hours */}
-              <ActionCard title="Student Completed Required Hours" borderColor="#dcfce7" icon="🏆" count={act14.length} badgeBg="#166534">
-                {act14.map(s => (
-                  <SRow key={s.id} student={s} pending={isPend(s.id,'certificate')}
-                    onOpenMail={() => { openHref(buildCertificateEmail(s)); setPend(s.id,'certificate') }}
-                    onMarkSent={() => logComm({ type:'certificate', student:s, sentToEmail:s.personal_email||s.school_email })} />
-                ))}
-              </ActionCard>
-
-              {/* 15: Not Logged Recently */}
-              <ActionCard title="Student Not Logged Recently" borderColor="#fee2e2" icon="⏰" count={act15.length} badgeBg="#991b1b">
-                {act15.map(s => (
-                  <SRow key={s.id} student={s} noMail
-                    warning={s.daysSince === null ? 'No shifts logged yet' : `${s.daysSince} days since last log`}
-                    linkLabel="Go to Profile →"
-                    onLink={() => { onClose(); onNavigateToProfiles?.(s.id) }} />
-                ))}
-              </ActionCard>
-
-              {/* 16: Badge Not Created — admin/owner only */}
-              {canEdit && <ActionCard title="Badge Not Created" borderColor="#f3f4f6" icon="🪪" count={act16.length} badgeBg="#6b7280">
-                {act16.map(s => (
-                  <SRow key={s.id} student={s} noMail
-                    linkLabel="Mark Created →"
-                    onLink={() => { onClose(); onNavigateToProfiles?.(s.id) }} />
-                ))}
-              </ActionCard>}
+              {/* SECTION_CONFIG rendering */}
+              {SECTION_CONFIG.map(section => {
+                const items = filteredActionItems.filter(section.filter)
+                if (items.length === 0) return null
+                return (
+                  <div key={section.key} style={{ marginBottom:'4px' }}>
+                    <div style={{ padding:'8px 20px 6px', background:'#f9fafb', borderBottom:'1px solid #f3f4f6', display:'flex', alignItems:'center', gap:'8px' }}>
+                      <span style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'11px', color:section.color, textTransform:'uppercase', letterSpacing:'0.05em' }}>{section.label}</span>
+                      <span style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'10px', color:section.color, background:`${section.color}18`, padding:'1px 7px', borderRadius:'20px' }}>{items.length}</span>
+                    </div>
+                    {items.map(item => (
+                      <div key={item.id} style={{ padding:'12px 16px', borderBottom:'1px solid #f9fafb', borderLeft:`3px solid ${PRIORITY_CONFIG[item.priority].color}`, background: doneItems.has(item.id) ? '#f9fafb' : '#ffffff', opacity: doneItems.has(item.id) ? 0.6 : 1, transition:'opacity 0.2s ease' }}>
+                        <div style={{ display:'flex', alignItems:'flex-start', gap:'10px' }}>
+                          <span style={{ flexShrink:0, fontFamily:'DM Sans', fontWeight:700, fontSize:'9px', textTransform:'uppercase', letterSpacing:'0.05em', color:PRIORITY_CONFIG[item.priority].color, background:PRIORITY_CONFIG[item.priority].bg, padding:'2px 7px', borderRadius:'20px', marginTop:'1px' }}>
+                            {PRIORITY_CONFIG[item.priority].label}
+                          </span>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'13px', color:'#1D2567', marginBottom:'2px' }}>{item.studentName}</div>
+                            <div style={{ fontFamily:'DM Sans', fontSize:'12px', color:'#374151', marginBottom:'2px' }}>{item.title}</div>
+                            <div style={{ fontFamily:'DM Sans', fontSize:'11px', color:'#9ca3af' }}>{item.warning || item.description}</div>
+                          </div>
+                          <div style={{ display:'flex', flexDirection:'column', gap:'4px', flexShrink:0 }}>
+                            {item.navigateToProfile && !doneItems.has(item.id) && (
+                              <button onClick={() => { onClose(); onNavigateToProfiles?.(item.studentId) }}
+                                style={{ padding:'5px 10px', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:'7px', fontFamily:'DM Sans', fontWeight:600, fontSize:'11px', color:'#1D2567', cursor:'pointer', whiteSpace:'nowrap' }}>
+                                → Profile
+                              </button>
+                            )}
+                            {item.canMarkDone && !doneItems.has(item.id) && (
+                              <button onClick={() => handleMarkDone(item)} disabled={markingDone === item.id}
+                                style={{ padding:'5px 12px', background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:'7px', fontFamily:'DM Sans', fontWeight:600, fontSize:'11px', color:'#166534', cursor:'pointer', whiteSpace:'nowrap', transition:'all 0.15s ease' }}
+                                onMouseEnter={e => e.currentTarget.style.background='#dcfce7'}
+                                onMouseLeave={e => e.currentTarget.style.background='#f0fdf4'}>
+                                {markingDone === item.id ? '...' : '✓ Done'}
+                              </button>
+                            )}
+                            {doneItems.has(item.id) && (
+                              <span style={{ fontFamily:'DM Sans', fontSize:'11px', color:'#16a34a', fontWeight:600 }}>✓ Done</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })}
 
             </div>
           </div>
 
-          {/* Recent Communications — collapsible, only rendered when entries exist */}
+          {/* Recent Communications — centered pill toggle, clear of Keith orb */}
           {recentComms.length > 0 && (
-            <div style={{ flexShrink:0, borderTop:'1px solid #f3f4f6' }}>
-              <div
-                onClick={() => setShowRecentComms(p => !p)}
-                style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 20px', cursor:'pointer' }}>
-                <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:11, textTransform:'uppercase', letterSpacing:'0.06em', color:'#9ca3af' }}>
-                  Recent Communications
-                </span>
-                <span style={{ color:'#9ca3af', fontSize:12, display:'inline-block', transform: showRecentComms ? 'rotate(180deg)' : 'rotate(0deg)', transition:'transform 0.2s ease' }}>▼</span>
+            <div style={{ flexShrink:0 }}>
+              <div onClick={() => setShowRecentComms(p => !p)}
+                style={{ display:'flex', flexDirection:'column', alignItems:'center', cursor:'pointer', padding:'12px 0 8px', borderTop:'1px solid #f3f4f6', marginTop:'8px', position:'relative', zIndex:10 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'6px', padding:'4px 14px', background:'#f3f4f6', borderRadius:'20px', transition:'background 0.15s ease' }}
+                  onMouseEnter={e => e.currentTarget.style.background='#e5e7eb'}
+                  onMouseLeave={e => e.currentTarget.style.background='#f3f4f6'}>
+                  <span style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:'11px', color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+                    Recent Communications
+                  </span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" strokeLinecap="round"
+                    style={{ transform: showRecentComms ? 'rotate(180deg)' : 'rotate(0deg)', transition:'transform 0.2s ease' }}>
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </div>
               </div>
               {showRecentComms && (
-                <div style={{ maxHeight:220, overflowY:'auto', padding:'0 16px 12px' }}>
-                  {recentComms.map((c, i) => (
+                <div style={{ maxHeight:220, overflowY:'auto', padding:'0 16px 80px' }}>
+                  {recentComms.map((c) => (
                     <div key={c.id} style={{ padding:'8px 0', borderBottom:'1px solid #f3f4f6' }}>
                       <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', gap:8 }}>
                         <div style={{ display:'flex', alignItems:'center', gap:6 }}>
