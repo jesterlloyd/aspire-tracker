@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Joyride, STATUS } from 'react-joyride';
+import { Joyride, EVENTS, STATUS, ACTIONS } from 'react-joyride';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { getTourSteps, TOUR_VERSION } from '../lib/onboardingTours';
@@ -76,17 +76,25 @@ export default function OnboardingTour({ run, onClose }) {
   }, [userProfile]);
 
   async function markCompleted() {
-    if (!userProfile?.auth_user_id) return;
-    const { error } = await supabase
+    if (!userProfile) {
+      console.warn('[Tour] markCompleted called but no userProfile');
+      return;
+    }
+    console.log('[Tour] markCompleted firing for', userProfile.auth_user_id);
+
+    const { data, error } = await supabase
       .from('user_profiles')
       .update({
         onboarding_tour_completed:    true,
         onboarding_tour_completed_at: new Date().toISOString(),
         onboarding_tour_version:      TOUR_VERSION,
       })
-      .eq('auth_user_id', userProfile.auth_user_id);
-    if (error) { console.error('Failed to mark tour complete:', error); return; }
-    // Refresh context so the gate in App.jsx sees the updated completed state
+      .eq('auth_user_id', userProfile.auth_user_id)
+      .select();
+
+    if (error) { console.error('[Tour] UPDATE failed:', error); return; }
+    console.log('[Tour] UPDATE returned:', data);
+
     if (typeof refreshUserProfile === 'function') await refreshUserProfile();
   }
 
@@ -102,12 +110,36 @@ export default function OnboardingTour({ run, onClose }) {
     }
   }
 
-  function handleCallback(data) {
-    const { status, action } = data;
-    if (status === STATUS.FINISHED) {
-      markCompleted();
+  async function handleCallback(data) {
+    const { status, type, action, index } = data;
+    console.log('[Tour callback]', { status, type, action, index });
+
+    // Final step: user clicked Next/Finish on the last step
+    if (
+      action === ACTIONS.NEXT &&
+      index === steps.length - 1 &&
+      type === EVENTS.STEP_AFTER
+    ) {
+      await markCompleted();
       onClose();
-    } else if (status === STATUS.SKIPPED || action === 'skip') {
+      return;
+    }
+
+    // Joyride also emits STATUS.FINISHED after the last step completes
+    if (status === STATUS.FINISHED) {
+      await markCompleted();
+      onClose();
+      return;
+    }
+
+    // User explicitly skipped
+    if (status === STATUS.SKIPPED || action === ACTIONS.SKIP) {
+      setShowSkipModal(true);
+      return;
+    }
+
+    // Any other close action (X button)
+    if (type === EVENTS.TOOLTIP_CLOSE || action === ACTIONS.CLOSE) {
       setShowSkipModal(true);
     }
   }

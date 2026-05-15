@@ -97,8 +97,13 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut();
   };
 
-  // Exposed so components can force a context refresh after writing to user_profiles
-  const refreshUserProfile = () => loadUserProfile();
+  // Exposed so components can force a context refresh after writing to user_profiles.
+  // Bypasses the concurrent-load guard so it always runs.
+  const refreshUserProfile = async () => {
+    const { data, error } = await supabase.rpc('get_my_profile');
+    if (error) { console.error('refreshUserProfile error:', error.message); return; }
+    if (data?.length > 0) setUserProfile(data[0]);
+  };
 
   const value = {
     user,
