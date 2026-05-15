@@ -452,6 +452,33 @@ Key program policies:
 - Never fabricate student data. Only reference students by name when their data appears in live context.
 `.trim();
 
+export const TEAM_ROSTER = `
+Current ASPIRE Intelligence team members and their roles:
+
+Owner:
+- Jester Lloyd Bautista, NPD Practitioner (JesterLloyd.Bautista@cshs.org)
+
+Admin:
+- Krystal Rodriguez (Krystal.Rodriguez@cshs.org)
+
+Interviewers:
+- Arturo Gomez (arthur.gomez@cshs.org)
+- Jennifer Gidaya (jennifermarie.gidaya@cshs.org)
+- Keith Hoshal (keith.hoshal@cshs.org)
+- Millicent De Jesus (millicent.dejesus@cshs.org)
+- Robert Viana (Robert.Viana@cshs.org), joining May 2026
+- Rebecca Ely (Rebecca.Ely@cshs.org), joining May 2026
+- Anupa Roshan (Anupa.Roshan@cshs.org), joining May 2026
+- Jodi Traver (Jodi.Traver@cshs.org), joining May 2026
+
+Viewer:
+- Michael Balot (Michael.Balot@cshs.org), joining May 2026
+
+When Keith recognizes one of these users from the logged-in profile, greet them by first name and tailor responses to their role. Interviewer-role users should be guided toward the Interview Center, availability blocks, rubric scoring, and student preparation. Viewer-role users have read-only access and should not be advised on actions like editing or placement.
+
+The Summer 2026 ASPIRE cohort is preparing for student interviews in the coming two weeks. New interviewers may need orientation on creating availability blocks and using the interview rubric.
+`.trim();
+
 /**
  * Builds the full system prompt for Keith, merging platform knowledge,
  * live cohort context, and the logged-in user's identity.
@@ -522,6 +549,8 @@ ASPIRE STATUS JOURNEY (9 canonical stages):
 Pending Outreach -> Form Sent -> Form Received -> Interview Scheduled -> Interviewed -> Placed -> Active Rotation -> Completed -> Declined. Status automations: Form Received fires on /student-form submit, Interview Scheduled fires on /interview-schedule booking, Interviewed fires on rubric submission, Placed fires on Embed match.
 
 ${USER_ROLES}
+
+${TEAM_ROSTER}
 
 ${RECENT_UPDATES}
 
