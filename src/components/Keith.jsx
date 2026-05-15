@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { SUGGESTED_PROMPTS, generateStaticResponse, getKeithContext } from '../lib/keithKnowledge';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, supabase, isAuthenticated }) {
+  const { userProfile } = useAuth();
   const [isOpen,       setIsOpen]       = useState(false);
   const [messages,     setMessages]     = useState([]);
   const [input,        setInput]        = useState('');
@@ -39,10 +41,11 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     setContext(null);
   }, [cohortId]);
 
+  const firstName = userProfile?.full_name?.split(' ')[0];
   const welcomeMessage = {
     id: 'welcome',
     role: 'keith',
-    text: `Hi! I'm Keith, your ASPIRE Program assistant.\n\nI'm here to help you manage the ASPIRE workflow. I can help you:\n\n• Identify students who need follow-up\n• Summarize cohort status\n• Draft common ASPIRE emails\n• Answer questions about any part of the program\n\nWhat can I help you with today?`,
+    text: `Hi${firstName ? `, ${firstName}` : ''}! I'm Keith, your ASPIRE Program assistant.\n\nI'm here to help you manage the ASPIRE workflow. I can help you:\n\n• Identify students who need follow-up\n• Summarize cohort status\n• Draft common ASPIRE emails\n• Answer questions about any part of the program\n\nWhat can I help you with today?`,
   };
 
   const handleSend = async (messageText) => {
@@ -65,6 +68,12 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
           messages: conversationHistory,
           context,
           cohortName,
+          userProfile: userProfile ? {
+            full_name: userProfile.full_name,
+            email:     userProfile.email,
+            role:      userProfile.role,
+            is_owner:  userProfile.is_owner,
+          } : null,
         }),
       });
 

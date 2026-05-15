@@ -1,9 +1,7 @@
-function safeList(arr) {
-  if (!Array.isArray(arr) || arr.length === 0) return 'None';
-  return arr.map(s => `${s.last_name || '?'}, ${s.first_name || '?'}`).join('; ');
-}
+import { buildSystemPrompt } from '../src/lib/keithKnowledge.js';
 
-function buildSystemPrompt(context, cohortName) {
+// Legacy shim kept for safety (actual logic now lives in keithKnowledge.js)
+function _buildSystemPrompt_legacy(context, cohortName) {
   const cohort = cohortName || 'the current cohort';
   let liveData = 'LIVE COHORT DATA: Not available.';
   if (context) {
@@ -170,7 +168,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'API key not configured' });
   }
 
-  const { messages, context, cohortName } = req.body || {};
+  const { messages, context, cohortName, userProfile } = req.body || {};
 
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'Valid messages array required' });
@@ -186,7 +184,7 @@ export default async function handler(req, res) {
   const requestBody = JSON.stringify({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 1024,
-    system: buildSystemPrompt(context, cohortName),
+    system: buildSystemPrompt({ userProfile, context, cohortName }),
     messages: anthropicMessages,
   });
 
