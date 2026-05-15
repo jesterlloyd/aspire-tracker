@@ -479,6 +479,90 @@ When Keith recognizes one of these users from the logged-in profile, greet them 
 The Summer 2026 ASPIRE cohort is preparing for student interviews in the coming two weeks. New interviewers may need orientation on creating availability blocks and using the interview rubric.
 `.trim();
 
+export const BNI_ORGANIZATION = `
+The Geri and Richard Brawerman Nursing Institute (BNI) at Cedars-Sinai Medical Center is a centralized group of educators that operates separately from unit-based educators (NPD-Practitioners and Clinical Nurse Specialists assigned to individual units like NICU, ICU, etc.).
+
+BNI is structured into three branches:
+- Nursing Education (where ASPIRE and all NPD-Practitioner programs sit)
+- Nursing Research
+- Nursing Innovation
+
+Leadership and Administration:
+- Executive Director: Margo B. Minissian, PhD, ACNP-BC, NEA-BC, FAHA, FAAN. Also holds the Simms/Mann Family Foundation Endowed Chair in Nurse Education, Innovation and Research, and is Assistant Professor of Cardiology. Contact: Margo.Minissian@cshs.org, 310-384-0126.
+- Lead Administrative Assistant: Belle Velasquez. Contact: Belle.Velasquez@cshs.org, 323-574-2190.
+
+Project / Program Coordinators (support the NPD-Practitioners):
+- Michael Balot (Michael.Balot@cshs.org, 310-422-6599): supports Nursing Academics, Patient Education, and the Nursing Research Council.
+- Andrew Gordon, BSN, MSHS (AndrewCharles.Gordon@cshs.org, 323-369-1665): supports the New Graduate RN Residency Program, CPR Program, Nursing Professional Governance, Clinical Partner Program, and Professional Development Fair.
+
+Nursing Professional Development Practitioners (NPD-Ps) and their programs:
+
+1. Jodi Traver, PhD, RN, PHN, NE-BC, NPD-BC (Jodi.Traver@cshs.org, 858-283-9683)
+   - Patient Education Chair
+   - Nursing Academics (Post-licensure)
+   - Nursing Continuing Education
+
+2. Anupa Roshan, DNP, MSN, RN, CCRN, NPD-BC (Anupa.Roshan@cshs.org, 310-699-3256)
+   - CPR Program
+   - Nurses Improving Care for Healthsystem Elders (NICHE) Program
+
+3. Robert Viana, MSN, RN, NPD-BC, Caritas Coach (Robert.Viana@cshs.org, 323-449-0699)
+   - Practice Transition Accreditation Program (PTAP) Director
+   - Co-oversees the New Graduate RN Residency Program with Jennifer Gidaya
+
+4. Jennifer Marie Gidaya, MSN, RN, MEDSURG-BC, Caritas Coach (JenniferMarie.Gidaya@cshs.org, 310-800-0679)
+   - New Graduate RN Residency Program Site Coordinator
+
+5. Kathleen Burgner, MSN/MBA, RNC-MNN (Kathleen.Burgner@cshs.org, 310-739-1987)
+   - NPD-P lead for the Professional Development Committee (PDC)
+   - Spearheads the No Harm in Our Care Committee
+
+6. Terrance Lark, MSN, RN, CGRN (Terrance.Lark@cshs.org, 323-301-5544)
+   - Clinical Partner Program lead
+   - Works with Kathleen on assigning HealthStream courses to staff across the organization
+
+7. Krystal Sophia Rodriguez, DNP, RN, NPD-BC, CNOR (Krystal.Rodriguez@cshs.org, 909-618-6150)
+   - Preceptor Program lead
+   - Advisor to the Preceptor Committee
+   - Charge Nurse Program lead
+   - Member of the Nursing Research Council
+   - NPD-P lead for "Falls" under the No Harm in Our Care Committee
+   - Co-lead for the ASPIRE Program
+
+8. Millicent G. De Jesus, PhD, RN, NPD-BC (Millicent.DeJesus@cshs.org, 310-717-8904)
+   - NPD-P lead for the Transition to Practice (TTP) Committee
+   - Spearheads the Learning Needs Assessment Survey
+   - Member of the Nursing Research Council
+
+9. Arturo Gomez, MSN, MBA, RN, PMHNP-BC, NPD-BC, CCRN (Arthur.Gomez@cshs.org, 424-610-1183)
+   - Nursing Academics (Pre-licensure) lead
+
+10. Rebecca Ely, DNP, RN, NPD-BC (Rebecca.Ely@cshs.org, 323-541-3323)
+    - Nursing Professional Governance (NPG) Lead
+    - Mentorship Program Lead
+    - Caritas Coach
+
+11. Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN (JesterLloyd.Bautista@cshs.org, 424-386-5004)
+    - ASPIRE Program lead
+    - Preceptor Program co-lead
+    - Assists Kathleen with Professional Development rollouts
+    - NPD-P lead for "HAPI" under the No Harm in Our Care Committee
+    - Part of Nursing Academics (Pre-licensure) alongside Arturo, Jodi, and Michael
+
+12. Keith Hoshal, MSN, RN, NPD-BC, OCN (Keith.Hoshal@cshs.org, 310-435-3935)
+    - Title: Project Associate Prdm, per diem, advisor role
+    - Previously ran the ASPIRE Program when it was called the Graduate Nurse Trainee Transition to Practice (GNT-TTP) Program, before Jester renamed and restructured it as ASPIRE
+
+Key cross-program collaborations:
+- ASPIRE: Jester (lead) and Krystal (co-lead)
+- Preceptor Program: Krystal (lead) and Jester (co-lead)
+- New Grad RN Residency: Robert (oversees) and Jennifer (site coordinator)
+- Nursing Academics Pre-licensure: Arturo (lead), Jester, Jodi, and Michael
+- No Harm in Our Care Committee: Kathleen (chair), Krystal (Falls), Jester (HAPI)
+- HealthStream coordination: Kathleen and Terrance
+- Nursing Research Council: Krystal, Millicent, Michael
+`.trim();
+
 /**
  * Builds the full system prompt for Keith, merging platform knowledge,
  * live cohort context, and the logged-in user's identity.
@@ -549,6 +633,8 @@ ASPIRE STATUS JOURNEY (9 canonical stages):
 Pending Outreach -> Form Sent -> Form Received -> Interview Scheduled -> Interviewed -> Placed -> Active Rotation -> Completed -> Declined. Status automations: Form Received fires on /student-form submit, Interview Scheduled fires on /interview-schedule booking, Interviewed fires on rubric submission, Placed fires on Embed match.
 
 ${USER_ROLES}
+
+${BNI_ORGANIZATION}
 
 ${TEAM_ROSTER}
 
