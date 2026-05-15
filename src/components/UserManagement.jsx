@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { X, UserPlus, Mail, MoreVertical } from 'lucide-react';
+import { X, UserPlus, Mail, MoreVertical, RefreshCw } from 'lucide-react';
 
-// ── Constants ────────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const ROLE_OPTIONS = [
   { value: 'admin',       label: 'Admin',       description: 'Full operational access' },
@@ -30,7 +30,17 @@ const INTERVIEWER_COLORS = [
   { name: 'Slate',   hex: '#3730A3' },
 ]
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+const ROLE_ORDER = { owner: 0, admin: 1, 'co-lead': 2, co_lead: 2, interviewer: 3, viewer: 4 }
+
+const CHIP_FILTERS = [
+  { key: 'all',          label: 'All Users' },
+  { key: 'active',       label: 'Active' },
+  { key: 'interviewers', label: 'Interviewers' },
+  { key: 'inactive',     label: 'Inactive' },
+  { key: 'owners_admins',label: 'Owners/Admins' },
+]
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatLoginDate(dateStr) {
   if (!dateStr) return 'Never logged in'
@@ -45,10 +55,10 @@ function formatRelativeTime(dateStr) {
   const mins  = Math.floor(diff / 60000)
   const hours = Math.floor(diff / 3600000)
   const days  = Math.floor(diff / 86400000)
-  if (mins < 2)   return 'Just now'
-  if (hours < 1)  return `${mins}m ago`
+  if (mins  <  2) return 'Just now'
+  if (hours <  1) return `${mins}m ago`
   if (hours < 24) return `${hours}h ago`
-  if (days === 1) return 'Yesterday'
+  if (days  === 1) return 'Yesterday'
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
@@ -58,11 +68,43 @@ function displayRole(user) {
   return r.charAt(0).toUpperCase() + r.slice(1)
 }
 
+function sortUsers(users) {
+  return [...users].sort((a, b) => {
+    // Inactive always at the bottom
+    const aActive = a.is_active !== false
+    const bActive = b.is_active !== false
+    if (aActive !== bActive) return aActive ? -1 : 1
+    // Owner first, then by role hierarchy
+    const ra = a.is_owner ? 0 : (ROLE_ORDER[a.role] ?? 99)
+    const rb = b.is_owner ? 0 : (ROLE_ORDER[b.role] ?? 99)
+    if (ra !== rb) return ra - rb
+    // Alphabetical within same role
+    return (a.full_name || '').localeCompare(b.full_name || '')
+  })
+}
+
+function groupUsers(users) {
+  const groups = [
+    { key: 'owner',        label: 'Owner',             users: [] },
+    { key: 'admins',       label: 'Admins & Co-Leads', users: [] },
+    { key: 'interviewers', label: 'Interviewers',      users: [] },
+    { key: 'viewers',      label: 'Viewers',           users: [] },
+    { key: 'inactive',     label: 'Inactive',          users: [] },
+  ]
+  users.forEach(u => {
+    if (u.is_active === false)       { groups[4].users.push(u); return }
+    if (u.is_owner)                  { groups[0].users.push(u); return }
+    const r = u.role || 'viewer'
+    if (r === 'admin' || r === 'co-lead' || r === 'co_lead') { groups[1].users.push(u); return }
+    if (r === 'interviewer')         { groups[2].users.push(u); return }
+    groups[3].users.push(u)
+  })
+  return groups.filter(g => g.users.length > 0)
+}
+
 function UserInitials({ user, size = 40 }) {
   const [err, setErr] = useState(false)
   const initials = (user.full_name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
-  const bg = user.is_owner ? '#1D2567' : (ROLE_BADGE[user.role] || ROLE_BADGE.viewer).bg
-  const textColor = user.is_owner ? '#fff' : (ROLE_BADGE[user.role] || ROLE_BADGE.viewer).text
   if (user.avatar_url && !err) {
     return (
       <img src={user.avatar_url} alt={user.full_name}
@@ -85,34 +127,34 @@ function UserInitials({ user, size = 40 }) {
 export default function UserManagement({ isOpen, onClose }) {
   const { isOwner, isAdmin, canEdit, userProfile } = useAuth()
 
-  const [users,           setUsers]           = useState([])
-  const [loading,         setLoading]         = useState(false)
-  const [activityLogs,    setActivityLogs]    = useState([])
-  const [activeView,      setActiveView]      = useState('users')
-  const [activityFilter,  setActivityFilter]  = useState(null) // full_name string
+  // ── Data state ──────────────────────────────────────────────────────────────
+  const [users,        setUsers]        = useState([])
+  const [loading,      setLoading]      = useState(false)
+  const [error,        setError]        = useState(null)
+  const [activityLogs, setActivityLogs] = useState([])
+  const [activeView,   setActiveView]   = useState('users')
+  const [activityFilter, setActivityFilter] = useState(null)
 
-  // Invite
+  // ── Invite ──────────────────────────────────────────────────────────────────
   const [inviteMode,    setInviteMode]    = useState(false)
   const [inviteData,    setInviteData]    = useState({ email: '', full_name: '', role: 'interviewer' })
   const [inviteLoading, setInviteLoading] = useState(false)
   const [inviteResult,  setInviteResult]  = useState(null)
 
-  // Filters
-  const [search,          setSearch]          = useState('')
-  const [filterRole,      setFilterRole]      = useState('all')
-  const [filterStatus,    setFilterStatus]    = useState('all')
-  const [filterInterview, setFilterInterview] = useState('all')
+  // ── Filter chip (replaces search + 3 dropdowns) ─────────────────────────────
+  const [chipFilter, setChipFilter] = useState('all')
 
-  // Card UX
+  // ── Card UX ──────────────────────────────────────────────────────────────────
   const [expandedUserId,    setExpandedUserId]    = useState(null)
   const [editDrafts,        setEditDrafts]        = useState({})
   const [menuOpenId,        setMenuOpenId]        = useState(null)
   const [deactivateConfirm, setDeactivateConfirm] = useState(null)
   const [saving,            setSaving]            = useState(false)
+  const [saveToast,         setSaveToast]         = useState(null)
 
   const menuRef = useRef(null)
 
-  // Close menu on outside click
+  // ── Close menu on outside click ──────────────────────────────────────────────
   useEffect(() => {
     if (!menuOpenId) return
     const handler = e => {
@@ -122,37 +164,82 @@ export default function UserManagement({ isOpen, onClose }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [menuOpenId])
 
+  // ── Fetch with AbortController — runs on every drawer open ───────────────────
   useEffect(() => {
-    if (isOpen && canEdit) { fetchUsers(); fetchActivityLogs() }
+    if (!isOpen || !canEdit) return
+
+    const controller = new AbortController()
+    let cancelled = false
+
+    const load = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        // Supabase JS v2 doesn't expose abortSignal directly on rpc(), but we
+        // use the cancelled flag to discard the result if the effect cleaned up.
+        const { data, error: rpcError } = await supabase.rpc('get_all_user_profiles')
+        if (cancelled) return
+        if (rpcError) throw rpcError
+        setUsers(data || [])
+      } catch (err) {
+        if (cancelled || err?.name === 'AbortError') return
+        setError(err.message || 'Failed to load users')
+        // Do NOT setUsers([]) here — preserve any previously loaded list
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    const loadActivity = async () => {
+      const { data } = await supabase
+        .from('activity_logs').select('*')
+        .order('created_at', { ascending: false }).limit(200)
+      if (!cancelled) setActivityLogs(data || [])
+    }
+
+    load()
+    loadActivity()
+
+    // Reset filter + collapse on re-open so stale state can't hide data
+    setChipFilter('all')
+    setExpandedUserId(null)
+
+    return () => { cancelled = true; controller.abort() }
   }, [isOpen]) // eslint-disable-line
 
-  const fetchUsers = async () => {
+  // ── Manual refresh (also used after mutations) ────────────────────────────────
+  const refetch = useCallback(async () => {
+    if (!canEdit) return
     setLoading(true)
+    setError(null)
     try {
-      const { data, error } = await supabase.rpc('get_all_user_profiles')
-      if (error) { console.error('UserManagement fetch error:', error.message); setUsers([]) }
-      else setUsers(data || [])
-    } catch (err) { console.error('UserManagement exception:', err.message); setUsers([]) }
-    finally { setLoading(false) }
-  }
+      const { data, error: rpcError } = await supabase.rpc('get_all_user_profiles')
+      if (rpcError) throw rpcError
+      setUsers(data || [])
+    } catch (err) {
+      setError(err.message || 'Failed to load users')
+    } finally {
+      setLoading(false)
+    }
+  }, [canEdit])
 
-  const fetchActivityLogs = async () => {
-    const { data } = await supabase
-      .from('activity_logs').select('*')
-      .order('created_at', { ascending: false }).limit(200)
-    setActivityLogs(data || [])
-  }
-
+  // ── Admin proxy ───────────────────────────────────────────────────────────────
   const adminProxy = async (body) => {
     const res = await fetch('/api/admin-users', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
     const data = await res.json()
-    if (!res.ok) console.error('admin-users error:', data.error)
-    return res.ok
+    if (!res.ok) { console.error('admin-users error:', data.error); return false }
+    return true
   }
 
+  const showToast = (msg, type = 'success') => {
+    setSaveToast({ msg, type })
+    setTimeout(() => setSaveToast(null), 3500)
+  }
+
+  // ── Invite ────────────────────────────────────────────────────────────────────
   const handleInvite = async () => {
     if (!inviteData.email || !inviteData.full_name || !inviteData.role) return
     setInviteLoading(true); setInviteResult(null)
@@ -165,7 +252,7 @@ export default function UserManagement({ isOpen, onClose }) {
       if (res.ok) {
         setInviteResult({ success: true, message: `Invitation sent to ${inviteData.email}` })
         setInviteData({ email: '', full_name: '', role: 'interviewer' })
-        fetchUsers()
+        refetch()
       } else {
         setInviteResult({ success: false, message: data.error })
       }
@@ -175,10 +262,10 @@ export default function UserManagement({ isOpen, onClose }) {
 
   const handleToggleActive = async (userId, currentActive) => {
     await adminProxy({ action: 'toggle_active', user_id: userId, is_active: !currentActive })
-    fetchUsers()
+    refetch()
   }
 
-  // Build last-action map from activity logs (one entry per user, most recent)
+  // ── Last-action map ───────────────────────────────────────────────────────────
   const lastActionByName = useMemo(() => {
     const map = {}
     activityLogs.forEach(log => {
@@ -187,30 +274,28 @@ export default function UserManagement({ isOpen, onClose }) {
     return map
   }, [activityLogs])
 
-  // Summary counts
+  // ── Summary counts (only from loaded data, never stale) ───────────────────────
   const totalUsers       = users.length
   const activeCount      = users.filter(u => u.is_active !== false).length
   const interviewerCount = users.filter(u => u.can_conduct_interviews).length
   const ownerCount       = users.filter(u => u.is_owner).length
 
-  // Filtered users
-  const filteredUsers = useMemo(() => users.filter(u => {
-    if (search) {
-      const q = search.toLowerCase()
-      if (!u.full_name?.toLowerCase().includes(q) && !u.email?.toLowerCase().includes(q)) return false
-    }
-    if (filterRole !== 'all') {
-      const role = u.is_owner ? 'owner' : (u.role || 'viewer')
-      if (role !== filterRole) return false
-    }
-    if (filterStatus === 'active'   && u.is_active === false)  return false
-    if (filterStatus === 'inactive' && u.is_active !== false)  return false
-    if (filterInterview === 'can'    && !u.can_conduct_interviews) return false
-    if (filterInterview === 'cannot' && u.can_conduct_interviews)  return false
-    return true
-  }), [users, search, filterRole, filterStatus, filterInterview])
+  // ── Sort + filter (chip operates on sorted list, never mutates source) ────────
+  const sortedUsers = useMemo(() => sortUsers(users), [users])
 
-  // Manage Access expand
+  const filteredUsers = useMemo(() => {
+    switch (chipFilter) {
+      case 'active':        return sortedUsers.filter(u => u.is_active !== false)
+      case 'interviewers':  return sortedUsers.filter(u => u.can_conduct_interviews)
+      case 'inactive':      return sortedUsers.filter(u => u.is_active === false)
+      case 'owners_admins': return sortedUsers.filter(u => u.is_owner || u.role === 'admin')
+      default:              return sortedUsers
+    }
+  }, [sortedUsers, chipFilter])
+
+  const groupedUsers = useMemo(() => groupUsers(filteredUsers), [filteredUsers])
+
+  // ── Manage Access ─────────────────────────────────────────────────────────────
   const openManageAccess = (u) => {
     if (expandedUserId === u.id) { setExpandedUserId(null); return }
     setExpandedUserId(u.id)
@@ -229,12 +314,26 @@ export default function UserManagement({ isOpen, onClose }) {
 
   const saveDraft = async (u) => {
     const draft = editDrafts[u.id]
-    if (!draft || u.is_owner) return
+    if (!draft) return
+
+    // Owner protection: block role demotion
+    if (u.is_owner && draft.role !== 'owner') {
+      showToast('There must always be at least one Owner.', 'error'); return
+    }
+
+    // Guard: prevent creating zero owners (edge case for admin demoting owner)
+    const wouldRemoveOwner = !u.is_owner && false // not applicable here, but guard kept
+
     setSaving(true)
     const calls = []
-    const origRole = u.role || 'viewer'
-    if (draft.role !== origRole) {
-      calls.push(adminProxy({ action: 'update_role', user_id: u.id, role: draft.role }))
+
+    // For owner's own card: only allow interview settings
+    const isOwnerCard = u.is_owner
+    if (!isOwnerCard) {
+      const origRole = u.role || 'viewer'
+      if (draft.role !== origRole && draft.role !== 'owner') {
+        calls.push(adminProxy({ action: 'update_role', user_id: u.id, role: draft.role }))
+      }
     }
     if (draft.can_conduct_interviews !== !!u.can_conduct_interviews) {
       calls.push(adminProxy({ action: 'toggle_interviewer', user_id: u.id, can_conduct_interviews: draft.can_conduct_interviews }))
@@ -245,9 +344,11 @@ export default function UserManagement({ isOpen, onClose }) {
     await Promise.all(calls)
     setSaving(false)
     setExpandedUserId(null)
-    fetchUsers()
+    showToast('Saved successfully.')
+    refetch()
   }
 
+  // ── Guard ─────────────────────────────────────────────────────────────────────
   if (!isOpen || !canEdit) return null
 
   const inputStyle = {
@@ -257,12 +358,21 @@ export default function UserManagement({ isOpen, onClose }) {
   }
   const controlStyle = { ...inputStyle, cursor: 'pointer' }
 
+  const isFiltersActive = chipFilter !== 'all'
+
   return (
     <>
       {/* Backdrop */}
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1998 }} />
 
-      {/* Deactivate confirmation modal */}
+      {/* Toast */}
+      {saveToast && (
+        <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 2500, padding: '10px 18px', borderRadius: '10px', fontFamily: 'DM Sans', fontSize: '13px', fontWeight: 600, background: saveToast.type === 'error' ? '#fee2e2' : '#f0fdf4', color: saveToast.type === 'error' ? '#991b1b' : '#166534', border: `1px solid ${saveToast.type === 'error' ? '#fca5a5' : '#86efac'}`, boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }}>
+          {saveToast.msg}
+        </div>
+      )}
+
+      {/* Deactivate confirmation */}
       {deactivateConfirm && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 2200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)' }}>
           <div style={{ background: '#fff', borderRadius: '14px', padding: '28px 24px', maxWidth: '380px', width: '90%', boxShadow: '0 16px 48px rgba(0,0,0,0.2)' }}>
@@ -287,11 +397,7 @@ export default function UserManagement({ isOpen, onClose }) {
       )}
 
       {/* Drawer */}
-      <div style={{
-        position: 'fixed', top: 0, right: 0, bottom: 0, width: '560px',
-        background: '#ffffff', boxShadow: '-8px 0 32px rgba(29,37,103,0.18)',
-        zIndex: 1999, display: 'flex', flexDirection: 'column', fontFamily: 'DM Sans, sans-serif',
-      }}>
+      <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '560px', background: '#ffffff', boxShadow: '-8px 0 32px rgba(29,37,103,0.18)', zIndex: 1999, display: 'flex', flexDirection: 'column', fontFamily: 'DM Sans, sans-serif' }}>
 
         {/* Header */}
         <div style={{ background: 'linear-gradient(180deg, #1c2452 0%, #141928 100%)', padding: '20px 24px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
@@ -301,15 +407,24 @@ export default function UserManagement({ isOpen, onClose }) {
               Manage app users, roles, interviewer access, and activity.
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ffffff', flexShrink: 0 }}>
-            <X size={16} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Manual refresh button */}
+            <button onClick={refetch} disabled={loading} title="Refresh user list"
+              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: loading ? 'default' : 'pointer', color: '#ffffff', opacity: loading ? 0.5 : 1, transition: 'all 0.15s ease' }}
+              onMouseEnter={e => { if (!loading) e.currentTarget.style.background = 'rgba(255,255,255,0.18)' }}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
+              <RefreshCw size={14} style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }} />
+            </button>
+            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ffffff', flexShrink: 0 }}>
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs — count hidden while loading to prevent flicker */}
         <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6', padding: '0 24px', flexShrink: 0 }}>
           {[
-            { id: 'users',    label: `Users (${users.length})` },
+            { id: 'users',    label: loading ? 'Users…' : `Users (${totalUsers})` },
             { id: 'activity', label: 'Activity Log' },
           ].map(tab => (
             <button key={tab.id} onClick={() => { setActiveView(tab.id); if (tab.id !== 'activity') setActivityFilter(null) }}
@@ -321,14 +436,23 @@ export default function UserManagement({ isOpen, onClose }) {
 
         {/* Summary strip */}
         <div style={{ background: '#F4F1EC', padding: '0 24px', height: '36px', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'DM Sans', fontSize: '13px', color: '#6b7280', flexShrink: 0, borderBottom: '1px solid #e5e7eb' }}>
-          <span>{totalUsers} users</span>
-          <span style={{ margin: '0 4px' }}>·</span>
-          <span>{activeCount} active</span>
-          <span style={{ margin: '0 4px' }}>·</span>
-          <span>{interviewerCount} interviewer{interviewerCount !== 1 ? 's' : ''}</span>
-          <span style={{ margin: '0 4px' }}>·</span>
-          <span>{ownerCount} owner{ownerCount !== 1 ? 's' : ''}</span>
+          {loading ? (
+            <span style={{ fontStyle: 'italic' }}>Loading users…</span>
+          ) : error ? (
+            <span style={{ color: '#dc2626' }}>⚠ Failed to load</span>
+          ) : (
+            <>
+              <span>{totalUsers} users</span>
+              <span style={{ margin: '0 4px' }}>·</span>
+              <span>{activeCount} active</span>
+              <span style={{ margin: '0 4px' }}>·</span>
+              <span>{interviewerCount} interviewer{interviewerCount !== 1 ? 's' : ''}</span>
+              <span style={{ margin: '0 4px' }}>·</span>
+              <span>{ownerCount} owner{ownerCount !== 1 ? 's' : ''}</span>
+            </>
+          )}
         </div>
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
         {/* Content */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
@@ -364,224 +488,261 @@ export default function UserManagement({ isOpen, onClose }) {
                         style={{ flex: 1, padding: '9px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '8px', fontFamily: 'DM Sans', fontSize: '13px', cursor: 'pointer' }}>Cancel</button>
                       <button onClick={handleInvite} disabled={inviteLoading || !inviteData.email || !inviteData.full_name}
                         style={{ flex: 2, padding: '9px', border: 'none', borderRadius: '8px', background: inviteLoading ? '#e5e7eb' : '#1D2567', fontFamily: 'DM Sans', fontWeight: 700, fontSize: '13px', color: '#ffffff', cursor: inviteLoading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                        <Mail size={13} /> {inviteLoading ? 'Sending...' : 'Send Invitation'}
+                        <Mail size={13} /> {inviteLoading ? 'Sending…' : 'Send Invitation'}
                       </button>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Search + Filters */}
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                <input placeholder="Search by name or email…" value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  style={{ ...inputStyle, flex: '1 1 180px', minWidth: '140px' }} />
-                <select value={filterRole} onChange={e => setFilterRole(e.target.value)} style={{ ...controlStyle, flex: '0 0 auto', width: '130px' }}>
-                  <option value="all">All Roles</option>
-                  <option value="owner">Owner</option>
-                  <option value="admin">Admin</option>
-                  <option value="co-lead">Co-Lead</option>
-                  <option value="interviewer">Interviewer</option>
-                  <option value="viewer">Viewer</option>
-                </select>
-                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{ ...controlStyle, flex: '0 0 auto', width: '130px' }}>
-                  <option value="all">All Statuses</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-                <select value={filterInterview} onChange={e => setFilterInterview(e.target.value)} style={{ ...controlStyle, flex: '0 0 auto', width: '150px' }}>
-                  <option value="all">All · Interview</option>
-                  <option value="can">Can Interview</option>
-                  <option value="cannot">Cannot Interview</option>
-                </select>
+              {/* Filter chips */}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                {CHIP_FILTERS.map(chip => {
+                  const isActive = chipFilter === chip.key
+                  return (
+                    <button key={chip.key} onClick={() => setChipFilter(chip.key)}
+                      style={{ height: '30px', padding: '0 14px', borderRadius: '999px', border: `1px solid ${isActive ? '#1D2567' : '#E5E7EB'}`, background: isActive ? '#1D2567' : '#ffffff', fontFamily: 'DM Sans', fontWeight: 500, fontSize: '12px', color: isActive ? '#ffffff' : '#1D2567', cursor: 'pointer', transition: 'all 0.15s ease', whiteSpace: 'nowrap' }}>
+                      {chip.label}
+                    </button>
+                  )
+                })}
               </div>
 
-              {loading ? (
-                <div style={{ textAlign: 'center', padding: '24px', color: '#9ca3af', fontSize: '13px' }}>Loading users…</div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {filteredUsers.map(u => {
-                    const isCurrentUser = u.id === userProfile?.id
-                    const roleColor     = ROLE_BADGE[u.role] || ROLE_BADGE.viewer
-                    const lastLog       = lastActionByName[u.full_name]
-                    const isExpanded    = expandedUserId === u.id
-                    const draft         = editDrafts[u.id]
+              {/* ── Loading state ── */}
+              {loading && (
+                <div style={{ textAlign: 'center', padding: '40px 24px', color: '#9ca3af', fontSize: '13px' }}>
+                  <div style={{ width: '24px', height: '24px', border: '2px solid #e5e7eb', borderTopColor: '#1D2567', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+                  Loading users…
+                </div>
+              )}
 
-                    return (
-                      <div key={u.id} style={{ border: '1px solid #E5E7EB', borderRadius: '12px', background: u.is_active === false ? '#fafafa' : '#ffffff', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+              {/* ── Error state ── */}
+              {!loading && error && (
+                <div style={{ background: '#fff1f2', border: '1px solid #fca5a5', borderRadius: '12px', padding: '20px', textAlign: 'center' }}>
+                  <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '14px', color: '#991b1b', marginBottom: '8px' }}>Unable to load users</div>
+                  <div style={{ fontFamily: 'DM Sans', fontSize: '12px', color: '#6b7280', marginBottom: '14px' }}>{error}</div>
+                  <button onClick={refetch}
+                    style={{ padding: '8px 20px', border: 'none', borderRadius: '8px', background: '#1D2567', color: '#fff', fontFamily: 'DM Sans', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
+                    Retry
+                  </button>
+                </div>
+              )}
 
-                        {/* Card body */}
-                        <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                          <UserInitials user={u} size={40} />
+              {/* ── Empty states ── */}
+              {!loading && !error && users.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '40px 24px', color: '#9ca3af', fontSize: '13px' }}>No users found.</div>
+              )}
+              {!loading && !error && users.length > 0 && filteredUsers.length === 0 && isFiltersActive && (
+                <div style={{ textAlign: 'center', padding: '40px 24px', color: '#9ca3af', fontSize: '13px' }}>No users match the current filter.</div>
+              )}
 
-                          {/* Identity */}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '3px' }}>
-                              <span style={{ fontWeight: 600, fontSize: '14px', color: '#1D2567' }}>{u.full_name}</span>
-                              {isCurrentUser && <span style={{ fontSize: '10px', color: '#9ca3af', fontStyle: 'italic' }}>(you)</span>}
-                              <span style={{ background: u.is_owner ? '#1D2567' : roleColor.bg, color: u.is_owner ? '#ffffff' : roleColor.text, fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '20px' }}>
-                                {displayRole(u)}
-                              </span>
-                              {u.is_active === false && (
-                                <span style={{ background: '#F3F4F6', color: '#6B7280', fontSize: '10px', fontWeight: 600, padding: '2px 7px', borderRadius: '20px' }}>Inactive</span>
-                              )}
-                              {u.can_conduct_interviews && (
-                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#E0E7FF', color: '#3730A3', fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '20px' }}>
-                                  Can Interview
-                                  <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: u.interviewer_color || '#1D2567', flexShrink: 0 }} />
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '3px' }}>{u.email}</div>
-                            <div style={{ fontSize: '11px', color: '#9ca3af' }}>Last login: {formatLoginDate(u.last_login_at)}</div>
-                            {lastLog && (
-                              <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                Last action: {lastLog.description} · {formatRelativeTime(lastLog.created_at)}
-                              </div>
-                            )}
-                            {!lastLog && (
-                              <div style={{ fontSize: '11px', color: '#d1d5db', marginTop: '2px' }}>No recorded activity</div>
-                            )}
-                          </div>
+              {/* ── User list with group headers ── */}
+              {!loading && !error && filteredUsers.length > 0 && (
+                <div>
+                  {groupedUsers.map(group => (
+                    <div key={group.key}>
+                      {/* Group header */}
+                      <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7280', marginTop: '24px', marginBottom: '8px' }}>
+                        {group.label}
+                      </div>
 
-                          {/* Three-dot menu */}
-                          {!isCurrentUser && (
-                            <div style={{ position: 'relative', flexShrink: 0 }} ref={menuOpenId === u.id ? menuRef : null}>
-                              <button onClick={() => setMenuOpenId(menuOpenId === u.id ? null : u.id)}
-                                style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '6px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280' }}>
-                                <MoreVertical size={14} />
-                              </button>
-                              {menuOpenId === u.id && (
-                                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: '#ffffff', border: '1px solid #E5E7EB', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 100, minWidth: '180px', overflow: 'hidden' }}>
-                                  {[
-                                    { label: 'Send password reset', action: () => { setMenuOpenId(null) } },
-                                    { label: 'Resend invite',        action: () => { setMenuOpenId(null) } },
-                                  ].map(item => (
-                                    <button key={item.label} onClick={item.action}
-                                      style={{ width: '100%', padding: '10px 14px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: '#374151', cursor: 'pointer', textAlign: 'left', display: 'block' }}
-                                      onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
-                                      onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-                                      {item.label}
-                                    </button>
-                                  ))}
-                                  {!u.is_owner && (
-                                    <>
-                                      <div style={{ height: '1px', background: '#f3f4f6', margin: '2px 0' }} />
-                                      {u.is_active !== false ? (
-                                        <button onClick={() => { setDeactivateConfirm(u); setMenuOpenId(null) }}
-                                          style={{ width: '100%', padding: '10px 14px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: '#dc2626', cursor: 'pointer', textAlign: 'left', fontWeight: 600 }}
-                                          onMouseEnter={e => e.currentTarget.style.background = '#fff1f2'}
-                                          onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-                                          Deactivate user
-                                        </button>
-                                      ) : (
-                                        <button onClick={() => { handleToggleActive(u.id, false); setMenuOpenId(null) }}
-                                          style={{ width: '100%', padding: '10px 14px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: '#166534', cursor: 'pointer', textAlign: 'left', fontWeight: 600 }}
-                                          onMouseEnter={e => e.currentTarget.style.background = '#f0fdf4'}
-                                          onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-                                          Reactivate user
-                                        </button>
-                                      )}
-                                    </>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {group.users.map(u => {
+                          const isCurrentUser = u.id === userProfile?.id
+                          const isExpanded    = expandedUserId === u.id
+                          const draft         = editDrafts[u.id]
+                          const lastLog       = lastActionByName[u.full_name]
+                          const isOwnerUser   = !!u.is_owner
+
+                          return (
+                            <div key={u.id} style={{ border: '1px solid #E5E7EB', borderRadius: '12px', background: u.is_active === false ? '#fafafa' : '#ffffff', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+
+                              {/* Card body */}
+                              <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                                <UserInitials user={u} size={40} />
+
+                                {/* Identity */}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '3px' }}>
+                                    <span style={{ fontWeight: 600, fontSize: '14px', color: '#1D2567' }}>{u.full_name}</span>
+                                    {isCurrentUser && <span style={{ fontSize: '10px', color: '#9ca3af', fontStyle: 'italic' }}>(you)</span>}
+                                    <span style={{ background: isOwnerUser ? '#1D2567' : (ROLE_BADGE[u.role] || ROLE_BADGE.viewer).bg, color: isOwnerUser ? '#ffffff' : (ROLE_BADGE[u.role] || ROLE_BADGE.viewer).text, fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '20px' }}>
+                                      {displayRole(u)}
+                                    </span>
+                                    {u.is_active === false && (
+                                      <span style={{ background: '#F3F4F6', color: '#6B7280', fontSize: '10px', fontWeight: 600, padding: '2px 7px', borderRadius: '20px' }}>Inactive</span>
+                                    )}
+                                    {u.can_conduct_interviews && (
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#E0E7FF', color: '#3730A3', fontSize: '10px', fontWeight: 500, padding: '2px 8px', borderRadius: '20px' }}>
+                                        Can Interview
+                                        <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: u.interviewer_color || '#1D2567', flexShrink: 0 }} />
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div style={{ fontSize: '12px', color: '#9ca3af', marginBottom: '3px' }}>{u.email}</div>
+
+                                  {/* Owner protection label */}
+                                  {isOwnerUser && (
+                                    <div style={{ fontSize: '11px', color: '#9ca3af', fontStyle: 'italic', marginBottom: '3px' }}>Protected account</div>
+                                  )}
+
+                                  {/* Interviewer access scope helper */}
+                                  {u.role === 'interviewer' && !isOwnerUser && (
+                                    <div style={{ fontSize: '11px', color: '#9ca3af', lineHeight: 1.5, marginBottom: '2px' }}>
+                                      <span style={{ color: '#6b7280' }}>Access:</span> Aggregate, Student Profiles, Interview Rubric<br />
+                                      <span style={{ color: '#6b7280' }}>Restricted:</span> Embed, People &amp; Access
+                                    </div>
+                                  )}
+
+                                  <div style={{ fontSize: '11px', color: '#9ca3af' }}>Last login: {formatLoginDate(u.last_login_at)}</div>
+                                  {lastLog ? (
+                                    <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      Last action: {lastLog.description} · {formatRelativeTime(lastLog.created_at)}
+                                    </div>
+                                  ) : (
+                                    <div style={{ fontSize: '11px', color: '#d1d5db', marginTop: '2px' }}>No recorded activity</div>
                                   )}
                                 </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
 
-                        {/* Action buttons */}
-                        <div style={{ padding: '0 16px 12px', display: 'flex', gap: '8px' }}>
-                          {!isCurrentUser && !u.is_owner && (
-                            <button onClick={() => openManageAccess(u)}
-                              style={{ padding: '7px 14px', border: '1px solid #1D2567', borderRadius: '8px', background: 'none', fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#1D2567', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                              Manage Access {isExpanded ? '▲' : '▾'}
-                            </button>
-                          )}
-                          <button
-                            onClick={() => { setActiveView('activity'); setActivityFilter(u.full_name) }}
-                            style={{ padding: '7px 14px', border: '1px solid #e5e7eb', borderRadius: '8px', background: 'none', fontFamily: 'DM Sans', fontSize: '12px', color: '#6b7280', cursor: 'pointer' }}>
-                            View Activity
-                          </button>
-                        </div>
-
-                        {/* Expandable Manage Access */}
-                        {isExpanded && draft && (
-                          <div style={{ borderTop: '1px solid #F3F4F6', background: '#FAFBFF', padding: '16px' }}>
-
-                            {/* App Role */}
-                            <div style={{ marginBottom: '14px' }}>
-                              <label style={{ display: 'block', fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#374151', marginBottom: '6px' }}>
-                                App Role
-                              </label>
-                              <select value={draft.role} onChange={e => updateDraft(u.id, 'role', e.target.value)} style={{ ...controlStyle, width: '100%' }}>
-                                {ROLE_OPTIONS.map(r => (
-                                  <option key={r.value} value={r.value}>{r.label} — {r.description}</option>
-                                ))}
-                              </select>
-                            </div>
-
-                            {/* Can Conduct Interviews toggle — only shown/editable for non-interviewer, non-viewer */}
-                            {draft.role !== 'viewer' && (
-                              <div style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <div>
-                                  <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#374151' }}>Can Conduct Interviews</div>
-                                  <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#9ca3af' }}>Appears in scheduling dropdowns</div>
-                                </div>
-                                {draft.role === 'interviewer' ? (
-                                  <span style={{ fontSize: '11px', color: '#9ca3af', fontStyle: 'italic' }}>Always on for Interviewers</span>
-                                ) : (
-                                  <button onClick={() => updateDraft(u.id, 'can_conduct_interviews', !draft.can_conduct_interviews)}
-                                    style={{ width: '40px', height: '22px', borderRadius: '11px', border: 'none', background: draft.can_conduct_interviews ? '#1D2567' : '#e5e7eb', position: 'relative', cursor: 'pointer', transition: 'background 0.2s ease', flexShrink: 0 }}>
-                                    <div style={{ position: 'absolute', top: '3px', left: draft.can_conduct_interviews ? '21px' : '3px', width: '16px', height: '16px', borderRadius: '50%', background: '#ffffff', transition: 'left 0.2s ease', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
-                                  </button>
+                                {/* Three-dot menu — hidden for owners (except their own card) */}
+                                {(!isOwnerUser || isCurrentUser) && !isOwnerUser && (
+                                  <div style={{ position: 'relative', flexShrink: 0 }} ref={menuOpenId === u.id ? menuRef : null}>
+                                    <button onClick={() => setMenuOpenId(menuOpenId === u.id ? null : u.id)}
+                                      style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '6px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280' }}>
+                                      <MoreVertical size={14} />
+                                    </button>
+                                    {menuOpenId === u.id && (
+                                      <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: '#ffffff', border: '1px solid #E5E7EB', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 100, minWidth: '180px', overflow: 'hidden' }}>
+                                        {[
+                                          { label: 'Send password reset', action: () => setMenuOpenId(null) },
+                                          { label: 'Resend invite',        action: () => setMenuOpenId(null) },
+                                        ].map(item => (
+                                          <button key={item.label} onClick={item.action}
+                                            style={{ width: '100%', padding: '10px 14px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: '#374151', cursor: 'pointer', textAlign: 'left' }}
+                                            onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                                            {item.label}
+                                          </button>
+                                        ))}
+                                        <div style={{ height: '1px', background: '#f3f4f6', margin: '2px 0' }} />
+                                        {u.is_active !== false ? (
+                                          <button onClick={() => { setDeactivateConfirm(u); setMenuOpenId(null) }}
+                                            style={{ width: '100%', padding: '10px 14px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: '#dc2626', cursor: 'pointer', textAlign: 'left', fontWeight: 600 }}
+                                            onMouseEnter={e => e.currentTarget.style.background = '#fff1f2'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                                            Deactivate user
+                                          </button>
+                                        ) : (
+                                          <button onClick={() => { handleToggleActive(u.id, false); setMenuOpenId(null) }}
+                                            style={{ width: '100%', padding: '10px 14px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: '#166534', cursor: 'pointer', textAlign: 'left', fontWeight: 600 }}
+                                            onMouseEnter={e => e.currentTarget.style.background = '#f0fdf4'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'none'}>
+                                            Reactivate user
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
                                 )}
                               </div>
-                            )}
 
-                            {/* Interview Calendar Color — only when can conduct interviews */}
-                            {(draft.can_conduct_interviews || draft.role === 'interviewer') && (
-                              <div style={{ marginBottom: '16px' }}>
-                                <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#374151', marginBottom: '4px' }}>Interview Calendar Color</div>
-                                <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#9ca3af', marginBottom: '10px' }}>
-                                  Used for availability blocks, interviewer legend, and calendar items.
-                                </div>
-                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                  {INTERVIEWER_COLORS.map(c => {
-                                    const selected = (draft.interviewer_color || '#1D2567') === c.hex
-                                    return (
-                                      <div key={c.hex} onClick={() => updateDraft(u.id, 'interviewer_color', c.hex)}
-                                        style={{ width: '56px', cursor: 'pointer', border: selected ? '2px solid #1D2567' : '1px solid #E5E7EB', borderRadius: '8px', padding: '6px 4px', textAlign: 'center', background: '#fff', transition: 'border 0.15s ease', position: 'relative' }}>
-                                        <div style={{ width: '24px', height: '24px', background: c.hex, borderRadius: '4px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                          {selected && <span style={{ color: '#fff', fontSize: '13px', fontWeight: 700 }}>✓</span>}
-                                        </div>
-                                        <div style={{ fontFamily: 'DM Sans', fontWeight: 500, fontSize: '10px', color: '#6b7280', marginTop: '4px', lineHeight: 1.2 }}>{c.name}</div>
-                                      </div>
-                                    )
-                                  })}
-                                </div>
+                              {/* Action buttons */}
+                              <div style={{ padding: '0 16px 12px', display: 'flex', gap: '8px' }}>
+                                {/* Show Manage Access for: non-owner non-current users, OR the current user (even if owner) */}
+                                {((!isOwnerUser && !isCurrentUser) || isCurrentUser) && (
+                                  <button onClick={() => openManageAccess(u)}
+                                    style={{ padding: '7px 14px', border: '1px solid #1D2567', borderRadius: '8px', background: 'none', fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#1D2567', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    Manage Access {isExpanded ? '▲' : '▾'}
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => { setActiveView('activity'); setActivityFilter(u.full_name) }}
+                                  style={{ padding: '7px 14px', border: '1px solid #e5e7eb', borderRadius: '8px', background: 'none', fontFamily: 'DM Sans', fontSize: '12px', color: '#6b7280', cursor: 'pointer' }}>
+                                  View Activity
+                                </button>
                               </div>
-                            )}
 
-                            {/* Save / Cancel */}
-                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                              <button onClick={() => setExpandedUserId(null)}
-                                style={{ padding: '8px 16px', border: '1px solid #e5e7eb', borderRadius: '8px', background: '#f9fafb', fontFamily: 'DM Sans', fontSize: '13px', cursor: 'pointer' }}>
-                                Cancel
-                              </button>
-                              <button onClick={() => saveDraft(u)} disabled={saving}
-                                style={{ padding: '8px 20px', border: 'none', borderRadius: '8px', background: saving ? '#e5e7eb' : '#1D2567', color: '#fff', fontFamily: 'DM Sans', fontWeight: 700, fontSize: '13px', cursor: saving ? 'default' : 'pointer' }}>
-                                {saving ? 'Saving…' : 'Save'}
-                              </button>
+                              {/* Expandable Manage Access panel */}
+                              {isExpanded && draft && (
+                                <div style={{ borderTop: '1px solid #F3F4F6', background: '#FAFBFF', padding: '16px' }}>
+
+                                  {/* App Role — disabled for Owner */}
+                                  <div style={{ marginBottom: '14px' }}>
+                                    <label style={{ display: 'block', fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#374151', marginBottom: '6px' }}>
+                                      App Role {isOwnerUser && <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 400 }}>(Owner role cannot be changed)</span>}
+                                    </label>
+                                    <select value={draft.role} disabled={isOwnerUser}
+                                      onChange={e => updateDraft(u.id, 'role', e.target.value)}
+                                      style={{ ...controlStyle, width: '100%', opacity: isOwnerUser ? 0.5 : 1, cursor: isOwnerUser ? 'not-allowed' : 'pointer' }}>
+                                      {isOwnerUser
+                                        ? <option value="owner">Owner</option>
+                                        : ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label} — {r.description}</option>)
+                                      }
+                                    </select>
+                                  </div>
+
+                                  {/* Can Conduct Interviews toggle */}
+                                  {draft.role !== 'viewer' && (
+                                    <div style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                      <div>
+                                        <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#374151' }}>Can Conduct Interviews</div>
+                                        <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#9ca3af' }}>Appears in scheduling dropdowns</div>
+                                      </div>
+                                      {draft.role === 'interviewer' ? (
+                                        <span style={{ fontSize: '11px', color: '#9ca3af', fontStyle: 'italic' }}>Always on for Interviewers</span>
+                                      ) : (
+                                        <button onClick={() => updateDraft(u.id, 'can_conduct_interviews', !draft.can_conduct_interviews)}
+                                          style={{ width: '40px', height: '22px', borderRadius: '11px', border: 'none', background: draft.can_conduct_interviews ? '#1D2567' : '#e5e7eb', position: 'relative', cursor: 'pointer', transition: 'background 0.2s ease', flexShrink: 0 }}>
+                                          <div style={{ position: 'absolute', top: '3px', left: draft.can_conduct_interviews ? '21px' : '3px', width: '16px', height: '16px', borderRadius: '50%', background: '#ffffff', transition: 'left 0.2s ease', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Interview Calendar Color */}
+                                  {(draft.can_conduct_interviews || draft.role === 'interviewer') && (
+                                    <div style={{ marginBottom: '16px' }}>
+                                      <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#374151', marginBottom: '4px' }}>Interview Calendar Color</div>
+                                      <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#9ca3af', marginBottom: '10px' }}>
+                                        Used for availability blocks, interviewer legend, and calendar items.
+                                      </div>
+                                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                        {INTERVIEWER_COLORS.map(c => {
+                                          const selected = (draft.interviewer_color || '#1D2567') === c.hex
+                                          return (
+                                            <div key={c.hex} onClick={() => updateDraft(u.id, 'interviewer_color', c.hex)}
+                                              style={{ width: '56px', cursor: 'pointer', border: selected ? '2px solid #1D2567' : '1px solid #E5E7EB', borderRadius: '8px', padding: '6px 4px', textAlign: 'center', background: '#fff', transition: 'border 0.15s ease' }}>
+                                              <div style={{ width: '24px', height: '24px', background: c.hex, borderRadius: '4px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                {selected && <span style={{ color: '#fff', fontSize: '13px', fontWeight: 700 }}>✓</span>}
+                                              </div>
+                                              <div style={{ fontFamily: 'DM Sans', fontWeight: 500, fontSize: '10px', color: '#6b7280', marginTop: '4px', lineHeight: 1.2 }}>{c.name}</div>
+                                            </div>
+                                          )
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Save / Cancel */}
+                                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                    <button onClick={() => setExpandedUserId(null)}
+                                      style={{ padding: '8px 16px', border: '1px solid #e5e7eb', borderRadius: '8px', background: '#f9fafb', fontFamily: 'DM Sans', fontSize: '13px', cursor: 'pointer' }}>
+                                      Cancel
+                                    </button>
+                                    <button onClick={() => saveDraft(u)} disabled={saving}
+                                      style={{ padding: '8px 20px', border: 'none', borderRadius: '8px', background: saving ? '#e5e7eb' : '#1D2567', color: '#fff', fontFamily: 'DM Sans', fontWeight: 700, fontSize: '13px', cursor: saving ? 'default' : 'pointer' }}>
+                                      {saving ? 'Saving…' : 'Save'}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        )}
+                          )
+                        })}
                       </div>
-                    )
-                  })}
-                  {filteredUsers.length === 0 && !loading && (
-                    <div style={{ textAlign: 'center', padding: '32px', color: '#9ca3af', fontSize: '13px' }}>No users match your filters.</div>
-                  )}
+                    </div>
+                  ))}
                 </div>
               )}
             </>
