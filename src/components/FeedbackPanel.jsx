@@ -58,6 +58,7 @@ export default function FeedbackPanel({ activeTab, cohortName, isAuthenticated }
 
       {/* Floating button */}
       <button
+        data-tour="feedback-button"
         onClick={() => setIsOpen(!isOpen)}
         title="Send feedback to Jester"
         onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)'; setShowTooltip(true); }}

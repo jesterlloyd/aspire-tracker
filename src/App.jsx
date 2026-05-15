@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from './lib/supabase'
 import { updateStudent as proxyUpdateStudent } from './lib/studentProxy'
 import { displayName } from './lib/utils'
@@ -21,6 +21,8 @@ import InterviewSchedulePage from './components/InterviewSchedulePage'
 import ShiftLogPage from './components/ShiftLogPage'
 import InterviewersModal from './components/InterviewersModal'
 import ActionCenter from './components/ActionCenter'
+import OnboardingTour from './components/OnboardingTour'
+import { TOUR_VERSION } from './lib/onboardingTours'
 import Keith from './components/Keith'
 import FeedbackPanel from './components/FeedbackPanel'
 import { logEvent, eventExists } from './lib/logEvent'
@@ -82,6 +84,8 @@ function MainApp({ onLogout }) {
   const [ivSlots,       setIvSlots]       = useState([])
   const [communications,setCommunications]= useState([])
   const [showActionCenter, setShowActionCenter] = useState(false)
+  const [tourRunning,      setTourRunning]      = useState(false)
+  const tourChecked = useRef(false)
   const [loading,   setLoading]   = useState(true)
   const [dbError,   setDbError]   = useState(null)
 
@@ -206,6 +210,18 @@ function MainApp({ onLogout }) {
     localStorage.setItem('aspire_active_cohort_id', id)
     setActiveCohortId(id); setSearch(''); setFilters({ school: '', status: '', cohort: '' })
   }
+
+  // Auto-start welcome tour for new users (once both user and cohort are ready)
+  useEffect(() => {
+    if (!currentUserProfile || !activeCohortId || tourChecked.current) return
+    tourChecked.current = true
+    // Only trigger if migration has run (column exists) and tour not yet done/dismissed
+    if (currentUserProfile.onboarding_tour_completed !== false) return
+    if (currentUserProfile.onboarding_tour_dismissed) return
+    if (sessionStorage.getItem('onboarding_tour_snoozed') === 'true') return
+    switchTab('overview')
+    setTimeout(() => setTourRunning(true), 700)
+  }, [currentUserProfile?.id, activeCohortId]) // eslint-disable-line
 
   const switchTab = tab => {
     localStorage.setItem('aspire_active_tab', tab)
@@ -462,7 +478,7 @@ function MainApp({ onLogout }) {
             {/* Right: Bell + UserMenu */}
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
               {cohorts.length > 0 && (
-                <button id="keith-bell-trigger" onClick={() => setShowActionCenter(true)}
+                <button id="keith-bell-trigger" data-tour="action-center" onClick={() => setShowActionCenter(true)}
                   title="Open Action Center"
                   style={{ position:'relative', background:'none', border:'none', cursor:'pointer', padding:'4px 6px', lineHeight:1 }}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -480,7 +496,10 @@ function MainApp({ onLogout }) {
                   )}
                 </button>
               )}
-              <UserMenu onOpenUserManagement={() => setShowUserManagement(true)} />
+              <UserMenu
+                onOpenUserManagement={() => setShowUserManagement(true)}
+                onRestartTour={() => { tourChecked.current = false; switchTab('overview'); setTimeout(() => setTourRunning(true), 400) }}
+              />
             </div>
           </div>
         </header>
@@ -622,6 +641,7 @@ function MainApp({ onLogout }) {
         isAuthenticated={true}
       />
       <ToastContainer toasts={toasts} removeToast={removeToast} />
+      <OnboardingTour run={tourRunning} onClose={() => setTourRunning(false)} />
       <UserManagement
         isOpen={showUserManagement}
         onClose={() => setShowUserManagement(false)}

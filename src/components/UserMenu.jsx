@@ -11,7 +11,7 @@ const ROLE_LABELS = {
   viewer:      { label: 'Viewer',      bg: '#6b7280', color: '#ffffff' },
 };
 
-export default function UserMenu({ onOpenUserManagement }) {
+export default function UserMenu({ onOpenUserManagement, onRestartTour }) {
   const { userProfile, signOut, isOwner, isAdmin } = useAuth();
   const [isOpen,    setIsOpen]    = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -64,6 +64,7 @@ export default function UserMenu({ onOpenUserManagement }) {
       {/* People & Access icon — Owner and Admin */}
       {isAdmin && (
         <button
+          data-tour="people-access"
           onClick={onOpenUserManagement}
           title="Manage users"
           style={{
@@ -84,6 +85,7 @@ export default function UserMenu({ onOpenUserManagement }) {
 
       {/* User button */}
       <button
+        data-tour="user-menu"
         onClick={() => setIsOpen(!isOpen)}
         style={{
           display: 'flex', alignItems: 'center', gap: '8px',
@@ -177,6 +179,19 @@ export default function UserMenu({ onOpenUserManagement }) {
                 )}
               </div>
             </div>
+
+            {/* Restart tour */}
+            {onRestartTour && (
+              <button
+                onClick={() => { setIsOpen(false); onRestartTour(); }}
+                style={{ width: '100%', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: '#374151', cursor: 'pointer', textAlign: 'left', borderTop: '1px solid #f3f4f6', transition: 'background 0.15s ease' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                onMouseLeave={e => e.currentTarget.style.background = 'none'}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
+                Restart Welcome Tour
+              </button>
+            )}
 
             {/* Sign out */}
             <button

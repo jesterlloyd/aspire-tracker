@@ -171,9 +171,11 @@ export default function UnifiedNav({
       <div style={{ display:'flex', alignItems:'center', gap:6 }}>
         {visibleTabs.map(({ id, label, badge, Icon }) => {
           const isActive = activeTab === id
+          const tourTarget = { overview:'tab-aggregate', profiles:'tab-student-profiles', interviews:'tab-interview-rubric', matching:'tab-embed' }[id] || `tab-${id}`
           return (
             <button key={id} onClick={() => onSwitchTab(id)}
               aria-label={`${label} tab`}
+              data-tour={tourTarget}
               style={{
                 position:'relative', height:36, padding:'0 12px',
                 border:'none', cursor:'pointer',
@@ -228,7 +230,7 @@ export default function UnifiedNav({
 
       {/* ── Cohort picker pill ── */}
       <div ref={cohortRef} style={{ position:'relative', flexShrink:0 }}>
-        <div style={{
+        <div data-tour="cohort-switcher" style={{
           display:'flex', alignItems:'center', gap:6,
           border:'1px solid rgba(255,255,255,0.20)', borderRadius:20,
           background:'rgba(255,255,255,0.06)', cursor:'pointer',
@@ -329,6 +331,7 @@ export default function UnifiedNav({
           </span>
           <input
             ref={inputRef}
+            data-tour="global-search"
             value={query}
             onChange={handleQueryChange}
             onKeyDown={handleKeyDown}

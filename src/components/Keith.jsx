@@ -170,6 +170,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
 
       {/* Floating button */}
       <button
+        data-tour="keith-orb"
         onClick={() => setIsOpen(!isOpen)}
         title="Ask Keith"
         style={{
