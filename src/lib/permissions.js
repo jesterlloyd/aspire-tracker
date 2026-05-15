@@ -21,12 +21,12 @@ const ROLE_PERMS = {
     conductInterviews: false, studentDetailLevel: 'full',
   },
   interviewer: {
-    viewEmbed: false, viewPeopleAccess: false, manageCohorts: false,
+    viewEmbed: true, viewPeopleAccess: false, manageCohorts: false,
     makePlacements: false, deleteRecords: false, viewInterviewRubric: true,
     conductInterviews: true, studentDetailLevel: 'limited',
   },
   viewer: {
-    viewEmbed: false, viewPeopleAccess: false, manageCohorts: false,
+    viewEmbed: true, viewPeopleAccess: false, manageCohorts: false,
     makePlacements: false, deleteRecords: false, viewInterviewRubric: true,
     conductInterviews: false, studentDetailLevel: 'readonly',
   },
@@ -47,13 +47,20 @@ export function studentDetailLevel(userProfile) {
   return (ROLE_PERMS[userProfile.role] || ROLE_PERMS.viewer).studentDetailLevel
 }
 
-/** Returns which tabs a user can see. */
+/**
+ * All authenticated users can see the Embed tab.
+ * Placement actions are gated separately by canPerformMatching().
+ */
 export function visibleTabs(userProfile) {
-  const all = ['overview', 'profiles', 'interviews', 'matching']
-  if (!userProfile) return ['overview']
-  if (userProfile.is_owner) return all
-  return all.filter(tab => {
-    if (tab === 'matching') return can(userProfile, 'viewEmbed')
-    return true
-  })
+  return ['overview', 'profiles', 'interviews', 'matching']
+}
+
+/**
+ * Returns true if the user can perform matching/placement actions.
+ * Owner, Admin, and Co-Lead can match. Interviewer and Viewer cannot.
+ */
+export function canPerformMatching(userProfile) {
+  if (!userProfile) return false
+  if (userProfile.is_owner) return true
+  return ['admin', 'co-lead', 'co_lead'].includes(userProfile.role)
 }

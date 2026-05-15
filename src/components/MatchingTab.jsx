@@ -10,6 +10,7 @@ import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
 import { Layers, Clock, Users, MapPin, Star, TrendingUp, UserX, ClipboardList } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { canPerformMatching } from '../lib/permissions'
 
 export const getInterviewStatus = (s) => {
   if (s.auto_recommendation === 'Recommend')
@@ -178,7 +179,7 @@ export default function MatchingTab({
   const handleStudentSelect = s => setSelectedStudent(prev => prev?.id === s.id ? null : s)
 
   const handleSlotClick = unit => {
-    if (!selectedStudent) return
+    if (!selectedStudent || !canMatch) return
     if (unit.slots_remaining <= 0) {
       toast?.warning('No slots available', 'This unit has no remaining open slots.')
       return
@@ -221,7 +222,8 @@ export default function MatchingTab({
     URL.revokeObjectURL(url)
   }
 
-  const { canEdit } = useAuth()
+  const { userProfile } = useAuth()
+  const canMatch = canPerformMatching(userProfile)
 
   const studentMap = useMemo(() => {
     const map = {}
@@ -229,32 +231,26 @@ export default function MatchingTab({
     return map
   }, [students])
 
-  // Non-editors see a lock screen
-  if (!canEdit) {
-    return (
-      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'400px', padding:'48px 24px', textAlign:'center' }}>
-        <div style={{ width:'64px', height:'64px', borderRadius:'50%', background:'#f3f4f6', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:'20px' }}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-          </svg>
-        </div>
-        <div style={{ fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:18, color:'#374151', marginBottom:10 }}>
-          Placement decisions are made by the program leads.
-        </div>
-        <div style={{ fontFamily:'DM Sans,sans-serif', fontSize:14, color:'#9ca3af', lineHeight:1.7, maxWidth:'360px' }}>
-          If you have a unit recommendation for a student, please include it in the interview rubric notes section. Jester and Krystal will review your recommendations during the placement process.
-        </div>
-      </div>
-    )
-  }
-
   const studentsCount  = students.length
   const matchedCount   = matchedStudents.length
   const unmatchedCount = unmatchedAll.length
 
   return (
-    <div className="matching-tab embed-tab">
+    <div className="matching-tab embed-tab" style={{ position: 'relative' }}>
+
+      {/* Access overlay for non-matching roles — sits above everything */}
+      {!canMatch && (
+        <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(244,241,236,0.55)', backdropFilter:'blur(2px)', zIndex:10 }}>
+          <div style={{ maxWidth:520, background:'#ffffff', border:'1px solid #E5E7EB', borderRadius:12, padding:32, textAlign:'center', boxShadow:'0 10px 40px rgba(0,0,0,0.08)', fontFamily:'DM Sans,sans-serif' }}>
+            <div style={{ fontSize:20, fontWeight:600, color:'#1D2567', marginBottom:12 }}>
+              Placement decisions are made by the program leads.
+            </div>
+            <div style={{ fontSize:14, lineHeight:1.7, color:'#374151' }}>
+              If you have a unit recommendation for a student, please include it in the interview rubric notes section. Jester and Krystal will review your recommendations during the placement process.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Summary banner ── */}
       <div className="stat-cards-row" style={{ padding:'6px 16px 12px' }}>

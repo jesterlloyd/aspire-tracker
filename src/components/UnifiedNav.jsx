@@ -69,14 +69,8 @@ export default function UnifiedNav({
 }) {
   const { canEdit, userProfile } = useAuth()
 
-  // Hide Embed tab for Interviewer and Viewer roles
-  const visibleTabs = TABS.filter(tab => {
-    if (tab.id !== 'matching') return true
-    if (!userProfile) return false
-    const role = userProfile.role
-    if (userProfile.is_owner) return true
-    return ['admin', 'co-lead'].includes(role)
-  })
+  // All authenticated users see all four tabs; matching actions are gated inside MatchingTab
+  const visibleTabs = TABS
   const { markSynced: markNavSynced, display: navSyncDisplay } = useLastSynced()
   const [cohortOpen,   setCohortOpen]   = useState(false)
   const [query,        setQuery]        = useState('')
