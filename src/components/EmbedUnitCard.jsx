@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { UNIT_DIVISION_MAP } from '../lib/constants'
 import { displayName } from '../lib/utils'
 import { buildUnitLeaderEmail } from '../lib/emailUtils'
+import { openMailtoLink } from '../lib/openLink'
 import StudentAvatar from './StudentAvatar'
 
 const resolveMatchedStudent = (match, slot, studentMap) => {
@@ -30,11 +31,6 @@ const COMPAT_HEADER = {
   blue:   '#3b82f6',
 }
 
-function openMailto(href) {
-  const a = document.createElement('a')
-  a.href = href
-  a.click()
-}
 
 export default function EmbedUnitCard({
   unit, matchedStudents, matches, studentMap, selectedStudent,
@@ -100,7 +96,7 @@ export default function EmbedUnitCard({
       students:       [emailStudent],
       isMultiStudent: false,
     })
-    openMailto(mailto)
+    openMailtoLink(mailto)
     if (!unit.contact_email) {
       showToast(`No email address found for ${unit.unit_name}. Please add a contact email in unit settings.`)
       return
@@ -128,7 +124,7 @@ export default function EmbedUnitCard({
       students:       studs,
       isMultiStudent: true,
     })
-    openMailto(mailto)
+    openMailtoLink(mailto)
     if (!unit.contact_email) {
       showToast(`No email address found for ${unit.unit_name}. Please add a contact email in unit settings.`)
       return

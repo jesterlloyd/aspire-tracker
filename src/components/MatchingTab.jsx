@@ -31,8 +31,10 @@ export const MATCH_QUALITY_CONFIG = {
   'other': { label: 'Other Match',        color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
 }
 
-const POOL_ELIGIBLE_STATUSES = new Set([
-  'Pending Outreach', 'Form Sent', 'Form Received', 'Interview Scheduled', 'Interviewed',
+// Blacklist: exclude students who are already placed or finished
+// (whitelist approach was too strict and excluded students with edge-case statuses)
+const POOL_INELIGIBLE_STATUSES = new Set([
+  'Placed', 'Active Rotation', 'Completed', 'Declined',
 ])
 
 export default function MatchingTab({
@@ -59,7 +61,7 @@ export default function MatchingTab({
   const matchedStudents = students.filter(s =>  s.matched_unit_id)
   // Pool only shows students who are unmatched AND have an eligible ASPIRE status
   // (excludes Placed, Active Rotation, Completed, Declined)
-  const unmatchedAll    = students.filter(s => !s.matched_unit_id && POOL_ELIGIBLE_STATUSES.has(s.status))
+  const unmatchedAll    = students.filter(s => !s.matched_unit_id && !POOL_INELIGIBLE_STATUSES.has(s.status))
   const poolSchools     = [...new Set(students.map(s => s.school).filter(Boolean))].sort()
 
   const perfectMatches = matchedStudents.filter(s => {
