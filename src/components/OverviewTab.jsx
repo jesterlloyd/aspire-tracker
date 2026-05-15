@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
@@ -48,58 +49,25 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [campusLogs,       setCampusLogs]       = useState([])
   const [campusLoading,    setCampusLoading]    = useState(false)
   const [timelineExpanded, setTimelineExpanded] = useState(false)
-  const [cohortEvents,     setCohortEvents]     = useState([])
-  const [ganttLoading,     setGanttLoading]     = useState(false)
-  const [ganttError,       setGanttError]       = useState(null)
 
-  // Manual refresh — used by Retry + Refresh buttons
-  const loadCohortEvents = async () => {
-    if (!cohortId) return
-    setGanttLoading(true)
-    setGanttError(null)
-    try {
+  // Gantt data — cached across tab switches; only active when timeline is open
+  const {
+    data:      cohortEvents = [],
+    isLoading: ganttLoading,
+    error:     ganttErrorObj,
+    refetch:   refetchGantt,
+  } = useQuery({
+    queryKey: ['program_events', cohortId],
+    queryFn:  async () => {
       const { data, error } = await supabase
         .from('program_events').select('*').eq('cohort_id', cohortId)
       if (error) throw error
-      setCohortEvents(data || [])
-    } catch (err) {
-      console.error('Gantt chart load failed:', err.message)
-      setGanttError(err.message)
-      // Do NOT set empty array — preserve any previously loaded data
-    } finally {
-      setGanttLoading(false)
-    }
-  }
-
-  // Fetch on expand — AbortController guards against stale responses
-  useEffect(() => {
-    if (!timelineExpanded || !cohortId) return
-    let cancelled = false
-    const load = async () => {
-      setGanttLoading(true)
-      setGanttError(null)
-      try {
-        const { data, error } = await supabase
-          .from('program_events').select('*').eq('cohort_id', cohortId)
-        if (cancelled) return
-        if (error) throw error
-        setCohortEvents(data || [])
-      } catch (err) {
-        if (cancelled) return
-        console.error('Gantt chart load failed:', err.message)
-        setGanttError(err.message)
-      } finally {
-        if (!cancelled) setGanttLoading(false)
-      }
-    }
-    load()
-    return () => { cancelled = true }
-  }, [timelineExpanded, cohortId]) // eslint-disable-line
-
-  // Reset on cohort switch
-  useEffect(() => {
-    setCohortEvents([]); setGanttError(null); setGanttLoading(false)
-  }, [cohortId])
+      return data || []
+    },
+    enabled:  !!cohortId && timelineExpanded,
+  })
+  const ganttError     = ganttErrorObj?.message ?? null
+  const loadCohortEvents = refetchGantt
 
   const todayStr = (() => { const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}` })()
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './lib/supabase'
 import { updateStudent as proxyUpdateStudent } from './lib/studentProxy'
 import { displayName } from './lib/utils'
@@ -61,6 +62,7 @@ function computeMatchSummary(matchList) {
 function MainApp({ onLogout }) {
   const { toasts, removeToast, toast } = useToast()
   const { userProfile: currentUserProfile } = useAuth()
+  const queryClient = useQueryClient()
 
   // One-time cleanup of old shared-password auth storage keys
   useEffect(() => {
@@ -76,13 +78,27 @@ function MainApp({ onLogout }) {
   const [confirmLogout,    setConfirmLogout]    = useState(false)
   const [showUserManagement, setShowUserManagement] = useState(false)
 
-  const [students,  setStudents]  = useState([])
-  const [units,     setUnits]     = useState([])
-  const [matches,   setMatches]   = useState([])
-  const [interviews, setInterviews] = useState([])
-  const [ivSessions,    setIvSessions]    = useState([])
-  const [ivSlots,       setIvSlots]       = useState([])
-  const [communications,setCommunications]= useState([])
+  // ── Cohort-scoped reads via TanStack Query ─────────────────────────────────
+  // These survive tab switches and refetch transparently in the background.
+  const { data: students      = [], isLoading: studentsLoading, refetch: refetchStudents }  = useQuery({ queryKey: ['students',      activeCohortId], queryFn: async () => { const { data, error } = await supabase.from('students').select('*').eq('cohort_id', activeCohortId).order('school').order('name'); if (error) throw error; return data || [] }, enabled: !!activeCohortId })
+  const { data: units         = [], refetch: refetchUnits }     = useQuery({ queryKey: ['units',         activeCohortId], queryFn: async () => { const { data } = await supabase.from('units').select('*').eq('cohort_id', activeCohortId).order('unit_name'); return data || [] }, enabled: !!activeCohortId })
+  const { data: matches       = [], refetch: refetchMatches }   = useQuery({ queryKey: ['matches',       activeCohortId], queryFn: async () => { const { data } = await supabase.from('matches').select('*').eq('cohort_id', activeCohortId); return data || [] }, enabled: !!activeCohortId })
+  const { data: interviews    = [], refetch: refetchInterviews }= useQuery({ queryKey: ['interviews',    activeCohortId], queryFn: async () => { const { data } = await supabase.from('interview_rubrics').select('*').eq('cohort_id', activeCohortId); return data || [] }, enabled: !!activeCohortId })
+  const { data: ivSessions    = [], refetch: refetchIvSessions }= useQuery({ queryKey: ['ivSessions',    activeCohortId], queryFn: async () => { const { data } = await supabase.from('interview_sessions').select('*').eq('cohort_id', activeCohortId); return data || [] }, enabled: !!activeCohortId })
+  const { data: ivSlots       = [], refetch: refetchIvSlots }   = useQuery({ queryKey: ['ivSlots',       activeCohortId], queryFn: async () => { const { data } = await supabase.from('interview_slots').select('*').eq('cohort_id', activeCohortId); return data || [] }, enabled: !!activeCohortId })
+  const { data: communications= [], refetch: refetchComms }     = useQuery({ queryKey: ['communications', activeCohortId], queryFn: async () => { const { data } = await supabase.from('communications').select('*').eq('cohort_id', activeCohortId).order('sent_at', { ascending: false }); return data || [] }, enabled: !!activeCohortId })
+
+  // loading = true while cohort data is first loading after a cohort switch
+  const cohortDataLoading = !!activeCohortId && studentsLoading
+
+  // Optimistic setters — update cache directly for instant UI feedback
+  const setStudents       = updater => queryClient.setQueryData(['students',       activeCohortId], prev => typeof updater === 'function' ? updater(prev ?? []) : updater)
+  const setUnits          = updater => queryClient.setQueryData(['units',          activeCohortId], prev => typeof updater === 'function' ? updater(prev ?? []) : updater)
+  const setMatches        = updater => queryClient.setQueryData(['matches',        activeCohortId], prev => typeof updater === 'function' ? updater(prev ?? []) : updater)
+  const setInterviews     = updater => queryClient.setQueryData(['interviews',     activeCohortId], prev => typeof updater === 'function' ? updater(prev ?? []) : updater)
+  const setIvSessions     = updater => queryClient.setQueryData(['ivSessions',     activeCohortId], prev => typeof updater === 'function' ? updater(prev ?? []) : updater)
+  const setCommunications = updater => queryClient.setQueryData(['communications', activeCohortId], prev => typeof updater === 'function' ? updater(prev ?? []) : updater)
+
   const [showActionCenter, setShowActionCenter] = useState(false)
   const [tourRunning,      setTourRunning]      = useState(false)
   const [loading,   setLoading]   = useState(true)
@@ -124,44 +140,6 @@ function MainApp({ onLogout }) {
     loadCohorts()
   }, [])
 
-  useEffect(() => {
-    if (!activeCohortId) return
-    // Clear stale data from previous cohort immediately so no cross-cohort bleed
-    setStudents([]); setUnits([]); setMatches([]); setInterviews([]); setIvSessions([]); setIvSlots([]); setCommunications([])
-    setLoading(true); setDbError(null)
-    Promise.all([
-      fetchStudents(activeCohortId), fetchUnits(activeCohortId),
-      fetchMatches(activeCohortId),  fetchInterviews(activeCohortId),
-      fetchIvSessions(activeCohortId), fetchIvSlots(activeCohortId),
-      fetchCommunications(activeCohortId),
-    ]).finally(() => setLoading(false))
-  }, [activeCohortId])
-
-  const fetchStudents  = async id => {
-    const { data, error } = await supabase.from('students').select('*')
-      .eq('cohort_id', id).order('school').order('name')
-    if (error) setDbError(error.message); else setStudents(data || [])
-  }
-  const fetchUnits     = async id => {
-    const { data } = await supabase.from('units').select('*').eq('cohort_id', id).order('unit_name')
-    setUnits(data || [])
-  }
-  const fetchMatches   = async id => {
-    const { data } = await supabase.from('matches').select('*').eq('cohort_id', id)
-    setMatches(data || [])
-  }
-  const fetchInterviews = async id => {
-    const { data } = await supabase.from('interview_rubrics').select('*').eq('cohort_id', id)
-    setInterviews(data || [])
-  }
-  const fetchIvSessions = async id => {
-    const { data } = await supabase.from('interview_sessions').select('*').eq('cohort_id', id)
-    setIvSessions(data || [])
-  }
-  const fetchIvSlots = async id => {
-    const { data } = await supabase.from('interview_slots').select('*').eq('cohort_id', id)
-    setIvSlots(data || [])
-  }
   const updateIvSession = (studentId, updates) => {
     setIvSessions(prev => {
       const exists = prev.find(s => s.student_id === studentId)
@@ -169,19 +147,13 @@ function MainApp({ onLogout }) {
       return [...prev, { student_id: studentId, cohort_id: activeCohortId, ...updates }]
     })
   }
-  const fetchCommunications = async id => {
-    const { data } = await supabase.from('communications').select('*').eq('cohort_id', id).order('sent_at', { ascending: false })
-    setCommunications(data || [])
-  }
   const logCommunication = comm => {
     setCommunications(prev => [comm, ...prev])
   }
   const refreshAll = () => {
     if (!activeCohortId) return
-    fetchStudents(activeCohortId); fetchUnits(activeCohortId)
-    fetchMatches(activeCohortId);  fetchInterviews(activeCohortId)
-    fetchIvSessions(activeCohortId); fetchIvSlots(activeCohortId)
-    fetchCommunications(activeCohortId)
+    const keys = ['students','units','matches','interviews','ivSessions','ivSlots','communications','program_events','interview_calendar']
+    keys.forEach(k => queryClient.invalidateQueries({ queryKey: [k, activeCohortId] }))
   }
 
   // ── Cohort CRUD ──────────────────────────────────────────────
@@ -551,7 +523,7 @@ function MainApp({ onLogout }) {
             <button className="btn btn-primary" onClick={() => setShowNewCohort(true)}>+ Create First Cohort</button>
           </div>
         )}
-        {loading && cohorts.length > 0 && <div className="state-box"><div className="spinner" /><p>Loading…</p></div>}
+        {cohortDataLoading && cohorts.length > 0 && <div className="state-box"><div className="spinner" /><p>Loading…</p></div>}
         {dbError && (
           <div className="state-box error-box">
             <p><strong>Unable to load data.</strong></p>
@@ -564,11 +536,11 @@ function MainApp({ onLogout }) {
           </div>
         )}
 
-        {!loading && !dbError && cohorts.length > 0 && activeTab === 'overview' && (
+        {!cohortDataLoading && !dbError && cohorts.length > 0 && activeTab === 'overview' && (
           <OverviewTab students={students} units={units} onStudentUpdate={updateStudent} cohortId={activeCohortId} cohort={activeCohort} toast={toast} />
         )}
 
-        {!loading && !dbError && cohorts.length > 0 && activeTab === 'profiles' && (
+        {!cohortDataLoading && !dbError && cohorts.length > 0 && activeTab === 'profiles' && (
           <StudentProfilesTab
             students={students}
             units={units} cohortId={activeCohortId}
@@ -585,7 +557,7 @@ function MainApp({ onLogout }) {
           />
         )}
 
-        {!loading && !dbError && cohorts.length > 0 && activeTab === 'interviews' && (
+        {!cohortDataLoading && !dbError && cohorts.length > 0 && activeTab === 'interviews' && (
           <InterviewRubricTab
             students={students}
             rubrics={interviews}
@@ -603,7 +575,7 @@ function MainApp({ onLogout }) {
           />
         )}
 
-        {!loading && !dbError && cohorts.length > 0 && activeTab === 'matching' && (
+        {!cohortDataLoading && !dbError && cohorts.length > 0 && activeTab === 'matching' && (
           <MatchingTab
             students={students} units={units} matches={matches}
             cohortId={activeCohortId}
