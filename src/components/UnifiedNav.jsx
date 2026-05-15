@@ -67,7 +67,16 @@ export default function UnifiedNav({
   students = [], units = [], matches = [], cohortId,
   onSelectStudent, onSelectUnit,
 }) {
-  const { canEdit } = useAuth()
+  const { canEdit, userProfile } = useAuth()
+
+  // Hide Embed tab for Interviewer and Viewer roles
+  const visibleTabs = TABS.filter(tab => {
+    if (tab.id !== 'matching') return true
+    if (!userProfile) return false
+    const role = userProfile.role
+    if (userProfile.is_owner) return true
+    return ['admin', 'co-lead'].includes(role)
+  })
   const { markSynced: markNavSynced, display: navSyncDisplay } = useLastSynced()
   const [cohortOpen,   setCohortOpen]   = useState(false)
   const [query,        setQuery]        = useState('')
@@ -166,7 +175,7 @@ export default function UnifiedNav({
 
       {/* ── Pill tabs ── */}
       <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-        {TABS.map(({ id, label, badge, Icon }) => {
+        {visibleTabs.map(({ id, label, badge, Icon }) => {
           const isActive = activeTab === id
           return (
             <button key={id} onClick={() => onSwitchTab(id)}

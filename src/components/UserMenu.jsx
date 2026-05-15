@@ -12,7 +12,7 @@ const ROLE_LABELS = {
 };
 
 export default function UserMenu({ onOpenUserManagement }) {
-  const { userProfile, signOut, isOwner } = useAuth();
+  const { userProfile, signOut, isOwner, isAdmin } = useAuth();
   const [isOpen,    setIsOpen]    = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
@@ -61,8 +61,8 @@ export default function UserMenu({ onOpenUserManagement }) {
   return (
     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
 
-      {/* User Management icon — Owner only */}
-      {isOwner && (
+      {/* People & Access icon — Owner and Admin */}
+      {isAdmin && (
         <button
           onClick={onOpenUserManagement}
           title="Manage users"
