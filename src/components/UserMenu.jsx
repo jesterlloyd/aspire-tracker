@@ -85,7 +85,7 @@ export default function UserMenu({ onOpenUserManagement, onRestartTour }) {
 
       {/* User button */}
       <button
-        data-tour="user-menu"
+        data-tour="user-profile"
         onClick={() => setIsOpen(!isOpen)}
         style={{
           display: 'flex', alignItems: 'center', gap: '8px',

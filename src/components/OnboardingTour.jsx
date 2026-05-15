@@ -11,7 +11,8 @@ const TOUR_STYLES = {
     backgroundColor: '#ffffff',
     overlayColor: 'rgba(20, 25, 40, 0.55)',
     arrowColor: '#ffffff',
-    zIndex: 10000,
+    zIndex: 100000,
+    spotlightShadow: '0 0 0 4px rgba(29, 37, 103, 0.25)',
   },
   tooltipContainer: {
     fontFamily: 'DM Sans, sans-serif',
@@ -116,8 +117,23 @@ export default function OnboardingTour({ run, onClose }) {
       showSkipButton
       disableScrolling={false}
       scrollToFirstStep
+      spotlightPadding={6}
       callback={handleCallback}
       styles={TOUR_STYLES}
+      floaterProps={{
+        disableAnimation: false,
+        hideArrow: false,
+        options: {
+          preventOverflow: {
+            enabled: true,
+            boundariesElement: 'viewport',
+          },
+          flip: {
+            enabled: true,
+            boundariesElement: 'viewport',
+          },
+        },
+      }}
       locale={{ back: 'Back', close: 'Close', last: 'Finish', next: 'Next →', skip: 'Skip tour' }}
     />
   );

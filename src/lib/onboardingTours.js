@@ -50,6 +50,9 @@ const stepActionCenter = {
   target: '[data-tour="action-center"]',
   title: 'Action Center',
   content: 'Tasks and reminders that need your attention appear here: unsent forms, pending interviews, CS-Link items, badge requests, and more.',
+  placement: 'bottom-end',
+  spotlightPadding: 6,
+  disableBeacon: true,
 };
 
 const stepSearch = {
@@ -71,9 +74,12 @@ const stepFeedback = {
 };
 
 const stepUserMenu = {
-  target: '[data-tour="user-menu"]',
+  target: '[data-tour="user-profile"]',
   title: 'Your Profile',
   content: 'View your role, manage your profile photo, restart this tour anytime, or sign out.',
+  placement: 'bottom-end',
+  spotlightPadding: 6,
+  disableBeacon: true,
 };
 
 const stepFinish = {
