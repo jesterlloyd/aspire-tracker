@@ -346,11 +346,11 @@ export default function MatchingTab({
 
         {/* ── Subheader strips: guidance/context (left) + count/pagination (right) ── */}
         <div style={{ display:'flex', background:'#f9fafb', borderBottom:'1px solid #e5e7eb', flexShrink:0 }}>
-          {/* Left subheader: guidance when idle, student name when active */}
+          {/* Left subheader: guidance when idle, brief focus indicator when active */}
           <div style={{ flex:58, height:'36px', display:'flex', alignItems:'center', padding:'0 16px', borderRight:'1px solid #e5e7eb', minWidth:0, overflow:'hidden' }}>
             {selectedStudent ? (
-              <span style={{ fontFamily:'DM Sans', fontSize:'12px', fontWeight:600, color:'#1D2567', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                Matching: {selectedStudent.last_name}, {selectedStudent.first_name}
+              <span style={{ fontFamily:'DM Sans', fontSize:'11px', color:'#6b7280', whiteSpace:'nowrap', fontStyle:'italic' }}>
+                Unit pool reordered by preference · preferences highlighted below
               </span>
             ) : (
               <span style={{ fontFamily:'DM Sans', fontSize:'12px', color:'#9ca3af', fontStyle:'italic', whiteSpace:'nowrap' }}>

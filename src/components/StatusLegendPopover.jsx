@@ -53,11 +53,26 @@ const STATUS_DESCRIPTIONS = [
 ];
 
 export default function StatusLegendPopover({ position = 'bottom-left', dark = false }) {
-  const [isOpen,      setIsOpen]      = useState(false);
-  const [showTooltip, setShowTooltip] = useState(false);
-  const [tooltipPos,  setTooltipPos]  = useState({ top: 0, left: 0 });
+  const [isOpen,        setIsOpen]        = useState(false);
+  const [showTooltip,   setShowTooltip]   = useState(false);
+  const [tooltipPos,    setTooltipPos]    = useState({ top: 0, left: 0 });
+  const [popoverCoords, setPopoverCoords] = useState({ top: 0, left: undefined, right: undefined });
   const popoverRef = useRef(null);
   const triggerRef = useRef(null);
+
+  const handleToggle = () => {
+    if (!isOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const coords = { top: rect.bottom + 8 };
+      if (position.includes('right')) {
+        coords.right = window.innerWidth - rect.right;
+      } else {
+        coords.left = rect.left;
+      }
+      setPopoverCoords(coords);
+    }
+    setIsOpen(p => !p);
+  };
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -78,19 +93,12 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen]);
 
-  const popoverPositions = {
-    'bottom-left':  { top: '100%',    left: '0',   marginTop: '8px'     },
-    'bottom-right': { top: '100%',    right: '0',  marginTop: '8px'     },
-    'top-left':     { bottom: '100%', left: '0',   marginBottom: '8px'  },
-    'top-right':    { bottom: '100%', right: '0',  marginBottom: '8px'  },
-  };
-
   return (
     <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
       {/* Trigger icon */}
       <button
         ref={triggerRef}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
         onMouseEnter={e => {
           const rect = e.currentTarget.getBoundingClientRect();
           setTooltipPos({ top: rect.top - 32, left: rect.left + rect.width / 2 });
@@ -127,19 +135,24 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
         </div>
       )}
 
-      {/* Popover */}
+      {/* Popover — position:fixed to escape overflow:hidden parents */}
       {isOpen && (
         <div
           ref={popoverRef}
           style={{
-            position: 'absolute',
-            ...popoverPositions[position],
+            position: 'fixed',
+            top:   popoverCoords.top,
+            left:  popoverCoords.left,
+            right: popoverCoords.right,
             width: '360px',
+            maxHeight: 'calc(100vh - 80px)',
             background: '#ffffff',
             borderRadius: '14px',
             boxShadow: '0 8px 32px rgba(29,37,103,0.18), 0 2px 8px rgba(0,0,0,0.08)',
-            zIndex: 500,
+            zIndex: 1000,
             overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
           {/* Header */}
@@ -161,7 +174,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
             >×</button>
           </div>
 
-          <div style={{ padding: '14px 18px', maxHeight: '480px', overflowY: 'auto' }}>
+          <div style={{ padding: '14px 18px', flex: 1, overflowY: 'auto' }}>
             {/* Status pills */}
             <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '10px' }}>
               Student Statuses

@@ -123,7 +123,7 @@ export default function MatchingBanner({ student, units, onClearSelection }) {
         <span style={{ fontFamily:'DM Sans', fontSize:'10px', color:'rgba(255,255,255,0.45)', fontStyle:'italic' }}>
           Highlighted units reflect preferences:
         </span>
-        {[{color:'#16a34a',label:'1st choice'},{color:'#d97706',label:'2nd choice'},{color:'#3b82f6',label:'3rd choice'}].map(item => (
+        {[{color:'#059669',label:'1st choice'},{color:'#B5895A',label:'2nd choice'},{color:'#7C8FD9',label:'3rd choice'}].map(item => (
           <div key={item.label} style={{ display:'flex', alignItems:'center', gap:'4px' }}>
             <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:item.color, flexShrink:0 }} />
             <span style={{ fontFamily:'DM Sans', fontSize:'10px', color:'rgba(255,255,255,0.55)' }}>{item.label}</span>

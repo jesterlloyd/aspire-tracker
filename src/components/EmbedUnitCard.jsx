@@ -12,23 +12,17 @@ const resolveMatchedStudent = (match, slot, studentMap) => {
   return null
 }
 
-const COMPAT_LABEL = {
-  green:  { text: '★ 1st Choice', color: '#16a34a' },
-  yellow: { text: '★ 2nd Choice', color: '#ca8a04' },
-  blue:   { text: '★ 3rd Choice', color: '#0369a1' },
+const CHOICE_STYLES = {
+  '1st': { accentBorder:'#059669', badgeBg:'#D1FAE5', badgeText:'#065F46', bodyTint:'#F0FDF4', label:'★ 1st Choice' },
+  '2nd': { accentBorder:'#B5895A', badgeBg:'#FCEFD4', badgeText:'#7C5A1F', bodyTint:'#FDF8EC', label:'★ 2nd Choice' },
+  '3rd': { accentBorder:'#7C8FD9', badgeBg:'#E0E7FF', badgeText:'#3730A3', bodyTint:'#EFF3FE', label:'★ 3rd Choice' },
 }
 
 const MATCH_QUALITY_CONFIG = {
-  '1st':   { label: '★ 1st Choice Match', color: '#166534', bg: '#f0fdf4', border: '#86efac' },
-  '2nd':   { label: '2nd Choice Match',   color: '#92400e', bg: '#fffbeb', border: '#fde68a' },
-  '3rd':   { label: '3rd Choice Match',   color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe' },
+  '1st':   { label: '★ 1st Choice Match', color: '#065F46', bg: '#D1FAE5', border: '#059669' },
+  '2nd':   { label: '2nd Choice Match',   color: '#7C5A1F', bg: '#FCEFD4', border: '#B5895A' },
+  '3rd':   { label: '3rd Choice Match',   color: '#3730A3', bg: '#E0E7FF', border: '#7C8FD9' },
   'other': { label: 'Other Match',        color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
-}
-
-const COMPAT_HEADER = {
-  green:  '#16a34a',
-  yellow: '#d97706',
-  blue:   '#3b82f6',
 }
 
 
@@ -47,21 +41,14 @@ export default function EmbedUnitCard({
   const isFull      = emptyCount === 0
 
   const compat = selectedStudent
-    ? (selectedStudent.unit_preference_1 === unit.unit_name ? 'green'
-      : selectedStudent.unit_preference_2 === unit.unit_name ? 'yellow'
-      : selectedStudent.unit_preference_3 === unit.unit_name ? 'blue'
+    ? (selectedStudent.unit_preference_1 === unit.unit_name ? '1st'
+      : selectedStudent.unit_preference_2 === unit.unit_name ? '2nd'
+      : selectedStudent.unit_preference_3 === unit.unit_name ? '3rd'
       : null)
     : null
 
-  const glow   = compat === 'green'  ? '0 0 0 3px #16a34a'
-               : compat === 'yellow' ? '0 0 0 3px #ca8a04'
-               : compat === 'blue'   ? '0 0 0 3px #0369a1'
-               : undefined
-  const bgTint = compat === 'green'  ? '#f0fdf4'
-               : compat === 'yellow' ? '#fefce8'
-               : compat === 'blue'   ? '#eff6ff'
-               : '#ffffff'
-  const compatInfo = compat ? COMPAT_LABEL[compat] : null
+  const choiceStyle = compat ? CHOICE_STYLES[compat] : null
+  const bgTint      = choiceStyle ? choiceStyle.bodyTint : '#ffffff'
 
   const fillBadge = isFull
     ? <span className="euc-fill-badge euc-fill-full">Full</span>
@@ -154,8 +141,8 @@ export default function EmbedUnitCard({
 
       <div className="euc-card" style={{
         background: bgTint,
-        border: compat
-          ? `2px solid ${COMPAT_HEADER[compat]}`
+        border: choiceStyle
+          ? `2px solid ${choiceStyle.accentBorder}`
           : selectedStudent
           ? '1px solid #f3f4f6'
           : '1px solid #e0e7ff',
@@ -164,15 +151,15 @@ export default function EmbedUnitCard({
         animation: isHighlighted ? 'unit-highlight 2s ease-out' : undefined,
         transition: 'all 0.2s ease',
       }}>
-        {/* Header */}
+        {/* Header — always Nightfall regardless of choice level */}
         <div className="euc-header" style={{
-          background: compat ? COMPAT_HEADER[compat] : 'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)',
+          background: 'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)',
         }}>
           <span className="euc-name" title={unit.unit_name}>{unit.unit_name}</span>
           <div className="euc-header-right">
-            {compatInfo && (
-              <span style={{ background:'#ffffff', fontFamily:'DM Sans', fontWeight:700, fontSize:'10px', color: compatInfo.color, padding:'3px 9px', borderRadius:'20px', flexShrink:0, whiteSpace:'nowrap', boxShadow:'0 1px 3px rgba(0,0,0,0.12)' }}>
-                {compatInfo.text}
+            {choiceStyle && (
+              <span style={{ background: choiceStyle.badgeBg, fontFamily:'DM Sans', fontWeight:600, fontSize:'11px', color: choiceStyle.badgeText, padding:'2px 8px', borderRadius:'999px', flexShrink:0, whiteSpace:'nowrap' }}>
+                {choiceStyle.label}
               </span>
             )}
             {fillBadge}
