@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Joyride, EVENTS, STATUS, ACTIONS } from 'react-joyride';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -70,19 +70,33 @@ export default function OnboardingTour({ run, onClose }) {
   const { userProfile, refreshUserProfile } = useAuth();
   const [steps, setSteps] = useState([]);
   const [showSkipModal, setShowSkipModal] = useState(false);
+  const wasRunningRef = useRef(false);
 
   useEffect(() => {
     if (userProfile) setSteps(getTourSteps(userProfile));
   }, [userProfile]);
 
+  // Safety net: detect tour transitioning from running → stopped
+  useEffect(() => {
+    if (run) {
+      wasRunningRef.current = true;
+    } else if (wasRunningRef.current && !run) {
+      console.log('[Tour] run transitioned to false, safety net check');
+      wasRunningRef.current = false;
+    }
+  }, [run]);
+
   async function markCompleted() {
-    if (!userProfile) {
-      console.warn('[Tour] markCompleted called but no userProfile');
+    console.log('[markCompleted] called, userProfile:', userProfile);
+
+    if (!userProfile?.auth_user_id) {
+      console.error('[markCompleted] No auth_user_id, aborting');
       return;
     }
-    console.log('[Tour] markCompleted firing for', userProfile.auth_user_id);
 
-    const { data, error } = await supabase
+    console.log('[markCompleted] Calling Supabase UPDATE for', userProfile.auth_user_id);
+
+    const { data, error, status, statusText } = await supabase
       .from('user_profiles')
       .update({
         onboarding_tour_completed:    true,
@@ -92,10 +106,28 @@ export default function OnboardingTour({ run, onClose }) {
       .eq('auth_user_id', userProfile.auth_user_id)
       .select();
 
-    if (error) { console.error('[Tour] UPDATE failed:', error); return; }
-    console.log('[Tour] UPDATE returned:', data);
+    console.log('[markCompleted] Supabase response:', { data, error, status, statusText });
 
-    if (typeof refreshUserProfile === 'function') await refreshUserProfile();
+    if (error) {
+      alert('Failed to save tour completion. Check console for details.');
+      console.error('[markCompleted] Full error:', error);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      console.error('[markCompleted] UPDATE returned no rows. auth_user_id may not match.');
+      alert('Tour completion save returned no rows. auth_user_id may not match.');
+      return;
+    }
+
+    console.log('[markCompleted] SUCCESS, rows updated:', data);
+
+    if (typeof refreshUserProfile === 'function') {
+      console.log('[markCompleted] Refreshing userProfile context');
+      await refreshUserProfile();
+    } else {
+      console.warn('[markCompleted] refreshUserProfile not in context');
+    }
   }
 
   async function markDismissed(permanent) {
@@ -110,36 +142,32 @@ export default function OnboardingTour({ run, onClose }) {
     }
   }
 
-  async function handleCallback(data) {
-    const { status, type, action, index } = data;
-    console.log('[Tour callback]', { status, type, action, index });
+  function handleCallback(data) {
+    const { status, type, action, index, lifecycle } = data;
+    console.log('[Tour]', { status, type, action, index, lifecycle, stepCount: steps.length });
 
-    // Final step: user clicked Next/Finish on the last step
-    if (
-      action === ACTIONS.NEXT &&
-      index === steps.length - 1 &&
-      type === EVENTS.STEP_AFTER
-    ) {
-      await markCompleted();
+    const isLastStep           = index === steps.length - 1;
+    const userClickedNext      = action === ACTIONS.NEXT;
+    const stepIsAfter          = type === EVENTS.STEP_AFTER;
+    const tourFinished         = status === STATUS.FINISHED;
+    const tourEnded            = type === EVENTS.TOUR_END;
+
+    // Multiple triggers so we catch the finish state regardless of Joyride's classification
+    if ((isLastStep && userClickedNext && stepIsAfter) || tourFinished || tourEnded) {
+      console.log('[Tour] Triggering markCompleted');
+      markCompleted();
       onClose();
       return;
     }
 
-    // Joyride also emits STATUS.FINISHED after the last step completes
-    if (status === STATUS.FINISHED) {
-      await markCompleted();
-      onClose();
-      return;
-    }
-
-    // User explicitly skipped
     if (status === STATUS.SKIPPED || action === ACTIONS.SKIP) {
+      console.log('[Tour] User skipped');
       setShowSkipModal(true);
       return;
     }
 
-    // Any other close action (X button)
-    if (type === EVENTS.TOOLTIP_CLOSE || action === ACTIONS.CLOSE) {
+    if (action === ACTIONS.CLOSE) {
+      console.log('[Tour] Tour closed via X');
       setShowSkipModal(true);
     }
   }
