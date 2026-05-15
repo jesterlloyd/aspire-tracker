@@ -541,6 +541,7 @@ Nursing Professional Development Practitioners (NPD-Ps) and their programs:
     - Nursing Professional Governance (NPG) Lead
     - Mentorship Program Lead
     - Caritas Coach
+    - NPD-P lead for "HAI (CAUTI / CLABSI)" under the No Harm in Our Care Committee
 
 11. Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN (JesterLloyd.Bautista@cshs.org, 424-386-5004)
     - ASPIRE Program lead
@@ -558,7 +559,7 @@ Key cross-program collaborations:
 - Preceptor Program: Krystal (lead) and Jester (co-lead)
 - New Grad RN Residency: Robert (oversees) and Jennifer (site coordinator)
 - Nursing Academics Pre-licensure: Arturo (lead), Jester, Jodi, and Michael
-- No Harm in Our Care Committee: Kathleen (chair), Krystal (Falls), Jester (HAPI)
+- No Harm in Our Care Committee: Kathleen (chair), Krystal (Falls), Jester (HAPI), Rebecca (HAI - CAUTI / CLABSI)
 - HealthStream coordination: Kathleen and Terrance
 - Nursing Research Council: Krystal, Millicent, Michael
 `.trim();
