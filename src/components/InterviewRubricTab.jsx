@@ -72,7 +72,8 @@ export default function InterviewRubricTab({
   const [sortDir,           setSortDir]           = useState('asc')
   const [activeFilter,      setActiveFilter]      = useState(null)
   const [refreshKey,        setRefreshKey]        = useState(0)
-  const [calendarCollapsed, setCalendarCollapsed] = useState(false)
+  const [calendarCollapsed,    setCalendarCollapsed]    = useState(false)
+  const [calendarInterviewers, setCalendarInterviewers] = useState([])
 
   const triggerRefresh = useCallback(() => setRefreshKey(k => k + 1), [])
 
@@ -179,21 +180,21 @@ export default function InterviewRubricTab({
 
       {/* Availability Calendar with collapse toggle */}
       <div style={{ marginBottom: '8px' }}>
-        {/* Calendar section header — toggle only, no label */}
+        {/* Calendar controls row: toggle + interviewer legend pill */}
         <div style={{
-          display: 'flex', alignItems: 'center',
+          display: 'flex', alignItems: 'center', gap: '12px',
           marginBottom: calendarCollapsed ? '0' : '12px',
         }}>
+          {/* Show Calendar / Focus Table View toggle */}
           <button
             onClick={() => setCalendarCollapsed(p => !p)}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
-              padding: '6px 14px',
+              height: '34px', padding: '0 14px', flexShrink: 0,
               background: calendarCollapsed ? '#1D2567' : '#f3f4ff',
               border: `1px solid ${calendarCollapsed ? '#1D2567' : '#e0e7ff'}`,
               borderRadius: '8px', cursor: 'pointer',
-              fontFamily: 'DM Sans', fontWeight: 600,
-              fontSize: '12px',
+              fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px',
               color: calendarCollapsed ? '#ffffff' : '#1D2567',
               transition: 'all 0.2s ease',
             }}
@@ -224,6 +225,32 @@ export default function InterviewRubricTab({
               </>
             )}
           </button>
+
+          {/* Interviewer legend pill — same height, scrollable if many names */}
+          {!calendarCollapsed && calendarInterviewers.length > 0 && (
+            <div style={{
+              height: '34px', flex: 1, display: 'inline-flex', alignItems: 'center', gap: '14px',
+              padding: '0 14px', background: '#F5F7FB', border: '1px solid #E5E7EB',
+              borderRadius: '999px', fontFamily: 'DM Sans', fontSize: '12px',
+              overflowX: 'auto', scrollbarWidth: 'thin', whiteSpace: 'nowrap',
+            }}>
+              <span style={{ fontWeight: 600, color: '#1D2567', paddingRight: '8px', borderRight: '1px solid #E5E7EB', flexShrink: 0 }}>
+                Interviewers
+              </span>
+              {calendarInterviewers.map(p => {
+                const parts = (p.full_name || '').trim().split(' ')
+                const shortName = parts.length >= 2
+                  ? `${parts[0]} ${parts[parts.length - 1][0]}.`
+                  : parts[0] || '—'
+                return (
+                  <span key={p.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.interviewer_color || '#1D2567', display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ color: '#374151', fontWeight: 500 }}>{shortName}</span>
+                  </span>
+                )
+              })}
+            </div>
+          )}
         </div>
         <div style={{
           overflow: 'hidden',
@@ -236,6 +263,7 @@ export default function InterviewRubricTab({
             cohortId={cohortId}
             activeCohort={cohort}
             onDataChanged={triggerRefresh}
+            onInterviewersLoaded={setCalendarInterviewers}
           />
         </div>
       </div>

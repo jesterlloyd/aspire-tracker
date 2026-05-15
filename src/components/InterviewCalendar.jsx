@@ -462,7 +462,7 @@ function DayPopover({ date, blocks, slots, colorMap, position, canDelete, onDele
 }
 
 // ─── Main Calendar ────────────────────────────────────────────────────────────
-export default function InterviewCalendar({ cohortId, activeCohort, onDataChanged }) {
+export default function InterviewCalendar({ cohortId, activeCohort, onDataChanged, onInterviewersLoaded }) {
   const { userProfile, isAdmin } = useAuth()
   const calendarRef = useRef(null)
 
@@ -492,6 +492,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
 
     const profiles = profilesRes.data || []
     setInterviewerProfiles(profiles)
+    onInterviewersLoaded?.(profiles)
 
     const cm = {}
     profiles.forEach(p => { cm[p.full_name] = p.interviewer_color || '#1D2567' })
@@ -547,8 +548,9 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
         backgroundColor: 'transparent',
         borderColor:     'transparent',
         extendedProps:   {
-          type: 'booked', color, interviewer: firstName, studentName,
-          time: timeStr, flag: slot.interview_flag || null, slot, block,
+          type: 'booked', color, interviewer: firstName,
+          interviewerFullName: block.interviewer_name || '',
+          studentName, time: timeStr, flag: slot.interview_flag || null, slot, block,
         },
       }
     })
@@ -562,6 +564,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
       borderColor:     'transparent',
       extendedProps:   {
         type: 'availability', color, interviewer: firstName,
+        interviewerFullName: block.interviewer_name || '',
         openCount: openSlots.length,
         startTime: block.start_time
           ? new Date(`2000-01-01T${block.start_time}`).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' })
@@ -721,50 +724,46 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   }
 
   const renderEventContent = (info) => {
-    const { type, color, interviewer, openCount, startTime, studentName, time, flag } = info.event.extendedProps
+    const { type, color, interviewerFullName, openCount, startTime, time, flag } = info.event.extendedProps
     const ic = color || '#1D2567'
 
-    const pillBase = { borderRadius:'4px', padding:'2px 6px 3px', margin:'0 2px', cursor:'pointer', overflow:'hidden', width:'100%', boxSizing:'border-box', height:'22px', display:'flex', flexDirection:'column', justifyContent:'center' }
-    const pillText = { fontFamily:'DM Sans', fontWeight:500, fontSize:'11px', lineHeight:1.3, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', display:'block' }
-    const pillMeta = { fontFamily:'DM Sans', fontSize:'9px', color:'#6b7280', lineHeight:1.2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }
+    // Helpers for compact month-view labels
+    const fmtShort = (t) => t ? t.replace(/\s*(AM|PM)$/i, '').trim() : ''
+    const ivInitials = (name) => {
+      if (!name) return ''
+      const parts = name.trim().split(/\s+/)
+      return ((parts[0]?.[0] || '') + (parts.length > 1 ? (parts[parts.length - 1]?.[0] || '') : '')).toUpperCase()
+    }
+
+    // Single-line compact pill — 18px, time-first format
+    const pill = (bg, border, textColor, label, opacity = 1) => (
+      <div style={{
+        borderRadius: '4px', padding: '0 5px', margin: '0 2px', cursor: 'pointer',
+        overflow: 'hidden', width: '100%', boxSizing: 'border-box',
+        height: '18px', lineHeight: '18px', display: 'block',
+        background: bg, borderLeft: `3px solid ${border}`, opacity,
+        fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10.5px',
+        color: textColor, whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+        letterSpacing: '-0.01em',
+      }}>{label}</div>
+    )
 
     if (type === 'availability') {
-      return (
-        <div style={{ ...pillBase, background:'#DBEAFE', borderLeft:`3px solid ${ic}` }}>
-          <div style={{ ...pillText, color:'#1E3A8A' }}>Open · {openCount} slot{openCount !== 1 ? 's' : ''}</div>
-          {interviewer && <div style={pillMeta}>{startTime ? `${startTime} · ` : ''}{interviewer}</div>}
-        </div>
-      )
+      const t = fmtShort(startTime)
+      return pill('#DBEAFE', ic, '#1E3A8A', `${t ? t + ' ' : ''}Open`)
     }
 
     if (type === 'booked') {
-      if (flag === 'no_show') {
-        return (
-          <div style={{ ...pillBase, background:'#FEF3C7', borderLeft:'3px solid #D97706' }}>
-            <div style={{ ...pillText, color:'#78350F' }}>⚠ {studentName}</div>
-          </div>
-        )
-      }
-      if (flag === 'cancelled') {
-        return (
-          <div style={{ ...pillBase, background:'#E5E7EB', borderLeft:'3px solid #9CA3AF', opacity:0.8 }}>
-            <div style={{ ...pillText, color:'#374151', textDecoration:'line-through' }}>{studentName}</div>
-          </div>
-        )
-      }
-      if (flag === 'needs_reschedule' || flag === 'rescheduled') {
-        return (
-          <div style={{ ...pillBase, background:'#FEF3C7', borderLeft:'3px solid #F59E0B' }}>
-            <div style={{ ...pillText, color:'#78350F' }}>↺ {studentName}</div>
-          </div>
-        )
-      }
-      return (
-        <div style={{ ...pillBase, background:'#D1FAE5', borderLeft:`3px solid ${ic}` }}>
-          <div style={{ ...pillText, color:'#065F46' }}>{studentName}{time ? ` · ${time}` : ''}</div>
-          {interviewer && <div style={pillMeta}>{interviewer}</div>}
-        </div>
-      )
+      const t = fmtShort(time)
+      const iv = ivInitials(interviewerFullName)
+      if (flag === 'no_show')
+        return pill('#FEE2E2', '#EF4444', '#7F1D1D', `${t} ✗`)
+      if (flag === 'cancelled')
+        return pill('#E5E7EB', '#9CA3AF', '#374151', `${t} ✗`, 0.75)
+      if (flag === 'needs_reschedule' || flag === 'rescheduled')
+        return pill('#FEF3C7', '#F59E0B', '#78350F', `${t} ↺`)
+      // default scheduled
+      return pill('#D1FAE5', ic, '#065F46', iv ? `${t} ${iv}` : t)
     }
 
     return (
@@ -877,10 +876,10 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
             .fc { font-family: 'DM Sans', sans-serif; }
 
             /* Fixed cell heights — every row identical */
-            .fc-daygrid-body tbody tr { height: 118px; }
+            .fc-daygrid-body tbody tr { height: 88px; }
             .fc-daygrid-day { overflow: hidden !important; }
-            .fc-daygrid-day-frame { height: 118px !important; overflow: hidden !important; box-sizing: border-box; }
-            .fc-daygrid-day-events { overflow: hidden; max-height: 76px; }
+            .fc-daygrid-day-frame { height: 88px !important; overflow: hidden !important; box-sizing: border-box; }
+            .fc-daygrid-day-events { overflow: hidden; max-height: 55px; }
 
             /* Today: outlined number */
             .fc-day-today { background: #f8f9ff !important; }
@@ -956,7 +955,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
             eventContent={renderEventContent}
             dateClick={handleDateClick}
             eventClick={handleEventClick}
-            height={560}
+            height={432}
             slotMinTime="07:00:00"
             slotMaxTime="19:00:00"
             slotDuration="00:30:00"
@@ -984,27 +983,6 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
         </div>
       </div>
 
-      {/* Interviewer legend — horizontal strip below calendar */}
-      {interviewerProfiles?.length > 0 && (
-        <div style={{ height:'40px', background:'#ffffff', borderTop:'1px solid #E5E7EB', padding:'0 16px', display:'flex', alignItems:'center', gap:'0', overflowX:'auto', flexShrink:0, marginBottom:'4px' }}>
-          <span style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#1D2567', flexShrink:0, marginRight:'8px' }}>Interviewers</span>
-          <span style={{ color:'#d1d5db', flexShrink:0, marginRight:'8px', fontSize:'14px' }}>·</span>
-          <div style={{ display:'flex', gap:'14px', alignItems:'center' }}>
-            {interviewerProfiles.map(p => {
-              const parts = (p.full_name || '').trim().split(' ')
-              const shortName = parts.length >= 2
-                ? `${parts[0]} ${parts[parts.length - 1][0]}.`
-                : parts[0] || '—'
-              return (
-                <span key={p.id} style={{ display:'flex', alignItems:'center', gap:'5px', flexShrink:0 }}>
-                  <span style={{ width:'8px', height:'8px', borderRadius:'50%', background: p.interviewer_color || '#1D2567', flexShrink:0, display:'inline-block' }} />
-                  <span style={{ fontFamily:'DM Sans', fontSize:'12px', color:'#6b7280', whiteSpace:'nowrap' }}>{shortName}</span>
-                </span>
-              )
-            })}
-          </div>
-        </div>
-      )}
 
       {createPopover && (
         <CreatePopover
