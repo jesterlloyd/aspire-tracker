@@ -97,11 +97,15 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut();
   };
 
+  // Exposed so components can force a context refresh after writing to user_profiles
+  const refreshUserProfile = () => loadUserProfile();
+
   const value = {
     user,
     userProfile,
     loading,
     signOut,
+    refreshUserProfile,
     isOwner:            userProfile?.is_owner === true,
     isAdmin:            ['owner', 'admin'].includes(userProfile?.role),
     isInterviewer:      userProfile?.role === 'interviewer',

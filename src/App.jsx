@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './lib/supabase'
 import { updateStudent as proxyUpdateStudent } from './lib/studentProxy'
 import { displayName } from './lib/utils'
@@ -85,7 +85,6 @@ function MainApp({ onLogout }) {
   const [communications,setCommunications]= useState([])
   const [showActionCenter, setShowActionCenter] = useState(false)
   const [tourRunning,      setTourRunning]      = useState(false)
-  const tourChecked = useRef(false)
   const [loading,   setLoading]   = useState(true)
   const [dbError,   setDbError]   = useState(null)
 
@@ -211,17 +210,32 @@ function MainApp({ onLogout }) {
     setActiveCohortId(id); setSearch(''); setFilters({ school: '', status: '', cohort: '' })
   }
 
-  // Auto-start welcome tour for new users (once both user and cohort are ready)
+  // Auto-start welcome tour — re-evaluates whenever the key tour fields change in context
   useEffect(() => {
-    if (!currentUserProfile || !activeCohortId || tourChecked.current) return
-    tourChecked.current = true
-    // Only trigger if migration has run (column exists) and tour not yet done/dismissed
+    if (!currentUserProfile?.auth_user_id || !activeCohortId) return
+
+    const completed = currentUserProfile.onboarding_tour_completed === true &&
+                      currentUserProfile.onboarding_tour_version === TOUR_VERSION
+    const dismissed = currentUserProfile.onboarding_tour_dismissed === true
+    const snoozed   = sessionStorage.getItem('onboarding_tour_snoozed') === 'true'
+
+    if (completed || dismissed || snoozed) {
+      setTourRunning(false)  // ensure tour is off if user refreshes after completing
+      return
+    }
+
+    // Only start if migration has run (column exists as false, not undefined)
     if (currentUserProfile.onboarding_tour_completed !== false) return
-    if (currentUserProfile.onboarding_tour_dismissed) return
-    if (sessionStorage.getItem('onboarding_tour_snoozed') === 'true') return
+
     switchTab('overview')
     setTimeout(() => setTourRunning(true), 700)
-  }, [currentUserProfile?.id, activeCohortId]) // eslint-disable-line
+  }, [ // eslint-disable-line
+    currentUserProfile?.auth_user_id,
+    currentUserProfile?.onboarding_tour_completed,
+    currentUserProfile?.onboarding_tour_version,
+    currentUserProfile?.onboarding_tour_dismissed,
+    activeCohortId,
+  ])
 
   const switchTab = tab => {
     localStorage.setItem('aspire_active_tab', tab)
@@ -498,7 +512,7 @@ function MainApp({ onLogout }) {
               )}
               <UserMenu
                 onOpenUserManagement={() => setShowUserManagement(true)}
-                onRestartTour={() => { tourChecked.current = false; switchTab('overview'); setTimeout(() => setTourRunning(true), 400) }}
+                onRestartTour={() => { switchTab('overview'); setTimeout(() => setTourRunning(true), 400) }}
               />
             </div>
           </div>

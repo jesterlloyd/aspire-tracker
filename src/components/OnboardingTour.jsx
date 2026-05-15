@@ -12,7 +12,7 @@ const TOUR_STYLES = {
     overlayColor: 'rgba(20, 25, 40, 0.55)',
     arrowColor: '#ffffff',
     zIndex: 100000,
-    spotlightShadow: '0 0 0 4px rgba(29, 37, 103, 0.25)',
+    spotlightShadow: '0 0 0 4px rgba(29, 37, 103, 0.35)',
   },
   tooltipContainer: {
     fontFamily: 'DM Sans, sans-serif',
@@ -20,19 +20,29 @@ const TOUR_STYLES = {
   },
   tooltip: {
     borderRadius: 12,
-    padding: 20,
-    maxWidth: 360,
+    padding: '24px 24px 20px 24px',
+    maxWidth: 380,
+    boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+    overflow: 'visible',
   },
   tooltipTitle: {
     fontSize: 16,
     fontWeight: 700,
-    marginBottom: 8,
+    color: '#1D2567',
+    marginBottom: 10,
+    marginTop: 0,
+    lineHeight: 1.3,
+    display: 'block',
   },
   tooltipContent: {
     fontSize: 13,
     lineHeight: 1.6,
     color: '#374151',
     padding: 0,
+    margin: 0,
+  },
+  tooltipFooter: {
+    marginTop: 16,
   },
   buttonNext: {
     background: '#1D2567',
@@ -40,12 +50,14 @@ const TOUR_STYLES = {
     fontFamily: 'DM Sans, sans-serif',
     fontWeight: 600,
     fontSize: 13,
+    padding: '8px 14px',
   },
   buttonBack: {
     color: '#6B7280',
     fontFamily: 'DM Sans, sans-serif',
     fontWeight: 500,
     fontSize: 13,
+    marginRight: 8,
   },
   buttonSkip: {
     color: '#9CA3AF',
@@ -55,7 +67,7 @@ const TOUR_STYLES = {
 };
 
 export default function OnboardingTour({ run, onClose }) {
-  const { userProfile } = useAuth();
+  const { userProfile, refreshUserProfile } = useAuth();
   const [steps, setSteps] = useState([]);
   const [showSkipModal, setShowSkipModal] = useState(false);
 
@@ -65,7 +77,7 @@ export default function OnboardingTour({ run, onClose }) {
 
   async function markCompleted() {
     if (!userProfile?.auth_user_id) return;
-    await supabase
+    const { error } = await supabase
       .from('user_profiles')
       .update({
         onboarding_tour_completed:    true,
@@ -73,6 +85,9 @@ export default function OnboardingTour({ run, onClose }) {
         onboarding_tour_version:      TOUR_VERSION,
       })
       .eq('auth_user_id', userProfile.auth_user_id);
+    if (error) { console.error('Failed to mark tour complete:', error); return; }
+    // Refresh context so the gate in App.jsx sees the updated completed state
+    if (typeof refreshUserProfile === 'function') await refreshUserProfile();
   }
 
   async function markDismissed(permanent) {
@@ -117,7 +132,10 @@ export default function OnboardingTour({ run, onClose }) {
       showSkipButton
       disableScrolling={false}
       scrollToFirstStep
-      spotlightPadding={6}
+      spotlightPadding={8}
+      spotlightClicks={false}
+      disableOverlayClose
+      hideCloseButton={false}
       callback={handleCallback}
       styles={TOUR_STYLES}
       floaterProps={{
@@ -127,14 +145,18 @@ export default function OnboardingTour({ run, onClose }) {
           preventOverflow: {
             enabled: true,
             boundariesElement: 'viewport',
+            padding: 16,
           },
           flip: {
             enabled: true,
             boundariesElement: 'viewport',
           },
+          offset: {
+            offset: '0, 12',
+          },
         },
       }}
-      locale={{ back: 'Back', close: 'Close', last: 'Finish', next: 'Next →', skip: 'Skip tour' }}
+      locale={{ back: 'Back', close: 'Close', last: 'Finish', next: 'Next', skip: 'Skip' }}
     />
   );
 }
