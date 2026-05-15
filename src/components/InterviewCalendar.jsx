@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin    from '@fullcalendar/daygrid'
 import timeGridPlugin   from '@fullcalendar/timegrid'
@@ -467,6 +466,10 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const { userProfile, isAdmin } = useAuth()
   const calendarRef = useRef(null)
 
+  const [blocks,             setBlocks]             = useState([])
+  const [slots,              setSlots]              = useState([])
+  const [interviewerProfiles, setInterviewerProfiles] = useState([])
+  const [colorMap,           setColorMap]           = useState({})
   const [createPopover, setCreatePopover] = useState(null)
   const [blockPopover,  setBlockPopover]  = useState(null)
   const [dayPopover,    setDayPopover]    = useState(null)
@@ -475,42 +478,54 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const [calendarTitle,  setCalendarTitle]  = useState('')
   const [currentView,    setCurrentView]    = useState('dayGridMonth')
 
-  // Calendar data — cached; refetchOnWindowFocus handles visibility changes
-  const myName = userProfile?.full_name
-  const { data: calData, refetch: fetchData } = useQuery({
-    queryKey: ['interview_calendar', cohortId, isAdmin ? 'admin' : myName],
-    queryFn:  async () => {
-      const [blocksRes, slotsRes, profilesRes] = await Promise.all([
-        supabase.from('interview_availability_blocks')
-          .select('*').eq('cohort_id', cohortId).eq('is_active', true),
-        supabase.from('interview_slots')
-          .select(`*, students!booked_by_student_id (id, first_name, last_name, school)`)
-          .eq('cohort_id', cohortId),
-        supabase.rpc('get_active_interviewers'),
-      ])
-      const profiles = profilesRes.data || []
-      const cm = {}
-      profiles.forEach(p => { cm[p.full_name] = p.interviewer_color || '#1D2567' })
-      let allBlocks = blocksRes.data || []
-      let allSlots  = slotsRes.data  || []
-      if (!isAdmin && myName) {
+  const fetchData = useCallback(async () => {
+    if (!cohortId) return
+
+    const [blocksRes, slotsRes, profilesRes] = await Promise.all([
+      supabase.from('interview_availability_blocks')
+        .select('*').eq('cohort_id', cohortId).eq('is_active', true),
+      supabase.from('interview_slots')
+        .select(`*, students!booked_by_student_id (id, first_name, last_name, school)`)
+        .eq('cohort_id', cohortId),
+      supabase.rpc('get_active_interviewers'),
+    ])
+
+    const profiles = profilesRes.data || []
+    setInterviewerProfiles(profiles)
+    onInterviewersLoaded?.(profiles)
+
+    const cm = {}
+    profiles.forEach(p => { cm[p.full_name] = p.interviewer_color || '#1D2567' })
+    setColorMap(cm)
+
+    let allBlocks = blocksRes.data || []
+    let allSlots  = slotsRes.data  || []
+
+    if (!isAdmin) {
+      const myName = userProfile?.full_name
+      if (myName) {
         allBlocks = allBlocks.filter(b => b.interviewer_name === myName)
         allSlots  = allSlots.filter(s => s.interviewer_name  === myName)
       }
-      return { blocks: allBlocks, slots: allSlots, profiles, colorMap: cm }
-    },
-    enabled: !!cohortId,
-  })
+    }
 
-  const blocks             = calData?.blocks   || []
-  const slots              = calData?.slots    || []
-  const interviewerProfiles = calData?.profiles || []
-  const colorMap           = calData?.colorMap || {}
+    setBlocks(allBlocks)
+    setSlots(allSlots)
+  }, [cohortId, isAdmin, userProfile?.full_name]) // eslint-disable-line
 
-  // Notify parent when profiles load (for the legend row)
+  // Fetch on cohortId availability / change (mount + cohort switch)
   useEffect(() => {
-    if (interviewerProfiles.length > 0) onInterviewersLoaded?.(interviewerProfiles)
-  }, [interviewerProfiles]) // eslint-disable-line
+    if (cohortId) fetchData()
+  }, [cohortId]) // eslint-disable-line
+
+  // Re-fetch when page becomes visible (browser tab switch back)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && cohortId) fetchData()
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [cohortId, fetchData])
 
   const calendarEvents = (blocks || []).flatMap(block => {
     const blockSlots  = (slots || []).filter(s => s.block_id === block.id)
