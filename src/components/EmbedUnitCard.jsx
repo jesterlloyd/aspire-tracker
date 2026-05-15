@@ -13,9 +13,9 @@ const resolveMatchedStudent = (match, slot, studentMap) => {
 }
 
 const CHOICE_STYLES = {
-  '1st': { accentBorder:'#059669', badgeBg:'#D1FAE5', badgeText:'#065F46', bodyTint:'#F0FDF4', label:'★ 1st Choice' },
-  '2nd': { accentBorder:'#B5895A', badgeBg:'#FCEFD4', badgeText:'#7C5A1F', bodyTint:'#FDF8EC', label:'★ 2nd Choice' },
-  '3rd': { accentBorder:'#7C8FD9', badgeBg:'#E0E7FF', badgeText:'#3730A3', bodyTint:'#EFF3FE', label:'★ 3rd Choice' },
+  '1st': { accentBorder:'#059669', badgeBg:'#D1FAE5', badgeText:'#065F46', bodyTint:'#F0FDF4', label:'★ 1st choice' },
+  '2nd': { accentBorder:'#B5895A', badgeBg:'#FCEFD4', badgeText:'#7C5A1F', bodyTint:'#FDF8EC', label:'★ 2nd choice' },
+  '3rd': { accentBorder:'#7C8FD9', badgeBg:'#E0E7FF', badgeText:'#3730A3', bodyTint:'#EFF3FE', label:'★ 3rd choice' },
 }
 
 const MATCH_QUALITY_CONFIG = {
@@ -272,45 +272,37 @@ function FilledSlotPill({ student, match, unit, onUnmatch, onNotify }) {
   const hasShift     = !!student.shift_assigned
 
   return (
-    <div style={{ background:'#ffffff', border:'1px solid #f3f4f6', borderRadius:'8px', padding:'10px 12px', marginBottom:'6px' }}>
-      {/* Match quality + notification */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'6px' }}>
-        <span style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'9px', background:qCfg.bg, color:qCfg.color, border:`1px solid ${qCfg.border}`, padding:'2px 8px', borderRadius:'20px' }}>
-          {qCfg.label}
+    <div style={{ background:'#ffffff', border:'1px solid #f3f4f6', borderRadius:'8px', padding:'8px 10px', marginBottom:'6px' }}>
+      {/* Row 1: avatar + name + notification + unmatch */}
+      <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'5px' }}>
+        <StudentAvatar student={student} size={28} />
+        <span style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#1D2567', flex:1, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+          {student.first_name} {student.last_name}
         </span>
-        <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-          <span style={{ fontFamily:'DM Sans', fontSize:'9px', fontWeight:600, color: isNotified ? '#16a34a' : '#d97706', display:'flex', alignItems:'center', gap:'3px' }}>
-            {isNotified ? '✓ Unit notified' : '⚠ Notification pending'}
-          </span>
-          {!isNotified && (
-            <button title="Notify unit leader" onClick={e => { e.stopPropagation(); onNotify(student, match) }}
-              style={{ background:'none', border:'none', cursor:'pointer', fontSize:13, color:'#6b7280', padding:'0 2px', lineHeight:1 }}>✉</button>
+        <div style={{ display:'flex', alignItems:'center', gap:'4px', flexShrink:0 }}>
+          {isNotified ? (
+            <span style={{ fontFamily:'DM Sans', fontSize:'10px', fontWeight:600, color:'#16a34a' }}>✓</span>
+          ) : (
+            <>
+              <span style={{ fontFamily:'DM Sans', fontSize:'9px', color:'#d97706' }}>⚠</span>
+              <button title="Notify unit leader" onClick={e => { e.stopPropagation(); onNotify(student, match) }}
+                style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:'#6b7280', padding:'0 1px', lineHeight:1 }}>✉</button>
+            </>
           )}
           <button className="euc-sf-unmatch" onClick={onUnmatch} title="Unmatch student">×</button>
         </div>
       </div>
-      {/* Avatar + name row */}
-      <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'6px' }}>
-        <StudentAvatar student={student} size={36} />
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'12px', color:'#1D2567', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-            {student.first_name} {student.last_name}
-          </div>
-          {student.school && (
-            <div style={{ fontFamily:'DM Sans', fontSize:'10px', color:'#9ca3af', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-              {student.school}
-            </div>
-          )}
-        </div>
-      </div>
-      {/* Preceptor + shift flags */}
-      <div style={{ display:'flex', gap:'4px', flexWrap:'wrap' }}>
-        <span style={{ fontFamily:'DM Sans', fontSize:'9px', fontWeight:600, color: hasPreceptor ? '#374151' : '#d97706', background: hasPreceptor ? '#f3f4f6' : '#fffbeb', padding:'2px 7px', borderRadius:'20px' }}>
+      {/* Row 2: match quality + preceptor + shift */}
+      <div style={{ display:'flex', alignItems:'center', gap:'5px', flexWrap:'wrap' }}>
+        <span style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:'9px', background:qCfg.bg, color:qCfg.color, border:`1px solid ${qCfg.border}`, padding:'1px 6px', borderRadius:'20px', flexShrink:0 }}>
+          {qCfg.label}
+        </span>
+        <span style={{ fontFamily:'DM Sans', fontSize:'10px', color: hasPreceptor ? '#374151' : '#d97706' }}>
           {hasPreceptor ? `👤 ${student.matched_preceptor}` : '⚠ Preceptor needed'}
         </span>
-        <span style={{ fontFamily:'DM Sans', fontSize:'9px', fontWeight:600, color: hasShift ? '#374151' : '#d97706', background: hasShift ? '#f3f4f6' : '#fffbeb', padding:'2px 7px', borderRadius:'20px' }}>
-          {hasShift ? `${student.shift_assigned} shift` : '⚠ Shift not set'}
-        </span>
+        {hasShift && (
+          <span style={{ fontFamily:'DM Sans', fontSize:'10px', color:'#6b7280' }}>· {student.shift_assigned}</span>
+        )}
       </div>
     </div>
   )
@@ -326,19 +318,19 @@ function EmptySlotPill({ selectedStudent, compat, onClick }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        border: `1.5px dashed ${hovered && isReady ? '#a5b4fc' : '#c7d2fe'}`,
-        background: hovered && isReady ? '#f0f3ff' : '#f8f9ff',
+        border: `1px dashed ${hovered && isReady ? '#94a3b8' : '#CBD5E1'}`,
+        background: hovered && isReady ? '#f8fafc' : '#fafafa',
         borderRadius:'8px', padding:'8px 12px', marginBottom:'6px',
         cursor: isReady ? 'pointer' : 'default',
         display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
         transition:'all 0.15s ease',
       }}
     >
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" strokeWidth="2.5" strokeLinecap="round">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round">
         <line x1="12" y1="5" x2="12" y2="19"/>
         <line x1="5" y1="12" x2="19" y2="12"/>
       </svg>
-      <span style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:'11px', color:'#a5b4fc' }}>
+      <span style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:'13px', color:'#94a3b8' }}>
         {isReady ? 'Place in this slot' : 'Open Slot'}
       </span>
     </div>

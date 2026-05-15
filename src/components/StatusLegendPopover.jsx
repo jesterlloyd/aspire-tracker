@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Info } from 'lucide-react';
 import { ASPIRE_STATUSES } from '../lib/statuses';
 
@@ -135,8 +136,8 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
         </div>
       )}
 
-      {/* Popover — position:fixed to escape overflow:hidden parents */}
-      {isOpen && (
+      {/* Popover — portaled to document.body so no ancestor overflow clips it */}
+      {isOpen && createPortal(
         <div
           ref={popoverRef}
           style={{
@@ -145,11 +146,11 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
             left:  popoverCoords.left,
             right: popoverCoords.right,
             width: '360px',
-            maxHeight: 'calc(100vh - 80px)',
+            maxHeight: 'min(480px, calc(100vh - 80px))',
             background: '#ffffff',
             borderRadius: '14px',
             boxShadow: '0 8px 32px rgba(29,37,103,0.18), 0 2px 8px rgba(0,0,0,0.08)',
-            zIndex: 1000,
+            zIndex: 9999,
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
@@ -227,7 +228,8 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
               ))}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
