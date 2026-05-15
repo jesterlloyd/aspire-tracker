@@ -21,7 +21,7 @@ import InterviewSchedulePage from './components/InterviewSchedulePage'
 import ShiftLogPage from './components/ShiftLogPage'
 import InterviewersModal from './components/InterviewersModal'
 import ActionCenter from './components/ActionCenter'
-import OnboardingTour from './components/OnboardingTour'
+import CustomOnboardingTour from './components/CustomOnboardingTour'
 import { TOUR_VERSION } from './lib/onboardingTours'
 import Keith from './components/Keith'
 import FeedbackPanel from './components/FeedbackPanel'
@@ -655,7 +655,7 @@ function MainApp({ onLogout }) {
         isAuthenticated={true}
       />
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <OnboardingTour run={tourRunning} onClose={() => setTourRunning(false)} />
+      <CustomOnboardingTour run={tourRunning} onClose={() => setTourRunning(false)} />
       <UserManagement
         isOpen={showUserManagement}
         onClose={() => setShowUserManagement(false)}
