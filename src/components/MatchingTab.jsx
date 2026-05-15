@@ -340,7 +340,6 @@ export default function MatchingTab({
               <option value="score_desc">Score High–Low</option>
               <option value="status">ASPIRE Status</option>
             </select>
-            <StatusLegendPopover position="bottom-right" dark={true} />
           </div>
         </div>
 
@@ -358,14 +357,17 @@ export default function MatchingTab({
               </span>
             )}
           </div>
-          {/* Right subheader: student count + prev/next pagination */}
-          <div style={{ flex:42, height:'36px', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 16px', minWidth:0 }}>
-            <span style={{ fontFamily:'DM Sans', fontSize:'12px', color:'#374151' }}>
+          {/* Right subheader: count + legend icon + spacer + pagination */}
+          <div style={{ flex:42, height:'36px', display:'flex', alignItems:'center', padding:'0 16px', minWidth:0, gap:'6px' }}>
+            <span style={{ fontFamily:'DM Sans', fontSize:'12px', color:'#374151', flexShrink:0 }}>
               {selectedStudent
                 ? `${selectedIndex + 1} of ${sortedPool.length}`
                 : `${sortedPool.length} student${sortedPool.length !== 1 ? 's' : ''}`
               }
             </span>
+            {/* View Status Legend — light context, portaled popover */}
+            <StatusLegendPopover position="bottom-right" dark={false} />
+            <div style={{ flex:1 }} />
             {sortedPool.length > 0 && (
               <div style={{ display:'flex', alignItems:'center', gap:'5px' }}>
                 <button
