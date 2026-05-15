@@ -94,9 +94,17 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen]);
 
+  // Close on scroll (any scroll anywhere)
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleScroll = () => setIsOpen(false);
+    window.addEventListener('scroll', handleScroll, true);
+    return () => window.removeEventListener('scroll', handleScroll, true);
+  }, [isOpen]);
+
   return (
-    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-      {/* Trigger icon */}
+    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+      {/* Trigger icon — flexShrink:0 prevents the toolbar from squeezing this out of view */}
       <button
         ref={triggerRef}
         onClick={handleToggle}
@@ -110,7 +118,8 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
         title="View status legend"
         style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          padding: '2px', display: 'flex', alignItems: 'center',
+          width: '20px', height: '20px', flexShrink: 0,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           color: isOpen ? (dark ? '#9FAFF8' : '#1D2567') : (dark ? 'rgba(255,255,255,0.5)' : '#9ca3af'),
           transition: 'color 0.15s ease', borderRadius: '4px',
         }}
