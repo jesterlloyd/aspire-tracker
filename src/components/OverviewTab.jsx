@@ -49,15 +49,57 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [campusLoading,    setCampusLoading]    = useState(false)
   const [timelineExpanded, setTimelineExpanded] = useState(false)
   const [cohortEvents,     setCohortEvents]     = useState([])
-  const [eventsLoaded,     setEventsLoaded]     = useState(false)
+  const [ganttLoading,     setGanttLoading]     = useState(false)
+  const [ganttError,       setGanttError]       = useState(null)
 
+  // Manual refresh — used by Retry + Refresh buttons
+  const loadCohortEvents = async () => {
+    if (!cohortId) return
+    setGanttLoading(true)
+    setGanttError(null)
+    try {
+      const { data, error } = await supabase
+        .from('program_events').select('*').eq('cohort_id', cohortId)
+      if (error) throw error
+      setCohortEvents(data || [])
+    } catch (err) {
+      console.error('Gantt chart load failed:', err.message)
+      setGanttError(err.message)
+      // Do NOT set empty array — preserve any previously loaded data
+    } finally {
+      setGanttLoading(false)
+    }
+  }
+
+  // Fetch on expand — AbortController guards against stale responses
   useEffect(() => {
-    if (!timelineExpanded || eventsLoaded || !cohortId) return
-    supabase.from('program_events').select('*').eq('cohort_id', cohortId)
-      .then(({ data }) => { setCohortEvents(data || []); setEventsLoaded(true) })
-  }, [timelineExpanded, cohortId, eventsLoaded])
+    if (!timelineExpanded || !cohortId) return
+    let cancelled = false
+    const load = async () => {
+      setGanttLoading(true)
+      setGanttError(null)
+      try {
+        const { data, error } = await supabase
+          .from('program_events').select('*').eq('cohort_id', cohortId)
+        if (cancelled) return
+        if (error) throw error
+        setCohortEvents(data || [])
+      } catch (err) {
+        if (cancelled) return
+        console.error('Gantt chart load failed:', err.message)
+        setGanttError(err.message)
+      } finally {
+        if (!cancelled) setGanttLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [timelineExpanded, cohortId]) // eslint-disable-line
 
-  useEffect(() => { setCohortEvents([]); setEventsLoaded(false) }, [cohortId])
+  // Reset on cohort switch
+  useEffect(() => {
+    setCohortEvents([]); setGanttError(null); setGanttLoading(false)
+  }, [cohortId])
 
   const todayStr = (() => { const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}` })()
 
@@ -576,12 +618,37 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
           {/* Expanded Gantt */}
           {timelineExpanded && (
             <div style={{ borderTop:'1px solid rgba(255,255,255,0.1)', background:'#ffffff', padding:20 }}>
-              {cohortEvents.length === 0 ? (
+              {ganttLoading ? (
+                <div style={{ textAlign:'center', padding:'28px 16px', color:'#9ca3af', fontFamily:'DM Sans', fontSize:13 }}>
+                  <style>{`@keyframes gantt-spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }`}</style>
+                  <div style={{ width:20, height:20, border:'2px solid #e5e7eb', borderTopColor:'#1D2567', borderRadius:'50%', animation:'gantt-spin 0.8s linear infinite', margin:'0 auto 12px' }} />
+                  Loading program timeline…
+                </div>
+              ) : ganttError ? (
+                <div style={{ background:'#fff1f2', border:'1px solid #fca5a5', borderRadius:10, padding:'16px 20px', textAlign:'center' }}>
+                  <div style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:13, color:'#991b1b', marginBottom:6 }}>
+                    Failed to load timeline
+                  </div>
+                  <div style={{ fontFamily:'DM Sans', fontSize:12, color:'#6b7280', marginBottom:14 }}>{ganttError}</div>
+                  <button onClick={loadCohortEvents}
+                    style={{ padding:'7px 18px', border:'none', borderRadius:8, background:'#1D2567', color:'#fff', fontFamily:'DM Sans', fontWeight:700, fontSize:12, cursor:'pointer' }}>
+                    Retry
+                  </button>
+                </div>
+              ) : cohortEvents.length === 0 ? (
                 <EmptyState icon={<Clock />}
-                  heading="No timeline data yet"
-                  subtext="Log orientation and rotation dates in student profiles to populate the cohort timeline. Events will also appear automatically as students progress through the program." />
+                  heading="No timeline events yet for this cohort"
+                  subtext="Events will appear automatically as students progress (form received, interviewed, placed). You can also log dates manually from the Student Profiles tab." />
               ) : (
-                <CohortGantt students={students} events={cohortEvents} cohort={cohort} />
+                <>
+                  <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:8 }}>
+                    <button onClick={loadCohortEvents}
+                      style={{ padding:'4px 12px', border:'1px solid #e5e7eb', borderRadius:6, background:'#f9fafb', fontFamily:'DM Sans', fontSize:11, color:'#6b7280', cursor:'pointer' }}>
+                      ↻ Refresh
+                    </button>
+                  </div>
+                  <CohortGantt students={students} events={cohortEvents} cohort={cohort} />
+                </>
               )}
             </div>
           )}
