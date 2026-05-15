@@ -97,15 +97,16 @@ export default function EmbedUnitCard({
       isMultiStudent: false,
     })
     openMailtoLink(mailto)
-    if (!unit.contact_email) {
-      showToast(`No email address found for ${unit.unit_name}. Please add a contact email in unit settings.`)
-      return
-    }
+    // Always mark as notified — the mailto opened regardless of whether email is configured
     if (match) {
       const notifiedAt = new Date().toISOString()
       await onUpdateMatch(match.id, student.id, { notification_sent: true, notified_at: notifiedAt })
     }
-    showToast(`Email opened for ${displayName(student)}. Marked as notified.`)
+    if (!unit.contact_email) {
+      showToast(`No contact email on file for ${unit.unit_name} — add one in unit settings. Match marked as notified.`)
+    } else {
+      showToast(`Email opened for ${displayName(student)}. Marked as notified.`)
+    }
   }
 
   const handleNotifyAll = async () => {
@@ -125,16 +126,17 @@ export default function EmbedUnitCard({
       isMultiStudent: true,
     })
     openMailtoLink(mailto)
-    if (!unit.contact_email) {
-      showToast(`No email address found for ${unit.unit_name}. Please add a contact email in unit settings.`)
-      return
-    }
+    // Always mark all unnotified matches — the mailto opened regardless of email config
     const notifiedAt = new Date().toISOString()
     for (const s of unnotified) {
       const m = matches.find(m => m.student_id === s.id && m.unit_id === unit.id)
       if (m) await onUpdateMatch(m.id, s.id, { notification_sent: true, notified_at: notifiedAt })
     }
-    showToast(`Email opened for ${unit.unit_name}. ${unnotified.length} student${unnotified.length !== 1 ? 's' : ''} marked as notified.`)
+    if (!unit.contact_email) {
+      showToast(`No contact email on file for ${unit.unit_name} — add one in unit settings. ${unnotified.length} match${unnotified.length !== 1 ? 'es' : ''} marked as notified.`)
+    } else {
+      showToast(`Email opened for ${unit.unit_name}. ${unnotified.length} student${unnotified.length !== 1 ? 's' : ''} marked as notified.`)
+    }
   }
 
   return (
