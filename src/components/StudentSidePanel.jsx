@@ -723,9 +723,7 @@ export default function StudentSidePanel({
                   <option value="Day">Day</option>
                   <option value="Night">Night</option>
                   <option value="Mid">Mid</option>
-                  <option value="Either">Either</option>
                   <option value="Variable">Variable</option>
-                  <option value="Day and Night">Day and Night</option>
                 </select>
               </Field>
               <Field label="Preceptor Email">
