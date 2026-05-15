@@ -21,13 +21,16 @@ const ROLE_BADGE = {
 }
 
 const INTERVIEWER_COLORS = [
-  { name: 'Navy',    hex: '#1D2567' },
-  { name: 'Emerald', hex: '#065F46' },
-  { name: 'Teal',    hex: '#0E7490' },
-  { name: 'Gold',    hex: '#92400E' },
-  { name: 'Plum',    hex: '#5B21B6' },
-  { name: 'Rose',    hex: '#9F1239' },
-  { name: 'Slate',   hex: '#3730A3' },
+  { name: 'Navy',     hex: '#1D2567' },
+  { name: 'Emerald',  hex: '#065F46' },
+  { name: 'Teal',     hex: '#0E7490' },
+  { name: 'Gold',     hex: '#92400E' },
+  { name: 'Plum',     hex: '#5B21B6' },
+  { name: 'Rose',     hex: '#9F1239' },
+  { name: 'Slate',    hex: '#3730A3' },
+  { name: 'Forest',   hex: '#14532D' },
+  { name: 'Burgundy', hex: '#7C2D2D' },
+  { name: 'Sienna',   hex: '#9A3412' },
 ]
 
 const ROLE_ORDER = { owner: 0, admin: 1, 'co-lead': 2, co_lead: 2, interviewer: 3, viewer: 4 }

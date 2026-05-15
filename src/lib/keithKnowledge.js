@@ -425,7 +425,7 @@ People & Access drawer (formerly User Management):
 - Filter chips replace the search box: All Users, Active, Interviewers, Inactive, Owners/Admins.
 - Users sorted by role hierarchy (Owner, Admin, Co-Lead, Interviewer, Viewer), inactive at bottom.
 - Owner account protected: cannot be demoted or deactivated.
-- Interview Calendar Color picker uses single labeled swatches (Navy, Emerald, Teal, Gold, Plum, Rose, Slate).
+- Interview Calendar Color picker uses single labeled swatches (Navy, Emerald, Teal, Gold, Plum, Rose, Slate, Forest, Burgundy, Sienna).
 
 Gantt chart (Aggregate tab):
 - Program timeline now correctly loads from program_events with explicit loading and empty states.
