@@ -474,6 +474,46 @@ function getInitials(name) {
   return ((parts[0]?.[0] || '') + (parts.length > 1 ? (parts[parts.length-1]?.[0] || '') : '')).toUpperCase()
 }
 
+// ─── Week View Helpers ─────────────────────────────────────────────────────────
+const toMinutes = (t) => {
+  if (!t) return 0
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + m
+}
+const minutesToTimeStr = (mins) => {
+  const c = Math.max(0, Math.round(mins))
+  return `${String(Math.floor(c/60)).padStart(2,'0')}:${String(c%60).padStart(2,'0')}`
+}
+function addDays(date, n) {
+  const d = new Date(date); d.setDate(d.getDate() + n); d.setHours(0,0,0,0); return d
+}
+function getWeekStart(date) {
+  const d = new Date(date); d.setDate(d.getDate() - d.getDay()); d.setHours(0,0,0,0); return d
+}
+function fmtHour(h) {
+  if (h === 0)  return '12 AM'
+  if (h === 12) return '12 PM'
+  return h > 12 ? `${h-12} PM` : `${h} AM`
+}
+function groupOverlapping(items) {
+  const sorted = [...items].sort((a, b) => toMinutes(a._sT) - toMinutes(b._sT))
+  const groups = []
+  sorted.forEach(item => {
+    const last = groups[groups.length - 1]
+    if (last && last.some(g => toMinutes(g._eT) > toMinutes(item._sT))) {
+      last.push(item)
+    } else {
+      groups.push([item])
+    }
+  })
+  return groups
+}
+function slotBg(status) {
+  if (status === 'booked')  return { bg:'#DCFCE7', bdr:'#86EFAC', txt:'#065F46' }
+  if (status === 'blocked') return { bg:'#FEF3C7', bdr:'#FCD34D', txt:'#92400E' }
+  return                           { bg:'#DBEAFE', bdr:'#BFDBFE', txt:'#1E3A8A' }
+}
+
 function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, onDayClick, onAddAvailability }) {
   const [hoveredDate, setHoveredDate] = useState(null)
   const year = displayDate.getFullYear()
@@ -624,8 +664,8 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                 </div>
               )}
 
-              {/* Hover pill — always shown on hover; sits in the cell corner */}
-              {isHovered && (
+              {/* Hover pill — only on empty cells; active cells use Day Manager's own footer action */}
+              {isHovered && daySlots.length === 0 && (
                 <button
                   onClick={e => { e.stopPropagation(); onAddAvailability(dateStr) }}
                   style={{
@@ -650,6 +690,121 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
   )
 }
 
+// ─── Week View ─────────────────────────────────────────────────────────────────
+function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick }) {
+  const HOUR_HEIGHT = 52
+  const START_HOUR  = 7
+  const END_HOUR    = 20
+  const HOURS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i)
+  const days  = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const todayStr = new Date().toLocaleDateString('en-CA')
+
+  const normalize = (s) => {
+    const sT = s.slot_time || s.start_time || '00:00'
+    return { ...s, _sT: sT, _eT: minutesToTimeStr(toMinutes(sT) + (s.duration_minutes || 30)), _status: getSlotStatus(s) }
+  }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', fontFamily:'DM Sans, sans-serif', border:'1px solid #E5E7EB', borderRadius:8, overflow:'hidden' }}>
+      {/* Day headers */}
+      <div style={{ display:'grid', gridTemplateColumns:'52px repeat(7, 1fr)', background:'#F9FAFB', borderBottom:'1px solid #E5E7EB', flexShrink:0 }}>
+        <div />
+        {days.map(day => {
+          const ds = day.toLocaleDateString('en-CA')
+          const isToday = ds === todayStr
+          return (
+            <div key={ds} style={{ borderLeft:'1px solid #E5E7EB', padding:'8px 0', textAlign:'center' }}>
+              <div style={{ fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:0.5, color:'#6B7280' }}>
+                {day.toLocaleDateString('en-US', { weekday:'short' })}
+              </div>
+              <div style={{ width:28, height:28, borderRadius:'50%', margin:'4px auto 0', background: isToday ? '#1D2567' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, fontWeight:700, color: isToday ? '#fff' : '#1D2567' }}>
+                {day.getDate()}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Scrollable body */}
+      <div style={{ overflowY:'auto', maxHeight:500 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'52px repeat(7, 1fr)' }}>
+          {/* Hour labels */}
+          <div>
+            {HOURS.map(h => (
+              <div key={h} style={{ height:HOUR_HEIGHT, borderBottom:'1px solid #F3F4F6', display:'flex', alignItems:'flex-start', justifyContent:'flex-end', paddingRight:5, paddingTop:3, fontSize:9, color:'#9CA3AF', fontWeight:600, letterSpacing:0.2 }}>
+                {fmtHour(h)}
+              </div>
+            ))}
+          </div>
+
+          {/* Day columns */}
+          {days.map(day => {
+            const ds = day.toLocaleDateString('en-CA')
+            const daySlots = (slots||[]).filter(s => s.slot_date === ds).map(normalize)
+            const groups   = groupOverlapping(daySlots)
+
+            return (
+              <div
+                key={ds}
+                style={{ borderLeft:'1px solid #E5E7EB', position:'relative', height: HOURS.length * HOUR_HEIGHT, cursor:'pointer' }}
+                onClick={e => {
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const y = e.clientY - rect.top
+                  const rawMins = (y / (HOURS.length * HOUR_HEIGHT)) * (END_HOUR - START_HOUR) * 60 + START_HOUR * 60
+                  const snapped = Math.floor(rawMins / 30) * 30
+                  const sT = minutesToTimeStr(Math.min(snapped, (END_HOUR-1)*60))
+                  const eT = minutesToTimeStr(Math.min(toMinutes(sT) + 120, END_HOUR*60))
+                  onEmptyClick(ds, sT, eT)
+                }}
+              >
+                {HOURS.map(h => (
+                  <div key={h} style={{ position:'absolute', top:(h-START_HOUR)*HOUR_HEIGHT, left:0, right:0, height:HOUR_HEIGHT, borderBottom:'1px solid #F3F4F6', pointerEvents:'none' }} />
+                ))}
+
+                {groups.flatMap((group, gi) =>
+                  group.map((item, idx) => {
+                    const startMins = toMinutes(item._sT)
+                    const endMins   = toMinutes(item._eT)
+                    const top    = ((startMins - START_HOUR*60) / 60) * HOUR_HEIGHT
+                    const height = Math.max(16, ((endMins - startMins) / 60) * HOUR_HEIGHT - 2)
+                    const colW   = `calc((100% - ${group.length*2+2}px) / ${group.length})`
+                    const left   = `calc(${idx} * (${colW} + 2px) + 2px)`
+                    const s      = slotBg(item._status)
+                    const ivColor = colorMap?.[item.interviewer_name] || '#9CA3AF'
+                    const student = Array.isArray(item.students) ? item.students[0] : item.students
+                    const label   = item._status === 'booked' && student ? `${student.first_name} ${student.last_name}`
+                      : item._status === 'blocked' ? (item.blocked_reason || 'Blocked') : 'Open'
+
+                    return (
+                      <div
+                        key={item.id || `${gi}-${idx}`}
+                        onClick={e => { e.stopPropagation(); onSlotClick(item, ds) }}
+                        style={{ position:'absolute', top, height, left, width:colW, background:s.bg, border:`1px solid ${s.bdr}`, borderLeft:`3px solid ${ivColor}`, borderRadius:4, padding:'2px 5px', fontSize:10, color:s.txt, cursor:'pointer', overflow:'hidden', display:'flex', flexDirection:'column', gap:1, transition:'box-shadow 0.12s' }}
+                        onMouseEnter={e => e.currentTarget.style.boxShadow='0 2px 8px rgba(0,0,0,0.10)'}
+                        onMouseLeave={e => e.currentTarget.style.boxShadow='none'}
+                      >
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                          <span style={{ fontWeight:700, fontSize:9 }}>
+                            {fmtHour(Math.floor(startMins/60))}{startMins%60 ? `:${String(startMins%60).padStart(2,'0')}` : ''}
+                          </span>
+                          <span style={{ fontSize:8, fontWeight:700, opacity:0.7 }}>{getInitials(item.interviewer_name)}</span>
+                        </div>
+                        {height >= 24 && (
+                          <div style={{ fontSize:9, lineHeight:1.2, fontWeight:500, overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>{label}</div>
+                        )}
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Calendar ────────────────────────────────────────────────────────────
 export default function InterviewCalendar({ cohortId, activeCohort, onDataChanged, onInterviewersLoaded }) {
   const { userProfile, isAdmin } = useAuth()
@@ -662,6 +817,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const [calendarTitle,  setCalendarTitle]  = useState('')
   const [currentView,    setCurrentView]    = useState('dayGridMonth')
   const [displayDate,       setDisplayDate]       = useState(() => new Date())
+  const [weekStart,         setWeekStart]         = useState(() => getWeekStart(new Date()))
   const [dayDrawerDate,     setDayDrawerDate]     = useState(null)
   const [highlightedSlotId, setHighlightedSlotId] = useState(null)
 
@@ -764,19 +920,22 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
     if (currentView === 'dayGridMonth') {
       setDisplayDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
     } else {
-      calendarRef.current?.getApi().prev()
+      setWeekStart(prev => addDays(prev, -7))
     }
   }
   const navNext = () => {
     if (currentView === 'dayGridMonth') {
       setDisplayDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
     } else {
-      calendarRef.current?.getApi().next()
+      setWeekStart(prev => addDays(prev, 7))
     }
   }
   const navToday = () => {
-    setDisplayDate(new Date())
-    if (currentView === 'timeGridWeek') calendarRef.current?.getApi().today()
+    const today = new Date()
+    setDisplayDate(new Date(today.getFullYear(), today.getMonth(), 1))
+    setWeekStart(getWeekStart(today))
+    setSelectedDate(toLocalDateStr(today))
+    setHighlightedSlotId(null)
   }
 
   const handleDateClick = (info) => {
@@ -894,9 +1053,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
     setSelectedDate(dateStr)
     const d = new Date(dateStr + 'T12:00:00')
     setDisplayDate(new Date(d.getFullYear(), d.getMonth(), 1))
-    if (currentView === 'timeGridWeek' && calendarRef.current) {
-      calendarRef.current.getApi().gotoDate(dateStr)
-    }
+    setWeekStart(getWeekStart(d))
   }
 
   const handleDatesSet = (info) => {
@@ -967,7 +1124,11 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
 
   // Derive display title
   const monthTitle = displayDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-  const displayTitle = currentView === 'dayGridMonth' ? monthTitle : calendarTitle
+  const weekEnd = addDays(weekStart, 6)
+  const weekTitle = weekStart.getFullYear() === weekEnd.getFullYear() && weekStart.getMonth() === weekEnd.getMonth()
+    ? `${weekStart.toLocaleDateString('en-US', { month:'long', day:'numeric' })} – ${weekEnd.getDate()}, ${weekEnd.getFullYear()}`
+    : `${weekStart.toLocaleDateString('en-US', { month:'short', day:'numeric' })} – ${weekEnd.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}`
+  const displayTitle = currentView === 'dayGridMonth' ? monthTitle : weekTitle
 
   return (
     <div style={{ position: 'relative' }}>
@@ -1059,8 +1220,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
                       key={view}
                       onClick={() => {
                         if (view === 'timeGridWeek' && currentView === 'dayGridMonth') {
-                          calendarRef.current?.getApi().changeView('timeGridWeek')
-                          calendarRef.current?.getApi().gotoDate(displayDate)
+                          setWeekStart(getWeekStart(displayDate))
                           setCurrentView('timeGridWeek')
                         } else if (view === 'dayGridMonth') {
                           setCurrentView('dayGridMonth')
@@ -1172,41 +1332,33 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
             />
           )}
 
-          {/* Week view: FullCalendar */}
-          <div style={{ display: currentView === 'timeGridWeek' ? 'block' : 'none' }}>
+          {/* Week view: custom time-positioned grid */}
+          {currentView === 'timeGridWeek' && (
+            <WeekView
+              weekStart={weekStart}
+              slots={slots}
+              colorMap={colorMap}
+              onSlotClick={(slot, dateStr) => {
+                setSelectedDate(dateStr)
+                setDayDrawerDate(dateStr)
+                setHighlightedSlotId(slot.id)
+              }}
+              onEmptyClick={(dateStr, startTime, endTime) => {
+                setCreatePopover({ date: dateStr, startTime, endTime, position: { x: window.innerWidth / 2 - 140, y: 200 } })
+              }}
+            />
+          )}
+
+          {/* FullCalendar — kept hidden; no longer used for rendering */}
+          <div style={{ display:'none' }}>
             <FullCalendar
               ref={calendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
               initialView="dayGridMonth"
               headerToolbar={false}
               datesSet={handleDatesSet}
-              events={calendarEvents}
-              eventContent={renderEventContent}
-              dateClick={handleDateClick}
-              eventClick={handleEventClick}
-              height={432}
-              slotMinTime="07:00:00"
-              slotMaxTime="19:00:00"
-              slotDuration="00:30:00"
-              slotLabelInterval="01:00:00"
-              expandRows={true}
-              dayMaxEvents={2}
-              moreLinkText={n => `+${n} more`}
-              moreLinkClick={(info) => {
-                const d = info.date
-                const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-                setSelectedDate(dateStr)
-                setDayDrawerDate(dateStr)
-                return 'stop'
-              }}
-              dayCellClassNames={(arg) => {
-                const d = arg.date
-                const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-                return dateStr === selectedDate ? ['fc-day-selected'] : []
-              }}
-              nowIndicator={true}
-              allDaySlot={false}
-              scrollTime="08:00:00"
+              events={[]}
+              height={0}
             />
           </div>
         </div>
