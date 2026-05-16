@@ -514,6 +514,12 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   }, [interviewerProfiles]) // eslint-disable-line
   // refetchOnWindowFocus: true in QueryClient config replaces the old visibilitychange listener
 
+  // Diagnostic: log whenever availability blocks change so we can trace the disappearing-blocks bug.
+  // Remove once the root cause is confirmed.
+  useEffect(() => {
+    console.log('[InterviewCalendar] blocks:', blocks.length, '| slots:', slots.length, '| cohortId:', cohortId, '| calData:', calData ? 'present' : 'null/undefined')
+  }, [blocks, slots, cohortId, calData]) // eslint-disable-line
+
   const calendarEvents = (blocks || []).flatMap(block => {
     const blockSlots  = (slots || []).filter(s => s.block_id === block.id)
     const bookedSlots = blockSlots.filter(s => s.is_booked)

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ASPIRE_STATUSES } from '../lib/constants'
 import { displayName, downloadCSV, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 import StudentAvatar from './StudentAvatar'
@@ -128,31 +128,124 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
 }
 
 function AccessRow({ student, onUpdate, isHighlighted }) {
-  const [data,   setData]   = useState({ ...student })
-  const timerRef     = useRef(null)
-  const studentIdRef = useRef(student.id)
+  // null initial state — the form is not rendered until student data is confirmed present.
+  // This prevents the race where useState({ ...student }) runs before all fields are populated,
+  // and prevents empty-string saves if a field hasn't arrived yet.
+  const [formData, setFormData] = useState(null)
+  const [isDirty,  setIsDirty]  = useState(false)
+  const timerRef = useRef(null)
 
-  // Re-sync ONLY when student identity changes (row navigation), not on every refetch.
-  // Depending on the full student object would reset data on every background refetch,
-  // overwriting in-progress text input during the debounce window.
+  // Sync form from server data ONLY when:
+  //   1. student.id is known (data has arrived)
+  //   2. formData hasn't been built for this student yet (_sourceStudentId differs)
+  //   3. the user isn't mid-edit (isDirty = false)
+  // Field-level deps ensure a re-sync fires if data arrives after the first render
+  // with student.id already set (e.g., deferred joins or background refetches that
+  // fill in previously-null columns).
   useEffect(() => {
-    if (student.id !== studentIdRef.current) {
-      studentIdRef.current = student.id
-      setData({ ...student })
-    }
-  }, [student.id]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!student?.id) return
+    if (formData?._sourceStudentId === student.id) return
+    if (isDirty) return
+    setFormData({
+      _sourceStudentId:         student.id,
+      cs_cedars_status:         student.cs_cedars_status         ?? '',
+      cs_stage1_action:         student.cs_stage1_action         ?? '',
+      cs_stage1_submitted:      student.cs_stage1_submitted      ?? false,
+      cs_stage1_submitted_date: student.cs_stage1_submitted_date ?? '',
+      cs_stage1_complete:       student.cs_stage1_complete       ?? false,
+      cs_stage1_complete_date:  student.cs_stage1_complete_date  ?? '',
+      cs_link_requested:        student.cs_link_requested        ?? false,
+      cs_link_requested_date:   student.cs_link_requested_date   ?? '',
+      cs_link_complete:         student.cs_link_complete         ?? false,
+      cs_link_complete_date:    student.cs_link_complete_date    ?? '',
+      cs_access_notes:          student.cs_access_notes          ?? '',
+    })
+  }, [
+    student?.id,
+    student?.cs_cedars_status,
+    student?.cs_stage1_action,
+    student?.cs_stage1_submitted,
+    student?.cs_stage1_submitted_date,
+    student?.cs_stage1_complete,
+    student?.cs_stage1_complete_date,
+    student?.cs_link_requested,
+    student?.cs_link_requested_date,
+    student?.cs_link_complete,
+    student?.cs_link_complete_date,
+    student?.cs_access_notes,
+    formData?._sourceStudentId,
+    isDirty,
+  ]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const save = (field, value) => {
-    setData(p => ({ ...p, [field]: value }))
-    onUpdate(student.id, { [field]: value })
-  }
-  const saveDebounced = (field, value) => {
-    setData(p => ({ ...p, [field]: value }))
+  // Coerce empty string to null before persisting — avoids storing '' in text/date columns
+  const coerce = (value) =>
+    (typeof value === 'string' && value.trim() === '') ? null : value
+
+  // Immediate save (checkboxes, selects): update local state, persist, reset dirty flag
+  const save = async (field, value) => {
+    setFormData(p => ({ ...p, [field]: value }))
+    setIsDirty(true)
     clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => onUpdate(student.id, { [field]: value }), 500)
+    const err = await onUpdate(student.id, { [field]: coerce(value) })
+    if (err) {
+      // Revert local state so the form matches server truth
+      setFormData(p => ({ ...p, [field]: student[field] ?? (typeof value === 'boolean' ? false : '') }))
+    }
+    setIsDirty(false)
   }
 
-  const status    = getCsLinkStatus(data)
+  // Special case: Cedars-Sinai status change cascades multiple fields at once
+  const saveCedarsStatus = async (v) => {
+    const extras = v === 'employee'
+      ? { cs_stage1_action:'not_applicable', cs_stage1_submitted:true, cs_stage1_complete:true }
+      : v === 'new'
+        ? { cs_stage1_action:'add_non_employee', cs_stage1_submitted:false, cs_stage1_complete:false }
+        : { cs_stage1_action:'', cs_stage1_submitted:false, cs_stage1_complete:false }
+    setFormData(p => ({ ...p, cs_cedars_status:v, ...extras }))
+    setIsDirty(true)
+    clearTimeout(timerRef.current)
+    const err = await onUpdate(student.id, { cs_cedars_status:v, ...extras })
+    if (err) {
+      setFormData(p => ({
+        ...p,
+        cs_cedars_status: student.cs_cedars_status ?? '',
+        ...Object.fromEntries(Object.keys(extras).map(k => [k, student[k] ?? ''])),
+      }))
+    }
+    setIsDirty(false)
+  }
+
+  // Debounced save (text inputs): update local state immediately; persist after 500ms
+  const saveDebounced = (field, value) => {
+    setFormData(p => ({ ...p, [field]: value }))
+    setIsDirty(true)
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(async () => {
+      const err = await onUpdate(student.id, { [field]: coerce(value) })
+      if (err) {
+        setFormData(p => ({ ...p, [field]: student[field] ?? '' }))
+      }
+      setIsDirty(false)
+    }, 500)
+  }
+
+  // Hold off rendering editable inputs until formData is ready
+  if (!formData) {
+    return (
+      <tr id={`access-row-${student.id}`} className={`am-row${isHighlighted ? ' am-row-highlight' : ''}`}>
+        <td className="am-td am-td-name">
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <StudentAvatar student={student} size={32} />
+            <span>{displayName(student)}</span>
+          </div>
+        </td>
+        <td className="am-td am-td-school">{student.school || '—'}</td>
+        <td className="am-td" colSpan={6} />
+      </tr>
+    )
+  }
+
+  const status    = getCsLinkStatus(formData)
   const statusCfg = CS_LINK_STATUS_CONFIG[status]
 
   return (
@@ -171,16 +264,8 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
 
       {/* Col 3: Cedars-Sinai Status */}
       <td className="am-td">
-        <select className="am-select" value={data.cs_cedars_status || ''}
-          onChange={e => {
-            const v = e.target.value
-            const extras = v === 'employee'
-              ? { cs_stage1_action:'not_applicable', cs_stage1_submitted:true, cs_stage1_complete:true }
-              : v === 'new' ? { cs_stage1_action:'add_non_employee', cs_stage1_submitted:false, cs_stage1_complete:false }
-              : { cs_stage1_action:'', cs_stage1_submitted:false, cs_stage1_complete:false }
-            setData(p => ({ ...p, cs_cedars_status:v, ...extras }))
-            onUpdate(student.id, { cs_cedars_status:v, ...extras })
-          }}>
+        <select className="am-select" value={formData.cs_cedars_status || ''}
+          onChange={e => saveCedarsStatus(e.target.value)}>
           <option value="">—</option>
           {CEDARS_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
@@ -188,21 +273,21 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
 
       {/* Col 4: Step 2 — Service Center Request */}
       <td className="am-td">
-        {data.cs_stage1_action
+        {formData.cs_stage1_action
           ? <div style={{ fontSize:11, fontWeight:600, color:'var(--text-secondary)', marginBottom:5 }}>
-              {STAGE1_ACTION_LABELS[data.cs_stage1_action] || data.cs_stage1_action}
+              {STAGE1_ACTION_LABELS[formData.cs_stage1_action] || formData.cs_stage1_action}
             </div>
           : <div style={{ fontSize:11, color:'#9ca3af', marginBottom:5 }}>—</div>
         }
-        {data.cs_stage1_action && data.cs_stage1_action !== 'not_applicable' && (
+        {formData.cs_stage1_action && formData.cs_stage1_action !== 'not_applicable' && (
           <div className="am-access-cell">
             <label style={{ fontSize:11, color:'var(--text-secondary)', display:'flex', alignItems:'center', gap:4, cursor:'pointer' }}>
-              <input type="checkbox" className="am-checkbox" checked={data.cs_stage1_submitted || false}
+              <input type="checkbox" className="am-checkbox" checked={formData.cs_stage1_submitted || false}
                 onChange={e => save('cs_stage1_submitted', e.target.checked)} />
               Submitted
             </label>
-            {data.cs_stage1_submitted && (
-              <input type="text" className="am-date-input" value={data.cs_stage1_submitted_date || ''}
+            {formData.cs_stage1_submitted && (
+              <input type="text" className="am-date-input" value={formData.cs_stage1_submitted_date || ''}
                 onChange={e => saveDebounced('cs_stage1_submitted_date', e.target.value)} placeholder="Date" />
             )}
           </div>
@@ -212,10 +297,10 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
       {/* Col 5: Step 3 — Account Active */}
       <td className="am-td">
         <div className="am-access-cell">
-          <input type="checkbox" className="am-checkbox" checked={data.cs_stage1_complete || false}
+          <input type="checkbox" className="am-checkbox" checked={formData.cs_stage1_complete || false}
             onChange={e => save('cs_stage1_complete', e.target.checked)} />
-          {data.cs_stage1_complete && (
-            <input type="text" className="am-date-input" value={data.cs_stage1_complete_date || ''}
+          {formData.cs_stage1_complete && (
+            <input type="text" className="am-date-input" value={formData.cs_stage1_complete_date || ''}
               onChange={e => saveDebounced('cs_stage1_complete_date', e.target.value)} placeholder="Date" />
           )}
         </div>
@@ -226,23 +311,23 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
         <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
           <div className="am-access-cell">
             <label style={{ fontSize:11, color:'var(--text-secondary)', display:'flex', alignItems:'center', gap:4, cursor:'pointer' }}>
-              <input type="checkbox" className="am-checkbox" checked={data.cs_link_requested || false}
+              <input type="checkbox" className="am-checkbox" checked={formData.cs_link_requested || false}
                 onChange={e => save('cs_link_requested', e.target.checked)} />
               Requested
             </label>
-            {data.cs_link_requested && (
-              <input type="text" className="am-date-input" value={data.cs_link_requested_date || ''}
+            {formData.cs_link_requested && (
+              <input type="text" className="am-date-input" value={formData.cs_link_requested_date || ''}
                 onChange={e => saveDebounced('cs_link_requested_date', e.target.value)} placeholder="Date" />
             )}
           </div>
           <div className="am-access-cell">
             <label style={{ fontSize:11, color:'var(--text-secondary)', display:'flex', alignItems:'center', gap:4, cursor:'pointer' }}>
-              <input type="checkbox" className="am-checkbox" checked={data.cs_link_complete || false}
+              <input type="checkbox" className="am-checkbox" checked={formData.cs_link_complete || false}
                 onChange={e => save('cs_link_complete', e.target.checked)} />
               Complete
             </label>
-            {data.cs_link_complete && (
-              <input type="text" className="am-date-input" value={data.cs_link_complete_date || ''}
+            {formData.cs_link_complete && (
+              <input type="text" className="am-date-input" value={formData.cs_link_complete_date || ''}
                 onChange={e => saveDebounced('cs_link_complete_date', e.target.value)} placeholder="Date" />
             )}
           </div>
@@ -259,7 +344,7 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
 
       {/* Col 8: Notes */}
       <td className="am-td">
-        <input className="am-notes-input" type="text" value={data.cs_access_notes || ''}
+        <input className="am-notes-input" type="text" value={formData.cs_access_notes || ''}
           onChange={e => saveDebounced('cs_access_notes', e.target.value)} placeholder="Notes…" />
       </td>
     </tr>
