@@ -168,7 +168,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'API key not configured' });
   }
 
-  const { messages, context, cohortName, userProfile } = req.body || {};
+  const { messages, context, cohortName, userProfile, liveData } = req.body || {};
 
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'Valid messages array required' });
@@ -181,10 +181,92 @@ export default async function handler(req, res) {
       content: String(m.text),
     }));
 
+  // Build live context string from the React Query cache snapshot sent by the client
+  let liveDataStr = null;
+  if (liveData && Array.isArray(liveData.students)) {
+    try {
+      const today = new Date().toLocaleDateString('en-CA');
+
+      // Build a student lookup map for joining shift logs
+      const studentMap = {};
+      liveData.students.forEach(s => { studentMap[s.id] = s; });
+
+      // Status breakdown
+      const byStatus = {};
+      liveData.students.forEach(s => {
+        if (!byStatus[s.status]) byStatus[s.status] = [];
+        byStatus[s.status].push(s);
+      });
+      const statusSummary = Object.entries(byStatus)
+        .map(([st, arr]) => `  ${st}: ${arr.length}`)
+        .join('\n') || '  No data';
+
+      // On campus today — raw shift log rows joined with students
+      const onCampusLines = (liveData.onCampusToday || []).map(log => {
+        const s = studentMap[log.student_id];
+        const name = s ? `${s.last_name}, ${s.first_name}` : '(unknown)';
+        return `- ${name} (${s?.school || '?'}) at ${log.unit_name}, ${log.total_hours}h ${log.shift_type || ''}`;
+      }).join('\n') || '(none today)';
+
+      // Key student lists
+      const safeList = (arr, max = 50) => {
+        if (!arr || arr.length === 0) return '(none)';
+        const lines = arr.slice(0, max).map(s => `- ${s.last_name}, ${s.first_name} (${s.school || '?'})`);
+        if (arr.length > max) lines.push(`  ...and ${arr.length - max} more`);
+        return lines.join('\n');
+      };
+
+      const pendingInterview = liveData.students.filter(s =>
+        ['Form Received', 'Interview Scheduled'].includes(s.status));
+      const placed           = liveData.students.filter(s => s.status === 'Placed');
+      const activeRotation   = liveData.students.filter(s => s.status === 'Active Rotation');
+      const needsCsLink      = liveData.students.filter(s =>
+        ['Form Received', 'Interview Scheduled', 'Interviewed', 'Placed', 'Active Rotation'].includes(s.status)
+        && !s.cs_stage1_submitted);
+      const needsBadge       = liveData.students.filter(s => s.status === 'Placed' && !s.badge_created);
+
+      const activeList = activeRotation.slice(0, 50).map(s =>
+        `- ${s.last_name}, ${s.first_name} (${s.approved_hours || 0}/${s.hours_required || 0} hrs)`
+      ).join('\n') || '(none)';
+
+      liveDataStr = `=== LIVE COHORT DATA (React Query cache snapshot) ===
+Today: ${today}
+Active Cohort ID: ${liveData.activeCohortId || 'none'}
+Total students in cohort: ${liveData.students.length}
+
+Status breakdown:
+${statusSummary}
+
+On campus today (${(liveData.onCampusToday || []).length} shifts):
+${onCampusLines}
+
+Pending interview / Form Received (${pendingInterview.length}):
+${safeList(pendingInterview)}
+
+Placed (${placed.length}):
+${safeList(placed)}
+
+Active Rotation (${activeRotation.length}):
+${activeList}
+
+Needs CS-Link (${needsCsLink.length}):
+${safeList(needsCsLink)}
+
+Needs badge (${needsBadge.length}):
+${safeList(needsBadge)}
+
+=== END LIVE DATA ===
+
+When the user asks about specific students, who is on campus, pending interviews, placements, or any current cohort state, USE the LIVE COHORT DATA section above. Quote names and details directly from it. Do not say you lack live cohort data — it is right here.`;
+    } catch (e) {
+      liveDataStr = `LIVE COHORT DATA: Cache read error (${e.message})`;
+    }
+  }
+
   const requestBody = JSON.stringify({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 1024,
-    system: buildSystemPrompt({ userProfile, context, cohortName }),
+    system: buildSystemPrompt({ userProfile, context, cohortName, liveDataStr }),
     messages: anthropicMessages,
   });
 

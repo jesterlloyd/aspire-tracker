@@ -568,7 +568,7 @@ Key cross-program collaborations:
  * Builds the full system prompt for Keith, merging platform knowledge,
  * live cohort context, and the logged-in user's identity.
  */
-export function buildSystemPrompt({ userProfile, context, cohortName } = {}) {
+export function buildSystemPrompt({ userProfile, context, cohortName, liveDataStr } = {}) {
   const cohort = cohortName || 'the current cohort';
 
   // ── User context ──────────────────────────────────────────────────────
@@ -594,8 +594,8 @@ ${isPrivileged
     return arr.map(s => `${s.last_name || '?'}, ${s.first_name || '?'}`).join('; ');
   };
 
-  let liveData = 'LIVE COHORT DATA: Not available.';
-  if (context) {
+  let liveData = liveDataStr || 'LIVE COHORT DATA: Not available.';
+  if (!liveDataStr && context) {
     try {
       const statusSummary = Object.entries(context.byStatus || {})
         .map(([s, arr]) => `  ${s}: ${Array.isArray(arr) ? arr.length : 0}`)

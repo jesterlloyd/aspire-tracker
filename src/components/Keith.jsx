@@ -1,17 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { SUGGESTED_PROMPTS, generateStaticResponse, getKeithContext } from '../lib/keithKnowledge';
+import { useQueryClient } from '@tanstack/react-query';
+import { SUGGESTED_PROMPTS, generateStaticResponse } from '../lib/keithKnowledge';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, supabase, isAuthenticated }) {
   const { userProfile } = useAuth();
-  const [isOpen,       setIsOpen]       = useState(false);
-  const [messages,     setMessages]     = useState([]);
-  const [input,        setInput]        = useState('');
-  const [isTyping,     setIsTyping]     = useState(false);
-  const [copiedId,     setCopiedId]     = useState(null);
-  const [context,      setContext]      = useState(null);
-  const [contextLoading, setContextLoading] = useState(false);
-  const [showTooltip,  setShowTooltip]  = useState(false);
+  const queryClient = useQueryClient();
+  const [isOpen,      setIsOpen]      = useState(false);
+  const [messages,    setMessages]    = useState([]);
+  const [input,       setInput]       = useState('');
+  const [isTyping,    setIsTyping]    = useState(false);
+  const [copiedId,    setCopiedId]    = useState(null);
+  const [showTooltip, setShowTooltip] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -26,20 +26,6 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   useEffect(() => {
     if (isOpen && inputRef.current) inputRef.current.focus();
   }, [isOpen]);
-
-  useEffect(() => {
-    if (isOpen && cohortId && supabase && !context) {
-      setContextLoading(true);
-      getKeithContext(supabase, cohortId).then(ctx => {
-        setContext(ctx);
-        setContextLoading(false);
-      });
-    }
-  }, [isOpen, cohortId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    setContext(null);
-  }, [cohortId]);
 
   const firstName = userProfile?.full_name?.split(' ')[0];
   const welcomeMessage = {
@@ -60,13 +46,34 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     // Include last 10 messages for context window efficiency
     const conversationHistory = [...messages, userMessage].slice(-10);
 
+    // Read live cohort data from the React Query cache
+    const todayDate = new Date().toLocaleDateString('en-CA');
+    const liveData = {
+      activeCohortId: cohortId,
+      students:      queryClient.getQueryData(['students_in_cohort', cohortId]) || [],
+      onCampusToday: queryClient.getQueryData(['on_campus_today', cohortId, todayDate]) || [],
+      cohorts:       queryClient.getQueryData(['cohorts_all']) || [],
+    };
+
+    // Prefetch students if not cached — this avoids a separate round-trip for most subsequent messages
+    if (liveData.students.length === 0 && cohortId) {
+      await queryClient.prefetchQuery({
+        queryKey: ['students_in_cohort', cohortId],
+        queryFn: async () => {
+          const { data } = await supabase.from('students').select('*').eq('cohort_id', cohortId);
+          return data || [];
+        },
+      });
+      liveData.students = queryClient.getQueryData(['students_in_cohort', cohortId]) || [];
+    }
+
     try {
       const response = await fetch('/api/keith', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: conversationHistory,
-          context,
+          liveData,
           cohortName,
           userProfile: userProfile ? {
             full_name: userProfile.full_name,
@@ -109,7 +116,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
 
     // Fallback to Phase 2 static responses if API unavailable
     await new Promise(resolve => setTimeout(resolve, 600));
-    const staticResponse = generateStaticResponse(text, cohortName, context);
+    const staticResponse = generateStaticResponse(text, cohortName, null);
     const keithMessage = {
       id: Date.now() + 1,
       role: 'keith',
