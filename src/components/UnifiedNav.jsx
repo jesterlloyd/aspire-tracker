@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext'
 import SyncIndicator from './SyncIndicator'
 import { useLastSynced } from '../hooks/useLastSynced'
 import StudentAvatar from './StudentAvatar'
+import { useUnreadStudents } from '../hooks/useUnreadStudents'
 
 const COHORT_STATUS_COLORS = {
   Planning:  { bg:'#dbeafe', color:'#1d4ed8' },
@@ -111,6 +112,8 @@ export default function UnifiedNav({
   })
 
   const irBadge = ivSessions.filter(s => s.self_scheduled && !s.teams_meeting_booked).length
+  const { data: unreadData } = useUnreadStudents(activeCohortId)
+  const spBadge = unreadData?.count || 0
 
   const runSearch = useCallback(async q => {
     if (!cohortId || q.length < 2) { setResults({ students:[], units:[], placements:[] }); setSearchOpen(false); return }
@@ -216,6 +219,10 @@ export default function UnifiedNav({
               </span>
               {/* Label */}
               <span>{label}</span>
+              {/* SP unread badge — new form submissions */}
+              {id === 'profiles' && spBadge > 0 && (
+                <span className="ir-tab-badge">{spBadge >= 10 ? '9+' : spBadge}</span>
+              )}
               {/* IR notification badge */}
               {id === 'interviews' && irBadge > 0 && (
                 <span className="ir-tab-badge">{irBadge >= 10 ? '9+' : irBadge}</span>

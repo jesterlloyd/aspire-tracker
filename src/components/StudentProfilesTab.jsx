@@ -1,7 +1,10 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import StudentListPanel from './StudentListPanel'
 import StudentSidePanel from './StudentSidePanel'
 import AccessTab from './AccessTab'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 
 import { ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
 const ASPIRE_ORDER = ASPIRE_STATUS_SORT_ORDER
@@ -43,6 +46,8 @@ export default function StudentProfilesTab({
   focusStudentId, onClearFocusStudent,
   toast,
 }) {
+  const { userProfile } = useAuth()
+  const queryClient = useQueryClient()
   const [selectedStudentId, setSelectedStudentId] = useState(null)
 
   // Open specific student from global search
@@ -52,6 +57,21 @@ export default function StudentProfilesTab({
       onClearFocusStudent?.()
     }
   }, [focusStudentId]) // eslint-disable-line
+
+  // Mark profile as read whenever a student is selected (not on hover/scroll)
+  useEffect(() => {
+    if (!userProfile?.id || !selectedStudentId || !cohortId) return
+    const markAsRead = async () => {
+      await supabase
+        .from('student_reads')
+        .upsert(
+          { user_id: userProfile.id, student_id: selectedStudentId, last_viewed_at: new Date().toISOString() },
+          { onConflict: 'user_id,student_id' }
+        )
+      queryClient.invalidateQueries({ queryKey: ['unread_students', cohortId, userProfile.id] })
+    }
+    markAsRead()
+  }, [selectedStudentId, userProfile?.id, cohortId]) // eslint-disable-line
   const [localSearch,      setLocalSearch]      = useState('')
   const [filterSchool,     setFilterSchool]     = useState('')
   const [filterStatus,     setFilterStatus]     = useState('')

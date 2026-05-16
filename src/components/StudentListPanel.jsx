@@ -9,6 +9,7 @@ import EmptyState from './EmptyState'
 import { Users } from 'lucide-react'
 import { calculateProfileCompletion, getCompletionColor } from '../lib/profileCompletion'
 import { useAuth } from '../contexts/AuthContext'
+import { useUnreadStudents } from '../hooks/useUnreadStudents'
 
 function gpaBadge(gpa) {
   if (gpa == null) return { text: 'GPA: N/A', bg: 'var(--sand)', color: 'var(--raven)' }
@@ -28,6 +29,8 @@ export default function StudentListPanel({
 }) {
   const { canEdit } = useAuth()
   const [showImport,  setShowImport]  = useState(false)
+  const { data: unreadData } = useUnreadStudents(cohortId)
+  const unreadIds = unreadData?.unreadStudentIds || new Set()
 
   const schools  = [...new Set(allStudents.map(s => s.school).filter(Boolean))].sort()
 
@@ -99,7 +102,8 @@ export default function StudentListPanel({
           const gpa    = gpaBadge(s.cumulative_gpa)
           const csKey  = getCsLinkStatus(s)
           const acc    = CS_LINK_STATUS_CONFIG[csKey]
-          const sel = s.id === selectedStudentId
+          const sel     = s.id === selectedStudentId
+          const isUnread = unreadIds.has(s.id)
           const hasContact = s.personal_email?.trim() || s.phone?.trim()
 
           return (
@@ -109,7 +113,15 @@ export default function StudentListPanel({
               <StudentAvatar student={s} size={32} />
               {/* Center */}
               <div className="pl-center">
-                <div className="pl-name">{name}</div>
+                <div className="pl-name" style={{ fontWeight: isUnread ? 700 : undefined, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {name}
+                  {isUnread && (
+                    <span title="New form submission" style={{
+                      width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                      background: 'var(--cs-red)', display: 'inline-block',
+                    }} />
+                  )}
+                </div>
                 <div className="pl-school">
                   {s.school || '—'}{s.program_type ? ` · ${s.program_type}` : ''}
                 </div>
