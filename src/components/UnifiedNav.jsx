@@ -67,14 +67,12 @@ function GlobalRefreshButton() {
   const queryClient  = useQueryClient()
   const [refreshing, setRefreshing] = useState(false)
 
-  const handleRefresh = async () => {
+  const handleRefresh = () => {
     setRefreshing(true)
-    try {
-      await queryClient.invalidateQueries()
-      await new Promise(resolve => setTimeout(resolve, 600))
-    } finally {
-      setRefreshing(false)
-    }
+    // Fire and forget: don't await refetches so a slow/broken query can't hang the button
+    queryClient.invalidateQueries()
+    // Hard timeout: always release the button after 1.5s regardless of query state
+    setTimeout(() => setRefreshing(false), 1500)
   }
 
   return (

@@ -501,6 +501,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
       return { blocks: allBlocks, slots: allSlots, profiles, colorMap: cm }
     },
     enabled: !!cohortId,
+    placeholderData: (prev) => prev,
   })
 
   const blocks             = calData?.blocks   || []
