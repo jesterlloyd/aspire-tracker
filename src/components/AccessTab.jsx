@@ -225,12 +225,14 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
       cs_access_notes:          formData.cs_access_notes          || null,
     }
 
+    console.log('[CS-Link save] sending:', payload)
     const err = await onUpdate(student.id, payload)
     setSaving(false)
     if (err) {
-      console.error('CS-Link save failed:', err)
+      console.error('[CS-Link save] failed:', err)
       return
     }
+    console.log('[CS-Link save] success')
 
     setIsDirty(false)
     // Keep students_in_cohort cache fresh for Keith and other consumers

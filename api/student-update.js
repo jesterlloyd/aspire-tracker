@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     if (action === 'update') {
       const { student_id, fields } = payload
 
-      console.log('student-update received:', { student_id, fields })
+      console.log('[student-update] incoming payload keys:', Object.keys(fields || {}))
 
       if (!student_id) return res.status(400).json({ error: 'student_id is required' })
       if (!fields || Object.keys(fields).length === 0) return res.status(400).json({ error: 'No fields to update' })
@@ -32,7 +32,14 @@ export default async function handler(req, res) {
         'unit_preference', 'specialty_interest',
         'notes', 'internal_notes', 'admin_notes',
         'badge_created', 'badge_issued', 'badge_printed',
-        'cs_stage1_submitted', 'cs_link_complete',
+        // CS-Link Access Manager — all 4 paired boolean+date fields plus action, status, notes
+        'cs_cedars_status',
+        'cs_stage1_action',
+        'cs_stage1_submitted', 'cs_stage1_submitted_date',
+        'cs_stage1_complete',  'cs_stage1_complete_date',
+        'cs_link_requested',   'cs_link_requested_date',
+        'cs_link_complete',    'cs_link_complete_date',
+        'cs_access_notes',
         'approved_hours', 'hours_required', 'pending_hours',
         'matched_unit_id', 'preceptor_id',
         'orientation_sent_at', 'interview_preference',
@@ -54,7 +61,7 @@ export default async function handler(req, res) {
       ]
 
       const rejectedFields = Object.keys(fields).filter(k => !allowed.includes(k))
-      if (rejectedFields.length > 0) console.warn('Rejected fields (not in whitelist):', rejectedFields)
+      if (rejectedFields.length > 0) console.warn('[student-update] rejected (not in whitelist):', rejectedFields)
 
       const safeFields = {}
       Object.keys(fields).forEach(key => { if (allowed.includes(key)) safeFields[key] = fields[key] })
@@ -62,7 +69,7 @@ export default async function handler(req, res) {
       // If ALL fields were rejected, pass everything through rather than silently fail
       const fieldsToSave = Object.keys(safeFields).length > 0 ? safeFields : fields
 
-      console.log('Fields being saved:', fieldsToSave)
+      console.log('[student-update] whitelisted payload:', JSON.stringify(fieldsToSave))
 
       const { data, error } = await db.from('students').update(fieldsToSave).eq('id', student_id).select().single()
       if (error) {
