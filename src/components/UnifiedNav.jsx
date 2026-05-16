@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
@@ -61,6 +62,50 @@ const TABS = [
   { id:'interviews', label:'Interview Rubric', badge:'#0d9488', Icon:IconCalendar },
   { id:'matching',   label:'Embed',            badge:'#ea6c1a', Icon:IconNetwork },
 ]
+
+function GlobalRefreshButton() {
+  const queryClient  = useQueryClient()
+  const [refreshing, setRefreshing] = useState(false)
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    try {
+      await queryClient.invalidateQueries()
+      await new Promise(resolve => setTimeout(resolve, 600))
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  return (
+    <button
+      onClick={handleRefresh}
+      disabled={refreshing}
+      title="Refresh all data"
+      style={{
+        flexShrink: 0,
+        display: 'flex', alignItems: 'center', gap: 6,
+        background: 'transparent',
+        border: '1px solid rgba(255,255,255,0.15)',
+        color: '#fff',
+        padding: '6px 12px',
+        borderRadius: 999,
+        fontSize: 13, fontWeight: 500,
+        cursor: refreshing ? 'wait' : 'pointer',
+        fontFamily: 'DM Sans, sans-serif',
+        transition: 'opacity 0.15s, background 0.15s',
+        opacity: refreshing ? 0.6 : 1,
+      }}
+      onMouseEnter={e => { if (!refreshing) e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+    >
+      <span style={{ display: 'inline-block', animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }}>
+        ↻
+      </span>
+      {refreshing ? 'Refreshing…' : 'Refresh'}
+    </button>
+  )
+}
 
 export default function UnifiedNav({
   cohorts, activeCohortId, activeCohort, activeTab, ivSessions = [],
@@ -324,6 +369,9 @@ export default function UnifiedNav({
           </div>
         )}
       </div>
+
+      {/* ── Global refresh ── */}
+      <GlobalRefreshButton />
 
       {/* ── Sync timestamp ── */}
       <div style={{ flexShrink:0 }}>
