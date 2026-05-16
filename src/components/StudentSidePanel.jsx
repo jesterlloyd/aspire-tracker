@@ -1039,12 +1039,28 @@ export default function StudentSidePanel({
                             color:log.shift_type==='Night'?'#fff':'#1d4ed8' }}>{log.shift_type||'Day'}</span>
                         </td>
                         <td style={{ padding:'6px 8px' }}>
-                          {log.status==='approved' && <span style={{ fontSize:10, padding:'1px 6px', borderRadius:10, background:'#dcfce7', color:'#166534', fontWeight:600 }}>Approved</span>}
-                          {log.status==='needs_review' && <span style={{ fontSize:10, padding:'1px 6px', borderRadius:10, background:'#fef3c7', color:'#92400e', fontWeight:600 }}>Pending</span>}
-                          {log.status==='rejected' && <span style={{ fontSize:10, padding:'1px 6px', borderRadius:10, background:'#fee2e2', color:'#991b1b', fontWeight:600 }}>Rejected</span>}
+                          {(() => {
+                            const STATUS_STYLES = {
+                              'Auto-Accepted':  { bg:'#D1FAE5', text:'#065F46', label:'Auto-Accepted' },
+                              'Pending Review': { bg:'#FEF3C7', text:'#78350F', label:'Pending Review' },
+                              'Approved':       { bg:'#DBEAFE', text:'#1E40AF', label:'Approved' },
+                              'Rejected':       { bg:'#FEE2E2', text:'#7F1D1D', label:'Rejected' },
+                              'Edited':         { bg:'#E0E7FF', text:'#3730A3', label:'Edited' },
+                              // legacy values (pre-migration rows)
+                              'approved':       { bg:'#D1FAE5', text:'#065F46', label:'Approved' },
+                              'needs_review':   { bg:'#FEF3C7', text:'#78350F', label:'Pending Review' },
+                              'rejected':       { bg:'#FEE2E2', text:'#7F1D1D', label:'Rejected' },
+                            }
+                            const s = STATUS_STYLES[log.status] || { bg:'#F3F4F6', text:'#6B7280', label: log.status || '—' }
+                            return (
+                              <span style={{ fontSize:10, padding:'2px 8px', borderRadius:999, background:s.bg, color:s.text, fontWeight:600, fontFamily:'DM Sans, sans-serif', whiteSpace:'nowrap' }}>
+                                {s.label}
+                              </span>
+                            )
+                          })()}
                         </td>
                         <td style={{ padding:'6px 8px', whiteSpace:'nowrap' }}>
-                          {log.status==='needs_review' && (
+                          {['Pending Review', 'needs_review'].includes(log.status) && (
                             adjustingId===log.id ? (
                               <span style={{ display:'flex', gap:4, alignItems:'center' }}>
                                 <input type="number" step="0.5" min="0.5" max="14" value={adjustHours}

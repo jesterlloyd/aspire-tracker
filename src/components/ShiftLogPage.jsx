@@ -141,8 +141,12 @@ export default function ShiftLogPage() {
     if (errs.length > 0) return
 
     setSubmitting(true)
+    const withTimeout = p => Promise.race([
+      p,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Submission timed out. Please try again.')), 30000)),
+    ])
     try {
-      const flags = await buildExceptionFlags()
+      const flags = await withTimeout(buildExceptionFlags())
       const status = flags.length > 0
         ? SHIFT_LOG_STATUSES.PENDING_REVIEW
         : SHIFT_LOG_STATUSES.AUTO_ACCEPTED
@@ -218,8 +222,12 @@ export default function ShiftLogPage() {
       setSubmittedStatus(status)
       setCelebration(status === SHIFT_LOG_STATUSES.AUTO_ACCEPTED && newApprovedVal >= hoursReq && currentApproved < hoursReq)
       setScreen('confirm')
-    } catch (err) { console.error(err); setFormErrors(['Submission failed. Please try again.']) }
-    setSubmitting(false)
+    } catch (err) {
+      console.error(err)
+      setFormErrors([err?.message || 'Submission failed. Please try again.'])
+    } finally {
+      setSubmitting(false)   // ALWAYS resets — no path can leave the button stuck
+    }
   }
 
   const resetForm = () => {

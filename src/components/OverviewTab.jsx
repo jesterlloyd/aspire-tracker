@@ -47,7 +47,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [localToast,       setLocalToast]       = useState(null)
   const [campusOpen,       setCampusOpen]       = useState(false)
   const [campusLogs,       setCampusLogs]       = useState([])
-  const [campusLoading,    setCampusLoading]    = useState(false)
+  const [campusLoading,    setCampusLoading]    = useState(true)   // true until first fetch completes
   const [timelineExpanded, setTimelineExpanded] = useState(false)
 
   // Gantt data — cached by TanStack Query; survives tab switches without refetch
@@ -68,17 +68,23 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   })
   const ganttError = ganttErrorObj?.message ?? null
 
-  const todayStr = (() => { const n=new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}` })()
+  // Use en-CA locale for a reliable YYYY-MM-DD string in the user's local timezone
+  const todayStr = new Date().toLocaleDateString('en-CA')
 
   const loadCampusLogs = async () => {
     if (!cohortId) return
     setCampusLoading(true)
-    const { data } = await supabase.from('student_shift_logs')
-      .select('*').eq('cohort_id', cohortId).eq('shift_date', todayStr)
-      .in('status', ['Auto-Accepted', 'Approved'])
-    setCampusLogs(data || [])
-    setCampusLoading(false)
-    if ((data||[]).length > 0) setCampusOpen(true)
+    try {
+      const { data, error } = await supabase.from('student_shift_logs')
+        .select('*').eq('cohort_id', cohortId).eq('shift_date', todayStr)
+        .in('status', ['Auto-Accepted', 'Approved'])
+      if (!error) {
+        setCampusLogs(data || [])
+        if ((data||[]).length > 0) setCampusOpen(true)
+      }
+    } finally {
+      setCampusLoading(false)
+    }
   }
 
   useEffect(() => { loadCampusLogs() }, [cohortId]) // eslint-disable-line
@@ -239,9 +245,11 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
             <span style={{ fontSize:13, fontWeight:600, color: campusLogs.length>0 ? '#fff' : 'rgba(255,255,255,0.7)' }}>
               On Campus Today
             </span>
-            {campusLogs.length > 0
-              ? <span style={{ fontSize:11, fontWeight:700, padding:'0 8px', borderRadius:8, background:'rgba(255,255,255,0.15)', color:'#fff', height:20, display:'flex', alignItems:'center', flexShrink:0 }}>{campusLogs.length}</span>
-              : <span style={{ fontSize:13, color:'rgba(255,255,255,0.5)', marginLeft:4 }}>No shifts logged today</span>
+            {campusLoading
+              ? <span style={{ fontSize:13, color:'rgba(255,255,255,0.5)', marginLeft:4 }}>Loading…</span>
+              : campusLogs.length > 0
+                ? <span style={{ fontSize:11, fontWeight:700, padding:'0 8px', borderRadius:8, background:'rgba(255,255,255,0.15)', color:'#fff', height:20, display:'flex', alignItems:'center', flexShrink:0 }}>{campusLogs.length}</span>
+                : <span style={{ fontSize:13, color:'rgba(255,255,255,0.5)', marginLeft:4 }}>No shifts logged today</span>
             }
             <div style={{ flex:1 }} />
             <button onClick={e => { e.stopPropagation(); loadCampusLogs() }}
