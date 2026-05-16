@@ -46,9 +46,32 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [schoolGroupsOpen, setSchoolGroupsOpen] = useState({})
   const [localToast,       setLocalToast]       = useState(null)
   const [campusOpen,       setCampusOpen]       = useState(false)
-  const [campusLogs,       setCampusLogs]       = useState([])
-  const [campusLoading,    setCampusLoading]    = useState(true)   // true until first fetch completes
   const [timelineExpanded, setTimelineExpanded] = useState(false)
+
+  // en-CA gives reliable YYYY-MM-DD in the user's local timezone
+  const todayStr = new Date().toLocaleDateString('en-CA')
+
+  // On Campus Today — cached; queryKey includes date so it auto-refreshes on date change
+  const {
+    data:      campusLogs = [],
+    isLoading: campusLoading,
+    refetch:   loadCampusLogs,
+  } = useQuery({
+    queryKey: ['on_campus_today', cohortId, todayStr],
+    queryFn:  async () => {
+      const { data, error } = await supabase.from('student_shift_logs')
+        .select('*').eq('cohort_id', cohortId).eq('shift_date', todayStr)
+        .in('status', ['Auto-Accepted', 'Approved'])
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!cohortId,
+  })
+
+  // Auto-expand the panel when shifts arrive for the first time
+  useEffect(() => {
+    if (campusLogs.length > 0) setCampusOpen(true)
+  }, [campusLogs])
 
   // Gantt data — cached by TanStack Query; survives tab switches without refetch
   const {
@@ -67,27 +90,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     enabled: !!cohortId && timelineExpanded,
   })
   const ganttError = ganttErrorObj?.message ?? null
-
-  // Use en-CA locale for a reliable YYYY-MM-DD string in the user's local timezone
-  const todayStr = new Date().toLocaleDateString('en-CA')
-
-  const loadCampusLogs = async () => {
-    if (!cohortId) return
-    setCampusLoading(true)
-    try {
-      const { data, error } = await supabase.from('student_shift_logs')
-        .select('*').eq('cohort_id', cohortId).eq('shift_date', todayStr)
-        .in('status', ['Auto-Accepted', 'Approved'])
-      if (!error) {
-        setCampusLogs(data || [])
-        if ((data||[]).length > 0) setCampusOpen(true)
-      }
-    } finally {
-      setCampusLoading(false)
-    }
-  }
-
-  useEffect(() => { loadCampusLogs() }, [cohortId]) // eslint-disable-line
 
   const showToast = msg => { setLocalToast(msg); setTimeout(() => setLocalToast(null), 3000) }
 
