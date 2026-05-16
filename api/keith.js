@@ -229,7 +229,7 @@ export default async function handler(req, res) {
         `- ${s.last_name}, ${s.first_name} (${s.approved_hours || 0}/${s.hours_required || 0} hrs)`
       ).join('\n') || '(none)';
 
-      // Unit name lookup: prefer match.unit join; fall back to units list by matched_unit_id
+      // Unit map — full record including contact info
       const unitMap = {};
       (liveData.units || []).forEach(u => { unitMap[u.id] = u; });
 
@@ -240,20 +240,45 @@ export default async function handler(req, res) {
         if (sid) matchesByStudentId[sid] = m;
       });
 
+      // Cohort rotation window
+      const cohort = liveData.cohort;
+      const cohortContext = cohort
+        ? `Active Cohort: ${cohort.name}
+Rotation Window: ${cohort.start_date || 'TBD'} to ${cohort.end_date || 'TBD'}
+Cohort Status: ${cohort.status || 'unknown'}`
+        : `Active Cohort ID: ${liveData.activeCohortId || 'none'}`;
+
+      // Detailed placement block — one record per placed student
       const placementLines = placed.slice(0, 50).map(s => {
-        const match    = matchesByStudentId[s.id];
-        const unit     = unitMap[s.matched_unit_id] || match?.unit || {};
-        const unitName = unit.unit_name || 'unit pending';
-        const division = unit.division ? ` [${unit.division}]` : '';
-        const preceptor   = s.matched_preceptor || match?.preceptor_assigned || 'preceptor TBD';
-        const shift       = s.shift_assigned || s.shift_availability || '';
-        const quality     = match?.match_quality || '';
-        return `- ${s.last_name}, ${s.first_name} (${s.school || '?'}) → ${unitName}${division} | Preceptor: ${preceptor}${shift ? ` | Shift: ${shift}` : ''}${quality ? ` | Match: ${quality}` : ''}`;
-      }).join('\n') || '(none)';
+        const match         = matchesByStudentId[s.id];
+        const unit          = unitMap[s.matched_unit_id] || match?.unit || {};
+        const completedHrs  = (liveData.shiftLogProgress || {})[s.id] || 0;
+        const requiredHrs   = s.hours_required || 90;
+        const remainingHrs  = Math.max(0, requiredHrs - completedHrs);
+        const quality       = match?.match_quality || '';
+        return [
+          `- ${s.last_name}, ${s.first_name}`,
+          `  School: ${s.school || 'N/A'} | Program: ${s.program_type || 'N/A'} | GPA: ${s.cumulative_gpa || 'N/A'}`,
+          `  School Email: ${s.school_email || 'N/A'} | Personal Email: ${s.personal_email || 'N/A'} | Phone: ${s.phone || 'N/A'}`,
+          `  Unit: ${unit.unit_name || 'pending'}${unit.division ? ` [${unit.division}]` : ''}`,
+          `  Preceptor: ${s.matched_preceptor || 'pending'} | Shift: ${s.shift_assigned || s.shift_availability || 'N/A'}`,
+          `  Rotation Dates: ${s.term_dates || 'N/A'}`,
+          `  Hours: ${completedHrs.toFixed(1)}/${requiredHrs}h (${remainingHrs.toFixed(1)}h remaining)`,
+          unit.contact_person ? `  Unit Leader: ${unit.contact_person} | ${unit.contact_email || 'no email'}` : null,
+          quality ? `  Match Quality: ${quality}` : null,
+        ].filter(Boolean).join('\n');
+      }).join('\n\n') || '(none)';
+
+      // Enriched pending interview list
+      const pendingLines = pendingInterview.slice(0, 50).map(s =>
+        `- ${s.last_name}, ${s.first_name} | ${s.school || '?'} | GPA: ${s.cumulative_gpa || 'N/A'} | ${s.school_email || 'no email'} | Status: ${s.status}`
+      ).join('\n') || '(none)';
 
       liveDataStr = `=== LIVE COHORT DATA (React Query cache snapshot) ===
 Today: ${today}
-Active Cohort ID: ${liveData.activeCohortId || 'none'}
+
+${cohortContext}
+
 Total students in cohort: ${liveData.students.length}
 
 Status breakdown:
@@ -263,9 +288,9 @@ On campus today (${(liveData.onCampusToday || []).length} shifts):
 ${onCampusLines}
 
 Pending interview / Form Received (${pendingInterview.length}):
-${safeList(pendingInterview)}
+${pendingLines}
 
-Placed (${placed.length}):
+Placed — full detail (${placed.length}):
 ${placementLines}
 
 Active Rotation (${activeRotation.length}):
@@ -279,7 +304,12 @@ ${safeList(needsBadge)}
 
 === END LIVE DATA ===
 
-CRITICAL: When the user asks about placements, students, who is on campus, pending interviews, or any current cohort state, USE the LIVE COHORT DATA above and answer directly with specifics — names, unit names, preceptor names, shift info. Do NOT tell the user to check the Embed tab, Student Profiles, or any other part of the app when the data is already in this prompt. Only say data is unavailable if it genuinely does not appear anywhere in the LIVE COHORT DATA block.`;
+CRITICAL DATA ACCESS RULES:
+- The LIVE COHORT DATA above contains full student records including school_email, personal_email, phone, GPA, program type, term dates (rotation dates), unit, preceptor, shift, hours progress, and unit leader contacts.
+- When drafting any email (preceptor welcome, unit leader, student scheduling link, etc.), populate EVERY field from the data above. Do NOT use bracket placeholders like [student email] or [start date] when the real value appears in LIVE COHORT DATA.
+- If a field is literally null or N/A in the data, state that clearly. Never invent or bracket-substitute it.
+- Do NOT tell the user to check the Embed tab, Student Profiles, or any other part of the app when the answer is in this prompt.
+- Only say data is unavailable if it genuinely does not appear anywhere in LIVE COHORT DATA.`;
     } catch (e) {
       liveDataStr = `LIVE COHORT DATA: Cache read error (${e.message})`;
     }

@@ -48,13 +48,16 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
 
     // Read live cohort data from the React Query cache
     const todayDate = new Date().toLocaleDateString('en-CA');
+    const allCohorts = queryClient.getQueryData(['cohorts_all']) || [];
     const liveData = {
-      activeCohortId: cohortId,
-      students:      queryClient.getQueryData(['students_in_cohort', cohortId]) || [],
-      onCampusToday: queryClient.getQueryData(['on_campus_today', cohortId, todayDate]) || [],
-      cohorts:       queryClient.getQueryData(['cohorts_all']) || [],
-      units:         queryClient.getQueryData(['units_cohort', cohortId]) || [],
-      matches:       queryClient.getQueryData(['embed_matches', cohortId]) || [],
+      activeCohortId:   cohortId,
+      cohort:           allCohorts.find(c => c.id === cohortId) || null,
+      students:         queryClient.getQueryData(['students_in_cohort', cohortId]) || [],
+      onCampusToday:    queryClient.getQueryData(['on_campus_today', cohortId, todayDate]) || [],
+      cohorts:          allCohorts,
+      units:            queryClient.getQueryData(['units_cohort', cohortId]) || [],
+      matches:          queryClient.getQueryData(['embed_matches', cohortId]) || [],
+      shiftLogProgress: queryClient.getQueryData(['shift_log_progress', cohortId]) || {},
     };
 
     // Prefetch students if not cached
@@ -69,19 +72,40 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
       liveData.students = queryClient.getQueryData(['students_in_cohort', cohortId]) || [];
     }
 
-    // Prefetch units if not cached — needed to resolve unit_name from matched_unit_id on placed students
+    // Prefetch units — full select for unit leader contact info
     if (liveData.units.length === 0 && cohortId) {
       await queryClient.prefetchQuery({
         queryKey: ['units_cohort', cohortId],
         queryFn: async () => {
           const { data } = await supabase
             .from('units')
-            .select('id, unit_name, division')
+            .select('*')
             .eq('cohort_id', cohortId);
           return data || [];
         },
       });
       liveData.units = queryClient.getQueryData(['units_cohort', cohortId]) || [];
+    }
+
+    // Prefetch approved shift hours per student — gives Keith placement hours progress
+    if (Object.keys(liveData.shiftLogProgress).length === 0 && cohortId) {
+      await queryClient.prefetchQuery({
+        queryKey: ['shift_log_progress', cohortId],
+        queryFn: async () => {
+          const { data } = await supabase
+            .from('student_shift_logs')
+            .select('student_id, total_hours, status')
+            .eq('cohort_id', cohortId)
+            .in('status', ['Auto-Accepted', 'Approved']);
+          const map = {};
+          (data || []).forEach(log => {
+            if (!map[log.student_id]) map[log.student_id] = 0;
+            map[log.student_id] += parseFloat(log.total_hours) || 0;
+          });
+          return map;
+        },
+      });
+      liveData.shiftLogProgress = queryClient.getQueryData(['shift_log_progress', cohortId]) || {};
     }
 
     // Prefetch matches with joins if not cached — provides match_quality per placed student
