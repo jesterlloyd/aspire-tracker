@@ -464,15 +464,24 @@ function DayPopover({ date, blocks, slots, colorMap, position, canDelete, onDele
 }
 
 // ─── Custom Month Grid ────────────────────────────────────────────────────────
+// Resolve slot status: use the status column if present (after migration),
+// fall back to is_booked boolean for pre-migration rows.
+const getSlotStatus = (s) => s.status || (s.is_booked ? 'booked' : 'available')
+
+function getInitials(name) {
+  if (!name) return ''
+  const parts = name.trim().split(/\s+/)
+  return ((parts[0]?.[0] || '') + (parts.length > 1 ? (parts[parts.length-1]?.[0] || '') : '')).toUpperCase()
+}
+
 function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, onDayClick }) {
   const year = displayDate.getFullYear()
   const month = displayDate.getMonth()
   const lastDayNum = new Date(year, month + 1, 0).getDate()
   const startDow = new Date(year, month, 1).getDay()
-  const todayStr = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD in local time
+  const todayStr = new Date().toLocaleDateString('en-CA')
   const toStr = (y, m, d) => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
 
-  // Build 42-cell grid (6 rows × 7 cols)
   const cells = []
   const prevMonthDays = new Date(year, month, 0).getDate()
   for (let i = startDow - 1; i >= 0; i--) {
@@ -508,15 +517,33 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
             return <div key={idx} style={{ height:88, borderRight:'1px solid #f3f4f6', borderBottom:'1px solid #f3f4f6', background:'#fafafa' }} />
           }
 
-          const dayBlocks = (blocks||[]).filter(b => b.block_date === dateStr)
-          const daySlots  = (slots ||[]).filter(s => s.slot_date === dateStr)
-          const booked    = daySlots.filter(s => s.is_booked)
-          const open      = daySlots.filter(s => !s.is_booked)
+          const daySlots   = (slots||[]).filter(s => s.slot_date === dateStr)
+          const scheduled  = daySlots.filter(s => getSlotStatus(s) === 'booked')
+          const available  = daySlots.filter(s => getSlotStatus(s) === 'available')
+          const blocked    = daySlots.filter(s => getSlotStatus(s) === 'blocked')
           const hasActivity = daySlots.length > 0
-          const isFullyBooked = booked.length > 0 && open.length === 0
+          const isFullyBooked = scheduled.length > 0 && available.length === 0 && blocked.length === 0
           const isToday = dateStr === todayStr
           const isSel   = dateStr === selectedDate
-          const ivNames = [...new Set(dayBlocks.map(b => b.interviewer_name).filter(Boolean))]
+
+          // Unique interviewers from slots on this day
+          const ivMap = new Map()
+          daySlots.forEach(s => {
+            if (s.interviewer_name && !ivMap.has(s.interviewer_name)) {
+              ivMap.set(s.interviewer_name, colorMap?.[s.interviewer_name] || '#9CA3AF')
+            }
+          })
+          const interviewers = [...ivMap.entries()]
+
+          // Card tint per dominant state
+          const cardBg = isFullyBooked ? '#FEF2F2'
+            : blocked.length > 0   ? '#FFF7ED'
+            : scheduled.length > 0 ? '#EFF6FF'
+            : '#F0FDF4'
+          const accentColor = isFullyBooked ? '#7F1D1D'
+            : blocked.length > 0   ? '#7C2D12'
+            : scheduled.length > 0 ? '#1E3A8A'
+            : '#065F46'
 
           return (
             <div
@@ -524,60 +551,73 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
               onClick={() => onDayClick(dateStr, hasActivity)}
               style={{
                 height:88,
-                padding:'5px 7px',
+                padding:'5px 6px',
                 borderRight:'1px solid #f3f4f6',
                 borderBottom:'1px solid #f3f4f6',
                 cursor: hasActivity ? 'pointer' : 'default',
-                background: isSel ? '#F5F7FB' : isToday ? '#f8f9ff' : hasActivity ? 'rgba(244,241,236,0.35)' : 'transparent',
-                outline: isSel ? '1px solid #C7D2FE' : 'none',
-                display:'flex', flexDirection:'column', gap:2, overflow:'hidden', position:'relative',
+                borderLeft: isSel ? '3px solid #1D2567' : '1px solid transparent',
+                background: isSel ? 'rgba(29,37,103,0.04)' : 'transparent',
+                display:'flex', flexDirection:'column', gap:3, overflow:'hidden',
               }}
               onMouseEnter={e => { if (hasActivity) e.currentTarget.style.background = '#f0f4ff' }}
-              onMouseLeave={e => { e.currentTarget.style.background = isSel ? '#F5F7FB' : isToday ? '#f8f9ff' : hasActivity ? 'rgba(244,241,236,0.35)' : 'transparent' }}
+              onMouseLeave={e => { e.currentTarget.style.background = isSel ? 'rgba(29,37,103,0.04)' : 'transparent' }}
             >
+              {/* Day number circle */}
               <div style={{
                 width:22, height:22, display:'flex', alignItems:'center', justifyContent:'center',
                 borderRadius:'50%',
-                background: isToday ? '#1D2567' : 'transparent',
-                border: !isToday && isSel ? '1.5px solid #1D2567' : 'none',
+                background: isToday ? '#1D2567' : isSel ? '#1D2567' : 'transparent',
                 fontFamily:'DM Sans', fontWeight:600, fontSize:12,
-                color: isToday ? '#fff' : '#374151', flexShrink:0,
+                color: isToday || isSel ? '#fff' : '#374151', flexShrink:0,
               }}>{day}</div>
 
+              {/* Mini capacity card */}
               {hasActivity && (
-                <>
+                <div style={{
+                  background: cardBg, borderRadius:5, padding:'3px 5px',
+                  display:'flex', flexDirection:'column', gap:1,
+                  flex:1, minHeight:0, overflow:'hidden',
+                }}>
                   {isFullyBooked ? (
                     <>
                       <div style={{ fontFamily:'DM Sans', fontSize:10, fontWeight:700, color:'#930045', lineHeight:1.2 }}>Fully Booked</div>
-                      <div style={{ fontFamily:'DM Sans', fontSize:10, color:'#6B7280', lineHeight:1.2 }}>{booked.length} Interview{booked.length!==1?'s':''}</div>
+                      <div style={{ fontFamily:'DM Sans', fontSize:9, color:'#6B7280', lineHeight:1.2 }}>{scheduled.length} interview{scheduled.length!==1?'s':''}</div>
                     </>
                   ) : (
                     <>
-                      {booked.length > 0 && (
-                        <div style={{ fontFamily:'DM Sans', fontSize:10, fontWeight:600, color:'#1D2567', lineHeight:1.2 }}>
-                          {booked.length} Interview{booked.length!==1?'s':''} Scheduled
+                      {scheduled.length > 0 && (
+                        <div style={{ fontFamily:'DM Sans', fontSize:10, fontWeight:600, color:accentColor, lineHeight:1.2 }}>
+                          {scheduled.length} scheduled
                         </div>
                       )}
-                      {open.length > 0 && (
-                        <div style={{ fontFamily:'DM Sans', fontSize:10, fontWeight:500, color:'#374151', lineHeight:1.2 }}>
-                          {open.length} Slot{open.length!==1?'s':''} Available
+                      {available.length > 0 && (
+                        <div style={{ fontFamily:'DM Sans', fontSize:9, fontWeight:500, color:accentColor, opacity:0.85, lineHeight:1.2 }}>
+                          {available.length} available
+                        </div>
+                      )}
+                      {blocked.length > 0 && (
+                        <div style={{ fontFamily:'DM Sans', fontSize:9, fontWeight:500, color:'#9A3412', lineHeight:1.2 }}>
+                          {blocked.length} blocked
                         </div>
                       )}
                     </>
                   )}
-                  {ivNames.length > 0 && (
-                    <div style={{ display:'flex', alignItems:'center', gap:3, marginTop:'auto' }}>
-                      {ivNames.slice(0,4).map(name => (
-                        <span key={name} title={name} style={{ width:6, height:6, borderRadius:'50%', flexShrink:0, background: colorMap?.[name] || '#9CA3AF', display:'inline-block' }} />
+                  {/* Interviewer initial chips */}
+                  {interviewers.length > 0 && (
+                    <div style={{ display:'flex', gap:2, marginTop:'auto', flexWrap:'wrap' }}>
+                      {interviewers.slice(0,3).map(([name, color]) => (
+                        <span key={name} title={name} style={{
+                          background:color, color:'#fff',
+                          fontSize:8, fontWeight:700,
+                          padding:'1px 4px', borderRadius:3, lineHeight:1.3,
+                        }}>{getInitials(name)}</span>
                       ))}
-                      {ivNames.length > 4 && <span style={{ fontSize:9, color:'#6B7280' }}>+{ivNames.length-4}</span>}
+                      {interviewers.length > 3 && (
+                        <span style={{ fontSize:8, color:'#6B7280', fontWeight:600 }}>+{interviewers.length-3}</span>
+                      )}
                     </div>
                   )}
-                  {!hasActivity && (
-                    <div style={{ position:'absolute', bottom:6, left:'50%', transform:'translateX(-50%)', fontSize:9, fontWeight:600, color:'#c7d2fe', whiteSpace:'nowrap', opacity:0, transition:'opacity 0.15s' }}
-                      className="day-add-hint">+ Add availability</div>
-                  )}
-                </>
+                </div>
               )}
             </div>
           )
@@ -1177,6 +1217,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
       {dayDrawerDate && (
         <InterviewDayDrawer
           date={dayDrawerDate}
+          cohortId={cohortId}
           blocks={(blocks||[]).filter(b => b.block_date === dayDrawerDate)}
           slots={(slots||[]).filter(s => s.slot_date === dayDrawerDate)}
           colorMap={colorMap}
@@ -1185,6 +1226,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
           onClose={() => setDayDrawerDate(null)}
           onDeleteBlock={handleDeleteBlock}
           onCancelBooking={handleCancelBooking}
+          onRefresh={fetchData}
           onAddAvailability={(date) => {
             setDayDrawerDate(null)
             setCreatePopover({ date, position: { x: window.innerWidth - 460, y: 140 } })
