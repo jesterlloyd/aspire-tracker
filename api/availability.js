@@ -71,6 +71,7 @@ export default async function handler(req, res) {
           duration_minutes: dur,
           interviewer_name: interviewer_name.trim(),
           is_booked:        false,
+          status:           'available',
         })
       }
 

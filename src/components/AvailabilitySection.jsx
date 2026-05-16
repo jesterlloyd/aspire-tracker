@@ -89,6 +89,8 @@ export default function AvailabilitySection({ cohortId }) {
         slot_time:        t,
         duration_minutes: Number(form.duration_minutes),
         interviewer_name: userProfile.full_name,    // forced from auth
+        is_booked:        false,
+        status:           'available',
       })))
       setActiveCount(c => c + 1)
       setForm(p => ({ ...p, block_date: '', start_time: '09:00', end_time: '12:00' }))
