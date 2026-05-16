@@ -54,9 +54,12 @@ const PROGRAM_TYPES = [
   'BSN (Trimester)',
   'BSN (Quarter)',
   'Accelerated BSN',
+  'ABSN',
   'LVN to BSN',
   'RN to BSN',
+  'MECN',
   "Master's Entry Clinical Nurse (MECN)",
+  'ELMN',
   "Entry-Level Master's in Nursing (ELMN)",
   'Other',
 ]
@@ -515,6 +518,10 @@ export default function StudentSidePanel({
                 <select className="sp-select" value={data.program_type||''} onChange={e => handleSelect('program_type', e.target.value)}>
                   <option value="">Select…</option>
                   {PROGRAM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  {/* Safety net: show the saved value even if it doesn't match any option */}
+                  {data.program_type && !PROGRAM_TYPES.includes(data.program_type) && (
+                    <option value={data.program_type}>{data.program_type}</option>
+                  )}
                 </select>
               </Field>
               <Field label="Term Dates"><div className="sp-readonly">{data.term_dates||'—'}</div></Field>
