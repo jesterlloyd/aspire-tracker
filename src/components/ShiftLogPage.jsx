@@ -449,23 +449,30 @@ export default function ShiftLogPage() {
         {screen === 'confirm' && student && (
           <div style={{ background:'#fff', borderRadius:16, padding:'28px 24px', textAlign:'center', boxShadow:'0 2px 12px rgba(0,0,0,0.08)' }}>
             {submittedStatus === SHIFT_LOG_STATUSES.AUTO_ACCEPTED ? (
-              <>
-                <div style={{ fontSize:48, marginBottom:8 }}>✅</div>
-                <h2 style={{ fontSize:24, fontWeight:700, color:'#166534', margin:'0 0 16px' }}>Shift Logged!</h2>
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize:48, marginBottom:8 }}>🟡</div>
-                <h2 style={{ fontSize:22, fontWeight:700, color:'#92400e', margin:'0 0 8px' }}>Shift Submitted for Review</h2>
-                <p style={{ fontSize:14, color:'#92400e', marginBottom:8, lineHeight:1.5 }}>
-                  Your shift has been submitted and is pending review by the ASPIRE team. It will be added to your total once approved.
+              <div style={{ background:'#D1FAE5', borderRadius:10, padding:'16px 20px', marginBottom:16 }}>
+                <div style={{ fontSize:40, marginBottom:6 }}>✅</div>
+                <h2 style={{ fontSize:22, fontWeight:700, color:'#065F46', margin:'0 0 6px' }}>Shift Logged Successfully</h2>
+                <p style={{ fontSize:14, color:'#065F46', margin:0 }}>Welcome, {student.first_name}! Your shift has been added to your record.</p>
+              </div>
+            ) : submittedStatus === SHIFT_LOG_STATUSES.PENDING_REVIEW ? (
+              <div style={{ background:'#FEF3C7', borderRadius:10, padding:'16px 20px', marginBottom:16 }}>
+                <div style={{ fontSize:40, marginBottom:6 }}>🟡</div>
+                <h2 style={{ fontSize:20, fontWeight:700, color:'#78350F', margin:'0 0 6px' }}>Shift Submitted for Review</h2>
+                <p style={{ fontSize:14, color:'#92400e', marginBottom:6, lineHeight:1.5 }}>
+                  Your shift has been logged but flagged for review by the ASPIRE team. It will be added to your total once approved.
                 </p>
                 {submittedReason && (
-                  <p style={{ fontSize:13, color:'#78350F', background:'#FEF3C7', borderRadius:8, padding:'8px 12px', marginBottom:12, textAlign:'left', lineHeight:1.5 }}>
+                  <p style={{ fontSize:13, color:'#78350F', background:'rgba(0,0,0,0.06)', borderRadius:6, padding:'6px 10px', marginTop:6, textAlign:'left', lineHeight:1.5 }}>
                     <strong>Reason: </strong>{submittedReason}
                   </p>
                 )}
-              </>
+              </div>
+            ) : (
+              <div style={{ background:'#FEE2E2', borderRadius:10, padding:'16px 20px', marginBottom:16 }}>
+                <div style={{ fontSize:40, marginBottom:6 }}>❌</div>
+                <h2 style={{ fontSize:20, fontWeight:700, color:'#7F1D1D', margin:'0 0 6px' }}>Submission Issue</h2>
+                <p style={{ fontSize:14, color:'#7F1D1D', margin:0 }}>Something unexpected happened. Please try again or contact the ASPIRE team.</p>
+              </div>
             )}
 
             {/* Updated progress */}
