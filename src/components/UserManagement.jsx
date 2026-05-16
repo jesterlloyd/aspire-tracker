@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { X, UserPlus, Mail, MoreVertical, RefreshCw } from 'lucide-react';
@@ -129,13 +130,40 @@ function UserInitials({ user, size = 40 }) {
 
 export default function UserManagement({ isOpen, onClose }) {
   const { isOwner, isAdmin, canEdit, userProfile } = useAuth()
+  const queryClient = useQueryClient()
 
-  // ── Data state ──────────────────────────────────────────────────────────────
-  const [users,        setUsers]        = useState([])
-  const [loading,      setLoading]      = useState(false)
-  const [error,        setError]        = useState(null)
-  const [activityLogs, setActivityLogs] = useState([])
-  const [activeView,   setActiveView]   = useState('users')
+  // ── Data via TanStack Query ──────────────────────────────────────────────────
+
+  // User list — org-wide, no cohortId; refetches when drawer opens
+  const {
+    data:      users = [],
+    isLoading: loading,
+    error:     usersErrorObj,
+    refetch:   refetchUsers,
+  } = useQuery({
+    queryKey: ['people_access_users'],
+    queryFn: async () => {
+      const { data, error: rpcError } = await supabase.rpc('get_all_user_profiles')
+      if (rpcError) throw rpcError
+      return data || []
+    },
+    enabled: isOpen && !!canEdit,
+  })
+  const error = usersErrorObj?.message ?? null
+
+  // Activity log — org-wide, fetched lazily when drawer is open
+  const { data: activityLogs = [] } = useQuery({
+    queryKey: ['activity_logs'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('activity_logs').select('*')
+        .order('created_at', { ascending: false }).limit(200)
+      return data || []
+    },
+    enabled: isOpen && !!canEdit,
+  })
+
+  const [activeView,     setActiveView]     = useState('users')
   const [activityFilter, setActivityFilter] = useState(null)
 
   // ── Invite ──────────────────────────────────────────────────────────────────
@@ -167,64 +195,18 @@ export default function UserManagement({ isOpen, onClose }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [menuOpenId])
 
-  // ── Fetch with AbortController — runs on every drawer open ───────────────────
+  // ── Reset UI state on drawer open (fetching handled by useQuery above) ─────────
   useEffect(() => {
-    if (!isOpen || !canEdit) return
-
-    const controller = new AbortController()
-    let cancelled = false
-
-    const load = async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        // Supabase JS v2 doesn't expose abortSignal directly on rpc(), but we
-        // use the cancelled flag to discard the result if the effect cleaned up.
-        const { data, error: rpcError } = await supabase.rpc('get_all_user_profiles')
-        if (cancelled) return
-        if (rpcError) throw rpcError
-        setUsers(data || [])
-      } catch (err) {
-        if (cancelled || err?.name === 'AbortError') return
-        setError(err.message || 'Failed to load users')
-        // Do NOT setUsers([]) here — preserve any previously loaded list
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    const loadActivity = async () => {
-      const { data } = await supabase
-        .from('activity_logs').select('*')
-        .order('created_at', { ascending: false }).limit(200)
-      if (!cancelled) setActivityLogs(data || [])
-    }
-
-    load()
-    loadActivity()
-
-    // Reset filter + collapse on re-open so stale state can't hide data
+    if (!isOpen) return
     setChipFilter('all')
     setExpandedUserId(null)
+  }, [isOpen])
 
-    return () => { cancelled = true; controller.abort() }
-  }, [isOpen]) // eslint-disable-line
-
-  // ── Manual refresh (also used after mutations) ────────────────────────────────
-  const refetch = useCallback(async () => {
-    if (!canEdit) return
-    setLoading(true)
-    setError(null)
-    try {
-      const { data, error: rpcError } = await supabase.rpc('get_all_user_profiles')
-      if (rpcError) throw rpcError
-      setUsers(data || [])
-    } catch (err) {
-      setError(err.message || 'Failed to load users')
-    } finally {
-      setLoading(false)
-    }
-  }, [canEdit])
+  // ── Manual refresh — invalidates both user list and activity log ──────────────
+  const refetch = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['people_access_users'] })
+    queryClient.invalidateQueries({ queryKey: ['activity_logs'] })
+  }, [queryClient])
 
   // ── Admin proxy ───────────────────────────────────────────────────────────────
   const adminProxy = async (body) => {
@@ -348,7 +330,13 @@ export default function UserManagement({ isOpen, onClose }) {
     setSaving(false)
     setExpandedUserId(null)
     showToast('Saved successfully.')
-    refetch()
+    queryClient.invalidateQueries({ queryKey: ['people_access_users'] })
+    // If interview capability or color changed, keep Interview Rubric in sync
+    if (draft.can_conduct_interviews !== !!u.can_conduct_interviews ||
+        draft.interviewer_color !== (u.interviewer_color || '#1D2567')) {
+      queryClient.invalidateQueries({ queryKey: ['interviewers_active'] })
+      queryClient.invalidateQueries({ queryKey: ['interview_calendar'] })
+    }
   }
 
   // ── Guard ─────────────────────────────────────────────────────────────────────
