@@ -49,6 +49,8 @@ export default async function handler(req, res) {
         'flagged_for_second_interview', 'auto_recommendation',
         'resume_url', 'headshot_url', 'scheduling_viewed_at',
         'interest_statement', 'submitted_via',
+        'date_of_birth', 'ssn_last4', 'gender', 'shift_availability',
+        'cs_affiliation', 'cs_department', 'cs_role', 'prior_healthcare_experience',
       ]
 
       const rejectedFields = Object.keys(fields).filter(k => !allowed.includes(k))
