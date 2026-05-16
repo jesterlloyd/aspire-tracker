@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './lib/supabase'
 import { updateStudent as proxyUpdateStudent } from './lib/studentProxy'
 import { displayName } from './lib/utils'
@@ -69,7 +70,25 @@ function MainApp({ onLogout }) {
       sessionStorage.removeItem(key)
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  const [cohorts,          setCohorts]          = useState([])
+  const queryClient = useQueryClient()
+
+  // Cohorts list — org-wide, fetched once at startup
+  const { data: cohorts = [] } = useQuery({
+    queryKey: ['cohorts_all'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('cohorts').select('*').order('created_at', { ascending: false })
+      if (error) {
+        setDbError(error.message)
+        setLoading(false)
+        throw error
+      }
+      return data || []
+    },
+    retry: (failureCount, err) =>
+      failureCount < 1 && (err?.message?.toLowerCase().includes('lock') || err?.code === 'PGRST301'),
+    retryDelay: 1500,
+  })
+
   const [activeCohortId,   setActiveCohortId]   = useState(null)
   const [showNewCohort,    setShowNewCohort]    = useState(false)
   const [showManageCohort, setShowManageCohort] = useState(false)
@@ -101,28 +120,14 @@ function MainApp({ onLogout }) {
   const [search,  setSearch]  = useState('')
   const [filters, setFilters] = useState({ school: '', status: '', cohort: '' })
 
+  // Initialize activeCohortId when the cohorts list first loads from useQuery
   useEffect(() => {
-    const loadCohorts = async () => {
-      const { data, error } = await supabase.from('cohorts').select('*').order('created_at', { ascending: false })
-      if (error) {
-        // Retry once on lock/session errors before showing the error state
-        if (error.message?.toLowerCase().includes('lock') || error.code === 'PGRST301') {
-          setTimeout(loadCohorts, 1500)
-          return
-        }
-        setDbError(error.message)
-        setLoading(false)
-        return
-      }
-      if (data?.length > 0) {
-        setCohorts(data)
-        const saved    = localStorage.getItem('aspire_active_cohort_id')
-        const restored = saved && data.find(c => c.id === saved)
-        setActiveCohortId(restored ? restored.id : (data.find(c => c.status === 'Active') || data[0]).id)
-      } else setLoading(false)
-    }
-    loadCohorts()
-  }, [])
+    if (activeCohortId) return  // already set
+    if (!cohorts.length) { setLoading(false); return }
+    const saved    = localStorage.getItem('aspire_active_cohort_id')
+    const restored = saved && cohorts.find(c => c.id === saved)
+    setActiveCohortId(restored ? restored.id : (cohorts.find(c => c.status === 'Active') || cohorts[0]).id)
+  }, [cohorts]) // eslint-disable-line
 
   useEffect(() => {
     if (!activeCohortId) return
@@ -188,7 +193,7 @@ function MainApp({ onLogout }) {
   const createCohort = async d => {
     const { data, error } = await supabase.from('cohorts').insert(d).select().single()
     if (!error && data) {
-      setCohorts(prev => [data, ...prev])
+      queryClient.setQueryData(['cohorts_all'], prev => [data, ...(prev || [])])
       localStorage.setItem('aspire_active_cohort_id', data.id)
       setActiveCohortId(data.id)
       setStudents([]); setUnits([]); setMatches([]); setInterviews([])
@@ -199,15 +204,29 @@ function MainApp({ onLogout }) {
   const updateCohort = async (id, updates) => {
     if (updates.accepting_submissions === true) {
       await supabase.from('cohorts').update({ accepting_submissions: false }).neq('id', id)
-      setCohorts(prev => prev.map(c => c.id !== id ? { ...c, accepting_submissions: false } : c))
+      queryClient.setQueryData(['cohorts_all'], prev =>
+        (prev || []).map(c => c.id !== id ? { ...c, accepting_submissions: false } : c))
     }
     const { error } = await supabase.from('cohorts').update(updates).eq('id', id)
-    if (!error) setCohorts(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))
+    if (!error) {
+      queryClient.setQueryData(['cohorts_all'], prev =>
+        (prev || []).map(c => c.id === id ? { ...c, ...updates } : c))
+    }
     return error || null
   }
   const handleCohortSwitch = id => {
     localStorage.setItem('aspire_active_cohort_id', id)
     setActiveCohortId(id); setSearch(''); setFilters({ school: '', status: '', cohort: '' })
+    // Invalidate every cohort-scoped query so all tabs refetch with the new cohort
+    ;[
+      'embed_student_pool', 'embed_unit_pool', 'embed_matches',
+      'kpi_stats', 'clinical_placement_availability', 'student_placement_requests',
+      'on_campus_today', 'todays_priorities',
+      'program_events',
+      'availability_blocks', 'interview_sessions', 'interview_slots', 'preference_counts',
+      'students_in_cohort', 'interview_calendar', 'todays_interviews',
+      'interview_setup_checklist', 'unit_availability',
+    ].forEach(key => queryClient.invalidateQueries({ queryKey: [key] }))
   }
 
   // Auto-start welcome tour — re-evaluates whenever the key tour fields change in context
@@ -253,7 +272,8 @@ function MainApp({ onLogout }) {
   const updateCohortMatchSummary = (newMatchList) => {
     const summary = computeMatchSummary(newMatchList)
     supabase.from('cohorts').update({ match_quality_summary: summary }).eq('id', activeCohortId)
-    setCohorts(prev => prev.map(c => c.id === activeCohortId ? { ...c, match_quality_summary: summary } : c))
+    queryClient.setQueryData(['cohorts_all'], prev =>
+      (prev || []).map(c => c.id === activeCohortId ? { ...c, match_quality_summary: summary } : c))
   }
 
   const switchToAccess = (studentId) => {
