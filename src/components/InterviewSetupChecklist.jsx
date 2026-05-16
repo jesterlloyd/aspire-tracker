@@ -1,18 +1,14 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { CheckCircle, Circle, ChevronDown } from 'lucide-react'
 
 export default function InterviewSetupChecklist({ cohortId, cohort }) {
-  const [checks, setChecks]       = useState(null)
   const [collapsed, setCollapsed] = useState(true)
 
-  useEffect(() => {
-    if (!cohortId) return
-    runChecks()
-  }, [cohortId])
-
-  const runChecks = async () => {
-    try {
+  const { data: checks, isLoading } = useQuery({
+    queryKey: ['interview_setup_checklist', cohortId],
+    queryFn: async () => {
       const interviewersRes = await supabase.rpc('get_active_interviewers')
       const iCount = (interviewersRes.data || []).length
 
@@ -39,7 +35,7 @@ export default function InterviewSetupChecklist({ cohortId, cohort }) {
           .eq('cohort_id', cohortId),
       ])
 
-      setChecks([
+      return [
         {
           label: 'Interviewers added',
           done: (iCount || 0) > 0,
@@ -70,13 +66,12 @@ export default function InterviewSetupChecklist({ cohortId, cohort }) {
           done: (rCount || 0) > 0,
           detail: `${rCount || 0} submitted`,
         },
-      ])
-    } catch (err) {
-      console.error('Checklist:', err.message)
-    }
-  }
+      ]
+    },
+    enabled: !!cohortId,
+  })
 
-  if (!checks) return null
+  if (isLoading || !checks) return null
 
   const doneCount = checks.filter(c => c.done).length
   const allDone   = doneCount === checks.length

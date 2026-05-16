@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { ClipboardList, Clock } from 'lucide-react'
 
@@ -10,20 +11,13 @@ const FLAG_STYLES = {
 }
 
 export default function TodaysInterviews({ cohortId, onStartRubric }) {
-  const [sessions, setSessions]   = useState([])
   const [collapsed, setCollapsed] = useState(false)
-  const [loading, setLoading]     = useState(true)
 
-  useEffect(() => {
-    if (!cohortId) return
-    fetchToday()
-  }, [cohortId])
+  const localDate = new Date().toLocaleDateString('en-CA')
 
-  const fetchToday = async () => {
-    setLoading(true)
-    const today = new Date()
-    const localDate = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
-    try {
+  const { data: sessions = [], isLoading: loading, refetch: fetchToday } = useQuery({
+    queryKey: ['todays_interviews', cohortId, localDate],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('interview_slots')
         .select(`
@@ -40,13 +34,11 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
         .eq('slot_date', localDate)
         .eq('is_booked', true)
         .order('slot_time', { ascending: true })
-      if (!error && data) setSessions(data)
-    } catch (err) {
-      console.error('TodaysInterviews:', err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!cohortId,
+  })
 
   const todayLabel = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',

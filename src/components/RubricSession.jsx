@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import StudentAvatar from './StudentAvatar'
@@ -281,8 +282,6 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const { userProfile } = useAuth()
   const [form,           setForm]           = useState(initForm())
   const [rubricId,       setRubricId]       = useState(null)
-  const [interviewers,   setInterviewers]   = useState([])
-  const [availUnits,     setAvailUnits]     = useState([])
   const [saveStatus,     setSaveStatus]     = useState('idle')
   const [confirmComplete,setConfirmComplete]= useState(false)
   const [confirmReset,   setConfirmReset]   = useState(false)
@@ -304,44 +303,51 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   // Tracks which domains are in "Other / Custom" mode per rubric instance
   const [otherClicked,    setOtherClicked]    = useState({ cj: false, pp: false, ga: false })
   const [showValidation,  setShowValidation]  = useState(false)
-  const [unitAvailability,setUnitAvailability]= useState([null, null, null])
-  const [availLoading,    setAvailLoading]    = useState(true)
-
-
   // Rubrics for this student
   const studentRubrics  = rubrics.filter(r => r.student_id === student.id)
   const completedRubrics = studentRubrics.filter(r => r.status === 'Completed')
 
-  useEffect(() => {
-    supabase.rpc('get_active_interviewers')
-      .then(({ data }) => setInterviewers((data || []).map(p => p.full_name)))
-    supabase.from('units').select('unit_name').eq('is_participating', true).eq('cohort_id', cohortId).order('unit_name')
-      .then(({ data }) => setAvailUnits((data || []).map(u => u.unit_name)))
-  }, [cohortId])
-
-  // Load unit availability snapshot for each of the student's 3 preferences
-  const loadUnitAvailability = async () => {
-    setAvailLoading(true)
-    const prefFields = [student.unit_preference_1, student.unit_preference_2, student.unit_preference_3]
-    const results = await Promise.all(prefFields.map(async unitName => {
-      if (!unitName) return null
-      const [unitRes, d1, d2, d3] = await Promise.all([
-        supabase.from('units').select('slots_remaining, total_slots')
-          .eq('unit_name', unitName).eq('cohort_id', cohortId).maybeSingle(),
-        supabase.from('students').select('id', { count:'exact', head:true })
-          .eq('cohort_id', cohortId).eq('unit_preference_1', unitName),
-        supabase.from('students').select('id', { count:'exact', head:true })
-          .eq('cohort_id', cohortId).eq('unit_preference_2', unitName),
-        supabase.from('students').select('id', { count:'exact', head:true })
-          .eq('cohort_id', cohortId).eq('unit_preference_3', unitName),
+  // Interviewers list and available units — cached per cohort
+  const { data: interviewer_unit_data } = useQuery({
+    queryKey: ['rubric_support_data', cohortId],
+    queryFn: async () => {
+      const [profilesRes, unitsRes] = await Promise.all([
+        supabase.rpc('get_active_interviewers'),
+        supabase.from('units').select('unit_name').eq('is_participating', true).eq('cohort_id', cohortId).order('unit_name'),
       ])
-      return { unit: unitRes.data, demand1: d1.count||0, demand2: d2.count||0, demand3: d3.count||0 }
-    }))
-    setUnitAvailability(results)
-    setAvailLoading(false)
-  }
+      return {
+        interviewers: (profilesRes.data || []).map(p => p.full_name),
+        availUnits:   (unitsRes.data   || []).map(u => u.unit_name),
+      }
+    },
+    enabled: !!cohortId,
+  })
+  const interviewers = interviewer_unit_data?.interviewers || []
+  const availUnits   = interviewer_unit_data?.availUnits   || []
 
-  useEffect(() => { loadUnitAvailability() }, [student.id, cohortId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Unit availability snapshot for the student's 3 preferences — cached per student+cohort+prefs
+  const { data: unitAvailability = [null, null, null], isLoading: availLoading } = useQuery({
+    queryKey: ['unit_availability', cohortId, student.id,
+      student.unit_preference_1, student.unit_preference_2, student.unit_preference_3],
+    queryFn: async () => {
+      const prefFields = [student.unit_preference_1, student.unit_preference_2, student.unit_preference_3]
+      return Promise.all(prefFields.map(async unitName => {
+        if (!unitName) return null
+        const [unitRes, d1, d2, d3] = await Promise.all([
+          supabase.from('units').select('slots_remaining, total_slots')
+            .eq('unit_name', unitName).eq('cohort_id', cohortId).maybeSingle(),
+          supabase.from('students').select('id', { count:'exact', head:true })
+            .eq('cohort_id', cohortId).eq('unit_preference_1', unitName),
+          supabase.from('students').select('id', { count:'exact', head:true })
+            .eq('cohort_id', cohortId).eq('unit_preference_2', unitName),
+          supabase.from('students').select('id', { count:'exact', head:true })
+            .eq('cohort_id', cohortId).eq('unit_preference_3', unitName),
+        ])
+        return { unit: unitRes.data, demand1: d1.count||0, demand2: d2.count||0, demand3: d3.count||0 }
+      }))
+    },
+    enabled: !!cohortId && !!student.id,
+  })
 
   // When interviewer_name changes, try to load their existing rubric
   const handleInterviewerChange = async (name) => {
