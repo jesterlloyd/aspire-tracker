@@ -68,15 +68,15 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
       })
   }, []) // eslint-disable-line
 
-  // Pre-fill form with current user's interviewer name when records load
+  // Pre-fill form with current user's full_name (non-admin) or leave blank for admin to pick
   useEffect(() => {
-    if (myInterviewerRecord) {
+    if (!isAdmin && userProfile?.full_name) {
       setForm(prev => ({
         ...prev,
-        interviewer_name: prev.interviewer_name || myInterviewerRecord.full_name || myInterviewerRecord.name,
+        interviewer_name: userProfile.full_name,
       }))
     }
-  }, [myInterviewerRecord?.name]) // eslint-disable-line
+  }, [userProfile?.full_name, isAdmin]) // eslint-disable-line
 
   const loadBlocks = async () => {
     const { data } = await supabase.from('interview_availability_blocks')
@@ -97,7 +97,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
 
     const interviewerName = isAdmin
       ? form.interviewer_name
-      : (myInterviewerRecord?.name || userProfile?.full_name || '')
+      : (userProfile?.full_name || '')
     if (!interviewerName) { alert('Please select an interviewer.'); return }
 
     const [sh, sm] = form.start_time.split(':').map(Number)
@@ -123,7 +123,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
       const data = await response.json()
       if (!response.ok) { alert(`Could not create block: ${data.error}`); return }
 
-      const defaultName = isAdmin ? (form.interviewer_name || '') : (myInterviewerRecord?.name || userProfile?.full_name || '')
+      const defaultName = isAdmin ? (form.interviewer_name || '') : (userProfile?.full_name || '')
       setForm(p => ({ ...p, block_date: '', start_time: '09:00', end_time: '12:00', interviewer_name: defaultName }))
       await loadBlocks()
       onBlockSaved?.()
@@ -200,8 +200,8 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
                     {interviewers.map(i => <option key={i.id} value={i.full_name || i.name}>{i.full_name || i.name}</option>)}
                   </select>
                 ) : (
-                  <div style={{ padding:'8px 12px', border:'1px solid #e5e7eb', borderRadius:6, fontSize:13, color:'#374151', background:'#f9fafb' }}>
-                    {myInterviewerRecord?.name || userProfile?.full_name || 'Your name'}
+                  <div style={{ padding:'8px 12px', border:'1px solid #e5e7eb', borderRadius:6, fontSize:13, color:'#1D2567', background:'#F4F1EC', fontWeight:500 }}>
+                    {userProfile?.full_name || 'Your name'}
                   </div>
                 )}
                 <div style={{ fontSize:11, color:'#9ca3af', marginTop:3 }}>

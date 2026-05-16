@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 
 const TIME_SLOTS_15 = []
 for (let h = 7; h <= 18; h++) {
@@ -31,13 +32,13 @@ function generateSlotTimes(startTime, endTime, durationMin) {
 }
 
 export default function AvailabilitySection({ cohortId }) {
-  const [expanded,     setExpanded]     = useState(false)
-  const [blocks,       setBlocks]       = useState([])
-  const [interviewers, setInterviewers] = useState([])
-  const [saving,       setSaving]       = useState(false)
-  const [form,         setForm]         = useState({
+  const { userProfile } = useAuth()
+  const [expanded, setExpanded] = useState(false)
+  const [blocks,   setBlocks]   = useState([])
+  const [saving,   setSaving]   = useState(false)
+  const [form,     setForm]     = useState({
     block_date: '', start_time: '09:00', end_time: '12:00',
-    interviewer_name: '', duration_minutes: 30,
+    duration_minutes: 30,
   })
 
   useEffect(() => {
@@ -46,13 +47,9 @@ export default function AvailabilitySection({ cohortId }) {
   }, [expanded, cohortId]) // eslint-disable-line
 
   const loadData = async () => {
-    const [blocksRes, ivRes] = await Promise.all([
-      supabase.from('interview_availability_blocks')
-        .select('*').eq('cohort_id', cohortId).order('block_date').order('start_time'),
-      supabase.from('interviewers').select('name').eq('is_active', true).order('name'),
-    ])
-    setBlocks(blocksRes.data || [])
-    setInterviewers((ivRes.data || []).map(i => i.name))
+    const { data } = await supabase.from('interview_availability_blocks')
+      .select('*').eq('cohort_id', cohortId).order('block_date').order('start_time')
+    setBlocks(data || [])
   }
 
   // Always fetch block count for the header badge (lightweight)
@@ -72,20 +69,29 @@ export default function AvailabilitySection({ cohortId }) {
     : []
 
   const handleAddBlock = async () => {
+    if (!userProfile?.full_name) { alert('You must be signed in to create a block.'); return }
     if (!form.block_date || !form.start_time || !form.end_time || previewSlots.length === 0) return
     setSaving(true)
     const { data: block, error } = await supabase.from('interview_availability_blocks')
-      .insert({ ...form, cohort_id: cohortId, duration_minutes: Number(form.duration_minutes) })
+      .insert({
+        ...form,
+        cohort_id:         cohortId,
+        duration_minutes:  Number(form.duration_minutes),
+        interviewer_name:  userProfile.full_name,   // forced from auth
+        created_by_user_id: userProfile.id,
+      })
       .select().single()
     if (!error && block) {
       await supabase.from('interview_slots').insert(previewSlots.map(t => ({
-        block_id: block.id, cohort_id: cohortId,
-        slot_date: form.block_date, slot_time: t,
+        block_id:         block.id,
+        cohort_id:        cohortId,
+        slot_date:        form.block_date,
+        slot_time:        t,
         duration_minutes: Number(form.duration_minutes),
-        interviewer_name: form.interviewer_name,
+        interviewer_name: userProfile.full_name,    // forced from auth
       })))
       setActiveCount(c => c + 1)
-      setForm(p => ({ ...p, block_date: '', start_time: '09:00', end_time: '12:00', interviewer_name: '' }))
+      setForm(p => ({ ...p, block_date: '', start_time: '09:00', end_time: '12:00' }))
       await loadData()
     }
     setSaving(false)
@@ -139,11 +145,10 @@ export default function AvailabilitySection({ cohortId }) {
             </div>
             <div style={{ display:'grid', gridTemplateColumns:'1fr auto', gap:8, alignItems:'end', marginBottom:8 }}>
               <div className="form-field">
-                <label className="form-label" style={{ fontSize:11 }}>Interviewer</label>
-                <select className="form-select" value={form.interviewer_name} onChange={e => set('interviewer_name', e.target.value)}>
-                  <option value="">Select interviewer…</option>
-                  {interviewers.map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
+                <label className="form-label" style={{ fontSize:11 }}>Hosted by</label>
+                <div style={{ padding:'8px 12px', border:'1px solid #e5e7eb', borderRadius:6, fontSize:13, color:'#1D2567', background:'#F4F1EC', fontWeight:500 }}>
+                  {userProfile?.full_name || '—'}
+                </div>
               </div>
               <div style={{ display:'flex', gap:12, padding:'0 0 4px' }}>
                 {[30, 45].map(d => (
