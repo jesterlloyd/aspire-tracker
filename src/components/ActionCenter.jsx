@@ -451,7 +451,7 @@ export default function ActionCenter({
 
   // ── New shift-log based actions ──────────────────────────────
   // Act 13: Shift logs needing review
-  const act13 = shiftLogs.filter(l => l.status === 'needs_review' && !l.reviewed_at)
+  const act13 = shiftLogs.filter(l => l.status === 'Pending Review' && !l.reviewed_at)
     .map(l => ({ ...l, student: students.find(s => s.id === l.student_id) }))
     .filter(l => l.student)
 

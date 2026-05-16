@@ -162,25 +162,25 @@ export default function StudentSidePanel({
   const handleApproveShift = async (log) => {
     const hours = parseFloat(log.total_hours||0)
     await supabase.from('student_shift_logs').update({
-      status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: 'Admin',
+      status: 'Approved', reviewed_at: new Date().toISOString(), reviewed_by: 'Admin',
     }).eq('id', log.id)
     const newApproved = parseFloat(data.approved_hours||0) + hours
     const newPending  = Math.max(0, parseFloat(data.pending_hours||0) - hours)
     await onUpdate(student.id, { approved_hours: newApproved, pending_hours: newPending })
     setData(p => ({ ...p, approved_hours: newApproved, pending_hours: newPending }))
-    setShiftLogs(prev => prev.map(l => l.id===log.id ? { ...l, status:'approved', reviewed_at: new Date().toISOString() } : l))
+    setShiftLogs(prev => prev.map(l => l.id===log.id ? { ...l, status:'Approved', reviewed_at: new Date().toISOString() } : l))
     toast?.success('Shift approved', `${hours} hours approved for ${student.first_name}.`)
   }
 
   const handleRejectShift = async (log) => {
     const hours = parseFloat(log.total_hours||0)
     await supabase.from('student_shift_logs').update({
-      status: 'rejected', reviewed_at: new Date().toISOString(), reviewed_by: 'Admin',
+      status: 'Rejected', reviewed_at: new Date().toISOString(), reviewed_by: 'Admin',
     }).eq('id', log.id)
     const newPending = Math.max(0, parseFloat(data.pending_hours||0) - hours)
     await onUpdate(student.id, { pending_hours: newPending })
     setData(p => ({ ...p, pending_hours: newPending }))
-    setShiftLogs(prev => prev.map(l => l.id===log.id ? { ...l, status:'rejected' } : l))
+    setShiftLogs(prev => prev.map(l => l.id===log.id ? { ...l, status:'Rejected' } : l))
   }
 
   const handleAdjustShift = async (log) => {
@@ -189,17 +189,17 @@ export default function StudentSidePanel({
     const oldHours = parseFloat(log.total_hours||0)
     const diff = newHours - oldHours
     await supabase.from('student_shift_logs').update({ total_hours: newHours, reviewed_at: new Date().toISOString(), reviewed_by: 'Admin' }).eq('id', log.id)
-    if (log.status === 'approved') {
+    if (['Auto-Accepted', 'Approved'].includes(log.status)) {
       const newApproved = Math.max(0, parseFloat(data.approved_hours||0) + diff)
       await onUpdate(student.id, { approved_hours: newApproved })
       setData(p => ({ ...p, approved_hours: newApproved }))
-    } else if (log.status === 'needs_review') {
+    } else if (log.status === 'Pending Review') {
       const newApproved = parseFloat(data.approved_hours||0) + newHours
       const newPending  = Math.max(0, parseFloat(data.pending_hours||0) - oldHours)
       await onUpdate(student.id, { approved_hours: newApproved, pending_hours: newPending })
       setData(p => ({ ...p, approved_hours: newApproved, pending_hours: newPending }))
     }
-    setShiftLogs(prev => prev.map(l => l.id===log.id ? { ...l, total_hours: newHours, status:'approved' } : l))
+    setShiftLogs(prev => prev.map(l => l.id===log.id ? { ...l, total_hours: newHours, status:'Approved' } : l))
     setAdjustingId(null); setAdjustHours('')
   }
 

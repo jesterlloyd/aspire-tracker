@@ -1,6 +1,7 @@
 // All external navigation must use openLink helpers (src/lib/openLink.js)
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { SHIFT_LOG_STATUSES } from '../lib/shiftLogValidation'
 import { logEvent, eventExists } from '../lib/logEvent'
 import { updateStudent as proxyUpdateStudent } from '../lib/studentProxy'
 import { openMailtoLink } from '../lib/openLink'
@@ -105,9 +106,10 @@ export default function ShiftLogPage() {
       }
     }
 
-    // Check daily total overlap
+    // Check daily total overlap (count only accepted/approved shifts)
     const { data: existing } = await supabase.from('student_shift_logs')
-      .select('total_hours').eq('student_id', student.id).eq('shift_date', shiftDate).eq('status', 'approved')
+      .select('total_hours').eq('student_id', student.id).eq('shift_date', shiftDate)
+      .in('status', [SHIFT_LOG_STATUSES.AUTO_ACCEPTED, SHIFT_LOG_STATUSES.APPROVED])
     const dailySum = (existing||[]).reduce((s,r) => s + parseFloat(r.total_hours||0), 0) + hours
     if (dailySum > 24) flags.push('daily_hours_exceed_24')
 
@@ -141,7 +143,10 @@ export default function ShiftLogPage() {
     setSubmitting(true)
     try {
       const flags = await buildExceptionFlags()
-      const status = flags.length > 0 ? 'needs_review' : 'approved'
+      const status = flags.length > 0
+        ? SHIFT_LOG_STATUSES.PENDING_REVIEW
+        : SHIFT_LOG_STATUSES.AUTO_ACCEPTED
+      const reviewReason = flags.length > 0 ? flags.join('; ') : null
       const now = new Date().toISOString()
 
       await supabase.from('student_shift_logs').insert({
@@ -161,6 +166,7 @@ export default function ShiftLogPage() {
         attestation:            true,
         status,
         exception_flags:        flags,
+        review_reason:          reviewReason,
         submitted_at:           now,
       })
 
@@ -171,14 +177,16 @@ export default function ShiftLogPage() {
       let newApprovedVal    = currentApproved
       let newPendingVal     = currentPending
 
-      if (status === 'approved') {
+      if (status === SHIFT_LOG_STATUSES.AUTO_ACCEPTED) {
         newApprovedVal = currentApproved + hours
         proxyUpdateStudent(student.id, { approved_hours: newApprovedVal }).catch(err => console.warn('approved_hours update:', err.message))
 
-        // Automation 5: Rotation Start — first approved shift
+        // Automation 5: Rotation Start — first auto-accepted shift
         const { data: existingShifts } = await supabase
           .from('student_shift_logs').select('id')
-          .eq('student_id', student.id).eq('status', 'approved').limit(2)
+          .eq('student_id', student.id)
+          .in('status', [SHIFT_LOG_STATUSES.AUTO_ACCEPTED, SHIFT_LOG_STATUSES.APPROVED])
+          .limit(2)
         const isFirstShift = existingShifts && existingShifts.length === 1
         const alreadyRotStart = await eventExists(supabase, student.id, 'rotation_start')
         if (isFirstShift && !alreadyRotStart) {
@@ -208,7 +216,7 @@ export default function ShiftLogPage() {
 
       setNewApproved(newApprovedVal)
       setSubmittedStatus(status)
-      setCelebration(status === 'approved' && newApprovedVal >= hoursReq && currentApproved < hoursReq)
+      setCelebration(status === SHIFT_LOG_STATUSES.AUTO_ACCEPTED && newApprovedVal >= hoursReq && currentApproved < hoursReq)
       setScreen('confirm')
     } catch (err) { console.error(err); setFormErrors(['Submission failed. Please try again.']) }
     setSubmitting(false)

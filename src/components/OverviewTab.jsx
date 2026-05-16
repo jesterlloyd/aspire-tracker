@@ -74,7 +74,8 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     if (!cohortId) return
     setCampusLoading(true)
     const { data } = await supabase.from('student_shift_logs')
-      .select('*').eq('cohort_id', cohortId).eq('shift_date', todayStr).eq('status', 'approved')
+      .select('*').eq('cohort_id', cohortId).eq('shift_date', todayStr)
+      .in('status', ['Auto-Accepted', 'Approved'])
     setCampusLogs(data || [])
     setCampusLoading(false)
     if ((data||[]).length > 0) setCampusOpen(true)
