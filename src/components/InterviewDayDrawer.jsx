@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { X, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -153,11 +153,26 @@ export default function InterviewDayDrawer({
   date, cohortId,
   blocks, slots, colorMap,
   isAdmin, userProfile,
+  highlightedSlotId,
   onClose, onDeleteBlock, onCancelBooking, onRefresh, onAddAvailability,
 }) {
   const queryClient = useQueryClient()
 
   const [cancelling,   setCancelling]   = useState(null)
+
+  // Scroll to and briefly pulse the highlighted slot (from Week view click)
+  useEffect(() => {
+    if (!highlightedSlotId) return
+    const el = document.getElementById(`slot-row-${highlightedSlotId}`)
+    if (!el) return
+    const timer = setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.style.transition = 'box-shadow 0.3s ease'
+      el.style.boxShadow  = '0 0 0 2px #1D2567'
+      setTimeout(() => { el.style.boxShadow = 'none' }, 1500)
+    }, 180) // brief delay so the drawer finishes its own mount animation
+    return () => clearTimeout(timer)
+  }, [highlightedSlotId])
   const [deletingBlock, setDeletingBlock] = useState(null)
   const [deletingSlot, setDeletingSlot] = useState(null)
   const [blockingSlot, setBlockingSlot] = useState(null)   // slot object for BlockTimeModal
@@ -297,7 +312,7 @@ export default function InterviewDayDrawer({
                 const student = Array.isArray(slot.students) ? slot.students[0] : slot.students
                 const endTime = addMinutes(slot.slot_time, slot.duration_minutes)
                 return (
-                  <div key={slot.id} style={slotCard}>
+                  <div key={slot.id} id={`slot-row-${slot.id}`} style={slotCard}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div>
                         <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 2 }}>
@@ -333,7 +348,7 @@ export default function InterviewDayDrawer({
               {availableSlots.map(slot => {
                 const endTime = addMinutes(slot.slot_time, slot.duration_minutes)
                 return (
-                  <div key={slot.id} style={slotCard}>
+                  <div key={slot.id} id={`slot-row-${slot.id}`} style={slotCard}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div style={{ fontSize: 11, color: '#6B7280' }}>
                         {fmtTime(slot.slot_time)} – {fmtTime(endTime)} · {slot.duration_minutes} min
@@ -362,7 +377,7 @@ export default function InterviewDayDrawer({
               {blockedSlots.map(slot => {
                 const endTime = addMinutes(slot.slot_time, slot.duration_minutes)
                 return (
-                  <div key={slot.id} style={slotCard}>
+                  <div key={slot.id} id={`slot-row-${slot.id}`} style={slotCard}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div style={{ fontSize: 11, color: '#6B7280' }}>
                         {fmtTime(slot.slot_time)} – {fmtTime(endTime)} · {slot.duration_minutes} min

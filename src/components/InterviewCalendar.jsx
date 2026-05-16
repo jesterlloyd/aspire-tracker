@@ -474,7 +474,8 @@ function getInitials(name) {
   return ((parts[0]?.[0] || '') + (parts.length > 1 ? (parts[parts.length-1]?.[0] || '') : '')).toUpperCase()
 }
 
-function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, onDayClick }) {
+function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, onDayClick, onAddAvailability }) {
+  const [hoveredDate, setHoveredDate] = useState(null)
   const year = displayDate.getFullYear()
   const month = displayDate.getMonth()
   const lastDayNum = new Date(year, month + 1, 0).getDate()
@@ -545,22 +546,25 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
             : scheduled.length > 0 ? '#1E3A8A'
             : '#065F46'
 
+          const isHovered = hoveredDate === dateStr
+
           return (
             <div
               key={dateStr}
               onClick={() => onDayClick(dateStr, hasActivity)}
+              onMouseEnter={() => setHoveredDate(dateStr)}
+              onMouseLeave={() => setHoveredDate(null)}
               style={{
                 height:88,
                 padding:'5px 6px',
                 borderRight:'1px solid #f3f4f6',
                 borderBottom:'1px solid #f3f4f6',
-                cursor: hasActivity ? 'pointer' : 'default',
+                cursor: 'pointer',
                 borderLeft: isSel ? '3px solid #1D2567' : '1px solid transparent',
-                background: isSel ? 'rgba(29,37,103,0.04)' : 'transparent',
+                background: isHovered ? '#f0f4ff' : isSel ? 'rgba(29,37,103,0.04)' : 'transparent',
                 display:'flex', flexDirection:'column', gap:3, overflow:'hidden',
+                position:'relative',
               }}
-              onMouseEnter={e => { if (hasActivity) e.currentTarget.style.background = '#f0f4ff' }}
-              onMouseLeave={e => { e.currentTarget.style.background = isSel ? 'rgba(29,37,103,0.04)' : 'transparent' }}
             >
               {/* Day number circle */}
               <div style={{
@@ -619,6 +623,25 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                   )}
                 </div>
               )}
+
+              {/* Hover pill — always shown on hover; sits in the cell corner */}
+              {isHovered && (
+                <button
+                  onClick={e => { e.stopPropagation(); onAddAvailability(dateStr) }}
+                  style={{
+                    position:'absolute', bottom:4, right:4,
+                    background:'rgba(29,37,103,0.92)',
+                    color:'#fff', border:'none', borderRadius:999,
+                    padding:'3px 8px', fontSize:10, fontWeight:600,
+                    fontFamily:'DM Sans, sans-serif', cursor:'pointer',
+                    boxShadow:'0 2px 6px rgba(0,0,0,0.12)',
+                    display:'flex', alignItems:'center', gap:3,
+                    lineHeight:1.4,
+                  }}
+                >
+                  + Add Availability
+                </button>
+              )}
             </div>
           )
         })}
@@ -638,8 +661,9 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const [activeFilter,   setActiveFilter]   = useState(null)
   const [calendarTitle,  setCalendarTitle]  = useState('')
   const [currentView,    setCurrentView]    = useState('dayGridMonth')
-  const [displayDate,    setDisplayDate]    = useState(() => new Date())
-  const [dayDrawerDate,  setDayDrawerDate]  = useState(null)
+  const [displayDate,       setDisplayDate]       = useState(() => new Date())
+  const [dayDrawerDate,     setDayDrawerDate]     = useState(null)
+  const [highlightedSlotId, setHighlightedSlotId] = useState(null)
 
   const myName = userProfile?.full_name
 
@@ -785,25 +809,23 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const handleEventClick = (info) => {
     info.jsEvent.stopPropagation()
     setCreatePopover(null)
+    setBlockPopover(null)
 
-    const { type, block, blockSlots, color } = info.event.extendedProps
+    const { type, block, blockSlots, slot } = info.event.extendedProps
+    const dateStr = block?.block_date
+    if (!dateStr) return
 
-    if (type === 'booked') {
-      // Show block popover with all slots so user can cancel the booking
-      const allBlockSlots = (slots || []).filter(s => s.block_id === block.id)
-      setBlockPopover({
-        block: { ...block, color },
-        slots: allBlockSlots,
-        position: { x: info.jsEvent.clientX + 8, y: info.jsEvent.clientY - 20 },
-      })
-      return
+    // Week view event click → open the Day Management drawer for that date.
+    // Highlight the specific slot so the drawer scrolls to it and pulses.
+    setSelectedDate(dateStr)
+    setDayDrawerDate(dateStr)
+    if (type === 'booked' && slot?.id) {
+      setHighlightedSlotId(slot.id)
+    } else if (type === 'availability' && blockSlots?.length > 0) {
+      setHighlightedSlotId(blockSlots[0]?.id || null)
+    } else {
+      setHighlightedSlotId(null)
     }
-
-    setBlockPopover({
-      block: { ...block, color },
-      slots: blockSlots,
-      position: { x: info.jsEvent.clientX + 8, y: info.jsEvent.clientY - 20 },
-    })
   }
 
   const handleSaveBlock = () => {
@@ -866,7 +888,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
     block.created_by_user_id === userProfile?.id ||
     block.interviewer_name   === userProfile?.full_name
 
-  const closeAll = () => { setCreatePopover(null); setBlockPopover(null); setDayDrawerDate(null) }
+  const closeAll = () => { setCreatePopover(null); setBlockPopover(null); setDayDrawerDate(null); setHighlightedSlotId(null) }
 
   const handleMiniCalendarSelect = (dateStr) => {
     setSelectedDate(dateStr)
@@ -1137,11 +1159,15 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
               selectedDate={selectedDate}
               onDayClick={(dateStr, hasActivity) => {
                 setSelectedDate(dateStr)
+                setHighlightedSlotId(null)
                 if (hasActivity) {
                   setDayDrawerDate(dateStr)
                 } else {
                   setCreatePopover({ date: dateStr, position: { x: window.innerWidth / 2 - 140, y: 200 } })
                 }
+              }}
+              onAddAvailability={(dateStr) => {
+                setCreatePopover({ date: dateStr, position: { x: window.innerWidth / 2 - 140, y: 200 } })
               }}
             />
           )}
@@ -1223,7 +1249,8 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
           colorMap={colorMap}
           isAdmin={isAdmin}
           userProfile={userProfile}
-          onClose={() => setDayDrawerDate(null)}
+          highlightedSlotId={highlightedSlotId}
+          onClose={() => { setDayDrawerDate(null); setHighlightedSlotId(null) }}
           onDeleteBlock={handleDeleteBlock}
           onCancelBooking={handleCancelBooking}
           onRefresh={fetchData}
