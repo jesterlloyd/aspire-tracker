@@ -129,10 +129,18 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
 
 function AccessRow({ student, onUpdate, isHighlighted }) {
   const [data,   setData]   = useState({ ...student })
-  const timerRef = useRef(null)
+  const timerRef     = useRef(null)
+  const studentIdRef = useRef(student.id)
 
-  // Re-sync whenever the student prop changes (e.g. side panel updated a field)
-  useEffect(() => { setData({ ...student }) }, [student])
+  // Re-sync ONLY when student identity changes (row navigation), not on every refetch.
+  // Depending on the full student object would reset data on every background refetch,
+  // overwriting in-progress text input during the debounce window.
+  useEffect(() => {
+    if (student.id !== studentIdRef.current) {
+      studentIdRef.current = student.id
+      setData({ ...student })
+    }
+  }, [student.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = (field, value) => {
     setData(p => ({ ...p, [field]: value }))
