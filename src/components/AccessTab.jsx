@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { ASPIRE_STATUSES } from '../lib/constants'
 import { displayName, downloadCSV, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 import StudentAvatar from './StudentAvatar'
@@ -128,20 +129,20 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
 }
 
 function AccessRow({ student, onUpdate, isHighlighted }) {
-  // null initial state — the form is not rendered until student data is confirmed present.
-  // This prevents the race where useState({ ...student }) runs before all fields are populated,
-  // and prevents empty-string saves if a field hasn't arrived yet.
+  const queryClient = useQueryClient()
+
+  // null until student data is confirmed present — prevents rendering inputs
+  // before fields arrive and prevents empty-string saves on uninitialized state.
   const [formData, setFormData] = useState(null)
   const [isDirty,  setIsDirty]  = useState(false)
-  const timerRef = useRef(null)
+  const [saving,   setSaving]   = useState(false)
 
-  // Sync form from server data ONLY when:
-  //   1. student.id is known (data has arrived)
-  //   2. formData hasn't been built for this student yet (_sourceStudentId differs)
-  //   3. the user isn't mid-edit (isDirty = false)
-  // Field-level deps ensure a re-sync fires if data arrives after the first render
-  // with student.id already set (e.g., deferred joins or background refetches that
-  // fill in previously-null columns).
+  // Sync from server ONLY when:
+  //   1. student.id is known
+  //   2. formData hasn't been built for this student (_sourceStudentId differs)
+  //   3. user is not mid-edit (isDirty = false)
+  // Field-level deps catch deferred column arrivals (e.g., background refetch
+  // that fills in a previously-null column after the row first mounted).
   useEffect(() => {
     if (!student?.id) return
     if (formData?._sourceStudentId === student.id) return
@@ -177,59 +178,66 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
     isDirty,
   ]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Coerce empty string to null before persisting — avoids storing '' in text/date columns
-  const coerce = (value) =>
-    (typeof value === 'string' && value.trim() === '') ? null : value
-
-  // Immediate save (checkboxes, selects): update local state, persist, reset dirty flag
-  const save = async (field, value) => {
-    setFormData(p => ({ ...p, [field]: value }))
+  // Toggle a boolean field. The paired date is kept in formData hidden but
+  // intact — re-checking the box restores it without losing the value.
+  const handleToggleBox = (boolField) => {
+    setFormData(prev => ({ ...prev, [boolField]: !prev[boolField] }))
     setIsDirty(true)
-    clearTimeout(timerRef.current)
-    const err = await onUpdate(student.id, { [field]: coerce(value) })
-    if (err) {
-      // Revert local state so the form matches server truth
-      setFormData(p => ({ ...p, [field]: student[field] ?? (typeof value === 'boolean' ? false : '') }))
-    }
-    setIsDirty(false)
   }
 
-  // Special case: Cedars-Sinai status change cascades multiple fields at once
-  const saveCedarsStatus = async (v) => {
+  // Update a date or text field in local state only — no save yet.
+  const handleChangeField = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+    setIsDirty(true)
+  }
+
+  // Cedars-Sinai status cascades: setting the status also updates the action
+  // and resets stage1 flags in formData (no auto-save — waits for Save button).
+  const handleChangeCedarsStatus = (v) => {
     const extras = v === 'employee'
       ? { cs_stage1_action:'not_applicable', cs_stage1_submitted:true, cs_stage1_complete:true }
       : v === 'new'
         ? { cs_stage1_action:'add_non_employee', cs_stage1_submitted:false, cs_stage1_complete:false }
         : { cs_stage1_action:'', cs_stage1_submitted:false, cs_stage1_complete:false }
-    setFormData(p => ({ ...p, cs_cedars_status:v, ...extras }))
+    setFormData(prev => ({ ...prev, cs_cedars_status:v, ...extras }))
     setIsDirty(true)
-    clearTimeout(timerRef.current)
-    const err = await onUpdate(student.id, { cs_cedars_status:v, ...extras })
-    if (err) {
-      setFormData(p => ({
-        ...p,
-        cs_cedars_status: student.cs_cedars_status ?? '',
-        ...Object.fromEntries(Object.keys(extras).map(k => [k, student[k] ?? ''])),
-      }))
+  }
+
+  // Explicit Save: write the full payload in one atomic update so that boolean
+  // and date fields always travel together. This is the fix for the race where
+  // clearTimeout(timerRef) in per-field checkbox saves was canceling in-flight
+  // date debounce timers — dates never reached Supabase, so they vanished on refresh.
+  const handleSave = async () => {
+    if (!student?.id || !formData || saving) return
+    setSaving(true)
+
+    const payload = {
+      cs_cedars_status:         formData.cs_cedars_status         || null,
+      cs_stage1_action:         formData.cs_stage1_action         || null,
+      cs_stage1_submitted:      formData.cs_stage1_submitted,
+      cs_stage1_submitted_date: formData.cs_stage1_submitted_date || null,
+      cs_stage1_complete:       formData.cs_stage1_complete,
+      cs_stage1_complete_date:  formData.cs_stage1_complete_date  || null,
+      cs_link_requested:        formData.cs_link_requested,
+      cs_link_requested_date:   formData.cs_link_requested_date   || null,
+      cs_link_complete:         formData.cs_link_complete,
+      cs_link_complete_date:    formData.cs_link_complete_date    || null,
+      cs_access_notes:          formData.cs_access_notes          || null,
     }
+
+    const err = await onUpdate(student.id, payload)
+    setSaving(false)
+    if (err) {
+      console.error('CS-Link save failed:', err)
+      return
+    }
+
     setIsDirty(false)
+    // Keep students_in_cohort cache fresh for Keith and other consumers
+    queryClient.invalidateQueries({ queryKey: ['students_in_cohort', student.cohort_id] })
   }
 
-  // Debounced save (text inputs): update local state immediately; persist after 500ms
-  const saveDebounced = (field, value) => {
-    setFormData(p => ({ ...p, [field]: value }))
-    setIsDirty(true)
-    clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(async () => {
-      const err = await onUpdate(student.id, { [field]: coerce(value) })
-      if (err) {
-        setFormData(p => ({ ...p, [field]: student[field] ?? '' }))
-      }
-      setIsDirty(false)
-    }, 500)
-  }
-
-  // Hold off rendering editable inputs until formData is ready
+  // Hold off rendering inputs until formData is ready
   if (!formData) {
     return (
       <tr id={`access-row-${student.id}`} className={`am-row${isHighlighted ? ' am-row-highlight' : ''}`}>
@@ -251,7 +259,7 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
   return (
     <tr id={`access-row-${student.id}`} className={`am-row${isHighlighted ? ' am-row-highlight' : ''}`}>
 
-      {/* Col 1: Student Name — avatar + name */}
+      {/* Col 1: Student Name */}
       <td className="am-td am-td-name">
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
           <StudentAvatar student={student} size={32} />
@@ -265,7 +273,7 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
       {/* Col 3: Cedars-Sinai Status */}
       <td className="am-td">
         <select className="am-select" value={formData.cs_cedars_status || ''}
-          onChange={e => saveCedarsStatus(e.target.value)}>
+          onChange={e => handleChangeCedarsStatus(e.target.value)}>
           <option value="">—</option>
           {CEDARS_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
@@ -282,13 +290,18 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
         {formData.cs_stage1_action && formData.cs_stage1_action !== 'not_applicable' && (
           <div className="am-access-cell">
             <label style={{ fontSize:11, color:'var(--text-secondary)', display:'flex', alignItems:'center', gap:4, cursor:'pointer' }}>
-              <input type="checkbox" className="am-checkbox" checked={formData.cs_stage1_submitted || false}
-                onChange={e => save('cs_stage1_submitted', e.target.checked)} />
+              <input type="checkbox" className="am-checkbox"
+                checked={formData.cs_stage1_submitted || false}
+                onChange={() => handleToggleBox('cs_stage1_submitted')} />
               Submitted
             </label>
+            {/* Date rendered only when checked, but value comes from formData
+                so it's preserved when unchecked and restored on re-check */}
             {formData.cs_stage1_submitted && (
-              <input type="text" className="am-date-input" value={formData.cs_stage1_submitted_date || ''}
-                onChange={e => saveDebounced('cs_stage1_submitted_date', e.target.value)} placeholder="Date" />
+              <input type="text" className="am-date-input"
+                value={formData.cs_stage1_submitted_date || ''}
+                onChange={e => handleChangeField('cs_stage1_submitted_date', e.target.value)}
+                placeholder="Date" />
             )}
           </div>
         )}
@@ -297,11 +310,14 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
       {/* Col 5: Step 3 — Account Active */}
       <td className="am-td">
         <div className="am-access-cell">
-          <input type="checkbox" className="am-checkbox" checked={formData.cs_stage1_complete || false}
-            onChange={e => save('cs_stage1_complete', e.target.checked)} />
+          <input type="checkbox" className="am-checkbox"
+            checked={formData.cs_stage1_complete || false}
+            onChange={() => handleToggleBox('cs_stage1_complete')} />
           {formData.cs_stage1_complete && (
-            <input type="text" className="am-date-input" value={formData.cs_stage1_complete_date || ''}
-              onChange={e => saveDebounced('cs_stage1_complete_date', e.target.value)} placeholder="Date" />
+            <input type="text" className="am-date-input"
+              value={formData.cs_stage1_complete_date || ''}
+              onChange={e => handleChangeField('cs_stage1_complete_date', e.target.value)}
+              placeholder="Date" />
           )}
         </div>
       </td>
@@ -311,24 +327,30 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
         <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
           <div className="am-access-cell">
             <label style={{ fontSize:11, color:'var(--text-secondary)', display:'flex', alignItems:'center', gap:4, cursor:'pointer' }}>
-              <input type="checkbox" className="am-checkbox" checked={formData.cs_link_requested || false}
-                onChange={e => save('cs_link_requested', e.target.checked)} />
+              <input type="checkbox" className="am-checkbox"
+                checked={formData.cs_link_requested || false}
+                onChange={() => handleToggleBox('cs_link_requested')} />
               Requested
             </label>
             {formData.cs_link_requested && (
-              <input type="text" className="am-date-input" value={formData.cs_link_requested_date || ''}
-                onChange={e => saveDebounced('cs_link_requested_date', e.target.value)} placeholder="Date" />
+              <input type="text" className="am-date-input"
+                value={formData.cs_link_requested_date || ''}
+                onChange={e => handleChangeField('cs_link_requested_date', e.target.value)}
+                placeholder="Date" />
             )}
           </div>
           <div className="am-access-cell">
             <label style={{ fontSize:11, color:'var(--text-secondary)', display:'flex', alignItems:'center', gap:4, cursor:'pointer' }}>
-              <input type="checkbox" className="am-checkbox" checked={formData.cs_link_complete || false}
-                onChange={e => save('cs_link_complete', e.target.checked)} />
+              <input type="checkbox" className="am-checkbox"
+                checked={formData.cs_link_complete || false}
+                onChange={() => handleToggleBox('cs_link_complete')} />
               Complete
             </label>
             {formData.cs_link_complete && (
-              <input type="text" className="am-date-input" value={formData.cs_link_complete_date || ''}
-                onChange={e => saveDebounced('cs_link_complete_date', e.target.value)} placeholder="Date" />
+              <input type="text" className="am-date-input"
+                value={formData.cs_link_complete_date || ''}
+                onChange={e => handleChangeField('cs_link_complete_date', e.target.value)}
+                placeholder="Date" />
             )}
           </div>
         </div>
@@ -342,10 +364,27 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
         </span>
       </td>
 
-      {/* Col 8: Notes */}
+      {/* Col 8: Notes + Save button */}
       <td className="am-td">
-        <input className="am-notes-input" type="text" value={formData.cs_access_notes || ''}
-          onChange={e => saveDebounced('cs_access_notes', e.target.value)} placeholder="Notes…" />
+        <input className="am-notes-input" type="text"
+          value={formData.cs_access_notes || ''}
+          onChange={e => handleChangeField('cs_access_notes', e.target.value)}
+          placeholder="Notes…" />
+        {isDirty && (
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            style={{
+              marginTop: 6, width: '100%',
+              padding: '4px 0', fontSize: 11, fontWeight: 700,
+              background: saving ? '#e5e7eb' : '#1D2567',
+              color: saving ? '#9ca3af' : '#ffffff',
+              border: 'none', borderRadius: 6, cursor: saving ? 'default' : 'pointer',
+            }}
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        )}
       </td>
     </tr>
   )
