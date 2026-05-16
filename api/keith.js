@@ -229,6 +229,28 @@ export default async function handler(req, res) {
         `- ${s.last_name}, ${s.first_name} (${s.approved_hours || 0}/${s.hours_required || 0} hrs)`
       ).join('\n') || '(none)';
 
+      // Unit name lookup: prefer match.unit join; fall back to units list by matched_unit_id
+      const unitMap = {};
+      (liveData.units || []).forEach(u => { unitMap[u.id] = u; });
+
+      // Match quality lookup by student_id
+      const matchesByStudentId = {};
+      (liveData.matches || []).forEach(m => {
+        const sid = m.student_id || m.student?.id;
+        if (sid) matchesByStudentId[sid] = m;
+      });
+
+      const placementLines = placed.slice(0, 50).map(s => {
+        const match    = matchesByStudentId[s.id];
+        const unit     = unitMap[s.matched_unit_id] || match?.unit || {};
+        const unitName = unit.unit_name || 'unit pending';
+        const division = unit.division ? ` [${unit.division}]` : '';
+        const preceptor   = s.matched_preceptor || match?.preceptor_assigned || 'preceptor TBD';
+        const shift       = s.shift_assigned || s.shift_availability || '';
+        const quality     = match?.match_quality || '';
+        return `- ${s.last_name}, ${s.first_name} (${s.school || '?'}) → ${unitName}${division} | Preceptor: ${preceptor}${shift ? ` | Shift: ${shift}` : ''}${quality ? ` | Match: ${quality}` : ''}`;
+      }).join('\n') || '(none)';
+
       liveDataStr = `=== LIVE COHORT DATA (React Query cache snapshot) ===
 Today: ${today}
 Active Cohort ID: ${liveData.activeCohortId || 'none'}
@@ -244,7 +266,7 @@ Pending interview / Form Received (${pendingInterview.length}):
 ${safeList(pendingInterview)}
 
 Placed (${placed.length}):
-${safeList(placed)}
+${placementLines}
 
 Active Rotation (${activeRotation.length}):
 ${activeList}
@@ -257,7 +279,7 @@ ${safeList(needsBadge)}
 
 === END LIVE DATA ===
 
-When the user asks about specific students, who is on campus, pending interviews, placements, or any current cohort state, USE the LIVE COHORT DATA section above. Quote names and details directly from it. Do not say you lack live cohort data — it is right here.`;
+CRITICAL: When the user asks about placements, students, who is on campus, pending interviews, or any current cohort state, USE the LIVE COHORT DATA above and answer directly with specifics — names, unit names, preceptor names, shift info. Do NOT tell the user to check the Embed tab, Student Profiles, or any other part of the app when the data is already in this prompt. Only say data is unavailable if it genuinely does not appear anywhere in the LIVE COHORT DATA block.`;
     } catch (e) {
       liveDataStr = `LIVE COHORT DATA: Cache read error (${e.message})`;
     }

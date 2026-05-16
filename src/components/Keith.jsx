@@ -53,9 +53,11 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
       students:      queryClient.getQueryData(['students_in_cohort', cohortId]) || [],
       onCampusToday: queryClient.getQueryData(['on_campus_today', cohortId, todayDate]) || [],
       cohorts:       queryClient.getQueryData(['cohorts_all']) || [],
+      units:         queryClient.getQueryData(['units_cohort', cohortId]) || [],
+      matches:       queryClient.getQueryData(['embed_matches', cohortId]) || [],
     };
 
-    // Prefetch students if not cached — this avoids a separate round-trip for most subsequent messages
+    // Prefetch students if not cached
     if (liveData.students.length === 0 && cohortId) {
       await queryClient.prefetchQuery({
         queryKey: ['students_in_cohort', cohortId],
@@ -65,6 +67,36 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
         },
       });
       liveData.students = queryClient.getQueryData(['students_in_cohort', cohortId]) || [];
+    }
+
+    // Prefetch units if not cached — needed to resolve unit_name from matched_unit_id on placed students
+    if (liveData.units.length === 0 && cohortId) {
+      await queryClient.prefetchQuery({
+        queryKey: ['units_cohort', cohortId],
+        queryFn: async () => {
+          const { data } = await supabase
+            .from('units')
+            .select('id, unit_name, division')
+            .eq('cohort_id', cohortId);
+          return data || [];
+        },
+      });
+      liveData.units = queryClient.getQueryData(['units_cohort', cohortId]) || [];
+    }
+
+    // Prefetch matches with joins if not cached — provides match_quality per placed student
+    if (liveData.matches.length === 0 && cohortId) {
+      await queryClient.prefetchQuery({
+        queryKey: ['embed_matches', cohortId],
+        queryFn: async () => {
+          const { data } = await supabase
+            .from('matches')
+            .select('*, student:students(id, cohort_id), unit:units(id, unit_name, division)')
+            .eq('cohort_id', cohortId);
+          return data || [];
+        },
+      });
+      liveData.matches = queryClient.getQueryData(['embed_matches', cohortId]) || [];
     }
 
     try {
