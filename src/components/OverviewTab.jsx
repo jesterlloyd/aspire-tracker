@@ -233,72 +233,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         })()}
         </div>
 
-        {/* ── On Campus Today compact strip — second, contextual ── */}
-        <div style={{ background:'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)', borderRadius:14, overflow:'hidden', boxShadow:'0 2px 12px rgba(29,37,103,0.07)', marginBottom:'4px' }}>
-          {/* Header row */}
-          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'0 24px', height:48, cursor:'pointer' }}
-            onClick={() => setCampusOpen(p => !p)}>
-            {campusLogs.length > 0
-              ? <span style={{ width:8, height:8, borderRadius:'50%', background:'#4ade80', flexShrink:0, animation:'pulse 2s infinite', display:'inline-block' }} />
-              : <span style={{ width:8, height:8, borderRadius:'50%', background:'#6b7280', flexShrink:0, display:'inline-block' }} />
-            }
-            <span style={{ fontSize:13, fontWeight:600, color: campusLogs.length>0 ? '#fff' : 'rgba(255,255,255,0.7)' }}>
-              On Campus Today
-            </span>
-            {campusLoading
-              ? <span style={{ fontSize:13, color:'rgba(255,255,255,0.5)', marginLeft:4 }}>Loading…</span>
-              : campusLogs.length > 0
-                ? <span style={{ fontSize:11, fontWeight:700, padding:'0 8px', borderRadius:8, background:'rgba(255,255,255,0.15)', color:'#fff', height:20, display:'flex', alignItems:'center', flexShrink:0 }}>{campusLogs.length}</span>
-                : <span style={{ fontSize:13, color:'rgba(255,255,255,0.5)', marginLeft:4 }}>No shifts logged today</span>
-            }
-            <div style={{ flex:1 }} />
-            <button onClick={e => { e.stopPropagation(); loadCampusLogs() }}
-              style={{ background:'none', border:'none', cursor:'pointer', fontSize:14, color:'rgba(255,255,255,0.6)', lineHeight:1, padding:'0 4px' }}
-              title="Refresh">↻</button>
-            <span style={{ fontSize:11, color:'rgba(255,255,255,0.4)' }}>{campusOpen?'▲':'▼'}</span>
-          </div>
-          {/* Expanded student cards */}
-          {campusOpen && campusLogs.length === 0 && (
-            <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', background:'rgba(255,255,255,0.04)' }}>
-              <EmptyState compact icon={<Clock />}
-                heading="No students on campus today"
-                subtext="Students appear here after scanning the badge QR code and submitting a shift log." />
-            </div>
-          )}
-          {campusOpen && campusLogs.length > 0 && (
-            <div style={{ padding:'0 16px 12px', display:'flex', gap:12, overflowX:'auto' }}>
-              {campusLogs.map(log => {
-                const stu = students.find(s => s.id === log.student_id)
-                if (!stu) return null
-                const isNight = log.shift_type === 'Night'
-                return (
-                  <div key={log.id} style={{ width:160, flexShrink:0, background:'rgba(255,255,255,0.08)',
-                    borderRadius:8, padding:12, border:'1px solid rgba(255,255,255,0.12)' }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
-                      <StudentAvatar student={stu} size={28} />
-                      <div style={{ minWidth:0 }}>
-                        <div style={{ fontSize:12, fontWeight:600, color:'#fff', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                          {stu.last_name}{stu.last_name&&stu.first_name?', ':''}{stu.first_name}
-                        </div>
-                        <div style={{ fontSize:11, color:'rgba(255,255,255,0.7)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                          {log.unit_name||'—'}
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                      <span style={{ fontSize:10, fontWeight:600, padding:'1px 7px', borderRadius:10,
-                        background:isNight?'rgba(255,255,255,0.1)':'#dceff8', color:isNight?'#fff':'#1d4ed8' }}>
-                        {log.shift_type||'Day'}
-                      </span>
-                      <span style={{ fontSize:11, fontWeight:500, color:'#4ade80' }}>{log.total_hours} hrs</span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
         {/* Five hero stat cards */}
         <div className="stat-cards-row" style={{ padding:'12px 0', marginTop:'12px', marginBottom:'10px' }}>
           <StatCard
@@ -570,6 +504,72 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
             </div>
           </div>
 
+        </div>
+
+        {/* ── On Campus Today compact strip — moved below panels, above Program Timeline ── */}
+        <div style={{ background:'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)', borderRadius:14, overflow:'hidden', boxShadow:'0 2px 12px rgba(29,37,103,0.07)', margin:'16px 0' }}>
+          {/* Header row */}
+          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'0 24px', height:48, cursor:'pointer' }}
+            onClick={() => setCampusOpen(p => !p)}>
+            {campusLogs.length > 0
+              ? <span style={{ width:8, height:8, borderRadius:'50%', background:'#4ade80', flexShrink:0, animation:'pulse 2s infinite', display:'inline-block' }} />
+              : <span style={{ width:8, height:8, borderRadius:'50%', background:'#6b7280', flexShrink:0, display:'inline-block' }} />
+            }
+            <span style={{ fontSize:13, fontWeight:600, color: campusLogs.length>0 ? '#fff' : 'rgba(255,255,255,0.7)' }}>
+              On Campus Today
+            </span>
+            {campusLoading
+              ? <span style={{ fontSize:13, color:'rgba(255,255,255,0.5)', marginLeft:4 }}>Loading…</span>
+              : campusLogs.length > 0
+                ? <span style={{ fontSize:11, fontWeight:700, padding:'0 8px', borderRadius:8, background:'rgba(255,255,255,0.15)', color:'#fff', height:20, display:'flex', alignItems:'center', flexShrink:0 }}>{campusLogs.length}</span>
+                : <span style={{ fontSize:13, color:'rgba(255,255,255,0.5)', marginLeft:4 }}>No shifts logged today</span>
+            }
+            <div style={{ flex:1 }} />
+            <button onClick={e => { e.stopPropagation(); loadCampusLogs() }}
+              style={{ background:'none', border:'none', cursor:'pointer', fontSize:14, color:'rgba(255,255,255,0.6)', lineHeight:1, padding:'0 4px' }}
+              title="Refresh">↻</button>
+            <span style={{ fontSize:11, color:'rgba(255,255,255,0.4)' }}>{campusOpen?'▲':'▼'}</span>
+          </div>
+          {/* Expanded student cards */}
+          {campusOpen && campusLogs.length === 0 && (
+            <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', background:'rgba(255,255,255,0.04)' }}>
+              <EmptyState compact icon={<Clock />}
+                heading="No students on campus today"
+                subtext="Students appear here after scanning the badge QR code and submitting a shift log." />
+            </div>
+          )}
+          {campusOpen && campusLogs.length > 0 && (
+            <div style={{ padding:'0 16px 12px', display:'flex', gap:12, overflowX:'auto' }}>
+              {campusLogs.map(log => {
+                const stu = students.find(s => s.id === log.student_id)
+                if (!stu) return null
+                const isNight = log.shift_type === 'Night'
+                return (
+                  <div key={log.id} style={{ width:160, flexShrink:0, background:'rgba(255,255,255,0.08)',
+                    borderRadius:8, padding:12, border:'1px solid rgba(255,255,255,0.12)' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
+                      <StudentAvatar student={stu} size={28} />
+                      <div style={{ minWidth:0 }}>
+                        <div style={{ fontSize:12, fontWeight:600, color:'#fff', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                          {stu.last_name}{stu.last_name&&stu.first_name?', ':''}{stu.first_name}
+                        </div>
+                        <div style={{ fontSize:11, color:'rgba(255,255,255,0.7)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                          {log.unit_name||'—'}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                      <span style={{ fontSize:10, fontWeight:600, padding:'1px 7px', borderRadius:10,
+                        background:isNight?'rgba(255,255,255,0.1)':'#dceff8', color:isNight?'#fff':'#1d4ed8' }}>
+                        {log.shift_type||'Day'}
+                      </span>
+                      <span style={{ fontSize:11, fontWeight:500, color:'#4ade80' }}>{log.total_hours} hrs</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* ── Program Timeline strip — below both panels ── */}
