@@ -584,55 +584,62 @@ function MainApp({ onLogout }) {
           </div>
         )}
 
-        {!loading && !dbError && cohorts.length > 0 && activeTab === 'overview' && (
-          <OverviewTab students={students} units={units} onStudentUpdate={updateStudent} cohortId={activeCohortId} cohort={activeCohort} toast={toast} />
-        )}
+        {/* All four tabs mount simultaneously once initial data is ready.
+            Tab switching only changes CSS display — no unmount/remount,
+            so queries, local state, and scroll position persist instantly. */}
+        {!loading && !dbError && cohorts.length > 0 && (
+          <>
+            <div style={{ display: activeTab === 'overview' ? 'block' : 'none' }}>
+              <OverviewTab students={students} units={units} onStudentUpdate={updateStudent} cohortId={activeCohortId} cohort={activeCohort} toast={toast} />
+            </div>
 
-        {!loading && !dbError && cohorts.length > 0 && activeTab === 'profiles' && (
-          <StudentProfilesTab
-            students={students}
-            units={units} cohortId={activeCohortId}
-            onUpdate={updateStudent} onDelete={deleteStudent}
-            onRefresh={() => fetchStudents(activeCohortId)}
-            onSwitchToAccess={switchToAccess}
-            view={profilesView} onViewChange={setProfilesView}
-            accessFocusId={accessFocusId}
-            onExportCSV={exportCSV}
-            onAddStudent={() => setShowAddModal(true)}
-            focusStudentId={focusStudentId}
-            onClearFocusStudent={() => setFocusStudentId(null)}
-            toast={toast}
-          />
-        )}
+            <div style={{ display: activeTab === 'profiles' ? 'block' : 'none' }}>
+              <StudentProfilesTab
+                students={students}
+                units={units} cohortId={activeCohortId}
+                onUpdate={updateStudent} onDelete={deleteStudent}
+                onRefresh={() => fetchStudents(activeCohortId)}
+                onSwitchToAccess={switchToAccess}
+                view={profilesView} onViewChange={setProfilesView}
+                accessFocusId={accessFocusId}
+                onExportCSV={exportCSV}
+                onAddStudent={() => setShowAddModal(true)}
+                focusStudentId={focusStudentId}
+                onClearFocusStudent={() => setFocusStudentId(null)}
+                toast={toast}
+              />
+            </div>
 
-        {!loading && !dbError && cohorts.length > 0 && activeTab === 'interviews' && (
-          <InterviewRubricTab
-            students={students}
-            rubrics={interviews}
-            cohortId={activeCohortId}
-            cohort={activeCohort}
-            sessions={ivSessions}
-            slots={ivSlots}
-            onStudentUpdate={updateStudent}
-            onRubricsChange={() => fetchInterviews(activeCohortId)}
-            onRefreshStudents={() => fetchStudents(activeCohortId)}
-            onManageInterviewers={() => setShowInterviewersModal(true)}
-            onUpdateSession={updateIvSession}
-            onRefreshSlots={() => fetchIvSlots(activeCohortId)}
-            toast={toast}
-          />
-        )}
+            <div style={{ display: activeTab === 'interviews' ? 'block' : 'none' }}>
+              <InterviewRubricTab
+                students={students}
+                rubrics={interviews}
+                cohortId={activeCohortId}
+                cohort={activeCohort}
+                sessions={ivSessions}
+                slots={ivSlots}
+                onStudentUpdate={updateStudent}
+                onRubricsChange={() => fetchInterviews(activeCohortId)}
+                onRefreshStudents={() => fetchStudents(activeCohortId)}
+                onManageInterviewers={() => setShowInterviewersModal(true)}
+                onUpdateSession={updateIvSession}
+                onRefreshSlots={() => fetchIvSlots(activeCohortId)}
+                toast={toast}
+              />
+            </div>
 
-        {!loading && !dbError && cohorts.length > 0 && activeTab === 'matching' && (
-          <MatchingTab
-            students={students} units={units} matches={matches}
-            cohortId={activeCohortId}
-            onMatch={createMatch} onUnmatch={unmatch} onUpdateMatch={updateMatch}
-            onRefreshUnits={() => fetchUnits(activeCohortId)}
-            onDeleteUnit={deleteUnit}
-            highlightUnitId={highlightUnitId}
-            toast={toast}
-          />
+            <div style={{ display: activeTab === 'matching' ? 'block' : 'none' }}>
+              <MatchingTab
+                students={students} units={units} matches={matches}
+                cohortId={activeCohortId}
+                onMatch={createMatch} onUnmatch={unmatch} onUpdateMatch={updateMatch}
+                onRefreshUnits={() => fetchUnits(activeCohortId)}
+                onDeleteUnit={deleteUnit}
+                highlightUnitId={highlightUnitId}
+                toast={toast}
+              />
+            </div>
+          </>
         )}
       </main>
 

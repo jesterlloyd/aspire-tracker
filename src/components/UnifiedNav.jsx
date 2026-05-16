@@ -63,45 +63,37 @@ const TABS = [
   { id:'matching',   label:'Embed',            badge:'#ea6c1a', Icon:IconNetwork },
 ]
 
-function GlobalRefreshButton() {
-  const queryClient  = useQueryClient()
-  const [refreshing, setRefreshing] = useState(false)
+function LastSyncedIndicator() {
+  const queryClient = useQueryClient()
+  const [label, setLabel] = useState('Synced just now')
 
-  const handleRefresh = () => {
-    setRefreshing(true)
-    // Fire and forget: don't await refetches so a slow/broken query can't hang the button
-    queryClient.invalidateQueries()
-    // Hard timeout: always release the button after 1.5s regardless of query state
-    setTimeout(() => setRefreshing(false), 1500)
-  }
+  useEffect(() => {
+    function compute() {
+      const queries = queryClient.getQueryCache().getAll()
+      const successful = queries.filter(q => q.state.status === 'success' && q.state.dataUpdatedAt)
+      if (successful.length === 0) { setLabel('Not yet synced'); return }
+      const newest = Math.max(...successful.map(q => q.state.dataUpdatedAt))
+      const secs = Math.floor((Date.now() - newest) / 1000)
+      if (secs < 10)   setLabel('Synced just now')
+      else if (secs < 60)   setLabel(`Synced ${secs}s ago`)
+      else if (secs < 3600) setLabel(`Synced ${Math.floor(secs / 60)}m ago`)
+      else                  setLabel(`Synced ${Math.floor(secs / 3600)}h ago`)
+    }
+    compute()
+    const id = setInterval(compute, 5000)
+    return () => clearInterval(id)
+  }, [queryClient])
 
   return (
-    <button
-      onClick={handleRefresh}
-      disabled={refreshing}
-      title="Refresh all data"
-      style={{
-        flexShrink: 0,
-        display: 'flex', alignItems: 'center', gap: 6,
-        background: 'transparent',
-        border: '1px solid rgba(255,255,255,0.15)',
-        color: '#fff',
-        padding: '6px 12px',
-        borderRadius: 999,
-        fontSize: 13, fontWeight: 500,
-        cursor: refreshing ? 'wait' : 'pointer',
-        fontFamily: 'DM Sans, sans-serif',
-        transition: 'opacity 0.15s, background 0.15s',
-        opacity: refreshing ? 0.6 : 1,
-      }}
-      onMouseEnter={e => { if (!refreshing) e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-    >
-      <span style={{ display: 'inline-block', animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }}>
-        ↻
-      </span>
-      {refreshing ? 'Refreshing…' : 'Refresh'}
-    </button>
+    <span style={{
+      flexShrink: 0,
+      fontSize: 12, color: 'rgba(255,255,255,0.6)',
+      fontFamily: 'DM Sans, sans-serif',
+      display: 'flex', alignItems: 'center', gap: 5,
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981', flexShrink: 0 }} />
+      {label}
+    </span>
   )
 }
 
@@ -368,13 +360,8 @@ export default function UnifiedNav({
         )}
       </div>
 
-      {/* ── Global refresh ── */}
-      <GlobalRefreshButton />
-
-      {/* ── Sync timestamp ── */}
-      <div style={{ flexShrink:0 }}>
-        <SyncIndicator display={navSyncDisplay} align="right" dark={true} />
-      </div>
+      {/* ── Last synced indicator (replaces Refresh button) ── */}
+      <LastSyncedIndicator />
 
       {/* ── Search bar ── */}
       <div ref={searchRef} style={{ position:'relative', flexShrink:0 }}>
