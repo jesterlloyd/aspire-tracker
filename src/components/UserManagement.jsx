@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
+import { usePresence } from '../contexts/PresenceContext';
 import { supabase } from '../lib/supabase';
 import { X, UserPlus, Mail, MoreVertical, RefreshCw } from 'lucide-react';
 
@@ -130,6 +131,7 @@ function UserInitials({ user, size = 40 }) {
 
 export default function UserManagement({ isOpen, onClose }) {
   const { isOwner, isAdmin, canEdit, userProfile } = useAuth()
+  const { onlineUserIds } = usePresence()
   const queryClient = useQueryClient()
 
   // ── Data via TanStack Query ──────────────────────────────────────────────────
@@ -264,6 +266,7 @@ export default function UserManagement({ isOpen, onClose }) {
   const activeCount      = users.filter(u => u.is_active !== false).length
   const interviewerCount = users.filter(u => u.can_conduct_interviews).length
   const ownerCount       = users.filter(u => u.is_owner).length
+  const onlineCount      = users.filter(u => onlineUserIds.has(u.auth_user_id)).length
 
   // ── Sort + filter (chip operates on sorted list, never mutates source) ────────
   const sortedUsers = useMemo(() => sortUsers(users), [users])
@@ -440,6 +443,15 @@ export default function UserManagement({ isOpen, onClose }) {
               <span>{interviewerCount} interviewer{interviewerCount !== 1 ? 's' : ''}</span>
               <span style={{ margin: '0 4px' }}>·</span>
               <span>{ownerCount} owner{ownerCount !== 1 ? 's' : ''}</span>
+              {onlineCount > 0 && (
+                <>
+                  <span style={{ margin: '0 4px' }}>·</span>
+                  <span style={{ color: '#065F46', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: '#10B981' }} />
+                    {onlineCount} online
+                  </span>
+                </>
+              )}
             </>
           )}
         </div>
@@ -550,7 +562,17 @@ export default function UserManagement({ isOpen, onClose }) {
 
                               {/* Card body */}
                               <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                                <UserInitials user={u} size={40} />
+                                <div style={{ position: 'relative', flexShrink: 0 }}>
+                                  <UserInitials user={u} size={40} />
+                                  {onlineUserIds.has(u.auth_user_id) && (
+                                    <span title="Online now" style={{
+                                      position: 'absolute', bottom: -2, right: -2,
+                                      width: 12, height: 12, borderRadius: '50%',
+                                      background: '#10B981', border: '2px solid #ffffff',
+                                      boxShadow: '0 0 0 1px rgba(0,0,0,0.05)',
+                                    }} />
+                                  )}
+                                </div>
 
                                 {/* Identity */}
                                 <div style={{ flex: 1, minWidth: 0 }}>
