@@ -47,9 +47,10 @@ export default function ShiftLogPage() {
   const [submitting,        setSubmitting]        = useState(false)
 
   // Confirmation state
-  const [submittedStatus, setSubmittedStatus]   = useState(null)
-  const [newApproved,     setNewApproved]       = useState(0)
-  const [celebration,     setCelebration]       = useState(false)
+  const [submittedStatus,   setSubmittedStatus]   = useState(null)
+  const [submittedReason,   setSubmittedReason]   = useState(null)
+  const [newApproved,       setNewApproved]       = useState(0)
+  const [celebration,       setCelebration]       = useState(false)
 
   useEffect(() => { document.title = 'ASPIRE Shift Log' }, [])
 
@@ -146,6 +147,21 @@ export default function ShiftLogPage() {
       new Promise((_, reject) => setTimeout(() => reject(new Error('Submission timed out. Please try again.')), 30000)),
     ])
     try {
+      // Duplicate detection: same student, same date, same hours, submitted within last 60 s
+      const sixtySecondsAgo = new Date(Date.now() - 60_000).toISOString()
+      const { data: recentDup } = await supabase
+        .from('student_shift_logs')
+        .select('id')
+        .eq('student_id', student.id)
+        .eq('shift_date', shiftDate)
+        .eq('total_hours', hours)
+        .gte('submitted_at', sixtySecondsAgo)
+        .limit(1)
+      if (recentDup && recentDup.length > 0) {
+        setFormErrors(['This shift was just submitted. Please scroll up to see your record, or wait a moment and refresh.'])
+        return
+      }
+
       const flags = await withTimeout(buildExceptionFlags())
       const status = flags.length > 0
         ? SHIFT_LOG_STATUSES.PENDING_REVIEW
@@ -220,6 +236,7 @@ export default function ShiftLogPage() {
 
       setNewApproved(newApprovedVal)
       setSubmittedStatus(status)
+      setSubmittedReason(reviewReason)
       setCelebration(status === SHIFT_LOG_STATUSES.AUTO_ACCEPTED && newApprovedVal >= hoursReq && currentApproved < hoursReq)
       setScreen('confirm')
     } catch (err) {
@@ -235,7 +252,7 @@ export default function ShiftLogPage() {
     setIsDiffUnit(false); setDiffUnitName(''); setDiffUnitReason('')
     setPreceptorChanged(false)
     setLearningHighlight(''); setSupportNeeded(''); setAttestation(false)
-    setFormErrors([]); setSubmittedStatus(null); setCelebration(false)
+    setFormErrors([]); setSubmittedStatus(null); setSubmittedReason(null); setCelebration(false)
     setScreen('form')
   }
 
@@ -431,7 +448,7 @@ export default function ShiftLogPage() {
         {/* ── Confirmation screen ── */}
         {screen === 'confirm' && student && (
           <div style={{ background:'#fff', borderRadius:16, padding:'28px 24px', textAlign:'center', boxShadow:'0 2px 12px rgba(0,0,0,0.08)' }}>
-            {submittedStatus === 'approved' ? (
+            {submittedStatus === SHIFT_LOG_STATUSES.AUTO_ACCEPTED ? (
               <>
                 <div style={{ fontSize:48, marginBottom:8 }}>✅</div>
                 <h2 style={{ fontSize:24, fontWeight:700, color:'#166534', margin:'0 0 16px' }}>Shift Logged!</h2>
@@ -440,9 +457,14 @@ export default function ShiftLogPage() {
               <>
                 <div style={{ fontSize:48, marginBottom:8 }}>🟡</div>
                 <h2 style={{ fontSize:22, fontWeight:700, color:'#92400e', margin:'0 0 8px' }}>Shift Submitted for Review</h2>
-                <p style={{ fontSize:14, color:'#92400e', marginBottom:16, lineHeight:1.5 }}>
+                <p style={{ fontSize:14, color:'#92400e', marginBottom:8, lineHeight:1.5 }}>
                   Your shift has been submitted and is pending review by the ASPIRE team. It will be added to your total once approved.
                 </p>
+                {submittedReason && (
+                  <p style={{ fontSize:13, color:'#78350F', background:'#FEF3C7', borderRadius:8, padding:'8px 12px', marginBottom:12, textAlign:'left', lineHeight:1.5 }}>
+                    <strong>Reason: </strong>{submittedReason}
+                  </p>
+                )}
               </>
             )}
 
