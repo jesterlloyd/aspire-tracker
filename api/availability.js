@@ -30,12 +30,16 @@ export default async function handler(req, res) {
       if (!cohort_id || !block_date || !start_time || !end_time || !duration_minutes) {
         return res.status(400).json({ error: 'Missing required fields' })
       }
+      // interviewer_name must be a real person — never fall back to a generic label
+      if (!interviewer_name?.trim()) {
+        return res.status(400).json({ error: 'interviewer_name is required. Blocks must be attributed to a specific interviewer.' })
+      }
 
       const { data: block, error: blockError } = await db
         .from('interview_availability_blocks')
         .insert({
           cohort_id,
-          interviewer_name: interviewer_name || 'ASPIRE Team',
+          interviewer_name: interviewer_name.trim(),
           block_date,
           start_time,
           end_time,
@@ -65,7 +69,7 @@ export default async function handler(req, res) {
           slot_date:        block_date,
           slot_time:        `${h}:${m}`,
           duration_minutes: dur,
-          interviewer_name: interviewer_name || 'ASPIRE Team',
+          interviewer_name: interviewer_name.trim(),
           is_booked:        false,
         })
       }

@@ -141,7 +141,7 @@ export default function AvailabilitySection({ cohortId }) {
               <div className="form-field">
                 <label className="form-label" style={{ fontSize:11 }}>Interviewer</label>
                 <select className="form-select" value={form.interviewer_name} onChange={e => set('interviewer_name', e.target.value)}>
-                  <option value="">ASPIRE Team</option>
+                  <option value="">Select interviewer…</option>
                   {interviewers.map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
               </div>
