@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { X, Trash2, CheckCircle, Clock } from 'lucide-react'
 import CalendarSidebar from './CalendarSidebar'
+import InterviewDayDrawer from './InterviewDayDrawer'
 import { toLocalDateStr } from '../lib/designTokens'
 
 const hexToRgba = (hex, alpha) => {
@@ -462,6 +463,130 @@ function DayPopover({ date, blocks, slots, colorMap, position, canDelete, onDele
   )
 }
 
+// ─── Custom Month Grid ────────────────────────────────────────────────────────
+function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, onDayClick }) {
+  const year = displayDate.getFullYear()
+  const month = displayDate.getMonth()
+  const lastDayNum = new Date(year, month + 1, 0).getDate()
+  const startDow = new Date(year, month, 1).getDay()
+  const todayStr = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD in local time
+  const toStr = (y, m, d) => `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+
+  // Build 42-cell grid (6 rows × 7 cols)
+  const cells = []
+  const prevMonthDays = new Date(year, month, 0).getDate()
+  for (let i = startDow - 1; i >= 0; i--) {
+    const d = prevMonthDays - i
+    const [py, pm] = month === 0 ? [year-1, 11] : [year, month-1]
+    cells.push({ dateStr: toStr(py, pm, d), day: d, isOtherMonth: true })
+  }
+  for (let d = 1; d <= lastDayNum; d++) {
+    cells.push({ dateStr: toStr(year, month, d), day: d, isOtherMonth: false })
+  }
+  let nextD = 1
+  const [ny, nm] = month === 11 ? [year+1, 0] : [year, month+1]
+  while (cells.length < 42) {
+    cells.push({ dateStr: toStr(ny, nm, nextD), day: nextD, isOtherMonth: true })
+    nextD++
+  }
+
+  const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+
+  return (
+    <div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(7, 1fr)', borderBottom:'1px solid #f3f4f6' }}>
+        {DAYS.map(d => (
+          <div key={d} style={{ padding:'8px 0', textAlign:'center', fontFamily:'DM Sans', fontWeight:700, fontSize:10, textTransform:'uppercase', letterSpacing:'0.06em', color:'#6b7280' }}>
+            {d}
+          </div>
+        ))}
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(7, 1fr)' }}>
+        {cells.map((cell, idx) => {
+          const { dateStr, day, isOtherMonth } = cell
+          if (isOtherMonth) {
+            return <div key={idx} style={{ height:88, borderRight:'1px solid #f3f4f6', borderBottom:'1px solid #f3f4f6', background:'#fafafa' }} />
+          }
+
+          const dayBlocks = (blocks||[]).filter(b => b.block_date === dateStr)
+          const daySlots  = (slots ||[]).filter(s => s.slot_date === dateStr)
+          const booked    = daySlots.filter(s => s.is_booked)
+          const open      = daySlots.filter(s => !s.is_booked)
+          const hasActivity = daySlots.length > 0
+          const isFullyBooked = booked.length > 0 && open.length === 0
+          const isToday = dateStr === todayStr
+          const isSel   = dateStr === selectedDate
+          const ivNames = [...new Set(dayBlocks.map(b => b.interviewer_name).filter(Boolean))]
+
+          return (
+            <div
+              key={dateStr}
+              onClick={() => onDayClick(dateStr, hasActivity)}
+              style={{
+                height:88,
+                padding:'5px 7px',
+                borderRight:'1px solid #f3f4f6',
+                borderBottom:'1px solid #f3f4f6',
+                cursor: hasActivity ? 'pointer' : 'default',
+                background: isSel ? '#F5F7FB' : isToday ? '#f8f9ff' : hasActivity ? 'rgba(244,241,236,0.35)' : 'transparent',
+                outline: isSel ? '1px solid #C7D2FE' : 'none',
+                display:'flex', flexDirection:'column', gap:2, overflow:'hidden', position:'relative',
+              }}
+              onMouseEnter={e => { if (hasActivity) e.currentTarget.style.background = '#f0f4ff' }}
+              onMouseLeave={e => { e.currentTarget.style.background = isSel ? '#F5F7FB' : isToday ? '#f8f9ff' : hasActivity ? 'rgba(244,241,236,0.35)' : 'transparent' }}
+            >
+              <div style={{
+                width:22, height:22, display:'flex', alignItems:'center', justifyContent:'center',
+                borderRadius:'50%',
+                background: isToday ? '#1D2567' : 'transparent',
+                border: !isToday && isSel ? '1.5px solid #1D2567' : 'none',
+                fontFamily:'DM Sans', fontWeight:600, fontSize:12,
+                color: isToday ? '#fff' : '#374151', flexShrink:0,
+              }}>{day}</div>
+
+              {hasActivity && (
+                <>
+                  {isFullyBooked ? (
+                    <>
+                      <div style={{ fontFamily:'DM Sans', fontSize:10, fontWeight:700, color:'#930045', lineHeight:1.2 }}>Fully Booked</div>
+                      <div style={{ fontFamily:'DM Sans', fontSize:10, color:'#6B7280', lineHeight:1.2 }}>{booked.length} Interview{booked.length!==1?'s':''}</div>
+                    </>
+                  ) : (
+                    <>
+                      {booked.length > 0 && (
+                        <div style={{ fontFamily:'DM Sans', fontSize:10, fontWeight:600, color:'#1D2567', lineHeight:1.2 }}>
+                          {booked.length} Interview{booked.length!==1?'s':''} Scheduled
+                        </div>
+                      )}
+                      {open.length > 0 && (
+                        <div style={{ fontFamily:'DM Sans', fontSize:10, fontWeight:500, color:'#374151', lineHeight:1.2 }}>
+                          {open.length} Slot{open.length!==1?'s':''} Available
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {ivNames.length > 0 && (
+                    <div style={{ display:'flex', alignItems:'center', gap:3, marginTop:'auto' }}>
+                      {ivNames.slice(0,4).map(name => (
+                        <span key={name} title={name} style={{ width:6, height:6, borderRadius:'50%', flexShrink:0, background: colorMap?.[name] || '#9CA3AF', display:'inline-block' }} />
+                      ))}
+                      {ivNames.length > 4 && <span style={{ fontSize:9, color:'#6B7280' }}>+{ivNames.length-4}</span>}
+                    </div>
+                  )}
+                  {!hasActivity && (
+                    <div style={{ position:'absolute', bottom:6, left:'50%', transform:'translateX(-50%)', fontSize:9, fontWeight:600, color:'#c7d2fe', whiteSpace:'nowrap', opacity:0, transition:'opacity 0.15s' }}
+                      className="day-add-hint">+ Add availability</div>
+                  )}
+                </>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Calendar ────────────────────────────────────────────────────────────
 export default function InterviewCalendar({ cohortId, activeCohort, onDataChanged, onInterviewersLoaded }) {
   const { userProfile, isAdmin } = useAuth()
@@ -469,11 +594,12 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
 
   const [createPopover, setCreatePopover] = useState(null)
   const [blockPopover,  setBlockPopover]  = useState(null)
-  const [dayPopover,    setDayPopover]    = useState(null)
   const [selectedDate,   setSelectedDate]   = useState(() => toLocalDateStr())
   const [activeFilter,   setActiveFilter]   = useState(null)
   const [calendarTitle,  setCalendarTitle]  = useState('')
   const [currentView,    setCurrentView]    = useState('dayGridMonth')
+  const [displayDate,    setDisplayDate]    = useState(() => new Date())
+  const [dayDrawerDate,  setDayDrawerDate]  = useState(null)
 
   const myName = userProfile?.full_name
 
@@ -569,40 +695,49 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
     return [...(availabilityEvent ? [availabilityEvent] : []), ...bookedEvents]
   })
 
+  // ─── Toolbar Navigation ───────────────────────────────────────────────────
+  const navPrev = () => {
+    if (currentView === 'dayGridMonth') {
+      setDisplayDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
+    } else {
+      calendarRef.current?.getApi().prev()
+    }
+  }
+  const navNext = () => {
+    if (currentView === 'dayGridMonth') {
+      setDisplayDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
+    } else {
+      calendarRef.current?.getApi().next()
+    }
+  }
+  const navToday = () => {
+    setDisplayDate(new Date())
+    if (currentView === 'timeGridWeek') calendarRef.current?.getApi().today()
+  }
+
   const handleDateClick = (info) => {
     const clickedDate = info.dateStr.split('T')[0]
     const currentView = calendarRef.current?.getApi()?.view?.type
-    const isWeekView  = currentView === 'timeGridWeek'
+    const isWeekView = currentView === 'timeGridWeek'
 
     setBlockPopover(null)
-    setDayPopover(null)
 
     if (isWeekView) {
-      const clickedTime = info.dateStr.includes('T')
-        ? info.dateStr.split('T')[1].slice(0, 5)
-        : '09:00'
+      // existing week view logic (open CreatePopover with time)
+      const clickedTime = info.dateStr.includes('T') ? info.dateStr.split('T')[1].slice(0, 5) : '09:00'
       const [h, m] = clickedTime.split(':').map(Number)
-      const endH   = Math.min(h + 2, 19)
+      const endH = Math.min(h + 2, 19)
       const endTime = `${endH.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
-      setCreatePopover({
-        date:      clickedDate,
-        startTime: clickedTime,
-        endTime,
-        position:  { x: info.jsEvent.clientX, y: info.jsEvent.clientY },
-      })
+      setCreatePopover({ date: clickedDate, startTime: clickedTime, endTime, position: { x: info.jsEvent.clientX, y: info.jsEvent.clientY } })
     } else {
-      const dayBlocks = blocks.filter(b => b.block_date === clickedDate)
-      if (dayBlocks.length > 0) {
-        setDayPopover({
-          date:     clickedDate,
-          blocks:   dayBlocks,
-          position: { x: info.jsEvent.clientX, y: info.jsEvent.clientY },
-        })
+      // Month view: open drawer if day has blocks/slots; else open CreatePopover
+      const dayBlocks = (blocks || []).filter(b => b.block_date === clickedDate)
+      const daySlots = (slots || []).filter(s => s.slot_date === clickedDate)
+      setSelectedDate(clickedDate)
+      if (dayBlocks.length > 0 || daySlots.length > 0) {
+        setDayDrawerDate(clickedDate)
       } else {
-        setCreatePopover({
-          date:     clickedDate,
-          position: { x: info.jsEvent.clientX, y: info.jsEvent.clientY },
-        })
+        setCreatePopover({ date: clickedDate, position: { x: info.jsEvent.clientX, y: info.jsEvent.clientY } })
       }
     }
   }
@@ -610,7 +745,6 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const handleEventClick = (info) => {
     info.jsEvent.stopPropagation()
     setCreatePopover(null)
-    setDayPopover(null)
 
     const { type, block, blockSlots, color } = info.event.extendedProps
 
@@ -634,7 +768,6 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
 
   const handleSaveBlock = () => {
     setCreatePopover(null)
-    setDayPopover(null)
     setTimeout(() => fetchData(), 300)   // fetchData is now refetch() from useQuery
     onDataChanged?.()
   }
@@ -693,11 +826,15 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
     block.created_by_user_id === userProfile?.id ||
     block.interviewer_name   === userProfile?.full_name
 
-  const closeAll = () => { setCreatePopover(null); setBlockPopover(null); setDayPopover(null) }
+  const closeAll = () => { setCreatePopover(null); setBlockPopover(null); setDayDrawerDate(null) }
 
   const handleMiniCalendarSelect = (dateStr) => {
     setSelectedDate(dateStr)
-    if (calendarRef.current) calendarRef.current.getApi().gotoDate(dateStr)
+    const d = new Date(dateStr + 'T12:00:00')
+    setDisplayDate(new Date(d.getFullYear(), d.getMonth(), 1))
+    if (currentView === 'timeGridWeek' && calendarRef.current) {
+      calendarRef.current.getApi().gotoDate(dateStr)
+    }
   }
 
   const handleDatesSet = (info) => {
@@ -766,9 +903,13 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
     )
   }
 
+  // Derive display title
+  const monthTitle = displayDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  const displayTitle = currentView === 'dayGridMonth' ? monthTitle : calendarTitle
+
   return (
     <div style={{ position: 'relative' }}>
-      {(createPopover || blockPopover || dayPopover) && (
+      {(createPopover || blockPopover) && (
         <div onClick={closeAll} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
       )}
 
@@ -805,7 +946,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
             <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
               <div style={{ display:'flex', alignItems:'center', border:'1px solid #e5e7eb', borderRadius:'9px', overflow:'hidden', height:'32px' }}>
                 <button
-                  onClick={() => calendarRef.current?.getApi().prev()}
+                  onClick={navPrev}
                   style={{ width:'34px', height:'32px', background:'none', border:'none', borderRight:'1px solid #e5e7eb', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#374151', transition:'background 0.15s ease' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
                   onMouseLeave={e => e.currentTarget.style.background = 'none'}
@@ -814,7 +955,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
                 </button>
                 <button
-                  onClick={() => calendarRef.current?.getApi().next()}
+                  onClick={navNext}
                   style={{ width:'34px', height:'32px', background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#374151', transition:'background 0.15s ease' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
                   onMouseLeave={e => e.currentTarget.style.background = 'none'}
@@ -824,7 +965,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
                 </button>
               </div>
               <button
-                onClick={() => calendarRef.current?.getApi().today()}
+                onClick={navToday}
                 style={{ height:'32px', padding:'0 14px', background:'none', border:'1px solid #e5e7eb', borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#374151', transition:'all 0.15s ease' }}
                 onMouseEnter={e => { e.currentTarget.style.background='#f9fafb'; e.currentTarget.style.borderColor='#d1d5db' }}
                 onMouseLeave={e => { e.currentTarget.style.background='none'; e.currentTarget.style.borderColor='#e5e7eb' }}
@@ -833,7 +974,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
 
             {/* Center: title */}
             <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'15px', color:'#1D2567', letterSpacing:'-0.01em' }}>
-              {calendarTitle}
+              {displayTitle}
             </div>
 
             {/* Right: Add Availability + Month/Week toggle */}
@@ -854,7 +995,15 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
                   return (
                     <button
                       key={view}
-                      onClick={() => { calendarRef.current?.getApi().changeView(view); setCurrentView(view) }}
+                      onClick={() => {
+                        if (view === 'timeGridWeek' && currentView === 'dayGridMonth') {
+                          calendarRef.current?.getApi().changeView('timeGridWeek')
+                          calendarRef.current?.getApi().gotoDate(displayDate)
+                          setCurrentView('timeGridWeek')
+                        } else if (view === 'dayGridMonth') {
+                          setCurrentView('dayGridMonth')
+                        }
+                      }}
                       style={{ height:'26px', padding:'0 14px', background: isActive ? '#1D2567' : 'transparent', border:'none', borderRadius:'7px', fontFamily:'DM Sans', fontWeight: isActive ? 700 : 500, fontSize:'12px', color: isActive ? '#ffffff' : '#6b7280', cursor:'pointer', transition:'all 0.15s ease', whiteSpace:'nowrap' }}
                       onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#e5e7eb' }}
                       onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
@@ -938,41 +1087,62 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
             .fc th, .fc td { border-color: #f3f4f6 !important; }
           `}</style>
 
-          <FullCalendar
-            ref={calendarRef}
-            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
-            headerToolbar={false}
-            datesSet={handleDatesSet}
-            events={calendarEvents}
-            eventContent={renderEventContent}
-            dateClick={handleDateClick}
-            eventClick={handleEventClick}
-            height={432}
-            slotMinTime="07:00:00"
-            slotMaxTime="19:00:00"
-            slotDuration="00:30:00"
-            slotLabelInterval="01:00:00"
-            expandRows={true}
-            dayMaxEvents={2}
-            moreLinkText={n => `+${n} more`}
-            moreLinkClick={(info) => {
-              const d = info.date
-              const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-              const dayBlocks = (blocks || []).filter(b => b.block_date === dateStr)
-              setCreatePopover(null); setBlockPopover(null)
-              setDayPopover({ date: dateStr, blocks: dayBlocks, position: { x: info.jsEvent.clientX + 8, y: info.jsEvent.clientY - 20 } })
-              return 'stop'
-            }}
-            dayCellClassNames={(arg) => {
-              const d = arg.date
-              const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-              return dateStr === selectedDate ? ['fc-day-selected'] : []
-            }}
-            nowIndicator={true}
-            allDaySlot={false}
-            scrollTime="08:00:00"
-          />
+          {/* Month view: custom grid */}
+          {currentView === 'dayGridMonth' && (
+            <CustomMonthGrid
+              displayDate={displayDate}
+              blocks={blocks}
+              slots={slots}
+              colorMap={colorMap}
+              selectedDate={selectedDate}
+              onDayClick={(dateStr, hasActivity) => {
+                setSelectedDate(dateStr)
+                if (hasActivity) {
+                  setDayDrawerDate(dateStr)
+                } else {
+                  setCreatePopover({ date: dateStr, position: { x: window.innerWidth / 2 - 140, y: 200 } })
+                }
+              }}
+            />
+          )}
+
+          {/* Week view: FullCalendar */}
+          <div style={{ display: currentView === 'timeGridWeek' ? 'block' : 'none' }}>
+            <FullCalendar
+              ref={calendarRef}
+              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+              initialView="dayGridMonth"
+              headerToolbar={false}
+              datesSet={handleDatesSet}
+              events={calendarEvents}
+              eventContent={renderEventContent}
+              dateClick={handleDateClick}
+              eventClick={handleEventClick}
+              height={432}
+              slotMinTime="07:00:00"
+              slotMaxTime="19:00:00"
+              slotDuration="00:30:00"
+              slotLabelInterval="01:00:00"
+              expandRows={true}
+              dayMaxEvents={2}
+              moreLinkText={n => `+${n} more`}
+              moreLinkClick={(info) => {
+                const d = info.date
+                const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+                setSelectedDate(dateStr)
+                setDayDrawerDate(dateStr)
+                return 'stop'
+              }}
+              dayCellClassNames={(arg) => {
+                const d = arg.date
+                const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+                return dateStr === selectedDate ? ['fc-day-selected'] : []
+              }}
+              nowIndicator={true}
+              allDaySlot={false}
+              scrollTime="08:00:00"
+            />
+          </div>
         </div>
       </div>
 
@@ -1004,25 +1174,21 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
         />
       )}
 
-      {dayPopover && (
-        <DayPopover
-          date={dayPopover.date}
-          blocks={dayPopover.blocks}
-          slots={slots}
+      {dayDrawerDate && (
+        <InterviewDayDrawer
+          date={dayDrawerDate}
+          blocks={(blocks||[]).filter(b => b.block_date === dayDrawerDate)}
+          slots={(slots||[]).filter(s => s.slot_date === dayDrawerDate)}
           colorMap={colorMap}
-          position={dayPopover.position}
-          canDelete={isAdmin}
-          onDeleteBlock={async (blockId) => {
-            await handleDeleteBlock(blockId)
-            const remaining = blocks.filter(b => b.block_date === dayPopover.date && b.id !== blockId)
-            if (remaining.length === 0) setDayPopover(null)
-            else setDayPopover(prev => ({ ...prev, blocks: remaining }))
+          isAdmin={isAdmin}
+          userProfile={userProfile}
+          onClose={() => setDayDrawerDate(null)}
+          onDeleteBlock={handleDeleteBlock}
+          onCancelBooking={handleCancelBooking}
+          onAddAvailability={(date) => {
+            setDayDrawerDate(null)
+            setCreatePopover({ date, position: { x: window.innerWidth - 460, y: 140 } })
           }}
-          onAddNew={(date) => {
-            setDayPopover(null)
-            setCreatePopover({ date, position: { x: 280, y: 120 } })
-          }}
-          onClose={closeAll}
         />
       )}
     </div>
