@@ -14,8 +14,15 @@ function getInterviewStatus(s) {
 
 const ORDINAL_COLORS = { '1st': '#059669', '2nd': '#B5895A', '3rd': '#7C8FD9' }
 
+const TIER_BADGE = {
+  1: { bg: '#059669', label: '1st Choice' },
+  2: { bg: '#B5895A', label: '2nd Choice' },
+  3: { bg: '#7C8FD9', label: '3rd Choice' },
+}
+
 export default function StudentMatchCard({
   student, isSelected, onSelect, isReadOnly, isFading, isFadingIn, units,
+  focusedUnit,
 }) {
   const classes = [
     'student-match-card',
@@ -25,6 +32,13 @@ export default function StudentMatchCard({
   ].filter(Boolean).join(' ')
 
   const ivStatus = getInterviewStatus(student)
+
+  const choiceTier = focusedUnit
+    ? (student.unit_preference_1 === focusedUnit.unit_name ? 1
+      : student.unit_preference_2 === focusedUnit.unit_name ? 2
+      : student.unit_preference_3 === focusedUnit.unit_name ? 3
+      : 4)
+    : null
 
   const prefs = [
     { key: '1st', unitName: student.unit_preference_1 },
@@ -79,6 +93,16 @@ export default function StudentMatchCard({
             {ivStatus && (
               <span style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px', background: ivStatus.bg, color: ivStatus.color, padding: '2px 7px', borderRadius: '20px' }}>
                 {ivStatus.label}
+              </span>
+            )}
+            {/* Tier badge — only shown when a unit is focused */}
+            {focusedUnit && choiceTier && choiceTier < 4 && (
+              <span style={{
+                fontFamily: 'DM Sans', fontWeight: 700, fontSize: '10px',
+                background: TIER_BADGE[choiceTier].bg, color: '#fff',
+                padding: '2px 8px', borderRadius: 999,
+              }}>
+                {TIER_BADGE[choiceTier].label}
               </span>
             )}
           </div>

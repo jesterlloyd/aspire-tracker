@@ -29,6 +29,7 @@ const MATCH_QUALITY_CONFIG = {
 export default function EmbedUnitCard({
   unit, matchedStudents, matches, studentMap, selectedStudent,
   onSlotClick, onUnmatch, onUpdateMatch, onDelete, isHighlighted,
+  isFocusedUnit, onFocusUnit,
 }) {
   const [confirmUnmatch, setConfirmUnmatch] = useState(null)
   const [confirmDelete,  setConfirmDelete]  = useState(false)
@@ -143,14 +144,21 @@ export default function EmbedUnitCard({
         background: bgTint,
         border: choiceStyle
           ? `2px solid ${choiceStyle.accentBorder}`
+          : isFocusedUnit
+          ? '2px solid #1D2567'
           : selectedStudent
           ? '1px solid #f3f4f6'
           : '1px solid #e0e7ff',
-        boxShadow: isHighlighted ? '0 0 0 2px var(--nightfall), 0 0 0 4px rgba(29,37,103,0.3)' : undefined,
+        boxShadow: isFocusedUnit
+          ? '0 0 0 3px rgba(29,37,103,0.18)'
+          : isHighlighted ? '0 0 0 2px var(--nightfall), 0 0 0 4px rgba(29,37,103,0.3)' : undefined,
         opacity: selectedStudent && !compat && !isFull ? 0.82 : 1,
         animation: isHighlighted ? 'unit-highlight 2s ease-out' : undefined,
         transition: 'all 0.2s ease',
-      }}>
+        cursor: !selectedStudent ? 'pointer' : undefined,
+      }}
+        onClick={!selectedStudent ? () => onFocusUnit?.() : undefined}
+      >
         {/* Header — always Nightfall regardless of choice level */}
         <div className="euc-header" style={{
           background: 'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)',

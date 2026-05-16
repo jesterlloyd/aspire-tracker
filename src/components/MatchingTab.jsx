@@ -53,6 +53,11 @@ export default function MatchingTab({
   const [sortMode,          setSortMode]          = useState('alpha')
   const [fadingStudentIds,  setFadingStudentIds]  = useState(new Set())
   const [fadeInStudentIds,  setFadeInStudentIds]  = useState(new Set())
+  // Focused unit drives Student Pool tier-sort without affecting placement logic
+  const [focusedUnit,       setFocusedUnit]       = useState(null)
+
+  const handleUnitFocus = (unit) =>
+    setFocusedUnit(prev => prev?.id === unit.id ? null : unit)
 
   const participating   = units.filter(u => u.is_participating)
   const totalSlots      = participating.reduce((s, u) => s + u.total_slots,     0)
@@ -104,8 +109,17 @@ export default function MatchingTab({
     return true
   })
 
-  // Sort the filtered pool while preserving fading students at original positions
-  const sortedPool = [...filteredPool].sort((a, b) => {
+  // Choice tier for the currently focused unit (1–3 = preference rank, 4 = not picked)
+  const tierOf = (student) => {
+    if (!focusedUnit) return 4
+    if (student.unit_preference_1 === focusedUnit.unit_name) return 1
+    if (student.unit_preference_2 === focusedUnit.unit_name) return 2
+    if (student.unit_preference_3 === focusedUnit.unit_name) return 3
+    return 4
+  }
+
+  // Baseline sort (existing logic, unchanged)
+  const baselinePool = [...filteredPool].sort((a, b) => {
     // Fading students stay sorted normally (they vanish in <300ms anyway)
     const la = (a.last_name || a.name || '').toLowerCase()
     const lb = (b.last_name || b.name || '').toLowerCase()
@@ -128,6 +142,15 @@ export default function MatchingTab({
       default: return la.localeCompare(lb) // last_name_asc
     }
   })
+
+  // When a unit is focused, stable-sort by tier on top of the baseline
+  // (tier first, then baseline index preserves the existing sort within each tier)
+  const sortedPool = focusedUnit
+    ? baselinePool
+        .map((s, i) => ({ s, tier: tierOf(s), i }))
+        .sort((a, b) => a.tier - b.tier || a.i - b.i)
+        .map(({ s }) => s)
+    : baselinePool
 
   const selectedIndex = useMemo(() =>
     sortedPool.findIndex(s => s.id === selectedStudent?.id),
@@ -423,6 +446,8 @@ export default function MatchingTab({
                       onUpdateMatch={onUpdateMatch}
                       onDelete={() => onDeleteUnit(unit)}
                       isHighlighted={highlightUnitId === unit.id}
+                      isFocusedUnit={focusedUnit?.id === unit.id}
+                      onFocusUnit={() => handleUnitFocus(unit)}
                     />
                   ))}
                   {getDisplayUnits.hasFocus && getDisplayUnits.others.length > 0 && (
@@ -447,6 +472,8 @@ export default function MatchingTab({
                       onUpdateMatch={onUpdateMatch}
                       onDelete={() => onDeleteUnit(unit)}
                       isHighlighted={highlightUnitId === unit.id}
+                      isFocusedUnit={focusedUnit?.id === unit.id}
+                      onFocusUnit={() => handleUnitFocus(unit)}
                     />
                   ))}
                 </div>
@@ -457,6 +484,39 @@ export default function MatchingTab({
           {/* Right: Student pool */}
           <div className="embed-students-panel">
             <div className="embed-students-body">
+
+              {/* Focused-unit summary strip */}
+              {focusedUnit && (
+                <div style={{
+                  background: '#F4F1EC', padding: '10px 14px',
+                  borderRadius: 10, margin: '12px 12px 0',
+                  display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+                  fontFamily: 'DM Sans, sans-serif', fontSize: 13,
+                }}>
+                  <span style={{ fontWeight: 600, color: '#1D2567', flexShrink: 0 }}>
+                    Preferences for {focusedUnit.unit_name}:
+                  </span>
+                  <span style={{ color: '#059669', fontWeight: 600 }}>
+                    {sortedPool.filter(s => tierOf(s) === 1).length} — 1st choice
+                  </span>
+                  <span style={{ color: '#B5895A', fontWeight: 600 }}>
+                    {sortedPool.filter(s => tierOf(s) === 2).length} — 2nd
+                  </span>
+                  <span style={{ color: '#7C8FD9', fontWeight: 600 }}>
+                    {sortedPool.filter(s => tierOf(s) === 3).length} — 3rd
+                  </span>
+                  <button
+                    onClick={() => setFocusedUnit(null)}
+                    style={{
+                      marginLeft: 'auto', background: 'transparent',
+                      border: '1px solid #d1d5db', borderRadius: 999,
+                      padding: '3px 12px', fontSize: 12, cursor: 'pointer',
+                      fontFamily: 'DM Sans', color: '#6b7280',
+                    }}
+                  >Clear</button>
+                </div>
+              )}
+
               {filteredPool.length === 0 ? (
                 unmatchedAll.length === 0
                   ? <EmptyState icon={<Star />}
@@ -476,6 +536,7 @@ export default function MatchingTab({
                         isFading={fadingStudentIds.has(s.id)}
                         isFadingIn={fadeInStudentIds.has(s.id)}
                         units={participating}
+                        focusedUnit={focusedUnit}
                       />
                     </div>
                   ))}
