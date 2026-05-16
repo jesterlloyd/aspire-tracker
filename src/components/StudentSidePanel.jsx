@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { displayName, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 import StudentAvatar from './StudentAvatar'
@@ -97,6 +98,7 @@ export default function StudentSidePanel({
   const [declineReason,    setDeclineReason]    = useState('')
   const [summaryCopied,    setSummaryCopied]    = useState(false)
   const { canEdit, userProfile } = useAuth()
+  const queryClient = useQueryClient()
   const [uploadingRes,  setUploadingRes]  = useState(false)
   const [uploadingHead, setUploadingHead] = useState(false)
   const [resumeMsg,     setResumeMsg]     = useState(null)
@@ -144,7 +146,6 @@ export default function StudentSidePanel({
     setTimeout(() => setSummaryCopied(false), 2500)
   }
 
-  const [shiftLogs,    setShiftLogs]    = useState([])
   const [adjustingId,  setAdjustingId]  = useState(null)
   const [adjustHours,  setAdjustHours]  = useState('')
   const [adminNote,    setAdminNote]    = useState('')
@@ -152,12 +153,20 @@ export default function StudentSidePanel({
 
   const { markSynced: markHoursSynced, display: hoursSyncDisplay } = useLastSynced()
 
-  useEffect(() => {
-    if (!student.id) return
-    supabase.from('student_shift_logs').select('*').eq('student_id', student.id)
-      .order('shift_date', { ascending: false })
-      .then(({ data }) => { setShiftLogs(data || []); markHoursSynced() })
-  }, [student.id]) // eslint-disable-line
+  // Shift logs — cached per student
+  const { data: shiftLogs = [] } = useQuery({
+    queryKey: ['student_shift_logs', student.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('student_shift_logs')
+        .select('*').eq('student_id', student.id)
+        .order('shift_date', { ascending: false })
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!student.id,
+  })
+  // Mark synced when shift log data loads
+  useEffect(() => { markHoursSynced() }, [shiftLogs]) // eslint-disable-line
 
   const handleApproveShift = async (log) => {
     const hours = parseFloat(log.total_hours||0)
@@ -168,7 +177,8 @@ export default function StudentSidePanel({
     const newPending  = Math.max(0, parseFloat(data.pending_hours||0) - hours)
     await onUpdate(student.id, { approved_hours: newApproved, pending_hours: newPending })
     setData(p => ({ ...p, approved_hours: newApproved, pending_hours: newPending }))
-    setShiftLogs(prev => prev.map(l => l.id===log.id ? { ...l, status:'Approved', reviewed_at: new Date().toISOString() } : l))
+    queryClient.setQueryData(['student_shift_logs', student.id], (prev = []) =>
+      prev.map(l => l.id===log.id ? { ...l, status:'Approved', reviewed_at: new Date().toISOString() } : l))
     toast?.success('Shift approved', `${hours} hours approved for ${student.first_name}.`)
   }
 
@@ -180,7 +190,8 @@ export default function StudentSidePanel({
     const newPending = Math.max(0, parseFloat(data.pending_hours||0) - hours)
     await onUpdate(student.id, { pending_hours: newPending })
     setData(p => ({ ...p, pending_hours: newPending }))
-    setShiftLogs(prev => prev.map(l => l.id===log.id ? { ...l, status:'Rejected' } : l))
+    queryClient.setQueryData(['student_shift_logs', student.id], (prev = []) =>
+      prev.map(l => l.id===log.id ? { ...l, status:'Rejected' } : l))
   }
 
   const handleAdjustShift = async (log) => {
@@ -199,30 +210,39 @@ export default function StudentSidePanel({
       await onUpdate(student.id, { approved_hours: newApproved, pending_hours: newPending })
       setData(p => ({ ...p, approved_hours: newApproved, pending_hours: newPending }))
     }
-    setShiftLogs(prev => prev.map(l => l.id===log.id ? { ...l, total_hours: newHours, status:'Approved' } : l))
+    queryClient.setQueryData(['student_shift_logs', student.id], (prev = []) =>
+      prev.map(l => l.id===log.id ? { ...l, total_hours: newHours, status:'Approved' } : l))
     setAdjustingId(null); setAdjustHours('')
   }
 
-  const [studentComms, setStudentComms] = useState([])
-  useEffect(() => {
-    if (!student.id) return
-    supabase.from('communications').select('*').eq('student_id', student.id)
-      .order('sent_at', { ascending: false })
-      .then(({ data }) => setStudentComms(data || []))
-  }, [student.id])
+  // Communications — cached per student
+  const { data: studentComms = [] } = useQuery({
+    queryKey: ['student_communications', student.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('communications')
+        .select('*').eq('student_id', student.id)
+        .order('sent_at', { ascending: false })
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!student.id,
+  })
 
-  // Program events
-  const [studentEvents,   setStudentEvents]   = useState([])
+  // Program events — cached per student
+  const { data: studentEvents = [] } = useQuery({
+    queryKey: ['student_program_events', student.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('program_events')
+        .select('*').eq('student_id', student.id)
+        .order('event_date', { ascending: false })
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!student.id,
+  })
   const [showEventForm,   setShowEventForm]   = useState(false)
   const [savingEvent,     setSavingEvent]     = useState(false)
   const [newEvent, setNewEvent] = useState({ event_type: 'note', event_date: '', event_time: '', notes: '' })
-
-  useEffect(() => {
-    if (!student.id) return
-    supabase.from('program_events').select('*').eq('student_id', student.id)
-      .order('event_date', { ascending: false })
-      .then(({ data }) => setStudentEvents(data || []))
-  }, [student.id])
 
   const handleAddEvent = async () => {
     if (!newEvent.event_date) return
@@ -236,7 +256,9 @@ export default function StudentSidePanel({
       notes:       newEvent.notes,
       created_by:  'coordinator',
     }).select().single()
-    if (data) setStudentEvents(prev => [data, ...prev])
+    if (data) {
+      queryClient.setQueryData(['student_program_events', student.id], (prev = []) => [data, ...prev])
+    }
     setNewEvent({ event_type: 'note', event_date: '', event_time: '', notes: '' })
     setShowEventForm(false)
     setSavingEvent(false)
@@ -244,7 +266,8 @@ export default function StudentSidePanel({
 
   const handleDeleteEvent = async (id) => {
     await supabase.from('program_events').delete().eq('id', id)
-    setStudentEvents(prev => prev.filter(e => e.id !== id))
+    queryClient.setQueryData(['student_program_events', student.id], (prev = []) =>
+      prev.filter(e => e.id !== id))
   }
 
   const currentIndex = sortedStudents.findIndex(s => s.id === student.id)
