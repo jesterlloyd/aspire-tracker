@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './lib/supabase'
 import { updateStudent as proxyUpdateStudent } from './lib/studentProxy'
 import { displayName } from './lib/utils'
+import { ASPIRE_STATUS_CONFIG } from './lib/constants'
+import StudentAvatar from './components/StudentAvatar'
 import OverviewTab from './components/OverviewTab'
 import StudentProfilesTab from './components/StudentProfilesTab'
 import InterviewRubricTab from './components/InterviewRubricTab'
@@ -59,9 +61,66 @@ function computeMatchSummary(matchList) {
   }
 }
 
+// ── Header helpers (moved from UnifiedNav) ────────────────────────────────────
+
+const COHORT_STATUS_COLORS = {
+  Planning:  { bg:'#dbeafe', color:'#1d4ed8' },
+  Active:    { bg:'#dcfce7', color:'#166534' },
+  Completed: { bg:'#f3f4f6', color:'#6b7280' },
+  Archived:  { bg:'#f3f4f6', color:'#9ca3af' },
+}
+
+function fmtCohortDate(d) {
+  if (!d) return ''
+  const s = typeof d === 'string' ? d : ''
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const [y, m, day] = s.split('T')[0].split('-').map(Number)
+    return new Date(y, m - 1, day).toLocaleDateString('en-US', { month:'short', day:'numeric' })
+  }
+  const p = new Date(s); return isNaN(p.getTime()) ? s.replace(/,?\s*\d{4}/,'').trim() : p.toLocaleDateString('en-US', { month:'short', day:'numeric' })
+}
+function fmtCohortRange(a, b) {
+  if (!a && !b) return ''; if (!b) return fmtCohortDate(a)
+  return `${fmtCohortDate(a)} – ${fmtCohortDate(b)}`
+}
+
+function HeaderChevron() {
+  return <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+}
+function HeaderSearchIcon() {
+  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+}
+
+function LastSyncedIndicator() {
+  const queryClient = useQueryClient()
+  const [label, setLabel] = useState('Synced just now')
+  useEffect(() => {
+    function compute() {
+      const qs = queryClient.getQueryCache().getAll()
+      const ok = qs.filter(q => q.state.status === 'success' && q.state.dataUpdatedAt)
+      if (!ok.length) { setLabel('Not yet synced'); return }
+      const newest = Math.max(...ok.map(q => q.state.dataUpdatedAt))
+      const s = Math.floor((Date.now() - newest) / 1000)
+      if (s < 10) setLabel('Synced just now')
+      else if (s < 60) setLabel(`Synced ${s}s ago`)
+      else if (s < 3600) setLabel(`Synced ${Math.floor(s/60)}m ago`)
+      else setLabel(`Synced ${Math.floor(s/3600)}h ago`)
+    }
+    compute(); const id = setInterval(compute, 5000); return () => clearInterval(id)
+  }, [queryClient])
+  return (
+    <span style={{ flexShrink:0, fontSize:11.5, color:'rgba(255,255,255,0.55)', fontFamily:'DM Sans, sans-serif', display:'flex', alignItems:'center', gap:5 }}>
+      <span style={{ width:6, height:6, borderRadius:'50%', background:'#5DD39E', flexShrink:0, boxShadow:'0 0 0 3px rgba(93,211,158,0.18)' }} />
+      {label}
+    </span>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function MainApp({ onLogout }) {
   const { toasts, removeToast, toast } = useToast()
-  const { userProfile: currentUserProfile } = useAuth()
+  const { userProfile: currentUserProfile, canEdit } = useAuth()
 
   // One-time cleanup of old shared-password auth storage keys
   useEffect(() => {
@@ -94,6 +153,21 @@ function MainApp({ onLogout }) {
   const [showManageCohort, setShowManageCohort] = useState(false)
   const [confirmLogout,    setConfirmLogout]    = useState(false)
   const [showUserManagement, setShowUserManagement] = useState(false)
+
+  // ── Header: cohort picker state ──────────────────────────────────────────────
+  const [cohortOpen, setCohortOpen] = useState(false)
+  const cohortPickerRef = useRef(null)
+
+  // ── Header: search state ─────────────────────────────────────────────────────
+  const [searchQuery,     setSearchQuery]     = useState('')
+  const [searchOpen,      setSearchOpen]      = useState(false)
+  const [searchResults,   setSearchResults]   = useState({ students:[], units:[], placements:[] })
+  const [searchLoading,   setSearchLoading]   = useState(false)
+  const [searchActiveIdx, setSearchActiveIdx] = useState(-1)
+  const [searchFocused,   setSearchFocused]   = useState(false)
+  const searchAreaRef  = useRef(null)
+  const searchInputRef = useRef(null)
+  const searchTimer    = useRef(null)
 
   const [students,  setStudents]  = useState([])
   const [units,     setUnits]     = useState([])
@@ -466,6 +540,72 @@ function MainApp({ onLogout }) {
   const activeCohort = cohorts.find(c => c.id === activeCohortId)
 
   // ── Action Center badge count — must be after activeCohort ───
+  // ── Header: click-outside for cohort + search ────────────────────────────────
+  useEffect(() => {
+    const handler = e => {
+      if (cohortPickerRef.current && !cohortPickerRef.current.contains(e.target)) setCohortOpen(false)
+      if (searchAreaRef.current && !searchAreaRef.current.contains(e.target)) { setSearchOpen(false); setSearchActiveIdx(-1) }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  // ── Header: derived + search handler ─────────────────────────────────────────
+  const sortedCohorts = [...cohorts].sort((a, b) => {
+    const da = a.start_date || null, db = b.start_date || null
+    if (!da && !db) return (a.created_at||'').localeCompare(b.created_at||'')
+    if (!da) return 1; if (!db) return -1
+    return da.localeCompare(db)
+  })
+
+  const runSearch = useCallback(async q => {
+    if (!activeCohortId || q.length < 2) { setSearchResults({ students:[], units:[], placements:[] }); setSearchOpen(false); return }
+    setSearchLoading(true); setSearchOpen(true)
+    const [stuRes, unitRes] = await Promise.all([
+      supabase.from('students').select('id, first_name, last_name, school, school_email, status, headshot_url')
+        .eq('cohort_id', activeCohortId)
+        .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,school_email.ilike.%${q}%,personal_email.ilike.%${q}%,phone.ilike.%${q}%,school.ilike.%${q}%`).limit(6),
+      supabase.from('units').select('id, unit_name, division, contact_person, slots_remaining, total_slots')
+        .eq('cohort_id', activeCohortId).or(`unit_name.ilike.%${q}%,contact_person.ilike.%${q}%`).limit(6),
+    ])
+    const ql = q.toLowerCase()
+    const placements = students.filter(s => {
+      if (!s.matched_unit_id) return false
+      const u = units.find(u => u.id === s.matched_unit_id)
+      return `${s.last_name} ${s.first_name}`.toLowerCase().includes(ql) || (u?.unit_name||'').toLowerCase().includes(ql)
+    }).map(s => ({ student: s, unit: units.find(u => u.id === s.matched_unit_id) })).slice(0, 5)
+    setSearchResults({ students: stuRes.data||[], units: unitRes.data||[], placements })
+    setSearchLoading(false); setSearchActiveIdx(-1)
+  }, [activeCohortId, students, units]) // eslint-disable-line
+
+  const handleSearchChange = e => {
+    const q = e.target.value; setSearchQuery(q)
+    clearTimeout(searchTimer.current)
+    if (q.length < 2) { setSearchResults({ students:[], units:[], placements:[] }); setSearchOpen(false); return }
+    searchTimer.current = setTimeout(() => runSearch(q), 300)
+  }
+
+  const searchFlat = [
+    ...searchResults.students.map(s => ({ type:'student', data:s })),
+    ...searchResults.units.map(u => ({ type:'unit', data:u })),
+    ...searchResults.placements.map(p => ({ type:'placement', data:p })),
+  ]
+
+  const handleSearchKey = e => {
+    if (!searchOpen) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setSearchActiveIdx(i => Math.min(i+1, searchFlat.length-1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setSearchActiveIdx(i => Math.max(i-1, 0)) }
+    else if (e.key === 'Enter' && searchActiveIdx >= 0) handleSearchResult(searchFlat[searchActiveIdx])
+    else if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(''); searchInputRef.current?.blur() }
+  }
+
+  const handleSearchResult = item => {
+    setSearchOpen(false); setSearchQuery(''); setSearchActiveIdx(-1)
+    if (item.type === 'student') { switchTab('profiles'); setFocusStudentId(item.data.id) }
+    else if (item.type === 'unit') { setHighlightUnitId(item.data.id); switchTab('matching'); setTimeout(() => setHighlightUnitId(null), 2500) }
+    else if (item.type === 'placement') { setHighlightUnitId(item.data.unit?.id); switchTab('matching'); setTimeout(() => setHighlightUnitId(null), 2500) }
+  }
+
   const actionBadgeCount = (() => {
     if (!students.length) return 0
     const hasSent = (sid, type) => communications.some(c => c.student_id === sid && c.type === type)
@@ -496,26 +636,27 @@ function MainApp({ onLogout }) {
   return (
     <div className="app">
       <div className="top-section">
-        {/* ── Application header: brand | spacer | actions ── */}
+        {/* ── Application header: brand | spacer | status + actions ── */}
         <header style={{
           background: 'linear-gradient(180deg, #1D2567 0%, #161D52 100%)',
           padding: '0 24px',
           height: 64,
           display: 'flex',
           alignItems: 'center',
-          gap: 20,
+          gap: 12,
           fontFamily: 'DM Sans, sans-serif',
           flexShrink: 0,
+          position: 'relative',
         }}>
           {/* Zone 1: Brand */}
           <div style={{ display:'flex', alignItems:'center', gap:14, flexShrink:0 }}>
-            <img src="/cs-logo-rev.png" alt="Cedars-Sinai" style={{ height:26, width:'auto', objectFit:'contain' }} />
-            <div style={{ width:1, height:28, background:'rgba(255,255,255,0.18)', flexShrink:0 }} />
+            <img src="/cs-logo-rev.png" alt="Cedars-Sinai" style={{ height:32, width:'auto', objectFit:'contain' }} />
+            <div style={{ width:1, height:30, background:'rgba(255,255,255,0.18)', flexShrink:0 }} />
             <div style={{ display:'flex', flexDirection:'column', lineHeight:1.15 }}>
               <div style={{ fontSize:16, fontWeight:700, color:'#fff', letterSpacing:'-0.01em' }}>
                 ASPIRE Intelligence
               </div>
-              <div style={{ fontSize:10.5, color:'rgba(255,255,255,0.50)', marginTop:2, letterSpacing:'0.01em' }}>
+              <div style={{ fontSize:10.5, color:'rgba(255,255,255,0.50)', marginTop:2 }}>
                 Affiliate Students' Pathway from Internship to Residency Experience
               </div>
             </div>
@@ -523,74 +664,207 @@ function MainApp({ onLogout }) {
 
           <div style={{ flex:1 }} />
 
-          {/* Zone 3: Actions */}
-          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-            {/* People & Access */}
-            {cohorts.length > 0 && (
+          {/* Zone 2: Status — cohort picker + sync */}
+          {cohorts.length > 0 && (
+            <div ref={cohortPickerRef} style={{ position:'relative', flexShrink:0 }}>
               <button
-                onClick={() => setShowUserManagement(true)}
-                title="People & Access"
+                data-tour="cohort-switcher"
+                onClick={() => setCohortOpen(p => !p)}
                 style={{
-                  width:34, height:34, display:'flex', alignItems:'center', justifyContent:'center',
-                  background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.10)',
-                  borderRadius:8, color:'rgba(255,255,255,0.75)', cursor:'pointer',
+                  display:'flex', alignItems:'center', gap:8,
+                  background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.10)',
+                  borderRadius:999, padding:'7px 13px',
+                  color:'#fff', cursor:'pointer', fontFamily:'DM Sans, sans-serif',
                   transition:'background 0.15s',
                 }}
                 onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.12)'}
-                onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.06)'}
+                onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.07)'}
               >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                  <circle cx="9" cy="7" r="4"/>
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                </svg>
+                <span style={{ width:6, height:6, borderRadius:'50%', flexShrink:0, background: activeCohort?.accepting_submissions ? '#5DD39E' : '#9ca3af', boxShadow: activeCohort?.accepting_submissions ? '0 0 0 3px rgba(93,211,158,0.2)' : 'none' }} />
+                <span style={{ fontSize:10, color:'rgba(255,255,255,0.5)', textTransform:'uppercase', letterSpacing:'0.08em', marginRight:2 }}>Cohort</span>
+                <span style={{ fontSize:12.5, fontWeight:600 }}>{activeCohort?.name || 'Select cohort'}</span>
+                <span style={{ opacity:0.5, lineHeight:0, marginLeft:2 }}><HeaderChevron /></span>
               </button>
-            )}
 
-            {/* Action Center / Bell */}
-            {cohorts.length > 0 && (
-              <button
-                id="keith-bell-trigger"
-                data-tour="action-center"
-                onClick={() => setShowActionCenter(true)}
-                title="Open Action Center"
+              {cohortOpen && (
+                <div style={{
+                  position:'absolute', top:'calc(100% + 6px)', right:0, width:380,
+                  background:'var(--pearl)', border:'1px solid #e5e7eb', borderRadius:12,
+                  boxShadow:'0 8px 24px rgba(0,0,0,0.12)', zIndex:400, overflow:'hidden',
+                }}>
+                  <div style={{ padding:'10px 14px 6px', fontSize:11, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em', background:'var(--sand)' }}>Select Cohort</div>
+                  {sortedCohorts.map(c => {
+                    const isSel = c.id === activeCohortId
+                    const sc = COHORT_STATUS_COLORS[c.status] || { bg:'#f3f4f6', color:'#6b7280' }
+                    return (
+                      <div key={c.id}
+                        onClick={() => { handleCohortSwitch(c.id); setCohortOpen(false) }}
+                        style={{ padding:'14px 16px', cursor:'pointer', background: isSel ? '#e8edf8' : 'transparent', borderLeft: isSel ? '3px solid #1d2567' : '3px solid transparent', transition:'background 0.1s' }}
+                        onMouseEnter={e => { if (!isSel) e.currentTarget.style.background='var(--sand)' }}
+                        onMouseLeave={e => { if (!isSel) e.currentTarget.style.background='transparent' }}>
+                        <div style={{ fontSize:15, fontWeight:600, color:'#374151' }}>{c.name}</div>
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:3 }}>
+                          <span style={{ fontSize:12, color:'#6b7280' }}>{fmtCohortRange(c.start_date, c.end_date) || ' '}</span>
+                          <div style={{ display:'flex', gap:4, flexShrink:0, marginLeft:8 }}>
+                            {c.status && <span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20, background:sc.bg, color:sc.color }}>{c.status}</span>}
+                            {c.accepting_submissions && <span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20, background:'#dbeafe', color:'#1e40af', border:'1px solid #bfdbfe' }}>Accepting</span>}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {canEdit && (
+                    <div style={{ display:'flex', gap:8, padding:'10px 14px', borderTop:'1px solid #f3f4f6', background:'var(--sand)' }}>
+                      {activeCohort && <button onClick={() => { setShowManageCohort(true); setCohortOpen(false) }} style={{ flex:1, padding:'7px', background:'#fff', border:'1px solid #e5e7eb', borderRadius:8, fontFamily:'DM Sans', fontSize:12, cursor:'pointer', color:'#374151' }}>✏ Edit Cohort</button>}
+                      <button onClick={() => { setShowNewCohort(true); setCohortOpen(false) }} style={{ flex:1, padding:'7px', background:'#1D2567', border:'none', borderRadius:8, fontFamily:'DM Sans', fontSize:12, fontWeight:600, cursor:'pointer', color:'#fff' }}>+ New Cohort</button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          <LastSyncedIndicator />
+
+          {/* Zone 3: Search */}
+          <div ref={searchAreaRef} style={{ position:'relative', flexShrink:0 }}>
+            <div style={{ position:'relative', display:'flex', alignItems:'center' }}>
+              <span style={{ position:'absolute', left:11, pointerEvents:'none', lineHeight:0, zIndex:1, opacity: searchFocused ? 0.8 : 0.5 }}>
+                <HeaderSearchIcon />
+              </span>
+              <input
+                ref={searchInputRef}
+                data-tour="global-search"
+                value={searchQuery}
+                onChange={handleSearchChange}
+                onKeyDown={handleSearchKey}
+                onFocus={() => { setSearchFocused(true); if (searchQuery.length >= 2) setSearchOpen(true) }}
+                onBlur={() => setSearchFocused(false)}
                 style={{
-                  position:'relative',
-                  width:34, height:34, display:'flex', alignItems:'center', justifyContent:'center',
-                  background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.10)',
-                  borderRadius:8, color:'rgba(255,255,255,0.75)', cursor:'pointer',
-                  transition:'background 0.15s',
+                  height:34, paddingLeft:32, paddingRight:44,
+                  width: searchFocused ? 280 : 220,
+                  transition:'width 200ms ease, border-color 150ms ease',
+                  background: searchFocused ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)',
+                  border:`1px solid ${searchFocused ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.10)'}`,
+                  borderRadius:8, color:'#fff', fontSize:12.5, fontFamily:'DM Sans',
+                  outline:'none',
                 }}
-                onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.12)'}
-                onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.06)'}
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                </svg>
-                {actionBadgeCount > 0 && (
-                  <span style={{
-                    position:'absolute', top:-3, right:-3,
-                    minWidth:16, height:16, borderRadius:8,
-                    background:'#dc1e34', color:'#fff',
-                    fontSize:10, fontWeight:700, fontFamily:'DM Sans',
-                    display:'flex', alignItems:'center', justifyContent:'center',
-                    padding:'0 3px', lineHeight:1,
-                    border:'1.5px solid #1D2567',
-                  }}>
-                    {actionBadgeCount >= 10 ? '9+' : actionBadgeCount}
-                  </span>
+                placeholder="Search students, units…"
+              />
+              <span style={{ position:'absolute', right:10, pointerEvents:'none', fontSize:10, fontWeight:500, color:'rgba(255,255,255,0.30)', fontFamily:'ui-monospace, monospace', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.08)', padding:'1px 5px', borderRadius:3 }}>⌘K</span>
+            </div>
+
+            {/* Search dropdown */}
+            {searchOpen && (
+              <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, width:360, maxHeight:480, overflowY:'auto', background:'var(--pearl)', border:'1px solid #e5e7eb', borderRadius:12, boxShadow:'0 8px 24px rgba(0,0,0,0.12)', zIndex:400 }}>
+                {searchLoading ? (
+                  <div style={{ padding:20, display:'flex', flexDirection:'column', gap:8 }}>
+                    {[80,60,70].map((w,i) => <div key={i} style={{ height:12, borderRadius:6, background:'#f3f4f6', width:`${w}%` }} />)}
+                  </div>
+                ) : searchFlat.length === 0 ? (
+                  <div style={{ padding:20, textAlign:'center', fontSize:13, color:'#9ca3af' }}>No results found</div>
+                ) : (
+                  <>
+                    {searchResults.students.length > 0 && (
+                      <>
+                        <div style={{ padding:'8px 12px', fontSize:11, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.05em', background:'var(--sand)' }}>Students</div>
+                        {searchResults.students.map((s, i) => {
+                          const isAct = searchActiveIdx === i
+                          const cfg = ASPIRE_STATUS_CONFIG[s.status] || { bg:'#f3f4f6', text:'#6b7280', border:'#d1d5db' }
+                          return (
+                            <div key={s.id} onClick={() => handleSearchResult({ type:'student', data:s })}
+                              style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', cursor:'pointer', background: isAct ? 'var(--sand)' : 'transparent' }}
+                              onMouseEnter={() => setSearchActiveIdx(i)} onMouseLeave={() => setSearchActiveIdx(-1)}>
+                              <StudentAvatar student={s} size={28} />
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{s.last_name}{s.last_name&&s.first_name?', ':''}{s.first_name}</div>
+                                <div style={{ fontSize:12, color:'#6b7280' }}>{s.school}</div>
+                              </div>
+                              {s.status && <span style={{ fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:10, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, flexShrink:0 }}>{s.status}</span>}
+                            </div>
+                          )
+                        })}
+                      </>
+                    )}
+                    {searchResults.units.length > 0 && (
+                      <>
+                        <div style={{ padding:'8px 12px', fontSize:11, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.05em', background:'var(--sand)' }}>Units</div>
+                        {searchResults.units.map((u, i) => {
+                          const fi = searchResults.students.length + i
+                          const isAct = searchActiveIdx === fi
+                          return (
+                            <div key={u.id} onClick={() => handleSearchResult({ type:'unit', data:u })}
+                              style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', cursor:'pointer', background: isAct ? 'var(--sand)' : 'transparent' }}
+                              onMouseEnter={() => setSearchActiveIdx(fi)} onMouseLeave={() => setSearchActiveIdx(-1)}>
+                              <span style={{ color:'#6b7280', fontSize:16, flexShrink:0 }}>🏥</span>
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)' }}>{u.unit_name}</div>
+                                <div style={{ fontSize:12, color:'#6b7280' }}>{u.division}{u.division?' · ':''}{u.slots_remaining ?? u.total_slots} of {u.total_slots} slots open</div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </>
+                    )}
+                    {searchResults.placements.length > 0 && (
+                      <>
+                        <div style={{ padding:'8px 12px', fontSize:11, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.05em', background:'var(--sand)' }}>Placements</div>
+                        {searchResults.placements.map(({ student: s, unit: u }, i) => {
+                          const fi = searchResults.students.length + searchResults.units.length + i
+                          const isAct = searchActiveIdx === fi
+                          return (
+                            <div key={s.id} onClick={() => handleSearchResult({ type:'placement', data:{ student:s, unit:u } })}
+                              style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', cursor:'pointer', background: isAct ? 'var(--sand)' : 'transparent' }}
+                              onMouseEnter={() => setSearchActiveIdx(fi)} onMouseLeave={() => setSearchActiveIdx(-1)}>
+                              <span style={{ color:'#6b7280', fontSize:14, flexShrink:0 }}>🔗</span>
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)' }}>{displayName(s)} → {u?.unit_name||'—'}</div>
+                                <div style={{ fontSize:12, color:'#6b7280' }}>{s.status === 'Completed' ? 'Completed' : 'Active Placement'}</div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </>
+                    )}
+                  </>
                 )}
-              </button>
+              </div>
             )}
-
-            {/* User Menu */}
-            <UserMenu
-              onOpenUserManagement={() => setShowUserManagement(true)}
-              onRestartTour={() => { switchTab('overview'); setTimeout(() => setTourRunning(true), 400) }}
-            />
           </div>
+
+          {/* Zone 3: Actions — bell + user menu (people access is inside UserMenu) */}
+          {cohorts.length > 0 && (
+            <button
+              id="keith-bell-trigger"
+              data-tour="action-center"
+              onClick={() => setShowActionCenter(true)}
+              title="Open Action Center"
+              style={{
+                position:'relative', flexShrink:0,
+                width:34, height:34, display:'flex', alignItems:'center', justifyContent:'center',
+                background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.10)',
+                borderRadius:8, color:'rgba(255,255,255,0.75)', cursor:'pointer',
+                transition:'background 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.12)'}
+              onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.06)'}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+              {actionBadgeCount > 0 && (
+                <span style={{ position:'absolute', top:-3, right:-3, minWidth:16, height:16, borderRadius:8, background:'#dc1e34', color:'#fff', fontSize:10, fontWeight:700, fontFamily:'DM Sans', display:'flex', alignItems:'center', justifyContent:'center', padding:'0 3px', lineHeight:1, border:'1.5px solid #1D2567' }}>
+                  {actionBadgeCount >= 10 ? '9+' : actionBadgeCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          <UserMenu
+            onOpenUserManagement={() => setShowUserManagement(true)}
+            onRestartTour={() => { switchTab('overview'); setTimeout(() => setTourRunning(true), 400) }}
+          />
         </header>
 
         {cohorts.length > 0 && (
