@@ -66,7 +66,7 @@ export default function InterviewRubricTab({
   onStudentUpdate, onRubricsChange, onRefreshStudents, onManageInterviewers, onUpdateSession, onRefreshSlots,
   toast,
 }) {
-  const { canInterview, isViewer } = useAuth()
+  const { canInterview, isViewer, userProfile } = useAuth()
   const [selectedStudentId, setSelectedStudentId] = useState(null)
   const [sortBy,            setSortBy]            = useState('last_name')
   const [sortDir,           setSortDir]           = useState('asc')
@@ -74,6 +74,15 @@ export default function InterviewRubricTab({
   const [refreshKey,        setRefreshKey]        = useState(0)
   const [calendarCollapsed,    setCalendarCollapsed]    = useState(false)
   const [calendarInterviewers, setCalendarInterviewers] = useState([])
+
+  // Schedule scope: 'mine' | 'all'
+  // Owners, Admins, and Co-Leads default to 'all'; Interviewers default to 'mine'
+  const [scheduleScope, setScheduleScope] = useState(() => {
+    if (userProfile?.is_owner) return 'all'
+    if (userProfile?.role === 'admin') return 'all'
+    if (userProfile?.role === 'co-lead' || userProfile?.role === 'co_lead') return 'all'
+    return 'mine'
+  })
 
   const triggerRefresh = useCallback(() => setRefreshKey(k => k + 1), [])
 
@@ -251,6 +260,24 @@ export default function InterviewRubricTab({
               })}
             </div>
           )}
+
+          {/* Schedule scope toggle */}
+          {!calendarCollapsed && (
+            <div style={{ display:'flex', alignItems:'center', background:'#F4F1EC', borderRadius:8, padding:2, fontFamily:'DM Sans, sans-serif', border:'1px solid rgba(29,37,103,0.06)', flexShrink:0 }}>
+              {[
+                { key:'mine', label:'My schedule' },
+                { key:'all',  label:"Everyone's schedule" },
+              ].map(({ key, label }) => (
+                <button key={key} onClick={() => setScheduleScope(key)} style={{
+                  padding:'5px 12px', fontSize:12, fontWeight:500, borderRadius:6, border:'none',
+                  background: scheduleScope === key ? '#fff' : 'transparent',
+                  color: scheduleScope === key ? '#1D2567' : '#475467',
+                  boxShadow: scheduleScope === key ? '0 1px 2px rgba(29,37,103,0.06)' : 'none',
+                  cursor:'pointer', transition:'all 0.15s', whiteSpace:'nowrap',
+                }}>{label}</button>
+              ))}
+            </div>
+          )}
         </div>
         <div style={{
           overflow: 'hidden',
@@ -264,6 +291,7 @@ export default function InterviewRubricTab({
             activeCohort={cohort}
             onDataChanged={triggerRefresh}
             onInterviewersLoaded={setCalendarInterviewers}
+            scheduleScope={scheduleScope}
           />
         </div>
       </div>

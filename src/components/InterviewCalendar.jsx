@@ -806,7 +806,7 @@ function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick }) {
 }
 
 // ─── Main Calendar ────────────────────────────────────────────────────────────
-export default function InterviewCalendar({ cohortId, activeCohort, onDataChanged, onInterviewersLoaded }) {
+export default function InterviewCalendar({ cohortId, activeCohort, onDataChanged, onInterviewersLoaded, scheduleScope }) {
   const { userProfile, isAdmin } = useAuth()
   const calendarRef = useRef(null)
 
@@ -825,7 +825,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
 
   // Calendar data — blocks, slots, and interviewers in one cached query
   const { data: calData, refetch: fetchData } = useQuery({
-    queryKey: ['interview_calendar', cohortId, isAdmin ? 'admin' : myName],
+    queryKey: ['interview_calendar', cohortId, isAdmin ? 'admin' : myName, scheduleScope || 'default'],
     queryFn: async () => {
       const [blocksRes, slotsRes, profilesRes] = await Promise.all([
         supabase.from('interview_availability_blocks')
@@ -840,7 +840,11 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
       profiles.forEach(p => { cm[p.full_name] = p.interviewer_color || '#1D2567' })
       let allBlocks = blocksRes.data || []
       let allSlots  = slotsRes.data  || []
-      if (!isAdmin && myName) {
+      // 'mine': show only current user's blocks (regardless of role)
+      // 'all': show everyone's (regardless of role)
+      // no scope prop: fall back to original role-based behavior
+      const effectiveScope = scheduleScope || (isAdmin ? 'all' : 'mine')
+      if (effectiveScope === 'mine' && myName) {
         allBlocks = allBlocks.filter(b => b.interviewer_name === myName)
         allSlots  = allSlots.filter(s => s.interviewer_name  === myName)
       }
@@ -1195,9 +1199,16 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
               >Today</button>
             </div>
 
-            {/* Center: title */}
-            <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'15px', color:'#1D2567', letterSpacing:'-0.01em' }}>
-              {displayTitle}
+            {/* Center: title + filtered pill */}
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <span style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'15px', color:'#1D2567', letterSpacing:'-0.01em' }}>
+                {displayTitle}
+              </span>
+              {scheduleScope === 'mine' && (
+                <span style={{ fontSize:11, fontWeight:500, color:'#475467', padding:'3px 9px', borderRadius:999, background:'#EDEEF4', border:'1px solid rgba(29,37,103,0.08)', fontFamily:'DM Sans, sans-serif' }}>
+                  Filtered to my blocks
+                </span>
+              )}
             </div>
 
             {/* Right: Add Availability + Month/Week toggle */}

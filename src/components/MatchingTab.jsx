@@ -8,7 +8,7 @@ import MatchingBanner from './MatchingBanner'
 import StatCard from './StatCard'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
-import { Layers, Clock, Users, MapPin, Star, TrendingUp, UserX, ClipboardList } from 'lucide-react'
+import { Layers, Clock, Users, MapPin, Star, TrendingUp, UserX, ClipboardList, Info } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { canPerformMatching } from '../lib/permissions'
 
@@ -364,17 +364,17 @@ export default function MatchingTab({
 
         {/* ── Subheader strips: guidance/context (left) + count/pagination (right) ── */}
         <div style={{ display:'flex', background:'#f9fafb', borderBottom:'1px solid #e5e7eb', flexShrink:0 }}>
-          {/* Left subheader: guidance when idle, brief focus indicator when active */}
+          {/* Left subheader: status when active, empty when idle */}
           <div style={{ flex:58, height:'36px', display:'flex', alignItems:'center', padding:'0 16px', borderRight:'1px solid #e5e7eb', minWidth:0, overflow:'hidden' }}>
             {selectedStudent ? (
               <span style={{ fontFamily:'DM Sans', fontSize:'11px', color:'#6b7280', whiteSpace:'nowrap', fontStyle:'italic' }}>
                 Unit pool reordered by preference · preferences highlighted below
               </span>
-            ) : (
-              <span style={{ fontFamily:'DM Sans', fontSize:'12px', color:'#9ca3af', fontStyle:'italic', whiteSpace:'nowrap' }}>
-                Select a student from the Student Pool to view compatible units
+            ) : focusedUnit ? (
+              <span style={{ fontFamily:'DM Sans', fontSize:'11px', color:'#6b7280', whiteSpace:'nowrap', fontStyle:'italic' }}>
+                Showing students by preference for {focusedUnit.unit_name}
               </span>
-            )}
+            ) : null}
           </div>
           {/* Right subheader: count + legend icon + spacer + pagination */}
           <div style={{ flex:42, height:'36px', display:'flex', alignItems:'center', padding:'0 16px', minWidth:0, gap:'6px' }}>
@@ -417,6 +417,14 @@ export default function MatchingTab({
           {/* Left: Units panel */}
           <div className="embed-units-panel">
             <div className="embed-units-body">
+              {/* Unit Pool guide — shows when no unit is focused and no student selected */}
+              {!focusedUnit && !selectedStudent && (
+                <div style={{ margin:'10px 12px 0', background:'#FAFAF7', border:'1px dashed rgba(29,37,103,0.12)', borderRadius:10, padding:'10px 13px', fontSize:12, color:'#475467', display:'flex', alignItems:'center', gap:8, fontFamily:'DM Sans, sans-serif' }}>
+                  <Info size={14} style={{ color:'#98A2B3', flexShrink:0 }} />
+                  <span>Click a unit to surface students who picked it as their top choice, ranked by preference.</span>
+                </div>
+              )}
+
               {/* MatchingBanner — compact card, only when student selected */}
               {selectedStudent && (
                 <div style={{ padding:'12px 16px 0' }}>
@@ -514,6 +522,14 @@ export default function MatchingTab({
                       fontFamily: 'DM Sans', color: '#6b7280',
                     }}
                   >Clear</button>
+                </div>
+              )}
+
+              {/* Student Pool guide — shows when no student is selected */}
+              {!selectedStudent && filteredPool.length > 0 && (
+                <div style={{ margin:'10px 12px 0', background:'#FAFAF7', border:'1px dashed rgba(29,37,103,0.12)', borderRadius:10, padding:'10px 13px', fontSize:12, color:'#475467', display:'flex', alignItems:'center', gap:8, fontFamily:'DM Sans, sans-serif' }}>
+                  <Info size={14} style={{ color:'#98A2B3', flexShrink:0 }} />
+                  <span>Select a student to view their compatible units, ordered by their preferences.</span>
                 </div>
               )}
 
