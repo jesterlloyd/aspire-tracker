@@ -21,9 +21,9 @@ export default async function handler(req, res) {
   try {
     const now = new Date().toISOString()
 
-    // 1. Mark slot as booked
+    // 1. Mark slot as booked (also sets status column if it exists post-migration)
     const { data: slot, error: slotError } = await db.from('interview_slots')
-      .update({ is_booked: true, booked_by_student_id: studentId, booked_at: now })
+      .update({ is_booked: true, booked_by_student_id: studentId, booked_at: now, status: 'booked' })
       .eq('id', slotId)
       .eq('is_booked', false) // prevent double-booking
       .select()
@@ -59,7 +59,24 @@ export default async function handler(req, res) {
 
     if (studentError) console.error('Student update error:', studentError.message)
 
-    // 4. Fetch interviewer email for notification
+    // 4. Log to program_events so booking surfaces in Activity Log and priorities
+    await db.from('program_events').insert({
+      student_id: studentId,
+      cohort_id:  cohortId,
+      event_type: 'interview_booked',
+      event_date: slot.slot_date,
+      notes:      `Interview self-scheduled for ${slot.slot_date} at ${slot.slot_time}`,
+      created_by: 'system',
+      event_data: {
+        slot_id:          slotId,
+        slot_date:        slot.slot_date,
+        slot_time:        slot.slot_time,
+        duration_minutes: slot.duration_minutes,
+        interviewer_name: slot.interviewer_name,
+      },
+    }).catch(e => console.warn('program_events log error (non-blocking):', e.message))
+
+    // 5. Fetch interviewer email for notification
     let interviewerEmail = null
     if (slot.interviewer_name?.trim()) {
       const { data: iv } = await db.from('user_profiles')

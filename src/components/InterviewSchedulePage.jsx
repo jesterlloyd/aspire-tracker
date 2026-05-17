@@ -196,8 +196,23 @@ export default function InterviewSchedulePage() {
       setBookedSlot(data.slot)
       setScreen('confirmed')
 
-      const mailto = buildNotificationMailto(student, data.slot, data.interviewerEmail)
-      window.open(mailto, '_blank')
+      // Fire server-side notification (fire-and-forget — doesn't block the confirmation screen)
+      fetch('/api/notify-interview-booked', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentName:    `${student.first_name} ${student.last_name}`,
+          studentSchool:  student.school,
+          studentProgram: student.program_type,
+          studentEmail:   student.school_email,
+          interviewDate:  data.slot.slot_date,
+          interviewTime:  fmtTime(data.slot.slot_time),
+          duration:       data.slot.duration_minutes,
+          interviewerName:  data.slot.interviewer_name,
+          interviewerEmail: data.interviewerEmail,
+          ownerEmail:     JESTER_EMAIL,
+        }),
+      }).catch(e => console.warn('notify-interview-booked error (non-blocking):', e))
     } catch (err) { console.error('Booking error:', err) }
     setBooking(false)
   }
@@ -388,26 +403,29 @@ export default function InterviewSchedulePage() {
         {screen === 'confirmed' && bookedSlot && student && (
           <div style={{ textAlign:'center', padding:'20px 0' }}>
             <div style={{ fontSize:56, marginBottom:12 }}>✅</div>
-            <h2 style={{ fontSize:24, fontWeight:700, color:'#166534', marginBottom:16 }}>
+            <h2 style={{ fontSize:24, fontWeight:700, color:'#166534', marginBottom:4 }}>
               Your Interview Is Scheduled
             </h2>
+            <p style={{ fontSize:14, color:'#6b7280', marginBottom:20 }}>The ASPIRE team has been automatically notified.</p>
             <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:8, padding:'20px 24px', textAlign:'left', lineHeight:1.8, fontSize:14, color:'var(--raven)' }}>
-              <p style={{ marginBottom:12 }}>Your ASPIRE interview has been scheduled successfully. Here are your details:</p>
-              <div style={{ display:'flex', flexDirection:'column', gap:'6px', fontWeight:500 }}>
+              <p style={{ marginBottom:12, fontWeight:500 }}>Your booking details:</p>
+              <div style={{ display:'flex', flexDirection:'column', gap:'6px', fontWeight:500, marginBottom:16 }}>
                 <div><span style={{ color:'#6b7280' }}>Date: </span><span>{fmtDisplayDate(bookedSlot.slot_date)}</span></div>
                 <div><span style={{ color:'#6b7280' }}>Time: </span><span>{fmtTime(bookedSlot.slot_time)} Pacific Time</span></div>
                 <div><span style={{ color:'#6b7280' }}>Duration: </span><span>{bookedSlot.duration_minutes} minutes</span></div>
-                <div><span style={{ color:'#6b7280' }}>Format: </span><span>Microsoft Teams (link to be sent separately)</span></div>
+                <div><span style={{ color:'#6b7280' }}>Format: </span><span>Microsoft Teams</span></div>
                 <div><span style={{ color:'#6b7280' }}>Interviewer: </span><span>ASPIRE Team</span></div>
               </div>
-              <p style={{ marginTop:16, fontSize:13 }}>
-                Please watch your email for further instructions including the Teams meeting link.
-                If you need to reschedule, please email{' '}
-                <a href="mailto:JesterLloyd.Bautista@cshs.org" target="_blank" rel="noopener noreferrer" style={{ color:'var(--nightfall)' }}>JesterLloyd.Bautista@cshs.org</a>{' '}
-                at least 24 hours before your interview.
-              </p>
-              <p style={{ marginTop:8, fontSize:13 }}>
-                We look forward to learning more about your clinical interests and goals. See you soon.
+              <div style={{ borderTop:'1px solid #bbf7d0', paddingTop:14 }}>
+                <p style={{ fontSize:13, fontWeight:600, marginBottom:8, color:'#166534' }}>What happens next</p>
+                <ol style={{ fontSize:13, paddingLeft:18, lineHeight:2, margin:0 }}>
+                  <li>The ASPIRE team has been automatically notified of your booking.</li>
+                  <li>You will receive a Microsoft Teams meeting invitation at <strong>{student.school_email}</strong> within 24 hours.</li>
+                  <li>If you don't see the Teams invite within 24 hours, email <a href={`mailto:${JESTER_EMAIL}`} style={{ color:'var(--nightfall)' }}>{JESTER_EMAIL}</a>.</li>
+                </ol>
+              </div>
+              <p style={{ marginTop:14, fontSize:12, color:'#6b7280' }}>
+                Need to reschedule? Email <a href={`mailto:${JESTER_EMAIL}`} target="_blank" rel="noopener noreferrer" style={{ color:'var(--nightfall)' }}>{JESTER_EMAIL}</a> at least 24 hours before your interview.
               </p>
             </div>
           </div>

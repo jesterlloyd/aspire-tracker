@@ -158,7 +158,8 @@ export default function InterviewDayDrawer({
 }) {
   const queryClient = useQueryClient()
 
-  const [cancelling,   setCancelling]   = useState(null)
+  const [cancelling,    setCancelling]    = useState(null)
+  const [markingTeams,  setMarkingTeams]  = useState(null)
 
   // Scroll to and briefly pulse the highlighted slot (from Week view click)
   useEffect(() => {
@@ -199,6 +200,20 @@ export default function InterviewDayDrawer({
   }
 
   const showToast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(null), 3000) }
+
+  const handleMarkTeamsInviteSent = async (sessionId) => {
+    setMarkingTeams(sessionId)
+    await supabase.from('interview_sessions').update({
+      teams_meeting_booked:  true,
+      teams_invite_sent_at:  new Date().toISOString(),
+      teams_invite_sent_by:  userProfile?.id || null,
+    }).eq('id', sessionId)
+    setMarkingTeams(null)
+    showToast('Teams invite marked as sent')
+    queryClient.invalidateQueries({ queryKey: ['interview_calendar',  cohortId] })
+    queryClient.invalidateQueries({ queryKey: ['interview_sessions',  cohortId] })
+    onRefresh?.()
+  }
 
   const handleCancelBooking = async (slot) => {
     const student = Array.isArray(slot.students) ? slot.students[0] : slot.students
@@ -311,6 +326,8 @@ export default function InterviewDayDrawer({
               {scheduledSlots.map(slot => {
                 const student = Array.isArray(slot.students) ? slot.students[0] : slot.students
                 const endTime = addMinutes(slot.slot_time, slot.duration_minutes)
+                const session = Array.isArray(slot.interview_sessions) ? slot.interview_sessions[0] : slot.interview_sessions
+                const teamsInviteSent = !!session?.teams_meeting_booked
                 return (
                   <div key={slot.id} id={`slot-row-${slot.id}`} style={slotCard}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -330,7 +347,26 @@ export default function InterviewDayDrawer({
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <InterviewerChip name={slot.interviewer_name} colorMap={colorMap} />
                     </div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {/* Teams invite status */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                      {teamsInviteSent ? (
+                        <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: '#EEF7F0', color: '#2F7D5C' }}>
+                          ● Teams invite sent
+                        </span>
+                      ) : (
+                        <>
+                          <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: '#FBF5E8', color: '#C08A2A' }}>
+                            ● Teams invite pending
+                          </span>
+                          {session?.id && (
+                            <MBtn variant="outline" disabled={markingTeams === session.id} onClick={() => handleMarkTeamsInviteSent(session.id)}>
+                              {markingTeams === session.id ? '…' : 'Mark sent'}
+                            </MBtn>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
                       <MBtn variant="outline" onClick={() => handleCancelBooking(slot)} disabled={cancelling === slot.id}>
                         {cancelling === slot.id ? '…' : 'Cancel Interview'}
                       </MBtn>
