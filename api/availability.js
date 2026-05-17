@@ -156,10 +156,10 @@ export default async function handler(req, res) {
 
       console.log('Cancelling booking:', { slot_id, student_id })
 
-      // 1. Clear the slot
+      // 1. Clear the slot — reset status to 'available' so the calendar reads it correctly
       const { error: slotError } = await db
         .from('interview_slots')
-        .update({ is_booked: false, booked_by_student_id: null, booked_at: null })
+        .update({ status: 'available', is_booked: false, booked_by_student_id: null, booked_at: null })
         .eq('id', slot_id)
         .eq('booked_by_student_id', student_id)
 
