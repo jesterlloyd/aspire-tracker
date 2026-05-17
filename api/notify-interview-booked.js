@@ -1,13 +1,4 @@
-// api/notify-interview-booked.js
-// Server-side notification when a student books an interview slot.
-//
-// EMAIL SERVICE NOT YET CONFIGURED — this endpoint logs the notification and
-// returns 200 so the booking flow completes. Wire a real email service here:
-//   - Resend: npm install resend  → import { Resend } from 'resend'
-//   - Postmark, SendGrid, or Supabase Edge Functions w/ SMTP
-//
-// Recipients: interviewer + Jester (owner) so coverage is built in regardless
-// of which interviewer is assigned.
+import { Resend } from 'resend';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -15,6 +6,11 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
   if (req.method === 'OPTIONS') return res.status(200).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+
+  if (!process.env.RESEND_API_KEY) {
+    console.error('[notify-interview-booked] RESEND_API_KEY not set')
+    return res.status(500).json({ error: 'Email service not configured' })
+  }
 
   const {
     studentName,
@@ -26,48 +22,59 @@ export default async function handler(req, res) {
     duration,
     interviewerName,
     interviewerEmail,
-    ownerEmail,
+    ownerEmail = 'JesterLloyd.Bautista@cshs.org',
   } = req.body || {}
 
-  const recipients = [interviewerEmail, ownerEmail].filter(Boolean)
+  if (!studentName || !interviewDate || !interviewTime) {
+    return res.status(400).json({ error: 'Missing required booking fields' })
+  }
 
-  // Log the notification intent — useful for debugging before email is wired
-  console.log('[notify-interview-booked] New booking notification')
-  console.log('  Student:', studentName, '|', studentSchool, '|', studentProgram)
-  console.log('  Date/Time:', interviewDate, 'at', interviewTime, '(', duration, 'min )')
-  console.log('  Interviewer:', interviewerName, '|', interviewerEmail)
-  console.log('  Recipients:', recipients)
-  console.log('  Student email:', studentEmail)
+  const resend = new Resend(process.env.RESEND_API_KEY)
+  const recipients = [...new Set([ownerEmail, interviewerEmail].filter(Boolean))]
 
-  // ── Wire email service here ───────────────────────────────────────────────
-  // Example with Resend (install first: npm install resend):
-  //
-  // const { Resend } = await import('resend')
-  // const resend = new Resend(process.env.RESEND_API_KEY)
-  // await resend.emails.send({
-  //   from: 'ASPIRE Intelligence <noreply@aspire-tracker.vercel.app>',
-  //   to: recipients,
-  //   subject: `New ASPIRE Interview: ${studentName} — ${interviewDate} at ${interviewTime}`,
-  //   html: `
-  //     <p>A student has self-scheduled an ASPIRE interview.</p>
-  //     <table style="font-family:Arial,sans-serif;font-size:14px;border-collapse:collapse">
-  //       <tr><td style="padding:4px 12px 4px 0"><strong>Student:</strong></td><td>${studentName}</td></tr>
-  //       <tr><td style="padding:4px 12px 4px 0"><strong>School:</strong></td><td>${studentSchool}</td></tr>
-  //       <tr><td style="padding:4px 12px 4px 0"><strong>Program:</strong></td><td>${studentProgram}</td></tr>
-  //       <tr><td style="padding:4px 12px 4px 0"><strong>Student Email:</strong></td><td>${studentEmail}</td></tr>
-  //       <tr><td style="padding:4px 12px 4px 0"><strong>Date:</strong></td><td>${interviewDate}</td></tr>
-  //       <tr><td style="padding:4px 12px 4px 0"><strong>Time:</strong></td><td>${interviewTime} Pacific Time</td></tr>
-  //       <tr><td style="padding:4px 12px 4px 0"><strong>Duration:</strong></td><td>${duration} minutes</td></tr>
-  //       <tr><td style="padding:4px 12px 4px 0"><strong>Interviewer:</strong></td><td>${interviewerName}</td></tr>
-  //     </table>
-  //     <p style="margin-top:16px">
-  //       <strong>Action needed:</strong> Create the Microsoft Teams meeting and send
-  //       the invite to ${studentEmail}. Then mark the booking as "Teams invite sent"
-  //       in the Day Manager.
-  //     </p>
-  //   `,
-  // })
-  // ─────────────────────────────────────────────────────────────────────────
+  console.log('[notify-interview-booked] sending to:', recipients)
 
-  return res.status(200).json({ success: true, recipients, note: 'Email service not yet configured — logged to console' })
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'ASPIRE Intelligence <onboarding@resend.dev>',
+      to: recipients,
+      subject: `New ASPIRE Interview: ${studentName} — ${interviewDate} at ${interviewTime}`,
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px; color: #0E1428;">
+          <h2 style="color: #1D2567; margin-bottom: 16px; font-weight: 600;">New ASPIRE Interview Booked</h2>
+          <p style="margin: 0 0 16px; font-size: 14px;">A student has self-scheduled an ASPIRE interview.</p>
+          <table style="border-collapse: collapse; margin: 16px 0; font-size: 14px;">
+            <tr><td style="padding: 6px 16px 6px 0; color: #475467;"><strong>Student:</strong></td><td>${studentName}</td></tr>
+            <tr><td style="padding: 6px 16px 6px 0; color: #475467;"><strong>School:</strong></td><td>${studentSchool || 'N/A'}</td></tr>
+            <tr><td style="padding: 6px 16px 6px 0; color: #475467;"><strong>Program:</strong></td><td>${studentProgram || 'N/A'}</td></tr>
+            <tr><td style="padding: 6px 16px 6px 0; color: #475467;"><strong>Student Email:</strong></td><td>${studentEmail || 'N/A'}</td></tr>
+            <tr><td style="padding: 6px 16px 6px 0; color: #475467;"><strong>Date:</strong></td><td>${interviewDate}</td></tr>
+            <tr><td style="padding: 6px 16px 6px 0; color: #475467;"><strong>Time:</strong></td><td>${interviewTime} Pacific Time</td></tr>
+            <tr><td style="padding: 6px 16px 6px 0; color: #475467;"><strong>Duration:</strong></td><td>${duration} minutes</td></tr>
+            <tr><td style="padding: 6px 16px 6px 0; color: #475467;"><strong>Interviewer:</strong></td><td>${interviewerName || 'TBD'}</td></tr>
+          </table>
+          <div style="background: #FBF5E8; border-left: 3px solid #C08A2A; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
+            <strong style="color: #8B5E1A;">Action needed:</strong> Create the Microsoft Teams meeting and send the link to the student at ${studentEmail || 'their school email'}.
+          </div>
+          <p style="margin: 16px 0 8px; font-size: 13px; color: #475467;">
+            Once you've sent the Teams invite, open ASPIRE Intelligence and mark this booking as "Teams invite sent" in the Day Manager.
+          </p>
+          <p style="margin-top: 24px; font-size: 12px; color: #98A2B3; border-top: 1px solid #E5E7EB; padding-top: 12px;">
+            This is an automated notification from ASPIRE Intelligence · Brawerman Nursing Institute · Cedars-Sinai Medical Center
+          </p>
+        </div>
+      `,
+    })
+
+    if (error) {
+      console.error('[notify-interview-booked] Resend error:', JSON.stringify(error))
+      return res.status(500).json({ error: error.message || 'Email send failed', resendError: error })
+    }
+
+    console.log('[notify-interview-booked] sent successfully:', data?.id)
+    return res.status(200).json({ success: true, emailId: data?.id })
+  } catch (err) {
+    console.error('[notify-interview-booked] threw:', err)
+    return res.status(500).json({ error: err.message || 'Unexpected error' })
+  }
 }

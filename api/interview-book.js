@@ -71,21 +71,16 @@ export default async function handler(req, res) {
       .select('first_name, last_name, school, program_type, school_email')
       .eq('id', studentId).single()
 
-    // 5. Log to program_events — non-fatal
+    // 5. Log to program_events — non-fatal; schema uses notes text, no event_data column
+    const bookingNote = `Interview self-scheduled for ${slot.slot_date} at ${slot.slot_time} with ${slot.interviewer_name || 'TBD'} (${slot.duration_minutes} min). Slot: ${slotId}.`
     const { error: eventError } = await db.from('program_events').insert({
       student_id: studentId,
       cohort_id:  cohortId,
       event_type: 'interview_booked',
       event_date: slot.slot_date,
-      notes:      `Interview self-scheduled for ${slot.slot_date} at ${slot.slot_time}`,
-      created_by: 'system',
-      event_data: {
-        slot_id:          slotId,
-        slot_date:        slot.slot_date,
-        slot_time:        slot.slot_time,
-        duration_minutes: slot.duration_minutes,
-        interviewer_name: slot.interviewer_name,
-      },
+      event_time: slot.slot_time,
+      notes:      bookingNote,
+      created_by: 'self_schedule',
     })
     if (eventError) console.warn('[interview-book] program_events log failed (non-blocking):', eventError.message)
 
@@ -150,6 +145,31 @@ export default async function handler(req, res) {
     } else {
       emailStatus = 'no_key'
       console.warn('[interview-book] RESEND_API_KEY not set; skipping email notification')
+    }
+
+    // 8. Call notify endpoint as a secondary path (non-blocking) so the
+    //    student-facing page can also trigger it without duplicating logic
+    try {
+      const protocol = req.headers['x-forwarded-proto'] || 'https'
+      const host = req.headers.host
+      await fetch(`${protocol}://${host}/api/notify-interview-booked`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentName:     student ? `${student.first_name} ${student.last_name}` : `Student ${studentId}`,
+          studentSchool:   student?.school,
+          studentProgram:  student?.program_type,
+          studentEmail:    student?.school_email,
+          interviewDate:   slot.slot_date,
+          interviewTime:   slot.slot_time,
+          duration:        slot.duration_minutes,
+          interviewerName: slot.interviewer_name,
+          interviewerEmail,
+          ownerEmail: 'JesterLloyd.Bautista@cshs.org',
+        }),
+      })
+    } catch (notifyErr) {
+      console.error('[interview-book] notify call failed (non-fatal):', notifyErr.message)
     }
 
     return res.status(200).json({
