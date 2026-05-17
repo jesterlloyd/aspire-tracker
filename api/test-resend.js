@@ -15,7 +15,8 @@ export default async function handler(req, res) {
 
   try {
     const result = await resend.emails.send({
-      from: 'ASPIRE <onboarding@resend.dev>',           // Option A shared sender
+      from: 'ASPIRE Intelligence <noreply@aspire-program.com>',
+      reply_to: 'JesterLloyd.Bautista@cshs.org',
       to: ['jesterlloyd.bautista@cshs.org'],
       subject: 'ASPIRE Intelligence: Resend test email',
       html: `

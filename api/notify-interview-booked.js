@@ -36,7 +36,8 @@ export default async function handler(req, res) {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'ASPIRE Intelligence <onboarding@resend.dev>',
+      from: 'ASPIRE Intelligence <noreply@aspire-program.com>',
+      reply_to: 'JesterLloyd.Bautista@cshs.org',
       to: recipients,
       subject: `New ASPIRE Interview: ${studentName} — ${interviewDate} at ${interviewTime}`,
       html: `
