@@ -165,7 +165,7 @@ function InterviewPill({ student, session, rubrics, onClick }) {
       onClick={onClick}>
       {needsDot && (
         <span style={{ position:'absolute', top:-3, right:-3, width:8, height:8,
-          borderRadius:'50%', background:'#dc1e34', border:'1.5px solid #fff',
+          borderRadius:'50%', background:'#930045', border:'1.5px solid #fff',
           display:'block', zIndex:2 }} />
       )}
       <div className="cal-iv-pill-name">{pillName}</div>

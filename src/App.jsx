@@ -729,7 +729,7 @@ function MainApp({ onLogout }) {
           {/* Zone 3: Search */}
           <div ref={searchAreaRef} style={{ position:'relative', flexShrink:0 }}>
             <div style={{ position:'relative', display:'flex', alignItems:'center' }}>
-              <span style={{ position:'absolute', left:11, pointerEvents:'none', lineHeight:0, zIndex:1, opacity: searchFocused ? 0.8 : 0.5 }}>
+              <span style={{ position:'absolute', left:11, pointerEvents:'none', lineHeight:0, zIndex:1, opacity: searchFocused ? 1 : 0.85 }}>
                 <HeaderSearchIcon />
               </span>
               <input
@@ -854,7 +854,7 @@ function MainApp({ onLogout }) {
                 <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
               </svg>
               {actionBadgeCount > 0 && (
-                <span style={{ position:'absolute', top:-3, right:-3, minWidth:16, height:16, borderRadius:8, background:'#dc1e34', color:'#fff', fontSize:10, fontWeight:700, fontFamily:'DM Sans', display:'flex', alignItems:'center', justifyContent:'center', padding:'0 3px', lineHeight:1, border:'1.5px solid #1D2567' }}>
+                <span style={{ position:'absolute', top:-3, right:-3, minWidth:16, height:16, borderRadius:8, background:'#930045', color:'#fff', fontSize:10, fontWeight:700, fontFamily:'DM Sans', display:'flex', alignItems:'center', justifyContent:'center', padding:'0 3px', lineHeight:1, border:'1.5px solid #1D2567' }}>
                   {actionBadgeCount >= 10 ? '9+' : actionBadgeCount}
                 </span>
               )}
