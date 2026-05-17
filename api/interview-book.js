@@ -93,7 +93,7 @@ export default async function handler(req, res) {
       interviewerEmail = iv?.email?.trim() || null
     }
 
-    return res.status(200).json({ success: true, slot, interviewerEmail })
+    return res.status(200).json({ success: true, slot, interviewerEmail, ownerEmail: 'JesterLloyd.Bautista@cshs.org' })
 
   } catch (err) {
     console.error('[interview-book] unhandled error:', err)

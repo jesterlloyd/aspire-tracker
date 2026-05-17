@@ -77,6 +77,7 @@ export default function InterviewSchedulePage() {
   const [bookedSlot,      setBookedSlot]      = useState(null)
   const [existingBooking, setExistingBooking] = useState(null)
   const [errorMessage,    setErrorMessage]    = useState('')
+  const [mailtoUrl,       setMailtoUrl]       = useState(null)
 
   // Calendar state
   const [calMonth,     setCalMonth]     = useState(null) // { year, month }
@@ -196,7 +197,21 @@ export default function InterviewSchedulePage() {
       setBookedSlot(data.slot)
       setScreen('confirmed')
 
-      // Fire server-side notification (fire-and-forget — doesn't block the confirmation screen)
+      // Build mailto for the ASPIRE team (interviewer + owner as recipients)
+      // TODO: Replace with server-side email via api/notify-interview-booked
+      // once an email service (e.g. Resend) is configured. Mailto is a courtesy
+      // fallback; the canonical record lives in the database and the app's
+      // in-app badge / Day Manager.
+      const mailto = buildNotificationMailto(student, data.slot, data.interviewerEmail)
+      setMailtoUrl(mailto)
+
+      // Auto-trigger so the email client opens without the student needing to click.
+      // Small delay lets the success screen render first.
+      setTimeout(() => {
+        window.location.href = mailto
+      }, 800)
+
+      // Fire server-side notification stub (non-blocking — logs to console until email service is wired)
       fetch('/api/notify-interview-booked', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -428,6 +443,27 @@ export default function InterviewSchedulePage() {
                 Need to reschedule? Email <a href={`mailto:${JESTER_EMAIL}`} target="_blank" rel="noopener noreferrer" style={{ color:'var(--nightfall)' }}>{JESTER_EMAIL}</a> at least 24 hours before your interview.
               </p>
             </div>
+
+            {/* Backup mailto trigger in case the browser blocked the auto-open */}
+            {mailtoUrl && (
+              <div style={{ marginTop:20, textAlign:'center' }}>
+                <a
+                  href={mailtoUrl}
+                  style={{
+                    display:'inline-flex', alignItems:'center', gap:8,
+                    background:'#1D2567', color:'#fff',
+                    borderRadius:10, padding:'11px 22px',
+                    fontFamily:'DM Sans, sans-serif', fontWeight:700, fontSize:14,
+                    textDecoration:'none', lineHeight:1,
+                  }}
+                >
+                  📧 Notify ASPIRE team
+                </a>
+                <p style={{ fontSize:12, color:'#6b7280', marginTop:8 }}>
+                  An email window should have opened automatically. If it didn't, tap the button above.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
