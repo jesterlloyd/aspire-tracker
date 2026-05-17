@@ -34,18 +34,25 @@ export default async function handler(req, res) {
     }
 
     // 2. Create or update interview_session
-    const { data: existingSession } = await db.from('interview_sessions')
+    const { data: existingSession, error: lookupError } = await db.from('interview_sessions')
       .select('id').eq('student_id', studentId).eq('cohort_id', cohortId).limit(1).maybeSingle()
 
+    if (lookupError) {
+      console.error('[interview-book] session lookup failed:', lookupError.message)
+      // Non-fatal — continue with insert
+    }
+
     if (existingSession) {
-      await db.from('interview_sessions')
+      const { error: updateError } = await db.from('interview_sessions')
         .update({ self_scheduled: true, slot_id: slotId })
         .eq('id', existingSession.id)
+      if (updateError) console.error('[interview-book] session update failed (non-fatal):', updateError.message)
     } else {
-      await db.from('interview_sessions').insert({
+      const { error: insertError } = await db.from('interview_sessions').insert({
         student_id: studentId, cohort_id: cohortId,
         self_scheduled: true, slot_id: slotId, session_number: 1,
       })
+      if (insertError) console.error('[interview-book] session insert failed (non-fatal):', insertError.message)
     }
 
     // 3. Update student record
@@ -57,10 +64,10 @@ export default async function handler(req, res) {
       scheduling_viewed_at:       now,
     }).eq('id', studentId)
 
-    if (studentError) console.error('Student update error:', studentError.message)
+    if (studentError) console.error('[interview-book] student update error:', studentError.message)
 
-    // 4. Log to program_events so booking surfaces in Activity Log and priorities
-    await db.from('program_events').insert({
+    // 4. Log to program_events — non-fatal; use destructured await, NOT .catch()
+    const { error: eventError } = await db.from('program_events').insert({
       student_id: studentId,
       cohort_id:  cohortId,
       event_type: 'interview_booked',
@@ -74,7 +81,8 @@ export default async function handler(req, res) {
         duration_minutes: slot.duration_minutes,
         interviewer_name: slot.interviewer_name,
       },
-    }).catch(e => console.warn('program_events log error (non-blocking):', e.message))
+    })
+    if (eventError) console.warn('[interview-book] program_events log failed (non-blocking):', eventError.message)
 
     // 5. Fetch interviewer email for notification
     let interviewerEmail = null
@@ -88,7 +96,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, slot, interviewerEmail })
 
   } catch (err) {
-    console.error('interview-book error:', err)
+    console.error('[interview-book] unhandled error:', err)
     return res.status(500).json({ error: err.message })
   }
 }
