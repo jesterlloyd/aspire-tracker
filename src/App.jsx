@@ -88,7 +88,7 @@ function HeaderChevron() {
   return <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
 }
 function HeaderSearchIcon() {
-  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
 }
 
 function LastSyncedIndicator() {
@@ -729,7 +729,7 @@ function MainApp({ onLogout }) {
           {/* Zone 3: Search */}
           <div ref={searchAreaRef} style={{ position:'relative', flexShrink:0 }}>
             <div style={{ position:'relative', display:'flex', alignItems:'center' }}>
-              <span style={{ position:'absolute', left:11, pointerEvents:'none', lineHeight:0, zIndex:1, opacity: searchFocused ? 1 : 0.85 }}>
+              <span style={{ position:'absolute', left:11, pointerEvents:'none', lineHeight:0, zIndex:1, opacity: searchFocused ? 1 : 0.95 }}>
                 <HeaderSearchIcon />
               </span>
               <input
@@ -740,6 +740,7 @@ function MainApp({ onLogout }) {
                 onKeyDown={handleSearchKey}
                 onFocus={() => { setSearchFocused(true); if (searchQuery.length >= 2) setSearchOpen(true) }}
                 onBlur={() => setSearchFocused(false)}
+                className="header-search-input"
                 style={{
                   height:34, paddingLeft:32, paddingRight:44,
                   width: searchFocused ? 280 : 220,
@@ -751,7 +752,7 @@ function MainApp({ onLogout }) {
                 }}
                 placeholder="Search students, units…"
               />
-              <span style={{ position:'absolute', right:10, pointerEvents:'none', fontSize:10, fontWeight:500, color:'rgba(255,255,255,0.30)', fontFamily:'ui-monospace, monospace', background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.08)', padding:'1px 5px', borderRadius:3 }}>⌘K</span>
+              <span style={{ position:'absolute', right:10, pointerEvents:'none', fontSize:10, fontWeight:500, color:'rgba(255,255,255,0.70)', fontFamily:'ui-monospace, monospace', background:'rgba(255,255,255,0.10)', border:'1px solid rgba(255,255,255,0.15)', padding:'1px 5px', borderRadius:3 }}>⌘K</span>
             </div>
 
             {/* Search dropdown */}
