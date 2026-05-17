@@ -43,25 +43,67 @@ function getMonthGrid(year, month) {
 
 const JESTER_EMAIL = 'JesterLloyd.Bautista@cshs.org'
 
-function buildNotificationMailto(student, slot, interviewerEmail) {
-  const toEmail = interviewerEmail || JESTER_EMAIL
-  const noEmailNote = !interviewerEmail
-    ? '\n\nNote: Interviewer email not found. Please forward to the assigned interviewer.' : ''
-  const subject = `New ASPIRE Interview Booking – ${student.last_name}, ${student.first_name} | ${slot.slot_date} at ${slot.slot_time}`
-  const body = `A student has self-scheduled an ASPIRE interview. Please create a Teams meeting for this appointment.
+// Student-friendly mailto — addressed to JESTER_EMAIL, composed as if from the student
+function buildStudentMailtoUrl(student, slot) {
+  const name = `${student.first_name} ${student.last_name}`
+  const subject = `ASPIRE Interview Booked: ${name} on ${slot.slot_date} at ${fmtTime(slot.slot_time)}`
+  const body =
+`Hi ASPIRE Team,
 
-Student: ${student.last_name}, ${student.first_name}
+This is to confirm that I have scheduled my ASPIRE interview.
+
+Student: ${name}
 School: ${student.school || 'N/A'}
 Program: ${student.program_type || 'N/A'}
-Interview Date: ${slot.slot_date}
-Interview Time: ${fmtTime(slot.slot_time)} Pacific Time
+Date: ${slot.slot_date}
+Time: ${fmtTime(slot.slot_time)} Pacific Time
 Duration: ${slot.duration_minutes} minutes
 
-Please create the Microsoft Teams meeting and send the student the link at their school email: ${student.school_email}
+I look forward to it.
 
-This is an automated notification from the ASPIRE Intelligence.${noEmailNote}`
-  const bcc = toEmail === JESTER_EMAIL ? 'Krystal.Rodriguez@cshs.org' : `${JESTER_EMAIL},Krystal.Rodriguez@cshs.org`
-  return `mailto:${encodeURIComponent(toEmail)}?bcc=${encodeURIComponent(bcc)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+Thank you,
+${student.first_name}`
+  return `mailto:${JESTER_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+}
+
+// .ics calendar file generator — pure client-side, no backend needed
+function buildIcsDataUri(student, slot) {
+  const { slot_date, slot_time, duration_minutes } = slot
+  const [h, m] = slot_time.split(':').map(Number)
+  const dtStart = `${slot_date.replace(/-/g,'')}T${String(h).padStart(2,'0')}${String(m).padStart(2,'0')}00`
+  const endMins = h * 60 + m + (duration_minutes || 30)
+  const eH = Math.floor(endMins / 60), eM = endMins % 60
+  const dtEnd = `${slot_date.replace(/-/g,'')}T${String(eH).padStart(2,'0')}${String(eM).padStart(2,'0')}00`
+  const uid = `${Date.now()}-${Math.random().toString(36).slice(2)}@aspire-program.com`
+  const stamp = new Date().toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z'
+  const studentEmail = student.school_email || 'your school email'
+
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//ASPIRE Intelligence//Cedars-Sinai//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${stamp}`,
+    `DTSTART;TZID=America/Los_Angeles:${dtStart}`,
+    `DTEND;TZID=America/Los_Angeles:${dtEnd}`,
+    'SUMMARY:ASPIRE Program Interview',
+    `DESCRIPTION:Your ASPIRE Program interview with Cedars-Sinai Brawerman Nursing Institute.\\n\\nMicrosoft Teams meeting link will be sent to ${studentEmail} within 24 hours.\\n\\nTo reschedule\\, email ${JESTER_EMAIL} at least 24 hours before your interview.`,
+    'LOCATION:Microsoft Teams (link to follow)',
+    `ORGANIZER;CN=ASPIRE Program:MAILTO:${JESTER_EMAIL}`,
+    'STATUS:CONFIRMED',
+    'BEGIN:VALARM',
+    'ACTION:DISPLAY',
+    'DESCRIPTION:Reminder: ASPIRE interview in 1 hour',
+    'TRIGGER:-PT1H',
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n')
+
+  return 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics)
 }
 
 
@@ -197,21 +239,10 @@ export default function InterviewSchedulePage() {
       setBookedSlot(data.slot)
       setScreen('confirmed')
 
-      // Build mailto for the ASPIRE team (interviewer + owner as recipients)
-      // TODO: Replace with server-side email via api/notify-interview-booked
-      // once an email service (e.g. Resend) is configured. Mailto is a courtesy
-      // fallback; the canonical record lives in the database and the app's
-      // in-app badge / Day Manager.
-      const mailto = buildNotificationMailto(student, data.slot, data.interviewerEmail)
-      setMailtoUrl(mailto)
+      // Build student-friendly mailto (opt-in only — no auto-trigger)
+      setMailtoUrl(buildStudentMailtoUrl(student, data.slot))
 
-      // Auto-trigger so the email client opens without the student needing to click.
-      // Small delay lets the success screen render first.
-      setTimeout(() => {
-        window.location.href = mailto
-      }, 800)
-
-      // Fire server-side notification stub (non-blocking — logs to console until email service is wired)
+      // Fire server-side Resend notification (non-blocking)
       fetch('/api/notify-interview-booked', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -415,57 +446,63 @@ export default function InterviewSchedulePage() {
         )}
 
         {/* ── Screen 3: Confirmed ── */}
-        {screen === 'confirmed' && bookedSlot && student && (
-          <div style={{ textAlign:'center', padding:'20px 0' }}>
-            <div style={{ fontSize:56, marginBottom:12 }}>✅</div>
-            <h2 style={{ fontSize:24, fontWeight:700, color:'#166534', marginBottom:4 }}>
-              Your Interview Is Scheduled
-            </h2>
-            <p style={{ fontSize:14, color:'#6b7280', marginBottom:20 }}>The ASPIRE team has been automatically notified.</p>
-            <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:8, padding:'20px 24px', textAlign:'left', lineHeight:1.8, fontSize:14, color:'var(--raven)' }}>
-              <p style={{ marginBottom:12, fontWeight:500 }}>Your booking details:</p>
-              <div style={{ display:'flex', flexDirection:'column', gap:'6px', fontWeight:500, marginBottom:16 }}>
-                <div><span style={{ color:'#6b7280' }}>Date: </span><span>{fmtDisplayDate(bookedSlot.slot_date)}</span></div>
-                <div><span style={{ color:'#6b7280' }}>Time: </span><span>{fmtTime(bookedSlot.slot_time)} Pacific Time</span></div>
-                <div><span style={{ color:'#6b7280' }}>Duration: </span><span>{bookedSlot.duration_minutes} minutes</span></div>
-                <div><span style={{ color:'#6b7280' }}>Format: </span><span>Microsoft Teams</span></div>
-                <div><span style={{ color:'#6b7280' }}>Interviewer: </span><span>ASPIRE Team</span></div>
+        {screen === 'confirmed' && bookedSlot && student && (() => {
+          const icsUrl = buildIcsDataUri(student, bookedSlot)
+          const btnPrimary = { padding:'10px 18px', borderRadius:8, background:'#1D2567', color:'#fff', fontSize:13, fontWeight:500, textDecoration:'none', display:'inline-flex', alignItems:'center', gap:6, fontFamily:'DM Sans, sans-serif', border:'none', cursor:'pointer' }
+          const btnSecondary = { ...btnPrimary, background:'#fff', color:'#1D2567', border:'1px solid rgba(29,37,103,0.12)' }
+          const DetailRow = ({ label, value, last }) => (
+            <div style={{ display:'flex', padding:'8px 0', borderBottom: last ? 'none' : '1px dashed rgba(29,37,103,0.08)', fontSize:13.5 }}>
+              <div style={{ width:90, color:'#98A2B3', fontWeight:500 }}>{label}</div>
+              <div style={{ color:'#0E1428', flex:1 }}>{value}</div>
+            </div>
+          )
+          return (
+            <div style={{ maxWidth:540, margin:'0 auto', padding:'24px 0', fontFamily:'DM Sans, sans-serif', color:'#0E1428' }}>
+              {/* Header */}
+              <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
+                <div style={{ width:44, height:44, borderRadius:'50%', background:'#EEF7F0', color:'#2F7D5C', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>✓</div>
+                <div>
+                  <div style={{ fontSize:11, textTransform:'uppercase', letterSpacing:'0.14em', color:'#475467', fontWeight:600 }}>Confirmed</div>
+                  <h2 style={{ fontSize:22, fontWeight:600, color:'#1D2567', margin:'4px 0 0', letterSpacing:'-0.01em' }}>Your interview is scheduled</h2>
+                </div>
               </div>
-              <div style={{ borderTop:'1px solid #bbf7d0', paddingTop:14 }}>
-                <p style={{ fontSize:13, fontWeight:600, marginBottom:8, color:'#166534' }}>What happens next</p>
-                <ol style={{ fontSize:13, paddingLeft:18, lineHeight:2, margin:0 }}>
-                  <li>The ASPIRE team has been automatically notified of your booking.</li>
-                  <li>You will receive a Microsoft Teams meeting invitation at <strong>{student.school_email}</strong> within 24 hours.</li>
-                  <li>If you don't see the Teams invite within 24 hours, email <a href={`mailto:${JESTER_EMAIL}`} style={{ color:'var(--nightfall)' }}>{JESTER_EMAIL}</a>.</li>
+
+              {/* Booking details */}
+              <div style={{ background:'#FAFAF7', border:'1px solid rgba(29,37,103,0.06)', borderRadius:10, padding:18, marginBottom:24 }}>
+                <DetailRow label="Date"     value={fmtDisplayDate(bookedSlot.slot_date)} />
+                <DetailRow label="Time"     value={`${fmtTime(bookedSlot.slot_time)} Pacific Time`} />
+                <DetailRow label="Duration" value={`${bookedSlot.duration_minutes} minutes`} />
+                <DetailRow label="Format"   value="Microsoft Teams (link will be sent to your school email)" last />
+              </div>
+
+              {/* What happens next */}
+              <div style={{ marginBottom:24 }}>
+                <h3 style={{ fontSize:11, textTransform:'uppercase', letterSpacing:'0.14em', color:'#475467', fontWeight:600, marginBottom:12 }}>What happens next</h3>
+                <ol style={{ fontSize:13.5, color:'#475467', lineHeight:1.6, paddingLeft:18, margin:0 }}>
+                  <li>The ASPIRE team has been automatically notified.</li>
+                  <li>You'll receive a Microsoft Teams meeting invitation at <strong style={{ color:'#1D2567' }}>{student.school_email}</strong> within 24 hours.</li>
+                  <li>If you don't see the Teams invite within 24 hours, email <a href={`mailto:${JESTER_EMAIL}`} style={{ color:'#1D2567', textDecoration:'underline' }}>{JESTER_EMAIL}</a>.</li>
                 </ol>
               </div>
-              <p style={{ marginTop:14, fontSize:12, color:'#6b7280' }}>
-                Need to reschedule? Email <a href={`mailto:${JESTER_EMAIL}`} target="_blank" rel="noopener noreferrer" style={{ color:'var(--nightfall)' }}>{JESTER_EMAIL}</a> at least 24 hours before your interview.
+
+              {/* Action buttons */}
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap', paddingTop:20, borderTop:'1px solid rgba(29,37,103,0.06)' }}>
+                <a href={icsUrl} download={`aspire-interview-${bookedSlot.slot_date}.ics`} style={btnPrimary}>
+                  📅 Add to calendar
+                </a>
+                {mailtoUrl && (
+                  <a href={mailtoUrl} style={btnSecondary}>
+                    📧 Notify ASPIRE team
+                  </a>
+                )}
+              </div>
+
+              <p style={{ fontSize:12, color:'#98A2B3', marginTop:20, marginBottom:0, lineHeight:1.5 }}>
+                Need to reschedule? Email <a href={`mailto:${JESTER_EMAIL}`} style={{ color:'#475467' }}>{JESTER_EMAIL}</a> at least 24 hours before your interview.
               </p>
             </div>
-
-            {/* Backup mailto trigger in case the browser blocked the auto-open */}
-            {mailtoUrl && (
-              <div style={{ marginTop:20, textAlign:'center' }}>
-                <a
-                  href={mailtoUrl}
-                  style={{
-                    display:'inline-flex', alignItems:'center', gap:8,
-                    background:'#1D2567', color:'#fff',
-                    borderRadius:10, padding:'11px 22px',
-                    fontFamily:'DM Sans, sans-serif', fontWeight:700, fontSize:14,
-                    textDecoration:'none', lineHeight:1,
-                  }}
-                >
-                  📧 Notify ASPIRE team
-                </a>
-                <p style={{ fontSize:12, color:'#6b7280', marginTop:8 }}>
-                  An email window should have opened automatically. If it didn't, tap the button above.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
+          )
+        })()}
 
         {/* ── Screen 4: Already scheduled ── */}
         {screen === 'existing' && student && (
