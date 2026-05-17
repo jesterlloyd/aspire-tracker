@@ -729,7 +729,7 @@ function MainApp({ onLogout }) {
           {/* Zone 3: Search */}
           <div ref={searchAreaRef} style={{ position:'relative', flexShrink:0 }}>
             <div style={{ position:'relative', display:'flex', alignItems:'center' }}>
-              <span style={{ position:'absolute', left:11, pointerEvents:'none', lineHeight:0, zIndex:1, opacity: searchFocused ? 1 : 0.95 }}>
+              <span style={{ position:'absolute', left:11, pointerEvents:'none', lineHeight:0, zIndex:1, color:'#fff', opacity: searchFocused ? 1 : 0.95 }}>
                 <HeaderSearchIcon />
               </span>
               <input
