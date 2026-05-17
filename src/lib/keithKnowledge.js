@@ -25,7 +25,7 @@ export const ASPIRE_KNOWLEDGE = {
   tabs: {
     aggregate: `The Aggregate tab shows the program overview: Clinical Placement Availability (units by division with slot counts) and Student Placement Requests (students grouped by school). It includes summary cards for Total Slots, Slots Filled, Slots Remaining, Students Requesting, and Gap. It also shows the On Campus Today panel for students who logged shifts today.`,
     studentProfiles: `The Student Profiles tab shows two views: Profiles (student list with side panel detail) and CS-Link Access (bulk access workflow table). The student list shows avatars, names, school, program, contact info, GPA, ASPIRE status, and CS-Link status. The side panel shows full profile with all sections including CS-Link workflow, Clinical Hours, Documents, and Communication History.`,
-    interviewRubric: `The Interview Rubric tab manages interviews. The calendar shows scheduled interviews and availability slots. Summary cards track Total, Scheduled, Completed, In Progress, Not Scheduled, Flagged, and Recommended students. The rubric form has 7 sections: Interview Info, Unit Preferences and Rationale, Clinical Judgment, Professional Presence, Goal Alignment, Student Questions, and Overall Recommendation. Scoring uses a 1-5 scale. Auto recommendation uses majority vote of interviewers.`,
+    interviewRubric: `The Interview Room tab manages interviews. The calendar shows scheduled interviews and availability slots. Summary cards track Total, Scheduled, Completed, In Progress, Not Scheduled, Flagged, and Recommended students. The rubric form has 7 sections: Interview Info, Unit Preferences and Rationale, Clinical Judgment, Professional Presence, Goal Alignment, Student Questions, and Overall Recommendation. Scoring uses a 1-5 scale. Auto recommendation uses majority vote of interviewers.`,
     embed: `The Embed tab is the matching board. The Unit Pool shows unit cards with open slot pills. The Student Pool shows unmatched students. Clicking a student highlights compatible units based on their preferences. Clicking an empty slot creates a match. Unit leader email notifications are sent from this tab.`,
   },
 
@@ -165,14 +165,14 @@ export function generateStaticResponse(userMessage, cohortName, context) {
       const list = nameList(unscheduled);
       return {
         text: unscheduled.length === 0
-          ? `All Form Received students in ${cohort} have their interviews scheduled. Check the Interview Rubric tab for upcoming interviews.`
+          ? `All Form Received students in ${cohort} have their interviews scheduled. Check the Interview Room tab for upcoming interviews.`
           : `${unscheduled.length} student${unscheduled.length > 1 ? 's have' : ' has'} submitted their form but not yet scheduled an interview:\n\n${list}\n\nSend them the scheduling link from the Action Center.`,
-        action: { label: 'Go to Interview Rubric', type: 'tab', tab: 'interviews' },
+        action: { label: 'Go to Interview Room', type: 'tab', tab: 'interviews' },
       };
     }
     return {
-      text: `Check the Interview Rubric tab student list for Interview Status per student. The Action Center sends scheduling links with one click.`,
-      action: { label: 'Go to Interview Rubric', type: 'tab', tab: 'interviews' },
+      text: `Check the Interview Room tab student list for Interview Status per student. The Action Center sends scheduling links with one click.`,
+      action: { label: 'Go to Interview Room', type: 'tab', tab: 'interviews' },
     };
   }
 
@@ -380,7 +380,7 @@ ASPIRE places senior pre-licensure nursing students from affiliated schools (Cal
 The platform supports four main workflows organized as tabs:
 - Aggregate (A): Cohort-level dashboard and stats.
 - Student Profiles (SP): Individual student records, placement, outcomes, communications.
-- Interview Rubric (IR): Scoring, scheduling, interviewer management.
+- Interview Room (IR): Scoring, scheduling, interviewer management.
 - Embed (E): Drag-and-drop matching board for student-to-unit placement.
 
 The program is led by Jester Lloyd Bautista (Owner, NPD Practitioner) and co-led by Krystal Rodriguez (Admin).
@@ -391,7 +391,7 @@ User roles and permissions:
 - Owner: full access, only one (Jester). Cannot be demoted.
 - Admin: full access including People & Access and cohort management.
 - Co-Lead: operational access, can perform placements, cannot manage users.
-- Interviewer: limited to Aggregate, Student Profiles (limited view), and Interview Rubric. No Embed or People & Access.
+- Interviewer: limited to Aggregate, Student Profiles (limited view), and Interview Room. No Embed or People & Access.
 - Viewer: read-only.
 
 Interviewers can conduct interviews by default. Owner, Admin, and Co-Lead can also conduct interviews if the toggle is enabled in People & Access.
@@ -413,7 +413,7 @@ Embed tab (matching board):
 - Choice color system: muted emerald (1st), gold (2nd), periwinkle (3rd). Navy headers, subtle accent borders.
 - Notify Unit Leader and per-slot envelope buttons now correctly mark matches as notified in Supabase and open mailto in a new tab.
 
-Interview Center (Interview Rubric tab):
+Interview Center (Interview Room tab):
 - Month-view calendar with fixed 88px cell heights so cells never expand.
 - Max 2 visible event pills per cell with a clickable overflow popover.
 - Compact time-first pill labels with status or interviewer initials.

@@ -143,7 +143,7 @@ export default function EditScheduleModal({ student, onClose, onSaved, onOpenRub
             <button className="btn btn-outline-modal"
               style={{ color:'var(--nightfall)', borderColor:'var(--nightfall)' }}
               onClick={() => { onClose(); onOpenRubric(student.id) }}>
-              Open Interview Rubric →
+              Open Interview Room →
             </button>
             <button
               style={{ background:'var(--pearl)', border:'1.5px solid var(--cs-red)', color:'var(--cs-red)', borderRadius:4, padding:'6px 14px', fontSize:13, fontWeight:600, cursor:'pointer', transition:'background 0.12s' }}

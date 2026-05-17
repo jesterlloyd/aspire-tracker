@@ -78,7 +78,7 @@ Phase 3: Cross-cohort trend dashboard + Keith proactive weekly digest.
 Phase 4: Predictive models - NGRP hire likelihood, unit demand forecasting, at-risk student detection.
 
 DESIGN SYSTEM:
-Primary dark: Nightfall #1D2567. Navbar: deep navy gradient. Tab badges: Aggregate=Nova, Student Profiles=Sage, Interview Rubric=Dawn, Embed=Marina. FeedbackPanel (Chroma #930045) is bottom-left. Keith orb is bottom-right. All external links open in new tabs.
+Primary dark: Nightfall #1D2567. Navbar: deep navy gradient. Tab badges: Aggregate=Nova, Student Profiles=Sage, Interview Room=Dawn, Embed=Marina. FeedbackPanel (Chroma #930045) is bottom-left. Keith orb is bottom-right. All external links open in new tabs.
 
 SHIFT PREFERENCES: Day Shift Preferred, Night Shift Preferred, No Preference.
 PROGRAM TYPES: BSN Semester, BSN Trimester, BSN Quarter, Accelerated BSN, LVN to BSN, MECN, ELMN.

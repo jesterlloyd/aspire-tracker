@@ -334,7 +334,7 @@ export default function UserManagement({ isOpen, onClose }) {
     setExpandedUserId(null)
     showToast('Saved successfully.')
     queryClient.invalidateQueries({ queryKey: ['people_access_users'] })
-    // If interview capability or color changed, keep Interview Rubric in sync
+    // If interview capability or color changed, keep Interview Room in sync
     if (draft.can_conduct_interviews !== !!u.can_conduct_interviews ||
         draft.interviewer_color !== (u.interviewer_color || '#1D2567')) {
       queryClient.invalidateQueries({ queryKey: ['interviewers_active'] })
@@ -603,7 +603,7 @@ export default function UserManagement({ isOpen, onClose }) {
                                   {/* Interviewer access scope helper */}
                                   {u.role === 'interviewer' && !isOwnerUser && (
                                     <div style={{ fontSize: '11px', color: '#9ca3af', lineHeight: 1.5, marginBottom: '2px' }}>
-                                      <span style={{ color: '#6b7280' }}>Access:</span> Aggregate, Student Profiles, Interview Rubric<br />
+                                      <span style={{ color: '#6b7280' }}>Access:</span> Aggregate, Student Profiles, Interview Room<br />
                                       <span style={{ color: '#6b7280' }}>Restricted:</span> Embed, People &amp; Access
                                     </div>
                                   )}

@@ -30,7 +30,7 @@ const stepStudentProfiles = {
 
 const stepInterviewRubric = {
   target: '[data-tour="tab-interview-rubric"]',
-  title: 'Interview Rubric',
+  title: 'Interview Room',
   content: 'View scheduled interviews, open a student session, complete the rubric (Clinical Judgment, Professional Presence, Goal Alignment), and submit your recommendation.',
 };
 
