@@ -29,6 +29,38 @@ function getStudentIvStatus(student, rubrics) {
   return 'Not Scheduled'
 }
 
+// Teams invite lifecycle status — drives the repurposed "Interview Status" column
+function getTeamsInviteStatus(student, sessions) {
+  const session = (sessions || [])
+    .filter(s => s.student_id === student.id)
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0]
+
+  if (!session) return { label: 'Not scheduled', tone: 'neutral' }
+  if (session.status === 'cancelled' || session.status === 'Cancelled') return { label: 'Cancelled', tone: 'neutral' }
+  if (session.status === 'completed' || session.status === 'Completed')  return { label: 'Completed',  tone: 'success' }
+  if (session.teams_invite_sent_at || session.teams_meeting_booked)       return { label: 'Teams invite sent', tone: 'success' }
+  if (session.self_scheduled || student.interview_scheduled_date)         return { label: 'Needs Teams invite', tone: 'attention' }
+  return { label: 'Not scheduled', tone: 'neutral' }
+}
+
+function TeamsInvitePill({ student, sessions }) {
+  const { label, tone } = getTeamsInviteStatus(student, sessions)
+  const tones = {
+    neutral:   { bg: '#F6F6F2', text: '#475467', border: 'rgba(29,37,103,0.10)' },
+    attention: { bg: '#FCF3F7', text: '#930045', border: 'rgba(147,0,69,0.20)' },
+    success:   { bg: '#EEF7F0', text: '#2F7D5C', border: 'rgba(47,125,92,0.20)' },
+  }
+  const t = tones[tone] || tones.neutral
+  return (
+    <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 9px', borderRadius:999, background:t.bg, color:t.text, border:`1px solid ${t.border}`, fontSize:11, fontWeight:600, fontFamily:'DM Sans, sans-serif', whiteSpace:'nowrap' }}>
+      {tone === 'attention' && (
+        <span style={{ width:5, height:5, borderRadius:'50%', background:'#930045', animation:'pulse-dot 1.8s ease-in-out infinite', flexShrink:0 }} />
+      )}
+      {label}
+    </span>
+  )
+}
+
 const ROW_BORDER = {
   'Completed':     '#16a34a',
   'In Progress':   '#ca8a04',
@@ -157,6 +189,7 @@ export default function InterviewRubricTab({
 
   const sorted = [...baseStudents].sort((a, b) => {
     const ivStatusOrder = { Completed:0, 'In Progress':1, Scheduled:2, 'Not Scheduled':3 }
+    const teamsStatusOrder = { 'Needs Teams invite':1, 'Teams invite sent':2, Completed:3, 'Not scheduled':4, Cancelled:5 }
     let av, bv
     if (sortBy === 'last_name') {
       av = (a.last_name || a.name || '').toLowerCase(); bv = (b.last_name || b.name || '').toLowerCase()
@@ -165,7 +198,8 @@ export default function InterviewRubricTab({
       if (sc !== 0) return sortDir === 'asc' ? sc : -sc
       av = (a.last_name || a.name || '').toLowerCase(); bv = (b.last_name || b.name || '').toLowerCase()
     } else if (sortBy === 'iv_status') {
-      av = ivStatusOrder[getStudentIvStatus(a, rubrics)] ?? 9; bv = ivStatusOrder[getStudentIvStatus(b, rubrics)] ?? 9
+      av = teamsStatusOrder[getTeamsInviteStatus(a, sessions).label] ?? 9
+      bv = teamsStatusOrder[getTeamsInviteStatus(b, sessions).label] ?? 9
       return sortDir === 'asc' ? av - bv : bv - av
     } else if (sortBy === 'score') {
       av = parseFloat(a.avg_composite_score)||0; bv = parseFloat(b.avg_composite_score)||0
@@ -359,7 +393,7 @@ export default function InterviewRubricTab({
               <th className="iv-th">Scheduled</th>
               <th className="iv-th">Interviewers</th>
               <th className="iv-th">ASPIRE Status</th>
-              <th className="iv-th iv-sortable" onClick={() => toggleSort('iv_status')}>Interview Status <SortIcon field="iv_status" /></th>
+              <th className="iv-th iv-sortable" onClick={() => toggleSort('iv_status')}>Teams Invite <SortIcon field="iv_status" /></th>
               <th className="iv-th">Rubrics</th>
               <th className="iv-th iv-sortable" onClick={() => toggleSort('score')}>Avg Score <SortIcon field="score" /></th>
               <th className="iv-th" style={{ position:'relative', whiteSpace:'nowrap' }}>
@@ -423,16 +457,7 @@ export default function InterviewRubricTab({
                     {s.status && (() => { const cfg = ASPIRE_STATUS_CONFIG[s.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']; return <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, whiteSpace:'nowrap' }}>{s.status}</span> })()}
                   </td>
                   <td className="iv-td">
-                    <span style={{ display:'inline-flex', alignItems:'center', gap:5 }}>
-                      <span className={`iv-status-badge iv-status-${ivStatus === 'Completed' ? 'done' : ivStatus === 'In Progress' ? 'wip' : 'none'}`}>
-                        {ivStatus}
-                      </span>
-                      {ivStatus === 'In Progress' && hasIncomplete && (
-                        <span style={{ fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:4, background:'#fef3c7', color:'#92400e', whiteSpace:'nowrap' }}>
-                          Incomplete
-                        </span>
-                      )}
-                    </span>
+                    <TeamsInvitePill student={s} sessions={sessions} />
                   </td>
                   <td className="iv-td" style={{ fontSize:13, fontWeight:600, color:'var(--nightfall)', textAlign:'center' }}>
                     {rubCount || '—'}

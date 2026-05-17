@@ -557,6 +557,7 @@ body { min-height: 100vh; }
 
 .spinner { width: 32px; height: 32px; border: 3px solid var(--sand-dark); border-top-color: var(--nightfall); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 12px; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 /* ================================================================
    MATCHING TAB
