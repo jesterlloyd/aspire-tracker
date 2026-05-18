@@ -1,5 +1,30 @@
-import { useEffect } from 'react'
+import { useMemo } from 'react'
 import { useUnreadStudents } from '../hooks/useUnreadStudents'
+
+function RefreshHint() {
+  const shortcut = useMemo(() => {
+    if (typeof navigator === 'undefined') return '⌘R'
+    const p = navigator.platform || '', ua = navigator.userAgent || ''
+    return /Mac|iPhone|iPad|iPod/.test(p) || /Mac OS/.test(ua) ? '⌘R' : 'Ctrl+R'
+  }, [])
+
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:'#98A2B3', fontFamily:'DM Sans, sans-serif', lineHeight:1, marginLeft:'auto', paddingRight:4, flexShrink:0 }}>
+      <span style={{ whiteSpace:'nowrap' }}>Missing data? Refresh</span>
+      <button
+        onClick={() => window.location.reload()}
+        title={`Refresh the app (${shortcut})`}
+        aria-label="Refresh app"
+        style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'4px 8px', background:'rgba(29,37,103,0.04)', border:'1px solid rgba(29,37,103,0.10)', borderRadius:6, color:'#475467', fontSize:11, fontWeight:500, fontFamily:'DM Sans, sans-serif', cursor:'pointer', transition:'all 0.15s ease' }}
+        onMouseEnter={e => { e.currentTarget.style.background='rgba(29,37,103,0.08)'; e.currentTarget.style.color='#1D2567' }}
+        onMouseLeave={e => { e.currentTarget.style.background='rgba(29,37,103,0.04)'; e.currentTarget.style.color='#475467' }}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+        <span>{shortcut}</span>
+      </button>
+    </div>
+  )
+}
 
 // ── Tab icons ─────────────────────────────────────────────────────────────────
 function IconBarChart() {
@@ -118,6 +143,8 @@ export default function UnifiedNav({
           </button>
         )
       })}
+
+      <RefreshHint />
     </nav>
   )
 }
