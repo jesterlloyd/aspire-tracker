@@ -1,15 +1,86 @@
 import React, { useState, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import StudentAvatar from './StudentAvatar'
-import StatCard from './StatCard'
 import CohortGantt from './CohortGantt'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
-import { Layers, CheckSquare, Clock, GraduationCap, AlertTriangle, MapPin, Users, Copy } from 'lucide-react'
+import { Clock, GraduationCap, MapPin, Users, Copy } from 'lucide-react'
 import { calculatePriorities } from '../lib/priorities'
+
+// ── Program at a Glance band ──────────────────────────────────────────────────
+
+function useUpdatedLabel(cohortId) {
+  const queryClient = useQueryClient()
+  const [label, setLabel] = useState('just now')
+  useEffect(() => {
+    function compute() {
+      const all = queryClient.getQueryCache().getAll()
+      const relevant = all.filter(q =>
+        Array.isArray(q.queryKey) &&
+        q.queryKey.some(k => k === cohortId) &&
+        q.state.status === 'success' &&
+        q.state.dataUpdatedAt
+      )
+      const ts = relevant.length ? Math.max(...relevant.map(q => q.state.dataUpdatedAt)) : 0
+      if (!ts) return setLabel('—')
+      const s = Math.floor((Date.now() - ts) / 1000)
+      if (s < 10) setLabel('just now')
+      else if (s < 60) setLabel(`${s}s ago`)
+      else if (s < 3600) setLabel(`${Math.floor(s / 60)}m ago`)
+      else setLabel(`${Math.floor(s / 3600)}h ago`)
+    }
+    compute()
+    const id = setInterval(compute, 5000)
+    return () => clearInterval(id)
+  }, [cohortId, queryClient])
+  return label
+}
+
+function KPICell({ value, label, sub, accent }) {
+  const valueColor = accent === 'sage' ? '#2F7D5C' : accent === 'warning' ? '#C08A2A' : '#1D2567'
+  return (
+    <div style={{ background: '#fff', padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ fontSize: 32, fontWeight: 700, lineHeight: 1, letterSpacing: '-0.03em', color: valueColor, fontVariantNumeric: 'tabular-nums', fontFamily: 'DM Sans, sans-serif' }}>
+        {value ?? 0}
+      </div>
+      <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#475467', fontWeight: 600, marginTop: 8 }}>
+        {label}
+      </div>
+      {sub && <div style={{ fontSize: 11, color: '#98A2B3', marginTop: 2 }}>{sub}</div>}
+    </div>
+  )
+}
+
+function ProgramAtAGlance({ totalSlots, placedCount, slotsRemaining, studentsRequesting, gap, participatingUnits, activeSchools, cohort, cohortId }) {
+  const placedPct = totalSlots > 0 ? Math.round((placedCount / totalSlots) * 100) : 0
+  const updatedLabel = useUpdatedLabel(cohortId)
+  return (
+    <section style={{ background: '#fff', border: '1px solid rgba(29,37,103,0.08)', borderRadius: 14, boxShadow: '0 1px 0 rgba(29,37,103,0.04), 0 1px 2px rgba(29,37,103,0.04), inset 0 1px 0 rgba(255,255,255,0.9)', overflow: 'hidden', marginBottom: 20, fontFamily: 'DM Sans, sans-serif' }}>
+      {/* Eyebrow strip */}
+      <div style={{ padding: '14px 22px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(29,37,103,0.04)' }}>
+        <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#475467', fontWeight: 600 }}>
+          Program at a Glance
+        </div>
+        <div style={{ fontSize: 11.5, color: '#98A2B3', fontVariantNumeric: 'tabular-nums' }}>
+          {cohort?.name || 'Cohort'} · {studentsRequesting} students · {activeSchools} affiliated schools · {participatingUnits} hosting units · Updated {updatedLabel}
+        </div>
+      </div>
+      {/* KPI grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', background: 'rgba(29,37,103,0.04)', gap: 1 }}>
+        <KPICell value={totalSlots}          label="Total Slots"       sub={`${participatingUnits} units`} />
+        <KPICell value={placedCount}         label="Slots Placed"      sub={`${placedPct}% of total capacity`} accent="sage" />
+        <KPICell value={slotsRemaining}      label="Open Slots" />
+        <KPICell value={studentsRequesting}  label="Student Requests"  sub={`${activeSchools} schools`} />
+        <KPICell value={Math.abs(gap)}       label={gap > 0 ? 'Placement Gap' : 'Fully Covered'} sub={gap > 0 ? 'More requests than open slots' : 'Enough slots for all'} accent={gap > 0 ? 'warning' : 'sage'} />
+      </div>
+    </section>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const DIVISIONS = ['Surgical', 'Medical', 'Critical Care', 'Specialty']
 
@@ -235,43 +306,18 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         })()}
         </div>
 
-        {/* Five hero stat cards */}
-        <div className="stat-cards-row" style={{ padding:'12px 0', marginTop:'12px', marginBottom:'10px' }}>
-          <StatCard
-            value={totalSlots}
-            label="Total Slots"
-            sublabel={`${participatingUnits} units`}
-            icon={Layers}
-            colorScheme="nightfall"
-          />
-          <StatCard
-            value={slotsFilled}
-            label="Slots Placed"
-            sublabel={`${Math.round((slotsFilled / totalSlots) * 100) || 0}% of total capacity`}
-            icon={CheckSquare}
-            colorScheme="green"
-          />
-          <StatCard
-            value={slotsRemaining}
-            label="Open Slots"
-            icon={Clock}
-            colorScheme={slotsRemaining === 0 ? 'red' : 'marina'}
-          />
-          <StatCard
-            value={studentsRequesting}
-            label="Student Requests"
-            sublabel={`${activeSchools} schools`}
-            icon={GraduationCap}
-            colorScheme="neutral"
-          />
-          <StatCard
-            value={Math.abs(gap)}
-            label={gap > 0 ? 'Placement Gap' : 'Fully Covered'}
-            sublabel={gap > 0 ? 'More requests than open slots' : 'Enough slots for all'}
-            icon={AlertTriangle}
-            colorScheme={gap > 0 ? 'amber' : 'darkgreen'}
-          />
-        </div>
+        {/* Program at a Glance — unified executive band */}
+        <ProgramAtAGlance
+          totalSlots={totalSlots}
+          placedCount={placedCount}
+          slotsRemaining={slotsRemaining}
+          studentsRequesting={studentsRequesting}
+          gap={gap}
+          participatingUnits={participatingUnits}
+          activeSchools={activeSchools}
+          cohort={cohort}
+          cohortId={cohortId}
+        />
 
         {/* Frozen panel headers — two columns matching the panels below */}
         <div className="aggregate-panel-headers">
