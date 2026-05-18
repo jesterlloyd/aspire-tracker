@@ -1,4 +1,5 @@
-import { buildSystemPrompt } from '../src/lib/keithKnowledge.js';
+import { buildSystemPrompt, getRecentCommunications } from '../src/lib/keithKnowledge.js';
+import { createClient } from '@supabase/supabase-js';
 
 // Legacy shim kept for safety (actual logic now lives in keithKnowledge.js)
 function _buildSystemPrompt_legacy(context, cohortName) {
@@ -274,6 +275,26 @@ Cohort Status: ${cohort.status || 'unknown'}`
         `- ${s.last_name}, ${s.first_name} | ${s.school || '?'} | GPA: ${s.cumulative_gpa || 'N/A'} | ${s.school_email || 'no email'} | Status: ${s.status}`
       ).join('\n') || '(none)';
 
+      // Fetch recent communications from notification_log (server-side, service role)
+      let commsSection = ''
+      try {
+        const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
+        const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY
+        if (supabaseUrl && serviceKey) {
+          const dbkeith = createClient(supabaseUrl, serviceKey)
+          const recentComms = await getRecentCommunications(dbkeith, { limit: 30, sinceDays: 30 })
+          if (recentComms.length > 0) {
+            commsSection = `\n\nRecent notifications sent (last 30 days, ${recentComms.length} entries):\n` +
+              recentComms.slice(0, 30).map(c => {
+                const ts = c.sent_at ? new Date(c.sent_at).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'unknown'
+                return `- [${c.notification_type}] to ${c.recipient_name || c.recipient_email} (${c.audience}) | ${c.subject} | ${c.status} | ${ts}`
+              }).join('\n')
+          }
+        }
+      } catch (commsErr) {
+        console.warn('[keith] communications fetch failed (non-fatal):', commsErr.message)
+      }
+
       liveDataStr = `=== LIVE COHORT DATA (React Query cache snapshot) ===
 Today: ${today}
 
@@ -301,8 +322,15 @@ ${safeList(needsCsLink)}
 
 Needs badge (${needsBadge.length}):
 ${safeList(needsBadge)}
-
+${commsSection}
 === END LIVE DATA ===
+
+COMMUNICATION AWARENESS:
+- liveData above includes recent notifications sent through the ASPIRE notification system (last 30 days).
+- Use this to answer: "When was [person] last contacted?", "What did we send to [school]?", "Has [student] received their confirmation email?", "Which schools are we in contact with?"
+- Reference notification_type, audience, recipient name, status, and sent_at when citing communications.
+- If delivered_at or opened_at is null, the email was sent but no delivery confirmation yet.
+- Never invent communications not in the log. If asked "did we send X?" and there's no matching record, say so.
 
 CRITICAL DATA ACCESS RULES:
 - The LIVE COHORT DATA above contains full student records including school_email, personal_email, phone, GPA, program type, term dates (rotation dates), unit, preceptor, shift, hours progress, and unit leader contacts.

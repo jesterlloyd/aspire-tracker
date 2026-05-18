@@ -101,7 +101,7 @@ export default function SchoolFormPage() {
         continue
       }
 
-      const { error: insertErr } = await supabase.from('students').insert({
+      const { data: newStudent, error: insertErr } = await supabase.from('students').insert({
         name:                    `${r.first_name.trim()} ${r.last_name.trim()}`,
         first_name:              r.first_name.trim(),
         last_name:               r.last_name.trim(),
@@ -126,7 +126,7 @@ export default function SchoolFormPage() {
         background_check:        false,
         coordinators:            coord.notes.trim(),
         cohort_id:               cohortId,
-      })
+      }).select('id')
 
       if (insertErr) {
         console.error('Supabase insert error:', insertErr)
@@ -135,6 +135,23 @@ export default function SchoolFormPage() {
         setSubmitting(false)
         return
       }
+
+      // Fire-and-forget: trigger form_received notification (student confirmation + internal team + school coordinator)
+      fetch('/api/form-received-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId:        newStudent?.[0]?.id || null,
+          cohortId,
+          studentName:      `${r.first_name.trim()} ${r.last_name.trim()}`,
+          studentFirstName: r.first_name.trim(),
+          studentEmail:     schoolEmail,
+          school:           coord.school.trim(),
+          programType:      r.program_type,
+          cumulativeGpa:    r.cumulative_gpa,
+        }),
+      }).catch(e => console.warn('[form_received] notification failed (non-blocking):', e))
+
       added.push(`${r.first_name.trim()} ${r.last_name.trim()}`)
     }
 

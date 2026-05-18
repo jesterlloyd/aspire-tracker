@@ -657,3 +657,41 @@ ${liveData}
 Current cohort: ${cohort}
 `.trim();
 }
+
+// ── Communication history (reads from notification_log) ───────────────────────
+
+export async function getRecentCommunications(supabase, options = {}) {
+  const { limit = 50, sinceDays = 30 } = options;
+  const sinceDate = new Date();
+  sinceDate.setDate(sinceDate.getDate() - sinceDays);
+
+  const { data, error } = await supabase
+    .from('notification_log')
+    .select('id, notification_type, audience, recipient_email, recipient_role, recipient_name, student_id, cohort_id, subject, status, sent_at, delivered_at, opened_at, metadata')
+    .gte('sent_at', sinceDate.toISOString())
+    .order('sent_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('[keithKnowledge] failed to load communications:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function getStudentCommunications(supabase, studentId) {
+  if (!studentId) return [];
+
+  const { data, error } = await supabase
+    .from('notification_log')
+    .select('notification_type, audience, recipient_email, recipient_role, subject, status, sent_at, delivered_at, opened_at')
+    .eq('student_id', studentId)
+    .order('sent_at', { ascending: false })
+    .limit(30);
+
+  if (error) {
+    console.error('[keithKnowledge] failed to load student communications:', error);
+    return [];
+  }
+  return data || [];
+}
