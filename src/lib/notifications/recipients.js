@@ -22,21 +22,13 @@ const INTERNAL_TEAM_EMAILS = {
 //   3. cc is always appended regardless of routing.
 const SCHOOL_COORDINATORS = {
   'Cal State LA': {
+    // Only two programs at CSULA enter the ASPIRE pipeline; routes use the
+    // exact values the /school-form dropdown emits.
     programRoutes: {
-      // ABSN variants (school form and side panel both used)
-      'Accelerated BSN':    { email: 'amanlan3@calstatela.edu',           name: 'Alyssa Manlangit',       title: 'ABSN Program Coordinator' },
-      'ABSN':               { email: 'amanlan3@calstatela.edu',           name: 'Alyssa Manlangit',       title: 'ABSN Program Coordinator' },
-      // BSN variants — constants.js format (no parens)
-      'BSN Semester':       { email: 'marissa.ramirez119@calstatela.edu', name: 'Marissa Grafil Ramirez', title: 'BSN Clinical Placement & Contracts' },
-      'BSN Trimester':      { email: 'marissa.ramirez119@calstatela.edu', name: 'Marissa Grafil Ramirez', title: 'BSN Clinical Placement & Contracts' },
-      'BSN Quarter':        { email: 'marissa.ramirez119@calstatela.edu', name: 'Marissa Grafil Ramirez', title: 'BSN Clinical Placement & Contracts' },
-      // BSN variants — StudentSidePanel format (with parens)
-      'BSN (Semester)':     { email: 'marissa.ramirez119@calstatela.edu', name: 'Marissa Grafil Ramirez', title: 'BSN Clinical Placement & Contracts' },
-      'BSN (Trimester)':    { email: 'marissa.ramirez119@calstatela.edu', name: 'Marissa Grafil Ramirez', title: 'BSN Clinical Placement & Contracts' },
-      'BSN (Quarter)':      { email: 'marissa.ramirez119@calstatela.edu', name: 'Marissa Grafil Ramirez', title: 'BSN Clinical Placement & Contracts' },
-      'BSN':                { email: 'marissa.ramirez119@calstatela.edu', name: 'Marissa Grafil Ramirez', title: 'BSN Clinical Placement & Contracts' },
+      'Accelerated BSN': { email: 'amanlan3@calstatela.edu',           name: 'Alyssa Manlangit',       title: 'ABSN Program Coordinator' },
+      'BSN Semester':    { email: 'marissa.ramirez119@calstatela.edu', name: 'Marissa Grafil Ramirez', title: 'BSN Clinical Placement & Contracts' },
     },
-    // Fallback if program_type doesn't match any route → Alyssa (ABSN is the most common ASPIRE pathway from CSULA)
+    // Fallback if program_type doesn't match (e.g. typo or unexpected value) → Alyssa
     primary: { email: 'amanlan3@calstatela.edu', name: 'Alyssa Manlangit', title: 'ABSN Program Coordinator' },
   },
 
