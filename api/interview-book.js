@@ -100,6 +100,7 @@ export default async function handler(req, res) {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          slotId:          slot.id,
           studentName:     student ? `${student.first_name} ${student.last_name}` : `Student ${studentId}`,
           studentSchool:   student?.school,
           studentProgram:  student?.program_type,
