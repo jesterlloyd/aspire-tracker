@@ -1,5 +1,6 @@
 // src/lib/notifications/templates/formReceived.js
 // Three audience variants for the 'form_received' notification type.
+import { JESTER_SIGNATURE } from './signatures.js';
 
 const SHARED_FOOTER = `
   <p style="margin-top:32px;padding-top:16px;border-top:1px solid #E5E7EB;font-size:11px;color:#98A2B3;line-height:1.5;">
@@ -29,9 +30,9 @@ export const formReceived = {
         <p style="margin-top:24px;">We're glad you're considering Cedars-Sinai as the next step in your nursing journey.</p>
 
         <p style="margin-top:16px;">
-          Jester Lloyd Bautista, PhD, MSN, RN<br/>
-          <span style="color:#475467;font-size:13px;">ASPIRE Program Lead</span><br/>
-          <span style="color:#475467;font-size:13px;">Brawerman Nursing Institute, Cedars-Sinai</span>
+          ${JESTER_SIGNATURE.fullName}<br/>
+          <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.title}</span><br/>
+          <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.affiliation}</span>
         </p>
         ${SHARED_FOOTER}
       </div>
@@ -81,8 +82,8 @@ export const formReceived = {
 
           <p style="margin-top:16px;">
             Best,<br/>
-            Jester Lloyd Bautista, PhD, MSN, RN<br/>
-            <span style="color:#475467;font-size:13px;">ASPIRE Program Lead, Cedars-Sinai</span>
+            ${JESTER_SIGNATURE.fullName}<br/>
+            <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.title}, Cedars-Sinai</span>
           </p>
           ${SHARED_FOOTER}
         </div>
