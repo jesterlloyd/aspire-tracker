@@ -119,6 +119,128 @@ export const toLocalDateStr = (date = new Date()) => {
   return `${y}-${m}-${d}`
 }
 
+// ── Phase 4 token system ──────────────────────────────────────────────────────
+// New components consume from here; existing components migrate opportunistically.
+
+export const colors = {
+  // Surfaces
+  bg:          '#FAFAF7',
+  bgWarm:      '#F4F1EC',   // Sand
+  surface:     '#FFFFFF',
+  surface2:    '#FCFCF9',
+  surfaceDeep: '#F6F6F2',
+
+  // Ink
+  ink1: '#0E1428',
+  ink2: '#1D2567',          // Nightfall — Cedars brand
+  ink3: '#475467',
+  ink4: '#98A2B3',
+  ink5: '#D0D5DD',
+
+  // Hairlines
+  line1: 'rgba(29, 37, 103, 0.08)',
+  line2: 'rgba(29, 37, 103, 0.04)',
+
+  // Accents (one per surface)
+  chroma: '#930045',
+  sage:   '#2F7D5C',
+  dawn:   '#C08A2A',
+  marina: '#275E63',
+
+  // State tints
+  tintSage:   '#EEF7F0',
+  tintDawn:   '#FBF5E8',
+  tintMarina: '#EDF5F4',
+  tintChroma: '#F8EDF2',
+  tintNight:  '#EDEEF4',
+};
+
+export const radii = {
+  pill:    999,
+  card:    14,
+  control: 8,
+  chip:    6,
+  micro:   4,
+};
+
+export const shadows = {
+  s1:             '0 1px 0 rgba(29,37,103,0.04), 0 1px 2px rgba(29,37,103,0.04)',
+  s2:             '0 1px 0 rgba(29,37,103,0.04), 0 4px 12px rgba(29,37,103,0.05)',
+  s3:             '0 1px 0 rgba(29,37,103,0.04), 0 8px 24px rgba(29,37,103,0.08)',
+  innerHighlight: 'inset 0 1px 0 rgba(255,255,255,0.9)',
+};
+
+export const type = {
+  family: 'DM Sans, system-ui, sans-serif',
+  sizes: {
+    micro:   10.5,
+    small:   11.5,
+    body:    13,
+    bodyLg:  14,
+    title:   16,
+    heading: 22,
+    display: 32,
+  },
+  weights: {
+    regular:  400,
+    medium:   500,
+    semibold: 600,
+    bold:     700,
+  },
+  letterSpacing: {
+    tight:   '-0.025em',
+    snug:    '-0.01em',
+    normal:  '0',
+    wide:    '0.06em',
+    eyebrow: '0.14em',
+  },
+};
+
+export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 28 };
+
+// Reusable composed styles
+export const styles = {
+  panel: {
+    background:   colors.surface,
+    border:       `1px solid ${colors.line1}`,
+    borderRadius: radii.card,
+    boxShadow:    `${shadows.s1}, ${shadows.innerHighlight}`,
+    overflow:     'hidden',
+    fontFamily:   type.family,
+  },
+  eyebrow: {
+    fontSize:        type.sizes.micro,
+    textTransform:   'uppercase',
+    letterSpacing:   type.letterSpacing.eyebrow,
+    color:           colors.ink3,
+    fontWeight:      type.weights.semibold,
+  },
+  bigNumber: {
+    fontSize:           type.sizes.display,
+    fontWeight:         type.weights.bold,
+    lineHeight:         1,
+    letterSpacing:      type.letterSpacing.tight,
+    color:              colors.ink1,
+    fontVariantNumeric: 'tabular-nums',
+    fontFamily:         type.family,
+  },
+  countBadge: {
+    display:            'inline-flex',
+    alignItems:         'center',
+    justifyContent:     'center',
+    minWidth:           20,
+    height:             18,
+    padding:            '1px 7px',
+    borderRadius:       radii.pill,
+    background:         colors.surfaceDeep,
+    color:              colors.ink3,
+    fontSize:           10,
+    fontWeight:         type.weights.semibold,
+    fontVariantNumeric: 'tabular-nums',
+  },
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function btnStyle(type = 'primary', extra = {}) {
   const b = BUTTON[type] || BUTTON.primary;
   return {

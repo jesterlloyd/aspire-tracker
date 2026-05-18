@@ -1,7 +1,9 @@
 // Shared KPI band primitives — used by Aggregate (Program at a Glance)
 // and Embed (Matching at a Glance) tabs.
+// Tokens: src/lib/designTokens.js
 import { useState, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { colors, type as t, styles } from '../lib/designTokens'
 
 export function useUpdatedLabel(cohortId) {
   const queryClient = useQueryClient()
@@ -31,23 +33,19 @@ export function useUpdatedLabel(cohortId) {
 }
 
 export function KPICell({ value, label, sub, accent }) {
-  const valueColor = accent === 'sage' ? '#2F7D5C' : accent === 'warning' ? '#C08A2A' : '#1D2567'
+  const valueColor =
+    accent === 'sage'    ? colors.sage :
+    accent === 'warning' ? colors.dawn :
+                           colors.ink2
   return (
-    <div style={{ background: '#fff', padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={{
-        fontSize: 32, fontWeight: 700, lineHeight: 1,
-        letterSpacing: '-0.03em', color: valueColor,
-        fontVariantNumeric: 'tabular-nums', fontFamily: 'DM Sans, sans-serif',
-      }}>
+    <div style={{ background: colors.surface, padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ ...styles.bigNumber, color: valueColor }}>
         {value ?? 0}
       </div>
-      <div style={{
-        fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em',
-        color: '#475467', fontWeight: 600, marginTop: 8,
-      }}>
+      <div style={{ ...styles.eyebrow, marginTop: 8 }}>
         {label}
       </div>
-      {sub && <div style={{ fontSize: 11, color: '#98A2B3', marginTop: 2 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: t.sizes.small, color: colors.ink4, marginTop: 2 }}>{sub}</div>}
     </div>
   )
 }
