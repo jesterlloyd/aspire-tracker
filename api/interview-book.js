@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js'
-import { Resend } from 'resend'
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -93,63 +92,7 @@ export default async function handler(req, res) {
       interviewerEmail = iv?.email?.trim() || null
     }
 
-    // 7. Send email notification via Resend
-    let emailStatus = 'not_attempted'
-    let emailError = null
-
-    if (process.env.RESEND_API_KEY) {
-      const resend = new Resend(process.env.RESEND_API_KEY)
-      const ownerEmail = 'JesterLloyd.Bautista@cshs.org'
-      const recipients = [...new Set([ownerEmail, interviewerEmail].filter(Boolean))]
-
-      const studentName = student ? `${student.first_name} ${student.last_name}` : `Student ${studentId}`
-
-      try {
-        const { data: emailResult, error: sendError } = await resend.emails.send({
-          from: 'ASPIRE Intelligence <noreply@aspire-program.com>',
-          reply_to: 'JesterLloyd.Bautista@cshs.org',
-          to: recipients,
-          subject: `New ASPIRE Interview: ${studentName} — ${slot.slot_date} at ${slot.slot_time}`,
-          html: `
-            <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 560px;">
-              <h2 style="color: #1D2567; margin-bottom: 16px;">New ASPIRE Interview Booked</h2>
-              <p>A student has self-scheduled an ASPIRE interview.</p>
-              <table style="border-collapse: collapse; margin: 16px 0;">
-                <tr><td style="padding: 4px 12px 4px 0;"><strong>Student:</strong></td><td>${studentName}</td></tr>
-                <tr><td style="padding: 4px 12px 4px 0;"><strong>School:</strong></td><td>${student?.school || 'N/A'}</td></tr>
-                <tr><td style="padding: 4px 12px 4px 0;"><strong>Program:</strong></td><td>${student?.program_type || 'N/A'}</td></tr>
-                <tr><td style="padding: 4px 12px 4px 0;"><strong>Student Email:</strong></td><td>${student?.school_email || 'N/A'}</td></tr>
-                <tr><td style="padding: 4px 12px 4px 0;"><strong>Date:</strong></td><td>${slot.slot_date}</td></tr>
-                <tr><td style="padding: 4px 12px 4px 0;"><strong>Time:</strong></td><td>${slot.slot_time} Pacific Time</td></tr>
-                <tr><td style="padding: 4px 12px 4px 0;"><strong>Duration:</strong></td><td>${slot.duration_minutes} minutes</td></tr>
-                <tr><td style="padding: 4px 12px 4px 0;"><strong>Interviewer:</strong></td><td>${slot.interviewer_name}</td></tr>
-              </table>
-              <p style="margin-top: 16px;"><strong>Action needed:</strong> Create the Microsoft Teams meeting and send the link to the student at ${student?.school_email || 'their school email'}.</p>
-              <p>Once you've sent the invite, open ASPIRE Intelligence and mark this booking as "Teams invite sent" in the Day Manager.</p>
-            </div>
-          `,
-        })
-
-        if (sendError) {
-          emailStatus = 'failed'
-          emailError = { message: sendError.message || JSON.stringify(sendError) }
-          console.error('[interview-book] Resend send error:', JSON.stringify(sendError))
-        } else {
-          emailStatus = 'sent'
-          console.log('[interview-book] email sent successfully, id:', emailResult?.id, 'to:', recipients)
-        }
-      } catch (err) {
-        emailStatus = 'failed'
-        emailError = { message: err.message }
-        console.error('[interview-book] email send threw:', err)
-      }
-    } else {
-      emailStatus = 'no_key'
-      console.warn('[interview-book] RESEND_API_KEY not set; skipping email notification')
-    }
-
-    // 8. Call notify endpoint as a secondary path (non-blocking) so the
-    //    student-facing page can also trigger it without duplicating logic
+    // 7. Delegate notification email to /api/notify-interview-booked — single send path
     try {
       const protocol = req.headers['x-forwarded-proto'] || 'https'
       const host = req.headers.host
@@ -178,8 +121,6 @@ export default async function handler(req, res) {
       slot,
       interviewerEmail,
       ownerEmail: 'JesterLloyd.Bautista@cshs.org',
-      emailStatus,
-      emailError,
     })
 
   } catch (err) {

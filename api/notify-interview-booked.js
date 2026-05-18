@@ -1,5 +1,20 @@
 import { Resend } from 'resend';
 
+// In-memory deduplication (per Vercel function instance, 60-second window)
+// Defense-in-depth against accidental retries or future regressions.
+const recentSends = new Map();
+const DEDUP_WINDOW_MS = 60 * 1000;
+
+function shouldSkipDuplicate(key) {
+  const now = Date.now();
+  for (const [k, ts] of recentSends.entries()) {
+    if (now - ts > DEDUP_WINDOW_MS) recentSends.delete(k);
+  }
+  if (recentSends.has(key)) return true;
+  recentSends.set(key, now);
+  return false;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -27,6 +42,12 @@ export default async function handler(req, res) {
 
   if (!studentName || !interviewDate || !interviewTime) {
     return res.status(400).json({ error: 'Missing required booking fields' })
+  }
+
+  const dedupeKey = `${studentEmail || 'unknown'}-${interviewDate}-${interviewTime}`
+  if (shouldSkipDuplicate(dedupeKey)) {
+    console.log('[notify-interview-booked] duplicate within 60s window, skipping:', dedupeKey)
+    return res.status(200).json({ success: true, skipped: true, reason: 'duplicate' })
   }
 
   const resend = new Resend(process.env.RESEND_API_KEY)

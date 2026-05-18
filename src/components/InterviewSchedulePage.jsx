@@ -242,23 +242,7 @@ export default function InterviewSchedulePage() {
       // Build student-friendly mailto (opt-in only — no auto-trigger)
       setMailtoUrl(buildStudentMailtoUrl(student, data.slot))
 
-      // Fire server-side Resend notification (non-blocking)
-      fetch('/api/notify-interview-booked', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentName:    `${student.first_name} ${student.last_name}`,
-          studentSchool:  student.school,
-          studentProgram: student.program_type,
-          studentEmail:   student.school_email,
-          interviewDate:  data.slot.slot_date,
-          interviewTime:  fmtTime(data.slot.slot_time),
-          duration:       data.slot.duration_minutes,
-          interviewerName:  data.slot.interviewer_name,
-          interviewerEmail: data.interviewerEmail,
-          ownerEmail:     JESTER_EMAIL,
-        }),
-      }).catch(e => console.warn('notify-interview-booked error (non-blocking):', e))
+      // Server-side notification is handled by /api/interview-book → /api/notify-interview-booked
     } catch (err) { console.error('Booking error:', err) }
     setBooking(false)
   }
