@@ -131,10 +131,39 @@ export async function resolveRecipients(type, context) {
   switch (type) {
     case 'form_received':
       return resolveFormReceived(context);
+    case 'teams_invite_reminder':
+    case 'teams_invite_reminder_escalation':
+      return resolveTeamsInviteReminder(context);
     default:
       console.warn(`[notifications/recipients] no resolver for type: ${type}`);
       return [];
   }
+}
+
+function resolveTeamsInviteReminder(context) {
+  const recipients = [];
+
+  // Primary recipient: the interviewer who needs to act
+  if (context.interviewerEmail) {
+    recipients.push({
+      email:    context.interviewerEmail,
+      role:     'interviewer',
+      name:     context.interviewerName,
+      audience: 'interviewer',
+    });
+  }
+
+  // Owner is always CC'd so nothing slips through unnoticed
+  const ownerEmail = INTERNAL_TEAM_EMAILS.owner;
+  if (ownerEmail) {
+    recipients.push({
+      email:    ownerEmail,
+      role:     'owner',
+      audience: 'internal_team',
+    });
+  }
+
+  return recipients;
 }
 
 function resolveFormReceived(context) {
