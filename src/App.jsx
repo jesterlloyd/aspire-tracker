@@ -961,7 +961,7 @@ function MainApp({ onLogout }) {
             <div style={{ display: activeTab === 'matching' ? 'block' : 'none' }}>
               <MatchingTab
                 students={students} units={units} matches={matches}
-                cohortId={activeCohortId}
+                cohortId={activeCohortId} cohort={activeCohort}
                 onMatch={createMatch} onUnmatch={unmatch} onUpdateMatch={updateMatch}
                 onRefreshUnits={() => fetchUnits(activeCohortId)}
                 onDeleteUnit={deleteUnit}

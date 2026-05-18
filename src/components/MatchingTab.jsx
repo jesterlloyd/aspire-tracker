@@ -5,12 +5,37 @@ import UnitSetupPanel from './UnitSetupPanel'
 import ImportUnitsCSV from './ImportUnitsCSV'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
 import MatchingBanner from './MatchingBanner'
-import StatCard from './StatCard'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
-import { Layers, Clock, Users, MapPin, Star, TrendingUp, UserX, ClipboardList, Info } from 'lucide-react'
+import { Users, MapPin, ClipboardList, Info } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { canPerformMatching } from '../lib/permissions'
+import { KPICell, useUpdatedLabel } from './KPIBand'
+
+// ── Matching at a Glance band ─────────────────────────────────────────────────
+
+function MatchingAtAGlance({ studentsCount, matchedCount, unmatchedCount, perfectMatches, secondChoiceMatches, totalSlots, slotsRemaining, poolSchools, cohort, cohortId }) {
+  const updatedLabel = useUpdatedLabel(cohortId)
+  const schools = poolSchools?.length ?? 0
+  return (
+    <section style={{ background:'#fff', border:'1px solid rgba(29,37,103,0.08)', borderRadius:14, boxShadow:'0 1px 0 rgba(29,37,103,0.04), 0 1px 2px rgba(29,37,103,0.04), inset 0 1px 0 rgba(255,255,255,0.9)', overflow:'hidden', marginBottom:12, fontFamily:'DM Sans, sans-serif' }}>
+      <div style={{ padding:'14px 22px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid rgba(29,37,103,0.04)' }}>
+        <div style={{ fontSize:10.5, textTransform:'uppercase', letterSpacing:'0.14em', color:'#475467', fontWeight:600 }}>Matching at a Glance</div>
+        <div style={{ fontSize:11.5, color:'#98A2B3', fontVariantNumeric:'tabular-nums' }}>
+          {cohort?.name || 'Cohort'} · {schools} schools · {totalSlots} slots across hosting units · Updated {updatedLabel}
+        </div>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', background:'rgba(29,37,103,0.04)', gap:1 }}>
+        <KPICell value={studentsCount}  label="Students"     sub={`${schools} schools`} />
+        <KPICell value={matchedCount}   label="Matched"      sub={`${perfectMatches} perfect · ${secondChoiceMatches} 2nd choice`} accent="sage" />
+        <KPICell value={unmatchedCount} label="Unmatched"    sub="Pending placement" accent={unmatchedCount > 0 ? 'warning' : null} />
+        <KPICell value={slotsRemaining} label="Open Slots"   sub={`of ${totalSlots} total`} />
+      </div>
+    </section>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const getInterviewStatus = (s) => {
   if (s.auto_recommendation === 'Recommend')
@@ -38,7 +63,7 @@ const POOL_INELIGIBLE_STATUSES = new Set([
 ])
 
 export default function MatchingTab({
-  students, units, matches, cohortId,
+  students, units, matches, cohortId, cohort,
   onMatch, onUnmatch, onUpdateMatch, onRefreshUnits, onDeleteUnit, highlightUnitId,
   toast,
 }) {
@@ -275,19 +300,19 @@ export default function MatchingTab({
         </div>
       )}
 
-      {/* ── Summary banner ── */}
-      <div className="stat-cards-row" style={{ padding:'6px 16px 12px' }}>
-        <StatCard value={totalSlots}    label="Total Slots"     icon={Layers}    colorScheme="nightfall" />
-        <StatCard value={slotsRemaining} label="Open Slots"      icon={Clock}    colorScheme="marina" />
-        <StatCard value={studentsCount} label="Students"        icon={Users}     colorScheme="neutral" />
-        <StatCard value={matchedCount}  label="Matched"         icon={MapPin}    colorScheme="green" />
-        <StatCard value={perfectMatches} label="Perfect Matches" icon={Star}     colorScheme="darkgreen" />
-        <StatCard value={secondChoiceMatches} label="2nd Choice" icon={TrendingUp} colorScheme="amber" />
-        <StatCard
-          value={unmatchedCount}
-          label="Unmatched"
-          icon={UserX}
-          colorScheme={unmatchedCount > 0 ? 'amber' : 'green'}
+      {/* ── Matching at a Glance band ── */}
+      <div style={{ padding:'12px 16px 0' }}>
+        <MatchingAtAGlance
+          studentsCount={studentsCount}
+          matchedCount={matchedCount}
+          unmatchedCount={unmatchedCount}
+          perfectMatches={perfectMatches}
+          secondChoiceMatches={secondChoiceMatches}
+          totalSlots={totalSlots}
+          slotsRemaining={slotsRemaining}
+          poolSchools={poolSchools}
+          cohort={cohort}
+          cohortId={cohortId}
         />
       </div>
 

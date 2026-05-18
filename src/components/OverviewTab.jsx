@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
+import { useUpdatedLabel, KPICell } from './KPIBand'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
@@ -11,48 +12,7 @@ import { Clock, GraduationCap, MapPin, Users, Copy } from 'lucide-react'
 import { calculatePriorities } from '../lib/priorities'
 
 // ── Program at a Glance band ──────────────────────────────────────────────────
-
-function useUpdatedLabel(cohortId) {
-  const queryClient = useQueryClient()
-  const [label, setLabel] = useState('just now')
-  useEffect(() => {
-    function compute() {
-      const all = queryClient.getQueryCache().getAll()
-      const relevant = all.filter(q =>
-        Array.isArray(q.queryKey) &&
-        q.queryKey.some(k => k === cohortId) &&
-        q.state.status === 'success' &&
-        q.state.dataUpdatedAt
-      )
-      const ts = relevant.length ? Math.max(...relevant.map(q => q.state.dataUpdatedAt)) : 0
-      if (!ts) return setLabel('—')
-      const s = Math.floor((Date.now() - ts) / 1000)
-      if (s < 10) setLabel('just now')
-      else if (s < 60) setLabel(`${s}s ago`)
-      else if (s < 3600) setLabel(`${Math.floor(s / 60)}m ago`)
-      else setLabel(`${Math.floor(s / 3600)}h ago`)
-    }
-    compute()
-    const id = setInterval(compute, 5000)
-    return () => clearInterval(id)
-  }, [cohortId, queryClient])
-  return label
-}
-
-function KPICell({ value, label, sub, accent }) {
-  const valueColor = accent === 'sage' ? '#2F7D5C' : accent === 'warning' ? '#C08A2A' : '#1D2567'
-  return (
-    <div style={{ background: '#fff', padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={{ fontSize: 32, fontWeight: 700, lineHeight: 1, letterSpacing: '-0.03em', color: valueColor, fontVariantNumeric: 'tabular-nums', fontFamily: 'DM Sans, sans-serif' }}>
-        {value ?? 0}
-      </div>
-      <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#475467', fontWeight: 600, marginTop: 8 }}>
-        {label}
-      </div>
-      {sub && <div style={{ fontSize: 11, color: '#98A2B3', marginTop: 2 }}>{sub}</div>}
-    </div>
-  )
-}
+// KPICell and useUpdatedLabel are shared — imported from ./KPIBand
 
 function ProgramAtAGlance({ totalSlots, placedCount, slotsRemaining, studentsRequesting, gap, participatingUnits, activeSchools, cohort, cohortId }) {
   const placedPct = totalSlots > 0 ? Math.round((placedCount / totalSlots) * 100) : 0
@@ -71,7 +31,7 @@ function ProgramAtAGlance({ totalSlots, placedCount, slotsRemaining, studentsReq
       {/* KPI grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', background: 'rgba(29,37,103,0.04)', gap: 1 }}>
         <KPICell value={totalSlots}          label="Total Slots"       sub={`${participatingUnits} units`} />
-        <KPICell value={placedCount}         label="Slots Placed"      sub={`${placedPct}% of total capacity`} accent="sage" />
+        <KPICell value={placedCount}         label="Slots Filled"      sub={`${placedPct}% of total capacity`} accent="sage" />
         <KPICell value={slotsRemaining}      label="Open Slots" />
         <KPICell value={studentsRequesting}  label="Student Requests"  sub={`${activeSchools} schools`} />
         <KPICell value={Math.abs(gap)}       label={gap > 0 ? 'Placement Gap' : 'Fully Covered'} sub={gap > 0 ? 'More requests than open slots' : 'Enough slots for all'} accent={gap > 0 ? 'warning' : 'sage'} />
