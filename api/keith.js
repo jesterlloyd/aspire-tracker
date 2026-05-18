@@ -407,37 +407,80 @@ CRITICAL DATA ACCESS RULES:
     }
   }
 
-  const requestBody = JSON.stringify({
+  const payload = {
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 1024,
     system: buildSystemPrompt({ userProfile, context, cohortName, liveDataStr }),
     messages: anthropicMessages,
-  });
+  };
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: requestBody,
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('Anthropic error:', response.status, JSON.stringify(data));
-      return res.status(502).json({ error: 'Anthropic API error', details: data });
-    }
-
+    const data = await callAnthropicWithRetry(payload);
     const text = data?.content?.[0]?.text;
     if (!text) return res.status(502).json({ error: 'Unexpected AI response format' });
     return res.status(200).json({ response: text });
-
   } catch (err) {
-    console.error('Keith error:', err.message);
-    return res.status(500).json({ error: 'Failed to reach AI service', message: err.message });
+    console.error('[keith] all retries exhausted:', err.details || err.message);
+    const errorType = err.details?.errorType;
+    let userMessage;
+    if (errorType === 'overloaded_error') {
+      userMessage = "Keith is briefly unavailable due to high demand on Anthropic's API. Try again in a moment.";
+    } else if (errorType === 'rate_limit_error') {
+      userMessage = "Keith hit a rate limit. Try again in a moment.";
+    } else {
+      userMessage = `Keith couldn't reach his model right now (${err.details?.status || 'network error'}). Try again in a moment — if the issue persists, check Vercel function logs.`;
+    }
+    return res.status(503).json({ response: userMessage, error: err.details, transient: true });
   }
+}
+
+async function callAnthropicWithRetry(payload, options = {}) {
+  const { maxRetries = 3, baseDelayMs = 800 } = options;
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) return await response.json();
+
+      const errorBody = await response.json().catch(() => ({}));
+      const errorType = errorBody?.error?.type;
+      const status = response.status;
+
+      const isRetryable =
+        status === 429 || status === 500 || status === 502 ||
+        status === 503 || status === 529 ||
+        errorType === 'overloaded_error' ||
+        errorType === 'rate_limit_error' ||
+        errorType === 'api_error';
+
+      if (!isRetryable || attempt === maxRetries) {
+        lastError = { status, errorType, message: errorBody?.error?.message || `HTTP ${status}`, details: errorBody };
+        break;
+      }
+
+      const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 200;
+      console.warn(`[keith] Anthropic ${errorType || status} on attempt ${attempt + 1}, retrying in ${Math.round(delay)}ms`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+
+    } catch (err) {
+      if (attempt === maxRetries) { lastError = { message: err.message }; break; }
+      const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 200;
+      console.warn(`[keith] network error on attempt ${attempt + 1}, retrying in ${Math.round(delay)}ms:`, err.message);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  const error = new Error(lastError?.message || 'Anthropic API failed after retries');
+  error.details = lastError;
+  throw error;
 }

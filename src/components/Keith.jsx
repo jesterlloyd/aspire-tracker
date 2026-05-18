@@ -140,31 +140,38 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
         }),
       });
 
+      const data = await response.json().catch(() => ({}));
+
       if (response.ok) {
-        const data = await response.json();
-        const keithMessage = {
-          id: Date.now() + 1,
-          role: 'keith',
-          text: data.response,
-          isAI: true,
-          hasCopy: data.response.includes('Subject:'),
-        };
-        setMessages(prev => [...prev, keithMessage]);
-        setIsTyping(false);
-        return;
-      } else {
-        const errorData = await response.json().catch(() => ({ error: 'Could not parse error' }));
-        console.error('Keith API error:', response.status, errorData);
-        const errorMessage = {
-          id: Date.now() + 1,
-          role: 'keith',
-          text: `API error ${response.status}: ${errorData.error || 'Unknown error'}. Details: ${JSON.stringify(errorData.details || errorData.message || '')}`,
-          isAI: false,
-        };
-        setMessages(prev => [...prev, errorMessage]);
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1, role: 'keith',
+          text: data.response, isAI: true,
+          hasCopy: data.response?.includes('Subject:'),
+        }]);
         setIsTyping(false);
         return;
       }
+
+      // Transient error (overloaded, rate limit, etc.) — show friendly message + retry
+      if (data.transient) {
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1, role: 'keith',
+          text: data.response || "Keith is briefly unavailable. Try again in a moment.",
+          isAI: false, canRetry: true, retryText: text,
+        }]);
+        setIsTyping(false);
+        return;
+      }
+
+      // Non-transient error — log details but show a clean message
+      console.error('Keith API error:', response.status, data);
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1, role: 'keith',
+        text: `Something went wrong (${response.status}). ${data.error || 'Unknown error'}.`,
+        isAI: false,
+      }]);
+      setIsTyping(false);
+      return;
     } catch (err) {
       console.warn('Keith API call failed:', err.message);
       // Continue to static fallback below
@@ -487,6 +494,21 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                   </div>
 
                   {/* Copy button for email drafts */}
+                  {/* Retry button for transient errors */}
+                  {msg.canRetry && (
+                    <button
+                      onClick={() => handleSend(msg.retryText)}
+                      style={{
+                        background: '#fff7ed', border: '1px solid #fed7aa',
+                        borderRadius: '8px', padding: '4px 10px',
+                        fontFamily: 'DM Sans', fontSize: '11px',
+                        color: '#c2410c', cursor: 'pointer',
+                      }}
+                    >
+                      ↺ Try again
+                    </button>
+                  )}
+
                   {msg.hasCopy && (
                     <button
                       onClick={() => handleCopy(msg.id, msg.text)}
