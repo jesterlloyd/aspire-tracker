@@ -1,5 +1,5 @@
-// Shared KPI band primitives — used by Aggregate (Program at a Glance)
-// and Embed (Matching at a Glance) tabs.
+// Shared KPI band primitives — used by Aggregate (Program at a Glance),
+// Embed (Matching at a Glance), and Interview Room filter cards.
 // Tokens: src/lib/designTokens.js
 import { useState, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -47,5 +47,51 @@ export function KPICell({ value, label, sub, accent }) {
       </div>
       {sub && <div style={{ fontSize: t.sizes.small, color: colors.ink4, marginTop: 2 }}>{sub}</div>}
     </div>
+  )
+}
+
+// ── Clickable filter card — Interview Room (Chroma active state) ───────────────
+// For Student Profiles, enhance existing cards in-place to preserve semantic colors.
+
+export function FilterKPICard({ value, label, sub, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        background:   active ? colors.tintChroma : colors.surface,
+        border:       active ? `2px solid ${colors.chroma}` : `1px solid ${colors.line1}`,
+        borderRadius: radii.card,
+        padding:      '14px 18px',
+        textAlign:    'left',
+        cursor:       'pointer',
+        fontFamily:   t.family,
+        boxShadow:    active ? shadows.s2 : shadows.s1,
+        transition:   'transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.18s ease, border-color 0.15s ease, background 0.15s ease',
+        willChange:   'transform, box-shadow',
+        display:      'flex', flexDirection: 'column', gap: 4,
+        position:     'relative',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform  = 'translateY(-2px)'
+        e.currentTarget.style.boxShadow  = active
+          ? `${shadows.s3}, 0 0 0 4px rgba(147,0,69,0.08)`
+          : `${shadows.s3}, 0 0 0 4px rgba(29,37,103,0.06)`
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform  = 'translateY(0)'
+        e.currentTarget.style.boxShadow  = active ? shadows.s2 : shadows.s1
+      }}
+      onMouseDown={e => { e.currentTarget.style.transform = 'translateY(0)' }}
+      onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-2px)' }}
+    >
+      <div style={{ ...styles.bigNumber, color: active ? colors.chroma : colors.ink1 }}>
+        {value ?? 0}
+      </div>
+      <div style={{ ...styles.eyebrow, marginTop: 8 }}>{label}</div>
+      {sub && <div style={{ fontSize: t.sizes.small, color: colors.ink4, marginTop: 2 }}>{sub}</div>}
+      {active && (
+        <span style={{ position:'absolute', top:6, right:8, fontSize:9, color:colors.chroma, fontWeight:700, fontFamily:t.family, lineHeight:1 }}>✕</span>
+      )}
+    </button>
   )
 }

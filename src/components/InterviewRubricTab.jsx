@@ -8,9 +8,9 @@ import InterviewSetupChecklist from './InterviewSetupChecklist'
 
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import ScoreFlag from './ScoreFlag'
-import StatCard from './StatCard'
 import EmptyState from './EmptyState'
-import { Users, CalendarCheck, BadgeCheck, Loader, CalendarX, Flag, ThumbsUp, ClipboardList } from 'lucide-react'
+import { Users, CalendarCheck, BadgeCheck, CalendarX, Flag, ThumbsUp, ClipboardList } from 'lucide-react'
+import { FilterKPICard } from './KPIBand'
 import { useAuth } from '../contexts/AuthContext'
 
 function IrAvatar({ student }) {
@@ -131,7 +131,7 @@ export default function InterviewRubricTab({
   const total         = students.length
   const scheduled     = students.filter(s => s.status === 'Interview Scheduled').length
   const completed     = students.filter(s => getStudentIvStatus(s, rubrics) === 'Completed').length
-  const inProgress    = students.filter(s => getStudentIvStatus(s, rubrics) === 'In Progress').length
+  // inProgress count retained in case needed elsewhere; card removed from filter UI
   const notScheduled  = students.filter(s => !s.interview_scheduled_date).length
   const flagged       = students.filter(s => s.flagged_for_second_interview).length
   const recommended   = students.filter(s => s.auto_recommendation === 'Recommend').length
@@ -330,35 +330,23 @@ export default function InterviewRubricTab({
         </div>
       </div>
 
-      <div className="stat-cards-row" style={{ padding:'12px 16px' }}>
+      {/* 6 filter cards — In Progress removed (not operationally useful; state preserved in data) */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:10, padding:'12px 16px' }}>
         {[
-          { key: null,            value: total,        label: 'Total',         icon: Users,         colorScheme: 'neutral'   },
-          { key: 'scheduled',     value: scheduled,    label: 'Scheduled',     icon: CalendarCheck, colorScheme: 'indigo'    },
-          { key: 'completed',     value: completed,    label: 'Completed',     icon: BadgeCheck,    colorScheme: 'green'     },
-          { key: 'in_progress',   value: inProgress,   label: 'In Progress',   icon: Loader,        colorScheme: 'amber'     },
-          { key: 'not_scheduled', value: notScheduled, label: 'Not Scheduled', icon: CalendarX,     colorScheme: 'neutral'   },
-          { key: 'flagged',       value: flagged,      label: 'Flagged',       icon: Flag,          colorScheme: 'red'       },
-          { key: 'recommended',   value: recommended,  label: 'Recommended',   icon: ThumbsUp,      colorScheme: 'darkgreen' },
-        ].map(({ key, value, label, icon, colorScheme }) => (
-          <div
+          { key: null,            value: total,        label: 'Total'         },
+          { key: 'scheduled',     value: scheduled,    label: 'Scheduled'     },
+          { key: 'completed',     value: completed,    label: 'Completed'     },
+          { key: 'not_scheduled', value: notScheduled, label: 'Not Scheduled' },
+          { key: 'flagged',       value: flagged,      label: 'Flagged'       },
+          { key: 'recommended',   value: recommended,  label: 'Recommended'   },
+        ].map(({ key, value, label }) => (
+          <FilterKPICard
             key={label}
+            value={value}
+            label={label}
+            active={key === null ? activeFilter === null : activeFilter === key}
             onClick={() => key === null ? setActiveFilter(null) : handleCardClick(key)}
-            style={{
-              cursor: 'pointer', position: 'relative',
-              outline: activeFilter !== null && (activeFilter === key) ? '2px solid #1D2567' : '2px solid transparent',
-              borderRadius: '12px',
-              transform: activeFilter === key ? 'translateY(-2px)' : 'none',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <StatCard value={value} label={label} icon={icon} colorScheme={colorScheme} />
-            {activeFilter === key && key !== null && (
-              <div style={{
-                position: 'absolute', top: '5px', right: '8px',
-                fontFamily: 'DM Sans', fontSize: '9px', color: '#1D2567', fontWeight: 700,
-              }}>✕ CLEAR</div>
-            )}
-          </div>
+          />
         ))}
       </div>
 

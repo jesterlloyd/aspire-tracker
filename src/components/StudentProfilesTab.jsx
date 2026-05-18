@@ -160,12 +160,24 @@ export default function StudentProfilesTab({
                   background: lit ? card.color : card.bg,
                   border: `1px solid ${lit ? card.color : card.border}`,
                   borderRadius:'12px', padding:'12px 14px', cursor:'pointer',
-                  transition:'all 0.15s ease', position:'relative',
+                  transition:'transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.18s ease, border-color 0.15s ease',
+                  willChange:'transform, box-shadow',
+                  position:'relative',
                   transform: lit ? 'translateY(-2px)' : 'none',
                   boxShadow: lit ? `0 4px 12px ${card.color}33` : '0 1px 3px rgba(0,0,0,0.04)',
                 }}
-                onMouseEnter={e => { if (!lit) { e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow=`0 3px 8px ${card.color}22` } }}
-                onMouseLeave={e => { if (!lit) { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 1px 3px rgba(0,0,0,0.04)' } }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.boxShadow = lit
+                    ? `0 8px 20px ${card.color}44, 0 0 0 4px ${card.color}18`
+                    : `0 4px 16px rgba(29,37,103,0.10), 0 0 0 4px rgba(29,37,103,0.06)`
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = lit ? 'translateY(-2px)' : 'translateY(0)'
+                  e.currentTarget.style.boxShadow = lit ? `0 4px 12px ${card.color}33` : '0 1px 3px rgba(0,0,0,0.04)'
+                }}
+                onMouseDown={e => { e.currentTarget.style.transform = 'translateY(0)' }}
+                onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-2px)' }}
               >
                 <div style={{ fontFamily:'DM Sans', fontWeight:800, fontSize:'24px', lineHeight:1, color: lit ? '#ffffff' : card.color, marginBottom:'4px' }}>
                   {card.count}
