@@ -182,11 +182,32 @@ export default async function handler(req, res) {
       content: String(m.text),
     }));
 
+  // ── Pacific-Time helpers ──────────────────────────────────────────────────────
+  function getPacificContext() {
+    const now = new Date();
+    const todayIso  = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(now);
+    const todayLong = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', weekday: 'long',  year: 'numeric', month: 'long',  day: 'numeric' }).format(now);
+    const nowTime   = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }).format(now);
+    return { todayIso, todayLong, nowTime };
+  }
+
+  function formatTimestampPT(iso) {
+    if (!iso) return null;
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Los_Angeles',
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+    }).format(new Date(iso));
+  }
+
+  const { todayIso, todayLong, nowTime } = getPacificContext();
+  // ─────────────────────────────────────────────────────────────────────────────
+
   // Build live context string from the React Query cache snapshot sent by the client
   let liveDataStr = null;
   if (liveData && Array.isArray(liveData.students)) {
     try {
-      const today = new Date().toLocaleDateString('en-CA');
+      const today = todayIso; // Pacific-aware; replaces plain new Date().toLocaleDateString('en-CA')
 
       // Build a student lookup map for joining shift logs
       const studentMap = {};
@@ -286,7 +307,7 @@ Cohort Status: ${cohort.status || 'unknown'}`
           if (recentComms.length > 0) {
             commsSection = `\n\nRecent notifications sent (last 30 days, ${recentComms.length} entries):\n` +
               recentComms.slice(0, 30).map(c => {
-                const ts = c.sent_at ? new Date(c.sent_at).toLocaleString('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'unknown'
+                const ts = formatTimestampPT(c.sent_at) || 'unknown'
                 return `- [${c.notification_type}] to ${c.recipient_name || c.recipient_email} (${c.audience}) | ${c.subject} | ${c.status} | ${ts}`
               }).join('\n')
           }
@@ -295,7 +316,15 @@ Cohort Status: ${cohort.status || 'unknown'}`
         console.warn('[keith] communications fetch failed (non-fatal):', commsErr.message)
       }
 
-      liveDataStr = `=== LIVE COHORT DATA (React Query cache snapshot) ===
+      liveDataStr = `CURRENT DATE AND TIME (Pacific Time — your operational timezone):
+- Today is ${todayLong}.
+- Current time is ${nowTime}.
+- ISO date for "today": ${todayIso}.
+- All timestamps in this context are already formatted in Pacific Time.
+- When users say "today", "yesterday", "this week", or "recently", interpret from Pacific Time, not UTC.
+- "Today" = ${todayIso}. "Yesterday" = the calendar date before that. Cedars-Sinai operates in Los Angeles.
+
+=== LIVE COHORT DATA (React Query cache snapshot) ===
 Today: ${today}
 
 ${cohortContext}
