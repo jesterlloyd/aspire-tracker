@@ -695,3 +695,10 @@ export async function getStudentCommunications(supabase, studentId) {
   }
   return data || [];
 }
+
+// ── School coordinator roster (for Keith AI awareness) ────────────────────────
+import { getAllSchoolCoordinators } from './notifications/recipients.js';
+
+export function getSchoolCoordinators() {
+  return getAllSchoolCoordinators();
+}

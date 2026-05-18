@@ -1,4 +1,4 @@
-import { buildSystemPrompt, getRecentCommunications } from '../src/lib/keithKnowledge.js';
+import { buildSystemPrompt, getRecentCommunications, getSchoolCoordinators } from '../src/lib/keithKnowledge.js';
 import { createClient } from '@supabase/supabase-js';
 
 // Legacy shim kept for safety (actual logic now lives in keithKnowledge.js)
@@ -297,6 +297,33 @@ Cohort Status: ${cohort.status || 'unknown'}`
       ).join('\n') || '(none)';
 
       // Fetch recent communications from notification_log (server-side, service role)
+      // Build school coordinator roster for Keith awareness
+      const coordRoster = (() => {
+        try {
+          const coords = getSchoolCoordinators()
+          const lines = coords.map(({ school, primary, cc, programRoutes }) => {
+            let line = `- ${school}: ${primary.name} <${primary.email}> (${primary.title})`
+            if (programRoutes) {
+              const routes = Object.entries(programRoutes)
+              // Deduplicate by email to keep the output compact
+              const seen = new Set()
+              const routeLines = routes
+                .filter(([, r]) => { const key = r.email; if (seen.has(key)) return false; seen.add(key); return true })
+                .map(([, r]) => `${r.name} <${r.email}>`)
+              line += ` [program-routed: ${routeLines.join(', ')}]`
+            }
+            if (cc.length) {
+              line += ` [CC: ${cc.map(c => `${c.name} <${c.email}>`).join(', ')}]`
+            }
+            return line
+          })
+          return `\n\nSCHOOL COORDINATOR ROSTER (${coords.length} affiliated schools):\n${lines.join('\n')}`
+        } catch (err) {
+          console.warn('[keith] coordinator roster failed (non-fatal):', err.message)
+          return ''
+        }
+      })()
+
       let commsSection = ''
       try {
         const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -352,7 +379,15 @@ ${safeList(needsCsLink)}
 Needs badge (${needsBadge.length}):
 ${safeList(needsBadge)}
 ${commsSection}
+${coordRoster}
 === END LIVE DATA ===
+
+SCHOOL COORDINATOR AWARENESS:
+- liveData includes the full ASPIRE school coordinator roster in the SCHOOL COORDINATOR ROSTER section above.
+- When asked "who is the coordinator at [school]?": look up the school, mention the primary contact and their title.
+- If programRoutes exists (Cal State LA), mention program-type routing: ABSN students → Alyssa Manlangit, BSN students → Marissa Grafil Ramirez.
+- If a CC list exists (WCU campuses), mention who's CC'd on notifications.
+- Cross-reference with recentCommunications: "what schools haven't been contacted recently?" = filter communications by audience='school_coordinator' and compare against roster.
 
 COMMUNICATION AWARENESS:
 - liveData above includes recent notifications sent through the ASPIRE notification system (last 30 days).
