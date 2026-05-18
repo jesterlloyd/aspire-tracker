@@ -3,7 +3,7 @@
 // Tokens: src/lib/designTokens.js
 import { useState, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { colors, type as t, styles } from '../lib/designTokens'
+import { colors, radii, shadows, type as t, styles } from '../lib/designTokens'
 
 export function useUpdatedLabel(cohortId) {
   const queryClient = useQueryClient()
