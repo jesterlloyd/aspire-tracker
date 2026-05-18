@@ -5,6 +5,7 @@ import StudentSidePanel from './StudentSidePanel'
 import AccessTab from './AccessTab'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { FilterKPICard } from './KPIBand'
 
 import { ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
 const ASPIRE_ORDER = ASPIRE_STATUS_SORT_ORDER
@@ -137,61 +138,16 @@ export default function StudentProfilesTab({
 
       {/* Frozen: pipeline cards + view toggle */}
       <div className="profiles-frozen">
-        {/* Pipeline dashboard cards */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(110px, 1fr))', gap:'10px', marginBottom:'16px' }}>
-          {[
-            { label:'Total',             count: pipelineCounts.total,             filter: null,                              color:'#1D2567', bg:'#f0f3ff', border:'#e0e7ff', note:'All students'       },
-            { label:'Needs Outreach',    count: pipelineCounts.needsOutreach,     filter: ['Pending Outreach','Form Sent'],   color:'#92400e', bg:'#fffbeb', border:'#fde68a', note:'Pending + Form Sent' },
-            { label:'Awaiting Interview',count: pipelineCounts.awaitingInterview, filter: 'Form Received',                   color:'#1e40af', bg:'#eff6ff', border:'#bfdbfe', note:'Form Received'       },
-            { label:'Interviewed',       count: pipelineCounts.interviewed,       filter: 'Interviewed',                     color:'#5b21b6', bg:'#f5f3ff', border:'#ddd6fe', note:'Ready to place'      },
-            { label:'Placed',            count: pipelineCounts.placed,            filter: 'Placed',                          color:'#065f46', bg:'#f0fdf4', border:'#bbf7d0', note:'Unit assigned'       },
-            { label:'Active Rotation',   count: pipelineCounts.activeRotation,    filter: 'Active Rotation',                 color:'#0e7490', bg:'#f0fdfa', border:'#99f6e4', note:'In rotation'         },
-            { label:'Completed',         count: pipelineCounts.completed,         filter: 'Completed',                       color:'#166534', bg:'#f0fdf4', border:'#86efac', note:'Program done'        },
-            { label:'Declined',          count: pipelineCounts.declined,          filter: 'Declined',                        color:'#991b1b', bg:'#fef2f2', border:'#fecaca', note:'Did not continue'    },
-          ].map(card => {
-            const isActive      = card.filter !== null && JSON.stringify(activeStatusFilter) === JSON.stringify(card.filter)
-            const isActiveTotal = card.filter === null && activeStatusFilter === null
-            const lit = isActive || isActiveTotal
-            return (
-              <div
-                key={card.label}
-                onClick={() => handleCardClick(card.filter)}
-                style={{
-                  background: lit ? card.color : card.bg,
-                  border: `1px solid ${lit ? card.color : card.border}`,
-                  borderRadius:'12px', padding:'12px 14px', cursor:'pointer',
-                  transition:'transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.18s ease, border-color 0.15s ease',
-                  willChange:'transform, box-shadow',
-                  position:'relative',
-                  transform: lit ? 'translateY(-2px)' : 'none',
-                  boxShadow: lit ? `0 4px 12px ${card.color}33` : '0 1px 3px rgba(0,0,0,0.04)',
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.transform = 'translateY(-2px)'
-                  e.currentTarget.style.boxShadow = lit
-                    ? `0 8px 20px ${card.color}44, 0 0 0 4px ${card.color}18`
-                    : `0 4px 16px rgba(29,37,103,0.10), 0 0 0 4px rgba(29,37,103,0.06)`
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.transform = lit ? 'translateY(-2px)' : 'translateY(0)'
-                  e.currentTarget.style.boxShadow = lit ? `0 4px 12px ${card.color}33` : '0 1px 3px rgba(0,0,0,0.04)'
-                }}
-                onMouseDown={e => { e.currentTarget.style.transform = 'translateY(0)' }}
-                onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-2px)' }}
-              >
-                <div style={{ fontFamily:'DM Sans', fontWeight:800, fontSize:'24px', lineHeight:1, color: lit ? '#ffffff' : card.color, marginBottom:'4px' }}>
-                  {card.count}
-                </div>
-                <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'11px', color: lit ? 'rgba(255,255,255,0.9)' : card.color, lineHeight:1.2 }}>
-                  {card.label}
-                </div>
-                <div style={{ fontFamily:'DM Sans', fontSize:'9px', color: lit ? 'rgba(255,255,255,0.65)' : '#9ca3af', marginTop:'2px' }}>
-                  {card.note}
-                </div>
-                {lit && <div style={{ position:'absolute', top:'8px', right:'8px', width:'6px', height:'6px', borderRadius:'50%', background:'rgba(255,255,255,0.6)' }} />}
-              </div>
-            )
-          })}
+        {/* Pipeline filter cards — color story: Nightfall=all, Dawn=needs attention, Sage=positive, Chroma=alert */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(8, 1fr)', gap:10, marginBottom:16 }}>
+          <FilterKPICard value={pipelineCounts.total}             label="Total"              sub="All students"          accent="nightfall"  active={activeStatusFilter === null}                                                         onClick={() => handleCardClick(null)} />
+          <FilterKPICard value={pipelineCounts.needsOutreach}     label="Needs Outreach"     sub="Pending + Form Sent"   accent="dawn"       active={JSON.stringify(activeStatusFilter) === JSON.stringify(['Pending Outreach','Form Sent'])} onClick={() => handleCardClick(['Pending Outreach','Form Sent'])} />
+          <FilterKPICard value={pipelineCounts.awaitingInterview} label="Awaiting Interview" sub="Form Received"         accent="periwinkle" active={activeStatusFilter === 'Form Received'}                                               onClick={() => handleCardClick('Form Received')} />
+          <FilterKPICard value={pipelineCounts.interviewed}       label="Interviewed"        sub="Ready to place"        accent="lavender"   active={activeStatusFilter === 'Interviewed'}                                                onClick={() => handleCardClick('Interviewed')} />
+          <FilterKPICard value={pipelineCounts.placed}            label="Placed"             sub="Unit assigned"         accent="sage"       active={activeStatusFilter === 'Placed'}                                                     onClick={() => handleCardClick('Placed')} />
+          <FilterKPICard value={pipelineCounts.activeRotation}    label="Active Rotation"    sub="In rotation"           accent="marina"     active={activeStatusFilter === 'Active Rotation'}                                            onClick={() => handleCardClick('Active Rotation')} />
+          <FilterKPICard value={pipelineCounts.completed}         label="Completed"          sub="Program done"          accent="sage"       active={activeStatusFilter === 'Completed'}                                                  onClick={() => handleCardClick('Completed')} />
+          <FilterKPICard value={pipelineCounts.declined}          label="Declined"           sub="Did not continue"      accent="chroma"     active={activeStatusFilter === 'Declined'}                                                   onClick={() => handleCardClick('Declined')} />
         </div>
 
         {/* Active filter bar */}

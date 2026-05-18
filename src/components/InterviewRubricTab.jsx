@@ -330,24 +330,14 @@ export default function InterviewRubricTab({
         </div>
       </div>
 
-      {/* 6 filter cards — In Progress removed (not operationally useful; state preserved in data) */}
+      {/* 6 filter cards — color story: Nightfall=anchor, Marina=in motion, Sage=positive, Dawn=needs action, Chroma=alert */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:10, padding:'12px 16px' }}>
-        {[
-          { key: null,            value: total,        label: 'Total'         },
-          { key: 'scheduled',     value: scheduled,    label: 'Scheduled'     },
-          { key: 'completed',     value: completed,    label: 'Completed'     },
-          { key: 'not_scheduled', value: notScheduled, label: 'Not Scheduled' },
-          { key: 'flagged',       value: flagged,      label: 'Flagged'       },
-          { key: 'recommended',   value: recommended,  label: 'Recommended'   },
-        ].map(({ key, value, label }) => (
-          <FilterKPICard
-            key={label}
-            value={value}
-            label={label}
-            active={key === null ? activeFilter === null : activeFilter === key}
-            onClick={() => key === null ? setActiveFilter(null) : handleCardClick(key)}
-          />
-        ))}
+        <FilterKPICard value={total}        label="Total"         accent="nightfall"  active={activeFilter === null}            onClick={() => setActiveFilter(null)} />
+        <FilterKPICard value={scheduled}    label="Scheduled"     accent="marina"     active={activeFilter === 'scheduled'}    onClick={() => handleCardClick('scheduled')} />
+        <FilterKPICard value={completed}    label="Completed"     accent="sage"       active={activeFilter === 'completed'}    onClick={() => handleCardClick('completed')} />
+        <FilterKPICard value={notScheduled} label="Not Scheduled" accent="dawn"       active={activeFilter === 'not_scheduled'} onClick={() => handleCardClick('not_scheduled')} />
+        <FilterKPICard value={flagged}      label="Flagged"       accent="chroma"     active={activeFilter === 'flagged'}      onClick={() => handleCardClick('flagged')} />
+        <FilterKPICard value={recommended}  label="Recommended"   accent="sage"       active={activeFilter === 'recommended'}  onClick={() => handleCardClick('recommended')} />
       </div>
 
       {/* Student list */}
