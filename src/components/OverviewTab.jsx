@@ -6,11 +6,9 @@ import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { getUnit, UNIT_CATALOG, DIVISION_ORDER } from '../lib/unitCatalog'
 import StudentAvatar from './StudentAvatar'
-import CohortGantt from './CohortGantt'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
 import { Clock, GraduationCap, MapPin, Users, Copy } from 'lucide-react'
-import { calculatePriorities } from '../lib/priorities'
 
 // ── Capacity Coverage Gauge ───────────────────────────────────────────────────
 
@@ -444,7 +442,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [unitStatusFilter, setUnitStatusFilter] = useState('all')
   const [localToast,       setLocalToast]       = useState(null)
   const [campusOpen,       setCampusOpen]       = useState(false)
-  const [timelineExpanded, setTimelineExpanded] = useState(false)
 
   // en-CA gives reliable YYYY-MM-DD in the user's local timezone
   const todayStr = new Date().toLocaleDateString('en-CA')
@@ -506,23 +503,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const primaryLeadMap = {}
   unitLeadersData.forEach(l => { primaryLeadMap[l.unit_name] = l })
 
-  // Gantt data — cached by TanStack Query; survives tab switches without refetch
-  const {
-    data:      cohortEvents = [],
-    isLoading: ganttLoading,
-    error:     ganttErrorObj,
-    refetch:   loadCohortEvents,
-  } = useQuery({
-    queryKey: ['program_events', cohortId],
-    queryFn:  async () => {
-      const { data, error } = await supabase
-        .from('program_events').select('*').eq('cohort_id', cohortId)
-      if (error) throw error
-      return data || []
-    },
-    enabled: !!cohortId && timelineExpanded,
-  })
-  const ganttError = ganttErrorObj?.message ?? null
 
   const showToast = msg => { setLocalToast(msg); setTimeout(() => setLocalToast(null), 3000) }
 
@@ -634,42 +614,8 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       {/* ════════ STICKY HEADER ════════ */}
       <div className="aggregate-sticky-header">
 
-        {/* Today's Priorities strip — first, most actionable */}
-        <div style={{ marginBottom:'8px' }}>
-        {(() => {
-          const priorities = calculatePriorities(students, units)
-          const cohortName = cohort?.name || 'this cohort'
-          if (priorities.length === 0) return (
-            <div style={{ background:'#f0fdf4', borderRadius:12, padding:'10px 18px', display:'flex', alignItems:'center', gap:10 }}>
-              <div style={{ width:8, height:8, borderRadius:'50%', background:'#16a34a', flexShrink:0 }} />
-              <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:13, color:'#166534' }}>
-                All caught up. No urgent items for {cohortName}.
-              </span>
-            </div>
-          )
-          return (
-            <div style={{ background:'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)', borderRadius:14, padding:'11px 18px', display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-              <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:12, color:'rgba(255,255,255,0.5)', textTransform:'uppercase', letterSpacing:'0.06em', marginRight:6, flexShrink:0 }}>
-                Today's Priorities
-              </span>
-              {priorities.map((p, i) => (
-                <React.Fragment key={i}>
-                  <span style={{ display:'inline-flex', alignItems:'center', gap:5, background:p.bg, borderRadius:20, padding:'3px 10px', fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:12, color:p.color, whiteSpace:'nowrap' }}>
-                    <span style={{ fontWeight:800, fontSize:13 }}>{p.count}</span>
-                    {p.label}
-                  </span>
-                  {i < priorities.length - 1 && (
-                    <span style={{ color:'rgba(255,255,255,0.2)', fontSize:14, fontWeight:300 }}>·</span>
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
-          )
-        })()}
-        </div>
-
         {/* Program at a Glance + Capacity Coverage Gauge — two-column, stacks below ~900px */}
-        <div style={{ display: 'flex', gap: 14, marginBottom: 20, alignItems: 'stretch', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 14, marginBottom: 20, marginTop: 4, alignItems: 'stretch', flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 560px', minWidth: 0 }}>
             <ProgramAtAGlance
               totalSlots={totalSlots}
@@ -1028,63 +974,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
           )}
         </div>
 
-        {/* ── Program Timeline strip — below both panels ── */}
-        <div style={{ background:'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)', borderRadius:14, overflow:'hidden', margin:'16px 0', boxShadow:'0 2px 12px rgba(29,37,103,0.07)' }}>
-          {/* Collapsed header */}
-          <div
-            onClick={() => setTimelineExpanded(p => !p)}
-            style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 20px', cursor:'pointer', userSelect:'none' }}
-          >
-            <span style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, transition:'background 0.2s ease',
-              background: timelineExpanded ? '#9FAFF8' : 'rgba(255,255,255,0.4)' }} />
-            <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:13, color:'#ffffff' }}>
-              Program Timeline
-            </span>
-            <span style={{ fontFamily:'DM Sans,sans-serif', fontSize:12, color:'rgba(255,255,255,0.5)', marginLeft:4 }}>
-              {timelineExpanded ? 'Gantt chart view' : 'Click to expand'}
-            </span>
-            <span style={{ marginLeft:'auto', color:'rgba(255,255,255,0.5)', fontSize:12,
-              transform: timelineExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition:'transform 0.2s ease' }}>▼</span>
-          </div>
-
-          {/* Expanded Gantt */}
-          {timelineExpanded && (
-            <div style={{ borderTop:'1px solid rgba(255,255,255,0.1)', background:'#ffffff', padding:20 }}>
-              {ganttLoading ? (
-                <div style={{ textAlign:'center', padding:'28px 16px', color:'#9ca3af', fontFamily:'DM Sans', fontSize:13 }}>
-                  <style>{`@keyframes gantt-spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }`}</style>
-                  <div style={{ width:20, height:20, border:'2px solid #e5e7eb', borderTopColor:'#1D2567', borderRadius:'50%', animation:'gantt-spin 0.8s linear infinite', margin:'0 auto 12px' }} />
-                  Loading program timeline…
-                </div>
-              ) : ganttError ? (
-                <div style={{ background:'#fff1f2', border:'1px solid #fca5a5', borderRadius:10, padding:'16px 20px', textAlign:'center' }}>
-                  <div style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:13, color:'#991b1b', marginBottom:6 }}>
-                    Failed to load timeline
-                  </div>
-                  <div style={{ fontFamily:'DM Sans', fontSize:12, color:'#6b7280', marginBottom:14 }}>{ganttError}</div>
-                  <button onClick={loadCohortEvents}
-                    style={{ padding:'7px 18px', border:'none', borderRadius:8, background:'#1D2567', color:'#fff', fontFamily:'DM Sans', fontWeight:700, fontSize:12, cursor:'pointer' }}>
-                    Retry
-                  </button>
-                </div>
-              ) : cohortEvents.length === 0 ? (
-                <EmptyState icon={<Clock />}
-                  heading="No timeline events yet for this cohort"
-                  subtext="Events will appear automatically as students progress (form received, interviewed, placed). You can also log dates manually from the Student Profiles tab." />
-              ) : (
-                <>
-                  <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:8 }}>
-                    <button onClick={loadCohortEvents}
-                      style={{ padding:'4px 12px', border:'1px solid #e5e7eb', borderRadius:6, background:'#f9fafb', fontFamily:'DM Sans', fontSize:11, color:'#6b7280', cursor:'pointer' }}>
-                      ↻ Refresh
-                    </button>
-                  </div>
-                  <CohortGantt students={students} events={cohortEvents} cohort={cohort} />
-                </>
-              )}
-            </div>
-          )}
-        </div>
 
       </div>
     </div>
