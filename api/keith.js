@@ -1,4 +1,4 @@
-import { buildSystemPrompt, getRecentCommunications, getSchoolCoordinators } from '../src/lib/keithKnowledge.js';
+import { buildSystemPrompt, getRecentCommunications, getSchoolCoordinators, getUnitResponseStats, getUnitLeadersForKeith } from '../src/lib/keithKnowledge.js';
 import { createClient } from '@supabase/supabase-js';
 
 // Legacy shim kept for safety (actual logic now lives in keithKnowledge.js)
@@ -343,6 +343,47 @@ Cohort Status: ${cohort.status || 'unknown'}`
         console.warn('[keith] communications fetch failed (non-fatal):', commsErr.message)
       }
 
+      // Unit response stats and unit leaders
+      let unitResponseSection = '';
+      let unitLeaderSection = '';
+      try {
+        if (supabaseUrl && serviceKey) {
+          const dbkeith2 = createClient(supabaseUrl, serviceKey);
+          const activeCohortId = liveData.activeCohortId || liveData.cohort?.id;
+          if (activeCohortId) {
+            const stats = await getUnitResponseStats(dbkeith2, activeCohortId);
+            if (stats) {
+              unitResponseSection = `\n\nUNIT RESPONSE STATUS (${cohort?.name || 'current cohort'}):
+Response rate: ${stats.response_rate}% (${stats.hosting_count + stats.not_hosting_count} of ${stats.total_units} units responded)
+Hosting (${stats.hosting_count} units, ${stats.total_slots} slots confirmed):
+${stats.hosting_units.map(u => `  - ${u.unit}: ${u.slots} slot${u.slots === 1 ? '' : 's'}`).join('\n') || '  (none)'}
+Not hosting (${stats.not_hosting_count} units):
+${stats.not_hosting_units.map(u => `  - ${u}`).join('\n') || '  (none)'}
+Pending / no response (${stats.pending_count} units):
+${stats.pending_units.map(u => `  - ${u}`).join('\n') || '  (none)'}`;
+            }
+          }
+          const leaders = await getUnitLeadersForKeith(dbkeith2);
+          if (leaders.length > 0) {
+            const byUnit = {};
+            leaders.forEach(l => {
+              if (!byUnit[l.unit_name]) byUnit[l.unit_name] = [];
+              byUnit[l.unit_name].push(l);
+            });
+            unitLeaderSection = `\n\nUNIT LEADERSHIP ROSTER (${Object.keys(byUnit).length} units, ${leaders.length} leaders):
+${Object.entries(byUnit).map(([unit, team]) => {
+  const primary = team.find(l => l.is_primary_lead);
+  const ops = team.filter(l => !l.is_primary_lead);
+  const primaryLine = primary ? `${primary.full_name} <${primary.email}> (${primary.role})` : '(no primary lead)';
+  const opsLine = ops.length ? `; Ops: ${ops.map(l => `${l.full_name} (${l.role_qualifier || l.role})`).join(', ')}` : '';
+  return `  ${unit}: ${primaryLine}${opsLine}`;
+}).join('\n')}`;
+          }
+        }
+      } catch (unitErr) {
+        console.warn('[keith] unit response fetch failed (non-fatal):', unitErr.message);
+      }
+
       liveDataStr = `CURRENT DATE AND TIME (Pacific Time — your operational timezone):
 - Today is ${todayLong}.
 - Current time is ${nowTime}.
@@ -380,6 +421,8 @@ Needs badge (${needsBadge.length}):
 ${safeList(needsBadge)}
 ${commsSection}
 ${coordRoster}
+${unitResponseSection}
+${unitLeaderSection}
 === END LIVE DATA ===
 
 SCHOOL COORDINATOR AWARENESS:
@@ -388,6 +431,13 @@ SCHOOL COORDINATOR AWARENESS:
 - If programRoutes exists (Cal State LA), mention program-type routing: ABSN students → Alyssa Manlangit, BSN students → Marissa Grafil Ramirez.
 - If a CC list exists (WCU campuses), mention who's CC'd on notifications.
 - Cross-reference with recentCommunications: "what schools haven't been contacted recently?" = filter communications by audience='school_coordinator' and compare against roster.
+
+UNIT RESPONSE AWARENESS:
+- liveData includes a UNIT RESPONSE STATUS section showing which units have committed to hosting, declined, or not yet responded for the current cohort.
+- Use this to answer: "Which units haven't responded?", "How many total slots are confirmed?", "Which units are hosting?", "Who hasn't submitted yet?"
+- liveData also includes a UNIT LEADERSHIP ROSTER. When asked who to contact for a unit, return the primary lead (Associate Director or Executive Director) and note the operational team (ANM, NPD Practitioner, CNS).
+- Cross-reference unit responses with the leadership roster: if a unit is pending, you know who to contact.
+- When Jester asks for an executive-summary report on unit responses (e.g., "draft a unit response summary for Margo"), generate a well-structured email. Do not send it automatically.
 
 COMMUNICATION AWARENESS:
 - liveData above includes recent notifications sent through the ASPIRE notification system (last 30 days).

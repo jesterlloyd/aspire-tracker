@@ -20,6 +20,7 @@
     "api/interview-book.js":              { "maxDuration": 10 },
     "api/student-update.js":              { "maxDuration": 10 },
     "api/admin-users.js":                 { "maxDuration": 10 },
+    "api/unit-form-notification.js":      { "maxDuration": 15 },
     "api/cron/teams-invite-reminders.js": { "maxDuration": 60 }
   }
 }

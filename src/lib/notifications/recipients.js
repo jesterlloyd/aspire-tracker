@@ -1,9 +1,19 @@
 // src/lib/notifications/recipients.js
 // Resolves who receives each notification type.
+// Server-side only — imported by API routes and the notification library.
 //
 // NOTE: Keith Hoshal (human advisor) is intentionally NOT in INTERNAL_TEAM_EMAILS.
 // Strategic program awareness for advisors flows through Keith (AI) reading notification_log,
 // not through direct email notifications.
+
+import { createClient } from '@supabase/supabase-js';
+
+function getDb() {
+  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
 
 const INTERNAL_TEAM_EMAILS = {
   owner:   'JesterLloyd.Bautista@cshs.org',
@@ -134,6 +144,8 @@ export async function resolveRecipients(type, context) {
     case 'teams_invite_reminder':
     case 'teams_invite_reminder_escalation':
       return resolveTeamsInviteReminder(context);
+    case 'unit_form_received':
+      return resolveUnitFormReceived(context);
     default:
       console.warn(`[notifications/recipients] no resolver for type: ${type}`);
       return [];
@@ -161,6 +173,67 @@ function resolveTeamsInviteReminder(context) {
       role:     'owner',
       audience: 'internal_team',
     });
+  }
+
+  return recipients;
+}
+
+async function resolveUnitFormReceived(context) {
+  const { submitterEmail, submitterName, unitName } = context;
+  const recipients = [];
+
+  if (!submitterEmail) {
+    console.warn('[notifications/recipients] unit_form_received: no submitterEmail');
+    return recipients;
+  }
+
+  // Query unit_leaders for CC routing (service role for server-side access)
+  let ccList = [];
+  try {
+    const db = getDb();
+    if (db && unitName) {
+      const { data: leaders } = await db
+        .from('unit_leaders')
+        .select('full_name, email, role, is_primary_lead')
+        .eq('unit_name', unitName)
+        .eq('is_active', true)
+        .order('is_primary_lead', { ascending: false });
+
+      if (leaders && leaders.length > 0) {
+        const primaryLead = leaders.find(l => l.is_primary_lead) || null;
+        const submitterIsPrimary = primaryLead &&
+          primaryLead.email.toLowerCase() === submitterEmail.toLowerCase().trim();
+
+        let ccLeaders = [];
+        if (submitterIsPrimary) {
+          ccLeaders = leaders.filter(l =>
+            ['Assistant Nurse Manager', 'NPD Practitioner', 'Clinical Nurse Specialist'].includes(l.role)
+          );
+        } else if (primaryLead) {
+          ccLeaders = [primaryLead];
+        }
+
+        ccList = ccLeaders
+          .filter(l => l.email.toLowerCase() !== submitterEmail.toLowerCase().trim())
+          .map(l => ({ name: l.full_name, email: l.email }));
+      }
+    }
+  } catch (err) {
+    console.warn('[notifications/recipients] unit_leaders lookup failed (non-fatal):', err.message);
+  }
+
+  // Submitter confirmation email (with CC to unit team)
+  recipients.push({
+    email:    submitterEmail,
+    role:     'submitter',
+    name:     submitterName || null,
+    audience: 'submitter',
+    cc:       ccList.length > 0 ? ccList : undefined,
+  });
+
+  // Internal team alert (Jester + Co-Lead)
+  for (const [role, email] of Object.entries(INTERNAL_TEAM_EMAILS)) {
+    recipients.push({ email, role, audience: 'internal_team' });
   }
 
   return recipients;

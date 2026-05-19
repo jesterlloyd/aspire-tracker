@@ -702,3 +702,52 @@ import { getAllSchoolCoordinators } from './notifications/recipients.js';
 export function getSchoolCoordinators() {
   return getAllSchoolCoordinators();
 }
+
+// ── Unit response awareness ───────────────────────────────────────────────────
+
+export async function getUnitResponses(supabase, cohortId) {
+  const { data } = await supabase
+    .from('unit_cohort_responses')
+    .select('*')
+    .eq('cohort_id', cohortId)
+    .order('last_updated_at', { ascending: false });
+  return data || [];
+}
+
+export async function getUnitResponseStats(supabase, cohortId) {
+  const { data } = await supabase
+    .from('unit_cohort_responses')
+    .select('response_status, slots_offered, unit_name')
+    .eq('cohort_id', cohortId);
+
+  if (!data) return null;
+
+  const hosting    = data.filter(r => r.response_status === 'submitted_hosting');
+  const notHosting = data.filter(r => r.response_status === 'submitted_not_hosting');
+  const pending    = data.filter(r => r.response_status === 'pending');
+  const totalSlots = hosting.reduce((sum, r) => sum + (r.slots_offered || 0), 0);
+
+  return {
+    total_units:       data.length,
+    hosting_count:     hosting.length,
+    not_hosting_count: notHosting.length,
+    pending_count:     pending.length,
+    total_slots:       totalSlots,
+    response_rate:     data.length > 0
+      ? Math.round(((hosting.length + notHosting.length) / data.length) * 100)
+      : 0,
+    hosting_units:     hosting.map(r => ({ unit: r.unit_name, slots: r.slots_offered })),
+    not_hosting_units: notHosting.map(r => r.unit_name),
+    pending_units:     pending.map(r => r.unit_name),
+  };
+}
+
+export async function getUnitLeadersForKeith(supabase) {
+  const { data } = await supabase
+    .from('unit_leaders')
+    .select('unit_name, full_name, email, role, role_qualifier, is_primary_lead')
+    .eq('is_active', true)
+    .order('unit_name')
+    .order('is_primary_lead', { ascending: false });
+  return data || [];
+}

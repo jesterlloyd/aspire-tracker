@@ -70,7 +70,7 @@ export async function sendNotification(type, context = {}) {
     let errorMessage = null;
 
     try {
-      const { data, error } = await resend.emails.send({
+      const emailPayload = {
         from:     FROM,
         reply_to: REPLY_TO,
         to:       [recipient.email],
@@ -80,7 +80,11 @@ export async function sendNotification(type, context = {}) {
           { name: 'type',     value: type },
           { name: 'audience', value: recipient.audience },
         ],
-      });
+      };
+      if (recipient.cc && recipient.cc.length > 0) {
+        emailPayload.cc = recipient.cc.map(c => c.email ? `${c.name || ''} <${c.email}>`.trim() : c);
+      }
+      const { data, error } = await resend.emails.send(emailPayload);
 
       if (error) {
         status       = 'failed';

@@ -44,6 +44,137 @@ function ProgramAtAGlance({ totalSlots, placedCount, slotsRemaining, studentsReq
 
 const DIVISIONS = ['Surgical', 'Medical', 'Critical Care', 'Specialty']
 
+// ── Unit Response Status panel — three-state tile display ────────────────────
+
+function UnitResponseTile({ response, filledByUnit, units, primaryLeadMap, showToast }) {
+  const [expanded, setExpanded] = useState(false)
+  const status   = response.response_status
+  const isHosting = status === 'submitted_hosting'
+  const isDecline = status === 'submitted_not_hosting'
+  const isPending = status === 'pending'
+
+  const filledCount = (() => {
+    const unitRow = units.find(u => u.id === response.unit_id)
+    if (!unitRow) return 0
+    return filledByUnit[unitRow.id] || 0
+  })()
+
+  const lead = primaryLeadMap[response.unit_name]
+
+  const tileBorder = isHosting ? '2px solid #C8D5C0' : isDecline ? '1px solid #e5e7eb' : '1px dashed #d1d5db'
+  const tileOpacity = isPending ? 0.65 : 1
+
+  return (
+    <div style={{ borderRadius:8, border:tileBorder, padding:'10px 14px', marginBottom:6, opacity:tileOpacity, background:'#fff' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontWeight:600, fontSize:13, color:'#0E1428', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+            {response.unit_name}
+          </div>
+          {response.submitted_by_name && (
+            <div style={{ fontSize:11, color:'#9ca3af', marginTop:1 }}>{response.submitted_by_name}</div>
+          )}
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+          {isHosting && (
+            <>
+              <span style={{ background:'#C8D5C0', color:'#2D4A2B', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:12, whiteSpace:'nowrap' }}>
+                Hosting · {response.slots_offered} slot{response.slots_offered === 1 ? '' : 's'}
+              </span>
+              {filledCount > 0 && (
+                <span style={{ fontSize:11, color:'#166534', whiteSpace:'nowrap' }}>{filledCount} placed</span>
+              )}
+              {response.shift_preference && (
+                <span className="ov-shift-badge">{response.shift_preference}</span>
+              )}
+            </>
+          )}
+          {isDecline && (
+            <button
+              onClick={() => setExpanded(p => !p)}
+              style={{ background:'#E8E8E8', color:'#555', fontSize:11, fontWeight:600, padding:'2px 10px', borderRadius:12, border:'none', cursor:'pointer', whiteSpace:'nowrap' }}>
+              Not hosting {expanded ? '▲' : '▼'}
+            </button>
+          )}
+          {isPending && (
+            <button
+              onClick={() => {
+                if (lead) {
+                  showToast(`Contact ${lead.full_name} at ${lead.email} for ${response.unit_name}. (Automated reminder coming soon.)`)
+                } else {
+                  showToast(`No primary lead found for ${response.unit_name}. Check unit_leaders table.`)
+                }
+              }}
+              title="Send reminder"
+              style={{ background:'none', border:'1px dashed #9ca3af', borderRadius:6, padding:'2px 8px', fontSize:11, color:'#9ca3af', cursor:'pointer', whiteSpace:'nowrap' }}>
+              Send reminder
+            </button>
+          )}
+        </div>
+      </div>
+      {/* Expanded reason for decline */}
+      {isDecline && expanded && response.reason_for_zero && (
+        <div style={{ marginTop:8, fontSize:12, color:'#6b7280', paddingLeft:4, borderLeft:'2px solid #e5e7eb' }}>
+          {response.reason_for_zero}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function UnitResponsePanel({ unitResponses, filledByUnit, units, unitGroupsOpen, toggleUnitGroup, primaryLeadMap, showToast }) {
+  const hosting    = unitResponses.filter(r => r.response_status === 'submitted_hosting')
+                       .sort((a, b) => (b.slots_offered || 0) - (a.slots_offered || 0))
+  const notHosting = unitResponses.filter(r => r.response_status === 'submitted_not_hosting')
+                       .sort((a, b) => a.unit_name.localeCompare(b.unit_name))
+  const pending    = unitResponses.filter(r => r.response_status === 'pending')
+                       .sort((a, b) => a.unit_name.localeCompare(b.unit_name))
+
+  const groups = [
+    { key: 'hosting',    label: 'Hosting',     count: hosting.length,    badge: '#C8D5C0', badgeTxt: '#2D4A2B', rows: hosting },
+    { key: 'notHosting', label: 'Not Hosting', count: notHosting.length, badge: '#E8E8E8', badgeTxt: '#555',    rows: notHosting },
+    { key: 'pending',    label: 'Pending',      count: pending.length,   badge: '#f3f4f6', badgeTxt: '#6b7280', rows: pending },
+  ].filter(g => g.rows.length > 0)
+
+  return (
+    <div className="ov-groups">
+      {groups.map(g => {
+        const open = unitGroupsOpen[g.key]
+        return (
+          <div key={g.key} className="ov-group">
+            <div className="ov-group-row" onClick={() => toggleUnitGroup(g.key)}>
+              <span className="ov-chevron">{open ? '▾' : '▸'}</span>
+              <span className="ov-group-name">{g.label}</span>
+              <span className="ov-group-badge" style={{ background: g.badge, color: g.badgeTxt }}>
+                {g.count} unit{g.count !== 1 ? 's' : ''}
+              </span>
+            </div>
+            {open && (
+              <div className="ov-group-items">
+                {g.rows.map(r => (
+                  <UnitResponseTile
+                    key={r.id}
+                    response={r}
+                    filledByUnit={filledByUnit}
+                    units={units}
+                    primaryLeadMap={primaryLeadMap}
+                    showToast={showToast}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+      {unitResponses.length === 0 && (
+        <EmptyState icon={<MapPin />}
+          heading="No unit responses yet"
+          subtext="Unit leaders submit /unit-form to register their availability." />
+      )}
+    </div>
+  )
+}
+
 const FORM_SUBJECT = 'Complete Your ASPIRE Intake Form | Cedars-Sinai'
 const buildFormBody = (recipientName = 'ASPIRE Student') =>
 `Dear ${recipientName},
@@ -103,6 +234,41 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   useEffect(() => {
     if (campusLogs.length > 0) setCampusOpen(true)
   }, [campusLogs])
+
+  // Unit Response Status — query unit_cohort_responses for current cohort
+  const { data: unitResponses = [] } = useQuery({
+    queryKey: ['unit_cohort_responses', cohortId],
+    queryFn:  async () => {
+      const { data, error } = await supabase
+        .from('unit_cohort_responses')
+        .select('*')
+        .eq('cohort_id', cohortId)
+        .order('unit_name')
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!cohortId,
+    staleTime: 30000,
+  })
+
+  // Unit leaders — for primary lead contact in reminder affordance
+  const { data: unitLeadersData = [] } = useQuery({
+    queryKey: ['unit_leaders_all'],
+    queryFn:  async () => {
+      const { data, error } = await supabase
+        .from('unit_leaders')
+        .select('unit_name, full_name, email, role, is_primary_lead')
+        .eq('is_active', true)
+        .eq('is_primary_lead', true)
+      if (error) throw error
+      return data || []
+    },
+    staleTime: 300000,
+  })
+
+  // Build primary lead map: unit_name → { full_name, email }
+  const primaryLeadMap = {}
+  unitLeadersData.forEach(l => { primaryLeadMap[l.unit_name] = l })
 
   // Gantt data — cached by TanStack Query; survives tab switches without refetch
   const {
@@ -283,9 +449,15 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         <div className="aggregate-panel-headers">
           <div className="aggregate-panel-hdr">
             <div>
-              <div className="ov-panel-title">Clinical Placement Availability</div>
+              <div className="ov-panel-title">Unit Response Status</div>
               <div className="ov-panel-sub">
-                {participating.length} Units · {totalSlots} Total Slots · {slotsRemaining} Remaining
+                {(() => {
+                  const hosting    = unitResponses.filter(r => r.response_status === 'submitted_hosting')
+                  const notHosting = unitResponses.filter(r => r.response_status === 'submitted_not_hosting')
+                  const pending    = unitResponses.filter(r => r.response_status === 'pending')
+                  const slots      = hosting.reduce((s, r) => s + (r.slots_offered || 0), 0)
+                  return `${unitResponses.length > 0 ? hosting.length + notHosting.length : participating.length} of ${unitResponses.length > 0 ? unitResponses.length : participating.length} units responded · ${unitResponses.length > 0 ? slots : totalSlots} slots confirmed · ${pending.length} pending`
+                })()}
               </div>
             </div>
             <div className="ov-expand-toggle">
@@ -322,80 +494,72 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
         <div className="ov-panels-body">
 
-          {/* ── Clinical Placement Availability (body only) ── */}
+          {/* ── Unit Response Status panel (body only) ── */}
           <div className="ov-panel-body">
-            <div className="ov-groups">
-              {DIVISIONS.map(div => {
-                const divUnits = unitsByDiv[div] || []
-                if (divUnits.length === 0) return null
-                const open       = unitGroupsOpen[div]
-                const divTotal   = divUnits.reduce((s, u) => s + (u.total_slots      || 0), 0)
-                const divFilled  = divUnits.reduce((s, u) => s + (filledByUnit[u.id] || 0), 0)
-                const divRemain  = divTotal - divFilled
-                const divFull    = divRemain <= 0
-                const divLow     = !divFull && divRemain <= divUnits.length
-                const divBadgeBg    = divFull ? '#fee2e2' : divLow ? '#fef3c7' : '#dcfce7'
-                const divBadgeColor = divFull ? '#991b1b' : divLow ? '#92400e' : '#166534'
-
-                return (
-                  <div key={div} className="ov-group">
-                    <div className="ov-group-row" onClick={() => toggleUnitGroup(div)}>
-                      <span className="ov-chevron">{open ? '▾' : '▸'}</span>
-                      <span className="ov-group-name">{div}</span>
-                      <span className="ov-group-badge" style={{ background: divBadgeBg, color: divBadgeColor }}>
-                        {divFilled}/{divTotal} filled
-                      </span>
-                    </div>
-                    {open && (
-                      <div className="ov-group-items">
-                        {divUnits.map(u => {
-                          const filled    = filledByUnit[u.id] || 0
-                          const total     = u.total_slots || 0
-                          const remaining = total - filled
-                          const isFull    = remaining <= 0
-                          const isLow     = !isFull && remaining === 1
-                          const slotBg    = isFull ? '#fee2e2' : isLow ? '#fef3c7' : '#dcfce7'
-                          const slotColor = isFull ? '#991b1b' : isLow ? '#92400e' : '#166534'
-                          return (
-                            <div key={u.id} className="ov-unit-row"
-                              style={{ background: isFull ? 'var(--sand)' : undefined }}>
-                              <div className="ov-unit-info">
-                                <span className="ov-unit-name">{u.unit_name}</span>
-                                {u.contact_person && <span className="ov-unit-contact">{u.contact_person}</span>}
-                                <div style={{ display:'flex', gap:5, marginTop:4, flexWrap:'wrap' }}>
-                                  {Array.from({ length: total }, (_, i) => (
-                                    <span key={i} style={{
-                                      width:11, height:11, borderRadius:'50%', flexShrink:0,
-                                      background: i < filled ? 'var(--nightfall)' : 'transparent',
-                                      border: `1.5px ${i < filled ? 'solid var(--nightfall)' : 'dashed #b8d8eb'}`,
-                                      display:'inline-block',
-                                    }} />
-                                  ))}
+            {unitResponses.length > 0
+              ? <UnitResponsePanel
+                  unitResponses={unitResponses}
+                  filledByUnit={filledByUnit}
+                  units={units}
+                  unitGroupsOpen={unitGroupsOpen}
+                  toggleUnitGroup={toggleUnitGroup}
+                  primaryLeadMap={primaryLeadMap}
+                  showToast={showToast}
+                />
+              : <div className="ov-groups">
+                  {/* Fallback to legacy view if no unit_cohort_responses rows yet */}
+                  {DIVISIONS.map(div => {
+                    const divUnits = unitsByDiv[div] || []
+                    if (divUnits.length === 0) return null
+                    const open       = unitGroupsOpen[div]
+                    const divTotal   = divUnits.reduce((s, u) => s + (u.total_slots      || 0), 0)
+                    const divFilled  = divUnits.reduce((s, u) => s + (filledByUnit[u.id] || 0), 0)
+                    const divBadgeBg    = divFilled >= divTotal ? '#fee2e2' : '#dcfce7'
+                    const divBadgeColor = divFilled >= divTotal ? '#991b1b' : '#166534'
+                    return (
+                      <div key={div} className="ov-group">
+                        <div className="ov-group-row" onClick={() => toggleUnitGroup(div)}>
+                          <span className="ov-chevron">{open ? '▾' : '▸'}</span>
+                          <span className="ov-group-name">{div}</span>
+                          <span className="ov-group-badge" style={{ background: divBadgeBg, color: divBadgeColor }}>
+                            {divFilled}/{divTotal} filled
+                          </span>
+                        </div>
+                        {open && (
+                          <div className="ov-group-items">
+                            {(unitsByDiv[div] || []).map(u => {
+                              const filled    = filledByUnit[u.id] || 0
+                              const total     = u.total_slots || 0
+                              const isFull    = total > 0 && filled >= total
+                              const slotBg    = isFull ? '#fee2e2' : '#dcfce7'
+                              const slotColor = isFull ? '#991b1b' : '#166534'
+                              return (
+                                <div key={u.id} className="ov-unit-row">
+                                  <div className="ov-unit-info">
+                                    <span className="ov-unit-name">{u.unit_name}</span>
+                                    {u.contact_person && <span className="ov-unit-contact">{u.contact_person}</span>}
+                                  </div>
+                                  <div className="ov-unit-badges">
+                                    <span style={{ background:slotBg, color:slotColor, fontSize:12, fontWeight:500, padding:'2px 8px', borderRadius:4, whiteSpace:'nowrap' }}>
+                                      {filled} of {total} filled
+                                    </span>
+                                    {u.shift_preference && <span className="ov-shift-badge">{u.shift_preference}</span>}
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="ov-unit-badges">
-                                {isFull && (
-                                  <span style={{ background:'#9ca3af', color:'#fff', fontSize:11, fontWeight:700, padding:'2px 7px', borderRadius:4, whiteSpace:'nowrap' }}>Full</span>
-                                )}
-                                <span style={{ background:slotBg, color:slotColor, fontSize:12, fontWeight:500, padding:'2px 8px', borderRadius:4, whiteSpace:'nowrap' }}>
-                                  {filled} of {total} filled
-                                </span>
-                                {u.shift_preference && <span className="ov-shift-badge">{u.shift_preference}</span>}
-                              </div>
-                            </div>
-                          )
-                        })}
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                )
-              })}
-              {participating.length === 0 && (
-                <EmptyState icon={<MapPin />}
-                  heading="No units configured"
-                  subtext="Add participating units using the Set Up Units button to begin placement planning." />
-              )}
-            </div>
+                    )
+                  })}
+                  {participating.length === 0 && (
+                    <EmptyState icon={<MapPin />}
+                      heading="No units configured"
+                      subtext="Unit leaders submit the /unit-form to appear here." />
+                  )}
+                </div>
+            }
           </div>
 
           {/* ── Student Placement Requests (body only) ── */}
