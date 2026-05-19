@@ -303,7 +303,7 @@ export default function MatchingTab({
 
       {/* ── Matching at a Glance + Preference Match Ring — two-column top row ── */}
       <div style={{ padding:'12px 16px 0', display:'flex', gap:14, alignItems:'stretch', flexWrap:'wrap' }}>
-        <div style={{ flex:'7 1 0', minWidth:0 }}>
+        <div style={{ flex:'3 1 0', minWidth:0 }}>
           <MatchingAtAGlance
             studentsCount={studentsCount}
             matchedCount={matchedCount}
@@ -317,7 +317,7 @@ export default function MatchingTab({
             cohortId={cohortId}
           />
         </div>
-        <div style={{ flex:'3 1 0', minWidth:200 }}>
+        <div style={{ flex:'2 1 0', minWidth:200 }}>
           <PreferenceMatchRing
             students={students}
             units={units}
