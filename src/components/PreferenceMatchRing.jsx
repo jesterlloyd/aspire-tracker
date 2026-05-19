@@ -3,13 +3,13 @@
 
 import { useEffect, useMemo, useState } from 'react'
 
-const CX = 110
-const CY = 110
-const OUTER_R = 90
-const INNER_R = 60
-const MID_R   = (OUTER_R + INNER_R) / 2   // 75
-const WIDTH   = OUTER_R - INNER_R         // 30
-const C       = 2 * Math.PI * MID_R       // ≈ 471.24
+const CX = 90
+const CY = 90
+const OUTER_R = 67
+const INNER_R = 47
+const MID_R   = (OUTER_R + INNER_R) / 2   // 57
+const WIDTH   = OUTER_R - INNER_R         // 20
+const C       = 2 * Math.PI * MID_R       // ≈ 358.14
 
 const SEGMENTS = [
   { key: 'top',       label: 'Top choice', colorVar: 'var(--gauge-segment-placed,   #C8D5C0)', solidColor: '#C8D5C0' },
@@ -104,7 +104,7 @@ export default function PreferenceMatchRing({ students = [], units = [], cohort 
     }}>
       {/* Eyebrow */}
       <div style={{
-        padding: '14px 22px 12px',
+        padding: '10px 20px 8px',
         display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
         borderBottom: '1px solid var(--border-card,rgba(29,37,103,0.04))',
       }}>
@@ -122,12 +122,12 @@ export default function PreferenceMatchRing({ students = [], units = [], cohort 
       </div>
 
       {/* Body */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '10px 16px 14px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '6px 12px 10px' }}>
 
         <svg
           width="100%"
-          viewBox="0 0 220 220"
-          style={{ maxWidth: 200, display: 'block' }}
+          viewBox="0 0 180 180"
+          style={{ maxWidth: 160, display: 'block' }}
           aria-label={`Preference match: ${counts.top} top choice, ${counts.second} second choice, ${counts.other} other match, ${counts.unmatched} unmatched out of ${total} students`}
           role="img"
         >
@@ -163,13 +163,13 @@ export default function PreferenceMatchRing({ students = [], units = [], cohort 
           })}
 
           {/* Center number */}
-          <text x={CX} y={CY - 6} textAnchor="middle"
-            fontFamily="DM Sans, sans-serif" fontSize="28" fontWeight="600" fill={centerColor}>
+          <text x={CX} y={CY - 5} textAnchor="middle"
+            fontFamily="DM Sans, sans-serif" fontSize="22" fontWeight="600" fill={centerColor}>
             {centerBig}
           </text>
           {/* Center subtitle */}
-          <text x={CX} y={CY + 12} textAnchor="middle"
-            fontFamily="DM Sans, sans-serif" fontSize="10" fontWeight="500"
+          <text x={CX} y={CY + 10} textAnchor="middle"
+            fontFamily="DM Sans, sans-serif" fontSize="9.5" fontWeight="500"
             fill="var(--text-caption,#6b7280)">
             {centerSub}
           </text>

@@ -34,17 +34,21 @@ export function useUpdatedLabel(cohortId) {
   return label
 }
 
-export function KPICell({ value, label, sub, accent }) {
+export function KPICell({ value, label, sub, accent, compact }) {
   const valueColor =
     accent === 'sage'    ? colors.sage :
     accent === 'warning' ? colors.dawn :
                            colors.ink2
+  const pad    = compact ? '10px 16px' : '20px 22px'
+  const numStyle = compact
+    ? { ...styles.bigNumber, fontSize: '24px', lineHeight: 1.1 }
+    : styles.bigNumber
   return (
-    <div style={{ background: 'var(--bg-card, '+colors.surface+')', padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={{ ...styles.bigNumber, color: valueColor }}>
+    <div style={{ background: 'var(--bg-card, '+colors.surface+')', padding: pad, display: 'flex', flexDirection: 'column', gap: compact ? 2 : 4 }}>
+      <div style={{ ...numStyle, color: valueColor }}>
         {value ?? 0}
       </div>
-      <div style={{ ...styles.eyebrow, marginTop: 8 }}>
+      <div style={{ ...styles.eyebrow, marginTop: compact ? 4 : 8 }}>
         {label}
       </div>
       {sub && <div style={{ fontSize: t.sizes.small, color: colors.ink4, marginTop: 2 }}>{sub}</div>}

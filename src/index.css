@@ -572,7 +572,7 @@ body { min-height: 100vh; }
 /* ================================================================
    MATCHING TAB
    ================================================================ */
-.matching-tab { display: flex; flex-direction: column; gap: 8px; }
+.matching-tab { display: flex; flex-direction: column; gap: 20px; }
 
 .match-summary { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; }
 .match-stat-card {
@@ -1964,11 +1964,55 @@ a.doc-file-link:hover { text-decoration: underline; }
   border: 1px solid #e0e7ff; border-radius: 14px; overflow: hidden;
 }
 
+/* ── Light panel header (shared by units + students) ── */
+.embed-light-hdr {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--bg-card, #fff);
+  border-bottom: 1px solid var(--border-divider, rgba(29,37,103,0.08));
+}
+.embed-panel-title-light {
+  font-size: 14px; font-weight: 700;
+  color: var(--text-heading, #191919);
+  white-space: nowrap; flex-shrink: 0; margin-right: 2px;
+}
+.embed-light-select {
+  height: 30px;
+  background: var(--bg-input, #fff);
+  border: 1px solid var(--border-input, rgba(29,37,103,0.10));
+  border-radius: 7px;
+  padding: 0 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px; color: var(--text-body, #191919);
+  cursor: pointer; outline: none; flex-shrink: 0;
+}
+.embed-light-select:hover { border-color: var(--border-strong, rgba(29,37,103,0.18)); }
+.embed-light-btn {
+  height: 30px; padding: 0 11px;
+  background: none;
+  border: 1px solid var(--border-divider, rgba(29,37,103,0.12));
+  border-radius: 7px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-weight: 600;
+  color: var(--text-caption, #4A5560);
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  transition: all 0.15s ease;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.embed-light-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-heading);
+  border-color: var(--border-strong, rgba(29,37,103,0.18));
+}
+
 /* ── Units panel (left, 58%) ── */
 .embed-units-panel {
   flex: 58; min-width: 0; min-height: 0;
   display: flex; flex-direction: column;
-  border-right: 1px solid #e5e7eb;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-card, rgba(29,37,103,0.08));
+  border-radius: 14px; overflow: hidden;
 }
 .embed-units-header {
   flex-shrink: 0;
@@ -1995,28 +2039,36 @@ a.doc-file-link:hover { text-decoration: underline; }
 .embed-students-panel {
   flex: 42; min-width: 0; min-height: 0;
   display: flex; flex-direction: column;
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-card, rgba(29,37,103,0.08));
+  border-radius: 14px; overflow: hidden;
 }
 .embed-students-header {
   flex-shrink: 0;
   display: flex; align-items: center; gap: 10px;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, #1c2452 0%, #1D2567 100%);
+  padding: 10px 14px;
+  background: var(--bg-card, #fff);
+  border-bottom: 1px solid var(--border-divider, rgba(29,37,103,0.08));
   overflow: visible;
 }
-.embed-pool-title   { font-size: 15px; font-weight: 700; color: var(--pearl); flex-shrink: 0; }
+.embed-pool-title   { font-size: 14px; font-weight: 700; color: var(--text-heading, #191919); flex-shrink: 0; }
 .embed-pool-filters { display: flex; gap: 6px; flex: 1; min-width: 0; overflow: visible; }
 .embed-pool-search  {
-  flex: 1; min-width: 0; padding: 5px 9px; border: 1px solid #4a5568; border-radius: 4px;
-  font-size: 13px; color: #191919; background: #fff; outline: none;
+  flex: 1; min-width: 60px; padding: 4px 9px; height: 30px;
+  border: 1px solid var(--border-input, rgba(29,37,103,0.10)); border-radius: 7px;
+  font-size: 12px; font-family: 'DM Sans', sans-serif;
+  color: var(--text-body, #191919); background: var(--bg-input, #fff); outline: none;
+  box-sizing: border-box;
 }
-.embed-pool-search::placeholder { color: #9ca3af; }
-.embed-pool-search:focus { border-color: var(--nova); box-shadow: 0 0 0 2px var(--nova-tint); }
+.embed-pool-search::placeholder { color: var(--text-placeholder, #9ca3af); }
+.embed-pool-search:focus { border-color: var(--color-focus-ring, #4F6DA8); box-shadow: 0 0 0 2px var(--color-status-info-bg, rgba(79,109,168,0.12)); }
 .embed-pool-school  {
-  padding: 5px 8px; border: 1px solid #4a5568; border-radius: 4px;
-  font-size: 12px; color: #191919; background: #fff; outline: none; cursor: pointer;
+  padding: 0 8px; height: 30px; border: 1px solid var(--border-input, rgba(29,37,103,0.10)); border-radius: 7px;
+  font-size: 12px; font-family: 'DM Sans', sans-serif;
+  color: var(--text-body, #191919); background: var(--bg-input, #fff); outline: none; cursor: pointer;
   min-width: 100px; flex-shrink: 0;
 }
-.embed-pool-count   { font-size: 12px; color: var(--nova); flex-shrink: 0; white-space: nowrap; }
+.embed-pool-count   { font-size: 12px; color: var(--text-caption, #6b7280); flex-shrink: 0; white-space: nowrap; }
 .embed-students-body { flex: 1; min-height: 0; overflow-y: auto; background: var(--pearl); }
 .embed-student-list  { display: flex; flex-direction: column; gap: 10px; padding: 16px; }
 
@@ -2386,6 +2438,32 @@ a.doc-file-link:hover { text-decoration: underline; }
 [data-theme="dark"] .embed-units-body,
 [data-theme="dark"] .embed-students-body {
   background: var(--color-bg-surface);
+}
+[data-theme="dark"] .embed-units-panel,
+[data-theme="dark"] .embed-students-panel {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-default);
+}
+[data-theme="dark"] .embed-light-hdr,
+[data-theme="dark"] .embed-students-header {
+  background: var(--color-bg-surface);
+  border-bottom-color: var(--color-border-subtle);
+}
+[data-theme="dark"] .embed-light-select,
+[data-theme="dark"] .embed-pool-search,
+[data-theme="dark"] .embed-pool-school {
+  background: var(--color-bg-input);
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .embed-light-btn {
+  border-color: var(--color-border-default);
+  color: var(--color-text-secondary);
+}
+[data-theme="dark"] .embed-light-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
 }
 
 /* ── Modals ──────────────────────────────────────────────────────── */

@@ -20,17 +20,17 @@ function MatchingAtAGlance({ studentsCount, matchedCount, unmatchedCount, perfec
   const schools = poolSchools?.length ?? 0
   return (
     <section style={{ background:'var(--bg-card,#fff)', border:'1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius:14, boxShadow:'var(--shadow-card)', overflow:'hidden', fontFamily:'DM Sans, sans-serif', height:'100%', boxSizing:'border-box' }}>
-      <div style={{ padding:'14px 22px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid var(--border-card,rgba(29,37,103,0.04))' }}>
+      <div style={{ padding:'10px 20px 8px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid var(--border-card,rgba(29,37,103,0.04))' }}>
         <div style={{ fontSize:10.5, textTransform:'uppercase', letterSpacing:'0.14em', color:'var(--text-caption,#475467)', fontWeight:600 }}>Matching at a Glance</div>
-        <div style={{ fontSize:11.5, color:'var(--text-muted,#98A2B3)', fontVariantNumeric:'tabular-nums' }}>
-          {cohort?.name || 'Cohort'} · {schools} schools · {totalSlots} slots across hosting units · Updated {updatedLabel}
+        <div style={{ fontSize:11, color:'var(--text-muted,#98A2B3)', fontVariantNumeric:'tabular-nums' }}>
+          {cohort?.name || 'Cohort'} · {schools} schools · {totalSlots} slots · Updated {updatedLabel}
         </div>
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', background:'var(--border-card,rgba(29,37,103,0.04))', gap:1 }}>
-        <KPICell value={studentsCount}  label="Students"     sub={`${schools} schools`} />
-        <KPICell value={matchedCount}   label="Matched"      sub={`${perfectMatches} perfect · ${secondChoiceMatches} 2nd choice`} accent="sage" />
-        <KPICell value={unmatchedCount} label="Unmatched"    sub="Pending placement" accent={unmatchedCount > 0 ? 'warning' : null} />
-        <KPICell value={slotsRemaining} label="Open Slots"   sub={`of ${totalSlots} total`} />
+        <KPICell value={studentsCount}  label="Students"     sub={`${schools} schools`}                                                        compact />
+        <KPICell value={matchedCount}   label="Matched"      sub={`${perfectMatches} perfect · ${secondChoiceMatches} 2nd choice`} accent="sage"   compact />
+        <KPICell value={unmatchedCount} label="Unmatched"    sub="Pending placement" accent={unmatchedCount > 0 ? 'warning' : null}            compact />
+        <KPICell value={slotsRemaining} label="Open Slots"   sub={`of ${totalSlots} total`}                                                    compact />
       </div>
     </section>
   )
@@ -302,7 +302,7 @@ export default function MatchingTab({
       )}
 
       {/* ── Matching at a Glance + Preference Match Ring — two-column top row ── */}
-      <div style={{ padding:'12px 16px 0', display:'flex', gap:14, alignItems:'stretch', flexWrap:'wrap' }}>
+      <div style={{ padding:'0 16px 0', display:'flex', gap:14, alignItems:'stretch', flexWrap:'wrap' }}>
         <div style={{ flex:'3 1 0', minWidth:0 }}>
           <MatchingAtAGlance
             studentsCount={studentsCount}
@@ -326,131 +326,35 @@ export default function MatchingTab({
         </div>
       </div>
 
-      {/* ── Matching board: unified toolbar + subheader + panel bodies ── */}
-      <style>{`.sp-search::placeholder { color: rgba(255,255,255,0.45); }`}</style>
-      <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'column', border:'1px solid #e0e7ff', borderRadius:'14px', overflow:'hidden' }}>
-
-        {/* ── Unified dark toolbar ── */}
-        <div style={{ display:'flex', alignItems:'stretch', height:'88px', background:'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)', flexShrink:0 }}>
-
-          {/* Left half: Unit Pool (flex 58) */}
-          <div style={{ flex:58, display:'flex', alignItems:'center', gap:'8px', padding:'0 16px', minWidth:0 }}>
-            <span style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'14px', color:'#ffffff', flexShrink:0, marginRight:'2px' }}>Unit Pool</span>
-            <select value={divFilter} onChange={e => setDivFilter(e.target.value)}
-              style={{ height:'34px', background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'8px', padding:'0 10px', fontFamily:'DM Sans', fontSize:'12px', color:'#ffffff', outline:'none', cursor:'pointer', flexShrink:0 }}>
-              <option value="">All Divisions</option>
-              <option value="Surgical">Surgical</option>
-              <option value="Medical">Medical</option>
-              <option value="Critical Care">Critical Care</option>
-              <option value="Specialty">Specialty</option>
-            </select>
-            <select value={sortMode} onChange={e => setSortMode(e.target.value)}
-              style={{ height:'34px', background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'8px', padding:'0 10px', fontFamily:'DM Sans', fontSize:'12px', color:'#ffffff', outline:'none', cursor:'pointer', flexShrink:0 }}>
-              <option value="alpha">A–Z</option>
-              <option value="division">By Division</option>
-              <option value="most-available">Most Available</option>
-            </select>
-            <div style={{ flex:1 }} />
-            <button
-              style={{ height:'34px', padding:'0 12px', background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'8px', fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#ffffff', cursor:'pointer', display:'inline-flex', alignItems:'center', gap:'5px', whiteSpace:'nowrap', flexShrink:0, transition:'all 0.15s ease' }}
-              onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.22)'}
-              onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.15)'}
-              onClick={() => setShowUnitSetup(true)}>
-              ⚙ Set Up Units
-            </button>
-            <button
-              style={{ height:'34px', padding:'0 12px', background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.25)', borderRadius:'8px', fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#ffffff', cursor:'pointer', display:'inline-flex', alignItems:'center', gap:'5px', whiteSpace:'nowrap', flexShrink:0, transition:'all 0.15s ease' }}
-              onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.22)'}
-              onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.15)'}
-              onClick={exportCSV}>
-              ↓ Export CSV
-            </button>
-          </div>
-
-          {/* Vertical divider */}
-          <div style={{ width:'1px', background:'rgba(255,255,255,0.12)', flexShrink:0 }} />
-
-          {/* Right half: Student Pool (flex 42) */}
-          <div style={{ flex:42, display:'flex', alignItems:'center', gap:'8px', padding:'0 16px', minWidth:0 }}>
-            <span style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'14px', color:'#ffffff', flexShrink:0, marginRight:'2px' }}>Student Pool</span>
-            <input
-              className="sp-search"
-              value={poolSearch}
-              onChange={e => setPoolSearch(e.target.value)}
-              placeholder="Search..."
-              style={{ flex:1, minWidth:'60px', height:'34px', background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'8px', padding:'0 10px', fontFamily:'DM Sans', fontSize:'12px', color:'#ffffff', outline:'none', boxSizing:'border-box' }}
-            />
-            <select value={poolSchool} onChange={e => setPoolSchool(e.target.value)}
-              style={{ height:'34px', background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'8px', padding:'0 8px', fontFamily:'DM Sans', fontSize:'12px', color:'#ffffff', outline:'none', cursor:'pointer', flexShrink:0 }}>
-              <option value="">All Schools</option>
-              {poolSchools.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <select value={poolSort} onChange={e => setPoolSort(e.target.value)} title="Sort student pool"
-              style={{ height:'34px', background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.2)', borderRadius:'8px', padding:'0 8px', fontFamily:'DM Sans', fontSize:'12px', color:'#ffffff', outline:'none', cursor:'pointer', flexShrink:0 }}>
-              <option value="last_name_asc">Last Name A–Z</option>
-              <option value="last_name_desc">Last Name Z–A</option>
-              <option value="school_asc">School A–Z</option>
-              <option value="gpa_desc">GPA High–Low</option>
-              <option value="score_desc">Score High–Low</option>
-              <option value="status">ASPIRE Status</option>
-            </select>
-          </div>
-        </div>
-
-        {/* ── Subheader strips: guidance/context (left) + count/pagination (right) ── */}
-        <div style={{ display:'flex', background:'#f9fafb', borderBottom:'1px solid #e5e7eb', flexShrink:0 }}>
-          {/* Left subheader: status when active, empty when idle */}
-          <div style={{ flex:58, height:'36px', display:'flex', alignItems:'center', padding:'0 16px', borderRight:'1px solid #e5e7eb', minWidth:0, overflow:'hidden' }}>
-            {selectedStudent ? (
-              <span style={{ fontFamily:'DM Sans', fontSize:'11px', color:'#6b7280', whiteSpace:'nowrap', fontStyle:'italic' }}>
-                Unit pool reordered by preference · preferences highlighted below
-              </span>
-            ) : focusedUnit ? (
-              <span style={{ fontFamily:'DM Sans', fontSize:'11px', color:'#6b7280', whiteSpace:'nowrap', fontStyle:'italic' }}>
-                Showing students by preference for {focusedUnit.unit_name}
-              </span>
-            ) : null}
-          </div>
-          {/* Right subheader: count + legend icon + spacer + pagination */}
-          <div style={{ flex:42, height:'36px', display:'flex', alignItems:'center', padding:'0 16px', minWidth:0, gap:'6px' }}>
-            <span style={{ fontFamily:'DM Sans', fontSize:'12px', color:'#374151', flexShrink:0 }}>
-              {selectedStudent
-                ? `${selectedIndex + 1} of ${sortedPool.length}`
-                : `${sortedPool.length} student${sortedPool.length !== 1 ? 's' : ''}`
-              }
-            </span>
-            {/* View Status Legend — light context, portaled popover */}
-            <StatusLegendPopover position="bottom-right" dark={false} />
-            <div style={{ flex:1 }} />
-            {sortedPool.length > 0 && (
-              <div style={{ display:'flex', alignItems:'center', gap:'5px' }}>
-                <button
-                  onClick={handlePrevStudent}
-                  disabled={!selectedStudent || selectedIndex <= 0}
-                  title="Previous student"
-                  style={{ width:'26px', height:'26px', background: (!selectedStudent || selectedIndex <= 0) ? '#f3f4f6' : '#e0e7ff', border:'1px solid #d1d5db', borderRadius:'6px', cursor:(selectedStudent && selectedIndex > 0) ? 'pointer' : 'default', display:'flex', alignItems:'center', justifyContent:'center', opacity:(!selectedStudent || selectedIndex <= 0) ? 0.4 : 1, transition:'all 0.15s ease' }}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#1D2567" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-                </button>
-                <button
-                  onClick={handleNextStudent}
-                  disabled={!selectedStudent || selectedIndex >= sortedPool.length - 1}
-                  title="Next student"
-                  style={{ width:'26px', height:'26px', background: (!selectedStudent || selectedIndex >= sortedPool.length - 1) ? '#f3f4f6' : '#e0e7ff', border:'1px solid #d1d5db', borderRadius:'6px', cursor:(selectedStudent && selectedIndex < sortedPool.length - 1) ? 'pointer' : 'default', display:'flex', alignItems:'center', justifyContent:'center', opacity:(!selectedStudent || selectedIndex >= sortedPool.length - 1) ? 0.4 : 1, transition:'all 0.15s ease' }}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#1D2567" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
-                </button>
-                {selectedStudent && (
-                  <span style={{ fontFamily:'DM Sans', fontSize:'10px', color:'#9ca3af', marginLeft:'2px', whiteSpace:'nowrap' }}>↑↓ · Esc</span>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── Panel bodies (units left, students right) ── */}
-        <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'row', overflow:'hidden' }}>
+      {/* ── Matching board: two light panel cards ── */}
+      <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'row', gap:14 }}>
 
           {/* Left: Units panel */}
           <div className="embed-units-panel">
+            {/* Light panel header */}
+            <div className="embed-light-hdr">
+              <span className="embed-panel-title-light">Unit Pool</span>
+              <select value={divFilter} onChange={e => setDivFilter(e.target.value)} className="embed-light-select">
+                <option value="">All Divisions</option>
+                <option value="Surgical">Surgical</option>
+                <option value="Medical">Medical</option>
+                <option value="Critical Care">Critical Care</option>
+                <option value="Specialty">Specialty</option>
+              </select>
+              <select value={sortMode} onChange={e => setSortMode(e.target.value)} className="embed-light-select">
+                <option value="alpha">A–Z</option>
+                <option value="division">By Division</option>
+                <option value="most-available">Most Available</option>
+              </select>
+              {(selectedStudent || focusedUnit) && (
+                <span style={{ fontSize:11, color:'var(--text-muted,#9ca3af)', fontStyle:'italic', whiteSpace:'nowrap' }}>
+                  {selectedStudent ? 'Reordered by preference' : `By preference for ${focusedUnit?.unit_name}`}
+                </span>
+              )}
+              <div style={{ flex:1 }} />
+              <button className="embed-light-btn" onClick={() => setShowUnitSetup(true)}>⚙ Set Up Units</button>
+              <button className="embed-light-btn" onClick={exportCSV}>↓ Export CSV</button>
+            </div>
             <div className="embed-units-body">
               {/* Unit Pool guide — shows when no unit is focused and no student selected */}
               {!focusedUnit && !selectedStudent && (
@@ -526,6 +430,48 @@ export default function MatchingTab({
 
           {/* Right: Student pool */}
           <div className="embed-students-panel">
+            {/* Light panel header */}
+            <div className="embed-light-hdr">
+              <span className="embed-panel-title-light">Student Pool</span>
+              <input
+                className="embed-pool-search"
+                value={poolSearch}
+                onChange={e => setPoolSearch(e.target.value)}
+                placeholder="Search…"
+              />
+              <select value={poolSchool} onChange={e => setPoolSchool(e.target.value)} className="embed-light-select">
+                <option value="">All Schools</option>
+                {poolSchools.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <select value={poolSort} onChange={e => setPoolSort(e.target.value)} className="embed-light-select" title="Sort">
+                <option value="last_name_asc">Last Name A–Z</option>
+                <option value="last_name_desc">Last Name Z–A</option>
+                <option value="school_asc">School A–Z</option>
+                <option value="gpa_desc">GPA High–Low</option>
+                <option value="score_desc">Score High–Low</option>
+                <option value="status">ASPIRE Status</option>
+              </select>
+              <div style={{ flex:1 }} />
+              <span style={{ fontSize:12, color:'var(--text-caption,#6b7280)', flexShrink:0, whiteSpace:'nowrap' }}>
+                {selectedStudent
+                  ? `${selectedIndex + 1} of ${sortedPool.length}`
+                  : `${sortedPool.length} student${sortedPool.length !== 1 ? 's' : ''}`}
+              </span>
+              <StatusLegendPopover position="bottom-right" dark={false} />
+              {sortedPool.length > 0 && (
+                <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                  <button onClick={handlePrevStudent} disabled={!selectedStudent || selectedIndex <= 0} title="Previous student"
+                    style={{ width:26, height:26, background:(!selectedStudent||selectedIndex<=0)?'var(--bg-hover,#f3f4f6)':'var(--color-status-info-bg,#e0e7ff)', border:'1px solid var(--border-divider,#d1d5db)', borderRadius:6, cursor:(selectedStudent&&selectedIndex>0)?'pointer':'default', display:'flex', alignItems:'center', justifyContent:'center', opacity:(!selectedStudent||selectedIndex<=0)?0.4:1, transition:'all 0.15s ease' }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-primary,#1D2567)" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+                  </button>
+                  <button onClick={handleNextStudent} disabled={!selectedStudent||selectedIndex>=sortedPool.length-1} title="Next student"
+                    style={{ width:26, height:26, background:(!selectedStudent||selectedIndex>=sortedPool.length-1)?'var(--bg-hover,#f3f4f6)':'var(--color-status-info-bg,#e0e7ff)', border:'1px solid var(--border-divider,#d1d5db)', borderRadius:6, cursor:(selectedStudent&&selectedIndex<sortedPool.length-1)?'pointer':'default', display:'flex', alignItems:'center', justifyContent:'center', opacity:(!selectedStudent||selectedIndex>=sortedPool.length-1)?0.4:1, transition:'all 0.15s ease' }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-primary,#1D2567)" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                  </button>
+                  {selectedStudent && <span style={{ fontSize:10, color:'var(--text-muted,#9ca3af)', whiteSpace:'nowrap' }}>↑↓·Esc</span>}
+                </div>
+              )}
+            </div>
             <div className="embed-students-body">
 
               {/* Focused-unit summary strip */}
@@ -596,8 +542,7 @@ export default function MatchingTab({
             </div>
           </div>
 
-        </div>{/* end panel bodies */}
-      </div>{/* end matching board wrapper */}
+      </div>{/* end matching board */}
 
       {showUnitSetup && (
         <UnitSetupPanel cohortId={cohortId} currentUnits={units} students={students}
