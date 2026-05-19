@@ -1124,11 +1124,11 @@ a.doc-file-link:hover { text-decoration: underline; }
   background: var(--sand);
   z-index: 10;
   border-bottom: 1px solid #e5e7eb;
-  padding: 12px 20px 0;
+  padding: 0 20px 0;
 }
 .aggregate-panel-headers {
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
-  margin-top: 16px;
+  margin-top: 20px;
 }
 .aggregate-panel-hdr {
   background: var(--pearl);
@@ -1143,7 +1143,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 .ov-panels-body {
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
-  align-items: start; padding-bottom: 24px;
+  align-items: start; padding-bottom: 0;
 }
 .ov-panel-body {
   background: var(--pearl);

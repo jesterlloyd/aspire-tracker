@@ -176,16 +176,6 @@ function CapacityCoverageGauge({ totalDemand, totalCapacity, placed, cohort }) {
           </text>
         </svg>
 
-        {/* Summary row */}
-        {!noStudents && (
-          <div style={{ fontSize: 11.5, color: '#6b7280', textAlign: 'center', lineHeight: 1.5 }}>
-            <div>{totalCapacity} slot{totalCapacity !== 1 ? 's' : ''} · {totalDemand} student{totalDemand !== 1 ? 's' : ''}</div>
-            <div style={{ fontSize: 11, color: '#98A2B3' }}>
-              {placed} placed · {awaiting} awaiting{unmatched > 0 ? ` · ${unmatched} unmatched` : ''}
-            </div>
-          </div>
-        )}
-
         {/* Legend */}
         {!noStudents && (
           <div style={{ display: 'flex', gap: 10, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -615,7 +605,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       <div className="aggregate-sticky-header">
 
         {/* Program at a Glance + Capacity Coverage Gauge — two-column, stacks below ~900px */}
-        <div style={{ display: 'flex', gap: 14, marginBottom: 16, marginTop: 4, alignItems: 'stretch', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 14, marginBottom: 20, marginTop: 20, alignItems: 'stretch', flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 560px', minWidth: 0 }}>
             <ProgramAtAGlance
               totalSlots={totalSlots}
@@ -909,7 +899,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         </div>
 
         {/* ── On Campus Today compact strip — moved below panels, above Program Timeline ── */}
-        <div style={{ background:'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)', borderRadius:14, overflow:'hidden', boxShadow:'0 2px 12px rgba(29,37,103,0.07)', margin:'16px 0' }}>
+        <div style={{ background:'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)', borderRadius:14, overflow:'hidden', boxShadow:'0 2px 12px rgba(29,37,103,0.07)', margin:'20px 0 24px' }}>
           {/* Header row */}
           <div style={{ display:'flex', alignItems:'center', gap:8, padding:'0 24px', height:48, cursor:'pointer' }}
             onClick={() => setCampusOpen(p => !p)}>
