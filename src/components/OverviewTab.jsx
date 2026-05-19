@@ -12,6 +12,198 @@ import EmptyState from './EmptyState'
 import { Clock, GraduationCap, MapPin, Users, Copy } from 'lucide-react'
 import { calculatePriorities } from '../lib/priorities'
 
+// ── Capacity Coverage Gauge ───────────────────────────────────────────────────
+
+// Returns SVG path for a filled annular sector.
+// leftDegStart / leftDegEnd: degrees measured from the left end of the arch (0 = far left, 180 = far right).
+function annularPath(cx, cy, innerR, outerR, leftDegStart, leftDegEnd) {
+  const span = leftDegEnd - leftDegStart
+  if (span < 0.01) return ''
+  // Convert to standard math angles (0° = right, 90° = up): mathAngle = 180° - leftDeg
+  const s = (180 - leftDegStart) * Math.PI / 180
+  const e = (180 - leftDegEnd)   * Math.PI / 180
+  const f = n => n.toFixed(3)
+  const osx = cx + outerR * Math.cos(s), osy = cy - outerR * Math.sin(s)
+  const oex = cx + outerR * Math.cos(e), oey = cy - outerR * Math.sin(e)
+  const iex = cx + innerR * Math.cos(e), iey = cy - innerR * Math.sin(e)
+  const isx = cx + innerR * Math.cos(s), isy = cy - innerR * Math.sin(s)
+  const la = span > 179.9 ? 1 : 0  // large-arc-flag: 1 only for the full 180° baseline
+  // Outer arc: sweep=1 (clockwise in SVG = left→top→right = through the arch top)
+  // Inner arc: sweep=0 (counterclockwise in SVG = right→top→left = return along inner edge)
+  return `M ${f(osx)} ${f(osy)} A ${outerR} ${outerR} 0 ${la} 1 ${f(oex)} ${f(oey)} L ${f(iex)} ${f(iey)} A ${innerR} ${innerR} 0 ${la} 0 ${f(isx)} ${f(isy)} Z`
+}
+
+// Cap circle at a segment boundary (rounded ends effect)
+function CapCircle({ cx, cy, innerR, outerR, leftDeg, fill }) {
+  const mathAngle = (180 - leftDeg) * Math.PI / 180
+  const capR  = (outerR - innerR) / 2
+  const capCx = cx + (innerR + capR) * Math.cos(mathAngle)
+  const capCy = cy - (innerR + capR) * Math.sin(mathAngle)
+  return <circle cx={capCx.toFixed(2)} cy={capCy.toFixed(2)} r={capR} fill={fill} />
+}
+
+const GAUGE_COLORS = {
+  sage:       '#C8D5C0',
+  periwinkle: '#D5DCEC',
+  chroma:     '#F2D5E0',
+  baseline:   '#EDEDEB',
+}
+
+function CapacityCoverageGauge({ totalDemand, totalCapacity, placed, cohort }) {
+  const reducedMotion = typeof window !== 'undefined'
+    && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
+  const [progress, setProgress] = useState(reducedMotion ? 1 : 0)
+
+  useEffect(() => {
+    if (reducedMotion) return
+    const start = performance.now()
+    const dur = 700
+    let raf
+    const tick = now => {
+      const t = Math.min((now - start) / dur, 1)
+      const p = 1 - Math.pow(1 - t, 3)  // easeOutCubic
+      setProgress(p)
+      if (t < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  // Derived counts
+  const noStudents = totalDemand === 0
+  const noCapacity = totalCapacity === 0 && totalDemand > 0
+  const awaiting   = noStudents ? 0 : Math.min(Math.max(0, totalCapacity - placed), Math.max(0, totalDemand - placed))
+  const unmatched  = noStudents ? 0 : Math.max(0, totalDemand - totalCapacity)
+
+  // Segment spans in degrees (0–180)
+  const sageDeg      = noStudents ? 0 : (placed    / totalDemand) * 180
+  const periwinkleDeg = noStudents ? 0 : (awaiting  / totalDemand) * 180
+  const chromaDeg    = noStudents ? 0 : (unmatched  / totalDemand) * 180
+
+  // Animated fill: total degrees revealed left-to-right
+  const filled = 180 * progress
+
+  // Each segment's animated right boundary
+  const sageEnd      = Math.min(sageDeg, filled)
+  const periwinkleEnd = Math.min(sageDeg + periwinkleDeg, filled)
+  const chromaEnd    = Math.min(sageDeg + periwinkleDeg + chromaDeg, filled)
+
+  // Rightmost active segment color (for animated cap)
+  const lastColor = chromaEnd > sageDeg + periwinkleDeg ? GAUGE_COLORS.chroma
+    : periwinkleEnd > sageDeg ? GAUGE_COLORS.periwinkle
+    : sageEnd > 0 ? GAUGE_COLORS.sage
+    : null
+
+  // Center text
+  let centerBig = '', centerSub = '', centerColor = '#475467'
+  if (noStudents) {
+    centerBig = '—'; centerSub = 'no students yet'; centerColor = '#98A2B3'
+  } else if (noCapacity) {
+    centerBig = String(totalDemand); centerSub = 'students, no capacity'; centerColor = '#930045'
+  } else if (unmatched > 0) {
+    centerBig = String(unmatched)
+    centerSub = unmatched === 1 ? 'student over capacity' : 'students over capacity'
+    centerColor = '#930045'
+  } else if (totalCapacity === totalDemand) {
+    centerBig = 'Balanced'; centerSub = 'capacity matches demand'; centerColor = '#2D4A2B'
+  } else if (totalCapacity > totalDemand) {
+    centerBig = String(totalCapacity - totalDemand); centerSub = 'buffer slots'; centerColor = '#2D4A2B'
+  } else {
+    centerBig = String(placed); centerSub = 'placed so far'; centerColor = '#2D4A2B'
+  }
+
+  const cx = 110, cy = 100, innerR = 70, outerR = 95
+  const cohortName = cohort?.name || 'Cohort'
+
+  const showChroma = !noStudents && (chromaDeg > 0 || noCapacity)
+  const legend = [
+    { color: GAUGE_COLORS.sage,       label: `${placed} placed` },
+    { color: GAUGE_COLORS.periwinkle, label: `${awaiting} awaiting` },
+    ...(showChroma ? [{ color: GAUGE_COLORS.chroma, label: `${unmatched} over cap` }] : []),
+  ]
+
+  return (
+    <section style={{
+      background: '#fff', border: '1px solid rgba(29,37,103,0.08)', borderRadius: 14,
+      boxShadow: '0 1px 0 rgba(29,37,103,0.04), 0 1px 2px rgba(29,37,103,0.04), inset 0 1px 0 rgba(255,255,255,0.9)',
+      overflow: 'hidden', fontFamily: 'DM Sans, sans-serif', height: '100%', boxSizing: 'border-box',
+    }}>
+      <div style={{ padding: '14px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(29,37,103,0.04)' }}>
+        <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#475467', fontWeight: 600 }}>Capacity Coverage</div>
+        <div style={{ fontSize: 11, color: '#98A2B3' }}>{cohortName} · live snapshot</div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 12px 14px' }}>
+        <svg width="100%" viewBox="0 0 220 115" style={{ maxWidth: 260, display: 'block' }}>
+          {/* Baseline full arch in light gray */}
+          <path d={annularPath(cx, cy, innerR, outerR, 0, 180)} fill={GAUGE_COLORS.baseline} stroke="rgba(25,25,25,0.05)" strokeWidth="0.5" />
+
+          {/* Sage — placed */}
+          {sageEnd > 0.1 && (
+            <path d={annularPath(cx, cy, innerR, outerR, 0, sageEnd)} fill={GAUGE_COLORS.sage} stroke="rgba(25,25,25,0.04)" strokeWidth="0.5">
+              <title>{placed} placed</title>
+            </path>
+          )}
+          {/* Periwinkle — awaiting */}
+          {periwinkleEnd > sageDeg + 0.1 && (
+            <path d={annularPath(cx, cy, innerR, outerR, sageDeg, periwinkleEnd)} fill={GAUGE_COLORS.periwinkle} stroke="rgba(25,25,25,0.04)" strokeWidth="0.5">
+              <title>{awaiting} awaiting placement (within capacity)</title>
+            </path>
+          )}
+          {/* Chroma — over capacity */}
+          {chromaEnd > sageDeg + periwinkleDeg + 0.1 && (
+            <path d={annularPath(cx, cy, innerR, outerR, sageDeg + periwinkleDeg, chromaEnd)} fill={GAUGE_COLORS.chroma} stroke="rgba(25,25,25,0.04)" strokeWidth="0.5">
+              <title>{unmatched} students over capacity (no slot available)</title>
+            </path>
+          )}
+
+          {/* Rounded cap at the left end (fixed) */}
+          {(sageEnd > 0.1 || noStudents) && (
+            <CapCircle cx={cx} cy={cy} innerR={innerR} outerR={outerR} leftDeg={0} fill={noStudents ? GAUGE_COLORS.baseline : GAUGE_COLORS.sage} />
+          )}
+          {/* Rounded cap at the animated right end */}
+          {lastColor && filled > 0.1 && (
+            <CapCircle cx={cx} cy={cy} innerR={innerR} outerR={outerR} leftDeg={filled} fill={lastColor} />
+          )}
+
+          {/* Center text inside arch */}
+          <text x={cx} y={cy - 27} textAnchor="middle" fontFamily="DM Sans, sans-serif"
+            fontSize={centerBig.length > 5 ? 16 : 22} fontWeight="700" fill={centerColor}>
+            {centerBig}
+          </text>
+          <text x={cx} y={cy - 10} textAnchor="middle" fontFamily="DM Sans, sans-serif"
+            fontSize="9.5" fontWeight="500" fill="#98A2B3">
+            {centerSub}
+          </text>
+        </svg>
+
+        {/* Summary row */}
+        {!noStudents && (
+          <div style={{ fontSize: 11.5, color: '#6b7280', textAlign: 'center', lineHeight: 1.5 }}>
+            <div>{totalCapacity} slot{totalCapacity !== 1 ? 's' : ''} · {totalDemand} student{totalDemand !== 1 ? 's' : ''}</div>
+            <div style={{ fontSize: 11, color: '#98A2B3' }}>
+              {placed} placed · {awaiting} awaiting{unmatched > 0 ? ` · ${unmatched} unmatched` : ''}
+            </div>
+          </div>
+        )}
+
+        {/* Legend */}
+        {!noStudents && (
+          <div style={{ display: 'flex', gap: 10, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+            {legend.map(({ color, label }) => (
+              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: '#6b7280' }}>
+                <span style={{ width: 9, height: 9, borderRadius: 2, background: color, display: 'inline-block', flexShrink: 0 }} />
+                {label}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
 // ── Program at a Glance band ──────────────────────────────────────────────────
 // KPICell and useUpdatedLabel are shared — imported from ./KPIBand
 
@@ -19,7 +211,7 @@ function ProgramAtAGlance({ totalSlots, placedCount, slotsRemaining, studentsReq
   const placedPct = totalSlots > 0 ? Math.round((placedCount / totalSlots) * 100) : 0
   const updatedLabel = useUpdatedLabel(cohortId)
   return (
-    <section style={{ background: '#fff', border: '1px solid rgba(29,37,103,0.08)', borderRadius: 14, boxShadow: '0 1px 0 rgba(29,37,103,0.04), 0 1px 2px rgba(29,37,103,0.04), inset 0 1px 0 rgba(255,255,255,0.9)', overflow: 'hidden', marginBottom: 20, fontFamily: 'DM Sans, sans-serif' }}>
+    <section style={{ background: '#fff', border: '1px solid rgba(29,37,103,0.08)', borderRadius: 14, boxShadow: '0 1px 0 rgba(29,37,103,0.04), 0 1px 2px rgba(29,37,103,0.04), inset 0 1px 0 rgba(255,255,255,0.9)', overflow: 'hidden', fontFamily: 'DM Sans, sans-serif', height: '100%', boxSizing: 'border-box' }}>
       {/* Eyebrow strip */}
       <div style={{ padding: '14px 22px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(29,37,103,0.04)' }}>
         <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#475467', fontWeight: 600 }}>
@@ -438,18 +630,30 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         })()}
         </div>
 
-        {/* Program at a Glance — unified executive band */}
-        <ProgramAtAGlance
-          totalSlots={totalSlots}
-          placedCount={placedCount}
-          slotsRemaining={slotsRemaining}
-          studentsRequesting={studentsRequesting}
-          gap={gap}
-          participatingUnits={participatingUnits}
-          activeSchools={activeSchools}
-          cohort={cohort}
-          cohortId={cohortId}
-        />
+        {/* Program at a Glance + Capacity Coverage Gauge — two-column, stacks below ~900px */}
+        <div style={{ display: 'flex', gap: 14, marginBottom: 20, alignItems: 'stretch', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 560px', minWidth: 0 }}>
+            <ProgramAtAGlance
+              totalSlots={totalSlots}
+              placedCount={placedCount}
+              slotsRemaining={slotsRemaining}
+              studentsRequesting={studentsRequesting}
+              gap={gap}
+              participatingUnits={participatingUnits}
+              activeSchools={activeSchools}
+              cohort={cohort}
+              cohortId={cohortId}
+            />
+          </div>
+          <div style={{ flex: '1 1 260px', minWidth: 240 }}>
+            <CapacityCoverageGauge
+              totalDemand={totalStudents}
+              totalCapacity={totalSlots}
+              placed={placedCount}
+              cohort={cohort}
+            />
+          </div>
+        </div>
 
         {/* Frozen panel headers — two columns matching the panels below */}
         <div className="aggregate-panel-headers">
