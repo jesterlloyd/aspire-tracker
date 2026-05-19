@@ -1,4 +1,4 @@
-import { buildSystemPrompt, getRecentCommunications, getSchoolCoordinators, getUnitResponseStats, getUnitResponses, getUnitLeadersForKeith, getUnitCatalogForKeith } from '../src/lib/keithKnowledge.js';
+import { buildSystemPrompt, getRecentCommunications, getSchoolCoordinators, getUnitResponseStats, getUnitResponses, getUnitLeadersForKeith, getUnitCatalogForKeith, getNursingExecutiveLeadership } from '../src/lib/keithKnowledge.js';
 import { createClient } from '@supabase/supabase-js';
 
 // Legacy shim kept for safety (actual logic now lives in keithKnowledge.js)
@@ -388,16 +388,37 @@ ${stats.pending_units.map(u => `  - ${u}`).join('\n') || '  (none)'}`;
             const rosterLines = Object.entries(byUnit).map(([unit, team]) => {
               const primary = team.find(l => l.is_primary_lead);
               const ops     = team.filter(l => !l.is_primary_lead);
-              const primaryLine = primary
-                ? `${primary.full_name} <${primary.email}> (${primary.role}, primary lead)`
+              const primaryDisplay = primary
+                ? (() => {
+                    const addressedAs = primary.preferred_name
+                      ? `, addressed as ${primary.preferred_name}`
+                      : '';
+                    return `${primary.full_name} <${primary.email}> (${primary.role}, primary lead${addressedAs})`;
+                  })()
                 : '(no primary lead on file)';
               const opsLine = ops.length
                 ? `; Operational team: ${ops.map(l => `${l.full_name} <${l.email}> (${l.role_qualifier || l.role})`).join(', ')}`
                 : '';
-              return `  ${unit}: ${primaryLine}${opsLine}`;
+              return `  ${unit}: ${primaryDisplay}${opsLine}`;
+            }).join('\n');
+            // Nursing executive layer (synchronous — no extra DB call needed)
+            const execData = getNursingExecutiveLeadership();
+            const execLines = execData.map(exec => {
+              const nameStr = exec.preferred_name
+                ? `${exec.full_name} (known as ${exec.preferred_name})`
+                : exec.full_name;
+              const credStr = exec.credentials ? `, ${exec.credentials}` : '';
+              const addlStr = exec.additional_title ? ` | also: ${exec.additional_title}` : '';
+              const unitsStr = exec.related_units?.length
+                ? `; oversees: ${exec.related_units.join(', ')}`
+                : '';
+              return `  ${nameStr}${credStr}: ${exec.role}${addlStr}${unitsStr}`;
             }).join('\n');
             unitLeaderSection = `\n\nUNIT LEADERSHIP ROSTER (${Object.keys(byUnit).length} units — authoritative, do not invent names outside this list):
-${rosterLines}`;
+${rosterLines}
+
+NURSING EXECUTIVE LEADERSHIP (layer above unit Associate Directors — do not confuse with AD-level contacts):
+${execLines}`;
           } else {
             unitLeaderSection = '\n\nUNIT LEADERSHIP ROSTER: No data returned from database.';
           }

@@ -194,7 +194,7 @@ async function resolveUnitFormReceived(context) {
     if (db && unitName) {
       const { data: leaders } = await db
         .from('unit_leaders')
-        .select('full_name, email, role, is_primary_lead')
+        .select('full_name, preferred_name, email, role, is_primary_lead')
         .eq('unit_name', unitName)
         .eq('is_active', true)
         .order('is_primary_lead', { ascending: false });
@@ -215,7 +215,7 @@ async function resolveUnitFormReceived(context) {
 
         ccList = ccLeaders
           .filter(l => l.email.toLowerCase() !== submitterEmail.toLowerCase().trim())
-          .map(l => ({ name: l.full_name, email: l.email }));
+          .map(l => ({ name: l.full_name, preferred_name: l.preferred_name || null, email: l.email }));
       }
     }
   } catch (err) {
@@ -223,12 +223,14 @@ async function resolveUnitFormReceived(context) {
   }
 
   // Submitter confirmation email (with CC to unit team)
+  // preferred_name comes from context if the submitter was identified as a known leader
   recipients.push({
-    email:    submitterEmail,
-    role:     'submitter',
-    name:     submitterName || null,
-    audience: 'submitter',
-    cc:       ccList.length > 0 ? ccList : undefined,
+    email:          submitterEmail,
+    role:           'submitter',
+    name:           submitterName || null,
+    preferred_name: context.submitterPreferredName || null,
+    audience:       'submitter',
+    cc:             ccList.length > 0 ? ccList : undefined,
   });
 
   // Internal team alert (Jester + Co-Lead)

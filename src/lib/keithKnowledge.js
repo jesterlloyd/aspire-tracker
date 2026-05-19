@@ -686,6 +686,19 @@ ${TECHNICAL_STACK}
 
 ${KEY_POLICIES}
 
+GREETINGS AND FORMS OF ADDRESS:
+When drafting correspondence (emails, messages, talking points) addressed to a unit leader or nursing executive, use their preferred_name in the salutation if it is set. Otherwise use the first word of their full_name. Examples: Lyubov Tashlyk (preferred_name "Luba") → "Hi Luba"; Lorraine Sheffield (preferred_name "Lori") → "Hi Lori"; Patricia Hain (preferred_name "Peachy") → "Hi Peachy"; Priscilla Wilson (no preferred_name) → "Hi Priscilla". The formal full_name and email always appear in signature blocks, recipient fields, and third-person prose. preferred_name only applies to salutations and direct address.
+
+NURSING EXECUTIVE LEADERSHIP LOOKUPS:
+When asked about who an Executive Director, Chief Nursing Executive, or organizational-level leader is for a service line, division, or unit, refer to the NURSING EXECUTIVE LEADERSHIP context block in the live data below. This layer sits ABOVE the unit-level Associate Directors. You may mention both the unit-level AD and the Executive Director above them when it adds useful context, but do not introduce the executive layer in every unit-leader response — only when the question is about executive oversight. Examples: "Who is the Executive Director for the OR?" → Dan Sabin (ED OR Operations); unit-level AD is Elaine Suris who reports up to Dan. "Who oversees Surgical Services?" → Peachy Hain (Patricia Hain). "Who is the Chief Nursing Executive?" → David Marshall.
+
+HISTORICAL UNIT NAMES AND FLOOR-LEVEL LOOKUPS:
+When asked about a legacy unit name ("6 North", "8 NW", slash variants), resolve intelligently without exposing unnecessary canonicalization detail:
+1. If the AD is shared (e.g., 6 NE and 6 NW share AD Priscilla Wilson), answer at the AD level for questions about the manager: "Priscilla Wilson is the Associate Director for 6 North (she leads both 6 NE and 6 NW)." Only surface the split when the ANMs differ and the question is about day-to-day or unit-specific routing.
+2. If a unit was merged (e.g., 8 NW into 8 North), resolve to the canonical unit and answer normally: "8 NW is part of 8 North. AD: Aileen Espiritu-Tepper."
+3. For slash variants ("4 SE / 4 SW" → 4 South, "7 NE / 7 NW" → 7 North, etc.) and spelling variants ("Labor and Delivery" → Labor & Delivery), silently resolve and answer without calling attention to the rename.
+Known mappings: "6 North" → 6 NE + 6 NW (same AD Priscilla Wilson; ANMs: Claire Dy for 6 NE, Joyce Serpas for 6 NW); "8 NW" → 8 North (AD Aileen Espiritu-Tepper); "4 SE/SW" → 4 South; "5 SE/SW" → 5 South; "6 SE/SW" → 6 South; "7 NE/NW" → 7 North; "8 SE/SW" → 8 South. Principle: answer the question the user actually asked. Only expose canonicalization complexity when it changes the answer.
+
 CS-LINK: Stage 1 for new students is Add Non-Employee. Former students need Assignment Change, Extend End Date, or Reactivate. Cedars employees skip Stage 1. Stage 2 is Add CS-Link for everyone.
 
 SHIFT LOG: Students log hours at /shift-log using the QR code on their badge. Shift types: Day, Night, Mid. Hours auto-approved unless flagged. Certificate of Completion surfaces in the Action Center when approved_hours >= hours_required.
@@ -735,6 +748,13 @@ export async function getStudentCommunications(supabase, studentId) {
     return [];
   }
   return data || [];
+}
+
+// ── Nursing executive leadership ──────────────────────────────────────────────
+import { NURSING_EXECUTIVE_LEADERSHIP } from './executiveLeadership.js';
+
+export function getNursingExecutiveLeadership() {
+  return NURSING_EXECUTIVE_LEADERSHIP;
 }
 
 // ── Unit catalog (source of truth for canonical names + descriptions) ─────────
@@ -794,7 +814,7 @@ export async function getUnitResponseStats(supabase, cohortId) {
 export async function getUnitLeadersForKeith(supabase) {
   const { data } = await supabase
     .from('unit_leaders')
-    .select('unit_name, full_name, email, role, role_qualifier, is_primary_lead')
+    .select('unit_name, full_name, preferred_name, email, role, role_qualifier, is_primary_lead')
     .eq('is_active', true)
     .order('unit_name')
     .order('is_primary_lead', { ascending: false });

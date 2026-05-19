@@ -4,6 +4,7 @@
 //   internal_team → alert to Jester + Krystal with full response summary
 
 import { JESTER_SIGNATURE } from './signatures.js';
+import { getGreetingName } from '../greetings.js';
 
 const CS_RED   = '#930045';
 const SAND     = '#F4F1EC';
@@ -83,9 +84,9 @@ export function buildResponseSummaryHtml(ctx) {
 
 function buildConfirmationHtml(ctx) {
   const { submitterName, unitName, isHosting, slotsOffered, cohortName } = ctx;
-  const firstName = (submitterName || 'there').split(' ')[0];
+  const greetName = getGreetingName({ full_name: submitterName, preferred_name: ctx.submitterPreferredName });
 
-  const greeting = `<p style="margin:0 0 16px;">Hi ${firstName},</p>`;
+  const greeting = `<p style="margin:0 0 16px;">Hi ${greetName},</p>`;
   const summaryBox = `
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0;width:100%;background:${SAND};border-radius:8px;">
 <tr><td style="padding:16px 20px;">
@@ -132,8 +133,9 @@ ${responseSummary}
 export const unitFormReceived = {
   submitter: (ctx) => {
     const isHosting = (ctx.slotsOffered || 0) > 0;
+    const greetName = getGreetingName({ full_name: ctx.submitterName, preferred_name: ctx.submitterPreferredName });
     const subject = isHosting
-      ? `Thank you, ${(ctx.submitterName || '').split(' ')[0] || 'there'}: ${ctx.unitName} response received for ${ctx.cohortName}`
+      ? `Thank you, ${greetName}: ${ctx.unitName} response received for ${ctx.cohortName}`
       : `Response received: ${ctx.unitName} for ${ctx.cohortName}`;
     const preheader = isHosting
       ? `We've recorded ${ctx.slotsOffered} slot${ctx.slotsOffered === 1 ? '' : 's'} for ${ctx.unitName}.`
