@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { UNITS_BY_DIVISION, PATIENT_POPULATION_MAP } from '../lib/constants'
+import { PATIENT_POPULATION_MAP } from '../lib/constants'
+import { getUnitsByDivision, getUnit, DIVISION_ORDER } from '../lib/unitCatalog'
 
 const PAGE_TITLE = 'ASPIRE Program: Unit Availability Form'
 
-// Units ineligible for ASPIRE student placement
-const ASPIRE_INELIGIBLE = new Set(['Emergency Department', 'Operating Room'])
+// Computed from unitCatalog at module load; ?showAll=true renders all 27 including ED/OR
 
 const SUBMITTER_ROLES = [
   'Associate Director',
@@ -316,19 +316,21 @@ export default function UnitFormPage() {
               <select className="uf-input" value={form.unit_name}
                 onChange={e => handleUnitChange(e.target.value)}>
                 <option value="">Select your unit or department…</option>
-                {Object.entries(UNITS_BY_DIVISION).map(([division, units]) => (
-                  <optgroup key={division} label={division}>
-                    {units
-                      .filter(u => showAll || !ASPIRE_INELIGIBLE.has(u))
-                      .map(u => {
-                        const desc = PATIENT_POPULATION_MAP[u]
-                        return <option key={u} value={u}>{desc ? `${u} - ${desc}` : u}</option>
-                      })}
-                  </optgroup>
-                ))}
+                {(() => {
+                  const grouped = getUnitsByDivision(showAll)
+                  return DIVISION_ORDER.filter(d => grouped[d]).map(division => (
+                    <optgroup key={division} label={division}>
+                      {grouped[division].map(u => (
+                        <option key={u.name} value={u.name}>
+                          {u.name} — {u.description}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))
+                })()}
               </select>
-              {form.unit_name && PATIENT_POPULATION_MAP[form.unit_name] && (
-                <p className="uf-unit-pop">{PATIENT_POPULATION_MAP[form.unit_name]}</p>
+              {form.unit_name && getUnit(form.unit_name) && (
+                <p className="uf-unit-pop">{getUnit(form.unit_name).description}</p>
               )}
               {lookingUp && (
                 <p style={{ fontSize:13, color:'#9ca3af', marginTop:4 }}>Checking for previous response…</p>

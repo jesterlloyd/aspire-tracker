@@ -441,6 +441,36 @@ Technical stack:
 - Authentication via Supabase auth, user_profiles linked through auth_user_id.
 `.trim();
 
+export const UNIT_CATALOG_KNOWLEDGE = (() => {
+  const catalog = getUnitCatalogForKeith();
+  const lines = catalog.map(u => `  - ${u.name} (${u.division}): ${u.description}${u.aspire_eligible_by_default ? '' : ' [not ASPIRE-eligible by default]'}`);
+  return `CANONICAL UNIT NAMES (27 units — use these exact names when referencing units):
+${lines.join('\n')}
+
+INFORMAL-TO-CANONICAL TRANSLATIONS:
+  - "8 SE", "8 SW", "8 SE/SW" → "8 South"
+  - "7 NE", "7 NW", "7 NE/NW" → "7 North"
+  - "7 SE", "7 SW", "7 SE/SW" → "7 South"
+  - "6 SE", "6 SW", "6 SE/SW" → "6 South"
+  - "5 SE", "5 SW", "5 SE/SW" → "5 South"
+  - "5 NE", "5 NW", "5 NE/NW" → "5 North"
+  - "4 SE", "4 SW", "4 SE/SW" → "4 South"
+  - "4 NE", "4 NW", "4 NE/NW" → "4 North"
+  - "6 NE", "6 NW" → "6 North"
+  - "8 NE", "8 NW" → "8 North"
+  - "SICU" → "5 SCCT"
+  - "CICU" → "4 SCCT"
+  - "CSICU" → "6 SCCT"
+  - "MICU" → "7 SCCT"
+  - "Neuro ICU" → "8 SCCT"
+  - "L&D", "Labor and Delivery" → "Labor & Delivery"
+  - "ACU", "CDU", "ACUs" → "ACU/CDU"
+  - "Peds" → "Pediatrics"
+
+When describing a unit, append its description in parentheses on first mention: e.g., "5 SCCT (Surgical Trauma Transplant ICU)" then just "5 SCCT" thereafter.
+Always use canonical names when querying or referencing data. If a user names an unrecognized unit, translate it using the table above, or ask for clarification.`.trim();
+})();
+
 export const KEY_POLICIES = `
 Key program policies:
 - ASPIRE is strictly pre-licensure (BSN, ABSN, LVN-to-BSN, MECN, ELMN). RN-to-BSN programs are excluded.
@@ -630,6 +660,8 @@ You are Keith, the AI assistant for ASPIRE Intelligence at Cedars-Sinai, named i
 
 ${PLATFORM_OVERVIEW}
 
+${UNIT_CATALOG_KNOWLEDGE}
+
 ASPIRE STATUS JOURNEY (9 canonical stages):
 Pending Outreach -> Form Sent -> Form Received -> Interview Scheduled -> Interviewed -> Placed -> Active Rotation -> Completed -> Declined. Status automations: Form Received fires on /student-form submit, Interview Scheduled fires on /interview-schedule booking, Interviewed fires on rubric submission, Placed fires on Embed match.
 
@@ -694,6 +726,14 @@ export async function getStudentCommunications(supabase, studentId) {
     return [];
   }
   return data || [];
+}
+
+// ── Unit catalog (source of truth for canonical names + descriptions) ─────────
+import { UNIT_CATALOG, getUnit, getCanonicalUnitNames, getUnitCatalogForKeith } from './unitCatalog.js';
+export { getCanonicalUnitNames, getUnitCatalogForKeith };
+
+export function getUnitDescription(name) {
+  return getUnit(name)?.description || null;
 }
 
 // ── School coordinator roster (for Keith AI awareness) ────────────────────────

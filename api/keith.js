@@ -1,4 +1,4 @@
-import { buildSystemPrompt, getRecentCommunications, getSchoolCoordinators, getUnitResponseStats, getUnitLeadersForKeith } from '../src/lib/keithKnowledge.js';
+import { buildSystemPrompt, getRecentCommunications, getSchoolCoordinators, getUnitResponseStats, getUnitLeadersForKeith, getUnitCatalogForKeith } from '../src/lib/keithKnowledge.js';
 import { createClient } from '@supabase/supabase-js';
 
 // Legacy shim kept for safety (actual logic now lives in keithKnowledge.js)

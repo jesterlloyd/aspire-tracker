@@ -4,6 +4,7 @@ import { useUpdatedLabel, KPICell } from './KPIBand'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
+import { getUnit } from '../lib/unitCatalog'
 import StudentAvatar from './StudentAvatar'
 import CohortGantt from './CohortGantt'
 import StatusLegendPopover from './StatusLegendPopover'
@@ -71,6 +72,11 @@ function UnitResponseTile({ response, filledByUnit, units, primaryLeadMap, showT
           <div style={{ fontWeight:600, fontSize:13, color:'#0E1428', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
             {response.unit_name}
           </div>
+          {getUnit(response.unit_name)?.description && (
+            <div style={{ fontSize:11, color:'#6b7280', marginTop:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+              {getUnit(response.unit_name).description}
+            </div>
+          )}
           {response.submitted_by_name && (
             <div style={{ fontSize:11, color:'#9ca3af', marginTop:1 }}>{response.submitted_by_name}</div>
           )}

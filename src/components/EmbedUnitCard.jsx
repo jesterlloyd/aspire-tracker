@@ -4,6 +4,7 @@ import { displayName } from '../lib/utils'
 import { buildUnitLeaderEmail } from '../lib/emailUtils'
 import { openMailtoLink } from '../lib/openLink'
 import StudentAvatar from './StudentAvatar'
+import { getUnit } from '../lib/unitCatalog'
 
 const resolveMatchedStudent = (match, slot, studentMap) => {
   if (match?.student?.first_name) return match.student
@@ -163,7 +164,14 @@ export default function EmbedUnitCard({
         <div className="euc-header" style={{
           background: 'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)',
         }}>
-          <span className="euc-name" title={unit.unit_name}>{unit.unit_name}</span>
+          <span className="euc-name" title={unit.unit_name} style={{ display:'flex', flexDirection:'column', gap:1, minWidth:0 }}>
+            <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{unit.unit_name}</span>
+            {getUnit(unit.unit_name)?.description && (
+              <span style={{ fontSize:10, fontWeight:400, opacity:0.7, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {getUnit(unit.unit_name).description}
+              </span>
+            )}
+          </span>
           <div className="euc-header-right">
             {choiceStyle && (
               <span style={{ background: choiceStyle.badgeBg, fontFamily:'DM Sans', fontWeight:600, fontSize:'11px', color: choiceStyle.badgeText, padding:'2px 8px', borderRadius:'999px', flexShrink:0, whiteSpace:'nowrap' }}>

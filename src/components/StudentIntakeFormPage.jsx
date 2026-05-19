@@ -1,11 +1,46 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { PATIENT_POPULATION_MAP } from '../lib/constants'
+import { groupUnitNamesByDivision, getUnit, DIVISION_ORDER } from '../lib/unitCatalog'
 import { setAspireStatus } from '../lib/statusUtils'
 import { logEvent, eventExists } from '../lib/logEvent'
 import { updateStudent as proxyUpdateStudent } from '../lib/studentProxy'
 
 const PAGE_TITLE = 'ASPIRE Program: Student Information Form'
+
+// Unit preference dropdown grouped by division with descriptive option labels.
+// Stored value is always the canonical name (e.g., '5 SCCT'); description is display-only.
+function UnitPreferenceSelect({ label, value, onChange, availableUnits, excludeValues, placeholder, optional }) {
+  const filtered = availableUnits.filter(u => !excludeValues.includes(u))
+  const grouped  = groupUnitNamesByDivision(filtered)
+  const ordered  = DIVISION_ORDER.filter(d => grouped[d])
+  if (grouped['Other']) ordered.push('Other')
+
+  const selectedUnit = getUnit(value)
+
+  return (
+    <div className="uf-field">
+      <label className="uf-label">{label}</label>
+      <select className="uf-input" value={value || ''} onChange={e => onChange(e.target.value)}>
+        <option value="">{placeholder}</option>
+        {ordered.map(division => (
+          <optgroup key={division} label={division}>
+            {grouped[division].map(unitName => {
+              const entry = getUnit(unitName)
+              return (
+                <option key={unitName} value={unitName}>
+                  {entry ? `${unitName} — ${entry.description}` : unitName}
+                </option>
+              )
+            })}
+          </optgroup>
+        ))}
+      </select>
+      {value && selectedUnit && (
+        <p style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>{selectedUnit.description}</p>
+      )}
+    </div>
+  )
+}
 
 const EXP_ROLES = [
   'CNA', 'Medical Assistant', 'EMT', 'Phlebotomist',
@@ -32,8 +67,7 @@ export default function StudentIntakeFormPage() {
   const [cohortName,     setCohortName]     = useState('')
   const [open,           setOpen]           = useState(null)
   const [form,           setForm]           = useState(initForm())
-  const [availableUnits, setAvailableUnits] = useState([])
-  const [unitPopMap,     setUnitPopMap]     = useState({})
+  const [availableUnits, setAvailableUnits] = useState([])  // canonical unit names from DB
   const [unitsLoaded,    setUnitsLoaded]    = useState(false)
   const [resumeFile,     setResumeFile]     = useState(null)
   const [headshotFile,   setHeadshotFile]   = useState(null)
@@ -55,29 +89,16 @@ export default function StudentIntakeFormPage() {
 
   useEffect(() => {
     if (!cohortId) return
-    supabase.from('units').select('unit_name, patient_population')
+    supabase.from('units').select('unit_name')
       .eq('is_participating', true).eq('cohort_id', cohortId).order('unit_name')
       .then(({ data }) => {
-        const units = data || []
-        setAvailableUnits(units.map(u => u.unit_name))
-        const map = {}
-        units.forEach(u => { if (u.patient_population) map[u.unit_name] = u.patient_population })
-        setUnitPopMap(map)
+        setAvailableUnits((data || []).map(u => u.unit_name))
         setUnitsLoaded(true)
       })
   }, [cohortId])
 
   const set        = (k, v) => setForm(p => ({ ...p, [k]: v }))
   const toggleRole = r => setForm(p => ({ ...p, exp_roles: { ...p.exp_roles, [r]: !p.exp_roles[r] } }))
-  // Layer 1: DB value from unitPopMap. Layer 2: hardcoded PATIENT_POPULATION_MAP fallback.
-  const getPopulation = unitName =>
-    unitName ? (unitPopMap[unitName] || PATIENT_POPULATION_MAP[unitName] || null) : null
-
-  // Returns "UnitName - Description" for dropdown option labels, or just "UnitName" if no description.
-  const getOptionLabel = unitName => {
-    const desc = unitPopMap[unitName] || PATIENT_POPULATION_MAP[unitName]
-    return desc ? `${unitName} - ${desc}` : unitName
-  }
 
   const handleSubmit = async e => {
     e.preventDefault()
@@ -476,45 +497,39 @@ export default function StudentIntakeFormPage() {
               </p>
             ) : (
               <>
-                <div className="uf-field">
-                  <label className="uf-label">First Preference *</label>
-                  <select className="uf-input" value={form.unit_preference_1}
-                    onChange={e => {
-                      const v = e.target.value
-                      setForm(p => ({
-                        ...p, unit_preference_1: v,
-                        unit_preference_2: p.unit_preference_2 === v ? '' : p.unit_preference_2,
-                        unit_preference_3: p.unit_preference_3 === v ? '' : p.unit_preference_3,
-                      }))
-                    }}>
-                    <option value="">Select a unit…</option>
-                    {availableUnits.map(u => <option key={u} value={u}>{getOptionLabel(u)}</option>)}
-                  </select>
-                </div>
-                <div className="uf-field">
-                  <label className="uf-label">Second Preference (optional)</label>
-                  <select className="uf-input" value={form.unit_preference_2}
-                    onChange={e => {
-                      const v = e.target.value
-                      setForm(p => ({
-                        ...p, unit_preference_2: v,
-                        unit_preference_3: p.unit_preference_3 === v ? '' : p.unit_preference_3,
-                      }))
-                    }}>
-                    <option value="">No preference</option>
-                    {availableUnits.filter(u => u !== form.unit_preference_1)
-                      .map(u => <option key={u} value={u}>{getOptionLabel(u)}</option>)}
-                  </select>
-                </div>
-                <div className="uf-field">
-                  <label className="uf-label">Third Preference (optional)</label>
-                  <select className="uf-input" value={form.unit_preference_3}
-                    onChange={e => set('unit_preference_3', e.target.value)}>
-                    <option value="">No preference</option>
-                    {availableUnits.filter(u => u !== form.unit_preference_1 && u !== form.unit_preference_2)
-                      .map(u => <option key={u} value={u}>{getOptionLabel(u)}</option>)}
-                  </select>
-                </div>
+                <UnitPreferenceSelect
+                  label="First Preference *"
+                  value={form.unit_preference_1}
+                  onChange={v => setForm(p => ({
+                    ...p, unit_preference_1: v,
+                    unit_preference_2: p.unit_preference_2 === v ? '' : p.unit_preference_2,
+                    unit_preference_3: p.unit_preference_3 === v ? '' : p.unit_preference_3,
+                  }))}
+                  availableUnits={availableUnits}
+                  excludeValues={[]}
+                  placeholder="Select a unit…"
+                />
+                <UnitPreferenceSelect
+                  label="Second Preference (optional)"
+                  value={form.unit_preference_2}
+                  onChange={v => setForm(p => ({
+                    ...p, unit_preference_2: v,
+                    unit_preference_3: p.unit_preference_3 === v ? '' : p.unit_preference_3,
+                  }))}
+                  availableUnits={availableUnits}
+                  excludeValues={[form.unit_preference_1].filter(Boolean)}
+                  placeholder="No preference"
+                  optional
+                />
+                <UnitPreferenceSelect
+                  label="Third Preference (optional)"
+                  value={form.unit_preference_3}
+                  onChange={v => set('unit_preference_3', v)}
+                  availableUnits={availableUnits}
+                  excludeValues={[form.unit_preference_1, form.unit_preference_2].filter(Boolean)}
+                  placeholder="No preference"
+                  optional
+                />
               </>
             )}
           </div>
