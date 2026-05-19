@@ -615,7 +615,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       <div className="aggregate-sticky-header">
 
         {/* Program at a Glance + Capacity Coverage Gauge — two-column, stacks below ~900px */}
-        <div style={{ display: 'flex', gap: 14, marginBottom: 20, marginTop: 4, alignItems: 'stretch', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 14, marginBottom: 16, marginTop: 4, alignItems: 'stretch', flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 560px', minWidth: 0 }}>
             <ProgramAtAGlance
               totalSlots={totalSlots}
@@ -698,7 +698,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
           <div className="aggregate-panel-hdr">
             <div>
               <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-                <span className="ov-panel-title">Student Placement Requests</span>
+                <span className="ov-panel-title">Placement Requests</span>
                 <StatusLegendPopover position="bottom-left" />
                 <button onClick={handleCopyCohortSummary} title="Copy cohort summary"
                   style={{ background:'none', border:'none', cursor:'pointer', color:'#9ca3af', padding:'4px', display:'flex', alignItems:'center' }}>
@@ -792,7 +792,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
             }
           </div>
 
-          {/* ── Student Placement Requests (body only) ── */}
+          {/* ── Placement Requests (body only) ── */}
           <div className="ov-panel-body">
             <div className="ov-groups">
               {schools.map(school => {
