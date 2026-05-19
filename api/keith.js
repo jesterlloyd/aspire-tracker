@@ -1,4 +1,4 @@
-import { buildSystemPrompt, getRecentCommunications, getSchoolCoordinators, getUnitResponseStats, getUnitLeadersForKeith, getUnitCatalogForKeith } from '../src/lib/keithKnowledge.js';
+import { buildSystemPrompt, getRecentCommunications, getSchoolCoordinators, getUnitResponseStats, getUnitResponses, getUnitLeadersForKeith, getUnitCatalogForKeith } from '../src/lib/keithKnowledge.js';
 import { createClient } from '@supabase/supabase-js';
 
 // Legacy shim kept for safety (actual logic now lives in keithKnowledge.js)
@@ -296,7 +296,6 @@ Cohort Status: ${cohort.status || 'unknown'}`
         `- ${s.last_name}, ${s.first_name} | ${s.school || '?'} | GPA: ${s.cumulative_gpa || 'N/A'} | ${s.school_email || 'no email'} | Status: ${s.status}`
       ).join('\n') || '(none)';
 
-      // Fetch recent communications from notification_log (server-side, service role)
       // Build school coordinator roster for Keith awareness
       const coordRoster = (() => {
         try {
@@ -305,7 +304,6 @@ Cohort Status: ${cohort.status || 'unknown'}`
             let line = `- ${school}: ${primary.name} <${primary.email}> (${primary.title})`
             if (programRoutes) {
               const routes = Object.entries(programRoutes)
-              // Deduplicate by email to keep the output compact
               const seen = new Set()
               const routeLines = routes
                 .filter(([, r]) => { const key = r.email; if (seen.has(key)) return false; seen.add(key); return true })
@@ -324,64 +322,89 @@ Cohort Status: ${cohort.status || 'unknown'}`
         }
       })()
 
-      let commsSection = ''
-      try {
-        const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
-        const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY
-        if (supabaseUrl && serviceKey) {
-          const dbkeith = createClient(supabaseUrl, serviceKey)
-          const recentComms = await getRecentCommunications(dbkeith, { limit: 30, sinceDays: 30 })
+      // ── All server-side DB fetches use a single client with hoisted credentials ──
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+      const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+      let commsSection = '';
+      let unitResponseSection = '';
+      let unitLeaderSection = '';
+
+      if (supabaseUrl && serviceKey) {
+        const dbkeith = createClient(supabaseUrl, serviceKey);
+
+        // Recent communications
+        try {
+          const recentComms = await getRecentCommunications(dbkeith, { limit: 30, sinceDays: 30 });
           if (recentComms.length > 0) {
             commsSection = `\n\nRecent notifications sent (last 30 days, ${recentComms.length} entries):\n` +
               recentComms.slice(0, 30).map(c => {
-                const ts = formatTimestampPT(c.sent_at) || 'unknown'
-                return `- [${c.notification_type}] to ${c.recipient_name || c.recipient_email} (${c.audience}) | ${c.subject} | ${c.status} | ${ts}`
-              }).join('\n')
+                const ts = formatTimestampPT(c.sent_at) || 'unknown';
+                return `- [${c.notification_type}] to ${c.recipient_name || c.recipient_email} (${c.audience}) | ${c.subject} | ${c.status} | ${ts}`;
+              }).join('\n');
           }
+        } catch (commsErr) {
+          console.warn('[keith] communications fetch failed (non-fatal):', commsErr.message);
         }
-      } catch (commsErr) {
-        console.warn('[keith] communications fetch failed (non-fatal):', commsErr.message)
-      }
 
-      // Unit response stats and unit leaders
-      let unitResponseSection = '';
-      let unitLeaderSection = '';
-      try {
-        if (supabaseUrl && serviceKey) {
-          const dbkeith2 = createClient(supabaseUrl, serviceKey);
+        // Unit response stats
+        try {
           const activeCohortId = liveData.activeCohortId || liveData.cohort?.id;
           if (activeCohortId) {
-            const stats = await getUnitResponseStats(dbkeith2, activeCohortId);
+            const stats = await getUnitResponseStats(dbkeith, activeCohortId);
             if (stats) {
-              unitResponseSection = `\n\nUNIT RESPONSE STATUS (${cohort?.name || 'current cohort'}):
+              // Fetch full response rows for per-unit slot+shift detail
+              const allResponses = await getUnitResponses(dbkeith, activeCohortId);
+              const hostingRows = allResponses.filter(r => r.response_status === 'submitted_hosting')
+                .sort((a, b) => a.unit_name.localeCompare(b.unit_name));
+              const hostingLines = hostingRows.map(r => {
+                const shift = r.shift_preference ? ` (${r.shift_preference})` : '';
+                return `  - ${r.unit_name}: ${r.slots_offered} slot${r.slots_offered === 1 ? '' : 's'}${shift}`;
+              }).join('\n') || '  (none)';
+
+              unitResponseSection = `\n\nPLACEMENT CAPACITY (${cohort?.name || 'current cohort'}):
 Response rate: ${stats.response_rate}% (${stats.hosting_count + stats.not_hosting_count} of ${stats.total_units} units responded)
 Hosting (${stats.hosting_count} units, ${stats.total_slots} slots confirmed):
-${stats.hosting_units.map(u => `  - ${u.unit}: ${u.slots} slot${u.slots === 1 ? '' : 's'}`).join('\n') || '  (none)'}
+${hostingLines}
 Not hosting (${stats.not_hosting_count} units):
 ${stats.not_hosting_units.map(u => `  - ${u}`).join('\n') || '  (none)'}
 Pending / no response (${stats.pending_count} units):
 ${stats.pending_units.map(u => `  - ${u}`).join('\n') || '  (none)'}`;
             }
           }
-          const leaders = await getUnitLeadersForKeith(dbkeith2);
+        } catch (unitErr) {
+          console.warn('[keith] unit response fetch failed (non-fatal):', unitErr.message);
+        }
+
+        // Unit leadership roster — full roster, all roles, not just primary leads
+        try {
+          const leaders = await getUnitLeadersForKeith(dbkeith);
           if (leaders.length > 0) {
             const byUnit = {};
             leaders.forEach(l => {
               if (!byUnit[l.unit_name]) byUnit[l.unit_name] = [];
               byUnit[l.unit_name].push(l);
             });
-            unitLeaderSection = `\n\nUNIT LEADERSHIP ROSTER (${Object.keys(byUnit).length} units, ${leaders.length} leaders):
-${Object.entries(byUnit).map(([unit, team]) => {
-  const primary = team.find(l => l.is_primary_lead);
-  const ops = team.filter(l => !l.is_primary_lead);
-  const primaryLine = primary ? `${primary.full_name} <${primary.email}> (${primary.role})` : '(no primary lead)';
-  const opsLine = ops.length ? `; Ops: ${ops.map(l => `${l.full_name} (${l.role_qualifier || l.role})`).join(', ')}` : '';
-  return `  ${unit}: ${primaryLine}${opsLine}`;
-}).join('\n')}`;
+            const rosterLines = Object.entries(byUnit).map(([unit, team]) => {
+              const primary = team.find(l => l.is_primary_lead);
+              const ops     = team.filter(l => !l.is_primary_lead);
+              const primaryLine = primary
+                ? `${primary.full_name} <${primary.email}> (${primary.role}, primary lead)`
+                : '(no primary lead on file)';
+              const opsLine = ops.length
+                ? `; Operational team: ${ops.map(l => `${l.full_name} <${l.email}> (${l.role_qualifier || l.role})`).join(', ')}`
+                : '';
+              return `  ${unit}: ${primaryLine}${opsLine}`;
+            }).join('\n');
+            unitLeaderSection = `\n\nUNIT LEADERSHIP ROSTER (${Object.keys(byUnit).length} units — authoritative, do not invent names outside this list):
+${rosterLines}`;
+          } else {
+            unitLeaderSection = '\n\nUNIT LEADERSHIP ROSTER: No data returned from database.';
           }
+        } catch (leaderErr) {
+          console.warn('[keith] unit leader fetch failed (non-fatal):', leaderErr.message);
+          unitLeaderSection = '\n\nUNIT LEADERSHIP ROSTER: Fetch error — do not fabricate names.';
         }
-      } catch (unitErr) {
-        console.warn('[keith] unit response fetch failed (non-fatal):', unitErr.message);
       }
 
       liveDataStr = `CURRENT DATE AND TIME (Pacific Time — your operational timezone):
@@ -433,10 +456,10 @@ SCHOOL COORDINATOR AWARENESS:
 - Cross-reference with recentCommunications: "what schools haven't been contacted recently?" = filter communications by audience='school_coordinator' and compare against roster.
 
 UNIT RESPONSE AWARENESS:
-- liveData includes a UNIT RESPONSE STATUS section showing which units have committed to hosting, declined, or not yet responded for the current cohort.
-- Use this to answer: "Which units haven't responded?", "How many total slots are confirmed?", "Which units are hosting?", "Who hasn't submitted yet?"
-- liveData also includes a UNIT LEADERSHIP ROSTER. When asked who to contact for a unit, return the primary lead (Associate Director or Executive Director) and note the operational team (ANM, NPD Practitioner, CNS).
-- Cross-reference unit responses with the leadership roster: if a unit is pending, you know who to contact.
+- Your context includes a PLACEMENT CAPACITY section with the exact hosting/not-hosting/pending breakdown for the current cohort. Use it. Never say you lack this data if the section is populated.
+- Your context includes a UNIT LEADERSHIP ROSTER. For any unit leader question, look up the unit by exact canonical name in that roster and return the listed names verbatim. Never substitute a name from a different unit.
+- When a user mentions a unit informally ("the SICU", "8 SE/SW"), translate to canonical first using the translation table in your prompt, then look up.
+- If a unit name is not in the roster, say so explicitly rather than guessing.
 - When Jester asks for an executive-summary report on unit responses (e.g., "draft a unit response summary for Margo"), generate a well-structured email. Do not send it automatically.
 
 COMMUNICATION AWARENESS:
