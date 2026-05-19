@@ -1,5 +1,5 @@
 // src/lib/unitCatalog.js
-// Canonical unit catalog — 27 units with descriptive subtitles, division, and ASPIRE eligibility.
+// Canonical unit catalog — 28 units with descriptive subtitles, division, and ASPIRE eligibility.
 // This is the code-level source of truth for unit dropdowns and labeling across the app.
 // Per-cohort instance data (slot counts, is_participating, etc.) lives in the `units` DB table.
 // Static metadata (canonical name, description, division) lives here.
@@ -19,7 +19,8 @@ export const UNIT_CATALOG = [
   { name: '4 South',           description: 'Medicine, Oncology, PCU, Bone Marrow Transplant',    division: 'Medical',         defaultEligible: true  },
   { name: '5 North',           description: 'PCU, Post Cardiac Cath Care',                        division: 'Medical',         defaultEligible: true  },
   { name: '5 South',           description: 'Medical, PCU, Safety Quad',                          division: 'Medical',         defaultEligible: true  },
-  { name: '6 North',           description: 'Heart/Lung Transplant, Mechanical Circulatory Support', division: 'Medical',      defaultEligible: true  },
+  { name: '6 NE',              description: 'Heart Transplant, Lung Transplant, Mechanical Circulatory Support', division: 'Medical', defaultEligible: true },
+  { name: '6 NW',              description: 'Liver/Kidney/Pancreas Transplant, Hepatobiliary, Trauma, Thoracic', division: 'Medical', defaultEligible: true },
   { name: '6 South',           description: 'Advanced Heart Failure, PCU',                        division: 'Medical',         defaultEligible: true  },
   { name: '7 South',           description: 'PCU, General Medical',                               division: 'Medical',         defaultEligible: true  },
 
