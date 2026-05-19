@@ -194,7 +194,7 @@ function CapacityCoverageGauge({ totalDemand, totalCapacity, placed, cohort }) {
 
 // ── On Campus Today — picture-card layout ────────────────────────────────────
 
-function CampusStudentCard({ log, student, units }) {
+function CampusStudentCard({ log, student, units, onSelectStudent }) {
   const [imgError, setImgError] = useState(false)
   if (!student) return null
 
@@ -210,12 +210,17 @@ function CampusStudentCard({ log, student, units }) {
       : { bg:'#D1EFD8', color:'#166534', label:'Day' }
 
   return (
-    <div
+    <button
+      onClick={() => onSelectStudent?.(student.id)}
+      aria-label={`Open profile for ${student.first_name} ${student.last_name}`}
       style={{ borderRadius:12, border:'1px solid rgba(29,37,103,0.08)', overflow:'hidden',
         boxShadow:'0 1px 3px rgba(0,0,0,0.06)', transition:'transform 0.15s ease, box-shadow 0.15s ease',
-        fontFamily:'DM Sans, sans-serif', background:'#fff' }}
+        fontFamily:'DM Sans, sans-serif', background:'#fff', cursor:'pointer',
+        padding:0, textAlign:'left', display:'block', width:'100%' }}
       onMouseEnter={e => { e.currentTarget.style.transform='scale(1.02)'; e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.10)' }}
       onMouseLeave={e => { e.currentTarget.style.transform='scale(1)';    e.currentTarget.style.boxShadow='0 1px 3px rgba(0,0,0,0.06)' }}
+      onMouseDown={e => { e.currentTarget.style.transform='scale(0.98)' }}
+      onMouseUp={e => { e.currentTarget.style.transform='scale(1.02)' }}
     >
       {/* Photo: top 65% */}
       <div style={{ height:182, background:'#F4F1EC', position:'relative', overflow:'hidden' }}>
@@ -250,7 +255,7 @@ function CampusStudentCard({ log, student, units }) {
           {log.total_hours} hrs logged
         </div>
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -486,7 +491,7 @@ function openMailto(bcc, body) {
   )
 }
 
-export default function OverviewTab({ students, units, onStudentUpdate, cohortId, cohort, toast }) {
+export default function OverviewTab({ students, units, onStudentUpdate, cohortId, cohort, toast, onSelectStudent }) {
   const [unitGroupsOpen,   setUnitGroupsOpen]   = useState({})
   const [schoolGroupsOpen, setSchoolGroupsOpen] = useState({})
   const [unitStatusFilter, setUnitStatusFilter] = useState('all')
@@ -1009,7 +1014,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
             }}>
               {campusLogs.map(log => {
                 const stu = students.find(s => s.id === log.student_id)
-                return stu ? <CampusStudentCard key={log.id} log={log} student={stu} units={units} /> : null
+                return stu ? <CampusStudentCard key={log.id} log={log} student={stu} units={units} onSelectStudent={onSelectStudent} /> : null
               })}
             </div>
           )}

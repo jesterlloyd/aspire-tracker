@@ -920,7 +920,8 @@ function MainApp({ onLogout }) {
         {!loading && !dbError && cohorts.length > 0 && (
           <>
             <div style={{ display: activeTab === 'overview' ? 'block' : 'none' }}>
-              <OverviewTab students={students} units={units} onStudentUpdate={updateStudent} cohortId={activeCohortId} cohort={activeCohort} toast={toast} />
+              <OverviewTab students={students} units={units} onStudentUpdate={updateStudent} cohortId={activeCohortId} cohort={activeCohort} toast={toast}
+                onSelectStudent={id => { setFocusStudentId(id); switchTab('profiles') }} />
             </div>
 
             <div style={{ display: activeTab === 'profiles' ? 'block' : 'none' }}>

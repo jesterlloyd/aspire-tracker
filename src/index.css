@@ -64,7 +64,7 @@ body { min-height: 100vh; }
 .header-sub    { font-size: 11px; color: var(--nova); margin-top: 1px; opacity: 0.8; }
 .header-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
-.app-main { max-width: 1440px; margin: 0 auto; padding: 20px 24px 24px; }
+.app-main { max-width: 1440px; margin: 0 auto; padding: 20px 24px 0; }
 
 /* ================================================================
    BUTTONS
@@ -1116,7 +1116,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* Aggregate tab — sticky header + scrollable body layout */
 .overview-tab {
   display: flex; flex-direction: column;
-  height: calc(100vh - 164px);
+  height: calc(100vh - 138px);  /* header 64px + tab strip ~54px + app-main padding-top 20px */
   overflow: hidden;
 }
 .aggregate-sticky-header {
