@@ -192,6 +192,68 @@ function CapacityCoverageGauge({ totalDemand, totalCapacity, placed, cohort }) {
   )
 }
 
+// ── On Campus Today — picture-card layout ────────────────────────────────────
+
+function CampusStudentCard({ log, student, units }) {
+  const [imgError, setImgError] = useState(false)
+  if (!student) return null
+
+  const hasPhoto  = !!(student.headshot_url && !imgError)
+  const initials  = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`.toUpperCase()
+  const unitName  = log.unit_name || units?.find(u => u.id === student.matched_unit_id)?.unit_name || '—'
+  const isNight   = log.shift_type === 'Night'
+  const isMid     = log.shift_type === 'Mid'
+  const badge     = isNight
+    ? { bg:'#EDE9FE', color:'#5B21B6', label:'Night' }
+    : isMid
+      ? { bg:'#DCEFF8', color:'#1D2567', label:'Mid' }
+      : { bg:'#D1EFD8', color:'#166534', label:'Day' }
+
+  return (
+    <div
+      style={{ borderRadius:12, border:'1px solid rgba(29,37,103,0.08)', overflow:'hidden',
+        boxShadow:'0 1px 3px rgba(0,0,0,0.06)', transition:'transform 0.15s ease, box-shadow 0.15s ease',
+        fontFamily:'DM Sans, sans-serif', background:'#fff' }}
+      onMouseEnter={e => { e.currentTarget.style.transform='scale(1.02)'; e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.10)' }}
+      onMouseLeave={e => { e.currentTarget.style.transform='scale(1)';    e.currentTarget.style.boxShadow='0 1px 3px rgba(0,0,0,0.06)' }}
+    >
+      {/* Photo: top 65% */}
+      <div style={{ height:182, background:'#F4F1EC', position:'relative', overflow:'hidden' }}>
+        {hasPhoto
+          ? <img src={student.headshot_url} alt={`${student.first_name} ${student.last_name}`}
+              onError={() => setImgError(true)}
+              style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+          : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center',
+              fontWeight:700, fontSize:36, color:'#9ca3af' }}>{initials}</div>
+        }
+        <span style={{ position:'absolute', top:8, right:8, background:badge.bg, color:badge.color,
+          fontSize:10.5, fontWeight:700, padding:'2px 8px', borderRadius:20 }}>
+          {badge.label}
+        </span>
+      </div>
+      {/* Details: bottom 35% */}
+      <div style={{ padding:'10px 12px 12px' }}>
+        <div style={{ fontWeight:700, fontSize:14, color:'#0E1428', marginBottom:2,
+          whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+          {student.first_name} {student.last_name}
+        </div>
+        <div style={{ fontSize:12, color:'#6b7280', marginBottom:2,
+          whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+          {unitName}
+        </div>
+        {student.matched_preceptor && (
+          <div style={{ fontSize:11, color:'#9ca3af', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+            with {student.matched_preceptor}
+          </div>
+        )}
+        <div style={{ marginTop:6, fontSize:11, color:'#475467', fontWeight:500 }}>
+          {log.total_hours} hrs logged
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Program at a Glance band ──────────────────────────────────────────────────
 // KPICell and useUpdatedLabel are shared — imported from ./KPIBand
 
@@ -896,67 +958,58 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
         </div>
 
-        {/* ── On Campus Today compact strip — moved below panels, above Program Timeline ── */}
-        <div style={{ background:'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)', borderRadius:14, overflow:'hidden', boxShadow:'0 2px 12px rgba(29,37,103,0.07)', margin:'20px 0 24px' }}>
+        {/* ── On Campus Today — light card style matching rest of tab ── */}
+        <div style={{
+          background:'#fff', border:'1px solid rgba(29,37,103,0.08)', borderRadius:12,
+          boxShadow:'0 1px 0 rgba(29,37,103,0.04), 0 1px 2px rgba(29,37,103,0.04)',
+          overflow:'hidden', margin:'20px 0 24px', fontFamily:'DM Sans, sans-serif',
+        }}>
           {/* Header row */}
-          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'0 24px', height:48, cursor:'pointer' }}
-            onClick={() => setCampusOpen(p => !p)}>
-            {campusLogs.length > 0
-              ? <span style={{ width:8, height:8, borderRadius:'50%', background:'#4ade80', flexShrink:0, animation:'pulse 2s infinite', display:'inline-block' }} />
-              : <span style={{ width:8, height:8, borderRadius:'50%', background:'#6b7280', flexShrink:0, display:'inline-block' }} />
-            }
-            <span style={{ fontSize:13, fontWeight:600, color: campusLogs.length>0 ? '#fff' : 'rgba(255,255,255,0.7)' }}>
-              On Campus Today
-            </span>
+          <div onClick={() => setCampusOpen(p => !p)}
+            style={{ display:'flex', alignItems:'center', gap:10, padding:'0 20px', height:56,
+              cursor:'pointer', borderBottom: campusOpen ? '1px solid rgba(29,37,103,0.06)' : 'none' }}>
+            <span style={{
+              width:8, height:8, borderRadius:'50%', flexShrink:0, display:'inline-block',
+              background: campusLogs.length > 0 ? '#22c55e' : '#d1d5db',
+              animation: campusLogs.length > 0 ? 'pulse 2s infinite' : 'none',
+            }} />
+            <span style={{ fontSize:13, fontWeight:600, color:'#0E1428' }}>On Campus Today</span>
             {campusLoading
-              ? <span style={{ fontSize:13, color:'rgba(255,255,255,0.5)', marginLeft:4 }}>Loading…</span>
+              ? <span style={{ fontSize:12, color:'#9ca3af' }}>Loading…</span>
               : campusLogs.length > 0
-                ? <span style={{ fontSize:11, fontWeight:700, padding:'0 8px', borderRadius:8, background:'rgba(255,255,255,0.15)', color:'#fff', height:20, display:'flex', alignItems:'center', flexShrink:0 }}>{campusLogs.length}</span>
-                : <span style={{ fontSize:13, color:'rgba(255,255,255,0.5)', marginLeft:4 }}>No shifts logged today</span>
+                ? <span style={{ fontSize:11, fontWeight:700, padding:'1px 9px', borderRadius:20,
+                    background:'#D1EFD8', color:'#166534', flexShrink:0 }}>{campusLogs.length} on shift</span>
+                : <span style={{ fontSize:12, color:'#9ca3af' }}>No shifts logged today</span>
             }
             <div style={{ flex:1 }} />
             <button onClick={e => { e.stopPropagation(); loadCampusLogs() }}
-              style={{ background:'none', border:'none', cursor:'pointer', fontSize:14, color:'rgba(255,255,255,0.6)', lineHeight:1, padding:'0 4px' }}
+              style={{ background:'none', border:'none', cursor:'pointer', color:'#9ca3af', padding:'4px', fontSize:14 }}
               title="Refresh">↻</button>
-            <span style={{ fontSize:11, color:'rgba(255,255,255,0.4)' }}>{campusOpen?'▲':'▼'}</span>
+            <span style={{ fontSize:11, color:'#9ca3af', display:'inline-block',
+              transform: campusOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition:'transform 0.15s' }}>▼</span>
           </div>
-          {/* Expanded student cards */}
+
+          {/* Expanded: empty state */}
           {campusOpen && campusLogs.length === 0 && (
-            <div style={{ borderTop:'1px solid rgba(255,255,255,0.08)', background:'rgba(255,255,255,0.04)' }}>
-              <EmptyState compact icon={<Clock />}
-                heading="No students on campus today"
-                subtext="Students appear here after scanning the badge QR code and submitting a shift log." />
+            <div style={{ padding:'24px 20px', textAlign:'center', color:'#9ca3af' }}>
+              <Clock size={20} style={{ marginBottom:8, opacity:0.4 }} />
+              <div style={{ fontSize:13, fontWeight:500 }}>No students on campus today.</div>
+              <div style={{ fontSize:12, marginTop:4 }}>Students appear here after logging a shift via the badge QR code.</div>
             </div>
           )}
+
+          {/* Expanded: student picture-card grid */}
           {campusOpen && campusLogs.length > 0 && (
-            <div style={{ padding:'0 16px 12px', display:'flex', gap:12, overflowX:'auto' }}>
+            <div style={{
+              padding:20,
+              display:'grid',
+              gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))',
+              gap:16,
+              maxHeight:640, overflowY:'auto',
+            }}>
               {campusLogs.map(log => {
                 const stu = students.find(s => s.id === log.student_id)
-                if (!stu) return null
-                const isNight = log.shift_type === 'Night'
-                return (
-                  <div key={log.id} style={{ width:160, flexShrink:0, background:'rgba(255,255,255,0.08)',
-                    borderRadius:8, padding:12, border:'1px solid rgba(255,255,255,0.12)' }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
-                      <StudentAvatar student={stu} size={28} />
-                      <div style={{ minWidth:0 }}>
-                        <div style={{ fontSize:12, fontWeight:600, color:'#fff', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                          {stu.last_name}{stu.last_name&&stu.first_name?', ':''}{stu.first_name}
-                        </div>
-                        <div style={{ fontSize:11, color:'rgba(255,255,255,0.7)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                          {log.unit_name||'—'}
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                      <span style={{ fontSize:10, fontWeight:600, padding:'1px 7px', borderRadius:10,
-                        background:isNight?'rgba(255,255,255,0.1)':'#dceff8', color:isNight?'#fff':'#1d4ed8' }}>
-                        {log.shift_type||'Day'}
-                      </span>
-                      <span style={{ fontSize:11, fontWeight:500, color:'#4ade80' }}>{log.total_hours} hrs</span>
-                    </div>
-                  </div>
-                )
+                return stu ? <CampusStudentCard key={log.id} log={log} student={stu} units={units} /> : null
               })}
             </div>
           )}
