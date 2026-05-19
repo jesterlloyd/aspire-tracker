@@ -61,8 +61,8 @@ export default function UnifiedNav({
 
   return (
     <nav style={{
-      background: '#FAFAF7',
-      borderBottom: '1px solid rgba(29,37,103,0.08)',
+      background: 'var(--bg-card,#FAFAF7)',
+      borderBottom: '1px solid var(--border-divider,rgba(29,37,103,0.08))',
       padding: '0 24px',
       display: 'flex',
       alignItems: 'stretch',
@@ -82,9 +82,9 @@ export default function UnifiedNav({
               position: 'relative',
               padding: '14px 16px 12px',
               border: 'none',
-              borderBottom: isActive ? '2px solid #1D2567' : '2px solid transparent',
+              borderBottom: isActive ? '2px solid var(--color-accent-primary,#1D2567)' : '2px solid transparent',
               background: 'none',
-              color: isActive ? '#1D2567' : '#6B7280',
+              color: isActive ? 'var(--color-accent-primary,#1D2567)' : 'var(--text-muted,#6B7280)',
               fontFamily: 'DM Sans, sans-serif',
               cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: 9,
@@ -92,17 +92,17 @@ export default function UnifiedNav({
               flexShrink: 0,
               marginBottom: -1,
             }}
-            onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = '#374151' }}
-            onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = '#6B7280' }}
+            onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = 'var(--text-caption,#374151)' }}
+            onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = 'var(--text-muted,#6B7280)' }}
           >
             {/* Acronym badge */}
             <span style={{
               width: 22, height: 22, borderRadius: 5, flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 10, fontWeight: 700, letterSpacing: '-0.02em',
-              background: isActive ? '#1D2567' : '#EDEEF4',
-              color: isActive ? '#fff' : '#1D2567',
-              border: isActive ? '1px solid #1D2567' : '1px solid rgba(29,37,103,0.08)',
+              background: isActive ? 'var(--color-accent-primary,#1D2567)' : 'var(--color-bg-elevated,#EDEEF4)',
+              color: isActive ? '#fff' : 'var(--color-accent-primary,#1D2567)',
+              border: isActive ? '1px solid var(--color-accent-primary,#1D2567)' : '1px solid var(--border-divider,rgba(29,37,103,0.08))',
             }}>
               {mark}
             </span>
@@ -136,7 +136,7 @@ export default function UnifiedNav({
                   </span>
                 )}
               </div>
-              <div style={{ fontSize: 10.5, color: isActive ? 'rgba(29,37,103,0.45)' : '#98A2B3', marginTop: 2, fontWeight: 400 }}>
+              <div style={{ fontSize: 10.5, color: isActive ? 'var(--color-accent-primary,rgba(29,37,103,0.65))' : 'var(--text-muted,#98A2B3)', marginTop: 2, fontWeight: 400 }}>
                 {sub}
               </div>
             </div>

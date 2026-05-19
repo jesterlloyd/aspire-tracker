@@ -40,11 +40,12 @@ function CapCircle({ cx, cy, innerR, outerR, leftDeg, fill }) {
   return <circle cx={capCx.toFixed(2)} cy={capCy.toFixed(2)} r={capR} fill={fill} />
 }
 
+// Gauge colors reference CSS variables so they switch with the theme
 const GAUGE_COLORS = {
-  sage:       '#C8D5C0',
-  periwinkle: '#D5DCEC',
-  chroma:     '#F2D5E0',
-  baseline:   '#EDEDEB',
+  sage:       'var(--gauge-segment-placed,   #C8D5C0)',
+  periwinkle: 'var(--gauge-segment-awaiting, #D5DCEC)',
+  chroma:     'var(--gauge-segment-over,     #F2D5E0)',
+  baseline:   'var(--gauge-segment-base,     #EDEDEB)',
 }
 
 function CapacityCoverageGauge({ totalDemand, totalCapacity, placed, cohort }) {
@@ -123,13 +124,13 @@ function CapacityCoverageGauge({ totalDemand, totalCapacity, placed, cohort }) {
 
   return (
     <section style={{
-      background: '#fff', border: '1px solid rgba(29,37,103,0.08)', borderRadius: 14,
-      boxShadow: '0 1px 0 rgba(29,37,103,0.04), 0 1px 2px rgba(29,37,103,0.04), inset 0 1px 0 rgba(255,255,255,0.9)',
+      background: 'var(--bg-card,#fff)', border: '1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius: 14,
+      boxShadow: 'var(--shadow-card)',
       overflow: 'hidden', fontFamily: 'DM Sans, sans-serif', height: '100%', boxSizing: 'border-box',
     }}>
-      <div style={{ padding: '14px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(29,37,103,0.04)' }}>
-        <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#475467', fontWeight: 600 }}>Capacity Coverage</div>
-        <div style={{ fontSize: 11, color: '#98A2B3' }}>{cohortName} · live snapshot</div>
+      <div style={{ padding: '14px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-card,rgba(29,37,103,0.04))' }}>
+        <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--text-caption,#475467)', fontWeight: 600 }}>Capacity Coverage</div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted,#98A2B3)' }}>{cohortName} · live snapshot</div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 12px 14px' }}>
@@ -171,7 +172,7 @@ function CapacityCoverageGauge({ totalDemand, totalCapacity, placed, cohort }) {
             {centerBig}
           </text>
           <text x={cx} y={cy - 10} textAnchor="middle" fontFamily="DM Sans, sans-serif"
-            fontSize="9.5" fontWeight="500" fill="#98A2B3">
+            fontSize="9.5" fontWeight="500" fill="var(--text-muted,#98A2B3)">
             {centerSub}
           </text>
         </svg>
@@ -237,12 +238,12 @@ function CampusStudentCard({ log, student, units, onSelectStudent }) {
         </span>
       </div>
       {/* Details: bottom 35% */}
-      <div style={{ padding:'10px 12px 12px' }}>
-        <div style={{ fontWeight:700, fontSize:14, color:'#0E1428', marginBottom:2,
+      <div style={{ padding:'10px 12px 12px', background:'var(--bg-card,#fff)' }}>
+        <div style={{ fontWeight:700, fontSize:14, color:'var(--text-heading,#0E1428)', marginBottom:2,
           whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
           {student.first_name} {student.last_name}
         </div>
-        <div style={{ fontSize:12, color:'#6b7280', marginBottom:2,
+        <div style={{ fontSize:12, color:'var(--text-caption,#6b7280)', marginBottom:2,
           whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
           {unitName}
         </div>
@@ -266,18 +267,18 @@ function ProgramAtAGlance({ totalSlots, placedCount, slotsRemaining, studentsReq
   const placedPct = totalSlots > 0 ? Math.round((placedCount / totalSlots) * 100) : 0
   const updatedLabel = useUpdatedLabel(cohortId)
   return (
-    <section style={{ background: '#fff', border: '1px solid rgba(29,37,103,0.08)', borderRadius: 14, boxShadow: '0 1px 0 rgba(29,37,103,0.04), 0 1px 2px rgba(29,37,103,0.04), inset 0 1px 0 rgba(255,255,255,0.9)', overflow: 'hidden', fontFamily: 'DM Sans, sans-serif', height: '100%', boxSizing: 'border-box' }}>
+    <section style={{ background: 'var(--bg-card,#fff)', border: '1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius: 14, boxShadow: 'var(--shadow-card)', overflow: 'hidden', fontFamily: 'DM Sans, sans-serif', height: '100%', boxSizing: 'border-box' }}>
       {/* Eyebrow strip */}
-      <div style={{ padding: '14px 22px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(29,37,103,0.04)' }}>
-        <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#475467', fontWeight: 600 }}>
+      <div style={{ padding: '14px 22px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-card,rgba(29,37,103,0.04))' }}>
+        <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--text-caption,#475467)', fontWeight: 600 }}>
           Program at a Glance
         </div>
-        <div style={{ fontSize: 11.5, color: '#98A2B3', fontVariantNumeric: 'tabular-nums' }}>
+        <div style={{ fontSize: 11.5, color: 'var(--text-muted,#98A2B3)', fontVariantNumeric: 'tabular-nums' }}>
           {cohort?.name || 'Cohort'} · {studentsRequesting} students · {activeSchools} affiliated schools · {participatingUnits} hosting units · Updated {updatedLabel}
         </div>
       </div>
       {/* KPI grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', background: 'rgba(29,37,103,0.04)', gap: 1 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', background: 'var(--border-card,rgba(29,37,103,0.04))', gap: 1 }}>
         <KPICell value={totalSlots}          label="Total Slots"       sub={`${participatingUnits} units`} />
         <KPICell value={placedCount}         label="Slots Filled"      sub={`${placedPct}% of total capacity`} accent="sage" />
         <KPICell value={slotsRemaining}      label="Open Slots" />
@@ -965,20 +966,20 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
         {/* ── On Campus Today — light card style matching rest of tab ── */}
         <div style={{
-          background:'#fff', border:'1px solid rgba(29,37,103,0.08)', borderRadius:12,
-          boxShadow:'0 1px 0 rgba(29,37,103,0.04), 0 1px 2px rgba(29,37,103,0.04)',
+          background:'var(--bg-card,#fff)', border:'1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius:12,
+          boxShadow:'var(--shadow-card)',
           overflow:'hidden', margin:'20px 0 24px', fontFamily:'DM Sans, sans-serif',
         }}>
           {/* Header row */}
           <div onClick={() => setCampusOpen(p => !p)}
             style={{ display:'flex', alignItems:'center', gap:10, padding:'0 20px', height:56,
-              cursor:'pointer', borderBottom: campusOpen ? '1px solid rgba(29,37,103,0.06)' : 'none' }}>
+              cursor:'pointer', borderBottom: campusOpen ? '1px solid var(--border-card,rgba(29,37,103,0.06))' : 'none' }}>
             <span style={{
               width:8, height:8, borderRadius:'50%', flexShrink:0, display:'inline-block',
               background: campusLogs.length > 0 ? '#22c55e' : '#d1d5db',
               animation: campusLogs.length > 0 ? 'pulse 2s infinite' : 'none',
             }} />
-            <span style={{ fontSize:13, fontWeight:600, color:'#0E1428' }}>On Campus Today</span>
+            <span style={{ fontSize:13, fontWeight:600, color:'var(--text-heading,#0E1428)' }}>On Campus Today</span>
             {campusLoading
               ? <span style={{ fontSize:12, color:'#9ca3af' }}>Loading…</span>
               : campusLogs.length > 0

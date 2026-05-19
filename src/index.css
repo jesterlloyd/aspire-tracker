@@ -1,3 +1,6 @@
+/* Theme token layer — must load before any legacy vars */
+@import './styles/theme.css';
+
 /* ================================================================
    ASPIRE Placement Tracker — Design System
    Font: DM Sans 400/500/600/700
@@ -41,18 +44,24 @@ body { min-height: 100vh; }
 /* ================================================================
    LAYOUT
    ================================================================ */
-.app { min-height: 100vh; background: var(--sand); }
+.app { min-height: 100vh; background: var(--bg-app, var(--sand)); }
 
 /* Sticky top section — wraps header + cohort bar so no gap can appear between them */
 .top-section {
   position: sticky; top: 0; z-index: 200;
-  background: var(--nightfall);
+  background: var(--color-header-bg, var(--nightfall));
   box-shadow: 0 2px 8px rgba(29,37,103,0.25);
 }
 
 /* App header — deep navy gradient */
 .app-header {
   background: linear-gradient(180deg, #1c2452 0%, #141928 100%);
+}
+[data-theme="dark"] .app-header {
+  background: var(--color-header-bg, #0A0E14);
+}
+[data-theme="dark"] .top-section {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.40);
 }
 .header-inner {
   max-width: 1440px; margin: 0 auto;
@@ -64,7 +73,7 @@ body { min-height: 100vh; }
 .header-sub    { font-size: 11px; color: var(--nova); margin-top: 1px; opacity: 0.8; }
 .header-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
-.app-main { max-width: 1440px; margin: 0 auto; padding: 20px 24px 0; }
+.app-main { max-width: 1440px; margin: 0 auto; padding: 20px 24px 0; background: var(--bg-app, var(--sand)); }
 
 /* ================================================================
    BUTTONS
@@ -2308,4 +2317,163 @@ a.doc-file-link:hover { text-decoration: underline; }
   .units-grid     { grid-template-columns: repeat(2, 1fr); }
   .students-pool  { grid-template-columns: 1fr; }
   .sf-row-2, .sf-row-3 { grid-template-columns: 1fr; }
+}
+
+/* ================================================================
+   DARK MODE — structural overrides for CSS-class-based elements
+   All inline-styled React elements should use var() tokens directly.
+   ================================================================ */
+
+/* ── Student Profiles tab ───────────────────────────────────────── */
+[data-theme="dark"] .student-profiles-tab,
+[data-theme="dark"] .profiles-full-container {
+  background: var(--color-bg-page); color: var(--color-text-primary);
+}
+[data-theme="dark"] .student-list-panel {
+  background: var(--color-bg-page); border-color: var(--color-border-default);
+}
+[data-theme="dark"] .table-header,
+[data-theme="dark"] .row-header {
+  background: var(--color-bg-elevated); color: var(--color-text-primary);
+  border-bottom-color: var(--color-border-subtle);
+}
+[data-theme="dark"] .row-header:hover {
+  background: var(--color-bg-hover);
+}
+[data-theme="dark"] .expanded .row-header {
+  background: var(--color-bg-elevated);
+  border-bottom-color: var(--color-border-default);
+}
+[data-theme="dark"] .student-row {
+  border-bottom-color: var(--color-border-subtle);
+}
+[data-theme="dark"] .col-name,
+[data-theme="dark"] .col-school,
+[data-theme="dark"] .col-status,
+[data-theme="dark"] .col-hours,
+[data-theme="dark"] .col-ngrp {
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .list-meta {
+  background: var(--color-bg-elevated); border-color: var(--color-border-subtle);
+  color: var(--color-text-secondary);
+}
+[data-theme="dark"] .fsp-header,
+[data-theme="dark"] .fsp-body {
+  background: var(--color-bg-surface); color: var(--color-text-primary);
+  border-color: var(--color-border-subtle);
+}
+[data-theme="dark"] .usp-division-label {
+  color: var(--color-text-secondary); border-bottom-color: var(--color-border-subtle);
+}
+
+/* ── Interview Room tab ──────────────────────────────────────────── */
+[data-theme="dark"] .interview-room-tab,
+[data-theme="dark"] .interview-tab {
+  background: var(--color-bg-page); color: var(--color-text-primary);
+}
+[data-theme="dark"] .rub-form,
+[data-theme="dark"] .rub-form-body {
+  background: var(--color-bg-surface); color: var(--color-text-primary);
+}
+
+/* ── Embed (Matching) tab ────────────────────────────────────────── */
+[data-theme="dark"] .matching-board,
+[data-theme="dark"] .units-grid,
+[data-theme="dark"] .students-pool {
+  background: var(--color-bg-page);
+}
+[data-theme="dark"] .embed-units-body,
+[data-theme="dark"] .embed-students-body {
+  background: var(--color-bg-surface);
+}
+
+/* ── Modals ──────────────────────────────────────────────────────── */
+[data-theme="dark"] .modal-overlay {
+  background: var(--color-bg-overlay);
+}
+[data-theme="dark"] .modal-box,
+[data-theme="dark"] .modal-content {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .modal-header {
+  border-bottom-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+
+/* ── Input elements ──────────────────────────────────────────────── */
+[data-theme="dark"] .uf-input,
+[data-theme="dark"] .uf-textarea,
+[data-theme="dark"] .uf-select {
+  background: var(--color-bg-input);
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="email"],
+[data-theme="dark"] input[type="tel"],
+[data-theme="dark"] input[type="date"],
+[data-theme="dark"] input[type="number"],
+[data-theme="dark"] input[type="search"],
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: var(--color-bg-input);
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: var(--color-text-placeholder);
+}
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus,
+[data-theme="dark"] textarea:focus {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  border-color: var(--color-focus-ring);
+}
+
+/* ── Student Avatar placeholder ─────────────────────────────────── */
+[data-theme="dark"] .student-avatar-placeholder {
+  background: var(--color-bg-elevated); color: var(--color-text-secondary);
+}
+
+/* ── Aggregate tab — status panel tiles ─────────────────────────── */
+[data-theme="dark"] .ov-group-items > div[style*="border"] {
+  background: var(--color-bg-elevated) !important;
+  border-color: var(--color-border-default) !important;
+}
+
+/* ── Sticky headers in aggregate ────────────────────────────────── */
+[data-theme="dark"] .aggregate-sticky-header {
+  background: var(--color-bg-page);
+  border-bottom-color: var(--color-border-default);
+}
+
+/* ── State boxes / error boxes ───────────────────────────────────── */
+[data-theme="dark"] .state-box {
+  background: var(--color-bg-surface); color: var(--color-text-primary);
+}
+[data-theme="dark"] .error-box {
+  background: var(--color-status-danger-bg); border-color: var(--color-status-danger);
+}
+
+/* ── Full-screen side panels ─────────────────────────────────────── */
+[data-theme="dark"] .side-panel,
+[data-theme="dark"] .drawer-panel {
+  background: var(--color-bg-surface);
+  border-left-color: var(--color-border-default);
+}
+
+/* ── Toast notifications ─────────────────────────────────────────── */
+[data-theme="dark"] .toast {
+  background: var(--color-bg-elevated); color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+}
+
+/* ── Focus rings for accessibility ──────────────────────────────── */
+[data-theme="dark"] *:focus-visible {
+  outline-color: var(--color-focus-ring);
 }

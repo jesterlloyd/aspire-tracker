@@ -10,6 +10,22 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body>
+    <!-- FOUC prevention: apply stored theme before first paint -->
+    <script>
+      (function() {
+        try {
+          var t = localStorage.getItem('aspire-theme');
+          var valid = ['light', 'dark', 'system'];
+          if (!valid.includes(t)) t = 'light';
+          if (t === 'system') {
+            t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.setAttribute('data-theme', t);
+        } catch(e) {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

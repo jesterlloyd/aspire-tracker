@@ -40,7 +40,7 @@ export function KPICell({ value, label, sub, accent }) {
     accent === 'warning' ? colors.dawn :
                            colors.ink2
   return (
-    <div style={{ background: colors.surface, padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div style={{ background: 'var(--bg-card, '+colors.surface+')', padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 4 }}>
       <div style={{ ...styles.bigNumber, color: valueColor }}>
         {value ?? 0}
       </div>

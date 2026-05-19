@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { getAvatarUrl } from '../lib/getAvatar';
 import { LogOut, Users, ChevronDown } from 'lucide-react';
+import ThemeToggle from './ThemeToggle';
 
 const ROLE_LABELS = {
   owner:       { label: 'Owner',       bg: '#1D2567', color: '#ffffff' },
@@ -128,19 +129,20 @@ export default function UserMenu({ onOpenUserManagement, onRestartTour }) {
           <div onClick={() => setIsOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 998 }} />
           <div style={{
             position: 'absolute', top: '100%', right: 0, marginTop: '6px',
-            background: '#ffffff', borderRadius: '12px',
-            boxShadow: '0 8px 32px rgba(29,37,103,0.18)',
+            background: 'var(--color-bg-surface, #ffffff)', borderRadius: '12px',
+            boxShadow: 'var(--shadow-elevated, 0 8px 32px rgba(29,37,103,0.18))',
+            border: '1px solid var(--color-border-default, transparent)',
             minWidth: '200px', zIndex: 999, overflow: 'hidden',
           }}>
             {/* Profile info */}
-            <div style={{ padding:'14px 16px', borderBottom:'1px solid #f3f4f6', display:'flex', alignItems:'center', gap:'12px' }}>
+            <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--color-border-subtle,#f3f4f6)', display:'flex', alignItems:'center', gap:'12px' }}>
               <div style={{ width:'40px', height:'40px', borderRadius:'50%', overflow:'hidden', flexShrink:0 }}>
                 <img src={getAvatarUrl(userProfile)} alt={userProfile.full_name}
                   style={{ width:'100%', height:'100%', objectFit:'cover' }} />
               </div>
               <div>
-                <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'13px', color:'#1D2567' }}>{userProfile.full_name}</div>
-                <div style={{ fontFamily:'DM Sans', fontSize:'11px', color:'#9ca3af', marginTop:'2px' }}>{userProfile.email}</div>
+                <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'13px', color:'var(--color-text-primary,#1D2567)' }}>{userProfile.full_name}</div>
+                <div style={{ fontFamily:'DM Sans', fontSize:'11px', color:'var(--color-text-muted,#9ca3af)', marginTop:'2px' }}>{userProfile.email}</div>
                 <span style={{ display:'inline-block', marginTop:'5px', background:roleStyle.bg, color:roleStyle.color, fontFamily:'DM Sans', fontWeight:700, fontSize:'10px', padding:'2px 8px', borderRadius:'20px' }}>
                   {userProfile.is_owner ? 'Owner' : roleStyle.label}
                 </span>
@@ -184,14 +186,20 @@ export default function UserMenu({ onOpenUserManagement, onRestartTour }) {
             {onRestartTour && (
               <button
                 onClick={() => { setIsOpen(false); onRestartTour(); }}
-                style={{ width: '100%', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: '#374151', cursor: 'pointer', textAlign: 'left', borderTop: '1px solid #f3f4f6', transition: 'background 0.15s ease' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                style={{ width: '100%', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)', cursor: 'pointer', textAlign: 'left', borderTop: '1px solid var(--color-border-subtle,#f3f4f6)', transition: 'background 0.15s ease' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-hover,#f9fafb)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'none'}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
                 Restart Welcome Tour
               </button>
             )}
+
+            {/* Theme toggle */}
+            <div style={{ padding:'10px 16px', borderTop:'1px solid var(--color-border-subtle, #f3f4f6)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+              <span style={{ fontFamily:'DM Sans', fontSize:12, color:'var(--color-text-secondary, #6b7280)', fontWeight:500 }}>Appearance</span>
+              <ThemeToggle />
+            </div>
 
             {/* Sign out */}
             <button
@@ -200,11 +208,11 @@ export default function UserMenu({ onOpenUserManagement, onRestartTour }) {
                 width: '100%', padding: '12px 16px',
                 display: 'flex', alignItems: 'center', gap: '10px',
                 background: 'none', border: 'none',
-                fontFamily: 'DM Sans', fontSize: '13px', color: '#374151',
+                fontFamily: 'DM Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)',
                 cursor: 'pointer', textAlign: 'left',
                 transition: 'background 0.15s ease',
               }}
-              onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-hover,#f9fafb)'}
               onMouseLeave={e => e.currentTarget.style.background = 'none'}
             >
               <LogOut size={14} color="#6b7280" />

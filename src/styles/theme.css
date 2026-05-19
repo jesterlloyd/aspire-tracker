@@ -1,0 +1,338 @@
+/* ================================================================
+   ASPIRE Intelligence — Theme Layer
+   Two-tier token system: palette tokens (raw colors) + semantic aliases
+   Switched via data-theme attribute on <html>
+   ================================================================ */
+
+/* ── Light mode (default) ──────────────────────────────────────── */
+:root,
+:root[data-theme="light"] {
+  /* Surfaces */
+  --color-bg-page:     #F4F1EC;
+  --color-bg-surface:  #FFFFFF;
+  --color-bg-elevated: #FFFFFF;
+  --color-bg-overlay:  rgba(15, 20, 25, 0.40);
+  --color-bg-input:    #FFFFFF;
+  --color-bg-hover:    rgba(29, 37, 103, 0.04);
+
+  /* Text */
+  --color-text-primary:   #191919;
+  --color-text-secondary: #4A5560;
+  --color-text-muted:     #6B7785;
+  --color-text-inverse:   #FFFFFF;
+  --color-text-placeholder: #9CA3AF;
+
+  /* Borders */
+  --color-border-subtle:  rgba(25, 25, 25, 0.06);
+  --color-border-default: rgba(25, 25, 25, 0.10);
+  --color-border-strong:  rgba(25, 25, 25, 0.18);
+
+  /* Brand accents */
+  --color-accent-primary:   #1D2567;   /* Nightfall */
+  --color-accent-hover:     #2C2C42;
+  --color-accent-secondary: #930045;   /* Chroma */
+  --color-accent-marina:    #4F6DA8;
+  --color-accent-lavender:  #B8B5D6;
+  --color-accent-nova:      #9FAFF8;
+
+  /* Status — success (sage / placed) */
+  --color-status-success:    #2D4A2B;
+  --color-status-success-bg: #C8D5C0;
+  --color-status-success-fg: #1F3219;
+
+  /* Status — warning (amber / pending) */
+  --color-status-warning:    #8B6914;
+  --color-status-warning-bg: #F4D9B6;
+  --color-status-warning-fg: #5C4509;
+
+  /* Status — danger (chroma / flag) */
+  --color-status-danger:    #930045;
+  --color-status-danger-bg: #F2D5E0;
+  --color-status-danger-fg: #5C0029;
+
+  /* Status — info (marina / neutral) */
+  --color-status-info:    #4F6DA8;
+  --color-status-info-bg: #D5DCEC;
+  --color-status-info-fg: #2C3E66;
+
+  /* Header */
+  --color-header-bg:   #1D2567;
+  --color-header-text: #FFFFFF;
+
+  /* Shadows */
+  --shadow-card:       0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-elevated:   0 8px 24px rgba(0, 0, 0, 0.12);
+
+  /* Gauge segments */
+  --gauge-segment-placed:   #C8D5C0;
+  --gauge-segment-awaiting: #D5DCEC;
+  --gauge-segment-over:     #F2D5E0;
+  --gauge-segment-base:     #EDEDEB;
+
+  /* Focus */
+  --color-focus-ring: #4F6DA8;
+}
+
+/* ── Dark mode ─────────────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  /* Surfaces */
+  --color-bg-page:     #0F1419;
+  --color-bg-surface:  #171D24;
+  --color-bg-elevated: #1C232D;
+  --color-bg-overlay:  rgba(0, 0, 0, 0.60);
+  --color-bg-input:    #1C232D;
+  --color-bg-hover:    rgba(255, 255, 255, 0.05);
+
+  /* Text */
+  --color-text-primary:   #F2F5F8;
+  --color-text-secondary: #AAB4C0;
+  --color-text-muted:     #7B8794;
+  --color-text-inverse:   #0F1419;
+  --color-text-placeholder: #6B7785;
+
+  /* Borders */
+  --color-border-subtle:  rgba(255, 255, 255, 0.06);
+  --color-border-default: rgba(255, 255, 255, 0.10);
+  --color-border-strong:  rgba(255, 255, 255, 0.16);
+
+  /* Brand accents (lifted for legibility on dark) */
+  --color-accent-primary:   #6B8EFF;
+  --color-accent-hover:     #8FA9FF;
+  --color-accent-secondary: #E2569C;
+  --color-accent-marina:    #8FA9FF;
+  --color-accent-lavender:  #C7C2E8;
+  --color-accent-nova:      #B8C5FF;
+
+  /* Status */
+  --color-status-success:    #6BBF6F;
+  --color-status-success-bg: rgba(107, 191, 111, 0.18);
+  --color-status-success-fg: #95D699;
+
+  --color-status-warning:    #E8B86A;
+  --color-status-warning-bg: rgba(232, 184, 106, 0.18);
+  --color-status-warning-fg: #F2C982;
+
+  --color-status-danger:    #E2569C;
+  --color-status-danger-bg: rgba(226, 86, 156, 0.18);
+  --color-status-danger-fg: #F08CB8;
+
+  --color-status-info:    #8FA9FF;
+  --color-status-info-bg: rgba(143, 169, 255, 0.18);
+  --color-status-info-fg: #ADBFFF;
+
+  /* Header */
+  --color-header-bg:   #0A0E14;
+  --color-header-text: #F2F5F8;
+
+  /* Shadows */
+  --shadow-card:       0 1px 3px rgba(0, 0, 0, 0.40);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.50);
+  --shadow-elevated:   0 8px 24px rgba(0, 0, 0, 0.60);
+
+  /* Gauge segments */
+  --gauge-segment-placed:   rgba(107, 191, 111, 0.55);
+  --gauge-segment-awaiting: rgba(143, 169, 255, 0.50);
+  --gauge-segment-over:     rgba(226, 86, 156, 0.50);
+  --gauge-segment-base:     rgba(255, 255, 255, 0.06);
+
+  /* Focus */
+  --color-focus-ring: #8FA9FF;
+}
+
+/* ── Semantic aliases (never rename; only values change per theme) */
+:root {
+  --bg-app:           var(--color-bg-page);
+  --bg-card:          var(--color-bg-surface);
+  --bg-card-elevated: var(--color-bg-elevated);
+  --bg-input:         var(--color-bg-input);
+  --bg-hover:         var(--color-bg-hover);
+
+  --text-heading:     var(--color-text-primary);
+  --text-body:        var(--color-text-primary);
+  --text-caption:     var(--color-text-secondary);
+  --text-muted:       var(--color-text-muted);
+
+  --border-card:      var(--color-border-subtle);
+  --border-divider:   var(--color-border-default);
+  --border-input:     var(--color-border-default);
+  --border-strong:    var(--color-border-strong);
+}
+
+/* ── Smooth theme transitions ─────────────────────────────────── */
+*,
+*::before,
+*::after {
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    fill 180ms ease,
+    stroke 180ms ease;
+}
+
+/* Opt-out for elements that should never transition */
+.no-theme-transition,
+.no-theme-transition * {
+  transition: none !important;
+}
+
+/* ── Dark mode: top-level structural overrides ─────────────────── */
+/* These cover elements that still use the legacy CSS vars */
+[data-theme="dark"] .app {
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .app-main {
+  background: var(--color-bg-page);
+}
+
+[data-theme="dark"] body {
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+}
+
+/* Surfaces that use var(--sand) or var(--pearl) */
+[data-theme="dark"] .aggregate-sticky-header,
+[data-theme="dark"] .overview-tab {
+  background: var(--color-bg-page);
+}
+
+[data-theme="dark"] .aggregate-scrollable-content {
+  background: var(--color-bg-page);
+}
+
+[data-theme="dark"] .aggregate-panel-hdr {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .ov-panel-body {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-default);
+}
+
+[data-theme="dark"] .ov-group-row {
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .ov-group-row:hover {
+  background: var(--color-bg-hover);
+}
+
+[data-theme="dark"] .ov-group-name {
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .ov-group-badge {
+  background: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+}
+
+[data-theme="dark"] .ov-group-items {
+  background: var(--color-bg-elevated);
+  border-color: var(--color-border-subtle);
+}
+
+[data-theme="dark"] .ucr-row {
+  border-bottom-color: var(--color-border-subtle);
+}
+
+[data-theme="dark"] .ucr-row:hover {
+  background: var(--color-bg-hover);
+}
+
+[data-theme="dark"] .ov-unit-row,
+[data-theme="dark"] .ov-student-row {
+  background: transparent;
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .ov-panel-title {
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .ov-panel-sub {
+  color: var(--color-text-secondary);
+}
+
+[data-theme="dark"] .ov-expand-toggle button {
+  color: var(--color-text-secondary);
+}
+
+/* Modals and drawers */
+[data-theme="dark"] .modal-overlay {
+  background: var(--color-bg-overlay);
+}
+
+[data-theme="dark"] .modal-box,
+[data-theme="dark"] .modal-content {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .modal-header {
+  border-bottom-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .modal-body {
+  color: var(--color-text-primary);
+}
+
+/* Full-screen panels (Student Profiles, Interview Room) */
+[data-theme="dark"] .profiles-full-container,
+[data-theme="dark"] .fsp-header,
+[data-theme="dark"] .fsp-body,
+[data-theme="dark"] .student-list-panel {
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .student-row {
+  border-bottom-color: var(--color-border-subtle);
+}
+
+[data-theme="dark"] .row-header {
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .row-header:hover,
+[data-theme="dark"] .student-row:hover .row-header {
+  background: var(--color-bg-hover);
+}
+
+[data-theme="dark"] .list-meta {
+  background: var(--color-bg-elevated);
+  border-color: var(--color-border-subtle);
+  color: var(--color-text-secondary);
+}
+
+/* Inputs */
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: var(--color-bg-input);
+  border-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: var(--color-text-placeholder);
+}
+
+/* Public forms — always stay light */
+[data-theme-lock="light"] {
+  --color-bg-page:     #F4F1EC;
+  --color-bg-surface:  #FFFFFF;
+  --color-bg-elevated: #FFFFFF;
+  --color-text-primary:   #191919;
+  --color-text-secondary: #4A5560;
+  --color-text-muted:     #6B7785;
+  --color-border-subtle:  rgba(25, 25, 25, 0.06);
+  --color-border-default: rgba(25, 25, 25, 0.10);
+}

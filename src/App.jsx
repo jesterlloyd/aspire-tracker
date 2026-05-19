@@ -1030,11 +1030,11 @@ export default function App() {
   const publicPaths = ['/unit-form', '/school-form', '/student-form', '/interview-schedule', '/shift-log']
   const isPublicRoute = publicPaths.some(p => path.startsWith(p))
 
-  if (path.startsWith('/unit-form'))           return <UnitFormPage />
-  if (path.startsWith('/school-form'))         return <SchoolFormPage />
-  if (path.startsWith('/student-form'))        return <StudentIntakeFormPage />
-  if (path.startsWith('/interview-schedule'))  return <InterviewSchedulePage />
-  if (path.startsWith('/shift-log'))            return <ShiftLogPage />
+  if (path.startsWith('/unit-form'))           return <div data-theme-lock="light"><UnitFormPage /></div>
+  if (path.startsWith('/school-form'))         return <div data-theme-lock="light"><SchoolFormPage /></div>
+  if (path.startsWith('/student-form'))        return <div data-theme-lock="light"><StudentIntakeFormPage /></div>
+  if (path.startsWith('/interview-schedule'))  return <div data-theme-lock="light"><InterviewSchedulePage /></div>
+  if (path.startsWith('/shift-log'))           return <div data-theme-lock="light"><ShiftLogPage /></div>
 
   // Loading state while Supabase checks session
   if (loading) {
