@@ -241,11 +241,9 @@ function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showTo
     return unitRow ? (filledByUnit[unitRow.id] || 0) : 0
   })()
 
-  const border = isHosting ? '2px solid #C8D5C0' : isDecline ? '1px solid #e5e7eb' : '1px dashed #d1d5db'
-
   return (
-    <div style={{ borderRadius:8, border, padding:'8px 12px', marginBottom:5, opacity: isPending ? 0.65 : 1, background:'#fff' }}>
-      <div style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
+    <div style={{ opacity: isPending ? 0.6 : 1 }}>
+      <div className="ucr-row">
         {/* Left: name + description */}
         <div style={{ flex:1, minWidth:0 }}>
           <div style={{ fontWeight:600, fontSize:12.5, color:'#0E1428', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
@@ -290,7 +288,7 @@ function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showTo
         </div>
       </div>
       {isDecline && expanded && response.reason_for_zero && (
-        <div style={{ marginTop:6, fontSize:11.5, color:'#6b7280', paddingLeft:6, borderLeft:'2px solid #e5e7eb' }}>
+        <div style={{ margin:'0 18px 6px', padding:'6px 10px', fontSize:11.5, color:'#6b7280', borderLeft:'2px solid rgba(25,25,25,0.1)', background:'rgba(25,25,25,0.02)' }}>
           {response.reason_for_zero}
         </div>
       )}
@@ -356,8 +354,8 @@ function PlacementCapacityPanel({
         const uninvited   = statusFilter === 'all'
           ? (catalogByDiv[div] || []).filter(name => !responseByName[name]).length
           : 0
-        // open defaults to true unless explicitly set false
-        const open = unitGroupsOpen[div] !== false
+        // collapsed by default; opens when explicitly set true
+        const open = unitGroupsOpen[div] === true
 
         return (
           <div key={div} className="ov-group">
@@ -547,9 +545,9 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     unitsByDiv[div].sort((a, b) => (a.unit_name || '').localeCompare(b.unit_name || ''))
   )
 
-  const toggleUnitGroup  = div => setUnitGroupsOpen(p => ({ ...p, [div]: p[div] === false }))
+  const toggleUnitGroup  = div => setUnitGroupsOpen(p => ({ ...p, [div]: p[div] !== true }))
   const expandAllUnits   = () => setUnitGroupsOpen(Object.fromEntries(DIVISION_ORDER.map(d => [d, true])))
-  const collapseAllUnits = () => setUnitGroupsOpen(Object.fromEntries(DIVISION_ORDER.map(d => [d, false])))
+  const collapseAllUnits = () => setUnitGroupsOpen({})
 
   // ── School grouping ────────────────────────────────────────
   const schoolMap = {}
@@ -605,8 +603,8 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       <div className="aggregate-sticky-header">
 
         {/* Program at a Glance + Capacity Coverage Gauge — two-column, stacks below ~900px */}
-        <div style={{ display: 'flex', gap: 14, marginBottom: 20, marginTop: 20, alignItems: 'stretch', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 560px', minWidth: 0 }}>
+        <div style={{ display: 'flex', gap: 14, marginBottom: 20, marginTop: 0, alignItems: 'stretch', flexWrap: 'wrap' }}>
+          <div style={{ flex: '7 1 0', minWidth: 0 }}>
             <ProgramAtAGlance
               totalSlots={totalSlots}
               placedCount={placedCount}
@@ -619,7 +617,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
               cohortId={cohortId}
             />
           </div>
-          <div style={{ flex: '1 1 260px', minWidth: 240 }}>
+          <div style={{ flex: '3 1 0', minWidth: 180 }}>
             <CapacityCoverageGauge
               totalDemand={totalStudents}
               totalCapacity={totalSlots}
