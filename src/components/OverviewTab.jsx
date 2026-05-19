@@ -4,7 +4,7 @@ import { useUpdatedLabel, KPICell } from './KPIBand'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
-import { getUnit } from '../lib/unitCatalog'
+import { getUnit, UNIT_CATALOG, DIVISION_ORDER } from '../lib/unitCatalog'
 import StudentAvatar from './StudentAvatar'
 import CohortGantt from './CohortGantt'
 import StatusLegendPopover from './StatusLegendPopover'
@@ -237,82 +237,72 @@ function ProgramAtAGlance({ totalSlots, placedCount, slotsRemaining, studentsReq
 
 const DIVISIONS = ['Surgical', 'Medical', 'Critical Care', 'Specialty']
 
-// ── Unit Response Status panel — three-state tile display ────────────────────
+// ── Placement Capacity panel — division-grouped, filterable ──────────────────
 
-function UnitResponseTile({ response, filledByUnit, units, primaryLeadMap, showToast }) {
+function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showToast }) {
   const [expanded, setExpanded] = useState(false)
-  const status   = response.response_status
+  const status    = response.response_status
   const isHosting = status === 'submitted_hosting'
   const isDecline = status === 'submitted_not_hosting'
   const isPending = status === 'pending'
+  const desc      = getUnit(response.unit_name)?.description
+  const lead      = primaryLeadMap[response.unit_name]
 
   const filledCount = (() => {
     const unitRow = units.find(u => u.id === response.unit_id)
-    if (!unitRow) return 0
-    return filledByUnit[unitRow.id] || 0
+    return unitRow ? (filledByUnit[unitRow.id] || 0) : 0
   })()
 
-  const lead = primaryLeadMap[response.unit_name]
-
-  const tileBorder = isHosting ? '2px solid #C8D5C0' : isDecline ? '1px solid #e5e7eb' : '1px dashed #d1d5db'
-  const tileOpacity = isPending ? 0.65 : 1
+  const border = isHosting ? '2px solid #C8D5C0' : isDecline ? '1px solid #e5e7eb' : '1px dashed #d1d5db'
 
   return (
-    <div style={{ borderRadius:8, border:tileBorder, padding:'10px 14px', marginBottom:6, opacity:tileOpacity, background:'#fff' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+    <div style={{ borderRadius:8, border, padding:'8px 12px', marginBottom:5, opacity: isPending ? 0.65 : 1, background:'#fff' }}>
+      <div style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
+        {/* Left: name + description */}
         <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontWeight:600, fontSize:13, color:'#0E1428', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+          <div style={{ fontWeight:600, fontSize:12.5, color:'#0E1428', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
             {response.unit_name}
           </div>
-          {getUnit(response.unit_name)?.description && (
-            <div style={{ fontSize:11, color:'#6b7280', marginTop:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-              {getUnit(response.unit_name).description}
+          {desc && (
+            <div style={{ fontSize:11, color:'#9ca3af', marginTop:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+              {desc}
             </div>
           )}
-          {response.submitted_by_name && (
-            <div style={{ fontSize:11, color:'#9ca3af', marginTop:1 }}>{response.submitted_by_name}</div>
-          )}
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+        {/* Right: status badges */}
+        <div style={{ display:'flex', alignItems:'center', gap:5, flexShrink:0, flexWrap:'wrap', justifyContent:'flex-end' }}>
           {isHosting && (
             <>
-              <span style={{ background:'#C8D5C0', color:'#2D4A2B', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:12, whiteSpace:'nowrap' }}>
-                Hosting · {response.slots_offered} slot{response.slots_offered === 1 ? '' : 's'}
+              <span style={{ background:'#C8D5C0', color:'#2D4A2B', fontSize:10.5, fontWeight:700, padding:'2px 8px', borderRadius:12, whiteSpace:'nowrap' }}>
+                {response.slots_offered} slot{response.slots_offered === 1 ? '' : 's'}
               </span>
               {filledCount > 0 && (
-                <span style={{ fontSize:11, color:'#166534', whiteSpace:'nowrap' }}>{filledCount} placed</span>
+                <span style={{ fontSize:10.5, color:'#166534', whiteSpace:'nowrap' }}>{filledCount} placed</span>
               )}
               {response.shift_preference && (
-                <span className="ov-shift-badge">{response.shift_preference}</span>
+                <span className="ov-shift-badge" style={{ fontSize:10.5 }}>{response.shift_preference}</span>
               )}
             </>
           )}
           {isDecline && (
-            <button
-              onClick={() => setExpanded(p => !p)}
-              style={{ background:'#E8E8E8', color:'#555', fontSize:11, fontWeight:600, padding:'2px 10px', borderRadius:12, border:'none', cursor:'pointer', whiteSpace:'nowrap' }}>
-              Not hosting {expanded ? '▲' : '▼'}
+            <button onClick={() => setExpanded(p => !p)}
+              style={{ background:'#E8E8E8', color:'#555', fontSize:10.5, fontWeight:600, padding:'2px 9px', borderRadius:12, border:'none', cursor:'pointer', whiteSpace:'nowrap' }}>
+              Not hosting {expanded ? '▴' : '▾'}
             </button>
           )}
           {isPending && (
             <button
-              onClick={() => {
-                if (lead) {
-                  showToast(`Contact ${lead.full_name} at ${lead.email} for ${response.unit_name}. (Automated reminder coming soon.)`)
-                } else {
-                  showToast(`No primary lead found for ${response.unit_name}. Check unit_leaders table.`)
-                }
-              }}
-              title="Send reminder"
-              style={{ background:'none', border:'1px dashed #9ca3af', borderRadius:6, padding:'2px 8px', fontSize:11, color:'#9ca3af', cursor:'pointer', whiteSpace:'nowrap' }}>
-              Send reminder
+              onClick={() => showToast(lead
+                ? `Contact ${lead.full_name} at ${lead.email} for ${response.unit_name}.`
+                : `No primary lead found for ${response.unit_name}. Check unit_leaders table.`)}
+              style={{ background:'none', border:'1px dashed #d1d5db', borderRadius:6, padding:'2px 7px', fontSize:10.5, color:'#9ca3af', cursor:'pointer', whiteSpace:'nowrap' }}>
+              Remind
             </button>
           )}
         </div>
       </div>
-      {/* Expanded reason for decline */}
       {isDecline && expanded && response.reason_for_zero && (
-        <div style={{ marginTop:8, fontSize:12, color:'#6b7280', paddingLeft:4, borderLeft:'2px solid #e5e7eb' }}>
+        <div style={{ marginTop:6, fontSize:11.5, color:'#6b7280', paddingLeft:6, borderLeft:'2px solid #e5e7eb' }}>
           {response.reason_for_zero}
         </div>
       )}
@@ -320,55 +310,102 @@ function UnitResponseTile({ response, filledByUnit, units, primaryLeadMap, showT
   )
 }
 
-function UnitResponsePanel({ unitResponses, filledByUnit, units, unitGroupsOpen, toggleUnitGroup, primaryLeadMap, showToast }) {
-  const hosting    = unitResponses.filter(r => r.response_status === 'submitted_hosting')
-                       .sort((a, b) => (b.slots_offered || 0) - (a.slots_offered || 0))
-  const notHosting = unitResponses.filter(r => r.response_status === 'submitted_not_hosting')
-                       .sort((a, b) => a.unit_name.localeCompare(b.unit_name))
-  const pending    = unitResponses.filter(r => r.response_status === 'pending')
-                       .sort((a, b) => a.unit_name.localeCompare(b.unit_name))
+function PlacementCapacityPanel({
+  unitResponses, filledByUnit, units, unitGroupsOpen, toggleUnitGroup,
+  primaryLeadMap, showToast, statusFilter,
+}) {
+  const showAll = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('showAll')
 
-  const groups = [
-    { key: 'hosting',    label: 'Hosting',     count: hosting.length,    badge: '#C8D5C0', badgeTxt: '#2D4A2B', rows: hosting },
-    { key: 'notHosting', label: 'Not Hosting', count: notHosting.length, badge: '#E8E8E8', badgeTxt: '#555',    rows: notHosting },
-    { key: 'pending',    label: 'Pending',      count: pending.length,   badge: '#f3f4f6', badgeTxt: '#6b7280', rows: pending },
-  ].filter(g => g.rows.length > 0)
+  // Response lookup by unit name (unfiltered, for uninvited check)
+  const responseByName = {}
+  unitResponses.forEach(r => { responseByName[r.unit_name] = r })
+
+  // Apply status filter
+  const filtered = statusFilter === 'all' ? unitResponses : unitResponses.filter(r => {
+    if (statusFilter === 'hosting')     return r.response_status === 'submitted_hosting'
+    if (statusFilter === 'not_hosting') return r.response_status === 'submitted_not_hosting'
+    if (statusFilter === 'pending')     return r.response_status === 'pending'
+    return true
+  })
+
+  // Group by division, sort alpha within
+  const byDiv = {}
+  filtered.forEach(r => {
+    const div = getUnit(r.unit_name)?.division || 'Other'
+    if (!byDiv[div]) byDiv[div] = []
+    byDiv[div].push(r)
+  })
+  Object.values(byDiv).forEach(arr => arr.sort((a, b) => a.unit_name.localeCompare(b.unit_name)))
+
+  // Catalog names per division (for uninvited empty state)
+  const catalogByDiv = {}
+  UNIT_CATALOG.forEach(u => {
+    if (!u.defaultEligible && !showAll) return
+    if (!catalogByDiv[u.division]) catalogByDiv[u.division] = []
+    catalogByDiv[u.division].push(u.name)
+  })
+
+  const divisionsToShow = DIVISION_ORDER.filter(div => {
+    if (div === 'Emergency' && !showAll) return false
+    if ((byDiv[div]?.length || 0) > 0) return true
+    // Always show divisions that have catalog units when filter=all (for uninvited state)
+    return statusFilter === 'all' && (catalogByDiv[div]?.length || 0) > 0
+  })
+
+  if (unitResponses.length === 0) {
+    return <EmptyState icon={<MapPin />} heading="No unit responses yet" subtext="Unit leaders submit /unit-form to register their availability." />
+  }
+  if (filtered.length === 0 && statusFilter !== 'all') {
+    return <div style={{ padding:'28px', textAlign:'center', fontSize:13, color:'#9ca3af' }}>No units match the selected filter.</div>
+  }
 
   return (
     <div className="ov-groups">
-      {groups.map(g => {
-        const open = unitGroupsOpen[g.key]
+      {divisionsToShow.map(div => {
+        const divRows     = byDiv[div] || []
+        const divHosting  = divRows.filter(r => r.response_status === 'submitted_hosting')
+        const divSlots    = divHosting.reduce((s, r) => s + (r.slots_offered || 0), 0)
+        const uninvited   = statusFilter === 'all'
+          ? (catalogByDiv[div] || []).filter(name => !responseByName[name]).length
+          : 0
+        // open defaults to true unless explicitly set false
+        const open = unitGroupsOpen[div] !== false
+
         return (
-          <div key={g.key} className="ov-group">
-            <div className="ov-group-row" onClick={() => toggleUnitGroup(g.key)}>
-              <span className="ov-chevron">{open ? '▾' : '▸'}</span>
-              <span className="ov-group-name">{g.label}</span>
-              <span className="ov-group-badge" style={{ background: g.badge, color: g.badgeTxt }}>
-                {g.count} unit{g.count !== 1 ? 's' : ''}
+          <div key={div} className="ov-group">
+            <div className="ov-group-row" onClick={() => toggleUnitGroup(div)}>
+              <span className="ov-chevron" style={{
+                display:'inline-block', transition:'transform 0.15s ease',
+                transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
+              }}>▸</span>
+              <span className="ov-group-name">{div}</span>
+              <span style={{ flex:1 }} />
+              {divSlots > 0 && (
+                <span style={{ fontSize:10.5, color:'#6b7280', marginRight:6, whiteSpace:'nowrap' }}>
+                  {divSlots} slot{divSlots !== 1 ? 's' : ''}
+                </span>
+              )}
+              <span className="ov-group-badge">
+                {divRows.length} unit{divRows.length !== 1 ? 's' : ''}
               </span>
             </div>
+
             {open && (
               <div className="ov-group-items">
-                {g.rows.map(r => (
-                  <UnitResponseTile
-                    key={r.id}
-                    response={r}
-                    filledByUnit={filledByUnit}
-                    units={units}
-                    primaryLeadMap={primaryLeadMap}
-                    showToast={showToast}
-                  />
+                {divRows.map(r => (
+                  <UnitResponseRow key={r.id} response={r} filledByUnit={filledByUnit}
+                    units={units} primaryLeadMap={primaryLeadMap} showToast={showToast} />
                 ))}
+                {uninvited > 0 && (
+                  <div style={{ padding:'5px 10px 2px', fontSize:11, color:'#b0b9c6', fontStyle:'italic' }}>
+                    {uninvited} unit{uninvited !== 1 ? 's' : ''} in this division haven't been invited yet.
+                  </div>
+                )}
               </div>
             )}
           </div>
         )
       })}
-      {unitResponses.length === 0 && (
-        <EmptyState icon={<MapPin />}
-          heading="No unit responses yet"
-          subtext="Unit leaders submit /unit-form to register their availability." />
-      )}
     </div>
   )
 }
@@ -404,6 +441,7 @@ function openMailto(bcc, body) {
 export default function OverviewTab({ students, units, onStudentUpdate, cohortId, cohort, toast }) {
   const [unitGroupsOpen,   setUnitGroupsOpen]   = useState({})
   const [schoolGroupsOpen, setSchoolGroupsOpen] = useState({})
+  const [unitStatusFilter, setUnitStatusFilter] = useState('all')
   const [localToast,       setLocalToast]       = useState(null)
   const [campusOpen,       setCampusOpen]       = useState(false)
   const [timelineExpanded, setTimelineExpanded] = useState(false)
@@ -539,9 +577,9 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     unitsByDiv[div].sort((a, b) => (a.unit_name || '').localeCompare(b.unit_name || ''))
   )
 
-  const toggleUnitGroup   = div => setUnitGroupsOpen(p => ({ ...p, [div]: !p[div] }))
-  const expandAllUnits    = () => setUnitGroupsOpen(Object.fromEntries(DIVISIONS.map(d => [d, true])))
-  const collapseAllUnits  = () => setUnitGroupsOpen({})
+  const toggleUnitGroup  = div => setUnitGroupsOpen(p => ({ ...p, [div]: p[div] === false }))
+  const expandAllUnits   = () => setUnitGroupsOpen(Object.fromEntries(DIVISION_ORDER.map(d => [d, true])))
+  const collapseAllUnits = () => setUnitGroupsOpen(Object.fromEntries(DIVISION_ORDER.map(d => [d, false])))
 
   // ── School grouping ────────────────────────────────────────
   const schoolMap = {}
@@ -659,21 +697,56 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         <div className="aggregate-panel-headers">
           <div className="aggregate-panel-hdr">
             <div>
-              <div className="ov-panel-title">Unit Response Status</div>
+              <div className="ov-panel-title">Placement Capacity</div>
               <div className="ov-panel-sub">
                 {(() => {
                   const hosting    = unitResponses.filter(r => r.response_status === 'submitted_hosting')
                   const notHosting = unitResponses.filter(r => r.response_status === 'submitted_not_hosting')
                   const pending    = unitResponses.filter(r => r.response_status === 'pending')
                   const slots      = hosting.reduce((s, r) => s + (r.slots_offered || 0), 0)
-                  return `${unitResponses.length > 0 ? hosting.length + notHosting.length : participating.length} of ${unitResponses.length > 0 ? unitResponses.length : participating.length} units responded · ${unitResponses.length > 0 ? slots : totalSlots} slots confirmed · ${pending.length} pending`
+                  const responded  = hosting.length + notHosting.length
+                  const total      = unitResponses.length > 0 ? unitResponses.length : participating.length
+                  return `${unitResponses.length > 0 ? responded : participating.length} of ${total} units responded · ${unitResponses.length > 0 ? slots : totalSlots} slots confirmed · ${pending.length} pending`
                 })()}
               </div>
             </div>
-            <div className="ov-expand-toggle">
-              <button onClick={expandAllUnits}>Expand All</button>
-              <span style={{ color:'var(--border)' }}>·</span>
-              <button onClick={collapseAllUnits}>Collapse All</button>
+            {/* Filter chips + Expand/Collapse */}
+            <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:5 }}>
+              {/* Status filter chips */}
+              <div style={{ display:'flex', gap:4, flexWrap:'wrap', justifyContent:'flex-end' }}>
+                {(() => {
+                  const hostingCount    = unitResponses.filter(r => r.response_status === 'submitted_hosting').length
+                  const notHostingCount = unitResponses.filter(r => r.response_status === 'submitted_not_hosting').length
+                  const pendingCount    = unitResponses.filter(r => r.response_status === 'pending').length
+                  const chips = [
+                    { key:'all',         label:'All',         count: unitResponses.length, activeBg:'#1D2567', activeTxt:'#fff'    },
+                    { key:'hosting',     label:'Hosting',     count: hostingCount,          activeBg:'#C8D5C0', activeTxt:'#2D4A2B' },
+                    { key:'not_hosting', label:'Not hosting', count: notHostingCount,       activeBg:'#E8E8E8', activeTxt:'#555'    },
+                    { key:'pending',     label:'Pending',     count: pendingCount,          activeBg:'#f3f4f6', activeTxt:'#6b7280' },
+                  ]
+                  return chips.map(c => {
+                    const active = unitStatusFilter === c.key
+                    return (
+                      <button key={c.key} onClick={() => setUnitStatusFilter(c.key)}
+                        style={{
+                          padding:'2px 9px', borderRadius:20, fontSize:10.5, fontWeight: active ? 700 : 500,
+                          border: active ? 'none' : '1px solid #e5e7eb',
+                          background: active ? c.activeBg : '#fff',
+                          color: active ? c.activeTxt : '#6b7280',
+                          cursor:'pointer', whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif',
+                        }}>
+                        {c.label} ({c.count})
+                      </button>
+                    )
+                  })
+                })()}
+              </div>
+              {/* Expand / Collapse */}
+              <div className="ov-expand-toggle">
+                <button onClick={expandAllUnits}>Expand All</button>
+                <span style={{ color:'var(--border)' }}>·</span>
+                <button onClick={collapseAllUnits}>Collapse All</button>
+              </div>
             </div>
           </div>
           <div className="aggregate-panel-hdr">
@@ -704,10 +777,10 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
         <div className="ov-panels-body">
 
-          {/* ── Unit Response Status panel (body only) ── */}
+          {/* ── Placement Capacity panel (body only) ── */}
           <div className="ov-panel-body">
             {unitResponses.length > 0
-              ? <UnitResponsePanel
+              ? <PlacementCapacityPanel
                   unitResponses={unitResponses}
                   filledByUnit={filledByUnit}
                   units={units}
@@ -715,6 +788,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                   toggleUnitGroup={toggleUnitGroup}
                   primaryLeadMap={primaryLeadMap}
                   showToast={showToast}
+                  statusFilter={unitStatusFilter}
                 />
               : <div className="ov-groups">
                   {/* Fallback to legacy view if no unit_cohort_responses rows yet */}
