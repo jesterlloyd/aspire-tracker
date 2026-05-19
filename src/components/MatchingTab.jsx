@@ -11,6 +11,7 @@ import { Users, MapPin, ClipboardList, Info } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { canPerformMatching } from '../lib/permissions'
 import { KPICell, useUpdatedLabel } from './KPIBand'
+import PreferenceMatchRing from './PreferenceMatchRing'
 
 // ── Matching at a Glance band ─────────────────────────────────────────────────
 
@@ -18,14 +19,14 @@ function MatchingAtAGlance({ studentsCount, matchedCount, unmatchedCount, perfec
   const updatedLabel = useUpdatedLabel(cohortId)
   const schools = poolSchools?.length ?? 0
   return (
-    <section style={{ background:'#fff', border:'1px solid rgba(29,37,103,0.08)', borderRadius:14, boxShadow:'0 1px 0 rgba(29,37,103,0.04), 0 1px 2px rgba(29,37,103,0.04), inset 0 1px 0 rgba(255,255,255,0.9)', overflow:'hidden', marginBottom:12, fontFamily:'DM Sans, sans-serif' }}>
-      <div style={{ padding:'14px 22px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid rgba(29,37,103,0.04)' }}>
-        <div style={{ fontSize:10.5, textTransform:'uppercase', letterSpacing:'0.14em', color:'#475467', fontWeight:600 }}>Matching at a Glance</div>
-        <div style={{ fontSize:11.5, color:'#98A2B3', fontVariantNumeric:'tabular-nums' }}>
+    <section style={{ background:'var(--bg-card,#fff)', border:'1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius:14, boxShadow:'var(--shadow-card)', overflow:'hidden', fontFamily:'DM Sans, sans-serif', height:'100%', boxSizing:'border-box' }}>
+      <div style={{ padding:'14px 22px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid var(--border-card,rgba(29,37,103,0.04))' }}>
+        <div style={{ fontSize:10.5, textTransform:'uppercase', letterSpacing:'0.14em', color:'var(--text-caption,#475467)', fontWeight:600 }}>Matching at a Glance</div>
+        <div style={{ fontSize:11.5, color:'var(--text-muted,#98A2B3)', fontVariantNumeric:'tabular-nums' }}>
           {cohort?.name || 'Cohort'} · {schools} schools · {totalSlots} slots across hosting units · Updated {updatedLabel}
         </div>
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', background:'rgba(29,37,103,0.04)', gap:1 }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', background:'var(--border-card,rgba(29,37,103,0.04))', gap:1 }}>
         <KPICell value={studentsCount}  label="Students"     sub={`${schools} schools`} />
         <KPICell value={matchedCount}   label="Matched"      sub={`${perfectMatches} perfect · ${secondChoiceMatches} 2nd choice`} accent="sage" />
         <KPICell value={unmatchedCount} label="Unmatched"    sub="Pending placement" accent={unmatchedCount > 0 ? 'warning' : null} />
@@ -300,20 +301,29 @@ export default function MatchingTab({
         </div>
       )}
 
-      {/* ── Matching at a Glance band ── */}
-      <div style={{ padding:'12px 16px 0' }}>
-        <MatchingAtAGlance
-          studentsCount={studentsCount}
-          matchedCount={matchedCount}
-          unmatchedCount={unmatchedCount}
-          perfectMatches={perfectMatches}
-          secondChoiceMatches={secondChoiceMatches}
-          totalSlots={totalSlots}
-          slotsRemaining={slotsRemaining}
-          poolSchools={poolSchools}
-          cohort={cohort}
-          cohortId={cohortId}
-        />
+      {/* ── Matching at a Glance + Preference Match Ring — two-column top row ── */}
+      <div style={{ padding:'12px 16px 0', display:'flex', gap:14, alignItems:'stretch', flexWrap:'wrap' }}>
+        <div style={{ flex:'7 1 0', minWidth:0 }}>
+          <MatchingAtAGlance
+            studentsCount={studentsCount}
+            matchedCount={matchedCount}
+            unmatchedCount={unmatchedCount}
+            perfectMatches={perfectMatches}
+            secondChoiceMatches={secondChoiceMatches}
+            totalSlots={totalSlots}
+            slotsRemaining={slotsRemaining}
+            poolSchools={poolSchools}
+            cohort={cohort}
+            cohortId={cohortId}
+          />
+        </div>
+        <div style={{ flex:'3 1 0', minWidth:200 }}>
+          <PreferenceMatchRing
+            students={students}
+            units={units}
+            cohort={cohort}
+          />
+        </div>
       </div>
 
       {/* ── Matching board: unified toolbar + subheader + panel bodies ── */}
