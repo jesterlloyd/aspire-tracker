@@ -73,7 +73,7 @@ body { min-height: 100vh; }
 .header-sub    { font-size: 11px; color: var(--nova); margin-top: 1px; opacity: 0.8; }
 .header-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
-.app-main { width: 100%; max-width: 1680px; margin: 0 auto; padding: 20px 32px 0; background: var(--bg-app, var(--sand)); }
+.app-main { width: min(100% - 96px, 1640px); margin: 0 auto; padding: 20px 0 0; background: var(--bg-app, var(--sand)); }
 
 /* ================================================================
    BUTTONS
@@ -1148,7 +1148,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 .aggregate-scrollable-content {
   flex: 1; overflow-y: auto; min-height: 0;
-  padding: 0 20px;
+  padding: 0 20px 80px;
 }
 .ov-panels-body {
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
@@ -1163,6 +1163,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   max-height: calc(100vh - 420px);
   min-height: 200px;
   box-shadow: 0 2px 12px rgba(29,37,103,0.07);
+  padding-bottom: 80px;
 }
 
 .ov-hero { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-top: 16px; margin-bottom: 0; }
@@ -1267,7 +1268,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 .pl-needs-btn.pl-needs-active { background: var(--nightfall); color: var(--pearl); }
 .pl-meta { flex-shrink: 0; font-size: 12px; color: var(--text-secondary); padding: 6px 12px; border-bottom: 1px solid #f3f4f6; }
-.pl-list { flex: 1; overflow-y: auto; min-height: 0; }
+.pl-list { flex: 1; overflow-y: auto; min-height: 0; padding-bottom: 100px; }
 .pl-empty { padding: 40px 16px; text-align: center; color: var(--text-secondary); font-size: 14px; }
 
 /* Student list rows */
@@ -1305,7 +1306,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .sp-close-btn { background: none; border: 1.5px solid rgba(255,255,255,0.5); color: var(--pearl); border-radius: 4px; width: 28px; height: 28px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: background 0.1s; }
 .sp-close-btn:hover { background: rgba(255,255,255,0.15); }
 
-.sp-content { flex: 1; overflow-y: auto; min-height: 0; }
+.sp-content { flex: 1; overflow-y: auto; min-height: 0; padding-bottom: 100px; }
 .sp-section { border-bottom: 1px solid #e5e7eb; padding: 16px; }
 .sp-section-hdr {
   display: flex; align-items: center; justify-content: space-between;
@@ -1390,7 +1391,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .iv-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .iv-hint { font-size: 13px; color: var(--text-secondary); font-style: italic; }
 
-.iv-table-wrap { overflow-x: auto; overflow-y: auto; flex: 1; min-height: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--pearl); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.iv-table-wrap { overflow-x: auto; overflow-y: auto; flex: 1; min-height: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--pearl); box-shadow: 0 1px 3px rgba(0,0,0,0.06); padding-bottom: 80px; }
 .iv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .iv-th { padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; background: var(--sand); border-bottom: 2px solid var(--border); white-space: nowrap; }
 .iv-sortable { cursor: pointer; user-select: none; }
@@ -2036,7 +2037,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   font-size: 12px; color: var(--raven); background: #fff;
   outline: none; cursor: pointer;
 }
-.embed-units-body { flex: 1; min-height: 0; overflow-y: auto; background: #fff; }
+.embed-units-body { flex: 1; min-height: 0; overflow-y: auto; background: #fff; padding-bottom: 80px; }
 .embed-unit-grid  { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; padding: 20px; }
 
 /* ── Students panel (right, 42%) ── */
@@ -2073,7 +2074,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   min-width: 100px; flex-shrink: 0;
 }
 .embed-pool-count   { font-size: 12px; color: var(--text-caption, #6b7280); flex-shrink: 0; white-space: nowrap; }
-.embed-students-body { flex: 1; min-height: 0; overflow-y: auto; background: var(--pearl); }
+.embed-students-body { flex: 1; min-height: 0; overflow-y: auto; background: var(--pearl); padding-bottom: 80px; }
 .embed-student-list  { display: flex; flex-direction: column; gap: 10px; padding: 16px; }
 
 /* ── EmbedUnitCard ── */
@@ -2358,8 +2359,11 @@ a.doc-file-link:hover { text-decoration: underline; }
   .form-grid-5 { grid-template-columns: repeat(3, 1fr); }
   .match-summary { grid-template-columns: repeat(5, 1fr); }
 }
+@media (max-width: 1280px) {
+  .app-main { width: min(100% - 64px, 1640px); }
+}
 @media (max-width: 768px) {
-  .app-main { padding: 16px; }
+  .app-main { width: min(100% - 32px, 1640px); padding-top: 12px; }
   .dashboard { grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .table-header { display: none; }
   .row-header { grid-template-columns: 28px 1fr auto; grid-template-rows: auto auto; }

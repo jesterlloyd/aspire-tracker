@@ -3,7 +3,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { displayName, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 import StudentAvatar from './StudentAvatar'
-import AvatarWithRing from './AvatarWithRing'
 import {
   ASPIRE_STATUSES, ASPIRE_STATUS_CONFIG, NGRP_OUTCOMES, INTERVIEW_OUTCOMES,
   SHIFT_OPTIONS, COHORTS,
@@ -463,8 +462,8 @@ export default function StudentSidePanel({
                   )}
                   {/* Photo with completion ring */}
                   <div style={{ display:'flex', justifyContent:'center', marginBottom:8 }}>
-                    <AvatarWithRing student={data} size={76} completionPct={completion.percentage}
-                      style={{ border:'3px solid var(--pearl)', boxShadow:'0 3px 14px rgba(29,37,103,0.15)' }} />
+                    <StudentAvatar student={data} size={76}
+                      style={{ border:'3px solid var(--pearl)', boxShadow:'0 3px 14px rgba(29,37,103,0.15)', fontSize:'26px' }} />
                   </div>
                   {/* Name + status pill on same row */}
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, flexWrap:'wrap', marginBottom:4 }}>

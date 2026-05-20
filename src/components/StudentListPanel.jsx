@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import AvatarWithRing from './AvatarWithRing'
+import StudentAvatar from './StudentAvatar'
 import ImportStudentsCSV from './ImportStudentsCSV'
 import { getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
@@ -143,7 +143,7 @@ export default function StudentListPanel({
 
               {/* COL 1: identity */}
               <div style={{ display:'flex', gap:10, minWidth:0, alignItems:'flex-start' }}>
-                <AvatarWithRing student={s} size={avatarSz} completionPct={completion.percentage} style={{ marginTop:1 }} />
+                <StudentAvatar student={s} size={avatarSz} style={{ flexShrink:0, marginTop:1 }} />
                 <div style={{ minWidth:0, flex:1 }}>
                   <div style={{ fontWeight:isUnread?800:700, fontSize:compressed?13:14, color:'var(--text-heading,#191919)', display:'flex', alignItems:'center', gap:5, lineHeight:1.2 }}>
                     <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={name}>{name}</span>
@@ -162,15 +162,18 @@ export default function StudentListPanel({
                 </div>
               </div>
 
-              {/* COL 2: readiness — percentage only (ring is the visual cue; missing items are in drawer) */}
+              {/* COL 2: readiness — compact horizontal bar + percentage */}
               {!compressed && (
-                <div style={{ minWidth:0, paddingTop:3 }}>
-                  <span style={{ fontSize:13, fontWeight:700, color:compColors.text }}>
+                <div style={{ minWidth:0, paddingTop:5 }}>
+                  <div style={{ height:4, borderRadius:2, background:'var(--color-bg-elevated,#f3f4f6)', width:'80%', marginBottom:4 }}>
+                    <div style={{ width:`${completion.percentage}%`, height:'100%', borderRadius:2, background:'var(--color-accent-primary,#1D2567)', transition:'width 0.3s ease' }} />
+                  </div>
+                  <span style={{ fontSize:12, fontWeight:600, color:'var(--text-secondary,#4A5560)' }}>
                     {completion.percentage}%
                   </span>
-                  <div style={{ fontSize:10, color:completion.percentage===100?'var(--color-status-success,#166534)':'var(--text-muted,#9ca3af)', marginTop:2, lineHeight:1.2 }}>
-                    {completion.percentage === 100 ? '✓ Complete' : 'Incomplete'}
-                  </div>
+                  {completion.percentage === 100 && (
+                    <div style={{ fontSize:10, color:'var(--color-status-success,#166534)', marginTop:1 }}>✓ Complete</div>
+                  )}
                 </div>
               )}
 
