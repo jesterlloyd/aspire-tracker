@@ -574,7 +574,7 @@ body { min-height: 100vh; }
 /* ================================================================
    MATCHING TAB
    ================================================================ */
-.matching-tab { display: flex; flex-direction: column; gap: 20px; }
+.matching-tab { display: flex; flex-direction: column; gap: 20px; padding: 0 20px; }
 
 .match-summary { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; }
 .match-stat-card {
@@ -1220,6 +1220,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 .student-profiles-tab {
   display: flex; flex-direction: column;
   height: calc(100vh - 164px); overflow: hidden;
+  padding: 0 20px;  /* matches aggregate-sticky-header/scrollable-content 20px side padding */
 }
 .profiles-frozen      { flex-shrink: 0; padding-bottom: 8px; }
 .profiles-scroll-area { flex: 1; overflow-y: auto; min-height: 0; }
@@ -1414,7 +1415,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* ================================================================
    INTERVIEW TAB — OVERVIEW
    ================================================================ */
-.interview-tab { display: flex; flex-direction: column; gap: 16px; }
+.interview-tab { display: flex; flex-direction: column; gap: 16px; padding: 0 20px; }
 
 .iv-summary { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; }
 .iv-stat-card { border-radius: 6px; padding: 14px 16px; border: 1px solid; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
@@ -1758,12 +1759,13 @@ a.doc-file-link:hover { text-decoration: underline; }
 .rub-tab {
   display: flex; flex-direction: column;
   height: calc(100vh - 164px); overflow: hidden;
+  padding: 0 20px;
 }
 .rub-frozen     { flex-shrink: 0; }
 .rub-scroll-area { flex: 1; min-height: 0; padding: 16px 0 0; display: flex; flex-direction: column; }
 
 /* Month view: natural full-page scroll — no fixed height constraints */
-.rub-tab-month       { display: block; height: auto; overflow: visible; }
+.rub-tab-month       { display: block; height: auto; overflow: visible; padding: 0 20px; }
 .rub-scroll-area-month { padding: 16px 0 0; }
 
 /* Two-panel session */
