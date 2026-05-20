@@ -151,96 +151,111 @@ export default function StudentProfilesTab({
           <FilterKPICard value={pipelineCounts.declined}          label="Declined"           sub="Did not continue"      accent="chroma"     active={activeStatusFilter === 'Declined'}                                                   onClick={() => handleKpiClick('Declined')} />
         </div>
 
-        {/* ── View toggle (Profiles / CS-Link Access) ── */}
-        <div className="profiles-view-toggle" style={{ marginBottom:10 }}>
-          <button className={`profiles-toggle-btn${view === 'records' ? ' active' : ''}`} onClick={() => onViewChange('records')}>Profiles</button>
-          <button className={`profiles-toggle-btn${view === 'access' ? ' active' : ''}`} onClick={() => onViewChange('access')}>CS-Link Access</button>
-        </div>
+        {/* ── Unified toolbar: Profiles/CS-Link toggle + all controls in one row ── */}
+        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'8px 12px', background:'var(--bg-card,#fff)', border:'1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius:10, marginBottom:10, flexWrap:'wrap' }}>
 
-        {/* ── Unified toolbar (Profiles mode only) ── */}
-        {view === 'records' && (
-          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'var(--bg-card,#fff)', border:'1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius:10, marginBottom:10 }}>
-            {/* 7B: Filter input — capped at 380px */}
-            <div style={{ position:'relative', maxWidth:380, flexShrink:1, minWidth:0, width:'100%' }}>
-              <Search size={13} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--text-muted,#9ca3af)' }} />
-              <input
-                value={unifiedSearch}
-                onChange={e => setUnifiedSearch(e.target.value)}
-                placeholder="Filter students…"
-                style={{ width:'100%', paddingLeft:30, paddingRight:unifiedSearch?28:10, paddingTop:7, paddingBottom:7,
-                  border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7,
-                  fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)',
-                  color:'var(--text-body,#191919)', outline:'none', boxSizing:'border-box' }}
-              />
-              {unifiedSearch && (
-                <button onClick={() => setUnifiedSearch('')}
-                  style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'var(--text-muted,#9ca3af)', padding:0, display:'flex' }}>
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-            {/* Sort */}
-            <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-              style={{ height:32, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, padding:'0 8px', fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', outline:'none', cursor:'pointer', flexShrink:0 }}>
-              <option value="last_name_asc">Last Name A–Z</option>
-              <option value="last_name_desc">Last Name Z–A</option>
-              <option value="school_asc">School A–Z</option>
-              <option value="status">ASPIRE Status</option>
-              <option value="completion_desc">Profile Complete ↓</option>
-              <option value="completion_asc">Profile Complete ↑</option>
-              <option value="gpa_desc">GPA High–Low</option>
-              <option value="gpa_asc">GPA Low–High</option>
-            </select>
-            {/* 7A: Status legend popover — between sort and view toggle */}
-            <StatusLegendPopover position="bottom-left" />
-            {/* Active KPI filter clear */}
-            {activeStatusFilter && (
-              <button onClick={() => setActiveStatusFilter(null)}
-                style={{ display:'flex', alignItems:'center', gap:4, height:32, padding:'0 10px', borderRadius:7, border:'1px solid rgba(29,37,103,0.15)', background:'#f0f3ff', color:'#1D2567', fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans,sans-serif', flexShrink:0 }}>
-                <X size={10} />
-                {Array.isArray(activeStatusFilter) ? 'Clear filter' : activeStatusFilter}
+          {/* Profiles / CS-Link Access — segmented, matches List/Grid style */}
+          <div style={{ display:'flex', borderRadius:7, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', overflow:'hidden', flexShrink:0 }}>
+            <button onClick={() => onViewChange('records')}
+              style={{ height:32, padding:'0 13px', display:'flex', alignItems:'center', border:'none', cursor:'pointer', fontSize:12, fontFamily:'DM Sans,sans-serif', fontWeight:500,
+                background: view==='records' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
+                color: view==='records' ? '#fff' : 'var(--text-secondary,#4A5560)', transition:'all 0.12s' }}>
+              Profiles
+            </button>
+            <button onClick={() => onViewChange('access')}
+              style={{ height:32, padding:'0 13px', display:'flex', alignItems:'center', border:'none', cursor:'pointer', fontSize:12, fontFamily:'DM Sans,sans-serif', fontWeight:500,
+                background: view==='access' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
+                color: view==='access' ? '#fff' : 'var(--text-secondary,#4A5560)', transition:'all 0.12s' }}>
+              CS-Link Access
+            </button>
+          </div>
+
+          {/* Status legend popover */}
+          <StatusLegendPopover position="bottom-left" />
+
+          {/* Filter input — capped at 380px */}
+          <div style={{ position:'relative', maxWidth:380, flexShrink:1, minWidth:120, width:'100%' }}>
+            <Search size={13} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--text-muted,#9ca3af)' }} />
+            <input
+              value={unifiedSearch}
+              onChange={e => setUnifiedSearch(e.target.value)}
+              placeholder="Filter students…"
+              style={{ width:'100%', paddingLeft:30, paddingRight:unifiedSearch?28:10, paddingTop:7, paddingBottom:7,
+                border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7,
+                fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)',
+                color:'var(--text-body,#191919)', outline:'none', boxSizing:'border-box' }}
+            />
+            {unifiedSearch && (
+              <button onClick={() => setUnifiedSearch('')}
+                style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'var(--text-muted,#9ca3af)', padding:0, display:'flex' }}>
+                <X size={12} />
               </button>
             )}
-            {/* 7C: View toggle with text labels: List / Grid */}
+          </div>
+
+          {/* Sort */}
+          <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+            style={{ height:32, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, padding:'0 8px', fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', outline:'none', cursor:'pointer', flexShrink:0 }}>
+            <option value="last_name_asc">Last Name A–Z</option>
+            <option value="last_name_desc">Last Name Z–A</option>
+            <option value="school_asc">School A–Z</option>
+            <option value="status">ASPIRE Status</option>
+            <option value="completion_desc">Profile Complete ↓</option>
+            <option value="completion_asc">Profile Complete ↑</option>
+            <option value="gpa_desc">GPA High–Low</option>
+            <option value="gpa_asc">GPA Low–High</option>
+          </select>
+
+          {/* Active KPI filter clear */}
+          {activeStatusFilter && (
+            <button onClick={() => setActiveStatusFilter(null)}
+              style={{ display:'flex', alignItems:'center', gap:4, height:32, padding:'0 10px', borderRadius:7, border:'1px solid rgba(29,37,103,0.15)', background:'#f0f3ff', color:'#1D2567', fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans,sans-serif', flexShrink:0 }}>
+              <X size={10} />
+              {Array.isArray(activeStatusFilter) ? 'Clear filter' : activeStatusFilter}
+            </button>
+          )}
+
+          {/* List / Grid view toggle — only visible in Profiles mode */}
+          {view === 'records' && (
             <div style={{ display:'flex', borderRadius:7, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', overflow:'hidden', flexShrink:0 }}>
               <button onClick={() => setViewMode('list')}
                 style={{ height:32, padding:'0 12px', display:'flex', alignItems:'center', gap:6, border:'none', cursor:'pointer', fontSize:12, fontFamily:'DM Sans,sans-serif', fontWeight:500,
                   background: viewMode==='list' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
                   color: viewMode==='list' ? '#fff' : 'var(--text-secondary,#4A5560)', transition:'all 0.12s' }}>
-                <List size={13} />
-                List
+                <List size={13} /> List
               </button>
               <button onClick={() => setViewMode('grid')}
                 style={{ height:32, padding:'0 12px', display:'flex', alignItems:'center', gap:6, border:'none', cursor:'pointer', fontSize:12, fontFamily:'DM Sans,sans-serif', fontWeight:500,
                   background: viewMode==='grid' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
                   color: viewMode==='grid' ? '#fff' : 'var(--text-secondary,#4A5560)', transition:'all 0.12s' }}>
-                <LayoutGrid size={13} />
-                Grid
+                <LayoutGrid size={13} /> Grid
               </button>
             </div>
-            {/* spacer to push actions right */}
-            <div style={{ flex:1 }} />
-            {/* Actions */}
-            {canEdit && (
-              <button onClick={() => setShowImport(true)} title="Import from CSV"
-                style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
-                ↑ Import
-              </button>
-            )}
-            {canEdit && onAddStudent && (
-              <button onClick={onAddStudent} title="Add student"
-                style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
-                + Add
-              </button>
-            )}
-            {canEdit && onExportCSV && (
-              <button onClick={onExportCSV} title="Export CSV"
-                style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
-                ↓ Export
-              </button>
-            )}
-          </div>
-        )}
+          )}
+
+          {/* Spacer */}
+          <div style={{ flex:1, minWidth:8 }} />
+
+          {/* Action buttons */}
+          {canEdit && (
+            <button onClick={() => setShowImport(true)} title="Import from CSV"
+              style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
+              ↑ Import
+            </button>
+          )}
+          {canEdit && onAddStudent && (
+            <button onClick={onAddStudent} title="Add student"
+              style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
+              + Add
+            </button>
+          )}
+          {canEdit && onExportCSV && (
+            <button onClick={onExportCSV} title="Export CSV"
+              style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
+              ↓ Export
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Profiles: always-open split view ── */}
