@@ -307,20 +307,28 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const studentRubrics  = rubrics.filter(r => r.student_id === student.id)
   const completedRubrics = studentRubrics.filter(r => r.status === 'Completed')
 
-  // Interviewers list and available units — cached per cohort
+  // Interviewers list and available units.
+  // staleTime: 0 ensures the list is always fresh when a rubric opens — critical so
+  // newly-added interviewers (from InterviewersModal) appear without a page reload.
   const { data: interviewer_unit_data } = useQuery({
     queryKey: ['rubric_support_data', cohortId],
     queryFn: async () => {
-      const [profilesRes, unitsRes] = await Promise.all([
-        supabase.rpc('get_active_interviewers'),
+      const [profilesRes, unitsRes, catalogRes] = await Promise.all([
+        supabase.rpc('get_active_interviewers'),        // user_profiles with role='interviewer'
         supabase.from('units').select('unit_name').eq('is_participating', true).eq('cohort_id', cohortId).order('unit_name'),
+        supabase.from('interviewers').select('name').order('name'),  // InterviewersModal catalog
       ])
+      // Merge both sources: app-account interviewers + catalog interviewers, deduplicated and sorted
+      const rpcNames     = (profilesRes.data  || []).map(p => p.full_name).filter(Boolean)
+      const catalogNames = (catalogRes.data   || []).map(i => i.name).filter(Boolean)
+      const merged = [...new Set([...rpcNames, ...catalogNames])].sort((a, b) => a.localeCompare(b))
       return {
-        interviewers: (profilesRes.data || []).map(p => p.full_name),
-        availUnits:   (unitsRes.data   || []).map(u => u.unit_name),
+        interviewers: merged,
+        availUnits:   (unitsRes.data || []).map(u => u.unit_name),
       }
     },
-    enabled: !!cohortId,
+    enabled:   !!cohortId,
+    staleTime: 0,  // always refetch on mount so new interviewers appear immediately
   })
   const interviewers = interviewer_unit_data?.interviewers || []
   const availUnits   = interviewer_unit_data?.availUnits   || []

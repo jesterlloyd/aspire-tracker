@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { X, Save, Plus, Trash2, Check, Loader } from 'lucide-react'
 
@@ -16,6 +17,7 @@ const saveCache = (data) => {
 }
 
 export default function InterviewersModal({ isOpen, onClose }) {
+  const queryClient = useQueryClient()
   const [interviewers, setInterviewers] = useState([])
   const [loading,      setLoading]      = useState(false)
   const [editEmails,   setEditEmails]   = useState({})  // { [id]: emailString }
@@ -107,6 +109,7 @@ export default function InterviewersModal({ isOpen, onClose }) {
       const updated = interviewers.filter(i => i.id !== interviewer.id)
       setInterviewers(updated)
       saveCache(updated)
+      queryClient.invalidateQueries({ queryKey: ['rubric_support_data'] })
     } catch (err) {
       alert(`Delete failed: ${err.message}`)
     }
@@ -125,6 +128,8 @@ export default function InterviewersModal({ isOpen, onClose }) {
       setNewName('')
       setNewEmail('')
       setShowAdd(false)
+      // Invalidate rubric dropdown cache so the new interviewer appears immediately
+      queryClient.invalidateQueries({ queryKey: ['rubric_support_data'] })
     } catch (err) {
       alert(`Add failed: ${err.message}`)
     } finally {
