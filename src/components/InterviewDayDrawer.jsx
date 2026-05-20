@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { X, Trash2 } from 'lucide-react'
+import { X, Trash2, Copy, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -76,6 +76,37 @@ function StatusPill({ status }) {
   return (
     <span style={{ background: s.bg, color: s.color, padding: '2px 7px', borderRadius: 999, fontSize: 10, fontWeight: 700, fontFamily: 'DM Sans' }}>
       {s.label}
+    </span>
+  )
+}
+
+function CopyEmailBtn({ email }) {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(email)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {}
+  }
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      <span style={{ fontSize: 12, color: 'var(--text-muted, #6B7280)' }}>{email}</span>
+      <button
+        onClick={handleCopy}
+        title={copied ? 'Copied!' : 'Copy email'}
+        style={{
+          background: copied ? '#EEF7F0' : 'none',
+          border: 'none', cursor: 'pointer', padding: '1px 4px',
+          borderRadius: 4, display: 'inline-flex', alignItems: 'center',
+          color: copied ? '#2F7D5C' : 'var(--text-muted, #9CA3AF)',
+          transition: 'all 0.15s',
+        }}
+        onMouseEnter={e => { if (!copied) e.currentTarget.style.color = 'var(--text-heading, #191919)' }}
+        onMouseLeave={e => { if (!copied) e.currentTarget.style.color = 'var(--text-muted, #9CA3AF)' }}
+      >
+        {copied ? <Check size={12} /> : <Copy size={12} />}
+      </button>
     </span>
   )
 }
@@ -339,7 +370,14 @@ export default function InterviewDayDrawer({
                           {student ? `${student.first_name} ${student.last_name}` : '—'}
                         </div>
                         {student?.school && (
-                          <div style={{ fontSize: 11, color: '#6B7280', marginTop: 1 }}>{student.school}</div>
+                          <div style={{ fontSize: 11, color: '#6B7280', marginTop: 1 }}>
+                            {student.school}{student.program_type ? ` · ${student.program_type}` : ''}
+                          </div>
+                        )}
+                        {student?.school_email && (
+                          <div style={{ marginTop: 3 }}>
+                            <CopyEmailBtn email={student.school_email} />
+                          </div>
                         )}
                       </div>
                       <StatusPill status="booked" />
