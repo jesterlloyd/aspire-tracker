@@ -527,20 +527,51 @@ export default function StudentSidePanel({
                   </button>}
                 </div>
 
-                {/* ── Status snapshot — 6 chips ── */}
+                {/* ── Status snapshot — 5 chips (no ASPIRE status; hero pill carries it) ── */}
                 <div style={{ margin:'10px 12px 0', display:'flex', flexWrap:'wrap', gap:6 }}>
                   {(() => {
                     const gpaVal = parseFloat(data.cumulative_gpa)
                     const gpaOk  = !isNaN(gpaVal) && gpaVal > 0
                     const csAcc  = CS_LINK_STATUS_CONFIG[getCsLinkStatus(data)]
-                    const chips  = [
+
+                    // Interview chip: show actual date if available, else status text
+                    const ivChip = (() => {
+                      const isComplete = ['Interviewed','Placed','Active Rotation','Completed'].includes(data.status)
+                      const isScheduled = data.status === 'Interview Scheduled'
+                      if (isComplete) {
+                        const dateStr = data.interview_scheduled_date
+                          ? new Date(data.interview_scheduled_date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})
+                          : null
+                        return { label:`Interview: ${dateStr||'Completed'}`, bg:'#dcfce7', color:'#166534' }
+                      }
+                      if (isScheduled) {
+                        const dateStr = data.interview_scheduled_date
+                          ? new Date(data.interview_scheduled_date + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})
+                          : null
+                        return { label:`Interview: ${dateStr||'Scheduled'}`, bg:'#dbeafe', color:'#1d4ed8' }
+                      }
+                      return { label:'Interview: Not Scheduled', bg:'#f3f4f6', color:'#6b7280' }
+                    })()
+
+                    // Placement chip: unit name + match quality
+                    const plChip = (() => {
+                      if (!matchedUnitInDrawer) return { label:'Not placed', bg:'#f3f4f6', color:'#6b7280' }
+                      const uname = matchedUnitInDrawer
+                      const q = data.unit_preference_1 === uname ? '1st'
+                        : data.unit_preference_2 === uname ? '2nd'
+                        : data.unit_preference_3 === uname ? '3rd' : null
+                      const qLabel = q ? ` (${q} choice)` : ''
+                      return { label:`${uname}${qLabel}`, bg:'#dcfce7', color:'#166534' }
+                    })()
+
+                    const chips = [
                       gpaOk ? { label:`GPA ${gpaVal.toFixed(2)}`, bg:gpaVal>=3.5?'#dcfce7':'#f3f4f6', color:gpaVal>=3.5?'#166534':'#6b7280' } : null,
-                      data.status ? (() => { const c=ASPIRE_STATUS_CONFIG[data.status]||ASPIRE_STATUS_CONFIG['Pending Outreach']; return { label:data.status, bg:c.bg, color:c.text, border:c.border } })() : null,
-                      { label:`Interview: ${interviewLabel}`, bg:'#f0f6ff', color:'#1e40af' },
-                      { label:matchedUnitInDrawer?`Placed: ${matchedUnitInDrawer}`:'Not placed', bg:matchedUnitInDrawer?'#dcfce7':'#f3f4f6', color:matchedUnitInDrawer?'#166534':'#6b7280' },
+                      ivChip,
+                      plChip,
                       { label:csAcc?.label||'CS-Link Unknown', bg:csAcc?.bg||'#f3f4f6', color:csAcc?.text||'#6b7280' },
                       data.hours_required>0 ? { label:`${data.hours_completed||0}/${data.hours_required} hrs`, bg:'#f0f6fa', color:'#1e3a5f' } : null,
                     ].filter(Boolean)
+
                     return chips.map((c,i) => (
                       <span key={i} style={{ fontSize:10, fontWeight:700, padding:'3px 9px', borderRadius:12, whiteSpace:'nowrap', background:c.bg, color:c.color, border:c.border?`1px solid ${c.border}`:'1px solid rgba(25,25,25,0.05)' }}>
                         {c.label}

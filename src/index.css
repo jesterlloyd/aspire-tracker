@@ -1308,12 +1308,35 @@ a.doc-file-link:hover { text-decoration: underline; }
 
 .sp-content { flex: 1; overflow-y: auto; min-height: 0; padding-bottom: 120px; }
 .sp-section { border-bottom: 1px solid #e5e7eb; padding: 16px; }
+/* Pastel card variant — header integrated into same panel, no separate white strip */
+.sp-section.sp-card { border-bottom: none; }
 .sp-section-hdr {
   display: flex; align-items: center; justify-content: space-between;
   font-size: 12px; font-weight: 600; color: var(--text-secondary);
   text-transform: uppercase; letter-spacing: 0.05em;
   background: #f9fafb; padding: 8px 16px; margin: -16px -16px 14px;
 }
+/* Inside a pastel card, the header inherits the panel background */
+.sp-card .sp-section-hdr {
+  background: transparent; padding: 0 0 12px 0; margin: 0 0 2px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+/* Form fields inside pastel cards: semi-transparent so the tint shows through */
+.sp-card .sp-input,
+.sp-card .sp-select,
+.sp-card .sp-textarea {
+  background: rgba(255,255,255,0.55);
+  border-color: rgba(0,0,0,0.12);
+}
+.sp-card .sp-readonly {
+  background: rgba(255,255,255,0.40);
+  border-color: rgba(0,0,0,0.08);
+}
+.sp-card .sp-copy-btn {
+  background: rgba(255,255,255,0.40);
+  border-color: rgba(0,0,0,0.10);
+}
+.sp-card .sp-copy-btn:hover { background: rgba(255,255,255,0.70); }
 .sp-field      { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
 .sp-field-lbl  { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
 .sp-input      { padding: 7px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; color: var(--raven); background: var(--pearl); outline: none; transition: border-color 0.12s; }
