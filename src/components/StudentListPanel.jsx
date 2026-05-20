@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import StudentAvatar from './StudentAvatar'
+import { Copy, Check } from 'lucide-react'
 import ImportStudentsCSV from './ImportStudentsCSV'
 import { getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
@@ -19,6 +20,36 @@ function Chip({ label, bg, color, border }) {
       background: bg, color, border: border ? `1px solid ${border}` : 'none',
     }}>{label}</span>
   )
+}
+
+// ── Email copy button ─────────────────────────────────────────────────────────
+function EmailCopyBtn({ email }) {
+  const [copied, setCopied] = useState(false)
+  const handleClick = (e) => {
+    e.stopPropagation()
+    navigator.clipboard?.writeText(email).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+  return (
+    <button
+      onClick={handleClick}
+      title={copied ? 'Copied!' : 'Copy email'}
+      style={{ background: copied ? '#EEF7F0' : 'none', border: 'none', cursor: 'pointer', padding: '1px 3px', borderRadius: 3, color: copied ? '#2F7D5C' : 'var(--text-muted,#9ca3af)', display: 'inline-flex', alignItems: 'center', transition: 'all 0.15s', flexShrink: 0 }}
+      onMouseEnter={e => { if (!copied) e.currentTarget.style.color = 'var(--text-heading,#191919)' }}
+      onMouseLeave={e => { if (!copied) e.currentTarget.style.color = 'var(--text-muted,#9ca3af)' }}
+    >
+      {copied ? <Check size={10} /> : <Copy size={10} />}
+    </button>
+  )
+}
+
+// ── Progress bar color by threshold ──────────────────────────────────────────
+function barColor(pct) {
+  if (pct >= 100) return 'var(--color-status-success,#166534)'
+  if (pct >= 67)  return 'var(--color-status-warning,#f59e0b)'
+  return '#E2569C' // rose / attention
 }
 
 export default function StudentListPanel({
@@ -125,18 +156,19 @@ export default function StudentListPanel({
           // Missing items (show at most 3)
           const missing3 = completion.missing.slice(0, 3).join(', ')
 
-          // avatar size: 48px full list, 44px when compressed (drawer open)
-          const avatarSz = compressed ? 44 : 48
+          // avatar size: 56px full list, 48px when compressed (drawer open)
+          const avatarSz = compressed ? 48 : 56
+          const email = s.personal_email || s.school_email || null
 
           return (
             <div key={s.id}
               className={`pl-row${sel ? ' pl-selected' : ''}`}
               style={{
-                alignItems: 'flex-start', padding: '10px 16px',
+                alignItems: 'flex-start', padding: '12px 16px',
                 display: 'grid',
                 gridTemplateColumns: compressed
-                  ? '40% 28% 25% 7%'
-                  : '32% 14% 27% 20% 7%',
+                  ? '36% 26% 28% 10%'
+                  : '34% 14% 22% 22% 8%',
                 gap: 8,
               }}
               onClick={() => onSelect(s.id)}>
@@ -152,28 +184,33 @@ export default function StudentListPanel({
                   <div style={{ fontSize:11, color:'var(--text-caption,#6b7280)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                     {s.school || '—'}{s.program_type ? ` · ${s.program_type}` : ''}
                   </div>
-                  {!compressed && (
-                    <div style={{ fontSize:10.5, color:'var(--text-muted,#9ca3af)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                      {s.personal_email || s.school_email
-                        ? [s.personal_email||s.school_email, s.phone].filter(Boolean).join(' · ')
-                        : <em>No contact info yet</em>}
+                  {!compressed && email && (
+                    <div style={{ display:'flex', alignItems:'center', gap:3, marginTop:3 }}>
+                      <span style={{ fontSize:10.5, color:'var(--text-muted,#9ca3af)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', minWidth:0 }}>{email}</span>
+                      <EmailCopyBtn email={email} />
+                      {s.phone && <span style={{ fontSize:10.5, color:'var(--text-muted,#9ca3af)', flexShrink:0 }}>· {s.phone}</span>}
                     </div>
+                  )}
+                  {!compressed && !email && (
+                    <div style={{ fontSize:10.5, color:'var(--text-muted,#c0c8d0)', marginTop:2, fontStyle:'italic' }}>No contact info yet</div>
                   )}
                 </div>
               </div>
 
-              {/* COL 2: readiness — compact horizontal bar + percentage */}
+              {/* COL 2: readiness — colored bar + % + N items missing */}
               {!compressed && (
-                <div style={{ minWidth:0, paddingTop:5 }}>
-                  <div style={{ height:4, borderRadius:2, background:'var(--color-bg-elevated,#f3f4f6)', width:'80%', marginBottom:4 }}>
-                    <div style={{ width:`${completion.percentage}%`, height:'100%', borderRadius:2, background:'var(--color-accent-primary,#1D2567)', transition:'width 0.3s ease' }} />
+                <div style={{ minWidth:0, paddingTop:6 }}>
+                  <div style={{ height:4, borderRadius:2, background:'var(--color-bg-elevated,#f3f4f6)', width:'85%', marginBottom:4 }}>
+                    <div style={{ width:`${completion.percentage}%`, height:'100%', borderRadius:2, background:barColor(completion.percentage), transition:'width 0.3s ease' }} />
                   </div>
-                  <span style={{ fontSize:12, fontWeight:600, color:'var(--text-secondary,#4A5560)' }}>
+                  <span style={{ fontSize:12, fontWeight:700, color:barColor(completion.percentage) }}>
                     {completion.percentage}%
                   </span>
-                  {completion.percentage === 100 && (
-                    <div style={{ fontSize:10, color:'var(--color-status-success,#166534)', marginTop:1 }}>✓ Complete</div>
-                  )}
+                  <div style={{ fontSize:10, color:'var(--text-muted,#9ca3af)', marginTop:1 }}>
+                    {completion.percentage === 100
+                      ? <span style={{ color:'var(--color-status-success,#166534)', fontWeight:600 }}>✓ Complete</span>
+                      : `${completion.missing.length} item${completion.missing.length !== 1 ? 's' : ''} missing`}
+                  </div>
                 </div>
               )}
 

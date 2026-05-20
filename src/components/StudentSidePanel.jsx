@@ -15,7 +15,7 @@ import { EVENT_TYPES, EVENT_TYPE_LABELS, getEventColor } from '../lib/eventTypes
 import { logEvent, eventExists } from '../lib/logEvent'
 import { calculateProfileCompletion, getCompletionColor } from '../lib/profileCompletion'
 import { generateStudentSummary } from '../lib/generateSummary'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, Mail, User, GraduationCap, Briefcase, MapPin, FileText, MessageSquare, CheckCircle2, Award, ClipboardList } from 'lucide-react'
 // All external navigation must use openLink helpers (src/lib/openLink.js)
 import { openMailtoLink } from '../lib/openLink'
 import SyncIndicator from './SyncIndicator'
@@ -69,11 +69,30 @@ const CS_AFFILIATIONS = ['Current Employee','Former Employee','Volunteer','No pr
 const CS_WITH_DEPT    = ['Current Employee','Former Employee','Volunteer']
 const GENDER_OPTIONS  = ['Male','Female','Non-binary','Prefer not to say','Other']
 
-function SectionHeader({ title, children }) {
+function SectionHeader({ title, icon, children }) {
   return (
-    <div className="sp-section-hdr">
-      <span>{title}</span>
+    <div className="sp-section-hdr" style={{ display:'flex', alignItems:'center', gap:7 }}>
+      {icon && <span style={{ opacity:0.65, flexShrink:0 }}>{icon}</span>}
+      <span style={{ flex:1, textTransform:'uppercase', letterSpacing:'0.1em', fontSize:11 }}>{title}</span>
       {children}
+    </div>
+  )
+}
+
+// Pastel section card — wraps each profile section with icon + uppercase header + subtle bg
+function SectionCard({ icon: Icon, title, bg, iconColor, children, headerExtra }) {
+  return (
+    <div style={{
+      borderRadius: 12, background: bg || '#fafafa',
+      border: '1px solid rgba(25,25,25,0.05)',
+      marginBottom: 12, overflow: 'hidden',
+    }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8, padding:'11px 16px 10px', borderBottom:'1px solid rgba(25,25,25,0.05)' }}>
+        {Icon && <Icon size={14} color={iconColor || '#6b7280'} strokeWidth={2} style={{ flexShrink:0 }} />}
+        <span style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.12em', color:'var(--text-caption,#6b7280)', flex:1 }}>{title}</span>
+        {headerExtra}
+      </div>
+      <div style={{ padding:'12px 16px' }}>{children}</div>
     </div>
   )
 }
@@ -399,14 +418,14 @@ export default function StudentSidePanel({
   return (
     <>
       <div className="sp-container" style={{ position:'relative' }}>
-        {/* X close button — pinned to panel top-right, outside the rounded card */}
+        {/* X close button — STICKY so it stays visible while scrolling */}
         <button onClick={onClose}
-          style={{ position:'absolute', top:16, right:16, width:28, height:28, borderRadius:'50%',
-            background:'var(--pearl)', border:'none', cursor:'pointer', fontSize:14, fontWeight:700,
+          style={{ position:'sticky', top:12, float:'right', marginRight:12, marginBottom:-40, width:30, height:30, borderRadius:'50%',
+            background:'var(--bg-card,#fff)', border:'1px solid rgba(25,25,25,0.10)', cursor:'pointer', fontSize:14, fontWeight:700,
             color:'var(--raven)', display:'flex', alignItems:'center', justifyContent:'center',
-            boxShadow:'0 1px 4px rgba(0,0,0,0.12)', zIndex:10, lineHeight:1 }}
-          onMouseEnter={e => e.currentTarget.style.background='#f3f4f6'}
-          onMouseLeave={e => e.currentTarget.style.background='var(--pearl)'}>
+            boxShadow:'0 1px 4px rgba(0,0,0,0.10)', zIndex:20, lineHeight:1, flexShrink:0 }}
+          onMouseEnter={e => { e.currentTarget.style.background='#f3f4f6'; e.currentTarget.style.boxShadow='0 2px 8px rgba(0,0,0,0.14)' }}
+          onMouseLeave={e => { e.currentTarget.style.background='var(--bg-card,#fff)'; e.currentTarget.style.boxShadow='0 1px 4px rgba(0,0,0,0.10)' }}>
           ×
         </button>
 
@@ -449,50 +468,54 @@ export default function StudentSidePanel({
 
             return (
               <>
-                <div style={{ margin:'12px 12px 0', borderRadius:14,
-                  background:'linear-gradient(to bottom, #dceff8, #ffffff)',
-                  padding:'16px 18px 14px', boxShadow:'0 2px 8px rgba(29,37,103,0.08)',
-                  overflow:'hidden', textAlign:'center', position:'relative' }}>
+                {/* ── Hero card ── */}
+                <div style={{ margin:'4px 12px 0', borderRadius:14,
+                  background:'linear-gradient(160deg, #dceff8 0%, #f4f8fc 55%, #ffffff 100%)',
+                  padding:'20px 18px 16px', boxShadow:'0 2px 8px rgba(29,37,103,0.06)',
+                  textAlign:'center', position:'relative' }}>
                   {saveStatus !== 'idle' && (
                     <div style={{ position:'absolute', top:10, left:'50%', transform:'translateX(-50%)', fontSize:11, fontWeight:500,
-                      color:saveStatus==='saved'?'#166534':'#6b7280', background:'rgba(255,255,255,0.85)',
+                      color:saveStatus==='saved'?'#166534':'#6b7280', background:'rgba(255,255,255,0.9)',
                       padding:'2px 10px', borderRadius:20, whiteSpace:'nowrap', zIndex:2 }}>
                       {saveStatus==='saving'?'Saving…':'✓ Saved'}
                     </div>
                   )}
-                  {/* Photo with completion ring */}
-                  <div style={{ display:'flex', justifyContent:'center', marginBottom:8 }}>
-                    <StudentAvatar student={data} size={76}
-                      style={{ border:'3px solid var(--pearl)', boxShadow:'0 3px 14px rgba(29,37,103,0.15)', fontSize:'26px' }} />
+                  {/* Large photo */}
+                  <div style={{ display:'flex', justifyContent:'center', marginBottom:10 }}>
+                    <StudentAvatar student={data} size={96}
+                      style={{ border:'4px solid var(--pearl)', boxShadow:'0 4px 18px rgba(29,37,103,0.16)', fontSize:'34px' }} />
                   </div>
-                  {/* Name + status pill on same row */}
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, flexWrap:'wrap', marginBottom:4 }}>
-                    <span style={{ fontSize:19, fontWeight:700, color:'var(--nightfall)' }}>
-                      {student.first_name} {student.last_name}
-                    </span>
-                    {data.status && (() => {
-                      const cfg = ASPIRE_STATUS_CONFIG[data.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']
-                      return <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20,
-                        background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, flexShrink:0 }}>
-                        {data.status}
-                      </span>
-                    })()}
+                  {/* Name */}
+                  <div style={{ fontSize:22, fontWeight:700, color:'var(--nightfall)', marginBottom:4, lineHeight:1.2 }}>
+                    {student.first_name} {student.last_name}
                   </div>
-                  <div style={{ fontSize:12, color:'#6b7280', marginBottom:8 }}>
+                  {/* School · Program */}
+                  <div style={{ fontSize:13, color:'#6b7280', marginBottom:8 }}>
                     {student.school}{student.program_type ? ` · ${student.program_type}` : ''}
                   </div>
-                  <div style={{ display:'flex', justifyContent:'center', gap:20, marginBottom:8 }}>
+                  {/* ASPIRE status pill */}
+                  {data.status && (() => {
+                    const cfg = ASPIRE_STATUS_CONFIG[data.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']
+                    return <div style={{ marginBottom:12 }}>
+                      <span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20,
+                        background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}` }}>
+                        {data.status}
+                      </span>
+                    </div>
+                  })()}
+                  {/* Contact icons */}
+                  <div style={{ display:'flex', justifyContent:'center', gap:22, marginBottom:10 }}>
                     <button title="Send email" onClick={() => openMailtoLink(`mailto:${data.personal_email||data.school_email||''}`)}
-                      style={{ background:'none', border:'none', cursor:'pointer', fontSize:15, color:'#6b7280', lineHeight:1 }}>✉</button>
+                      style={{ background:'none', border:'none', cursor:'pointer', fontSize:17, color:'#6b7280', lineHeight:1 }}>✉</button>
                     <button title="Call" onClick={() => { if(data.phone){ const a=document.createElement('a'); a.href=`tel:${data.phone}`; a.click() } }}
-                      style={{ background:'none', border:'none', cursor:data.phone?'pointer':'default', fontSize:15, color:data.phone?'#6b7280':'#d1d5db', lineHeight:1 }}>📞</button>
+                      style={{ background:'none', border:'none', cursor:data.phone?'pointer':'default', fontSize:17, color:data.phone?'#6b7280':'#d1d5db', lineHeight:1 }}>📞</button>
                     <button title="Edit profile" onClick={() => { const inp=document.querySelector('.sp-content .sp-input'); if(inp){inp.scrollIntoView({behavior:'smooth',block:'center'}); inp.focus()} }}
-                      style={{ background:'none', border:'none', cursor:'pointer', fontSize:15, color:'#6b7280', lineHeight:1 }}>✏</button>
+                      style={{ background:'none', border:'none', cursor:'pointer', fontSize:17, color:'#6b7280', lineHeight:1 }}>✏</button>
                   </div>
                   {canEdit && <button onClick={handleCopySummary}
                     style={{
                       display:'flex', alignItems:'center', gap:'6px',
-                      padding:'5px 12px', borderRadius:'8px',
+                      padding:'6px 14px', borderRadius:'8px',
                       border:`1px solid ${summaryCopied ? '#86efac' : '#e5e7eb'}`,
                       background: summaryCopied ? '#f0fdf4' : '#f9fafb',
                       fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'12px',
@@ -504,64 +527,69 @@ export default function StudentSidePanel({
                   </button>}
                 </div>
 
-                {/* ── Summary cards strip ── */}
-                <div style={{ margin:'10px 12px 0', display:'flex', gap:8, overflowX:'auto', paddingBottom:2 }}>
-                  {[
-                    { label:'GPA', value: data.cumulative_gpa != null ? parseFloat(data.cumulative_gpa).toFixed(2) : '—',
-                      color: parseFloat(data.cumulative_gpa) >= 3.5 ? '#166534' : 'var(--text-heading,#191919)' },
-                    { label:'Profile', value:`${completion.percentage}%`, color:compColors.text },
-                    { label:'ASPIRE Status', value:data.status || '—' },
-                    { label:'Interview', value:interviewLabel },
-                    { label:'CS-Link', value:CS_LINK_STATUS_CONFIG[getCsLinkStatus(data)]?.label || '—' },
-                    { label:'Placement', value:matchedUnitInDrawer || 'Not placed' },
-                    ...(data.hours_required > 0 ? [{ label:'Hours', value:`${data.hours_completed||0}/${data.hours_required}` }] : []),
-                  ].map(({ label, value, color }) => (
-                    <div key={label} style={{
-                      background:'var(--bg-card-elevated,#f9fafb)',
-                      border:'1px solid var(--color-border-subtle,#e5e7eb)',
-                      borderRadius:8, padding:'7px 10px', minWidth:100, flexShrink:0,
-                    }}>
-                      <div style={{ fontSize:9, textTransform:'uppercase', letterSpacing:0.5, color:'var(--text-muted,#9ca3af)', fontWeight:600, marginBottom:3 }}>{label}</div>
-                      <div style={{ fontSize:13, fontWeight:700, color:color||'var(--text-heading,#191919)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:110 }}>{value}</div>
-                    </div>
-                  ))}
+                {/* ── Status snapshot — 6 chips ── */}
+                <div style={{ margin:'10px 12px 0', display:'flex', flexWrap:'wrap', gap:6 }}>
+                  {(() => {
+                    const gpaVal = parseFloat(data.cumulative_gpa)
+                    const gpaOk  = !isNaN(gpaVal) && gpaVal > 0
+                    const csAcc  = CS_LINK_STATUS_CONFIG[getCsLinkStatus(data)]
+                    const chips  = [
+                      gpaOk ? { label:`GPA ${gpaVal.toFixed(2)}`, bg:gpaVal>=3.5?'#dcfce7':'#f3f4f6', color:gpaVal>=3.5?'#166534':'#6b7280' } : null,
+                      data.status ? (() => { const c=ASPIRE_STATUS_CONFIG[data.status]||ASPIRE_STATUS_CONFIG['Pending Outreach']; return { label:data.status, bg:c.bg, color:c.text, border:c.border } })() : null,
+                      { label:`Interview: ${interviewLabel}`, bg:'#f0f6ff', color:'#1e40af' },
+                      { label:matchedUnitInDrawer?`Placed: ${matchedUnitInDrawer}`:'Not placed', bg:matchedUnitInDrawer?'#dcfce7':'#f3f4f6', color:matchedUnitInDrawer?'#166534':'#6b7280' },
+                      { label:csAcc?.label||'CS-Link Unknown', bg:csAcc?.bg||'#f3f4f6', color:csAcc?.text||'#6b7280' },
+                      data.hours_required>0 ? { label:`${data.hours_completed||0}/${data.hours_required} hrs`, bg:'#f0f6fa', color:'#1e3a5f' } : null,
+                    ].filter(Boolean)
+                    return chips.map((c,i) => (
+                      <span key={i} style={{ fontSize:10, fontWeight:700, padding:'3px 9px', borderRadius:12, whiteSpace:'nowrap', background:c.bg, color:c.color, border:c.border?`1px solid ${c.border}`:'1px solid rgba(25,25,25,0.05)' }}>
+                        {c.label}
+                      </span>
+                    ))
+                  })()}
                 </div>
 
-                {/* ── Profile Completion section ── */}
-                <div style={{ margin:'10px 12px 0', padding:'12px 14px', background:'var(--bg-card,#fff)', border:'1px solid var(--color-border-subtle,#e5e7eb)', borderRadius:10 }}>
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
-                    <span style={{ fontSize:12, fontWeight:700, color:compColors.text }}>Profile Completion</span>
-                    <span style={{ fontSize:13, fontWeight:800, color:compColors.text }}>{completion.percentage}%</span>
-                  </div>
-                  <div style={{ height:4, borderRadius:2, background:'rgba(0,0,0,0.08)', marginBottom:10 }}>
-                    <div style={{ width:`${completion.percentage}%`, height:'100%', borderRadius:2, background:compColors.bar, transition:'width 0.3s ease' }} />
-                  </div>
-                  {completion.missing.length > 0 && (
-                    <div style={{ marginBottom:10 }}>
-                      <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-muted,#6b7280)', marginBottom:4 }}>Missing</div>
-                      <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
-                        {completion.missing.map(m => (
-                          <span key={m} style={{ fontSize:10, padding:'1px 7px', borderRadius:10, background:'var(--color-bg-elevated,#f3f4f6)', color:'var(--text-muted,#6b7280)', fontWeight:600 }}>{m}</span>
-                        ))}
+                {/* ── Profile Completion block ── */}
+                {(() => {
+                  const pct = completion.percentage
+                  const barClr = pct >= 100 ? '#16a34a' : pct >= 67 ? '#f59e0b' : '#E2569C'
+                  const blockBg = pct >= 100 ? 'rgba(22,163,74,0.06)' : pct >= 67 ? 'rgba(245,158,11,0.08)' : 'rgba(226,86,156,0.06)'
+                  return (
+                    <div style={{ margin:'10px 12px 0', padding:'12px 14px', background:blockBg, border:`1px solid ${barClr}33`, borderRadius:10 }}>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:7 }}>
+                        <span style={{ fontSize:12, fontWeight:700, color:barClr }}>Profile Completion</span>
+                        <span style={{ fontSize:13, fontWeight:800, color:barClr }}>{pct}%</span>
                       </div>
+                      <div style={{ height:5, borderRadius:3, background:'rgba(0,0,0,0.10)', marginBottom:9 }}>
+                        <div style={{ width:`${pct}%`, height:'100%', borderRadius:3, background:barClr, transition:'width 0.3s ease' }} />
+                      </div>
+                      {completion.missing.length > 0 && (
+                        <div style={{ marginBottom:8 }}>
+                          <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-muted,#6b7280)', marginBottom:4 }}>Missing</div>
+                          <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+                            {completion.missing.map(m => (
+                              <span key={m} style={{ fontSize:10, padding:'1px 7px', borderRadius:10, background:'rgba(0,0,0,0.06)', color:'var(--text-muted,#6b7280)', fontWeight:600 }}>{m}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {pct === 100
+                        ? <div style={{ fontSize:11, fontWeight:600, color:'#166534' }}>✓ Ready to proceed</div>
+                        : nextAction && <div style={{ fontSize:11, color:'var(--text-caption,#475467)', fontStyle:'italic' }}>Next: {nextAction}</div>
+                      }
                     </div>
-                  )}
-                  {completion.percentage === 100
-                    ? <div style={{ fontSize:11, fontWeight:600, color:'#166534' }}>✓ Ready to proceed</div>
-                    : nextAction && (
-                      <div style={{ fontSize:11, color:'var(--text-caption,#475467)', fontStyle:'italic' }}>
-                        Next: {nextAction}
-                      </div>
-                    )
-                  }
-                </div>
+                  )
+                })()}
               </>
             )
           })()}
 
+          {/* ── Unified section container with pastel section cards ── */}
+          <div style={{ margin:'12px 12px 0', background:'var(--bg-card,#fff)', borderRadius:14, padding:'10px 10px 4px', boxShadow:'0 1px 4px rgba(29,37,103,0.05)' }}>
+
           {/* 1. Contact Information */}
-          <div className="sp-section">
-            <SectionHeader title="Contact Information" />
+          <div className="sp-section sp-card" style={{ background:'rgba(100,130,200,0.06)', borderRadius:12, marginBottom:10 }}>
+            <SectionHeader title="Contact Information" icon={<Mail size={13} />} />
             <Field label="School Email">
               <div style={{ display:'flex', gap:6, alignItems:'center' }}>
                 <div className="sp-readonly">{data.school_email || '—'}</div>
@@ -591,8 +619,8 @@ export default function StudentSidePanel({
           </div>
 
           {/* 2. Program Details */}
-          <div className="sp-section">
-            <SectionHeader title="Program Details" />
+          <div className="sp-section sp-card" style={{ background:'rgba(200,213,192,0.12)', borderRadius:12, marginBottom:10 }}>
+            <SectionHeader title="Program Details" icon={<GraduationCap size={13} />} />
             <div className="sp-grid-2">
               <Field label="School"><div className="sp-readonly">{data.school||'—'}</div></Field>
               <Field label="Program Type">
@@ -615,8 +643,8 @@ export default function StudentSidePanel({
           </div>
 
           {/* 3. Personal Information */}
-          <div className="sp-section">
-            <SectionHeader title="Personal Information" />
+          <div className="sp-section sp-card" style={{ background:'rgba(244,241,236,0.6)', borderRadius:12, marginBottom:10 }}>
+            <SectionHeader title="Personal Information" icon={<User size={13} />} />
             <div className="sp-grid-2">
               <Field label="First Name">
                 <input className="sp-input" value={data.first_name||''} onChange={e => handleNameField('first_name', e.target.value)} />
@@ -664,8 +692,8 @@ export default function StudentSidePanel({
           </div>
 
           {/* 4. Background and Affiliation */}
-          <div className="sp-section">
-            <SectionHeader title="Background and Affiliation" />
+          <div className="sp-section sp-card" style={{ background:'rgba(234,220,196,0.20)', borderRadius:12, marginBottom:10 }}>
+            <SectionHeader title="Background and Affiliation" icon={<Briefcase size={13} />} />
             <Field label="Prior Healthcare Experience">
               <input className="sp-input" value={data.prior_healthcare_experience||''} onChange={e => handleText('prior_healthcare_experience', e.target.value)} placeholder="e.g. CNA, EMT" />
             </Field>
@@ -688,8 +716,8 @@ export default function StudentSidePanel({
           </div>
 
           {/* 5. Interest Statement */}
-          <div className="sp-section">
-            <SectionHeader title="Interest Statement" />
+          <div className="sp-section sp-card" style={{ background:'rgba(226,86,156,0.05)', borderRadius:12, marginBottom:10 }}>
+            <SectionHeader title="Interest Statement" icon={<MessageSquare size={13} />} />
             {!editingInterest ? (
               <div
                 onClick={() => setEditingInterest(true)}
@@ -744,8 +772,8 @@ export default function StudentSidePanel({
           </div>
 
           {/* 6. Unit Preferences */}
-          <div className="sp-section">
-            <SectionHeader title="Unit Preferences" />
+          <div className="sp-section sp-card" style={{ background:'rgba(79,109,168,0.06)', borderRadius:12, marginBottom:10 }}>
+            <SectionHeader title="Unit Placement Preferences" icon={<MapPin size={13} />} />
             <div className="sp-grid-3">
               {['unit_preference_1','unit_preference_2','unit_preference_3'].map((f,i) => (
                 <Field key={f} label={`Preference ${i+1}`}>
@@ -759,8 +787,8 @@ export default function StudentSidePanel({
           </div>
 
           {/* 7. Placement and Outcomes */}
-          <div className="sp-section">
-            <SectionHeader title="Placement and Outcomes" />
+          <div className="sp-section sp-card" style={{ background:'rgba(200,213,192,0.22)', borderRadius:12, marginBottom:10 }}>
+            <SectionHeader title="Placement and Outcomes" icon={<Award size={13} />} />
             <div className="sp-grid-2">
               <Field label="ASPIRE Status">
                 <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
@@ -843,8 +871,8 @@ export default function StudentSidePanel({
           </div>
 
           {/* 8. CS-Link Access Workflow — editors only */}
-          {canEdit && <div className="sp-section">
-            <SectionHeader title="CS-Link Access">
+          {canEdit && <div className="sp-section sp-card" style={{ background:'rgba(250,250,250,0.9)', borderRadius:12, marginBottom:10 }}>
+            <SectionHeader title="CS-Link Access" icon={<CheckCircle2 size={13} />}>
               <span style={{ fontSize:11, fontWeight:600, padding:'2px 9px', borderRadius:20, background:csStatusCfg.bg, color:csStatusCfg.text }}>
                 {csStatusCfg.label}
               </span>
@@ -997,8 +1025,8 @@ export default function StudentSidePanel({
           </div>}
 
           {/* 9. Documents */}
-          <div className="sp-section">
-            <SectionHeader title="Documents" />
+          <div className="sp-section sp-card" style={{ background:'rgba(244,220,176,0.12)', borderRadius:12, marginBottom:10 }}>
+            <SectionHeader title="Documents" icon={<FileText size={13} />} />
             <div className="doc-section">
               <div className="doc-upload-area">
                 <div className="doc-area-label">Resume</div>
@@ -1168,8 +1196,8 @@ export default function StudentSidePanel({
           </div>
 
           {/* 10. Notes */}
-          <div className="sp-section">
-            <SectionHeader title="Notes" />
+          <div className="sp-section sp-card" style={{ background:'rgba(244,241,236,0.4)', borderRadius:12, marginBottom:10 }}>
+            <SectionHeader title="Notes" icon={<ClipboardList size={13} />} />
             <textarea className="sp-textarea" rows={4} value={data.notes||''} onChange={e => handleText('notes', e.target.value)} placeholder="Add notes…" />
           </div>
 
@@ -1270,8 +1298,10 @@ export default function StudentSidePanel({
             ))}
           </div>
 
+          </div>{/* end unified section container */}
+
           {/* Delete */}
-          <div style={{ padding:'16px', borderTop:'1px solid var(--border-lt)' }}>
+          <div style={{ padding:'16px 12px', marginTop:4 }}>
             <button className="btn btn-destructive" onClick={() => setConfirmDelete(true)}>Delete Student</button>
           </div>
 
