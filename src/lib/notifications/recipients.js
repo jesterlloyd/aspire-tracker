@@ -146,10 +146,25 @@ export async function resolveRecipients(type, context) {
       return resolveTeamsInviteReminder(context);
     case 'unit_form_received':
       return resolveUnitFormReceived(context);
+    case 'interview_reminder':
+      return resolveInterviewReminder(context);
     default:
       console.warn(`[notifications/recipients] no resolver for type: ${type}`);
       return [];
   }
+}
+
+function resolveInterviewReminder(context) {
+  if (!context.studentEmail) {
+    console.warn('[notifications/recipients] interview_reminder: no studentEmail in context');
+    return [];
+  }
+  return [{
+    email:    context.studentEmail,
+    role:     'student',
+    name:     context.firstName || null,
+    audience: 'student',
+  }];
 }
 
 function resolveTeamsInviteReminder(context) {

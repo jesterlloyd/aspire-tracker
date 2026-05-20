@@ -9,6 +9,10 @@
     {
       "path": "/api/cron/teams-invite-reminders",
       "schedule": "0 15 * * 1-5"
+    },
+    {
+      "path": "/api/cron/interview-reminders",
+      "schedule": "0 17 * * *"
     }
   ],
   "functions": {
@@ -21,6 +25,7 @@
     "api/student-update.js":              { "maxDuration": 10 },
     "api/admin-users.js":                 { "maxDuration": 10 },
     "api/unit-form-notification.js":      { "maxDuration": 15 },
-    "api/cron/teams-invite-reminders.js": { "maxDuration": 60 }
+    "api/cron/teams-invite-reminders.js": { "maxDuration": 60 },
+    "api/cron/interview-reminders.js":    { "maxDuration": 60 }
   }
 }
