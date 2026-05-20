@@ -1272,13 +1272,14 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
         boxShadow: '0 2px 12px rgba(29,37,103,0.07)',
         overflow: 'hidden', marginBottom: '12px',
       }}>
-        {/* Left sidebar panel */}
+        {/* Left sidebar panel — fixed height so TODAY pills can't push the card taller */}
         <div style={{
           width: '260px', flexShrink: 0,
           borderRight: '1px solid #f3f4f6',
           padding: '20px 18px',
           display: 'flex', flexDirection: 'column',
           overflowY: 'auto',
+          maxHeight: '620px',
         }}>
           <CalendarSidebar
             blocks={blocks}

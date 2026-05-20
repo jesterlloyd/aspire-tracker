@@ -95,8 +95,11 @@ function MiniCalendar({ blocks, slots, selectedDate, onSelectDate }) {
 }
 
 // ─── Today Snapshot ───────────────────────────────────────────────────────────
+const MAX_VISIBLE_PILLS = 5
+
 function TodaySnapshot({ slots }) {
   const today = toLocalDateStr()
+  const [showAll, setShowAll] = useState(false)
 
   const todayLabel = new Date().toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' })
 
@@ -144,24 +147,38 @@ function TodaySnapshot({ slots }) {
         </div>
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
-          {scheduledSlots.length > 0 && (
-            <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
-              {scheduledSlots.map(s => {
-                const student = Array.isArray(s.students) ? s.students[0] : s.students
-                const name    = student ? `${student.first_name} ${student.last_name}` : 'Booked'
-                return (
-                  <div key={s.id} style={{ padding:'8px 10px', background:'#f0fdf4', borderRadius:'8px', borderLeft:'3px solid #16a34a' }}>
-                    <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'11px', color:'#166534', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-                      {name}
+          {scheduledSlots.length > 0 && (() => {
+            const visible = showAll ? scheduledSlots : scheduledSlots.slice(0, MAX_VISIBLE_PILLS)
+            const hidden  = scheduledSlots.length - visible.length
+            return (
+              <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+                {visible.map(s => {
+                  const student = Array.isArray(s.students) ? s.students[0] : s.students
+                  const name    = student ? `${student.first_name} ${student.last_name}` : 'Booked'
+                  return (
+                    <div key={s.id} style={{ padding:'8px 10px', background:'#f0fdf4', borderRadius:'8px', borderLeft:'3px solid #16a34a' }}>
+                      <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:'11px', color:'#166534', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                        {name}
+                      </div>
+                      <div style={{ fontFamily:'DM Sans', fontSize:'10px', color:'#6b7280', marginTop:'2px' }}>
+                        {fmt(s.slot_time)} · {s.interviewer_name || 'ASPIRE Team'}
+                      </div>
                     </div>
-                    <div style={{ fontFamily:'DM Sans', fontSize:'10px', color:'#6b7280', marginTop:'2px' }}>
-                      {fmt(s.slot_time)} · {s.interviewer_name || 'ASPIRE Team'}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+                  )
+                })}
+                {hidden > 0 && (
+                  <button
+                    onClick={() => setShowAll(true)}
+                    style={{ padding:'5px 10px', background:'#f3f4f6', border:'none', borderRadius:'8px', cursor:'pointer', fontFamily:'DM Sans', fontSize:'10px', fontWeight:600, color:'#6b7280', textAlign:'left' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#e5e7eb'}
+                    onMouseLeave={e => e.currentTarget.style.background = '#f3f4f6'}
+                  >
+                    +{hidden} more interview{hidden !== 1 ? 's' : ''} today
+                  </button>
+                )}
+              </div>
+            )
+          })()}
 
           {openByInterviewer.length > 0 && (
             <div style={{ marginTop: scheduledSlots.length > 0 ? '8px' : '0' }}>
