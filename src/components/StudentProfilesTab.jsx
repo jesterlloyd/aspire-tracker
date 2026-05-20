@@ -199,6 +199,7 @@ export default function StudentProfilesTab({
               onRefresh={onRefresh}
               onExportCSV={onExportCSV}
               onAddStudent={onAddStudent}
+              units={units}
               compressed={!!panelStudent}
             />
           </div>

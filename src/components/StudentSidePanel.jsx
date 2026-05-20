@@ -428,8 +428,8 @@ export default function StudentSidePanel({
             )}
             {/* Photo */}
             <div style={{ display:'flex', justifyContent:'center', marginBottom:12 }}>
-              <StudentAvatar student={data} size={96}
-                style={{ border:'3px solid var(--pearl)', boxShadow:'0 4px 16px rgba(29,37,103,0.15)', fontSize:'32px' }}
+              <StudentAvatar student={data} size={128}
+                style={{ border:'4px solid var(--pearl)', boxShadow:'0 4px 20px rgba(29,37,103,0.18)', fontSize:'44px' }}
               />
             </div>
             {/* Name */}
