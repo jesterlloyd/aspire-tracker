@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import StudentAvatar from './StudentAvatar'
+import AvatarWithRing from './AvatarWithRing'
 import ImportStudentsCSV from './ImportStudentsCSV'
 import { getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
@@ -125,18 +125,28 @@ export default function StudentListPanel({
           // Missing items (show at most 3)
           const missing3 = completion.missing.slice(0, 3).join(', ')
 
+          // avatar size: 48px full list, 44px when compressed (drawer open)
+          const avatarSz = compressed ? 44 : 48
+
           return (
             <div key={s.id}
               className={`pl-row${sel ? ' pl-selected' : ''}`}
-              style={{ alignItems: 'flex-start', padding: '12px 16px', gap: 10 }}
+              style={{
+                alignItems: 'flex-start', padding: '10px 16px',
+                display: 'grid',
+                gridTemplateColumns: compressed
+                  ? '40% 28% 25% 7%'
+                  : '32% 14% 27% 20% 7%',
+                gap: 8,
+              }}
               onClick={() => onSelect(s.id)}>
 
-              {/* LEFT: avatar + identity */}
-              <div style={{ display:'flex', gap:10, flex:'0 0 28%', minWidth:0, alignItems:'flex-start' }}>
-                <StudentAvatar student={s} size={48} style={{ flexShrink:0, marginTop:2 }} />
-                <div style={{ minWidth:0 }}>
-                  <div style={{ fontWeight:isUnread?800:700, fontSize:14, color:'var(--text-heading,#191919)', display:'flex', alignItems:'center', gap:5, lineHeight:1.2 }}>
-                    <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</span>
+              {/* COL 1: identity */}
+              <div style={{ display:'flex', gap:10, minWidth:0, alignItems:'flex-start' }}>
+                <AvatarWithRing student={s} size={avatarSz} completionPct={completion.percentage} style={{ marginTop:1 }} />
+                <div style={{ minWidth:0, flex:1 }}>
+                  <div style={{ fontWeight:isUnread?800:700, fontSize:compressed?13:14, color:'var(--text-heading,#191919)', display:'flex', alignItems:'center', gap:5, lineHeight:1.2 }}>
+                    <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }} title={name}>{name}</span>
                     {isUnread && <span title="New submission" style={{ width:7, height:7, borderRadius:'50%', flexShrink:0, background:'var(--cs-red,#DC1E34)', display:'inline-block' }} />}
                   </div>
                   <div style={{ fontSize:11, color:'var(--text-caption,#6b7280)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
@@ -152,66 +162,60 @@ export default function StudentListPanel({
                 </div>
               </div>
 
-              {/* MIDDLE-LEFT: Readiness */}
+              {/* COL 2: readiness — percentage only (ring is the visual cue; missing items are in drawer) */}
               {!compressed && (
-                <div style={{ flex:'0 0 18%', minWidth:0, paddingTop:2 }}>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:3 }}>
-                    <span style={{ fontSize:10, color:'var(--text-muted,#9ca3af)', fontWeight:500 }}>Profile</span>
-                    <span style={{ fontSize:11, fontWeight:700, color:compColors.text }}>{completion.percentage}%</span>
-                  </div>
-                  <div style={{ height:4, borderRadius:2, background:'var(--color-bg-elevated,#f3f4f6)' }}>
-                    <div style={{ width:`${completion.percentage}%`, height:'100%', borderRadius:2, background:compColors.bar, transition:'width 0.3s ease' }} />
-                  </div>
-                  <div style={{ fontSize:10, marginTop:3, lineHeight:1.3 }}>
-                    {completion.percentage === 100
-                      ? <span style={{ color:'var(--color-status-success,#166534)', fontWeight:600 }}>✓ Complete</span>
-                      : <span style={{ color:'var(--color-status-warning,#92400e)' }}>Missing: {missing3}</span>}
+                <div style={{ minWidth:0, paddingTop:3 }}>
+                  <span style={{ fontSize:13, fontWeight:700, color:compColors.text }}>
+                    {completion.percentage}%
+                  </span>
+                  <div style={{ fontSize:10, color:completion.percentage===100?'var(--color-status-success,#166534)':'var(--text-muted,#9ca3af)', marginTop:2, lineHeight:1.2 }}>
+                    {completion.percentage === 100 ? '✓ Complete' : 'Incomplete'}
                   </div>
                 </div>
               )}
 
-              {/* MIDDLE: Preferences or placement (shifted left, before chips) */}
-              {!compressed && (
-                <div style={{ flex:'0 0 20%', minWidth:0, paddingTop:2 }}>
-                  {isPlaced ? (
-                    <>
-                      <div style={{ fontSize:11.5, fontWeight:700, color:'var(--text-heading,#191919)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                        Placed: {matchedUnit.unit_name}
-                      </div>
-                      {mqLabel && <Chip label={mqLabel} bg={mqBg} color={mqColor} />}
-                    </>
-                  ) : prefs.length > 0 ? (
-                    <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
-                      {prefs.slice(0,3).map((p, i) => (
-                        <div key={i} style={{ display:'flex', gap:4, alignItems:'baseline' }}>
-                          <span style={{ fontSize:9, fontWeight:700, color:'var(--text-muted,#9ca3af)', width:20, flexShrink:0 }}>{prefLabels[i]}</span>
-                          <span style={{ fontSize:11, fontWeight:600, color:'var(--text-heading,#191919)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p}</span>
-                        </div>
-                      ))}
+              {/* COL 3: preferences or placement */}
+              <div style={{ minWidth:0, paddingTop:3 }}>
+                {isPlaced ? (
+                  <>
+                    <div style={{ fontSize:compressed?11:11.5, fontWeight:700, color:'var(--text-heading,#191919)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      Placed: {matchedUnit.unit_name}
                     </div>
-                  ) : (
-                    <span style={{ fontSize:10, color:'var(--text-muted,#9ca3af)', fontStyle:'italic' }}>No preferences yet</span>
-                  )}
-                </div>
-              )}
+                    {mqLabel && <Chip label={mqLabel} bg={mqBg} color={mqColor} />}
+                  </>
+                ) : prefs.length > 0 ? (
+                  <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
+                    {prefs.slice(0,3).map((p, i) => (
+                      <div key={i} style={{ display:'flex', gap:4, alignItems:'baseline' }}>
+                        <span style={{ fontSize:9, fontWeight:700, color:'var(--text-muted,#9ca3af)', width:20, flexShrink:0 }}>{prefLabels[i]}</span>
+                        <span style={{ fontSize:11, fontWeight:600, color:'var(--text-heading,#191919)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span style={{ fontSize:10, color:'var(--text-muted,#9ca3af)', fontStyle:'italic' }}>No preferences yet</span>
+                )}
+              </div>
 
-              {/* RIGHT: Chips (GPA + ASPIRE status + CS-Link), now after preferences */}
-              <div style={{ flex:`0 0 ${compressed?'28%':'20%'}`, display:'flex', flexDirection:'column', alignItems:'flex-start', gap:3, paddingTop:2, minWidth:0 }}>
+              {/* COL 4: chips */}
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:3, paddingTop:3, minWidth:0 }}>
                 {gpaOk && <Chip label={`GPA ${gpaVal.toFixed(2)}`} bg={gpaBg} color={gpaColor} />}
                 {sChip && <Chip label={s.status} bg={sChip.bg} color={sChip.text} border={sChip.border} />}
                 <Chip label={acc.label} bg={acc.bg} color={acc.text} />
               </div>
 
-              {/* FAR RIGHT: eye icon */}
-              <button
-                onClick={e => { e.stopPropagation(); onSelect(s.id) }}
-                title="View profile"
-                style={{ marginLeft:'auto', flexShrink:0, background:'none', border:'none', cursor:'pointer', color:'var(--text-muted,#9ca3af)', display:'flex', alignItems:'center', paddingTop:4 }}
-                onMouseEnter={e => e.currentTarget.style.color='var(--color-accent-primary,#1D2567)'}
-                onMouseLeave={e => e.currentTarget.style.color='var(--text-muted,#9ca3af)'}
-              >
-                <Eye size={15} />
-              </button>
+              {/* COL 5: eye icon */}
+              <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:4 }}>
+                <button
+                  onClick={e => { e.stopPropagation(); onSelect(s.id) }}
+                  title="View profile"
+                  style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted,#9ca3af)', display:'flex', alignItems:'center', padding:2 }}
+                  onMouseEnter={e => e.currentTarget.style.color='var(--color-accent-primary,#1D2567)'}
+                  onMouseLeave={e => e.currentTarget.style.color='var(--text-muted,#9ca3af)'}
+                >
+                  <Eye size={15} />
+                </button>
+              </div>
             </div>
           )
         })}

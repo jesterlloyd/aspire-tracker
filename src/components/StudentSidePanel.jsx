@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { displayName, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 import StudentAvatar from './StudentAvatar'
+import AvatarWithRing from './AvatarWithRing'
 import {
   ASPIRE_STATUSES, ASPIRE_STATUS_CONFIG, NGRP_OUTCOMES, INTERVIEW_OUTCOMES,
   SHIFT_OPTIONS, COHORTS,
@@ -413,93 +414,151 @@ export default function StudentSidePanel({
         {/* Scrollable content */}
         <div className="sp-content">
 
-          {/* Hero header card — rounded */}
-          <div style={{ margin:'12px 12px 0', borderRadius:16,
-            background:'linear-gradient(to bottom, #dceff8, #ffffff)',
-            padding:'24px 20px 20px', boxShadow:'0 2px 8px rgba(29,37,103,0.08)',
-            overflow:'hidden', textAlign:'center', position:'relative' }}>
-            {/* Save status pill */}
-            {saveStatus !== 'idle' && (
-              <div style={{ position:'absolute', top:14, left:'50%', transform:'translateX(-50%)', fontSize:11, fontWeight:500,
-                color: saveStatus==='saved'?'#166534':'#6b7280', background:'rgba(255,255,255,0.85)',
-                padding:'2px 10px', borderRadius:20, whiteSpace:'nowrap', zIndex:2 }}>
-                {saveStatus==='saving'?'Saving…':'✓ Saved'}
-              </div>
-            )}
-            {/* Photo */}
-            <div style={{ display:'flex', justifyContent:'center', marginBottom:12 }}>
-              <StudentAvatar student={data} size={128}
-                style={{ border:'4px solid var(--pearl)', boxShadow:'0 4px 20px rgba(29,37,103,0.18)', fontSize:'44px' }}
-              />
-            </div>
-            {/* Name */}
-            <div style={{ fontSize:22, fontWeight:700, color:'var(--nightfall)', marginBottom:4 }}>
-              {student.first_name} {student.last_name}
-            </div>
-            {/* School · Program */}
-            <div style={{ fontSize:14, color:'#6b7280', marginBottom:10 }}>
-              {student.school}{student.program_type ? ` · ${student.program_type}` : ''}
-            </div>
-            {/* ASPIRE Status pill */}
-            {data.status && (() => {
-              const cfg = ASPIRE_STATUS_CONFIG[data.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']
-              return <span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20,
-                background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, display:'inline-block', marginBottom:12 }}>
-                {data.status}
-              </span>
-            })()}
-            {/* Action icon row */}
-            <div style={{ display:'flex', justifyContent:'center', gap:24, marginTop:4 }}>
-              <button title="Send email" onClick={() => { openMailtoLink(`mailto:${data.personal_email||data.school_email||''}`) }}
-                style={{ background:'none', border:'none', cursor:'pointer', fontSize:16, color:'#6b7280', lineHeight:1 }}>✉</button>
-              <button title="Call" onClick={() => { if(data.phone){ const a=document.createElement('a'); a.href=`tel:${data.phone}`; a.click() } }}
-                style={{ background:'none', border:'none', cursor:data.phone?'pointer':'default', fontSize:16, color:data.phone?'#6b7280':'#d1d5db', lineHeight:1 }}>📞</button>
-              <button title="Edit profile" onClick={() => { const inp=document.querySelector('.sp-content .sp-input'); if(inp){inp.scrollIntoView({behavior:'smooth',block:'center'}); inp.focus()} }}
-                style={{ background:'none', border:'none', cursor:'pointer', fontSize:16, color:'#6b7280', lineHeight:1 }}>✏</button>
-            </div>
-            {/* Copy Summary button — admin/owner only */}
-            {canEdit && <button onClick={handleCopySummary}
-              style={{
-                display:'flex', alignItems:'center', gap:'6px',
-                padding:'6px 14px', borderRadius:'8px',
-                border:`1px solid ${summaryCopied ? '#86efac' : '#e5e7eb'}`,
-                background: summaryCopied ? '#f0fdf4' : '#f9fafb',
-                fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'12px',
-                color: summaryCopied ? '#166534' : '#374151',
-                cursor:'pointer', transition:'all 0.2s ease',
-                width:'100%', justifyContent:'center', marginTop:'8px',
-              }}>
-              {summaryCopied
-                ? <><Check size={13} /> Copied!</>
-                : <><Copy size={13} /> Copy Student Summary</>}
-            </button>}
-            {/* Profile completion summary */}
-            {(() => {
-              const completion = calculateProfileCompletion(data)
-              const colors = getCompletionColor(completion.status)
-              return (
-                <div style={{ margin:'12px 0 0', padding:'10px 14px', background:colors.bg, borderRadius:10, display:'flex', flexDirection:'column', gap:6 }}>
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                    <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:700, fontSize:12, color:colors.text }}>
-                      Profile {completion.percentage}% complete
-                    </span>
-                    <span style={{ fontFamily:'DM Sans,sans-serif', fontSize:11, color:colors.text, opacity:0.8 }}>
-                      {completion.completed}/{completion.total} items
-                    </span>
-                  </div>
-                  <div style={{ height:5, borderRadius:3, background:'rgba(0,0,0,0.08)' }}>
-                    <div style={{ width:`${completion.percentage}%`, height:'100%', borderRadius:3, background:colors.bar, transition:'width 0.3s ease' }} />
-                  </div>
-                  {completion.missing.length > 0 && (
-                    <div style={{ fontFamily:'DM Sans,sans-serif', fontSize:11, color:colors.text, opacity:0.85 }}>
-                      Missing: {completion.missing.slice(0, 3).join(', ')}
-                      {completion.missing.length > 3 && ` +${completion.missing.length - 3} more`}
+          {/* ── Compact hero card ── */}
+          {(() => {
+            const completion = calculateProfileCompletion(data)
+            const compColors = getCompletionColor(completion.status)
+
+            // Next recommended action
+            const nextAction = (() => {
+              if (!data.cs_cedars_status && !data.cs_link_complete)
+                return 'Complete CS-Link account activation'
+              if (['Pending Outreach', 'Form Sent'].includes(data.status))
+                return 'Send intake form to student'
+              if (data.status === 'Form Received')
+                return 'Schedule interview'
+              if (data.status === 'Interview Scheduled')
+                return 'Conduct interview'
+              if (data.status === 'Interviewed' && !data.matched_unit_id)
+                return 'Match to a unit'
+              if (data.matched_unit_id && data.status === 'Placed')
+                return 'Confirm rotation start date'
+              if (completion.percentage === 100)
+                return null // complete
+              return null
+            })()
+
+            const interviewLabel = (() => {
+              if (['Interviewed', 'Placed', 'Active Rotation', 'Completed'].includes(data.status)) return 'Completed'
+              if (data.status === 'Interview Scheduled') return 'Scheduled'
+              return 'Not scheduled'
+            })()
+
+            const matchedUnitInDrawer = data.matched_unit_id
+              ? (typeof units?.find === 'function' ? units.find(u => u.id === data.matched_unit_id)?.unit_name : null) || '(loading)'
+              : null
+
+            return (
+              <>
+                <div style={{ margin:'12px 12px 0', borderRadius:14,
+                  background:'linear-gradient(to bottom, #dceff8, #ffffff)',
+                  padding:'16px 18px 14px', boxShadow:'0 2px 8px rgba(29,37,103,0.08)',
+                  overflow:'hidden', textAlign:'center', position:'relative' }}>
+                  {saveStatus !== 'idle' && (
+                    <div style={{ position:'absolute', top:10, left:'50%', transform:'translateX(-50%)', fontSize:11, fontWeight:500,
+                      color:saveStatus==='saved'?'#166534':'#6b7280', background:'rgba(255,255,255,0.85)',
+                      padding:'2px 10px', borderRadius:20, whiteSpace:'nowrap', zIndex:2 }}>
+                      {saveStatus==='saving'?'Saving…':'✓ Saved'}
                     </div>
                   )}
+                  {/* Photo with completion ring */}
+                  <div style={{ display:'flex', justifyContent:'center', marginBottom:8 }}>
+                    <AvatarWithRing student={data} size={76} completionPct={completion.percentage}
+                      style={{ border:'3px solid var(--pearl)', boxShadow:'0 3px 14px rgba(29,37,103,0.15)' }} />
+                  </div>
+                  {/* Name + status pill on same row */}
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, flexWrap:'wrap', marginBottom:4 }}>
+                    <span style={{ fontSize:19, fontWeight:700, color:'var(--nightfall)' }}>
+                      {student.first_name} {student.last_name}
+                    </span>
+                    {data.status && (() => {
+                      const cfg = ASPIRE_STATUS_CONFIG[data.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']
+                      return <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:20,
+                        background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, flexShrink:0 }}>
+                        {data.status}
+                      </span>
+                    })()}
+                  </div>
+                  <div style={{ fontSize:12, color:'#6b7280', marginBottom:8 }}>
+                    {student.school}{student.program_type ? ` · ${student.program_type}` : ''}
+                  </div>
+                  <div style={{ display:'flex', justifyContent:'center', gap:20, marginBottom:8 }}>
+                    <button title="Send email" onClick={() => openMailtoLink(`mailto:${data.personal_email||data.school_email||''}`)}
+                      style={{ background:'none', border:'none', cursor:'pointer', fontSize:15, color:'#6b7280', lineHeight:1 }}>✉</button>
+                    <button title="Call" onClick={() => { if(data.phone){ const a=document.createElement('a'); a.href=`tel:${data.phone}`; a.click() } }}
+                      style={{ background:'none', border:'none', cursor:data.phone?'pointer':'default', fontSize:15, color:data.phone?'#6b7280':'#d1d5db', lineHeight:1 }}>📞</button>
+                    <button title="Edit profile" onClick={() => { const inp=document.querySelector('.sp-content .sp-input'); if(inp){inp.scrollIntoView({behavior:'smooth',block:'center'}); inp.focus()} }}
+                      style={{ background:'none', border:'none', cursor:'pointer', fontSize:15, color:'#6b7280', lineHeight:1 }}>✏</button>
+                  </div>
+                  {canEdit && <button onClick={handleCopySummary}
+                    style={{
+                      display:'flex', alignItems:'center', gap:'6px',
+                      padding:'5px 12px', borderRadius:'8px',
+                      border:`1px solid ${summaryCopied ? '#86efac' : '#e5e7eb'}`,
+                      background: summaryCopied ? '#f0fdf4' : '#f9fafb',
+                      fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:'12px',
+                      color: summaryCopied ? '#166534' : '#374151',
+                      cursor:'pointer', transition:'all 0.2s ease',
+                      width:'100%', justifyContent:'center',
+                    }}>
+                    {summaryCopied ? <><Check size={13} /> Copied!</> : <><Copy size={13} /> Copy Student Summary</>}
+                  </button>}
                 </div>
-              )
-            })()}
-          </div>
+
+                {/* ── Summary cards strip ── */}
+                <div style={{ margin:'10px 12px 0', display:'flex', gap:8, overflowX:'auto', paddingBottom:2 }}>
+                  {[
+                    { label:'GPA', value: data.cumulative_gpa != null ? parseFloat(data.cumulative_gpa).toFixed(2) : '—',
+                      color: parseFloat(data.cumulative_gpa) >= 3.5 ? '#166534' : 'var(--text-heading,#191919)' },
+                    { label:'Profile', value:`${completion.percentage}%`, color:compColors.text },
+                    { label:'ASPIRE Status', value:data.status || '—' },
+                    { label:'Interview', value:interviewLabel },
+                    { label:'CS-Link', value:CS_LINK_STATUS_CONFIG[getCsLinkStatus(data)]?.label || '—' },
+                    { label:'Placement', value:matchedUnitInDrawer || 'Not placed' },
+                    ...(data.hours_required > 0 ? [{ label:'Hours', value:`${data.hours_completed||0}/${data.hours_required}` }] : []),
+                  ].map(({ label, value, color }) => (
+                    <div key={label} style={{
+                      background:'var(--bg-card-elevated,#f9fafb)',
+                      border:'1px solid var(--color-border-subtle,#e5e7eb)',
+                      borderRadius:8, padding:'7px 10px', minWidth:100, flexShrink:0,
+                    }}>
+                      <div style={{ fontSize:9, textTransform:'uppercase', letterSpacing:0.5, color:'var(--text-muted,#9ca3af)', fontWeight:600, marginBottom:3 }}>{label}</div>
+                      <div style={{ fontSize:13, fontWeight:700, color:color||'var(--text-heading,#191919)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:110 }}>{value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── Profile Completion section ── */}
+                <div style={{ margin:'10px 12px 0', padding:'12px 14px', background:'var(--bg-card,#fff)', border:'1px solid var(--color-border-subtle,#e5e7eb)', borderRadius:10 }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                    <span style={{ fontSize:12, fontWeight:700, color:compColors.text }}>Profile Completion</span>
+                    <span style={{ fontSize:13, fontWeight:800, color:compColors.text }}>{completion.percentage}%</span>
+                  </div>
+                  <div style={{ height:4, borderRadius:2, background:'rgba(0,0,0,0.08)', marginBottom:10 }}>
+                    <div style={{ width:`${completion.percentage}%`, height:'100%', borderRadius:2, background:compColors.bar, transition:'width 0.3s ease' }} />
+                  </div>
+                  {completion.missing.length > 0 && (
+                    <div style={{ marginBottom:10 }}>
+                      <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-muted,#6b7280)', marginBottom:4 }}>Missing</div>
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+                        {completion.missing.map(m => (
+                          <span key={m} style={{ fontSize:10, padding:'1px 7px', borderRadius:10, background:'var(--color-bg-elevated,#f3f4f6)', color:'var(--text-muted,#6b7280)', fontWeight:600 }}>{m}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {completion.percentage === 100
+                    ? <div style={{ fontSize:11, fontWeight:600, color:'#166534' }}>✓ Ready to proceed</div>
+                    : nextAction && (
+                      <div style={{ fontSize:11, color:'var(--text-caption,#475467)', fontStyle:'italic' }}>
+                        Next: {nextAction}
+                      </div>
+                    )
+                  }
+                </div>
+              </>
+            )
+          })()}
 
           {/* 1. Contact Information */}
           <div className="sp-section">

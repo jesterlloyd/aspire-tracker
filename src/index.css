@@ -73,7 +73,7 @@ body { min-height: 100vh; }
 .header-sub    { font-size: 11px; color: var(--nova); margin-top: 1px; opacity: 0.8; }
 .header-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
-.app-main { width: 100%; padding: 20px 32px 0; background: var(--bg-app, var(--sand)); }
+.app-main { width: 100%; max-width: 1680px; margin: 0 auto; padding: 20px 32px 0; background: var(--bg-app, var(--sand)); }
 
 /* ================================================================
    BUTTONS
@@ -1231,7 +1231,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   display: flex; height: calc(100vh - 164px); overflow: hidden;
 }
 .profiles-list-narrow {
-  width: 40%; min-width: 320px; flex-shrink: 0;
+  width: 43%; min-width: 320px; flex-shrink: 0;
   border-right: 1px solid #e5e7eb; overflow-y: auto; height: 100%;
 }
 .profiles-panel-slide {
