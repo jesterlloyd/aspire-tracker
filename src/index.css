@@ -1152,13 +1152,17 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 .ov-panels-body {
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
-  align-items: start; padding-bottom: 0;
+  align-items: stretch; padding-bottom: 0;
 }
 .ov-panel-body {
   background: var(--pearl);
   border: 1px solid #e0e7ff; border-top: none;
   border-radius: 0 0 14px 14px;
-  overflow: hidden; box-shadow: 0 2px 12px rgba(29,37,103,0.07);
+  /* Each panel scrolls independently — no shared scroll container */
+  overflow-y: auto;
+  max-height: calc(100vh - 420px);
+  min-height: 200px;
+  box-shadow: 0 2px 12px rgba(29,37,103,0.07);
 }
 
 .ov-hero { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-top: 16px; margin-bottom: 0; }
