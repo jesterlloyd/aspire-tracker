@@ -25,7 +25,6 @@ export default function StudentListPanel({
   students, allStudents, selectedStudentId, onSelect,
   localSearch, setLocalSearch, filterSchool, setFilterSchool,
   filterStatus, setFilterStatus, sortBy, setSortBy,
-  needsAttention, setNeedsAttention,
   cohortId, onRefresh, onExportCSV, onAddStudent,
   units = [],
   compressed = false,
@@ -65,12 +64,6 @@ export default function StudentListPanel({
           <option value="status">ASPIRE Status</option>
           <option value="needs_attention">Review Needed First</option>
         </select>
-        {canEdit && (
-          <button className={`pl-needs-btn${needsAttention ? ' pl-needs-active' : ''}`}
-            onClick={() => setNeedsAttention(p => !p)}>
-            ⚠ Review Needed
-          </button>
-        )}
         {canEdit && (
           <button className="btn-import-students" onClick={() => setShowImport(true)} title="Import from CSV">
             ↑ Import
@@ -177,16 +170,9 @@ export default function StudentListPanel({
                 </div>
               )}
 
-              {/* MIDDLE-RIGHT: Chips */}
-              <div style={{ flex:`0 0 ${compressed?'28%':'16%'}`, display:'flex', flexDirection:'column', alignItems:'flex-start', gap:3, paddingTop:2, minWidth:0 }}>
-                {gpaOk && <Chip label={`GPA ${gpaVal.toFixed(2)}`} bg={gpaBg} color={gpaColor} />}
-                {sChip && <Chip label={s.status} bg={sChip.bg} color={sChip.text} border={sChip.border} />}
-                <Chip label={acc.label} bg={acc.bg} color={acc.text} />
-              </div>
-
-              {/* RIGHT: Preferences or placement */}
+              {/* MIDDLE: Preferences or placement (shifted left, before chips) */}
               {!compressed && (
-                <div style={{ flex:'0 0 22%', minWidth:0, paddingTop:2 }}>
+                <div style={{ flex:'0 0 20%', minWidth:0, paddingTop:2 }}>
                   {isPlaced ? (
                     <>
                       <div style={{ fontSize:11.5, fontWeight:700, color:'var(--text-heading,#191919)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
@@ -208,6 +194,13 @@ export default function StudentListPanel({
                   )}
                 </div>
               )}
+
+              {/* RIGHT: Chips (GPA + ASPIRE status + CS-Link), now after preferences */}
+              <div style={{ flex:`0 0 ${compressed?'28%':'20%'}`, display:'flex', flexDirection:'column', alignItems:'flex-start', gap:3, paddingTop:2, minWidth:0 }}>
+                {gpaOk && <Chip label={`GPA ${gpaVal.toFixed(2)}`} bg={gpaBg} color={gpaColor} />}
+                {sChip && <Chip label={s.status} bg={sChip.bg} color={sChip.text} border={sChip.border} />}
+                <Chip label={acc.label} bg={acc.bg} color={acc.text} />
+              </div>
 
               {/* FAR RIGHT: eye icon */}
               <button

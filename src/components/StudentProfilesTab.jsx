@@ -77,7 +77,6 @@ export default function StudentProfilesTab({
   const [filterSchool,     setFilterSchool]     = useState('')
   const [filterStatus,     setFilterStatus]     = useState('')
   const [sortBy,           setSortBy]           = useState('last_name_asc')
-  const [needsAttention,   setNeedsAttention]   = useState(false)
   const [activeStatusFilter, setActiveStatusFilter] = useState(null)
 
   const handleCardClick = (filterValue) => {
@@ -110,9 +109,6 @@ export default function StudentProfilesTab({
     }
     if (filterSchool)  list = list.filter(s => s.school === filterSchool)
     if (filterStatus)  list = list.filter(s => s.status === filterStatus)
-    if (needsAttention) list = list.filter(s =>
-      !s.personal_email?.trim() || s.cumulative_gpa == null || !s.unit_preference_1?.trim()
-    )
     if (activeStatusFilter) {
       list = list.filter(s =>
         Array.isArray(activeStatusFilter)
@@ -121,7 +117,7 @@ export default function StudentProfilesTab({
       )
     }
     return sortStudentsList(list, sortBy)
-  }, [students, localSearch, filterSchool, filterStatus, sortBy, needsAttention, activeStatusFilter]) // eslint-disable-line
+  }, [students, localSearch, filterSchool, filterStatus, sortBy, activeStatusFilter]) // eslint-disable-line
 
   const selectedStudent = selectedStudentId ? students.find(s => s.id === selectedStudentId) : null
   const panelStudent    = selectedStudent
@@ -194,7 +190,6 @@ export default function StudentProfilesTab({
               filterSchool={filterSchool}     setFilterSchool={setFilterSchool}
               filterStatus={filterStatus}     setFilterStatus={setFilterStatus}
               sortBy={sortBy}                 setSortBy={setSortBy}
-              needsAttention={needsAttention} setNeedsAttention={setNeedsAttention}
               cohortId={cohortId}
               onRefresh={onRefresh}
               onExportCSV={onExportCSV}
