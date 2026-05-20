@@ -691,8 +691,137 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
 }
 
 // ─── Week View ─────────────────────────────────────────────────────────────────
+// ── WeekPill — rich booking pill with copy-to-clipboard ────────────────────
+function WeekPill({ item, top, height, colW, left, ivColor, onSlotClick, ds }) {
+  const [copied, setCopied] = useState(false)
+  const s       = slotBg(item._status)
+  const student = Array.isArray(item.students) ? item.students[0] : item.students
+  const startMins = toMinutes(item._sT)
+  const isBooked  = item._status === 'booked'
+  const isBlocked = item._status === 'blocked'
+
+  const timeLabel = (() => {
+    const h = Math.floor(startMins / 60)
+    const m = startMins % 60
+    const ampm = h >= 12 ? 'PM' : 'AM'
+    const hh   = h % 12 || 12
+    return `${hh}${m ? `:${String(m).padStart(2,'0')}` : ''} ${ampm}`
+  })()
+
+  const schoolShort = (() => {
+    if (!student?.school) return null
+    const s = student.school
+    if (s.includes('Cal State Long Beach') || s.includes('CSULB')) return 'Cal State LB'
+    if (s.includes('Cal State LA') || s.includes('CSULA')) return 'Cal State LA'
+    if (s.includes('Cal State Northridge') || s.includes('CSUN')) return 'Cal State NR'
+    if (s.includes('West Coast University') && s.includes('North')) return 'WCU NoHo'
+    if (s.includes('West Coast University')) return 'WCU Anaheim'
+    if (s.includes('Azusa Pacific') || s.includes('APU')) return 'APU'
+    if (s.includes('UCLA')) return 'UCLA'
+    return s.split(' ').slice(0, 3).join(' ')
+  })()
+
+  const handleCopy = async (e) => {
+    e.stopPropagation()
+    try {
+      await navigator.clipboard.writeText(student.school_email)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {}
+  }
+
+  return (
+    <div
+      onClick={e => { e.stopPropagation(); onSlotClick(item, ds) }}
+      style={{
+        position:'absolute', top, height, left, width:colW,
+        background: s.bg,
+        border:`1px solid ${s.bdr}`,
+        borderLeft:`3px solid ${ivColor}`,
+        borderRadius:6,
+        padding:'7px 8px',
+        fontSize:11, color:s.txt,
+        cursor:'pointer',
+        overflow:'hidden',
+        display:'flex', flexDirection:'column', gap:2,
+        transition:'box-shadow 0.12s',
+        boxSizing:'border-box',
+      }}
+      onMouseEnter={e => e.currentTarget.style.boxShadow='0 2px 10px rgba(0,0,0,0.12)'}
+      onMouseLeave={e => e.currentTarget.style.boxShadow='none'}
+    >
+      {/* Row 1: time + interviewer initials */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
+        <span style={{ fontWeight:700, fontSize:11, lineHeight:1 }}>{timeLabel}</span>
+        <span style={{
+          width:18, height:18, borderRadius:'50%',
+          background: ivColor, color:'#fff',
+          fontSize:7, fontWeight:800,
+          display:'inline-flex', alignItems:'center', justifyContent:'center',
+          flexShrink:0,
+        }}>
+          {getInitials(item.interviewer_name)}
+        </span>
+      </div>
+
+      {/* Booked: student name + school + email */}
+      {isBooked && student && (
+        <>
+          <div style={{ fontWeight:700, fontSize:12, lineHeight:1.25, color:s.txt, wordBreak:'break-word' }}>
+            {student.first_name} {student.last_name}
+          </div>
+          {schoolShort && (
+            <div style={{ fontSize:10, opacity:0.75, lineHeight:1.2 }}>
+              {schoolShort}{student.program_type ? ` · ${student.program_type.replace('Accelerated ','Accel. ')}` : ''}
+            </div>
+          )}
+          {student.school_email && (
+            <div style={{ display:'flex', alignItems:'center', gap:3, marginTop:1 }}>
+              <span style={{ fontSize:10, opacity:0.65, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', minWidth:0 }}>
+                {student.school_email}
+              </span>
+              <button
+                onClick={handleCopy}
+                title={copied ? 'Copied!' : 'Copy email'}
+                style={{
+                  background: copied ? 'rgba(47,125,92,0.15)' : 'none',
+                  border:'none', cursor:'pointer',
+                  padding:'1px 3px', borderRadius:3,
+                  color: copied ? '#2F7D5C' : 'inherit',
+                  opacity: copied ? 1 : 0.55,
+                  flexShrink:0,
+                  display:'inline-flex', alignItems:'center',
+                  transition:'all 0.15s',
+                }}
+                onMouseEnter={e => { if (!copied) e.currentTarget.style.opacity='1' }}
+                onMouseLeave={e => { if (!copied) e.currentTarget.style.opacity='0.55' }}
+              >
+                {copied ? '✓' : '⎘'}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Blocked: label only */}
+      {isBlocked && (
+        <div style={{ fontSize:10, fontWeight:600, opacity:0.8, lineHeight:1.2 }}>
+          {item.blocked_reason || 'Blocked'}
+        </div>
+      )}
+
+      {/* Available: minimal */}
+      {!isBooked && !isBlocked && (
+        <div style={{ fontSize:10, opacity:0.7 }}>Open</div>
+      )}
+    </div>
+  )
+}
+
 function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick }) {
-  const HOUR_HEIGHT = 52
+  // Expanded row height so pills have room for 4 lines of content.
+  // Outer container (maxHeight:500) is unchanged; users scroll more within it.
+  const HOUR_HEIGHT = 140
   const START_HOUR  = 7
   const END_HOUR    = 20
   const HOURS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i)
@@ -725,13 +854,13 @@ function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick }) {
         })}
       </div>
 
-      {/* Scrollable body */}
+      {/* Scrollable body — outer maxHeight unchanged; inner rows taller */}
       <div style={{ overflowY:'auto', maxHeight:500 }}>
         <div style={{ display:'grid', gridTemplateColumns:'52px repeat(7, 1fr)' }}>
           {/* Hour labels */}
           <div>
             {HOURS.map(h => (
-              <div key={h} style={{ height:HOUR_HEIGHT, borderBottom:'1px solid #F3F4F6', display:'flex', alignItems:'flex-start', justifyContent:'flex-end', paddingRight:5, paddingTop:3, fontSize:9, color:'#9CA3AF', fontWeight:600, letterSpacing:0.2 }}>
+              <div key={h} style={{ height:HOUR_HEIGHT, borderBottom:'1px solid #F3F4F6', display:'flex', alignItems:'flex-start', justifyContent:'flex-end', paddingRight:5, paddingTop:5, fontSize:9, color:'#9CA3AF', fontWeight:600, letterSpacing:0.2 }}>
                 {fmtHour(h)}
               </div>
             ))}
@@ -757,8 +886,12 @@ function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick }) {
                   onEmptyClick(ds, sT, eT)
                 }}
               >
+                {/* Half-hour sub-lines */}
                 {HOURS.map(h => (
-                  <div key={h} style={{ position:'absolute', top:(h-START_HOUR)*HOUR_HEIGHT, left:0, right:0, height:HOUR_HEIGHT, borderBottom:'1px solid #F3F4F6', pointerEvents:'none' }} />
+                  <div key={h}>
+                    <div style={{ position:'absolute', top:(h-START_HOUR)*HOUR_HEIGHT, left:0, right:0, height:HOUR_HEIGHT/2, borderBottom:'1px dashed #F3F4F6', pointerEvents:'none' }} />
+                    <div style={{ position:'absolute', top:(h-START_HOUR)*HOUR_HEIGHT + HOUR_HEIGHT/2, left:0, right:0, height:HOUR_HEIGHT/2, borderBottom:'1px solid #F3F4F6', pointerEvents:'none' }} />
+                  </div>
                 ))}
 
                 {groups.flatMap((group, gi) =>
@@ -766,33 +899,23 @@ function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick }) {
                     const startMins = toMinutes(item._sT)
                     const endMins   = toMinutes(item._eT)
                     const top    = ((startMins - START_HOUR*60) / 60) * HOUR_HEIGHT
-                    const height = Math.max(16, ((endMins - startMins) / 60) * HOUR_HEIGHT - 2)
+                    const height = Math.max(36, ((endMins - startMins) / 60) * HOUR_HEIGHT - 3)
                     const colW   = `calc((100% - ${group.length*2+2}px) / ${group.length})`
                     const left   = `calc(${idx} * (${colW} + 2px) + 2px)`
-                    const s      = slotBg(item._status)
                     const ivColor = colorMap?.[item.interviewer_name] || '#9CA3AF'
-                    const student = Array.isArray(item.students) ? item.students[0] : item.students
-                    const label   = item._status === 'booked' && student ? `${student.first_name} ${student.last_name}`
-                      : item._status === 'blocked' ? (item.blocked_reason || 'Blocked') : 'Open'
 
                     return (
-                      <div
+                      <WeekPill
                         key={item.id || `${gi}-${idx}`}
-                        onClick={e => { e.stopPropagation(); onSlotClick(item, ds) }}
-                        style={{ position:'absolute', top, height, left, width:colW, background:s.bg, border:`1px solid ${s.bdr}`, borderLeft:`3px solid ${ivColor}`, borderRadius:4, padding:'2px 5px', fontSize:10, color:s.txt, cursor:'pointer', overflow:'hidden', display:'flex', flexDirection:'column', gap:1, transition:'box-shadow 0.12s' }}
-                        onMouseEnter={e => e.currentTarget.style.boxShadow='0 2px 8px rgba(0,0,0,0.10)'}
-                        onMouseLeave={e => e.currentTarget.style.boxShadow='none'}
-                      >
-                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                          <span style={{ fontWeight:700, fontSize:9 }}>
-                            {fmtHour(Math.floor(startMins/60))}{startMins%60 ? `:${String(startMins%60).padStart(2,'0')}` : ''}
-                          </span>
-                          <span style={{ fontSize:8, fontWeight:700, opacity:0.7 }}>{getInitials(item.interviewer_name)}</span>
-                        </div>
-                        {height >= 24 && (
-                          <div style={{ fontSize:9, lineHeight:1.2, fontWeight:500, overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>{label}</div>
-                        )}
-                      </div>
+                        item={item}
+                        top={top}
+                        height={height}
+                        colW={colW}
+                        left={left}
+                        ivColor={ivColor}
+                        onSlotClick={onSlotClick}
+                        ds={ds}
+                      />
                     )
                   })
                 )}
