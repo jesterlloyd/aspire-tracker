@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, createContext, useContext } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { displayName, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
@@ -69,6 +69,19 @@ const CS_AFFILIATIONS = ['Current Employee','Former Employee','Volunteer','No pr
 const CS_WITH_DEPT    = ['Current Employee','Former Employee','Volunteer']
 const GENDER_OPTIONS  = ['Male','Female','Non-binary','Prefer not to say','Other']
 
+// Field-level save indicator context — populated by the drawer when a save succeeds
+const FieldSavedCtx = createContext(null)
+
+// Tiny "✓ Saved" badge that appears next to the field label after a successful save
+function SavedBadge() {
+  return (
+    <span style={{ display:'inline-flex', alignItems:'center', gap:2, fontSize:9.5, fontWeight:700,
+      color:'#166534', padding:'1px 5px', borderRadius:6, background:'#dcfce7', marginLeft:6 }}>
+      <Check size={9} /> Saved
+    </span>
+  )
+}
+
 function SectionHeader({ title, icon, children }) {
   return (
     <div className="sp-section-hdr" style={{ display:'flex', alignItems:'center', gap:7 }}>
@@ -96,10 +109,15 @@ function SectionCard({ icon: Icon, title, bg, iconColor, children, headerExtra }
     </div>
   )
 }
-function Field({ label, children }) {
+function Field({ label, children, fieldKey }) {
+  const savedField = useContext(FieldSavedCtx)
+  const isSaved = fieldKey && savedField === fieldKey
   return (
     <div className="sp-field">
-      <label className="sp-field-lbl">{label}</label>
+      <label className="sp-field-lbl" style={{ display:'flex', alignItems:'center' }}>
+        {label}
+        {isSaved && <SavedBadge />}
+      </label>
       {children}
     </div>
   )
@@ -111,6 +129,7 @@ export default function StudentSidePanel({
 }) {
   const [data,             setData]             = useState({ ...student })
   const [saveStatus,       setSaveStatus]       = useState('idle')
+  const [fieldSaved,       setFieldSaved]       = useState(null)  // tracks which field just saved
   const [showSSN,          setShowSSN]          = useState(false)
   const [confirmDelete,    setConfirmDelete]    = useState(false)
   const [showDeclineModal, setShowDeclineModal] = useState(false)
@@ -297,7 +316,11 @@ export default function StudentSidePanel({
     setSaveStatus('saving')
     const err = await onUpdate(student.id, { [field]: value })
     setSaveStatus(err ? 'error' : 'saved')
-    if (!err) setTimeout(() => setSaveStatus('idle'), 1800)
+    if (!err) {
+      setTimeout(() => setSaveStatus('idle'), 1800)
+      setFieldSaved(field)
+      setTimeout(() => setFieldSaved(prev => prev === field ? null : prev), 1800)
+    }
     if (err) toast?.error('Save failed', 'Unable to save changes. Please try again.')
   }, [student.id, onUpdate, toast])
 
@@ -320,7 +343,11 @@ export default function StudentSidePanel({
       if (pendingNameSave.current) {
         const err = await onUpdate(student.id, pendingNameSave.current)
         setSaveStatus(err ? 'error' : 'saved')
-        if (!err) setTimeout(() => setSaveStatus('idle'), 1800)
+        if (!err) {
+          setTimeout(() => setSaveStatus('idle'), 1800)
+          setFieldSaved(field)
+          setTimeout(() => setFieldSaved(prev => prev === field ? null : prev), 1800)
+        }
         pendingNameSave.current = null
       }
     }, 800)
@@ -419,6 +446,7 @@ export default function StudentSidePanel({
     <>
       <div className="sp-container" style={{ position:'relative' }}>
         {/* Scrollable content */}
+        <FieldSavedCtx.Provider value={fieldSaved}>
         <div className="sp-content">
 
           {/* ── Compact hero card ── */}
@@ -463,13 +491,6 @@ export default function StudentSidePanel({
                   background:'linear-gradient(160deg, #dceff8 0%, #f0f6fb 50%, #ffffff 100%)',
                   padding:'28px 24px 20px',
                   textAlign:'center', position:'relative' }}>
-                  {saveStatus !== 'idle' && (
-                    <div style={{ position:'absolute', top:10, left:'50%', transform:'translateX(-50%)', fontSize:11, fontWeight:500,
-                      color:saveStatus==='saved'?'#166534':'#6b7280', background:'rgba(255,255,255,0.9)',
-                      padding:'2px 10px', borderRadius:20, whiteSpace:'nowrap', zIndex:2 }}>
-                      {saveStatus==='saving'?'Saving…':'✓ Saved'}
-                    </div>
-                  )}
                   {/* Large photo */}
                   <div style={{ display:'flex', justifyContent:'center', marginBottom:10 }}>
                     <StudentAvatar student={data} size={96}
@@ -631,49 +652,25 @@ export default function StudentSidePanel({
                 </button>
               </div>
             )}
-            <Field label="Personal Email">
+            <Field label="Personal Email" fieldKey="personal_email">
               <input className="sp-input" value={data.personal_email||''} onChange={e => handleText('personal_email', e.target.value)} />
             </Field>
-            <Field label="Phone">
+            <Field label="Phone" fieldKey="phone">
               <input className="sp-input" value={data.phone||''} onChange={e => handleText('phone', e.target.value)} />
             </Field>
           </div>
 
-          {/* 2. Program Details */}
-          <div className="sp-section sp-card" style={{ background:'rgba(200,213,192,0.12)', borderRadius:12, marginBottom:10 }}>
-            <SectionHeader title="Program Details" icon={<GraduationCap size={13} />} />
-            <div className="sp-grid-2">
-              <Field label="School"><div className="sp-readonly">{data.school||'—'}</div></Field>
-              <Field label="Program Type">
-                <select className="sp-select" value={data.program_type||''} onChange={e => handleSelect('program_type', e.target.value)}>
-                  <option value="">Select…</option>
-                  {PROGRAM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                  {/* Safety net: show the saved value even if it doesn't match any option */}
-                  {data.program_type && !PROGRAM_TYPES.includes(data.program_type) && (
-                    <option value={data.program_type}>{data.program_type}</option>
-                  )}
-                </select>
-              </Field>
-              <Field label="Term Dates"><div className="sp-readonly">{data.term_dates||'—'}</div></Field>
-              <Field label="Hours Required">
-                <input className="sp-input" type="text" inputMode="numeric" pattern="[0-9]*"
-                  value={data.hours_required??''} onChange={e => handleText('hours_required', e.target.value)} />
-              </Field>
-              <Field label="Est. Graduation"><div className="sp-readonly">{data.estimated_graduation||'—'}</div></Field>
-            </div>
-          </div>
-
-          {/* 3. Personal Information */}
+          {/* 2. Personal Information */}
           <div className="sp-section sp-card" style={{ background:'rgba(244,241,236,0.6)', borderRadius:12, marginBottom:10 }}>
             <SectionHeader title="Personal Information" icon={<User size={13} />} />
             <div className="sp-grid-2">
-              <Field label="First Name">
+              <Field label="First Name" fieldKey="first_name">
                 <input className="sp-input" value={data.first_name||''} onChange={e => handleNameField('first_name', e.target.value)} />
               </Field>
-              <Field label="Last Name">
+              <Field label="Last Name" fieldKey="last_name">
                 <input className="sp-input" value={data.last_name||''} onChange={e => handleNameField('last_name', e.target.value)} />
               </Field>
-              <Field label="Date of Birth">
+              <Field label="Date of Birth" fieldKey="date_of_birth">
                 <input className="sp-input" type="date" value={data.date_of_birth||''} onChange={e => handleText('date_of_birth', e.target.value)} />
               </Field>
               <Field label="Last 4 SSN">
@@ -685,13 +682,13 @@ export default function StudentSidePanel({
                   </button>
                 </div>
               </Field>
-              <Field label="Gender">
+              <Field label="Gender" fieldKey="gender">
                 <select className="sp-select" value={data.gender||''} onChange={e => handleSelect('gender', e.target.value)}>
                   <option value="">Select…</option>
                   {GENDER_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
                 </select>
               </Field>
-              <Field label="Cumulative GPA">
+              <Field label="Cumulative GPA" fieldKey="cumulative_gpa">
                 <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                   <input className="sp-input" type="text" inputMode="decimal" pattern="[0-9.]*"
                     style={{ maxWidth:80 }} value={data.cumulative_gpa??''} placeholder="0.00"
@@ -709,6 +706,29 @@ export default function StudentSidePanel({
                   {SHIFT_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </Field>
+            </div>
+          </div>
+
+          {/* 3. Program Details */}
+          <div className="sp-section sp-card" style={{ background:'rgba(200,213,192,0.12)', borderRadius:12, marginBottom:10 }}>
+            <SectionHeader title="Program Details" icon={<GraduationCap size={13} />} />
+            <div className="sp-grid-2">
+              <Field label="School"><div className="sp-readonly">{data.school||'—'}</div></Field>
+              <Field label="Program Type" fieldKey="program_type">
+                <select className="sp-select" value={data.program_type||''} onChange={e => handleSelect('program_type', e.target.value)}>
+                  <option value="">Select…</option>
+                  {PROGRAM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  {data.program_type && !PROGRAM_TYPES.includes(data.program_type) && (
+                    <option value={data.program_type}>{data.program_type}</option>
+                  )}
+                </select>
+              </Field>
+              <Field label="Term Dates"><div className="sp-readonly">{data.term_dates||'—'}</div></Field>
+              <Field label="Hours Required" fieldKey="hours_required">
+                <input className="sp-input" type="text" inputMode="numeric" pattern="[0-9]*"
+                  value={data.hours_required??''} onChange={e => handleText('hours_required', e.target.value)} />
+              </Field>
+              <Field label="Est. Graduation"><div className="sp-readonly">{data.estimated_graduation||'—'}</div></Field>
             </div>
           </div>
 
@@ -736,68 +756,12 @@ export default function StudentSidePanel({
             )}
           </div>
 
-          {/* 5. Interest Statement */}
-          <div className="sp-section sp-card" style={{ background:'rgba(226,86,156,0.05)', borderRadius:12, marginBottom:10 }}>
-            <SectionHeader title="Interest Statement" icon={<MessageSquare size={13} />} />
-            {!editingInterest ? (
-              <div
-                onClick={() => setEditingInterest(true)}
-                style={{
-                  fontFamily: 'DM Sans',
-                  fontSize: '13px',
-                  color: data.interest_statement ? '#374151' : '#9ca3af',
-                  lineHeight: 1.6,
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid transparent',
-                  cursor: 'text',
-                  minHeight: '80px',
-                  transition: 'border-color 0.15s ease, background 0.15s ease',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor='#e5e7eb'; e.currentTarget.style.background='#f9fafb' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='transparent' }}
-              >
-                {data.interest_statement || 'Click to add interest statement...'}
-              </div>
-            ) : (
-              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                <textarea
-                  value={interestDraft}
-                  onChange={e => setInterestDraft(e.target.value)}
-                  autoFocus
-                  rows={5}
-                  style={{
-                    width:'100%', padding:'10px 12px',
-                    border:'1px solid #0ea5e9', borderRadius:8,
-                    fontFamily:'DM Sans', fontSize:13,
-                    color:'#374151', lineHeight:1.6,
-                    resize:'vertical', outline:'none', boxSizing:'border-box',
-                  }}
-                />
-                <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
-                  <button
-                    onClick={() => { setInterestDraft(data.interest_statement || ''); setEditingInterest(false) }}
-                    style={{ padding:'6px 14px', borderRadius:8, border:'1px solid #e5e7eb', background:'#f9fafb', fontFamily:'DM Sans', fontSize:12, cursor:'pointer' }}
-                  >Cancel</button>
-                  <button
-                    onClick={async () => {
-                      const err = await onUpdate(student.id, { interest_statement: interestDraft })
-                      if (!err) setData(p => ({ ...p, interest_statement: interestDraft }))
-                      setEditingInterest(false)
-                    }}
-                    style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'#0ea5e9', color:'#fff', fontFamily:'DM Sans', fontSize:12, fontWeight:600, cursor:'pointer' }}
-                  >Save</button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* 6. Unit Preferences */}
+          {/* 5. Unit Placement Preferences */}
           <div className="sp-section sp-card" style={{ background:'rgba(79,109,168,0.06)', borderRadius:12, marginBottom:10 }}>
             <SectionHeader title="Unit Placement Preferences" icon={<MapPin size={13} />} />
             <div className="sp-grid-3">
               {['unit_preference_1','unit_preference_2','unit_preference_3'].map((f,i) => (
-                <Field key={f} label={`Preference ${i+1}`}>
+                <Field key={f} label={`Preference ${i+1}`} fieldKey={f}>
                   <select className="sp-select" value={data[f]||''} onChange={e => handleSelect(f, e.target.value)}>
                     <option value="">Not specified</option>
                     {participatingUnits.map(u => <option key={u} value={u}>{u}</option>)}
@@ -807,9 +771,88 @@ export default function StudentSidePanel({
             </div>
           </div>
 
-          {/* 7. Placement and Outcomes */}
-          <div className="sp-section sp-card" style={{ background:'rgba(200,213,192,0.22)', borderRadius:12, marginBottom:10 }}>
-            <SectionHeader title="Placement and Outcomes" icon={<Award size={13} />} />
+          {/* 6. Documents */}
+          <div className="sp-section sp-card" style={{ background:'rgba(244,220,176,0.12)', borderRadius:12, marginBottom:10 }}>
+            <SectionHeader title="Documents" icon={<FileText size={13} />} />
+            <div className="doc-section">
+              <div className="doc-upload-area">
+                <div className="doc-area-label">Resume</div>
+                <input ref={resumeRef} type="file" style={{ display:'none' }} accept=".pdf,.doc,.docx" onChange={e => handleResumeUpload(e.target.files[0])} />
+                {data.resume_url ? (
+                  <div className="doc-existing-file">
+                    <a className="doc-file-link" href={data.resume_url} target="_blank" rel="noopener noreferrer">
+                      {decodeURIComponent(data.resume_url.split('/').pop()?.split('?')[0] || 'Resume')}
+                    </a>
+                    <button onClick={() => doDownload(data.resume_url, buildStudentFilename(student,'resume'), setDlResume)} disabled={dlResume}
+                      style={{ background:'var(--pearl)', border:'1px solid var(--nightfall)', color:'var(--nightfall)', fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px', cursor:'pointer', flexShrink:0 }}>
+                      {dlResume ? '…' : '↓ Resume'}
+                    </button>
+                    <button className="doc-replace-btn" disabled={uploadingRes} onClick={() => resumeRef.current?.click()}>Replace</button>
+                  </div>
+                ) : (
+                  <div className="doc-upload-zone" onClick={() => resumeRef.current?.click()}>
+                    <span className="doc-zone-icon">📄</span>
+                    <span className="doc-zone-text">Upload Resume (PDF/Word, max 10MB)</span>
+                    <button type="button" className="doc-zone-btn" onClick={e=>{ e.stopPropagation(); resumeRef.current?.click() }}>Choose File</button>
+                  </div>
+                )}
+                {uploadingRes && <span className="doc-status doc-uploading">Uploading…</span>}
+                {resumeMsg === 'success' && <span className="doc-status doc-success">✓ Uploaded</span>}
+                {resumeMsg && resumeMsg !== 'success' && <span className="doc-status doc-error" style={{ color:'var(--cs-red)' }}>{resumeMsg}</span>}
+              </div>
+              <div className="doc-upload-area">
+                <div className="doc-area-label">Headshot</div>
+                <input ref={headshotRef} type="file" style={{ display:'none' }} accept=".jpg,.jpeg,.png" onChange={e => handleHeadshotUpload(e.target.files[0])} />
+                {data.headshot_url ? (
+                  <div className="doc-existing-file">
+                    <img src={data.headshot_url} alt="Headshot" className="doc-headshot-preview" />
+                    <button onClick={() => doDownload(data.headshot_url, buildStudentFilename(student,'headshot'), setDlPhotoDoc)} disabled={dlPhotoDoc}
+                      style={{ background:'var(--pearl)', border:'1px solid var(--nightfall)', color:'var(--nightfall)', fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px', cursor:'pointer', flexShrink:0 }}>
+                      {dlPhotoDoc ? '…' : '↓ Photo'}
+                    </button>
+                    <button className="doc-replace-btn" disabled={uploadingHead} onClick={() => headshotRef.current?.click()}>Replace</button>
+                  </div>
+                ) : (
+                  <div className="doc-upload-zone" onClick={() => headshotRef.current?.click()}>
+                    <span className="doc-zone-icon">🖼</span>
+                    <span className="doc-zone-text">Upload Headshot (JPG/PNG, max 5MB)</span>
+                    <button type="button" className="doc-zone-btn" onClick={e=>{ e.stopPropagation(); headshotRef.current?.click() }}>Choose File</button>
+                  </div>
+                )}
+                {uploadingHead && <span className="doc-status doc-uploading">Uploading…</span>}
+                {headMsg === 'success' && <span className="doc-status doc-success">✓ Uploaded</span>}
+                {headMsg && headMsg !== 'success' && <span className="doc-status doc-error" style={{ color:'var(--cs-red)' }}>{headMsg}</span>}
+              </div>
+            </div>
+          </div>
+
+          {/* 7. Interest Statement */}
+          <div className="sp-section sp-card" style={{ background:'rgba(226,86,156,0.05)', borderRadius:12, marginBottom:10 }}>
+            <SectionHeader title="Interest Statement" icon={<MessageSquare size={13} />} />
+            {!editingInterest ? (
+              <div onClick={() => setEditingInterest(true)}
+                style={{ fontFamily:'DM Sans', fontSize:'13px', color:data.interest_statement?'#374151':'#9ca3af', lineHeight:1.6, padding:'10px 12px', borderRadius:'8px', border:'1px solid transparent', cursor:'text', minHeight:'80px', transition:'border-color 0.15s ease, background 0.15s ease' }}
+                onMouseEnter={e=>{ e.currentTarget.style.borderColor='#e5e7eb'; e.currentTarget.style.background='#f9fafb' }}
+                onMouseLeave={e=>{ e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='transparent' }}>
+                {data.interest_statement || 'Click to add interest statement...'}
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                <textarea value={interestDraft} onChange={e=>setInterestDraft(e.target.value)} autoFocus rows={5}
+                  style={{ width:'100%', padding:'10px 12px', border:'1px solid #0ea5e9', borderRadius:8, fontFamily:'DM Sans', fontSize:13, color:'#374151', lineHeight:1.6, resize:'vertical', outline:'none', boxSizing:'border-box' }} />
+                <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+                  <button onClick={() => { setInterestDraft(data.interest_statement||''); setEditingInterest(false) }}
+                    style={{ padding:'6px 14px', borderRadius:8, border:'1px solid #e5e7eb', background:'#f9fafb', fontFamily:'DM Sans', fontSize:12, cursor:'pointer' }}>Cancel</button>
+                  <button onClick={async () => { const err = await onUpdate(student.id, { interest_statement: interestDraft }); if (!err) setData(p=>({...p, interest_statement:interestDraft})); setEditingInterest(false) }}
+                    style={{ padding:'6px 14px', borderRadius:8, border:'none', background:'#0ea5e9', color:'#fff', fontFamily:'DM Sans', fontSize:12, fontWeight:600, cursor:'pointer' }}>Save</button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 9. Placement and Outcomes — appears after CS-Link per spec order */}
+          {false && <div className="sp-section sp-card" style={{ background:'rgba(200,213,192,0.22)', borderRadius:12, marginBottom:10 }}>
+            <SectionHeader title="Placement and Outcomes [MOVED]" icon={<Award size={13} />} />
             <div className="sp-grid-2">
               <Field label="ASPIRE Status">
                 <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
@@ -889,7 +932,7 @@ export default function StudentSidePanel({
               <span>Badge Created</span>
               {data.badge_created && <span style={{ fontSize:12, color:'#166534', fontWeight:600 }}>✓ Badge Created</span>}
             </label>
-          </div>
+          </div>}
 
           {/* 8. CS-Link Access Workflow — editors only */}
           {canEdit && <div className="sp-section sp-card" style={{ background:'rgba(250,250,250,0.9)', borderRadius:12, marginBottom:10 }}>
@@ -1045,9 +1088,82 @@ export default function StudentSidePanel({
             </div>
           </div>}
 
-          {/* 9. Documents */}
-          <div className="sp-section sp-card" style={{ background:'rgba(244,220,176,0.12)', borderRadius:12, marginBottom:10 }}>
-            <SectionHeader title="Documents" icon={<FileText size={13} />} />
+          {/* 9. Placement and Outcomes */}
+          <div className="sp-section sp-card" style={{ background:'rgba(200,213,192,0.22)', borderRadius:12, marginBottom:10 }}>
+            <SectionHeader title="Placement and Outcomes" icon={<Award size={13} />} />
+            <div className="sp-grid-2">
+              <Field label="ASPIRE Status">
+                <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                  {data.status && (() => { const cfg = ASPIRE_STATUS_CONFIG[data.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']; return <span style={{ fontSize:11, fontWeight:700, padding:'2px 10px', borderRadius:20, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, alignSelf:'flex-start' }}>{data.status}</span> })()}
+                  {canEdit && <select className="sp-select" value={data.status||''} onChange={async e => {
+                    const newStatus = e.target.value
+                    if (newStatus === 'Declined') { setShowDeclineModal(true) }
+                    else {
+                      const oldStatus = data.status
+                      handleSelect('status', newStatus)
+                      toast?.success('Status updated', `${student.first_name} moved to ${newStatus}.`)
+                      logActivity({ userProfile, actionType:'student_profile_updated', entityType:'student', entityId:student.id, cohortId:student.cohort_id, description:`${userProfile?.full_name} changed ${student.first_name} ${student.last_name}'s status to ${newStatus}`, metadata:{ from:oldStatus, to:newStatus } })
+                      const statusEventMap = { 'Form Sent': 'form_sent', 'Form Received': 'form_received', 'Placed': 'placement', 'Completed': 'completion' }
+                      const eventType = statusEventMap[newStatus]
+                      if (eventType) {
+                        const already = await eventExists(supabase, student.id, eventType)
+                        if (!already) await logEvent(supabase, { studentId: student.id, cohortId: student.cohort_id, eventType, notes: `Manual status change to ${newStatus}`, auto: false })
+                      }
+                    }
+                  }}>
+                    <option value="">Select status…</option>
+                    {ASPIRE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>}
+                  {data.decline_reason && <div style={{ fontSize:11, color:'#991b1b', marginTop:2 }}>Reason: {data.decline_reason}</div>}
+                </div>
+              </Field>
+              <Field label="Interview Outcome">
+                <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                  {data.interview_outcome && (
+                    <span className={`interview-pill ${ data.interview_outcome === 'Accepted' ? 'pill-green' : data.interview_outcome === 'Accepted with Reservations' ? 'pill-yellow' : data.interview_outcome === 'Declined' ? 'pill-red' : 'pill-gray' }`}>{data.interview_outcome}</span>
+                  )}
+                  <select className="sp-select" value={data.interview_outcome||''} onChange={e => handleSelect('interview_outcome', e.target.value)}>
+                    {INTERVIEW_OUTCOMES.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+              </Field>
+              <Field label="Matched Unit"><div className="sp-readonly">{matchedUnitName}</div></Field>
+              <Field label="Matched Preceptor">
+                <input className="sp-input" value={data.matched_preceptor||''} onChange={e => handleText('matched_preceptor', e.target.value)} placeholder="Assign preceptor…" />
+              </Field>
+              <Field label="Shift">
+                <select className="sp-select" value={data.shift_assigned||''} onChange={e => handleSelect('shift_assigned', e.target.value)}>
+                  <option value="">Select shift...</option>
+                  {['Day','Night','Mid','Variable'].map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
+              </Field>
+              <Field label="Preceptor Email">
+                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                  <input className="sp-input" type="email" value={data.preceptor_email||''} onChange={e => handleText('preceptor_email', e.target.value)} placeholder="preceptor@cshs.org" />
+                  {data.preceptor_email && <button className="sp-copy-btn" title="Email preceptor" onClick={() => openMailtoLink(`mailto:${data.preceptor_email}`)}>✉</button>}
+                </div>
+              </Field>
+              <Field label="NGRP Cohort Target">
+                <input className="sp-input" value={data.ngrp_cohort_target||''} onChange={e => handleText('ngrp_cohort_target', e.target.value)} placeholder="e.g. Spring 2027" />
+              </Field>
+              <Field label="NGRP Outcome">
+                <select className="sp-select" value={data.ngrp_outcome||''} onChange={e => handleSelect('ngrp_outcome', e.target.value)}>
+                  {NGRP_OUTCOMES.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </Field>
+            </div>
+            <label style={{ display:'flex', alignItems:'center', gap:8, marginTop:10, cursor:'pointer', fontSize:13, color:'var(--raven)' }}>
+              <input type="checkbox" checked={!!data.badge_created}
+                onChange={e => { handleSelect('badge_created', e.target.checked); if (e.target.checked) { toast?.success('Badge issued', `Badge marked as created for ${student.first_name}.`); logActivity({ userProfile, actionType:'badge_issued', entityType:'student', entityId:student.id, cohortId:student.cohort_id, description:`${userProfile?.full_name} marked badge as created for ${student.first_name} ${student.last_name}` }) } }}
+                style={{ width:16, height:16, accentColor:'#16a34a' }} />
+              <span>Badge Created</span>
+              {data.badge_created && <span style={{ fontSize:12, color:'#166534', fontWeight:600 }}>✓ Badge Created</span>}
+            </label>
+          </div>
+
+          {/* (Old Documents section below — hidden since moved above) */}
+          {false && <div className="sp-section sp-card" style={{ background:'rgba(244,220,176,0.12)', borderRadius:12, marginBottom:10 }}>
+            <SectionHeader title="Documents (duplicate — hidden)" icon={<FileText size={13} />} />
             <div className="doc-section">
               <div className="doc-upload-area">
                 <div className="doc-area-label">Resume</div>
@@ -1104,7 +1220,7 @@ export default function StudentSidePanel({
                 {headMsg && headMsg !== 'success' && <span className="doc-status doc-error" style={{ color:'var(--cs-red)' }}>{headMsg}</span>}
               </div>
             </div>
-          </div>
+          </div>}
 
           {/* Clinical Hours */}
           <div className="sp-section">
@@ -1219,11 +1335,13 @@ export default function StudentSidePanel({
           {/* 10. Notes */}
           <div className="sp-section sp-card" style={{ background:'rgba(244,241,236,0.4)', borderRadius:12, marginBottom:10 }}>
             <SectionHeader title="Notes" icon={<ClipboardList size={13} />} />
-            <textarea className="sp-textarea" rows={4} value={data.notes||''} onChange={e => handleText('notes', e.target.value)} placeholder="Add notes…" />
+            <Field label="" fieldKey="notes">
+              <textarea className="sp-textarea" rows={4} value={data.notes||''} onChange={e => handleText('notes', e.target.value)} placeholder="Add notes…" />
+            </Field>
           </div>
 
-          {/* Program Timeline */}
-          <div className="sp-section">
+          {/* Program Timeline — data collection in program_events continues; UI not rendered */}
+          {false && <div className="sp-section">
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
               <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em' }}>
                 Program Timeline
@@ -1294,30 +1412,9 @@ export default function StudentSidePanel({
                 ))}
               </div>
             )}
-          </div>
+          </div>}
 
-          {/* Communication History */}
-          <div className="sp-section">
-            <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:10 }}>
-              Communication History
-            </div>
-            {studentComms.length === 0 ? (
-              <p style={{ fontSize:13, color:'#9ca3af', fontStyle:'italic' }}>No communications sent yet.</p>
-            ) : studentComms.map(c => (
-              <div key={c.id} style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8, padding:'6px 0', borderBottom:'1px solid var(--border-lt)' }}>
-                <div style={{ display:'flex', alignItems:'flex-start', gap:7 }}>
-                  <span style={{ width:6, height:6, borderRadius:'50%', background: TYPE_COLORS[c.type]||'#9ca3af', flexShrink:0, marginTop:4, display:'inline-block' }} />
-                  <div>
-                    <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)' }}>{TYPE_LABELS[c.type]||c.type}</div>
-                    {(c.sent_to_name||c.sent_to_email) && (
-                      <div style={{ fontSize:12, color:'#6b7280' }}>{c.sent_to_name||c.sent_to_email}</div>
-                    )}
-                  </div>
-                </div>
-                <span style={{ fontSize:11, color:'#9ca3af', whiteSpace:'nowrap', flexShrink:0 }}>{fmtCommTs(c.sent_at)}</span>
-              </div>
-            ))}
-          </div>
+          {/* Communication History — data collection in communications table continues; UI not rendered */}
 
           </div>{/* end unified section container */}
 
@@ -1347,6 +1444,7 @@ export default function StudentSidePanel({
             </button>
           </div>
         </div>
+        </FieldSavedCtx.Provider>
       </div>
 
       {confirmDelete && (
