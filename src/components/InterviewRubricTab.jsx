@@ -4,8 +4,6 @@ import StudentAvatar from './StudentAvatar'
 import RubricSession from './RubricSession'
 import InterviewCalendar from './InterviewCalendar'
 import TodaysInterviews from './TodaysInterviews'
-import InterviewSetupChecklist from './InterviewSetupChecklist'
-
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import ScoreFlag from './ScoreFlag'
 import EmptyState from './EmptyState'
@@ -219,8 +217,6 @@ export default function InterviewRubricTab({
           else if (arg?.students?.id) setSelectedStudentId(arg.students.id)
         }}
       />
-      <InterviewSetupChecklist cohortId={cohortId} cohort={cohort} />
-
       {/* Availability Calendar with collapse toggle */}
       <div style={{ marginBottom: '8px' }}>
         {/* Calendar controls row: toggle + interviewer legend pill */}
