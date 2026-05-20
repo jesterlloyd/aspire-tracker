@@ -7,7 +7,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { FilterKPICard } from './KPIBand'
 import ImportStudentsCSV from './ImportStudentsCSV'
-import { Search, X, LayoutGrid, List } from 'lucide-react'
+import { Search, X, LayoutGrid, List, Info } from 'lucide-react'
+import StatusLegendPopover from './StatusLegendPopover'
 import { calculateProfileCompletion } from '../lib/profileCompletion'
 import { getCsLinkStatus } from '../lib/utils'
 import { ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
@@ -159,13 +160,13 @@ export default function StudentProfilesTab({
         {/* ── Unified toolbar (Profiles mode only) ── */}
         {view === 'records' && (
           <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'var(--bg-card,#fff)', border:'1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius:10, marginBottom:10 }}>
-            {/* Search input */}
-            <div style={{ flex:1, position:'relative', minWidth:0 }}>
+            {/* 7B: Filter input — capped at 380px */}
+            <div style={{ position:'relative', maxWidth:380, flexShrink:1, minWidth:0, width:'100%' }}>
               <Search size={13} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--text-muted,#9ca3af)' }} />
               <input
                 value={unifiedSearch}
                 onChange={e => setUnifiedSearch(e.target.value)}
-                placeholder="Filter by name, school, program, status, unit preference…"
+                placeholder="Filter students…"
                 style={{ width:'100%', paddingLeft:30, paddingRight:unifiedSearch?28:10, paddingTop:7, paddingBottom:7,
                   border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7,
                   fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)',
@@ -190,6 +191,8 @@ export default function StudentProfilesTab({
               <option value="gpa_desc">GPA High–Low</option>
               <option value="gpa_asc">GPA Low–High</option>
             </select>
+            {/* 7A: Status legend popover — between sort and view toggle */}
+            <StatusLegendPopover position="bottom-left" />
             {/* Active KPI filter clear */}
             {activeStatusFilter && (
               <button onClick={() => setActiveStatusFilter(null)}
@@ -198,21 +201,25 @@ export default function StudentProfilesTab({
                 {Array.isArray(activeStatusFilter) ? 'Clear filter' : activeStatusFilter}
               </button>
             )}
-            {/* View toggle: List / Grid */}
+            {/* 7C: View toggle with text labels: List / Grid */}
             <div style={{ display:'flex', borderRadius:7, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', overflow:'hidden', flexShrink:0 }}>
-              <button onClick={() => setViewMode('list')} title="List view"
-                style={{ width:32, height:32, display:'flex', alignItems:'center', justifyContent:'center', border:'none', cursor:'pointer',
+              <button onClick={() => setViewMode('list')}
+                style={{ height:32, padding:'0 12px', display:'flex', alignItems:'center', gap:6, border:'none', cursor:'pointer', fontSize:12, fontFamily:'DM Sans,sans-serif', fontWeight:500,
                   background: viewMode==='list' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
-                  color: viewMode==='list' ? '#fff' : 'var(--text-muted,#9ca3af)', transition:'all 0.12s' }}>
+                  color: viewMode==='list' ? '#fff' : 'var(--text-secondary,#4A5560)', transition:'all 0.12s' }}>
                 <List size={13} />
+                List
               </button>
-              <button onClick={() => setViewMode('grid')} title="Grid view"
-                style={{ width:32, height:32, display:'flex', alignItems:'center', justifyContent:'center', border:'none', cursor:'pointer',
+              <button onClick={() => setViewMode('grid')}
+                style={{ height:32, padding:'0 12px', display:'flex', alignItems:'center', gap:6, border:'none', cursor:'pointer', fontSize:12, fontFamily:'DM Sans,sans-serif', fontWeight:500,
                   background: viewMode==='grid' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
-                  color: viewMode==='grid' ? '#fff' : 'var(--text-muted,#9ca3af)', transition:'all 0.12s' }}>
+                  color: viewMode==='grid' ? '#fff' : 'var(--text-secondary,#4A5560)', transition:'all 0.12s' }}>
                 <LayoutGrid size={13} />
+                Grid
               </button>
             </div>
+            {/* spacer to push actions right */}
+            <div style={{ flex:1 }} />
             {/* Actions */}
             {canEdit && (
               <button onClick={() => setShowImport(true)} title="Import from CSV"

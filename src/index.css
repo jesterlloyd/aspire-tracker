@@ -73,6 +73,8 @@ body { min-height: 100vh; }
 .header-sub    { font-size: 11px; color: var(--nova); margin-top: 1px; opacity: 0.8; }
 .header-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
+/* MainContentShell — shared content wrapper across all main tabs */
+.main-content-shell,
 .app-main { width: min(100% - 140px, 1580px); margin: 0 auto; padding: 20px 0 0; background: var(--bg-app, var(--sand)); }
 
 /* ================================================================
@@ -2391,13 +2393,13 @@ a.doc-file-link:hover { text-decoration: underline; }
   .match-summary { grid-template-columns: repeat(5, 1fr); }
 }
 @media (max-width: 1440px) {
-  .app-main { width: min(100% - 96px, 1580px); }
+  .main-content-shell, .app-main { width: min(100% - 96px, 1580px); }
 }
 @media (max-width: 1024px) {
-  .app-main { width: min(100% - 48px, 1580px); }
+  .main-content-shell, .app-main { width: min(100% - 48px, 1580px); }
 }
 @media (max-width: 768px) {
-  .app-main { width: min(100% - 32px, 1580px); padding-top: 12px; }
+  .main-content-shell, .app-main { width: min(100% - 32px, 1580px); padding-top: 12px; }
   .dashboard { grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .table-header { display: none; }
   .row-header { grid-template-columns: 28px 1fr auto; grid-template-rows: auto auto; }
