@@ -273,7 +273,7 @@ function ProgramAtAGlance({ totalSlots, placedCount, slotsRemaining, studentsReq
         <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--text-caption,#475467)', fontWeight: 600 }}>
           Program at a Glance
         </div>
-        <div style={{ fontSize: 11.5, color: 'var(--text-muted,#98A2B3)', fontVariantNumeric: 'tabular-nums' }}>
+        <div style={{ fontSize: 11.5, color: 'var(--text-muted,#98A2B3)', fontVariantNumeric: 'tabular-nums', maxWidth: 640 }}>
           {cohort?.name || 'Cohort'} · {studentsRequesting} students · {activeSchools} affiliated schools · {participatingUnits} hosting units · Updated {updatedLabel}
         </div>
       </div>

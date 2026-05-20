@@ -63,7 +63,7 @@ export default function UnifiedNav({
     <nav style={{
       background: 'var(--bg-card,#FAFAF7)',
       borderBottom: '1px solid var(--border-divider,rgba(29,37,103,0.08))',
-      padding: '0 24px',
+      padding: '0 32px',
       display: 'flex',
       alignItems: 'stretch',
       fontFamily: 'DM Sans, sans-serif',

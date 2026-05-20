@@ -64,8 +64,8 @@ body { min-height: 100vh; }
   box-shadow: 0 2px 8px rgba(0,0,0,0.40);
 }
 .header-inner {
-  max-width: 1440px; margin: 0 auto;
-  padding: 0 24px; height: 64px;
+  max-width: 1600px; margin: 0 auto;
+  padding: 0 32px; height: 64px;
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
 }
 .header-brand  { display: flex; align-items: center; gap: 12px; }
@@ -73,7 +73,7 @@ body { min-height: 100vh; }
 .header-sub    { font-size: 11px; color: var(--nova); margin-top: 1px; opacity: 0.8; }
 .header-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
-.app-main { max-width: 1440px; margin: 0 auto; padding: 20px 24px 0; background: var(--bg-app, var(--sand)); }
+.app-main { width: 100%; padding: 20px 32px 0; background: var(--bg-app, var(--sand)); }
 
 /* ================================================================
    BUTTONS
@@ -211,7 +211,7 @@ body { min-height: 100vh; }
   border-bottom: 1px solid rgba(159,175,248,0.2);
 }
 .cohort-bar-inner {
-  max-width: 1440px; margin: 0 auto; padding: 8px 24px;
+  max-width: 1600px; margin: 0 auto; padding: 8px 32px;
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
 }
 .cohort-select-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
