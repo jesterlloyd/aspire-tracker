@@ -45,13 +45,30 @@ export default async function handler(req, res) {
     if (existingProfile) {
       const { error: profileError } = await supabaseAdmin
         .from('user_profiles')
-        .update({ auth_user_id: data.user.id, login_enabled: true, full_name, role })
+        .update({
+          auth_user_id: data.user.id,
+          login_enabled: true,
+          full_name,
+          role,
+          ...(role === 'interviewer' && { can_conduct_interviews: true }),
+        })
         .eq('id', existingProfile.id);
       if (profileError) console.error('Profile update error:', profileError.message);
     } else {
       const { error: profileError } = await supabaseAdmin
         .from('user_profiles')
-        .insert({ auth_user_id: data.user.id, full_name, email, role, is_owner: false, is_active: true, login_enabled: true });
+        .insert({
+          auth_user_id: data.user.id,
+          full_name,
+          email,
+          role,
+          is_owner: false,
+          is_active: true,
+          login_enabled: true,
+          // Interviewers must appear in the rubric dropdown immediately on invite;
+          // can_conduct_interviews is the field get_active_interviewers RPC filters on.
+          ...(role === 'interviewer' && { can_conduct_interviews: true }),
+        });
       if (profileError) console.error('Profile creation error:', profileError.message);
     }
 

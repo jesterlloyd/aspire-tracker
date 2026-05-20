@@ -313,15 +313,19 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const { data: interviewer_unit_data } = useQuery({
     queryKey: ['rubric_support_data', cohortId],
     queryFn: async () => {
-      const [profilesRes, unitsRes, catalogRes] = await Promise.all([
-        supabase.rpc('get_active_interviewers'),        // user_profiles with role='interviewer'
+      const [profilesRes, unitsRes, catalogRes, roleInterviewersRes] = await Promise.all([
+        supabase.rpc('get_active_interviewers'),        // user_profiles WHERE can_conduct_interviews = true
         supabase.from('units').select('unit_name').eq('is_participating', true).eq('cohort_id', cohortId).order('unit_name'),
         supabase.from('interviewers').select('name').order('name'),  // InterviewersModal catalog
+        // Direct fallback: invited users with role='interviewer' whose can_conduct_interviews
+        // may be NULL (e.g., invited before the invite flow was patched).
+        supabase.from('user_profiles').select('full_name').eq('role', 'interviewer').eq('is_active', true),
       ])
-      // Merge both sources: app-account interviewers + catalog interviewers, deduplicated and sorted
-      const rpcNames     = (profilesRes.data  || []).map(p => p.full_name).filter(Boolean)
-      const catalogNames = (catalogRes.data   || []).map(i => i.name).filter(Boolean)
-      const merged = [...new Set([...rpcNames, ...catalogNames])].sort((a, b) => a.localeCompare(b))
+      const rpcNames    = (profilesRes.data         || []).map(p => p.full_name).filter(Boolean)
+      const catalogNames= (catalogRes.data          || []).map(i => i.name).filter(Boolean)
+      const roleNames   = (roleInterviewersRes.data || []).map(p => p.full_name).filter(Boolean)
+      // All three sources merged, deduplicated, alphabetically sorted
+      const merged = [...new Set([...rpcNames, ...catalogNames, ...roleNames])].sort((a, b) => a.localeCompare(b))
       return {
         interviewers: merged,
         availUnits:   (unitsRes.data || []).map(u => u.unit_name),
