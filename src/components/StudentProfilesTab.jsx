@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import StudentListPanel from './StudentListPanel'
 import StudentSidePanel from './StudentSidePanel'
@@ -6,33 +6,26 @@ import AccessTab from './AccessTab'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { FilterKPICard } from './KPIBand'
-
+import ImportStudentsCSV from './ImportStudentsCSV'
+import { Search, X, LayoutGrid, List } from 'lucide-react'
+import { calculateProfileCompletion } from '../lib/profileCompletion'
+import { getCsLinkStatus } from '../lib/utils'
 import { ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
 const ASPIRE_ORDER = ASPIRE_STATUS_SORT_ORDER
 
+// ── Sorting ───────────────────────────────────────────────────────────────────
 function sortStudentsList(students, sortBy) {
   return [...students].sort((a, b) => {
     const la = (a.last_name || a.name || '').toLowerCase()
     const lb = (b.last_name || b.name || '').toLowerCase()
     switch (sortBy) {
       case 'last_name_desc': return lb.localeCompare(la)
-      case 'school_asc': {
-        const sc = (a.school||'').localeCompare(b.school||'')
-        return sc !== 0 ? sc : la.localeCompare(lb)
-      }
-      case 'gpa_desc': {
-        const ga = parseFloat(a.cumulative_gpa)||0, gb = parseFloat(b.cumulative_gpa)||0
-        return gb - ga || la.localeCompare(lb)
-      }
-      case 'status': {
-        const ia = ASPIRE_ORDER.indexOf(a.status), ib = ASPIRE_ORDER.indexOf(b.status)
-        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || la.localeCompare(lb)
-      }
-      case 'needs_attention': {
-        const na = (!a.personal_email?.trim() || a.cumulative_gpa == null || !a.unit_preference_1?.trim()) ? 0 : 1
-        const nb = (!b.personal_email?.trim() || b.cumulative_gpa == null || !b.unit_preference_1?.trim()) ? 0 : 1
-        return na - nb || la.localeCompare(lb)
-      }
+      case 'school_asc': { const sc=(a.school||'').localeCompare(b.school||''); return sc!==0?sc:la.localeCompare(lb) }
+      case 'gpa_desc': { const ga=parseFloat(a.cumulative_gpa)||0,gb=parseFloat(b.cumulative_gpa)||0; return gb-ga||la.localeCompare(lb) }
+      case 'gpa_asc':  { const ga=parseFloat(a.cumulative_gpa)||0,gb=parseFloat(b.cumulative_gpa)||0; return ga-gb||la.localeCompare(lb) }
+      case 'status': { const ia=ASPIRE_ORDER.indexOf(a.status),ib=ASPIRE_ORDER.indexOf(b.status); return (ia<0?99:ia)-(ib<0?99:ib)||la.localeCompare(lb) }
+      case 'completion_desc': { const pa=calculateProfileCompletion(a).percentage,pb=calculateProfileCompletion(b).percentage; return pb-pa||la.localeCompare(lb) }
+      case 'completion_asc':  { const pa=calculateProfileCompletion(a).percentage,pb=calculateProfileCompletion(b).percentage; return pa-pb||la.localeCompare(lb) }
       default: return la.localeCompare(lb)
     }
   })
@@ -47,45 +40,35 @@ export default function StudentProfilesTab({
   focusStudentId, onClearFocusStudent,
   toast,
 }) {
-  const { userProfile } = useAuth()
+  const { userProfile, canEdit } = useAuth()
   const queryClient = useQueryClient()
   const [selectedStudentId, setSelectedStudentId] = useState(null)
+  const [viewMode, setViewMode] = useState('list') // 'list' | 'grid'
+  const [unifiedSearch, setUnifiedSearch] = useState('')
+  const [sortBy, setSortBy] = useState('last_name_asc')
+  const [activeStatusFilter, setActiveStatusFilter] = useState(null)
+  const [showImport, setShowImport] = useState(false)
+  const prevFilterKey = useRef(null)
 
   // Open specific student from global search
   useEffect(() => {
-    if (focusStudentId) {
-      setSelectedStudentId(focusStudentId)
-      onClearFocusStudent?.()
-    }
+    if (focusStudentId) { setSelectedStudentId(focusStudentId); onClearFocusStudent?.() }
   }, [focusStudentId]) // eslint-disable-line
 
-  // Mark profile as read whenever a student is selected (not on hover/scroll)
+  // Mark profile as read when student is selected
   useEffect(() => {
     if (!userProfile?.id || !selectedStudentId || !cohortId) return
     const markAsRead = async () => {
-      await supabase
-        .from('student_reads')
-        .upsert(
-          { user_id: userProfile.id, student_id: selectedStudentId, last_viewed_at: new Date().toISOString() },
-          { onConflict: 'user_id,student_id' }
-        )
+      await supabase.from('student_reads').upsert(
+        { user_id: userProfile.id, student_id: selectedStudentId, last_viewed_at: new Date().toISOString() },
+        { onConflict: 'user_id,student_id' }
+      )
       queryClient.invalidateQueries({ queryKey: ['unread_students', cohortId, userProfile.id] })
     }
     markAsRead()
   }, [selectedStudentId, userProfile?.id, cohortId]) // eslint-disable-line
-  const [localSearch,      setLocalSearch]      = useState('')
-  const [filterSchool,     setFilterSchool]     = useState('')
-  const [filterStatus,     setFilterStatus]     = useState('')
-  const [sortBy,           setSortBy]           = useState('last_name_asc')
-  const [activeStatusFilter, setActiveStatusFilter] = useState(null)
 
-  const handleCardClick = (filterValue) => {
-    if (filterValue === null) { setActiveStatusFilter(null); return }
-    setActiveStatusFilter(prev =>
-      JSON.stringify(prev) === JSON.stringify(filterValue) ? null : filterValue
-    )
-  }
-
+  // Pipeline counts — always computed against FULL cohort, not filtered
   const pipelineCounts = useMemo(() => ({
     total:             students.length,
     needsOutreach:     students.filter(s => ['Pending Outreach','Form Sent'].includes(s.status)).length,
@@ -97,18 +80,27 @@ export default function StudentProfilesTab({
     declined:          students.filter(s => s.status === 'Declined').length,
   }), [students])
 
+  // Filtered + sorted students
   const displayedStudents = useMemo(() => {
     let list = students
-    if (localSearch) {
-      const q = localSearch.toLowerCase()
-      list = list.filter(s =>
-        `${s.first_name||''} ${s.last_name||''} ${s.name||''}`.toLowerCase().includes(q) ||
-        (s.school_email||'').toLowerCase().includes(q) ||
-        (s.personal_email||'').toLowerCase().includes(q)
-      )
+    if (unifiedSearch.trim()) {
+      const q = unifiedSearch.trim().toLowerCase()
+      list = list.filter(s => {
+        const csLabel = (getCsLinkStatus(s) || '').toLowerCase()
+        return (
+          `${s.first_name||''} ${s.last_name||''}`.toLowerCase().includes(q) ||
+          (s.school||'').toLowerCase().includes(q) ||
+          (s.program_type||'').toLowerCase().includes(q) ||
+          (s.school_email||'').toLowerCase().includes(q) ||
+          (s.personal_email||'').toLowerCase().includes(q) ||
+          (s.status||'').toLowerCase().includes(q) ||
+          csLabel.includes(q) ||
+          (s.unit_preference_1||'').toLowerCase().includes(q) ||
+          (s.unit_preference_2||'').toLowerCase().includes(q) ||
+          (s.unit_preference_3||'').toLowerCase().includes(q)
+        )
+      })
     }
-    if (filterSchool)  list = list.filter(s => s.school === filterSchool)
-    if (filterStatus)  list = list.filter(s => s.status === filterStatus)
     if (activeStatusFilter) {
       list = list.filter(s =>
         Array.isArray(activeStatusFilter)
@@ -117,114 +109,199 @@ export default function StudentProfilesTab({
       )
     }
     return sortStudentsList(list, sortBy)
-  }, [students, localSearch, filterSchool, filterStatus, sortBy, activeStatusFilter]) // eslint-disable-line
+  }, [students, unifiedSearch, activeStatusFilter, sortBy]) // eslint-disable-line
+
+  // Auto-select first student when filter changes and current selection drops out
+  useEffect(() => {
+    if (displayedStudents.length === 0) { setSelectedStudentId(null); return }
+    const valid = displayedStudents.some(s => s.id === selectedStudentId)
+    if (!valid) setSelectedStudentId(displayedStudents[0].id)
+  }, [displayedStudents]) // eslint-disable-line — reads selectedStudentId as closure
+
+  // Default to first student on initial load
+  useEffect(() => {
+    if (!selectedStudentId && displayedStudents.length > 0) {
+      setSelectedStudentId(displayedStudents[0].id)
+    }
+  }, []) // eslint-disable-line — run once on mount
 
   const selectedStudent = selectedStudentId ? students.find(s => s.id === selectedStudentId) : null
-  const panelStudent    = selectedStudent
+  const selectedName = selectedStudent ? `${selectedStudent.first_name} ${selectedStudent.last_name}`.trim() : null
 
-  // Escape key closes panel
-  useEffect(() => {
-    const handler = e => { if (e.key === 'Escape') setSelectedStudentId(null) }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [])
+  const handleKpiClick = (filterValue) => {
+    setActiveStatusFilter(prev =>
+      JSON.stringify(prev) === JSON.stringify(filterValue) ? null : filterValue
+    )
+  }
 
   return (
     <div className="student-profiles-tab">
 
-      {/* Frozen: pipeline cards + view toggle */}
+      {/* ── KPI filter strip (frozen) ── */}
       <div className="profiles-frozen">
-        {/* Pipeline filter cards — color story: Nightfall=all, Dawn=needs attention, Sage=positive, Chroma=alert */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(8, 1fr)', gap:10, marginBottom:16 }}>
-          <FilterKPICard value={pipelineCounts.total}             label="Total"              sub="All students"          accent="nightfall"  active={activeStatusFilter === null}                                                         onClick={() => handleCardClick(null)} />
-          <FilterKPICard value={pipelineCounts.needsOutreach}     label="Needs Outreach"     sub="Pending + Form Sent"   accent="dawn"       active={JSON.stringify(activeStatusFilter) === JSON.stringify(['Pending Outreach','Form Sent'])} onClick={() => handleCardClick(['Pending Outreach','Form Sent'])} />
-          <FilterKPICard value={pipelineCounts.awaitingInterview} label="Awaiting Interview" sub="Form Received"         accent="periwinkle" active={activeStatusFilter === 'Form Received'}                                               onClick={() => handleCardClick('Form Received')} />
-          <FilterKPICard value={pipelineCounts.interviewed}       label="Interviewed"        sub="Ready to place"        accent="lavender"   active={activeStatusFilter === 'Interviewed'}                                                onClick={() => handleCardClick('Interviewed')} />
-          <FilterKPICard value={pipelineCounts.placed}            label="Placed"             sub="Unit assigned"         accent="sage"       active={activeStatusFilter === 'Placed'}                                                     onClick={() => handleCardClick('Placed')} />
-          <FilterKPICard value={pipelineCounts.activeRotation}    label="Active Rotation"    sub="In rotation"           accent="marina"     active={activeStatusFilter === 'Active Rotation'}                                            onClick={() => handleCardClick('Active Rotation')} />
-          <FilterKPICard value={pipelineCounts.completed}         label="Completed"          sub="Program done"          accent="sage"       active={activeStatusFilter === 'Completed'}                                                  onClick={() => handleCardClick('Completed')} />
-          <FilterKPICard value={pipelineCounts.declined}          label="Declined"           sub="Did not continue"      accent="chroma"     active={activeStatusFilter === 'Declined'}                                                   onClick={() => handleCardClick('Declined')} />
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(8, 1fr)', gap:10, marginBottom:14 }}>
+          <FilterKPICard value={pipelineCounts.total}             label="Total"              sub="All students"          accent="nightfall"  active={activeStatusFilter === null}                                                         onClick={() => handleKpiClick(null)} />
+          <FilterKPICard value={pipelineCounts.needsOutreach}     label="Needs Outreach"     sub="Pending + Form Sent"   accent="dawn"       active={JSON.stringify(activeStatusFilter)===JSON.stringify(['Pending Outreach','Form Sent'])} onClick={() => handleKpiClick(['Pending Outreach','Form Sent'])} />
+          <FilterKPICard value={pipelineCounts.awaitingInterview} label="Awaiting Interview" sub="Form Received"         accent="periwinkle" active={activeStatusFilter === 'Form Received'}                                               onClick={() => handleKpiClick('Form Received')} />
+          <FilterKPICard value={pipelineCounts.interviewed}       label="Interviewed"        sub="Ready to place"        accent="lavender"   active={activeStatusFilter === 'Interviewed'}                                                onClick={() => handleKpiClick('Interviewed')} />
+          <FilterKPICard value={pipelineCounts.placed}            label="Placed"             sub="Unit assigned"         accent="sage"       active={activeStatusFilter === 'Placed'}                                                     onClick={() => handleKpiClick('Placed')} />
+          <FilterKPICard value={pipelineCounts.activeRotation}    label="Active Rotation"    sub="In rotation"           accent="marina"     active={activeStatusFilter === 'Active Rotation'}                                            onClick={() => handleKpiClick('Active Rotation')} />
+          <FilterKPICard value={pipelineCounts.completed}         label="Completed"          sub="Program done"          accent="sage"       active={activeStatusFilter === 'Completed'}                                                  onClick={() => handleKpiClick('Completed')} />
+          <FilterKPICard value={pipelineCounts.declined}          label="Declined"           sub="Did not continue"      accent="chroma"     active={activeStatusFilter === 'Declined'}                                                   onClick={() => handleKpiClick('Declined')} />
         </div>
 
-        {/* Active filter bar */}
-        {activeStatusFilter && (
-          <div style={{ display:'flex', alignItems:'center', gap:'10px', padding:'7px 14px', marginBottom:'12px', background:'#f0f3ff', borderRadius:'8px', border:'1px solid #e0e7ff' }}>
-            <span style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#1D2567' }}>
-              Showing: {Array.isArray(activeStatusFilter) ? activeStatusFilter.join(' + ') : activeStatusFilter}
-            </span>
-            <button onClick={() => setActiveStatusFilter(null)} style={{ background:'none', border:'none', fontFamily:'DM Sans', fontSize:'12px', color:'#6b7280', cursor:'pointer', textDecoration:'underline', padding:0 }}>
-              Clear filter
-            </button>
-            <span style={{ fontFamily:'DM Sans', fontSize:'11px', color:'#9ca3af', marginLeft:'auto' }}>
-              {displayedStudents.length} student{displayedStudents.length !== 1 ? 's' : ''}
-            </span>
+        {/* ── View toggle (Profiles / CS-Link Access) ── */}
+        <div className="profiles-view-toggle" style={{ marginBottom:10 }}>
+          <button className={`profiles-toggle-btn${view === 'records' ? ' active' : ''}`} onClick={() => onViewChange('records')}>Profiles</button>
+          <button className={`profiles-toggle-btn${view === 'access' ? ' active' : ''}`} onClick={() => onViewChange('access')}>CS-Link Access</button>
+        </div>
+
+        {/* ── Unified toolbar (Profiles mode only) ── */}
+        {view === 'records' && (
+          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'var(--bg-card,#fff)', border:'1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius:10, marginBottom:10 }}>
+            {/* Search input */}
+            <div style={{ flex:1, position:'relative', minWidth:0 }}>
+              <Search size={13} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--text-muted,#9ca3af)' }} />
+              <input
+                value={unifiedSearch}
+                onChange={e => setUnifiedSearch(e.target.value)}
+                placeholder="Filter by name, school, program, status, unit preference…"
+                style={{ width:'100%', paddingLeft:30, paddingRight:unifiedSearch?28:10, paddingTop:7, paddingBottom:7,
+                  border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7,
+                  fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)',
+                  color:'var(--text-body,#191919)', outline:'none', boxSizing:'border-box' }}
+              />
+              {unifiedSearch && (
+                <button onClick={() => setUnifiedSearch('')}
+                  style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'var(--text-muted,#9ca3af)', padding:0, display:'flex' }}>
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+            {/* Sort */}
+            <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+              style={{ height:32, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, padding:'0 8px', fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', outline:'none', cursor:'pointer', flexShrink:0 }}>
+              <option value="last_name_asc">Last Name A–Z</option>
+              <option value="last_name_desc">Last Name Z–A</option>
+              <option value="school_asc">School A–Z</option>
+              <option value="status">ASPIRE Status</option>
+              <option value="completion_desc">Profile Complete ↓</option>
+              <option value="completion_asc">Profile Complete ↑</option>
+              <option value="gpa_desc">GPA High–Low</option>
+              <option value="gpa_asc">GPA Low–High</option>
+            </select>
+            {/* Active KPI filter clear */}
+            {activeStatusFilter && (
+              <button onClick={() => setActiveStatusFilter(null)}
+                style={{ display:'flex', alignItems:'center', gap:4, height:32, padding:'0 10px', borderRadius:7, border:'1px solid rgba(29,37,103,0.15)', background:'#f0f3ff', color:'#1D2567', fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans,sans-serif', flexShrink:0 }}>
+                <X size={10} />
+                {Array.isArray(activeStatusFilter) ? 'Clear filter' : activeStatusFilter}
+              </button>
+            )}
+            {/* View toggle: List / Grid */}
+            <div style={{ display:'flex', borderRadius:7, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', overflow:'hidden', flexShrink:0 }}>
+              <button onClick={() => setViewMode('list')} title="List view"
+                style={{ width:32, height:32, display:'flex', alignItems:'center', justifyContent:'center', border:'none', cursor:'pointer',
+                  background: viewMode==='list' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
+                  color: viewMode==='list' ? '#fff' : 'var(--text-muted,#9ca3af)', transition:'all 0.12s' }}>
+                <List size={13} />
+              </button>
+              <button onClick={() => setViewMode('grid')} title="Grid view"
+                style={{ width:32, height:32, display:'flex', alignItems:'center', justifyContent:'center', border:'none', cursor:'pointer',
+                  background: viewMode==='grid' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
+                  color: viewMode==='grid' ? '#fff' : 'var(--text-muted,#9ca3af)', transition:'all 0.12s' }}>
+                <LayoutGrid size={13} />
+              </button>
+            </div>
+            {/* Actions */}
+            {canEdit && (
+              <button onClick={() => setShowImport(true)} title="Import from CSV"
+                style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
+                ↑ Import
+              </button>
+            )}
+            {canEdit && onAddStudent && (
+              <button onClick={onAddStudent} title="Add student"
+                style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
+                + Add
+              </button>
+            )}
+            {canEdit && onExportCSV && (
+              <button onClick={onExportCSV} title="Export CSV"
+                style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
+                ↓ Export
+              </button>
+            )}
           </div>
         )}
-
-        <div className="profiles-view-toggle">
-          <button
-            className={`profiles-toggle-btn${view === 'records' ? ' active' : ''}`}
-            onClick={() => onViewChange('records')}
-            aria-label="Profiles view">
-            Profiles
-          </button>
-          <button
-            className={`profiles-toggle-btn${view === 'access' ? ' active' : ''}`}
-            onClick={() => onViewChange('access')}
-            aria-label="CS-Link Access view">
-            CS-Link Access
-          </button>
-        </div>
       </div>
 
-      {/* Profiles: full-width list, panel slides in on selection */}
+      {/* ── Profiles: always-open split view ── */}
       {view === 'records' && (
-        <div className={panelStudent ? 'profiles-slide-container' : 'profiles-full-container'}>
-          <div className={panelStudent ? 'profiles-list-narrow' : 'profiles-list-full'}>
-            <StudentListPanel
-              students={displayedStudents}
-              allStudents={students}
-              selectedStudentId={selectedStudentId}
-              onSelect={id => setSelectedStudentId(prev => prev === id ? null : id)}
-              localSearch={localSearch}       setLocalSearch={setLocalSearch}
-              filterSchool={filterSchool}     setFilterSchool={setFilterSchool}
-              filterStatus={filterStatus}     setFilterStatus={setFilterStatus}
-              sortBy={sortBy}                 setSortBy={setSortBy}
-              cohortId={cohortId}
-              onRefresh={onRefresh}
-              onExportCSV={onExportCSV}
-              onAddStudent={onAddStudent}
-              units={units}
-              compressed={!!panelStudent}
-            />
+        <div className="profiles-slide-container">
+          {/* Left column: Cohort View */}
+          <div className="profiles-list-narrow" style={{ display:'flex', flexDirection:'column' }}>
+            {/* Cohort View header (sticky) */}
+            <div style={{ position:'sticky', top:0, zIndex:5, background:'var(--color-bg-elevated,#f9fafb)', borderBottom:'1px solid var(--border-card,rgba(29,37,103,0.08))', padding:'10px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+              <div>
+                <div style={{ fontSize:13, fontWeight:700, color:'var(--text-heading,#191919)', lineHeight:1.2 }}>Student Cohort View</div>
+                <div style={{ fontSize:11, color:'var(--text-muted,#9ca3af)', marginTop:2 }}>
+                  {displayedStudents.length} student{displayedStudents.length!==1?'s':''} shown · KPI cards work as quick filters
+                </div>
+              </div>
+              {selectedName && (
+                <div style={{ fontSize:11, color:'var(--text-muted,#9ca3af)', textAlign:'right', flexShrink:0, marginLeft:8 }}>
+                  Selected: <span style={{ color:'var(--color-accent-primary,#1D2567)', fontWeight:600 }}>{selectedName}</span>
+                </div>
+              )}
+            </div>
+            {/* List or Grid */}
+            <div style={{ flex:1, overflowY:'auto', minHeight:0 }}>
+              <StudentListPanel
+                students={displayedStudents}
+                allStudents={students}
+                selectedStudentId={selectedStudentId}
+                onSelect={id => setSelectedStudentId(id)}
+                cohortId={cohortId}
+                onRefresh={onRefresh}
+                units={units}
+                viewMode={viewMode}
+              />
+            </div>
           </div>
-          {panelStudent && (
-            <div className="profiles-panel-slide" key={panelStudent.id}>
+
+          {/* Right column: Drawer (always open) */}
+          <div className="profiles-panel-slide" key={selectedStudentId || 'empty'}>
+            {selectedStudent ? (
               <StudentSidePanel
-                student={panelStudent}
+                student={selectedStudent}
                 sortedStudents={displayedStudents}
                 onSelectStudent={setSelectedStudentId}
-                onClose={() => setSelectedStudentId(null)}
+                onClose={() => {}} // no-op; drawer is always open
                 onUpdate={onUpdate}
                 onDelete={onDelete}
                 units={units}
                 toast={toast}
               />
-            </div>
-          )}
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', color:'var(--text-muted,#9ca3af)', fontFamily:'DM Sans,sans-serif', padding:40, textAlign:'center' }}>
+                <div style={{ fontSize:32, marginBottom:12, opacity:0.4 }}>👤</div>
+                <div style={{ fontSize:14, fontWeight:600, marginBottom:6 }}>No student selected</div>
+                <div style={{ fontSize:12 }}>Select a student from the list to view their profile</div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* CS-Link Access: full width */}
+      {/* ── CS-Link Access ── */}
       {view === 'access' && (
         <div className="profiles-scroll-area">
-          <AccessTab
-            students={students}
-            onUpdate={onUpdate}
-            focusStudentId={accessFocusId}
-          />
+          <AccessTab students={students} onUpdate={onUpdate} focusStudentId={accessFocusId} />
         </div>
       )}
+
+      {showImport && <ImportStudentsCSV cohortId={cohortId} onImported={onRefresh} onClose={() => setShowImport(false)} />}
     </div>
   )
 }

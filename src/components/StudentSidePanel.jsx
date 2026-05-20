@@ -418,17 +418,6 @@ export default function StudentSidePanel({
   return (
     <>
       <div className="sp-container" style={{ position:'relative' }}>
-        {/* X close button — STICKY so it stays visible while scrolling */}
-        <button onClick={onClose}
-          style={{ position:'sticky', top:12, float:'right', marginRight:12, marginBottom:-40, width:30, height:30, borderRadius:'50%',
-            background:'var(--bg-card,#fff)', border:'1px solid rgba(25,25,25,0.10)', cursor:'pointer', fontSize:14, fontWeight:700,
-            color:'var(--raven)', display:'flex', alignItems:'center', justifyContent:'center',
-            boxShadow:'0 1px 4px rgba(0,0,0,0.10)', zIndex:20, lineHeight:1, flexShrink:0 }}
-          onMouseEnter={e => { e.currentTarget.style.background='#f3f4f6'; e.currentTarget.style.boxShadow='0 2px 8px rgba(0,0,0,0.14)' }}
-          onMouseLeave={e => { e.currentTarget.style.background='var(--bg-card,#fff)'; e.currentTarget.style.boxShadow='0 1px 4px rgba(0,0,0,0.10)' }}>
-          ×
-        </button>
-
         {/* Scrollable content */}
         <div className="sp-content">
 
