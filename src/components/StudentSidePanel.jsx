@@ -457,10 +457,11 @@ export default function StudentSidePanel({
 
             return (
               <>
-                {/* ── Hero card ── */}
-                <div style={{ margin:'4px 12px 0', borderRadius:14,
-                  background:'linear-gradient(160deg, #dceff8 0%, #f4f8fc 55%, #ffffff 100%)',
-                  padding:'20px 18px 16px', boxShadow:'0 2px 8px rgba(29,37,103,0.06)',
+                {/* ── Hero — fills the top of the drawer card; gradient flows into rounded corners ── */}
+                <div style={{
+                  margin:0, borderRadius:'16px 16px 0 0',
+                  background:'linear-gradient(160deg, #dceff8 0%, #f0f6fb 50%, #ffffff 100%)',
+                  padding:'28px 24px 20px',
                   textAlign:'center', position:'relative' }}>
                   {saveStatus !== 'idle' && (
                     <div style={{ position:'absolute', top:10, left:'50%', transform:'translateX(-50%)', fontSize:11, fontWeight:500,
@@ -517,7 +518,7 @@ export default function StudentSidePanel({
                 </div>
 
                 {/* ── Status snapshot — 5 chips (no ASPIRE status; hero pill carries it) ── */}
-                <div style={{ margin:'10px 12px 0', display:'flex', flexWrap:'wrap', gap:6 }}>
+                <div style={{ margin:'22px 18px 0', display:'flex', flexWrap:'wrap', gap:6 }}>
                   {(() => {
                     const gpaVal = parseFloat(data.cumulative_gpa)
                     const gpaOk  = !isNaN(gpaVal) && gpaVal > 0
@@ -575,7 +576,7 @@ export default function StudentSidePanel({
                   const barClr = pct >= 100 ? '#16a34a' : pct >= 67 ? '#f59e0b' : '#E2569C'
                   const blockBg = pct >= 100 ? 'rgba(22,163,74,0.06)' : pct >= 67 ? 'rgba(245,158,11,0.08)' : 'rgba(226,86,156,0.06)'
                   return (
-                    <div style={{ margin:'10px 12px 0', padding:'12px 14px', background:blockBg, border:`1px solid ${barClr}33`, borderRadius:10 }}>
+                    <div style={{ margin:'18px 18px 0', padding:'12px 14px', background:blockBg, border:`1px solid ${barClr}33`, borderRadius:10 }}>
                       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:7 }}>
                         <span style={{ fontSize:12, fontWeight:700, color:barClr }}>Profile Completion</span>
                         <span style={{ fontSize:13, fontWeight:800, color:barClr }}>{pct}%</span>
@@ -605,7 +606,7 @@ export default function StudentSidePanel({
           })()}
 
           {/* ── Unified section container with pastel section cards ── */}
-          <div style={{ margin:'12px 12px 0', background:'var(--bg-card,#fff)', borderRadius:14, padding:'10px 10px 4px', boxShadow:'0 1px 4px rgba(29,37,103,0.05)' }}>
+          <div style={{ margin:'22px 14px 0', background:'var(--bg-card,#fff)', borderRadius:14, padding:'12px 12px 4px', boxShadow:'0 1px 4px rgba(29,37,103,0.05)' }}>
 
           {/* 1. Contact Information */}
           <div className="sp-section sp-card" style={{ background:'rgba(100,130,200,0.06)', borderRadius:12, marginBottom:10 }}>

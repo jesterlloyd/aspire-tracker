@@ -239,8 +239,8 @@ export default function StudentProfilesTab({
       {/* ── Profiles: always-open split view ── */}
       {view === 'records' && (
         <div className="profiles-slide-container">
-          {/* Left column: Cohort View */}
-          <div className="profiles-list-narrow" style={{ display:'flex', flexDirection:'column' }}>
+          {/* Left column: Cohort View card */}
+          <div className="profiles-list-narrow">
             {/* Cohort View header (sticky) */}
             <div style={{ position:'sticky', top:0, zIndex:5, background:'var(--color-bg-elevated,#f9fafb)', borderBottom:'1px solid var(--border-card,rgba(29,37,103,0.08))', padding:'10px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
               <div>
