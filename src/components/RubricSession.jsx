@@ -379,23 +379,57 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
   // createIfNeeded=false: only update existing record, never create
   // createIfNeeded=true:  create record on first meaningful edit
+  // Returns true on success, false on failure (caller should check before showing success UI)
   const persist = async (updates, createIfNeeded = false) => {
     setSaveStatus('saving')
-    const payload = { ...updates, composite_score: (updates.cj_score ?? (form.cj_score || 0)) + (updates.pp_score ?? (form.pp_score || 0)) + (updates.ga_score ?? (form.ga_score || 0)), updated_at: new Date().toISOString() }
+    const payload = {
+      ...updates,
+      composite_score: (updates.cj_score ?? (form.cj_score || 0)) + (updates.pp_score ?? (form.pp_score || 0)) + (updates.ga_score ?? (form.ga_score || 0)),
+      updated_at: new Date().toISOString(),
+    }
     let id = rubricId
     if (!id) {
-      if (!createIfNeeded || !form.interviewer_name) { setSaveStatus('idle'); return }
+      if (!createIfNeeded || !form.interviewer_name) { setSaveStatus('idle'); return false }
       const { data, error } = await supabase.from('interview_rubrics').insert({
         student_id: student.id, cohort_id: cohortId, ...initForm(), ...form, ...payload,
       }).select().single()
-      if (error) { setSaveStatus('idle'); return }
-      id = data.id; setRubricId(id)
+      if (error) {
+        setSaveStatus('idle')
+        toast?.error('Save failed', error.message || 'Could not save rubric. Please try again.')
+        logEvent(supabase, {
+          studentId: student.id, cohortId,
+          eventType: 'rubric_save_failed',
+          notes: `Interviewer: ${form.interviewer_name}. Error: ${error.message}`,
+          auto: true,
+        })
+        return false
+      }
+      id = data.id
+      setRubricId(id)
+      logEvent(supabase, {
+        studentId: student.id, cohortId,
+        eventType: 'rubric_saved',
+        notes: `Interviewer: ${form.interviewer_name}. Rubric created (id: ${id}).`,
+        auto: true,
+      })
     } else {
-      await supabase.from('interview_rubrics').update(payload).eq('id', id)
+      const { error } = await supabase.from('interview_rubrics').update(payload).eq('id', id)
+      if (error) {
+        setSaveStatus('idle')
+        toast?.error('Save failed', error.message || 'Could not save rubric. Please try again.')
+        logEvent(supabase, {
+          studentId: student.id, cohortId,
+          eventType: 'rubric_save_failed',
+          notes: `Interviewer: ${form.interviewer_name || '(unset)'}. Error: ${error.message}. Rubric id: ${id}.`,
+          auto: true,
+        })
+        return false
+      }
     }
     setSaveStatus('saved')
     setTimeout(() => setSaveStatus('idle'), 1800)
     if (onRubricsChange) onRubricsChange()
+    return true
   }
 
   // Debounced save — never creates a new record
@@ -421,7 +455,11 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
   const handleMarkComplete = async () => {
     setConfirmComplete(false)
-    await persist({ ...form, status:'Completed', composite_score: composite })
+    const saved = await persist({ ...form, status:'Completed', composite_score: composite })
+    if (!saved) {
+      // persist already showed an error toast — do not show success UI
+      return
+    }
     setForm(p => ({ ...p, status:'Completed', composite_score: composite }))
     // Fetch all completed rubrics fresh from DB so stale local state can never affect the result
     const recalc = await recalculateStudentAverages(student.id, supabase)

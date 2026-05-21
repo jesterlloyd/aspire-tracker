@@ -387,12 +387,17 @@ export default function InterviewRubricTab({
             ) : sorted.map(s => {
               const ivStatus = getStudentIvStatus(s, rubrics)
               const borderColor = ROW_BORDER[ivStatus] || '#d1d5db'
-              const rubCount = rubrics.filter(r => r.student_id === s.id).length
-              const hasIncomplete = rubrics.some(r =>
-                r.student_id === s.id && r.status === 'In Progress' &&
+              const studentRubs = rubrics.filter(r => r.student_id === s.id)
+              const rubCount = studentRubs.length
+              const hasIncomplete = studentRubs.some(r =>
+                r.status === 'In Progress' &&
                 (!r.cj_score || !r.pp_score || !r.ga_score || !r.individual_recommendation)
               )
-              const avgScore = parseFloat(s.avg_composite_score) || 0
+              // Compute avg directly from rubric rows so it shows even before student record is recalculated
+              const scoredRubs = studentRubs.filter(r => (r.composite_score || 0) > 0)
+              const avgScore = scoredRubs.length > 0
+                ? scoredRubs.reduce((sum, r) => sum + (r.composite_score || 0), 0) / scoredRubs.length
+                : 0
               const rec = s.auto_recommendation
               const recColor = rec === 'Recommend' ? '#166534' : rec === 'Recommend with Reservations' ? '#92400e' : rec ? '#991b1b' : null
               const recBg    = rec === 'Recommend' ? '#dcfce7' : rec === 'Recommend with Reservations' ? '#fef3c7' : rec ? '#fee2e2' : null
@@ -420,12 +425,17 @@ export default function InterviewRubricTab({
                       : '—'}
                   </td>
                   <td className="iv-td" style={{ fontSize:12, color:'var(--text-secondary)' }}>
-                    {s.interview_assigned_interviewers
-                      ? s.interview_assigned_interviewers.split(',').map(n => n.trim()).filter(Boolean).map(n => {
-                          const parts = n.split(' ').filter(Boolean)
-                          return parts.length >= 2 ? `${parts[0][0]}${parts[parts.length-1][0]}`.toUpperCase() : n.slice(0,2).toUpperCase()
-                        }).join(', ')
-                      : '—'}
+                    {(() => {
+                      const names = studentRubs
+                        .filter(r => r.interviewer_name)
+                        .map(r => r.interviewer_name)
+                        .filter((n, i, arr) => arr.indexOf(n) === i)
+                      if (names.length === 0) return '—'
+                      return names.map(n => {
+                        const parts = n.split(' ').filter(Boolean)
+                        return parts.length >= 2 ? `${parts[0][0]}${parts[parts.length-1][0]}`.toUpperCase() : n.slice(0,2).toUpperCase()
+                      }).join(', ')
+                    })()}
                   </td>
                   <td className="iv-td">
                     {s.status && (() => { const cfg = ASPIRE_STATUS_CONFIG[s.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']; return <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, whiteSpace:'nowrap' }}>{s.status}</span> })()}
