@@ -124,9 +124,20 @@ export default function InterviewRubricTab({
     onRubricsChange?.()
   }, [refreshKey]) // eslint-disable-line
 
+  // Track whether the user is inside RubricSession (actively editing a rubric).
+  // Used by the realtime handler to avoid triggering state refreshes that could
+  // race with in-progress form edits and cause apparent data loss.
+  const editingRubricRef = useRef(false)
+  useEffect(() => {
+    editingRubricRef.current = !!selectedStudentId
+  }, [selectedStudentId])
+
   // ── Real-time subscriptions ───────────────────────────────────────────────
-  // interview_rubrics: when any rubric is submitted or updated for this cohort,
-  //   refresh the results table so all open tabs see the new score immediately.
+  // interview_rubrics: refresh the results table when any rubric changes,
+  //   BUT only when the user is viewing the list (not actively editing).
+  //   Firing onRubricsChange during an active edit session caused a re-render
+  //   storm (once from persist() itself + once from realtime), creating race
+  //   conditions and excessive re-renders during 30-minute interview sessions.
   // interview_sessions: when a booking is created/updated/cancelled,
   //   trigger a full refresh so the calendar remounts with fresh data.
   useEffect(() => {
@@ -136,7 +147,17 @@ export default function InterviewRubricTab({
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'interview_rubrics', filter: `cohort_id=eq.${cohortId}` },
-        () => { onRubricsChange?.(); onRefreshStudents?.() }
+        () => {
+          // While an interviewer is filling out a rubric, suppress realtime-driven
+          // refreshes for this table — persist() already calls onRubricsChange()
+          // after each successful save, so the list stays up to date when the user
+          // navigates back.
+          if (editingRubricRef.current) return
+          onRubricsChange?.()
+          // onRefreshStudents intentionally omitted: rubric changes do not affect
+          // the students array (avg scores are recalculated inside handleMarkComplete
+          // and written via onStudentUpdate, not by a separate student fetch).
+        }
       )
       .subscribe()
     const sessChannel = supabase

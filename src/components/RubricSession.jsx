@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
@@ -76,6 +76,12 @@ const getInterviewOutcome = avg => {
   if (avg >= 12) return 'Accepted'
   if (avg >= 8)  return 'Accepted with Reservations'
   return 'Declined'
+}
+
+// Format a Date for the "Saved at HH:MM AM/PM" indicator
+function fmtSaveTime(dt) {
+  if (!dt) return ''
+  return dt.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' })
 }
 
 // ── Recalculate student averages from fresh DB fetch ─────────
@@ -300,6 +306,18 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   })
   const timerRef = useRef(null)
 
+  // ── Auto-save and session protection ─────────────────────────────────────
+  // lastSavedAt: timestamp of the most recent successful persist() call.
+  // hasUnsavedEditsRef: true between "user typed something" and "persist succeeded".
+  // Refs for form/rubricId/locked allow the 30s interval to always read fresh
+  // values without being recreated on every render.
+  const [lastSavedAt,      setLastSavedAt]      = useState(null)
+  const hasUnsavedEditsRef = useRef(false)
+  const formRef            = useRef(null)
+  const rubricIdRef        = useRef(null)
+  const lockedRef          = useRef(false)
+  const persistRef         = useRef(null)  // filled in below, after persist is defined
+
   // Tracks which domains are in "Other / Custom" mode per rubric instance
   const [otherClicked,    setOtherClicked]    = useState({ cj: false, pp: false, ga: false })
   const [showValidation,  setShowValidation]  = useState(false)
@@ -427,7 +445,9 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       }
     }
     setSaveStatus('saved')
-    setTimeout(() => setSaveStatus('idle'), 1800)
+    setLastSavedAt(new Date())
+    hasUnsavedEditsRef.current = false
+    setTimeout(() => setSaveStatus('idle'), 3000)
     if (onRubricsChange) onRubricsChange()
     return true
   }
@@ -435,17 +455,21 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   // Debounced save — never creates a new record
   const saveText = (field, value) => {
     setForm(p => ({ ...p, [field]: value }))
+    hasUnsavedEditsRef.current = true
+    setSaveStatus('saving')
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => persist({ [field]: value }, false), 800)
   }
   // Immediate non-creating save (date, time, etc.)
   const saveImmediate = (field, value) => {
     setForm(p => ({ ...p, [field]: value }))
+    hasUnsavedEditsRef.current = true
     persist({ [field]: value }, false)
   }
   // Immediate save for meaningful edits — creates record if first interaction
   const saveMeaningful = (field, value) => {
     setForm(p => ({ ...p, [field]: value }))
+    hasUnsavedEditsRef.current = true
     persist({ [field]: value }, true)
   }
   const savePreference = async (field, value) => {
@@ -455,7 +479,10 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
   const handleMarkComplete = async () => {
     setConfirmComplete(false)
-    const saved = await persist({ ...form, status:'Completed', composite_score: composite })
+    // createIfNeeded=true: if rubricId is somehow null (e.g. the initial INSERT
+    // failed silently and the user continued typing), attempt an INSERT here
+    // rather than silently doing nothing.
+    const saved = await persist({ ...form, status:'Completed', composite_score: composite }, true)
     if (!saved) {
       // persist already showed an error toast — do not show success UI
       return
@@ -518,6 +545,54 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
   const locked = form.status === 'Completed'
 
+  // Keep refs in sync with latest render values so the auto-save interval
+  // (which has a stable closure) always uses current data.
+  formRef.current     = form
+  rubricIdRef.current = rubricId
+  lockedRef.current   = locked
+  persistRef.current  = persist
+
+  // ── Auto-save interval (30 s) ─────────────────────────────────────────────
+  // Fires every 30 seconds; if there are unsaved edits and a row exists, saves
+  // the full current form state.  Acts as a safety net when field-level saves
+  // fail silently due to network blips or transient RLS issues.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (!hasUnsavedEditsRef.current) return
+      if (!rubricIdRef.current || lockedRef.current) return
+      await persistRef.current(formRef.current, false)
+    }, 30_000)
+    return () => clearInterval(interval)
+  }, []) // deliberately [] — reads from refs, not re-created on every render
+
+  // ── Session refresh (every 15 min) ────────────────────────────────────────
+  // Ensures the JWT stays valid during long interview sessions (Supabase tokens
+  // expire after 1 hour; auto-refresh normally handles this but can silently
+  // fail if the tab was in the background).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          const { error } = await supabase.auth.refreshSession()
+          if (error) {
+            toast?.error(
+              'Session expired',
+              'Your session has expired. Copy your notes now, then refresh the page to continue.'
+            )
+          }
+        }
+      } catch (e) {
+        console.warn('[RubricSession] session check failed (non-fatal):', e.message)
+      }
+    }
+    checkSession()
+    const interval = setInterval(checkSession, 15 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
+
   // Derived question-selected flags (preset text OR Other tile clicked)
   const hasQCj = !!form.cj_question_asked || otherClicked.cj
   const hasQPp = !!form.pp_question_asked || otherClicked.pp
@@ -555,8 +630,29 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       <div className="rub-topbar">
         <button className="iv-back-btn" onClick={onBack}>← Back to Interview List</button>
         <span className="iv-save-indicator">
-          {saveStatus === 'saving' && <span className="iv-saving">Saving…</span>}
-          {saveStatus === 'saved'  && <span className="iv-saved">✓ Saved</span>}
+          {saveStatus === 'saving' && (
+            <span className="iv-saving">Saving…</span>
+          )}
+          {saveStatus === 'saved' && (
+            <span className="iv-saved">
+              ✓ Saved{lastSavedAt ? ` at ${fmtSaveTime(lastSavedAt)}` : ''}
+            </span>
+          )}
+          {saveStatus === 'error' && (
+            <span
+              style={{ fontSize:11, fontWeight:700, color:'#991b1b', background:'#fee2e2',
+                border:'1px solid #fca5a5', borderRadius:6, padding:'2px 8px', cursor:'pointer' }}
+              onClick={() => persistRef.current?.(formRef.current, !!rubricIdRef.current ? false : true)}
+              title="Click to retry save"
+            >
+              ⚠ Save failed · retry
+            </span>
+          )}
+          {saveStatus === 'idle' && lastSavedAt && (
+            <span style={{ fontSize:11, color:'#9ca3af' }}>
+              Saved {fmtSaveTime(lastSavedAt)}
+            </span>
+          )}
         </span>
         {locked && <button className="btn btn-outline-modal" style={{ marginLeft:'auto' }} onClick={() => setConfirmUnlock(true)}>Unlock to Edit</button>}
       </div>
