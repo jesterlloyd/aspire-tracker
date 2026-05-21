@@ -54,6 +54,7 @@ import StudentAvatar from './StudentAvatar'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { calculateProfileCompletion } from '../lib/profileCompletion'
 import { CARD } from '../lib/designTokens'
+import { formatSchoolProgram } from '../lib/displayFormatters'
 
 // ── Token-derived style constants ─────────────────────────────────────────────
 
@@ -116,18 +117,13 @@ const STATUS_SHORT = {
 // ── Metadata strips ───────────────────────────────────────────────────────────
 
 function ProfileStrip({ student }) {
+  // School is now shown in the constant School·Program line above the strip.
+  // Strip shows only the ASPIRE status pill.
   const cfg = student.status
     ? (ASPIRE_STATUS_CONFIG[student.status] || ASPIRE_STATUS_CONFIG['Pending Outreach'])
     : null
   return (
-    <div style={{ padding: '8px 10px 10px', textAlign: 'center' }}>
-      <div style={{
-        fontSize: 10.5, color: '#9ca3af', ...F,
-        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        marginBottom: 4,
-      }}>
-        {shortSchool(student.school)}
-      </div>
+    <div style={{ padding: '8px 10px 10px', textAlign: 'center', minHeight: 30 }}>
       {cfg && (
         <span style={{
           fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 10,
@@ -300,6 +296,22 @@ export default function StudentCard({ student, variant, onClick, variantProps = 
       }}>
         {shortName}
       </div>
+
+      {/* School · Program — constant across all variants */}
+      {(() => {
+        const schoolProg = formatSchoolProgram(student.school, student.program_type)
+        return schoolProg ? (
+          <div style={{
+            fontSize: 10, fontWeight: 500, color: '#9ca3af',
+            textAlign: 'center',
+            maxWidth: 128, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            lineHeight: 1.3, marginBottom: 3, paddingInline: 6,
+            fontFamily: F.family,
+          }}>
+            {schoolProg}
+          </div>
+        ) : null
+      })()}
 
       {/* Metadata strip — the only part that varies by variant */}
       <div style={{ width: '100%', marginTop: 2 }}>
