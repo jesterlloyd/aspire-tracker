@@ -167,17 +167,21 @@ function OnCampusStrip({ hoursCompleted, hoursRequired }) {
   )
 }
 
+/** "Krystal Rodriguez" → "Krystal R." — matches student short name format */
+function shortInterviewerName(name) {
+  if (!name) return ''
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0]
+  return `${parts[0]} ${parts[parts.length - 1][0]}.`
+}
+
 function InterviewStrip({ interviewTime, interviewerName, interviewerColor }) {
-  const initials = getInitials(interviewerName)
-  const stripBg  = hexToRgba(interviewerColor || '#1D2567', CARD.tintOpacity)
-  const chipBg   = hexToRgba(interviewerColor || '#1D2567', 0.18)
+  const chipBg    = hexToRgba(interviewerColor || '#1D2567', 0.14)
   const chipColor = interviewerColor || '#1D2567'
   return (
-    <div style={{
-      padding: '8px 10px 10px',
-      background: stripBg,
-      textAlign: 'center',
-    }}>
+    // Strip background is always neutral — color lives only in the pill,
+    // consistent with profile (status pill) and on-campus (progress bar) variants.
+    <div style={{ padding: '8px 10px 10px', textAlign: 'center' }}>
       <div style={{
         fontSize: 13, fontWeight: 700, color: '#1D2567', ...F,
         marginBottom: 5,
@@ -186,16 +190,13 @@ function InterviewStrip({ interviewTime, interviewerName, interviewerColor }) {
       </div>
       {interviewerName && (
         <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4,
+          display: 'inline-flex', alignItems: 'center',
           fontSize: 10, fontWeight: 700, ...F,
-          padding: '2px 7px', borderRadius: 20,
+          padding: '2px 8px', borderRadius: 20,
           background: chipBg, color: chipColor,
           border: `1px solid ${hexToRgba(chipColor, 0.25)}`,
         }}>
-          {initials}
-          <span style={{ fontWeight: 500, opacity: 0.8 }}>
-            {interviewerName.split(' ')[0]}
-          </span>
+          {shortInterviewerName(interviewerName)}
         </span>
       )}
     </div>
