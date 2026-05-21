@@ -8,6 +8,7 @@ import { getUnit, UNIT_CATALOG, DIVISION_ORDER } from '../lib/unitCatalog'
 import StudentAvatar from './StudentAvatar'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
+import StudentCard from './StudentCard'
 import { Clock, GraduationCap, MapPin, Users, Copy } from 'lucide-react'
 
 // ── Capacity Coverage Gauge ───────────────────────────────────────────────────
@@ -964,62 +965,52 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
         </div>
 
-        {/* ── On Campus Today — light card style matching rest of tab ── */}
-        <div style={{
-          background:'var(--bg-card,#fff)', border:'1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius:12,
-          boxShadow:'var(--shadow-card)',
-          overflow:'hidden', margin:'20px 0 24px', fontFamily:'DM Sans, sans-serif',
-        }}>
-          {/* Header row */}
-          <div onClick={() => setCampusOpen(p => !p)}
-            style={{ display:'flex', alignItems:'center', gap:10, padding:'0 20px', height:56,
-              cursor:'pointer', borderBottom: campusOpen ? '1px solid var(--border-card,rgba(29,37,103,0.06))' : 'none' }}>
-            <span style={{
-              width:8, height:8, borderRadius:'50%', flexShrink:0, display:'inline-block',
-              background: campusLogs.length > 0 ? '#22c55e' : '#d1d5db',
-              animation: campusLogs.length > 0 ? 'pulse 2s infinite' : 'none',
-            }} />
-            <span style={{ fontSize:13, fontWeight:600, color:'var(--text-heading,#0E1428)' }}>On Campus Today</span>
-            {campusLoading
-              ? <span style={{ fontSize:12, color:'#9ca3af' }}>Loading…</span>
-              : campusLogs.length > 0
-                ? <span style={{ fontSize:11, fontWeight:700, padding:'1px 9px', borderRadius:20,
-                    background:'#D1EFD8', color:'#166534', flexShrink:0 }}>{campusLogs.length} on shift</span>
-                : <span style={{ fontSize:12, color:'#9ca3af' }}>No shifts logged today</span>
-            }
-            <div style={{ flex:1 }} />
-            <button onClick={e => { e.stopPropagation(); loadCampusLogs() }}
-              style={{ background:'none', border:'none', cursor:'pointer', color:'#9ca3af', padding:'4px', fontSize:14 }}
-              title="Refresh">↻</button>
-            <span style={{ fontSize:11, color:'#9ca3af', display:'inline-block',
-              transform: campusOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition:'transform 0.15s' }}>▼</span>
-          </div>
-
-          {/* Expanded: empty state */}
-          {campusOpen && campusLogs.length === 0 && (
-            <div style={{ padding:'24px 20px', textAlign:'center', color:'#9ca3af' }}>
-              <Clock size={20} style={{ marginBottom:8, opacity:0.4 }} />
-              <div style={{ fontSize:13, fontWeight:500 }}>No students on campus today.</div>
-              <div style={{ fontSize:12, marginTop:4 }}>Students appear here after logging a shift via the badge QR code.</div>
+        {/* ── On Campus Today — StudentCard grid, full-collapse when empty ── */}
+        {!campusLoading && campusLogs.length > 0 && (
+          <div style={{ margin:'20px 0 24px', fontFamily:'DM Sans, sans-serif' }}>
+            {/* Section eyebrow */}
+            <div style={{ display:'flex', alignItems:'baseline', gap:8, marginBottom:14 }}>
+              <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
+                <span style={{
+                  width:7, height:7, borderRadius:'50%', display:'inline-block',
+                  background:'#22c55e', animation:'pulse 2s infinite', flexShrink:0,
+                }} />
+                <span style={{ fontSize:11, fontWeight:700, textTransform:'uppercase',
+                  letterSpacing:'0.12em', color:'#0E1428' }}>
+                  On Campus Today
+                </span>
+              </span>
+              <span style={{ fontSize:11, color:'#9ca3af' }}>
+                {new Date().toLocaleDateString('en-US', { month:'short', day:'numeric' })}
+                {' · '}
+                {campusLogs.length} student{campusLogs.length !== 1 ? 's' : ''}
+              </span>
             </div>
-          )}
-
-          {/* Expanded: student picture-card grid */}
-          {campusOpen && campusLogs.length > 0 && (
+            {/* Card grid */}
             <div style={{
-              padding:20,
-              display:'grid',
-              gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))',
-              gap:16,
-              maxHeight:640, overflowY:'auto',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(152px, 1fr))',
+              gap: 12,
             }}>
               {campusLogs.map(log => {
                 const stu = students.find(s => s.id === log.student_id)
-                return stu ? <CampusStudentCard key={log.id} log={log} student={stu} units={units} onSelectStudent={onSelectStudent} /> : null
+                if (!stu) return null
+                return (
+                  <StudentCard
+                    key={log.id}
+                    variant="on-campus"
+                    student={stu}
+                    onClick={() => onSelectStudent?.(stu.id)}
+                    variantProps={{
+                      hoursCompleted: parseFloat(stu.approved_hours) || 0,
+                      hoursRequired:  parseFloat(stu.hours_required)  || 200,
+                    }}
+                  />
+                )
               })}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
 
       </div>

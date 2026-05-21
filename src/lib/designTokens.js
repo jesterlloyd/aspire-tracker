@@ -241,6 +241,25 @@ export const styles = {
 };
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── StudentCard tokens ────────────────────────────────────────────────────────
+// Single source of truth for the unified StudentCard primitive.
+// Changing any value here updates all three variants (profile, on-campus, interview)
+// and makes the card ready to absorb into a future <EntityCard> design system.
+
+export const CARD = {
+  width:         180,         // px — canonical card width in the grid
+  radius:        12,          // px — border-radius matching existing panel convention
+  avatarSize:    72,          // px — circular avatar diameter
+  stripMinHeight: 52,         // px — metadata strip min-height (content drives actual height)
+  hoverLiftPx:   -3,          // px — translateY offset on mouse-enter
+  hoverDuration: '150ms',     // hover transition timing
+  shadowRest:    '0 1px 3px rgba(0,0,0,0.05)',
+  shadowHover:   '0 6px 18px rgba(0,0,0,0.11)',
+  tintOpacity:   0.14,        // pastel tint opacity for interview variant strip background
+  focusRing:     '0 0 0 3px rgba(29,37,103,0.30)',  // keyboard focus indicator
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function btnStyle(type = 'primary', extra = {}) {
   const b = BUTTON[type] || BUTTON.primary;
   return {

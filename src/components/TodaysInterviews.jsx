@@ -1,18 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import { ClipboardList, Clock } from 'lucide-react'
-
-const FLAG_STYLES = {
-  no_show:          { bg: '#fef2f2', color: '#991b1b', label: 'No Show' },
-  cancelled:        { bg: '#f3f4f6', color: '#6b7280', label: 'Cancelled' },
-  rescheduled:      { bg: '#fffbeb', color: '#92400e', label: 'Rescheduled' },
-  needs_reschedule: { bg: '#fff7ed', color: '#c2410c', label: 'Needs Reschedule' },
-}
+import StudentCard from './StudentCard'
 
 export default function TodaysInterviews({ cohortId, onStartRubric }) {
-  const [collapsed, setCollapsed] = useState(false)
-
   const localDate = new Date().toLocaleDateString('en-CA')
 
   const { data: sessions = [], isLoading: loading, refetch: fetchToday } = useQuery({
@@ -40,12 +31,20 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
     enabled: !!cohortId,
   })
 
-  const todayLabel = new Date().toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric',
+  // Interviewers catalog — one query per session, cached 5 min, provides strip tint colors
+  const { data: interviewerCatalog = [] } = useQuery({
+    queryKey: ['interviewers_catalog'],
+    queryFn: async () => {
+      const { data } = await supabase.from('interviewers').select('name, color').order('name')
+      return data || []
+    },
+    staleTime: 5 * 60 * 1000,
   })
+  const colorByName = Object.fromEntries(
+    interviewerCatalog.map(i => [i.name, i.color]).filter(([n]) => !!n)
+  )
 
-  // Real-time: when any interview slot changes for this cohort today,
-  // refresh the list so status changes appear without a manual reload.
+  // Real-time: refresh when any slot in this cohort changes
   useEffect(() => {
     if (!cohortId) return
     const channel = supabase
@@ -59,126 +58,53 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
     return () => { supabase.removeChannel(channel) }
   }, [cohortId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Full collapse — zero interviews today → nothing renders
   if (loading || sessions.length === 0) return null
 
+  const todayShort = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+
   return (
-    <div style={{
-      background: '#fff', border: '1px solid #e0e7ff',
-      borderRadius: '14px', marginBottom: '10px',
-      overflow: 'hidden',
-      boxShadow: '0 2px 12px rgba(29,37,103,0.07)',
-    }}>
-      <div
-        onClick={() => setCollapsed(p => !p)}
-        style={{
-          padding: '10px 16px',
-          background: 'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)',
-          display: 'flex', alignItems: 'center',
-          justifyContent: 'space-between', cursor: 'pointer',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Clock size={13} color="rgba(255,255,255,0.8)" />
-          <span style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '13px', color: '#fff' }}>
-            Today's Interviews
-          </span>
-          <span style={{
-            background: 'rgba(255,255,255,0.15)', color: '#fff',
-            fontFamily: 'DM Sans', fontWeight: 700,
-            fontSize: '11px', padding: '2px 8px', borderRadius: '20px',
-          }}>
-            {sessions.length}
-          </span>
-          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>
-            {todayLabel}
-          </span>
-        </div>
+    <div style={{ marginBottom: 16, fontFamily: 'DM Sans, sans-serif' }}>
+      {/* Section eyebrow */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 12 }}>
         <span style={{
-          color: 'rgba(255,255,255,0.6)', fontSize: '11px',
-          transform: collapsed ? 'rotate(180deg)' : 'rotate(0)',
-          transition: 'transform 0.2s ease', display: 'inline-block',
-        }}>▼</span>
+          fontSize: 11, fontWeight: 700, textTransform: 'uppercase',
+          letterSpacing: '0.12em', color: '#0E1428',
+        }}>
+          Interviews Today
+        </span>
+        <span style={{ fontSize: 11, color: '#9ca3af' }}>
+          {todayShort} · {sessions.length} scheduled
+        </span>
       </div>
 
-      {!collapsed && (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: '#f8f9ff' }}>
-                {['Time', 'Student', 'School', 'Interviewer', 'Status', ''].map(h => (
-                  <th key={h} style={{
-                    padding: '8px 14px', textAlign: 'left',
-                    fontFamily: 'DM Sans', fontWeight: 600,
-                    fontSize: '11px', color: '#6b7280',
-                    textTransform: 'uppercase', letterSpacing: '0.05em',
-                    borderBottom: '1px solid #f3f4f6',
-                  }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sessions.map((s, i) => {
-                const student = Array.isArray(s.students) ? s.students[0] : s.students
-                const session = Array.isArray(s.interview_sessions) ? s.interview_sessions[0] : s.interview_sessions
-                const name    = student ? `${student.first_name} ${student.last_name}` : '—'
-                const flag    = FLAG_STYLES[session?.interview_flag]
-                const time    = s.slot_time
-                  ? new Date(`2000-01-01T${s.slot_time}`)
-                      .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-                  : '—'
-
-                return (
-                  <tr key={s.id} style={{
-                    background: i % 2 === 0 ? '#fff' : '#fafbff',
-                    borderBottom: '1px solid #f3f4f6',
-                  }}>
-                    <td style={{ padding: '10px 14px' }}>
-                      <span style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '13px', color: '#1D2567' }}>{time}</span>
-                    </td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <span style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '13px', color: '#374151' }}>{name}</span>
-                    </td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <span style={{ fontFamily: 'DM Sans', fontSize: '12px', color: '#6b7280' }}>{student?.school || '—'}</span>
-                    </td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <span style={{ fontFamily: 'DM Sans', fontSize: '12px', color: '#374151' }}>{s.interviewer_name || 'ASPIRE Team'}</span>
-                    </td>
-                    <td style={{ padding: '10px 14px' }}>
-                      {flag
-                        ? <span style={{
-                            background: flag.bg, color: flag.color,
-                            fontFamily: 'DM Sans', fontWeight: 700,
-                            fontSize: '10px', padding: '3px 8px', borderRadius: '20px',
-                          }}>{flag.label}</span>
-                        : <span style={{
-                            background: '#eff6ff', color: '#1e40af',
-                            fontFamily: 'DM Sans', fontWeight: 700,
-                            fontSize: '10px', padding: '3px 8px', borderRadius: '20px',
-                          }}>Booked</span>
-                      }
-                    </td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <button
-                        onClick={() => onStartRubric?.({ slotId: s.id, sessionId: session?.id, student, slot: s })}
-                        style={{
-                          padding: '5px 12px', background: '#1D2567',
-                          border: 'none', borderRadius: '6px', cursor: 'pointer',
-                          fontFamily: 'DM Sans', fontWeight: 600,
-                          fontSize: '11px', color: '#fff',
-                          display: 'flex', alignItems: 'center', gap: '4px',
-                        }}
-                      >
-                        <ClipboardList size={11} /> Rubric
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      {/* Card grid — single row for ≤ 6 interviews at typical content widths */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))',
+        gap: 10,
+      }}>
+        {sessions.map(s => {
+          const student = Array.isArray(s.students) ? s.students[0] : s.students
+          const session = Array.isArray(s.interview_sessions) ? s.interview_sessions[0] : s.interview_sessions
+          if (!student) return null
+          const interviewTime = s.slot_time
+            ? new Date(`2000-01-01T${s.slot_time}`)
+                .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+            : '—'
+          const interviewerName  = s.interviewer_name || ''
+          const interviewerColor = colorByName[interviewerName] || '#1D2567'
+          return (
+            <StudentCard
+              key={s.id}
+              variant="interview"
+              student={student}
+              onClick={() => onStartRubric?.({ slotId: s.id, sessionId: session?.id, student, slot: s })}
+              variantProps={{ interviewTime, interviewerName, interviewerColor }}
+            />
+          )
+        })}
+      </div>
     </div>
   )
 }

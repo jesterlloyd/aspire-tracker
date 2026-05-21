@@ -12,6 +12,7 @@ import { calculateProfileCompletion } from '../lib/profileCompletion'
 import { useAuth } from '../contexts/AuthContext'
 import { useUnreadStudents } from '../hooks/useUnreadStudents'
 import { Copy, Check } from 'lucide-react'
+import StudentCard from './StudentCard'
 
 // ── Small chip ────────────────────────────────────────────────────────────────
 function Chip({ label, bg, color, border }) {
@@ -150,9 +151,15 @@ export default function StudentListPanel({
   if (viewMode === 'grid') {
     return (
       <>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))', gap:'16px 12px', padding:'16px 16px 8px' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(152px, 1fr))', gap:'16px 12px', padding:'16px 16px 8px' }}>
           {students.map(s => (
-            <GridTile key={s.id} student={s} isSelected={s.id === selectedStudentId} onSelect={onSelect} units={units} />
+            <StudentCard
+              key={s.id}
+              variant="profile"
+              student={s}
+              onClick={() => onSelect(s.id)}
+              isSelected={s.id === selectedStudentId}
+            />
           ))}
         </div>
         {showImport && <ImportStudentsCSV cohortId={cohortId} onImported={onRefresh} onClose={() => setShowImport(false)} />}
