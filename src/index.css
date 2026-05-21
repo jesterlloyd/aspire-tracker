@@ -1231,12 +1231,18 @@ a.doc-file-link:hover { text-decoration: underline; }
 .profiles-list-full { height: 100%; overflow-y: auto; }
 
 /* Slide-in panel layout — both columns are distinct floating cards */
+/* Split ratio is token-controlled via CSS variables.
+   See PROFILES_SPLIT in src/lib/designTokens.js for the source values.
+   To change the ratio: update --profiles-grid-flex / --profiles-drawer-flex here. */
 .profiles-slide-container {
+  --profiles-grid-flex:   1;   /* matches PROFILES_SPLIT.gridFlex   */
+  --profiles-drawer-flex: 1;   /* matches PROFILES_SPLIT.drawerFlex */
   display: flex; height: calc(100vh - 164px); overflow: hidden;
   gap: 24px;  /* sand background visible between the two cards */
 }
 .profiles-list-narrow {
-  width: 43%; min-width: 320px; flex-shrink: 0;
+  flex: var(--profiles-grid-flex, 1) 1 0;
+  min-width: 320px;
   display: flex; flex-direction: column; height: 100%;
   /* card treatment: matches drawer */
   border-radius: 14px;
@@ -1246,7 +1252,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   overflow: hidden;   /* clips content to rounded corners; inner div scrolls */
 }
 .profiles-panel-slide {
-  flex: 1; height: 100%; background: var(--pearl);
+  flex: var(--profiles-drawer-flex, 1); height: 100%; background: var(--pearl);
   animation: slideInRight 220ms ease;
   border-radius: 16px;
   border: 1px solid rgba(29,37,103,0.08);

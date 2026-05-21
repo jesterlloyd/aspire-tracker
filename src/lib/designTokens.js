@@ -241,6 +241,17 @@ export const styles = {
 };
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Student Profiles split-view ratio ────────────────────────────────────────
+// Controls the left (list/grid) vs right (drawer) panel share.
+// Expressed as CSS flex-grow values so both panels honour the same available space.
+// To adjust: change gridFlex / drawerFlex here, update the CSS vars in index.css.
+
+export const PROFILES_SPLIT = {
+  gridFlex:   1,   // flex-grow for the list / grid panel
+  drawerFlex: 1,   // flex-grow for the student detail drawer
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ── StudentCard tokens ────────────────────────────────────────────────────────
 // Single source of truth for the unified StudentCard primitive.
 // Changing any value here updates all three variants (profile, on-campus, interview)

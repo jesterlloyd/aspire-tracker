@@ -151,7 +151,7 @@ export default function StudentListPanel({
   if (viewMode === 'grid') {
     return (
       <>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(152px, 1fr))', gap:'16px 12px', padding:'16px 16px 8px' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(132px, 1fr))', gap:'16px 12px', padding:'16px 16px 8px' }}>
           {students.map(s => (
             <StudentCard
               key={s.id}
