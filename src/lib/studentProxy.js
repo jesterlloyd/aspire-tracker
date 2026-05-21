@@ -1,12 +1,27 @@
-export async function updateStudent(studentId, fields) {
+// loadedUpdatedAt — optional OCC guard: the updated_at value the caller had when
+// they last loaded this student.  When supplied, the API adds
+// .eq('updated_at', loadedUpdatedAt) to the WHERE clause; a 409 response means
+// another user (or tab) saved while this user was editing.
+export async function updateStudent(studentId, fields, loadedUpdatedAt) {
   const res = await fetch('/api/student-update', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ action: 'update', student_id: studentId, fields }),
+    body:    JSON.stringify({
+      action: 'update',
+      student_id: studentId,
+      fields,
+      loaded_updated_at: loadedUpdatedAt || null,
+    }),
   })
   const data = await res.json()
+  if (res.status === 409) {
+    const err = new Error('CONFLICT')
+    err.conflict = true
+    err.currentUpdatedAt = data.current_updated_at
+    throw err
+  }
   if (!res.ok) throw new Error(data.error || 'Update failed')
-  return data.data
+  return data.data  // full updated row including fresh updated_at
 }
 
 export async function updateStudentStatus(studentId, status, declineReason) {

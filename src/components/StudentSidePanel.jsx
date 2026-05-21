@@ -22,6 +22,7 @@ import SyncIndicator from './SyncIndicator'
 import { useLastSynced } from '../hooks/useLastSynced'
 import { useAuth } from '../contexts/AuthContext'
 import { logActivity } from '../lib/logActivity'
+import ConflictDialog from './ConflictDialog'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
@@ -146,6 +147,15 @@ export default function StudentSidePanel({
   const resumeRef       = useRef(null)
   const headshotRef     = useRef(null)
 
+  // ── Optimistic concurrency control ───────────────────────────────────────
+  // Tracks the updated_at value the user had when they last loaded this student.
+  // Sent with every save; API returns 409 if the row changed in the meantime.
+  const [loadedUpdatedAt,  setLoadedUpdatedAt]  = useState(student.updated_at || null)
+  // Pending conflict: { field, value } of the edit that hit the 409
+  const [conflict,         setConflict]         = useState(null)
+  // Set to true when a real-time update arrives from another user/tab
+  const [remoteUpdateBanner, setRemoteUpdateBanner] = useState(false)
+
   const [dlHeadshotHeader, setDlHeadshotHeader] = useState(false)
   const [dlResume,         setDlResume]         = useState(false)
   const [dlPhotoDoc,       setDlPhotoDoc]       = useState(false)
@@ -165,7 +175,13 @@ export default function StudentSidePanel({
   }
 
   // Reset data when student changes (prev/next navigation)
-  useEffect(() => { setData({ ...student }); setSaveStatus('idle') }, [student.id])
+  useEffect(() => {
+    setData({ ...student })
+    setSaveStatus('idle')
+    setLoadedUpdatedAt(student.updated_at || null)
+    setConflict(null)
+    setRemoteUpdateBanner(false)
+  }, [student.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [editingInterest, setEditingInterest] = useState(false)
   const [interestDraft,   setInterestDraft]   = useState(student?.interest_statement || '')
@@ -174,6 +190,32 @@ export default function StudentSidePanel({
     setEditingInterest(false)
     setSummaryCopied(false)
   }, [student?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Real-time subscription: student row ──────────────────────────────────
+  // When another user (or another tab) saves this student's record, show a
+  // non-intrusive banner.  We never auto-apply the remote change over an
+  // active edit — the user decides when to reload.
+  useEffect(() => {
+    if (!student.id) return
+    const channel = supabase
+      .channel(`student_profile_${student.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'students', filter: `id=eq.${student.id}` },
+        (payload) => {
+          if (saveStatus === 'idle') {
+            // No pending edit — silently absorb the remote data
+            setData(d => ({ ...d, ...payload.new }))
+            setLoadedUpdatedAt(payload.new.updated_at || null)
+          } else {
+            // User is mid-edit — show a gentle banner
+            setRemoteUpdateBanner(true)
+          }
+        }
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [student.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCopySummary = async () => {
     const unitNameForSummary = matchedUnitName !== '—' ? matchedUnitName : null
@@ -312,17 +354,28 @@ export default function StudentSidePanel({
   const prevStudent  = currentIndex > 0 ? sortedStudents[currentIndex - 1] : null
   const nextStudent  = currentIndex < sortedStudents.length - 1 ? sortedStudents[currentIndex + 1] : null
 
+  // doSave — OCC-protected field save.
+  // Passes loadedUpdatedAt so the API can detect concurrent edits.
+  // On HTTP 409 (conflict): shows ConflictDialog instead of silently overwriting.
   const doSave = useCallback(async (field, value) => {
     setSaveStatus('saving')
-    const err = await onUpdate(student.id, { [field]: value })
+    const err = await onUpdate(student.id, { [field]: value }, loadedUpdatedAt)
+    if (err?.conflict) {
+      setSaveStatus('idle')
+      setConflict({ field, value })
+      return
+    }
     setSaveStatus(err ? 'error' : 'saved')
     if (!err) {
+      // Refresh loadedUpdatedAt from DB so the next save has the correct baseline
+      const { data: fresh } = await supabase.from('students').select('updated_at').eq('id', student.id).single()
+      if (fresh?.updated_at) setLoadedUpdatedAt(fresh.updated_at)
       setTimeout(() => setSaveStatus('idle'), 1800)
       setFieldSaved(field)
       setTimeout(() => setFieldSaved(prev => prev === field ? null : prev), 1800)
     }
     if (err) toast?.error('Save failed', 'Unable to save changes. Please try again.')
-  }, [student.id, onUpdate, toast])
+  }, [student.id, onUpdate, toast, loadedUpdatedAt])
 
   const handleText = (field, value) => {
     setData(p => ({ ...p, [field]: value }))
@@ -339,11 +392,22 @@ export default function StudentSidePanel({
     })
     setSaveStatus('saving')
     clearTimeout(timerRef.current)
+    // Capture loadedUpdatedAt at scheduling time so the timer closure uses the
+    // value that was current when the user finished typing.
+    const snapUpdatedAt = loadedUpdatedAt
     timerRef.current = setTimeout(async () => {
       if (pendingNameSave.current) {
-        const err = await onUpdate(student.id, pendingNameSave.current)
+        const err = await onUpdate(student.id, pendingNameSave.current, snapUpdatedAt)
+        if (err?.conflict) {
+          setSaveStatus('idle')
+          setConflict({ field: 'name', value: pendingNameSave.current })
+          pendingNameSave.current = null
+          return
+        }
         setSaveStatus(err ? 'error' : 'saved')
         if (!err) {
+          const { data: fresh } = await supabase.from('students').select('updated_at').eq('id', student.id).single()
+          if (fresh?.updated_at) setLoadedUpdatedAt(fresh.updated_at)
           setTimeout(() => setSaveStatus('idle'), 1800)
           setFieldSaved(field)
           setTimeout(() => setFieldSaved(prev => prev === field ? null : prev), 1800)
@@ -430,6 +494,41 @@ export default function StudentSidePanel({
   const csStatus    = getCsLinkStatus(data)
   const csStatusCfg = CS_LINK_STATUS_CONFIG[csStatus]
 
+  // ── Conflict resolution handlers ─────────────────────────────────────────
+
+  const handleConflictDiscard = async () => {
+    const { data: fresh } = await supabase.from('students').select('*').eq('id', student.id).single()
+    if (fresh) { setData(fresh); setLoadedUpdatedAt(fresh.updated_at || null) }
+    setConflict(null)
+    setSaveStatus('idle')
+    toast?.info('Changes discarded', 'Profile reloaded with the latest data.')
+  }
+
+  const handleConflictForce = async () => {
+    if (!conflict) return
+    // Force save without the updated_at guard (no loadedUpdatedAt passed)
+    const updates = conflict.field === 'name'
+      ? conflict.value
+      : { [conflict.field]: conflict.value }
+    const err = await onUpdate(student.id, updates)
+    await logEvent(supabase, {
+      studentId: student.id, cohortId: student.cohort_id,
+      eventType: 'conflict_override',
+      notes: `Field '${conflict.field}' force-saved by ${userProfile?.full_name || 'unknown'} over a concurrent edit.`,
+      auto: true,
+    })
+    if (!err) {
+      const { data: fresh } = await supabase.from('students').select('updated_at').eq('id', student.id).single()
+      if (fresh?.updated_at) setLoadedUpdatedAt(fresh.updated_at)
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus('idle'), 1800)
+      toast?.success('Force saved', 'Your changes were saved and the conflict was logged.')
+    }
+    setConflict(null)
+  }
+
+  const handleConflictContinue = () => setConflict(null)
+
   const confirmDecline = async () => {
     const updates = { status: 'Declined', decline_reason: declineReason }
     setData(p => ({ ...p, ...updates }))
@@ -444,10 +543,45 @@ export default function StudentSidePanel({
 
   return (
     <>
+      {/* OCC conflict dialog — rendered above everything else */}
+      {conflict && (
+        <ConflictDialog
+          studentName={`${data.first_name || ''} ${data.last_name || ''}`.trim()}
+          fieldName={conflict.field}
+          onDiscard={handleConflictDiscard}
+          onForce={handleConflictForce}
+          onContinue={handleConflictContinue}
+        />
+      )}
+
       <div className="sp-container" style={{ position:'relative' }}>
         {/* Scrollable content */}
         <FieldSavedCtx.Provider value={fieldSaved}>
         <div className="sp-content">
+
+          {/* Remote-update banner — shown when another user saved while this user is editing */}
+          {remoteUpdateBanner && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: '#fffbeb', border: '1px solid #fde68a',
+              borderRadius: 8, padding: '8px 14px', margin: '0 0 12px',
+              fontFamily: 'DM Sans, sans-serif', fontSize: 12,
+            }}>
+              <span style={{ color: '#92400e', fontWeight: 600 }}>
+                ⚠ This record was just updated by another user.
+              </span>
+              <button
+                onClick={handleConflictDiscard}
+                style={{
+                  marginLeft: 12, fontSize: 11, fontWeight: 700, color: '#1D2567',
+                  background: 'none', border: '1px solid #1D2567', borderRadius: 6,
+                  padding: '3px 10px', cursor: 'pointer',
+                }}
+              >
+                Reload
+              </button>
+            </div>
+          )}
 
           {/* ── Compact hero card ── */}
           {(() => {

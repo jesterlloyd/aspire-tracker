@@ -360,13 +360,21 @@ function MainApp({ onLogout }) {
   }
 
   // ── Student CRUD ─────────────────────────────────────────────
-  const updateStudent = useCallback(async (id, updates) => {
+  // loadedUpdatedAt is the updated_at timestamp the caller had when they loaded the
+  // student.  When supplied, the save API enforces OCC: if the row changed since
+  // then, it returns a conflict error instead of silently overwriting.
+  const updateStudent = useCallback(async (id, updates, loadedUpdatedAt) => {
     try {
-      await proxyUpdateStudent(id, updates)
-      setStudents(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s))
+      const updatedRow = await proxyUpdateStudent(id, updates, loadedUpdatedAt)
+      // Merge the full returned row so updated_at propagates to the student prop
+      setStudents(prev => prev.map(s =>
+        s.id === id
+          ? { ...s, ...updates, ...(updatedRow?.updated_at ? { updated_at: updatedRow.updated_at } : {}) }
+          : s
+      ))
       return null
     } catch (err) {
-      return err
+      return err  // err.conflict === true when OCC guard fires (HTTP 409)
     }
   }, [])
 

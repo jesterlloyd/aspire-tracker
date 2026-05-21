@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
   try {
     if (action === 'update') {
-      const { student_id, fields } = payload
+      const { student_id, fields, loaded_updated_at } = payload
 
       console.log('[student-update] incoming payload keys:', Object.keys(fields || {}))
 
@@ -71,14 +71,32 @@ export default async function handler(req, res) {
 
       console.log('[student-update] whitelisted payload:', JSON.stringify(fieldsToSave))
 
-      const { data, error } = await db.from('students').update(fieldsToSave).eq('id', student_id).select().single()
+      // Build the update query; attach OCC guard when caller supplies loaded_updated_at
+      let query = db.from('students').update(fieldsToSave).eq('id', student_id)
+      if (loaded_updated_at) {
+        query = query.eq('updated_at', loaded_updated_at)
+      }
+      // Use .select() (not .single()) so 0-row results don't throw PGRST116
+      const { data, error } = await query.select()
       if (error) {
         console.error('student update DB error:', error)
         return res.status(400).json({ error: error.message })
       }
+
+      // OCC conflict: filter matched but 0 rows updated (another write changed updated_at)
+      if (loaded_updated_at && data.length === 0) {
+        const { data: existing } = await db.from('students')
+          .select('id, updated_at').eq('id', student_id).maybeSingle()
+        if (existing) {
+          console.warn('[student-update] OCC conflict on', student_id)
+          return res.status(409).json({ conflict: true, current_updated_at: existing.updated_at })
+        }
+        return res.status(404).json({ error: 'Student not found' })
+      }
+
       return res.status(200).json({
         success: true,
-        data,
+        data: data[0] || null,
         fieldsWritten: Object.keys(fieldsToSave),
         droppedFields: rejectedFields,
       })

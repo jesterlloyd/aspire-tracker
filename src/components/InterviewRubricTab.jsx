@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import StudentAvatar from './StudentAvatar'
 import RubricSession from './RubricSession'
@@ -122,6 +123,35 @@ export default function InterviewRubricTab({
     onRefreshStudents?.()
     onRubricsChange?.()
   }, [refreshKey]) // eslint-disable-line
+
+  // ── Real-time subscriptions ───────────────────────────────────────────────
+  // interview_rubrics: when any rubric is submitted or updated for this cohort,
+  //   refresh the results table so all open tabs see the new score immediately.
+  // interview_sessions: when a booking is created/updated/cancelled,
+  //   trigger a full refresh so the calendar remounts with fresh data.
+  useEffect(() => {
+    if (!cohortId) return
+    const rubChannel = supabase
+      .channel(`rubrics_cohort_${cohortId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'interview_rubrics', filter: `cohort_id=eq.${cohortId}` },
+        () => { onRubricsChange?.(); onRefreshStudents?.() }
+      )
+      .subscribe()
+    const sessChannel = supabase
+      .channel(`sessions_cohort_${cohortId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'interview_sessions', filter: `cohort_id=eq.${cohortId}` },
+        () => { triggerRefresh() }
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(rubChannel)
+      supabase.removeChannel(sessChannel)
+    }
+  }, [cohortId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCardClick = (key) => setActiveFilter(prev => prev === key ? null : key)
 

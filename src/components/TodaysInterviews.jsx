@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { ClipboardList, Clock } from 'lucide-react'
@@ -43,6 +43,21 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
   const todayLabel = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
   })
+
+  // Real-time: when any interview slot changes for this cohort today,
+  // refresh the list so status changes appear without a manual reload.
+  useEffect(() => {
+    if (!cohortId) return
+    const channel = supabase
+      .channel(`todays_interviews_${cohortId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'interview_slots', filter: `cohort_id=eq.${cohortId}` },
+        () => { fetchToday() }
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [cohortId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading || sessions.length === 0) return null
 
