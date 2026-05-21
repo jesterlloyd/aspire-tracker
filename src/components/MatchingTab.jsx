@@ -229,7 +229,18 @@ export default function MatchingTab({
 
   const handleSlotClick = unit => {
     if (!selectedStudent || !canMatch) return
-    if (unit.slots_remaining <= 0) {
+    // Use actual match count as the canonical capacity check so the guard
+    // stays in sync with the EmbedUnitCard display (which also uses match count,
+    // not the slots_remaining field). slots_remaining can drift if it was
+    // initialised incorrectly or not updated atomically.
+    const unitMatchCount = matches.filter(m => m.unit_id === unit.id).length
+    if (unitMatchCount >= unit.total_slots) {
+      console.log('[MatchingTab] placement blocked:', {
+        unitId: unit.id, unitName: unit.unit_name,
+        displayedCapacity: unit.total_slots,
+        currentMatchCount: unitMatchCount,
+        slotsRemainingField: unit.slots_remaining,
+      })
       toast?.warning('No slots available', 'This unit has no remaining open slots.')
       return
     }

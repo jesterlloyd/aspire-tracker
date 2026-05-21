@@ -440,7 +440,10 @@ function MainApp({ onLogout }) {
       .insert({ student_id: student.id, unit_id: unit.id, cohort_id: activeCohortId, match_quality })
       .select().single()
     if (error) { console.error(error); return }
-    const newRemaining = Math.max(0, unit.slots_remaining - 1)
+    // Derive slots_remaining from actual match count so the field self-corrects
+    // even if it was previously initialised incorrectly (e.g., stuck at 0).
+    const currentMatchCount = matches.filter(m => m.unit_id === unit.id).length  // before new match
+    const newRemaining = Math.max(0, unit.total_slots - (currentMatchCount + 1))
     await supabase.from('students')
       .update({ matched_unit_id: unit.id, interview_outcome: 'Accepted', match_quality, status: 'Placed' }).eq('id', student.id)
     await supabase.from('units').update({ slots_remaining: newRemaining }).eq('id', unit.id)
@@ -473,7 +476,9 @@ function MainApp({ onLogout }) {
     await supabase.from('students')
       .update({ matched_unit_id: null, matched_preceptor: '', shift_assigned: '', match_quality: null, interview_outcome: 'Pending Interview', status: revertStatus })
       .eq('id', student.id)
-    const newRemaining = unit.slots_remaining + 1
+    // Derive from actual count so the field self-corrects if it was stale
+    const currentMatchCount = matches.filter(m => m.unit_id === unit.id).length  // before removal
+    const newRemaining = Math.min(unit.total_slots, unit.total_slots - Math.max(0, currentMatchCount - 1))
     await supabase.from('units').update({ slots_remaining: newRemaining }).eq('id', unit.id)
     updateCohortMatchSummary(match ? matches.filter(m => m.id !== match.id) : matches)
     if (match) setMatches(prev => prev.filter(m => m.id !== match.id))
