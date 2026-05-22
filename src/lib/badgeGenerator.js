@@ -28,19 +28,21 @@ const SENTINEL = '1900-01-01'
 // Overlay coordinates -- adjust after each print test
 // Math reference: 1 inch = 300px at 300 DPI on a 750x1050 canvas (2.5" x 3.5")
 const FRONT = {
-  // 1.11" x 1.39" frame at (0.69", 0.88") from top-left
-  photo:  { x: 207, y: 264, w: 333, h: 417 },
+  // 1.03" x 1.31" frame at (0.73", 0.92") from top-left
+  photo:  { x: 219, y: 276, w: 309, h: 393 },
   // ~13pt equivalent (54px), bold, centered on 750px canvas
-  name:   { x: 375, y: 760, fontSize: 54, fontWeight: 700, color: '#191919', align: 'center' },
+  name:   { x: 375, y: 760, fontSize: 54, fontWeight: 700, color: '#545454', align: 'center' },
   // ~10.9pt equivalent (45px), centered below name
-  school: { x: 375, y: 820, fontSize: 45, fontWeight: 400, color: '#4A4A4A', align: 'center' },
+  school: { x: 375, y: 820, fontSize: 45, fontWeight: 400, color: '#545454', align: 'center' },
 }
 const BACK = {
-  // x/y preserved from first render; tune here after next test if alignment is off.
+  // Group anchor: top-left of issue date text at (1.36", 2.21") = (408px, 663px).
+  // valid-until stacked 55px below (one line height at 45px font).
+  // textBaseline = 'top' so y aligns to the TOP of the text (matches Canva measurement).
   // ~10.9pt equivalent (45px), bold, CS red (#DC1E34).
   // maxWidth (234px = 0.78") prevents long date strings from overflowing.
-  issueDate:  { x: 290, y: 720, fontSize: 45, fontWeight: 700, color: '#DC1E34', align: 'left', maxWidth: 234 },
-  validUntil: { x: 320, y: 770, fontSize: 45, fontWeight: 700, color: '#DC1E34', align: 'left', maxWidth: 234 },
+  issueDate:  { x: 408, y: 663, fontSize: 45, fontWeight: 700, color: '#DC1E34', align: 'left', maxWidth: 234 },
+  validUntil: { x: 408, y: 718, fontSize: 45, fontWeight: 700, color: '#DC1E34', align: 'left', maxWidth: 234 },
 }
 
 // ── One-time startup asset check ─────────────────────────────────────────────
@@ -281,20 +283,25 @@ export async function generateBadgePNGs({ student, rotation, headshotUrl }) {
   // 1. Template background
   drawTemplateScaled(bCtx, backTemplate, CANVAS_W, CANVAS_H)
 
-  // 2. Issue date (positioned after the "ISSUE DATE:" label baked into the template)
+  // 2. Issue date + 3. Valid-until date
+  // textBaseline = 'top': y coordinate corresponds to the TOP of the text so it
+  // matches Canva pixel measurements taken from the top of the rendered characters.
+  // Restored to 'alphabetic' after so any future text added below is unaffected.
+  bCtx.textBaseline = 'top'
+
   const ic = BACK.issueDate
-  bCtx.font         = ctxFont(ic.fontWeight, ic.fontSize)
-  bCtx.fillStyle    = ic.color
-  bCtx.textAlign    = ic.align
-  bCtx.textBaseline = 'alphabetic'
+  bCtx.font      = ctxFont(ic.fontWeight, ic.fontSize)
+  bCtx.fillStyle = ic.color
+  bCtx.textAlign = ic.align
   bCtx.fillText(formatBadgeDate(dates.issueDate), ic.x, ic.y, ic.maxWidth)
 
-  // 3. Valid-until date (positioned after the "VALID UNTIL:" label)
   const vc = BACK.validUntil
   bCtx.font      = ctxFont(vc.fontWeight, vc.fontSize)
   bCtx.fillStyle = vc.color
   bCtx.textAlign = vc.align
   bCtx.fillText(formatBadgeDate(dates.validUntil), vc.x, vc.y, vc.maxWidth)
+
+  bCtx.textBaseline = 'alphabetic' // restore default
 
   // ── Export as PNG Blobs ──────────────────────────────────────────────────
 
