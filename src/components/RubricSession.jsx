@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import BackButton from './BackButton'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
@@ -633,7 +634,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     <div className="rub-session">
       {/* Back button */}
       <div className="rub-topbar">
-        <button className="iv-back-btn" onClick={onBack}>← Back to Interview List</button>
+        <BackButton label="Back to Interview List" onClick={onBack} />
         <span className="iv-save-indicator">
           {saveStatus === 'saving' && (
             <span className="iv-saving">Saving…</span>
