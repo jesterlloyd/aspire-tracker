@@ -12,6 +12,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   const [isTyping,    setIsTyping]    = useState(false);
   const [copiedId,    setCopiedId]    = useState(null);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [toolExpanded, setToolExpanded] = useState({});
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -147,6 +148,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
           id: Date.now() + 1, role: 'keith',
           text: data.response, isAI: true,
           hasCopy: data.response?.includes('Subject:'),
+          tool_calls: data.tool_calls || [],
         }]);
         setIsTyping(false);
         return;
@@ -489,6 +491,40 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                         paddingLeft: '2px',
                       }}>
                         {msg.isAI ? '✦ Keith AI' : '◦ Static'}
+                      </div>
+                    )}
+
+                    {/* Tool calls disclosure */}
+                    {msg.tool_calls && msg.tool_calls.length > 0 && (
+                      <div style={{ marginTop: 6 }}>
+                        <button
+                          onClick={() => setToolExpanded(p => ({ ...p, [msg.id]: !p[msg.id] }))}
+                          style={{
+                            background: 'none', border: 'none', cursor: 'pointer',
+                            fontFamily: 'DM Sans, sans-serif', fontSize: 10,
+                            color: '#1D2567', padding: '2px 0', display: 'flex',
+                            alignItems: 'center', gap: 4, opacity: 0.75,
+                          }}
+                        >
+                          <span>{toolExpanded[msg.id] ? '▾' : '▸'}</span>
+                          <span>Looked at: {msg.tool_calls.map(t => t.tool).join(', ')}</span>
+                        </button>
+                        {toolExpanded[msg.id] && (
+                          <div style={{
+                            marginTop: 4, padding: '6px 10px',
+                            background: 'rgba(29,37,103,0.04)',
+                            borderRadius: 6, borderLeft: '2px solid #1D2567',
+                            display: 'flex', flexDirection: 'column', gap: 3,
+                          }}>
+                            {msg.tool_calls.map((tc, i) => (
+                              <div key={i} style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 10, color: '#475467' }}>
+                                <span style={{ fontWeight: 600, color: '#1D2567' }}>{tc.tool}</span>
+                                {': '}
+                                {tc.result_summary}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

@@ -147,6 +147,302 @@ ${liveData}
 Current cohort: ${cohort}`;
 }
 
+// ── Tool definitions ─────────────────────────────────────────────────────────
+
+const KEITH_TOOLS = [
+  {
+    name: 'search_students',
+    description: 'Search for students in the active cohort matching optional filters. Returns a lightweight list (name, school, program, status, GPA, top 3 unit preferences). Call this first to identify candidates before calling get_student_detail.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        status:       { type: 'string',  description: 'Filter by ASPIRE pipeline status (e.g. "Interviewed", "Placed", "Form Received")' },
+        school:       { type: 'string',  description: 'Filter by school name or abbreviation (case-insensitive match)' },
+        program_type: { type: 'string',  description: 'Filter by program type (e.g. "Accelerated BSN", "MECN")' },
+        min_gpa:      { type: 'number',  description: 'Minimum cumulative GPA' },
+        limit:        { type: 'integer', description: 'Max results (default 20, max 50)' },
+      },
+    },
+  },
+  {
+    name: 'get_student_detail',
+    description: 'Get full details for a single student including rubric scores, recommendations, interview notes, unit preferences, placement state, and rotation info. Use AFTER identifying a candidate via search_students.',
+    input_schema: {
+      type: 'object',
+      required: ['student_id'],
+      properties: {
+        student_id: { type: 'string', description: 'UUID of the student' },
+      },
+    },
+  },
+  {
+    name: 'get_unit_details',
+    description: 'Get details for a clinical unit including specialty, division, current placements, open slots, and which students chose this unit as a 1st/2nd/3rd preference. Use to understand demand for a unit or assess fit.',
+    input_schema: {
+      type: 'object',
+      required: ['unit_name'],
+      properties: {
+        unit_name: { type: 'string', description: 'Name of the unit (e.g. "4 North", "5 SCCT", "NICU")' },
+      },
+    },
+  },
+  {
+    name: 'get_cohort_summary',
+    description: 'Get high-level summary stats for the active cohort: total students, status breakdown, school breakdown, matched vs unmatched counts, and rotation timeline.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        cohort_id: { type: 'string', description: 'UUID of the cohort (defaults to active cohort)' },
+      },
+    },
+  },
+];
+
+// ── Tool executor ─────────────────────────────────────────────────────────────
+
+async function executeToolCall(toolName, input, userRole, supabase, activeCohortId) {
+  // Sensitive fields never returned to Keith
+  const EXCLUDED_FIELDS = ['date_of_birth', 'ssn_last4', 'gender'];
+
+  function stripSensitive(obj) {
+    if (!obj || typeof obj !== 'object') return obj;
+    const copy = { ...obj };
+    EXCLUDED_FIELDS.forEach(f => delete copy[f]);
+    return copy;
+  }
+
+  try {
+    switch (toolName) {
+
+      case 'search_students': {
+        const limit = Math.min(input.limit || 20, 50);
+        let query = supabase
+          .from('students')
+          .select('id, first_name, last_name, school, program_type, status, cumulative_gpa, unit_preference_1, unit_preference_2, unit_preference_3, headshot_url, avg_composite_score, auto_recommendation')
+          .eq('cohort_id', activeCohortId)
+          .order('last_name', { ascending: true })
+          .limit(limit);
+        if (input.status)       query = query.eq('status', input.status);
+        if (input.school)       query = query.ilike('school', `%${input.school}%`);
+        if (input.program_type) query = query.ilike('program_type', `%${input.program_type}%`);
+        if (input.min_gpa)      query = query.gte('cumulative_gpa', input.min_gpa);
+        const { data, error } = await query;
+        if (error) return { error: `Search failed: ${error.message}` };
+        return { students: (data || []).map(stripSensitive), count: (data || []).length };
+      }
+
+      case 'get_student_detail': {
+        const { data: student, error } = await supabase
+          .from('students')
+          .select('id, first_name, last_name, school, program_type, status, cumulative_gpa, school_email, personal_email, phone, unit_preference_1, unit_preference_2, unit_preference_3, matched_unit_id, matched_preceptor, shift_assigned, interview_scheduled_date, interview_scheduled_time, interview_assigned_interviewers, avg_composite_score, avg_cj_score, avg_pp_score, avg_ga_score, auto_recommendation, score_flag, score_flag_message, rubric_count, cs_stage1_submitted, cs_link_complete, badge_created, approved_hours, hours_required, flagged_for_second_interview, flag_note, cohort_school_rotation_id, interest_statement, headshot_url, resume_url')
+          .eq('id', input.student_id)
+          .single();
+        if (error || !student) return { error: 'Student not found' };
+
+        // Fetch rubrics
+        const { data: rubrics } = await supabase
+          .from('interview_rubrics')
+          .select('interviewer_name, composite_score, cj_score, pp_score, ga_score, individual_recommendation, summary_comments, suggested_unit, status, interview_date')
+          .eq('student_id', input.student_id)
+          .order('created_at', { ascending: false });
+
+        // Fetch linked rotation
+        let rotation = null;
+        if (student.cohort_school_rotation_id) {
+          const { data: rot } = await supabase
+            .from('cohort_school_rotations')
+            .select('school_name, rotation_start_date, rotation_end_date, coordinator_name, coordinator_email')
+            .eq('id', student.cohort_school_rotation_id)
+            .single();
+          rotation = rot || null;
+        }
+
+        // Fetch recent communications
+        const { data: comms } = await supabase
+          .from('notification_log')
+          .select('notification_type, recipient_name, subject, status, sent_at')
+          .eq('student_id', input.student_id)
+          .order('sent_at', { ascending: false })
+          .limit(5);
+
+        return {
+          student: stripSensitive(student),
+          rubrics: rubrics || [],
+          rotation,
+          recent_communications: comms || [],
+        };
+      }
+
+      case 'get_unit_details': {
+        const { data: unitRows } = await supabase
+          .from('units')
+          .select('id, unit_name, division, total_slots, slots_remaining, contact_person, contact_email, is_participating, patient_population')
+          .ilike('unit_name', `%${input.unit_name}%`)
+          .eq('cohort_id', activeCohortId)
+          .limit(1);
+        const unit = unitRows?.[0];
+        if (!unit) return { error: `Unit "${input.unit_name}" not found in this cohort` };
+
+        // Current placements
+        const { data: matches } = await supabase
+          .from('matches')
+          .select('student_id, match_quality, preceptor_assigned, shift_assigned')
+          .eq('unit_id', unit.id);
+        const placedIds = (matches || []).map(m => m.student_id);
+
+        let placedStudents = [];
+        if (placedIds.length > 0) {
+          const { data: ps } = await supabase
+            .from('students')
+            .select('id, first_name, last_name, school, program_type, status')
+            .in('id', placedIds);
+          placedStudents = (ps || []).map(s => {
+            const m = matches.find(mx => mx.student_id === s.id);
+            return { ...s, match_quality: m?.match_quality, preceptor: m?.preceptor_assigned, shift: m?.shift_assigned };
+          });
+        }
+
+        // Students who listed this unit as a preference
+        const unitName = unit.unit_name;
+        const [pref1, pref2, pref3] = await Promise.all([
+          supabase.from('students').select('id, first_name, last_name, school, program_type, status, avg_composite_score, auto_recommendation').eq('cohort_id', activeCohortId).eq('unit_preference_1', unitName),
+          supabase.from('students').select('id, first_name, last_name, school, program_type, status, avg_composite_score, auto_recommendation').eq('cohort_id', activeCohortId).eq('unit_preference_2', unitName),
+          supabase.from('students').select('id, first_name, last_name, school, program_type, status, avg_composite_score, auto_recommendation').eq('cohort_id', activeCohortId).eq('unit_preference_3', unitName),
+        ]);
+        const placedSet = new Set(placedIds);
+
+        return {
+          unit,
+          placements: placedStudents,
+          open_slot_count: Math.max(0, unit.total_slots - placedStudents.length),
+          interested_students: {
+            first_choice:  (pref1.data || []).filter(s => !placedSet.has(s.id)),
+            second_choice: (pref2.data || []).filter(s => !placedSet.has(s.id)),
+            third_choice:  (pref3.data || []).filter(s => !placedSet.has(s.id)),
+          },
+        };
+      }
+
+      case 'get_cohort_summary': {
+        const cohortId = input.cohort_id || activeCohortId;
+        const [{ data: cohort }, { data: students }, { data: rotations }] = await Promise.all([
+          supabase.from('cohorts').select('id, name, status, start_date, end_date').eq('id', cohortId).single(),
+          supabase.from('students').select('id, status, school, program_type, matched_unit_id').eq('cohort_id', cohortId),
+          supabase.from('cohort_school_rotations').select('rotation_start_date, rotation_end_date, school_name').eq('cohort_id', cohortId),
+        ]);
+
+        const byStatus = {}, bySchool = {}, byProgram = {};
+        let matched = 0;
+        (students || []).forEach(s => {
+          byStatus[s.status]      = (byStatus[s.status]      || 0) + 1;
+          bySchool[s.school]      = (bySchool[s.school]      || 0) + 1;
+          byProgram[s.program_type] = (byProgram[s.program_type] || 0) + 1;
+          if (s.matched_unit_id) matched++;
+        });
+
+        const starts = (rotations || []).map(r => r.rotation_start_date).filter(d => d && d !== '1900-01-01').sort();
+        const ends   = (rotations || []).map(r => r.rotation_end_date).filter(d => d && d !== '1900-01-01').sort();
+
+        return {
+          cohort,
+          totals: { total: (students || []).length },
+          by_status:  byStatus,
+          by_school:  bySchool,
+          by_program: byProgram,
+          placement: { matched, unmatched: (students || []).length - matched },
+          rotation_window: {
+            earliest_start: starts[0] || null,
+            latest_end:     ends[ends.length - 1] || null,
+            school_rotations: rotations || [],
+          },
+        };
+      }
+
+      default:
+        return { error: `Unknown tool: ${toolName}` };
+    }
+  } catch (err) {
+    console.error(`[keith tool] ${toolName} error:`, err.message);
+    return { error: `Tool error: ${err.message}` };
+  }
+}
+
+function generateResultSummary(toolName, result) {
+  if (result?.error) return `Error: ${result.error}`;
+  switch (toolName) {
+    case 'search_students':   return `Found ${result.count ?? 0} student${result.count !== 1 ? 's' : ''}`;
+    case 'get_student_detail':return result.student ? `Loaded ${result.student.first_name} ${result.student.last_name}` : 'Student not found';
+    case 'get_unit_details':  return result.unit ? `${result.unit.unit_name}: ${result.open_slot_count} open slot${result.open_slot_count !== 1 ? 's' : ''}, ${(result.interested_students?.first_choice?.length || 0)} 1st-choice students` : 'Unit not found';
+    case 'get_cohort_summary':return `Cohort: ${result.totals?.total ?? 0} students, ${result.placement?.matched ?? 0} placed`;
+    default:                  return 'Tool completed';
+  }
+}
+
+// ── Tool-use conversation loop ────────────────────────────────────────────────
+
+async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activeCohortId) {
+  const messages = [...initialMessages];
+  const allToolCalls = [];
+  const MAX_ROUNDS = 5;
+
+  for (let round = 0; round < MAX_ROUNDS; round++) {
+    const payload = {
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2048,
+      system: systemPrompt,
+      messages,
+    };
+    if (tools && tools.length > 0) payload.tools = tools;
+
+    const response = await callAnthropicWithRetry(payload);
+    const content  = response?.content || [];
+    const hasTools = content.some(b => b.type === 'tool_use');
+
+    if (!hasTools) {
+      const text = content.filter(b => b.type === 'text').map(b => b.text).join('');
+      return { text, toolCalls: allToolCalls };
+    }
+
+    // Append the assistant's full content turn (may mix text and tool_use blocks)
+    messages.push({ role: 'assistant', content });
+
+    // Execute each tool and collect results
+    const toolResults = [];
+    for (const block of content) {
+      if (block.type !== 'tool_use') continue;
+      const result  = await executeToolCall(block.name, block.input, null, supabase, activeCohortId);
+      const summary = generateResultSummary(block.name, result);
+      allToolCalls.push({ tool: block.name, input: block.input, result_summary: summary });
+
+      // Audit log (non-blocking)
+      supabase.from('program_events').insert({
+        student_id:  null,
+        cohort_id:   activeCohortId,
+        event_type:  'keith_tool_call',
+        event_date:  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date()),
+        notes:       `Keith called ${block.name}: ${summary}`,
+        created_by:  'system',
+      }).catch(e => console.warn('[keith audit]', e.message));
+
+      toolResults.push({
+        type:        'tool_result',
+        tool_use_id: block.id,
+        content:     JSON.stringify(result),
+      });
+    }
+
+    messages.push({ role: 'user', content: toolResults });
+  }
+
+  // Safety cap hit
+  return {
+    text: 'I reached my research limit for this request. Here is what I found up to this point. Please ask again if you need more detail.',
+    toolCalls: allToolCalls,
+  };
+}
+
+// ── Main handler ──────────────────────────────────────────────────────────────
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
@@ -501,18 +797,52 @@ CRITICAL DATA ACCESS RULES:
     }
   }
 
-  const payload = {
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 1024,
-    system: buildSystemPrompt({ userProfile, context, cohortName, liveDataStr }),
-    messages: anthropicMessages,
-  };
+  // Determine tool access from userProfile role (matches existing request-body trust pattern)
+  const role        = userProfile?.role || '';
+  const canUseTools = userProfile?.is_owner || ['admin', 'interviewer'].includes(role);
+  const activeCohortId = liveData?.activeCohortId || liveData?.cohort?.id || null;
+
+  // Build system prompt; append tool instructions for tool-enabled users
+  const baseSystemPrompt = buildSystemPrompt({ userProfile, context, cohortName, liveDataStr });
+  const toolInstruction  = canUseTools ? `
+
+LIVE DATA TOOLS -- USE THESE INSTEAD OF HEDGING:
+You have four read-only tools to query live ASPIRE data. Call them whenever a question requires specific student, unit, or cohort information:
+
+- search_students(status?, school?, program_type?, min_gpa?, limit?): find students matching filters. Call this first to identify candidates.
+- get_student_detail(student_id): full record including rubric scores, recommendations, preferences, rotation dates, recent communications. Call AFTER identifying a student via search_students.
+- get_unit_details(unit_name): unit info, current placements, open slots, students who listed it as 1st/2nd/3rd preference.
+- get_cohort_summary(cohort_id?): cohort-wide stats, status breakdown, placement counts, rotation window.
+
+Workflow for placement recommendations: (1) call get_unit_details to see demand and open slots; (2) call search_students(status="Interviewed") to find eligible candidates; (3) call get_student_detail on top candidates to compare rubric scores and rationale; (4) present a grounded recommendation with specific scores.
+
+Never hedge by saying "you should check the Interview Room" when the tools can answer the question directly. Never speculate about scores or recommendations you have not seen in a tool result. If data is missing, say so explicitly.
+
+Be transparent: after forming a recommendation, briefly note which tools you used and what they showed.
+`.trim() : '';
+
+  const systemPrompt = baseSystemPrompt + (toolInstruction ? '\n\n' + toolInstruction : '');
+
+  // Tools array: omit entirely for viewer role so Claude never sees them
+  const activeTools = canUseTools ? KEITH_TOOLS : [];
+
+  // Set up Supabase service client for tool execution
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const toolsSupabase = (canUseTools && supabaseUrl && serviceKey)
+    ? createClient(supabaseUrl, serviceKey)
+    : null;
 
   try {
-    const data = await callAnthropicWithRetry(payload);
-    const text = data?.content?.[0]?.text;
+    const { text, toolCalls } = await runToolLoop(
+      anthropicMessages,
+      systemPrompt,
+      activeTools,
+      toolsSupabase,
+      activeCohortId
+    );
     if (!text) return res.status(502).json({ error: 'Unexpected AI response format' });
-    return res.status(200).json({ response: text });
+    return res.status(200).json({ response: text, tool_calls: toolCalls });
   } catch (err) {
     console.error('[keith] all retries exhausted:', err.details || err.message);
     const errorType = err.details?.errorType;
@@ -522,7 +852,7 @@ CRITICAL DATA ACCESS RULES:
     } else if (errorType === 'rate_limit_error') {
       userMessage = "Keith hit a rate limit. Try again in a moment.";
     } else {
-      userMessage = `Keith couldn't reach his model right now (${err.details?.status || 'network error'}). Try again in a moment — if the issue persists, check Vercel function logs.`;
+      userMessage = `Keith couldn't reach his model right now (${err.details?.status || 'network error'}). Try again in a moment -- if the issue persists, check Vercel function logs.`;
     }
     return res.status(503).json({ response: userMessage, error: err.details, transient: true });
   }
