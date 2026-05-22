@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { toLocalDateStr } from '../shared/dateUtils.js'
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -133,7 +134,7 @@ export default async function handler(req, res) {
       if (!student_id || !event_type) return res.status(400).json({ error: 'student_id and event_type are required' })
       const { error } = await db.from('program_events').insert({
         student_id, cohort_id: cohort_id || null, event_type,
-        event_date: (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` })(),
+        event_date: toLocalDateStr(),
         notes: notes || '', created_by: created_by || 'System',
       })
       if (error) return res.status(400).json({ error: error.message })

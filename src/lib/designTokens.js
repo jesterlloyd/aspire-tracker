@@ -112,12 +112,9 @@ export const BUTTON = {
   },
 };
 
-export const toLocalDateStr = (date = new Date()) => {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
+// Re-export from shared/ so all frontend imports keep working unchanged.
+// The canonical implementation lives in shared/dateUtils.js (importable by api/ too).
+export { toLocalDateStr } from '../../shared/dateUtils.js'
 
 // ── Phase 4 token system ──────────────────────────────────────────────────────
 // New components consume from here; existing components migrate opportunistically.

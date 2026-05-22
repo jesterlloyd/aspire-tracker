@@ -6,6 +6,7 @@
 // Returns:   { success, affected_student_count, rotation_id }
 
 import { createClient } from '@supabase/supabase-js'
+import { toLocalDateStr } from '../shared/dateUtils.js'
 
 function getDb() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -75,9 +76,7 @@ export default async function handler(req, res) {
       .select('id, cohort_id')
       .eq('cohort_school_rotation_id', rotation_id)
 
-    // Use local-date formatting (not UTC ISO split) so event_date matches Pacific date
-    const _now = new Date()
-    const today = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`
+    const today = toLocalDateStr()
     const notes = `[Auto-logged] Rotation dates updated for ${current.school_name}. ` +
       `Old: ${current.rotation_start_date} to ${current.rotation_end_date}. ` +
       `New: ${rotation_start_date} to ${rotation_end_date}. ` +
