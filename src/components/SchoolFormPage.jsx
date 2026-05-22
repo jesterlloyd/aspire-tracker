@@ -1,37 +1,46 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PROGRAM_TYPES, SCHOOLS } from '../lib/constants'
+import { toLocalDateStr } from '../lib/designTokens'
 
 const PAGE_TITLE = 'ASPIRE Program Student Placement Request Form'
 const JESTER_EMAIL = 'JesterLloyd.Bautista@cshs.org'
 
+// Per-student row factory; term_dates removed, estimated_graduation_date is now a date picker
 const newStudent = () => ({
   _key: Date.now() + Math.random(),
   first_name: '', last_name: '', email: '', phone: '',
-  program_type: '', term_dates: '', hours_required: '', estimated_graduation: '',
+  program_type: '', hours_required: '', estimated_graduation_date: '',
 })
 
 // pageState: 'loading' | 'unavailable' | 'password' | 'verified'
 export default function SchoolFormPage() {
-  const [cohortId,    setCohortId]    = useState(null)
-  const [cohortName,  setCohortName]  = useState('')
-  const [pageState,   setPageState]   = useState('loading')
+  const [cohortId,   setCohortId]   = useState(null)
+  const [cohortName, setCohortName] = useState('')
+  const [pageState,  setPageState]  = useState('loading')
 
   // Password gate
   const [pwdInput,    setPwdInput]    = useState('')
   const [pwdError,    setPwdError]    = useState(null)
   const [pwdChecking, setPwdChecking] = useState(false)
 
-  // Keep open as alias for legacy form rendering
-  const open = pageState === 'verified'
-
+  // Coordinator info
   const [coord, setCoord] = useState({ school: '', name: '', email: '', notes: '' })
-  const [rows,  setRows]  = useState([newStudent()])
+
+  // Rotation dates (new submission-level fields)
+  const [rotation, setRotation] = useState({ start_date: '', end_date: '' })
+  const [rotError,  setRotError]  = useState(null) // hard validation message inline on the fields
+
+  // Student rows
+  const [rows, setRows] = useState([newStudent()])
 
   const [submitting,  setSubmitting]  = useState(false)
   const [result,      setResult]      = useState(null)
   const [error,       setError]       = useState(null)
-  const [debugError,  setDebugError]  = useState(null)
+
+  // Soft-warning confirmation modal state
+  // { lines: string[], onConfirm: () => void }
+  const [warnModal, setWarnModal] = useState(null)
 
   useEffect(() => {
     document.title = 'ASPIRE Intelligence'
@@ -62,103 +71,110 @@ export default function SchoolFormPage() {
   const addRow  = () => setRows(prev => [...prev, newStudent()])
   const removeRow = key => setRows(prev => prev.filter(r => r._key !== key))
 
+  // Core submit logic (called after all validations pass)
+  const doSubmit = async () => {
+    setSubmitting(true)
+    setError(null)
+    setWarnModal(null)
+    try {
+      const res = await fetch('/api/school-form-submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cohortId,
+          cohortName,
+          coordinator: coord,
+          rotationStartDate: rotation.start_date,
+          rotationEndDate:   rotation.end_date,
+          students: rows.map(r => ({
+            first_name:                r.first_name.trim(),
+            last_name:                 r.last_name.trim(),
+            email:                     r.email.trim(),
+            phone:                     r.phone.trim(),
+            program_type:              r.program_type,
+            hours_required:            r.hours_required,
+            estimated_graduation_date: r.estimated_graduation_date || null,
+          })),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Something went wrong. Please try again.')
+        setSubmitting(false)
+        return
+      }
+      setResult({ added: data.added, skipped: data.skipped })
+    } catch (e) {
+      setError('Network error. Please check your connection and try again.')
+    }
+    setSubmitting(false)
+  }
+
   const handleSubmit = async e => {
     e.preventDefault()
+    setError(null)
+    setRotError(null)
+
+    // Hard validation: coordinator fields
     if (!coord.school.trim() || !coord.name.trim() || !coord.email.trim()) {
       setError('Please fill in your school and contact information.'); return
     }
+
+    // Hard validation: rotation dates required
+    if (!rotation.start_date || !rotation.end_date) {
+      setRotError('Both rotation start and end dates are required.')
+      return
+    }
+
+    // Hard validation: end must be after start
+    if (rotation.end_date <= rotation.start_date) {
+      setRotError('Rotation end date must be after the start date.')
+      return
+    }
+
+    // Hard validation: per-student required fields and minimum hours
     const invalid = rows.find(r => !r.first_name?.trim() || !r.last_name?.trim() || !r.email.trim())
     if (invalid) { setError('Each student requires a first name, last name, and email.'); return }
     const underMinHours = rows.find(r => (parseInt(r.hours_required) || 0) < 90)
     if (underMinHours) {
-      setError(`Hours required must be at least 90 for all students. The ASPIRE Program minimum is 90 hours. Please check the entry for ${underMinHours.first_name || 'a student'} ${underMinHours.last_name || ''}.`)
+      setError(`Hours required must be at least 90 for all students. Check the entry for ${underMinHours.first_name || 'a student'} ${underMinHours.last_name || ''}.`)
       return
     }
-
-    // Guard: cohort must be set before attempting any insert
     if (!cohortId) {
       setError('Submissions are not currently open. Please contact the ASPIRE team.')
       return
     }
 
-    setSubmitting(true)
-    setError(null)
-    setDebugError(null)
+    // Soft warnings (collect all, then show as one confirmation)
+    const softWarnings = []
+    const today = toLocalDateStr()
 
-    const added = []
-    const skipped = []
-
-    for (const r of rows) {
-      const schoolEmail = r.email.trim()
-
-      // Check for existing student with same school_email in this cohort
-      const { data: existing } = await supabase.from('students')
-        .select('id').eq('cohort_id', cohortId).eq('school_email', schoolEmail)
-        .limit(1).maybeSingle()
-
-      if (existing) {
-        skipped.push(`${r.first_name.trim()} ${r.last_name.trim()}`)
-        continue
-      }
-
-      const { data: newStudent, error: insertErr } = await supabase.from('students').insert({
-        name:                    `${r.first_name.trim()} ${r.last_name.trim()}`,
-        first_name:              r.first_name.trim(),
-        last_name:               r.last_name.trim(),
-        school_email:            schoolEmail,
-        phone:                   r.phone.trim(),
-        school:                  coord.school.trim(),
-        program_type:            r.program_type,
-        term_dates:              r.term_dates.trim(),
-        hours_required:          parseInt(r.hours_required) || 0,
-        hours_completed:         0,
-        estimated_graduation:    r.estimated_graduation.trim(),
-        status:                  'Pending Outreach',
-        interview_outcome:       'Pending Interview',
-        ngrp_outcome:            'Pending',
-        submitted_via:           'school_form',
-        school_coordinator_name:  coord.name.trim(),
-        school_coordinator_email: coord.email.trim(),
-        aspire_cohort:           cohortName,
-        gpa_verified:            false,
-        bls_current:             false,
-        health_cleared:          false,
-        background_check:        false,
-        coordinators:            coord.notes.trim(),
-        cohort_id:               cohortId,
-      }).select('id')
-
-      if (insertErr) {
-        console.error('Supabase insert error:', insertErr)
-        setDebugError(`Error code: ${insertErr.code} — ${insertErr.message}`)
-        setError('Something went wrong while adding students. Please try again.')
-        setSubmitting(false)
-        return
-      }
-
-      // Fire-and-forget: trigger form_received notification (student confirmation + internal team + school coordinator)
-      fetch('/api/form-received-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId:        newStudent?.[0]?.id || null,
-          cohortId,
-          studentName:      `${r.first_name.trim()} ${r.last_name.trim()}`,
-          studentFirstName: r.first_name.trim(),
-          studentEmail:     schoolEmail,
-          school:           coord.school.trim(),
-          programType:      r.program_type,
-          cumulativeGpa:    r.cumulative_gpa,
-        }),
-      }).catch(e => console.warn('[form_received] notification failed (non-blocking):', e))
-
-      added.push(`${r.first_name.trim()} ${r.last_name.trim()}`)
+    if (rotation.start_date < today) {
+      softWarnings.push('The rotation start date is in the past.')
     }
 
-    setResult({ added, skipped })
+    const diffDays = (new Date(rotation.end_date) - new Date(rotation.start_date)) / 86400000
+    const weeks = Math.round(diffDays / 7)
+    if (diffDays > 0 && (weeks < 4 || weeks > 16)) {
+      softWarnings.push(`The rotation length is ${weeks} week${weeks !== 1 ? 's' : ''}, outside the typical 4-16 week range.`)
+    }
+
+    // Per-student: grad date should be after rotation end
+    rows.forEach(r => {
+      if (r.estimated_graduation_date && r.estimated_graduation_date < rotation.end_date) {
+        softWarnings.push(`${r.first_name.trim()} ${r.last_name.trim()}: estimated graduation date is before the rotation end date.`)
+      }
+    })
+
+    if (softWarnings.length > 0) {
+      setWarnModal({ lines: softWarnings, onConfirm: doSubmit })
+      return
+    }
+
+    doSubmit()
   }
 
-  // ── State 1: Loading ─────────────────────────────────────────
+  // ── State: Loading ─────────────────────────────────────────────────────────
   if (pageState === 'loading') return (
     <div className="uf-page">
       <div className="uf-card" style={{ textAlign: 'center', padding: '60px 40px' }}>
@@ -168,7 +184,7 @@ export default function SchoolFormPage() {
     </div>
   )
 
-  // ── State 2: Unavailable (no cohort open or no password set) ──
+  // ── State: Unavailable ─────────────────────────────────────────────────────
   if (pageState === 'unavailable') return (
     <div className="uf-page">
       <div className="uf-card" style={{ textAlign: 'center', padding: '56px 40px' }}>
@@ -177,8 +193,7 @@ export default function SchoolFormPage() {
           color: 'var(--nightfall)', marginBottom: 16 }}>Form Unavailable</h2>
         <p style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 400, fontSize: 15,
           color: '#6b7280', lineHeight: 1.6, marginBottom: 8 }}>
-          The ASPIRE school submission form is not currently accepting registrations. This may mean
-          the current cohort cycle has not yet opened, or the form is temporarily closed.
+          The ASPIRE school submission form is not currently accepting registrations.
         </p>
         <p style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 400, fontSize: 15,
           color: '#6b7280', lineHeight: 1.6 }}>
@@ -190,7 +205,7 @@ export default function SchoolFormPage() {
     </div>
   )
 
-  // ── State 3: Password screen ──────────────────────────────────
+  // ── State: Password ────────────────────────────────────────────────────────
   if (pageState === 'password') return (
     <div className="uf-page">
       <div className="uf-card" style={{ textAlign: 'center', padding: '48px 40px', maxWidth: 440 }}>
@@ -199,7 +214,7 @@ export default function SchoolFormPage() {
           color: 'var(--nightfall)', margin: '0 0 10px' }}>School Coordinator Access</h2>
         <p style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 400, fontSize: 14,
           color: '#6b7280', lineHeight: 1.6, marginBottom: 24 }}>
-          Please enter the cohort password provided by the ASPIRE Program team to access this form.
+          Please enter the cohort password provided by the ASPIRE Program team.
         </p>
         <form onSubmit={async e => {
           e.preventDefault()
@@ -213,43 +228,29 @@ export default function SchoolFormPage() {
                 p_entered_password: pwdInput.trim(),
               })
             if (rpcErr) throw rpcErr
-            if (ok) {
-              setPageState('verified')
-            } else {
-              setPwdError('Incorrect password. Please check with the ASPIRE Program team and try again.')
-              setPwdInput('')
-            }
+            if (ok) { setPageState('verified') }
+            else { setPwdError('Incorrect password. Please check with the ASPIRE Program team.'); setPwdInput('') }
           } catch {
             setPwdError('Unable to verify at this time. Please try again.')
           }
           setPwdChecking(false)
         }}>
-          <input
-            type="password"
-            value={pwdInput}
+          <input type="password" value={pwdInput}
             onChange={e => { setPwdInput(e.target.value); setPwdError(null) }}
             placeholder="Enter cohort password"
-            style={{
-              width: '100%', height: 52, fontSize: 16, padding: '0 14px',
-              borderRadius: 12, border: `1px solid ${pwdError ? '#dc1e34' : '#e5e7eb'}`,
-              fontFamily: 'DM Sans, sans-serif', outline: 'none',
-              boxSizing: 'border-box', marginBottom: 8,
-            }}
-            autoFocus
-          />
+            style={{ width: '100%', height: 52, fontSize: 16, padding: '0 14px', borderRadius: 12,
+              border: `1px solid ${pwdError ? '#dc1e34' : '#e5e7eb'}`,
+              fontFamily: 'DM Sans, sans-serif', outline: 'none', boxSizing: 'border-box', marginBottom: 8 }}
+            autoFocus />
           {pwdError && (
             <p style={{ fontSize: 14, color: '#dc1e34', margin: '0 0 12px',
-              fontFamily: 'DM Sans, sans-serif', textAlign: 'left' }}>
-              {pwdError}
-            </p>
+              fontFamily: 'DM Sans, sans-serif', textAlign: 'left' }}>{pwdError}</p>
           )}
           <button type="submit" disabled={pwdChecking || !pwdInput.trim()}
-            style={{
-              width: '100%', height: 52, fontSize: 15, fontWeight: 700,
+            style={{ width: '100%', height: 52, fontSize: 15, fontWeight: 700,
               fontFamily: 'DM Sans, sans-serif',
               background: 'var(--nightfall)', color: '#fff',
-              border: 'none', borderRadius: 12, cursor: 'pointer',
-            }}>
+              border: 'none', borderRadius: 12, cursor: 'pointer' }}>
             {pwdChecking ? 'Verifying…' : 'Access Form'}
           </button>
         </form>
@@ -257,17 +258,17 @@ export default function SchoolFormPage() {
     </div>
   )
 
-  // ── Confirmation screen (after successful submit) ─────────────
+  // ── Confirmation ───────────────────────────────────────────────────────────
   if (result) return (
     <div className="uf-page">
       <div className="uf-card uf-card-confirm">
         <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
-        <div className="uf-confirm-icon">✓</div>
+        <div className="uf-confirm-icon">&#10003;</div>
         <h2 className="uf-confirm-title">Thank you, {coord.school}.</h2>
         {result.added.length > 0 && (
           <p className="uf-confirm-msg">
-            <strong>{result.added.length} student{result.added.length !== 1 ? 's' : ''} added
-            </strong> to the ASPIRE Program for {cohortName}.
+            <strong>{result.added.length} student{result.added.length !== 1 ? 's' : ''} added</strong>
+            {' '}to the ASPIRE Program for {cohortName}.
           </p>
         )}
         {result.skipped.length > 0 && (
@@ -285,8 +286,46 @@ export default function SchoolFormPage() {
     </div>
   )
 
+  // ── Main Form ──────────────────────────────────────────────────────────────
   return (
     <div className="uf-page">
+      {/* Soft-warning confirmation modal */}
+      {warnModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 14, maxWidth: 460, width: '100%',
+            padding: '28px 28px 22px', fontFamily: 'DM Sans, sans-serif',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.18)',
+          }}>
+            <div style={{ fontWeight: 700, fontSize: 16, color: '#1D2567', marginBottom: 14 }}>
+              Please review before submitting
+            </div>
+            <ul style={{ margin: '0 0 20px', paddingLeft: 18, fontSize: 14, color: '#374151', lineHeight: 1.7 }}>
+              {warnModal.lines.map((line, i) => <li key={i}>{line}</li>)}
+            </ul>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setWarnModal(null)}
+                style={{ flex: 1, height: 42, borderRadius: 9, border: '1px solid #e5e7eb',
+                  background: '#f9fafb', fontFamily: 'DM Sans', fontWeight: 600, fontSize: 14,
+                  cursor: 'pointer', color: '#374151' }}>
+                Go back
+              </button>
+              <button
+                onClick={() => warnModal.onConfirm()}
+                style={{ flex: 1, height: 42, borderRadius: 9, border: 'none',
+                  background: '#1D2567', fontFamily: 'DM Sans', fontWeight: 700, fontSize: 14,
+                  cursor: 'pointer', color: '#fff' }}>
+                Submit anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="uf-card sf-card">
         <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="44" className="uf-logo" />
 
@@ -298,12 +337,13 @@ export default function SchoolFormPage() {
         <form onSubmit={handleSubmit} className="uf-form">
           {error && <div className="error-msg" style={{ marginBottom: 8 }}>{error}</div>}
 
+          {/* Section 1: School Information */}
           <div className="uf-section">
             <div className="sf-section-title">School Information</div>
             <div className="uf-field">
               <label className="uf-label">School or University Name *</label>
               <select className="uf-input" value={coord.school} onChange={e => setC('school', e.target.value)}>
-                <option value="">Select your school…</option>
+                <option value="">Select your school...</option>
                 {SCHOOLS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
@@ -321,6 +361,39 @@ export default function SchoolFormPage() {
             </div>
           </div>
 
+          {/* Section 2: Rotation Dates (new) */}
+          <div className="uf-section">
+            <div className="sf-section-title">Rotation Dates</div>
+            <p style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, color: '#6b7280',
+              lineHeight: 1.6, margin: '0 0 16px' }}>
+              When will your students be at Cedars-Sinai? These dates apply to all students in this submission.
+            </p>
+            {rotError && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8,
+                padding: '10px 14px', marginBottom: 12,
+                fontFamily: 'DM Sans', fontSize: 13, color: '#991b1b' }}>
+                {rotError}
+              </div>
+            )}
+            <div className="sf-row-2">
+              <div className="uf-field">
+                <label className="uf-label">Rotation Start Date *</label>
+                <input className="uf-input" type="date"
+                  value={rotation.start_date}
+                  onChange={e => { setRotation(p => ({ ...p, start_date: e.target.value })); setRotError(null) }}
+                  style={{ colorScheme: 'light' }} />
+              </div>
+              <div className="uf-field">
+                <label className="uf-label">Rotation End Date *</label>
+                <input className="uf-input" type="date"
+                  value={rotation.end_date}
+                  onChange={e => { setRotation(p => ({ ...p, end_date: e.target.value })); setRotError(null) }}
+                  style={{ colorScheme: 'light' }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Students */}
           <div className="uf-section">
             <div className="sf-section-title">Students</div>
 
@@ -367,28 +440,24 @@ export default function SchoolFormPage() {
                     <label className="uf-label">Program Type</label>
                     <select className="uf-input" value={row.program_type}
                       onChange={e => updRow(row._key, 'program_type', e.target.value)}>
-                      <option value="">Select…</option>
+                      <option value="">Select...</option>
                       {PROGRAM_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
                   <div className="uf-field">
-                    <label className="uf-label">Term Dates</label>
-                    <input className="uf-input" value={row.term_dates}
-                      onChange={e => updRow(row._key, 'term_dates', e.target.value)}
-                      placeholder="e.g. Jun 1 – Aug 7, 2026" />
+                    <label className="uf-label">Hours Required</label>
+                    <input className="uf-input" type="text" inputMode="numeric" pattern="[0-9]*"
+                      value={row.hours_required}
+                      onChange={e => updRow(row._key, 'hours_required', e.target.value)}
+                      placeholder="e.g. 144" />
                   </div>
                   <div className="uf-field">
-                    <label className="uf-label">Hours Required</label>
-                    <input className="uf-input" type="text" inputMode="numeric" pattern="[0-9]*" value={row.hours_required}
-                      onChange={e => updRow(row._key, 'hours_required', e.target.value)} placeholder="e.g. 144" />
+                    <label className="uf-label">Estimated Graduation Date</label>
+                    <input className="uf-input" type="date"
+                      value={row.estimated_graduation_date}
+                      onChange={e => updRow(row._key, 'estimated_graduation_date', e.target.value)}
+                      style={{ colorScheme: 'light' }} />
                   </div>
-                </div>
-
-                <div className="uf-field">
-                  <label className="uf-label">Estimated Graduation Date</label>
-                  <input className="uf-input" value={row.estimated_graduation}
-                    onChange={e => updRow(row._key, 'estimated_graduation', e.target.value)}
-                    placeholder="e.g. May 2027" />
                 </div>
               </div>
             ))}
@@ -398,6 +467,7 @@ export default function SchoolFormPage() {
             </button>
           </div>
 
+          {/* Section 4: Additional Notes */}
           <div className="uf-section">
             <div className="uf-field">
               <label className="uf-label">Additional notes for the ASPIRE team (optional)</label>
@@ -409,13 +479,8 @@ export default function SchoolFormPage() {
 
           <div className="uf-submit-row">
             <button type="submit" className="uf-submit-btn" disabled={submitting}>
-              {submitting ? 'Submitting…' : `Submit ${rows.length} Student${rows.length !== 1 ? 's' : ''}`}
+              {submitting ? 'Submitting...' : `Submit ${rows.length} Student${rows.length !== 1 ? 's' : ''}`}
             </button>
-            {debugError && (
-              <p style={{ fontSize: 12, color: '#991b1b', marginTop: 8, fontFamily: 'monospace', background: '#fee2e2', padding: '6px 10px', borderRadius: 4 }}>
-                Debug: {debugError}
-              </p>
-            )}
           </div>
         </form>
       </div>

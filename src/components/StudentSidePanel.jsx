@@ -15,7 +15,7 @@ import { EVENT_TYPES, EVENT_TYPE_LABELS, getEventColor } from '../lib/eventTypes
 import { logEvent, eventExists } from '../lib/logEvent'
 import { calculateProfileCompletion, getCompletionColor } from '../lib/profileCompletion'
 import { generateStudentSummary } from '../lib/generateSummary'
-import { Copy, Check, Mail, User, GraduationCap, Briefcase, MapPin, FileText, MessageSquare, CheckCircle2, Award, ClipboardList } from 'lucide-react'
+import { Copy, Check, Mail, User, GraduationCap, Briefcase, MapPin, FileText, MessageSquare, CheckCircle2, Award, ClipboardList, CalendarDays } from 'lucide-react'
 // All external navigation must use openLink helpers (src/lib/openLink.js)
 import { openMailtoLink } from '../lib/openLink'
 import SyncIndicator from './SyncIndicator'
@@ -146,6 +146,90 @@ export default function StudentSidePanel({
   const pendingNameSave = useRef(null)
   const resumeRef       = useRef(null)
   const headshotRef     = useRef(null)
+
+  // ── Rotation Dates panel ─────────────────────────────────────────────────
+  const [editingRotation,       setEditingRotation]       = useState(false)
+  const [rotEditStart,          setRotEditStart]          = useState('')
+  const [rotEditEnd,            setRotEditEnd]            = useState('')
+  const [rotEditError,          setRotEditError]          = useState(null)
+  const [rotSaving,             setRotSaving]             = useState(false)
+  const [rotConfirmModal,       setRotConfirmModal]       = useState(null)
+  // rotConfirmModal: { start, end, count } when open
+
+  const { data: rotationRow, refetch: refetchRotation } = useQuery({
+    queryKey: ['cohort_school_rotation', student.cohort_school_rotation_id],
+    queryFn: async () => {
+      if (!student.cohort_school_rotation_id) return null
+      const { data, error } = await supabase
+        .from('cohort_school_rotations')
+        .select('id, school_name, rotation_start_date, rotation_end_date, coordinator_name, coordinator_email')
+        .eq('id', student.cohort_school_rotation_id)
+        .single()
+      if (error) { console.warn('rotation row fetch:', error.message); return null }
+      return data
+    },
+    enabled: !!student.cohort_school_rotation_id,
+    staleTime: 60_000,
+  })
+
+  const handleOpenRotationEdit = async () => {
+    if (!rotationRow) return
+    setRotEditStart(rotationRow.rotation_start_date || '')
+    setRotEditEnd(rotationRow.rotation_end_date || '')
+    setRotEditError(null)
+    setEditingRotation(true)
+  }
+
+  const handleSaveRotationDates = async () => {
+    if (!rotEditStart || !rotEditEnd) {
+      setRotEditError('Both dates are required.'); return
+    }
+    if (rotEditEnd <= rotEditStart) {
+      setRotEditError('End date must be after start date.'); return
+    }
+    // Count affected students before showing confirmation
+    const { count } = await supabase
+      .from('students')
+      .select('id', { count: 'exact', head: true })
+      .eq('cohort_school_rotation_id', student.cohort_school_rotation_id)
+    setRotConfirmModal({ start: rotEditStart, end: rotEditEnd, count: count ?? 0 })
+  }
+
+  const handleConfirmRotationSave = async () => {
+    setRotSaving(true)
+    try {
+      const adminToken = process.env.VITE_ADMIN_NOTIFICATION_TOKEN ||
+        document.cookie.split('; ').find(r => r.startsWith('admin_token='))?.split('=')[1] || ''
+      const res = await fetch('/api/update-rotation-dates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        body: JSON.stringify({
+          rotation_id:         student.cohort_school_rotation_id,
+          rotation_start_date: rotConfirmModal.start,
+          rotation_end_date:   rotConfirmModal.end,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast?.error('Update failed', data.error || 'Could not save rotation dates.')
+        setRotSaving(false); setRotConfirmModal(null); return
+      }
+      refetchRotation()
+      setEditingRotation(false); setRotConfirmModal(null)
+      toast?.success('Rotation updated', `Dates updated for ${data.affected_student_count} student(s).`)
+    } catch (e) {
+      toast?.error('Update failed', e.message)
+    }
+    setRotSaving(false)
+  }
+
+  const fmtRotDate = (d) => {
+    if (!d) return 'Not set'
+    if (d === '1900-01-01') return 'Pending'
+    const dt = new Date(d + 'T12:00:00Z')
+    return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' })
+  }
+  const isSentinel = rotationRow?.rotation_start_date === '1900-01-01'
 
   // ── Optimistic concurrency control ───────────────────────────────────────
   // Tracks the updated_at value the user had when they last loaded this student.
@@ -857,7 +941,8 @@ export default function StudentSidePanel({
                   )}
                 </select>
               </Field>
-              <Field label="Term Dates"><div className="sp-readonly">{data.term_dates||'—'}</div></Field>
+              {/* term_dates kept for legacy read-only display; new submissions use cohort_school_rotation_id */}
+              {data.term_dates && <Field label="Term Dates (legacy)"><div className="sp-readonly">{data.term_dates}</div></Field>}
               <Field label="Hours Required" fieldKey="hours_required">
                 <input className="sp-input" type="text" inputMode="numeric" pattern="[0-9]*"
                   value={data.hours_required??''} onChange={e => handleText('hours_required', e.target.value)} />
@@ -865,6 +950,131 @@ export default function StudentSidePanel({
               <Field label="Est. Graduation"><div className="sp-readonly">{data.estimated_graduation||'—'}</div></Field>
             </div>
           </div>
+
+          {/* 3b. Rotation Dates */}
+          {(rotationRow || student.cohort_school_rotation_id) && (
+            <div className="sp-section sp-card" style={{ background:'rgba(199,219,230,0.18)', borderRadius:12, marginBottom:10 }}>
+              <SectionHeader title="Rotation Dates" icon={<CalendarDays size={13} />}
+                children={canEdit && !editingRotation && (
+                  <button
+                    onClick={handleOpenRotationEdit}
+                    style={{ fontSize:11, fontWeight:600, padding:'2px 10px', borderRadius:6,
+                      background:'#f0f3ff', border:'1px solid #e0e7ff', color:'#1D2567',
+                      cursor:'pointer', fontFamily:'DM Sans,sans-serif' }}>
+                    Edit
+                  </button>
+                )}
+              />
+
+              {isSentinel && (
+                <div style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 10px',
+                  background:'#fdf6ec', border:'1px solid #f0c9b0', borderRadius:8, marginBottom:8,
+                  fontFamily:'DM Sans', fontSize:12, color:'#583733', fontWeight:600 }}>
+                  <span>&#9651;</span>
+                  Rotation dates pending: please set actual dates
+                </div>
+              )}
+
+              {!editingRotation ? (
+                <div className="sp-grid-2">
+                  <div>
+                    <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-caption,#6b7280)',
+                      textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>Start</div>
+                    <div style={{ fontSize:13, color:'var(--text-heading,#191919)' }}>
+                      {fmtRotDate(rotationRow?.rotation_start_date)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-caption,#6b7280)',
+                      textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>End</div>
+                    <div style={{ fontSize:13, color:'var(--text-heading,#191919)' }}>
+                      {fmtRotDate(rotationRow?.rotation_end_date)}
+                    </div>
+                  </div>
+                  {rotationRow?.school_name && (
+                    <div style={{ gridColumn:'1 / -1' }}>
+                      <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-caption,#6b7280)',
+                        textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>School</div>
+                      <div style={{ fontSize:13, color:'var(--text-heading,#191919)' }}>
+                        {rotationRow.school_name}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  {rotEditError && (
+                    <div style={{ fontSize:12, color:'#991b1b', background:'#fee2e2', border:'1px solid #fca5a5',
+                      borderRadius:6, padding:'6px 10px', marginBottom:8 }}>{rotEditError}</div>
+                  )}
+                  <div className="sp-grid-2" style={{ marginBottom:10 }}>
+                    <div>
+                      <label style={{ fontSize:11, fontWeight:600, color:'var(--text-caption,#6b7280)',
+                        textTransform:'uppercase', letterSpacing:'0.06em', display:'block', marginBottom:4 }}>
+                        Start *
+                      </label>
+                      <input type="date" className="sp-input"
+                        value={rotEditStart} onChange={e => { setRotEditStart(e.target.value); setRotEditError(null) }}
+                        style={{ colorScheme:'light' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize:11, fontWeight:600, color:'var(--text-caption,#6b7280)',
+                        textTransform:'uppercase', letterSpacing:'0.06em', display:'block', marginBottom:4 }}>
+                        End *
+                      </label>
+                      <input type="date" className="sp-input"
+                        value={rotEditEnd} onChange={e => { setRotEditEnd(e.target.value); setRotEditError(null) }}
+                        style={{ colorScheme:'light' }} />
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <button onClick={handleSaveRotationDates}
+                      style={{ padding:'6px 16px', background:'#1D2567', border:'none', borderRadius:8,
+                        fontFamily:'DM Sans', fontWeight:700, fontSize:12, color:'#fff', cursor:'pointer' }}>
+                      Save
+                    </button>
+                    <button onClick={() => { setEditingRotation(false); setRotEditError(null) }}
+                      style={{ padding:'6px 14px', background:'#f9fafb', border:'1px solid #e5e7eb',
+                        borderRadius:8, fontFamily:'DM Sans', fontWeight:600, fontSize:12,
+                        color:'#374151', cursor:'pointer' }}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Confirmation modal: shows affected student count */}
+              {rotConfirmModal && (
+                <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:2999,
+                  display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+                  <div style={{ background:'#fff', borderRadius:14, maxWidth:420, width:'100%',
+                    padding:'24px 24px 20px', fontFamily:'DM Sans, sans-serif',
+                    boxShadow:'0 20px 50px rgba(0,0,0,0.18)' }}>
+                    <div style={{ fontWeight:700, fontSize:15, color:'#1D2567', marginBottom:10 }}>
+                      Update rotation dates?
+                    </div>
+                    <p style={{ fontSize:13, color:'#374151', lineHeight:1.6, margin:'0 0 16px' }}>
+                      This will update rotation dates for{' '}
+                      <strong>{rotConfirmModal.count} student{rotConfirmModal.count !== 1 ? 's' : ''}</strong>
+                      {rotationRow?.school_name ? ` from ${rotationRow.school_name}` : ''}.
+                    </p>
+                    <div style={{ display:'flex', gap:10 }}>
+                      <button onClick={() => setRotConfirmModal(null)} disabled={rotSaving}
+                        style={{ flex:1, height:38, borderRadius:8, border:'1px solid #e5e7eb',
+                          background:'#f9fafb', fontFamily:'DM Sans', fontWeight:600, fontSize:13,
+                          cursor:'pointer', color:'#374151' }}>Cancel</button>
+                      <button onClick={handleConfirmRotationSave} disabled={rotSaving}
+                        style={{ flex:1, height:38, borderRadius:8, border:'none',
+                          background:'#1D2567', fontFamily:'DM Sans', fontWeight:700, fontSize:13,
+                          cursor:'pointer', color:'#fff' }}>
+                        {rotSaving ? 'Saving...' : 'Confirm'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 4. Background and Affiliation */}
           <div className="sp-section sp-card" style={{ background:'rgba(234,220,196,0.20)', borderRadius:12, marginBottom:10 }}>

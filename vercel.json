@@ -33,6 +33,8 @@
     "api/cron/interview-reminders.js":             { "maxDuration": 60 },
     "api/admin/resend-interview-reminders.js":     { "maxDuration": 60 },
     "api/cron/coordinator-weekly-digest.js":       { "maxDuration": 60 },
-    "api/admin/resend-coordinator-digest.js":      { "maxDuration": 60 }
+    "api/admin/resend-coordinator-digest.js":      { "maxDuration": 60 },
+    "api/school-form-submit.js":                   { "maxDuration": 30 },
+    "api/update-rotation-dates.js":                { "maxDuration": 15 }
   }
 }
