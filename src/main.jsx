@@ -12,7 +12,7 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 30000,
       gcTime: 300000,
-      refetchOnWindowFocus: true,
+      refetchOnWindowFocus: false, // opt individual queries back in if they genuinely need it
       refetchOnMount: true,
       retry: 1,
       placeholderData: keepPreviousData,

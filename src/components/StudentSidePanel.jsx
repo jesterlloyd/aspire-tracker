@@ -157,7 +157,7 @@ export default function StudentSidePanel({
   const [rotConfirmModal,       setRotConfirmModal]       = useState(null)
   // rotConfirmModal: { start, end, count } when open
 
-  const { data: rotationRow, refetch: refetchRotation } = useQuery({
+  const { data: rotationRow, refetch: refetchRotation, isLoading: rotationLoading } = useQuery({
     queryKey: ['cohort_school_rotation', student.cohort_school_rotation_id],
     queryFn: async () => {
       if (!student.cohort_school_rotation_id) return null
@@ -168,12 +168,14 @@ export default function StudentSidePanel({
         .single()
       if (error) {
         console.warn('[StudentSidePanel] rotation fetch error:', error.message)
-        throw error  // throw so React Query marks as failed and retries; never caches null as success
+        throw error
       }
       return data
     },
     enabled: !!student.cohort_school_rotation_id,
-    staleTime: 0,  // always refetch on mount; 60s cache was permanently hiding badge for failed fetches
+    staleTime: 5 * 60_000,       // rotation dates change rarely; 5-min freshness is correct
+    refetchOnWindowFocus: false,  // prevents tab-switch from greying the badge during refetch
+    retry: 0,                     // fail fast; cohort-switch invalidation handles legitimate refresh
   })
 
   const handleOpenRotationEdit = async () => {
@@ -546,6 +548,8 @@ export default function StudentSidePanel({
   const badgeDates         = rotationRow ? calculateBadgeDates(rotationRow) : null
   const badgeDisabledReason = !student.headshot_url
     ? 'Headshot required'
+    : rotationLoading
+    ? null                        // in-flight: don't show false "Rotation dates pending"
     : !rotationRow || !badgeDates
     ? 'Rotation dates pending'
     : null

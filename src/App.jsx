@@ -300,6 +300,8 @@ function MainApp({ onLogout }) {
       'availability_blocks', 'interview_sessions', 'interview_slots', 'preference_counts',
       'students_in_cohort', 'interview_calendar', 'todays_interviews',
       'interview_setup_checklist', 'unit_availability',
+      // Child-component queries missing from original list (Fix 2)
+      'unit_cohort_responses', 'rubric_support_data', 'units_cohort', 'cohort_school_rotation',
     ].forEach(key => queryClient.invalidateQueries({ queryKey: [key] }))
   }
 
@@ -1027,10 +1029,12 @@ function MainApp({ onLogout }) {
       />
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       <CustomOnboardingTour run={tourRunning} onClose={() => setTourRunning(false)} />
-      <UserManagement
-        isOpen={showUserManagement}
-        onClose={() => setShowUserManagement(false)}
-      />
+      {showUserManagement && (
+        <UserManagement
+          isOpen={showUserManagement}
+          onClose={() => setShowUserManagement(false)}
+        />
+      )}
     </div>
   )
 }
