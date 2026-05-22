@@ -166,11 +166,14 @@ export default function StudentSidePanel({
         .select('id, school_name, rotation_start_date, rotation_end_date, coordinator_name, coordinator_email')
         .eq('id', student.cohort_school_rotation_id)
         .single()
-      if (error) { console.warn('rotation row fetch:', error.message); return null }
+      if (error) {
+        console.warn('[StudentSidePanel] rotation fetch error:', error.message)
+        throw error  // throw so React Query marks as failed and retries; never caches null as success
+      }
       return data
     },
     enabled: !!student.cohort_school_rotation_id,
-    staleTime: 60_000,
+    staleTime: 0,  // always refetch on mount; 60s cache was permanently hiding badge for failed fetches
   })
 
   const handleOpenRotationEdit = async () => {
@@ -541,7 +544,7 @@ export default function StudentSidePanel({
 
   // Compute badge button disabled reason (shown as tooltip)
   const badgeDates         = rotationRow ? calculateBadgeDates(rotationRow) : null
-  const badgeDisabledReason = !data.headshot_url
+  const badgeDisabledReason = !student.headshot_url
     ? 'Headshot required'
     : !rotationRow || !badgeDates
     ? 'Rotation dates pending'

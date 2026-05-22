@@ -203,6 +203,7 @@ export default function InterviewRubricTab({
     }
     return (
       <RubricSession
+        key={selectedStudentId}
         student={selectedStudent}
         rubrics={rubrics}
         cohortId={cohortId}
