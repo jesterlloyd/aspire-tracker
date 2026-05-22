@@ -230,6 +230,11 @@ function RubricCard({ r, interviewers, onSave }) {
           <span>CJ: {r.cj_score||0}/5</span>
           <span>PP: {r.pp_score||0}/5</span>
           <span>GA: {r.ga_score||0}/5</span>
+          {r.suggested_unit && (
+            <span style={{ marginLeft:8, paddingLeft:8, borderLeft:'1px solid #e5e7eb', color:'var(--text-secondary)', fontWeight:400 }}>
+              Suggested: <strong style={{ color:'var(--nightfall,#1D2567)', fontWeight:600 }}>{r.suggested_unit.trim()}</strong>
+            </span>
+          )}
         </div>
         {r.summary_comments && <p className="rub-rc-comments">{r.summary_comments}</p>}
       </div>
@@ -1243,7 +1248,18 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                   <RubricCard key={r.id} r={r} interviewers={interviewers} onSave={handleRubricEdit} />
                 ))}
                 <div className="rub-avg-display">
-                  <span>Average Composite: <strong>{student.avg_composite_score ? parseFloat(student.avg_composite_score).toFixed(1) : '—'}/15</strong></span>
+                  <span>Average Composite: <strong>{(() => {
+                    // Compute live from rubric rows so the value is correct even when
+                    // student.avg_composite_score hasn't been written back yet (e.g., N=1).
+                    const scored = completedRubrics.filter(r => (r.composite_score || 0) > 0)
+                    if (!scored.length) {
+                      console.log('[RubricSession] average composite is null for student', student.id,
+                        { rubrics: completedRubrics.map(r => ({ status: r.status, score: r.composite_score })) })
+                      return '—'
+                    }
+                    const avg = scored.reduce((s, r) => s + (r.composite_score || 0), 0) / scored.length
+                    return avg.toFixed(1)
+                  })()}/15</strong></span>
                   {student.auto_recommendation && (() => {
                     const rec = student.auto_recommendation
                     const recColor = rec === 'Recommend' ? '#166534' : rec === 'Recommend with Reservations' ? '#92400e' : '#991b1b'
