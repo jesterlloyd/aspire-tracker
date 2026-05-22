@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import EmbedUnitCard from './EmbedUnitCard'
-import StudentMatchCard from './StudentMatchCard'
+import StudentMatchingCard from './StudentMatchingCard'
 import UnitSetupPanel from './UnitSetupPanel'
 import ImportUnitsCSV from './ImportUnitsCSV'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
@@ -13,24 +13,26 @@ import { canPerformMatching } from '../lib/permissions'
 import { KPICell, useUpdatedLabel } from './KPIBand'
 import PreferenceMatchRing from './PreferenceMatchRing'
 
-// ── Matching at a Glance band ─────────────────────────────────────────────────
+// ── Placement at a Glance band ────────────────────────────────────────────────
+// Visual peer to Aggregate's "Program at a Glance" — same KPI typography,
+// same eyebrow + subtitle treatment, same KPICell sizing (no compact prop).
 
-function MatchingAtAGlance({ studentsCount, matchedCount, unmatchedCount, perfectMatches, secondChoiceMatches, totalSlots, slotsRemaining, poolSchools, cohort, cohortId }) {
+function PlacementAtAGlance({ studentsCount, matchedCount, unmatchedCount, perfectMatches, secondChoiceMatches, totalSlots, slotsRemaining, poolSchools, cohort, cohortId }) {
   const updatedLabel = useUpdatedLabel(cohortId)
   const schools = poolSchools?.length ?? 0
   return (
     <section style={{ background:'var(--bg-card,#fff)', border:'1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius:14, boxShadow:'var(--shadow-card)', overflow:'hidden', fontFamily:'DM Sans, sans-serif', height:'100%', boxSizing:'border-box' }}>
-      <div style={{ padding:'10px 20px 8px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid var(--border-card,rgba(29,37,103,0.04))' }}>
-        <div style={{ fontSize:10.5, textTransform:'uppercase', letterSpacing:'0.14em', color:'var(--text-caption,#475467)', fontWeight:600 }}>Matching at a Glance</div>
+      <div style={{ padding:'14px 22px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid var(--border-card,rgba(29,37,103,0.04))' }}>
+        <div style={{ fontSize:10.5, textTransform:'uppercase', letterSpacing:'0.14em', color:'var(--text-caption,#475467)', fontWeight:600 }}>Placement at a Glance</div>
         <div style={{ fontSize:11, color:'var(--text-muted,#98A2B3)', fontVariantNumeric:'tabular-nums' }}>
-          {cohort?.name || 'Cohort'} · {schools} schools · {totalSlots} slots · Updated {updatedLabel}
+          {cohort?.name || 'Cohort'} · {schools} schools · Updated {updatedLabel}
         </div>
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', background:'var(--border-card,rgba(29,37,103,0.04))', gap:1 }}>
-        <KPICell value={studentsCount}  label="Students"     sub={`${schools} schools`}                                                        compact />
-        <KPICell value={matchedCount}   label="Matched"      sub={`${perfectMatches} perfect · ${secondChoiceMatches} 2nd choice`} accent="sage"   compact />
-        <KPICell value={unmatchedCount} label="Unmatched"    sub="Pending placement" accent={unmatchedCount > 0 ? 'warning' : null}            compact />
-        <KPICell value={slotsRemaining} label="Open Slots"   sub={`of ${totalSlots} total`}                                                    compact />
+        <KPICell value={studentsCount}  label="Students"   sub={`${schools} schools`} />
+        <KPICell value={matchedCount}   label="Matched"    sub={`${perfectMatches} perfect · ${secondChoiceMatches} 2nd choice`} accent="sage" />
+        <KPICell value={unmatchedCount} label="Unmatched"  sub="Pending placement" accent={unmatchedCount > 0 ? 'warning' : null} />
+        <KPICell value={slotsRemaining} label="Open Slots" sub={`of ${totalSlots} total`} />
       </div>
     </section>
   )
@@ -312,10 +314,10 @@ export default function MatchingTab({
         </div>
       )}
 
-      {/* ── Matching at a Glance + Preference Match Ring — two-column top row ── */}
-      <div style={{ padding:'0 16px 0', display:'flex', gap:14, alignItems:'stretch', flexWrap:'wrap' }}>
+      {/* ── Placement at a Glance + Preference Match Ring — two-column top row ── */}
+      <div style={{ display:'flex', gap:14, alignItems:'stretch', flexWrap:'wrap' }}>
         <div style={{ flex:'3 1 0', minWidth:0 }}>
-          <MatchingAtAGlance
+          <PlacementAtAGlance
             studentsCount={studentsCount}
             matchedCount={matchedCount}
             unmatchedCount={unmatchedCount}
@@ -534,10 +536,10 @@ export default function MatchingTab({
                       heading="No students ready for matching"
                       subtext="Students appear here after completing their interview and being recommended for placement." />
               ) : (
-                <div className="embed-student-list">
+                <div className="embed-student-grid">
                   {sortedPool.map(s => (
                     <div key={s.id} ref={el => { cardRefs.current[s.id] = el }}>
-                      <StudentMatchCard
+                      <StudentMatchingCard
                         student={s}
                         isSelected={selectedStudent?.id === s.id}
                         onSelect={handleStudentSelect}

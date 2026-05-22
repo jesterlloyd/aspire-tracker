@@ -11,7 +11,7 @@
 
 /* Remove number input spin buttons globally */
 input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; appearance: none; margin: 0; }
 input[type="number"] { -moz-appearance: textfield; }
 
 :root {
@@ -2052,9 +2052,9 @@ a.doc-file-link:hover { text-decoration: underline; }
   border-color: var(--border-strong, rgba(29,37,103,0.18));
 }
 
-/* ── Units panel (left, 58%) ── */
+/* ── Units panel (left, 50%) ── */
 .embed-units-panel {
-  flex: 58; min-width: 0; min-height: 0;
+  flex: 1 1 0; min-width: 0; min-height: 0;
   display: flex; flex-direction: column;
   background: var(--bg-card, #fff);
   border: 1px solid var(--border-card, rgba(29,37,103,0.08));
@@ -2081,9 +2081,9 @@ a.doc-file-link:hover { text-decoration: underline; }
 .embed-units-body { flex: 1; min-height: 0; overflow-y: auto; background: #fff; padding-bottom: 80px; }
 .embed-unit-grid  { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; padding: 20px; }
 
-/* ── Students panel (right, 42%) ── */
+/* ── Students panel (right, 50%) ── */
 .embed-students-panel {
-  flex: 42; min-width: 0; min-height: 0;
+  flex: 1 1 0; min-width: 0; min-height: 0;
   display: flex; flex-direction: column;
   background: var(--bg-card, #fff);
   border: 1px solid var(--border-card, rgba(29,37,103,0.08));
@@ -2117,6 +2117,8 @@ a.doc-file-link:hover { text-decoration: underline; }
 .embed-pool-count   { font-size: 12px; color: var(--text-caption, #6b7280); flex-shrink: 0; white-space: nowrap; }
 .embed-students-body { flex: 1; min-height: 0; overflow-y: auto; background: var(--pearl); padding-bottom: 80px; }
 .embed-student-list  { display: flex; flex-direction: column; gap: 10px; padding: 16px; }
+/* Responsive 2-up grid matching the token-based StudentMatchingCard */
+.embed-student-grid  { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; padding: 16px; align-content: start; }
 
 /* ── EmbedUnitCard ── */
 .euc-card {
