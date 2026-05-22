@@ -216,6 +216,18 @@ export default function ShiftLogPage() {
             notes: `First shift logged: ${isDiffUnit ? diffUnitName.trim() : unitName}`,
             auto: true,
           })
+          // Auto-promote status: first approved shift IS the operational signal that
+          // active rotation has begun. Keeps the KPI count in sync with On Campus Today.
+          if (student.status === 'Placed') {
+            proxyUpdateStudent(student.id, { status: 'Active Rotation' })
+              .catch(err => console.warn('[ShiftLogPage] status promotion failed:', err.message))
+            logEvent(supabase, {
+              studentId: student.id, cohortId,
+              eventType: 'status_change_active_rotation',
+              notes: 'Status automatically promoted from Placed to Active Rotation on first approved shift.',
+              auto: true,
+            }).catch(() => {})
+          }
         }
 
         // Automation 6: Rotation End — required hours met
