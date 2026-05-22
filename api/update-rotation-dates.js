@@ -92,8 +92,12 @@ export default async function handler(req, res) {
     }))
 
     if (events.length) {
-      await db.from('program_events').insert(events)
-        .catch(e => console.warn('[update-rotation-dates] program_events log failed:', e.message))
+      try {
+        const { error: logErr } = await db.from('program_events').insert(events)
+        if (logErr) console.warn('[update-rotation-dates] program_events log error:', logErr.message)
+      } catch (logEx) {
+        console.warn('[update-rotation-dates] program_events log threw:', logEx.message)
+      }
     }
   }
 

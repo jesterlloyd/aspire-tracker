@@ -140,14 +140,16 @@ export default async function handler(req, res) {
 
   // Log rotation_created event for the first new student
   if (added.length > 0) {
-    await db.from('program_events').insert({
+    const { error: evLogErr } = await db.from('program_events').insert({
       student_id:  added[0].id,
       cohort_id:   cohortId,
       event_type:  'rotation_created',
       event_date:  new Date().toISOString().split('T')[0],
       notes:       `[Auto-logged] Rotation row created/updated for ${coordinator.school.trim()}. Dates: ${rotationStartDate} to ${rotationEndDate}.`,
       created_by:  'system',
-    }).catch(e => console.warn('[school-form-submit] program_events log failed:', e.message))
+    })
+    if (evLogErr) console.warn('[school-form-submit] program_events log error:', evLogErr.message)
+  }
   }
 
   // Fire-and-forget: form_received notifications for each new student

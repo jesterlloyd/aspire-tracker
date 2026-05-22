@@ -264,12 +264,16 @@ export default async function handler(req, res) {
 
       // Update contact's CRM fields on successful send
       if (sendStatus === 'sent') {
-        await db.from('contacts').update({
-          last_contacted_at:    new Date().toISOString(),
-          last_contact_type:    'weekly_digest',
-          last_contact_summary: `Weekly digest sent for ${formatDateRange(windowStart, windowEnd)} (${totalItems} item${totalItems !== 1 ? 's' : ''})`,
-        }).eq('id', coordinatorId).catch(e =>
-          console.warn('[coordinator-digest] contact CRM update failed (non-fatal):', e.message));
+        try {
+          const { error: crmErr } = await db.from('contacts').update({
+            last_contacted_at:    new Date().toISOString(),
+            last_contact_type:    'weekly_digest',
+            last_contact_summary: `Weekly digest sent for ${formatDateRange(windowStart, windowEnd)} (${totalItems} item${totalItems !== 1 ? 's' : ''})`,
+          }).eq('id', coordinatorId)
+          if (crmErr) console.warn('[coordinator-digest] contact CRM update error (non-fatal):', crmErr.message)
+        } catch (crmEx) {
+          console.warn('[coordinator-digest] contact CRM update threw (non-fatal):', crmEx.message)
+        }
 
         summary.sent++;
         summary.details.push({ coordinator: coordinator.full_name, status: 'sent', items: totalItems });

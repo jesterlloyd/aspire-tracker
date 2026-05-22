@@ -188,7 +188,7 @@ export default async function handler(req, res) {
 
         if (emailErr) throw new Error(emailErr.message || JSON.stringify(emailErr));
 
-        await db.from('notification_log').insert({
+        const { error: logErr2 } = await db.from('notification_log').insert({
           notification_type: 'coordinator_weekly_digest',
           audience:          'school_coordinator',
           contact_id:        coordinatorId,
@@ -202,13 +202,19 @@ export default async function handler(req, res) {
             window_start: windowStart.toISOString(), window_end: windowEnd.toISOString(),
             source: 'admin_manual', transition_count: totalItems,
           },
-        }).catch(e => console.warn('[resend-coordinator-digest] log write failed:', e.message));
+        })
+        if (logErr2) console.warn('[resend-coordinator-digest] log write error:', logErr2.message)
 
-        await db.from('contacts').update({
-          last_contacted_at:    new Date().toISOString(),
-          last_contact_type:    'weekly_digest',
-          last_contact_summary: `Weekly digest sent for ${formatDateRange(windowStart, windowEnd)} (${totalItems} item${totalItems !== 1 ? 's' : ''})`,
-        }).eq('id', coordinatorId).catch(() => {});
+        try {
+          const { error: crmErr } = await db.from('contacts').update({
+            last_contacted_at:    new Date().toISOString(),
+            last_contact_type:    'weekly_digest',
+            last_contact_summary: `Weekly digest sent for ${formatDateRange(windowStart, windowEnd)} (${totalItems} item${totalItems !== 1 ? 's' : ''})`,
+          }).eq('id', coordinatorId)
+          if (crmErr) console.warn('[resend-coordinator-digest] contacts CRM update error:', crmErr.message)
+        } catch (crmEx) {
+          console.warn('[resend-coordinator-digest] contacts CRM update threw:', crmEx.message)
+        }
 
         sent.push({ coordinator: coordinator.full_name, email: coordinator.email, items: totalItems });
         console.log(`[resend-coordinator-digest] sent to ${coordinator.email} (${totalItems} items)`);
@@ -216,18 +222,23 @@ export default async function handler(req, res) {
         console.error(`[resend-coordinator-digest] failed for ${coordinator.full_name}:`, err.message);
         failed.push({ coordinator: coordinator.full_name, error: err.message });
 
-        await db.from('notification_log').insert({
-          notification_type: 'coordinator_weekly_digest',
-          audience:          'school_coordinator',
-          contact_id:        coordinatorId,
-          recipient_email:   coordinator.email,
-          recipient_name:    coordinator.full_name,
-          recipient_role:    'school_coordinator',
-          subject:           '(send failed)',
-          status:            'failed',
-          error_message:     err.message,
-          metadata: { window_start: windowStart.toISOString(), window_end: windowEnd.toISOString(), source: 'admin_manual' },
-        }).catch(() => {});
+        try {
+          const { error: failLogErr } = await db.from('notification_log').insert({
+            notification_type: 'coordinator_weekly_digest',
+            audience:          'school_coordinator',
+            contact_id:        coordinatorId,
+            recipient_email:   coordinator.email,
+            recipient_name:    coordinator.full_name,
+            recipient_role:    'school_coordinator',
+            subject:           '(send failed)',
+            status:            'failed',
+            error_message:     err.message,
+            metadata: { window_start: windowStart.toISOString(), window_end: windowEnd.toISOString(), source: 'admin_manual' },
+          })
+          if (failLogErr) console.warn('[resend-coordinator-digest] fail-log error:', failLogErr.message)
+        } catch (failLogEx) {
+          console.warn('[resend-coordinator-digest] fail-log threw:', failLogEx.message)
+        }
       }
     }
 

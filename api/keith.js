@@ -1,3 +1,9 @@
+// IMPORTANT: Supabase query builders return thenables, not Promises.
+// Do NOT use .catch() on them -- it throws "is not a function".
+// Use: const { error } = await supabase.from(...).insert(...)
+// Or:  try { await supabase.from(...).insert(...) } catch (err) { ... }
+// Regular fetch() and response.json() ARE Promises -- .catch() is fine there.
+
 import { buildSystemPrompt, getRecentCommunications, getSchoolCoordinators, getUnitResponseStats, getUnitResponses, getUnitLeadersForKeith, getUnitCatalogForKeith, getNursingExecutiveLeadership } from '../src/lib/keithKnowledge.js';
 import { createClient } from '@supabase/supabase-js';
 
@@ -415,14 +421,20 @@ async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activ
       allToolCalls.push({ tool: block.name, input: block.input, result_summary: summary });
 
       // Audit log (non-blocking)
-      supabase.from('program_events').insert({
-        student_id:  null,
-        cohort_id:   activeCohortId,
-        event_type:  'keith_tool_call',
-        event_date:  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date()),
-        notes:       `Keith called ${block.name}: ${summary}`,
-        created_by:  'system',
-      }).catch(e => console.warn('[keith audit]', e.message));
+      // Audit log -- non-blocking; a logging failure must never crash the user request
+      try {
+        const { error: auditErr } = await supabase.from('program_events').insert({
+          student_id:  null,
+          cohort_id:   activeCohortId,
+          event_type:  'keith_tool_call',
+          event_date:  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date()),
+          notes:       `Keith called ${block.name}: ${summary}`,
+          created_by:  'system',
+        })
+        if (auditErr) console.warn('[keith audit] insert error:', auditErr.message)
+      } catch (auditEx) {
+        console.warn('[keith audit] threw:', auditEx.message)
+      }
 
       toolResults.push({
         type:        'tool_result',
