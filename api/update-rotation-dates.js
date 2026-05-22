@@ -75,7 +75,9 @@ export default async function handler(req, res) {
       .select('id, cohort_id')
       .eq('cohort_school_rotation_id', rotation_id)
 
-    const today = new Date().toISOString().split('T')[0]
+    // Use local-date formatting (not UTC ISO split) so event_date matches Pacific date
+    const _now = new Date()
+    const today = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`
     const notes = `[Auto-logged] Rotation dates updated for ${current.school_name}. ` +
       `Old: ${current.rotation_start_date} to ${current.rotation_end_date}. ` +
       `New: ${rotation_start_date} to ${rotation_end_date}. ` +
