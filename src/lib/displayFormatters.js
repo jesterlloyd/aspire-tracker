@@ -86,6 +86,38 @@ const PROGRAM_MAP = {
   'RN to BSN':                           'RN-BSN',
 };
 
+/**
+ * Maps a stored school name to its full institutional name for contexts where
+ * the complete name is required (e.g., badge front). Falls back to the input
+ * string if no mapping exists.
+ *
+ * Use shortenSchool() for compact display (StudentCard, list view, etc.).
+ * Use this function only where the full name is appropriate.
+ *
+ * @param {string} school
+ * @returns {string}
+ */
+export function fullSchool(school) {
+  if (!school) return ''
+  const map = {
+    'Cal State LA':                          'California State University, Los Angeles',
+    'CSULA':                                 'California State University, Los Angeles',
+    'California State University Los Angeles': 'California State University, Los Angeles',
+    'Cal State Long Beach':                  'California State University, Long Beach',
+    'CSULB':                                 'California State University, Long Beach',
+    'California State University Long Beach': 'California State University, Long Beach',
+    'WCU - Anaheim':                         'West Coast University - Anaheim',
+    'WCU Anaheim':                           'West Coast University - Anaheim',
+    'West Coast University Anaheim':         'West Coast University - Anaheim',
+    'WCU - North Hollywood':                 'West Coast University - North Hollywood',
+    'WCU - NoHo':                            'West Coast University - North Hollywood',
+    'WCU North Hollywood':                   'West Coast University - North Hollywood',
+    'West Coast University North Hollywood': 'West Coast University - North Hollywood',
+    'APU':                                   'Azusa Pacific University',
+  }
+  return map[school] || school
+}
+
 /** Returns a compact program type abbreviation. Returns input unchanged if unknown. */
 export function shortenProgram(programType) {
   if (!programType) return '';

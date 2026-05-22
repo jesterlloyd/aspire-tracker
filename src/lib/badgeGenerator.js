@@ -12,7 +12,7 @@
 // Adjust as needed after the first print test -- they are intentionally
 // exposed as named constants so a single value change propagates everywhere.
 
-import { shortenSchool } from './displayFormatters'
+import { fullSchool } from './displayFormatters'
 
 // Output dimensions: 2.5" x 3.5" at 300 DPI
 const CANVAS_W = 750
@@ -32,8 +32,8 @@ const FRONT = {
   photo:  { x: 219, y: 276, w: 309, h: 393 },
   // ~13pt equivalent (54px), bold, centered on 750px canvas
   name:   { x: 375, y: 760, fontSize: 54, fontWeight: 700, color: '#545454', align: 'center' },
-  // ~10.9pt equivalent (45px), centered below name
-  school: { x: 375, y: 820, fontSize: 45, fontWeight: 400, color: '#545454', align: 'center' },
+  // ~10.9pt equivalent (45px), centered below name; maxWidth scales long names to fit
+  school: { x: 375, y: 820, fontSize: 45, fontWeight: 400, color: '#545454', align: 'center', maxWidth: 700 },
 }
 const BACK = {
   // Group anchor: top-left of issue date text at (1.36", 2.21") = (408px, 663px).
@@ -270,8 +270,8 @@ export async function generateBadgePNGs({ student, rotation, headshotUrl }) {
   fCtx.font      = ctxFont(sc.fontWeight, sc.fontSize)
   fCtx.fillStyle = sc.color
   fCtx.textAlign = sc.align
-  const schoolLabel = shortenSchool(student.school) || (student.school || '')
-  fCtx.fillText(schoolLabel, sc.x, sc.y)
+  const schoolLabel = fullSchool(student.school) || (student.school || '')
+  fCtx.fillText(schoolLabel, sc.x, sc.y, sc.maxWidth)
 
   // ── Back page ────────────────────────────────────────────────────────────
 
