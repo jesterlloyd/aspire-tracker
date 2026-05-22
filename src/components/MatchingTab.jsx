@@ -53,7 +53,7 @@ export const getInterviewStatus = (s) => {
 }
 
 export const MATCH_QUALITY_CONFIG = {
-  '1st':   { label: '★ 1st Choice Match', color: '#166534', bg: '#f0fdf4', border: '#86efac' },
+  '1st':   { label: '★ Perfect Match',    color: '#166534', bg: '#f0fdf4', border: '#86efac' },
   '2nd':   { label: '2nd Choice Match',   color: '#92400e', bg: '#fffbeb', border: '#fde68a' },
   '3rd':   { label: '3rd Choice Match',   color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe' },
   'other': { label: 'Other Match',        color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },

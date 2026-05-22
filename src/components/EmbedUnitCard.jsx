@@ -16,7 +16,7 @@ const CHOICE_STYLES = {
 }
 
 const MATCH_QUALITY_CONFIG = {
-  '1st':   { label:'★ 1st Choice Match', color:'#065F46', bg:'#D1FAE5', border:'#059669' },
+  '1st':   { label:'★ Perfect Match',    color:'#065F46', bg:'#D1FAE5', border:'#059669' },
   '2nd':   { label:'2nd Choice Match',   color:'#7C5A1F', bg:'#FCEFD4', border:'#B5895A' },
   '3rd':   { label:'3rd Choice Match',   color:'#3730A3', bg:'#E0E7FF', border:'#7C8FD9' },
   'other': { label:'Manual placement',   color:'#6b7280', bg:'#f9fafb', border:'#e5e7eb' },

@@ -209,8 +209,10 @@ export default function StudentMatchingCard({
                 GPA {gpaVal.toFixed(2)}
               </span>
             )}
-            {/* Choice tier badge when a unit is focused */}
-            {choiceTier != null && (
+            {/* Small inline tier pill — shown only when NO unit filter is active.
+                When focusedUnit is set, the header chip above the card already
+                carries this information; rendering it here too is redundant. */}
+            {choiceTier != null && !focusedUnit && (
               <span style={{
                 fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 10,
                 background: TIER_BADGE[choiceTier].bg, color: '#fff', fontFamily: F, whiteSpace: 'nowrap',
