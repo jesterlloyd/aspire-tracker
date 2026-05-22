@@ -129,12 +129,14 @@ function getFlagInfo(s, studentRubs) {
   return { reason:'Review needed', critical:false }
 }
 
+// Returns the single distinct action for a row, or null when the default
+// row-click behavior (open rubric) is sufficient — avoids a redundant button.
 function getRowAction(s, studentRubs, sessions) {
   if (s.flagged_for_second_interview) return { label:'Review Flag', type:'flag' }
-  if (!s.interview_scheduled_date)    return { label:'Schedule',     type:'schedule' }
+  if (!s.interview_scheduled_date)    return { label:'Schedule',    type:'schedule' }
   const ts = getTeamsInviteStatus(s, sessions)
-  if (ts.tone === 'attention')        return { label:'Send Invite',  type:'invite' }
-  return { label:'Open Rubric', type:'rubric' }
+  if (ts.tone === 'attention')        return { label:'Send Invite', type:'invite' }
+  return null  // row click already opens the rubric; no distinct action needed
 }
 
 export default function InterviewRubricTab({
@@ -145,7 +147,7 @@ export default function InterviewRubricTab({
 }) {
   const { canInterview, isViewer, userProfile } = useAuth()
   const [selectedStudentId, setSelectedStudentId] = useState(null)
-  const [sortBy,            setSortBy]            = useState('last_name')
+  const [sortBy,            setSortBy]            = useState('appointment')
   const [sortDir,           setSortDir]           = useState('asc')
   const [activeFilter,      setActiveFilter]      = useState(null)
   const [refreshKey,        setRefreshKey]        = useState(0)
@@ -283,12 +285,26 @@ export default function InterviewRubricTab({
       })
     : students
 
+  // Appointment sort key: ISO datetime string for scheduled, or '' (sorts to end)
+  const apptKey = s => {
+    if (!s.interview_scheduled_date) return ''
+    return s.interview_scheduled_time
+      ? `${s.interview_scheduled_date}T${s.interview_scheduled_time}`
+      : `${s.interview_scheduled_date}T00:00`
+  }
+
   const sorted = [...baseStudents].sort((a, b) => {
-    const ivStatusOrder = { Completed:0, 'In Progress':1, Scheduled:2, 'Not Scheduled':3 }
     const teamsStatusOrder = { 'Needs Teams invite':1, 'Teams invite sent':2, Completed:3, 'Not scheduled':4, Cancelled:5 }
     let av, bv
     if (sortBy === 'last_name') {
       av = (a.last_name || a.name || '').toLowerCase(); bv = (b.last_name || b.name || '').toLowerCase()
+    } else if (sortBy === 'appointment') {
+      const ka = apptKey(a), kb = apptKey(b)
+      // Unscheduled always at end regardless of direction
+      if (!ka && !kb) return 0
+      if (!ka) return 1
+      if (!kb) return -1
+      return sortDir === 'asc' ? ka.localeCompare(kb) : kb.localeCompare(ka)
     } else if (sortBy === 'school') {
       const sc = (a.school||'').toLowerCase().localeCompare((b.school||'').toLowerCase())
       if (sc !== 0) return sortDir === 'asc' ? sc : -sc
@@ -471,8 +487,24 @@ export default function InterviewRubricTab({
             {/* Sticky column header */}
             <div className="ir-wl-thead">
               <div style={{ width:6, flexShrink:0 }} />
-              <div className="ir-wl-th ir-wl-col-student">Student</div>
-              <div className="ir-wl-th ir-wl-col-appt">Appointment</div>
+              {[
+                { key:'last_name',   col:'ir-wl-col-student',  label:'Student' },
+                { key:'appointment', col:'ir-wl-col-appt',     label:'Appointment' },
+              ].map(({ key, col, label }) => (
+                <div
+                  key={key}
+                  className={`ir-wl-th ${col}`}
+                  onClick={() => toggleSort(key)}
+                  style={{ cursor:'pointer', userSelect:'none', display:'flex', alignItems:'center', gap:4 }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(29,37,103,0.05)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                >
+                  <span style={{ fontWeight: sortBy === key ? 800 : 700 }}>{label}</span>
+                  {sortBy === key
+                    ? <span>{sortDir === 'asc' ? '↑' : '↓'}</span>
+                    : <span style={{ opacity:0.3 }}>↕</span>}
+                </div>
+              ))}
               <div className="ir-wl-th ir-wl-col-workflow">Workflow Status</div>
               <div className="ir-wl-th ir-wl-col-outcome">Outcome</div>
               <div className="ir-wl-th ir-wl-col-action">Action</div>
@@ -567,14 +599,14 @@ export default function InterviewRubricTab({
                     )}
                   </div>
 
-                  {/* 3. Workflow Status */}
-                  <div className="ir-wl-cell ir-wl-col-workflow">
+                  {/* 3. Workflow Status — align-items:flex-start prevents pills from stretching */}
+                  <div className="ir-wl-cell ir-wl-col-workflow" style={{ alignItems:'flex-start' }}>
                     {s.status && statusCfg && (
                       <span style={{ display:'inline-block', marginBottom:5, fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:statusCfg.bg, color:statusCfg.text, border:`1px solid ${statusCfg.border}`, whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif' }}>
                         {s.status}
                       </span>
                     )}
-                    <div><TeamsInvitePill student={s} sessions={sessions} /></div>
+                    <TeamsInvitePill student={s} sessions={sessions} />
                   </div>
 
                   {/* 4. Outcome */}
@@ -603,23 +635,25 @@ export default function InterviewRubricTab({
                     ) : null}
                   </div>
 
-                  {/* 5. Action — stopPropagation so row-click doesn't also fire */}
+                  {/* 5. Action — only shown for distinct actions; row click handles the default case */}
                   <div className="ir-wl-cell ir-wl-col-action" style={{ justifyContent:'center' }} onClick={e => e.stopPropagation()}>
-                    <button
-                      onClick={handleAction}
-                      style={{
-                        display:'inline-flex', alignItems:'center', gap:4,
-                        padding:'7px 14px', borderRadius:999,
-                        border:'1px solid #E5E5E5', background:'#ffffff',
-                        fontFamily:'DM Sans,sans-serif', fontSize:13, fontWeight:500,
-                        color:'#191919', cursor:'pointer', whiteSpace:'nowrap',
-                        transition:'background 150ms ease, border-color 150ms ease',
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.background='#F4F1EC'; e.currentTarget.style.borderColor='#c8c8c8' }}
-                      onMouseLeave={e => { e.currentTarget.style.background='#ffffff'; e.currentTarget.style.borderColor='#E5E5E5' }}
-                    >
-                      {rowAction.label}
-                    </button>
+                    {rowAction && (
+                      <button
+                        onClick={handleAction}
+                        style={{
+                          display:'inline-flex', alignItems:'center', gap:4,
+                          padding:'7px 14px', borderRadius:999,
+                          border:'1px solid #E5E5E5', background:'#ffffff',
+                          fontFamily:'DM Sans,sans-serif', fontSize:13, fontWeight:500,
+                          color:'#191919', cursor:'pointer', whiteSpace:'nowrap',
+                          transition:'background 150ms ease, border-color 150ms ease',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background='#F4F1EC'; e.currentTarget.style.borderColor='#c8c8c8' }}
+                        onMouseLeave={e => { e.currentTarget.style.background='#ffffff'; e.currentTarget.style.borderColor='#E5E5E5' }}
+                      >
+                        {rowAction.label}
+                      </button>
+                    )}
                   </div>
                 </div>
               )
