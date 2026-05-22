@@ -530,8 +530,7 @@ export default function StudentSidePanel({
         URL.revokeObjectURL(url)
       }
       triggerDownload(frontBlob, `${base}_Front.png`)
-      // Small delay so browsers save both files rather than merging into one
-      await new Promise(r => setTimeout(r, 200))
+      await new Promise(r => setTimeout(r, 800))
       triggerDownload(backBlob, `${base}_Back.png`)
       toast?.success('Badge downloaded', 'Front and back badge files saved.')
     } catch (err) {
