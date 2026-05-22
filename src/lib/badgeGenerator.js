@@ -25,15 +25,22 @@ const TEMPLATE_BACK  = '/badge-templates/back.png'
 // Date value that signals "not yet set by admin"
 const SENTINEL = '1900-01-01'
 
-// Overlay coordinates -- adjust after first print test
+// Overlay coordinates -- adjust after each print test
+// Math reference: 1 inch = 300px at 300 DPI on a 750x1050 canvas (2.5" x 3.5")
 const FRONT = {
-  photo:  { x: 250, y: 285, w: 250, h: 320 },
-  name:   { x: 375, y: 680, fontSize: 30, fontWeight: 600, color: '#191919', align: 'center' },
-  school: { x: 375, y: 720, fontSize: 22, fontWeight: 400, color: '#4A4A4A', align: 'center' },
+  // 1.11" x 1.39" frame at (0.69", 0.88") from top-left
+  photo:  { x: 207, y: 264, w: 333, h: 417 },
+  // ~13pt equivalent (54px), bold, centered on 750px canvas
+  name:   { x: 375, y: 760, fontSize: 54, fontWeight: 700, color: '#191919', align: 'center' },
+  // ~10.9pt equivalent (45px), centered below name
+  school: { x: 375, y: 820, fontSize: 45, fontWeight: 400, color: '#4A4A4A', align: 'center' },
 }
 const BACK = {
-  issueDate:  { x: 290, y: 720, fontSize: 22, fontWeight: 600, color: '#1A2B5C' },
-  validUntil: { x: 320, y: 770, fontSize: 22, fontWeight: 600, color: '#1A2B5C' },
+  // x/y preserved from first render; tune here after next test if alignment is off.
+  // ~10.9pt equivalent (45px), bold, CS red (#DC1E34).
+  // maxWidth (234px = 0.78") prevents long date strings from overflowing.
+  issueDate:  { x: 290, y: 720, fontSize: 45, fontWeight: 700, color: '#DC1E34', align: 'left', maxWidth: 234 },
+  validUntil: { x: 320, y: 770, fontSize: 45, fontWeight: 700, color: '#DC1E34', align: 'left', maxWidth: 234 },
 }
 
 // ── One-time startup asset check ─────────────────────────────────────────────
@@ -278,15 +285,16 @@ export async function generateBadgePNGs({ student, rotation, headshotUrl }) {
   const ic = BACK.issueDate
   bCtx.font         = ctxFont(ic.fontWeight, ic.fontSize)
   bCtx.fillStyle    = ic.color
-  bCtx.textAlign    = 'left'
+  bCtx.textAlign    = ic.align
   bCtx.textBaseline = 'alphabetic'
-  bCtx.fillText(formatBadgeDate(dates.issueDate), ic.x, ic.y)
+  bCtx.fillText(formatBadgeDate(dates.issueDate), ic.x, ic.y, ic.maxWidth)
 
   // 3. Valid-until date (positioned after the "VALID UNTIL:" label)
   const vc = BACK.validUntil
   bCtx.font      = ctxFont(vc.fontWeight, vc.fontSize)
   bCtx.fillStyle = vc.color
-  bCtx.fillText(formatBadgeDate(dates.validUntil), vc.x, vc.y)
+  bCtx.textAlign = vc.align
+  bCtx.fillText(formatBadgeDate(dates.validUntil), vc.x, vc.y, vc.maxWidth)
 
   // ── Export as PNG Blobs ──────────────────────────────────────────────────
 
