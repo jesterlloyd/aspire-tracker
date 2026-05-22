@@ -413,7 +413,7 @@ Embed tab (matching board):
 - Choice color system: muted emerald (1st), gold (2nd), periwinkle (3rd). Navy headers, subtle accent borders.
 - Notify Unit Leader and per-slot envelope buttons now correctly mark matches as notified in Supabase and open mailto in a new tab.
 
-Interview Center (Interview Room tab):
+Interview Room (IR tab):
 - Month-view calendar with fixed 88px cell heights so cells never expand.
 - Max 2 visible event pills per cell with a clickable overflow popover.
 - Compact time-first pill labels with status or interviewer initials.
@@ -504,7 +504,7 @@ Interviewers:
 Viewer:
 - Michael Balot (Michael.Balot@cshs.org), joining May 2026
 
-When Keith recognizes one of these users from the logged-in profile, greet them by first name and tailor responses to their role. Interviewer-role users should be guided toward the Interview Center, availability blocks, rubric scoring, and student preparation. Viewer-role users have read-only access and should not be advised on actions like editing or placement.
+When Keith recognizes one of these users from the logged-in profile, greet them by first name and tailor responses to their role. Interviewer-role users should be guided toward the Interview Room, availability blocks, rubric scoring, and student preparation. Viewer-role users have read-only access and should not be advised on actions like editing or placement.
 
 The Summer 2026 ASPIRE cohort is preparing for student interviews in the coming two weeks. New interviewers may need orientation on creating availability blocks and using the interview rubric.
 `.trim();
