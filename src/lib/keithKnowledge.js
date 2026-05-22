@@ -25,8 +25,8 @@ export const ASPIRE_KNOWLEDGE = {
   tabs: {
     aggregate: `The Aggregate tab shows the program overview: Placement Capacity (units by division with response status and slot counts) and Placement Requests (students grouped by school). It includes summary cards for Total Slots, Slots Filled, Slots Remaining, Students Requesting, and Gap. It also shows the On Campus Today panel for students who logged shifts today.`,
     studentProfiles: `The Student Profiles tab shows two views: Profiles (student list with side panel detail) and CS-Link Access (bulk access workflow table). The student list shows avatars, names, school, program, contact info, GPA, ASPIRE status, and CS-Link status. The side panel shows full profile with all sections including CS-Link workflow, Clinical Hours, Documents, and Communication History.`,
-    interviewRubric: `The Interview Room tab manages interviews. The calendar shows scheduled interviews and availability slots. Summary cards track Total, Scheduled, Completed, In Progress, Not Scheduled, Flagged, and Recommended students. The rubric form has 7 sections: Interview Info, Unit Preferences and Rationale, Clinical Judgment, Professional Presence, Goal Alignment, Student Questions, and Overall Recommendation. Scoring uses a 1-5 scale. Auto recommendation uses majority vote of interviewers.`,
-    embed: `The Embed tab is the matching board. The Unit Pool shows unit cards with open slot pills. The Student Pool shows unmatched students. Clicking a student highlights compatible units based on their preferences. Clicking an empty slot creates a match. Unit leader email notifications are sent from this tab.`,
+    interviewRubric: `The Interview Room (IR tab) manages interviews. Above the worklist: a booking calendar, interview slot management, and six KPI filter cards (Total, Scheduled, Completed, Not Scheduled, Flagged, Recommended). The worklist below the KPIs is five columns: Student (avatar, name, school/program), Appointment (date/time and interviewer or "Not Scheduled"), Workflow Status (ASPIRE Stage pill + Teams Invite chip), Outcome (rubric count, average score, recommendation), and Action (contextual button: Schedule, Send Invite, Review Flag, or empty when row-click suffices). Clicking a row opens the rubric session for that student. Flagged rows show an amber or red flag chip at the left edge with a hover-revealed reason. Student and Appointment columns are sortable. The rubric form has 7 sections: Interview Info, Unit Preferences and Rationale, Clinical Judgment, Professional Presence, Goal Alignment, Student Questions, and Overall Recommendation. Scoring 1-5. Auto recommendation uses majority vote of interviewers. Auto-save every 30 seconds protects in-progress rubrics.`,
+    embed: `The Embed tab is the matching board. Above: Placement at a Glance KPIs and Preference Match donut. Below: a 50/50 split workspace. Unit Pool (left): unit cards in three zones -- Identity (unit name, specialty, division chip), Capacity (dot indicators: filled sage dots, open hollow rings; slot count descriptor), and Placements (compact 36px rows with 24px avatars, match quality chips). Match quality chips: "Perfect Match" (sage, 1st choice), "2nd Choice Match" (amber), "3rd Choice Match" (slate-blue), "Compatible" or "Manual placement" (muted). Clicking a Unit Card filters Student Pool to students who picked that unit as a preference, ranked 1st/2nd/3rd choice. Each filtered Student Pool card shows a header chip like "1st Choice for 5 SCCT". Full units with unnotified placements show a "Notify Unit Leader" button that opens a mailto. Student Pool (right): StudentMatchingCard grid with avatar, name, school/program, status pills, and preference rows with slot availability. Clicking a student creates a match when clicking an open slot.`,
   },
 
   csLinkWorkflow: `CS-Link Access is a two-stage process. Stage 1 is a Service Center request: new students need Add Non-Employee, former students need Assignment Change, Extend End Date, or Reactivate. Cedars employees skip Stage 1. Stage 2 is adding CS-Link access for all students. The Action Center flags students from Form Received onwards who have not yet had Stage 1 submitted.`,
@@ -41,7 +41,7 @@ export const ASPIRE_KNOWLEDGE = {
 
   forms: {
     unitForm: `/unit-form – Submitted by unit leaders to indicate participation, slot count, shift preference, and preceptor names.`,
-    schoolForm: `/school-form – Submitted by school coordinators with student rosters: name, school email, program, term dates, hours required, graduation date.`,
+    schoolForm: `/school-form – Submitted by school coordinators with student rosters. Sections: School Information (school name, coordinator name and email), Rotation Dates (date pickers for Rotation Start Date and Rotation End Date that apply to all students in the submission), and Students (per-student: first name, last name, school email, phone, program type, hours required, Estimated Graduation Date date picker). Free-text term dates were removed; coordinators now use proper date pickers. Rotation dates are validated at submit.`,
     studentForm: `/student-form – Submitted by students with personal info, GPA, shift preference, interest statement, and top 3 unit preferences.`,
     shiftLog: `/shift-log – Students log clinical hours after each shift using a universal QR code.`,
     interviewSchedule: `/interview-schedule – Students book their own interview slot from available times set by the ASPIRE team.`,
@@ -398,47 +398,57 @@ Interviewers can conduct interviews by default. Owner, Admin, and Co-Lead can al
 `.trim();
 
 export const RECENT_UPDATES = `
-Recent platform updates (as of May 2026):
+Platform updates shipped May 2026:
 
-Data and infrastructure:
-- Unified StudentAvatar component renders uploaded photos when available, falls back to Nightfall initials. Used everywhere students appear.
-- Owner avatar upload wired up: user_profiles.avatar_url updates via update_my_avatar RPC and displays in the navbar.
-- RLS recursion bug on user_profiles fixed: replaced recursive owner-check policies with is_current_user_owner() security definer function.
-- Dylan Cline status corrected from "Placed" to the correct status; all 3 program events (form_received, interview, placement) confirmed in the database.
+Rotation and badge infrastructure:
+- New table cohort_school_rotations: one row per school per cohort, stores rotation_start_date and rotation_end_date as the source of truth for badges, analytics, and downstream workflows. Students link to their school's rotation via cohort_school_rotation_id.
+- Sentinel value '1900-01-01' means rotation dates have not been set yet. Admin can set real dates via the Rotation Dates panel in the student profile drawer.
+- Badge generation: "Download Badge" button in the student profile drawer generates a front+back PNG pair (2.5 x 3.5 inches, 300 DPI) using templates at public/badge-templates/. Front: student photo, full name, full school name. Back: Issue Date (rotation start minus 7 days) and Valid Until (last day of the month containing rotation end). Disabled if headshot is missing or rotation dates are pending. Permissions: owner, admin, interviewer can download; viewer cannot.
+- School form (/school-form) refactored: Rotation Dates section (date pickers) added between School Information and Students. Per-student Estimated Graduation Date is now a real date picker. Free-text term dates removed.
+- On first approved shift, a student's status auto-promotes from Placed to Active Rotation without manual intervention.
 
-Embed tab (matching board):
-- Unified dark toolbar across Unit Pool and Student Pool with a centered divider.
-- View Status Legend info icon relocated to the light subheader next to the student count to prevent clipping.
-- Two-zone student cards with name/school/pills on the left and Top 3 Unit Choices on the right.
-- Choice color system: muted emerald (1st), gold (2nd), periwinkle (3rd). Navy headers, subtle accent borders.
-- Notify Unit Leader and per-slot envelope buttons now correctly mark matches as notified in Supabase and open mailto in a new tab.
+Interview Room worklist refactor:
+- The previous 11-column wide table replaced with a five-column operational worklist: Student, Appointment, Workflow Status, Outcome, Action.
+- Student column: avatar, full name, school/program (abbreviated).
+- Appointment: formatted date/time and interviewer name ("Krystal R."), or "Not Scheduled".
+- Workflow Status: ASPIRE Stage pill + Teams Invite chip stacked.
+- Outcome: rubric count, average score, recommendation pill, or "Awaiting Interview".
+- Action: contextual button (Schedule, Send Invite, Review Flag) or empty when row-click suffices.
+- "Interview Outcomes" header strip above KPI cards showing student count.
+- Student and Appointment columns sortable; default sort is Appointment ascending.
+- Flagged rows show a colored flag chip at the left edge with hover-revealed reason (Score discrepancy, Recommendation conflict, No show, Review needed).
+- Rubric auto-save every 30 seconds protects in-progress work; session refresh every 15 minutes prevents token expiry during long interviews.
 
-Interview Room (IR tab):
-- Month-view calendar with fixed 88px cell heights so cells never expand.
-- Max 2 visible event pills per cell with a clickable overflow popover.
-- Compact time-first pill labels with status or interviewer initials.
-- Interviewer legend moved into the controls row as a rounded pill next to Focus Table View.
-- Loading, error, and empty states added with a Refresh button.
+Embed tab Unit Card redesign:
+- Heavy navy header band removed. Three-zone anatomy: Identity (unit name, specialty, division chip), Capacity (slot dot indicators + count descriptor), Placements (compact 36px rows with 24px avatars).
+- Match quality labels: "Perfect Match" (sage) for 1st choice placement, "2nd Choice Match" (amber), "3rd Choice Match" (slate-blue), "Compatible" or "Manual placement" (muted).
+- Click-to-surface: clicking a Unit Card filters Student Pool to students who listed that unit as a preference, ranked by tier. Each filtered Student Pool card shows a tier chip ("1st Choice for 5 SCCT" etc.).
+- Three distinct hover affordances: card body lifts (browseable), open slot button shifts to sand (additive), Notify Unit Leader button darkens without lift (declarative).
 
-People & Access drawer (formerly User Management):
-- Renamed to People & Access.
-- Filter chips replace the search box: All Users, Active, Interviewers, Inactive, Owners/Admins.
-- Users sorted by role hierarchy (Owner, Admin, Co-Lead, Interviewer, Viewer), inactive at bottom.
-- Owner account protected: cannot be demoted or deactivated.
-- Interview Calendar Color picker uses single labeled swatches (Navy, Emerald, Teal, Gold, Plum, Rose, Slate, Forest, Burgundy, Sienna).
+Contacts and weekly digest:
+- New contacts table: centralized phone book. Currently seeded with six school placement coordinators (APU, Cal State LA x2, Cal State Long Beach, WCU Anaheim, WCU North Hollywood). Will expand to unit leaders and nursing executives.
+- Weekly coordinator digest cron (api/cron/coordinator-weekly-digest.js) runs every Friday at 16:00 UTC (8 AM Pacific). Routes student activity (form_received, interview_booked, interview, placement) to the correct coordinator for their school. Sends one email per coordinator with activity from the past 7 days via Resend.
+- Recovery endpoint: POST /api/admin/resend-coordinator-digest for manual trigger or backfill.
 
-Gantt chart (Aggregate tab):
-- Program timeline now correctly loads from program_events with explicit loading and empty states.
+Data reliability fixes:
+- Realtime subscriptions on interview_rubrics now pause while an interviewer is editing (prevents re-render storms during long sessions).
+- React Query global refetchOnWindowFocus disabled; per-query overrides available.
+- Cohort-scoped queries invalidate properly on cohort switch.
+- People & Access panel now conditionally mounts (fresh fetch on each open).
 `.trim();
 
 export const TECHNICAL_STACK = `
 Technical stack:
 - React + Vite frontend deployed via Vercel from github.com/jesterlloyd/aspire-tracker.
 - Supabase PostgreSQL backend with Row Level Security.
-- Tables: students, cohorts, units, matches, interview_rubrics, interview_sessions, interview_slots, interview_availability_blocks, interviewers, communications, student_shift_logs, program_events, ngrp_outcomes, preceptors, cohort_snapshots, user_profiles, activity_logs.
+- Core tables: students, cohorts, units, matches, interview_rubrics, interview_sessions, interview_slots, interview_availability_blocks, interviewers, communications, student_shift_logs, program_events, ngrp_outcomes, preceptors, cohort_snapshots, user_profiles, activity_logs, notification_log.
+- New tables (May 2026): cohort_school_rotations (rotation dates per school per cohort), contacts (school coordinators and future unit leaders/executives).
 - Views: cohort_conversion_funnel, school_pipeline_yield.
-- Storage buckets: student-files (headshots, documents), avatars (admin profile photos).
+- Storage buckets: student-files (headshots, resume, documents), avatars (admin profile photos). Badge templates live at public/badge-templates/ (front.png, back.png).
 - Authentication via Supabase auth, user_profiles linked through auth_user_id.
+- Email delivery via Resend (domain aspire-program.com). Notification log tracks sends, delivery, opens, and bounces.
+- Serverless API routes at /api/ (Vercel Functions): student updates, interview booking, invite/user management, cron jobs, notification sends, badge generation (client-side canvas, no API route needed).
+- Shared date utility: shared/dateUtils.js exports toLocalDateStr() -- both api/ and src/ import from here; never use toISOString().split('T')[0] for date columns.
 `.trim();
 
 export const UNIT_CATALOG_KNOWLEDGE = (() => {
@@ -594,6 +604,91 @@ Key cross-program collaborations:
 - Nursing Research Council: Krystal, Millicent, Michael
 `.trim();
 
+export const ROTATION_AND_BADGE_KNOWLEDGE = `
+ROTATION DATE SYSTEM:
+Rotation dates are a property of each school's participation in a cohort, not of the cohort itself. They are stored in the cohort_school_rotations table: one row per school per cohort, with rotation_start_date and rotation_end_date. Students link to their school's rotation row via students.cohort_school_rotation_id. The sentinel value '1900-01-01' on either date means the admin has not filled them in yet.
+
+The student profile drawer shows a "Rotation Dates" panel where owners and admins can set real dates. Editing the rotation row updates all students from that school in that cohort simultaneously.
+
+BADGE GENERATION:
+Badges are generated client-side in the student profile drawer using src/lib/badgeGenerator.js. The "Download Badge" button produces two PNG files (front and back, 750x1050 pixels = 2.5" x 3.5" at 300 DPI).
+
+Front: student headshot photo (cover-fit), full name, full institutional school name (e.g., "California State University, Los Angeles").
+Back: Issue Date and Valid Until calculated from the linked rotation row.
+  - Issue Date = rotation_start_date minus 7 calendar days.
+  - Valid Until = last calendar day of the month containing rotation_end_date.
+  - Example: rotation June 1 to August 7 -> Issue Date May 25, Valid Until August 31.
+
+The button is disabled with a tooltip if:
+  - Student has no headshot_url ("Headshot required")
+  - Rotation dates are missing or sentinel ("Rotation dates pending")
+
+Permissions: owner, admin, and interviewer roles can download. Viewer cannot see the button.
+
+SCHOOL FORM REFACTOR:
+The public /school-form now has a "Rotation Dates" section between School Information and Students. Coordinators use date pickers (not free text) for Rotation Start Date and Rotation End Date. These apply to all students in the submission. Per-student Estimated Graduation Date is now a date picker. Validation at submit: end must be after start (blocks), past start and unusual length trigger a "please review" confirmation.
+`.trim();
+
+export const CONTACTS_AND_DIGEST_KNOWLEDGE = `
+CONTACTS TABLE:
+A centralized phone book at the DB level. Phase 1 seeded with six school placement coordinators:
+- Susan Hunter (APU, all programs)
+- Alyssa Manlangit (Cal State LA, Accelerated BSN)
+- Marissa Grafil Ramirez (Cal State LA, catch-all for non-ABSN programs)
+- Lucy Van Otterloo (Cal State Long Beach, all programs)
+- Joelene Balatero (West Coast University Anaheim)
+- Tony Kim (West Coast University North Hollywood)
+Future phases will add unit leaders, nursing executives, and BNI NPD-Ps.
+
+WEEKLY COORDINATOR DIGEST:
+A cron (api/cron/coordinator-weekly-digest.js) runs every Friday at 16:00 UTC (8 AM Pacific). It sends each coordinator a digest of their students' activity from the past 7 days: Form Received, Interview Scheduled, Interview Completed, Unit Placement events. Routing: coordinators receive events for students from their school (and program type for Cal State LA split). Recovery endpoint: POST /api/admin/resend-coordinator-digest.
+`.trim();
+
+export const DATA_CONVENTIONS = `
+DATA FETCHING AND ARCHITECTURE CONVENTIONS:
+- All external navigation (http/https links, mailto, tel) routes through src/lib/openLink.js. Never use raw window.open or window.location for these.
+- All useQuery queryKeys must include every context variable the query depends on (cohort_id, student_id). A query for cohort A must not return cached results for cohort B.
+- useQuery queryFn must throw on error, never return null for a success path.
+- Modal and drawer components use conditional render ({open && <Component />}), not CSS hide. This ensures a fresh mount and fresh data on each open.
+- Cohort-scoped queries must appear in the handleCohortSwitch invalidation list in App.jsx. Missing keys cause stale data after cohort switch.
+- toLocalDateStr (from shared/dateUtils.js) is the canonical date helper for YYYY-MM-DD strings. Never use toISOString().split('T')[0] for date columns -- that returns UTC and causes Pacific timezone off-by-one bugs.
+`.trim();
+
+export const DESIGN_SYSTEM_KNOWLEDGE = `
+DESIGN SYSTEM (ASPIRE Card Family):
+Three card types share the same visual DNA via CARD tokens in designTokens.js:
+- StudentCard (profile, on-campus, interview variants) -- used in Student Profiles Grid View, Aggregate On Campus Today, and Interview Room Interviews Today
+- StudentMatchingCard -- used in Embed Student Pool
+- UnitCard (EmbedUnitCard) -- used in Embed Unit Pool
+
+All share: 12px border-radius, 1px hairline border, soft shadow, Apple TV-style hover lift (-3px translateY), 150ms transition, DM Sans typography.
+
+BackButton (src/components/BackButton.jsx) is the canonical back-navigation affordance. Pill-shaped, white background, hairline border, sand hover (#F4F1EC), DM Sans 14/500. Two variants: default (with border) and subtle (transparent). Use this component for every "go back" action; do not create custom back buttons.
+
+Pill philosophy: status pills, match quality chips, capacity descriptors, and header chips each have distinct visual treatments. Pills hug their label text (display: inline-block, width: fit-content). They do not stretch to fill columns.
+`.trim();
+
+export const ROADMAP_AND_LIMITATIONS = `
+STRATEGIC ROADMAP (what is coming):
+- ASPIRE Connect: in-app messaging layer that replaces mailto and enables Keith to send emails on behalf of users, threading communications under contact records. Foundation is in place (Resend integration, communications table, contacts table, aspire-program.com domain). Phase 1 build is approximately 2-3 weeks of focused work; not yet scheduled.
+- CS-Link Management worklist: second worklist following the Interview Room five-column pattern. Building it will inform extracting a shared Worklist component.
+- Badge Management worklist: third planned surface for tracking photo status, badge generation, and distribution.
+- Placement Follow-Up worklist: fourth planned surface for tracking post-placement progress.
+- Keith tool infrastructure (next prompt): giving Keith live database read access so it can answer questions about specific students, rubric scores, and unit availability on demand. Currently Keith works from static knowledge and what users share in conversation.
+- Predictive models (longer term): NGRP likelihood scoring, at-risk student detection, demand forecasting. Requires several cohorts of clean longitudinal data before training is meaningful.
+
+ACKNOWLEDGED LIMITATIONS (honest answers Keith must give):
+Keith does NOT have direct database query access. It works from static knowledge embedded in this prompt and from whatever live cohort summary context is passed in. Keith cannot:
+- Look up individual student records, rubric scores, or unit preferences on demand
+- See real-time slot availability or placement status for specific students
+- Send emails, update records, or perform any write action
+- Access data outside what is in the live cohort context block
+
+When users ask questions that require live data Keith does not have, Keith should say honestly that it does not have access to that specific data, and direct the user to the appropriate tab where the answer lives: Student Profiles for student details, Interview Room for rubric and scheduling data, Embed for placement and slot status, Aggregate for cohort-level overview.
+
+Tool infrastructure (giving Keith live read access and write actions) is queued for the next development prompt.
+`.trim();
+
 /**
  * Builds the full system prompt for Keith, merging platform knowledge,
  * live cohort context, and the logged-in user's identity.
@@ -681,6 +776,16 @@ ${BNI_ORGANIZATION}
 ${TEAM_ROSTER}
 
 ${RECENT_UPDATES}
+
+${ROTATION_AND_BADGE_KNOWLEDGE}
+
+${CONTACTS_AND_DIGEST_KNOWLEDGE}
+
+${DATA_CONVENTIONS}
+
+${DESIGN_SYSTEM_KNOWLEDGE}
+
+${ROADMAP_AND_LIMITATIONS}
 
 ${TECHNICAL_STACK}
 
