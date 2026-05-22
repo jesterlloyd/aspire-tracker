@@ -5,58 +5,169 @@ import { buildUnitLeaderEmail } from '../lib/emailUtils'
 import { openMailtoLink } from '../lib/openLink'
 import StudentAvatar from './StudentAvatar'
 import { getUnit } from '../lib/unitCatalog'
+import { CARD } from '../lib/designTokens'
 
-const resolveMatchedStudent = (match, slot, studentMap) => {
-  if (match?.student?.first_name) return match.student
-  if (match?.student_id && studentMap?.[match.student_id]) return studentMap[match.student_id]
-  if (slot?.booked_by_student_id && studentMap?.[slot.booked_by_student_id]) return studentMap[slot.booked_by_student_id]
-  return null
-}
+// ── Choice / match-quality config ────────────────────────────────────────────
 
 const CHOICE_STYLES = {
-  '1st': { accentBorder:'#059669', badgeBg:'#D1FAE5', badgeText:'#065F46', bodyTint:'#F0FDF4', label:'★ 1st choice' },
-  '2nd': { accentBorder:'#B5895A', badgeBg:'#FCEFD4', badgeText:'#7C5A1F', bodyTint:'#FDF8EC', label:'★ 2nd choice' },
-  '3rd': { accentBorder:'#7C8FD9', badgeBg:'#E0E7FF', badgeText:'#3730A3', bodyTint:'#EFF3FE', label:'★ 3rd choice' },
+  '1st': { border:'#059669', chipBg:'#D1FAE5', chipText:'#065F46', label:'★ 1st choice' },
+  '2nd': { border:'#B5895A', chipBg:'#FCEFD4', chipText:'#7C5A1F', label:'★ 2nd choice' },
+  '3rd': { border:'#7C8FD9', chipBg:'#E0E7FF', chipText:'#3730A3', label:'★ 3rd choice' },
 }
 
 const MATCH_QUALITY_CONFIG = {
-  '1st':   { label: '★ 1st Choice Match', color: '#065F46', bg: '#D1FAE5', border: '#059669' },
-  '2nd':   { label: '2nd Choice Match',   color: '#7C5A1F', bg: '#FCEFD4', border: '#B5895A' },
-  '3rd':   { label: '3rd Choice Match',   color: '#3730A3', bg: '#E0E7FF', border: '#7C8FD9' },
-  'other': { label: 'Other Match',        color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
+  '1st':   { label:'★ 1st Choice Match', color:'#065F46', bg:'#D1FAE5', border:'#059669' },
+  '2nd':   { label:'2nd Choice Match',   color:'#7C5A1F', bg:'#FCEFD4', border:'#B5895A' },
+  '3rd':   { label:'3rd Choice Match',   color:'#3730A3', bg:'#E0E7FF', border:'#7C8FD9' },
+  'other': { label:'Manual placement',   color:'#6b7280', bg:'#f9fafb', border:'#e5e7eb' },
 }
 
+const resolveMatchedStudent = (match, studentMap) => {
+  if (match?.student?.first_name) return match.student
+  if (match?.student_id && studentMap?.[match.student_id]) return studentMap[match.student_id]
+  return null
+}
+
+// ── Compact placement row ─────────────────────────────────────────────────────
+
+function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify }) {
+  const [rowHovered, setRowHovered] = useState(false)
+  const qKey = student.unit_preference_1 === unit.unit_name ? '1st'
+    : student.unit_preference_2 === unit.unit_name ? '2nd'
+    : student.unit_preference_3 === unit.unit_name ? '3rd'
+    : 'other'
+  const qCfg       = MATCH_QUALITY_CONFIG[qKey]
+  const isNotified = !!match?.notification_sent
+  const hasPreceptor = !!student.matched_preceptor
+
+  return (
+    <div
+      onMouseEnter={() => setRowHovered(true)}
+      onMouseLeave={() => setRowHovered(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '5px 4px',
+        borderRadius: 6,
+        background: rowHovered ? '#F4F1EC' : 'transparent',
+        transition: 'background 120ms ease',
+        minHeight: 36,
+      }}
+    >
+      <StudentAvatar student={student} size={24} style={{ flexShrink: 0 }} />
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Name · shift */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 13, color: '#191919', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>
+            {student.first_name} {student.last_name}
+          </span>
+          {student.shift_assigned && (
+            <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 12, color: '#9ca3af', whiteSpace: 'nowrap' }}>
+              {student.shift_assigned}
+            </span>
+          )}
+          <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 20, background: qCfg.bg, color: qCfg.color, border: `1px solid ${qCfg.border}`, whiteSpace: 'nowrap' }}>
+            {qCfg.label}
+          </span>
+        </div>
+        {/* Warning: preceptor needed */}
+        {!hasPreceptor && (
+          <div style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11, color: '#B45309', marginTop: 1 }}>
+            {'⚠'} Preceptor needed
+          </div>
+        )}
+      </div>
+
+      {/* Notify + unmatch controls */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+        {isNotified
+          ? <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 600 }}>✓</span>
+          : <button
+              title="Notify unit leader for this student"
+              onClick={e => { e.stopPropagation(); onNotify(student, match) }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#6b7280', padding: '0 2px', lineHeight: 1 }}>
+              ✉
+            </button>
+        }
+        <button
+          title="Unmatch student"
+          onClick={e => { e.stopPropagation(); onUnmatch(student) }}
+          style={{ background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: '#d1d5db', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}
+          onMouseEnter={e => e.currentTarget.style.color = '#dc1e34'}
+          onMouseLeave={e => e.currentTarget.style.color = '#d1d5db'}
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Compact open slot button ──────────────────────────────────────────────────
+
+function CompactOpenSlot({ selectedStudent, compat, onClick }) {
+  const [hovered, setHovered] = useState(false)
+  const isReady = !!selectedStudent && !!onClick
+  return (
+    <button
+      onClick={isReady ? e => { e.stopPropagation(); onClick() } : undefined}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+        width: '100%', height: 32,
+        borderRadius: 8,
+        border: `1px solid ${hovered && isReady ? '#c8c8c8' : '#E5E5E5'}`,
+        background: hovered && isReady ? '#F4F1EC' : '#ffffff',
+        fontFamily: 'DM Sans,sans-serif', fontSize: 13, fontWeight: 500,
+        color: isReady ? '#191919' : '#9ca3af',
+        cursor: isReady ? 'pointer' : 'default',
+        transition: 'background 150ms ease, border-color 150ms ease',
+        outline: 'none',
+      }}
+    >
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+        <line x1="12" y1="5" x2="12" y2="19"/>
+        <line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      {isReady ? 'Place in this slot' : '+ Open slot'}
+    </button>
+  )
+}
+
+// ── Main card ─────────────────────────────────────────────────────────────────
 
 export default function EmbedUnitCard({
   unit, matchedStudents, matches, studentMap, selectedStudent,
   onSlotClick, onUnmatch, onUpdateMatch, onDelete, isHighlighted,
   isFocusedUnit, onFocusUnit,
 }) {
-  const [confirmUnmatch, setConfirmUnmatch] = useState(null)
-  const [confirmDelete,  setConfirmDelete]  = useState(false)
-  const [toast,          setToast]          = useState(null)
+  const [confirmUnmatch,  setConfirmUnmatch]  = useState(null)
+  const [confirmDelete,   setConfirmDelete]   = useState(false)
+  const [toast,           setToast]           = useState(null)
+  const [cardHovered,     setCardHovered]     = useState(false)
+  const [notifiedAt,      setNotifiedAt]      = useState(null)  // persists Zone-2 notify confirmation
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(null), 4000) }
+
+  const unitMeta  = getUnit(unit.unit_name)
+  const desc      = unitMeta?.description || null
+  const division  = unit.division || UNIT_DIVISION_MAP[unit.unit_name] || unitMeta?.division || null
 
   const filledCount = matchedStudents.length
   const emptyCount  = Math.max(0, unit.total_slots - filledCount)
   const isFull      = emptyCount === 0
 
+  // Choice level for the currently selected student
   const compat = selectedStudent
     ? (selectedStudent.unit_preference_1 === unit.unit_name ? '1st'
       : selectedStudent.unit_preference_2 === unit.unit_name ? '2nd'
       : selectedStudent.unit_preference_3 === unit.unit_name ? '3rd'
       : null)
     : null
-
   const choiceStyle = compat ? CHOICE_STYLES[compat] : null
-  const bgTint      = choiceStyle ? choiceStyle.bodyTint : '#ffffff'
 
-  const fillBadge = isFull
-    ? <span className="euc-fill-badge euc-fill-full">Full</span>
-    : <span className="euc-fill-badge euc-fill-open">{emptyCount} of {unit.total_slots} open</span>
-
-  // Notification counts
+  // Notification state
   const notifiedCount = matchedStudents.filter(s => {
     const m = matches.find(m => m.student_id === s.id && m.unit_id === unit.id)
     return !!m?.notification_sent
@@ -64,7 +175,20 @@ export default function EmbedUnitCard({
   const allNotified  = filledCount > 0 && notifiedCount === filledCount
   const someNotified = notifiedCount > 0 && notifiedCount < filledCount
 
-  // Build student payload for email
+  // Build unnotified list for Zone-2 button label
+  const unnotifiedStudents = matchedStudents.filter(s => {
+    const m = matches.find(m => m.student_id === s.id && m.unit_id === unit.id)
+    return !m?.notification_sent
+  })
+
+  const notifyButtonLabel = (() => {
+    if (unnotifiedStudents.length === 1) return `Notify unit leader about ${unnotifiedStudents[0].first_name} →`
+    if (unnotifiedStudents.length === 2) return `Notify unit leader about ${unnotifiedStudents[0].first_name} + ${unnotifiedStudents[1].first_name} →`
+    return `Notify unit leader about ${unnotifiedStudents.length} students →`
+  })()
+
+  // ── Email helpers (logic unchanged) ──────────────────────────────────────
+
   const toEmailStudent = (s, m) => ({
     firstName:         s.first_name  || '',
     lastName:          s.last_name   || s.name || '',
@@ -78,160 +202,221 @@ export default function EmbedUnitCard({
 
   const handleNotifyOne = async (student, match) => {
     const emailStudent = toEmailStudent(student, match)
-    const mailto = buildUnitLeaderEmail({
+    openMailtoLink(buildUnitLeaderEmail({
       contactPersons: unit.contact_person || 'Unit Leader',
       contactEmails:  unit.contact_email  || '',
       unitName:       unit.unit_name,
       students:       [emailStudent],
       isMultiStudent: false,
-    })
-    openMailtoLink(mailto)
-    // Always mark as notified — the mailto opened regardless of whether email is configured
-    if (match) {
-      const notifiedAt = new Date().toISOString()
-      await onUpdateMatch(match.id, student.id, { notification_sent: true, notified_at: notifiedAt })
-    }
-    if (!unit.contact_email) {
-      showToast(`No contact email on file for ${unit.unit_name} — add one in unit settings. Match marked as notified.`)
-    } else {
-      showToast(`Email opened for ${displayName(student)}. Marked as notified.`)
-    }
+    }))
+    if (match) await onUpdateMatch(match.id, student.id, { notification_sent: true, notified_at: new Date().toISOString() })
+    showToast(!unit.contact_email
+      ? `No contact email on file for ${unit.unit_name}. Match marked as notified.`
+      : `Email opened for ${displayName(student)}. Marked as notified.`)
   }
 
   const handleNotifyAll = async () => {
-    const unnotified = matchedStudents.filter(s => {
-      const m = matches.find(m => m.student_id === s.id && m.unit_id === unit.id)
-      return !m?.notification_sent
-    })
-    const studs = unnotified.map(s => {
+    const studs = unnotifiedStudents.map(s => {
       const m = matches.find(m => m.student_id === s.id && m.unit_id === unit.id)
       return toEmailStudent(s, m)
     })
-    const mailto = buildUnitLeaderEmail({
+    openMailtoLink(buildUnitLeaderEmail({
       contactPersons: unit.contact_person || 'Unit Leader',
       contactEmails:  unit.contact_email  || '',
       unitName:       unit.unit_name,
       students:       studs,
       isMultiStudent: true,
-    })
-    openMailtoLink(mailto)
-    // Always mark all unnotified matches — the mailto opened regardless of email config
-    const notifiedAt = new Date().toISOString()
-    for (const s of unnotified) {
+    }))
+    const now = new Date().toISOString()
+    for (const s of unnotifiedStudents) {
       const m = matches.find(m => m.student_id === s.id && m.unit_id === unit.id)
-      if (m) await onUpdateMatch(m.id, s.id, { notification_sent: true, notified_at: notifiedAt })
+      if (m) await onUpdateMatch(m.id, s.id, { notification_sent: true, notified_at: now })
     }
-    if (!unit.contact_email) {
-      showToast(`No contact email on file for ${unit.unit_name} — add one in unit settings. ${unnotified.length} match${unnotified.length !== 1 ? 'es' : ''} marked as notified.`)
-    } else {
-      showToast(`Email opened for ${unit.unit_name}. ${unnotified.length} student${unnotified.length !== 1 ? 's' : ''} marked as notified.`)
-    }
+    setNotifiedAt(new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }))
+    showToast(!unit.contact_email
+      ? `No contact email on file for ${unit.unit_name}. ${unnotifiedStudents.length} match${unnotifiedStudents.length !== 1 ? 'es' : ''} marked as notified.`
+      : `Email opened for ${unit.unit_name}. ${unnotifiedStudents.length} student${unnotifiedStudents.length !== 1 ? 's' : ''} marked as notified.`)
   }
+
+  // ── Card border / shadow / opacity ────────────────────────────────────────
+
+  const borderColor = choiceStyle
+    ? choiceStyle.border
+    : isFocusedUnit
+    ? '#1D2567'
+    : '#E5E5E5'
+
+  const borderLeft = choiceStyle || isFocusedUnit
+    ? `3px solid ${borderColor}`
+    : '1px solid #E5E5E5'
+
+  const boxShadow = (isFocusedUnit || isHighlighted)
+    ? '0 4px 16px rgba(29,37,103,0.18)'
+    : cardHovered
+    ? CARD.shadowHover
+    : CARD.shadowRest
+
+  const transform = (isFocusedUnit || cardHovered) ? `translateY(${CARD.hoverLiftPx}px)` : 'none'
+
+  // Incompatible: when a student is selected but this unit is not one of their choices
+  const isIncompatible = !!selectedStudent && !compat
+  const cardOpacity = isIncompatible ? (isFull ? 0.45 : 0.7) : 1
 
   return (
     <>
       {/* Toast */}
       {toast && (
         <div style={{
-          position:'fixed', top:80, right:24, zIndex:9999,
-          background:'var(--nightfall)', color:'var(--pearl)',
-          fontSize:13, fontWeight:500, padding:'10px 16px',
-          borderRadius:6, boxShadow:'0 4px 16px rgba(0,0,0,0.25)',
-          maxWidth:340, lineHeight:1.5,
+          position: 'fixed', top: 80, right: 24, zIndex: 9999,
+          background: 'var(--nightfall)', color: 'var(--pearl)',
+          fontSize: 13, fontWeight: 500, padding: '10px 16px',
+          borderRadius: 6, boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+          maxWidth: 340, lineHeight: 1.5,
         }}>{toast}</div>
       )}
 
-      <div className="euc-card" style={{
-        background: bgTint,
-        border: choiceStyle
-          ? `2px solid ${choiceStyle.accentBorder}`
-          : isFocusedUnit
-          ? '2px solid #1D2567'
-          : selectedStudent
-          ? '1px solid #f3f4f6'
-          : '1px solid #e0e7ff',
-        boxShadow: isFocusedUnit
-          ? '0 0 0 3px rgba(29,37,103,0.18)'
-          : isHighlighted ? '0 0 0 2px var(--nightfall), 0 0 0 4px rgba(29,37,103,0.3)' : undefined,
-        opacity: selectedStudent && !compat && !isFull ? 0.82 : 1,
-        animation: isHighlighted ? 'unit-highlight 2s ease-out' : undefined,
-        transition: 'all 0.2s ease',
-        cursor: !selectedStudent ? 'pointer' : undefined,
-      }}
-        onClick={!selectedStudent ? () => onFocusUnit?.() : undefined}
+      <div
+        style={{
+          position: 'relative',
+          background: '#ffffff',
+          borderRadius: CARD.radius,
+          border: `1px solid ${borderColor}`,
+          borderLeft,
+          boxShadow,
+          opacity: cardOpacity,
+          transform,
+          transition: `box-shadow ${CARD.hoverDuration} ease, transform ${CARD.hoverDuration} ease, opacity ${CARD.hoverDuration} ease, border-color ${CARD.hoverDuration} ease`,
+          cursor: 'pointer',
+          animation: isHighlighted ? 'unit-highlight 2s ease-out' : undefined,
+          fontFamily: 'DM Sans,sans-serif',
+          overflow: 'hidden',
+        }}
+        onMouseEnter={() => setCardHovered(true)}
+        onMouseLeave={() => setCardHovered(false)}
+        onClick={() => onFocusUnit?.()}
       >
-        {/* Header — always Nightfall regardless of choice level */}
-        <div className="euc-header" style={{
-          background: 'linear-gradient(135deg, #1c2452 0%, #1D2567 100%)',
-        }}>
-          <span className="euc-name" title={unit.unit_name} style={{ display:'flex', flexDirection:'column', gap:1, minWidth:0 }}>
-            <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{unit.unit_name}</span>
-            {getUnit(unit.unit_name)?.description && (
-              <span style={{ fontSize:10, fontWeight:400, opacity:0.7, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                {getUnit(unit.unit_name).description}
+
+        {/* ── Zone 1: Identity ── */}
+        <div style={{ padding: '16px 14px 10px', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 600, fontSize: 16, color: '#191919', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
+              {unit.unit_name}
+            </div>
+            {desc && (
+              <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {desc}
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+            {division && (
+              <span style={{ fontSize: 10, fontWeight: 600, color: '#475467', border: '1px solid #E5E5E5', borderRadius: 6, padding: '2px 7px', background: '#fafafa', whiteSpace: 'nowrap' }}>
+                {division}
               </span>
             )}
-          </span>
-          <div className="euc-header-right">
-            {choiceStyle && (
-              <span style={{ background: choiceStyle.badgeBg, fontFamily:'DM Sans', fontWeight:600, fontSize:'11px', color: choiceStyle.badgeText, padding:'2px 8px', borderRadius:'999px', flexShrink:0, whiteSpace:'nowrap' }}>
-                {choiceStyle.label}
+            {isFocusedUnit && (
+              <span style={{ fontSize: 10, fontWeight: 600, color: '#1D2567', border: '1px solid #c7d2fe', borderRadius: 6, padding: '2px 7px', background: '#e0e7ff', whiteSpace: 'nowrap' }}>
+                Filtering
               </span>
             )}
-            {fillBadge}
-            {/* Notify Unit Leader button / All Notified badge */}
-            {filledCount > 0 && (
-              allNotified
-                ? <span style={{ fontSize:11, fontWeight:500, color:'#166534', whiteSpace:'nowrap' }}>✓ All Notified</span>
-                : <button
-                    onClick={handleNotifyAll}
-                    style={{ fontSize:11, fontWeight:600, padding:'3px 8px', borderRadius:4,
-                      border:'1.5px solid var(--nightfall)', background:'var(--pearl)',
-                      color:'var(--nightfall)', cursor:'pointer', display:'flex',
-                      alignItems:'center', gap:4, whiteSpace:'nowrap', flexShrink:0 }}>
-                    ✉ {someNotified ? 'Notify Remaining' : 'Notify Unit Leader'}
-                  </button>
-            )}
-            <button className="euc-del-btn" onClick={() => setConfirmDelete(true)} title="Delete unit">✕</button>
+            <button
+              onClick={e => { e.stopPropagation(); setConfirmDelete(true) }}
+              title="Delete unit"
+              style={{ background: 'none', border: 'none', fontSize: 13, fontWeight: 600, color: '#d1d5db', cursor: 'pointer', padding: '0 2px', lineHeight: 1, flexShrink: 0 }}
+              onMouseEnter={e => e.currentTarget.style.color = '#9ca3af'}
+              onMouseLeave={e => e.currentTarget.style.color = '#d1d5db'}
+            >
+              ✕
+            </button>
           </div>
         </div>
 
-        {/* Slots */}
-        <div className="euc-slots">
-          {matchedStudents.map(raw => {
-            const match   = matches.find(m => m.student_id === raw.id && m.unit_id === unit.id)
-            const student = resolveMatchedStudent(match, null, studentMap) || raw
-            return (
-              <FilledSlotPill
-                key={student.id}
-                student={student}
-                match={match}
-                unit={unit}
-                onUnmatch={() => setConfirmUnmatch(student)}
-                onUpdateMatch={onUpdateMatch}
-                onNotify={handleNotifyOne}
-              />
-            )
-          })}
-          {Array.from({ length: emptyCount }).map((_, i) => (
-            <EmptySlotPill
-              key={i}
-              selectedStudent={selectedStudent}
-              compat={compat}
-              onClick={selectedStudent ? onSlotClick : undefined}
-            />
-          ))}
+        {/* ── Zone 2: Capacity ── */}
+        <div style={{ padding: '0 14px 12px' }}>
+          {/* Dot indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 5 }}>
+            {Array.from({ length: Math.max(unit.total_slots, 1) }).map((_, i) => (
+              i < filledCount
+                ? <span key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: '#86EFAC', flexShrink: 0, display: 'inline-block' }} />
+                : <span key={i} style={{ width: 8, height: 8, borderRadius: '50%', border: '1.5px solid #E5E7EB', flexShrink: 0, display: 'inline-block' }} />
+            ))}
+            {/* Choice chip inline */}
+            {choiceStyle && (
+              <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: choiceStyle.chipBg, color: choiceStyle.chipText, whiteSpace: 'nowrap' }}>
+                {choiceStyle.label}
+              </span>
+            )}
+          </div>
+
+          {/* Text descriptor */}
+          <div style={{ fontSize: 12, color: '#9ca3af' }}>
+            {filledCount} of {unit.total_slots} filled{isFull ? ' · Full' : ` · ${emptyCount} open`}
+          </div>
+
+          {/* Notify Zone-2 button — only when full and unnotified placements exist */}
+          {isFull && filledCount > 0 && !allNotified && (
+            <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
+              {notifiedAt ? (
+                <div style={{ fontSize: 12, color: '#9ca3af' }}>
+                  {'✓'} Unit leader notified {notifiedAt}
+                </div>
+              ) : (
+                <button
+                  onClick={handleNotifyAll}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    padding: '6px 12px', borderRadius: 8,
+                    background: '#1D2567', border: 'none',
+                    fontFamily: 'DM Sans,sans-serif', fontSize: 13, fontWeight: 600,
+                    color: '#ffffff', cursor: 'pointer',
+                    transition: 'background 150ms ease',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#141928'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#1D2567'}
+                >
+                  {notifyButtonLabel}
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Notification summary */}
-        {filledCount > 0 && (
-          <div style={{ fontSize:11, color:'#6b7280', padding:'6px 14px 10px', borderTop:'1px solid var(--border-lt)' }}>
-            {notifiedCount} of {filledCount} placement{filledCount !== 1 ? 's' : ''} notified
+        {/* ── Zone 3: Placements ── */}
+        {(filledCount > 0 || emptyCount > 0) && (
+          <div style={{ borderTop: '1px solid rgba(29,37,103,0.06)', padding: '8px 10px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {matchedStudents.map(raw => {
+              const match   = matches.find(m => m.student_id === raw.id && m.unit_id === unit.id)
+              const student = resolveMatchedStudent(match, studentMap) || raw
+              return (
+                <CompactPlacementRow
+                  key={student.id}
+                  student={student}
+                  match={match}
+                  unit={unit}
+                  onUnmatch={() => setConfirmUnmatch(student)}
+                  onNotify={handleNotifyOne}
+                />
+              )
+            })}
+            {/* Notify summary for non-full units */}
+            {!isFull && filledCount > 0 && !allNotified && (
+              <div style={{ fontSize: 11, color: '#9ca3af', padding: '2px 4px' }}>
+                {notifiedCount} of {filledCount} notified
+              </div>
+            )}
+            {Array.from({ length: emptyCount }).map((_, i) => (
+              <CompactOpenSlot
+                key={i}
+                selectedStudent={selectedStudent}
+                compat={compat}
+                onClick={selectedStudent ? onSlotClick : undefined}
+              />
+            ))}
           </div>
         )}
       </div>
 
-      {/* Unmatch confirmation */}
+      {/* Unmatch confirmation modal */}
       {confirmUnmatch && (
         <div className="modal-overlay" onClick={() => setConfirmUnmatch(null)}>
           <div className="modal confirm-delete-modal" onClick={e => e.stopPropagation()}>
@@ -254,7 +439,7 @@ export default function EmbedUnitCard({
         </div>
       )}
 
-      {/* Delete confirmation */}
+      {/* Delete confirmation modal */}
       {confirmDelete && (
         <div className="modal-overlay" onClick={() => setConfirmDelete(false)}>
           <div className="modal confirm-delete-modal" onClick={e => e.stopPropagation()}>
@@ -263,7 +448,9 @@ export default function EmbedUnitCard({
               <button className="modal-close" onClick={() => setConfirmDelete(false)}>×</button>
             </div>
             <div className="modal-body">
-              <p className="confirm-delete-warning">This action cannot be undone. Any students matched to this unit will be returned to unmatched.</p>
+              <p className="confirm-delete-warning">
+                This action cannot be undone. Any students matched to this unit will be returned to unmatched.
+              </p>
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline-modal" onClick={() => setConfirmDelete(false)}>Cancel</button>
@@ -273,82 +460,5 @@ export default function EmbedUnitCard({
         </div>
       )}
     </>
-  )
-}
-
-function FilledSlotPill({ student, match, unit, onUnmatch, onNotify }) {
-  const qKey = student.unit_preference_1 === unit.unit_name ? '1st'
-    : student.unit_preference_2 === unit.unit_name ? '2nd'
-    : student.unit_preference_3 === unit.unit_name ? '3rd'
-    : 'other'
-  const qCfg = MATCH_QUALITY_CONFIG[qKey]
-
-  const isNotified   = !!match?.notification_sent
-  const hasPreceptor = !!student.matched_preceptor
-  const hasShift     = !!student.shift_assigned
-
-  return (
-    <div style={{ background:'#ffffff', border:'1px solid #f3f4f6', borderRadius:'8px', padding:'8px 10px', marginBottom:'6px' }}>
-      {/* Row 1: avatar + name + notification + unmatch */}
-      <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'5px' }}>
-        <StudentAvatar student={student} size={28} />
-        <span style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#1D2567', flex:1, minWidth:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-          {student.first_name} {student.last_name}
-        </span>
-        <div style={{ display:'flex', alignItems:'center', gap:'4px', flexShrink:0 }}>
-          {isNotified ? (
-            <span style={{ fontFamily:'DM Sans', fontSize:'10px', fontWeight:600, color:'#16a34a' }}>✓</span>
-          ) : (
-            <>
-              <span style={{ fontFamily:'DM Sans', fontSize:'9px', color:'#d97706' }}>⚠</span>
-              <button title="Notify unit leader" onClick={e => { e.stopPropagation(); onNotify(student, match) }}
-                style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:'#6b7280', padding:'0 1px', lineHeight:1 }}>✉</button>
-            </>
-          )}
-          <button className="euc-sf-unmatch" onClick={onUnmatch} title="Unmatch student">×</button>
-        </div>
-      </div>
-      {/* Row 2: match quality + preceptor + shift */}
-      <div style={{ display:'flex', alignItems:'center', gap:'5px', flexWrap:'wrap' }}>
-        <span style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:'9px', background:qCfg.bg, color:qCfg.color, border:`1px solid ${qCfg.border}`, padding:'1px 6px', borderRadius:'20px', flexShrink:0 }}>
-          {qCfg.label}
-        </span>
-        <span style={{ fontFamily:'DM Sans', fontSize:'10px', color: hasPreceptor ? '#374151' : '#d97706' }}>
-          {hasPreceptor ? `👤 ${student.matched_preceptor}` : '⚠ Preceptor needed'}
-        </span>
-        {hasShift && (
-          <span style={{ fontFamily:'DM Sans', fontSize:'10px', color:'#6b7280' }}>· {student.shift_assigned}</span>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function EmptySlotPill({ selectedStudent, compat, onClick }) {
-  const [hovered, setHovered] = useState(false)
-  const isReady = !!selectedStudent && !!onClick
-
-  return (
-    <div
-      onClick={isReady ? onClick : undefined}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        border: `1px dashed ${hovered && isReady ? '#94a3b8' : '#CBD5E1'}`,
-        background: hovered && isReady ? '#f8fafc' : '#fafafa',
-        borderRadius:'8px', padding:'8px 12px', marginBottom:'6px',
-        cursor: isReady ? 'pointer' : 'default',
-        display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
-        transition:'all 0.15s ease',
-      }}
-    >
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round">
-        <line x1="12" y1="5" x2="12" y2="19"/>
-        <line x1="5" y1="12" x2="19" y2="12"/>
-      </svg>
-      <span style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:'13px', color:'#94a3b8' }}>
-        {isReady ? 'Place in this slot' : 'Open Slot'}
-      </span>
-    </div>
   )
 }

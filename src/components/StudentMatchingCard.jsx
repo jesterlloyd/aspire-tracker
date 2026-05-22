@@ -141,6 +141,26 @@ export default function StudentMatchingCard({
         position:     'relative',
       }}
     >
+      {/* ── Tier header chip — shown above identity when a unit filter is active ── */}
+      {focusedUnit && choiceTier != null && (() => {
+        const chipStyle = choiceTier === 1
+          ? { bg:'#D1FAE5', color:'#065F46' }
+          : choiceTier === 2
+          ? { bg:'#FCEFD4', color:'#7C5A1F' }
+          : { bg:'#E0E7FF', color:'#3730A3' }
+        return (
+          <div style={{
+            marginBottom: 8,
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            fontSize: 10, fontWeight: 700, fontFamily: F,
+            padding: '3px 9px', borderRadius: 20,
+            background: chipStyle.bg, color: chipStyle.color,
+          }}>
+            {TIER_BADGE[choiceTier].label} for {focusedUnit.unit_name}
+          </div>
+        )
+      })()}
+
       {/* ── Top row: avatar + identity + selected pill ─────────────────── */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 0 }}>
         {/* Avatar — 48px, same circular treatment and fallback as StudentCard */}
