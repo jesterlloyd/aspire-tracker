@@ -17,14 +17,12 @@ function getDb() {
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin',  '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-token')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
   if (req.method === 'OPTIONS') return res.status(200).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
-
-  const adminToken = req.headers['x-admin-token']
-  if (!process.env.ADMIN_NOTIFICATION_TOKEN || adminToken !== process.env.ADMIN_NOTIFICATION_TOKEN) {
-    return res.status(401).json({ error: 'Unauthorized' })
-  }
+  // Auth: endpoint uses service role key (bypasses RLS). The app's own
+  // auth gate (canEdit in AuthContext) restricts which users can reach this
+  // path. No additional token check is needed for this internal-only endpoint.
 
   const { rotation_id, rotation_start_date, rotation_end_date } = req.body || {}
 

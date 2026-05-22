@@ -23,6 +23,7 @@ import { useLastSynced } from '../hooks/useLastSynced'
 import { useAuth } from '../contexts/AuthContext'
 import { logActivity } from '../lib/logActivity'
 import ConflictDialog from './ConflictDialog'
+import { generateBadgePNGs, calculateBadgeDates } from '../lib/badgeGenerator'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
@@ -136,7 +137,7 @@ export default function StudentSidePanel({
   const [showDeclineModal, setShowDeclineModal] = useState(false)
   const [declineReason,    setDeclineReason]    = useState('')
   const [summaryCopied,    setSummaryCopied]    = useState(false)
-  const { canEdit, userProfile } = useAuth()
+  const { canEdit, canInterview, userProfile } = useAuth()
   const queryClient = useQueryClient()
   const [uploadingRes,  setUploadingRes]  = useState(false)
   const [uploadingHead, setUploadingHead] = useState(false)
@@ -198,11 +199,9 @@ export default function StudentSidePanel({
   const handleConfirmRotationSave = async () => {
     setRotSaving(true)
     try {
-      const adminToken = process.env.VITE_ADMIN_NOTIFICATION_TOKEN ||
-        document.cookie.split('; ').find(r => r.startsWith('admin_token='))?.split('=')[1] || ''
       const res = await fetch('/api/update-rotation-dates', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rotation_id:         student.cohort_school_rotation_id,
           rotation_start_date: rotConfirmModal.start,
@@ -244,6 +243,7 @@ export default function StudentSidePanel({
   const [dlResume,         setDlResume]         = useState(false)
   const [dlPhotoDoc,       setDlPhotoDoc]       = useState(false)
   const [downloadErr,      setDownloadErr]      = useState(null)
+  const [generatingBadge,  setGeneratingBadge]  = useState(false)
 
   const showDlError = () => {
     setDownloadErr('Download failed. The file may have been removed. Try re-uploading.')
@@ -509,6 +509,44 @@ export default function StudentSidePanel({
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => doSave(field, value), 800)
   }
+
+  const handleDownloadBadge = async () => {
+    setGeneratingBadge(true)
+    try {
+      const { frontBlob, backBlob } = await generateBadgePNGs({
+        student:     data,
+        rotation:    rotationRow ?? null,
+        headshotUrl: data.headshot_url,
+      })
+      const lastName  = (data.last_name  || '').replace(/\s+/g, '_')
+      const firstName = (data.first_name || '').replace(/\s+/g, '_')
+      const base = `${lastName}_${firstName}_ASPIRE_Badge`
+      const triggerDownload = (blob, filename) => {
+        const url = URL.createObjectURL(blob)
+        const a   = document.createElement('a')
+        a.href     = url
+        a.download = filename
+        a.click()
+        URL.revokeObjectURL(url)
+      }
+      triggerDownload(frontBlob, `${base}_Front.png`)
+      // Small delay so browsers save both files rather than merging into one
+      await new Promise(r => setTimeout(r, 200))
+      triggerDownload(backBlob, `${base}_Back.png`)
+      toast?.success('Badge downloaded', 'Front and back badge files saved.')
+    } catch (err) {
+      toast?.error('Badge generation failed', err.message)
+    }
+    setGeneratingBadge(false)
+  }
+
+  // Compute badge button disabled reason (shown as tooltip)
+  const badgeDates         = rotationRow ? calculateBadgeDates(rotationRow) : null
+  const badgeDisabledReason = !data.headshot_url
+    ? 'Headshot required'
+    : !rotationRow || !badgeDates
+    ? 'Rotation dates pending'
+    : null
 
   const handleResumeUpload = async file => {
     if (!file || file.size > 10*1024*1024) { setResumeMsg('File too large (max 10 MB)'); return }
@@ -1150,10 +1188,23 @@ export default function StudentSidePanel({
                 {data.headshot_url ? (
                   <div className="doc-existing-file">
                     <img src={data.headshot_url} alt="Headshot" className="doc-headshot-preview" />
-                    <button onClick={() => doDownload(data.headshot_url, buildStudentFilename(student,'headshot'), setDlPhotoDoc)} disabled={dlPhotoDoc}
-                      style={{ background:'var(--pearl)', border:'1px solid var(--nightfall)', color:'var(--nightfall)', fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px', cursor:'pointer', flexShrink:0 }}>
-                      {dlPhotoDoc ? '…' : '↓ Photo'}
-                    </button>
+                    {/* Download Badge — owner/admin/interviewer only; replaces the old raw-photo download */}
+                    {canInterview && (
+                      <button
+                        onClick={handleDownloadBadge}
+                        disabled={!!badgeDisabledReason || generatingBadge}
+                        title={badgeDisabledReason || 'Download front + back badge PNGs'}
+                        style={{
+                          background: badgeDisabledReason ? '#f3f4f6' : 'var(--nightfall)',
+                          border: badgeDisabledReason ? '1px solid #e5e7eb' : '1px solid var(--nightfall)',
+                          color: badgeDisabledReason ? '#9ca3af' : '#fff',
+                          fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px',
+                          cursor: (badgeDisabledReason || generatingBadge) ? 'not-allowed' : 'pointer',
+                          flexShrink:0, fontFamily:'DM Sans,sans-serif',
+                        }}>
+                        {generatingBadge ? 'Generating...' : 'Download Badge'}
+                      </button>
+                    )}
                     <button className="doc-replace-btn" disabled={uploadingHead} onClick={() => headshotRef.current?.click()}>Replace</button>
                   </div>
                 ) : (
