@@ -8,9 +8,11 @@ import TodaysInterviews from './TodaysInterviews'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import ScoreFlag from './ScoreFlag'
 import EmptyState from './EmptyState'
-import { Users, CalendarCheck, BadgeCheck, CalendarX, Flag, ThumbsUp, ClipboardList } from 'lucide-react'
+import { ClipboardList } from 'lucide-react'
 import { FilterKPICard } from './KPIBand'
 import { useAuth } from '../contexts/AuthContext'
+import { formatSchoolProgram } from '../lib/displayFormatters'
+import { toLocalDateStr } from '../lib/designTokens'
 
 function IrAvatar({ student }) {
   return (
@@ -89,6 +91,50 @@ Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN
 Brawerman Nursing Institute | Cedars-Sinai Medical Center
 JesterLloyd.Bautista@cshs.org | 310-248-8964`
   return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+}
+
+// ── Worklist helpers ──────────────────────────────────────────────────────────
+
+const COMPLETED_STATUSES = new Set(['Interviewed','Placed','Active Rotation','Completed'])
+
+function fmtApptDate(dateStr) {
+  if (!dateStr) return null
+  const d = new Date(dateStr + 'T12:00:00Z')
+  return d.toLocaleDateString('en-US', { month:'short', day:'numeric', timeZone:'America/Los_Angeles' })
+}
+function fmtApptTime(timeStr) {
+  if (!timeStr) return null
+  const [h, m] = timeStr.split(':').map(Number)
+  return `${h%12||12}:${String(m).padStart(2,'0')} ${h>=12?'PM':'AM'}`
+}
+function shortIntName(name) {
+  if (!name) return null
+  const parts = name.trim().split(/\s+/)
+  return parts.length >= 2 ? `${parts[0]} ${parts[parts.length-1][0]}.` : parts[0]
+}
+
+function getFlagInfo(s, studentRubs) {
+  if (!s.flagged_for_second_interview) return null
+  const scored = studentRubs.filter(r => (r.composite_score||0) > 0)
+  if (scored.length >= 2) {
+    const scores = scored.map(r => r.composite_score||0)
+    if (Math.max(...scores) - Math.min(...scores) >= 4) return { reason:'Score discrepancy', critical:false }
+  }
+  const recs = studentRubs.map(r => r.individual_recommendation).filter(Boolean)
+  if (recs.length >= 2 && new Set(recs).size > 1) return { reason:'Recommendation conflict', critical:false }
+  const today = toLocalDateStr()
+  if (s.interview_scheduled_date && s.interview_scheduled_date < today
+      && scored.length === 0 && !COMPLETED_STATUSES.has(s.status))
+    return { reason:'No show', critical:true }
+  return { reason:'Review needed', critical:false }
+}
+
+function getRowAction(s, studentRubs, sessions) {
+  if (s.flagged_for_second_interview) return { label:'Review Flag', type:'flag' }
+  if (!s.interview_scheduled_date)    return { label:'Schedule',     type:'schedule' }
+  const ts = getTeamsInviteStatus(s, sessions)
+  if (ts.tone === 'attention')        return { label:'Send Invite',  type:'invite' }
+  return { label:'Open Rubric', type:'rubric' }
 }
 
 export default function InterviewRubricTab({
@@ -378,8 +424,18 @@ export default function InterviewRubricTab({
         </div>
       </div>
 
+      {/* Interview Outcomes header strip */}
+      <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', padding:'4px 16px 0' }}>
+        <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:18, color:'#191919' }}>
+          Interview Outcomes
+        </span>
+        <span style={{ fontFamily:'DM Sans,sans-serif', fontSize:12, color:'#9ca3af' }}>
+          {students.length} student{students.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+
       {/* 6 filter cards — color story: Nightfall=anchor, Marina=in motion, Sage=positive, Dawn=needs action, Chroma=alert */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:10, padding:'12px 16px' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:10, padding:'10px 16px 12px' }}>
         <FilterKPICard value={total}        label="Total"         accent="nightfall"  active={activeFilter === null}            onClick={() => setActiveFilter(null)} />
         <FilterKPICard value={scheduled}    label="Scheduled"     accent="marina"     active={activeFilter === 'scheduled'}    onClick={() => handleCardClick('scheduled')} />
         <FilterKPICard value={completed}    label="Completed"     accent="sage"       active={activeFilter === 'completed'}    onClick={() => handleCardClick('completed')} />
@@ -388,146 +444,189 @@ export default function InterviewRubricTab({
         <FilterKPICard value={recommended}  label="Recommended"   accent="sage"       active={activeFilter === 'recommended'}  onClick={() => handleCardClick('recommended')} />
       </div>
 
-      {/* Student list */}
-      <div className="rub-scroll-area-month" style={{ marginTop: '8px' }}>
+      {/* Interview Outcomes worklist */}
+      <div className="rub-scroll-area-month" style={{ marginTop: 0 }}>
         {activeFilter && (
           <div style={{
-            display: 'flex', alignItems: 'center', gap: '10px',
-            padding: '7px 14px', marginBottom: '8px',
-            background: '#f0f3ff', borderRadius: '8px',
-            border: '1px solid #e0e7ff',
+            display:'flex', alignItems:'center', gap:'10px',
+            padding:'7px 14px', marginBottom:'8px',
+            background:'#f0f3ff', borderRadius:'8px', border:'1px solid #e0e7ff',
           }}>
-            <span style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#1D2567' }}>
-              Showing: {activeFilter.replace('_', ' ')}
+            <span style={{ fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#1D2567' }}>
+              Showing: {activeFilter.replace(/_/g, ' ')}
             </span>
             <button onClick={() => setActiveFilter(null)} style={{
-              background: 'none', border: 'none',
-              fontFamily: 'DM Sans', fontSize: '12px',
-              color: '#6b7280', cursor: 'pointer',
-              textDecoration: 'underline', padding: 0,
+              background:'none', border:'none', fontFamily:'DM Sans', fontSize:'12px',
+              color:'#6b7280', cursor:'pointer', textDecoration:'underline', padding:0,
             }}>Clear filter</button>
           </div>
         )}
 
-        <div className="iv-table-wrap">
-        <table className="iv-table">
-          <thead style={{ position:'sticky', top:0, zIndex:10 }}>
-            <tr>
-              <th className="iv-th" style={{ width:44, padding:'10px 4px 10px 12px' }} />
-              <th className="iv-th iv-sortable" onClick={() => toggleSort('last_name')}>Student Name <SortIcon field="last_name" /></th>
-              <th className="iv-th iv-sortable" onClick={() => toggleSort('school')}>School <SortIcon field="school" /></th>
-              <th className="iv-th">Scheduled</th>
-              <th className="iv-th">Interviewers</th>
-              <th className="iv-th">ASPIRE Status</th>
-              <th className="iv-th iv-sortable" onClick={() => toggleSort('iv_status')}>Teams Invite <SortIcon field="iv_status" /></th>
-              <th className="iv-th">Rubrics</th>
-              <th className="iv-th iv-sortable" onClick={() => toggleSort('score')}>Avg Score <SortIcon field="score" /></th>
-              <th className="iv-th" style={{ position:'relative', whiteSpace:'nowrap' }}>
-                Auto Result
-                <span className="iv-th-info" title="Calculated automatically from the average composite score across all submitted rubrics. ≥12 = Recommend, 8–11 = Recommend with Reservations, &lt;8 = Do Not Recommend.">ℹ</span>
-              </th>
-              <th className="iv-th">Flag</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.length === 0 ? (
-              <tr><td colSpan={11} style={{ padding: 0, border: 'none' }}>
-                <EmptyState compact icon={<ClipboardList />}
-                  heading="No interview records yet"
-                  subtext="Interview records appear here after students are added to the cohort and interviews are scheduled." />
-              </td></tr>
-            ) : sorted.map(s => {
-              const ivStatus = getStudentIvStatus(s, rubrics)
-              const borderColor = ROW_BORDER[ivStatus] || '#d1d5db'
-              const studentRubs = rubrics.filter(r => r.student_id === s.id)
-              const rubCount = studentRubs.length
-              const hasIncomplete = studentRubs.some(r =>
-                r.status === 'In Progress' &&
-                (!r.cj_score || !r.pp_score || !r.ga_score || !r.individual_recommendation)
-              )
-              // Compute avg directly from rubric rows so it shows even before student record is recalculated
-              const scoredRubs = studentRubs.filter(r => (r.composite_score || 0) > 0)
-              const avgScore = scoredRubs.length > 0
+        {sorted.length === 0 ? (
+          <EmptyState compact icon={<ClipboardList />}
+            heading="No interview records yet"
+            subtext="Interview records appear here after students are added to the cohort and interviews are scheduled." />
+        ) : (
+          <div className="ir-worklist">
+            {/* Sticky column header */}
+            <div className="ir-wl-thead">
+              <div style={{ width:6, flexShrink:0 }} />
+              <div className="ir-wl-th ir-wl-col-student">Student</div>
+              <div className="ir-wl-th ir-wl-col-appt">Appointment</div>
+              <div className="ir-wl-th ir-wl-col-workflow">Workflow Status</div>
+              <div className="ir-wl-th ir-wl-col-outcome">Outcome</div>
+              <div className="ir-wl-th ir-wl-col-action">Action</div>
+            </div>
+
+            {sorted.map(s => {
+              const studentRubs  = rubrics.filter(r => r.student_id === s.id)
+              const scoredRubs   = studentRubs.filter(r => (r.composite_score || 0) > 0)
+              const avgScore     = scoredRubs.length > 0
                 ? scoredRubs.reduce((sum, r) => sum + (r.composite_score || 0), 0) / scoredRubs.length
                 : 0
-              const rec = s.auto_recommendation
-              const recColor = rec === 'Recommend' ? '#166534' : rec === 'Recommend with Reservations' ? '#92400e' : rec ? '#991b1b' : null
-              const recBg    = rec === 'Recommend' ? '#dcfce7' : rec === 'Recommend with Reservations' ? '#fef3c7' : rec ? '#fee2e2' : null
+              const rec          = s.auto_recommendation
+              const recCfg       = rec === 'Recommend'
+                ? { bg:'#dcfce7', color:'#166634', label:'Recommend' }
+                : rec === 'Recommend with Reservations'
+                ? { bg:'#fef3c7', color:'#92400e', label:'Review' }
+                : rec
+                ? { bg:'#fee2e2', color:'#991b1b', label:'Do Not Recommend' }
+                : null
+
+              const flagInfo     = getFlagInfo(s, studentRubs)
+              const rowAction    = getRowAction(s, studentRubs, sessions)
+              const statusCfg    = ASPIRE_STATUS_CONFIG[s.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']
+
+              // Interviewers from rubrics (deduped, "First L." format)
+              const interviewerNames = [...new Set(
+                studentRubs.filter(r => r.interviewer_name).map(r => r.interviewer_name)
+              )]
+              const interviewerDisplay = interviewerNames.length > 0
+                ? interviewerNames.map(shortIntName).join(', ')
+                : null
+
+              const handleAction = (e) => {
+                e.stopPropagation()
+                if (rowAction.type === 'schedule') {
+                  const a = document.createElement('a')
+                  a.href = buildSchedulingMailto(s)
+                  a.click()
+                } else {
+                  setSelectedStudentId(s.id)
+                }
+              }
 
               return (
-                <tr key={s.id} className="iv-row"
-                  style={{ borderLeft:`4px solid ${borderColor}` }}
-                  onClick={() => setSelectedStudentId(s.id)}>
-                  <IrAvatar student={s} />
-                  <td className="iv-td iv-td-name">
-                    {s.flagged_for_second_interview && <span style={{ marginRight:5 }}>🚩</span>}
-                    {displayName(s)}
-                    {s.status === 'Form Received' && (
-                      <button title="Send scheduling link"
-                        onClick={e => { e.stopPropagation(); const a = document.createElement('a'); a.href = buildSchedulingMailto(s); a.click() }}
-                        style={{ marginLeft:6, background:'none', border:'none', cursor:'pointer', fontSize:13, color:'#6b7280', padding:'0 2px', verticalAlign:'middle' }}>
-                        ✉
-                      </button>
-                    )}
-                  </td>
-                  <td className="iv-td iv-td-school">{s.school || '—'}</td>
-                  <td className="iv-td" style={{ fontSize:12, color:'var(--text-secondary)', whiteSpace:'nowrap' }}>
-                    {s.interview_scheduled_date
-                      ? `${s.interview_scheduled_date}${s.interview_scheduled_time ? ' ' + s.interview_scheduled_time : ''}`
-                      : '—'}
-                  </td>
-                  <td className="iv-td" style={{ fontSize:12, color:'var(--text-secondary)' }}>
-                    {(() => {
-                      const names = studentRubs
-                        .filter(r => r.interviewer_name)
-                        .map(r => r.interviewer_name)
-                        .filter((n, i, arr) => arr.indexOf(n) === i)
-                      if (names.length === 0) return '—'
-                      return names.map(n => {
-                        const parts = n.split(' ').filter(Boolean)
-                        return parts.length >= 2 ? `${parts[0][0]}${parts[parts.length-1][0]}`.toUpperCase() : n.slice(0,2).toUpperCase()
-                      }).join(', ')
-                    })()}
-                  </td>
-                  <td className="iv-td">
-                    {s.status && (() => { const cfg = ASPIRE_STATUS_CONFIG[s.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']; return <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, whiteSpace:'nowrap' }}>{s.status}</span> })()}
-                  </td>
-                  <td className="iv-td">
-                    <TeamsInvitePill student={s} sessions={sessions} />
-                  </td>
-                  <td className="iv-td" style={{ fontSize:13, fontWeight:600, color:'var(--nightfall)', textAlign:'center' }}>
-                    {rubCount || '—'}
-                  </td>
-                  <td className="iv-td iv-td-score">
-                    {avgScore > 0 ? (
-                      <div>
-                        <div style={{ fontSize:12, fontWeight:600 }}>{avgScore.toFixed(1)}/15</div>
-                        <div style={{ height:4, background:'#e5e7eb', borderRadius:2, marginTop:3, width:60 }}>
-                          <div style={{ height:4, background:'#1d2567', borderRadius:2, width:`${(avgScore/15)*100}%` }} />
+                <div key={s.id} className="ir-wl-row" onClick={() => setSelectedStudentId(s.id)}>
+
+                  {/* Flag strip — colored left-edge indicator */}
+                  <div
+                    className="ir-wl-flag-strip"
+                    title={flagInfo?.reason}
+                    onClick={flagInfo ? e => e.stopPropagation() : undefined}
+                    style={{
+                      background: flagInfo
+                        ? (flagInfo.critical ? '#DC1E34' : '#F59E0B')
+                        : 'transparent',
+                    }}
+                  />
+
+                  {/* 1. Student */}
+                  <div className="ir-wl-cell ir-wl-col-student">
+                    <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+                      <StudentAvatar student={s} size={40} style={{ flexShrink:0 }} />
+                      <div style={{ minWidth:0 }}>
+                        <div style={{ fontWeight:600, fontSize:13, color:'#191919', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif' }}>
+                          {displayName(s)}
+                        </div>
+                        <div style={{ fontSize:11, color:'#9ca3af', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginTop:2, fontFamily:'DM Sans,sans-serif' }}>
+                          {formatSchoolProgram(s.school, s.program_type)}
                         </div>
                       </div>
-                    ) : '—'}
-                  </td>
-                  <td className="iv-td">
-                    {rec && recColor && (
-                      <span style={{ display:'inline-flex', alignItems:'center', gap:3 }}>
-                        <span style={{ fontSize:11, fontWeight:600, padding:'1px 7px', borderRadius:4, background:recBg, color:recColor, whiteSpace:'nowrap' }}>
-                          {rec === 'Recommend' ? 'Recommend' : rec === 'Recommend with Reservations' ? 'With Reservations' : 'Do Not Recommend'}
-                        </span>
-                        <ScoreFlag message={s.score_flag ? s.score_flag_message : ''} />
+                    </div>
+                  </div>
+
+                  {/* 2. Appointment */}
+                  <div className="ir-wl-cell ir-wl-col-appt">
+                    {s.interview_scheduled_date ? (
+                      <>
+                        <div style={{ fontWeight:600, fontSize:12, color:'#1D2567', fontFamily:'DM Sans,sans-serif', whiteSpace:'nowrap' }}>
+                          {fmtApptDate(s.interview_scheduled_date)}
+                          {fmtApptTime(s.interview_scheduled_time) && (
+                            <> &middot; {fmtApptTime(s.interview_scheduled_time)}</>
+                          )}
+                        </div>
+                        <div style={{ fontSize:11, color:'#9ca3af', marginTop:3, fontFamily:'DM Sans,sans-serif', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          {interviewerDisplay || 'Interviewer pending'}
+                        </div>
+                      </>
+                    ) : (
+                      <span style={{ fontSize:12, color:'#9ca3af', fontStyle:'italic', fontFamily:'DM Sans,sans-serif' }}>
+                        Not Scheduled
                       </span>
                     )}
-                  </td>
-                  <td className="iv-td" style={{ textAlign:'center' }}>
-                    {s.flagged_for_second_interview ? '🚩' : ''}
-                  </td>
-                </tr>
+                  </div>
+
+                  {/* 3. Workflow Status */}
+                  <div className="ir-wl-cell ir-wl-col-workflow">
+                    {s.status && statusCfg && (
+                      <span style={{ display:'inline-block', marginBottom:5, fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:statusCfg.bg, color:statusCfg.text, border:`1px solid ${statusCfg.border}`, whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif' }}>
+                        {s.status}
+                      </span>
+                    )}
+                    <div><TeamsInvitePill student={s} sessions={sessions} /></div>
+                  </div>
+
+                  {/* 4. Outcome */}
+                  <div className="ir-wl-cell ir-wl-col-outcome">
+                    {scoredRubs.length > 0 ? (
+                      <>
+                        <div style={{ fontSize:11, color:'#9ca3af', fontFamily:'DM Sans,sans-serif', marginBottom:2 }}>
+                          Rubrics: {studentRubs.length}
+                        </div>
+                        <div style={{ fontWeight:700, fontSize:13, color:'#1D2567', fontFamily:'DM Sans,sans-serif', marginBottom:4 }}>
+                          {avgScore.toFixed(1)}<span style={{ fontWeight:400, color:'#9ca3af', fontSize:11 }}> / 15</span>
+                        </div>
+                        {recCfg && (
+                          <span style={{ display:'inline-flex', alignItems:'center', gap:3 }}>
+                            <span style={{ fontSize:10, fontWeight:700, padding:'1px 7px', borderRadius:4, background:recCfg.bg, color:recCfg.color, whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif' }}>
+                              {recCfg.label}
+                            </span>
+                            <ScoreFlag message={s.score_flag ? s.score_flag_message : ''} />
+                          </span>
+                        )}
+                      </>
+                    ) : s.interview_scheduled_date ? (
+                      <span style={{ fontSize:12, color:'#9ca3af', fontStyle:'italic', fontFamily:'DM Sans,sans-serif' }}>
+                        Awaiting Interview
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {/* 5. Action — stopPropagation so row-click doesn't also fire */}
+                  <div className="ir-wl-cell ir-wl-col-action" style={{ justifyContent:'center' }} onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={handleAction}
+                      style={{
+                        display:'inline-flex', alignItems:'center', gap:4,
+                        padding:'7px 14px', borderRadius:999,
+                        border:'1px solid #E5E5E5', background:'#ffffff',
+                        fontFamily:'DM Sans,sans-serif', fontSize:13, fontWeight:500,
+                        color:'#191919', cursor:'pointer', whiteSpace:'nowrap',
+                        transition:'background 150ms ease, border-color 150ms ease',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background='#F4F1EC'; e.currentTarget.style.borderColor='#c8c8c8' }}
+                      onMouseLeave={e => { e.currentTarget.style.background='#ffffff'; e.currentTarget.style.borderColor='#E5E5E5' }}
+                    >
+                      {rowAction.label}
+                    </button>
+                  </div>
+                </div>
               )
             })}
-          </tbody>
-        </table>
+          </div>
+        )}
       </div>
-      </div>{/* end student list */}
 
     </div>
   )

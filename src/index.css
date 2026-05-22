@@ -1774,6 +1774,26 @@ a.doc-file-link:hover { text-decoration: underline; }
 .rub-tab-month       { display: block; height: auto; overflow: visible; padding: 0 20px; }
 .rub-scroll-area-month { padding: 16px 0 0; }
 
+/* ── Interview Room 5-column worklist ────────────────────────────────────────
+   Replaces the old 11-column table. Five operational columns: Student,
+   Appointment, Workflow Status, Outcome, Action. Flag indicators live on
+   the left edge of each flagged row. */
+.ir-worklist { display: flex; flex-direction: column; border: 1px solid rgba(29,37,103,0.08); border-radius: 10px; background: var(--pearl); overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+.ir-wl-thead { display: flex; align-items: center; background: var(--sand); border-bottom: 1px solid rgba(29,37,103,0.10); position: sticky; top: 0; z-index: 5; }
+.ir-wl-th { padding: 9px 12px; font-family: 'DM Sans', sans-serif; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-caption, #9ca3af); white-space: nowrap; }
+.ir-wl-row { display: flex; align-items: stretch; border-bottom: 1px solid rgba(29,37,103,0.05); cursor: pointer; transition: background 0.12s ease; min-height: 76px; }
+.ir-wl-row:hover { background: rgba(244,241,236,0.55); }
+.ir-wl-row:last-child { border-bottom: none; }
+.ir-wl-cell { padding: 13px 12px; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+/* column widths via flex — student 26%, appt 18%, workflow 21%, outcome 20%, action flex */
+.ir-wl-col-student   { flex: 0 0 26%; }
+.ir-wl-col-appt      { flex: 0 0 18%; }
+.ir-wl-col-workflow  { flex: 0 0 21%; }
+.ir-wl-col-outcome   { flex: 0 0 20%; }
+.ir-wl-col-action    { flex: 1 1 0;  }
+/* Flag strip — 6px left edge colored indicator */
+.ir-wl-flag-strip { width: 6px; flex-shrink: 0; align-self: stretch; border-radius: 3px 0 0 3px; }
+
 /* Two-panel session */
 .rub-session {
   display: flex; flex-direction: column;
