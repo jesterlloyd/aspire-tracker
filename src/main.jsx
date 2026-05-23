@@ -6,6 +6,7 @@ import App from './App.jsx'
 import { AuthProvider } from './contexts/AuthContext.jsx'
 import { PresenceProvider } from './contexts/PresenceContext.jsx'
 import { ThemeProvider } from './contexts/ThemeContext.jsx'
+import { setQueryClient } from './lib/supabase.js'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,6 +20,7 @@ const queryClient = new QueryClient({
     },
   },
 })
+setQueryClient(queryClient)
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
