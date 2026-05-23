@@ -53,6 +53,14 @@ if (typeof window !== 'undefined') {
   })
   window.addEventListener('online', reconnectIfNeeded)
 
+  // Periodic health check: catches silent disconnects that don't trigger any browser event
+  // (e.g. WebSocket dies while the tab is visible and the network appears online).
+  // Runs every 30s to match heartbeatIntervalMs — if the heartbeat detects a dead
+  // connection, this will catch and recover it within the same window.
+  setInterval(() => {
+    if (document.visibilityState === 'visible') reconnectIfNeeded()
+  }, 30000)
+
   // Expose for console diagnostics: window.supabase.realtime.isConnected()
   window.supabase = supabase
 }
