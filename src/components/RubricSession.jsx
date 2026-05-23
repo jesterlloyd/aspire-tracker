@@ -509,6 +509,10 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       })
     }
     toast?.success('Rubric submitted', `Interview scored ${composite}/15.`)
+    // Clear the localStorage draft — rubric is now persisted on the server.
+    try {
+      if (student?.id && userId) localStorage.removeItem(`aspire.rubric.draft.${student.id}.${userId}`)
+    } catch (_) { /* non-critical */ }
     logActivity({ userProfile, actionType:'rubric_submitted', entityType:'student', entityId:student.id, cohortId, description:`${userProfile?.full_name} submitted interview rubric for ${student.first_name} ${student.last_name}. Score: ${composite}/15`, metadata:{ score: composite } })
   }
 
@@ -598,6 +602,65 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     const interval = setInterval(checkSession, 15 * 60 * 1000)
     return () => clearInterval(interval)
   }, [])
+
+  // ── localStorage safety net ───────────────────────────────────────────────
+  // Write form state to localStorage on every change so a refresh/crash/refetch
+  // can restore the user's work.  Keyed by student+user so multiple drafts
+  // coexist safely.  This is a backup layer; the existing auto-save and
+  // submit logic remain unchanged.
+
+  const userId = userProfile?.id
+
+  // CHANGE 1: write draft to localStorage on every form state change
+  useEffect(() => {
+    if (!student?.id || !userId) return
+    const key = `aspire.rubric.draft.${student.id}.${userId}`
+    try {
+      localStorage.setItem(key, JSON.stringify({
+        formState:   form,
+        prefs,
+        flagNote,
+        isFlagged,
+        otherClicked,
+        savedAt: new Date().toISOString(),
+      }))
+    } catch (err) {
+      console.warn('[RubricSession] localStorage backup failed:', err)
+    }
+  }, [form, prefs, flagNote, isFlagged, otherClicked, student?.id, userId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // CHANGE 2: restore draft from localStorage on mount or student change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!student?.id || !userId) return
+    const key = `aspire.rubric.draft.${student.id}.${userId}`
+    try {
+      const raw = localStorage.getItem(key)
+      if (!raw) return
+      const draft = JSON.parse(raw)
+      if (!draft?.savedAt) return
+
+      // Skip restore if the server has newer data (the server is authoritative)
+      const serverUpdatedAt = rubrics?.find?.(r => r.student_id === student.id)?.updated_at
+        || student?.updated_at
+      if (serverUpdatedAt && new Date(draft.savedAt) <= new Date(serverUpdatedAt)) return
+
+      // Restore every tracked field
+      if (draft.formState)                   setForm(draft.formState)
+      if (draft.prefs)                       setPrefs(draft.prefs)
+      if (draft.flagNote   !== undefined)    setFlagNote(draft.flagNote)
+      if (draft.isFlagged  !== undefined)    setIsFlagged(draft.isFlagged)
+      if (draft.otherClicked !== undefined)  setOtherClicked(draft.otherClicked)
+
+      const time = new Date(draft.savedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+      toast?.success('Draft restored', `Restored your in-progress rubric from ${time}.`)
+      console.info('[RubricSession] restored localStorage draft for student', student.id)
+    } catch (err) {
+      console.warn('[RubricSession] localStorage restore failed:', err)
+    }
+  }, [student?.id, userId])
+
+  // ─────────────────────────────────────────────────────────────────────────────
 
   // Derived question-selected flags (preset text OR Other tile clicked)
   const hasQCj = !!form.cj_question_asked || otherClicked.cj
