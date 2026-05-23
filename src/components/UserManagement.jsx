@@ -136,7 +136,14 @@ export default function UserManagement({ isOpen, onClose }) {
 
   // ── Data via TanStack Query ──────────────────────────────────────────────────
 
-  // User list — org-wide, no cohortId; refetches when drawer opens
+  // User list — org-wide, no cohortId.
+  // enabled depends only on canEdit, NOT on isOpen. The conditional render in
+  // App.jsx ({showUserManagement && <UserManagement />}) already guarantees this
+  // component is only mounted when open, so isOpen is always true on mount.
+  // Including isOpen in enabled introduced a race with the auth context: on the
+  // very first render after mount, userProfile can still be null, making
+  // canEdit false, which makes enabled false, which makes TQ set isLoading=true
+  // without ever firing a network request (perpetual "Loading users..." state).
   const {
     data:      users = [],
     isLoading: loading,
@@ -149,7 +156,7 @@ export default function UserManagement({ isOpen, onClose }) {
       if (rpcError) throw rpcError
       return data || []
     },
-    enabled: isOpen && !!canEdit,
+    enabled: !!canEdit,
   })
   const error = usersErrorObj?.message ?? null
 
@@ -162,7 +169,7 @@ export default function UserManagement({ isOpen, onClose }) {
         .order('created_at', { ascending: false }).limit(200)
       return data || []
     },
-    enabled: isOpen && !!canEdit,
+    enabled: !!canEdit,  // same fix: isOpen is redundant with conditional render
   })
 
   const [activeView,     setActiveView]     = useState('users')
