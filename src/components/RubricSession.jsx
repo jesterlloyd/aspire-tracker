@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import BackButton from './BackButton'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
@@ -68,6 +68,27 @@ const initForm = () => ({
 const ALL_UNITS = Object.values(UNITS_BY_DIVISION).flat()
 
 // ── Helpers ──────────────────────────────────────────────────
+
+// Returns true only if the draft contains actual user-entered data (not just auto-populated fields).
+// Prevents false-positive "draft restored" toasts when the stored draft is effectively empty.
+function hasRubricContent(draft) {
+  if (!draft?.formState) return false
+  const f = draft.formState
+  const userTypedFields = [
+    'interviewer_name', 'interview_time', 'unit_preferences_rationale',
+    'cj_question_asked', 'cj_notes',
+    'pp_question_asked', 'pp_notes',
+    'ga_question_asked', 'ga_notes',
+    'student_questions',
+    'individual_recommendation', 'suggested_unit', 'summary_comments',
+  ]
+  const hasText  = userTypedFields.some(k => typeof f[k] === 'string' && f[k].trim() !== '')
+  const hasScore = ['cj_score', 'pp_score', 'ga_score'].some(k => (f[k] ?? 0) > 0)
+  const hasFlag  = typeof draft.flagNote === 'string' && draft.flagNote.trim() !== ''
+  const hasOther = draft.otherClicked && Object.values(draft.otherClicked).some(Boolean)
+  return hasText || hasScore || hasFlag || hasOther
+}
+
 const getAutoRec = avg => {
   if (avg >= 12)  return 'Recommend'
   if (avg >= 8)   return 'Recommend with Reservations'
@@ -604,32 +625,53 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   }, [])
 
   // ── localStorage safety net ───────────────────────────────────────────────
-  // Write form state to localStorage on every change so a refresh/crash/refetch
-  // can restore the user's work.  Keyed by student+user so multiple drafts
-  // coexist safely.  This is a backup layer; the existing auto-save and
-  // submit logic remain unchanged.
+  // Write form state to localStorage on every change (and on tab-hide / beforeunload)
+  // so a refresh/crash/refetch can restore the user's work.  Keyed by student+user
+  // so multiple drafts coexist safely.  This is a backup layer; the existing auto-save
+  // and submit logic remain unchanged.
 
   const userId = userProfile?.id
 
-  // CHANGE 1: write draft to localStorage on every form state change
+  // Always-current snapshot of form state, used by event-driven saves that fire
+  // outside the React render cycle (visibilitychange, beforeunload).
+  const formStateRef = useRef({ form, prefs, flagNote, isFlagged, otherClicked })
   useEffect(() => {
+    formStateRef.current = { form, prefs, flagNote, isFlagged, otherClicked }
+  }, [form, prefs, flagNote, isFlagged, otherClicked])
+
+  // Core save function — reads from ref so it always captures the latest values.
+  // Guards: only writes when there is real user-entered content (not just auto-populated initial state).
+  const saveDraftToLocalStorage = useCallback(() => {
     if (!student?.id || !userId) return
     const key = `aspire.rubric.draft.${student.id}.${userId}`
     try {
-      localStorage.setItem(key, JSON.stringify({
-        formState:   form,
-        prefs,
-        flagNote,
-        isFlagged,
-        otherClicked,
-        savedAt: new Date().toISOString(),
-      }))
+      const { form: f, prefs: p, flagNote: fn, isFlagged: fi, otherClicked: oc } = formStateRef.current
+      const draft = { formState: f, prefs: p, flagNote: fn, isFlagged: fi, otherClicked: oc, savedAt: new Date().toISOString() }
+      if (!hasRubricContent(draft)) return
+      localStorage.setItem(key, JSON.stringify(draft))
     } catch (err) {
       console.warn('[RubricSession] localStorage backup failed:', err)
     }
-  }, [form, prefs, flagNote, isFlagged, otherClicked, student?.id, userId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [student?.id, userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // CHANGE 2: restore draft from localStorage on mount or student change
+  // Save on any state change (primary trigger)
+  useEffect(() => {
+    saveDraftToLocalStorage()
+  }, [form, prefs, flagNote, isFlagged, otherClicked, saveDraftToLocalStorage]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Save on tab hide and browser close/refresh (catches edits the state-change effect may have missed)
+  useEffect(() => {
+    const onHide        = () => { if (document.visibilityState === 'hidden') saveDraftToLocalStorage() }
+    const onBeforeUnload = () => saveDraftToLocalStorage()
+    document.addEventListener('visibilitychange', onHide)
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => {
+      document.removeEventListener('visibilitychange', onHide)
+      window.removeEventListener('beforeunload', onBeforeUnload)
+    }
+  }, [saveDraftToLocalStorage])
+
+  // Restore draft from localStorage on mount or student change
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!student?.id || !userId) return
@@ -644,6 +686,9 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       const serverUpdatedAt = rubrics?.find?.(r => r.student_id === student.id)?.updated_at
         || student?.updated_at
       if (serverUpdatedAt && new Date(draft.savedAt) <= new Date(serverUpdatedAt)) return
+
+      // Skip restore if the draft has no real user-entered content — avoids false-positive toasts
+      if (!hasRubricContent(draft)) return
 
       // Restore every tracked field
       if (draft.formState)                   setForm(draft.formState)
