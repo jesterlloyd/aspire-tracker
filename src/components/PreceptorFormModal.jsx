@@ -11,8 +11,18 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
 
   useEffect(() => {
     if (!isOpen) return
-    supabase.from('units').select('id, unit_name').order('unit_name')
-      .then(({ data }) => setUnits(data || []))
+
+    async function loadUnits() {
+      try {
+        const { data, error } = await supabase.from('units').select('id, unit_name').order('unit_name')
+        if (error) { console.error('[PreceptorFormModal] units query failed:', error); return }
+        setUnits(data || [])
+      } catch (err) {
+        console.error('[PreceptorFormModal] units query threw:', err)
+      }
+    }
+
+    loadUnits()
   }, [isOpen])
 
   useEffect(() => {
@@ -38,9 +48,12 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
 
   const handleSubmit = async e => {
     e.preventDefault()
+    console.log('[PreceptorFormModal] handleSubmit fired', { form, initialData, cohortId })
+
     if (!form.full_name.trim()) { setError('Full name is required.'); return }
     if (!form.email.trim())     { setError('Email is required.');     return }
 
+    console.log('[PreceptorFormModal] validation passed, setSaving(true)')
     setSaving(true); setError(null)
 
     try {
@@ -55,6 +68,8 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
         notes:      form.notes.trim() || null,
         is_active:  true,
       }
+      console.log('[PreceptorFormModal] payload built', payload)
+      console.log('[PreceptorFormModal] about to call supabase insert/update')
 
       let result
       if (initialData) {
@@ -64,6 +79,7 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
         const { data, error: err } = await supabase.from('preceptors').insert(payload).select().single()
         result = { data, error: err }
       }
+      console.log('[PreceptorFormModal] supabase returned', result)
 
       if (result.error) {
         console.error('[PreceptorFormModal] save error:', result.error)
@@ -75,8 +91,11 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
         return
       }
 
+      console.log('[PreceptorFormModal] insert succeeded, id:', result.data?.id)
+
       // Create cohort participation record when adding a new preceptor with cohort context
       if (cohortId && !initialData && result.data) {
+        console.log('[PreceptorFormModal] inserting cohort participation')
         const today = new Date().toISOString().split('T')[0]
         const { error: partErr } = await supabase.from('preceptor_cohort_participation').insert({
           preceptor_id: result.data.id,
@@ -87,6 +106,7 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
         if (partErr) console.error('[PreceptorFormModal] cohort participation insert failed:', partErr)
       }
 
+      console.log('[PreceptorFormModal] invalidating queries, calling callbacks')
       queryClient.invalidateQueries({ queryKey: ['preceptors'] })
       onSaved?.(result.data)
       onClose()
@@ -94,6 +114,7 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
       console.error('[PreceptorFormModal] unexpected error:', err)
       setError(err.message || 'An unexpected error occurred.')
     } finally {
+      console.log('[PreceptorFormModal] finally block, setSaving(false)')
       setSaving(false)
     }
   }
