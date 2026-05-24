@@ -9,7 +9,7 @@ function RefreshHint() {
   }, [])
 
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:'#98A2B3', fontFamily:'DM Sans, sans-serif', lineHeight:1, marginLeft:'auto', paddingRight:4, flexShrink:0 }}>
+    <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:'#98A2B3', fontFamily:'DM Sans, sans-serif', lineHeight:1, marginLeft:'auto', paddingRight:4, flexShrink:0, alignSelf:'center' }}>
       <span style={{ whiteSpace:'nowrap' }}>Missing data? Refresh</span>
       <button
         onClick={() => window.location.reload()}
@@ -48,9 +48,9 @@ export default function UnifiedNav({
     <nav style={{
       background: 'var(--bg-card,#FAFAF7)',
       borderBottom: '1px solid var(--border-divider,rgba(29,37,103,0.08))',
-      padding: '18px 32px 0',
+      padding: '0 32px',
       display: 'flex',
-      alignItems: 'flex-end',
+      alignItems: 'stretch',
       fontFamily: 'DM Sans, sans-serif',
     }}>
       {TABS.map(({ id, label, chip }) => {
@@ -71,7 +71,8 @@ export default function UnifiedNav({
             data-tour={tourTarget}
             style={{
               position: 'relative',
-              padding: '0 16px 18px',
+              padding: '11px 16px',
+              height: '100%',
               border: 'none',
               borderBottom: isActive ? '2px solid var(--color-accent-primary,#1D2567)' : '2px solid transparent',
               background: 'none',
