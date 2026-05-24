@@ -2498,6 +2498,20 @@ a.doc-file-link:hover { text-decoration: underline; }
   color: var(--color-text-secondary); border-bottom-color: var(--color-border-subtle);
 }
 
+/* Placement Requests list rows (Aggregate tab) */
+[data-theme="dark"] .pl-row {
+  border-bottom-color: var(--color-border-subtle);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .pl-row:hover {
+  background: var(--color-bg-hover);
+}
+[data-theme="dark"] .pl-row.pl-selected {
+  background: var(--color-bg-elevated);
+  border-left-color: var(--color-accent-primary);
+  color: var(--color-text-primary);
+}
+
 /* ── Interview Room tab ──────────────────────────────────────────── */
 [data-theme="dark"] .interview-room-tab,
 [data-theme="dark"] .interview-tab {
@@ -2506,6 +2520,60 @@ a.doc-file-link:hover { text-decoration: underline; }
 [data-theme="dark"] .rub-form,
 [data-theme="dark"] .rub-form-body {
   background: var(--color-bg-surface); color: var(--color-text-primary);
+}
+
+/* Workload list (interview queue) */
+[data-theme="dark"] .ir-wl-thead {
+  background: var(--color-bg-elevated);
+  border-bottom-color: var(--color-border-default);
+}
+[data-theme="dark"] .ir-wl-th {
+  color: var(--color-text-muted);
+}
+[data-theme="dark"] .ir-wl-row {
+  border-bottom-color: var(--color-border-subtle);
+}
+[data-theme="dark"] .ir-wl-row:hover {
+  background: var(--color-bg-hover);
+}
+
+/* Rubric session two-panel layout */
+[data-theme="dark"] .rub-panels {
+  border-color: var(--color-border-default);
+}
+[data-theme="dark"] .rub-left {
+  background: var(--color-bg-surface);
+  border-right-color: var(--color-border-default);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .rub-right {
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .rub-progress-bar {
+  background: var(--color-bg-surface);
+  border-bottom-color: var(--color-border-default);
+}
+[data-theme="dark"] .rub-step-circle {
+  background: var(--color-bg-elevated);
+  border-color: var(--color-border-default);
+  color: var(--color-text-muted);
+}
+[data-theme="dark"] .rub-step-label {
+  color: var(--color-text-secondary);
+  border-right-color: var(--color-border-default);
+}
+[data-theme="dark"] .rub-divider {
+  background: var(--color-border-default);
+}
+[data-theme="dark"] .rub-student-name {
+  color: var(--color-text-primary);
+}
+[data-theme="dark"] .rub-student-school {
+  color: var(--color-text-secondary);
+}
+[data-theme="dark"] .rub-left-lbl {
+  color: var(--color-text-muted);
 }
 
 /* ── Embed (Matching) tab ────────────────────────────────────────── */

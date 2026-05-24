@@ -568,10 +568,10 @@ export default function InterviewRubricTab({
                     <div style={{ display:'flex', gap:10, alignItems:'center' }}>
                       <StudentAvatar student={s} size={40} style={{ flexShrink:0 }} />
                       <div style={{ minWidth:0 }}>
-                        <div style={{ fontWeight:600, fontSize:13, color:'#191919', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif' }}>
+                        <div style={{ fontWeight:600, fontSize:13, color:'var(--color-text-primary)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif' }}>
                           {displayName(s)}
                         </div>
-                        <div style={{ fontSize:11, color:'#9ca3af', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginTop:2, fontFamily:'DM Sans,sans-serif' }}>
+                        <div style={{ fontSize:11, color:'var(--color-text-muted)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginTop:2, fontFamily:'DM Sans,sans-serif' }}>
                           {formatSchoolProgram(s.school, s.program_type)}
                         </div>
                       </div>
@@ -582,18 +582,18 @@ export default function InterviewRubricTab({
                   <div className="ir-wl-cell ir-wl-col-appt">
                     {s.interview_scheduled_date ? (
                       <>
-                        <div style={{ fontWeight:600, fontSize:12, color:'#1D2567', fontFamily:'DM Sans,sans-serif', whiteSpace:'nowrap' }}>
+                        <div style={{ fontWeight:600, fontSize:12, color:'var(--color-accent-primary)', fontFamily:'DM Sans,sans-serif', whiteSpace:'nowrap' }}>
                           {fmtApptDate(s.interview_scheduled_date)}
                           {fmtApptTime(s.interview_scheduled_time) && (
                             <> &middot; {fmtApptTime(s.interview_scheduled_time)}</>
                           )}
                         </div>
-                        <div style={{ fontSize:11, color:'#9ca3af', marginTop:3, fontFamily:'DM Sans,sans-serif', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        <div style={{ fontSize:11, color:'var(--color-text-muted)', marginTop:3, fontFamily:'DM Sans,sans-serif', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                           {interviewerDisplay || 'Interviewer pending'}
                         </div>
                       </>
                     ) : (
-                      <span style={{ fontSize:12, color:'#9ca3af', fontStyle:'italic', fontFamily:'DM Sans,sans-serif' }}>
+                      <span style={{ fontSize:12, color:'var(--color-text-muted)', fontStyle:'italic', fontFamily:'DM Sans,sans-serif' }}>
                         Not Scheduled
                       </span>
                     )}
@@ -613,11 +613,11 @@ export default function InterviewRubricTab({
                   <div className="ir-wl-cell ir-wl-col-outcome">
                     {scoredRubs.length > 0 ? (
                       <>
-                        <div style={{ fontSize:11, color:'#9ca3af', fontFamily:'DM Sans,sans-serif', marginBottom:2 }}>
+                        <div style={{ fontSize:11, color:'var(--color-text-muted)', fontFamily:'DM Sans,sans-serif', marginBottom:2 }}>
                           Rubrics: {studentRubs.length}
                         </div>
-                        <div style={{ fontWeight:700, fontSize:13, color:'#1D2567', fontFamily:'DM Sans,sans-serif', marginBottom:4 }}>
-                          {avgScore.toFixed(1)}<span style={{ fontWeight:400, color:'#9ca3af', fontSize:11 }}> / 15</span>
+                        <div style={{ fontWeight:700, fontSize:13, color:'var(--color-text-primary)', fontFamily:'DM Sans,sans-serif', marginBottom:4 }}>
+                          {avgScore.toFixed(1)}<span style={{ fontWeight:400, color:'var(--color-text-muted)', fontSize:11 }}> / 15</span>
                         </div>
                         {recCfg && (
                           <span style={{ display:'inline-flex', alignItems:'center', gap:3 }}>
@@ -629,7 +629,7 @@ export default function InterviewRubricTab({
                         )}
                       </>
                     ) : s.interview_scheduled_date ? (
-                      <span style={{ fontSize:12, color:'#9ca3af', fontStyle:'italic', fontFamily:'DM Sans,sans-serif' }}>
+                      <span style={{ fontSize:12, color:'var(--color-text-muted)', fontStyle:'italic', fontFamily:'DM Sans,sans-serif' }}>
                         Awaiting Interview
                       </span>
                     ) : null}
@@ -643,13 +643,13 @@ export default function InterviewRubricTab({
                         style={{
                           display:'inline-flex', alignItems:'center', gap:4,
                           padding:'7px 14px', borderRadius:999,
-                          border:'1px solid #E5E5E5', background:'#ffffff',
+                          border:'1px solid var(--color-border-default)', background:'var(--color-bg-surface)',
                           fontFamily:'DM Sans,sans-serif', fontSize:13, fontWeight:500,
-                          color:'#191919', cursor:'pointer', whiteSpace:'nowrap',
+                          color:'var(--color-text-primary)', cursor:'pointer', whiteSpace:'nowrap',
                           transition:'background 150ms ease, border-color 150ms ease',
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.background='#F4F1EC'; e.currentTarget.style.borderColor='#c8c8c8' }}
-                        onMouseLeave={e => { e.currentTarget.style.background='#ffffff'; e.currentTarget.style.borderColor='#E5E5E5' }}
+                        onMouseEnter={e => { e.currentTarget.style.background='var(--color-bg-hover)'; e.currentTarget.style.borderColor='var(--color-border-strong)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background='var(--color-bg-surface)'; e.currentTarget.style.borderColor='var(--color-border-default)' }}
                       >
                         {rowAction.label}
                       </button>

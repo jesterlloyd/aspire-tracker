@@ -665,15 +665,11 @@ function MainApp({ onLogout }) {
         }}>
           {/* Zone 1: Brand */}
           <div style={{ display:'flex', alignItems:'center', gap:14, flexShrink:0 }}>
-            <img src="/cs-logo-rev.png" alt="Cedars-Sinai" style={{ height:32, width:'auto', objectFit:'contain' }} />
+            <img src="/cs-logo-large.png" alt="Cedars-Sinai" style={{ height:38, width:'auto', objectFit:'contain' }} />
             <div style={{ width:1, height:30, background:'rgba(255,255,255,0.18)', flexShrink:0 }} />
-            <div style={{ display:'flex', flexDirection:'column', lineHeight:1.15 }}>
-              <div style={{ fontSize:16, fontWeight:700, color:'#fff', letterSpacing:'-0.01em' }}>
-                ASPIRE Intelligence
-              </div>
-              <div style={{ fontSize:10.5, color:'rgba(255,255,255,0.50)', marginTop:2 }}>
-                Affiliate Students' Pathway from Internship to Residency Experience
-              </div>
+            <div title="Affiliate Students' Pathway from Internship to Residency Experience"
+              style={{ fontSize:16, fontWeight:700, color:'#fff', letterSpacing:'-0.01em', cursor:'default' }}>
+              ASPIRE Intelligence
             </div>
           </div>
 

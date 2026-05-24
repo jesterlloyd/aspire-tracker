@@ -67,7 +67,7 @@ export default function UserMenu({ onOpenUserManagement, onRestartTour }) {
         <button
           data-tour="people-access"
           onClick={onOpenUserManagement}
-          title="Manage users"
+          title="People & Access"
           style={{
             background: 'rgba(255,255,255,0.10)',
             border: '1px solid rgba(255,255,255,0.15)',
@@ -87,6 +87,7 @@ export default function UserMenu({ onOpenUserManagement, onRestartTour }) {
       {/* User button */}
       <button
         data-tour="user-profile"
+        title="My Profile"
         onClick={() => setIsOpen(!isOpen)}
         style={{
           display: 'flex', alignItems: 'center', gap: '8px',
