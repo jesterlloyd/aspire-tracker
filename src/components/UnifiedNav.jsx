@@ -48,9 +48,9 @@ export default function UnifiedNav({
     <nav style={{
       background: 'var(--bg-card,#FAFAF7)',
       borderBottom: '1px solid var(--border-divider,rgba(29,37,103,0.08))',
-      padding: '0 32px',
+      padding: '18px 32px 0',
       display: 'flex',
-      alignItems: 'stretch',
+      alignItems: 'flex-end',
       fontFamily: 'DM Sans, sans-serif',
     }}>
       {TABS.map(({ id, label, chip }) => {
@@ -71,8 +71,7 @@ export default function UnifiedNav({
             data-tour={tourTarget}
             style={{
               position: 'relative',
-              padding: '0 16px',
-              height: '100%',
+              padding: '0 16px 18px',
               border: 'none',
               borderBottom: isActive ? '2px solid var(--color-accent-primary,#1D2567)' : '2px solid transparent',
               background: 'none',
