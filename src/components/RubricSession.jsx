@@ -175,7 +175,7 @@ async function recalculateStudentAverages(studentId, supabase) {
 }
 
 // ── Editable rubric card in the consolidated view ────────────
-function RubricCard({ r, interviewers, onSave }) {
+function RubricCard({ r, interviewers, onSave, canEdit, onView }) {
   const [editing, setEditing] = useState(false)
   const [saving,  setSaving]  = useState(false)
   const [editForm, setEditForm] = useState({
@@ -242,11 +242,20 @@ function RubricCard({ r, interviewers, onSave }) {
           <span className="rub-rc-date">{r.interview_date}</span>
           <span className="rub-rc-score">{comp}/15</span>
           {rec && recColor && <span style={{ fontSize:11, fontWeight:600, padding:'1px 7px', borderRadius:4, background:recBg, color:recColor }}>{rec}</span>}
-          <button className="btn btn-outline-modal"
-            style={{ fontSize:11, padding:'2px 10px', marginLeft:'auto', flexShrink:0 }}
-            onClick={() => setEditing(true)}>
-            Edit
-          </button>
+          <div style={{ marginLeft:'auto', display:'flex', gap:6, flexShrink:0 }}>
+            {onView && (
+              <button className="btn btn-outline-modal" style={{ fontSize:11, padding:'2px 10px' }}
+                onClick={() => onView(r)}>
+                View
+              </button>
+            )}
+            {canEdit && (
+              <button className="btn btn-outline-modal" style={{ fontSize:11, padding:'2px 10px' }}
+                onClick={() => setEditing(true)}>
+                Edit
+              </button>
+            )}
+          </div>
         </div>
         <div className="rub-rc-scores">
           <span>CJ: {r.cj_score||0}/5</span>
@@ -311,10 +320,10 @@ function RubricCard({ r, interviewers, onSave }) {
   )
 }
 
-export default function RubricSession({ student, rubrics, cohortId, onBack, onStudentUpdate, onRubricsChange, toast }) {
+export default function RubricSession({ student, rubrics, cohortId, onBack, onStudentUpdate, onRubricsChange, toast, readOnly = false, initialRubric = null }) {
   const { userProfile } = useAuth()
-  const [form,           setForm]           = useState(initForm())
-  const [rubricId,       setRubricId]       = useState(null)
+  const [form,           setForm]           = useState(initialRubric || initForm())
+  const [rubricId,       setRubricId]       = useState(initialRubric?.id || null)
   const [saveStatus,     setSaveStatus]     = useState('idle')
   const [confirmComplete,setConfirmComplete]= useState(false)
   const [confirmReset,   setConfirmReset]   = useState(false)
@@ -347,6 +356,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
   // Tracks which domains are in "Other / Custom" mode per rubric instance
   const [otherClicked,    setOtherClicked]    = useState({ cj: false, pp: false, ga: false })
+  const [viewingRubric,   setViewingRubric]   = useState(null)
   const [showValidation,  setShowValidation]  = useState(false)
   // Rubrics for this student
   const studentRubrics  = rubrics.filter(r => r.student_id === student.id)
@@ -376,7 +386,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
         availUnits:   (unitsRes.data || []).map(u => u.unit_name),
       }
     },
-    enabled:   !!cohortId,
+    enabled:   !!cohortId && !readOnly,
     staleTime: 0,  // always refetch on mount so new interviewers appear immediately
   })
   const interviewers = interviewer_unit_data?.interviewers || []
@@ -403,7 +413,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
         return { unit: unitRes.data, demand1: d1.count||0, demand2: d2.count||0, demand3: d3.count||0 }
       }))
     },
-    enabled: !!cohortId && !!student.id,
+    enabled: !!cohortId && !!student.id && !readOnly,
   })
 
   // When interviewer_name changes, try to load their existing rubric
@@ -426,6 +436,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   // createIfNeeded=true:  create record on first meaningful edit
   // Returns true on success, false on failure (caller should check before showing success UI)
   const persist = async (updates, createIfNeeded = false) => {
+    if (readOnly) return false
     setSaveStatus('saving')
     const payload = {
       ...updates,
@@ -574,7 +585,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     }
   }
 
-  const locked = form.status === 'Completed'
+  const locked = readOnly || form.status === 'Completed'
 
   // Keep refs in sync with latest render values so the auto-save interval
   // (which has a stable closure) always uses current data.
@@ -642,6 +653,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   // Core save function — reads from ref so it always captures the latest values.
   // Guards: only writes when there is real user-entered content (not just auto-populated initial state).
   const saveDraftToLocalStorage = useCallback(() => {
+    if (readOnly) return
     if (!student?.id || !userId) return
     const key = `aspire.rubric.draft.${student.id}.${userId}`
     try {
@@ -674,6 +686,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   // Restore draft from localStorage on mount or student change
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    if (readOnly) return
     if (!student?.id || !userId) return
     const key = `aspire.rubric.draft.${student.id}.${userId}`
     try {
@@ -737,39 +750,49 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     !form.individual_recommendation              && 'Overall recommendation is required',
   ].filter(Boolean) : []
 
+  // ESC closes the rubric view modal
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!viewingRubric) return
+    const onKey = e => { if (e.key === 'Escape') setViewingRubric(null) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [viewingRubric])
 
   return (
     <div className="rub-session">
-      {/* Back button */}
-      <div className="rub-topbar">
-        <BackButton label="Back to Interview List" onClick={onBack} />
-        <span className="iv-save-indicator">
-          {saveStatus === 'saving' && (
-            <span className="iv-saving">Saving…</span>
-          )}
-          {saveStatus === 'saved' && (
-            <span className="iv-saved">
-              ✓ Saved{lastSavedAt ? ` at ${fmtSaveTime(lastSavedAt)}` : ''}
-            </span>
-          )}
-          {saveStatus === 'error' && (
-            <span
-              style={{ fontSize:11, fontWeight:700, color:'#991b1b', background:'#fee2e2',
-                border:'1px solid #fca5a5', borderRadius:6, padding:'2px 8px', cursor:'pointer' }}
-              onClick={() => persistRef.current?.(formRef.current, !!rubricIdRef.current ? false : true)}
-              title="Click to retry save"
-            >
-              ⚠ Save failed · retry
-            </span>
-          )}
-          {saveStatus === 'idle' && lastSavedAt && (
-            <span style={{ fontSize:11, color:'#9ca3af' }}>
-              Saved {fmtSaveTime(lastSavedAt)}
-            </span>
-          )}
-        </span>
-        {locked && <button className="btn btn-outline-modal" style={{ marginLeft:'auto' }} onClick={() => setConfirmUnlock(true)}>Unlock to Edit</button>}
-      </div>
+      {/* Back button + save indicator — hidden in readOnly (modal provides its own close) */}
+      {!readOnly && (
+        <div className="rub-topbar">
+          <BackButton label="Back to Interview List" onClick={onBack} />
+          <span className="iv-save-indicator">
+            {saveStatus === 'saving' && (
+              <span className="iv-saving">Saving…</span>
+            )}
+            {saveStatus === 'saved' && (
+              <span className="iv-saved">
+                ✓ Saved{lastSavedAt ? ` at ${fmtSaveTime(lastSavedAt)}` : ''}
+              </span>
+            )}
+            {saveStatus === 'error' && (
+              <span
+                style={{ fontSize:11, fontWeight:700, color:'#991b1b', background:'#fee2e2',
+                  border:'1px solid #fca5a5', borderRadius:6, padding:'2px 8px', cursor:'pointer' }}
+                onClick={() => persistRef.current?.(formRef.current, !!rubricIdRef.current ? false : true)}
+                title="Click to retry save"
+              >
+                ⚠ Save failed · retry
+              </span>
+            )}
+            {saveStatus === 'idle' && lastSavedAt && (
+              <span style={{ fontSize:11, color:'#9ca3af' }}>
+                Saved {fmtSaveTime(lastSavedAt)}
+              </span>
+            )}
+          </span>
+          {locked && <button className="btn btn-outline-modal" style={{ marginLeft:'auto' }} onClick={() => setConfirmUnlock(true)}>Unlock to Edit</button>}
+        </div>
+      )}
 
       <div className="rub-panels">
         {/* ── Left panel ── */}
@@ -929,8 +952,9 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
             ) : null)}
           </div>
 
-          {/* Flag toggle */}
-          <div className="rub-divider" />
+          {/* Flag toggle — hidden in readOnly view */}
+          {!readOnly && <div className="rub-divider" />}
+          {!readOnly && (
           <div className="rub-left-section">
             {isFlagged ? (
               <div className="rub-flag-banner">
@@ -958,6 +982,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
               </button>
             )}
           </div>
+          )}
         </div>
 
         {/* ── Right panel ── */}
@@ -1010,7 +1035,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
           )}
 
           {/* Existing rubrics banner */}
-          {studentRubrics.length > 0 && (
+          {!readOnly && studentRubrics.length > 0 && (
             <div style={{ background:'var(--marina)', border:'1px solid #b8d8eb', borderRadius:6, padding:'10px 14px', margin:'0 0 16px', fontSize:13, color:'var(--nightfall)' }}>
               <strong>{studentRubrics.length} rubric{studentRubrics.length !== 1 ? 's' : ''} already submitted</strong> for this student.
               {!rubricId && ' You are adding a new rubric. Each interviewer scores independently.'}
@@ -1349,13 +1374,18 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
               <div className="iv-locked-notice">✓ Your rubric is marked Complete. Click "Unlock to Edit" to make changes.</div>
             )}
 
-            {/* All rubrics for this student */}
-            {completedRubrics.length > 0 && (
+            {/* All rubrics for this student — hidden in readOnly view */}
+            {!readOnly && completedRubrics.length > 0 && (
               <div className="rub-all-section">
                 <div className="rub-all-title">All Rubrics for This Student ({completedRubrics.length})</div>
-                {completedRubrics.map(r => (
-                  <RubricCard key={r.id} r={r} interviewers={interviewers} onSave={handleRubricEdit} />
-                ))}
+                {completedRubrics.map(r => {
+                  const isOwnerOrAdmin = userProfile?.is_owner || ['admin', 'co-lead', 'co_lead'].includes(userProfile?.role)
+                  return (
+                    <RubricCard key={r.id} r={r} interviewers={interviewers} onSave={handleRubricEdit}
+                      canEdit={isOwnerOrAdmin || r.interviewer_name === userProfile?.full_name}
+                      onView={() => setViewingRubric(r)} />
+                  )
+                })}
                 <div className="rub-avg-display">
                   <span>Average Composite: <strong>{(() => {
                     // Compute live from rubric rows so the value is correct even when
@@ -1422,6 +1452,33 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
             <div className="modal-footer">
               <button className="btn btn-outline-modal" onClick={() => setConfirmUnlock(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={handleUnlock}>Confirm Unlock</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Read-only rubric view modal */}
+      {viewingRubric && (
+        <div className="modal-overlay" onMouseDown={() => setViewingRubric(null)}>
+          <div className="modal-rubric-view" onMouseDown={e => e.stopPropagation()}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px', borderBottom:'1px solid var(--color-border-subtle, #f3f4f6)', flexShrink:0 }}>
+              <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:15, color:'var(--color-text-primary)' }}>
+                Rubric — {viewingRubric.interviewer_name || 'Unknown Interviewer'}
+              </div>
+              <button className="modal-close" onClick={() => setViewingRubric(null)}>×</button>
+            </div>
+            <div style={{ overflowY:'auto', flex:1 }}>
+              <RubricSession
+                student={student}
+                rubrics={rubrics}
+                cohortId={cohortId}
+                onBack={() => setViewingRubric(null)}
+                onStudentUpdate={onStudentUpdate}
+                onRubricsChange={onRubricsChange}
+                toast={toast}
+                readOnly
+                initialRubric={viewingRubric}
+              />
             </div>
           </div>
         </div>
