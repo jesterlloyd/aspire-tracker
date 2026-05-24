@@ -35,31 +35,25 @@ export default function RotationTab(props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{
-        display: 'flex', gap: 4, padding: '10px 24px 0',
-        fontFamily: 'DM Sans, sans-serif', flexShrink: 0,
-      }}>
-        {[{ id: 'matrix', label: 'Matrix' }, { id: 'preceptors', label: 'Preceptors' }].map(({ id, label }) => {
-          const isActive = activeSubTab === id
-          return (
-            <button
-              key={id}
-              onClick={() => navigate(`/rotation/${id}`)}
-              style={{
-                padding: '4px 14px', border: 'none', borderRadius: 999,
-                background: isActive ? 'var(--color-accent-primary,#1D2567)' : 'var(--color-bg-elevated,#EDEEF4)',
-                color: isActive ? '#fff' : 'var(--color-text-primary,#374151)',
-                fontSize: 12.5, fontWeight: 500, cursor: 'pointer',
-                fontFamily: 'DM Sans, sans-serif',
-                transition: 'background 0.15s, color 0.15s',
-              }}
-              onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(29,37,103,0.08)' }}
-              onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'var(--color-bg-elevated,#EDEEF4)' }}
-            >
-              {label}
-            </button>
-          )
-        })}
+      <div style={{ padding: '10px 24px 0', flexShrink: 0 }}>
+        <div style={{ display: 'flex', borderRadius: 7, border: '1px solid var(--border-input,rgba(29,37,103,0.10))', overflow: 'hidden', width: 'fit-content' }}>
+          <button
+            onClick={() => navigate('/rotation/matrix')}
+            style={{ height: 32, padding: '0 13px', display: 'flex', alignItems: 'center', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'DM Sans,sans-serif', fontWeight: 500,
+              background: activeSubTab === 'matrix' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
+              color: activeSubTab === 'matrix' ? '#fff' : 'var(--text-secondary,#4A5560)', transition: 'all 0.12s' }}
+          >
+            Matrix
+          </button>
+          <button
+            onClick={() => navigate('/rotation/preceptors')}
+            style={{ height: 32, padding: '0 13px', display: 'flex', alignItems: 'center', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'DM Sans,sans-serif', fontWeight: 500,
+              background: activeSubTab === 'preceptors' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
+              color: activeSubTab === 'preceptors' ? '#fff' : 'var(--text-secondary,#4A5560)', transition: 'all 0.12s' }}
+          >
+            Preceptors
+          </button>
+        </div>
       </div>
 
       <div style={{ display: activeSubTab === 'matrix' ? 'block' : 'none', flex: 1, minHeight: 0 }}>

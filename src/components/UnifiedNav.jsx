@@ -27,11 +27,11 @@ function RefreshHint() {
 }
 
 const TABS = [
-  { id: 'overview',   label: 'Aggregate' },
-  { id: 'profiles',   label: 'Student Profiles' },
-  { id: 'interviews', label: 'Interviews' },
-  { id: 'rotation',   label: 'Rotation' },
-  { id: 'evaluation', label: 'Evaluation' },
+  { id: 'overview',   label: 'Aggregate',        chip: 'A'  },
+  { id: 'profiles',   label: 'Student Profiles', chip: 'SP' },
+  { id: 'interviews', label: 'Interviews',        chip: 'I'  },
+  { id: 'rotation',   label: 'Rotation',          chip: 'R'  },
+  { id: 'evaluation', label: 'Evaluation',        chip: 'E'  },
 ]
 
 export default function UnifiedNav({
@@ -53,7 +53,7 @@ export default function UnifiedNav({
       alignItems: 'stretch',
       fontFamily: 'DM Sans, sans-serif',
     }}>
-      {TABS.map(({ id, label }) => {
+      {TABS.map(({ id, label, chip }) => {
         const isActive   = activeTab === id
         const tourTarget = {
           overview:   'tab-aggregate',
@@ -78,10 +78,10 @@ export default function UnifiedNav({
               background: 'none',
               color: isActive ? 'var(--color-accent-primary,#1D2567)' : 'var(--text-muted,#6B7280)',
               fontFamily: 'DM Sans, sans-serif',
-              fontSize: 13,
-              fontWeight: isActive ? 600 : 400,
+              fontSize: 17,
+              fontWeight: isActive ? 600 : 500,
               cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 6,
+              display: 'flex', alignItems: 'center', gap: 7,
               transition: 'color 0.15s, border-color 0.15s',
               flexShrink: 0,
               marginBottom: -1,
@@ -89,7 +89,21 @@ export default function UnifiedNav({
             onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = 'var(--text-caption,#374151)' }}
             onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = 'var(--text-muted,#6B7280)' }}
           >
+            {/* ASPIRE mnemonic chip — quiet, always muted grey */}
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              height: 20, minWidth: chip.length > 1 ? 26 : 20,
+              padding: chip.length > 1 ? '0 4px' : 0,
+              borderRadius: 4, border: '1px solid #8B8F99',
+              fontSize: 10, fontWeight: 600, letterSpacing: '0.01em',
+              color: '#8B8F99', background: 'transparent',
+              flexShrink: 0, lineHeight: 1,
+            }}>
+              {chip}
+            </span>
+
             {label}
+
             {id === 'profiles' && spBadge > 0 && (
               <span style={{
                 background: '#930045', color: '#fff',
