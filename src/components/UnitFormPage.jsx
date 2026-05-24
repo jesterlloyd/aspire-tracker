@@ -147,7 +147,7 @@ export default function UnitFormPage() {
       uiResetFired = true
       console.warn('[UnitForm] UI safety timeout fired at 12s')
       setSubmitting(false)
-      setError('Submission is taking too long. Please refresh the page and try again. If this keeps happening, email JesterLloyd.Bautista@cshs.org.')
+      setError("We're experiencing a technical issue with form submissions. We're working on a fix. In the meantime, please email your responses directly to JesterLloyd.Bautista@cshs.org and we'll log them manually. Sorry for the inconvenience.")
     }, 12000)
 
     const controller = new AbortController()
