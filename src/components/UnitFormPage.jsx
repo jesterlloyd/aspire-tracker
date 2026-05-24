@@ -137,6 +137,10 @@ export default function UnitFormPage() {
     if (isHosting && form.hiring_ngrp === null) return setError('Please answer the NGRP hiring question.')
 
     setSubmitting(true)
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000)
+
     try {
       // 1. Upsert the units row (ensures matching board has a record)
       let unitId
@@ -146,6 +150,7 @@ export default function UnitFormPage() {
         .eq('cohort_id', cohortId)
         .eq('unit_name', form.unit_name.trim())
         .limit(1)
+        .abortSignal(controller.signal)
         .maybeSingle()
 
       if (existingUnit) {
@@ -159,7 +164,7 @@ export default function UnitFormPage() {
           shift_preference: form.shift_preference,
           preceptors:       form.preferred_preceptors.trim(),
           considerations:   form.considerations.trim(),
-        }).eq('id', unitId)
+        }).eq('id', unitId).abortSignal(controller.signal)
       } else {
         const { data: newUnit, error: unitErr } = await supabase.from('units').insert({
           unit_name:          form.unit_name.trim(),
@@ -173,7 +178,7 @@ export default function UnitFormPage() {
           considerations:     form.considerations.trim(),
           patient_population: PATIENT_POPULATION_MAP[form.unit_name.trim()] || '',
           cohort_id:          cohortId,
-        }).select('id').single()
+        }).select('id').abortSignal(controller.signal).single()
 
         if (unitErr) throw unitErr
         unitId = newUnit.id
@@ -209,8 +214,11 @@ export default function UnitFormPage() {
       const { error: upsertErr } = await supabase
         .from('unit_cohort_responses')
         .upsert(upsertData, { onConflict: 'cohort_id,unit_id' })
+        .abortSignal(controller.signal)
 
       if (upsertErr) throw upsertErr
+
+      clearTimeout(timeoutId)
 
       // 3. Fire-and-forget notification
       fetch('/api/unit-form-notification', {
@@ -239,10 +247,12 @@ export default function UnitFormPage() {
 
       setSubmitted(true)
     } catch (err) {
+      clearTimeout(timeoutId)
       console.error('[UnitForm] submit error:', err)
-      setError('Something went wrong. Please try again.')
+      setError(err.name === 'AbortError' ? 'Submit timed out after 10 seconds. Please try again.' : (err.message || 'Something went wrong. Please try again.'))
+    } finally {
+      setSubmitting(false)
     }
-    setSubmitting(false)
   }
 
   // ── Loading / closed / submitted states ────────────────────────────────────
