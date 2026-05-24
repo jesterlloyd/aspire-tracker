@@ -38,19 +38,24 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
 
   const handleSubmit = async e => {
     e.preventDefault()
+    console.log('[Preceptor save] form submit fired', { form, initialData, cohortId })
+
     if (!form.full_name.trim()) { setError('Full name is required.'); return }
     if (!form.email.trim())     { setError('Email is required.');     return }
 
     setSaving(true); setError(null)
+    console.log('[Preceptor save] setSaving(true) — entering try block')
 
     try {
       // Duplicate email check (new records only)
       if (!initialData) {
-        const { data: existing } = await supabase
+        console.log('[Preceptor save] running duplicate email check for:', form.email.trim())
+        const { data: existing, error: checkErr } = await supabase
           .from('preceptors')
           .select('id')
           .ilike('email', form.email.trim())
           .limit(1)
+        console.log('[Preceptor save] email check result', { existing, checkErr })
         if (existing?.length > 0) {
           setError('A preceptor with this email already exists. Use the assignment panel to link them to a student instead.')
           return
@@ -68,38 +73,50 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
         notes:      form.notes.trim() || null,
         is_active:  true,
       }
+      console.log('[Preceptor save] payload built', payload)
 
       let result
       if (initialData) {
+        console.log('[Preceptor save] calling UPDATE for id:', initialData.id)
         const { data, error: err } = await supabase.from('preceptors').update(payload).eq('id', initialData.id).select().single()
         result = { data, error: err }
       } else {
+        console.log('[Preceptor save] calling INSERT')
         const { data, error: err } = await supabase.from('preceptors').insert(payload).select().single()
         result = { data, error: err }
       }
+      console.log('[Preceptor save] insert/update result', result)
 
       if (result.error) {
+        console.error('[Preceptor save] supabase returned error:', result.error)
         setError(result.error.message || 'Failed to save preceptor.')
         return
       }
 
+      console.log('[Preceptor save] insert/update succeeded, id:', result.data?.id)
+
       // Create cohort participation record when adding a new preceptor with cohort context
       if (cohortId && !initialData && result.data) {
         const today = new Date().toISOString().split('T')[0]
-        await supabase.from('preceptor_cohort_participation').insert({
+        console.log('[Preceptor save] inserting cohort participation', { cohortId, today })
+        const { error: partErr } = await supabase.from('preceptor_cohort_participation').insert({
           preceptor_id: result.data.id,
           cohort_id:    cohortId,
           status:       'active',
           started_at:   today,
         })
+        if (partErr) console.warn('[Preceptor save] cohort participation insert failed (non-fatal):', partErr)
       }
 
+      console.log('[Preceptor save] invalidating queries, closing modal')
       queryClient.invalidateQueries({ queryKey: ['preceptors'] })
       onSaved?.(result.data)
       onClose()
     } catch (err) {
+      console.error('[Preceptor save] UNCAUGHT ERROR:', err)
       setError(err.message || 'An unexpected error occurred.')
     } finally {
+      console.log('[Preceptor save] finally — setSaving(false)')
       setSaving(false)
     }
   }
