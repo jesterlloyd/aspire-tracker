@@ -138,6 +138,18 @@ export default function UnitFormPage() {
 
     setSubmitting(true)
 
+    // UI safety timeout: fires at 12s regardless of what Supabase does.
+    // Guards against abortSignal not propagating correctly through maybeSingle
+    // chains (observed Supabase v2 issue where the await hangs and catch/finally
+    // never run, leaving the button permanently stuck on "Submitting...").
+    let uiResetFired = false
+    const uiTimeoutId = setTimeout(() => {
+      uiResetFired = true
+      console.warn('[UnitForm] UI safety timeout fired at 12s')
+      setSubmitting(false)
+      setError('Submission is taking too long. Please refresh the page and try again. If this keeps happening, email JesterLloyd.Bautista@cshs.org.')
+    }, 12000)
+
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 10000)
 
@@ -219,6 +231,13 @@ export default function UnitFormPage() {
       if (upsertErr) throw upsertErr
 
       clearTimeout(timeoutId)
+      clearTimeout(uiTimeoutId)
+      if (uiResetFired) {
+        // UI already showed a timeout error; don't override with success.
+        // The write likely completed anyway — data is safe on the server.
+        console.warn('[UnitForm] submit completed after UI timeout already fired')
+        return
+      }
 
       // 3. Fire-and-forget notification
       fetch('/api/unit-form-notification', {
@@ -248,10 +267,14 @@ export default function UnitFormPage() {
       setSubmitted(true)
     } catch (err) {
       clearTimeout(timeoutId)
+      clearTimeout(uiTimeoutId)
+      if (uiResetFired) return  // UI already handled the timeout; don't override
       console.error('[UnitForm] submit error:', err)
-      setError(err.name === 'AbortError' ? 'Submit timed out after 10 seconds. Please try again.' : (err.message || 'Something went wrong. Please try again.'))
+      setError(err.name === 'AbortError' ? 'Submit timed out. Please try again.' : (err.message || 'Something went wrong. Please try again.'))
     } finally {
-      setSubmitting(false)
+      clearTimeout(timeoutId)
+      clearTimeout(uiTimeoutId)
+      if (!uiResetFired) setSubmitting(false)
     }
   }
 
