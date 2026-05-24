@@ -48,11 +48,11 @@ export function studentDetailLevel(userProfile) {
 }
 
 /**
- * All authenticated users can see the Embed tab.
+ * All authenticated users can see all tabs.
  * Placement actions are gated separately by canPerformMatching().
  */
 export function visibleTabs(userProfile) {
-  return ['overview', 'profiles', 'interviews', 'matching']
+  return ['overview', 'profiles', 'interviews', 'rotation', 'evaluation']
 }
 
 /**

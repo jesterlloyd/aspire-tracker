@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './lib/supabase'
 import { updateStudent as proxyUpdateStudent } from './lib/studentProxy'
@@ -9,7 +9,8 @@ import StudentAvatar from './components/StudentAvatar'
 import OverviewTab from './components/OverviewTab'
 import StudentProfilesTab from './components/StudentProfilesTab'
 import InterviewRubricTab from './components/InterviewRubricTab'
-import MatchingTab from './components/MatchingTab'
+import RotationTab from './components/RotationTab'
+import EvaluationTab from './components/EvaluationTab'
 import AddStudentModal from './components/AddStudentModal'
 import UnifiedNav from './components/UnifiedNav'
 import NewCohortModal from './components/NewCohortModal'
@@ -122,14 +123,16 @@ function LastSyncedIndicator() {
 const TAB_TO_PATH = {
   overview:   '/aggregate',
   profiles:   '/students',
-  interviews: '/interview-room',
-  matching:   '/embed',
+  interviews: '/interviews',
+  rotation:   '/rotation/matrix',
+  evaluation: '/evaluation',
 }
 const PATH_TO_TAB = {
-  '/aggregate':     'overview',
-  '/students':      'profiles',
-  '/interview-room':'interviews',
-  '/embed':         'matching',
+  '/aggregate':  'overview',
+  '/students':   'profiles',
+  '/interviews': 'interviews',
+  '/evaluation': 'evaluation',
+  // /rotation/* handled by startsWith in activeTab derivation below
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -143,6 +146,10 @@ function MainApp({ onLogout }) {
       localStorage.removeItem(key)
       sessionStorage.removeItem(key)
     })
+    // Migrate old 'matching' tab id saved in localStorage
+    if (localStorage.getItem('aspire_active_tab') === 'matching') {
+      localStorage.setItem('aspire_active_tab', 'rotation')
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const queryClient = useQueryClient()
 
@@ -198,14 +205,23 @@ function MainApp({ onLogout }) {
 
   const navigate  = useNavigate()
   const location  = useLocation()
-  const activeTab = PATH_TO_TAB[location.pathname] || 'overview'
+  const activeTab = (() => {
+    const p = location.pathname
+    if (p.startsWith('/rotation')) return 'rotation'
+    return PATH_TO_TAB[p] || 'overview'
+  })()
 
   // Redirect / to the last visited tab, or /aggregate as default
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (location.pathname === '/') {
       const saved = localStorage.getItem('aspire_active_tab')
-      navigate(TAB_TO_PATH[saved] || '/aggregate', { replace: true })
+      // migrate old 'matching' tab id
+      const resolved = saved === 'matching' ? 'rotation' : saved
+      navigate(TAB_TO_PATH[resolved] || '/aggregate', { replace: true })
+    }
+    if (location.pathname === '/rotation') {
+      navigate('/rotation/matrix', { replace: true })
     }
   }, [location.pathname])
 
@@ -641,8 +657,8 @@ function MainApp({ onLogout }) {
   const handleSearchResult = item => {
     setSearchOpen(false); setSearchQuery(''); setSearchActiveIdx(-1)
     if (item.type === 'student') { switchTab('profiles'); setFocusStudentId(item.data.id) }
-    else if (item.type === 'unit') { setHighlightUnitId(item.data.id); switchTab('matching'); setTimeout(() => setHighlightUnitId(null), 2500) }
-    else if (item.type === 'placement') { setHighlightUnitId(item.data.unit?.id); switchTab('matching'); setTimeout(() => setHighlightUnitId(null), 2500) }
+    else if (item.type === 'unit') { setHighlightUnitId(item.data.id); switchTab('rotation'); setTimeout(() => setHighlightUnitId(null), 2500) }
+    else if (item.type === 'placement') { setHighlightUnitId(item.data.unit?.id); switchTab('rotation'); setTimeout(() => setHighlightUnitId(null), 2500) }
   }
 
   const actionBadgeCount = (() => {
@@ -921,7 +937,7 @@ function MainApp({ onLogout }) {
             onSelectStudent={id => { setFocusStudentId(id); switchTab('profiles') }}
             onSelectUnit={id => {
               setHighlightUnitId(id)
-              switchTab('matching')
+              switchTab('rotation')
               setTimeout(() => setHighlightUnitId(null), 2500)
             }}
           />
@@ -949,7 +965,7 @@ function MainApp({ onLogout }) {
           </div>
         )}
 
-        {/* All four tabs mount simultaneously once initial data is ready.
+        {/* All five tabs mount simultaneously once initial data is ready.
             Tab switching only changes CSS display — no unmount/remount,
             so queries, local state, and scroll position persist instantly. */}
         {!loading && !dbError && cohorts.length > 0 && (
@@ -994,8 +1010,8 @@ function MainApp({ onLogout }) {
               />
             </div>
 
-            <div style={{ display: activeTab === 'matching' ? 'block' : 'none' }}>
-              <MatchingTab
+            <div style={{ display: activeTab === 'rotation' ? 'block' : 'none' }}>
+              <RotationTab
                 students={students} units={units} matches={matches}
                 cohortId={activeCohortId} cohort={activeCohort}
                 onMatch={createMatch} onUnmatch={unmatch} onUpdateMatch={updateMatch}
@@ -1004,6 +1020,10 @@ function MainApp({ onLogout }) {
                 highlightUnitId={highlightUnitId}
                 toast={toast}
               />
+            </div>
+
+            <div style={{ display: activeTab === 'evaluation' ? 'block' : 'none' }}>
+              <EvaluationTab />
             </div>
           </>
         )}
@@ -1107,7 +1127,10 @@ export default function App() {
       <Route path="/student-form/*"       element={<div data-theme-lock="light"><StudentIntakeFormPage /></div>} />
       <Route path="/interview-schedule/*" element={<div data-theme-lock="light"><InterviewSchedulePage /></div>} />
       <Route path="/shift-log/*"          element={<div data-theme-lock="light"><ShiftLogPage /></div>} />
-      {/* Authenticated app — handles /, /aggregate, /students, /interview-room, /embed */}
+      {/* Legacy URL redirects */}
+      <Route path="/interview-room"        element={<Navigate to="/interviews" replace />} />
+      <Route path="/embed"                 element={<Navigate to="/rotation/matrix" replace />} />
+      {/* Authenticated app — handles /, /aggregate, /students, /interviews, /rotation/*, /evaluation */}
       <Route path="/*"                    element={<AuthedShell />} />
     </Routes>
   )

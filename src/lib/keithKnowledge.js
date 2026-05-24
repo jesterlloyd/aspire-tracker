@@ -26,7 +26,7 @@ export const ASPIRE_KNOWLEDGE = {
     aggregate: `The Aggregate tab shows the program overview: Placement Capacity (units by division with response status and slot counts) and Placement Requests (students grouped by school). It includes summary cards for Total Slots, Slots Filled, Slots Remaining, Students Requesting, and Gap. It also shows the On Campus Today panel for students who logged shifts today.`,
     studentProfiles: `The Student Profiles tab shows two views: Profiles (student list with side panel detail) and CS-Link Access (bulk access workflow table). The student list shows avatars, names, school, program, contact info, GPA, ASPIRE status, and CS-Link status. The side panel shows full profile with all sections including CS-Link workflow, Clinical Hours, Documents, and Communication History.`,
     interviewRubric: `The Interview Room (IR tab) manages interviews. Above the worklist: a booking calendar, interview slot management, and six KPI filter cards (Total, Scheduled, Completed, Not Scheduled, Flagged, Recommended). The worklist below the KPIs is five columns: Student (avatar, name, school/program), Appointment (date/time and interviewer or "Not Scheduled"), Workflow Status (ASPIRE Stage pill + Teams Invite chip), Outcome (rubric count, average score, recommendation), and Action (contextual button: Schedule, Send Invite, Review Flag, or empty when row-click suffices). Clicking a row opens the rubric session for that student. Flagged rows show an amber or red flag chip at the left edge with a hover-revealed reason. Student and Appointment columns are sortable. The rubric form has 7 sections: Interview Info, Unit Preferences and Rationale, Clinical Judgment, Professional Presence, Goal Alignment, Student Questions, and Overall Recommendation. Scoring 1-5. Auto recommendation uses majority vote of interviewers. Auto-save every 30 seconds protects in-progress rubrics.`,
-    embed: `The Embed tab is the matching board. Above: Placement at a Glance KPIs and Preference Match donut. Below: a 50/50 split workspace. Unit Pool (left): unit cards in three zones -- Identity (unit name, specialty, division chip), Capacity (dot indicators: filled sage dots, open hollow rings; slot count descriptor), and Placements (compact 36px rows with 24px avatars, match quality chips). Match quality chips: "Perfect Match" (sage, 1st choice), "2nd Choice Match" (amber), "3rd Choice Match" (slate-blue), "Compatible" or "Manual placement" (muted). Clicking a Unit Card filters Student Pool to students who picked that unit as a preference, ranked 1st/2nd/3rd choice. Each filtered Student Pool card shows a header chip like "1st Choice for 5 SCCT". Full units with unnotified placements show a "Notify Unit Leader" button that opens a mailto. Student Pool (right): StudentMatchingCard grid with avatar, name, school/program, status pills, and preference rows with slot availability. Clicking a student creates a match when clicking an open slot.`,
+    rotation: `The Rotation tab has two sub-tabs: Matrix and Preceptors. The Matrix sub-tab is the matching board. Above: Placement at a Glance KPIs and Preference Match donut. Below: a 50/50 split workspace. Unit Pool (left): unit cards in three zones -- Identity (unit name, specialty, division chip), Capacity (dot indicators: filled sage dots, open hollow rings; slot count descriptor), and Placements (compact 36px rows with 24px avatars, match quality chips). Match quality chips: "Perfect Match" (sage, 1st choice), "2nd Choice Match" (amber), "3rd Choice Match" (slate-blue), "Compatible" or "Manual placement" (muted). Clicking a Unit Card filters Student Pool to students who picked that unit as a preference, ranked 1st/2nd/3rd choice. Each filtered Student Pool card shows a header chip like "1st Choice for 5 SCCT". Full units with unnotified placements show a "Notify Unit Leader" button that opens a mailto. Student Pool (right): StudentMatchingCard grid with avatar, name, school/program, status pills, and preference rows with slot availability. Clicking a student creates a match when clicking an open slot. The Preceptors sub-tab is coming soon.`,
   },
 
   csLinkWorkflow: `CS-Link Access is a two-stage process. Stage 1 is a Service Center request: new students need Add Non-Employee, former students need Assignment Change, Extend End Date, or Reactivate. Cedars employees skip Stage 1. Stage 2 is adding CS-Link access for all students. The Action Center flags students from Form Received onwards who have not yet had Stage 1 submitted.`,
@@ -132,14 +132,14 @@ export function generateStaticResponse(userMessage, cohortName, context) {
       const list = nameList(context.placed);
       return {
         text: context.placed.length === 0
-          ? `No students are currently Placed in ${cohort}. Check the Embed tab to start matching.`
+          ? `No students are currently Placed in ${cohort}. Check the Rotation tab to start matching.`
           : `${context.placed.length} student${context.placed.length > 1 ? 's are' : ' is'} Placed and ready for rotation:\n\n${list}\n\nBefore rotation starts, confirm CS-Link access, badge creation, and that the preceptor welcome email has been sent.`,
-        action: { label: 'Go to Embed', type: 'tab', tab: 'matching' },
+        action: { label: 'Go to Rotation', type: 'tab', tab: 'rotation' },
       };
     }
     return {
-      text: `Students who are ready for rotation have ASPIRE Status of Placed or Active Rotation. Check the Embed tab for matched students and the Action Center for any pending pre-rotation items.`,
-      action: { label: 'Go to Embed', type: 'tab', tab: 'matching' },
+      text: `Students who are ready for rotation have ASPIRE Status of Placed or Active Rotation. Check the Rotation tab for matched students and the Action Center for any pending pre-rotation items.`,
+      action: { label: 'Go to Rotation', type: 'tab', tab: 'rotation' },
     };
   }
 
@@ -227,7 +227,7 @@ export function generateStaticResponse(userMessage, cohortName, context) {
     return {
       text: `Here is a unit leader placement notification email template:\n\n---\n\n${ASPIRE_KNOWLEDGE.emailTemplates.unitLeader('[Student Name]', '[School]', '[Unit Name]')}`,
       hasCopy: true,
-      action: { label: 'Go to Embed', type: 'tab', tab: 'matching' },
+      action: { label: 'Go to Rotation', type: 'tab', tab: 'rotation' },
     };
   }
 
