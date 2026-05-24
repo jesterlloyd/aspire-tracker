@@ -8,7 +8,9 @@ This document describes how preceptor data is stored, related, and maintained in
 
 Before Phase B.1, preceptor data existed only as free-text scattered across seven tables. A `preceptors` table was created in `migration_phase1_analytics.sql` but never populated or used by any frontend code.
 
-Phase B.1 (migration files: `migration_preceptor_normalization.sql` + `migration_preceptor_backfill.sql`) establishes the normalized structure and backfills existing data. The free-text fallback fields are **preserved** during Phase B.1; Phase B.2 will wire the frontend to write normalized FKs and Phase B.3 will build the Preceptors sub-tab UI.
+Phase B.1 (`migration_preceptor_schema_v2.sql`) establishes the normalized structure. **No automated backfill** — preceptor records will be entered manually through the Phase B.3 admin UI. Two prior migration files (`migration_preceptor_normalization.sql`, `migration_preceptor_backfill.sql`) failed to execute against the database (wrong table name `shift_logs` instead of `student_shift_logs`, no transaction wrapping) and have been renamed `.deprecated`. The v2 migration is a single atomic `BEGIN/COMMIT` transaction.
+
+The free-text fallback fields are **preserved** during Phase B.1; Phase B.2 will wire the frontend to write normalized FKs and Phase B.3 will build the Preceptors sub-tab UI.
 
 ---
 
@@ -184,25 +186,31 @@ Use this view in Phase B.3 admin UI to surface and resolve outstanding preceptor
 
 ---
 
-## Backfill Script
+## Migration Script
 
-`migration_preceptor_backfill.sql` is idempotent. Running it multiple times will not create duplicates (all inserts use `ON CONFLICT ... DO NOTHING`).
+`migration_preceptor_schema_v2.sql` is the single atomic migration for Phase B.1. It must be run manually in the Supabase SQL Editor.
 
-**Steps executed:**
-1. Pre-flight `RAISE NOTICE` block prints expected counts
-2. INSERT into `preceptors` from students with both `matched_preceptor` + `preceptor_email`
-3. UPDATE `students.preceptor_id` by email join
-4. UPDATE `matches.preceptor_id` from the resolved student
-5. INSERT into `preceptor_cohort_participation` (triggers denormalized sync automatically)
-6. CREATE OR REPLACE `preceptor_review_queue` view
-7. Post-run `RAISE NOTICE` block prints actual result counts
+**What it does:**
+1. Preamble DO block verifies all required tables exist before opening the transaction
+2. Drops duplicate RLS policies on `preceptors` and replaces with the clean role-based set
+3. Adds `shift_type` column to `preceptors`
+4. Creates partial unique index on `lower(trim(email))`
+5. Creates `preceptor_cohort_participation` junction table with RLS and updated_at trigger
+6. Adds `preceptor_id` FK to `matches`
+7. Adds `preceptor_id` FK to `student_shift_logs`
+8. Creates `sync_preceptor_denormalized_fields()` function and trigger
+9. Creates `preceptor_review_queue` view
+10. COMMITs — or rolls back the entire transaction if any step fails
 
-**Rollback procedure** (documented in the file header):
+**Rollback:** The transaction is atomic. If any statement fails, nothing is applied. If the migration commits successfully and you need to undo it, run:
 ```sql
-UPDATE public.students SET preceptor_id = NULL;
-UPDATE public.matches  SET preceptor_id = NULL;
-DELETE FROM public.preceptor_cohort_participation;
-DELETE FROM public.preceptors WHERE created_at > '<TIMESTAMP_BEFORE_BACKFILL>';
+DROP TABLE IF EXISTS public.preceptor_cohort_participation CASCADE;
+DROP VIEW  IF EXISTS public.preceptor_review_queue;
+ALTER TABLE public.matches           DROP COLUMN IF EXISTS preceptor_id;
+ALTER TABLE public.student_shift_logs DROP COLUMN IF EXISTS preceptor_id;
+ALTER TABLE public.preceptors        DROP COLUMN IF EXISTS shift_type;
+DROP INDEX IF EXISTS preceptors_email_lower_unique_idx;
+DROP FUNCTION IF EXISTS public.sync_preceptor_denormalized_fields() CASCADE;
 ```
 
 ---
