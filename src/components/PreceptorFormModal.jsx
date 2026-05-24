@@ -43,62 +43,65 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
 
     setSaving(true); setError(null)
 
-    // Duplicate email check (new records only)
-    if (!initialData) {
-      const { data: existing } = await supabase
-        .from('preceptors')
-        .select('id')
-        .ilike('email', form.email.trim())
-        .limit(1)
-      if (existing?.length > 0) {
-        setError('A preceptor with this email already exists. Use the assignment panel to link them to a student instead.')
-        setSaving(false)
+    try {
+      // Duplicate email check (new records only)
+      if (!initialData) {
+        const { data: existing } = await supabase
+          .from('preceptors')
+          .select('id')
+          .ilike('email', form.email.trim())
+          .limit(1)
+        if (existing?.length > 0) {
+          setError('A preceptor with this email already exists. Use the assignment panel to link them to a student instead.')
+          return
+        }
+      }
+
+      const unit    = units.find(u => u.id === form.unit_id)
+      const payload = {
+        full_name:  form.full_name.trim(),
+        email:      form.email.trim().toLowerCase(),
+        unit_id:    form.unit_id  || null,
+        unit_name:  unit?.unit_name || null,
+        shift_type: form.shift_type,
+        phone:      form.phone.trim() || null,
+        notes:      form.notes.trim() || null,
+        is_active:  true,
+      }
+
+      let result
+      if (initialData) {
+        const { data, error: err } = await supabase.from('preceptors').update(payload).eq('id', initialData.id).select().single()
+        result = { data, error: err }
+      } else {
+        const { data, error: err } = await supabase.from('preceptors').insert(payload).select().single()
+        result = { data, error: err }
+      }
+
+      if (result.error) {
+        setError(result.error.message || 'Failed to save preceptor.')
         return
       }
-    }
 
-    const unit    = units.find(u => u.id === form.unit_id)
-    const payload = {
-      full_name:  form.full_name.trim(),
-      email:      form.email.trim().toLowerCase(),
-      unit_id:    form.unit_id  || null,
-      unit_name:  unit?.unit_name || null,
-      shift_type: form.shift_type,
-      phone:      form.phone.trim() || null,
-      notes:      form.notes.trim() || null,
-      is_active:  true,
-    }
+      // Create cohort participation record when adding a new preceptor with cohort context
+      if (cohortId && !initialData && result.data) {
+        const today = new Date().toISOString().split('T')[0]
+        await supabase.from('preceptor_cohort_participation').insert({
+          preceptor_id: result.data.id,
+          cohort_id:    cohortId,
+          status:       'active',
+          started_at:   today,
+        })
+      }
 
-    let result
-    if (initialData) {
-      const { data, error: err } = await supabase.from('preceptors').update(payload).eq('id', initialData.id).select().single()
-      result = { data, error: err }
-    } else {
-      const { data, error: err } = await supabase.from('preceptors').insert(payload).select().single()
-      result = { data, error: err }
-    }
-
-    if (result.error) {
-      setError(result.error.message || 'Failed to save preceptor.')
+      queryClient.invalidateQueries({ queryKey: ['preceptors'] })
+      onSaved?.(result.data)
+      onClose()
+    } catch (err) {
+      setError(err.message || 'An unexpected error occurred.')
+    } finally {
       setSaving(false)
-      return
     }
-
-    // Create cohort participation record when adding a new preceptor with cohort context
-    if (cohortId && !initialData && result.data) {
-      const today = new Date().toISOString().split('T')[0]
-      await supabase.from('preceptor_cohort_participation').upsert({
-        preceptor_id: result.data.id,
-        cohort_id:    cohortId,
-        status:       'active',
-        started_at:   today,
-      }, { onConflict: 'preceptor_id,cohort_id', ignoreDuplicates: true })
-    }
-
-    queryClient.invalidateQueries({ queryKey: ['preceptors'] })
-    onSaved?.(result.data)
-    onClose()
-    setSaving(false)
   }
 
   const emailWarn = form.email && !form.email.toLowerCase().includes('@cshs.org')
@@ -146,6 +149,8 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
                 <label className="form-label">Phone</label>
                 <input
                   className="form-input"
+                  type="text"
+                  maxLength={30}
                   value={form.phone}
                   onChange={e => set('phone', e.target.value)}
                   placeholder="(310) 555-0000"
