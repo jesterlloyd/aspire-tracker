@@ -478,6 +478,13 @@ export default function ActionCenter({
   // Act 16: Badge not created (Placed, badge_created = false)
   const act16 = students.filter(s => s.status === 'Placed' && !s.badge_created)
 
+  // Act 17: Placed or Active Rotation with no preceptor linked (no id AND no free-text name)
+  const act17 = students.filter(s =>
+    ['Placed', 'Active Rotation'].includes(s.status) &&
+    !s.preceptor_id &&
+    (!s.matched_preceptor || !s.matched_preceptor.trim())
+  )
+
   // ── Unified actionItems array ────────────────────────────
   const actionItems = [
     ...(canEdit ? act1.map(s => ({ id:`${s.id}-sf`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'communication', priority:'routine', title:'Send Student Form', description:'Pending outreach — form not yet sent.', actionType:'student_form', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'student_form'}, emailHref:buildStudentFormEmail(s) })) : []),
@@ -494,6 +501,7 @@ export default function ActionCenter({
     ...act13.map(item => ({ id:`${item.id}-sr`, studentId:item.student_id, studentName:item.student?`${item.student.last_name}, ${item.student.first_name}`:'—', cohortId, student:item.student, category:'hours', priority:'routine', title:'Shift Log Needs Review', description:`${item.shift_date} · ${item.total_hours}h`, actionType:'shift_log_submitted', canMarkDone:false, markDoneType:null, navigateToProfile:true })),
     ...act15.map(s => ({ id:`${s.id}-nl`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'hours', priority:'routine', title:'Student Not Logged Recently', description:s.daysSince===null?'No shifts logged yet.':`${s.daysSince} days since last log.`, actionType:'shift_log_submitted', canMarkDone:false, navigateToProfile:true })),
     ...(canEdit ? act16.map(s => ({ id:`${s.id}-badge`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'badge', priority:'routine', title:'Badge Not Created', description:'Student placed. CS badge not yet created.', actionType:'badge_needed', canMarkDone:true, markDoneType:'update_field', markDonePayload:{fields:{badge_created:true}}, navigateToProfile:false })) : []),
+    ...(canEdit ? act17.map(s => ({ id:`${s.id}-prec`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:'high', title:'No Preceptor Assigned', description:`${s.status} — no preceptor linked yet.`, actionType:'preceptor_needed', canMarkDone:false, markDoneType:null, navigateToProfile:true })) : []),
   ]
 
   const filteredActionItems = activeACFilter

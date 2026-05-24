@@ -24,6 +24,9 @@ import { useAuth } from '../contexts/AuthContext'
 import { logActivity } from '../lib/logActivity'
 import ConflictDialog from './ConflictDialog'
 import { generateBadgePNGs, calculateBadgeDates } from '../lib/badgeGenerator'
+import { usePreceptors } from '../hooks/usePreceptors'
+import { resolvePreceptor } from '../lib/preceptor'
+import PreceptorAssignmentModal from './PreceptorAssignmentModal'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
@@ -143,10 +146,14 @@ export default function StudentSidePanel({
   const [uploadingHead, setUploadingHead] = useState(false)
   const [resumeMsg,     setResumeMsg]     = useState(null)
   const [headMsg,       setHeadMsg]       = useState(null)
+  const [assignModalOpen, setAssignModalOpen] = useState(false)
   const timerRef        = useRef(null)
   const pendingNameSave = useRef(null)
   const resumeRef       = useRef(null)
   const headshotRef     = useRef(null)
+
+  const { data: preceptors = [] } = usePreceptors()
+  const resolved = resolvePreceptor(data, preceptors)
 
   // ── Rotation Dates panel ─────────────────────────────────────────────────
   const [editingRotation,       setEditingRotation]       = useState(false)
@@ -1529,20 +1536,63 @@ export default function StudentSidePanel({
                 </div>
               </Field>
               <Field label="Matched Unit"><div className="sp-readonly">{matchedUnitName}</div></Field>
-              <Field label="Matched Preceptor">
-                <input className="sp-input" value={data.matched_preceptor||''} onChange={e => handleText('matched_preceptor', e.target.value)} placeholder="Assign preceptor…" />
-              </Field>
+              {/* Preceptor — shows normalized record when linked, free-text fields otherwise */}
+              <div className="sp-field" style={{ gridColumn: '1 / -1' }}>
+                <label className="sp-field-lbl">Preceptor</label>
+                {resolved.source === 'normalized' ? (
+                  <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:7, flexWrap:'wrap' }}>
+                      <span style={{ fontSize:13, fontWeight:600, color:'#111' }}>{resolved.name}</span>
+                      {resolved.shift_type && (
+                        <span style={{ fontSize:11, color:'#6b7280', background:'#f3f4f6', padding:'1px 6px', borderRadius:4 }}>{resolved.shift_type}</span>
+                      )}
+                    </div>
+                    {resolved.email && (
+                      <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'#6b7280' }}>
+                        <button className="sp-copy-btn" title="Email preceptor" onClick={() => openMailtoLink(`mailto:${resolved.email}`)}>✉</button>
+                        {resolved.email}
+                      </div>
+                    )}
+                    {resolved.unit_name && (
+                      <div style={{ fontSize:12, color:'#9ca3af' }}>{resolved.unit_name}</div>
+                    )}
+                    {canEdit && (
+                      <button onClick={() => setAssignModalOpen(true)}
+                        style={{ alignSelf:'flex-start', marginTop:2, fontSize:11, color:'#1D2567', background:'none', border:'none', cursor:'pointer', textDecoration:'underline', padding:0, fontFamily:'DM Sans,sans-serif' }}>
+                        Change preceptor
+                      </button>
+                    )}
+                  </div>
+                ) : resolved.name || resolved.email ? (
+                  <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                    <input className="sp-input" value={data.matched_preceptor||''} onChange={e => handleText('matched_preceptor', e.target.value)} placeholder="Preceptor name…" />
+                    <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                      <input className="sp-input" type="email" value={data.preceptor_email||''} onChange={e => handleText('preceptor_email', e.target.value)} placeholder="preceptor@cshs.org" />
+                      {data.preceptor_email && <button className="sp-copy-btn" title="Email preceptor" onClick={() => openMailtoLink(`mailto:${data.preceptor_email}`)}>✉</button>}
+                    </div>
+                    {canEdit && (
+                      <button onClick={() => setAssignModalOpen(true)}
+                        style={{ alignSelf:'flex-start', fontSize:11, color:'#1D2567', background:'none', border:'none', cursor:'pointer', textDecoration:'underline', padding:0, fontFamily:'DM Sans,sans-serif' }}>
+                        Link to preceptor record
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  canEdit ? (
+                    <button onClick={() => setAssignModalOpen(true)}
+                      style={{ fontSize:12, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:6, padding:'5px 12px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:600 }}>
+                      + Assign preceptor
+                    </button>
+                  ) : (
+                    <span style={{ fontSize:13, color:'#9ca3af' }}>No preceptor assigned</span>
+                  )
+                )}
+              </div>
               <Field label="Shift">
                 <select className="sp-select" value={data.shift_assigned||''} onChange={e => handleSelect('shift_assigned', e.target.value)}>
                   <option value="">Select shift...</option>
                   {['Day','Night','Mid','Variable'].map(s=><option key={s} value={s}>{s}</option>)}
                 </select>
-              </Field>
-              <Field label="Preceptor Email">
-                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                  <input className="sp-input" type="email" value={data.preceptor_email||''} onChange={e => handleText('preceptor_email', e.target.value)} placeholder="preceptor@cshs.org" />
-                  {data.preceptor_email && <button className="sp-copy-btn" title="Email preceptor" onClick={() => openMailtoLink(`mailto:${data.preceptor_email}`)}>✉</button>}
-                </div>
               </Field>
               <Field label="NGRP Cohort Target">
                 <input className="sp-input" value={data.ngrp_cohort_target||''} onChange={e => handleText('ngrp_cohort_target', e.target.value)} placeholder="e.g. Spring 2027" />
@@ -1847,6 +1897,22 @@ export default function StudentSidePanel({
         </div>
         </FieldSavedCtx.Provider>
       </div>
+
+      <PreceptorAssignmentModal
+        isOpen={assignModalOpen}
+        onClose={() => setAssignModalOpen(false)}
+        student={data}
+        onAssigned={(preceptor) => {
+          setData(prev => ({
+            ...prev,
+            preceptor_id:      preceptor.id,
+            matched_preceptor: preceptor.full_name,
+            preceptor_email:   preceptor.email,
+          }))
+          toast?.success('Preceptor assigned', `${preceptor.full_name} linked to ${student.first_name}.`)
+          setAssignModalOpen(false)
+        }}
+      />
 
       {confirmDelete && (
         <ConfirmDeleteModal

@@ -6,6 +6,7 @@ import { openMailtoLink } from '../lib/openLink'
 import StudentAvatar from './StudentAvatar'
 import { getUnit } from '../lib/unitCatalog'
 import { CARD } from '../lib/designTokens'
+import PreceptorAssignmentModal from './PreceptorAssignmentModal'
 
 // ── Choice / match-quality config ────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ const resolveMatchedStudent = (match, studentMap) => {
 
 // ── Compact placement row ─────────────────────────────────────────────────────
 
-function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify }) {
+function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify, onAssignPreceptor }) {
   const [rowHovered, setRowHovered] = useState(false)
   const qKey = student.unit_preference_1 === unit.unit_name ? '1st'
     : student.unit_preference_2 === unit.unit_name ? '2nd'
@@ -38,7 +39,7 @@ function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify }) {
     : 'other'
   const qCfg       = MATCH_QUALITY_CONFIG[qKey]
   const isNotified = !!match?.notification_sent
-  const hasPreceptor = !!student.matched_preceptor
+  const hasPreceptor = !!(student.preceptor_id || student.matched_preceptor)
 
   return (
     <div
@@ -70,12 +71,19 @@ function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify }) {
             {qCfg.label}
           </span>
         </div>
-        {/* Warning: preceptor needed */}
-        {!hasPreceptor && (
+        {/* Preceptor status */}
+        {!hasPreceptor && onAssignPreceptor ? (
+          <button
+            onClick={e => { e.stopPropagation(); onAssignPreceptor(student) }}
+            style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11, color: '#1D2567', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: 1, textDecoration: 'underline', textAlign: 'left' }}
+          >
+            + Assign preceptor
+          </button>
+        ) : !hasPreceptor ? (
           <div style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11, color: '#B45309', marginTop: 1 }}>
             {'⚠'} Preceptor needed
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Notify + unmatch controls */}
@@ -147,6 +155,7 @@ export default function EmbedUnitCard({
   const [toast,           setToast]           = useState(null)
   const [cardHovered,     setCardHovered]     = useState(false)
   const [notifiedAt,      setNotifiedAt]      = useState(null)  // persists Zone-2 notify confirmation
+  const [assignStudent,   setAssignStudent]   = useState(null)
 
   const showToast = msg => { setToast(msg); setTimeout(() => setToast(null), 4000) }
 
@@ -395,6 +404,7 @@ export default function EmbedUnitCard({
                   unit={unit}
                   onUnmatch={() => setConfirmUnmatch(student)}
                   onNotify={handleNotifyOne}
+                  onAssignPreceptor={s => setAssignStudent(s)}
                 />
               )
             })}
@@ -459,6 +469,13 @@ export default function EmbedUnitCard({
           </div>
         </div>
       )}
+
+      <PreceptorAssignmentModal
+        isOpen={!!assignStudent}
+        onClose={() => setAssignStudent(null)}
+        student={assignStudent}
+        onAssigned={() => setAssignStudent(null)}
+      />
     </>
   )
 }

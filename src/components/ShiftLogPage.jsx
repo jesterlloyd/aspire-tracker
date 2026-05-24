@@ -78,6 +78,10 @@ export default function ShiftLogPage() {
       // Use the cohort_id from the student's own record
       setCohortId(stu.cohort_id)
       setStudent(stu)
+      // TODO(Phase B.2 public-forms): ShiftLogPage is a public route — students do not
+      // authenticate, so RLS blocks reads from the preceptors table. Preceptor data here
+      // is read from students.matched_preceptor (free-text fallback). When public forms
+      // migrate to serverless functions (Fall 2026), resolve via preceptors table instead.
       setPreceptorName(stu.matched_preceptor || '')
 
       // Fetch unit name
