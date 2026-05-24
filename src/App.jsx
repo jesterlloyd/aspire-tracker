@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './lib/supabase'
 import { updateStudent as proxyUpdateStudent } from './lib/studentProxy'
@@ -117,6 +118,20 @@ function LastSyncedIndicator() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Tab ID ↔ URL path mapping (internal IDs never change; URLs are what's new)
+const TAB_TO_PATH = {
+  overview:   '/aggregate',
+  profiles:   '/students',
+  interviews: '/interview-room',
+  matching:   '/embed',
+}
+const PATH_TO_TAB = {
+  '/aggregate':     'overview',
+  '/students':      'profiles',
+  '/interview-room':'interviews',
+  '/embed':         'matching',
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 function MainApp({ onLogout }) {
   const { toasts, removeToast, toast } = useToast()
@@ -181,10 +196,19 @@ function MainApp({ onLogout }) {
   const [loading,   setLoading]   = useState(true)
   const [dbError,   setDbError]   = useState(null)
 
-  const [activeTab,    setActiveTab]    = useState(() => {
-    const saved = localStorage.getItem('aspire_active_tab')
-    return ['overview','profiles','interviews','matching'].includes(saved) ? saved : 'overview'
-  })
+  const navigate  = useNavigate()
+  const location  = useLocation()
+  const activeTab = PATH_TO_TAB[location.pathname] || 'overview'
+
+  // Redirect / to the last visited tab, or /aggregate as default
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (location.pathname === '/') {
+      const saved = localStorage.getItem('aspire_active_tab')
+      navigate(TAB_TO_PATH[saved] || '/aggregate', { replace: true })
+    }
+  }, [location.pathname])
+
   const [profilesView, setProfilesView] = useState('records')
   const [accessFocusId, setAccessFocusId] = useState(null)
   const [showAddModal,       setShowAddModal]       = useState(false)
@@ -334,7 +358,7 @@ function MainApp({ onLogout }) {
 
   const switchTab = tab => {
     localStorage.setItem('aspire_active_tab', tab)
-    setActiveTab(tab)
+    navigate(TAB_TO_PATH[tab] || '/aggregate')
   }
 
   // Refetch students and units whenever the Aggregate tab becomes active
@@ -1035,21 +1059,10 @@ function MainApp({ onLogout }) {
   )
 }
 
-export default function App() {
-  const path = window.location.pathname
+// Auth shell — rendered for all authenticated paths (everything except the five public forms)
+function AuthedShell() {
   const { user, userProfile, loading, signOut } = useAuth()
 
-  // Public routes — never require auth
-  const publicPaths = ['/unit-form', '/school-form', '/student-form', '/interview-schedule', '/shift-log']
-  const isPublicRoute = publicPaths.some(p => path.startsWith(p))
-
-  if (path.startsWith('/unit-form'))           return <div data-theme-lock="light"><UnitFormPage /></div>
-  if (path.startsWith('/school-form'))         return <div data-theme-lock="light"><SchoolFormPage /></div>
-  if (path.startsWith('/student-form'))        return <div data-theme-lock="light"><StudentIntakeFormPage /></div>
-  if (path.startsWith('/interview-schedule'))  return <div data-theme-lock="light"><InterviewSchedulePage /></div>
-  if (path.startsWith('/shift-log'))           return <div data-theme-lock="light"><ShiftLogPage /></div>
-
-  // Loading state while Supabase checks session
   if (loading) {
     return (
       <div style={{
@@ -1063,7 +1076,7 @@ export default function App() {
     )
   }
 
-  // Not signed in → show new Supabase login page
+  // Not signed in → show login page
   if (!user) return <LoginNew />
 
   // Signed in but profile is inactive
@@ -1083,4 +1096,19 @@ export default function App() {
   }
 
   return <MainApp onLogout={signOut} />
+}
+
+export default function App() {
+  return (
+    <Routes>
+      {/* Public routes — no auth required, no app shell */}
+      <Route path="/unit-form/*"          element={<div data-theme-lock="light"><UnitFormPage /></div>} />
+      <Route path="/school-form/*"        element={<div data-theme-lock="light"><SchoolFormPage /></div>} />
+      <Route path="/student-form/*"       element={<div data-theme-lock="light"><StudentIntakeFormPage /></div>} />
+      <Route path="/interview-schedule/*" element={<div data-theme-lock="light"><InterviewSchedulePage /></div>} />
+      <Route path="/shift-log/*"          element={<div data-theme-lock="light"><ShiftLogPage /></div>} />
+      {/* Authenticated app — handles /, /aggregate, /students, /interview-room, /embed */}
+      <Route path="/*"                    element={<AuthedShell />} />
+    </Routes>
+  )
 }
