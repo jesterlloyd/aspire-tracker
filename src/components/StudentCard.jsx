@@ -106,7 +106,7 @@ const STATUS_SHORT = {
   'Pending Outreach':    'Outreach',
   'Form Sent':           'Form Sent',
   'Form Received':       'Form Received',
-  'Interview Scheduled': 'Interview',
+  'Interview Scheduled': 'Interview Scheduled',
   'Interviewed':         'Interviewed',
   'Placed':              'Placed',
   'Active Rotation':     'In Rotation',
@@ -128,7 +128,10 @@ function ProfileStrip({ student }) {
         <span style={{
           fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 10,
           background: cfg.bg, color: cfg.text,
-          border: `1px solid ${cfg.border}`, whiteSpace: 'nowrap', ...F,
+          border: `1px solid ${cfg.border}`,
+          display: 'inline-block', maxWidth: '100%',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          ...F,
         }}>
           {STATUS_SHORT[student.status] || student.status}
         </span>

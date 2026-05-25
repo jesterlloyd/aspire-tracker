@@ -77,7 +77,7 @@ export default function StudentProfilesTab({
   const pipelineCounts = useMemo(() => ({
     total:             students.length,
     needsOutreach:     students.filter(s => ['Pending Outreach','Form Sent'].includes(s.status)).length,
-    awaitingInterview: students.filter(s => s.status === 'Form Received').length,
+    awaitingInterview: students.filter(s => ['Form Received', 'Interview Scheduled'].includes(s.status)).length,
     interviewed:       students.filter(s => s.status === 'Interviewed').length,
     placed:            students.filter(s => s.status === 'Placed').length,
     activeRotation:    students.filter(s => s.status === 'Active Rotation').length,
@@ -147,7 +147,7 @@ export default function StudentProfilesTab({
         <div style={{ display:'grid', gridTemplateColumns:'repeat(8, 1fr)', gap:10, marginBottom:14 }}>
           <FilterKPICard value={pipelineCounts.total}             label="Total"              sub="All students"          accent="nightfall"  active={activeStatusFilter === null}                                                         onClick={() => handleKpiClick(null)} />
           <FilterKPICard value={pipelineCounts.needsOutreach}     label="Needs Outreach"     sub="Pending + Form Sent"   accent="dawn"       active={JSON.stringify(activeStatusFilter)===JSON.stringify(['Pending Outreach','Form Sent'])} onClick={() => handleKpiClick(['Pending Outreach','Form Sent'])} />
-          <FilterKPICard value={pipelineCounts.awaitingInterview} label="Awaiting Interview" sub="Form Received"         accent="periwinkle" active={activeStatusFilter === 'Form Received'}                                               onClick={() => handleKpiClick('Form Received')} />
+          <FilterKPICard value={pipelineCounts.awaitingInterview} label="Awaiting Interview" sub="Form Received + Scheduled" accent="periwinkle" active={JSON.stringify(activeStatusFilter)===JSON.stringify(['Form Received','Interview Scheduled'])} onClick={() => handleKpiClick(['Form Received','Interview Scheduled'])} />
           <FilterKPICard value={pipelineCounts.interviewed}       label="Interviewed"        sub="Ready to place"        accent="lavender"   active={activeStatusFilter === 'Interviewed'}                                                onClick={() => handleKpiClick('Interviewed')} />
           <FilterKPICard value={pipelineCounts.placed}            label="Placed"             sub="Unit assigned"         accent="sage"       active={activeStatusFilter === 'Placed'}                                                     onClick={() => handleKpiClick('Placed')} />
           <FilterKPICard value={pipelineCounts.activeRotation}    label="Active Rotation"    sub="In rotation"           accent="marina"     active={activeStatusFilter === 'Active Rotation'}                                            onClick={() => handleKpiClick('Active Rotation')} />
