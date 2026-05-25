@@ -119,9 +119,9 @@ function CapacityCoverageGauge({ totalDemand, totalCapacity, placed, cohort }) {
 
   const showChroma = !noStudents && (chromaDeg > 0 || noCapacity)
   const legend = [
-    { color: GAUGE_COLORS.sage,       label: `${placed} placed` },
-    { color: GAUGE_COLORS.periwinkle, label: `${awaiting} awaiting` },
-    ...(showChroma ? [{ color: GAUGE_COLORS.chroma, label: `${unmatched} over cap` }] : []),
+    { color: GAUGE_COLORS.sage,       value: placed,    label: 'placed' },
+    { color: GAUGE_COLORS.periwinkle, value: awaiting,  label: 'awaiting' },
+    ...(showChroma ? [{ color: GAUGE_COLORS.chroma, value: unmatched, label: 'over cap' }] : []),
   ]
 
   return (
@@ -130,62 +130,66 @@ function CapacityCoverageGauge({ totalDemand, totalCapacity, placed, cohort }) {
       boxShadow: 'var(--shadow-card)',
       overflow: 'hidden', fontFamily: 'DM Sans, sans-serif', height: '100%', boxSizing: 'border-box',
     }}>
-      <div style={{ padding: '14px 20px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-card,rgba(29,37,103,0.04))' }}>
+      <div style={{ padding: '11px 20px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-card,rgba(29,37,103,0.04))' }}>
         <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--text-caption,#475467)', fontWeight: 600 }}>Capacity Coverage</div>
         <div style={{ fontSize: 11, color: 'var(--text-muted,#98A2B3)' }}>{cohortName} · live snapshot</div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 12px 14px' }}>
-        <svg width="100%" viewBox="0 0 220 115" style={{ maxWidth: 260, display: 'block' }}>
-          {/* Baseline full arch in light gray */}
-          <path d={annularPath(cx, cy, innerR, outerR, 0, 180)} fill={GAUGE_COLORS.baseline} stroke="rgba(25,25,25,0.05)" strokeWidth="0.5" />
+      {/* Gauge left, legend right — wraps on narrow viewports */}
+      <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', padding: '6px 16px 10px', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ flex: '0 0 auto', maxWidth: 220, minWidth: 140 }}>
+          <svg width="100%" viewBox="0 0 220 115" style={{ display: 'block' }}>
+            {/* Baseline full arch in light gray */}
+            <path d={annularPath(cx, cy, innerR, outerR, 0, 180)} fill={GAUGE_COLORS.baseline} stroke="rgba(25,25,25,0.05)" strokeWidth="0.5" />
 
-          {/* Sage — placed */}
-          {sageEnd > 0.1 && (
-            <path d={annularPath(cx, cy, innerR, outerR, 0, sageEnd)} fill={GAUGE_COLORS.sage} stroke="rgba(25,25,25,0.04)" strokeWidth="0.5">
-              <title>{placed} placed</title>
-            </path>
-          )}
-          {/* Periwinkle — awaiting */}
-          {periwinkleEnd > sageDeg + 0.1 && (
-            <path d={annularPath(cx, cy, innerR, outerR, sageDeg, periwinkleEnd)} fill={GAUGE_COLORS.periwinkle} stroke="rgba(25,25,25,0.04)" strokeWidth="0.5">
-              <title>{awaiting} awaiting placement (within capacity)</title>
-            </path>
-          )}
-          {/* Chroma — over capacity */}
-          {chromaEnd > sageDeg + periwinkleDeg + 0.1 && (
-            <path d={annularPath(cx, cy, innerR, outerR, sageDeg + periwinkleDeg, chromaEnd)} fill={GAUGE_COLORS.chroma} stroke="rgba(25,25,25,0.04)" strokeWidth="0.5">
-              <title>{unmatched} students over capacity (no slot available)</title>
-            </path>
-          )}
+            {/* Sage — placed */}
+            {sageEnd > 0.1 && (
+              <path d={annularPath(cx, cy, innerR, outerR, 0, sageEnd)} fill={GAUGE_COLORS.sage} stroke="rgba(25,25,25,0.04)" strokeWidth="0.5">
+                <title>{placed} placed</title>
+              </path>
+            )}
+            {/* Periwinkle — awaiting */}
+            {periwinkleEnd > sageDeg + 0.1 && (
+              <path d={annularPath(cx, cy, innerR, outerR, sageDeg, periwinkleEnd)} fill={GAUGE_COLORS.periwinkle} stroke="rgba(25,25,25,0.04)" strokeWidth="0.5">
+                <title>{awaiting} awaiting placement (within capacity)</title>
+              </path>
+            )}
+            {/* Chroma — over capacity */}
+            {chromaEnd > sageDeg + periwinkleDeg + 0.1 && (
+              <path d={annularPath(cx, cy, innerR, outerR, sageDeg + periwinkleDeg, chromaEnd)} fill={GAUGE_COLORS.chroma} stroke="rgba(25,25,25,0.04)" strokeWidth="0.5">
+                <title>{unmatched} students over capacity (no slot available)</title>
+              </path>
+            )}
 
-          {/* Rounded cap at the left end (fixed) */}
-          {(sageEnd > 0.1 || noStudents) && (
-            <CapCircle cx={cx} cy={cy} innerR={innerR} outerR={outerR} leftDeg={0} fill={noStudents ? GAUGE_COLORS.baseline : GAUGE_COLORS.sage} />
-          )}
-          {/* Rounded cap at the animated right end */}
-          {lastColor && filled > 0.1 && (
-            <CapCircle cx={cx} cy={cy} innerR={innerR} outerR={outerR} leftDeg={filled} fill={lastColor} />
-          )}
+            {/* Rounded cap at the left end (fixed) */}
+            {(sageEnd > 0.1 || noStudents) && (
+              <CapCircle cx={cx} cy={cy} innerR={innerR} outerR={outerR} leftDeg={0} fill={noStudents ? GAUGE_COLORS.baseline : GAUGE_COLORS.sage} />
+            )}
+            {/* Rounded cap at the animated right end */}
+            {lastColor && filled > 0.1 && (
+              <CapCircle cx={cx} cy={cy} innerR={innerR} outerR={outerR} leftDeg={filled} fill={lastColor} />
+            )}
 
-          {/* Center text inside arch */}
-          <text x={cx} y={cy - 27} textAnchor="middle" fontFamily="DM Sans, sans-serif"
-            fontSize={centerBig.length > 5 ? 16 : 22} fontWeight="700" fill={centerColor}>
-            {centerBig}
-          </text>
-          <text x={cx} y={cy - 10} textAnchor="middle" fontFamily="DM Sans, sans-serif"
-            fontSize="9.5" fontWeight="500" fill="var(--text-muted,#98A2B3)">
-            {centerSub}
-          </text>
-        </svg>
+            {/* Center text inside arch */}
+            <text x={cx} y={cy - 27} textAnchor="middle" fontFamily="DM Sans, sans-serif"
+              fontSize={centerBig.length > 5 ? 16 : 22} fontWeight="700" fill={centerColor}>
+              {centerBig}
+            </text>
+            <text x={cx} y={cy - 10} textAnchor="middle" fontFamily="DM Sans, sans-serif"
+              fontSize="9.5" fontWeight="500" fill="var(--text-muted,#98A2B3)">
+              {centerSub}
+            </text>
+          </svg>
+        </div>
 
-        {/* Legend */}
+        {/* Legend — vertically stacked to the right of the gauge */}
         {!noStudents && (
-          <div style={{ display: 'flex', gap: 10, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-            {legend.map(({ color, label }) => (
-              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: '#6b7280' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: '1 1 100px', minWidth: 100 }}>
+            {legend.map(({ color, value, label }) => (
+              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <span style={{ width: 9, height: 9, borderRadius: 2, background: color, display: 'inline-block', flexShrink: 0 }} />
-                {label}
+                <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-heading,#191919)' }}>{value}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-caption,#6b7280)' }}>{label}</span>
               </div>
             ))}
           </div>
@@ -271,7 +275,7 @@ function ProgramAtAGlance({ totalSlots, placedCount, slotsRemaining, studentsReq
   return (
     <section style={{ background: 'var(--bg-card,#fff)', border: '1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius: 14, boxShadow: 'var(--shadow-card)', overflow: 'hidden', fontFamily: 'DM Sans, sans-serif', height: '100%', boxSizing: 'border-box' }}>
       {/* Eyebrow strip */}
-      <div style={{ padding: '14px 22px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-card,rgba(29,37,103,0.04))' }}>
+      <div style={{ padding: '11px 22px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-card,rgba(29,37,103,0.04))' }}>
         <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--text-caption,#475467)', fontWeight: 600 }}>
           Program at a Glance
         </div>
