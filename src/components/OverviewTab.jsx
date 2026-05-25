@@ -136,7 +136,7 @@ function CapacityCoverageGauge({ totalDemand, totalCapacity, placed, cohort }) {
       </div>
 
       {/* Gauge left, legend right — wraps on narrow viewports */}
-      <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', padding: '6px 16px 10px', gap: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: '6px 16px 10px', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ flex: '0 0 auto', maxWidth: 220, minWidth: 140 }}>
           <svg width="100%" viewBox="0 0 220 115" style={{ display: 'block' }}>
             {/* Baseline full arch in light gray */}

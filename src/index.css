@@ -1154,7 +1154,7 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 .ov-panels-body {
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
-  align-items: stretch; padding-bottom: 0;
+  align-items: start; padding-bottom: 0;
 }
 .ov-panel-body {
   background: var(--pearl);
@@ -1165,7 +1165,7 @@ a.doc-file-link:hover { text-decoration: underline; }
   max-height: calc(100vh - 420px);
   min-height: 200px;
   box-shadow: 0 2px 12px rgba(29,37,103,0.07);
-  padding-bottom: 80px;
+  padding-bottom: 24px;
 }
 
 .ov-hero { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-top: 16px; margin-bottom: 0; }
