@@ -13,15 +13,24 @@ function fmtDate(d) {
   return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+function getInitials(name) {
+  if (!name) return '?'
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 1) return (parts[0][0] || '?').toUpperCase()
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+}
+
 export default function PreceptorsTable({ students = [], cohortId, toast }) {
   const { data: preceptors = [], isLoading, error } = usePreceptors()
   const queryClient = useQueryClient()
-  const [search,       setSearch]      = useState('')
-  const [addOpen,      setAddOpen]     = useState(false)
-  const [editTarget,   setEditTarget]  = useState(null)
+  const [search,       setSearch]       = useState('')
+  const [addOpen,      setAddOpen]      = useState(false)
+  const [editTarget,   setEditTarget]   = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
-  const [deleting,     setDeleting]    = useState(false)
-  const [assignState,  setAssignState] = useState(null)
+  const [deleting,     setDeleting]     = useState(false)
+  const [assignState,  setAssignState]  = useState(null)
+  const [sortBy,       setSortBy]       = useState('full_name')
+  const [sortDir,      setSortDir]      = useState('asc')
 
   const filtered = search.trim()
     ? preceptors.filter(p =>
@@ -35,6 +44,33 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
   for (const s of students) {
     if (s.preceptor_id) studentByPreceptorId[s.preceptor_id] = s
   }
+
+  function getSortValue(p, col) {
+    const stu = studentByPreceptorId[p.id]
+    switch (col) {
+      case 'full_name':       return p.full_name?.toLowerCase() || ''
+      case 'unit_name':       return p.unit_name?.toLowerCase() || ''
+      case 'current_student': return stu ? `${stu.first_name} ${stu.last_name}`.toLowerCase() : ''
+      default: return ''
+    }
+  }
+
+  function handleSort(col) {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortBy(col); setSortDir('asc') }
+  }
+
+  const sorted = [...filtered].sort((a, b) => {
+    const av = getSortValue(a, sortBy)
+    const bv = getSortValue(b, sortBy)
+    if (!av && !bv) return 0
+    if (!av) return 1
+    if (!bv) return -1
+    const cmp = av.localeCompare(bv)
+    return sortDir === 'asc' ? cmp : -cmp
+  })
+
+  const arrow = (col) => sortBy === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''
 
   const handleSaved = (preceptor) => {
     if (editTarget) {
@@ -105,9 +141,8 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
       </div>
 
       {/* Table */}
-      <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 24 }}>
+      <div className="am-table-wrap" style={{ margin: '0 20px 24px' }}>
         {!isLoading && preceptors.length === 0 ? (
-          /* Empty state */
           <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             minHeight: 260, gap: 10, padding: '32px 24px',
@@ -129,43 +164,55 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
             </div>
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table className="am-table">
             <thead>
-              <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#fafafa' }}>
-                {['Name', 'Email', 'Unit', 'Shift', 'Status', 'Current Student', 'Cohorts', 'Last Active', ''].map(h => (
-                  <th key={h} style={{
-                    padding: '8px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700,
-                    textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b7280',
-                    whiteSpace: 'nowrap',
-                  }}>{h}</th>
-                ))}
+              <tr>
+                <th className="am-th am-sortable" onClick={() => handleSort('full_name')}>
+                  Name{arrow('full_name')}
+                </th>
+                <th className="am-th">Email</th>
+                <th className="am-th am-sortable" onClick={() => handleSort('unit_name')}>
+                  Unit{arrow('unit_name')}
+                </th>
+                <th className="am-th">Shift</th>
+                <th className="am-th">Status</th>
+                <th className="am-th am-sortable" onClick={() => handleSort('current_student')}>
+                  Current Student{arrow('current_student')}
+                </th>
+                <th className="am-th">Cohorts</th>
+                <th className="am-th">Last Active</th>
+                <th className="am-th"></th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map(p => {
+              {sorted.map(p => {
                 const currentStudent = studentByPreceptorId[p.id]
                 const isActive       = p.is_active !== false
 
                 return (
-                  <tr
-                    key={p.id}
-                    style={{ borderBottom: '1px solid #f3f4f6' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#fafbff'}
-                    onMouseLeave={e => e.currentTarget.style.background = ''}
-                  >
-                    <td style={{ padding: '10px 12px', fontWeight: 600, color: '#111', whiteSpace: 'nowrap' }}>
-                      {p.full_name}
+                  <tr key={p.id} className="am-row">
+                    <td className="am-td" style={{ fontWeight: 600, color: '#111', whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{
+                          width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                          background: '#1D2567', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 11, fontWeight: 700, color: '#fff', userSelect: 'none',
+                        }}>
+                          {getInitials(p.full_name)}
+                        </div>
+                        {p.full_name}
+                      </div>
                     </td>
-                    <td style={{ padding: '10px 12px', color: '#4b5563', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <td className="am-td" style={{ color: '#4b5563', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {p.email || '—'}
                     </td>
-                    <td style={{ padding: '10px 12px', color: '#6b7280', whiteSpace: 'nowrap' }}>
+                    <td className="am-td" style={{ color: '#6b7280', whiteSpace: 'nowrap' }}>
                       {p.unit_name || '—'}
                     </td>
-                    <td style={{ padding: '10px 12px', color: '#6b7280', whiteSpace: 'nowrap' }}>
+                    <td className="am-td" style={{ color: '#6b7280', whiteSpace: 'nowrap' }}>
                       {p.shift_type || '—'}
                     </td>
-                    <td style={{ padding: '10px 12px' }}>
+                    <td className="am-td">
                       <span style={{
                         fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
                         background: isActive ? '#dcfce7' : '#f3f4f6',
@@ -174,22 +221,22 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
                         {isActive ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td style={{ padding: '10px 12px', color: '#374151', whiteSpace: 'nowrap' }}>
+                    <td className="am-td" style={{ color: '#374151', whiteSpace: 'nowrap' }}>
                       {currentStudent
                         ? `${currentStudent.first_name} ${currentStudent.last_name}`
                         : <span style={{ color: '#9ca3af' }}>—</span>
                       }
                     </td>
-                    <td style={{ padding: '10px 12px', color: '#6b7280', textAlign: 'center' }}>
+                    <td className="am-td" style={{ color: '#6b7280', textAlign: 'center' }}>
                       {p.cohorts_participated ?? '—'}
                     </td>
-                    <td style={{ padding: '10px 12px', color: '#6b7280', whiteSpace: 'nowrap' }}>
+                    <td className="am-td" style={{ color: '#6b7280', whiteSpace: 'nowrap' }}>
                       {p.last_active_cohort
                         ? <span title={fmtDate(p.last_active_date)}>{p.last_active_cohort}</span>
                         : fmtDate(p.last_active_date)
                       }
                     </td>
-                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                    <td className="am-td" style={{ whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button
                           onClick={() => setEditTarget(p)}
