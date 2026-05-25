@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import BackButton from './BackButton'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { safeWrite } from '../lib/safeWrite'
 import { displayName } from '../lib/utils'
 import StudentAvatar from './StudentAvatar'
 import { PATIENT_POPULATION_MAP, UNITS_BY_DIVISION, ASPIRE_STATUS_CONFIG } from '../lib/constants'
@@ -446,9 +447,10 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     let id = rubricId
     if (!id) {
       if (!createIfNeeded || !form.interviewer_name) { setSaveStatus('idle'); return false }
-      const { data, error } = await supabase.from('interview_rubrics').insert({
-        student_id: student.id, cohort_id: cohortId, ...initForm(), ...form, ...payload,
-      }).select().single()
+      const { data, error } = await safeWrite(
+        () => supabase.from('interview_rubrics').insert({ student_id: student.id, cohort_id: cohortId, ...initForm(), ...form, ...payload }).select().single(),
+        { name: 'create rubric' }
+      )
       if (error) {
         setSaveStatus('idle')
         toast?.error('Save failed', error.message || 'Could not save rubric. Please try again.')
@@ -469,7 +471,10 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
         auto: true,
       })
     } else {
-      const { error } = await supabase.from('interview_rubrics').update(payload).eq('id', id)
+      const { error } = await safeWrite(
+        () => supabase.from('interview_rubrics').update(payload).eq('id', id),
+        { name: 'update rubric' }
+      )
       if (error) {
         setSaveStatus('idle')
         toast?.error('Save failed', error.message || 'Could not save rubric. Please try again.')
@@ -551,14 +556,20 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const handleReset = async () => {
     setConfirmReset(false)
     const blank = { ...initForm(), interviewer_name: form.interviewer_name, interview_date: form.interview_date }
-    if (rubricId) await supabase.from('interview_rubrics').update({ ...blank, updated_at: new Date().toISOString() }).eq('id', rubricId)
+    if (rubricId) await safeWrite(
+      () => supabase.from('interview_rubrics').update({ ...blank, updated_at: new Date().toISOString() }).eq('id', rubricId),
+      { name: 'reset rubric' }
+    )
     setForm(blank)
     if (onRubricsChange) onRubricsChange()
   }
 
   const handleUnlock = async () => {
     setConfirmUnlock(false)
-    if (rubricId) await supabase.from('interview_rubrics').update({ status:'In Progress', updated_at: new Date().toISOString() }).eq('id', rubricId)
+    if (rubricId) await safeWrite(
+      () => supabase.from('interview_rubrics').update({ status: 'In Progress', updated_at: new Date().toISOString() }).eq('id', rubricId),
+      { name: 'unlock rubric' }
+    )
     setForm(p => ({ ...p, status:'In Progress' }))
     if (onRubricsChange) onRubricsChange()
   }

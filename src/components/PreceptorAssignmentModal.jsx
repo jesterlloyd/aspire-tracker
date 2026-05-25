@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { safeWrite } from '../lib/safeWrite'
 import PreceptorFormModal from './PreceptorFormModal'
 
 export default function PreceptorAssignmentModal({ isOpen, onClose, student, onAssigned }) {
@@ -61,11 +62,14 @@ export default function PreceptorAssignmentModal({ isOpen, onClose, student, onA
     const today = new Date().toISOString().split('T')[0]
 
     // Update student row: set preceptor_id + keep free-text in sync
-    const { error: stuErr } = await supabase.from('students').update({
-      preceptor_id:      selected.id,
-      matched_preceptor: selected.full_name,
-      preceptor_email:   selected.email,
-    }).eq('id', student.id)
+    const { error: stuErr } = await safeWrite(
+      () => supabase.from('students').update({
+        preceptor_id:      selected.id,
+        matched_preceptor: selected.full_name,
+        preceptor_email:   selected.email,
+      }).eq('id', student.id),
+      { name: 'assign preceptor to student' }
+    )
 
     if (stuErr) { setError(stuErr.message); return }
 
@@ -76,18 +80,23 @@ export default function PreceptorAssignmentModal({ isOpen, onClose, student, onA
       .eq('student_id', student.id)
       .limit(1)
     if (matchRows?.length) {
-      await supabase.from('matches').update({ preceptor_id: selected.id })
-        .eq('id', matchRows[0].id)
+      await safeWrite(
+        () => supabase.from('matches').update({ preceptor_id: selected.id }).eq('id', matchRows[0].id),
+        { name: 'update match preceptor' }
+      )
     }
 
     // Create cohort participation if it doesn't exist yet
     if (student.cohort_id) {
-      await supabase.from('preceptor_cohort_participation').upsert({
-        preceptor_id: selected.id,
-        cohort_id:    student.cohort_id,
-        status:       'active',
-        started_at:   today,
-      }, { onConflict: 'preceptor_id,cohort_id', ignoreDuplicates: true })
+      await safeWrite(
+        () => supabase.from('preceptor_cohort_participation').upsert({
+          preceptor_id: selected.id,
+          cohort_id:    student.cohort_id,
+          status:       'active',
+          started_at:   today,
+        }, { onConflict: 'preceptor_id,cohort_id', ignoreDuplicates: true }),
+        { name: 'upsert cohort participation' }
+      )
     }
 
     // Refresh students query so all components update
@@ -101,15 +110,21 @@ export default function PreceptorAssignmentModal({ isOpen, onClose, student, onA
   const handleAddSaved = async (newPreceptor) => {
     setAddOpen(false)
     // Auto-assign the just-created preceptor
-    await supabase.from('students').update({
-      preceptor_id:      newPreceptor.id,
-      matched_preceptor: newPreceptor.full_name,
-      preceptor_email:   newPreceptor.email,
-    }).eq('id', student.id)
+    await safeWrite(
+      () => supabase.from('students').update({
+        preceptor_id:      newPreceptor.id,
+        matched_preceptor: newPreceptor.full_name,
+        preceptor_email:   newPreceptor.email,
+      }).eq('id', student.id),
+      { name: 'auto-assign new preceptor to student' }
+    )
 
     const { data: matchRows } = await supabase.from('matches').select('id').eq('student_id', student.id).limit(1)
     if (matchRows?.length) {
-      await supabase.from('matches').update({ preceptor_id: newPreceptor.id }).eq('id', matchRows[0].id)
+      await safeWrite(
+        () => supabase.from('matches').update({ preceptor_id: newPreceptor.id }).eq('id', matchRows[0].id),
+        { name: 'auto-assign new preceptor to match' }
+      )
     }
 
     queryClient.invalidateQueries({ queryKey: ['students', student.cohort_id] })

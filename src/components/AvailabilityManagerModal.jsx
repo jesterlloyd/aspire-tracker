@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { safeWrite } from '../lib/safeWrite'
 import { useAuth } from '../contexts/AuthContext'
 
 const TIME_SLOTS_15 = []
@@ -135,7 +136,10 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
   }
 
   const toggleActive = async (block) => {
-    await supabase.from('interview_availability_blocks').update({ is_active: !block.is_active }).eq('id', block.id)
+    await safeWrite(
+      () => supabase.from('interview_availability_blocks').update({ is_active: !block.is_active }).eq('id', block.id),
+      { name: 'toggle availability block' }
+    )
     setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, is_active: !b.is_active } : b))
   }
 

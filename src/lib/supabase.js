@@ -36,6 +36,26 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 })
 
+export async function ensureHealthyConnection() {
+  if (!supabase.realtime.isConnected() && !supabase.realtime.isConnecting()) {
+    console.warn('[supabase] connection unhealthy, attempting reconnect')
+    try {
+      await supabase.realtime.connect()
+    } catch (err) {
+      console.error('[supabase] reconnect failed:', err)
+    }
+    await new Promise(resolve => setTimeout(resolve, 500))
+  }
+
+  const { data: { session }, error } = await supabase.auth.getSession()
+  if (error || !session) {
+    console.error('[supabase] auth session invalid:', error)
+    throw new Error('Your session has expired. Please refresh the page to continue.')
+  }
+
+  return true
+}
+
 function reconnectIfNeeded() {
   if (!supabase.realtime.isConnected() && !supabase.realtime.isConnecting()) {
     supabase.realtime.connect()

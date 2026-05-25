@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { safeWrite } from '../lib/safeWrite'
 import { SHIFT_OPTIONS, PATIENT_POPULATION_MAP, UNIT_DIVISION_MAP } from '../lib/constants'
 
 function buildSetup(catalog, currentUnits) {
@@ -112,11 +113,17 @@ export default function UnitSetupPanel({ cohortId, currentUnits, students, onSav
 
     let err = null
     for (const { id, ...data } of toUpdate) {
-      const { error: e } = await supabase.from('units').update(data).eq('id', id)
+      const { error: e } = await safeWrite(
+        () => supabase.from('units').update(data).eq('id', id),
+        { name: 'update unit setup' }
+      )
       if (e) { err = e; break }
     }
     if (!err && toInsert.length) {
-      const { error: e } = await supabase.from('units').insert(toInsert)
+      const { error: e } = await safeWrite(
+        () => supabase.from('units').insert(toInsert),
+        { name: 'insert units setup' }
+      )
       if (e) err = e
     }
 

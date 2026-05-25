@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { safeWrite } from '../lib/safeWrite';
 import { getAvatarUrl } from '../lib/getAvatar';
 import { LogOut, Users, ChevronDown } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
@@ -38,7 +39,10 @@ export default function UserMenu({ onOpenUserManagement, onRestartTour }) {
 
       const { error: saveError } = await supabase.rpc('update_my_avatar', { p_url: publicUrl });
       if (saveError) {
-        await supabase.from('user_profiles').update({ avatar_url: publicUrl }).eq('id', userProfile.id);
+        await safeWrite(
+          () => supabase.from('user_profiles').update({ avatar_url: publicUrl }).eq('id', userProfile.id),
+          { name: 'update avatar url' }
+        );
       }
       window.location.reload();
     } catch (err) {

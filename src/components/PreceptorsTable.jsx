@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { safeWrite } from '../lib/safeWrite'
 import { usePreceptors } from '../hooks/usePreceptors'
 import PreceptorFormModal from './PreceptorFormModal'
 import PreceptorAssignmentModal from './PreceptorAssignmentModal'
@@ -46,7 +47,10 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
   const handleDelete = async () => {
     if (!deleteTarget) return
     setDeleting(true)
-    const { error: err } = await supabase.from('preceptors').delete().eq('id', deleteTarget.id)
+    const { error: err } = await safeWrite(
+      () => supabase.from('preceptors').delete().eq('id', deleteTarget.id),
+      { name: 'delete preceptor' }
+    )
     setDeleting(false)
     if (err) {
       toast?.error('Delete failed', err.message || 'Could not delete preceptor.')

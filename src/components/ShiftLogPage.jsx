@@ -1,6 +1,7 @@
 // All external navigation must use openLink helpers (src/lib/openLink.js)
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { safeWrite } from '../lib/safeWrite'
 import { SHIFT_LOG_STATUSES } from '../lib/shiftLogValidation'
 import { logEvent, eventExists } from '../lib/logEvent'
 import { updateStudent as proxyUpdateStudent } from '../lib/studentProxy'
@@ -173,26 +174,29 @@ export default function ShiftLogPage() {
       const reviewReason = flags.length > 0 ? flags.join('; ') : null
       const now = new Date().toISOString()
 
-      await supabase.from('student_shift_logs').insert({
-        student_id:             student.id,
-        cohort_id:              cohortId,
-        school_email:           student.school_email,
-        shift_date:             shiftDate,
-        total_hours:            hours,
-        unit_name:              isDiffUnit ? diffUnitName.trim() : unitName,
-        is_assigned_unit:       !isDiffUnit,
-        unit_override_reason:   diffUnitReason,
-        preceptor_name:         preceptorName.trim(),
-        is_assigned_preceptor:  preceptorName.trim() === (student.matched_preceptor||'').trim(),
-        shift_type:             shiftType,
-        learning_highlight:     learningHighlight,
-        support_needed:         supportNeeded,
-        attestation:            true,
-        status,
-        exception_flags:        flags,
-        review_reason:          reviewReason,
-        submitted_at:           now,
-      })
+      await safeWrite(
+        () => supabase.from('student_shift_logs').insert({
+          student_id:             student.id,
+          cohort_id:              cohortId,
+          school_email:           student.school_email,
+          shift_date:             shiftDate,
+          total_hours:            hours,
+          unit_name:              isDiffUnit ? diffUnitName.trim() : unitName,
+          is_assigned_unit:       !isDiffUnit,
+          unit_override_reason:   diffUnitReason,
+          preceptor_name:         preceptorName.trim(),
+          is_assigned_preceptor:  preceptorName.trim() === (student.matched_preceptor||'').trim(),
+          shift_type:             shiftType,
+          learning_highlight:     learningHighlight,
+          support_needed:         supportNeeded,
+          attestation:            true,
+          status,
+          exception_flags:        flags,
+          review_reason:          reviewReason,
+          submitted_at:           now,
+        }),
+        { name: 'submit shift log' }
+      )
 
       // Update student hours
       const currentApproved = parseFloat(student.approved_hours||0)

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { safeWrite } from '../lib/safeWrite'
 
 export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialData = null, cohortId }) {
   const [form, setForm]   = useState({ full_name: '', email: '', unit_id: '', shift_type: 'Variable', phone: '', notes: '' })
@@ -73,10 +74,16 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
 
       let result
       if (initialData) {
-        const { data, error: err } = await supabase.from('preceptors').update(payload).eq('id', initialData.id).select().single()
+        const { data, error: err } = await safeWrite(
+          () => supabase.from('preceptors').update(payload).eq('id', initialData.id).select().single(),
+          { name: 'update preceptor' }
+        )
         result = { data, error: err }
       } else {
-        const { data, error: err } = await supabase.from('preceptors').insert(payload).select().single()
+        const { data, error: err } = await safeWrite(
+          () => supabase.from('preceptors').insert(payload).select().single(),
+          { name: 'insert preceptor' }
+        )
         result = { data, error: err }
       }
       console.log('[PreceptorFormModal] supabase returned', result)
@@ -97,12 +104,15 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
       if (cohortId && !initialData && result.data) {
         console.log('[PreceptorFormModal] inserting cohort participation')
         const today = new Date().toISOString().split('T')[0]
-        const { error: partErr } = await supabase.from('preceptor_cohort_participation').insert({
-          preceptor_id: result.data.id,
-          cohort_id:    cohortId,
-          status:       'active',
-          started_at:   today,
-        })
+        const { error: partErr } = await safeWrite(
+          () => supabase.from('preceptor_cohort_participation').insert({
+            preceptor_id: result.data.id,
+            cohort_id:    cohortId,
+            status:       'active',
+            started_at:   today,
+          }),
+          { name: 'insert cohort participation' }
+        )
         if (partErr) console.error('[PreceptorFormModal] cohort participation insert failed:', partErr)
       }
 

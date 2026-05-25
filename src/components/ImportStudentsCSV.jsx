@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { safeWrite } from '../lib/safeWrite'
 import { parseCSV, downloadCSV } from '../lib/utils'
 import { SCHOOLS, INTERVIEW_OUTCOMES } from '../lib/constants'
 
@@ -80,7 +81,10 @@ export default function ImportStudentsCSV({ cohortId, onImported, onClose }) {
       cohort_id:         cohortId,
     }))
 
-    const { error: err } = await supabase.from('students').insert(records)
+    const { error: err } = await safeWrite(
+      () => supabase.from('students').insert(records),
+      { name: 'import students CSV' }
+    )
     if (err) { setError(err.message); setImporting(false); return }
     setResult({ imported: records.length, skipped: rows.length - records.length })
     setStep(3)

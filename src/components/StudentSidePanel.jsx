@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect, createContext, useContext } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { safeWrite } from '../lib/safeWrite'
 import { displayName, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 import StudentAvatar from './StudentAvatar'
 import {
@@ -346,9 +347,10 @@ export default function StudentSidePanel({
 
   const handleApproveShift = async (log) => {
     const hours = parseFloat(log.total_hours||0)
-    await supabase.from('student_shift_logs').update({
-      status: 'Approved', reviewed_at: new Date().toISOString(), reviewed_by: 'Admin',
-    }).eq('id', log.id)
+    await safeWrite(
+      () => supabase.from('student_shift_logs').update({ status: 'Approved', reviewed_at: new Date().toISOString(), reviewed_by: 'Admin' }).eq('id', log.id),
+      { name: 'approve shift log' }
+    )
     const newApproved = parseFloat(data.approved_hours||0) + hours
     const newPending  = Math.max(0, parseFloat(data.pending_hours||0) - hours)
     await onUpdate(student.id, { approved_hours: newApproved, pending_hours: newPending })
@@ -360,9 +362,10 @@ export default function StudentSidePanel({
 
   const handleRejectShift = async (log) => {
     const hours = parseFloat(log.total_hours||0)
-    await supabase.from('student_shift_logs').update({
-      status: 'Rejected', reviewed_at: new Date().toISOString(), reviewed_by: 'Admin',
-    }).eq('id', log.id)
+    await safeWrite(
+      () => supabase.from('student_shift_logs').update({ status: 'Rejected', reviewed_at: new Date().toISOString(), reviewed_by: 'Admin' }).eq('id', log.id),
+      { name: 'reject shift log' }
+    )
     const newPending = Math.max(0, parseFloat(data.pending_hours||0) - hours)
     await onUpdate(student.id, { pending_hours: newPending })
     setData(p => ({ ...p, pending_hours: newPending }))
@@ -375,7 +378,10 @@ export default function StudentSidePanel({
     if (isNaN(newHours) || newHours <= 0) return
     const oldHours = parseFloat(log.total_hours||0)
     const diff = newHours - oldHours
-    await supabase.from('student_shift_logs').update({ total_hours: newHours, reviewed_at: new Date().toISOString(), reviewed_by: 'Admin' }).eq('id', log.id)
+    await safeWrite(
+      () => supabase.from('student_shift_logs').update({ total_hours: newHours, reviewed_at: new Date().toISOString(), reviewed_by: 'Admin' }).eq('id', log.id),
+      { name: 'adjust shift log hours' }
+    )
     if (['Auto-Accepted', 'Approved'].includes(log.status)) {
       const newApproved = Math.max(0, parseFloat(data.approved_hours||0) + diff)
       await onUpdate(student.id, { approved_hours: newApproved })
@@ -423,15 +429,18 @@ export default function StudentSidePanel({
   const handleAddEvent = async () => {
     if (!newEvent.event_date) return
     setSavingEvent(true)
-    const { data } = await supabase.from('program_events').insert({
-      student_id:  student.id,
-      cohort_id:   student.cohort_id,
-      event_type:  newEvent.event_type,
-      event_date:  newEvent.event_date,
-      event_time:  newEvent.event_time || null,
-      notes:       newEvent.notes,
-      created_by:  'coordinator',
-    }).select().single()
+    const { data } = await safeWrite(
+      () => supabase.from('program_events').insert({
+        student_id:  student.id,
+        cohort_id:   student.cohort_id,
+        event_type:  newEvent.event_type,
+        event_date:  newEvent.event_date,
+        event_time:  newEvent.event_time || null,
+        notes:       newEvent.notes,
+        created_by:  'coordinator',
+      }).select().single(),
+      { name: 'add program event' }
+    )
     if (data) {
       queryClient.setQueryData(['student_program_events', student.id], (prev = []) => [data, ...prev])
     }
@@ -441,7 +450,10 @@ export default function StudentSidePanel({
   }
 
   const handleDeleteEvent = async (id) => {
-    await supabase.from('program_events').delete().eq('id', id)
+    await safeWrite(
+      () => supabase.from('program_events').delete().eq('id', id),
+      { name: 'delete program event' }
+    )
     queryClient.setQueryData(['student_program_events', student.id], (prev = []) =>
       prev.filter(e => e.id !== id))
   }

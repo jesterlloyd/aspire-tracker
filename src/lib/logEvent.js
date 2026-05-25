@@ -1,3 +1,5 @@
+import { safeWrite } from './safeWrite'
+
 /**
  * logEvent - writes a row to program_events table
  * Auto-tagged events include auto: true in notes prefix
@@ -13,15 +15,18 @@ export async function logEvent(supabase, {
 
   const finalNotes = auto ? `[Auto-logged] ${notes}`.trim() : notes;
 
-  const { error } = await supabase.from('program_events').insert({
-    student_id:  studentId,
-    cohort_id:   cohortId,
-    event_type:  eventType,
-    event_date:  dateStr,
-    event_time:  eventTime || null,
-    notes:       finalNotes,
-    created_by:  auto ? 'system' : 'coordinator',
-  });
+  const { error } = await safeWrite(
+    () => supabase.from('program_events').insert({
+      student_id:  studentId,
+      cohort_id:   cohortId,
+      event_type:  eventType,
+      event_date:  dateStr,
+      event_time:  eventTime || null,
+      notes:       finalNotes,
+      created_by:  auto ? 'system' : 'coordinator',
+    }),
+    { name: 'log event' }
+  );
 
   if (error) console.error('logEvent error:', error.message);
 }

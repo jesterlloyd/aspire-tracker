@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { safeWrite } from '../lib/safeWrite'
 import { displayName } from '../lib/utils'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import EditScheduleModal from './EditScheduleModal'
@@ -241,11 +242,15 @@ export default function WeekCalendar({
   const handleTeamsToggle = async (student, checked) => {
     const session = getSessionForStudent(student.id)
     if (session) {
-      await supabase.from('interview_sessions').update({ teams_meeting_booked: checked }).eq('id', session.id)
+      await safeWrite(
+        () => supabase.from('interview_sessions').update({ teams_meeting_booked: checked }).eq('id', session.id),
+        { name: 'update interview session teams flag' }
+      )
     } else {
-      await supabase.from('interview_sessions').insert({
-        student_id: student.id, cohort_id: cohortId, session_number: 1, teams_meeting_booked: checked,
-      })
+      await safeWrite(
+        () => supabase.from('interview_sessions').insert({ student_id: student.id, cohort_id: cohortId, session_number: 1, teams_meeting_booked: checked }),
+        { name: 'create interview session' }
+      )
     }
     if (onUpdateSession) onUpdateSession(student.id, { teams_meeting_booked: checked })
     // Optimistically update the in-memory record so the dot disappears immediately

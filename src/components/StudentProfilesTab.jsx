@@ -4,6 +4,7 @@ import StudentListPanel from './StudentListPanel'
 import StudentSidePanel from './StudentSidePanel'
 import AccessTab from './AccessTab'
 import { supabase } from '../lib/supabase'
+import { safeWrite } from '../lib/safeWrite'
 import { useAuth } from '../contexts/AuthContext'
 import { FilterKPICard } from './KPIBand'
 import ImportStudentsCSV from './ImportStudentsCSV'
@@ -60,10 +61,13 @@ export default function StudentProfilesTab({
   useEffect(() => {
     if (!userProfile?.id || !selectedStudentId || !cohortId) return
     const markAsRead = async () => {
-      await supabase.from('student_reads').upsert(
-        { user_id: userProfile.id, student_id: selectedStudentId, last_viewed_at: new Date().toISOString() },
-        { onConflict: 'user_id,student_id' }
-      )
+      safeWrite(
+        () => supabase.from('student_reads').upsert(
+          { user_id: userProfile.id, student_id: selectedStudentId, last_viewed_at: new Date().toISOString() },
+          { onConflict: 'user_id,student_id' }
+        ),
+        { name: 'mark student read' }
+      ).catch(err => console.warn('[StudentProfilesTab] mark-read failed:', err.message))
       queryClient.invalidateQueries({ queryKey: ['unread_students', cohortId, userProfile.id] })
     }
     markAsRead()

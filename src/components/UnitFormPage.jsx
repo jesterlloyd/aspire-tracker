@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { safeWrite } from '../lib/safeWrite'
 import { PATIENT_POPULATION_MAP } from '../lib/constants'
 import { getUnitsByDivision, getUnit, DIVISION_ORDER } from '../lib/unitCatalog'
 
@@ -167,30 +168,36 @@ export default function UnitFormPage() {
 
       if (existingUnit) {
         unitId = existingUnit.id
-        await supabase.from('units').update({
-          contact_person:   form.submitter_name.trim(),
-          contact_email:    form.submitter_email.trim(),
-          is_participating: isHosting,
-          total_slots:      isHosting ? slotsNum : 0,
-          slots_remaining:  isHosting ? slotsNum : 0,
-          shift_preference: form.shift_preference,
-          preceptors:       form.preferred_preceptors.trim(),
-          considerations:   form.considerations.trim(),
-        }).eq('id', unitId).abortSignal(controller.signal)
+        await safeWrite(
+          () => supabase.from('units').update({
+            contact_person:   form.submitter_name.trim(),
+            contact_email:    form.submitter_email.trim(),
+            is_participating: isHosting,
+            total_slots:      isHosting ? slotsNum : 0,
+            slots_remaining:  isHosting ? slotsNum : 0,
+            shift_preference: form.shift_preference,
+            preceptors:       form.preferred_preceptors.trim(),
+            considerations:   form.considerations.trim(),
+          }).eq('id', unitId).abortSignal(controller.signal),
+          { name: 'update unit form' }
+        )
       } else {
-        const { data: newUnit, error: unitErr } = await supabase.from('units').insert({
-          unit_name:          form.unit_name.trim(),
-          contact_person:     form.submitter_name.trim(),
-          contact_email:      form.submitter_email.trim(),
-          is_participating:   isHosting,
-          total_slots:        isHosting ? slotsNum : 0,
-          slots_remaining:    isHosting ? slotsNum : 0,
-          shift_preference:   form.shift_preference,
-          preceptors:         form.preferred_preceptors.trim(),
-          considerations:     form.considerations.trim(),
-          patient_population: PATIENT_POPULATION_MAP[form.unit_name.trim()] || '',
-          cohort_id:          cohortId,
-        }).select('id').abortSignal(controller.signal).single()
+        const { data: newUnit, error: unitErr } = await safeWrite(
+          () => supabase.from('units').insert({
+            unit_name:          form.unit_name.trim(),
+            contact_person:     form.submitter_name.trim(),
+            contact_email:      form.submitter_email.trim(),
+            is_participating:   isHosting,
+            total_slots:        isHosting ? slotsNum : 0,
+            slots_remaining:    isHosting ? slotsNum : 0,
+            shift_preference:   form.shift_preference,
+            preceptors:         form.preferred_preceptors.trim(),
+            considerations:     form.considerations.trim(),
+            patient_population: PATIENT_POPULATION_MAP[form.unit_name.trim()] || '',
+            cohort_id:          cohortId,
+          }).select('id').abortSignal(controller.signal).single(),
+          { name: 'insert unit form' }
+        )
 
         if (unitErr) throw unitErr
         unitId = newUnit.id

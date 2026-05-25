@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { X, Trash2, Copy, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { safeWrite } from '../lib/safeWrite'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -234,11 +235,14 @@ export default function InterviewDayDrawer({
 
   const handleMarkTeamsInviteSent = async (sessionId) => {
     setMarkingTeams(sessionId)
-    await supabase.from('interview_sessions').update({
-      teams_meeting_booked:  true,
-      teams_invite_sent_at:  new Date().toISOString(),
-      teams_invite_sent_by:  userProfile?.id || null,
-    }).eq('id', sessionId)
+    await safeWrite(
+      () => supabase.from('interview_sessions').update({
+        teams_meeting_booked:  true,
+        teams_invite_sent_at:  new Date().toISOString(),
+        teams_invite_sent_by:  userProfile?.id || null,
+      }).eq('id', sessionId),
+      { name: 'mark teams invite sent' }
+    )
     setMarkingTeams(null)
     showToast('Teams invite marked as sent')
     queryClient.invalidateQueries({ queryKey: ['interview_calendar',  cohortId] })
@@ -273,21 +277,30 @@ export default function InterviewDayDrawer({
   const handleDeleteSlot = async (slotId) => {
     if (!window.confirm('Delete this single slot? The parent availability block stays intact.')) return
     setDeletingSlot(slotId)
-    await supabase.from('interview_slots').delete().eq('id', slotId)
+    await safeWrite(
+      () => supabase.from('interview_slots').delete().eq('id', slotId),
+      { name: 'delete interview slot' }
+    )
     setDeletingSlot(null)
     showToast('Slot deleted')
     invalidateAll()
   }
 
   const handleBlockSlot = async (slot, reason) => {
-    await supabase.from('interview_slots').update({ status: 'blocked', blocked_reason: reason }).eq('id', slot.id)
+    await safeWrite(
+      () => supabase.from('interview_slots').update({ status: 'blocked', blocked_reason: reason }).eq('id', slot.id),
+      { name: 'block interview slot' }
+    )
     setBlockingSlot(null)
     showToast(`Blocked: ${reason}`)
     invalidateAll()
   }
 
   const handleUnblockSlot = async (slotId) => {
-    await supabase.from('interview_slots').update({ status: 'available', blocked_reason: null }).eq('id', slotId)
+    await safeWrite(
+      () => supabase.from('interview_slots').update({ status: 'available', blocked_reason: null }).eq('id', slotId),
+      { name: 'unblock interview slot' }
+    )
     showToast('Slot unblocked')
     invalidateAll()
   }

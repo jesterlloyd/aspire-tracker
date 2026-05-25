@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { safeWrite } from '../lib/safeWrite'
 import { displayName } from '../lib/utils'
 import StudentAvatar from './StudentAvatar'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
@@ -365,12 +366,15 @@ export default function ActionCenter({
   const isPend = (sid, type) => !!pending[`${sid}_${type}`]
 
   const logComm = async ({ type, student, sentToEmail, sentToName, after }) => {
-    const { data } = await supabase.from('communications').insert({
-      student_id: student?.id || null, cohort_id: cohortId, type,
-      sent_to_email: sentToEmail || '',
-      sent_to_name: sentToName || (student ? `${student.last_name}, ${student.first_name}` : ''),
-      sent_by: 'ASPIRE Team',
-    }).select().single()
+    const { data } = await safeWrite(
+      () => supabase.from('communications').insert({
+        student_id: student?.id || null, cohort_id: cohortId, type,
+        sent_to_email: sentToEmail || '',
+        sent_to_name: sentToName || (student ? `${student.last_name}, ${student.first_name}` : ''),
+        sent_by: 'ASPIRE Team',
+      }).select().single(),
+      { name: 'log communication' }
+    )
     if (data && onLogCommunication) onLogCommunication(data)
     if (after) await after()
     if (student) setPending(p => { const n={...p}; delete n[`${student.id}_${type}`]; return n })
@@ -401,7 +405,10 @@ export default function ActionCenter({
         })
       }
       try {
-        await supabase.from('activity_logs').insert({ user_id:userProfile?.id, user_name:userProfile?.full_name, user_role:userProfile?.role, action_type:item.actionType, entity_type:'student', entity_id:item.studentId, cohort_id:item.cohortId, description:`${userProfile?.full_name} marked "${item.title}" complete for ${item.studentName}`, metadata:{ completed_at: new Date().toISOString() } })
+        await safeWrite(
+          () => supabase.from('activity_logs').insert({ user_id:userProfile?.id, user_name:userProfile?.full_name, user_role:userProfile?.role, action_type:item.actionType, entity_type:'student', entity_id:item.studentId, cohort_id:item.cohortId, description:`${userProfile?.full_name} marked "${item.title}" complete for ${item.studentName}`, metadata:{ completed_at: new Date().toISOString() } }),
+          { name: 'log action center activity' }
+        )
       } catch (logErr) { console.warn('Activity log:', logErr.message) }
       setDoneItems(prev => new Set([...prev, item.id]))
     } catch (err) { alert(`Could not complete: ${err.message}`) }
@@ -607,7 +614,10 @@ ${KR_SIG.replace('Warm regards,','').replace('Kind regards,','Kind regards,\nThe
 
   const handleMarkOrientationSent = async () => {
     const now = new Date().toISOString()
-    await supabase.from('cohorts').update({ orientation_sent_at: now }).eq('id', cohortId)
+    await safeWrite(
+      () => supabase.from('cohorts').update({ orientation_sent_at: now }).eq('id', cohortId),
+      { name: 'mark orientation sent' }
+    )
     for (const s of placedStudents) {
       await logComm({ type:'orientation_email', student:s, sentToEmail:s.personal_email||s.school_email, sentToName:`${s.last_name}, ${s.first_name}` })
       // Also mark individual student orientation_sent_at if column exists

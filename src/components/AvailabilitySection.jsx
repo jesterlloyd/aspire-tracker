@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { safeWrite } from '../lib/safeWrite'
 import { useAuth } from '../contexts/AuthContext'
 
 const TIME_SLOTS_15 = []
@@ -72,26 +73,30 @@ export default function AvailabilitySection({ cohortId }) {
     if (!userProfile?.full_name) { alert('You must be signed in to create a block.'); return }
     if (!form.block_date || !form.start_time || !form.end_time || previewSlots.length === 0) return
     setSaving(true)
-    const { data: block, error } = await supabase.from('interview_availability_blocks')
-      .insert({
+    const { data: block, error } = await safeWrite(
+      () => supabase.from('interview_availability_blocks').insert({
         ...form,
-        cohort_id:         cohortId,
-        duration_minutes:  Number(form.duration_minutes),
-        interviewer_name:  userProfile.full_name,   // forced from auth
+        cohort_id:          cohortId,
+        duration_minutes:   Number(form.duration_minutes),
+        interviewer_name:   userProfile.full_name,
         created_by_user_id: userProfile.id,
-      })
-      .select().single()
+      }).select().single(),
+      { name: 'create availability block' }
+    )
     if (!error && block) {
-      await supabase.from('interview_slots').insert(previewSlots.map(t => ({
-        block_id:         block.id,
-        cohort_id:        cohortId,
-        slot_date:        form.block_date,
-        slot_time:        t,
-        duration_minutes: Number(form.duration_minutes),
-        interviewer_name: userProfile.full_name,    // forced from auth
-        is_booked:        false,
-        status:           'available',
-      })))
+      await safeWrite(
+        () => supabase.from('interview_slots').insert(previewSlots.map(t => ({
+          block_id:         block.id,
+          cohort_id:        cohortId,
+          slot_date:        form.block_date,
+          slot_time:        t,
+          duration_minutes: Number(form.duration_minutes),
+          interviewer_name: userProfile.full_name,
+          is_booked:        false,
+          status:           'available',
+        }))),
+        { name: 'create interview slots' }
+      )
       setActiveCount(c => c + 1)
       setForm(p => ({ ...p, block_date: '', start_time: '09:00', end_time: '12:00' }))
       await loadData()
@@ -100,13 +105,19 @@ export default function AvailabilitySection({ cohortId }) {
   }
 
   const toggleActive = async (block) => {
-    await supabase.from('interview_availability_blocks').update({ is_active: !block.is_active }).eq('id', block.id)
+    await safeWrite(
+      () => supabase.from('interview_availability_blocks').update({ is_active: !block.is_active }).eq('id', block.id),
+      { name: 'toggle availability block' }
+    )
     setBlocks(prev => prev.map(b => b.id === block.id ? { ...b, is_active: !b.is_active } : b))
     setActiveCount(c => block.is_active ? c - 1 : c + 1)
   }
 
   const deleteBlock = async (blockId) => {
-    await supabase.from('interview_availability_blocks').delete().eq('id', blockId)
+    await safeWrite(
+      () => supabase.from('interview_availability_blocks').delete().eq('id', blockId),
+      { name: 'delete availability block' }
+    )
     const removed = blocks.find(b => b.id === blockId)
     setBlocks(prev => prev.filter(b => b.id !== blockId))
     if (removed?.is_active) setActiveCount(c => c - 1)

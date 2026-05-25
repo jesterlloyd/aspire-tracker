@@ -34,6 +34,7 @@ import { logEvent, eventExists } from './lib/logEvent'
 import { useToast } from './hooks/useToast'
 import { ToastContainer } from './components/Toast'
 import { logActivity } from './lib/logActivity'
+import { safeWrite } from './lib/safeWrite'
 
 /*
   COHORT ISOLATION CONTRACT
@@ -305,7 +306,10 @@ function MainApp({ onLogout }) {
 
   // ── Cohort CRUD ──────────────────────────────────────────────
   const createCohort = async d => {
-    const { data, error } = await supabase.from('cohorts').insert(d).select().single()
+    const { data, error } = await safeWrite(
+      () => supabase.from('cohorts').insert(d).select().single(),
+      { name: 'create cohort' }
+    )
     if (!error && data) {
       queryClient.setQueryData(['cohorts_all'], prev => [data, ...(prev || [])])
       localStorage.setItem('aspire_active_cohort_id', data.id)
@@ -317,11 +321,17 @@ function MainApp({ onLogout }) {
   }
   const updateCohort = async (id, updates) => {
     if (updates.accepting_submissions === true) {
-      await supabase.from('cohorts').update({ accepting_submissions: false }).neq('id', id)
+      await safeWrite(
+        () => supabase.from('cohorts').update({ accepting_submissions: false }).neq('id', id),
+        { name: 'deactivate other cohorts' }
+      )
       queryClient.setQueryData(['cohorts_all'], prev =>
         (prev || []).map(c => c.id !== id ? { ...c, accepting_submissions: false } : c))
     }
-    const { error } = await supabase.from('cohorts').update(updates).eq('id', id)
+    const { error } = await safeWrite(
+      () => supabase.from('cohorts').update(updates).eq('id', id),
+      { name: 'update cohort' }
+    )
     if (!error) {
       queryClient.setQueryData(['cohorts_all'], prev =>
         (prev || []).map(c => c.id === id ? { ...c, ...updates } : c))
@@ -387,7 +397,10 @@ function MainApp({ onLogout }) {
 
   const updateCohortMatchSummary = (newMatchList) => {
     const summary = computeMatchSummary(newMatchList)
-    supabase.from('cohorts').update({ match_quality_summary: summary }).eq('id', activeCohortId)
+    safeWrite(
+      () => supabase.from('cohorts').update({ match_quality_summary: summary }).eq('id', activeCohortId),
+      { name: 'update cohort match summary' }
+    ).catch(err => console.warn('[App] match summary update failed:', err.message))
     queryClient.setQueryData(['cohorts_all'], prev =>
       (prev || []).map(c => c.id === activeCohortId ? { ...c, match_quality_summary: summary } : c))
   }
@@ -422,8 +435,10 @@ function MainApp({ onLogout }) {
 
   const addStudent = async student => {
     if (!activeCohortId) return { message: 'No active cohort.' }
-    const { data, error } = await supabase.from('students')
-      .insert({ ...student, cohort_id: activeCohortId }).select().single()
+    const { data, error } = await safeWrite(
+      () => supabase.from('students').insert({ ...student, cohort_id: activeCohortId }).select().single(),
+      { name: 'add student' }
+    )
     if (!error && data) {
       setStudents(prev => [...prev, data].sort((a, b) => (a.school + a.name).localeCompare(b.school + b.name)))
       setShowAddModal(false)
@@ -432,12 +447,12 @@ function MainApp({ onLogout }) {
   }
 
   const deleteStudent = async id => {
-    await supabase.from('students').delete().eq('id', id)
+    await safeWrite(() => supabase.from('students').delete().eq('id', id), { name: 'delete student' })
     // Belt-and-suspenders: explicitly remove related records in case CASCADE is not yet applied
-    await supabase.from('interviews').delete().eq('student_id', id)
-    await supabase.from('interview_rubrics').delete().eq('student_id', id)
-    await supabase.from('matches').delete().eq('student_id', id)
-    await supabase.from('interview_sessions').delete().eq('student_id', id)
+    await safeWrite(() => supabase.from('interviews').delete().eq('student_id', id), { name: 'delete student interviews' })
+    await safeWrite(() => supabase.from('interview_rubrics').delete().eq('student_id', id), { name: 'delete student rubrics' })
+    await safeWrite(() => supabase.from('matches').delete().eq('student_id', id), { name: 'delete student matches' })
+    await safeWrite(() => supabase.from('interview_sessions').delete().eq('student_id', id), { name: 'delete student sessions' })
     // Refetch all affected state so every tab reflects the deletion immediately
     setStudents(prev => prev.filter(s => s.id !== id))
     setInterviews(prev => prev.filter(iv => iv.student_id !== id))
@@ -450,12 +465,19 @@ function MainApp({ onLogout }) {
   const deleteUnit = async unit => {
     const matchedIds = students.filter(s => s.matched_unit_id === unit.id).map(s => s.id)
     if (matchedIds.length > 0) {
-      await supabase.from('students')
-        .update({ matched_unit_id: null, matched_preceptor: '', shift_assigned: '', interview_outcome: 'Pending Interview' })
-        .in('id', matchedIds)
-      await supabase.from('matches').delete().eq('unit_id', unit.id)
+      await safeWrite(
+        () => supabase.from('students').update({ matched_unit_id: null, matched_preceptor: '', shift_assigned: '', interview_outcome: 'Pending Interview' }).in('id', matchedIds),
+        { name: 'clear matched students on unit delete' }
+      )
+      await safeWrite(
+        () => supabase.from('matches').delete().eq('unit_id', unit.id),
+        { name: 'delete unit matches' }
+      )
     }
-    await supabase.from('units').delete().eq('id', unit.id)
+    await safeWrite(
+      () => supabase.from('units').delete().eq('id', unit.id),
+      { name: 'delete unit' }
+    )
     setStudents(prev => prev.map(s =>
       matchedIds.includes(s.id)
         ? { ...s, matched_unit_id: null, matched_preceptor: '', shift_assigned: '', interview_outcome: 'Pending Interview' }
@@ -478,17 +500,23 @@ function MainApp({ onLogout }) {
     const match_quality = unit.unit_name === student.unit_preference_1 ? 'top_choice'
       : unit.unit_name === student.unit_preference_2 ? 'second_choice'
       : 'other'
-    const { data: m, error } = await supabase.from('matches')
-      .insert({ student_id: student.id, unit_id: unit.id, cohort_id: activeCohortId, match_quality })
-      .select().single()
+    const { data: m, error } = await safeWrite(
+      () => supabase.from('matches').insert({ student_id: student.id, unit_id: unit.id, cohort_id: activeCohortId, match_quality }).select().single(),
+      { name: 'create match' }
+    )
     if (error) { console.error(error); return }
     // Derive slots_remaining from actual match count so the field self-corrects
     // even if it was previously initialised incorrectly (e.g., stuck at 0).
     const currentMatchCount = matches.filter(m => m.unit_id === unit.id).length  // before new match
     const newRemaining = Math.max(0, unit.total_slots - (currentMatchCount + 1))
-    await supabase.from('students')
-      .update({ matched_unit_id: unit.id, interview_outcome: 'Accepted', match_quality, status: 'Placed' }).eq('id', student.id)
-    await supabase.from('units').update({ slots_remaining: newRemaining }).eq('id', unit.id)
+    await safeWrite(
+      () => supabase.from('students').update({ matched_unit_id: unit.id, interview_outcome: 'Accepted', match_quality, status: 'Placed' }).eq('id', student.id),
+      { name: 'update student on match' }
+    )
+    await safeWrite(
+      () => supabase.from('units').update({ slots_remaining: newRemaining }).eq('id', unit.id),
+      { name: 'update unit slots on match' }
+    )
     updateCohortMatchSummary([...matches, m])
     setMatches(prev => [...prev, m])
     setStudents(prev => prev.map(s =>
@@ -514,14 +542,18 @@ function MainApp({ onLogout }) {
     const revertStatus = hasInterview ? 'Interviewed' : 'Form Received'
 
     const match = matches.find(m => m.student_id === student.id && m.unit_id === unit.id)
-    if (match) await supabase.from('matches').delete().eq('id', match.id)
-    await supabase.from('students')
-      .update({ matched_unit_id: null, matched_preceptor: '', shift_assigned: '', match_quality: null, interview_outcome: 'Pending Interview', status: revertStatus })
-      .eq('id', student.id)
+    if (match) await safeWrite(() => supabase.from('matches').delete().eq('id', match.id), { name: 'delete match on unmatch' })
+    await safeWrite(
+      () => supabase.from('students').update({ matched_unit_id: null, matched_preceptor: '', shift_assigned: '', match_quality: null, interview_outcome: 'Pending Interview', status: revertStatus }).eq('id', student.id),
+      { name: 'update student on unmatch' }
+    )
     // Derive from actual count so the field self-corrects if it was stale
     const currentMatchCount = matches.filter(m => m.unit_id === unit.id).length  // before removal
     const newRemaining = Math.min(unit.total_slots, unit.total_slots - Math.max(0, currentMatchCount - 1))
-    await supabase.from('units').update({ slots_remaining: newRemaining }).eq('id', unit.id)
+    await safeWrite(
+      () => supabase.from('units').update({ slots_remaining: newRemaining }).eq('id', unit.id),
+      { name: 'update unit slots on unmatch' }
+    )
     updateCohortMatchSummary(match ? matches.filter(m => m.id !== match.id) : matches)
     if (match) setMatches(prev => prev.filter(m => m.id !== match.id))
     setStudents(prev => prev.map(s =>
@@ -535,7 +567,10 @@ function MainApp({ onLogout }) {
   }
 
   const updateMatch = async (matchId, studentId, updates) => {
-    const { error } = await supabase.from('matches').update(updates).eq('id', matchId)
+    const { error } = await safeWrite(
+      () => supabase.from('matches').update(updates).eq('id', matchId),
+      { name: 'update match' }
+    )
     if (!error) {
       setMatches(prev => prev.map(m => m.id === matchId ? { ...m, ...updates } : m))
       const su = {}

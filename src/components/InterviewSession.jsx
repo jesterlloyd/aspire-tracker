@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { safeWrite } from '../lib/safeWrite'
 import { displayName } from '../lib/utils'
 
 const STATUS_CLASS = {
@@ -135,14 +136,18 @@ export default function InterviewSession({ student, cohortId, onBack, onStudentU
     const payload = { ...updates, updated_at: new Date().toISOString() }
     let id = interviewId
     if (!id) {
-      const { data, error } = await supabase.from('interviews').insert({
-        student_id: student.id, cohort_id: cohortId, ...payload,
-      }).select().single()
+      const { data, error } = await safeWrite(
+        () => supabase.from('interviews').insert({ student_id: student.id, cohort_id: cohortId, ...payload }).select().single(),
+        { name: 'create interview' }
+      )
       if (error) { setSaveStatus('idle'); return }
       id = data.id
       setInterviewId(id)
     } else {
-      await supabase.from('interviews').update(payload).eq('id', id)
+      await safeWrite(
+        () => supabase.from('interviews').update(payload).eq('id', id),
+        { name: 'update interview' }
+      )
     }
     setSaveStatus('saved')
     setTimeout(() => setSaveStatus('idle'), 1800)
@@ -192,7 +197,10 @@ export default function InterviewSession({ student, cohortId, onBack, onStudentU
 
   const handleUnlock = async () => {
     setConfirmUnlock(false)
-    await supabase.from('interviews').update({ status: 'In Progress', updated_at: new Date().toISOString() }).eq('id', interviewId)
+    await safeWrite(
+      () => supabase.from('interviews').update({ status: 'In Progress', updated_at: new Date().toISOString() }).eq('id', interviewId),
+      { name: 'unlock interview' }
+    )
     setForm(p => ({ ...p, status: 'In Progress' }))
     if (onInterviewsChange) onInterviewsChange()
   }
@@ -212,7 +220,10 @@ export default function InterviewSession({ student, cohortId, onBack, onStudentU
       status: 'In Progress',
       updated_at: new Date().toISOString(),
     }
-    if (interviewId) await supabase.from('interviews').update(blank).eq('id', interviewId)
+    if (interviewId) await safeWrite(
+      () => supabase.from('interviews').update(blank).eq('id', interviewId),
+      { name: 'reset interview' }
+    )
     setForm(p => ({ ...p, ...blank }))
     await onStudentUpdate(student.id, {
       composite_score: 0, cj_score: 0, pp_score: 0, ga_score: 0,
