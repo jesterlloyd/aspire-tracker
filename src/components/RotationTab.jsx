@@ -9,7 +9,7 @@ export default function RotationTab(props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ padding: '12px 20px 16px', flexShrink: 0 }}>
+      <div style={{ padding: '0 20px 12px', flexShrink: 0 }}>
         <div style={{ display: 'flex', borderRadius: 7, border: '1px solid var(--border-input,rgba(29,37,103,0.10))', overflow: 'hidden', width: 'fit-content' }}>
           <button
             onClick={() => navigate('/rotation/matrix')}

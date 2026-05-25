@@ -11,28 +11,75 @@ import { Users, MapPin, ClipboardList, Info } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { canPerformMatching } from '../lib/permissions'
 import { KPICell, useUpdatedLabel } from './KPIBand'
-import PreferenceMatchRing from './PreferenceMatchRing'
+// ── Unified Placement Overview — single panel replacing Placement at a Glance + Preference Match Ring ──
 
-// ── Placement at a Glance band ────────────────────────────────────────────────
-// Visual peer to Aggregate's "Program at a Glance" — same KPI typography,
-// same eyebrow + subtitle treatment, same KPICell sizing (no compact prop).
+const PREF_SEGMENTS = [
+  { key: 'top',       label: 'Top choice', color: '#C8D5C0' },
+  { key: 'second',    label: 'Second',     color: '#D5DCEC' },
+  { key: 'other',     label: 'Other',      color: '#F4D9B6' },
+  { key: 'unmatched', label: 'Unmatched',  color: '#F2D5E0' },
+]
 
-function PlacementAtAGlance({ studentsCount, matchedCount, unmatchedCount, perfectMatches, secondChoiceMatches, totalSlots, slotsRemaining, poolSchools, cohort, cohortId }) {
+function SegmentedBar({ counts, total }) {
+  if (!total) return <div style={{ height:9, borderRadius:5, background:'#f3f4f6' }} />
+  const active = PREF_SEGMENTS.filter(s => counts[s.key] > 0)
+  return (
+    <div style={{ display:'flex', height:9, borderRadius:5, overflow:'hidden', background:'#f3f4f6', gap:1 }}>
+      {active.map(s => (
+        <div key={s.key} style={{ width:`${(counts[s.key] / total) * 100}%`, background:s.color, minWidth:4 }} />
+      ))}
+    </div>
+  )
+}
+
+function PlacementOverview({ studentsCount, matchedCount, unmatchedCount, prefCounts, totalSlots, slotsRemaining, poolSchools, cohort, cohortId }) {
   const updatedLabel = useUpdatedLabel(cohortId)
   const schools = poolSchools?.length ?? 0
+  const topPct  = studentsCount > 0 ? Math.round((prefCounts.top / studentsCount) * 100) : 0
+
+  const counts = {
+    top:       prefCounts.top,
+    second:    prefCounts.second,
+    other:     prefCounts.other,
+    unmatched: studentsCount - matchedCount,
+  }
+
+  const matchedSub = (() => {
+    const parts = []
+    if (prefCounts.top    > 0) parts.push(`${prefCounts.top} top choice`)
+    if (prefCounts.second > 0) parts.push(`${prefCounts.second} 2nd choice`)
+    if (prefCounts.other  > 0) parts.push(`${prefCounts.other} other`)
+    return parts.length > 0 ? parts.join(' · ') : 'Pending placement'
+  })()
+
   return (
-    <section style={{ background:'var(--bg-card,#fff)', border:'1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius:14, boxShadow:'var(--shadow-card)', overflow:'hidden', fontFamily:'DM Sans, sans-serif', height:'100%', boxSizing:'border-box' }}>
-      <div style={{ padding:'14px 22px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid var(--border-card,rgba(29,37,103,0.04))' }}>
+    <section style={{ background:'var(--bg-card,#fff)', border:'1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius:14, boxShadow:'var(--shadow-card)', overflow:'hidden', fontFamily:'DM Sans, sans-serif' }}>
+      <div style={{ padding:'11px 22px 9px', display:'flex', alignItems:'center', justifyContent:'space-between', borderBottom:'1px solid var(--border-card,rgba(29,37,103,0.04))' }}>
         <div style={{ fontSize:10.5, textTransform:'uppercase', letterSpacing:'0.14em', color:'var(--text-caption,#475467)', fontWeight:600 }}>Placement at a Glance</div>
         <div style={{ fontSize:11, color:'var(--text-muted,#98A2B3)', fontVariantNumeric:'tabular-nums' }}>
-          {cohort?.name || 'Cohort'} · {schools} schools · Updated {updatedLabel}
+          {cohort?.name || 'Cohort'} · {schools} school{schools !== 1 ? 's' : ''} · Updated {updatedLabel}
         </div>
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', background:'var(--border-card,rgba(29,37,103,0.04))', gap:1 }}>
-        <KPICell value={studentsCount}  label="Students"   sub={`${schools} schools`} />
-        <KPICell value={matchedCount}   label="Matched"    sub={`${perfectMatches} perfect · ${secondChoiceMatches} 2nd choice`} accent="sage" />
-        <KPICell value={unmatchedCount} label="Unmatched"  sub="Pending placement" accent={unmatchedCount > 0 ? 'warning' : null} />
-        <KPICell value={slotsRemaining} label="Open Slots" sub={`of ${totalSlots} total`} />
+      <div style={{ display:'flex', background:'var(--border-card,rgba(29,37,103,0.04))', gap:1 }}>
+        <div style={{ flex:'1 1 0' }}><KPICell value={studentsCount}  label="Students"   sub={`${schools} school${schools !== 1 ? 's' : ''}`} /></div>
+        <div style={{ flex:'1 1 0' }}><KPICell value={matchedCount}   label="Matched"    sub={matchedSub} accent="sage" /></div>
+        <div style={{ flex:'1 1 0' }}><KPICell value={unmatchedCount} label="Unmatched"  sub="Pending placement" accent={unmatchedCount > 0 ? 'warning' : null} /></div>
+        <div style={{ flex:'1 1 0' }}><KPICell value={slotsRemaining} label="Open Slots" sub={`of ${totalSlots} total`} /></div>
+        <div style={{ flex:'1.6 1 0', minWidth:200, background:'var(--bg-card,#fff)', padding:'14px 20px', display:'flex', flexDirection:'column', justifyContent:'center', gap:6 }}>
+          <div style={{ fontSize:10.5, textTransform:'uppercase', letterSpacing:'0.12em', color:'var(--text-caption,#475467)', fontWeight:700 }}>Preference Match</div>
+          <div style={{ fontSize:16, fontWeight:700, color: studentsCount > 0 ? 'var(--color-status-success,#2D4A2B)' : 'var(--text-muted,#98A2B3)', lineHeight:1.2 }}>
+            {studentsCount > 0 ? `${topPct}% received top choice` : '—'}
+          </div>
+          <SegmentedBar counts={counts} total={studentsCount} />
+          <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+            {PREF_SEGMENTS.map(seg => (
+              <div key={seg.key} style={{ display:'flex', alignItems:'center', gap:4, fontSize:10, color:'var(--text-caption,#6b7280)', whiteSpace:'nowrap' }}>
+                <span style={{ width:7, height:7, borderRadius:'50%', background:seg.color, display:'inline-block', flexShrink:0 }} />
+                {seg.label} · {counts[seg.key]}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   )
@@ -97,14 +144,11 @@ export default function MatchingTab({
   const unmatchedAll    = students.filter(s => !s.matched_unit_id && !POOL_INELIGIBLE_STATUSES.has(s.status))
   const poolSchools     = [...new Set(students.map(s => s.school).filter(Boolean))].sort()
 
-  const perfectMatches = matchedStudents.filter(s => {
-    const u = units.find(u => u.id === s.matched_unit_id)
-    return u && s.unit_preference_1 === u.unit_name
-  }).length
-  const secondChoiceMatches = matchedStudents.filter(s => {
-    const u = units.find(u => u.id === s.matched_unit_id)
-    return u && s.unit_preference_2 === u.unit_name
-  }).length
+  const prefCounts = useMemo(() => {
+    const top    = matchedStudents.filter(s => { const u = units.find(u => u.id === s.matched_unit_id); return u && s.unit_preference_1 === u.unit_name }).length
+    const second = matchedStudents.filter(s => { const u = units.find(u => u.id === s.matched_unit_id); const n = u?.unit_name; return n && n !== s.unit_preference_1 && s.unit_preference_2 === n }).length
+    return { top, second, other: matchedStudents.length - top - second }
+  }, [matchedStudents, units])
 
   // Filter + sort units
   let displayUnits = [...participating]
@@ -314,30 +358,18 @@ export default function MatchingTab({
         </div>
       )}
 
-      {/* ── Placement at a Glance + Preference Match Ring — two-column top row ── */}
-      <div style={{ display:'flex', gap:14, alignItems:'stretch', flexWrap:'wrap' }}>
-        <div style={{ flex:'3 1 0', minWidth:0 }}>
-          <PlacementAtAGlance
-            studentsCount={studentsCount}
-            matchedCount={matchedCount}
-            unmatchedCount={unmatchedCount}
-            perfectMatches={perfectMatches}
-            secondChoiceMatches={secondChoiceMatches}
-            totalSlots={totalSlots}
-            slotsRemaining={slotsRemaining}
-            poolSchools={poolSchools}
-            cohort={cohort}
-            cohortId={cohortId}
-          />
-        </div>
-        <div style={{ flex:'2 1 0', minWidth:200 }}>
-          <PreferenceMatchRing
-            students={students}
-            units={units}
-            cohort={cohort}
-          />
-        </div>
-      </div>
+      {/* ── Unified Placement Overview ── */}
+      <PlacementOverview
+        studentsCount={studentsCount}
+        matchedCount={matchedCount}
+        unmatchedCount={unmatchedCount}
+        prefCounts={prefCounts}
+        totalSlots={totalSlots}
+        slotsRemaining={slotsRemaining}
+        poolSchools={poolSchools}
+        cohort={cohort}
+        cohortId={cohortId}
+      />
 
       {/* ── Matching board: two light panel cards ── */}
       <div style={{ flex:1, minHeight:0, display:'flex', flexDirection:'row', gap:14 }}>
