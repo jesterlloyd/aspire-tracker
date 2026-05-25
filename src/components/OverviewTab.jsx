@@ -9,6 +9,7 @@ import StudentAvatar from './StudentAvatar'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
 import StudentCard from './StudentCard'
+import { isShiftCurrentlyActive } from '../lib/shiftWindows'
 import { Clock, GraduationCap, MapPin, Users, Copy } from 'lucide-react'
 
 // ── Capacity Coverage Gauge ───────────────────────────────────────────────────
@@ -501,23 +502,44 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [campusOpen,       setCampusOpen]       = useState(false)
 
   // en-CA gives reliable YYYY-MM-DD in the user's local timezone
-  const todayStr = new Date().toLocaleDateString('en-CA')
+  const todayStr     = new Date().toLocaleDateString('en-CA')
+  const yesterdayStr = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toLocaleDateString('en-CA') })()
 
-  // On Campus Today — cached; queryKey includes date so it auto-refreshes on date change
+  // On Campus Now — fetches today + yesterday logs so night shifts spanning midnight are included,
+  // then filters in JS to only logs whose canonical shift window contains the current moment.
   const {
     data:      campusLogs = [],
     isLoading: campusLoading,
     refetch:   loadCampusLogs,
   } = useQuery({
-    queryKey: ['on_campus_today', cohortId, todayStr],
+    queryKey: ['on_campus_now', cohortId, todayStr],
     queryFn:  async () => {
-      const { data, error } = await supabase.from('student_shift_logs')
-        .select('*').eq('cohort_id', cohortId).eq('shift_date', todayStr)
+      const { data, error } = await supabase
+        .from('student_shift_logs')
+        .select('*')
+        .eq('cohort_id', cohortId)
+        .in('shift_date', [yesterdayStr, todayStr])
         .in('status', ['Auto-Accepted', 'Approved'])
       if (error) throw error
-      return data || []
+
+      const now = new Date()
+      const activeLogs = (data || []).filter(log =>
+        isShiftCurrentlyActive(log.shift_date, log.shift_type, now)
+      )
+
+      // Deduplicate: if a student has multiple active logs (e.g. Day + Night same date),
+      // keep the most recently submitted one
+      const byStudent = new Map()
+      for (const log of activeLogs) {
+        const existing = byStudent.get(log.student_id)
+        if (!existing || new Date(log.submitted_at) > new Date(existing.submitted_at)) {
+          byStudent.set(log.student_id, log)
+        }
+      }
+      return Array.from(byStudent.values())
     },
-    enabled: !!cohortId,
+    enabled:        !!cohortId,
+    refetchInterval: 60 * 1000,
   })
 
   // Auto-expand the panel when shifts arrive for the first time
@@ -965,7 +987,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
         </div>
 
-        {/* ── On Campus Today — StudentCard grid, full-collapse when empty ── */}
+        {/* ── On Campus Now — StudentCard grid, full-collapse when empty ── */}
         {!campusLoading && campusLogs.length > 0 && (
           <div style={{ margin:'20px 0 24px', fontFamily:'DM Sans, sans-serif' }}>
             {/* Section eyebrow */}
@@ -977,7 +999,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                 }} />
                 <span style={{ fontSize:11, fontWeight:700, textTransform:'uppercase',
                   letterSpacing:'0.12em', color:'#0E1428' }}>
-                  On Campus Today
+                  On Campus Now
                 </span>
               </span>
               <span style={{ fontSize:11, color:'#9ca3af' }}>
