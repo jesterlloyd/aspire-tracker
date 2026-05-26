@@ -148,6 +148,8 @@ export async function resolveRecipients(type, context) {
       return resolveUnitFormReceived(context);
     case 'interview_reminder':
       return resolveInterviewReminder(context);
+    case 'midpoint_checkin':
+      return resolveMidpointCheckin(context);
     default:
       console.warn(`[notifications/recipients] no resolver for type: ${type}`);
       return [];
@@ -157,6 +159,19 @@ export async function resolveRecipients(type, context) {
 function resolveInterviewReminder(context) {
   if (!context.studentEmail) {
     console.warn('[notifications/recipients] interview_reminder: no studentEmail in context');
+    return [];
+  }
+  return [{
+    email:    context.studentEmail,
+    role:     'student',
+    name:     context.firstName || null,
+    audience: 'student',
+  }];
+}
+
+function resolveMidpointCheckin(context) {
+  if (!context.studentEmail) {
+    console.warn('[notifications/recipients] midpoint_checkin: no studentEmail in context');
     return [];
   }
   return [{

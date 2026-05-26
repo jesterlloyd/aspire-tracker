@@ -2,6 +2,7 @@ import { formReceived } from './formReceived.js';
 import { teamsInviteReminder, teamsInviteReminderEscalation } from './teamsInviteReminder.js';
 import { unitFormReceived } from './unitFormReceived.js';
 import { interviewReminder } from './interviewReminder.js';
+import { midpointCheckin } from './midpointCheckin.js';
 
 export const templates = {
   form_received:                    formReceived,
@@ -9,4 +10,5 @@ export const templates = {
   teams_invite_reminder_escalation: teamsInviteReminderEscalation,
   unit_form_received:               unitFormReceived,
   interview_reminder:               interviewReminder,
+  midpoint_checkin:                 midpointCheckin,
 };

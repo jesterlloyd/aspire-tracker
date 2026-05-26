@@ -27,7 +27,7 @@ SELECT
   id,
   cohort_id,
   'status_change_active_rotation',
-  CURRENT_DATE::text,
+  CURRENT_DATE,
   '[Auto-logged] Status backfilled from Placed to Active Rotation. Trigger: shift logs already existed before auto-promotion code was deployed.',
   'system'
 FROM promoted;
