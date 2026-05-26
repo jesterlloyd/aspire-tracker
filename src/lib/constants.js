@@ -231,7 +231,7 @@ export const INTERVIEW_OUTCOMES = [
   'Pending Interview',
   'Accepted',
   'Accepted with Reservations',
-  'Declined',
+  'Do Not Recommend',
 ]
 
 export const SHIFT_OPTIONS = ['Day Shift Preferred', 'Night Shift Preferred', 'No Preference']

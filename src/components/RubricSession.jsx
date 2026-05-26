@@ -98,7 +98,7 @@ const getAutoRec = avg => {
 const getInterviewOutcome = avg => {
   if (avg >= 12) return 'Accepted'
   if (avg >= 8)  return 'Accepted with Reservations'
-  return 'Declined'
+  return 'Do Not Recommend'
 }
 
 // Format a Date for the "Saved at HH:MM AM/PM" indicator
@@ -158,7 +158,7 @@ async function recalculateStudentAverages(studentId, supabase) {
   } else if (autoRec === 'Recommend with Reservations') {
     interviewOutcome = 'Accepted with Reservations'; aspireStatus = 'Interviewed'
   } else {
-    interviewOutcome = 'Declined';           aspireStatus = 'Declined'
+    interviewOutcome = 'Do Not Recommend';   aspireStatus = 'Declined'
   }
 
   return {
@@ -1029,8 +1029,8 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                 <>
                   <span style={{ color:'var(--text-secondary)', fontWeight:500, marginLeft:4 }}>Interview Outcome:</span>
                   <span style={{ fontWeight:700, padding:'2px 8px', borderRadius:20,
-                    background: student.interview_outcome === 'Accepted' ? '#dcfce7' : student.interview_outcome === 'Accepted with Reservations' ? '#fef3c7' : student.interview_outcome === 'Declined' ? '#fee2e2' : '#f3f4f6',
-                    color: student.interview_outcome === 'Accepted' ? '#166534' : student.interview_outcome === 'Accepted with Reservations' ? '#92400e' : student.interview_outcome === 'Declined' ? '#991b1b' : '#6b7280' }}>
+                    background: student.interview_outcome === 'Accepted' ? '#dcfce7' : student.interview_outcome === 'Accepted with Reservations' ? '#fef3c7' : student.interview_outcome === 'Do Not Recommend' ? '#fee2e2' : '#f3f4f6',
+                    color: student.interview_outcome === 'Accepted' ? '#166534' : student.interview_outcome === 'Accepted with Reservations' ? '#92400e' : student.interview_outcome === 'Do Not Recommend' ? '#991b1b' : '#6b7280' }}>
                     {student.interview_outcome}
                   </span>
                 </>

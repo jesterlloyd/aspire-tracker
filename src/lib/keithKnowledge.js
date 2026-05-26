@@ -437,6 +437,9 @@ Data reliability fixes:
 - React Query global refetchOnWindowFocus disabled; per-query overrides available.
 - Cohort-scoped queries invalidate properly on cohort switch.
 - People & Access panel now conditionally mounts (fresh fetch on each open).
+
+Interview outcome terminology (Phase 2A.1):
+- The interview_outcome value 'Declined' has been renamed to 'Do Not Recommend' across all code and data. Valid interview_outcome values are now: 'Pending Interview', 'Accepted', 'Accepted with Reservations', 'Do Not Recommend'. This rename clarifies that interview_outcome represents the interviewers' rubric recommendation, not the student's final program disposition (students.status = 'Declined' is a separate concept and was not changed here).
 `.trim();
 
 export const TECHNICAL_STACK = `

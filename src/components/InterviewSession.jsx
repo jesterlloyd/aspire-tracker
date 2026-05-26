@@ -174,7 +174,7 @@ export default function InterviewSession({ student, cohortId, onBack, onStudentU
     const outcomeMap = {
       'Recommend': 'Accepted',
       'Recommend with Reservations': 'Accepted with Reservations',
-      'Do Not Recommend at This Time': 'Declined',
+      'Do Not Recommend at This Time': 'Do Not Recommend',
     }
     const interview_outcome = outcomeMap[form.overall_recommendation] || 'Pending Interview'
     await persist({ ...form, composite_score: comp, status: 'Completed' })

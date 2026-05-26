@@ -1306,7 +1306,7 @@ export default function StudentSidePanel({
               <Field label="Interview Outcome">
                 <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
                   {data.interview_outcome && (
-                    <span className={`interview-pill ${ data.interview_outcome === 'Accepted' ? 'pill-green' : data.interview_outcome === 'Accepted with Reservations' ? 'pill-yellow' : data.interview_outcome === 'Declined' ? 'pill-red' : 'pill-gray' }`}>{data.interview_outcome}</span>
+                    <span className={`interview-pill ${ data.interview_outcome === 'Accepted' ? 'pill-green' : data.interview_outcome === 'Accepted with Reservations' ? 'pill-yellow' : data.interview_outcome === 'Do Not Recommend' ? 'pill-red' : 'pill-gray' }`}>{data.interview_outcome}</span>
                   )}
                   <select className="sp-select" value={data.interview_outcome||''} onChange={e => handleSelect('interview_outcome', e.target.value)}>
                     {INTERVIEW_OUTCOMES.map(o => <option key={o} value={o}>{o}</option>)}
@@ -1540,7 +1540,7 @@ export default function StudentSidePanel({
               <Field label="Interview Outcome">
                 <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
                   {data.interview_outcome && (
-                    <span className={`interview-pill ${ data.interview_outcome === 'Accepted' ? 'pill-green' : data.interview_outcome === 'Accepted with Reservations' ? 'pill-yellow' : data.interview_outcome === 'Declined' ? 'pill-red' : 'pill-gray' }`}>{data.interview_outcome}</span>
+                    <span className={`interview-pill ${ data.interview_outcome === 'Accepted' ? 'pill-green' : data.interview_outcome === 'Accepted with Reservations' ? 'pill-yellow' : data.interview_outcome === 'Do Not Recommend' ? 'pill-red' : 'pill-gray' }`}>{data.interview_outcome}</span>
                   )}
                   <select className="sp-select" value={data.interview_outcome||''} onChange={e => handleSelect('interview_outcome', e.target.value)}>
                     {INTERVIEW_OUTCOMES.map(o => <option key={o} value={o}>{o}</option>)}
