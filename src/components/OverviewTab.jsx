@@ -137,7 +137,7 @@ function CapacityCoverageGauge({ totalDemand, totalCapacity, placed, cohort }) {
 
       {/* Gauge left, legend right — wraps on narrow viewports */}
       <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: '6px 16px 10px', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ flex: '0 0 auto', maxWidth: 220, minWidth: 140 }}>
+        <div style={{ flex: '0 0 auto', width: 200 }}>
           <svg width="100%" viewBox="0 0 220 115" style={{ display: 'block' }}>
             {/* Baseline full arch in light gray */}
             <path d={annularPath(cx, cy, innerR, outerR, 0, 180)} fill={GAUGE_COLORS.baseline} stroke="rgba(25,25,25,0.05)" strokeWidth="0.5" />
@@ -184,7 +184,7 @@ function CapacityCoverageGauge({ totalDemand, totalCapacity, placed, cohort }) {
 
         {/* Legend — vertically stacked to the right of the gauge */}
         {!noStudents && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: '1 1 100px', minWidth: 100 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: '0 0 auto' }}>
             {legend.map(({ color, value, label }) => (
               <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <span style={{ width: 9, height: 9, borderRadius: 2, background: color, display: 'inline-block', flexShrink: 0 }} />
