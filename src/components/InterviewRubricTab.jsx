@@ -13,6 +13,7 @@ import { FilterKPICard } from './KPIBand'
 import { useAuth } from '../contexts/AuthContext'
 import { formatSchoolProgram } from '../lib/displayFormatters'
 import { toLocalDateStr } from '../lib/designTokens'
+import StatusLegendPopover from './StatusLegendPopover'
 
 function IrAvatar({ student }) {
   return (
@@ -505,7 +506,10 @@ export default function InterviewRubricTab({
                     : <span style={{ opacity:0.3 }}>↕</span>}
                 </div>
               ))}
-              <div className="ir-wl-th ir-wl-col-workflow">Workflow Status</div>
+              <div className="ir-wl-th ir-wl-col-workflow" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                Workflow Status
+                <StatusLegendPopover position="bottom-left" />
+              </div>
               <div className="ir-wl-th ir-wl-col-outcome">Outcome</div>
               <div className="ir-wl-th ir-wl-col-action">Action</div>
             </div>
