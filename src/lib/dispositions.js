@@ -106,6 +106,38 @@ export const REASON_CATEGORIES_BY_TYPE = {
   },
 };
 
+// Pre-placement disposition types — used by DispositionModal in Phase 2B.2a
+export const PRE_PLACEMENT_DISPOSITION_TYPES = [
+  'not_selected',
+  'student_declined_offer',
+  'application_withdrawn',
+  'ineligible',
+];
+
+// Post-placement disposition types — used in Phase 4
+export const POST_PLACEMENT_DISPOSITION_TYPES = [
+  'placement_cancelled',
+  'student_withdrew_after_placement',
+  'rotation_discontinued',
+  'removed_from_program',
+];
+
+// Default follow-ups pre-checked by DispositionModal per disposition type
+export const DEFAULT_FOLLOWUPS_BY_TYPE = {
+  not_selected:           ['notify_student'],
+  student_declined_offer: ['notify_student'],
+  application_withdrawn:  ['notify_student'],
+  ineligible:             ['notify_student'],
+};
+
+// All available follow-up options per disposition type
+export const AVAILABLE_FOLLOWUPS_BY_TYPE = {
+  not_selected:           ['notify_student', 'notify_school_coordinator', 'leadership_review'],
+  student_declined_offer: ['notify_student', 'notify_school_coordinator'],
+  application_withdrawn:  ['notify_student', 'notify_school_coordinator'],
+  ineligible:             ['notify_student', 'notify_school_coordinator', 'leadership_review'],
+};
+
 // Color treatment for disposition pills. Applied in Phase 2B.2.
 export const DISPOSITION_PILL_COLORS = {
   not_selected:                     { bg: '#fdf2f8', text: '#9d174d', border: '#fbcfe8' }, // soft rose

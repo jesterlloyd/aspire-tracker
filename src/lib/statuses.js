@@ -7,7 +7,8 @@ export const ASPIRE_STATUSES = [
   { value: 'Placed',              label: 'Placed',              color: '#166534', bg: '#dcfce7', order: 6 },
   { value: 'Active Rotation',     label: 'Active Rotation',     color: '#065f46', bg: '#d1fae5', order: 7 },
   { value: 'Completed',           label: 'Completed',           color: '#1d2567', bg: '#e0e7ff', order: 8 },
-  { value: 'Declined',            label: 'Declined',            color: '#991b1b', bg: '#fee2e2', order: 9 },
+  { value: 'Declined',            label: 'Declined',            color: '#991b1b', bg: '#fee2e2', order: 9  },
+  { value: 'Not Proceeding',      label: 'Not Proceeding',      color: '#9d174d', bg: '#fdf2f8', order: 10 },
 ];
 
 export const DECLINE_REASONS = [

@@ -17,6 +17,7 @@ import NewCohortModal from './components/NewCohortModal'
 import ManageCohortModal from './components/ManageCohortModal'
 import { useAuth } from './contexts/AuthContext'
 import LoginNew from './pages/Login'
+import DevDispositionModal from './pages/DevDispositionModal'
 import UserMenu from './components/UserMenu'
 import UserManagement from './components/UserManagement'
 import UnitFormPage from './components/UnitFormPage'
@@ -1172,6 +1173,8 @@ export default function App() {
       {/* Legacy URL redirects */}
       <Route path="/interview-room"        element={<Navigate to="/interviews" replace />} />
       <Route path="/embed"                 element={<Navigate to="/rotation/matrix" replace />} />
+      {/* Dev harness routes — excluded from production build */}
+      {import.meta.env.DEV && <Route path="/dev/disposition-modal" element={<DevDispositionModal />} />}
       {/* Authenticated app — handles /, /aggregate, /students, /interviews, /rotation/*, /evaluation */}
       <Route path="/*"                    element={<AuthedShell />} />
     </Routes>

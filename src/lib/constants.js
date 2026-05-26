@@ -188,6 +188,7 @@ export const ASPIRE_STATUSES = [
   'Active Rotation',
   'Completed',
   'Declined',
+  'Not Proceeding',
 ]
 
 export const ASPIRE_STATUS_CONFIG = {
@@ -200,6 +201,7 @@ export const ASPIRE_STATUS_CONFIG = {
   'Active Rotation':    { bg: '#d1fae5', text: '#065f46',  border: '#6ee7b7' },
   'Completed':          { bg: '#f0fdf4', text: '#14532d',  border: '#4ade80' },
   'Declined':           { bg: '#fee2e2', text: '#991b1b',  border: '#fca5a5' },
+  'Not Proceeding':     { bg: '#fdf2f8', text: '#9d174d',  border: '#fbcfe8' },
 }
 
 export const ASPIRE_STATUS_SORT_ORDER = [
@@ -212,6 +214,7 @@ export const ASPIRE_STATUS_SORT_ORDER = [
   'Active Rotation',
   'Completed',
   'Declined',
+  'Not Proceeding',
 ]
 
 export const NGRP_OUTCOMES = [
