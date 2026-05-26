@@ -158,7 +158,14 @@ async function recalculateStudentAverages(studentId, supabase) {
   } else if (autoRec === 'Recommend with Reservations') {
     interviewOutcome = 'Accepted with Reservations'; aspireStatus = 'Interviewed'
   } else {
-    interviewOutcome = 'Do Not Recommend';   aspireStatus = 'Declined'
+    // Phase 2A safety guardrail (May 26, 2026):
+    // A low rubric score no longer automatically sets students.status to 'Declined'.
+    // The student remains 'Interviewed' and is surfaced for human selection review
+    // via Action Center. The interview_outcome value preserves the rubric semantic.
+    // Phase 2B will create the formal disposition workflow.
+    // See: docs/STUDENT_DISPOSITION_WORKFLOW.md
+    interviewOutcome = 'Do Not Recommend';
+    aspireStatus = 'Interviewed';
   }
 
   return {

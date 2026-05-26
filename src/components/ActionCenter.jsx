@@ -37,6 +37,7 @@ const STACK_ORDER = [
 
 function getActionLabel(item) {
   if (item.isOrientation) return null
+  if (item.actionType === 'selection_decision') return 'Open Interview Review'
   if (item.navigateToProfile && !item.canMarkDone) return 'Open Profile'
   if (item.markDoneType === 'update_field') return 'Mark Complete'
   if (item.warning && !item.emailHref) return null
@@ -664,6 +665,10 @@ ${KR_SIG}`
     !s.preceptor_id &&
     (!s.matched_preceptor || !s.matched_preceptor.trim())
   )
+  const act18 = students.filter(s =>
+    s.interview_outcome === 'Do Not Recommend' &&
+    s.status === 'Interviewed'
+  )
   const act1  = students.filter(s => s.status === 'Pending Outreach')
 
   const actionItems = [
@@ -672,6 +677,7 @@ ${KR_SIG}`
     // Interviews
     ...act2.map(s => ({ id:`${s.id}-sl`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'interview', priority:'high', title:'Send Interview Scheduling Link', description:'Form received. Scheduling link not sent.', actionType:'interview_link_not_sent', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'scheduling_link'}, emailHref:buildSchedulingLinkEmail(s) })),
     ...act3.map(s => ({ id:`${s.id}-ir`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'interview', priority:'high', title:'Send Interview Reminder', description:`Interview ${fmtIvDate(s.interview_scheduled_date)}. Reminder not sent.`, actionType:'interview_reminder_overdue', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'interview_reminder'}, emailHref:buildInterviewReminderEmail(s) })),
+    ...(canEdit ? act18.map(s => ({ id:`${s.id}-sd`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'interview', priority:'urgent', title:'Selection Decision Needed', description:'Rubric: Do Not Recommend · Awaiting selection decision', actionType:'selection_decision', canMarkDone:false, markDoneType:null, navigateToProfile:true })) : []),
     // Placement
     ...(canEdit ? act4.map(s => {
       const unit = units.find(u => u.id === s.matched_unit_id)

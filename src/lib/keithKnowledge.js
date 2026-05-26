@@ -35,7 +35,7 @@ export const ASPIRE_KNOWLEDGE = {
 
   shiftLog: `Students log clinical hours at /shift-log using a universal QR code on their badge. They enter their school email, verify their identity, then submit a shift: date, hours worked, shift type (Day or Night), unit, preceptor, optional learning highlight, and optional concern. Hours are auto-approved unless flagged for exceptions (over 13 hours, under 2 hours, outside rotation dates, unit mismatch with non-matching preceptor). The On Campus Today panel in Aggregate shows students who logged shifts for today.`,
 
-  actionCenter: `The Action Center (bell icon in the header) shows 12 categories of items needing attention: Send Student Form, Send Interview Scheduling Link, Interview Reminder, Unit Leader Placement Notification, Preceptor Welcome Email, CS-Link Not Started, Orientation Email and Pre-Program Survey, Midpoint Student Check-In, Midpoint Preceptor Evaluation, Post-Program Student Survey, Certificate of Completion, and End Preceptor Evaluation. Each item has a one-click email button that opens a pre-filled mailto draft.`,
+  actionCenter: `The Action Center (bell icon in the header) shows 13 categories of items needing attention: Send Student Form, Send Interview Scheduling Link, Interview Reminder, Selection Decision Needed, Unit Leader Placement Notification, Preceptor Welcome Email, CS-Link Not Started, Orientation Email and Pre-Program Survey, Midpoint Student Check-In, Midpoint Preceptor Evaluation, Post-Program Student Survey, Certificate of Completion, and End Preceptor Evaluation. Each item has a one-click email button that opens a pre-filled mailto draft. "Selection Decision Needed" is an urgent-priority item surfacing students whose interview_outcome is 'Do Not Recommend' and whose status remains 'Interviewed' — it requires explicit human selection review (Phase 2A safety guardrail, May 26, 2026). Clicking 'Open Interview Review' navigates to the student's profile.`,
 
   ngrpPathway: `The ASPIRE Program is one pathway into the Cedars-Sinai New Graduate RN Residency Program (NGRP). Students who complete their rotation and pass their interview are eligible to apply to the NGRP. The NGRP Hired field in Student Profiles tracks hiring outcomes.`,
 
@@ -440,6 +440,9 @@ Data reliability fixes:
 
 Interview outcome terminology (Phase 2A.1):
 - The interview_outcome value 'Declined' has been renamed to 'Do Not Recommend' across all code and data. Valid interview_outcome values are now: 'Pending Interview', 'Accepted', 'Accepted with Reservations', 'Do Not Recommend'. This rename clarifies that interview_outcome represents the interviewers' rubric recommendation, not the student's final program disposition (students.status = 'Declined' is a separate concept and was not changed here).
+
+Phase 2A safety guardrail — disable silent auto-decline (May 26, 2026):
+- RubricSession.jsx no longer auto-sets students.status to 'Declined' when rubric scoring produces a negative recommendation. Previously, recalculateStudentAverages() returned status: 'Declined' in the low-score branch, causing the student record to be silently updated with no human confirmation or audit trail. The fix: the low-score branch now returns status: 'Interviewed', keeping the student in the post-interview pool. The interview_outcome field still records 'Do Not Recommend' to preserve the rubric semantic. Students in this state are surfaced by the new 'Selection Decision Needed' Action Center item (urgent priority, interview category) which routes coordinators to the student profile for explicit disposition. Phase 2B will add the formal student_dispositions table and workflow.
 `.trim();
 
 export const TECHNICAL_STACK = `
