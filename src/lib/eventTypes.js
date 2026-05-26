@@ -9,6 +9,15 @@ export const EVENT_TYPES = [
   { value: 'completion',           label: 'Completion',           color: '#1d2567', manual: true },
   { value: 'manual_status_update', label: 'Manual Status Update', color: '#6b7280', manual: true },
   { value: 'note',                 label: 'Note',                 color: '#6b7280', manual: true },
+  // Phase 2B.1 disposition events — logged via record_student_disposition() DB function, not entered manually
+  { value: 'disposition_not_selected',                     label: 'Disposition: Not Selected',                     color: '#9d174d', manual: false },
+  { value: 'disposition_student_declined_offer',           label: 'Disposition: Student Declined Offer',           color: '#475569', manual: false },
+  { value: 'disposition_application_withdrawn',            label: 'Disposition: Application Withdrawn',            color: '#475569', manual: false },
+  { value: 'disposition_ineligible',                       label: 'Disposition: Ineligible',                       color: '#92400e', manual: false },
+  { value: 'disposition_placement_cancelled',              label: 'Disposition: Placement Cancelled',              color: '#92400e', manual: false },
+  { value: 'disposition_student_withdrew_after_placement', label: 'Disposition: Student Withdrew After Placement', color: '#92400e', manual: false },
+  { value: 'disposition_rotation_discontinued',            label: 'Disposition: Rotation Discontinued',            color: '#9d174d', manual: false },
+  { value: 'disposition_removed_from_program',             label: 'Disposition: Removed from Program',             color: '#991b1b', manual: false },
 ];
 
 export const EVENT_TYPE_LABELS = Object.fromEntries(
