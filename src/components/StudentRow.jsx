@@ -366,9 +366,9 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {data.interview_outcome && (
                     <span className={`interview-pill ${
-                      data.interview_outcome === 'Accepted' ? 'pill-green' :
-                      data.interview_outcome === 'Accepted with Reservations' ? 'pill-yellow' :
-                      data.interview_outcome === 'Declined' ? 'pill-red' : 'pill-gray'
+                      data.interview_outcome === 'Recommend' ? 'pill-green' :
+                      data.interview_outcome === 'Recommend with Reservations' ? 'pill-yellow' :
+                      data.interview_outcome === 'Do Not Recommend' ? 'pill-red' : 'pill-gray'
                     }`}>{data.interview_outcome}</span>
                   )}
                   <select className="form-select" value={data.interview_outcome || ''} onChange={e => handleSelect('interview_outcome', e.target.value)}>

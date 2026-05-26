@@ -229,8 +229,8 @@ export const COHORTS = ['Summer 2026', 'Fall 2026', 'Spring 2027', 'Summer 2027'
 
 export const INTERVIEW_OUTCOMES = [
   'Pending Interview',
-  'Accepted',
-  'Accepted with Reservations',
+  'Recommend',
+  'Recommend with Reservations',
   'Do Not Recommend',
 ]
 

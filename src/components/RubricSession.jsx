@@ -96,8 +96,8 @@ const getAutoRec = avg => {
   return 'Do Not Recommend at This Time'
 }
 const getInterviewOutcome = avg => {
-  if (avg >= 12) return 'Accepted'
-  if (avg >= 8)  return 'Accepted with Reservations'
+  if (avg >= 12) return 'Recommend'
+  if (avg >= 8)  return 'Recommend with Reservations'
   return 'Do Not Recommend'
 }
 
@@ -154,9 +154,9 @@ async function recalculateStudentAverages(studentId, supabase) {
 
   let interviewOutcome, aspireStatus
   if (autoRec === 'Recommend') {
-    interviewOutcome = 'Accepted';           aspireStatus = 'Interviewed'
+    interviewOutcome = 'Recommend';           aspireStatus = 'Interviewed'
   } else if (autoRec === 'Recommend with Reservations') {
-    interviewOutcome = 'Accepted with Reservations'; aspireStatus = 'Interviewed'
+    interviewOutcome = 'Recommend with Reservations'; aspireStatus = 'Interviewed'
   } else {
     // Phase 2A safety guardrail (May 26, 2026):
     // A low rubric score no longer automatically sets students.status to 'Declined'.
@@ -1036,8 +1036,8 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                 <>
                   <span style={{ color:'var(--text-secondary)', fontWeight:500, marginLeft:4 }}>Interview Outcome:</span>
                   <span style={{ fontWeight:700, padding:'2px 8px', borderRadius:20,
-                    background: student.interview_outcome === 'Accepted' ? '#dcfce7' : student.interview_outcome === 'Accepted with Reservations' ? '#fef3c7' : student.interview_outcome === 'Do Not Recommend' ? '#fee2e2' : '#f3f4f6',
-                    color: student.interview_outcome === 'Accepted' ? '#166534' : student.interview_outcome === 'Accepted with Reservations' ? '#92400e' : student.interview_outcome === 'Do Not Recommend' ? '#991b1b' : '#6b7280' }}>
+                    background: student.interview_outcome === 'Recommend' ? '#dcfce7' : student.interview_outcome === 'Recommend with Reservations' ? '#fef3c7' : student.interview_outcome === 'Do Not Recommend' ? '#fee2e2' : '#f3f4f6',
+                    color: student.interview_outcome === 'Recommend' ? '#166534' : student.interview_outcome === 'Recommend with Reservations' ? '#92400e' : student.interview_outcome === 'Do Not Recommend' ? '#991b1b' : '#6b7280' }}>
                     {student.interview_outcome}
                   </span>
                 </>

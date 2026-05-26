@@ -439,7 +439,15 @@ Data reliability fixes:
 - People & Access panel now conditionally mounts (fresh fetch on each open).
 
 Interview outcome terminology (Phase 2A.1):
-- The interview_outcome value 'Declined' has been renamed to 'Do Not Recommend' across all code and data. Valid interview_outcome values are now: 'Pending Interview', 'Accepted', 'Accepted with Reservations', 'Do Not Recommend'. This rename clarifies that interview_outcome represents the interviewers' rubric recommendation, not the student's final program disposition (students.status = 'Declined' is a separate concept and was not changed here).
+- The interview_outcome value 'Declined' has been renamed to 'Do Not Recommend' across all code and data. This rename clarifies that interview_outcome represents the interviewers' rubric recommendation, not the student's final program disposition (students.status = 'Declined' is a separate concept and was not changed here).
+
+Phase 2A.1 — complete interview_outcome vocabulary cleanup (May 26, 2026):
+- 'Accepted' renamed to 'Recommend' (15 production rows migrated)
+- 'Accepted with Reservations' renamed to 'Recommend with Reservations' (N rows migrated)
+- 'Pending Interview' and 'Do Not Recommend' unchanged
+- Valid interview_outcome values are now: 'Pending Interview', 'Recommend', 'Recommend with Reservations', 'Do Not Recommend'
+- Rationale: 'Accepted' implied formal ASPIRE selection, which is a separate concept (Phase 3 disposition). 'Recommend' correctly reflects that interviewers recommend students; ASPIRE leadership makes the formal accept/decline decision.
+- Audit confirmed no SQL views, KPI calculations, cron jobs, or email templates depended on the old values.
 
 Phase 2A safety guardrail — disable silent auto-decline (May 26, 2026):
 - RubricSession.jsx no longer auto-sets students.status to 'Declined' when rubric scoring produces a negative recommendation. Previously, recalculateStudentAverages() returned status: 'Declined' in the low-score branch, causing the student record to be silently updated with no human confirmation or audit trail. The fix: the low-score branch now returns status: 'Interviewed', keeping the student in the post-interview pool. The interview_outcome field still records 'Do Not Recommend' to preserve the rubric semantic. Students in this state are surfaced by the new 'Selection Decision Needed' Action Center item (urgent priority, interview category) which routes coordinators to the student profile for explicit disposition. Phase 2B will add the formal student_dispositions table and workflow.

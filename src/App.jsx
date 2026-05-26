@@ -510,8 +510,11 @@ function MainApp({ onLogout }) {
     // even if it was previously initialised incorrectly (e.g., stuck at 0).
     const currentMatchCount = matches.filter(m => m.unit_id === unit.id).length  // before new match
     const newRemaining = Math.max(0, unit.total_slots - (currentMatchCount + 1))
+    // Phase 2A.1 (May 26, 2026): renamed from 'Accepted' to 'Recommend' as part of
+    // interview_outcome vocabulary cleanup. This handler still overwrites whatever
+    // the rubric set, which is a design smell flagged for Phase 2B disposition work.
     await safeWrite(
-      () => supabase.from('students').update({ matched_unit_id: unit.id, interview_outcome: 'Accepted', match_quality, status: 'Placed' }).eq('id', student.id),
+      () => supabase.from('students').update({ matched_unit_id: unit.id, interview_outcome: 'Recommend', match_quality, status: 'Placed' }).eq('id', student.id),
       { name: 'update student on match' }
     )
     await safeWrite(
@@ -521,7 +524,7 @@ function MainApp({ onLogout }) {
     updateCohortMatchSummary([...matches, m])
     setMatches(prev => [...prev, m])
     setStudents(prev => prev.map(s =>
-      s.id === student.id ? { ...s, matched_unit_id: unit.id, interview_outcome: 'Accepted', match_quality, status: 'Placed' } : s
+      s.id === student.id ? { ...s, matched_unit_id: unit.id, interview_outcome: 'Recommend', match_quality, status: 'Placed' } : s
     ))
     setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, slots_remaining: newRemaining } : u))
     const alreadyPlaced = await eventExists(supabase, student.id, 'placement')
