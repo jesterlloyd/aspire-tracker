@@ -180,6 +180,7 @@ function MainApp({ onLogout }) {
   // ── Header: cohort picker state ──────────────────────────────────────────────
   const [cohortOpen, setCohortOpen] = useState(false)
   const cohortPickerRef = useRef(null)
+  const bellRef         = useRef(null)
 
   // ── Header: search state ─────────────────────────────────────────────────────
   const [searchQuery,     setSearchQuery]     = useState('')
@@ -714,12 +715,13 @@ function MainApp({ onLogout }) {
       students.filter(s => s.status==='Active Rotation'&&!hasSent(s.id,'midpoint_checkin')).length +
       students.filter(s => s.status==='Active Rotation'&&!hasSent(s.id,'midpoint_eval')).length +
       students.filter(s => s.status==='Completed'&&!hasSent(s.id,'post_survey')).length +
-      students.filter(s => s.status==='Completed'&&!hasSent(s.id,'certificate')).length +
+      // Certificate: Completed (any) OR Active Rotation with hours met — unified, no double-count
+      students.filter(s => !hasSent(s.id,'certificate')&&(s.status==='Completed'||(s.status==='Active Rotation'&&parseFloat(s.approved_hours||0)>=parseFloat(s.hours_required||0)&&parseFloat(s.hours_required||0)>0))).length +
       students.filter(s => s.status==='Completed'&&!hasSent(s.id,'end_eval')).length +
-      // Act 14: completed hours needing certificate
-      students.filter(s => ['Active Rotation','Completed'].includes(s.status)&&parseFloat(s.approved_hours||0)>=parseFloat(s.hours_required||0)&&parseFloat(s.hours_required||0)>0&&!hasSent(s.id,'certificate')).length +
       // Act 16: badge not created
-      students.filter(s => s.status==='Placed'&&!s.badge_created).length
+      students.filter(s => s.status==='Placed'&&!s.badge_created).length +
+      // Act 17: placed/active rotation with no preceptor linked
+      students.filter(s => ['Placed','Active Rotation'].includes(s.status)&&!s.preceptor_id&&(!s.matched_preceptor||!s.matched_preceptor.trim())).length
     )
   })()
 
@@ -922,9 +924,10 @@ function MainApp({ onLogout }) {
           {/* Zone 3: Actions — bell + user menu (people access is inside UserMenu) */}
           {cohorts.length > 0 && (
             <button
+              ref={bellRef}
               id="keith-bell-trigger"
               data-tour="action-center"
-              onClick={() => setShowActionCenter(true)}
+              onClick={() => setShowActionCenter(p => !p)}
               title="Open Action Center"
               style={{
                 position:'relative', flexShrink:0,
@@ -1076,6 +1079,7 @@ function MainApp({ onLogout }) {
         <ActionCenter
           isOpen={showActionCenter}
           onClose={() => setShowActionCenter(false)}
+          anchorEl={bellRef.current}
           students={students}
           units={units}
           matches={matches}
