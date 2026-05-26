@@ -16,7 +16,7 @@ import { EVENT_TYPES, EVENT_TYPE_LABELS, getEventColor } from '../lib/eventTypes
 import { logEvent, eventExists } from '../lib/logEvent'
 import { calculateProfileCompletion, getCompletionColor } from '../lib/profileCompletion'
 import { generateStudentSummary } from '../lib/generateSummary'
-import { Copy, Check, Mail, User, GraduationCap, Briefcase, MapPin, FileText, MessageSquare, CheckCircle2, Award, ClipboardList, CalendarDays } from 'lucide-react'
+import { Copy, Check, Mail, User, GraduationCap, Briefcase, MapPin, FileText, MessageSquare, CheckCircle2, Award, ClipboardList, CalendarDays, Flag } from 'lucide-react'
 // All external navigation must use openLink helpers (src/lib/openLink.js)
 import { openMailtoLink } from '../lib/openLink'
 import SyncIndicator from './SyncIndicator'
@@ -28,6 +28,8 @@ import { generateBadgePNGs, calculateBadgeDates } from '../lib/badgeGenerator'
 import { usePreceptors } from '../hooks/usePreceptors'
 import { resolvePreceptor } from '../lib/preceptor'
 import PreceptorAssignmentModal from './PreceptorAssignmentModal'
+import DispositionModal from './DispositionModal'
+import { DISPOSITION_TYPES, DECISION_ORIGINS, FOLLOWUP_TYPES, REASON_CATEGORIES_BY_TYPE } from '../lib/dispositions'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
@@ -138,8 +140,9 @@ export default function StudentSidePanel({
   const [fieldSaved,       setFieldSaved]       = useState(null)  // tracks which field just saved
   const [showSSN,          setShowSSN]          = useState(false)
   const [confirmDelete,    setConfirmDelete]    = useState(false)
-  const [showDeclineModal, setShowDeclineModal] = useState(false)
-  const [declineReason,    setDeclineReason]    = useState('')
+  const [showDeclineModal,     setShowDeclineModal]     = useState(false)
+  const [declineReason,        setDeclineReason]        = useState('')
+  const [showDispositionModal, setShowDispositionModal] = useState(false)
   const [summaryCopied,    setSummaryCopied]    = useState(false)
   const { canEdit, canInterview, userProfile } = useAuth()
   const queryClient = useQueryClient()
@@ -422,6 +425,46 @@ export default function StudentSidePanel({
     },
     enabled: !!student.id,
   })
+
+  // Active disposition — reads from student_active_disposition view (Pattern A RLS: all authenticated)
+  const { data: activeDisposition, refetch: refetchDisposition } = useQuery({
+    queryKey: ['student_active_disposition', student.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('student_active_disposition')
+        .select('*')
+        .eq('student_id', student.id)
+        .maybeSingle()
+      if (error) throw error
+      return data
+    },
+    enabled: !!student.id,
+  })
+
+  // Follow-ups for the active disposition — only fetched when a disposition exists
+  const { data: dispositionFollowups = [] } = useQuery({
+    queryKey: ['student_disposition_followups', activeDisposition?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('student_disposition_followups')
+        .select('*')
+        .eq('disposition_id', activeDisposition.id)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!activeDisposition?.id,
+  })
+
+  const handleUpdateDisposition = () => setShowDispositionModal(true)
+
+  const handleDispositionSuccess = () => {
+    setShowDispositionModal(false)
+    setData(p => ({ ...p, status: 'Not Proceeding' }))
+    onUpdate(student.id, { status: 'Not Proceeding' })
+    refetchDisposition()
+  }
+
   const [showEventForm,   setShowEventForm]   = useState(false)
   const [savingEvent,     setSavingEvent]     = useState(false)
   const [newEvent, setNewEvent] = useState({ event_type: 'note', event_date: '', event_time: '', notes: '' })
@@ -1532,7 +1575,8 @@ export default function StudentSidePanel({
                     }
                   }}>
                     <option value="">Select status…</option>
-                    {ASPIRE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                    {/* Phase 2B.2b: 'Declined' removed from new selections. Use Program Disposition section to record dispositions. */}
+                    {ASPIRE_STATUSES.filter(s => s !== 'Declined').map(s => <option key={s} value={s}>{s}</option>)}
                   </select>}
                   {data.decline_reason && <div style={{ fontSize:11, color:'#991b1b', marginTop:2 }}>Reason: {data.decline_reason}</div>}
                 </div>
@@ -1622,6 +1666,80 @@ export default function StudentSidePanel({
               <span>Badge Created</span>
               {data.badge_created && <span style={{ fontSize:12, color:'#166534', fontWeight:600 }}>✓ Badge Created</span>}
             </label>
+          </div>
+
+          {/* ── Program Disposition (Phase 2B.2b) ─────────────────────────── */}
+          <div className="sp-section sp-card" style={{ background:'rgba(157,23,77,0.04)', borderRadius:12, marginBottom:10 }}>
+            <SectionHeader title="Program Disposition" icon={<Flag size={13} />} />
+            {activeDisposition ? (
+              <>
+                <Field label="Disposition Type">
+                  <div className="sp-readonly">{DISPOSITION_TYPES[activeDisposition.disposition_type] || activeDisposition.disposition_type}</div>
+                </Field>
+                <Field label="Reason">
+                  <div className="sp-readonly">{REASON_CATEGORIES_BY_TYPE[activeDisposition.disposition_type]?.[activeDisposition.reason_category] || activeDisposition.reason_category}</div>
+                </Field>
+                <Field label="Effective Date">
+                  <div className="sp-readonly">
+                    {activeDisposition.effective_date
+                      ? (() => { const [y,m,d] = activeDisposition.effective_date.split('-'); return new Date(+y,+m-1,+d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) })()
+                      : '—'}
+                  </div>
+                </Field>
+                <Field label="Decision Origin">
+                  <div className="sp-readonly">{DECISION_ORIGINS[activeDisposition.decision_origin] || activeDisposition.decision_origin}</div>
+                </Field>
+                <Field label="Recorded By">
+                  <div className="sp-readonly">{activeDisposition.recorded_by_name || activeDisposition.decided_by_name || '—'}</div>
+                </Field>
+                {dispositionFollowups.length > 0 && (
+                  <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid var(--border-lt,#e5e7eb)' }}>
+                    <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:'var(--text-secondary,#6b7280)', marginBottom:8 }}>
+                      Follow-up Tasks
+                    </div>
+                    <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                      {dispositionFollowups.map(f => (
+                        <div key={f.id} style={{ display:'flex', alignItems:'baseline', gap:8, fontSize:13 }}>
+                          <span style={{ fontSize:15, lineHeight:1 }}>{f.status === 'completed' ? '☑' : '☐'}</span>
+                          <span style={{ color: f.status === 'completed' ? 'var(--text-secondary,#6b7280)' : 'var(--raven,#111827)', textDecoration: f.status === 'completed' ? 'line-through' : 'none', flex:1 }}>
+                            {FOLLOWUP_TYPES[f.followup_type] || f.followup_type}
+                          </span>
+                          <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)', whiteSpace:'nowrap' }}>
+                            {f.status === 'completed' && `Completed${f.completed_at ? ` ${new Date(f.completed_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}` : ''}${f.completed_by_name ? ` · ${f.completed_by_name}` : ''}`}
+                            {f.status === 'pending' && 'Pending'}
+                            {f.status === 'waived' && 'Waived'}
+                            {f.status === 'cancelled' && 'Cancelled'}
+                            {f.status === 'not_applicable' && 'N/A'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {canEdit && (
+                  <div style={{ marginTop:14 }}>
+                    <button
+                      onClick={handleUpdateDisposition}
+                      style={{ fontSize:12, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:6, padding:'5px 14px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:600 }}
+                    >
+                      Update Disposition
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:10, padding:'4px 0' }}>
+                <span style={{ fontSize:13, color:'var(--text-secondary,#6b7280)' }}>No disposition recorded.</span>
+                {canEdit && (
+                  <button
+                    onClick={handleUpdateDisposition}
+                    style={{ fontSize:12, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:6, padding:'5px 14px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:600 }}
+                  >
+                    Update Program Disposition
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* (Old Documents section below — hidden since moved above) */}
@@ -1932,6 +2050,27 @@ export default function StudentSidePanel({
           warning="This action cannot be undone. Any match assignments for this student will also be cleared."
           onConfirm={() => { setConfirmDelete(false); onDelete(student.id); onClose() }}
           onClose={() => setConfirmDelete(false)}
+        />
+      )}
+
+      {showDispositionModal && (
+        <DispositionModal
+          isOpen={showDispositionModal}
+          onClose={() => setShowDispositionModal(false)}
+          student={{
+            id:           student.id,
+            first_name:   student.first_name,
+            last_name:    student.last_name,
+            school:       student.school,
+            program_type: student.program_type,
+            status:       data.status,
+          }}
+          cohort={{
+            id:   student.cohort_id,
+            name: student.aspire_cohort,
+          }}
+          toast={toast}
+          onSuccess={handleDispositionSuccess}
         />
       )}
 
