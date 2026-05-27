@@ -172,7 +172,9 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
         <div className="col-cohort">{data.aspire_cohort}</div>
         <div className="col-status">
           {data.status && (() => {
-            const dispType = data.active_disposition?.disposition_type
+            const dispRaw1 = data.active_disposition
+            const disp1 = Array.isArray(dispRaw1) ? (dispRaw1[0] ?? null) : (dispRaw1 || null)
+            const dispType = disp1?.disposition_type
             if (data.status === 'Not Proceeding' && dispType) {
               const colors = DISPOSITION_PILL_COLORS[dispType] || DISPOSITION_PILL_COLORS['not_selected']
               return (
@@ -373,7 +375,9 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
               <Field label="ASPIRE Status">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {data.status && (() => {
-                    const dispType = data.active_disposition?.disposition_type
+                    const dispRaw2 = data.active_disposition
+                    const disp2 = Array.isArray(dispRaw2) ? (dispRaw2[0] ?? null) : (dispRaw2 || null)
+                    const dispType = disp2?.disposition_type
                     if (data.status === 'Not Proceeding' && dispType) {
                       const colors = DISPOSITION_PILL_COLORS[dispType] || DISPOSITION_PILL_COLORS['not_selected']
                       return (

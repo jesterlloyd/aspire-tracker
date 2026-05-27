@@ -169,7 +169,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
             left:  popoverCoords.left,
             right: popoverCoords.right,
             width: '360px',
-            maxHeight: 'min(480px, calc(100vh - 80px))',
+            maxHeight: 'min(640px, calc(100vh - 80px))',
             background: '#ffffff',
             borderRadius: '14px',
             boxShadow: '0 8px 32px rgba(29,37,103,0.18), 0 2px 8px rgba(0,0,0,0.08)',
