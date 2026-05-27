@@ -260,7 +260,9 @@ function MainApp({ onLogout }) {
   }, [activeCohortId])
 
   const fetchStudents  = async id => {
-    const { data, error } = await supabase.from('students').select('*')
+    const { data, error } = await supabase
+      .from('students')
+      .select('*, active_disposition:student_active_disposition!left(disposition_type, reason_category, effective_date, decision_origin, recorded_by_name)')
       .eq('cohort_id', id).order('school').order('name')
     if (error) setDbError(error.message); else setStudents(data || [])
   }

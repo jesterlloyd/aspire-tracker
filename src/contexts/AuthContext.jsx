@@ -70,12 +70,15 @@ export function AuthProvider({ children }) {
     initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (!mounted) return;
 
         if (event === 'SIGNED_IN' && session?.user) {
           setUser(session.user);
-          await loadUserProfile();
+          // Defer profile load so the callback returns synchronously before making
+          // further Supabase calls — prevents the auth-lock deadlock documented at
+          // https://supabase.com/docs/guides/troubleshooting/why-is-my-supabase-api-call-not-returning-PGzXw0
+          setTimeout(() => { void loadUserProfile() }, 0)
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setUserProfile(null);

@@ -54,6 +54,7 @@ import StudentAvatar from './StudentAvatar'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { calculateProfileCompletion } from '../lib/profileCompletion'
 import { CARD } from '../lib/designTokens'
+import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import { formatSchoolProgram } from '../lib/displayFormatters'
 
 // ── Token-derived style constants ─────────────────────────────────────────────
@@ -112,13 +113,33 @@ const STATUS_SHORT = {
   'Active Rotation':     'In Rotation',
   'Completed':           'Completed',
   'Declined':            'Declined',
+  'Not Proceeding':      'Not Proceeding',
 }
 
 // ── Metadata strips ───────────────────────────────────────────────────────────
 
 function ProfileStrip({ student }) {
-  // School is now shown in the constant School·Program line above the strip.
-  // Strip shows only the ASPIRE status pill.
+  // When Not Proceeding with an active disposition, show the precise disposition
+  // type pill instead of the generic status pill.
+  const dispType = student.active_disposition?.disposition_type
+  if (student.status === 'Not Proceeding' && dispType) {
+    const colors = DISPOSITION_PILL_COLORS[dispType] || DISPOSITION_PILL_COLORS['not_selected']
+    return (
+      <div style={{ padding: '8px 10px 10px', textAlign: 'center', minHeight: 30 }}>
+        <span style={{
+          fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 10,
+          background: colors.bg, color: colors.text,
+          border: `1px solid ${colors.border}`,
+          display: 'inline-block', maxWidth: '100%',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          ...F,
+        }}>
+          {DISPOSITION_TYPES[dispType] || dispType}
+        </span>
+      </div>
+    )
+  }
+
   const cfg = student.status
     ? (ASPIRE_STATUS_CONFIG[student.status] || ASPIRE_STATUS_CONFIG['Pending Outreach'])
     : null

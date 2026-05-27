@@ -20,7 +20,35 @@ export const ASPIRE_KNOWLEDGE = {
 6. Placed – Matched to a unit and preceptor in the Embed board
 7. Active Rotation – Currently completing their clinical hours
 8. Completed – Rotation finished, certificate pending
-9. Declined – Did not pass interview or withdrew`,
+
+Terminal non-completion status (outside the 8-step pathway):
+Not Proceeding – Student received a formal program disposition and is no longer moving forward. The specific disposition type is recorded (e.g. Not Selected, Student Declined Offer, Application Withdrawn, Ineligible). Cards and rows show the precise disposition type pill rather than the generic label.
+
+Legacy: status 'Declined' is a predecessor to 'Not Proceeding' and is counted equivalently in all filters and summaries.`,
+
+  disposition: `The ASPIRE disposition workflow (Phase 2B, shipped May 2026):
+
+Pre-placement disposition types:
+- not_selected: Program did not select the student (most common pre-placement outcome)
+- student_declined_offer: Student was offered a placement but declined
+- application_withdrawn: Application withdrawn before offer stage
+- ineligible: Student did not meet eligibility requirements
+
+Each disposition records: disposition_type, reason_category, effective_date, decided_by_name, stage_at_disposition, optional follow-up tasks. Follow-up types: notify_student, notify_school_coordinator, leadership_review.
+
+Post-placement disposition types (Phase 4, not yet active):
+- placement_cancelled, student_withdrew_after_placement, rotation_discontinued, removed_from_program
+
+WHAT KEITH CAN ANSWER (aggregate only):
+- Total Not Proceeding count for a cohort
+- Breakdown by disposition type (e.g. how many Not Selected vs Student Declined Offer)
+- Breakdown by reason category for a given type
+- Disposition rate as a percentage of total students
+
+WHAT KEITH MUST NEVER DO:
+- Identify which specific student received which disposition
+- Reference, quote, or hint at private note content (student_disposition_private_notes is Owner/Admin-only by RLS)
+- Reveal decided_by_name, decision_origin, or internal notes at the individual student level`,
 
   tabs: {
     aggregate: `The Aggregate tab shows the program overview: Placement Capacity (units by division with response status and slot counts) and Placement Requests (students grouped by school). It includes summary cards for Total Slots, Slots Filled, Slots Remaining, Students Requesting, and Gap. It also shows the On Campus Today panel for students who logged shifts today.`,
@@ -116,7 +144,7 @@ export function generateStaticResponse(userMessage, cohortName, context) {
         'Placed':              context.placed.length,
         'Active Rotation':     context.activeRotation.length,
         'Completed':           context.completed.length,
-        'Declined':            (context.byStatus['Declined'] || []).length,
+        'Not Proceeding':      ((context.byStatus['Not Proceeding'] || []).length + (context.byStatus['Declined'] || []).length),
       }).filter(([, count]) => count > 0).map(([status, count]) => `• ${status}: ${count}`).join('\n');
       return {
         text: `${cohort} Summary\n\n${context.totalStudents} total students\n${context.totalSlots} unit slots (${context.totalRemaining} remaining)\n\nStatus breakdown:\n${statusLines || '• No students yet'}\n\nOn campus today: ${context.onCampusToday.length} student${context.onCampusToday.length !== 1 ? 's' : ''}`,
@@ -450,7 +478,15 @@ Phase 2A.1 — complete interview_outcome vocabulary cleanup (May 26, 2026):
 - Audit confirmed no SQL views, KPI calculations, cron jobs, or email templates depended on the old values.
 
 Phase 2A safety guardrail — disable silent auto-decline (May 26, 2026):
-- RubricSession.jsx no longer auto-sets students.status to 'Declined' when rubric scoring produces a negative recommendation. Previously, recalculateStudentAverages() returned status: 'Declined' in the low-score branch, causing the student record to be silently updated with no human confirmation or audit trail. The fix: the low-score branch now returns status: 'Interviewed', keeping the student in the post-interview pool. The interview_outcome field still records 'Do Not Recommend' to preserve the rubric semantic. Students in this state are surfaced by the new 'Selection Decision Needed' Action Center item (urgent priority, interview category) which routes coordinators to the student profile for explicit disposition. Phase 2B will add the formal student_dispositions table and workflow.
+- RubricSession.jsx no longer auto-sets students.status to 'Declined' when rubric scoring produces a negative recommendation. Previously, recalculateStudentAverages() returned status: 'Declined' in the low-score branch, causing the student record to be silently updated with no human confirmation or audit trail. The fix: the low-score branch now returns status: 'Interviewed', keeping the student in the post-interview pool. The interview_outcome field still records 'Do Not Recommend' to preserve the rubric semantic. Students in this state are surfaced by the new 'Selection Decision Needed' Action Center item (urgent priority, interview category) which routes coordinators to the student profile for explicit disposition.
+
+Phase 2B — formal disposition workflow (May 26, 2026):
+- New schema: student_dispositions (one row per disposition event), student_disposition_followups (notify_student, notify_school_coordinator, leadership_review tasks), student_disposition_private_notes (owner/admin-only notes), student_disposition_program_events, student_active_disposition view (at-most-one active disposition per student).
+- record_student_disposition() SECURITY DEFINER RPC records a complete disposition: type, reason_category, effective_date, decided_by_name, optional follow-up tasks, optional private note.
+- New status 'Not Proceeding' added to students table. Replaces legacy 'Declined' for all new disposition events.
+- DispositionModal: owner/admin-only UI in StudentSidePanel for recording pre-placement dispositions with follow-up task creation.
+- Surface integration (Phase 2B.2c): Student cards and rows show the precise disposition_type pill (e.g. "Not Selected") for Not Proceeding students. KPI renamed to "Not Proceeding". MatchingTab excludes Not Proceeding from placement pool.
+- Keith aggregate access: Keith can answer disposition count questions but must never expose individual student disposition details or private note content.
 `.trim();
 
 export const TECHNICAL_STACK = `
@@ -782,8 +818,8 @@ ${PLATFORM_OVERVIEW}
 
 ${UNIT_CATALOG_KNOWLEDGE}
 
-ASPIRE STATUS JOURNEY (9 canonical stages):
-Pending Outreach -> Form Sent -> Form Received -> Interview Scheduled -> Interviewed -> Placed -> Active Rotation -> Completed -> Declined. Status automations: Form Received fires on /student-form submit, Interview Scheduled fires on /interview-schedule booking, Interviewed fires on rubric submission, Placed fires on Embed match.
+ASPIRE STATUS JOURNEY (8 active stages + terminal):
+Pending Outreach -> Form Sent -> Form Received -> Interview Scheduled -> Interviewed -> Placed -> Active Rotation -> Completed. Terminal non-completion: Not Proceeding (with specific disposition type: Not Selected, Student Declined Offer, Application Withdrawn, or Ineligible). Status automations: Form Received fires on /student-form submit, Interview Scheduled fires on /interview-schedule booking, Interviewed fires on rubric submission, Placed fires on Embed match. Keith must only answer aggregate Not Proceeding questions — never reveal which individual student received which disposition or expose private note content.
 
 ${USER_ROLES}
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Info } from 'lucide-react';
 import { ASPIRE_STATUSES } from '../lib/statuses';
+import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions';
 
 const READINESS_COLORS = [
   {
@@ -41,6 +42,11 @@ const READINESS_COLORS = [
   },
 ];
 
+// The 8 active lifecycle statuses — excludes Declined (legacy) and Not Proceeding (terminal)
+const LIFECYCLE_STATUSES = ASPIRE_STATUSES.filter(
+  s => s.value !== 'Declined' && s.value !== 'Not Proceeding'
+);
+
 const STATUS_DESCRIPTIONS = [
   'Listed in the cohort but outreach has not yet started.',
   'Sent the ASPIRE Student Profile form and needs to complete it.',
@@ -50,7 +56,15 @@ const STATUS_DESCRIPTIONS = [
   'Matched to a unit and ready to begin rotation.',
   'Currently completing the ASPIRE clinical rotation.',
   'Finished the ASPIRE rotation. Certificate pending.',
-  'No longer moving forward in the ASPIRE placement pathway.',
+];
+
+// Pre-placement disposition types shown in the Not Proceeding section
+const PRE_PLACEMENT_DISPOSITIONS = [
+  'not_selected', 'student_declined_offer', 'application_withdrawn', 'ineligible',
+];
+const POST_PLACEMENT_DISPOSITIONS = [
+  'placement_cancelled', 'student_withdrew_after_placement',
+  'rotation_discontinued', 'removed_from_program',
 ];
 
 export default function StatusLegendPopover({ position = 'bottom-left', dark = false }) {
@@ -185,12 +199,12 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
           </div>
 
           <div style={{ padding: '14px 18px', flex: 1, overflowY: 'auto' }}>
-            {/* Status pills */}
+            {/* Lifecycle statuses */}
             <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '10px' }}>
-              Student Statuses
+              Active Pathway Statuses
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '7px', marginBottom: '18px' }}>
-              {ASPIRE_STATUSES.map((status, i) => (
+              {LIFECYCLE_STATUSES.map((status, i) => (
                 <div key={status.value} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                   <span style={{
                     background: status.bg, color: status.color,
@@ -206,6 +220,64 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
                   </span>
                 </div>
               ))}
+            </div>
+
+            {/* Not Proceeding section */}
+            <div style={{ borderTop: '1px solid #f3f4f6', marginBottom: '14px' }} />
+            <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#9ca3af', marginBottom: '10px' }}>
+              Not Proceeding
+            </div>
+            <div style={{ marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '10px' }}>
+                <span style={{
+                  background: '#fdf2f8', color: '#9d174d',
+                  fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px',
+                  padding: '3px 9px', borderRadius: '20px',
+                  whiteSpace: 'nowrap', flexShrink: 0,
+                  minWidth: '120px', textAlign: 'center',
+                }}>
+                  Not Proceeding
+                </span>
+                <span style={{ fontFamily: 'DM Sans', fontSize: '12px', color: '#4b5563', lineHeight: 1.5, paddingTop: '2px' }}>
+                  Student received a formal disposition and is no longer moving forward. The specific disposition type displays in place of this status on cards and rows.
+                </span>
+              </div>
+              <div style={{ paddingLeft: '6px' }}>
+                <div style={{ fontFamily: 'DM Sans', fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                  Pre-placement
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '10px' }}>
+                  {PRE_PLACEMENT_DISPOSITIONS.map(type => {
+                    const colors = DISPOSITION_PILL_COLORS[type]
+                    return (
+                      <span key={type} style={{
+                        background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
+                        fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px',
+                        padding: '2px 8px', borderRadius: '20px', whiteSpace: 'nowrap',
+                      }}>
+                        {DISPOSITION_TYPES[type]}
+                      </span>
+                    )
+                  })}
+                </div>
+                <div style={{ fontFamily: 'DM Sans', fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                  Post-placement (Phase 4)
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                  {POST_PLACEMENT_DISPOSITIONS.map(type => {
+                    const colors = DISPOSITION_PILL_COLORS[type]
+                    return (
+                      <span key={type} style={{
+                        background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
+                        fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px',
+                        padding: '2px 8px', borderRadius: '20px', whiteSpace: 'nowrap',
+                      }}>
+                        {DISPOSITION_TYPES[type]}
+                      </span>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
 
             {/* Divider */}

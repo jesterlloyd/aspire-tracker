@@ -7,6 +7,7 @@ import { displayName } from '../lib/utils'
 import { supabase } from '../lib/supabase'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 import ScoreFlag from './ScoreFlag'
+import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 
 const STATUS_CLASS = {
   'Form Sent':      'badge-gray',
@@ -170,7 +171,22 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
         <div className="col-school">{data.school}</div>
         <div className="col-cohort">{data.aspire_cohort}</div>
         <div className="col-status">
-          {data.status && <span className={`badge ${STATUS_CLASS[data.status] || 'badge-gray'}`}>{data.status}</span>}
+          {data.status && (() => {
+            const dispType = data.active_disposition?.disposition_type
+            if (data.status === 'Not Proceeding' && dispType) {
+              const colors = DISPOSITION_PILL_COLORS[dispType] || DISPOSITION_PILL_COLORS['not_selected']
+              return (
+                <span style={{
+                  display: 'inline-block', padding: '2px 8px', borderRadius: 10,
+                  fontSize: 11, fontWeight: 700,
+                  background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
+                }}>
+                  {DISPOSITION_TYPES[dispType] || dispType}
+                </span>
+              )
+            }
+            return <span className={`badge ${STATUS_CLASS[data.status] || 'badge-gray'}`}>{data.status}</span>
+          })()}
           {data.composite_score > 0 && (
             <span className="iv-score-mini">{data.composite_score}/15</span>
           )}
@@ -356,7 +372,22 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
             <div className="form-grid form-grid-3">
               <Field label="ASPIRE Status">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {data.status && <span className={`badge ${STATUS_CLASS[data.status] || 'badge-gray'}`}>{data.status}</span>}
+                  {data.status && (() => {
+                    const dispType = data.active_disposition?.disposition_type
+                    if (data.status === 'Not Proceeding' && dispType) {
+                      const colors = DISPOSITION_PILL_COLORS[dispType] || DISPOSITION_PILL_COLORS['not_selected']
+                      return (
+                        <span style={{
+                          display: 'inline-block', padding: '2px 8px', borderRadius: 10,
+                          fontSize: 11, fontWeight: 700,
+                          background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
+                        }}>
+                          {DISPOSITION_TYPES[dispType] || dispType}
+                        </span>
+                      )
+                    }
+                    return <span className={`badge ${STATUS_CLASS[data.status] || 'badge-gray'}`}>{data.status}</span>
+                  })()}
                   <select className="form-select" value={data.status || ''} onChange={e => handleSelect('status', e.target.value)}>
                     {ASPIRE_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>

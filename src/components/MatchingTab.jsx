@@ -109,7 +109,7 @@ export const MATCH_QUALITY_CONFIG = {
 // Blacklist: exclude students who are already placed or finished
 // (whitelist approach was too strict and excluded students with edge-case statuses)
 const POOL_INELIGIBLE_STATUSES = new Set([
-  'Placed', 'Active Rotation', 'Completed', 'Declined',
+  'Placed', 'Active Rotation', 'Completed', 'Declined', 'Not Proceeding',
 ])
 
 export default function MatchingTab({

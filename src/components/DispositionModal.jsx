@@ -81,33 +81,42 @@ export default function DispositionModal({
     setError(null)
     setSubmitting(true)
 
-    const { data: dispositionId, error: rpcError } = await supabase.rpc(
-      'record_student_disposition',
-      {
-        p_student_id:           student.id,
-        p_cohort_id:            cohort.id,
-        p_disposition_type:     selectedType,
-        p_stage_at_disposition: 'post_interview',
-        p_decision_origin:      'student_profile',
-        p_reason_category:      selectedReason,
-        p_decided_by_name:      userProfile?.full_name || '',
-        p_effective_date:       effectiveDate,
-        p_followup_types:       selectedFollowups,
-        p_private_note:         (canSeePrivateNote && internalNote.trim()) ? internalNote.trim() : null,
+    const rpcBuilder = supabase.rpc('record_student_disposition', {
+      p_student_id:           student.id,
+      p_cohort_id:            cohort.id,
+      p_disposition_type:     selectedType,
+      p_stage_at_disposition: 'post_interview',
+      p_decision_origin:      'student_profile',
+      p_reason_category:      selectedReason,
+      p_decided_by_name:      userProfile?.full_name || '',
+      p_effective_date:       effectiveDate,
+      p_followup_types:       selectedFollowups,
+      p_private_note:         canSeePrivateNote ? (internalNote.trim() || null) : null,
+    })
+
+    try {
+      const result = await Promise.race([
+        rpcBuilder,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Disposition RPC timed out before response')), 10000)
+        ),
+      ])
+
+      if (result.error) {
+        setError(result.error.message)
+        toast?.error('Failed to record disposition', result.error.message)
+        return
       }
-    )
 
-    if (rpcError) {
-      setError(rpcError.message)
-      toast?.error('Failed to record disposition', rpcError.message)
+      const dispositionId = result.data
+      toast?.success('Disposition recorded', 'Student disposition has been recorded successfully.')
+      onSuccess?.(dispositionId)
+      onClose()
+    } catch (err) {
+      setError(err.message || 'Unable to record disposition.')
+    } finally {
       setSubmitting(false)
-      return
     }
-
-    toast?.success('Disposition recorded', 'Student disposition has been recorded successfully.')
-    onSuccess?.(dispositionId)
-    onClose()
-    setSubmitting(false)
   }
 
   if (!isOpen || !canEdit) return null
