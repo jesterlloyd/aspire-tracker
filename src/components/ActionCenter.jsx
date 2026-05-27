@@ -6,6 +6,7 @@ import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 export { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { updateStudent as proxyUpdateStudent } from '../lib/studentProxy'
 import { useAuth } from '../contexts/AuthContext'
+import { DISPOSITION_TYPES, FOLLOWUP_TYPES } from '../lib/dispositions'
 
 function fmtLocalDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
@@ -26,7 +27,8 @@ const PRIORITY_CONFIG = {
 
 // Priority-ordered stack definitions
 const STACK_ORDER = [
-  { key: 'urgent',        label: 'Urgent',        color: '#dc2626', filter: i => i.priority === 'urgent' },
+  { key: 'urgent',        label: 'Urgent',        color: '#dc2626', filter: i => i.priority === 'urgent' && i.category !== 'disposition' },
+  { key: 'disposition',   label: 'Disposition',   color: '#9d174d', filter: i => i.category === 'disposition' },
   { key: 'interview',     label: 'Interviews',     color: '#d97706', filter: i => i.category === 'interview' },
   { key: 'placement',     label: 'Placement',      color: '#1D2567', filter: i => i.category === 'placement' },
   { key: 'cslink',        label: 'CS-Link',        color: '#5b21b6', filter: i => i.category === 'cslink' },
@@ -423,6 +425,21 @@ export default function ActionCenter({
 
   useEffect(() => { setShiftLogs([]); setShiftLogsLoaded(false) }, [cohortId])
 
+  // Disposition followups — reload fresh on every open so completion state stays current
+  const [dispositionFollowups, setDispositionFollowups] = useState([])
+
+  useEffect(() => {
+    if (!isOpen || !cohortId) return
+    setDispositionFollowups([])
+    supabase
+      .from('student_disposition_followups')
+      .select('id, student_id, followup_type, created_at')
+      .eq('cohort_id', cohortId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true })
+      .then(({ data }) => setDispositionFollowups(data || []))
+  }, [isOpen, cohortId])
+
   // Reset UI on open
   useEffect(() => {
     if (isOpen) {
@@ -671,6 +688,19 @@ ${KR_SIG}`
   )
   const act1  = students.filter(s => s.status === 'Pending Outreach')
 
+  // act19: Disposition Follow-up Required — grouped by student from lazy-fetched followup data
+  const act19 = (() => {
+    if (!canEdit) return []
+    const grouped = new Map()
+    for (const f of dispositionFollowups) {
+      const s = students.find(st => st.id === f.student_id)
+      if (!s) continue
+      if (!grouped.has(f.student_id)) grouped.set(f.student_id, { student: s, followups: [] })
+      grouped.get(f.student_id).followups.push(f)
+    }
+    return Array.from(grouped.values())
+  })()
+
   const actionItems = [
     // Orientation special item in placement
     ...(showOrientation ? [{ id: 'orientation', isOrientation: true, category: 'placement', priority: 'high', title: 'Orientation Email', studentName: `${placedStudents.length} placed student${placedStudents.length !== 1 ? 's' : ''}`, description: 'Orientation email and pre-program survey not yet sent.', canMarkDone: false }] : []),
@@ -678,6 +708,11 @@ ${KR_SIG}`
     ...act2.map(s => ({ id:`${s.id}-sl`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'interview', priority:'high', title:'Send Interview Scheduling Link', description:'Form received. Scheduling link not sent.', actionType:'interview_link_not_sent', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'scheduling_link'}, emailHref:buildSchedulingLinkEmail(s) })),
     ...act3.map(s => ({ id:`${s.id}-ir`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'interview', priority:'high', title:'Send Interview Reminder', description:`Interview ${fmtIvDate(s.interview_scheduled_date)}. Reminder not sent.`, actionType:'interview_reminder_overdue', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'interview_reminder'}, emailHref:buildInterviewReminderEmail(s) })),
     ...(canEdit ? act18.map(s => ({ id:`${s.id}-sd`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'interview', priority:'urgent', title:'Selection Decision Needed', description:'Rubric: Do Not Recommend · Awaiting selection decision', actionType:'selection_decision', canMarkDone:false, markDoneType:null, navigateToProfile:true })) : []),
+    ...act19.map(({ student: s, followups }) => {
+      const dispLabel = DISPOSITION_TYPES[s.active_disposition?.disposition_type] || 'Disposition'
+      const pendingLabels = followups.map(f => FOLLOWUP_TYPES[f.followup_type] || f.followup_type).join(', ')
+      return { id:`${s.id}-df`, studentId:s.id, studentName:`${s.last_name || ''}, ${s.first_name || ''}`.trim().replace(/^,\s*/, '') || s.name || '—', cohortId:s.cohort_id, student:s, category:'disposition', priority:'high', title:'Disposition Follow-up Required', description:`${dispLabel} · Pending: ${pendingLabels}`, actionType:'disposition_followup', canMarkDone:false, markDoneType:null, navigateToProfile:true }
+    }),
     // Placement
     ...(canEdit ? act4.map(s => {
       const unit = units.find(u => u.id === s.matched_unit_id)
@@ -711,12 +746,15 @@ ${KR_SIG}`
   // Filter pills — only show categories with items
   const categoryCounts = {}
   for (const item of actionItems) {
-    const key = item.priority === 'urgent' ? 'urgent' : item.category
+    const key = item.category === 'disposition' ? 'disposition'
+              : item.priority === 'urgent'      ? 'urgent'
+              : item.category
     categoryCounts[key] = (categoryCounts[key] || 0) + 1
   }
   const pills = [
     { key: null,            label: 'All',          count: totalCount },
     { key: 'urgent',        label: 'Urgent',       count: categoryCounts.urgent        || 0 },
+    { key: 'disposition',   label: 'Disposition',  count: categoryCounts.disposition   || 0 },
     { key: 'interview',     label: 'Interviews',   count: categoryCounts.interview     || 0 },
     { key: 'placement',     label: 'Placement',    count: categoryCounts.placement     || 0 },
     { key: 'cslink',        label: 'CS-Link',      count: categoryCounts.cslink        || 0 },
@@ -726,7 +764,10 @@ ${KR_SIG}`
   ].filter(p => p.key === null || p.count > 0)
 
   const filteredItems = activeFilter
-    ? actionItems.filter(i => activeFilter === 'urgent' ? i.priority === 'urgent' : i.category === activeFilter)
+    ? actionItems.filter(i =>
+        activeFilter === 'urgent' ? (i.priority === 'urgent' && i.category !== 'disposition')
+        : i.category === activeFilter
+      )
     : actionItems
 
   if (!isOpen) return null

@@ -442,7 +442,7 @@ export default function StudentSidePanel({
   })
 
   // Follow-ups for the active disposition — only fetched when a disposition exists
-  const { data: dispositionFollowups = [] } = useQuery({
+  const { data: dispositionFollowups = [], refetch: refetchFollowups } = useQuery({
     queryKey: ['student_disposition_followups', activeDisposition?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -463,6 +463,34 @@ export default function StudentSidePanel({
     setData(p => ({ ...p, status: 'Not Proceeding' }))
     onUpdate(student.id, { status: 'Not Proceeding' })
     refetchDisposition()
+  }
+
+  // Follow-up completion inline state
+  const [completingFollowupId, setCompletingFollowupId] = useState(null)
+  const [completionNote,       setCompletionNote]       = useState('')
+  const [completingFollowup,   setCompletingFollowup]   = useState(false)
+
+  const handleCompleteFollowup = async (followupId) => {
+    setCompletingFollowup(true)
+    const { error } = await supabase
+      .from('student_disposition_followups')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        completed_by_user_id: userProfile?.id,
+        completed_by_name: userProfile?.full_name || '',
+        note: completionNote.trim() || null,
+      })
+      .eq('id', followupId)
+    setCompletingFollowup(false)
+    if (error) {
+      toast?.error('Update failed', error.message || 'Could not mark follow-up complete.')
+      return
+    }
+    setCompletingFollowupId(null)
+    setCompletionNote('')
+    toast?.success('Follow-up complete', 'Follow-up marked as complete.')
+    refetchFollowups()
   }
 
   const [showEventForm,   setShowEventForm]   = useState(false)
@@ -1699,21 +1727,80 @@ export default function StudentSidePanel({
                     </div>
                     <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                       {dispositionFollowups.map(f => (
-                        <div key={f.id} style={{ display:'flex', alignItems:'baseline', gap:8, fontSize:13 }}>
-                          <span style={{ fontSize:15, lineHeight:1 }}>{f.status === 'completed' ? '☑' : '☐'}</span>
-                          <span style={{ color: f.status === 'completed' ? 'var(--text-secondary,#6b7280)' : 'var(--raven,#111827)', textDecoration: f.status === 'completed' ? 'line-through' : 'none', flex:1 }}>
-                            {FOLLOWUP_TYPES[f.followup_type] || f.followup_type}
-                          </span>
-                          <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)', whiteSpace:'nowrap' }}>
-                            {f.status === 'completed' && `Completed${f.completed_at ? ` ${new Date(f.completed_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}` : ''}${f.completed_by_name ? ` · ${f.completed_by_name}` : ''}`}
-                            {f.status === 'pending' && 'Pending'}
-                            {f.status === 'waived' && 'Waived'}
-                            {f.status === 'cancelled' && 'Cancelled'}
-                            {f.status === 'not_applicable' && 'N/A'}
-                          </span>
+                        <div key={f.id}>
+                          <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:13 }}>
+                            <span style={{ fontSize:15, lineHeight:1, flexShrink:0 }}>{f.status === 'completed' ? '☑' : '☐'}</span>
+                            <span style={{ color: f.status === 'completed' ? 'var(--text-secondary,#6b7280)' : 'var(--raven,#111827)', textDecoration: f.status === 'completed' ? 'line-through' : 'none', flex:1 }}>
+                              {FOLLOWUP_TYPES[f.followup_type] || f.followup_type}
+                            </span>
+                            {f.status === 'completed' && (
+                              <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)', whiteSpace:'nowrap' }}>
+                                {`Done${f.completed_at ? ` ${new Date(f.completed_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}` : ''}${f.completed_by_name ? ` · ${f.completed_by_name}` : ''}`}
+                              </span>
+                            )}
+                            {f.status === 'pending' && !canEdit && (
+                              <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)' }}>Pending</span>
+                            )}
+                            {f.status === 'pending' && canEdit && (
+                              <button
+                                onClick={() => {
+                                  setCompletingFollowupId(completingFollowupId === f.id ? null : f.id)
+                                  setCompletionNote('')
+                                }}
+                                style={{ fontSize:11, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:5, padding:'2px 8px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:600, whiteSpace:'nowrap', flexShrink:0 }}
+                              >
+                                Mark Complete
+                              </button>
+                            )}
+                            {f.status === 'waived'        && <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)' }}>Waived</span>}
+                            {f.status === 'cancelled'     && <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)' }}>Cancelled</span>}
+                            {f.status === 'not_applicable'&& <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)' }}>N/A</span>}
+                          </div>
+                          {/* Inline completion prompt */}
+                          {completingFollowupId === f.id && (
+                            <div style={{ marginTop:6, marginLeft:23, background:'#f9fafb', borderRadius:8, padding:'10px 12px', border:'1px solid #e5e7eb' }}>
+                              <div style={{ fontSize:11, fontWeight:600, color:'#374151', marginBottom:5 }}>
+                                Completion note <span style={{ fontWeight:400, color:'#9ca3af' }}>(optional)</span>
+                              </div>
+                              <textarea
+                                value={completionNote}
+                                onChange={e => setCompletionNote(e.target.value)}
+                                placeholder="e.g. Called and left voicemail…"
+                                rows={2}
+                                style={{ width:'100%', fontSize:12, borderRadius:6, border:'1px solid #d1d5db', padding:'5px 8px', resize:'vertical', fontFamily:'DM Sans,sans-serif', boxSizing:'border-box', background:'#fff' }}
+                              />
+                              <div style={{ display:'flex', gap:6, marginTop:6 }}>
+                                <button
+                                  onClick={() => handleCompleteFollowup(f.id)}
+                                  disabled={completingFollowup}
+                                  style={{ flex:1, padding:'5px', fontSize:12, fontWeight:600, background:'#f0fdf4', color:'#166534', border:'1px solid #bbf7d0', borderRadius:6, cursor:'pointer', fontFamily:'DM Sans,sans-serif' }}
+                                >
+                                  {completingFollowup ? '…' : 'Mark Complete'}
+                                </button>
+                                <button
+                                  onClick={() => { setCompletingFollowupId(null); setCompletionNote('') }}
+                                  style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'#6b7280', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'DM Sans,sans-serif' }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          {/* Completion note display (for completed followups with notes) */}
+                          {f.status === 'completed' && f.note && (
+                            <div style={{ marginLeft:23, marginTop:2, fontSize:11, color:'var(--text-secondary,#6b7280)', fontStyle:'italic' }}>
+                              "{f.note}"
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
+                    {/* All follow-ups complete badge */}
+                    {dispositionFollowups.every(f => f.status !== 'pending') && (
+                      <div style={{ marginTop:10, display:'flex', alignItems:'center', gap:5, fontSize:12, color:'#166534', fontWeight:600 }}>
+                        <span>✓</span><span>All follow-ups complete</span>
+                      </div>
+                    )}
                   </div>
                 )}
                 {canEdit && (
