@@ -121,9 +121,7 @@ const STATUS_SHORT = {
 function ProfileStrip({ student }) {
   // When Not Proceeding with an active disposition, show the precise disposition
   // type pill instead of the generic status pill.
-  const dispRaw = student.active_disposition
-  const disp = Array.isArray(dispRaw) ? (dispRaw[0] ?? null) : (dispRaw || null)
-  const dispType = disp?.disposition_type
+  const dispType = student.active_disposition?.disposition_type
   if (student.status === 'Not Proceeding' && dispType) {
     const colors = DISPOSITION_PILL_COLORS[dispType] || DISPOSITION_PILL_COLORS['not_selected']
     return (
