@@ -6,6 +6,7 @@ import { safeWrite } from '../lib/safeWrite'
 import { displayName } from '../lib/utils'
 import StudentAvatar from './StudentAvatar'
 import { PATIENT_POPULATION_MAP, UNITS_BY_DIVISION, ASPIRE_STATUS_CONFIG } from '../lib/constants'
+import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import ScoreFlag from './ScoreFlag'
 import { logEvent, eventExists } from '../lib/logEvent'
 import { logActivity } from '../lib/logActivity'
@@ -839,6 +840,14 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
             </div>
             {/* ASPIRE Status pill */}
             {student.status && (() => {
+              const rsDispType = student.status === 'Not Proceeding' ? student.active_disposition?.disposition_type : null
+              if (rsDispType) {
+                const c = DISPOSITION_PILL_COLORS[rsDispType] || DISPOSITION_PILL_COLORS['not_selected']
+                return <span style={{ fontSize:11, fontWeight:700, padding:'2px 9px', borderRadius:20,
+                  background:c.bg, color:c.text, border:`1px solid ${c.border}`, display:'inline-block' }}>
+                  {DISPOSITION_TYPES[rsDispType] || rsDispType}
+                </span>
+              }
               const cfg = ASPIRE_STATUS_CONFIG[student.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']
               return <span style={{ fontSize:11, fontWeight:700, padding:'2px 9px', borderRadius:20,
                 background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, display:'inline-block' }}>
@@ -1031,7 +1040,15 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
           {/* Student status banner */}
           {(student.status || student.interview_outcome) && (
             <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', background:'var(--sand)', border:'1px solid var(--border)', borderRadius:6, padding:'8px 14px', marginBottom:12, fontSize:12 }}>
-              {student.status && (() => { const cfg = ASPIRE_STATUS_CONFIG[student.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']; return <><span style={{ color:'var(--text-secondary)', fontWeight:500 }}>ASPIRE Status:</span><span style={{ fontWeight:700, padding:'2px 8px', borderRadius:20, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}` }}>{student.status}</span></> })()}
+              {student.status && (() => {
+                const rsDispType2 = student.status === 'Not Proceeding' ? student.active_disposition?.disposition_type : null
+                if (rsDispType2) {
+                  const c = DISPOSITION_PILL_COLORS[rsDispType2] || DISPOSITION_PILL_COLORS['not_selected']
+                  return <><span style={{ color:'var(--text-secondary)', fontWeight:500 }}>ASPIRE Status:</span><span style={{ fontWeight:700, padding:'2px 8px', borderRadius:20, background:c.bg, color:c.text, border:`1px solid ${c.border}` }}>{DISPOSITION_TYPES[rsDispType2] || rsDispType2}</span></>
+                }
+                const cfg = ASPIRE_STATUS_CONFIG[student.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']
+                return <><span style={{ color:'var(--text-secondary)', fontWeight:500 }}>ASPIRE Status:</span><span style={{ fontWeight:700, padding:'2px 8px', borderRadius:20, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}` }}>{student.status}</span></>
+              })()}
               {student.interview_outcome && (
                 <>
                   <span style={{ color:'var(--text-secondary)', fontWeight:500, marginLeft:4 }}>Interview Outcome:</span>

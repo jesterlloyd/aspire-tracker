@@ -6,6 +6,7 @@ import RubricSession from './RubricSession'
 import InterviewCalendar from './InterviewCalendar'
 import TodaysInterviews from './TodaysInterviews'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
+import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import ScoreFlag from './ScoreFlag'
 import EmptyState from './EmptyState'
 import { ClipboardList } from 'lucide-react'
@@ -507,7 +508,7 @@ export default function InterviewRubricTab({
                 </div>
               ))}
               <div className="ir-wl-th ir-wl-col-workflow" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ textTransform: 'none', letterSpacing: 'normal' }}>Workflow Status</span>
+                Workflow Status
                 <StatusLegendPopover position="bottom-left" />
               </div>
               <div className="ir-wl-th ir-wl-col-outcome">Outcome</div>
@@ -531,6 +532,7 @@ export default function InterviewRubricTab({
 
               const flagInfo     = getFlagInfo(s, studentRubs)
               const rowAction    = getRowAction(s, studentRubs, sessions)
+              const irDispType   = s.status === 'Not Proceeding' ? s.active_disposition?.disposition_type : null
               const statusCfg    = ASPIRE_STATUS_CONFIG[s.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']
 
               // Interviewers from rubrics (deduped, "First L." format)
@@ -605,11 +607,20 @@ export default function InterviewRubricTab({
 
                   {/* 3. Workflow Status — align-items:flex-start prevents pills from stretching */}
                   <div className="ir-wl-cell ir-wl-col-workflow" style={{ alignItems:'flex-start' }}>
-                    {s.status && statusCfg && (
+                    {s.status && (irDispType ? (
+                      (() => {
+                        const c = DISPOSITION_PILL_COLORS[irDispType] || DISPOSITION_PILL_COLORS['not_selected']
+                        return (
+                          <span style={{ display:'inline-block', marginBottom:5, fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:c.bg, color:c.text, border:`1px solid ${c.border}`, whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif' }}>
+                            {DISPOSITION_TYPES[irDispType] || irDispType}
+                          </span>
+                        )
+                      })()
+                    ) : (
                       <span style={{ display:'inline-block', marginBottom:5, fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:statusCfg.bg, color:statusCfg.text, border:`1px solid ${statusCfg.border}`, whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif' }}>
                         {s.status}
                       </span>
-                    )}
+                    ))}
                     <TeamsInvitePill student={s} sessions={sessions} />
                   </div>
 

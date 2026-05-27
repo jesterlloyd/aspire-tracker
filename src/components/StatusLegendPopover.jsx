@@ -108,10 +108,13 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen]);
 
-  // Close on scroll (any scroll anywhere)
+  // Close on external scroll only — ignore scroll events inside the popover itself
   useEffect(() => {
     if (!isOpen) return;
-    const handleScroll = () => setIsOpen(false);
+    const handleScroll = (e) => {
+      if (popoverRef.current && popoverRef.current.contains(e.target)) return;
+      setIsOpen(false);
+    };
     window.addEventListener('scroll', handleScroll, true);
     return () => window.removeEventListener('scroll', handleScroll, true);
   }, [isOpen]);
@@ -154,6 +157,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
           whiteSpace: 'nowrap', pointerEvents: 'none',
           zIndex: 9999,
           boxShadow: '0 2px 8px rgba(29,37,103,0.25)',
+          textTransform: 'none', letterSpacing: 'normal',
         }}>
           View status legend
         </div>

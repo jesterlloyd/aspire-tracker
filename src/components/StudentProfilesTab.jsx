@@ -152,7 +152,7 @@ export default function StudentProfilesTab({
           <FilterKPICard value={pipelineCounts.placed}            label="Placed"             sub="Unit assigned"         accent="sage"       active={activeStatusFilter === 'Placed'}                                                     onClick={() => handleKpiClick('Placed')} />
           <FilterKPICard value={pipelineCounts.activeRotation}    label="Active Rotation"    sub="In rotation"           accent="marina"     active={activeStatusFilter === 'Active Rotation'}                                            onClick={() => handleKpiClick('Active Rotation')} />
           <FilterKPICard value={pipelineCounts.completed}         label="Completed"          sub="Program done"          accent="sage"       active={activeStatusFilter === 'Completed'}                                                  onClick={() => handleKpiClick('Completed')} />
-          <FilterKPICard value={pipelineCounts.notProceeding}     label="Not Proceeding"     sub="Not continuing in program" accent="chroma" active={JSON.stringify(activeStatusFilter)===JSON.stringify(['Not Proceeding','Declined'])} onClick={() => handleKpiClick(['Not Proceeding', 'Declined'])} />
+          <FilterKPICard value={pipelineCounts.notProceeding}     label="Not Proceeding"     sub="Not selected · withdrew · declined offer" accent="chroma" active={JSON.stringify(activeStatusFilter)===JSON.stringify(['Not Proceeding','Declined'])} onClick={() => handleKpiClick(['Not Proceeding', 'Declined'])} />
         </div>
 
         {/* ── Unified toolbar: Profiles/CS-Link toggle + all controls in one row ── */}
