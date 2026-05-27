@@ -155,7 +155,7 @@ export default function ImportStudentsCSV({ cohortId, onImported, onClose }) {
                       <th>Name</th>
                       <th>School</th>
                       <th>School Email</th>
-                      <th>Interview Outcome</th>
+                      <th>Interview Recommendation</th>
                       <th>Shift</th>
                     </tr>
                   </thead>

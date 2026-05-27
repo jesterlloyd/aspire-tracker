@@ -1051,7 +1051,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
               })()}
               {student.interview_outcome && (
                 <>
-                  <span style={{ color:'var(--text-secondary)', fontWeight:500, marginLeft:4 }}>Interview Outcome:</span>
+                  <span style={{ color:'var(--text-secondary)', fontWeight:500, marginLeft:4 }}>Interview Recommendation:</span>
                   <span style={{ fontWeight:700, padding:'2px 8px', borderRadius:20,
                     background: student.interview_outcome === 'Recommend' ? '#dcfce7' : student.interview_outcome === 'Recommend with Reservations' ? '#fef3c7' : student.interview_outcome === 'Do Not Recommend' ? '#fee2e2' : '#f3f4f6',
                     color: student.interview_outcome === 'Recommend' ? '#166534' : student.interview_outcome === 'Recommend with Reservations' ? '#92400e' : student.interview_outcome === 'Do Not Recommend' ? '#991b1b' : '#6b7280' }}>

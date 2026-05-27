@@ -29,7 +29,7 @@ import { usePreceptors } from '../hooks/usePreceptors'
 import { resolvePreceptor } from '../lib/preceptor'
 import PreceptorAssignmentModal from './PreceptorAssignmentModal'
 import DispositionModal from './DispositionModal'
-import { DISPOSITION_TYPES, DECISION_ORIGINS, FOLLOWUP_TYPES, REASON_CATEGORIES_BY_TYPE } from '../lib/dispositions'
+import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS, DECISION_ORIGINS, FOLLOWUP_TYPES, REASON_CATEGORIES_BY_TYPE } from '../lib/dispositions'
 
 function fmtCommTs(ts) {
   if (!ts) return ''
@@ -856,8 +856,18 @@ export default function StudentSidePanel({
                   <div style={{ fontSize:13, color:'#6b7280', marginBottom:8 }}>
                     {student.school}{student.program_type ? ` · ${student.program_type}` : ''}
                   </div>
-                  {/* ASPIRE status pill */}
+                  {/* ASPIRE status pill — precise disposition for Not Proceeding */}
                   {data.status && (() => {
+                    const heroPillDispType = data.status === 'Not Proceeding' ? activeDisposition?.disposition_type : null
+                    if (heroPillDispType) {
+                      const c = DISPOSITION_PILL_COLORS[heroPillDispType] || DISPOSITION_PILL_COLORS['not_selected']
+                      return <div style={{ marginBottom:12 }}>
+                        <span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20,
+                          background:c.bg, color:c.text, border:`1px solid ${c.border}` }}>
+                          {DISPOSITION_TYPES[heroPillDispType] || data.status}
+                        </span>
+                      </div>
+                    }
                     const cfg = ASPIRE_STATUS_CONFIG[data.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']
                     return <div style={{ marginBottom:12 }}>
                       <span style={{ fontSize:11, fontWeight:700, padding:'3px 10px', borderRadius:20,
@@ -1374,7 +1384,7 @@ export default function StudentSidePanel({
                   )}
                 </div>
               </Field>
-              <Field label="Interview Outcome">
+              <Field label="Interview Recommendation">
                 <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
                   {data.interview_outcome && (
                     <span className={`interview-pill ${ data.interview_outcome === 'Recommend' ? 'pill-green' : data.interview_outcome === 'Recommend with Reservations' ? 'pill-yellow' : data.interview_outcome === 'Do Not Recommend' ? 'pill-red' : 'pill-gray' }`}>{data.interview_outcome}</span>
@@ -1609,7 +1619,7 @@ export default function StudentSidePanel({
                   {data.decline_reason && <div style={{ fontSize:11, color:'#991b1b', marginTop:2 }}>Reason: {data.decline_reason}</div>}
                 </div>
               </Field>
-              <Field label="Interview Outcome">
+              <Field label="Interview Recommendation">
                 <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
                   {data.interview_outcome && (
                     <span className={`interview-pill ${ data.interview_outcome === 'Recommend' ? 'pill-green' : data.interview_outcome === 'Recommend with Reservations' ? 'pill-yellow' : data.interview_outcome === 'Do Not Recommend' ? 'pill-red' : 'pill-gray' }`}>{data.interview_outcome}</span>

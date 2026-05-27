@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { displayName } from '../lib/utils'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
+import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import EditScheduleModal from './EditScheduleModal'
 import AvailabilityManagerModal from './AvailabilityManagerModal'
 
@@ -85,7 +86,11 @@ function getInterviewerDisplay(s) {
 // ── FIX 1: Unified block popover used by both week and month views ──────────
 function InterviewBlockPopover({ student, session, position, onClose, onEditSchedule, onTeamsToggle }) {
   const isBooked = !!session?.teams_meeting_booked
-  const cfg = ASPIRE_STATUS_CONFIG[student.status] || { bg:'#f3f4f6', text:'#6b7280', border:'#d1d5db' }
+  const wcDispType = student.status === 'Not Proceeding' ? student.active_disposition?.disposition_type : null
+  const cfg = wcDispType
+    ? (DISPOSITION_PILL_COLORS[wcDispType] || DISPOSITION_PILL_COLORS['not_selected'])
+    : (ASPIRE_STATUS_CONFIG[student.status] || { bg:'#f3f4f6', text:'#6b7280', border:'#d1d5db' })
+  const cfgLabel = wcDispType ? (DISPOSITION_TYPES[wcDispType] || student.status) : student.status
   return (
     <div
       style={{
@@ -116,12 +121,12 @@ function InterviewBlockPopover({ student, session, position, onClose, onEditSche
           {student.interview_duration_minutes ? ` · ${student.interview_duration_minutes} min` : ''}
           {student.interview_assigned_interviewers ? ` · ${student.interview_assigned_interviewers}` : ''}
         </div>
-        {/* ASPIRE Status pill */}
+        {/* ASPIRE Status pill — precise disposition for Not Proceeding */}
         {student.status && (
           <span style={{ display:'inline-block', marginTop:8, fontSize:11, fontWeight:700,
             padding:'2px 9px', borderRadius:20, background:cfg.bg, color:cfg.text,
             border:`1px solid ${cfg.border}` }}>
-            {student.status}
+            {cfgLabel}
           </span>
         )}
       </div>

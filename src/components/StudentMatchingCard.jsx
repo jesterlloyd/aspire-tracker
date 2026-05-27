@@ -31,6 +31,7 @@ import StudentAvatar from './StudentAvatar'
 import { CARD } from '../lib/designTokens'
 import { formatSchoolProgram } from '../lib/displayFormatters'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
+import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 
 // ── Preference tier colors (matches the strip used in MatchingTab focus banner) ─
 const ORDINAL_COLOR = { 1: '#059669', 2: '#B5895A', 3: '#7C8FD9' }
@@ -70,9 +71,13 @@ export default function StudentMatchingCard({
   ].filter(Boolean).join(' ')
 
   // ── Derived state ───────────────────────────────────────────────────────────
+  const smcDispType = student.status === 'Not Proceeding' ? student.active_disposition?.disposition_type : null
   const statusCfg = student.status
-    ? (ASPIRE_STATUS_CONFIG[student.status] || ASPIRE_STATUS_CONFIG['Pending Outreach'])
+    ? (smcDispType
+        ? (DISPOSITION_PILL_COLORS[smcDispType] || DISPOSITION_PILL_COLORS['not_selected'])
+        : (ASPIRE_STATUS_CONFIG[student.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']))
     : null
+  const statusLabel = smcDispType ? (DISPOSITION_TYPES[smcDispType] || student.status) : student.status
 
   // Choice tier vs. currently focused unit (1–3 = preference rank, null = not focused)
   const choiceTier = focusedUnit
@@ -198,7 +203,7 @@ export default function StudentMatchingCard({
                 background: statusCfg.bg, color: statusCfg.text,
                 border: `1px solid ${statusCfg.border}`, whiteSpace: 'nowrap', fontFamily: F,
               }}>
-                {student.status}
+                {statusLabel}
               </span>
             )}
             {hasGpa && (

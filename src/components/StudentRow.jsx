@@ -393,7 +393,7 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
                   </select>
                 </div>
               </Field>
-              <Field label="Interview Outcome">
+              <Field label="Interview Recommendation">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {data.interview_outcome && (
                     <span className={`interview-pill ${

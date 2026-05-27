@@ -442,10 +442,10 @@ export default function InterviewRubricTab({
         </div>
       </div>
 
-      {/* Interview Outcomes header strip */}
+      {/* Interview Recommendations header strip */}
       <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', padding:'4px 16px 0' }}>
         <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:18, color:'#191919' }}>
-          Interview Outcomes
+          Interview Recommendations
         </span>
         <span style={{ fontFamily:'DM Sans,sans-serif', fontSize:12, color:'#9ca3af' }}>
           {students.length} student{students.length !== 1 ? 's' : ''}
@@ -462,7 +462,7 @@ export default function InterviewRubricTab({
         <FilterKPICard value={recommended}  label="Recommended"   accent="sage"       active={activeFilter === 'recommended'}  onClick={() => handleCardClick('recommended')} />
       </div>
 
-      {/* Interview Outcomes worklist */}
+      {/* Interview Recommendations worklist */}
       <div className="rub-scroll-area-month" style={{ marginTop: 0 }}>
         {activeFilter && (
           <div style={{
