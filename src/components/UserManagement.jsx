@@ -130,6 +130,9 @@ function UserInitials({ user, size = 40 }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function UserManagement({ isOpen, onClose }) {
+  const buildSha = import.meta.env.VITE_BUILD_SHA;
+  const buildEnv = import.meta.env.VITE_BUILD_ENV;
+
   const { isOwner, isAdmin, canEdit, userProfile } = useAuth()
   const { onlineUserIds } = usePresence()
   const queryClient = useQueryClient()
@@ -804,6 +807,11 @@ export default function UserManagement({ isOpen, onClose }) {
               </div>
             </div>
           )}
+
+          {/* Build identifier — Owner/Admin-only (panel is already gated) */}
+          <div style={{ paddingTop: 20, fontFamily: 'DM Sans, sans-serif', fontSize: 11, color: '#9ca3af' }}>
+            Build: {buildSha} · {buildEnv}
+          </div>
         </div>
       </div>
     </>
