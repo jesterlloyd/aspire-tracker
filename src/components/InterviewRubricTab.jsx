@@ -507,7 +507,7 @@ export default function InterviewRubricTab({
                 </div>
               ))}
               <div className="ir-wl-th ir-wl-col-workflow" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                Workflow Status
+                <span style={{ textTransform: 'none', letterSpacing: 'normal' }}>Workflow Status</span>
                 <StatusLegendPopover position="bottom-left" />
               </div>
               <div className="ir-wl-th ir-wl-col-outcome">Outcome</div>

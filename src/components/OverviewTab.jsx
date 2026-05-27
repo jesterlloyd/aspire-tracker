@@ -4,6 +4,7 @@ import { useUpdatedLabel, KPICell } from './KPIBand'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
+import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import { getUnit, UNIT_CATALOG, DIVISION_ORDER } from '../lib/unitCatalog'
 import StudentAvatar from './StudentAvatar'
 import StatusLegendPopover from './StatusLegendPopover'
@@ -927,6 +928,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                           if (la !== lb) return la.localeCompare(lb)
                           return (a.first_name || '').toLowerCase().localeCompare((b.first_name || '').toLowerCase())
                         }).map(s => {
+                          const ovDispType = s.status === 'Not Proceeding' ? s.active_disposition?.disposition_type : null
                           const statusCfg  = ASPIRE_STATUS_CONFIG[s.status] || { bg:'#f3f4f6', text:'#6b7280', border:'#d1d5db' }
                           const placedUnit = s.matched_unit_id ? units.find(u => u.id === s.matched_unit_id)?.unit_name : null
                           const isPending  = s.status === 'Pending Outreach'
@@ -955,11 +957,20 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                                   </span>
                                 )
                               })()}
-                                {s.status && (
+                                {s.status && ovDispType ? (
+                                  (() => {
+                                    const c = DISPOSITION_PILL_COLORS[ovDispType] || DISPOSITION_PILL_COLORS['not_selected']
+                                    return (
+                                      <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:c.bg, color:c.text, border:`1px solid ${c.border}`, whiteSpace:'nowrap' }}>
+                                        {DISPOSITION_TYPES[ovDispType] || ovDispType}
+                                      </span>
+                                    )
+                                  })()
+                                ) : s.status ? (
                                   <span style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, background:statusCfg.bg, color:statusCfg.text, border:`1px solid ${statusCfg.border}`, whiteSpace:'nowrap' }}>
                                     {s.status}
                                   </span>
-                                )}
+                                ) : null}
                                 {placedUnit && (
                                   <span style={{ fontSize:11, color:'#166534', whiteSpace:'nowrap' }}>
                                     Placed: {placedUnit}

@@ -6,6 +6,7 @@ import StudentAvatar from './StudentAvatar'
 import ImportStudentsCSV from './ImportStudentsCSV'
 import { getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
+import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import EmptyState from './EmptyState'
 import { Users } from 'lucide-react'
 import { calculateProfileCompletion } from '../lib/profileCompletion'
@@ -187,6 +188,7 @@ export default function StudentListPanel({
           const gpaColor = gpaOk && gpaVal >= 3.5 ? '#166534' : gpaOk && gpaVal >= 3.0 ? '#92400e' : 'var(--text-muted,#6b7280)'
 
           // ASPIRE status — now lives in the Identity column
+          const dispType = s.status === 'Not Proceeding' ? s.active_disposition?.disposition_type : null
           const sChip = s.status ? (ASPIRE_STATUS_CONFIG[s.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']) : null
 
           const matchedUnit = s.matched_unit_id ? units.find(u => u.id === s.matched_unit_id) : null
@@ -235,12 +237,22 @@ export default function StudentListPanel({
                     </div>
                   )}
                   {/* ASPIRE status pill (moved here from chips column) */}
-                  {sChip && (
+                  {dispType ? (
+                    (() => {
+                      const c = DISPOSITION_PILL_COLORS[dispType] || DISPOSITION_PILL_COLORS['not_selected']
+                      return (
+                        <span style={{ display:'inline-block', marginTop:3, fontSize:9, fontWeight:700, padding:'2px 7px', borderRadius:10,
+                          background:c.bg, color:c.text, border:`1px solid ${c.border}`, whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif' }}>
+                          {DISPOSITION_TYPES[dispType] || dispType}
+                        </span>
+                      )
+                    })()
+                  ) : sChip ? (
                     <span style={{ display:'inline-block', marginTop:3, fontSize:9, fontWeight:700, padding:'2px 7px', borderRadius:10,
                       background:sChip.bg, color:sChip.text, border:`1px solid ${sChip.border}`, whiteSpace:'nowrap', fontFamily:'DM Sans,sans-serif' }}>
                       {s.status}
                     </span>
-                  )}
+                  ) : null}
                 </div>
               </div>
 

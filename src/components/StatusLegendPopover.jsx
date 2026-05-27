@@ -169,7 +169,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
             left:  popoverCoords.left,
             right: popoverCoords.right,
             width: '360px',
-            maxHeight: 'min(640px, calc(100vh - 80px))',
+            maxHeight: 'min(780px, calc(100vh - 60px))',
             background: '#ffffff',
             borderRadius: '14px',
             boxShadow: '0 8px 32px rgba(29,37,103,0.18), 0 2px 8px rgba(0,0,0,0.08)',
@@ -246,34 +246,38 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
                 <div style={{ fontFamily: 'DM Sans', fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
                   Pre-placement
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '10px' }}>
                   {PRE_PLACEMENT_DISPOSITIONS.map(type => {
                     const colors = DISPOSITION_PILL_COLORS[type]
                     return (
-                      <span key={type} style={{
-                        background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
-                        fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px',
-                        padding: '2px 8px', borderRadius: '20px', whiteSpace: 'nowrap',
-                      }}>
-                        {DISPOSITION_TYPES[type]}
-                      </span>
+                      <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{
+                          background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
+                          fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px',
+                          padding: '2px 8px', borderRadius: '20px', whiteSpace: 'nowrap', flexShrink: 0,
+                        }}>
+                          {DISPOSITION_TYPES[type]}
+                        </span>
+                      </div>
                     )
                   })}
                 </div>
                 <div style={{ fontFamily: 'DM Sans', fontSize: '10px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
                   Post-placement (Phase 4)
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                   {POST_PLACEMENT_DISPOSITIONS.map(type => {
                     const colors = DISPOSITION_PILL_COLORS[type]
                     return (
-                      <span key={type} style={{
-                        background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
-                        fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px',
-                        padding: '2px 8px', borderRadius: '20px', whiteSpace: 'nowrap',
-                      }}>
-                        {DISPOSITION_TYPES[type]}
-                      </span>
+                      <div key={type} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{
+                          background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
+                          fontFamily: 'DM Sans', fontWeight: 600, fontSize: '10px',
+                          padding: '2px 8px', borderRadius: '20px', whiteSpace: 'nowrap', flexShrink: 0,
+                        }}>
+                          {DISPOSITION_TYPES[type]}
+                        </span>
+                      </div>
                     )
                   })}
                 </div>
