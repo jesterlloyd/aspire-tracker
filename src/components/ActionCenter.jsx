@@ -441,7 +441,7 @@ export default function ActionCenter({
   const [dispositionRetry,            setDispositionRetry]            = useState(0)
 
   useEffect(() => {
-    if (!isOpen || !cohortId) return
+    if (!isOpen || !cohortId || !canEdit) return
     setDispositionFollowupsLoading(true)
     setDispositionFollowupsError(null)
     setDispositionFollowups([])
@@ -456,7 +456,7 @@ export default function ActionCenter({
         else { setDispositionFollowups(data || []) }
       })
       .finally(() => setDispositionFollowupsLoading(false))
-  }, [isOpen, cohortId, dispositionRetry])
+  }, [isOpen, cohortId, dispositionRetry, canEdit])
 
   // Reset UI on open
   useEffect(() => {

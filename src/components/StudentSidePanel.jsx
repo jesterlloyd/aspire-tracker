@@ -453,7 +453,7 @@ export default function StudentSidePanel({
       if (error) throw error
       return data || []
     },
-    enabled: !!activeDisposition?.id,
+    enabled: !!activeDisposition?.id && canEdit,
   })
 
   const handleUpdateDisposition = () => setShowDispositionModal(true)
@@ -468,20 +468,16 @@ export default function StudentSidePanel({
   // Follow-up completion inline state
   const [completingFollowupId, setCompletingFollowupId] = useState(null)
   const [completionNote,       setCompletionNote]       = useState('')
+  const [completionMethod,     setCompletionMethod]     = useState('')
   const [completingFollowup,   setCompletingFollowup]   = useState(false)
 
   const handleCompleteFollowup = async (followupId) => {
     setCompletingFollowup(true)
-    const { error } = await supabase
-      .from('student_disposition_followups')
-      .update({
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        completed_by_user_id: userProfile?.id,
-        completed_by_name: userProfile?.full_name || '',
-        note: completionNote.trim() || null,
-      })
-      .eq('id', followupId)
+    const { error } = await supabase.rpc('complete_disposition_followup', {
+      p_followup_id:       followupId,
+      p_completion_method: completionMethod || null,
+      p_note:              completionNote.trim() || null,
+    })
     setCompletingFollowup(false)
     if (error) {
       toast?.error('Update failed', error.message || 'Could not mark follow-up complete.')
@@ -489,6 +485,7 @@ export default function StudentSidePanel({
     }
     setCompletingFollowupId(null)
     setCompletionNote('')
+    setCompletionMethod('')
     toast?.success('Follow-up complete', 'Follow-up marked as complete.')
     refetchFollowups()
   }
@@ -1730,7 +1727,7 @@ export default function StudentSidePanel({
                 <Field label="Recorded By">
                   <div className="sp-readonly">{activeDisposition.recorded_by_name || activeDisposition.decided_by_name || '—'}</div>
                 </Field>
-                {dispositionFollowups.length > 0 && (
+                {canEdit && dispositionFollowups.length > 0 && (
                   <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid var(--border-lt,#e5e7eb)' }}>
                     <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:'var(--text-secondary,#6b7280)', marginBottom:8 }}>
                       Follow-up Tasks
@@ -1745,55 +1742,174 @@ export default function StudentSidePanel({
                             </span>
                             {f.status === 'completed' && (
                               <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)', whiteSpace:'nowrap' }}>
-                                {`Done${f.completed_at ? ` ${new Date(f.completed_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}` : ''}${f.completed_by_name ? ` · ${f.completed_by_name}` : ''}`}
+                                {[
+                                  f.completion_method
+                                    ? `Documented via ${{ email:'Email', phone:'Phone', in_person:'In Person', other:'Other' }[f.completion_method] || f.completion_method}`
+                                    : 'Documented',
+                                  f.completed_at && new Date(f.completed_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}),
+                                  f.completed_by_name,
+                                ].filter(Boolean).join(' · ')}
                               </span>
                             )}
                             {f.status === 'pending' && !canEdit && (
                               <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)' }}>Pending</span>
                             )}
                             {f.status === 'pending' && canEdit && (
-                              <button
-                                onClick={() => {
-                                  setCompletingFollowupId(completingFollowupId === f.id ? null : f.id)
-                                  setCompletionNote('')
-                                }}
-                                style={{ fontSize:11, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:5, padding:'2px 8px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:600, whiteSpace:'nowrap', flexShrink:0 }}
-                              >
-                                Mark Complete
-                              </button>
+                              ['notify_student','notify_school_coordinator','notify_unit_leader','leadership_review','documentation_review'].includes(f.followup_type) ? (
+                                <button
+                                  onClick={() => {
+                                    setCompletingFollowupId(completingFollowupId === f.id ? null : f.id)
+                                    setCompletionNote('')
+                                    setCompletionMethod('')
+                                  }}
+                                  style={{ fontSize:11, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:5, padding:'2px 8px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:600, whiteSpace:'nowrap', flexShrink:0 }}
+                                >
+                                  {['notify_student','notify_school_coordinator','notify_unit_leader'].includes(f.followup_type)
+                                    ? 'Document Notification'
+                                    : f.followup_type === 'leadership_review'
+                                      ? 'Document Review'
+                                      : 'Confirm Review'}
+                                </button>
+                              ) : (
+                                <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)', fontStyle:'italic', flexShrink:0 }}>Manual action required</span>
+                              )
                             )}
                             {f.status === 'waived'        && <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)' }}>Waived</span>}
                             {f.status === 'cancelled'     && <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)' }}>Cancelled</span>}
                             {f.status === 'not_applicable'&& <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)' }}>N/A</span>}
                           </div>
-                          {/* Inline completion prompt */}
+                          {/* Type-specific completion form — explicit 4-branch routing */}
                           {completingFollowupId === f.id && (
                             <div style={{ marginTop:6, marginLeft:23, background:'#f9fafb', borderRadius:8, padding:'10px 12px', border:'1px solid #e5e7eb' }}>
-                              <div style={{ fontSize:11, fontWeight:600, color:'#374151', marginBottom:5 }}>
-                                Completion note <span style={{ fontWeight:400, color:'#9ca3af' }}>(optional)</span>
-                              </div>
-                              <textarea
-                                value={completionNote}
-                                onChange={e => setCompletionNote(e.target.value)}
-                                placeholder="e.g. Called and left voicemail…"
-                                rows={2}
-                                style={{ width:'100%', fontSize:12, borderRadius:6, border:'1px solid #d1d5db', padding:'5px 8px', resize:'vertical', fontFamily:'DM Sans,sans-serif', boxSizing:'border-box', background:'#fff' }}
-                              />
-                              <div style={{ display:'flex', gap:6, marginTop:6 }}>
-                                <button
-                                  onClick={() => handleCompleteFollowup(f.id)}
-                                  disabled={completingFollowup}
-                                  style={{ flex:1, padding:'5px', fontSize:12, fontWeight:600, background:'#f0fdf4', color:'#166534', border:'1px solid #bbf7d0', borderRadius:6, cursor:'pointer', fontFamily:'DM Sans,sans-serif' }}
-                                >
-                                  {completingFollowup ? '…' : 'Mark Complete'}
-                                </button>
-                                <button
-                                  onClick={() => { setCompletingFollowupId(null); setCompletionNote('') }}
-                                  style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'#6b7280', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'DM Sans,sans-serif' }}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
+                              {['notify_student','notify_school_coordinator','notify_unit_leader'].includes(f.followup_type) ? (
+                                <>
+                                  <div style={{ fontSize:11, fontWeight:600, color:'#374151', marginBottom:4 }}>
+                                    How was this sent? <span style={{ color:'#ef4444' }}>*</span>
+                                  </div>
+                                  <div style={{ display:'flex', gap:5, marginBottom:8, flexWrap:'wrap' }}>
+                                    {[['email','Email'],['phone','Phone'],['in_person','In Person'],['other','Other']].map(([val, label]) => (
+                                      <button
+                                        key={val}
+                                        onClick={() => setCompletionMethod(val)}
+                                        style={{
+                                          fontSize:11, padding:'3px 9px', borderRadius:5, cursor:'pointer',
+                                          fontFamily:'DM Sans,sans-serif', fontWeight:600,
+                                          background: completionMethod === val ? '#1D2567' : '#f0f3ff',
+                                          color: completionMethod === val ? '#fff' : '#1D2567',
+                                          border: `1px solid ${completionMethod === val ? '#1D2567' : '#e0e7ff'}`,
+                                        }}
+                                      >
+                                        {label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <div style={{ fontSize:11, fontWeight:600, color:'#374151', marginBottom:4 }}>
+                                    Note <span style={{ color:'#ef4444' }}>*</span>
+                                  </div>
+                                  <textarea
+                                    value={completionNote}
+                                    onChange={e => setCompletionNote(e.target.value)}
+                                    placeholder="e.g. Email sent 05/28/2026…"
+                                    rows={2}
+                                    style={{ width:'100%', fontSize:12, borderRadius:6, border:'1px solid #d1d5db', padding:'5px 8px', resize:'vertical', fontFamily:'DM Sans,sans-serif', boxSizing:'border-box', background:'#fff' }}
+                                  />
+                                  <div style={{ fontSize:11, color:'#6b7280', marginTop:6, marginBottom:6, fontStyle:'italic' }}>
+                                    I confirm this notification has already occurred and is being documented here.
+                                  </div>
+                                  <div style={{ display:'flex', gap:6 }}>
+                                    <button
+                                      onClick={() => handleCompleteFollowup(f.id)}
+                                      disabled={completingFollowup || !completionMethod || !completionNote.trim()}
+                                      style={{
+                                        flex:1, padding:'5px', fontSize:12, fontWeight:600, borderRadius:6,
+                                        cursor: (completingFollowup || !completionMethod || !completionNote.trim()) ? 'default' : 'pointer',
+                                        fontFamily:'DM Sans,sans-serif',
+                                        background: (!completionMethod || !completionNote.trim()) ? '#f3f4f6' : '#f0fdf4',
+                                        color:      (!completionMethod || !completionNote.trim()) ? '#9ca3af' : '#166534',
+                                        border:     `1px solid ${(!completionMethod || !completionNote.trim()) ? '#e5e7eb' : '#bbf7d0'}`,
+                                      }}
+                                    >
+                                      {completingFollowup ? '…' : 'Document Notification Completed'}
+                                    </button>
+                                    <button
+                                      onClick={() => { setCompletingFollowupId(null); setCompletionNote(''); setCompletionMethod('') }}
+                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'#6b7280', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'DM Sans,sans-serif' }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </>
+                              ) : f.followup_type === 'leadership_review' ? (
+                                <>
+                                  <div style={{ fontSize:11, fontWeight:600, color:'#374151', marginBottom:4 }}>
+                                    Note <span style={{ color:'#ef4444' }}>*</span>
+                                  </div>
+                                  <textarea
+                                    value={completionNote}
+                                    onChange={e => setCompletionNote(e.target.value)}
+                                    placeholder="e.g. Reviewed by leadership on 05/28/2026…"
+                                    rows={2}
+                                    style={{ width:'100%', fontSize:12, borderRadius:6, border:'1px solid #d1d5db', padding:'5px 8px', resize:'vertical', fontFamily:'DM Sans,sans-serif', boxSizing:'border-box', background:'#fff' }}
+                                  />
+                                  <div style={{ display:'flex', gap:6, marginTop:6 }}>
+                                    <button
+                                      onClick={() => handleCompleteFollowup(f.id)}
+                                      disabled={completingFollowup || !completionNote.trim()}
+                                      style={{
+                                        flex:1, padding:'5px', fontSize:12, fontWeight:600, borderRadius:6,
+                                        cursor: (completingFollowup || !completionNote.trim()) ? 'default' : 'pointer',
+                                        fontFamily:'DM Sans,sans-serif',
+                                        background: !completionNote.trim() ? '#f3f4f6' : '#f0fdf4',
+                                        color:      !completionNote.trim() ? '#9ca3af' : '#166534',
+                                        border:     `1px solid ${!completionNote.trim() ? '#e5e7eb' : '#bbf7d0'}`,
+                                      }}
+                                    >
+                                      {completingFollowup ? '…' : 'Document Review Completed'}
+                                    </button>
+                                    <button
+                                      onClick={() => { setCompletingFollowupId(null); setCompletionNote(''); setCompletionMethod('') }}
+                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'#6b7280', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'DM Sans,sans-serif' }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </>
+                              ) : f.followup_type === 'documentation_review' ? (
+                                <>
+                                  <div style={{ fontSize:11, fontWeight:600, color:'#374151', marginBottom:4 }}>
+                                    Note <span style={{ color:'#ef4444' }}>*</span>
+                                  </div>
+                                  <textarea
+                                    value={completionNote}
+                                    onChange={e => setCompletionNote(e.target.value)}
+                                    placeholder="e.g. Documentation reviewed and filed…"
+                                    rows={2}
+                                    style={{ width:'100%', fontSize:12, borderRadius:6, border:'1px solid #d1d5db', padding:'5px 8px', resize:'vertical', fontFamily:'DM Sans,sans-serif', boxSizing:'border-box', background:'#fff' }}
+                                  />
+                                  <div style={{ display:'flex', gap:6, marginTop:6 }}>
+                                    <button
+                                      onClick={() => handleCompleteFollowup(f.id)}
+                                      disabled={completingFollowup || !completionNote.trim()}
+                                      style={{
+                                        flex:1, padding:'5px', fontSize:12, fontWeight:600, borderRadius:6,
+                                        cursor: (completingFollowup || !completionNote.trim()) ? 'default' : 'pointer',
+                                        fontFamily:'DM Sans,sans-serif',
+                                        background: !completionNote.trim() ? '#f3f4f6' : '#f0fdf4',
+                                        color:      !completionNote.trim() ? '#9ca3af' : '#166534',
+                                        border:     `1px solid ${!completionNote.trim() ? '#e5e7eb' : '#bbf7d0'}`,
+                                      }}
+                                    >
+                                      {completingFollowup ? '…' : 'Confirm Documentation Reviewed'}
+                                    </button>
+                                    <button
+                                      onClick={() => { setCompletingFollowupId(null); setCompletionNote(''); setCompletionMethod('') }}
+                                      style={{ padding:'5px 12px', fontSize:12, fontWeight:600, background:'#f3f4f6', color:'#6b7280', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'DM Sans,sans-serif' }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </>
+                              ) : null /* safety — button guard blocks unsupported types from reaching this */}
                             </div>
                           )}
                           {/* Completion note display (for completed followups with notes) */}
