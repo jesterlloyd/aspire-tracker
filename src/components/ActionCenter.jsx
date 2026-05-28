@@ -413,23 +413,37 @@ export default function ActionCenter({
   const [actioning,      setActioning]      = useState(null)
 
   // Shift log data (lazy-loaded on first open)
-  const [shiftLogs,       setShiftLogs]       = useState([])
-  const [shiftLogsLoaded, setShiftLogsLoaded] = useState(false)
+  const [shiftLogs,          setShiftLogs]          = useState([])
+  const [shiftLogsLoaded,    setShiftLogsLoaded]    = useState(false)
+  const [shiftLogsError,     setShiftLogsError]     = useState(null)
+  const [shiftLogsLoading,   setShiftLogsLoading]   = useState(false)
+  const [shiftLogsRetry,     setShiftLogsRetry]     = useState(0)
 
   useEffect(() => {
     if (!isOpen || !cohortId || shiftLogsLoaded) return
+    setShiftLogsLoading(true)
+    setShiftLogsError(null)
     supabase.from('student_shift_logs').select('*').eq('cohort_id', cohortId)
       .order('submitted_at', { ascending: false })
-      .then(({ data }) => { setShiftLogs(data || []); setShiftLogsLoaded(true) })
-  }, [isOpen, cohortId, shiftLogsLoaded])
+      .then(({ data, error }) => {
+        if (error) { setShiftLogsError(error.message || 'Failed to load shift logs') }
+        else { setShiftLogs(data || []); setShiftLogsLoaded(true) }
+      })
+      .finally(() => setShiftLogsLoading(false))
+  }, [isOpen, cohortId, shiftLogsLoaded, shiftLogsRetry])
 
-  useEffect(() => { setShiftLogs([]); setShiftLogsLoaded(false) }, [cohortId])
+  useEffect(() => { setShiftLogs([]); setShiftLogsLoaded(false); setShiftLogsError(null) }, [cohortId])
 
   // Disposition followups — reload fresh on every open so completion state stays current
-  const [dispositionFollowups, setDispositionFollowups] = useState([])
+  const [dispositionFollowups,        setDispositionFollowups]        = useState([])
+  const [dispositionFollowupsError,   setDispositionFollowupsError]   = useState(null)
+  const [dispositionFollowupsLoading, setDispositionFollowupsLoading] = useState(false)
+  const [dispositionRetry,            setDispositionRetry]            = useState(0)
 
   useEffect(() => {
     if (!isOpen || !cohortId) return
+    setDispositionFollowupsLoading(true)
+    setDispositionFollowupsError(null)
     setDispositionFollowups([])
     supabase
       .from('student_disposition_followups')
@@ -437,8 +451,12 @@ export default function ActionCenter({
       .eq('cohort_id', cohortId)
       .eq('status', 'pending')
       .order('created_at', { ascending: true })
-      .then(({ data }) => setDispositionFollowups(data || []))
-  }, [isOpen, cohortId])
+      .then(({ data, error }) => {
+        if (error) { setDispositionFollowupsError(error.message || 'Failed to load disposition follow-ups') }
+        else { setDispositionFollowups(data || []) }
+      })
+      .finally(() => setDispositionFollowupsLoading(false))
+  }, [isOpen, cohortId, dispositionRetry])
 
   // Reset UI on open
   useEffect(() => {
@@ -616,6 +634,21 @@ ${KR_SIG}`
       await logComm({ type: 'orientation_email', student: s, sentToEmail: s.personal_email||s.school_email, sentToName: `${s.last_name}, ${s.first_name}` })
     }
     setOriDone(true)
+  }
+
+  // ── Error / retry helpers ──────────────────────────────────
+  const hasFetchError = !!shiftLogsError || !!dispositionFollowupsError
+
+  const handleRetry = () => {
+    if (shiftLogsError) {
+      setShiftLogsError(null)
+      setShiftLogsLoaded(false)
+      setShiftLogsRetry(n => n + 1)
+    }
+    if (dispositionFollowupsError) {
+      setDispositionFollowupsError(null)
+      setDispositionRetry(n => n + 1)
+    }
   }
 
   // ── Derived action items ────────────────────────────────────
@@ -846,9 +879,35 @@ ${KR_SIG}`
         </div>
       )}
 
+      {/* Error banner */}
+      {hasFetchError && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '8px 14px', background: '#fef3c7',
+          borderBottom: '1px solid #fde68a', flexShrink: 0,
+        }}>
+          <span style={{ fontSize: 12, color: '#92400e' }}>
+            Some action items could not be loaded.
+          </span>
+          <button
+            onClick={handleRetry}
+            style={{
+              fontSize: 11, fontWeight: 700, color: '#92400e',
+              background: 'none', border: '1px solid #fcd34d', borderRadius: 6,
+              padding: '3px 9px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+            }}>
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Stacks body */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '6px 0 20px' }}>
-        {totalCount === 0 ? (
+        {totalCount === 0 && !hasFetchError && (shiftLogsLoading || dispositionFollowupsLoading) ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 24px' }}>
+            <span style={{ fontSize: 13, color: '#9ca3af', fontFamily: 'DM Sans, sans-serif' }}>Loading action items…</span>
+          </div>
+        ) : totalCount === 0 && !hasFetchError ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 24px', gap: 10 }}>
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#C8D5C0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
