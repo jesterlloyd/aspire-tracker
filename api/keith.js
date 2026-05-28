@@ -7,6 +7,27 @@
 import { buildSystemPrompt, getRecentCommunications, getSchoolCoordinators, getUnitResponseStats, getUnitResponses, getUnitLeadersForKeith, getUnitCatalogForKeith, getNursingExecutiveLeadership } from '../src/lib/keithKnowledge.js';
 import { createClient } from '@supabase/supabase-js';
 
+const KEITH_TOTAL_DEADLINE_MS          = 25000;
+const KEITH_CONTEXT_TIMEOUT_MS         = 5000;
+const KEITH_ANTHROPIC_TIMEOUT_MS       = 18000;
+const KEITH_TOOL_LOOP_MIN_REMAINING_MS = 4000;
+
+function makeServiceRoleClient() {
+  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      fetch: (...args) => {
+        const controller = new AbortController();
+        const t = setTimeout(() => controller.abort(), KEITH_CONTEXT_TIMEOUT_MS);
+        return fetch(args[0], { ...args[1], signal: controller.signal })
+          .finally(() => clearTimeout(t));
+      },
+    },
+  });
+}
+
 // Legacy shim kept for safety (actual logic now lives in keithKnowledge.js)
 function _buildSystemPrompt_legacy(context, cohortName) {
   const cohort = cohortName || 'the current cohort';
@@ -386,12 +407,21 @@ function generateResultSummary(toolName, result) {
 
 // ── Tool-use conversation loop ────────────────────────────────────────────────
 
-async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activeCohortId) {
+async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activeCohortId, timeRemaining) {
   const messages = [...initialMessages];
   const allToolCalls = [];
   const MAX_ROUNDS = 5;
 
   for (let round = 0; round < MAX_ROUNDS; round++) {
+    if (timeRemaining && timeRemaining() < KEITH_TOOL_LOOP_MIN_REMAINING_MS) {
+      return {
+        text: allToolCalls.length > 0
+          ? "I ran out of time before completing all research steps. Here's what I found so far — please ask again for more detail."
+          : "I ran out of time before responding. Please try again.",
+        toolCalls: allToolCalls,
+      };
+    }
+
     const payload = {
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 2048,
@@ -400,7 +430,7 @@ async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activ
     };
     if (tools && tools.length > 0) payload.tools = tools;
 
-    const response = await callAnthropicWithRetry(payload);
+    const response = await callAnthropicWithRetry(payload, { timeRemaining });
     const content  = response?.content || [];
     const hasTools = content.some(b => b.type === 'tool_use');
 
@@ -476,6 +506,9 @@ export default async function handler(req, res) {
   if (!process.env.ANTHROPIC_API_KEY) {
     return res.status(500).json({ error: 'API key not configured' });
   }
+
+  const deadline = Date.now() + KEITH_TOTAL_DEADLINE_MS;
+  const timeRemaining = () => deadline - Date.now();
 
   const { messages, context, cohortName, userProfile, liveData } = req.body || {};
 
@@ -639,38 +672,47 @@ Cohort Status: ${cohort.status || 'unknown'}`
       let unitLeaderSection = '';
 
       if (supabaseUrl && serviceKey) {
-        const dbkeith = createClient(supabaseUrl, serviceKey);
+        const dbkeith = makeServiceRoleClient();
+        const ctxCohortId = liveData.activeCohortId || liveData.cohort?.id;
+
+        // All four context fetches run in parallel; individual failures get unavailable placeholders
+        const [commsResult, statsResult, responsesResult, leadersResult] = await Promise.allSettled([
+          getRecentCommunications(dbkeith, { limit: 30, sinceDays: 30 }),
+          ctxCohortId ? getUnitResponseStats(dbkeith, ctxCohortId) : Promise.resolve(null),
+          ctxCohortId ? getUnitResponses(dbkeith, ctxCohortId) : Promise.resolve([]),
+          getUnitLeadersForKeith(dbkeith),
+        ]);
 
         // Recent communications
-        try {
-          const recentComms = await getRecentCommunications(dbkeith, { limit: 30, sinceDays: 30 });
-          if (recentComms.length > 0) {
-            commsSection = `\n\nRecent notifications sent (last 30 days, ${recentComms.length} entries):\n` +
-              recentComms.slice(0, 30).map(c => {
-                const ts = formatTimestampPT(c.sent_at) || 'unknown';
-                return `- [${c.notification_type}] to ${c.recipient_name || c.recipient_email} (${c.audience}) | ${c.subject} | ${c.status} | ${ts}`;
-              }).join('\n');
-          }
-        } catch (commsErr) {
-          console.warn('[keith] communications fetch failed (non-fatal):', commsErr.message);
+        if (commsResult.status === 'fulfilled' && commsResult.value?.length > 0) {
+          const recentComms = commsResult.value;
+          commsSection = `\n\nRecent notifications sent (last 30 days, ${recentComms.length} entries):\n` +
+            recentComms.slice(0, 30).map(c => {
+              const ts = formatTimestampPT(c.sent_at) || 'unknown';
+              return `- [${c.notification_type}] to ${c.recipient_name || c.recipient_email} (${c.audience}) | ${c.subject} | ${c.status} | ${ts}`;
+            }).join('\n');
+        } else if (commsResult.status === 'rejected') {
+          console.warn('[keith] communications fetch failed (non-fatal):', commsResult.reason?.message);
+          commsSection = '\n\nCOMMUNICATIONS: Fetch error — data unavailable for this response';
         }
 
-        // Unit response stats
-        try {
-          const activeCohortId = liveData.activeCohortId || liveData.cohort?.id;
-          if (activeCohortId) {
-            const stats = await getUnitResponseStats(dbkeith, activeCohortId);
-            if (stats) {
-              // Fetch full response rows for per-unit slot+shift detail
-              const allResponses = await getUnitResponses(dbkeith, activeCohortId);
-              const hostingRows = allResponses.filter(r => r.response_status === 'submitted_hosting')
-                .sort((a, b) => a.unit_name.localeCompare(b.unit_name));
-              const hostingLines = hostingRows.map(r => {
-                const shift = r.shift_preference ? ` (${r.shift_preference})` : '';
-                return `  - ${r.unit_name}: ${r.slots_offered} slot${r.slots_offered === 1 ? '' : 's'}${shift}`;
-              }).join('\n') || '  (none)';
+        // Unit response stats + responses
+        const stats = statsResult.status === 'fulfilled' ? statsResult.value : null;
+        const allResponses = responsesResult.status === 'fulfilled' ? responsesResult.value : null;
+        if (statsResult.status === 'rejected' || responsesResult.status === 'rejected') {
+          const errMsg = statsResult.status === 'rejected'
+            ? statsResult.reason?.message : responsesResult.reason?.message;
+          console.warn('[keith] unit response fetch failed (non-fatal):', errMsg);
+          unitResponseSection = '\n\nPLACEMENT CAPACITY: Fetch error — data unavailable for this response';
+        } else if (stats && ctxCohortId) {
+          const hostingRows = (allResponses || []).filter(r => r.response_status === 'submitted_hosting')
+            .sort((a, b) => a.unit_name.localeCompare(b.unit_name));
+          const hostingLines = hostingRows.map(r => {
+            const shift = r.shift_preference ? ` (${r.shift_preference})` : '';
+            return `  - ${r.unit_name}: ${r.slots_offered} slot${r.slots_offered === 1 ? '' : 's'}${shift}`;
+          }).join('\n') || '  (none)';
 
-              unitResponseSection = `\n\nPLACEMENT CAPACITY (${cohort?.name || 'current cohort'}):
+          unitResponseSection = `\n\nPLACEMENT CAPACITY (${cohort?.name || 'current cohort'}):
 Response rate: ${stats.response_rate}% (${stats.hosting_count + stats.not_hosting_count} of ${stats.total_units} units responded)
 Hosting (${stats.hosting_count} units, ${stats.total_slots} slots confirmed):
 ${hostingLines}
@@ -678,15 +720,11 @@ Not hosting (${stats.not_hosting_count} units):
 ${stats.not_hosting_units.map(u => `  - ${u}`).join('\n') || '  (none)'}
 Pending / no response (${stats.pending_count} units):
 ${stats.pending_units.map(u => `  - ${u}`).join('\n') || '  (none)'}`;
-            }
-          }
-        } catch (unitErr) {
-          console.warn('[keith] unit response fetch failed (non-fatal):', unitErr.message);
         }
 
         // Unit leadership roster — full roster, all roles, not just primary leads
-        try {
-          const leaders = await getUnitLeadersForKeith(dbkeith);
+        if (leadersResult.status === 'fulfilled') {
+          const leaders = leadersResult.value;
           if (leaders.length > 0) {
             const byUnit = {};
             leaders.forEach(l => {
@@ -730,8 +768,8 @@ ${execLines}`;
           } else {
             unitLeaderSection = '\n\nUNIT LEADERSHIP ROSTER: No data returned from database.';
           }
-        } catch (leaderErr) {
-          console.warn('[keith] unit leader fetch failed (non-fatal):', leaderErr.message);
+        } else {
+          console.warn('[keith] unit leader fetch failed (non-fatal):', leadersResult.reason?.message);
           unitLeaderSection = '\n\nUNIT LEADERSHIP ROSTER: Fetch error — do not fabricate names.';
         }
       }
@@ -842,8 +880,15 @@ Be transparent: after forming a recommendation, briefly note which tools you use
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
   const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const toolsSupabase = (canUseTools && supabaseUrl && serviceKey)
-    ? createClient(supabaseUrl, serviceKey)
+    ? makeServiceRoleClient()
     : null;
+
+  if (timeRemaining() <= 0) {
+    return res.status(503).json({
+      response: "Keith couldn't reach his model right now (request deadline exceeded). Try again in a moment.",
+      transient: true,
+    });
+  }
 
   try {
     const { text, toolCalls } = await runToolLoop(
@@ -851,7 +896,8 @@ Be transparent: after forming a recommendation, briefly note which tools you use
       systemPrompt,
       activeTools,
       toolsSupabase,
-      activeCohortId
+      activeCohortId,
+      timeRemaining
     );
     if (!text) return res.status(502).json({ error: 'Unexpected AI response format' });
     return res.status(200).json({ response: text, tool_calls: toolCalls });
@@ -871,10 +917,19 @@ Be transparent: after forming a recommendation, briefly note which tools you use
 }
 
 async function callAnthropicWithRetry(payload, options = {}) {
-  const { maxRetries = 3, baseDelayMs = 800 } = options;
+  const { maxRetries = 1, baseDelayMs = 800, timeRemaining } = options;
   let lastError = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    // Before a retry (not first attempt), check deadline
+    if (attempt > 0 && timeRemaining && timeRemaining() <= KEITH_ANTHROPIC_TIMEOUT_MS + 1000) {
+      console.warn('[keith] skipping retry — insufficient time remaining');
+      break;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), KEITH_ANTHROPIC_TIMEOUT_MS);
+
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -884,7 +939,9 @@ async function callAnthropicWithRetry(payload, options = {}) {
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       if (response.ok) return await response.json();
 
@@ -909,6 +966,17 @@ async function callAnthropicWithRetry(payload, options = {}) {
       await new Promise(resolve => setTimeout(resolve, delay));
 
     } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        console.warn(`[keith] Anthropic call timed out on attempt ${attempt + 1}`);
+        if (attempt === maxRetries || (timeRemaining && timeRemaining() <= KEITH_ANTHROPIC_TIMEOUT_MS + 1000)) {
+          lastError = { message: 'Anthropic call timed out', errorType: 'timeout' };
+          break;
+        }
+        const delay = baseDelayMs + Math.random() * 200;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
       if (attempt === maxRetries) { lastError = { message: err.message }; break; }
       const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 200;
       console.warn(`[keith] network error on attempt ${attempt + 1}, retrying in ${Math.round(delay)}ms:`, err.message);

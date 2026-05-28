@@ -3,6 +3,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { SUGGESTED_PROMPTS, generateStaticResponse } from '../lib/keithKnowledge';
 import { useAuth } from '../contexts/AuthContext';
 
+const KEITH_CLIENT_TIMEOUT_MS   = 28000;
+const KEITH_PREFETCH_CEILING_MS = 5000;
+
 export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, supabase, isAuthenticated }) {
   const { userProfile } = useAuth();
   const queryClient = useQueryClient();
@@ -36,6 +39,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   };
 
   const handleSend = async (messageText) => {
+    if (isTyping) return;
     const text = messageText || input.trim();
     if (!text) return;
 
@@ -61,135 +65,145 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
       shiftLogProgress: queryClient.getQueryData(['shift_log_progress', cohortId]) || {},
     };
 
-    // Prefetch students if not cached
-    if (liveData.students.length === 0 && cohortId) {
-      await queryClient.prefetchQuery({
-        queryKey: ['students_in_cohort', cohortId],
-        queryFn: async () => {
-          const { data } = await supabase.from('students').select('*').eq('cohort_id', cohortId);
-          return data || [];
-        },
-      });
-      liveData.students = queryClient.getQueryData(['students_in_cohort', cohortId]) || [];
+    // Bounded parallel prefetch — backend has authoritative data if any time out
+    if (cohortId) {
+      const prefetches = [];
+      if (liveData.students.length === 0)
+        prefetches.push(queryClient.prefetchQuery({
+          queryKey: ['students_in_cohort', cohortId],
+          queryFn: async () => {
+            const { data } = await supabase.from('students').select('*').eq('cohort_id', cohortId);
+            return data || [];
+          },
+        }));
+      if (liveData.units.length === 0)
+        prefetches.push(queryClient.prefetchQuery({
+          queryKey: ['units_cohort', cohortId],
+          queryFn: async () => {
+            const { data } = await supabase.from('units').select('*').eq('cohort_id', cohortId);
+            return data || [];
+          },
+        }));
+      if (Object.keys(liveData.shiftLogProgress).length === 0)
+        prefetches.push(queryClient.prefetchQuery({
+          queryKey: ['shift_log_progress', cohortId],
+          queryFn: async () => {
+            const { data } = await supabase
+              .from('student_shift_logs')
+              .select('student_id, total_hours, status')
+              .eq('cohort_id', cohortId)
+              .in('status', ['Auto-Accepted', 'Approved']);
+            const map = {};
+            (data || []).forEach(log => {
+              if (!map[log.student_id]) map[log.student_id] = 0;
+              map[log.student_id] += parseFloat(log.total_hours) || 0;
+            });
+            return map;
+          },
+        }));
+      if (liveData.matches.length === 0)
+        prefetches.push(queryClient.prefetchQuery({
+          queryKey: ['embed_matches', cohortId],
+          queryFn: async () => {
+            const { data } = await supabase
+              .from('matches')
+              .select('*, student:students(id, cohort_id), unit:units(id, unit_name, division)')
+              .eq('cohort_id', cohortId);
+            return data || [];
+          },
+        }));
+
+      if (prefetches.length > 0) {
+        let prefetchTimeoutId;
+        await Promise.race([
+          Promise.allSettled(prefetches),
+          new Promise(resolve => { prefetchTimeoutId = setTimeout(resolve, KEITH_PREFETCH_CEILING_MS); }),
+        ]);
+        clearTimeout(prefetchTimeoutId);
+        // Refresh liveData from cache — picks up whatever resolved within the ceiling
+        liveData.students         = queryClient.getQueryData(['students_in_cohort', cohortId]) || liveData.students;
+        liveData.units            = queryClient.getQueryData(['units_cohort', cohortId]) || liveData.units;
+        liveData.shiftLogProgress = queryClient.getQueryData(['shift_log_progress', cohortId]) || liveData.shiftLogProgress;
+        liveData.matches          = queryClient.getQueryData(['embed_matches', cohortId]) || liveData.matches;
+      }
     }
 
-    // Prefetch units — full select for unit leader contact info
-    if (liveData.units.length === 0 && cohortId) {
-      await queryClient.prefetchQuery({
-        queryKey: ['units_cohort', cohortId],
-        queryFn: async () => {
-          const { data } = await supabase
-            .from('units')
-            .select('*')
-            .eq('cohort_id', cohortId);
-          return data || [];
-        },
-      });
-      liveData.units = queryClient.getQueryData(['units_cohort', cohortId]) || [];
-    }
-
-    // Prefetch approved shift hours per student — gives Keith placement hours progress
-    if (Object.keys(liveData.shiftLogProgress).length === 0 && cohortId) {
-      await queryClient.prefetchQuery({
-        queryKey: ['shift_log_progress', cohortId],
-        queryFn: async () => {
-          const { data } = await supabase
-            .from('student_shift_logs')
-            .select('student_id, total_hours, status')
-            .eq('cohort_id', cohortId)
-            .in('status', ['Auto-Accepted', 'Approved']);
-          const map = {};
-          (data || []).forEach(log => {
-            if (!map[log.student_id]) map[log.student_id] = 0;
-            map[log.student_id] += parseFloat(log.total_hours) || 0;
-          });
-          return map;
-        },
-      });
-      liveData.shiftLogProgress = queryClient.getQueryData(['shift_log_progress', cohortId]) || {};
-    }
-
-    // Prefetch matches with joins if not cached — provides match_quality per placed student
-    if (liveData.matches.length === 0 && cohortId) {
-      await queryClient.prefetchQuery({
-        queryKey: ['embed_matches', cohortId],
-        queryFn: async () => {
-          const { data } = await supabase
-            .from('matches')
-            .select('*, student:students(id, cohort_id), unit:units(id, unit_name, division)')
-            .eq('cohort_id', cohortId);
-          return data || [];
-        },
-      });
-      liveData.matches = queryClient.getQueryData(['embed_matches', cohortId]) || [];
-    }
+    const abortController = new AbortController();
+    const clientTimeoutId = setTimeout(() => abortController.abort(), KEITH_CLIENT_TIMEOUT_MS);
 
     try {
-      const response = await fetch('/api/keith', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: conversationHistory,
-          liveData,
-          cohortName,
-          userProfile: userProfile ? {
-            full_name: userProfile.full_name,
-            email:     userProfile.email,
-            role:      userProfile.role,
-            is_owner:  userProfile.is_owner,
-          } : null,
-        }),
-      });
+      try {
+        const response = await fetch('/api/keith', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: conversationHistory,
+            liveData,
+            cohortName,
+            userProfile: userProfile ? {
+              full_name: userProfile.full_name,
+              email:     userProfile.email,
+              role:      userProfile.role,
+              is_owner:  userProfile.is_owner,
+            } : null,
+          }),
+          signal: abortController.signal,
+        });
+        clearTimeout(clientTimeoutId);
 
-      const data = await response.json().catch(() => ({}));
+        const data = await response.json().catch(() => ({}));
 
-      if (response.ok) {
+        if (response.ok) {
+          setMessages(prev => [...prev, {
+            id: Date.now() + 1, role: 'keith',
+            text: data.response, isAI: true,
+            hasCopy: data.response?.includes('Subject:'),
+            tool_calls: data.tool_calls || [],
+          }]);
+          return;
+        }
+
+        // Transient error (overloaded, rate limit, etc.) — show friendly message + retry
+        if (data.transient) {
+          setMessages(prev => [...prev, {
+            id: Date.now() + 1, role: 'keith',
+            text: data.response || "Keith is briefly unavailable. Try again in a moment.",
+            isAI: false, canRetry: true, retryText: text,
+          }]);
+          return;
+        }
+
+        // Non-transient error — log details but show a clean message
+        console.error('Keith API error:', response.status, data);
         setMessages(prev => [...prev, {
           id: Date.now() + 1, role: 'keith',
-          text: data.response, isAI: true,
-          hasCopy: data.response?.includes('Subject:'),
-          tool_calls: data.tool_calls || [],
+          text: `Something went wrong (${response.status}). ${data.error || 'Unknown error'}.`,
+          isAI: false,
         }]);
-        setIsTyping(false);
-        return;
+      } catch (fetchErr) {
+        clearTimeout(clientTimeoutId);
+        if (fetchErr.name === 'AbortError' || fetchErr instanceof TypeError) {
+          setMessages(prev => [...prev, {
+            id: Date.now() + 1, role: 'keith',
+            text: 'Keith could not complete that request. Please try again.',
+            isAI: false, canRetry: true, retryText: text,
+          }]);
+          return;
+        }
+        throw fetchErr;
       }
-
-      // Transient error (overloaded, rate limit, etc.) — show friendly message + retry
-      if (data.transient) {
-        setMessages(prev => [...prev, {
-          id: Date.now() + 1, role: 'keith',
-          text: data.response || "Keith is briefly unavailable. Try again in a moment.",
-          isAI: false, canRetry: true, retryText: text,
-        }]);
-        setIsTyping(false);
-        return;
-      }
-
-      // Non-transient error — log details but show a clean message
-      console.error('Keith API error:', response.status, data);
-      setMessages(prev => [...prev, {
-        id: Date.now() + 1, role: 'keith',
-        text: `Something went wrong (${response.status}). ${data.error || 'Unknown error'}.`,
-        isAI: false,
-      }]);
-      setIsTyping(false);
-      return;
     } catch (err) {
       console.warn('Keith API call failed:', err.message);
-      // Continue to static fallback below
+      // Fallback to Phase 2 static responses if API unavailable
+      await new Promise(resolve => setTimeout(resolve, 600));
+      const staticResponse = generateStaticResponse(text, cohortName, null);
+      setMessages(prev => [...prev, {
+        id: Date.now() + 1, role: 'keith',
+        ...staticResponse, isAI: false,
+      }]);
+    } finally {
+      setIsTyping(false);
     }
-
-    // Fallback to Phase 2 static responses if API unavailable
-    await new Promise(resolve => setTimeout(resolve, 600));
-    const staticResponse = generateStaticResponse(text, cohortName, null);
-    const keithMessage = {
-      id: Date.now() + 1,
-      role: 'keith',
-      ...staticResponse,
-      isAI: false,
-    };
-    setMessages(prev => [...prev, keithMessage]);
-    setIsTyping(false);
   };
 
   const handleAction = (action) => {
@@ -431,6 +445,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                   {SUGGESTED_PROMPTS.map((prompt, i) => (
                     <button
                       key={i}
+                      disabled={isTyping}
                       onClick={() => handleSend(prompt.label)}
                       style={{
                         background: '#f9fafb',
@@ -440,9 +455,11 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                         fontFamily: 'DM Sans',
                         fontSize: '12px',
                         color: '#374151',
-                        cursor: 'pointer',
+                        cursor: isTyping ? 'default' : 'pointer',
+                        opacity: isTyping ? 0.45 : 1,
                         transition: 'all 0.15s ease',
                         whiteSpace: 'nowrap',
+                        pointerEvents: isTyping ? 'none' : 'auto',
                       }}
                       onMouseEnter={e => {
                         e.currentTarget.style.background = '#eff6ff';
@@ -635,13 +652,13 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
               />
               <button
                 onClick={() => handleSend()}
-                disabled={!input.trim()}
+                disabled={!input.trim() || isTyping}
                 style={{
-                  background: input.trim() ? '#1d2567' : '#e5e7eb',
+                  background: (input.trim() && !isTyping) ? '#1d2567' : '#e5e7eb',
                   border: 'none',
                   borderRadius: '50%',
                   width: '36px', height: '36px',
-                  cursor: input.trim() ? 'pointer' : 'default',
+                  cursor: (input.trim() && !isTyping) ? 'pointer' : 'default',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   flexShrink: 0,
                   transition: 'background 0.15s ease',
