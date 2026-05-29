@@ -63,8 +63,12 @@ function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify, onAssi
             {student.first_name} {student.last_name}
           </span>
           {student.shift_assigned && (
-            <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 12, color: '#9ca3af', whiteSpace: 'nowrap' }}>
-              {student.shift_assigned}
+            <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 11, fontWeight: 500, color: '#9CA3AF', border: '1px solid #E5E7EB', borderRadius: 4, padding: '1px 5px', whiteSpace: 'nowrap' }}>
+              {student.shift_assigned === 'Day'       ? '☀ Day'
+              : student.shift_assigned === 'Night'    ? '☾ Night'
+              : student.shift_assigned === 'Mid'      ? '◐ Mid'
+              : student.shift_assigned === 'Variable' ? '☀ / ☾ Variable'
+              : student.shift_assigned}
             </span>
           )}
           <span style={{ fontFamily: 'DM Sans,sans-serif', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 20, background: qCfg.bg, color: qCfg.color, border: `1px solid ${qCfg.border}`, whiteSpace: 'nowrap' }}>
@@ -323,6 +327,15 @@ export default function EmbedUnitCard({
                 {division}
               </span>
             )}
+            {(() => {
+              const sp = unit.shift_preference
+              const s = { fontSize: 10, fontWeight: 500, color: '#475467', border: '1px solid #E5E5E5', borderRadius: 6, padding: '2px 7px', background: '#fafafa', whiteSpace: 'nowrap' }
+              if (!sp || !sp.trim())           return <span style={s}>Shift not specified</span>
+              if (sp === 'Day Shift')          return <span style={s}>☀ Day</span>
+              if (sp === 'Night Shift')        return <span style={s}>☾ Night</span>
+              if (sp === 'Either / No Preference') return <><span style={s}>☀ Day</span><span style={s}>☾ Night</span></>
+              return <span style={s}>Verify shift</span>
+            })()}
             {isFocusedUnit && (
               <span style={{ fontSize: 10, fontWeight: 600, color: '#1D2567', border: '1px solid #c7d2fe', borderRadius: 6, padding: '2px 7px', background: '#e0e7ff', whiteSpace: 'nowrap' }}>
                 Filtering

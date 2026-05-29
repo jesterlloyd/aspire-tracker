@@ -37,6 +37,9 @@ import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 const ORDINAL_COLOR = { 1: '#059669', 2: '#B5895A', 3: '#7C8FD9' }
 const ORDINAL_LABEL = { 1: '1st', 2: '2nd', 3: '3rd' }
 
+const KNOWN_UNIT_SHIFTS   = ['Day Shift', 'Night Shift', 'Either / No Preference']
+const KNOWN_STUDENT_PREFS = ['Day Shift Preferred', 'Night Shift Preferred', 'No Preference']
+
 const TIER_BADGE = {
   1: { bg: '#059669', label: '1st Choice' },
   2: { bg: '#B5895A', label: '2nd Choice' },
@@ -146,22 +149,60 @@ export default function StudentMatchingCard({
         position:     'relative',
       }}
     >
-      {/* ── Tier header chip — shown above identity when a unit filter is active ── */}
-      {focusedUnit && choiceTier != null && (() => {
+      {/* ── Tier header chip + shift compatibility cue — shown when a unit filter is active ── */}
+      {focusedUnit && (() => {
         const chipStyle = choiceTier === 1
           ? { bg:'#D1FAE5', color:'#065F46' }
           : choiceTier === 2
           ? { bg:'#FCEFD4', color:'#7C5A1F' }
-          : { bg:'#E0E7FF', color:'#3730A3' }
+          : choiceTier === 3
+          ? { bg:'#E0E7FF', color:'#3730A3' }
+          : null
+        const unitShift    = focusedUnit.shift_preference
+        const studentShift = student.shift_availability
+        let cueLabel, cueStyle
+        if (!unitShift || !unitShift.trim() || !studentShift || !studentShift.trim()) {
+          cueLabel = 'Confirm shift'
+          cueStyle = { background: '#FAFAFA', color: '#6B7280', border: '1px dashed #D1D5DB' }
+        } else if (!KNOWN_UNIT_SHIFTS.includes(unitShift) || !KNOWN_STUDENT_PREFS.includes(studentShift)) {
+          cueLabel = 'Confirm shift'
+          cueStyle = { background: '#FAFAFA', color: '#6B7280', border: '1px dashed #D1D5DB' }
+        } else if (unitShift === 'Either / No Preference') {
+          cueLabel = '☀ / ☾ Flexible'
+          cueStyle = { background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB' }
+        } else if (studentShift === 'No Preference') {
+          cueLabel = '☀ / ☾ Flexible'
+          cueStyle = { background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB' }
+        } else if (
+          (unitShift === 'Day Shift' && studentShift === 'Day Shift Preferred') ||
+          (unitShift === 'Night Shift' && studentShift === 'Night Shift Preferred')
+        ) {
+          cueLabel = '✓ Shift match'
+          cueStyle = { background: '#F0FDF4', color: '#166534', border: '1px solid #BBF7D0' }
+        } else {
+          cueLabel = '⚠ Shift mismatch'
+          cueStyle = { background: '#FFFBEB', color: '#92400E', border: '1px solid #FDE68A' }
+        }
         return (
-          <div style={{
-            marginBottom: 8,
-            display: 'inline-flex', alignItems: 'center', gap: 4,
-            fontSize: 10, fontWeight: 700, fontFamily: F,
-            padding: '3px 9px', borderRadius: 20,
-            background: chipStyle.bg, color: chipStyle.color,
-          }}>
-            {TIER_BADGE[choiceTier].label} for {focusedUnit.unit_name}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+            {chipStyle && (
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontSize: 10, fontWeight: 700, fontFamily: F,
+                padding: '3px 9px', borderRadius: 20,
+                background: chipStyle.bg, color: chipStyle.color,
+              }}>
+                {TIER_BADGE[choiceTier].label} for {focusedUnit.unit_name}
+              </div>
+            )}
+            <div style={{
+              display: 'inline-flex', alignItems: 'center',
+              fontSize: 10, fontWeight: 500, fontFamily: F,
+              padding: '2px 8px', borderRadius: 20,
+              background: cueStyle.background, color: cueStyle.color, border: cueStyle.border,
+            }}>
+              {cueLabel}
+            </div>
           </div>
         )
       })()}
@@ -240,6 +281,16 @@ export default function StudentMatchingCard({
           </span>
         )}
       </div>
+
+      {(() => {
+        const sa = student.shift_availability
+        const s = { display: 'inline-flex', alignItems: 'center', fontSize: 10, fontWeight: 500, color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: 20, padding: '2px 8px', background: '#F9FAFB', whiteSpace: 'nowrap', fontFamily: F }
+        if (!sa || !sa.trim())              return <span style={s}>Pref: Not specified</span>
+        if (sa === 'Day Shift Preferred')   return <span style={s}>Pref: ☀ Day</span>
+        if (sa === 'Night Shift Preferred') return <span style={s}>Pref: ☾ Night</span>
+        if (sa === 'No Preference')         return <span style={s}>Pref: ☀ / ☾ Flexible</span>
+        return <span style={s}>Pref: Verify</span>
+      })()}
 
       {/* ── Preference rows ─────────────────────────────────────────────── */}
       {prefs.length > 0 && (
