@@ -1,7 +1,6 @@
 // All external navigation must use openLink helpers (src/lib/openLink.js)
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { safeWrite } from '../lib/safeWrite'
 import { SHIFT_LOG_STATUSES } from '../lib/shiftLogValidation'
 import { logEvent, eventExists } from '../lib/logEvent'
 import { updateStudent as proxyUpdateStudent } from '../lib/studentProxy'
@@ -174,8 +173,8 @@ export default function ShiftLogPage() {
       const reviewReason = flags.length > 0 ? flags.join('; ') : null
       const now = new Date().toISOString()
 
-      await safeWrite(
-        () => supabase.from('student_shift_logs').insert({
+      const { error: insertError } = await withTimeout(
+        supabase.from('student_shift_logs').insert({
           student_id:             student.id,
           cohort_id:              cohortId,
           school_email:           student.school_email,
@@ -194,9 +193,9 @@ export default function ShiftLogPage() {
           exception_flags:        flags,
           review_reason:          reviewReason,
           submitted_at:           now,
-        }),
-        { name: 'submit shift log' }
+        })
       )
+      if (insertError) throw insertError
 
       // Update student hours
       const currentApproved = parseFloat(student.approved_hours||0)
@@ -218,12 +217,18 @@ export default function ShiftLogPage() {
         const isFirstShift = existingShifts && existingShifts.length === 1
         const alreadyRotStart = await eventExists(supabase, student.id, 'rotation_start')
         if (isFirstShift && !alreadyRotStart) {
-          await logEvent(supabase, {
-            studentId: student.id, cohortId,
-            eventType: 'rotation_start',
-            notes: `First shift logged: ${isDiffUnit ? diffUnitName.trim() : unitName}`,
-            auto: true,
-          })
+          const { error: rotStartErr } = await withTimeout(
+            supabase.from('program_events').insert({
+              student_id:  student.id,
+              cohort_id:   cohortId,
+              event_type:  'rotation_start',
+              event_date:  fmtLocalDate(new Date()),
+              event_time:  null,
+              notes:       `[Auto-logged] First shift logged: ${isDiffUnit ? diffUnitName.trim() : unitName}`.trim(),
+              created_by:  'system',
+            })
+          )
+          if (rotStartErr) console.error('rotation_start log failed:', rotStartErr.message)
           // Auto-promote status: first approved shift IS the operational signal that
           // active rotation has begun. Keeps the KPI count in sync with On Campus Today.
           if (student.status === 'Placed') {
@@ -242,12 +247,18 @@ export default function ShiftLogPage() {
         const hoursNowMet = hoursReq > 0 && newApprovedVal >= hoursReq
         const alreadyRotEnd = await eventExists(supabase, student.id, 'rotation_end')
         if (hoursNowMet && !alreadyRotEnd) {
-          await logEvent(supabase, {
-            studentId: student.id, cohortId,
-            eventType: 'rotation_end',
-            notes: `Required hours met: ${newApprovedVal}/${hoursReq} hrs`,
-            auto: true,
-          })
+          const { error: rotEndErr } = await withTimeout(
+            supabase.from('program_events').insert({
+              student_id:  student.id,
+              cohort_id:   cohortId,
+              event_type:  'rotation_end',
+              event_date:  fmtLocalDate(new Date()),
+              event_time:  null,
+              notes:       `[Auto-logged] Required hours met: ${newApprovedVal}/${hoursReq} hrs`.trim(),
+              created_by:  'system',
+            })
+          )
+          if (rotEndErr) console.error('rotation_end log failed:', rotEndErr.message)
         }
       } else {
         newPendingVal = currentPending + hours
