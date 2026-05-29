@@ -40,13 +40,15 @@ export default async function handler(req, res) {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    let body = req.body;
+    let body;
+    try {
+      const raw = req.body;
+      body = (raw && typeof raw === 'object') ? raw : JSON.parse(raw);
+    } catch {
+      return res.status(400).json({ error: 'Invalid request body' });
+    }
     if (!body || typeof body !== 'object') {
-      try {
-        body = JSON.parse(req.body);
-      } catch {
-        return res.status(400).json({ error: 'Invalid request body' });
-      }
+      return res.status(400).json({ error: 'Invalid request body' });
     }
 
     const { token, responses } = body;
