@@ -18,6 +18,7 @@ import ManageCohortModal from './components/ManageCohortModal'
 import { useAuth } from './contexts/AuthContext'
 import LoginNew from './pages/Login'
 import DevDispositionModal from './pages/DevDispositionModal'
+import EvaluationPage from './pages/EvaluationPage'
 import UserMenu from './components/UserMenu'
 import UserManagement from './components/UserManagement'
 import UnitFormPage from './components/UnitFormPage'
@@ -1180,6 +1181,7 @@ export default function App() {
       <Route path="/student-form/*"       element={<div data-theme-lock="light"><StudentIntakeFormPage /></div>} />
       <Route path="/interview-schedule/*" element={<div data-theme-lock="light"><InterviewSchedulePage /></div>} />
       <Route path="/shift-log/*"          element={<div data-theme-lock="light"><ShiftLogPage /></div>} />
+      <Route path="/evaluation/readiness/*" element={<div data-theme-lock="light"><EvaluationPage /></div>} />
       {/* Legacy URL redirects */}
       <Route path="/interview-room"        element={<Navigate to="/interviews" replace />} />
       <Route path="/embed"                 element={<Navigate to="/rotation/matrix" replace />} />
