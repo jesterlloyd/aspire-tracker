@@ -145,6 +145,21 @@ const EVAL_CSS = `
     }
     .eval-input, .eval-select { max-width: 100%; }
   }
+
+  /* Branded survey header — renders across all page states */
+  .eval-branded-header {
+    background: #ffffff;
+    border-bottom: 1px solid #e8e4dc;
+  }
+  .eval-branded-header-inner {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 24px 20px 20px;
+    font-family: 'DM Sans', system-ui, sans-serif;
+  }
+  @media (max-width: 768px) {
+    .eval-branded-header-inner h1 { font-size: 18px; }
+  }
 `
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -233,18 +248,6 @@ function DemographicQuestion({ code, question, value, onChange }) {
   )
 }
 
-// Simple full-page status view (loading, error states, thank-you, etc.)
-function StatusView({ message }) {
-  return (
-    <div className="eval-page">
-      <div className="eval-container">
-        <p style={{ fontSize: 16, color: '#4b5563', textAlign: 'center', marginTop: 80 }}>
-          {message}
-        </p>
-      </div>
-    </div>
-  )
-}
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -364,23 +367,14 @@ export default function EvaluationPage() {
     }
   }, [rawToken, responses, submitting])
 
-  // ── View routing ────────────────────────────────────────────────────────────
-
-  if (view === 'loading')     return <StatusView message="Loading…" />
-  if (view === 'completed')   return <StatusView message="Thank you. Your response has already been recorded." />
-  if (view === 'thank_you')   return <StatusView message="Thank you. Your response has been recorded." />
-  if (view === 'invalid')     return <StatusView message={errorMessage || 'This survey link is no longer valid.'} />
-  if (view === 'unsupported') return <StatusView message="This survey link is not supported by the current application version." />
-  if (view === 'rate_limited')return <StatusView message="Too many requests. Please try again in a minute." />
-  if (view === 'rejected')    return <StatusView message="Please review your responses and try again." />
-  if (view === 'error')       return <StatusView message="Something went wrong. Please try again later." />
-
-  // ── Form view ───────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
+  // Branded header is rendered across ALL page states.
+  // Destructure surveyData with defaults so code-paths are null-safe when not in form view.
 
   const {
-    firstName, instrumentDisplayName, timepointLabel,
-    requiredItemCodes, optionalItemCodes, content,
-  } = surveyData
+    firstName = null, instrumentDisplayName = null, timepointLabel = null,
+    requiredItemCodes = [], optionalItemCodes = [], content = null,
+  } = surveyData || {}
 
   const s1Codes = requiredItemCodes.filter(c => c.startsWith('S1_'))
   const s2Codes = requiredItemCodes.filter(c => c.startsWith('S2_'))
@@ -389,6 +383,52 @@ export default function EvaluationPage() {
 
   return (
     <div className="eval-page">
+
+      {/* Branded header — always visible regardless of page state */}
+      <header className="eval-branded-header">
+        <div className="eval-branded-header-inner">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+            <img
+              src="/cs-logo-large.png"
+              alt="Cedars-Sinai"
+              style={{ height: 40, width: 'auto', display: 'block' }}
+            />
+            <span style={{ fontSize: 12, color: '#6b7280', fontFamily: 'DM Sans, system-ui, sans-serif' }}>
+              Brawerman Nursing Institute
+            </span>
+          </div>
+          <h1 style={{
+            fontSize: 22, fontWeight: 700, color: '#191919',
+            margin: '0 0 6px', fontFamily: 'DM Sans, system-ui, sans-serif', lineHeight: 1.3,
+          }}>
+            ASPIRE Program Pre-Rotation Readiness Survey
+          </h1>
+          <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontFamily: 'DM Sans, system-ui, sans-serif' }}>
+            Instrument: Casey-Fink Readiness for Practice Survey, 2024
+          </p>
+        </div>
+      </header>
+
+      {/* Non-form state messages — same text as existing state screens */}
+      {view !== 'form' && (
+        <div className="eval-container">
+          <p style={{ fontSize: 16, color: '#4b5563', textAlign: 'center', marginTop: 80 }}>
+            {view === 'loading'       ? 'Loading…'
+            : view === 'completed'   ? 'Thank you. Your response has already been recorded.'
+            : view === 'thank_you'   ? 'Thank you. Your response has been recorded.'
+            : view === 'invalid'     ? (errorMessage || 'This survey link is no longer valid.')
+            : view === 'unsupported' ? 'This survey link is not supported by the current application version.'
+            : view === 'rate_limited'? 'Too many requests. Please try again in a minute.'
+            : view === 'rejected'    ? 'Please review your responses and try again.'
+            :                          'Something went wrong. Please try again later.'
+            }
+          </p>
+        </div>
+      )}
+
+      {/* Form view — rendered only when view === 'form' and surveyData is loaded */}
+      {view === 'form' && surveyData && (
+      <>
 
       {/* Sticky progress bar — spans full viewport width */}
       <div className="eval-progress-bar" role="status" aria-live="polite" aria-label="Survey progress">
@@ -507,6 +547,9 @@ export default function EvaluationPage() {
 
         </form>
       </div>
+
+      </>
+      )}
     </div>
   )
 }
