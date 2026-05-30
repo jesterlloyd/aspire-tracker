@@ -25,13 +25,29 @@ const STATUS_CONFIG = {
   draft:        { bg: '#f9fafb',         text: '#9ca3af', border: '#e5e7eb', label: 'Draft'        },
 }
 
-// Statuses shown in the summary strip and filter chips
-const MAIN_STATUSES = ['sent', 'opened', 'completed', 'expired', 'revoked']
+// ── KPI card definitions — resting tints align with status badge palette ──────
+// Matches Phase 4 design-token tint system from designTokens.js (ACCENT_PALETTE in KPIBand.jsx)
+const KPI_CARD_DEFS = [
+  { key: 'total',     label: 'TOTAL ASSIGNED', sub: 'All assignments',    restBg: '#EDEEF4', restNum: '#1D2567' },
+  { key: 'sent',      label: 'SENT',           sub: 'Awaiting response',  restBg: '#F4F3F1', restNum: '#4A5560' },
+  { key: 'opened',    label: 'OPENED',         sub: 'In progress',        restBg: '#EDF5F4', restNum: '#275E63' },
+  { key: 'completed', label: 'COMPLETED',      sub: 'Response submitted', restBg: '#EEF7F0', restNum: '#2F7D5C' },
+  { key: 'expired',   label: 'EXPIRED',        sub: 'Window closed',      restBg: '#FBF5E8', restNum: '#8B5E1A' },
+  { key: 'revoked',   label: 'REVOKED',        sub: 'Recalled by owner',  restBg: '#F3F4F6', restNum: '#4A5560' },
+]
+
+// Shadow tokens matching KPIBand.jsx / designTokens.js shadows export
+const SH = {
+  s1: '0 1px 0 rgba(29,37,103,0.04), 0 1px 2px rgba(29,37,103,0.04)',
+  s2: '0 1px 0 rgba(29,37,103,0.04), 0 4px 12px rgba(29,37,103,0.05)',
+  s3: '0 1px 0 rgba(29,37,103,0.04), 0 8px 24px rgba(29,37,103,0.08)',
+}
+const HALO = '0 0 0 4px rgba(29,37,103,0.06)'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // Render-time effective status projection — does NOT mutate stored data.
-// Applied consistently: badge rendering, KPI counts, summary strip, filter chips.
+// Applied consistently: badge rendering, KPI counts, and table filter.
 function effectiveStatus(assignment) {
   if (
     (assignment.status === 'sent' || assignment.status === 'opened') &&
@@ -65,6 +81,100 @@ function extractResponse(assignment) {
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
+
+// Interactive KPI filter card — visual pattern mirrors FilterKPICard from KPIBand.jsx.
+// Resting tint is per-card; active fill is always dark navy (#1D2567) across all six
+// interactive cards (single-select toggle, evaluation-specific behaviour).
+function EvalKPICard({ value, label, sub, restBg, restNum, isActive, onClick }) {
+  const NAVY = '#1D2567'
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        background:   isActive ? NAVY : restBg,
+        border:       `1px solid ${isActive ? NAVY : 'rgba(29,37,103,0.06)'}`,
+        borderRadius: 14,
+        padding:      '14px 18px',
+        textAlign:    'left',
+        cursor:       'pointer',
+        fontFamily:   F,
+        boxShadow:    isActive ? SH.s2 : SH.s1,
+        transition:   'transform 0.18s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.18s ease, background 0.18s ease, border-color 0.15s ease',
+        willChange:   'transform, box-shadow',
+        display:      'flex', flexDirection: 'column', gap: 4,
+        width:        '100%',
+        minWidth:     0,
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = 'translateY(-2px)'
+        e.currentTarget.style.boxShadow = `${SH.s3}, ${HALO}`
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = 'translateY(0)'
+        e.currentTarget.style.boxShadow = isActive ? SH.s2 : SH.s1
+      }}
+      onMouseDown={e => { e.currentTarget.style.transform = 'translateY(0)' }}
+      onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-2px)' }}
+    >
+      <div style={{
+        fontSize: 32, fontWeight: 700, lineHeight: 1,
+        letterSpacing: '-0.025em',
+        color: isActive ? '#fff' : restNum,
+        fontVariantNumeric: 'tabular-nums', fontFamily: F,
+      }}>
+        {value ?? 0}
+      </div>
+      <div style={{
+        fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em',
+        color: isActive ? 'rgba(255,255,255,0.88)' : '#475467',
+        fontWeight: 600, marginTop: 8, fontFamily: F,
+      }}>
+        {label}
+      </div>
+      {sub && (
+        <div style={{
+          fontSize: 11.5,
+          color: isActive ? 'rgba(255,255,255,0.72)' : '#98A2B3',
+          marginTop: 2, fontFamily: F,
+        }}>
+          {sub}
+        </div>
+      )}
+    </button>
+  )
+}
+
+// Read-only informational card for Section I averages.
+// No onClick, no hover lift — absence of hover affordance is the informational cue.
+function EvalInfoCard({ label, sub, children }) {
+  return (
+    <div style={{
+      background:   '#F4F3F1',
+      border:       '1px solid rgba(29,37,103,0.06)',
+      borderRadius: 14,
+      padding:      '14px 18px',
+      cursor:       'default',
+      fontFamily:   F,
+      boxShadow:    SH.s1,
+      display:      'flex', flexDirection: 'column', gap: 4,
+      width:        '100%',
+      minWidth:     0,
+    }}>
+      {children}
+      <div style={{
+        fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em',
+        color: '#475467', fontWeight: 600, marginTop: 8, fontFamily: F,
+      }}>
+        {label}
+      </div>
+      {sub && (
+        <div style={{ fontSize: 11.5, color: '#98A2B3', marginTop: 2, fontFamily: F }}>
+          {sub}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function StatusBadge({ status }) {
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.draft
@@ -167,18 +277,18 @@ function ExpandedRow({ assignment: a, response }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function EvaluationTab({ cohortId }) {
-  const [activeSubTab, setActiveSubTab] = useState('cohort')
-  const [assignments,  setAssignments]  = useState([])
-  const [loading,      setLoading]      = useState(false)
-  const [error,        setError]        = useState(null)
-  const [expandedIds,  setExpandedIds]  = useState(new Set())
+  const [activeSubTab,    setActiveSubTab]    = useState('cohort')
+  const [assignments,     setAssignments]     = useState([])
+  const [loading,         setLoading]         = useState(false)
+  const [error,           setError]           = useState(null)
+  const [expandedIds,     setExpandedIds]     = useState(new Set())
 
   // Sort state — default: most recent sent_at first
   const [sortKey, setSortKey] = useState('sent_at')
   const [sortDir, setSortDir] = useState('desc')
 
-  // Filter state — all main statuses active by default
-  const [filterStatuses,   setFilterStatuses]   = useState(new Set(MAIN_STATUSES))
+  // Single-select KPI filter: null = Total (all), string = that effective status
+  const [activeKpiFilter,  setActiveKpiFilter]  = useState(null)
   const [filterInstrument, setFilterInstrument] = useState('All')
   const [filterTimepoint,  setFilterTimepoint]  = useState('All')
 
@@ -215,13 +325,7 @@ export default function EvaluationTab({ cohortId }) {
 
   useEffect(() => { fetchAssignments() }, [fetchAssignments])
 
-  // ── Derived values — all status-related logic uses effectiveStatus ─────────
-
-  // Summary strip counts — use effectiveStatus so past-due sent/opened show as expired
-  const statusCounts = MAIN_STATUSES.reduce((acc, s) => {
-    acc[s] = assignments.filter(a => effectiveStatus(a) === s).length
-    return acc
-  }, {})
+  // ── Derived values ────────────────────────────────────────────────────────
 
   // Distinct instrument and timepoint values for dropdowns
   const instruments = ['All', ...new Set(
@@ -231,12 +335,29 @@ export default function EvaluationTab({ cohortId }) {
     assignments.map(a => a.timepoint).filter(Boolean)
   )]
 
-  // Client-side filtering — filter chips target effectiveStatus
-  const filtered = assignments.filter(a => {
-    const es = effectiveStatus(a)
-    if (MAIN_STATUSES.includes(es) && !filterStatuses.has(es)) return false
+  // Instrument + timepoint filter only (no status filter) — basis for KPI card counts.
+  // Per A.4: card counts are independent of the status filter so the full distribution
+  // is always visible regardless of which card is active.
+  const instrumentTimeFiltered = assignments.filter(a => {
     if (filterInstrument !== 'All' && a.evaluation_instruments?.display_name !== filterInstrument) return false
-    if (filterTimepoint !== 'All' && a.timepoint !== filterTimepoint) return false
+    if (filterTimepoint  !== 'All' && a.timepoint !== filterTimepoint) return false
+    return true
+  })
+
+  // KPI card counts — use effectiveStatus, based on instrumentTimeFiltered
+  const kpiCounts = {
+    total:     instrumentTimeFiltered.length,
+    sent:      instrumentTimeFiltered.filter(a => effectiveStatus(a) === 'sent').length,
+    opened:    instrumentTimeFiltered.filter(a => effectiveStatus(a) === 'opened').length,
+    completed: instrumentTimeFiltered.filter(a => effectiveStatus(a) === 'completed').length,
+    expired:   instrumentTimeFiltered.filter(a => effectiveStatus(a) === 'expired').length,
+    revoked:   instrumentTimeFiltered.filter(a => effectiveStatus(a) === 'revoked').length,
+  }
+
+  // Full filtered set — adds active KPI status filter on top of instrument/timepoint.
+  // Used for the table and Section I averages.
+  const filtered = instrumentTimeFiltered.filter(a => {
+    if (activeKpiFilter !== null && effectiveStatus(a) !== activeKpiFilter) return false
     return true
   })
 
@@ -257,17 +378,11 @@ export default function EvaluationTab({ cohortId }) {
     return sortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1)
   })
 
-  // ── KPI computations — operate on filtered set ────────────────────────────
-
-  const completedRows  = filtered.filter(a => effectiveStatus(a) === 'completed')
-  const openedRows     = filtered.filter(a => effectiveStatus(a) === 'opened')
-  const completedCount = completedRows.length
-  const openedCount    = openedRows.length
-  const totalCount     = filtered.length
-  const completionPct  = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : null
-
-  // Section I averages — only completed rows with all three scores present
-  const scoredRows = completedRows.filter(a => {
+  // Section I averages — respect the active status filter AND instrument/timepoint
+  // filters (per A.5: averages span the filtered set). When filter is Sent/Opened/
+  // Expired/Revoked there are no completed rows → em-dashes.
+  const completedFiltered = filtered.filter(a => effectiveStatus(a) === 'completed')
+  const scoredRows = completedFiltered.filter(a => {
     const r = extractResponse(a)
     return r?.score_s1_clinical_problem_solving != null
       && r?.score_s1_learning_activities != null
@@ -285,6 +400,15 @@ export default function EvaluationTab({ cohortId }) {
 
   // ── Event handlers ────────────────────────────────────────────────────────
 
+  function handleKpiClick(key) {
+    if (key === 'total') {
+      setActiveKpiFilter(null)
+      return
+    }
+    // Toggle: clicking the active card deselects it (returns to Total)
+    setActiveKpiFilter(prev => prev === key ? null : key)
+  }
+
   function handleSort(key) {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortKey(key); setSortDir('asc') }
@@ -294,14 +418,6 @@ export default function EvaluationTab({ cohortId }) {
     setExpandedIds(prev => {
       const next = new Set(prev)
       next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-  }
-
-  function toggleStatusFilter(status) {
-    setFilterStatuses(prev => {
-      const next = new Set(prev)
-      next.has(status) ? next.delete(status) : next.add(status)
       return next
     })
   }
@@ -317,16 +433,6 @@ export default function EvaluationTab({ cohortId }) {
     color: activeSubTab === key ? '#fff' : 'var(--text-secondary,#4A5560)',
     transition: 'all 0.12s',
   })
-
-  const CARD = {
-    background: '#fff',
-    borderRadius: 12,
-    border: '1px solid rgba(29,37,103,0.08)',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-    padding: '20px 24px',
-    flex: '1 1 180px',
-    minWidth: 160,
-  }
 
   const sel = {
     fontSize: 12, padding: '5px 10px', borderRadius: 6,
@@ -406,120 +512,64 @@ export default function EvaluationTab({ cohortId }) {
           {/* KPI cards + content */}
           {!loading && !error && (
             <>
-              {/* KPI cards */}
-              <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+              {/* KPI card band — 7-column grid matching StudentProfilesTab pattern */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(7, 1fr)',
+                gap: 10,
+                marginBottom: 20,
+              }}>
+                {KPI_CARD_DEFS.map(card => (
+                  <EvalKPICard
+                    key={card.key}
+                    value={kpiCounts[card.key]}
+                    label={card.label}
+                    sub={card.sub}
+                    restBg={card.restBg}
+                    restNum={card.restNum}
+                    isActive={activeKpiFilter === (card.key === 'total' ? null : card.key)}
+                    onClick={() => handleKpiClick(card.key)}
+                  />
+                ))}
 
-                {/* Total Assigned */}
-                <div style={CARD}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>
-                    Total Assigned
-                  </div>
-                  <div style={{ fontSize: 30, fontWeight: 700, color: '#191919', fontFamily: F, lineHeight: 1 }}>
-                    {totalCount}
-                  </div>
-                </div>
-
-                {/* Completed */}
-                <div style={CARD}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>
-                    Completed
-                  </div>
-                  <div style={{ fontSize: 30, fontWeight: 700, color: '#166534', fontFamily: F, lineHeight: 1 }}>
-                    {completedCount}
-                  </div>
-                  {completionPct !== null && (
-                    <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 6, fontFamily: F }}>
-                      {completionPct}% completion rate
-                    </div>
-                  )}
-                </div>
-
-                {/* Opened */}
-                <div style={CARD}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>
-                    Opened
-                  </div>
-                  <div style={{ fontSize: 30, fontWeight: 700, color: '#1D2567', fontFamily: F, lineHeight: 1 }}>
-                    {openedCount}
-                  </div>
-                </div>
-
-                {/* Section I Averages */}
-                <div style={{ ...CARD, flex: '1 1 220px' }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>
-                    Section I Averages
-                  </div>
+                {/* Section I Averages — informational, non-interactive */}
+                <EvalInfoCard label="SECTION I AVERAGES" sub="From completed responses">
                   {scoredRows.length === 0 ? (
-                    <div style={{ fontSize: 22, fontWeight: 700, color: '#d1d5db', fontFamily: F }}>—</div>
+                    <div style={{
+                      fontSize: 32, fontWeight: 700, lineHeight: 1,
+                      letterSpacing: '-0.025em', color: '#D0D5DD', fontFamily: F,
+                    }}>
+                      —
+                    </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 2 }}>
                       {[['CPS', avgCPS], ['LA', avgLA], ['PR', avgPR]].map(([lbl, val]) => (
-                        <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', width: 28, flexShrink: 0, fontFamily: F }}>{lbl}</span>
-                          <span style={{ fontSize: 15, fontWeight: 700, color: '#191919', fontFamily: F, fontVariantNumeric: 'tabular-nums' }}>
+                        <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: '#98A2B3', width: 24, flexShrink: 0, fontFamily: F }}>
+                            {lbl}
+                          </span>
+                          <span style={{
+                            fontSize: 18, fontWeight: 700, color: '#0E1428',
+                            fontFamily: F, fontVariantNumeric: 'tabular-nums',
+                            letterSpacing: '-0.025em',
+                          }}>
                             {val != null ? val.toFixed(2) : '—'}
                           </span>
                         </div>
                       ))}
                     </div>
                   )}
-                </div>
+                </EvalInfoCard>
               </div>
 
-              {/* Status summary strip — counts use effectiveStatus */}
-              {assignments.length > 0 && (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
-                  {MAIN_STATUSES.map(s => {
-                    const n = statusCounts[s]
-                    if (!n) return null
-                    const cfg = STATUS_CONFIG[s]
-                    return (
-                      <span key={s} style={{
-                        fontSize: 12, fontWeight: 600,
-                        background: cfg.bg, color: cfg.text, border: `1px solid ${cfg.border}`,
-                        padding: '4px 10px', borderRadius: 12, fontFamily: F,
-                      }}>
-                        {cfg.label} {n}
-                      </span>
-                    )
-                  })}
-                </div>
-              )}
-
-              {/* Filter strip */}
+              {/* Filter strip — instrument and timepoint dropdowns only */}
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 20 }}>
-                {/* Status filter chips — target effectiveStatus */}
-                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                  {MAIN_STATUSES.map(s => {
-                    const active = filterStatuses.has(s)
-                    const cfg = STATUS_CONFIG[s]
-                    return (
-                      <button key={s}
-                        onClick={() => toggleStatusFilter(s)}
-                        style={{
-                          fontSize: 11, fontWeight: 600,
-                          padding: '4px 10px', borderRadius: 10,
-                          cursor: 'pointer', fontFamily: F,
-                          background: active ? cfg.bg   : '#f9fafb',
-                          color:      active ? cfg.text : '#9ca3af',
-                          border:     `1px solid ${active ? cfg.border : '#e5e7eb'}`,
-                          transition: 'all 0.1s',
-                        }}
-                      >
-                        {cfg.label}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {/* Instrument dropdown */}
                 <select value={filterInstrument} onChange={e => setFilterInstrument(e.target.value)} style={sel}>
                   {instruments.map(i => (
                     <option key={i} value={i}>{i === 'All' ? 'All instruments' : i}</option>
                   ))}
                 </select>
 
-                {/* Timepoint dropdown */}
                 <select value={filterTimepoint} onChange={e => setFilterTimepoint(e.target.value)} style={sel}>
                   {timepoints.map(t => (
                     <option key={t} value={t}>{t === 'All' ? 'All timepoints' : (TIMEPOINT_LABELS[t] || t)}</option>
