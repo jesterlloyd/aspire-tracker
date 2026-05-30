@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { ChevronRight, ChevronDown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { CS_COLORS } from '../lib/brand'
+import { useLastSynced } from '../hooks/useLastSynced'
 
 const F = 'DM Sans, sans-serif'
 
@@ -25,15 +26,19 @@ const STATUS_CONFIG = {
   draft:        { bg: '#f9fafb',         text: '#9ca3af', border: '#e5e7eb', label: 'Draft'        },
 }
 
-// ── KPI card definitions — resting tints align with status badge palette ──────
-// Matches Phase 4 design-token tint system from designTokens.js (ACCENT_PALETTE in KPIBand.jsx)
+// ── KPI card definitions ──────────────────────────────────────────────────────
+// restBg: pastel tint (Phase 4 ACCENT_PALETTE tints from designTokens.js / KPIBand.jsx)
+// restNum: per-category dark color for resting-state number
+// activeBg: solid category color — mirrors per-accent p.solid in FilterKPICard (KPIBand.jsx)
+//   nightfall #1D2567 = colors.ink2, marina #275E63, sage #2F7D5C, dawn solid #8B5E1A (deepened),
+//   hickory #583733 = CS_COLORS.hickory (revoked), #4A5560 for neutral sent
 const KPI_CARD_DEFS = [
-  { key: 'total',     label: 'TOTAL ASSIGNED', sub: 'All assignments',    restBg: '#EDEEF4', restNum: '#1D2567' },
-  { key: 'sent',      label: 'SENT',           sub: 'Awaiting response',  restBg: '#F4F3F1', restNum: '#4A5560' },
-  { key: 'opened',    label: 'OPENED',         sub: 'In progress',        restBg: '#EDF5F4', restNum: '#275E63' },
-  { key: 'completed', label: 'COMPLETED',      sub: 'Response submitted', restBg: '#EEF7F0', restNum: '#2F7D5C' },
-  { key: 'expired',   label: 'EXPIRED',        sub: 'Window closed',      restBg: '#FBF5E8', restNum: '#8B5E1A' },
-  { key: 'revoked',   label: 'REVOKED',        sub: 'Recalled by owner',  restBg: '#F3F4F6', restNum: '#4A5560' },
+  { key: 'total',     label: 'TOTAL ASSIGNED', sub: 'All assignments',    restBg: '#EDEEF4', restNum: '#1D2567', activeBg: '#1D2567' },
+  { key: 'sent',      label: 'SENT',           sub: 'Awaiting response',  restBg: '#F4F3F1', restNum: '#4A5560', activeBg: '#4A5560' },
+  { key: 'opened',    label: 'OPENED',         sub: 'In progress',        restBg: '#EDF5F4', restNum: '#275E63', activeBg: '#275E63' },
+  { key: 'completed', label: 'COMPLETED',      sub: 'Response submitted', restBg: '#EEF7F0', restNum: '#2F7D5C', activeBg: '#2F7D5C' },
+  { key: 'expired',   label: 'EXPIRED',        sub: 'Window closed',      restBg: '#FBF5E8', restNum: '#8B5E1A', activeBg: '#8B5E1A' },
+  { key: 'revoked',   label: 'REVOKED',        sub: 'Recalled by owner',  restBg: '#F3F4F6', restNum: '#4A5560', activeBg: '#583733' },
 ]
 
 // Shadow tokens matching KPIBand.jsx / designTokens.js shadows export
@@ -83,16 +88,15 @@ function extractResponse(assignment) {
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 // Interactive KPI filter card — visual pattern mirrors FilterKPICard from KPIBand.jsx.
-// Resting tint is per-card; active fill is always dark navy (#1D2567) across all six
-// interactive cards (single-select toggle, evaluation-specific behaviour).
-function EvalKPICard({ value, label, sub, restBg, restNum, isActive, onClick }) {
-  const NAVY = '#1D2567'
+// Each card uses its own solid category color (activeBg) as the active fill, matching
+// the per-accent p.solid treatment in Student Profiles.
+function EvalKPICard({ value, label, sub, restBg, restNum, activeBg, isActive, onClick }) {
   return (
     <button
       onClick={onClick}
       style={{
-        background:   isActive ? NAVY : restBg,
-        border:       `1px solid ${isActive ? NAVY : 'rgba(29,37,103,0.06)'}`,
+        background:   isActive ? activeBg : restBg,
+        border:       `1px solid ${isActive ? activeBg : 'rgba(29,37,103,0.06)'}`,
         borderRadius: 14,
         padding:      '14px 18px',
         textAlign:    'left',
@@ -110,8 +114,8 @@ function EvalKPICard({ value, label, sub, restBg, restNum, isActive, onClick }) 
         e.currentTarget.style.boxShadow = `${SH.s3}, ${HALO}`
       }}
       onMouseLeave={e => {
-        e.currentTarget.style.transform = 'translateY(0)'
-        e.currentTarget.style.boxShadow = isActive ? SH.s2 : SH.s1
+        e.currentTarget.style.transform   = 'translateY(0)'
+        e.currentTarget.style.boxShadow   = isActive ? SH.s2 : SH.s1
       }}
       onMouseDown={e => { e.currentTarget.style.transform = 'translateY(0)' }}
       onMouseUp={e => { e.currentTarget.style.transform = 'translateY(-2px)' }}
@@ -119,14 +123,14 @@ function EvalKPICard({ value, label, sub, restBg, restNum, isActive, onClick }) 
       <div style={{
         fontSize: 32, fontWeight: 700, lineHeight: 1,
         letterSpacing: '-0.025em',
-        color: isActive ? '#fff' : restNum,
+        color:              isActive ? '#fff' : restNum,
         fontVariantNumeric: 'tabular-nums', fontFamily: F,
       }}>
         {value ?? 0}
       </div>
       <div style={{
         fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em',
-        color: isActive ? 'rgba(255,255,255,0.88)' : '#475467',
+        color:      isActive ? 'rgba(255,255,255,0.88)' : '#475467',
         fontWeight: 600, marginTop: 8, fontFamily: F,
       }}>
         {label}
@@ -134,7 +138,7 @@ function EvalKPICard({ value, label, sub, restBg, restNum, isActive, onClick }) 
       {sub && (
         <div style={{
           fontSize: 11.5,
-          color: isActive ? 'rgba(255,255,255,0.72)' : '#98A2B3',
+          color:    isActive ? 'rgba(255,255,255,0.72)' : '#98A2B3',
           marginTop: 2, fontFamily: F,
         }}>
           {sub}
@@ -277,6 +281,8 @@ function ExpandedRow({ assignment: a, response }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function EvaluationTab({ cohortId }) {
+  const { markSynced, display: syncDisplay } = useLastSynced()
+
   const [activeSubTab,    setActiveSubTab]    = useState('cohort')
   const [assignments,     setAssignments]     = useState([])
   const [loading,         setLoading]         = useState(false)
@@ -316,6 +322,7 @@ export default function EvaluationTab({ cohortId }) {
         .order('sent_at', { ascending: false })
       if (err) throw err
       setAssignments(data || [])
+      markSynced()
     } catch (e) {
       setError(e)
     } finally {
@@ -378,10 +385,10 @@ export default function EvaluationTab({ cohortId }) {
     return sortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1)
   })
 
-  // Section I averages — respect the active status filter AND instrument/timepoint
-  // filters (per A.5: averages span the filtered set). When filter is Sent/Opened/
-  // Expired/Revoked there are no completed rows → em-dashes.
-  const completedFiltered = filtered.filter(a => effectiveStatus(a) === 'completed')
+  // Section I averages — instrument and timepoint filters only; independent of the
+  // active status KPI card. Completed responses are always shown regardless of which
+  // status card the user has clicked.
+  const completedFiltered = instrumentTimeFiltered.filter(a => effectiveStatus(a) === 'completed')
   const scoredRows = completedFiltered.filter(a => {
     const r = extractResponse(a)
     return r?.score_s1_clinical_problem_solving != null
@@ -485,14 +492,21 @@ export default function EvaluationTab({ cohortId }) {
       {activeSubTab === 'cohort' && (
         <div style={{ padding: '4px 20px 24px', maxWidth: 1400 }}>
 
-          {/* Header */}
-          <div style={{ marginBottom: 24 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: '#191919', margin: '0 0 4px', fontFamily: F }}>
-              Evaluation Dashboard
-            </h2>
-            <p style={{ fontSize: 13, color: '#9ca3af', margin: 0, fontFamily: F }}>
-              Review evaluation assignments and submitted responses by cohort.
-            </p>
+          {/* Header — title, subtitle, and freshness cue right-aligned (mirrors OverviewTab) */}
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
+            <div>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: '#191919', margin: '0 0 4px', fontFamily: F }}>
+                Evaluation Dashboard
+              </h2>
+              <p style={{ fontSize: 13, color: '#9ca3af', margin: 0, fontFamily: F }}>
+                Review evaluation assignments and submitted responses by cohort.
+              </p>
+            </div>
+            {syncDisplay && (
+              <div style={{ fontSize: 11.5, color: '#98A2B3', whiteSpace: 'nowrap', fontFamily: F, flexShrink: 0, paddingBottom: 2 }}>
+                {syncDisplay}
+              </div>
+            )}
           </div>
 
           {/* Loading */}
@@ -527,12 +541,15 @@ export default function EvaluationTab({ cohortId }) {
                     sub={card.sub}
                     restBg={card.restBg}
                     restNum={card.restNum}
+                    activeBg={card.activeBg}
                     isActive={activeKpiFilter === (card.key === 'total' ? null : card.key)}
                     onClick={() => handleKpiClick(card.key)}
                   />
                 ))}
 
-                {/* Section I Averages — informational, non-interactive */}
+                {/* Section I Averages — informational, non-interactive.
+                    Scoped to instrument + timepoint only; independent of active status card.
+                    Scale: S1 items are 1–4 integers; bar fill = (mean - 1) / 3. */}
                 <EvalInfoCard label="SECTION I AVERAGES" sub="From completed responses">
                   {scoredRows.length === 0 ? (
                     <div style={{
@@ -542,19 +559,28 @@ export default function EvaluationTab({ cohortId }) {
                       —
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 2 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                       {[['CPS', avgCPS], ['LA', avgLA], ['PR', avgPR]].map(([lbl, val]) => (
                         <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ fontSize: 10, fontWeight: 700, color: '#98A2B3', width: 24, flexShrink: 0, fontFamily: F }}>
                             {lbl}
                           </span>
                           <span style={{
-                            fontSize: 18, fontWeight: 700, color: '#0E1428',
-                            fontFamily: F, fontVariantNumeric: 'tabular-nums',
-                            letterSpacing: '-0.025em',
+                            fontSize: 14, fontWeight: 700, color: '#0E1428', width: 34, flexShrink: 0,
+                            fontFamily: F, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.025em',
                           }}>
                             {val != null ? val.toFixed(2) : '—'}
                           </span>
+                          {val != null && (
+                            <div style={{ flex: 1, height: 3, background: 'rgba(29,37,103,0.08)', borderRadius: 2, overflow: 'hidden', minWidth: 0 }}>
+                              <div style={{
+                                height: '100%',
+                                width: `${Math.min(100, Math.max(0, Math.round(((val - 1) / 3) * 100)))}%`,
+                                background: 'rgba(29,37,103,0.28)',
+                                borderRadius: 2,
+                              }} />
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
