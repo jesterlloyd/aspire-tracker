@@ -1,11 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = 'https://chhubyaxdhqoosglnwsn.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoaHVieWF4ZGhxb29zZ2xud3NuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc1ODEwODcsImV4cCI6MjA5MzE1NzA4N30.QL_HtV8gc2gP63Uq8Ehg7NAgjtDUYLqKbWRL7cNJg5g'
+const supabaseUrl     = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 // Populated by setQueryClient() called from main.jsx so we can invalidate after reconnect
 let _queryClient = null
 export function setQueryClient(qc) { _queryClient = qc }
+
+if (!supabaseUrl) {
+  throw new Error('Missing required environment variable: VITE_SUPABASE_URL')
+}
+if (!supabaseAnonKey) {
+  throw new Error('Missing required environment variable: VITE_SUPABASE_ANON_KEY')
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
