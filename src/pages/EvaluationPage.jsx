@@ -147,18 +147,39 @@ const EVAL_CSS = `
   }
 
   /* Branded survey header — renders across all page states */
-  .eval-branded-header {
+
+  /* Dark band — mirrors app navbar gradient treatment */
+  .eval-branded-band {
+    background: linear-gradient(180deg, #1D2567 0%, #161D52 100%);
+  }
+  .eval-branded-band-inner {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 13px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-family: 'DM Sans', system-ui, sans-serif;
+  }
+  .eval-branded-divider {
+    width: 1px; height: 28px;
+    background: rgba(255,255,255,0.22);
+    flex-shrink: 0;
+  }
+
+  /* Light title block — below the dark band */
+  .eval-branded-title {
     background: #ffffff;
     border-bottom: 1px solid #e8e4dc;
   }
-  .eval-branded-header-inner {
+  .eval-branded-title-inner {
     max-width: 1040px;
     margin: 0 auto;
-    padding: 24px 20px 20px;
+    padding: 20px 20px 16px;
     font-family: 'DM Sans', system-ui, sans-serif;
   }
   @media (max-width: 768px) {
-    .eval-branded-header-inner h1 { font-size: 18px; }
+    .eval-branded-title-inner h1 { font-size: 18px; }
   }
 `
 
@@ -385,27 +406,34 @@ export default function EvaluationPage() {
     <div className="eval-page">
 
       {/* Branded header — always visible regardless of page state */}
-      <header className="eval-branded-header">
-        <div className="eval-branded-header-inner">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+      <header>
+        {/* Dark identity band — Nightfall gradient matching app navbar */}
+        <div className="eval-branded-band">
+          <div className="eval-branded-band-inner">
             <img
               src="/cs-logo-large.png"
               alt="Cedars-Sinai"
-              style={{ height: 40, width: 'auto', display: 'block' }}
+              style={{ height: 38, width: 'auto', display: 'block', flexShrink: 0 }}
             />
-            <span style={{ fontSize: 12, color: '#6b7280', fontFamily: 'DM Sans, system-ui, sans-serif' }}>
+            <div className="eval-branded-divider" />
+            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.90)', fontWeight: 500, fontFamily: 'DM Sans, system-ui, sans-serif' }}>
               Brawerman Nursing Institute
             </span>
           </div>
-          <h1 style={{
-            fontSize: 22, fontWeight: 700, color: '#191919',
-            margin: '0 0 6px', fontFamily: 'DM Sans, system-ui, sans-serif', lineHeight: 1.3,
-          }}>
-            ASPIRE Program Pre-Rotation Readiness Survey
-          </h1>
-          <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontFamily: 'DM Sans, system-ui, sans-serif' }}>
-            Instrument: Casey-Fink Readiness for Practice Survey, 2024
-          </p>
+        </div>
+        {/* Light title block — survey identity below the brand band */}
+        <div className="eval-branded-title">
+          <div className="eval-branded-title-inner">
+            <h1 style={{
+              fontSize: 22, fontWeight: 700, color: '#191919',
+              margin: '0 0 6px', fontFamily: 'DM Sans, system-ui, sans-serif', lineHeight: 1.3,
+            }}>
+              ASPIRE Program Pre-Rotation Readiness Survey
+            </h1>
+            <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontFamily: 'DM Sans, system-ui, sans-serif' }}>
+              Instrument: Casey-Fink Readiness for Practice Survey, 2024
+            </p>
+          </div>
         </div>
       </header>
 
