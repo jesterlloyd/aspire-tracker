@@ -3,6 +3,7 @@ import { ChevronRight, ChevronDown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { CS_COLORS } from '../lib/brand'
 import { useLastSynced } from '../hooks/useLastSynced'
+import EvaluationResponseDetail from './EvaluationResponseDetail'
 
 const F = 'DM Sans, sans-serif'
 
@@ -298,6 +299,11 @@ export default function EvaluationTab({ cohortId }) {
   const [filterInstrument, setFilterInstrument] = useState('All')
   const [filterTimepoint,  setFilterTimepoint]  = useState('All')
 
+  // Response detail modal state
+  const [detailAssignment,  setDetailAssignment]  = useState(null)
+  // Instrument content cache: { [slug]: { content: {...} } | { error: true } | undefined }
+  const [contentCache,      setContentCache]      = useState({})
+
   const fetchAssignments = useCallback(async () => {
     if (!cohortId) return
     setLoading(true)
@@ -313,6 +319,7 @@ export default function EvaluationTab({ cohortId }) {
           evaluation_instruments!inner ( slug, display_name ),
           evaluation_responses (
             submitted_at,
+            responses,
             score_s1_clinical_problem_solving,
             score_s1_learning_activities,
             score_s1_practice_readiness
@@ -427,6 +434,44 @@ export default function EvaluationTab({ cohortId }) {
       next.has(id) ? next.delete(id) : next.add(id)
       return next
     })
+  }
+
+  // ── Response detail handlers ──────────────────────────────────────────────
+
+  // Fetches instrument content from /api/evaluation-instrument-content.
+  // Fires only on first open for a given slug; subsequent opens reuse the cache.
+  // Uses the authenticated Supabase session's access token.
+  const fetchInstrumentContent = useCallback(async (slug) => {
+    if (!slug || contentCache[slug] !== undefined) return
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        setContentCache(prev => ({ ...prev, [slug]: { error: true } }))
+        return
+      }
+      const res = await fetch(
+        `/api/evaluation-instrument-content?slug=${encodeURIComponent(slug)}`,
+        { headers: { Authorization: `Bearer ${session.access_token}` } }
+      )
+      if (!res.ok) {
+        setContentCache(prev => ({ ...prev, [slug]: { error: true } }))
+        return
+      }
+      const data = await res.json()
+      setContentCache(prev => ({ ...prev, [slug]: data }))
+    } catch {
+      setContentCache(prev => ({ ...prev, [slug]: { error: true } }))
+    }
+  }, [contentCache])
+
+  function handleViewResponse(assignment) {
+    setDetailAssignment(assignment)
+    const slug = assignment.evaluation_instruments?.slug
+    if (slug) fetchInstrumentContent(slug)
+  }
+
+  function handleCloseDetail() {
+    setDetailAssignment(null)
   }
 
   // ── Styles ────────────────────────────────────────────────────────────────
@@ -694,6 +739,22 @@ export default function EvaluationTab({ cohortId }) {
                               <tr style={{ background: idx % 2 === 0 ? '#f8f9fe' : '#f4f5fa' }}>
                                 <td colSpan={6} style={{ padding: '16px 24px', borderBottom: '1px solid #e5e7eb' }}>
                                   <ExpandedRow assignment={a} response={response} />
+                                  {es === 'completed' && response?.responses && (
+                                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #e5e7eb' }}>
+                                      <button
+                                        onClick={e => { e.stopPropagation(); handleViewResponse(a) }}
+                                        style={{
+                                          padding: '6px 14px',
+                                          background: '#1D2567', color: '#fff',
+                                          border: 'none', borderRadius: 6,
+                                          fontSize: 12, fontWeight: 600,
+                                          fontFamily: F, cursor: 'pointer',
+                                        }}
+                                      >
+                                        View response
+                                      </button>
+                                    </div>
+                                  )}
                                 </td>
                               </tr>
                             )}
@@ -708,6 +769,18 @@ export default function EvaluationTab({ cohortId }) {
           )}
         </div>
       )}
+
+      {/* Response detail modal — mounted at EvaluationTab level, one at a time */}
+      <EvaluationResponseDetail
+        assignment={detailAssignment}
+        instrumentContent={
+          detailAssignment?.evaluation_instruments?.slug
+            ? contentCache[detailAssignment.evaluation_instruments.slug]
+            : undefined
+        }
+        isOpen={!!detailAssignment}
+        onClose={handleCloseDetail}
+      />
     </div>
   )
 }
