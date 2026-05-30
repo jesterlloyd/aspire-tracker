@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { ChevronRight, ChevronDown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { CS_COLORS } from '../lib/brand'
 
@@ -24,10 +25,23 @@ const STATUS_CONFIG = {
   draft:        { bg: '#f9fafb',         text: '#9ca3af', border: '#e5e7eb', label: 'Draft'        },
 }
 
-// Statuses shown in the summary row and filter chips
+// Statuses shown in the summary strip and filter chips
 const MAIN_STATUSES = ['sent', 'opened', 'completed', 'expired', 'revoked']
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+// Render-time effective status projection — does NOT mutate stored data.
+// Applied consistently: badge rendering, KPI counts, summary strip, filter chips.
+function effectiveStatus(assignment) {
+  if (
+    (assignment.status === 'sent' || assignment.status === 'opened') &&
+    assignment.expires_at &&
+    new Date(assignment.expires_at) < new Date()
+  ) {
+    return 'expired'
+  }
+  return assignment.status
+}
 
 function fmtDate(iso) {
   if (!iso) return '—'
@@ -112,31 +126,39 @@ function ExpandedRow({ assignment: a, response }) {
   const cps = response?.score_s1_clinical_problem_solving
   const la  = response?.score_s1_learning_activities
   const pr  = response?.score_s1_practice_readiness
+  const instrumentName = a.evaluation_instruments?.display_name
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 32px' }}>
-      <div>
-        <SectionLabel>LIFECYCLE</SectionLabel>
-        <LabelVal label="Invited at"              value={fmtDateTime(a.invited_at)} />
-        <LabelVal label="Sent at"                 value={fmtDateTime(a.sent_at)} />
-        <LabelVal label="Opened at"               value={fmtDateTime(a.opened_at)} />
-        <LabelVal label="Submitted at"            value={fmtDateTime(response?.submitted_at)} />
-        <LabelVal label="Expires at"              value={fmtDateTime(a.expires_at)} />
-        {a.revoked_at && <LabelVal label="Revoked at" value={fmtDateTime(a.revoked_at)} />}
-        <LabelVal label="Hours at invitation"     value={a.approved_hours_at_invitation != null ? String(a.approved_hours_at_invitation) : '—'} />
-        <LabelVal label="Hours at completion"     value={a.approved_hours_at_completion != null ? String(a.approved_hours_at_completion) : '—'} />
-      </div>
-      <div>
-        <SectionLabel>SECTION I SCORES</SectionLabel>
-        <LabelVal label="Clinical Problem-Solving" value={cps != null ? Number(cps).toFixed(2) : '—'} />
-        <LabelVal label="Learning Activities"      value={la  != null ? Number(la).toFixed(2)  : '—'} />
-        <LabelVal label="Practice Readiness"       value={pr  != null ? Number(pr).toFixed(2)  : '—'} />
-        {a.notes && (
-          <>
-            <SectionLabel>NOTES</SectionLabel>
-            <p style={{ fontSize: 12, color: '#374151', margin: 0, lineHeight: 1.6, fontFamily: F }}>{a.notes}</p>
-          </>
-        )}
+    <div>
+      {instrumentName && (
+        <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 12, fontFamily: F }}>
+          {instrumentName}
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 32px' }}>
+        <div>
+          <SectionLabel>LIFECYCLE</SectionLabel>
+          <LabelVal label="Invited at"              value={fmtDateTime(a.invited_at)} />
+          <LabelVal label="Sent at"                 value={fmtDateTime(a.sent_at)} />
+          <LabelVal label="Opened at"               value={fmtDateTime(a.opened_at)} />
+          <LabelVal label="Submitted at"            value={fmtDateTime(response?.submitted_at)} />
+          <LabelVal label="Expires at"              value={fmtDateTime(a.expires_at)} />
+          {a.revoked_at && <LabelVal label="Revoked at" value={fmtDateTime(a.revoked_at)} />}
+          <LabelVal label="Hours at invitation"     value={a.approved_hours_at_invitation != null ? String(a.approved_hours_at_invitation) : '—'} />
+          <LabelVal label="Hours at completion"     value={a.approved_hours_at_completion != null ? String(a.approved_hours_at_completion) : '—'} />
+        </div>
+        <div>
+          <SectionLabel>SECTION I SCORES</SectionLabel>
+          <LabelVal label="Clinical Problem-Solving" value={cps != null ? Number(cps).toFixed(2) : '—'} />
+          <LabelVal label="Learning Activities"      value={la  != null ? Number(la).toFixed(2)  : '—'} />
+          <LabelVal label="Practice Readiness"       value={pr  != null ? Number(pr).toFixed(2)  : '—'} />
+          {a.notes && (
+            <>
+              <SectionLabel>NOTES</SectionLabel>
+              <p style={{ fontSize: 12, color: '#374151', margin: 0, lineHeight: 1.6, fontFamily: F }}>{a.notes}</p>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -145,10 +167,11 @@ function ExpandedRow({ assignment: a, response }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function EvaluationTab({ cohortId }) {
-  const [assignments, setAssignments] = useState([])
-  const [loading,     setLoading]     = useState(false)
-  const [error,       setError]       = useState(null)
-  const [expandedIds, setExpandedIds] = useState(new Set())
+  const [activeSubTab, setActiveSubTab] = useState('cohort')
+  const [assignments,  setAssignments]  = useState([])
+  const [loading,      setLoading]      = useState(false)
+  const [error,        setError]        = useState(null)
+  const [expandedIds,  setExpandedIds]  = useState(new Set())
 
   // Sort state — default: most recent sent_at first
   const [sortKey, setSortKey] = useState('sent_at')
@@ -192,11 +215,11 @@ export default function EvaluationTab({ cohortId }) {
 
   useEffect(() => { fetchAssignments() }, [fetchAssignments])
 
-  // ── Derived values ────────────────────────────────────────────────────────
+  // ── Derived values — all status-related logic uses effectiveStatus ─────────
 
-  // Status counts for the summary strip
+  // Summary strip counts — use effectiveStatus so past-due sent/opened show as expired
   const statusCounts = MAIN_STATUSES.reduce((acc, s) => {
-    acc[s] = assignments.filter(a => a.status === s).length
+    acc[s] = assignments.filter(a => effectiveStatus(a) === s).length
     return acc
   }, {})
 
@@ -208,10 +231,10 @@ export default function EvaluationTab({ cohortId }) {
     assignments.map(a => a.timepoint).filter(Boolean)
   )]
 
-  // Client-side filtering (MAIN_STATUSES chips control only those five statuses;
-  // other statuses such as reminder_due always pass)
+  // Client-side filtering — filter chips target effectiveStatus
   const filtered = assignments.filter(a => {
-    if (MAIN_STATUSES.includes(a.status) && !filterStatuses.has(a.status)) return false
+    const es = effectiveStatus(a)
+    if (MAIN_STATUSES.includes(es) && !filterStatuses.has(es)) return false
     if (filterInstrument !== 'All' && a.evaluation_instruments?.display_name !== filterInstrument) return false
     if (filterTimepoint !== 'All' && a.timepoint !== filterTimepoint) return false
     return true
@@ -234,6 +257,34 @@ export default function EvaluationTab({ cohortId }) {
     return sortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1)
   })
 
+  // ── KPI computations — operate on filtered set ────────────────────────────
+
+  const completedRows  = filtered.filter(a => effectiveStatus(a) === 'completed')
+  const openedRows     = filtered.filter(a => effectiveStatus(a) === 'opened')
+  const completedCount = completedRows.length
+  const openedCount    = openedRows.length
+  const totalCount     = filtered.length
+  const completionPct  = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : null
+
+  // Section I averages — only completed rows with all three scores present
+  const scoredRows = completedRows.filter(a => {
+    const r = extractResponse(a)
+    return r?.score_s1_clinical_problem_solving != null
+      && r?.score_s1_learning_activities != null
+      && r?.score_s1_practice_readiness != null
+  })
+  const avgCPS = scoredRows.length > 0
+    ? scoredRows.reduce((s, a) => s + Number(extractResponse(a).score_s1_clinical_problem_solving), 0) / scoredRows.length
+    : null
+  const avgLA = scoredRows.length > 0
+    ? scoredRows.reduce((s, a) => s + Number(extractResponse(a).score_s1_learning_activities), 0) / scoredRows.length
+    : null
+  const avgPR = scoredRows.length > 0
+    ? scoredRows.reduce((s, a) => s + Number(extractResponse(a).score_s1_practice_readiness), 0) / scoredRows.length
+    : null
+
+  // ── Event handlers ────────────────────────────────────────────────────────
+
   function handleSort(key) {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortKey(key); setSortDir('asc') }
@@ -255,184 +306,330 @@ export default function EvaluationTab({ cohortId }) {
     })
   }
 
-  // ── Views ─────────────────────────────────────────────────────────────────
+  // ── Styles ────────────────────────────────────────────────────────────────
 
-  if (loading) {
-    return (
-      <div style={{ padding: '48px 24px', textAlign: 'center', color: '#9ca3af', fontFamily: F, fontSize: 14 }}>
-        Loading evaluations…
-      </div>
-    )
+  // Sub-tab button style — mirrors RotationTab.jsx btnStyle pattern
+  const btnStyle = (key) => ({
+    height: 32, padding: '0 13px', display: 'flex', alignItems: 'center',
+    border: 'none', cursor: 'pointer', fontSize: 12,
+    fontFamily: F, fontWeight: 500,
+    background: activeSubTab === key ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
+    color: activeSubTab === key ? '#fff' : 'var(--text-secondary,#4A5560)',
+    transition: 'all 0.12s',
+  })
+
+  const CARD = {
+    background: '#fff',
+    borderRadius: 12,
+    border: '1px solid rgba(29,37,103,0.08)',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+    padding: '20px 24px',
+    flex: '1 1 180px',
+    minWidth: 160,
   }
 
-  if (error) {
-    return (
-      <div style={{ padding: '24px', color: '#dc2626', fontFamily: F, fontSize: 14, lineHeight: 1.6 }}>
-        <strong>Error loading evaluations:</strong> {error.message}
-      </div>
-    )
+  const sel = {
+    fontSize: 12, padding: '5px 10px', borderRadius: 6,
+    border: '1px solid #d1d5db', background: '#fff',
+    color: '#374151', fontFamily: F, cursor: 'pointer',
   }
 
-  // ── Main render ───────────────────────────────────────────────────────────
-
-  const sel = { fontSize: 12, padding: '5px 10px', borderRadius: 6, border: '1px solid #d1d5db', background: '#fff', color: '#374151', fontFamily: F, cursor: 'pointer' }
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ padding: '24px', maxWidth: 1400, fontFamily: F }}>
+    <div style={{ fontFamily: F, display: 'flex', flexDirection: 'column' }}>
 
-      {/* Status summary strip */}
-      {assignments.length > 0 && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
-          {MAIN_STATUSES.map(s => {
-            const n = statusCounts[s]
-            if (!n) return null
-            const cfg = STATUS_CONFIG[s]
-            return (
-              <span key={s} style={{
-                fontSize: 12, fontWeight: 600,
-                background: cfg.bg, color: cfg.text, border: `1px solid ${cfg.border}`,
-                padding: '4px 10px', borderRadius: 12, fontFamily: F,
-              }}>
-                {cfg.label} {n}
-              </span>
-            )
-          })}
+      {/* Sub-tab picker — mirrors RotationTab.jsx structure and styling */}
+      <div style={{ padding: '0 20px 12px', flexShrink: 0 }}>
+        <div style={{
+          display: 'flex',
+          borderRadius: 7,
+          border: '1px solid var(--border-input,rgba(29,37,103,0.10))',
+          overflow: 'hidden',
+          width: 'fit-content',
+        }}>
+          <button onClick={() => setActiveSubTab('cohort')}  style={btnStyle('cohort')}>Cohort View</button>
+          <button onClick={() => setActiveSubTab('program')} style={btnStyle('program')}>Program View</button>
         </div>
-      )}
-
-      {/* Filter strip */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 20 }}>
-        {/* Status filter chips */}
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-          {MAIN_STATUSES.map(s => {
-            const active = filterStatuses.has(s)
-            const cfg = STATUS_CONFIG[s]
-            return (
-              <button key={s}
-                onClick={() => toggleStatusFilter(s)}
-                style={{
-                  fontSize: 11, fontWeight: 600,
-                  padding: '4px 10px', borderRadius: 10,
-                  cursor: 'pointer', fontFamily: F,
-                  background: active ? cfg.bg   : '#f9fafb',
-                  color:      active ? cfg.text : '#9ca3af',
-                  border:     `1px solid ${active ? cfg.border : '#e5e7eb'}`,
-                  transition: 'all 0.1s',
-                }}
-              >
-                {cfg.label}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Instrument dropdown */}
-        <select value={filterInstrument} onChange={e => setFilterInstrument(e.target.value)} style={sel}>
-          {instruments.map(i => (
-            <option key={i} value={i}>{i === 'All' ? 'All instruments' : i}</option>
-          ))}
-        </select>
-
-        {/* Timepoint dropdown */}
-        <select value={filterTimepoint} onChange={e => setFilterTimepoint(e.target.value)} style={sel}>
-          {timepoints.map(t => (
-            <option key={t} value={t}>{t === 'All' ? 'All timepoints' : (TIMEPOINT_LABELS[t] || t)}</option>
-          ))}
-        </select>
       </div>
 
-      {/* Empty states */}
-      {assignments.length === 0 && (
-        <div style={{ padding: '48px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14, fontFamily: F }}>
-          No evaluations for this cohort yet.
+      {/* ── Program View placeholder ────────────────────────────────────── */}
+      {activeSubTab === 'program' && (
+        <div style={{ padding: '24px 20px', display: 'flex', justifyContent: 'center' }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: 12,
+            border: '1px solid rgba(29,37,103,0.08)',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+            padding: '48px 56px',
+            textAlign: 'center',
+            maxWidth: 480,
+          }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#191919', marginBottom: 10, fontFamily: F }}>
+              Program View
+            </div>
+            <div style={{ fontSize: 13, color: '#9ca3af', lineHeight: 1.6, fontFamily: F }}>
+              This view will summarize evaluation trends across cohorts. Available in a future release.
+            </div>
+          </div>
         </div>
       )}
-      {assignments.length > 0 && sorted.length === 0 && (
-        <div style={{ padding: '24px', textAlign: 'center', color: '#9ca3af', fontSize: 14, fontFamily: F }}>
-          No evaluations match the current filters.
-        </div>
-      )}
 
-      {/* Main table */}
-      {sorted.length > 0 && (
-        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: F }}>
-            <thead>
-              <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                <Th label="Student"    sortable onClick={() => handleSort('student')}    active={sortKey === 'student'}    dir={sortDir} />
-                <Th label="Instrument" />
-                <Th label="Timepoint"  />
-                <Th label="Status"     />
-                <Th label="Submitted"  sortable onClick={() => handleSort('submitted_at')} active={sortKey === 'submitted_at'} dir={sortDir} />
-                <Th label="Section I"  />
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((a, idx) => {
-                const response    = extractResponse(a)
-                const isExpanded  = expandedIds.has(a.id)
-                const bgBase      = idx % 2 === 0 ? '#ffffff' : '#fafafa'
-                const cps = response?.score_s1_clinical_problem_solving
-                const la  = response?.score_s1_learning_activities
-                const pr  = response?.score_s1_practice_readiness
-                const scoresReady = cps != null && la != null && pr != null
+      {/* ── Cohort View ─────────────────────────────────────────────────── */}
+      {activeSubTab === 'cohort' && (
+        <div style={{ padding: '4px 20px 24px', maxWidth: 1400 }}>
 
-                return (
-                  <React.Fragment key={a.id}>
-                    <tr
-                      onClick={() => toggleRow(a.id)}
-                      style={{ cursor: 'pointer', background: bgBase, borderBottom: isExpanded ? 'none' : '1px solid #f3f4f6' }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#eef2fb'}
-                      onMouseLeave={e => e.currentTarget.style.background = bgBase}
-                    >
-                      <Td>
-                        <span style={{ fontWeight: 600, color: '#191919', fontSize: 13 }}>
-                          {a.students?.first_name} {a.students?.last_name}
-                        </span>
-                      </Td>
-                      <Td>
-                        <span style={{
-                          fontSize: 12, color: '#374151',
-                          maxWidth: 220, display: 'inline-block',
-                          overflow: 'hidden', textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap', verticalAlign: 'middle',
-                        }}>
-                          {a.evaluation_instruments?.display_name || '—'}
-                        </span>
-                      </Td>
-                      <Td>
-                        <span style={{ fontSize: 12, color: '#374151' }}>
-                          {TIMEPOINT_LABELS[a.timepoint] || a.timepoint}
-                        </span>
-                      </Td>
-                      <Td><StatusBadge status={a.status} /></Td>
-                      <Td>
-                        <span style={{ fontSize: 12, color: '#374151' }}>
-                          {fmtDate(response?.submitted_at)}
-                        </span>
-                      </Td>
-                      <Td>
-                        <span style={{ fontSize: 11, color: '#374151', fontVariantNumeric: 'tabular-nums' }}>
-                          {scoresReady
-                            ? `CPS ${Number(cps).toFixed(2)} · LA ${Number(la).toFixed(2)} · PR ${Number(pr).toFixed(2)}`
-                            : '—'
-                          }
-                        </span>
-                      </Td>
-                    </tr>
+          {/* Header */}
+          <div style={{ marginBottom: 24 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: '#191919', margin: '0 0 4px', fontFamily: F }}>
+              Evaluation Dashboard
+            </h2>
+            <p style={{ fontSize: 13, color: '#9ca3af', margin: 0, fontFamily: F }}>
+              Review evaluation assignments and submitted responses by cohort.
+            </p>
+          </div>
 
-                    {isExpanded && (
-                      <tr style={{ background: idx % 2 === 0 ? '#f8f9fe' : '#f4f5fa' }}>
-                        <td colSpan={6} style={{ padding: '16px 24px', borderBottom: '1px solid #e5e7eb' }}>
-                          <ExpandedRow assignment={a} response={response} />
-                        </td>
+          {/* Loading */}
+          {loading && (
+            <div style={{ padding: '48px 0', textAlign: 'center', color: '#9ca3af', fontSize: 14, fontFamily: F }}>
+              Loading evaluations…
+            </div>
+          )}
+
+          {/* Error */}
+          {!loading && error && (
+            <div style={{ padding: '24px 0', color: '#dc2626', fontSize: 14, lineHeight: 1.6, fontFamily: F }}>
+              <strong>Error loading evaluations:</strong> {error.message}
+            </div>
+          )}
+
+          {/* KPI cards + content */}
+          {!loading && !error && (
+            <>
+              {/* KPI cards */}
+              <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+
+                {/* Total Assigned */}
+                <div style={CARD}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>
+                    Total Assigned
+                  </div>
+                  <div style={{ fontSize: 30, fontWeight: 700, color: '#191919', fontFamily: F, lineHeight: 1 }}>
+                    {totalCount}
+                  </div>
+                </div>
+
+                {/* Completed */}
+                <div style={CARD}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>
+                    Completed
+                  </div>
+                  <div style={{ fontSize: 30, fontWeight: 700, color: '#166534', fontFamily: F, lineHeight: 1 }}>
+                    {completedCount}
+                  </div>
+                  {completionPct !== null && (
+                    <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 6, fontFamily: F }}>
+                      {completionPct}% completion rate
+                    </div>
+                  )}
+                </div>
+
+                {/* Opened */}
+                <div style={CARD}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>
+                    Opened
+                  </div>
+                  <div style={{ fontSize: 30, fontWeight: 700, color: '#1D2567', fontFamily: F, lineHeight: 1 }}>
+                    {openedCount}
+                  </div>
+                </div>
+
+                {/* Section I Averages */}
+                <div style={{ ...CARD, flex: '1 1 220px' }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>
+                    Section I Averages
+                  </div>
+                  {scoredRows.length === 0 ? (
+                    <div style={{ fontSize: 22, fontWeight: 700, color: '#d1d5db', fontFamily: F }}>—</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                      {[['CPS', avgCPS], ['LA', avgLA], ['PR', avgPR]].map(([lbl, val]) => (
+                        <div key={lbl} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', width: 28, flexShrink: 0, fontFamily: F }}>{lbl}</span>
+                          <span style={{ fontSize: 15, fontWeight: 700, color: '#191919', fontFamily: F, fontVariantNumeric: 'tabular-nums' }}>
+                            {val != null ? val.toFixed(2) : '—'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Status summary strip — counts use effectiveStatus */}
+              {assignments.length > 0 && (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
+                  {MAIN_STATUSES.map(s => {
+                    const n = statusCounts[s]
+                    if (!n) return null
+                    const cfg = STATUS_CONFIG[s]
+                    return (
+                      <span key={s} style={{
+                        fontSize: 12, fontWeight: 600,
+                        background: cfg.bg, color: cfg.text, border: `1px solid ${cfg.border}`,
+                        padding: '4px 10px', borderRadius: 12, fontFamily: F,
+                      }}>
+                        {cfg.label} {n}
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Filter strip */}
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 20 }}>
+                {/* Status filter chips — target effectiveStatus */}
+                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                  {MAIN_STATUSES.map(s => {
+                    const active = filterStatuses.has(s)
+                    const cfg = STATUS_CONFIG[s]
+                    return (
+                      <button key={s}
+                        onClick={() => toggleStatusFilter(s)}
+                        style={{
+                          fontSize: 11, fontWeight: 600,
+                          padding: '4px 10px', borderRadius: 10,
+                          cursor: 'pointer', fontFamily: F,
+                          background: active ? cfg.bg   : '#f9fafb',
+                          color:      active ? cfg.text : '#9ca3af',
+                          border:     `1px solid ${active ? cfg.border : '#e5e7eb'}`,
+                          transition: 'all 0.1s',
+                        }}
+                      >
+                        {cfg.label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Instrument dropdown */}
+                <select value={filterInstrument} onChange={e => setFilterInstrument(e.target.value)} style={sel}>
+                  {instruments.map(i => (
+                    <option key={i} value={i}>{i === 'All' ? 'All instruments' : i}</option>
+                  ))}
+                </select>
+
+                {/* Timepoint dropdown */}
+                <select value={filterTimepoint} onChange={e => setFilterTimepoint(e.target.value)} style={sel}>
+                  {timepoints.map(t => (
+                    <option key={t} value={t}>{t === 'All' ? 'All timepoints' : (TIMEPOINT_LABELS[t] || t)}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Empty states */}
+              {assignments.length === 0 && (
+                <div style={{ padding: '48px 0', textAlign: 'center', color: '#9ca3af', fontSize: 14, fontFamily: F }}>
+                  No evaluations for this cohort yet.
+                </div>
+              )}
+              {assignments.length > 0 && sorted.length === 0 && (
+                <div style={{ padding: '24px 0', textAlign: 'center', color: '#9ca3af', fontSize: 14, fontFamily: F }}>
+                  No evaluations match the current filters.
+                </div>
+              )}
+
+              {/* Main table */}
+              {sorted.length > 0 && (
+                <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: F }}>
+                    <thead>
+                      <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                        <Th label="Student"    sortable onClick={() => handleSort('student')}    active={sortKey === 'student'}    dir={sortDir} />
+                        <Th label="Instrument" />
+                        <Th label="Timepoint"  />
+                        <Th label="Status"     />
+                        <Th label="Submitted"  sortable onClick={() => handleSort('submitted_at')} active={sortKey === 'submitted_at'} dir={sortDir} />
+                        <Th label="Section I"  />
                       </tr>
-                    )}
-                  </React.Fragment>
-                )
-              })}
-            </tbody>
-          </table>
+                    </thead>
+                    <tbody>
+                      {sorted.map((a, idx) => {
+                        const response   = extractResponse(a)
+                        const isExpanded = expandedIds.has(a.id)
+                        const es         = effectiveStatus(a)
+                        const bgBase     = idx % 2 === 0 ? '#ffffff' : '#fafafa'
+                        const cps = response?.score_s1_clinical_problem_solving
+                        const la  = response?.score_s1_learning_activities
+                        const pr  = response?.score_s1_practice_readiness
+                        const scoresReady = cps != null && la != null && pr != null
+
+                        return (
+                          <React.Fragment key={a.id}>
+                            <tr
+                              onClick={() => toggleRow(a.id)}
+                              style={{ cursor: 'pointer', background: bgBase, borderBottom: isExpanded ? 'none' : '1px solid #f3f4f6' }}
+                              onMouseEnter={e => e.currentTarget.style.background = '#eef2fb'}
+                              onMouseLeave={e => e.currentTarget.style.background = bgBase}
+                            >
+                              <Td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  {isExpanded
+                                    ? <ChevronDown  size={14} color="#9ca3af" style={{ flexShrink: 0 }} />
+                                    : <ChevronRight size={14} color="#9ca3af" style={{ flexShrink: 0 }} />
+                                  }
+                                  <span style={{ fontWeight: 600, color: '#191919', fontSize: 13 }}>
+                                    {a.students?.first_name} {a.students?.last_name}
+                                  </span>
+                                </div>
+                              </Td>
+                              <Td>
+                                <span style={{
+                                  fontSize: 12, color: '#374151',
+                                  maxWidth: 220, display: 'inline-block',
+                                  overflow: 'hidden', textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap', verticalAlign: 'middle',
+                                }}>
+                                  {a.evaluation_instruments?.display_name || '—'}
+                                </span>
+                              </Td>
+                              <Td>
+                                <span style={{ fontSize: 12, color: '#374151' }}>
+                                  {TIMEPOINT_LABELS[a.timepoint] || a.timepoint}
+                                </span>
+                              </Td>
+                              <Td><StatusBadge status={es} /></Td>
+                              <Td>
+                                <span style={{ fontSize: 12, color: '#374151' }}>
+                                  {fmtDate(response?.submitted_at)}
+                                </span>
+                              </Td>
+                              <Td>
+                                <span style={{ fontSize: 11, color: '#374151', fontVariantNumeric: 'tabular-nums' }}>
+                                  {scoresReady
+                                    ? `CPS ${Number(cps).toFixed(2)} · LA ${Number(la).toFixed(2)} · PR ${Number(pr).toFixed(2)}`
+                                    : '—'
+                                  }
+                                </span>
+                              </Td>
+                            </tr>
+
+                            {isExpanded && (
+                              <tr style={{ background: idx % 2 === 0 ? '#f8f9fe' : '#f4f5fa' }}>
+                                <td colSpan={6} style={{ padding: '16px 24px', borderBottom: '1px solid #e5e7eb' }}>
+                                  <ExpandedRow assignment={a} response={response} />
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>
