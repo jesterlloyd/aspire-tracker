@@ -1076,7 +1076,7 @@ function MainApp({ onLogout }) {
             </div>
 
             <div style={{ display: activeTab === 'evaluation' ? 'block' : 'none' }}>
-              <EvaluationTab />
+              <EvaluationTab cohortId={activeCohortId} />
             </div>
           </>
         )}
