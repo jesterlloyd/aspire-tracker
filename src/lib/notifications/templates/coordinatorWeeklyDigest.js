@@ -37,14 +37,14 @@ function wrap(content, preheader) {
 <tr><td style="background:${NAVY};padding:20px 28px;">
   <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
     <td style="vertical-align:middle;">
-      <img src="https://aspire-tracker.vercel.app/cs-logo-rev.png"
+      <img src="https://aspire-tracker.vercel.app/cs-logo-large.png"
            alt="Cedars-Sinai"
-           width="130" height="auto"
-           style="display:block;height:auto;max-height:34px;width:auto;max-width:130px;border:0;" />
+           width="160" height="auto"
+           style="display:block;height:auto;max-height:46px;width:auto;max-width:160px;border:0;" />
     </td>
     <td style="text-align:right;vertical-align:middle;">
-      <div style="color:rgba(255,255,255,0.55);font-size:10px;font-weight:600;letter-spacing:1.1px;text-transform:uppercase;line-height:1.4;">ASPIRE Program</div>
-      <div style="color:rgba(255,255,255,0.35);font-size:9.5px;letter-spacing:0.3px;margin-top:2px;line-height:1.4;">Brawerman Nursing Institute</div>
+      <div style="color:#ffffff;font-size:11px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;line-height:1.4;">ASPIRE Program</div>
+      <div style="color:rgba(255,255,255,0.75);font-size:10px;letter-spacing:0.3px;margin-top:3px;line-height:1.4;">Brawerman Nursing Institute</div>
     </td>
   </tr></table>
 </td></tr>
@@ -126,7 +126,7 @@ ${sections}
   ${JESTER_SIGNATURE.fullName}<br/>
   <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.title}</span><br/>
   <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.affiliation}</span><br/>
-  <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.email} &middot; 424-386-5004</span>
+  <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.email} | Office: 310-248-8964</span>
 </p>`;
 
   return { subject, html: wrap(body, preheader) };

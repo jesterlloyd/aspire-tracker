@@ -7,7 +7,7 @@ const CS_RED = '#930045';
 const SAND   = '#F4F1EC';
 const RAVEN  = '#191919';
 
-const JESTER_PHONE = '424-386-5004';
+const JESTER_PHONE = '310-248-8964';
 
 function wrap(content, preheader) {
   return `<!DOCTYPE html>
@@ -85,7 +85,7 @@ export function buildInterviewReminderEmail({ firstName, interviewDate, intervie
   ${JESTER_SIGNATURE.fullName}<br/>
   <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.title}</span><br/>
   <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.affiliation}</span><br/>
-  <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.email} · ${JESTER_PHONE}</span>
+  <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.email} | Office: ${JESTER_PHONE}</span>
 </p>`;
 
   return { subject, html: wrap(body, preheader) };
