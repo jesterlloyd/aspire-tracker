@@ -117,12 +117,21 @@ export default async function handler(req, res) {
 
     // ── 2. Batch-resolve coordinators ─────────────────────────────────────────
     // (schools was computed above for Log 2)
-    const { data: allCoordinators } = await db
+    const { data: allCoordinators, error: coordinatorsErr } = await db
       .from('contacts')
       .select('*')
       .eq('role', 'School Coordinator')
       .eq('is_active', true)
       .in('school_name', schools);
+
+    if (coordinatorsErr) {
+      console.error('[coordinator-digest] contacts_query_error:', {
+        error_message: coordinatorsErr.message,
+        error_code:    coordinatorsErr.code    || null,
+        error_details: coordinatorsErr.details || null,
+      });
+      return res.status(500).json({ error: coordinatorsErr.message });
+    }
 
     // ── 3. Group events by coordinator ────────────────────────────────────────
     const grouped = {};  // { [coordinatorId]: { coordinator, transitions } }
@@ -217,11 +226,23 @@ export default async function handler(req, res) {
     }
 
     // ── 4. Dedup: which coordinators already received a digest for this window? ─
-    const { data: recentLogs } = await db
+    const { data: recentLogs, error: recentLogsErr } = await db
       .from('notification_log')
       .select('contact_id')
       .eq('notification_type', 'coordinator_weekly_digest')
       .gte('sent_at', windowStart.toISOString());
+
+    if (recentLogsErr) {
+      // Fail safe: stop rather than continue with an empty dedup set.
+      // Proceeding with alreadySentIds = empty would risk sending duplicate digests
+      // to coordinators who already received one this window.
+      console.error('[coordinator-digest] recent_logs_query_error:', {
+        error_message: recentLogsErr.message,
+        error_code:    recentLogsErr.code    || null,
+        error_details: recentLogsErr.details || null,
+      });
+      return res.status(500).json({ error: recentLogsErr.message });
+    }
 
     const alreadySentIds = new Set((recentLogs || []).map(r => r.contact_id).filter(Boolean));
 
