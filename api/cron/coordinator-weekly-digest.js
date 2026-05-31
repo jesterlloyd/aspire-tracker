@@ -16,6 +16,10 @@
 // Coordinator routing uses the contacts table (role = 'School Coordinator').
 // For each student, we first try (school_name, program_type) exact match,
 // then fall back to (school_name, program_type IS NULL) as a catch-all.
+//
+// Dry-run mode: add ?dryRun=1 (or ?dry_run=1) to preview what would be sent
+// without calling Resend, writing notification_log, or updating contacts.
+// Auth (CRON_SECRET) is still required in dry-run mode.
 
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
@@ -48,6 +52,10 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  // Dry-run mode: runs all queries and resolution logic but skips Resend,
+  // notification_log writes, and contacts CRM updates. Auth still required.
+  const isDryRun = req.query.dryRun === '1' || req.query.dry_run === '1';
+
   const handlerStartTime = Date.now();
   const now = new Date();
   console.log(`[coordinator-digest] cron run at ${now.toISOString()}`);
@@ -63,10 +71,18 @@ export default async function handler(req, res) {
     // Appears even before any DB queries, so cron invocation is visible in logs.
     console.log('[coordinator-digest] handler_entry:', {
       timestamp: now.toISOString(),
-      mode: 'live',
-      window: { start: windowStart.toISOString(), end: windowEnd.toISOString() },
-      trigger: 'vercel_cron',
+      mode:      isDryRun ? 'dry_run' : 'live',
+      window:    { start: windowStart.toISOString(), end: windowEnd.toISOString() },
+      trigger:   'vercel_cron',
     });
+
+    if (isDryRun) {
+      console.log('[coordinator-digest] dry_run_start:', {
+        timestamp: now.toISOString(),
+        window:    { start: windowStart.toISOString(), end: windowEnd.toISOString() },
+        note:      'No emails will be sent. No notification_log rows will be written. No contacts will be updated.',
+      });
+    }
 
     // ── 1. Fetch qualifying events ────────────────────────────────────────────
     const { data: events, error: eventsErr } = await db
@@ -246,10 +262,15 @@ export default async function handler(req, res) {
 
     const alreadySentIds = new Set((recentLogs || []).map(r => r.contact_id).filter(Boolean));
 
-    // ── 5. Send ───────────────────────────────────────────────────────────────
+    // ── 5. Send (or dry-run preview) ─────────────────────────────────────────
+    // dryRunRecipients collects per-coordinator outcomes in dry-run mode.
+    // In live mode this array is never populated and the variable is unused.
+    const dryRunRecipients = [];
     const summary = { eligible: coordinatorEntries.length, sent: 0, skipped: 0, failed: 0, details: [] };
 
     for (const [coordinatorId, { coordinator, transitions }] of coordinatorEntries) {
+
+      const eventCount = Object.values(transitions).reduce((n, arr) => n + arr.length, 0);
 
       if (alreadySentIds.has(coordinatorId)) {
         summary.skipped++;
@@ -258,6 +279,15 @@ export default async function handler(req, res) {
         console.log('[coordinator-digest] skip_dedup:', {
           coordinator_id:     coordinatorId,
           dedup_window_start: windowStart.toISOString(),
+        });
+        if (isDryRun) dryRunRecipients.push({
+          coordinator_id: coordinatorId,
+          name:           coordinator.full_name,
+          school:         coordinator.school_name,
+          program_type:   coordinator.program_type || null,
+          email_present:  !!coordinator.email,
+          event_count:    eventCount,
+          status:         'dedup_skipped',
         });
         continue;
       }
@@ -271,6 +301,15 @@ export default async function handler(req, res) {
           role:           coordinator.role,
           school_name:    coordinator.school_name,
         });
+        if (isDryRun) dryRunRecipients.push({
+          coordinator_id: coordinatorId,
+          name:           coordinator.full_name,
+          school:         coordinator.school_name,
+          program_type:   coordinator.program_type || null,
+          email_present:  false,
+          event_count:    eventCount,
+          status:         'missing_email',
+        });
         continue;
       }
 
@@ -282,6 +321,15 @@ export default async function handler(req, res) {
           coordinator_id: coordinatorId,
           school_name:    coordinator.school_name,
         });
+        if (isDryRun) dryRunRecipients.push({
+          coordinator_id: coordinatorId,
+          name:           coordinator.full_name,
+          school:         coordinator.school_name,
+          program_type:   coordinator.program_type || null,
+          email_present:  true,
+          event_count:    eventCount,
+          status:         'opted_out',
+        });
         continue;
       }
 
@@ -291,7 +339,7 @@ export default async function handler(req, res) {
       const firstName = coordinator.preferred_name ||
         (coordinator.full_name?.split(' ')[0]) || coordinator.full_name;
 
-      const totalItems = Object.values(transitions).reduce((n, arr) => n + arr.length, 0);
+      const totalItems = eventCount;
 
       let subject, html;
       try {
@@ -309,6 +357,21 @@ export default async function handler(req, res) {
         continue;
       }
 
+      // ── Dry-run branch: record what would happen, then skip all side effects ─
+      if (isDryRun) {
+        dryRunRecipients.push({
+          coordinator_id: coordinatorId,
+          name:           coordinator.full_name,
+          school:         coordinator.school_name,
+          program_type:   coordinator.program_type || null,
+          email_present:  true,
+          event_count:    totalItems,
+          status:         'would_send',
+        });
+        continue;
+        // No resend.emails.send(), no notification_log write, no contacts.update()
+      }
+
       let resendId   = null;
       let sendStatus = 'sent';
       let sendError  = null;
@@ -316,9 +379,9 @@ export default async function handler(req, res) {
       // Log 5 — send_attempt: fired immediately before the Resend call so a crash
       // or timeout inside the send is distinguishable from a skip or pre-send failure.
       console.log('[coordinator-digest] send_attempt:', {
-        coordinator_id:      coordinatorId,
-        recipient_email:     coordinator.email,
-        school_name:         coordinator.school_name,
+        coordinator_id:        coordinatorId,
+        recipient_email:       coordinator.email,
+        school_name:           coordinator.school_name,
         event_count_in_digest: totalItems,
       });
 
@@ -340,10 +403,10 @@ export default async function handler(req, res) {
           console.error(`[coordinator-digest] Resend error for ${coordinator.full_name}:`, emailErr);
           // Log 6 — send failure (Resend API returned an error object)
           console.error('[coordinator-digest] send_failure:', {
-            coordinator_id: coordinatorId,
+            coordinator_id:  coordinatorId,
             recipient_email: coordinator.email,
-            error_message:  emailErr.message || JSON.stringify(emailErr),
-            error_type:     'resend_api_error',
+            error_message:   emailErr.message || JSON.stringify(emailErr),
+            error_type:      'resend_api_error',
           });
         } else {
           resendId = emailData?.id || null;
@@ -414,7 +477,40 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── 6. Summary logging ────────────────────────────────────────────────────
+    // ── Dry-run response — returned before the live summary block ────────────
+    if (isDryRun) {
+      const wouldSendCount = dryRunRecipients.filter(r => r.status === 'would_send').length;
+      const skippedList    = dryRunRecipients.filter(r => r.status !== 'would_send');
+      const skippedReasons = skippedList.reduce((acc, r) => {
+        acc[r.status] = (acc[r.status] || 0) + 1;
+        return acc;
+      }, {});
+      console.log('[coordinator-digest] dry_run_summary:', {
+        total_events:               events.length,
+        active_coordinators_loaded: (allCoordinators || []).length,
+        coordinators_resolved:      coordinatorEntries.length,
+        would_send_count:           wouldSendCount,
+        skipped_count:              skippedList.length,
+        skipped_reasons:            skippedReasons,
+        duration_ms:                Date.now() - handlerStartTime,
+      });
+      return res.status(200).json({
+        dryRun:                   true,
+        windowStart:              windowStart.toISOString(),
+        windowEnd:                windowEnd.toISOString(),
+        totalEvents:              events.length,
+        eventsByType:             byType,
+        schoolsDetected:          schools.length,
+        activeCoordinatorsLoaded: (allCoordinators || []).length,
+        coordinatorsResolved:     coordinatorEntries.length,
+        wouldSendCount,
+        skippedCount:             skippedList.length,
+        skippedReasons,
+        recipients:               dryRunRecipients,
+      });
+    }
+
+    // ── 6. Summary logging (live mode only) ───────────────────────────────────
     console.log(
       `[coordinator-digest] SUMMARY:` +
       ` eligible=${summary.eligible} sent=${summary.sent}` +
