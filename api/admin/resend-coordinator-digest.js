@@ -51,7 +51,16 @@ export default async function handler(req, res) {
   }
 
   const now = new Date();
-  const { window_start, window_end, force = false, contact_ids } = req.body || {};
+  const {
+    window_start, window_end,
+    force = false, contact_ids,
+    testMode = false, testRecipientEmail,
+    simulateRecipientId, simulateRecipientEmail: simulateRecipientEmailParam,
+  } = req.body || {};
+
+  if (testMode && !testRecipientEmail) {
+    return res.status(400).json({ error: 'testMode requires testRecipientEmail' });
+  }
 
   // Resolve window
   const windowEnd   = window_end   ? new Date(window_end)   : getDefaultWindowEnd(now);
@@ -67,7 +76,7 @@ export default async function handler(req, res) {
     const { data: events, error: eventsErr } = await db
       .from('program_events')
       .select(`
-        id, event_type, event_date, created_at, notes, metadata,
+        id, event_type, event_date, created_at, notes,
         students!inner(id, first_name, last_name, school, program_type)
       `)
       .gte('created_at', windowStart.toISOString())
@@ -149,6 +158,109 @@ export default async function handler(req, res) {
         .gte('sent_at', windowStart.toISOString());
       alreadySentIds = new Set((recentLogs || []).map(r => r.contact_id).filter(Boolean));
     }
+
+    // ── Test-mode: send ONE rendered email to Owner for review ───────────────
+    // Does NOT send to the real coordinator email.
+    // Does NOT update contacts CRM fields.
+    // Writes notification_type 'coordinator_weekly_digest_test' (not the real type),
+    // so the simulated coordinator's dedup state is completely unaffected.
+    if (testMode) {
+      const entries = Object.entries(grouped);
+      if (entries.length === 0) {
+        return res.status(200).json({
+          testMode: true,
+          message:     'No coordinators resolved — nothing to simulate',
+          windowStart: windowStart.toISOString(),
+          windowEnd:   windowEnd.toISOString(),
+        });
+      }
+
+      // Pick the coordinator to simulate, by id → email → first available
+      let simulatedEntry = null;
+      if (simulateRecipientId) {
+        simulatedEntry = entries.find(([id]) => id === simulateRecipientId) || null;
+      } else if (simulateRecipientEmailParam) {
+        simulatedEntry = entries.find(([, { coordinator }]) =>
+          coordinator.email === simulateRecipientEmailParam) || null;
+      }
+      if (!simulatedEntry) simulatedEntry = entries[0];
+
+      const [simulatedId, { coordinator: sim, transitions: simTransitions }] = simulatedEntry;
+      const simFirstName    = sim.preferred_name || sim.full_name?.split(' ')[0];
+      const simSchoolDisplay = sim.school_name + (sim.program_type ? ` (${sim.program_type})` : '');
+      const simTotalItems   = Object.values(simTransitions).reduce((n, a) => n + a.length, 0);
+
+      const { subject: simSubject, html: simHtml } = buildCoordinatorWeeklyDigestEmail({
+        coordinatorFirstName: simFirstName,
+        schoolDisplayName:    simSchoolDisplay,
+        windowStart, windowEnd,
+        transitions:          simTransitions,
+      });
+
+      const { data: testEmailData, error: testEmailErr } = await resend.emails.send({
+        from:     FROM,
+        reply_to: REPLY_TO,
+        to:       [testRecipientEmail],   // Owner's address — never coordinator's
+        subject:  simSubject,             // exact subject, no [TEST] prefix, for accurate review
+        html:     simHtml,
+        tags: [
+          { name: 'type',   value: 'coordinator_weekly_digest_test' },
+          { name: 'source', value: 'admin_test' },
+        ],
+      });
+
+      if (testEmailErr) {
+        console.error('[resend-coordinator-digest] test send failed:', testEmailErr.message);
+        return res.status(500).json({ error: testEmailErr.message });
+      }
+
+      // Log with a distinct notification_type so the real dedup query
+      // (eq('notification_type', 'coordinator_weekly_digest')) cannot match this row.
+      // contact_id intentionally null — this is not a real send to the coordinator.
+      try {
+        await db.from('notification_log').insert({
+          notification_type: 'coordinator_weekly_digest_test',
+          audience:          'school_coordinator',
+          contact_id:        null,
+          recipient_email:   testRecipientEmail,
+          recipient_name:    'Owner (Test Mode)',
+          recipient_role:    'owner',
+          subject:           simSubject,
+          resend_email_id:   testEmailData?.id || null,
+          status:            'sent',
+          metadata: {
+            window_start:                windowStart.toISOString(),
+            window_end:                  windowEnd.toISOString(),
+            source:                      'admin_test',
+            simulated_coordinator_id:    simulatedId,
+            simulated_coordinator_name:  sim.full_name,
+            simulated_coordinator_school: sim.school_name,
+            transition_count:            simTotalItems,
+          },
+        });
+      } catch (logErr) {
+        console.warn('[resend-coordinator-digest] test notification_log write failed (non-fatal):', logErr.message);
+      }
+
+      console.log(`[resend-coordinator-digest] test mode → ${testRecipientEmail} (simulated: ${sim.full_name})`);
+
+      return res.status(200).json({
+        testMode:             true,
+        deliveredTo:          testRecipientEmail,
+        simulatedCoordinator: {
+          id:           simulatedId,
+          name:         sim.full_name,
+          email:        sim.email,
+          school_name:  sim.school_name,
+          program_type: sim.program_type || null,
+          event_count:  simTotalItems,
+        },
+        messageId:   testEmailData?.id || null,
+        windowStart: windowStart.toISOString(),
+        windowEnd:   windowEnd.toISOString(),
+      });
+    }
+    // ── end test mode ──────────────────────────────────────────────────────────
 
     // 5. Send
     const sent = [], skipped = [], failed = [];

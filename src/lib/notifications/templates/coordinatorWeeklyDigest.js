@@ -31,12 +31,11 @@ function wrap(content, preheader) {
   style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
 <tr><td style="background:${CS_RED};padding:20px 28px;">
   <div style="color:#ffffff;font-size:13px;font-weight:600;letter-spacing:1px;text-transform:uppercase;">ASPIRE Program</div>
-  <div style="color:#ffffff;font-size:11px;opacity:0.85;margin-top:2px;">Cedars-Sinai Medical Center · Weekly Update</div>
+  <div style="color:#ffffff;font-size:11px;opacity:0.85;margin-top:2px;">Cedars-Sinai Medical Center · Program Update</div>
 </td></tr>
 <tr><td style="padding:32px 28px;font-size:15px;line-height:1.6;color:${RAVEN};">${content}</td></tr>
 <tr><td style="padding:0 28px 28px;font-size:12px;color:#666;line-height:1.5;border-top:1px solid #eee;padding-top:16px;">
-  This is an automated weekly digest from the ASPIRE Program.
-  We only send these when there&rsquo;s activity to share. Replies go directly to Jester.
+  This is an ASPIRE Program communication. Replies go directly to Jester.
 </td></tr>
 </table>
 </td></tr>
@@ -85,25 +84,20 @@ export function buildCoordinatorWeeklyDigestEmail({
   const totalCount = CATEGORIES.reduce((sum, cat) =>
     sum + (transitions[cat.key]?.length || 0), 0);
 
-  const subject  = `ASPIRE Weekly Update — ${schoolDisplayName} (${dateRange})`;
-  const preheader = `${totalCount} update${totalCount === 1 ? '' : 's'} from ${schoolDisplayName} this week.`;
+  const subject  = `ASPIRE Program Update: Student Interview and Placement Status — ${schoolDisplayName}`;
+  const preheader = `${totalCount} ASPIRE Program update${totalCount === 1 ? '' : 's'} for ${schoolDisplayName}.`;
 
   const sections = CATEGORIES
     .map(cat => renderSection(cat, transitions[cat.key]))
     .join('');
 
   const body = `
-<p style="margin:0 0 16px;">Hi ${coordinatorFirstName},</p>
-
-<p style="margin:0 0 20px;">
-  Here&rsquo;s a quick look at your ASPIRE students&rsquo; progress this week
-  (${dateRange}):
-</p>
+<p style="margin:0 0 20px;">Good morning. I hope you are doing well. I am sharing an ASPIRE Program update regarding your students&rsquo; recent interview and placement activity.</p>
 
 ${sections}
 
 <p style="margin:0 0 16px;">
-  That&rsquo;s ${totalCount} update${totalCount === 1 ? '' : 's'} from ${schoolDisplayName} this week.
+  That&rsquo;s ${totalCount} update${totalCount === 1 ? '' : 's'} from ${schoolDisplayName}.
   If you have questions about any of these students or want to follow up on anything, just reply to this email.
 </p>
 
