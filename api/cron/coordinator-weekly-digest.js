@@ -128,6 +128,25 @@ export default async function handler(req, res) {
         duration_ms:                Date.now() - handlerStartTime,
         status:                     'completed_no_qualifying_events',
       });
+      if (isDryRun) {
+        return res.status(200).json({
+          dryRun:                   true,
+          success:                  true,
+          message:                  'No qualifying events',
+          sent:                     0,
+          windowStart:              windowStart.toISOString(),
+          windowEnd:                windowEnd.toISOString(),
+          totalEvents:              0,
+          eventsByType:             {},
+          schoolsDetected:          0,
+          activeCoordinatorsLoaded: 0,
+          coordinatorsResolved:     0,
+          wouldSendCount:           0,
+          skippedCount:             0,
+          skippedReasons:           {},
+          recipients:               [],
+        });
+      }
       return res.status(200).json({ success: true, message: 'No qualifying events', sent: 0 });
     }
 
@@ -238,6 +257,24 @@ export default async function handler(req, res) {
         duration_ms:                Date.now() - handlerStartTime,
         status:                     'completed_no_recipients_resolved',
       });
+      if (isDryRun) {
+        return res.status(200).json({
+          dryRun:                   true,
+          success:                  true,
+          message:                  'No coordinators resolved',
+          windowStart:              windowStart.toISOString(),
+          windowEnd:                windowEnd.toISOString(),
+          totalEvents:              events.length,
+          eventsByType:             byType,
+          schoolsDetected:          schools.length,
+          activeCoordinatorsLoaded: (allCoordinators || []).length,
+          coordinatorsResolved:     0,
+          wouldSendCount:           0,
+          skippedCount:             0,
+          skippedReasons:           {},
+          recipients:               [],
+        });
+      }
       return res.status(200).json({ success: true, message: 'No coordinators resolved', sent: 0 });
     }
 
