@@ -7,7 +7,7 @@ import BroadcastsView from '../components/connect/BroadcastsView'
 
 const F = 'DM Sans, sans-serif'
 
-export default function ConnectPage({ cohortId }) {
+export default function ConnectPage({ cohortId, onNavigateToStudent }) {
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -38,21 +38,21 @@ export default function ConnectPage({ cohortId }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily: F }}>
 
-      {/* Page header */}
-      <div style={{ padding: '20px 24px 0', flexShrink: 0 }}>
+      {/* Page header — elevated workspace treatment */}
+      <div style={{ padding: '24px 28px 0', flexShrink: 0 }}>
         <div style={{
           display: 'flex', alignItems: 'flex-start',
-          justifyContent: 'space-between', marginBottom: 16,
+          justifyContent: 'space-between', marginBottom: 20,
         }}>
           <div>
             <h1 style={{
-              margin: 0, fontSize: 22, fontWeight: 700,
+              margin: 0, fontSize: 24, fontWeight: 700,
               color: 'var(--text-primary,#0E1428)',
-              letterSpacing: '-0.01em', lineHeight: 1.2, fontFamily: F,
+              letterSpacing: '-0.02em', lineHeight: 1.2, fontFamily: F,
             }}>
               ASPIRE Connect
             </h1>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280', lineHeight: 1.5, fontFamily: F }}>
+            <p style={{ margin: '5px 0 0', fontSize: 13, color: '#6b7280', lineHeight: 1.5, fontFamily: F }}>
               Contacts, outreach, and announcements across cohorts.
             </p>
           </div>
@@ -90,7 +90,7 @@ export default function ConnectPage({ cohortId }) {
           <ContactsView />
         </div>
         <div style={{ display: activeSubTab === 'outreach' ? 'block' : 'none' }}>
-          <OutreachView cohortId={cohortId} />
+          <OutreachView cohortId={cohortId} onNavigateToStudent={onNavigateToStudent} />
         </div>
         <div style={{ display: activeSubTab === 'broadcasts' ? 'block' : 'none' }}>
           <BroadcastsView />

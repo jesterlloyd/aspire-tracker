@@ -48,7 +48,7 @@ const inputBase = {
 
 const fieldWrap = { marginBottom: 18 }
 
-export default function OutreachView({ cohortId }) {
+export default function OutreachView({ cohortId, onNavigateToStudent }) {
   const [students,          setStudents]          = useState([])
   const [loadingStudents,   setLoadingStudents]   = useState(true)
   const [selectedStudentId, setSelectedStudentId] = useState('')
@@ -185,7 +185,23 @@ export default function OutreachView({ cohortId }) {
                   border: '1.5px solid #fecaca', borderRadius: 8,
                   fontSize: 12, color: '#dc2626', fontFamily: F, lineHeight: 1.5,
                 }}>
-                  No email address on file for this student. Update the student profile before sending.
+                  No email address on file for this student.{' '}
+                  {onNavigateToStudent
+                    ? (
+                      <button
+                        onClick={() => onNavigateToStudent(selectedStudentId)}
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          fontSize: 12, color: '#dc2626', fontFamily: F,
+                          fontWeight: 600, padding: 0,
+                          textDecoration: 'underline', textUnderlineOffset: 2,
+                        }}
+                      >
+                        Update student profile →
+                      </button>
+                    )
+                    : 'Update the student profile before sending.'
+                  }
                 </div>
               )}
             </div>

@@ -37,7 +37,7 @@ import { useToast } from './hooks/useToast'
 import { ToastContainer } from './components/Toast'
 import { logActivity } from './lib/logActivity'
 import { safeWrite } from './lib/safeWrite'
-import { MessageSquare } from 'lucide-react'
+import { MessagesSquare } from 'lucide-react'
 import ConnectPage from './pages/Connect'
 
 /*
@@ -183,8 +183,9 @@ function MainApp({ onLogout }) {
 
   // ── Header: cohort picker state ──────────────────────────────────────────────
   const [cohortOpen, setCohortOpen] = useState(false)
-  const cohortPickerRef = useRef(null)
-  const bellRef         = useRef(null)
+  const cohortPickerRef    = useRef(null)
+  const bellRef            = useRef(null)
+  const prevWorkspacePath  = useRef('/aggregate')
 
   // ── Header: search state ─────────────────────────────────────────────────────
   const [searchQuery,     setSearchQuery]     = useState('')
@@ -217,6 +218,22 @@ function MainApp({ onLogout }) {
     if (p.startsWith('/connect'))  return 'connect'
     return PATH_TO_TAB[p] || 'overview'
   })()
+
+  // Track the last non-Connect path for the workspace back affordance.
+  // Stored in a ref so it never triggers re-renders.
+  useEffect(() => {
+    if (!location.pathname.startsWith('/connect')) {
+      prevWorkspacePath.current = location.pathname
+    }
+  }, [location.pathname])
+
+  // Derive back-navigation label from the stored path
+  const backPath  = prevWorkspacePath.current || '/aggregate'
+  const backLabel = backPath.startsWith('/rotation') ? 'Rotation'
+    : backPath === '/students'   ? 'Student Profiles'
+    : backPath === '/interviews' ? 'Interviews'
+    : backPath === '/evaluation' ? 'Evaluation'
+    : 'Aggregate'
 
   // Redirect / to the last visited tab, or /aggregate as default
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -948,15 +965,28 @@ function MainApp({ onLogout }) {
               style={{
                 position: 'relative', flexShrink: 0,
                 width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: activeTab === 'connect' ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)',
-                border: `1px solid ${activeTab === 'connect' ? 'rgba(255,255,255,0.30)' : 'rgba(255,255,255,0.10)'}`,
-                borderRadius: 8, color: activeTab === 'connect' ? '#fff' : 'rgba(255,255,255,0.75)', cursor: 'pointer',
-                transition: 'background 0.15s',
+                background: activeTab === 'connect' ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)',
+                border: `1px solid ${activeTab === 'connect' ? 'rgba(255,255,255,0.50)' : 'rgba(255,255,255,0.10)'}`,
+                borderRadius: 8,
+                color: activeTab === 'connect' ? '#fff' : 'rgba(255,255,255,0.75)',
+                cursor: 'pointer',
+                transition: 'background 0.15s, border-color 0.15s',
+                overflow: 'visible',
               }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
-              onMouseLeave={e => e.currentTarget.style.background = activeTab === 'connect' ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)'}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.14)'}
+              onMouseLeave={e => e.currentTarget.style.background = activeTab === 'connect' ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)'}
             >
-              <MessageSquare size={15} strokeWidth={1.9} />
+              <MessagesSquare size={15} strokeWidth={1.9} />
+              {activeTab === 'connect' && (
+                <span style={{
+                  position: 'absolute', bottom: -6, left: '50%', transform: 'translateX(-50%)',
+                  width: 0, height: 0,
+                  borderLeft: '4px solid transparent',
+                  borderRight: '4px solid transparent',
+                  borderTop: '5px solid rgba(255,255,255,0.65)',
+                  display: 'block',
+                }} />
+              )}
             </button>
           )}
           {cohorts.length > 0 && (
@@ -994,7 +1024,7 @@ function MainApp({ onLogout }) {
           />
         </header>
 
-        {cohorts.length > 0 && (
+        {cohorts.length > 0 && activeTab !== 'connect' && (
           <UnifiedNav
             cohorts={cohorts}
             activeCohortId={activeCohortId}
@@ -1016,6 +1046,33 @@ function MainApp({ onLogout }) {
               setTimeout(() => setHighlightUnitId(null), 2500)
             }}
           />
+        )}
+        {cohorts.length > 0 && activeTab === 'connect' && (
+          <div style={{
+            background: 'var(--bg-card,#FAFAF7)',
+            borderBottom: '1px solid var(--border-divider,rgba(29,37,103,0.08))',
+            padding: '0 32px', height: 44,
+            display: 'flex', alignItems: 'center',
+            fontFamily: 'DM Sans, sans-serif', flexShrink: 0,
+          }}>
+            <button
+              onClick={() => navigate(backPath)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 13, fontWeight: 500, color: '#6B7280',
+                padding: '4px 0', fontFamily: 'DM Sans, sans-serif',
+                transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = '#1D2567'}
+              onMouseLeave={e => e.currentTarget.style.color = '#6B7280'}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              Back to {backLabel}
+            </button>
+          </div>
         )}
       </div>
 
@@ -1102,7 +1159,10 @@ function MainApp({ onLogout }) {
             </div>
 
             {activeTab === 'connect' && (
-              <ConnectPage cohortId={activeCohortId} />
+              <ConnectPage
+                cohortId={activeCohortId}
+                onNavigateToStudent={id => { setFocusStudentId(id); switchTab('profiles') }}
+              />
             )}
           </>
         )}
