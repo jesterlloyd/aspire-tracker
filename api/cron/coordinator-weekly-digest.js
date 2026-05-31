@@ -88,7 +88,7 @@ export default async function handler(req, res) {
     const { data: events, error: eventsErr } = await db
       .from('program_events')
       .select(`
-        id, event_type, event_date, created_at, notes, metadata,
+        id, event_type, event_date, created_at, notes,
         students!inner(id, first_name, last_name, school, program_type)
       `)
       .gte('created_at', windowStart.toISOString())
