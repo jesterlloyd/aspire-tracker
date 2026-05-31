@@ -48,6 +48,27 @@ const inputBase = {
 
 const fieldWrap = { marginBottom: 18 }
 
+// ── Shared rail panel style ───────────────────────────────────────────────────
+// Used for both Zone 1 (Recipient Context) and Zone 4 (Activity).
+const railPanel = {
+  background: 'var(--bg-card,#FAFAF7)',
+  border: '1px solid var(--border-divider,rgba(29,37,103,0.08))',
+  borderRadius: 12,
+  padding: '18px 16px',
+  fontFamily: F,
+}
+
+const railHeading = {
+  fontSize: 10, fontWeight: 700, color: '#9ca3af',
+  textTransform: 'uppercase', letterSpacing: '0.13em',
+  marginBottom: 10, fontFamily: F,
+}
+
+const railBody = {
+  fontSize: 12, color: '#9ca3af', lineHeight: 1.65,
+  margin: 0, fontFamily: F,
+}
+
 export default function OutreachView({ cohortId, onNavigateToStudent }) {
   const [students,          setStudents]          = useState([])
   const [loadingStudents,   setLoadingStudents]   = useState(true)
@@ -106,34 +127,48 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
         ? 'personal email'
         : selectedStudent.school_email ? 'school email' : null)
     : null
-  const firstName        = selectedStudent?.first_name || null
-  const instrumentLabel  = INSTRUMENTS.find(i => i.slug === instrument)?.label || ''
+  const firstName       = selectedStudent?.first_name || null
+  const instrumentLabel = INSTRUMENTS.find(i => i.slug === instrument)?.label || ''
   const expiresFormatted = fmtDate(expiresAt)
 
   return (
     <div style={{ padding: '20px 24px', fontFamily: F }}>
 
-      {/* Template indicator */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-          <span style={{
-            fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 6,
-            background: '#EDF5F4', color: '#275E63', border: '1px solid #c9e8e6',
-            letterSpacing: 0.3, fontFamily: F,
-          }}>
-            Survey Invitation
-          </span>
+      {/* ── Four-zone layout ────────────────────────────────────────────────
+           Desktop: Zone 1 | Zone 2 | Zone 3 | Zone 4  (all in one row)
+           Medium:  Zone 1 + Zone 2 / Zone 3 + Zone 4  (two rows of two)
+           Narrow:  Zone 1 / Zone 2 / Zone 3 / Zone 4  (fully stacked)
+           Note: preferred small-screen order (Compose first) requires media
+           queries; current inline-style stack order is Zone 1→2→3→4.
+      ──────────────────────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+
+        {/* ── Zone 1: Recipient Context (left rail) ──────────────────────── */}
+        <div style={{ ...railPanel, flex: '0 0 196px', minWidth: 160 }}>
+          <div style={railHeading}>Survey Invitation Recipients</div>
+          <p style={railBody}>
+            Single-student selection is supported in this release. Recipient segments and saved groups will appear here in a future release.
+          </p>
         </div>
-        <p style={{ margin: 0, fontSize: 12, color: '#6b7280', fontFamily: F }}>
-          Send a pre-rotation readiness survey to a single student.
-        </p>
-      </div>
 
-      {/* Two-column layout: form fields left, preview right */}
-      <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        {/* ── Zone 2: Compose ──────────────────────────────────────────────── */}
+        <div style={{ flex: '2 1 320px', minWidth: 0 }}>
 
-        {/* ── Left column: form fields ──────────────────────────────────── */}
-        <div style={{ flex: '1 1 380px', minWidth: 0 }}>
+          {/* Template indicator */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <span style={{
+                fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 6,
+                background: '#EDF5F4', color: '#275E63', border: '1px solid #c9e8e6',
+                letterSpacing: 0.3, fontFamily: F,
+              }}>
+                Survey Invitation
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: 12, color: '#6b7280', fontFamily: F }}>
+              Send a pre-rotation readiness survey to a single student.
+            </p>
+          </div>
 
           {/* Field 1 — Recipient */}
           <div style={fieldWrap}>
@@ -286,7 +321,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
             </div>
           )}
 
-          {/* Action bar */}
+          {/* Action bar — Send remains disabled in Stage 5.1 */}
           <div style={{ paddingTop: 4 }}>
             <button
               disabled
@@ -305,8 +340,8 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
           </div>
         </div>
 
-        {/* ── Right column: message preview ─────────────────────────────── */}
-        <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+        {/* ── Zone 3: Message Preview ───────────────────────────────────────── */}
+        <div style={{ flex: '2 1 260px', minWidth: 0 }}>
           <div style={{
             background: '#fff', borderRadius: 12,
             border: '1px solid rgba(29,37,103,0.10)',
@@ -369,6 +404,14 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* ── Zone 4: Activity (right rail) ─────────────────────────────────── */}
+        <div style={{ ...railPanel, flex: '0 0 176px', minWidth: 148 }}>
+          <div style={railHeading}>Recent Outreach Activity</div>
+          <p style={railBody}>
+            Recent outreach activity will appear here once invitations are being sent (Stage 5.2+).
+          </p>
         </div>
 
       </div>
