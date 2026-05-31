@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 
 const F = 'DM Sans, sans-serif'
@@ -48,8 +48,6 @@ const inputBase = {
 
 const fieldWrap = { marginBottom: 18 }
 
-// ── Shared rail panel style ───────────────────────────────────────────────────
-// Used for both Zone 1 (Recipient Context) and Zone 4 (Activity).
 const railPanel = {
   background: 'var(--bg-card,#FAFAF7)',
   border: '1px solid var(--border-divider,rgba(29,37,103,0.08))',
@@ -80,7 +78,15 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
   const [duplicateExists,   setDuplicateExists]   = useState(false)
   const [checkingDuplicate, setCheckingDuplicate] = useState(false)
 
-  // ── Fetch students for active cohort ──────────────────────────────────────
+  // ── Generate Link state ───────────────────────────────────────────────────
+  const [generating,    setGenerating]    = useState(false)
+  const [generateError, setGenerateError] = useState(null)
+  // surveyResult holds the returned payload — surveyUrl, assignmentId, expiresAt, student.
+  // Never persisted to localStorage/sessionStorage. Cleared on form field changes.
+  const [surveyResult,  setSurveyResult]  = useState(null)
+  const [copied,        setCopied]        = useState(false)
+
+  // ── Fetch students ────────────────────────────────────────────────────────
   useEffect(() => {
     if (!cohortId) return
     setLoadingStudents(true)
@@ -96,7 +102,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
       })
   }, [cohortId])
 
-  // ── Duplicate guard — read-only check; no write ───────────────────────────
+  // ── Duplicate guard ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!selectedStudentId || !timepoint || !cohortId) {
       setDuplicateExists(false)
@@ -117,33 +123,103 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
       })
   }, [selectedStudentId, timepoint, cohortId])
 
-  // ── Derived values ─────────────────────────────────────────────────────────
-  const selectedStudent = students.find(s => s.id === selectedStudentId) || null
-  const resolvedEmail   = selectedStudent
+  // ── Clear generated link when form identity changes ───────────────────────
+  // Raw survey URL must not persist if the recipient, instrument, or timepoint change.
+  useEffect(() => {
+    setSurveyResult(null)
+    setGenerateError(null)
+    setCopied(false)
+  }, [selectedStudentId, instrument, timepoint])
+
+  // ── Derived values ────────────────────────────────────────────────────────
+  const selectedStudent  = students.find(s => s.id === selectedStudentId) || null
+  const resolvedEmail    = selectedStudent
     ? (selectedStudent.personal_email || selectedStudent.school_email || null)
     : null
-  const emailSource     = selectedStudent
+  const emailSource      = selectedStudent
     ? (selectedStudent.personal_email
         ? 'personal email'
         : selectedStudent.school_email ? 'school email' : null)
     : null
-  const firstName       = selectedStudent?.first_name || null
-  const instrumentLabel = INSTRUMENTS.find(i => i.slug === instrument)?.label || ''
+  const firstName        = selectedStudent?.first_name || null
+  const instrumentLabel  = INSTRUMENTS.find(i => i.slug === instrument)?.label || ''
   const expiresFormatted = fmtDate(expiresAt)
+
+  const formValid = !!(selectedStudentId && instrument && timepoint)
+
+  // ── Generate Link handler ─────────────────────────────────────────────────
+  const handleGenerateLink = useCallback(async () => {
+    if (!formValid || generating) return
+    setGenerating(true)
+    setGenerateError(null)
+    setSurveyResult(null)
+    setCopied(false)
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        setGenerateError('Session expired. Please refresh and try again.')
+        return
+      }
+
+      const res = await fetch('/api/evaluation-create-invitation', {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          studentId:  selectedStudentId,
+          cohortId,
+          timepoint,
+          expiresAt,
+          notes: notes.trim() || undefined,
+        }),
+      })
+
+      const payload = await res.json()
+
+      if (res.status === 409) {
+        setGenerateError(
+          payload.error ||
+          'An active invitation already exists for this student and timepoint. Review in the Evaluation tab.'
+        )
+        return
+      }
+      if (!res.ok) {
+        setGenerateError(payload.error || 'Failed to generate link. Please try again.')
+        return
+      }
+
+      // Store returned payload in React state only.
+      // Raw survey URL is never logged or persisted beyond this state variable.
+      setSurveyResult(payload)
+    } catch (err) {
+      setGenerateError('Network error. Please check your connection and try again.')
+    } finally {
+      setGenerating(false)
+    }
+  }, [formValid, generating, selectedStudentId, cohortId, timepoint, expiresAt, notes])
+
+  // ── Copy Link handler ─────────────────────────────────────────────────────
+  const handleCopy = useCallback(async () => {
+    if (!surveyResult?.surveyUrl) return
+    try {
+      await navigator.clipboard.writeText(surveyResult.surveyUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    } catch {
+      // Clipboard API unavailable — link is still selectable in the display field.
+      setCopied(false)
+    }
+  }, [surveyResult])
 
   return (
     <div style={{ padding: '20px 24px', fontFamily: F }}>
 
-      {/* ── Four-zone layout ────────────────────────────────────────────────
-           Desktop: Zone 1 | Zone 2 | Zone 3 | Zone 4  (all in one row)
-           Medium:  Zone 1 + Zone 2 / Zone 3 + Zone 4  (two rows of two)
-           Narrow:  Zone 1 / Zone 2 / Zone 3 / Zone 4  (fully stacked)
-           Note: preferred small-screen order (Compose first) requires media
-           queries; current inline-style stack order is Zone 1→2→3→4.
-      ──────────────────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
-        {/* ── Zone 1: Recipient Context (left rail) ──────────────────────── */}
+        {/* ── Zone 1: Recipient Context ─────────────────────────────────── */}
         <div style={{ ...railPanel, flex: '0 0 196px', minWidth: 160 }}>
           <div style={railHeading}>Survey Invitation Recipients</div>
           <p style={railBody}>
@@ -151,7 +227,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
           </p>
         </div>
 
-        {/* ── Zone 2: Compose ──────────────────────────────────────────────── */}
+        {/* ── Zone 2: Compose ───────────────────────────────────────────── */}
         <div style={{ flex: '2 1 320px', minWidth: 0 }}>
 
           {/* Template indicator */}
@@ -191,7 +267,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
             </select>
           </div>
 
-          {/* Field 2 — Delivery email (read-only, shown after recipient selected) */}
+          {/* Field 2 — Delivery email */}
           {selectedStudent && (
             <div style={fieldWrap}>
               <label style={labelStyle}>Delivery email</label>
@@ -309,7 +385,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
             </div>
           </div>
 
-          {/* Duplicate guard — informational only, no write */}
+          {/* Duplicate guard */}
           {selectedStudentId && timepoint && !checkingDuplicate && duplicateExists && (
             <div style={{
               padding: '11px 14px', marginBottom: 18,
@@ -321,92 +397,198 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
             </div>
           )}
 
-          {/* Action bar — Send remains disabled in Stage 5.1 */}
+          {/* Error state */}
+          {generateError && (
+            <div style={{
+              padding: '11px 14px', marginBottom: 18,
+              background: '#fef2f2', border: '1px solid #fecaca',
+              borderRadius: 8, fontSize: 12, color: '#dc2626',
+              fontFamily: F, lineHeight: 1.6,
+            }}>
+              {generateError}
+            </div>
+          )}
+
+          {/* Action bar */}
           <div style={{ paddingTop: 4 }}>
             <button
-              disabled
+              onClick={handleGenerateLink}
+              disabled={!formValid || generating}
               style={{
-                padding: '9px 20px', background: '#e5e7eb',
+                padding: '9px 20px',
+                background: formValid && !generating ? 'var(--color-accent-primary,#1D2567)' : '#e5e7eb',
                 border: 'none', borderRadius: 8,
                 fontSize: 13, fontWeight: 600, fontFamily: F,
-                color: '#9ca3af', cursor: 'not-allowed',
+                color: formValid && !generating ? '#fff' : '#9ca3af',
+                cursor: formValid && !generating ? 'pointer' : 'not-allowed',
+                transition: 'background 0.15s',
               }}
             >
-              Send Invitation
+              {generating ? 'Generating…' : 'Generate Link'}
             </button>
-            <div style={{ marginTop: 8, fontSize: 11, color: '#9ca3af', fontFamily: F, lineHeight: 1.5 }}>
-              Sending will be enabled in Stage 5.2 once the invitation endpoint is wired. This is a Stage 5.1 preview.
-            </div>
+            {!formValid && (
+              <div style={{ marginTop: 8, fontSize: 11, color: '#9ca3af', fontFamily: F, lineHeight: 1.5 }}>
+                Select a student, instrument, and timepoint to generate a link.
+              </div>
+            )}
           </div>
         </div>
 
-        {/* ── Zone 3: Message Preview ───────────────────────────────────────── */}
+        {/* ── Zone 3: Message Preview / Link Result ─────────────────────── */}
         <div style={{ flex: '2 1 260px', minWidth: 0 }}>
-          <div style={{
-            background: '#fff', borderRadius: 12,
-            border: '1px solid rgba(29,37,103,0.10)',
-            boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
-            overflow: 'hidden',
-          }}>
-            {/* Subject */}
-            <div style={{ padding: '14px 18px', borderBottom: '1px solid #f3f4f6' }}>
-              <div style={{
-                fontSize: 10, fontWeight: 700, color: '#9ca3af',
-                letterSpacing: '0.13em', textTransform: 'uppercase',
-                marginBottom: 6, fontFamily: F,
-              }}>
-                Subject
-              </div>
-              <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.5 }}>
-                ASPIRE Program: Your Pre-Rotation Readiness Survey is ready
-              </div>
-            </div>
 
-            {/* Message body preview */}
-            <div style={{ padding: '14px 18px' }}>
+          {/* Generated link result — replaces preview card after success */}
+          {surveyResult ? (
+            <div style={{
+              background: '#fff', borderRadius: 12,
+              border: '1px solid rgba(29,37,103,0.16)',
+              boxShadow: '0 2px 8px rgba(29,37,103,0.08)',
+              overflow: 'hidden',
+            }}>
+              {/* Success header */}
               <div style={{
-                fontSize: 10, fontWeight: 700, color: '#9ca3af',
-                letterSpacing: '0.13em', textTransform: 'uppercase',
-                marginBottom: 12, fontFamily: F,
+                background: '#EEF7F0', borderBottom: '1px solid #c6d9a8',
+                padding: '12px 18px',
+                display: 'flex', alignItems: 'center', gap: 8,
               }}>
-                Message preview
+                <span style={{ fontSize: 13, color: '#2F7D5C', fontWeight: 600, fontFamily: F }}>
+                  Link generated
+                </span>
+                <span style={{
+                  fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 5,
+                  background: '#c6d9a8', color: '#166534', fontFamily: F,
+                }}>
+                  {surveyResult.student?.firstName} {surveyResult.student?.lastName}
+                </span>
               </div>
-              <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.8 }}>
-                <p style={{ margin: '0 0 12px' }}>
-                  Dear{' '}
-                  {firstName
-                    ? <strong>{firstName}</strong>
-                    : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>[Student first name]</span>
-                  },
-                </p>
-                <p style={{ margin: '0 0 12px' }}>
-                  You are invited to complete the <em>{instrumentLabel}</em> as part of your participation in the ASPIRE Program.
-                </p>
-                {notes.trim() && (
-                  <p style={{ margin: '0 0 12px' }}>{notes.trim()}</p>
-                )}
-                <p style={{ margin: '0 0 12px' }}>
-                  Click the link below to begin. This survey expires on <strong>{expiresFormatted}</strong>.
-                </p>
-                <p style={{ margin: '0 0 12px' }}>
-                  <span style={{
-                    display: 'inline-block', padding: '3px 9px',
-                    background: '#f3f4f6', borderRadius: 5,
-                    fontSize: 12, color: '#6b7280', fontStyle: 'italic', fontFamily: F,
+
+              <div style={{ padding: '16px 18px' }}>
+
+                {/* One-time warning */}
+                <div style={{
+                  padding: '10px 12px', marginBottom: 16,
+                  background: '#FBF5E8', border: '1px solid #f0c9b0',
+                  borderRadius: 8, fontSize: 12, color: '#8B5E1A',
+                  fontFamily: F, lineHeight: 1.6,
+                }}>
+                  This link is shown once. Copy it now before closing or changing the form.
+                </div>
+
+                {/* Survey URL — selectable, not a clickable href (prevents accidental navigation) */}
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{
+                    fontSize: 10, fontWeight: 700, color: '#9ca3af',
+                    letterSpacing: '0.13em', textTransform: 'uppercase',
+                    marginBottom: 6, fontFamily: F,
                   }}>
-                    [Secure survey link will be generated when sent]
-                  </span>
-                </p>
-                <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', lineHeight: 1.6 }}>
-                  Brawerman Nursing Institute · Cedars-Sinai<br />
-                  ASPIRE Program
-                </p>
+                    Survey Link
+                  </div>
+                  <div style={{
+                    padding: '10px 13px',
+                    background: '#f9fafb', border: '1.5px solid #e5e7eb',
+                    borderRadius: 8, fontSize: 12, color: '#374151',
+                    fontFamily: 'ui-monospace, monospace',
+                    wordBreak: 'break-all', lineHeight: 1.6,
+                    userSelect: 'text',
+                  }}>
+                    {surveyResult.surveyUrl}
+                  </div>
+                </div>
+
+                {/* Copy button */}
+                <button
+                  onClick={handleCopy}
+                  style={{
+                    padding: '8px 16px', marginBottom: 16,
+                    background: copied ? '#EEF7F0' : 'var(--color-accent-primary,#1D2567)',
+                    border: `1px solid ${copied ? '#c6d9a8' : 'transparent'}`,
+                    borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: F,
+                    color: copied ? '#2F7D5C' : '#fff', cursor: 'pointer',
+                    transition: 'background 0.15s',
+                  }}
+                >
+                  {copied ? '✓ Copied' : 'Copy Link'}
+                </button>
+
+                {/* Assignment details */}
+                <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, lineHeight: 1.7 }}>
+                  <div><strong style={{ color: '#6b7280' }}>Assignment ID:</strong> {surveyResult.assignmentId}</div>
+                  <div><strong style={{ color: '#6b7280' }}>Expires:</strong> {fmtDate(surveyResult.expiresAt?.split('T')[0])}</div>
+                  <div><strong style={{ color: '#6b7280' }}>Timepoint:</strong> {TIMEPOINTS.find(t => t.value === surveyResult.timepoint)?.label || surveyResult.timepoint}</div>
+                  {surveyResult.student?.email && (
+                    <div><strong style={{ color: '#6b7280' }}>Delivery email:</strong> {surveyResult.student.email}</div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            /* Message preview — shown before link is generated */
+            <div style={{
+              background: '#fff', borderRadius: 12,
+              border: '1px solid rgba(29,37,103,0.10)',
+              boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+              overflow: 'hidden',
+            }}>
+              {/* Subject */}
+              <div style={{ padding: '14px 18px', borderBottom: '1px solid #f3f4f6' }}>
+                <div style={{
+                  fontSize: 10, fontWeight: 700, color: '#9ca3af',
+                  letterSpacing: '0.13em', textTransform: 'uppercase',
+                  marginBottom: 6, fontFamily: F,
+                }}>
+                  Subject
+                </div>
+                <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.5 }}>
+                  ASPIRE Program: Your Pre-Rotation Readiness Survey is ready
+                </div>
+              </div>
+
+              {/* Message body preview */}
+              <div style={{ padding: '14px 18px' }}>
+                <div style={{
+                  fontSize: 10, fontWeight: 700, color: '#9ca3af',
+                  letterSpacing: '0.13em', textTransform: 'uppercase',
+                  marginBottom: 12, fontFamily: F,
+                }}>
+                  Message preview
+                </div>
+                <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.8 }}>
+                  <p style={{ margin: '0 0 12px' }}>
+                    Dear{' '}
+                    {firstName
+                      ? <strong>{firstName}</strong>
+                      : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>[Student first name]</span>
+                    },
+                  </p>
+                  <p style={{ margin: '0 0 12px' }}>
+                    You are invited to complete the <em>{instrumentLabel}</em> as part of your participation in the ASPIRE Program.
+                  </p>
+                  {notes.trim() && (
+                    <p style={{ margin: '0 0 12px' }}>{notes.trim()}</p>
+                  )}
+                  <p style={{ margin: '0 0 12px' }}>
+                    Click the link below to begin. This survey expires on <strong>{expiresFormatted}</strong>.
+                  </p>
+                  <p style={{ margin: '0 0 12px' }}>
+                    <span style={{
+                      display: 'inline-block', padding: '3px 9px',
+                      background: '#f3f4f6', borderRadius: 5,
+                      fontSize: 12, color: '#6b7280', fontStyle: 'italic', fontFamily: F,
+                    }}>
+                      [Secure survey link will be generated when sent]
+                    </span>
+                  </p>
+                  <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', lineHeight: 1.6 }}>
+                    Brawerman Nursing Institute · Cedars-Sinai<br />
+                    ASPIRE Program
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* ── Zone 4: Activity (right rail) ─────────────────────────────────── */}
+        {/* ── Zone 4: Activity ──────────────────────────────────────────── */}
         <div style={{ ...railPanel, flex: '0 0 176px', minWidth: 148 }}>
           <div style={railHeading}>Recent Outreach Activity</div>
           <p style={railBody}>
