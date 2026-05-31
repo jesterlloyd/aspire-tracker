@@ -37,6 +37,8 @@ import { useToast } from './hooks/useToast'
 import { ToastContainer } from './components/Toast'
 import { logActivity } from './lib/logActivity'
 import { safeWrite } from './lib/safeWrite'
+import { MessageSquare } from 'lucide-react'
+import ConnectPage from './pages/Connect'
 
 /*
   COHORT ISOLATION CONTRACT
@@ -212,6 +214,7 @@ function MainApp({ onLogout }) {
   const activeTab = (() => {
     const p = location.pathname
     if (p.startsWith('/rotation')) return 'rotation'
+    if (p.startsWith('/connect'))  return 'connect'
     return PATH_TO_TAB[p] || 'overview'
   })()
 
@@ -936,7 +939,26 @@ function MainApp({ onLogout }) {
             )}
           </div>
 
-          {/* Zone 3: Actions — bell + user menu (people access is inside UserMenu) */}
+          {/* Zone 3: Actions — connect + bell + user menu */}
+          {cohorts.length > 0 && (
+            <button
+              data-tour="connect"
+              aria-label="Open ASPIRE Connect"
+              onClick={() => navigate('/connect/outreach')}
+              style={{
+                position: 'relative', flexShrink: 0,
+                width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: activeTab === 'connect' ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)',
+                border: `1px solid ${activeTab === 'connect' ? 'rgba(255,255,255,0.30)' : 'rgba(255,255,255,0.10)'}`,
+                borderRadius: 8, color: activeTab === 'connect' ? '#fff' : 'rgba(255,255,255,0.75)', cursor: 'pointer',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+              onMouseLeave={e => e.currentTarget.style.background = activeTab === 'connect' ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)'}
+            >
+              <MessageSquare size={15} strokeWidth={1.9} />
+            </button>
+          )}
           {cohorts.length > 0 && (
             <button
               ref={bellRef}
@@ -1078,6 +1100,10 @@ function MainApp({ onLogout }) {
             <div style={{ display: activeTab === 'evaluation' ? 'block' : 'none' }}>
               <EvaluationTab cohortId={activeCohortId} />
             </div>
+
+            {activeTab === 'connect' && (
+              <ConnectPage cohortId={activeCohortId} />
+            )}
           </>
         )}
       </main>

@@ -1,0 +1,102 @@
+import { useEffect } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { Users, Send, Megaphone } from 'lucide-react'
+import ContactsView from '../components/connect/ContactsView'
+import OutreachView from '../components/connect/OutreachView'
+import BroadcastsView from '../components/connect/BroadcastsView'
+
+const F = 'DM Sans, sans-serif'
+
+export default function ConnectPage({ cohortId }) {
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  // Redirect bare /connect to default sub-tab
+  useEffect(() => {
+    if (location.pathname === '/connect') {
+      navigate('/connect/outreach', { replace: true })
+    }
+  }, [location.pathname, navigate])
+
+  // URL-routed sub-tab, matching Rotation's pattern exactly
+  const activeSubTab = location.pathname.startsWith('/connect/contacts')
+    ? 'contacts'
+    : location.pathname.startsWith('/connect/broadcasts')
+      ? 'broadcasts'
+      : 'outreach'
+
+  const btnStyle = key => ({
+    height: 32, padding: '0 13px',
+    display: 'flex', alignItems: 'center', gap: 6,
+    border: 'none', cursor: 'pointer', fontSize: 12,
+    fontFamily: F, fontWeight: 500,
+    background: activeSubTab === key ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
+    color: activeSubTab === key ? '#fff' : 'var(--text-secondary,#4A5560)',
+    transition: 'all 0.12s',
+  })
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontFamily: F }}>
+
+      {/* Page header */}
+      <div style={{ padding: '20px 24px 0', flexShrink: 0 }}>
+        <div style={{
+          display: 'flex', alignItems: 'flex-start',
+          justifyContent: 'space-between', marginBottom: 16,
+        }}>
+          <div>
+            <h1 style={{
+              margin: 0, fontSize: 22, fontWeight: 700,
+              color: 'var(--text-primary,#0E1428)',
+              letterSpacing: '-0.01em', lineHeight: 1.2, fontFamily: F,
+            }}>
+              ASPIRE Connect
+            </h1>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280', lineHeight: 1.5, fontFamily: F }}>
+              Contacts, outreach, and announcements across cohorts.
+            </p>
+          </div>
+          {/* Right-aligned action buttons reserved for future stages */}
+        </div>
+
+        {/* Sub-tab picker — mirrors RotationTab's pill-group shape exactly */}
+        <div style={{ paddingBottom: 12 }}>
+          <div style={{
+            display: 'flex',
+            borderRadius: 7,
+            border: '1px solid var(--border-input,rgba(29,37,103,0.10))',
+            overflow: 'hidden',
+            width: 'fit-content',
+          }}>
+            <button onClick={() => navigate('/connect/contacts')} style={btnStyle('contacts')}>
+              <Users size={13} />
+              Contacts
+            </button>
+            <button onClick={() => navigate('/connect/outreach')} style={btnStyle('outreach')}>
+              <Send size={13} />
+              Outreach
+            </button>
+            <button onClick={() => navigate('/connect/broadcasts')} style={btnStyle('broadcasts')}>
+              <Megaphone size={13} />
+              Broadcasts
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Sub-tab content — all three mounted; inactive hidden to preserve form state */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <div style={{ display: activeSubTab === 'contacts' ? 'block' : 'none' }}>
+          <ContactsView />
+        </div>
+        <div style={{ display: activeSubTab === 'outreach' ? 'block' : 'none' }}>
+          <OutreachView cohortId={cohortId} />
+        </div>
+        <div style={{ display: activeSubTab === 'broadcasts' ? 'block' : 'none' }}>
+          <BroadcastsView />
+        </div>
+      </div>
+
+    </div>
+  )
+}
