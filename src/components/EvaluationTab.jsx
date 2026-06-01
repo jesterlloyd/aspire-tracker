@@ -12,6 +12,7 @@ const TIMEPOINT_LABELS = {
   baseline:                'Baseline',
   early_rotation_baseline: 'Early-Rotation Baseline',
   mid_rotation:            'Mid-Rotation Check-In',
+  midpoint:                'Mid-Rotation Check-In',
   post_rotation:           'Post-Rotation Reflection',
 }
 
