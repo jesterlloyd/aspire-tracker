@@ -49,22 +49,38 @@ const inputBase = {
 const fieldWrap = { marginBottom: 18 }
 
 const railPanel = {
-  background: 'var(--bg-card,#FAFAF7)',
-  border: '1px solid var(--border-divider,rgba(29,37,103,0.08))',
+  background: '#ffffff',
+  border: '1px solid rgba(29,37,103,0.10)',
   borderRadius: 12,
-  padding: '18px 16px',
+  padding: '16px 16px',
+  boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
   fontFamily: F,
 }
 
-const railHeading = {
-  fontSize: 10, fontWeight: 700, color: '#9ca3af',
-  textTransform: 'uppercase', letterSpacing: '0.13em',
-  marginBottom: 10, fontFamily: F,
+const railTitle = {
+  fontSize: 12, fontWeight: 700, color: 'var(--color-accent-primary,#1D2567)',
+  letterSpacing: '-0.01em', marginBottom: 2, fontFamily: F,
+}
+
+const railSubtitle = {
+  fontSize: 10, color: '#9ca3af', fontFamily: F, marginBottom: 14,
 }
 
 const railBody = {
-  fontSize: 12, color: '#9ca3af', lineHeight: 1.65,
+  fontSize: 11, color: '#9ca3af', lineHeight: 1.65,
   margin: 0, fontFamily: F,
+}
+
+const futureRow = {
+  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+  padding: '7px 0', borderBottom: '1px solid #f3f4f6',
+  opacity: 0.5, cursor: 'default',
+}
+
+const futureBadge = {
+  fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4,
+  background: '#f3f4f6', color: '#9ca3af', letterSpacing: '0.08em',
+  fontFamily: F, textTransform: 'uppercase',
 }
 
 export default function OutreachView({ cohortId, onNavigateToStudent }) {
@@ -234,9 +250,61 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
 
         {/* ── Zone 1: Recipient Context ─────────────────────────────────── */}
         <div style={{ ...railPanel, flex: '0 0 196px', minWidth: 160 }}>
-          <div style={railHeading}>Survey Invitation Recipients</div>
+          <div style={railTitle}>Recipient Context</div>
+          <div style={railSubtitle}>Survey invitation</div>
+
+          {/* Selected student context — live from form state */}
+          {selectedStudent ? (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, color: '#191919', fontFamily: F, lineHeight: 1.3 }}>
+                {selectedStudent.first_name} {selectedStudent.last_name}
+              </div>
+              {selectedStudent.school && (
+                <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginTop: 3 }}>
+                  {selectedStudent.school}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 8 }}>
+                {resolvedEmail ? (
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                    background: '#EEF7F0', color: '#166534', border: '1px solid #c6d9a8',
+                    fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
+                  }}>Email on file</span>
+                ) : (
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                    background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca',
+                    fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
+                  }}>Missing email</span>
+                )}
+                <span style={{
+                  fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                  background: '#EEF2FB', color: '#1D2567', border: '1px solid #c3cdf0',
+                  fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
+                }}>
+                  {TIMEPOINTS.find(t => t.value === timepoint)?.label || timepoint}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div style={{ ...railBody, marginBottom: 14 }}>
+              Select a student to see recipient context.
+            </div>
+          )}
+
+          {/* Future segment rows — disabled, non-clickable */}
+          <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 10, marginBottom: 10 }}>
+            {['Student segments', 'Saved groups', 'School coordinators'].map(label => (
+              <div key={label} style={futureRow}>
+                <span style={{ fontSize: 11, color: '#374151', fontFamily: F }}>{label}</span>
+                <span style={futureBadge}>Future</span>
+              </div>
+            ))}
+          </div>
+
           <p style={railBody}>
-            Single-student selection is supported in this release. Recipient segments and saved groups will appear here in a future release.
+            Single-student invitations are supported now. Segments and saved groups will be added in a future release.
           </p>
         </div>
 
@@ -600,9 +668,39 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
 
         {/* ── Zone 4: Activity ──────────────────────────────────────────── */}
         <div style={{ ...railPanel, flex: '0 0 176px', minWidth: 148 }}>
-          <div style={railHeading}>Recent Outreach Activity</div>
+          <div style={railTitle}>Activity</div>
+          <div style={railSubtitle}>Outreach status</div>
+
+          {/* Real session-based activity — reflects actual current UI state */}
+          {surveyResult ? (
+            <div style={{
+              padding: '10px 12px', marginBottom: 12,
+              background: '#F9FAFB', border: '1px solid #e5e7eb', borderRadius: 8,
+            }}>
+              <span style={{
+                display: 'inline-block', marginBottom: 6,
+                fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                background: '#EEF7F0', color: '#2F7D5C', border: '1px solid #c6d9a8',
+                fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
+              }}>Link generated</span>
+              <div style={{ fontWeight: 600, fontSize: 12, color: '#191919', fontFamily: F, lineHeight: 1.4 }}>
+                {surveyResult.student?.firstName} {surveyResult.student?.lastName}
+              </div>
+              <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginTop: 2 }}>
+                {TIMEPOINTS.find(t => t.value === surveyResult.timepoint)?.label || surveyResult.timepoint}
+              </div>
+              <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 2 }}>
+                Expires {fmtDate(surveyResult.expiresAt?.split('T')[0])}
+              </div>
+            </div>
+          ) : (
+            <p style={{ ...railBody, marginBottom: 12 }}>
+              No outreach activity in this session yet.
+            </p>
+          )}
+
           <p style={railBody}>
-            Recent outreach activity will appear here once invitations are being sent (Stage 5.2+).
+            Sent emails, reminders, and response activity will appear here in a future release.
           </p>
         </div>
 
