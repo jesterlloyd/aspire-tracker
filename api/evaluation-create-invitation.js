@@ -49,6 +49,19 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Outer catch ensures all unhandled exceptions return JSON rather than
+  // Vercel's HTML error page. HTML responses cause res.json() in the browser
+  // to throw, masking the real error as a "Network error" in the UI.
+  try {
+    return await _handler(req, res);
+  } catch (err) {
+    console.error('[create-invitation] unhandled exception:', err?.message || err);
+    return res.status(500).json({ error: `Server error: ${err?.message || 'unknown'}` });
+  }
+}
+
+async function _handler(req, res) {
+
   // ── 1. Auth: Bearer session token ────────────────────────────────────────
   const authHeader  = req.headers['authorization'] || '';
   const bearerToken = authHeader.replace(/^Bearer\s+/i, '').trim();

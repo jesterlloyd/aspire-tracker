@@ -177,17 +177,30 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
         }),
       })
 
-      const payload = await res.json()
+      // Parse JSON separately — if the server crashed before the handler ran
+      // (e.g., missing env var), Vercel returns an HTML error page, not JSON.
+      // Parsing that HTML as JSON throws, which would otherwise reach the catch
+      // block and show the misleading "Network error" message.
+      let payload = null
+      try {
+        payload = await res.json()
+      } catch {
+        // Non-JSON response — Vercel-level crash (likely missing env var in Production).
+        setGenerateError(
+          `Server error (HTTP ${res.status}). Check Vercel function logs for api/evaluation-create-invitation. Likely cause: missing Production environment variable.`
+        )
+        return
+      }
 
       if (res.status === 409) {
         setGenerateError(
-          payload.error ||
+          payload?.error ||
           'An active invitation already exists for this student and timepoint. Review in the Evaluation tab.'
         )
         return
       }
       if (!res.ok) {
-        setGenerateError(payload.error || 'Failed to generate link. Please try again.')
+        setGenerateError(payload?.error || 'Failed to generate link. Please try again.')
         return
       }
 
