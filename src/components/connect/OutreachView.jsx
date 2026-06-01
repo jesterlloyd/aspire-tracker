@@ -434,25 +434,108 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
           </div>
         </div>
 
-        {/* ── Zone 3: Message Preview / Link Result ─────────────────────── */}
+        {/* ── Zone 3: Message Preview + Generated Link ──────────────────── */}
         <div style={{ flex: '2 1 260px', minWidth: 0 }}>
 
-          {/* Generated link result — replaces preview card after success */}
-          {surveyResult ? (
+          {/* Message preview — always visible so Owner can see full message context */}
+          <div style={{
+            background: '#fff', borderRadius: 12,
+            border: surveyResult
+              ? '1px solid rgba(29,37,103,0.16)'
+              : '1px solid rgba(29,37,103,0.10)',
+            boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+            overflow: 'hidden',
+          }}>
+            {/* Subject */}
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid #f3f4f6' }}>
+              <div style={{
+                fontSize: 10, fontWeight: 700, color: '#9ca3af',
+                letterSpacing: '0.13em', textTransform: 'uppercase',
+                marginBottom: 6, fontFamily: F,
+              }}>
+                Subject
+              </div>
+              <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.5 }}>
+                ASPIRE Program: Your Pre-Rotation Readiness Survey is ready
+              </div>
+            </div>
+
+            {/* Message body */}
+            <div style={{ padding: '14px 18px' }}>
+              <div style={{
+                fontSize: 10, fontWeight: 700, color: '#9ca3af',
+                letterSpacing: '0.13em', textTransform: 'uppercase',
+                marginBottom: 12, fontFamily: F,
+              }}>
+                Message preview
+              </div>
+              <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.8 }}>
+                <p style={{ margin: '0 0 12px' }}>
+                  Dear{' '}
+                  {firstName
+                    ? <strong>{firstName}</strong>
+                    : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>[Student first name]</span>
+                  },
+                </p>
+                <p style={{ margin: '0 0 12px' }}>
+                  You are invited to complete the <em>{instrumentLabel}</em> as part of your participation in the ASPIRE Program.
+                </p>
+                {notes.trim() && (
+                  <p style={{ margin: '0 0 12px' }}>{notes.trim()}</p>
+                )}
+                <p style={{ margin: '0 0 12px' }}>
+                  Click the link below to begin. This survey expires on <strong>{expiresFormatted}</strong>.
+                </p>
+
+                {/* Survey link position — placeholder before generation, real URL after */}
+                <p style={{ margin: '0 0 12px' }}>
+                  {surveyResult ? (
+                    <span style={{
+                      display: 'block', padding: '6px 10px',
+                      background: '#EEF7F0', border: '1px solid #c6d9a8', borderRadius: 6,
+                      fontSize: 11, color: '#166534',
+                      fontFamily: 'ui-monospace, monospace',
+                      wordBreak: 'break-all', lineHeight: 1.6,
+                      userSelect: 'text',
+                    }}>
+                      {surveyResult.surveyUrl}
+                    </span>
+                  ) : (
+                    <span style={{
+                      display: 'inline-block', padding: '3px 9px',
+                      background: '#f3f4f6', borderRadius: 5,
+                      fontSize: 12, color: '#6b7280', fontStyle: 'italic', fontFamily: F,
+                    }}>
+                      [Secure survey link will be generated]
+                    </span>
+                  )}
+                </p>
+
+                <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', lineHeight: 1.6 }}>
+                  Brawerman Nursing Institute · Cedars-Sinai<br />
+                  ASPIRE Program
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Generated link card — compact details, shown below preview after success */}
+          {surveyResult && (
             <div style={{
+              marginTop: 10,
               background: '#fff', borderRadius: 12,
-              border: '1px solid rgba(29,37,103,0.16)',
-              boxShadow: '0 2px 8px rgba(29,37,103,0.08)',
+              border: '1px solid rgba(29,37,103,0.10)',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
               overflow: 'hidden',
             }}>
               {/* Success header */}
               <div style={{
                 background: '#EEF7F0', borderBottom: '1px solid #c6d9a8',
-                padding: '12px 18px',
+                padding: '10px 16px',
                 display: 'flex', alignItems: 'center', gap: 8,
               }}>
-                <span style={{ fontSize: 13, color: '#2F7D5C', fontWeight: 600, fontFamily: F }}>
-                  Link generated
+                <span style={{ fontSize: 12, color: '#2F7D5C', fontWeight: 600, fontFamily: F }}>
+                  ✓ Link generated
                 </span>
                 <span style={{
                   fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 5,
@@ -462,44 +545,22 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                 </span>
               </div>
 
-              <div style={{ padding: '16px 18px' }}>
-
+              <div style={{ padding: '14px 16px' }}>
                 {/* One-time warning */}
                 <div style={{
-                  padding: '10px 12px', marginBottom: 16,
+                  padding: '9px 12px', marginBottom: 12,
                   background: '#FBF5E8', border: '1px solid #f0c9b0',
-                  borderRadius: 8, fontSize: 12, color: '#8B5E1A',
+                  borderRadius: 8, fontSize: 11, color: '#8B5E1A',
                   fontFamily: F, lineHeight: 1.6,
                 }}>
                   This link is shown once. Copy it now before closing or changing the form.
-                </div>
-
-                {/* Survey URL — selectable, not a clickable href (prevents accidental navigation) */}
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{
-                    fontSize: 10, fontWeight: 700, color: '#9ca3af',
-                    letterSpacing: '0.13em', textTransform: 'uppercase',
-                    marginBottom: 6, fontFamily: F,
-                  }}>
-                    Survey Link
-                  </div>
-                  <div style={{
-                    padding: '10px 13px',
-                    background: '#f9fafb', border: '1.5px solid #e5e7eb',
-                    borderRadius: 8, fontSize: 12, color: '#374151',
-                    fontFamily: 'ui-monospace, monospace',
-                    wordBreak: 'break-all', lineHeight: 1.6,
-                    userSelect: 'text',
-                  }}>
-                    {surveyResult.surveyUrl}
-                  </div>
                 </div>
 
                 {/* Copy button */}
                 <button
                   onClick={handleCopy}
                   style={{
-                    padding: '8px 16px', marginBottom: 16,
+                    padding: '7px 16px', marginBottom: 12,
                     background: copied ? '#EEF7F0' : 'var(--color-accent-primary,#1D2567)',
                     border: `1px solid ${copied ? '#c6d9a8' : 'transparent'}`,
                     borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: F,
@@ -518,70 +579,6 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                   {surveyResult.student?.email && (
                     <div><strong style={{ color: '#6b7280' }}>Delivery email:</strong> {surveyResult.student.email}</div>
                   )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* Message preview — shown before link is generated */
-            <div style={{
-              background: '#fff', borderRadius: 12,
-              border: '1px solid rgba(29,37,103,0.10)',
-              boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
-              overflow: 'hidden',
-            }}>
-              {/* Subject */}
-              <div style={{ padding: '14px 18px', borderBottom: '1px solid #f3f4f6' }}>
-                <div style={{
-                  fontSize: 10, fontWeight: 700, color: '#9ca3af',
-                  letterSpacing: '0.13em', textTransform: 'uppercase',
-                  marginBottom: 6, fontFamily: F,
-                }}>
-                  Subject
-                </div>
-                <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.5 }}>
-                  ASPIRE Program: Your Pre-Rotation Readiness Survey is ready
-                </div>
-              </div>
-
-              {/* Message body preview */}
-              <div style={{ padding: '14px 18px' }}>
-                <div style={{
-                  fontSize: 10, fontWeight: 700, color: '#9ca3af',
-                  letterSpacing: '0.13em', textTransform: 'uppercase',
-                  marginBottom: 12, fontFamily: F,
-                }}>
-                  Message preview
-                </div>
-                <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.8 }}>
-                  <p style={{ margin: '0 0 12px' }}>
-                    Dear{' '}
-                    {firstName
-                      ? <strong>{firstName}</strong>
-                      : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>[Student first name]</span>
-                    },
-                  </p>
-                  <p style={{ margin: '0 0 12px' }}>
-                    You are invited to complete the <em>{instrumentLabel}</em> as part of your participation in the ASPIRE Program.
-                  </p>
-                  {notes.trim() && (
-                    <p style={{ margin: '0 0 12px' }}>{notes.trim()}</p>
-                  )}
-                  <p style={{ margin: '0 0 12px' }}>
-                    Click the link below to begin. This survey expires on <strong>{expiresFormatted}</strong>.
-                  </p>
-                  <p style={{ margin: '0 0 12px' }}>
-                    <span style={{
-                      display: 'inline-block', padding: '3px 9px',
-                      background: '#f3f4f6', borderRadius: 5,
-                      fontSize: 12, color: '#6b7280', fontStyle: 'italic', fontFamily: F,
-                    }}>
-                      [Secure survey link will be generated when sent]
-                    </span>
-                  </p>
-                  <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', lineHeight: 1.6 }}>
-                    Brawerman Nursing Institute · Cedars-Sinai<br />
-                    ASPIRE Program
-                  </p>
                 </div>
               </div>
             </div>

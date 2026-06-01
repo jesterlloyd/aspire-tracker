@@ -259,12 +259,22 @@ export default async function handler(req, res) {
   // sent to the server — they exist only in the browser. The student-facing
   // /evaluation/readiness page reads it via window.location.hash and strips it
   // from the address bar immediately.
-  const baseUrl   = process.env.VITE_APP_URL || 'https://aspire-tracker.vercel.app';
+  //
+  // Base URL: derived from Vercel's forwarded headers so Preview deployments
+  // produce Preview links and Production produces Production links. A Preview
+  // token cannot validate against Production's database — using the correct
+  // host eliminates that mismatch.
+  const proto   = req.headers['x-forwarded-proto'] || 'https';
+  const host    = req.headers['x-forwarded-host'] || req.headers['host'];
+  const baseUrl = host
+    ? `${proto}://${host}`
+    : (process.env.VITE_APP_URL || 'https://aspire-tracker.vercel.app');
   const surveyUrl = `${baseUrl}/evaluation/readiness#t=${rawToken}`;
 
   const resolvedEmail = student.personal_email || student.school_email || null;
 
   // Structured log — contains only safe fields. Raw token is excluded.
+  // base_url is logged so URL-base mismatches (Preview vs Production) are diagnosable.
   console.log('[create-invitation] invitation created:', {
     assignment_id:     assignment.id,
     student_id:        studentId,
@@ -272,6 +282,7 @@ export default async function handler(req, res) {
     timepoint,
     expires_at:        expiresAt.toISOString(),
     token_hash_prefix: tokenHashPrefix,
+    base_url:          baseUrl,
   });
 
   // Raw token is returned here and discarded at end of request scope.
