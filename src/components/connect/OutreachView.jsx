@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import Tooltip from '../ui/Tooltip'
 
 const F = 'DM Sans, sans-serif'
 
@@ -89,6 +90,18 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
   // Read contact context passed from Contacts Email action (router state, not URL)
   const fromContact  = location.state?.fromContact || null
 
+  // ── Outreach mode state ───────────────────────────────────────────────────
+  // Default to 'message' when arriving from a Contacts Email action
+  const [outreachMode, setOutreachMode] = useState(fromContact ? 'message' : 'survey')
+
+  // ── Direct Message draft state ────────────────────────────────────────────
+  // Draft key scoped to contact — stores ONLY { subject, body }, never tokens or URLs
+  const DRAFT_KEY = fromContact?.id
+    ? `aspire.connect.outreach.directDraft.${fromContact.id}`
+    : null
+  const [msgSubject, setMsgSubject] = useState('')
+  const [msgBody,    setMsgBody]    = useState('')
+
   const [students,          setStudents]          = useState([])
   const [loadingStudents,   setLoadingStudents]   = useState(true)
   const [selectedStudentId, setSelectedStudentId] = useState('')
@@ -151,6 +164,23 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
     setGenerateError(null)
     setCopied(false)
   }, [selectedStudentId, instrument, timepoint])
+
+  // ── Direct Message draft: restore on mount ────────────────────────────────
+  useEffect(() => {
+    if (!DRAFT_KEY) return
+    try {
+      const saved = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}')
+      if (typeof saved.subject === 'string') setMsgSubject(saved.subject)
+      if (typeof saved.body    === 'string') setMsgBody(saved.body)
+    } catch { /* ignore malformed draft */ }
+  }, [DRAFT_KEY]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Direct Message draft: persist on change — stores ONLY { subject, body } ──
+  // surveyResult, surveyUrl, and any token-containing values are NEVER persisted here
+  useEffect(() => {
+    if (!DRAFT_KEY) return
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ subject: msgSubject, body: msgBody }))
+  }, [msgSubject, msgBody, DRAFT_KEY])
 
   // ── Derived values ────────────────────────────────────────────────────────
   const selectedStudent  = students.find(s => s.id === selectedStudentId) || null
@@ -256,46 +286,75 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
         {/* ── Zone 1: Recipient Context ─────────────────────────────────── */}
         <div style={{ ...railPanel, flex: '0 0 196px', minWidth: 160 }}>
           <div style={railTitle}>Recipient Context</div>
-          <div style={railSubtitle}>Survey invitation</div>
+          <div style={railSubtitle}>{outreachMode === 'message' ? 'Direct message' : 'Survey invitation'}</div>
 
-          {/* Selected student context — live from form state */}
-          {selectedStudent ? (
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontWeight: 600, fontSize: 13, color: '#191919', fontFamily: F, lineHeight: 1.3 }}>
-                {selectedStudent.first_name} {selectedStudent.last_name}
-              </div>
-              {selectedStudent.school && (
-                <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginTop: 3 }}>
-                  {selectedStudent.school}
+          {/* Contact context — shown when in Direct Message mode */}
+          {outreachMode === 'message' && (
+            fromContact ? (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, color: '#191919', fontFamily: F, lineHeight: 1.3 }}>
+                  {fromContact.name}
                 </div>
-              )}
-              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 8 }}>
-                {resolvedEmail ? (
-                  <span style={{
-                    fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-                    background: '#EEF7F0', color: '#166534', border: '1px solid #c6d9a8',
-                    fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
-                  }}>Email on file</span>
-                ) : (
-                  <span style={{
-                    fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-                    background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca',
-                    fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
-                  }}>Missing email</span>
+                {fromContact.email && (
+                  <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginTop: 3 }}>
+                    {fromContact.email}
+                  </div>
                 )}
-                <span style={{
-                  fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-                  background: '#EEF2FB', color: '#1D2567', border: '1px solid #c3cdf0',
-                  fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
-                }}>
-                  {TIMEPOINTS.find(t => t.value === timepoint)?.label || timepoint}
-                </span>
+                <div style={{ marginTop: 8 }}>
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                    background: '#EEF2FB', color: '#1D2567', border: '1px solid #c3cdf0',
+                    fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
+                  }}>Contact</span>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div style={{ ...railBody, marginBottom: 14 }}>
-              Select a student to see recipient context.
-            </div>
+            ) : (
+              <div style={{ ...railBody, marginBottom: 14 }}>
+                Return to Contacts and select Email to load contact context.
+              </div>
+            )
+          )}
+
+          {/* Selected student context — live from form state (survey mode) */}
+          {outreachMode === 'survey' && (
+            selectedStudent ? (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, color: '#191919', fontFamily: F, lineHeight: 1.3 }}>
+                  {selectedStudent.first_name} {selectedStudent.last_name}
+                </div>
+                {selectedStudent.school && (
+                  <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginTop: 3 }}>
+                    {selectedStudent.school}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 8 }}>
+                  {resolvedEmail ? (
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                      background: '#EEF7F0', color: '#166534', border: '1px solid #c6d9a8',
+                      fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
+                    }}>Email on file</span>
+                  ) : (
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                      background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca',
+                      fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
+                    }}>Missing email</span>
+                  )}
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                    background: '#EEF2FB', color: '#1D2567', border: '1px solid #c3cdf0',
+                    fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
+                  }}>
+                    {TIMEPOINTS.find(t => t.value === timepoint)?.label || timepoint}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div style={{ ...railBody, marginBottom: 14 }}>
+                Select a student to see recipient context.
+              </div>
+            )
           )}
 
           {/* Future segment rows — disabled, non-clickable */}
@@ -316,22 +375,117 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
         {/* ── Zone 2: Compose ───────────────────────────────────────────── */}
         <div style={{ flex: '2 1 320px', minWidth: 0 }}>
 
-          {/* Contact context — shown when arriving from Contacts Email action */}
-          {fromContact && (
-            <div style={{
-              padding: '10px 14px', marginBottom: 14,
-              background: '#EEF2FB', border: '1px solid #c3cdf0', borderRadius: 8,
-              fontSize: 12, color: '#1D2567', fontFamily: F, lineHeight: 1.5,
-            }}>
-              📋 Outreach for <strong>{fromContact.name}</strong>
-              {fromContact.email && (
-                <span style={{ color: '#6b7280', marginLeft: 6 }}>· {fromContact.email}</span>
-              )}
-              <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
-                Select a student recipient below to generate a survey invitation.
+          {/* Mode switcher */}
+          <div style={{
+            display: 'flex', marginBottom: 20,
+            border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden',
+          }}>
+            {[
+              { key: 'survey',  label: 'Survey Invitation' },
+              { key: 'message', label: 'Direct Message' },
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setOutreachMode(key)}
+                style={{
+                  flex: 1, padding: '7px 12px',
+                  border: 'none', cursor: 'pointer',
+                  fontSize: 11, fontWeight: 600, fontFamily: F,
+                  background: outreachMode === key ? '#1D2567' : '#f9fafb',
+                  color: outreachMode === key ? '#fff' : '#6b7280',
+                  transition: 'background 0.12s, color 0.12s',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Direct Message compose — shown in message mode */}
+          {outreachMode === 'message' && (
+            <div>
+              {/* Recipient card */}
+              <div style={fieldWrap}>
+                <label style={labelStyle}>To</label>
+                {fromContact ? (
+                  <div style={{
+                    padding: '10px 13px', background: '#f9fafb',
+                    border: '1.5px solid #e5e7eb', borderRadius: 8,
+                    fontSize: 13, fontFamily: F, color: '#374151',
+                    display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+                  }}>
+                    <strong style={{ color: '#191919' }}>{fromContact.name}</strong>
+                    {fromContact.email && <>
+                      <span style={{ color: '#d1d5db' }}>·</span>
+                      <span style={{ color: '#6b7280', fontSize: 12 }}>{fromContact.email}</span>
+                    </>}
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: '10px 13px', background: '#fef2f2',
+                    border: '1.5px solid #fecaca', borderRadius: 8,
+                    fontSize: 12, color: '#dc2626', fontFamily: F, lineHeight: 1.5,
+                  }}>
+                    No contact context. Return to Contacts and select Email to compose a direct message.
+                  </div>
+                )}
+              </div>
+
+              {/* Subject */}
+              <div style={fieldWrap}>
+                <label style={labelStyle}>Subject</label>
+                <input
+                  type="text"
+                  value={msgSubject}
+                  onChange={e => setMsgSubject(e.target.value)}
+                  placeholder="Email subject"
+                  style={inputBase}
+                />
+              </div>
+
+              {/* Body */}
+              <div style={fieldWrap}>
+                <label style={labelStyle}>Message</label>
+                <textarea
+                  value={msgBody}
+                  onChange={e => setMsgBody(e.target.value)}
+                  placeholder="Compose your message…"
+                  rows={8}
+                  style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, minHeight: 160 }}
+                />
+              </div>
+
+              {/* Action bar */}
+              <div style={{ paddingTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Tooltip label="Draft persistence coming soon" placement="top">
+                  <button disabled style={{
+                    padding: '8px 16px', background: '#e5e7eb',
+                    border: 'none', borderRadius: 8,
+                    fontSize: 12, fontWeight: 600, fontFamily: F,
+                    color: '#9ca3af', cursor: 'not-allowed',
+                  }}>
+                    Save Draft
+                  </button>
+                </Tooltip>
+                <Tooltip label="Email sending will be enabled in a future release" placement="top">
+                  <button disabled style={{
+                    padding: '8px 16px', background: '#e5e7eb',
+                    border: 'none', borderRadius: 8,
+                    fontSize: 12, fontWeight: 600, fontFamily: F,
+                    color: '#9ca3af', cursor: 'not-allowed',
+                  }}>
+                    Send Email
+                  </button>
+                </Tooltip>
+                <p style={{ margin: 0, fontSize: 11, color: '#9ca3af', fontFamily: F, lineHeight: 1.5, flex: '1 1 100%', paddingTop: 4 }}>
+                  Direct email sending will be enabled in a future release.
+                </p>
               </div>
             </div>
           )}
+
+          {/* Survey Invitation form — shown in survey mode (display:none preserves form state) */}
+          <div style={{ display: outreachMode === 'survey' ? 'block' : 'none' }}>
 
           {/* Template indicator */}
           <div style={{ marginBottom: 20 }}>
@@ -535,10 +689,49 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
               </div>
             )}
           </div>
+          </div>{/* end survey form wrapper */}
         </div>
 
         {/* ── Zone 3: Message Preview + Generated Link ──────────────────── */}
         <div style={{ flex: '2 1 260px', minWidth: 0 }}>
+
+          {/* Direct Message preview — shown in message mode */}
+          {outreachMode === 'message' && (
+            <div style={{
+              background: '#fff', borderRadius: 12,
+              border: '1px solid rgba(29,37,103,0.10)',
+              boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+              overflow: 'hidden',
+            }}>
+              <div style={{ padding: '14px 18px', borderBottom: '1px solid #f3f4f6' }}>
+                <div style={{
+                  fontSize: 10, fontWeight: 700, color: '#9ca3af',
+                  letterSpacing: '0.13em', textTransform: 'uppercase',
+                  marginBottom: 6, fontFamily: F,
+                }}>Subject</div>
+                <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.5 }}>
+                  {msgSubject || <span style={{ color: '#d1d5db', fontStyle: 'italic' }}>No subject yet</span>}
+                </div>
+              </div>
+              <div style={{ padding: '14px 18px' }}>
+                <div style={{
+                  fontSize: 10, fontWeight: 700, color: '#9ca3af',
+                  letterSpacing: '0.13em', textTransform: 'uppercase',
+                  marginBottom: 12, fontFamily: F,
+                }}>Message preview</div>
+                <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                  {msgBody || (
+                    <span style={{ color: '#d1d5db', fontStyle: 'italic' }}>
+                      Start typing to see a preview…
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Survey Invitation preview — shown in survey mode */}
+          <div style={{ display: outreachMode === 'survey' ? 'block' : 'none' }}>
 
           {/* Message preview — always visible so Owner can see full message context */}
           <div style={{
@@ -686,6 +879,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
               </div>
             </div>
           )}
+          </div>{/* end survey preview wrapper */}
         </div>
 
         {/* ── Zone 4: Activity ──────────────────────────────────────────── */}
