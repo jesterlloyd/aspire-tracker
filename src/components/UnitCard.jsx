@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { displayName } from '../lib/utils'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
+import Tooltip from './ui/Tooltip'
 
 const COMPAT_TITLE = {
   green:  '1st choice preference',
@@ -33,7 +34,7 @@ export default function UnitCard({
           <div className="uc-name-row">
             <span className="uc-name">{unit.unit_name}</span>
             {compat && <span className={`compat-dot dot-${compat}`} title={COMPAT_TITLE[compat]} />}
-            <button className="uc-delete-btn" onClick={() => setConfirmDelete(true)} title="Delete unit">✕</button>
+            <Tooltip label="Delete unit" placement="top"><button className="uc-delete-btn" aria-label="Delete unit" onClick={() => setConfirmDelete(true)}>✕</button></Tooltip>
           </div>
           <div className="uc-contact">{unit.contact_person}</div>
         </div>
@@ -127,7 +128,7 @@ function FilledSlot({ student, match, matchQuality, onUnmatch, onUpdateMatch }) 
           {matchQuality === 'top_choice'    && <span className="slot-quality-badge slot-quality-top">★ Top Choice</span>}
           {matchQuality === 'second_choice' && <span className="slot-quality-badge slot-quality-2nd">✓ 2nd Choice</span>}
         </div>
-        <button className="unmatch-btn" onClick={onUnmatch} title="Remove match">✕</button>
+        <Tooltip label="Remove match" placement="top"><button className="unmatch-btn" aria-label="Remove match" onClick={onUnmatch}>✕</button></Tooltip>
       </div>
       <input className="slot-preceptor-input" placeholder="Assign preceptor…"
         value={preceptor} onChange={e => savePreceptor(e.target.value)} />

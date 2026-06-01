@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Tooltip from './ui/Tooltip'
 import { UNIT_DIVISION_MAP } from '../lib/constants'
 import { displayName } from '../lib/utils'
 import { buildUnitLeaderEmail } from '../lib/emailUtils'
@@ -94,15 +95,18 @@ function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify, onAssi
       <div style={{ display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
         {isNotified
           ? <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 600 }}>✓</span>
-          : <button
-              title="Notify unit leader for this student"
+          : <Tooltip label="Notify unit leader" placement="top">
+              <button
+              aria-label="Notify unit leader"
               onClick={e => { e.stopPropagation(); onNotify(student, match) }}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#6b7280', padding: '0 2px', lineHeight: 1 }}>
               ✉
             </button>
+            </Tooltip>
         }
+        <Tooltip label="Unmatch student" placement="top">
         <button
-          title="Unmatch student"
+          aria-label="Unmatch student"
           onClick={e => { e.stopPropagation(); onUnmatch(student) }}
           style={{ background: 'none', border: 'none', fontSize: 14, fontWeight: 600, color: '#d1d5db', cursor: 'pointer', padding: '0 2px', lineHeight: 1 }}
           onMouseEnter={e => e.currentTarget.style.color = '#dc1e34'}
@@ -110,6 +114,7 @@ function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify, onAssi
         >
           ×
         </button>
+        </Tooltip>
       </div>
     </div>
   )
@@ -341,15 +346,17 @@ export default function EmbedUnitCard({
                 Filtering
               </span>
             )}
+            <Tooltip label="Delete unit" placement="top">
             <button
               onClick={e => { e.stopPropagation(); setConfirmDelete(true) }}
-              title="Delete unit"
+              aria-label="Delete unit"
               style={{ background: 'none', border: 'none', fontSize: 13, fontWeight: 600, color: '#d1d5db', cursor: 'pointer', padding: '0 2px', lineHeight: 1, flexShrink: 0 }}
               onMouseEnter={e => e.currentTarget.style.color = '#9ca3af'}
               onMouseLeave={e => e.currentTarget.style.color = '#d1d5db'}
             >
               ✕
             </button>
+            </Tooltip>
           </div>
         </div>
 

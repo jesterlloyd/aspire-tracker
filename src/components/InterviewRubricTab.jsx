@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import Tooltip from './ui/Tooltip'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
 import StudentAvatar from './StudentAvatar'
@@ -558,9 +559,10 @@ export default function InterviewRubricTab({
                 <div key={s.id} className="ir-wl-row" onClick={() => setSelectedStudentId(s.id)}>
 
                   {/* Flag strip — colored left-edge indicator */}
+                  <Tooltip label={flagInfo?.reason || 'Flagged score'} placement="top" disabled={!flagInfo}>
                   <div
                     className="ir-wl-flag-strip"
-                    title={flagInfo?.reason}
+                    aria-label={flagInfo?.reason || undefined}
                     onClick={flagInfo ? e => e.stopPropagation() : undefined}
                     style={{
                       background: flagInfo
@@ -568,6 +570,7 @@ export default function InterviewRubricTab({
                         : 'transparent',
                     }}
                   />
+                  </Tooltip>
 
                   {/* 1. Student */}
                   <div className="ir-wl-cell ir-wl-col-student">

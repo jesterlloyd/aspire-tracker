@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import Tooltip from './ui/Tooltip'
 import BackButton from './BackButton'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
@@ -794,14 +795,15 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
               </span>
             )}
             {saveStatus === 'error' && (
+              <Tooltip label="Retry save" placement="top">
               <span
                 style={{ fontSize:11, fontWeight:700, color:'#991b1b', background:'#fee2e2',
                   border:'1px solid #fca5a5', borderRadius:6, padding:'2px 8px', cursor:'pointer' }}
                 onClick={() => persistRef.current?.(formRef.current, !!rubricIdRef.current ? false : true)}
-                title="Click to retry save"
               >
                 ⚠ Save failed · retry
               </span>
+              </Tooltip>
             )}
             {saveStatus === 'idle' && lastSavedAt && (
               <span style={{ fontSize:11, color:'#9ca3af' }}>

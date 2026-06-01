@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ASPIRE_STATUSES, ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
 import StudentRow from './StudentRow'
 import ImportStudentsCSV from './ImportStudentsCSV'
+import Tooltip from './ui/Tooltip'
 
 const ASPIRE_ORDER = ASPIRE_STATUS_SORT_ORDER
 const NGRP_ORDER   = ['Pending','Applied','Interviewed','Offered','Hired','Declined']
@@ -81,10 +82,11 @@ export default function StudentList({
             </select>
           </div>
 
-          <button className="btn-import-students" onClick={() => setShowImport(true)}
-            title="Import students from CSV">
+          <Tooltip label="Import students from CSV" placement="bottom">
+          <button className="btn-import-students" onClick={() => setShowImport(true)}>
             ↑ Import CSV
           </button>
+          </Tooltip>
         </div>
       </div>
 

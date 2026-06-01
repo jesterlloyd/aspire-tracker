@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { UNIT_DIVISION_MAP } from '../lib/constants'
 import { displayName } from '../lib/utils'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
+import Tooltip from './ui/Tooltip'
 
 // Division spine colors (vertical left spine)
 const DIV_SPINE = {
@@ -63,7 +64,7 @@ export default function PipelineUnitCard({
           {/* Header strip */}
           <div className="pzuc-header">
             <span className="pzuc-name" title={unit.unit_name}>{unit.unit_name}</span>
-            <button className="pzuc-del-btn" onClick={() => setConfirmDelete(true)} title="Delete unit">✕</button>
+            <Tooltip label="Delete unit" placement="top"><button className="pzuc-del-btn" aria-label="Delete unit" onClick={() => setConfirmDelete(true)}>✕</button></Tooltip>
           </div>
 
           {/* Dot row */}
@@ -116,7 +117,7 @@ function FilledDot({ student, onUnmatch }) {
       <div
         className={`pz-dot pz-dot-filled${hovered ? ' pz-dot-hovered' : ''}`}
         onClick={hovered ? onUnmatch : undefined}
-        title={`${displayName(student)} — hover + click to unmatch`}>
+        title={`${displayName(student)} — hover and click to unmatch`}>
         {hovered && <span className="pz-dot-x">×</span>}
       </div>
       <span className="pz-dot-name">{first}</span>
@@ -131,7 +132,7 @@ function EmptyDot({ hasSelected, compat, onClick }) {
         className={`pz-dot pz-dot-empty${hasSelected && compat ? ' pz-dot-pulsing' : ''}`}
         style={{ cursor: onClick ? 'pointer' : 'default' }}
         onClick={onClick}
-        title={onClick ? 'Click to place student here' : 'Open slot'}
+        title={onClick ? 'Place student here' : 'Open slot'}
       />
       <span className="pz-dot-name" style={{ visibility:'hidden' }}>·</span>
     </div>

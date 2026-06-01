@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect, createContext, useContext } from 'react'
+import Tooltip from './ui/Tooltip'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
@@ -875,12 +876,18 @@ export default function StudentSidePanel({
                   })()}
                   {/* Contact icons */}
                   <div style={{ display:'flex', justifyContent:'center', gap:22, marginBottom:10 }}>
-                    <button title="Send email" onClick={() => openMailtoLink(`mailto:${data.personal_email||data.school_email||''}`)}
+                    <Tooltip label="Send email" placement="top">
+                    <button aria-label="Send email" onClick={() => openMailtoLink(`mailto:${data.personal_email||data.school_email||''}`)}
                       style={{ background:'none', border:'none', cursor:'pointer', fontSize:17, color:'#6b7280', lineHeight:1 }}>✉</button>
-                    <button title="Call" onClick={() => { if(data.phone){ const a=document.createElement('a'); a.href=`tel:${data.phone}`; a.click() } }}
+                    </Tooltip>
+                    <Tooltip label="Call student" placement="top">
+                    <button aria-label="Call student" onClick={() => { if(data.phone){ const a=document.createElement('a'); a.href=`tel:${data.phone}`; a.click() } }}
                       style={{ background:'none', border:'none', cursor:data.phone?'pointer':'default', fontSize:17, color:data.phone?'#6b7280':'#d1d5db', lineHeight:1 }}>📞</button>
-                    <button title="Edit profile" onClick={() => { const inp=document.querySelector('.sp-content .sp-input'); if(inp){inp.scrollIntoView({behavior:'smooth',block:'center'}); inp.focus()} }}
+                    </Tooltip>
+                    <Tooltip label="Edit profile" placement="top">
+                    <button aria-label="Edit profile" onClick={() => { const inp=document.querySelector('.sp-content .sp-input'); if(inp){inp.scrollIntoView({behavior:'smooth',block:'center'}); inp.focus()} }}
                       style={{ background:'none', border:'none', cursor:'pointer', fontSize:17, color:'#6b7280', lineHeight:1 }}>✏</button>
+                    </Tooltip>
                   </div>
                   {canEdit && <button onClick={handleCopySummary}
                     style={{
@@ -995,7 +1002,7 @@ export default function StudentSidePanel({
               <div style={{ display:'flex', gap:6, alignItems:'center' }}>
                 <div className="sp-readonly">{data.school_email || '—'}</div>
                 {data.school_email && (
-                  <button className="sp-copy-btn" onClick={() => navigator.clipboard?.writeText(data.school_email)} title="Copy">⎘</button>
+                  <Tooltip label="Copy email" placement="top"><button className="sp-copy-btn" aria-label="Copy email" onClick={() => navigator.clipboard?.writeText(data.school_email)}>⎘</button></Tooltip>
                 )}
               </div>
             </Field>
@@ -1293,10 +1300,11 @@ export default function StudentSidePanel({
                     <img src={data.headshot_url} alt="Headshot" className="doc-headshot-preview" />
                     {/* Download Badge — owner/admin/interviewer only; replaces the old raw-photo download */}
                     {canInterview && (
+                      <Tooltip label={badgeDisabledReason || 'Download badge'} placement="top">
                       <button
                         onClick={handleDownloadBadge}
                         disabled={!!badgeDisabledReason || generatingBadge}
-                        title={badgeDisabledReason || 'Download front + back badge PNGs'}
+                        aria-label={badgeDisabledReason || 'Download badge'}
                         style={{
                           background: badgeDisabledReason ? '#f3f4f6' : 'var(--nightfall)',
                           border: badgeDisabledReason ? '1px solid #e5e7eb' : '1px solid var(--nightfall)',
@@ -1307,6 +1315,7 @@ export default function StudentSidePanel({
                         }}>
                         {generatingBadge ? 'Generating...' : 'Download Badge'}
                       </button>
+                      </Tooltip>
                     )}
                     <button className="doc-replace-btn" disabled={uploadingHead} onClick={() => headshotRef.current?.click()}>Replace</button>
                   </div>
@@ -1408,8 +1417,8 @@ export default function StudentSidePanel({
                 <div style={{ display:'flex', gap:6, alignItems:'center' }}>
                   <input className="sp-input" type="email" value={data.preceptor_email||''} onChange={e => handleText('preceptor_email', e.target.value)} placeholder="preceptor@cshs.org" />
                   {data.preceptor_email && (
-                    <button className="sp-copy-btn" title="Email preceptor"
-                      onClick={() => { openMailtoLink(`mailto:${data.preceptor_email}`) }}>✉</button>
+                    <Tooltip label="Email preceptor" placement="top"><button className="sp-copy-btn" aria-label="Email preceptor"
+                      onClick={() => { openMailtoLink(`mailto:${data.preceptor_email}`) }}>✉</button></Tooltip>
                   )}
                 </div>
               </Field>
@@ -1640,7 +1649,7 @@ export default function StudentSidePanel({
                     </div>
                     {resolved.email && (
                       <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'#6b7280' }}>
-                        <button className="sp-copy-btn" title="Email preceptor" onClick={() => openMailtoLink(`mailto:${resolved.email}`)}>✉</button>
+                        <Tooltip label="Email preceptor" placement="top"><button className="sp-copy-btn" aria-label="Email preceptor" onClick={() => openMailtoLink(`mailto:${resolved.email}`)}>✉</button></Tooltip>
                         {resolved.email}
                       </div>
                     )}
@@ -1659,7 +1668,7 @@ export default function StudentSidePanel({
                     <input className="sp-input" value={data.matched_preceptor||''} onChange={e => handleText('matched_preceptor', e.target.value)} placeholder="Preceptor name…" />
                     <div style={{ display:'flex', gap:6, alignItems:'center' }}>
                       <input className="sp-input" type="email" value={data.preceptor_email||''} onChange={e => handleText('preceptor_email', e.target.value)} placeholder="preceptor@cshs.org" />
-                      {data.preceptor_email && <button className="sp-copy-btn" title="Email preceptor" onClick={() => openMailtoLink(`mailto:${data.preceptor_email}`)}>✉</button>}
+                      {data.preceptor_email && <Tooltip label="Email preceptor" placement="top"><button className="sp-copy-btn" aria-label="Email preceptor" onClick={() => openMailtoLink(`mailto:${data.preceptor_email}`)}>✉</button></Tooltip>}
                     </div>
                     {canEdit && (
                       <button onClick={() => setAssignModalOpen(true)}
@@ -2197,11 +2206,13 @@ export default function StudentSidePanel({
                         {ev.event_date}{ev.event_time ? ` · ${ev.event_time}` : ''}{ev.notes ? ` · ${ev.notes}` : ''}
                       </div>
                     </div>
+                    <Tooltip label="Delete event" placement="top">
                     <button onClick={() => handleDeleteEvent(ev.id)}
                       style={{ background:'none', border:'none', cursor:'pointer', fontSize:12, color:'#d1d5db', padding:'0 2px', lineHeight:1 }}
-                      title="Delete event"
+                      aria-label="Delete event"
                       onMouseEnter={e => e.currentTarget.style.color='#991b1b'}
                       onMouseLeave={e => e.currentTarget.style.color='#d1d5db'}>✕</button>
+                    </Tooltip>
                   </div>
                 ))}
               </div>

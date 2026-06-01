@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import Tooltip from './ui/Tooltip'
 import { useQuery } from '@tanstack/react-query'
 import { useUpdatedLabel, KPICell } from './KPIBand'
 import { supabase } from '../lib/supabase'
@@ -784,10 +785,12 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
               <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
                 <span className="ov-panel-title">Placement Requests</span>
                 <StatusLegendPopover position="bottom-left" />
-                <button onClick={handleCopyCohortSummary} title="Copy cohort summary"
+                <Tooltip label="Copy cohort summary" placement="bottom">
+                <button onClick={handleCopyCohortSummary} aria-label="Copy cohort summary"
                   style={{ background:'none', border:'none', cursor:'pointer', color:'#9ca3af', padding:'4px', display:'flex', alignItems:'center' }}>
                   <Copy size={14} />
                 </button>
+                </Tooltip>
               </div>
               <div className="ov-panel-sub">
                 {schools.length} School{schools.length !== 1 ? 's' : ''} · {totalStudents} Students · {placedCount} Placed

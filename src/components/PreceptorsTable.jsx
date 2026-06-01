@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Tooltip from './ui/Tooltip'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
@@ -232,15 +233,16 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
                     </td>
                     <td className="am-td" style={{ color: '#6b7280', whiteSpace: 'nowrap' }}>
                       {p.last_active_cohort
-                        ? <span title={fmtDate(p.last_active_date)}>{p.last_active_cohort}</span>
+                        ? <span>{p.last_active_cohort}</span>
                         : fmtDate(p.last_active_date)
                       }
                     </td>
                     <td className="am-td" style={{ whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', gap: 6 }}>
+                        <Tooltip label="Edit preceptor" placement="top">
                         <button
                           onClick={() => setEditTarget(p)}
-                          title="Edit preceptor"
+                          aria-label="Edit preceptor"
                           style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, background: '#f3f4f6', border: 'none', fontSize: 12, fontWeight: 600, color: '#374151', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}
                           onMouseEnter={e => e.currentTarget.style.background = '#e5e7eb'}
                           onMouseLeave={e => e.currentTarget.style.background = '#f3f4f6'}
@@ -251,9 +253,11 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
                           </svg>
                           Edit
                         </button>
+                        </Tooltip>
+                        <Tooltip label="Delete preceptor" placement="top">
                         <button
                           onClick={() => setDeleteTarget(p)}
-                          title="Delete preceptor"
+                          aria-label="Delete preceptor"
                           style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, background: '#fef2f2', border: 'none', fontSize: 12, fontWeight: 600, color: '#dc2626', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}
                           onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
                           onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
@@ -266,6 +270,7 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
                           </svg>
                           Delete
                         </button>
+                        </Tooltip>
                       </div>
                     </td>
                   </tr>

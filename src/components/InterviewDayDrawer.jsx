@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { X, Trash2, Copy, Check } from 'lucide-react'
+import Tooltip from './ui/Tooltip'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 
@@ -93,9 +94,10 @@ function CopyEmailBtn({ email }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
       <span style={{ fontSize: 12, color: 'var(--text-muted, #6B7280)' }}>{email}</span>
+      <Tooltip label={copied ? 'Copied!' : 'Copy email'} placement="top">
       <button
         onClick={handleCopy}
-        title={copied ? 'Copied!' : 'Copy email'}
+        aria-label={copied ? 'Copied!' : 'Copy email'}
         style={{
           background: copied ? '#EEF7F0' : 'none',
           border: 'none', cursor: 'pointer', padding: '1px 4px',
@@ -108,6 +110,7 @@ function CopyEmailBtn({ email }) {
       >
         {copied ? <Check size={12} /> : <Copy size={12} />}
       </button>
+      </Tooltip>
     </span>
   )
 }

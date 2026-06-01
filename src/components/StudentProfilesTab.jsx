@@ -9,6 +9,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { FilterKPICard } from './KPIBand'
 import ImportStudentsCSV from './ImportStudentsCSV'
 import { Search, X, LayoutGrid, List, Info } from 'lucide-react'
+import Tooltip from './ui/Tooltip'
 import StatusLegendPopover from './StatusLegendPopover'
 import { calculateProfileCompletion } from '../lib/profileCompletion'
 import { getCsLinkStatus } from '../lib/utils'
@@ -242,22 +243,28 @@ export default function StudentProfilesTab({
 
           {/* Action buttons */}
           {canEdit && (
-            <button onClick={() => setShowImport(true)} title="Import from CSV"
+            <Tooltip label="Import students from CSV" placement="bottom">
+            <button onClick={() => setShowImport(true)}
               style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
               ↑ Import
             </button>
+            </Tooltip>
           )}
           {canEdit && onAddStudent && (
-            <button onClick={onAddStudent} title="Add student"
+            <Tooltip label="Add student" placement="bottom">
+            <button onClick={onAddStudent}
               style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
               + Add
             </button>
+            </Tooltip>
           )}
           {canEdit && onExportCSV && (
-            <button onClick={onExportCSV} title="Export CSV"
+            <Tooltip label="Export students to CSV" placement="bottom">
+            <button onClick={onExportCSV}
               style={{ height:32, padding:'0 10px', border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', cursor:'pointer', flexShrink:0 }}>
               ↓ Export
             </button>
+            </Tooltip>
           )}
         </div>
       </div>

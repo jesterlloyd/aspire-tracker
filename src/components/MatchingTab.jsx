@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import Tooltip from './ui/Tooltip'
 import EmbedUnitCard from './EmbedUnitCard'
 import StudentMatchingCard from './StudentMatchingCard'
 import UnitSetupPanel from './UnitSetupPanel'
@@ -488,7 +489,8 @@ export default function MatchingTab({
                 <option value="">All Schools</option>
                 {poolSchools.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
-              <select value={poolSort} onChange={e => setPoolSort(e.target.value)} className="embed-light-select" title="Sort">
+              <Tooltip label="Sort students" placement="bottom">
+              <select value={poolSort} onChange={e => setPoolSort(e.target.value)} className="embed-light-select" aria-label="Sort students">
                 <option value="last_name_asc">Last Name A–Z</option>
                 <option value="last_name_desc">Last Name Z–A</option>
                 <option value="school_asc">School A–Z</option>
@@ -496,6 +498,7 @@ export default function MatchingTab({
                 <option value="score_desc">Score High–Low</option>
                 <option value="status">ASPIRE Status</option>
               </select>
+              </Tooltip>
               <div style={{ flex:1 }} />
               <span style={{ fontSize:12, color:'var(--text-caption,#6b7280)', flexShrink:0, whiteSpace:'nowrap' }}>
                 {selectedStudent
@@ -505,14 +508,18 @@ export default function MatchingTab({
               <StatusLegendPopover position="bottom-right" dark={false} />
               {sortedPool.length > 0 && (
                 <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-                  <button onClick={handlePrevStudent} disabled={!selectedStudent || selectedIndex <= 0} title="Previous student"
+                  <Tooltip label="Previous student" placement="top">
+                  <button onClick={handlePrevStudent} disabled={!selectedStudent || selectedIndex <= 0} aria-label="Previous student"
                     style={{ width:26, height:26, background:(!selectedStudent||selectedIndex<=0)?'var(--bg-hover,#f3f4f6)':'var(--color-status-info-bg,#e0e7ff)', border:'1px solid var(--border-divider,#d1d5db)', borderRadius:6, cursor:(selectedStudent&&selectedIndex>0)?'pointer':'default', display:'flex', alignItems:'center', justifyContent:'center', opacity:(!selectedStudent||selectedIndex<=0)?0.4:1, transition:'all 0.15s ease' }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-primary,#1D2567)" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
                   </button>
-                  <button onClick={handleNextStudent} disabled={!selectedStudent||selectedIndex>=sortedPool.length-1} title="Next student"
+                  </Tooltip>
+                  <Tooltip label="Next student" placement="top">
+                  <button onClick={handleNextStudent} disabled={!selectedStudent||selectedIndex>=sortedPool.length-1} aria-label="Next student"
                     style={{ width:26, height:26, background:(!selectedStudent||selectedIndex>=sortedPool.length-1)?'var(--bg-hover,#f3f4f6)':'var(--color-status-info-bg,#e0e7ff)', border:'1px solid var(--border-divider,#d1d5db)', borderRadius:6, cursor:(selectedStudent&&selectedIndex<sortedPool.length-1)?'pointer':'default', display:'flex', alignItems:'center', justifyContent:'center', opacity:(!selectedStudent||selectedIndex>=sortedPool.length-1)?0.4:1, transition:'all 0.15s ease' }}>
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-primary,#1D2567)" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
                   </button>
+                  </Tooltip>
                   {selectedStudent && <span style={{ fontSize:10, color:'var(--text-muted,#9ca3af)', whiteSpace:'nowrap' }}>↑↓·Esc</span>}
                 </div>
               )}
