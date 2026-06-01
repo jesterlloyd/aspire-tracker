@@ -1,4 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+
+const LAST_CONTACT_KEY = 'aspire.connect.contacts.lastContactId'
 import { supabase } from '../../lib/supabase'
 import Tooltip from '../ui/Tooltip'
 
@@ -249,7 +252,7 @@ function ContactRow({ contact, isSelected, onClick }) {
 
 // ── Zone 2: Contact profile panel ────────────────────────────────────────────
 
-function ContactProfile({ contact }) {
+function ContactProfile({ contact, navigate }) {
   const relatedUnits = Array.isArray(contact.related_units) ? contact.related_units.filter(Boolean) : []
   const showAffiliation = contact.school_name || contact.program_type || contact.unit_name || relatedUnits.length > 0
   const hasWeeklyDigest = contact.notification_preferences?.weekly_digest !== false
@@ -314,20 +317,24 @@ function ContactProfile({ contact }) {
         {/* ── Action buttons ── */}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginTop: 18 }}>
           {contact.email ? (
-            <a
-              href={`mailto:${contact.email}`}
+            <Tooltip label="Compose via Outreach" placement="bottom">
+            <button
+              onClick={() => navigate('/connect/outreach', {
+                state: { fromContact: { id: contact.id, name: contact.full_name, email: contact.email } }
+              })}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
                 padding: '7px 14px', borderRadius: 8,
                 background: NAVY, color: '#fff',
                 fontFamily: F, fontSize: 12, fontWeight: 600,
-                textDecoration: 'none', transition: 'opacity 0.15s',
+                border: 'none', cursor: 'pointer', transition: 'opacity 0.15s',
               }}
               onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
               onMouseLeave={e => e.currentTarget.style.opacity = '1'}
             >
               ✉ Email
-            </a>
+            </button>
+            </Tooltip>
           ) : (
             <Tooltip label="No email on file" placement="bottom">
               <button disabled style={{
@@ -386,9 +393,9 @@ function ContactProfile({ contact }) {
           {contact.email ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: contact.phone ? 8 : 0 }}>
               <span style={{ fontSize: 11, color: '#9ca3af', width: 44, fontFamily: F, flexShrink: 0 }}>Email</span>
-              <a href={`mailto:${contact.email}`} style={{ fontSize: 13, color: NAVY, fontFamily: F, textDecoration: 'none', flex: 1 }}>
+              <span style={{ fontSize: 13, color: '#374151', fontFamily: F, flex: 1 }}>
                 {contact.email}
-              </a>
+              </span>
               <CopyButton value={contact.email} label="email" />
             </div>
           ) : (
@@ -619,6 +626,10 @@ function NoSelection({ count }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ContactsView() {
+  const navigate    = useNavigate()
+  const location    = useLocation()
+  const restoredRef = useRef(false)   // tracks whether initial selection restore has run
+
   const [contacts,        setContacts]        = useState([])
   const [loading,         setLoading]         = useState(true)
   const [error,           setError]           = useState(null)
@@ -678,6 +689,33 @@ export default function ContactsView() {
         setLoadingStudents(false)
       })
   }, [selectedId, contacts])
+
+  // ── Restore selected contact on initial load ───────────────────────────────
+  // Priority: URL ?contactId → localStorage → first contact in list.
+  // Runs once after the contacts fetch completes; never re-runs on filter changes.
+  useEffect(() => {
+    if (loading || contacts.length === 0 || restoredRef.current) return
+    restoredRef.current = true
+
+    // 1. URL search param
+    const urlId = new URLSearchParams(location.search).get('contactId')
+    if (urlId && contacts.find(c => c.id === urlId)) {
+      setSelectedId(urlId)
+      return
+    }
+
+    // 2. localStorage
+    const savedId = localStorage.getItem(LAST_CONTACT_KEY)
+    if (savedId && contacts.find(c => c.id === savedId)) {
+      setSelectedId(savedId)
+      navigate(`/connect/contacts?contactId=${savedId}`, { replace: true })
+      return
+    }
+
+    // 3. First contact as default
+    setSelectedId(contacts[0].id)
+    navigate(`/connect/contacts?contactId=${contacts[0].id}`, { replace: true })
+  }, [loading, contacts]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Derived values ──────────────────────────────────────────────────────────
   const selected = contacts.find(c => c.id === selectedId) || null
@@ -857,7 +895,11 @@ export default function ContactsView() {
                   key={item.contact.id}
                   contact={item.contact}
                   isSelected={item.contact.id === selectedId}
-                  onClick={() => setSelectedId(item.contact.id)}
+                  onClick={() => {
+                    setSelectedId(item.contact.id)
+                    localStorage.setItem(LAST_CONTACT_KEY, item.contact.id)
+                    navigate(`/connect/contacts?contactId=${item.contact.id}`, { replace: true })
+                  }}
                 />
               )
             )
@@ -873,7 +915,7 @@ export default function ContactsView() {
         borderRight: '1px solid rgba(29,37,103,0.08)',
       }}>
         {selected ? (
-          <ContactProfile contact={selected} />
+          <ContactProfile contact={selected} navigate={navigate} />
         ) : (
           <NoSelection count={filtered.length} />
         )}

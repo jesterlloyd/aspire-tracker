@@ -967,7 +967,11 @@ function MainApp({ onLogout }) {
             <button
               data-tour="connect"
               aria-label="ASPIRE Connect"
-              onClick={() => navigate('/connect/outreach')}
+              onClick={() => {
+                const saved = localStorage.getItem('aspire.connect.lastTab')
+                const tab = (['contacts','outreach','broadcasts'].includes(saved)) ? saved : 'contacts'
+                navigate(`/connect/${tab}`)
+              }}
               style={{
                 position: 'relative', flexShrink: 0,
                 width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',

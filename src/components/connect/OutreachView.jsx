@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 
 const F = 'DM Sans, sans-serif'
@@ -84,6 +85,10 @@ const futureBadge = {
 }
 
 export default function OutreachView({ cohortId, onNavigateToStudent }) {
+  const location     = useLocation()
+  // Read contact context passed from Contacts Email action (router state, not URL)
+  const fromContact  = location.state?.fromContact || null
+
   const [students,          setStudents]          = useState([])
   const [loadingStudents,   setLoadingStudents]   = useState(true)
   const [selectedStudentId, setSelectedStudentId] = useState('')
@@ -310,6 +315,23 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
 
         {/* ── Zone 2: Compose ───────────────────────────────────────────── */}
         <div style={{ flex: '2 1 320px', minWidth: 0 }}>
+
+          {/* Contact context — shown when arriving from Contacts Email action */}
+          {fromContact && (
+            <div style={{
+              padding: '10px 14px', marginBottom: 14,
+              background: '#EEF2FB', border: '1px solid #c3cdf0', borderRadius: 8,
+              fontSize: 12, color: '#1D2567', fontFamily: F, lineHeight: 1.5,
+            }}>
+              📋 Outreach for <strong>{fromContact.name}</strong>
+              {fromContact.email && (
+                <span style={{ color: '#6b7280', marginLeft: 6 }}>· {fromContact.email}</span>
+              )}
+              <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+                Select a student recipient below to generate a survey invitation.
+              </div>
+            </div>
+          )}
 
           {/* Template indicator */}
           <div style={{ marginBottom: 20 }}>
