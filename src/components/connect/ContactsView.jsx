@@ -319,9 +319,10 @@ function ContactProfile({ contact, navigate }) {
           {contact.email ? (
             <Tooltip label="Compose via Outreach" placement="bottom">
             <button
-              onClick={() => navigate('/connect/outreach', {
-                state: { fromContact: { id: contact.id, name: contact.full_name, email: contact.email } }
-              })}
+              onClick={() => navigate(
+                `/connect/outreach?mode=message&contactId=${contact.id}`,
+                { state: { fromContact: { id: contact.id, name: contact.full_name, email: contact.email } } }
+              )}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
                 padding: '7px 14px', borderRadius: 8,

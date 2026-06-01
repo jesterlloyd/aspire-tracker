@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import Tooltip from '../ui/Tooltip'
 
@@ -10,10 +10,33 @@ const INSTRUMENTS = [
 ]
 
 const TIMEPOINTS = [
-  { value: 'baseline',               label: 'Baseline' },
+  { value: 'baseline',                label: 'Baseline' },
   { value: 'early_rotation_baseline', label: 'Early-Rotation Baseline' },
   { value: 'midpoint',               label: 'Mid-Rotation Check-In' },
   { value: 'post_rotation',          label: 'Post-Rotation' },
+]
+
+const LAST_MODE_KEY = 'aspire.connect.outreach.lastMode'
+
+// Message type roster — active types are selectable, inactive are future placeholders
+const MSG_TYPES = [
+  { key: 'message', label: 'Direct Message',            active: true  },
+  { key: 'survey',  label: 'Survey Invitation',          active: true  },
+  { key: null,      label: 'Announcement / Broadcast',   active: false },
+  { key: null,      label: 'Check-In',                   active: false },
+  { key: null,      label: 'Reminder',                   active: false },
+  { key: null,      label: 'Coordinator Update',         active: false },
+  { key: null,      label: 'NGRP Update',               active: false },
+  { key: null,      label: 'Preceptor Communication',    active: false },
+]
+
+const FUTURE_AUDIENCES = [
+  'Contact categories',
+  'Saved groups',
+  'School coordinators',
+  'Unit leaders',
+  'Students',
+  'Preceptors',
 ]
 
 function defaultExpiresAt() {
@@ -36,6 +59,8 @@ function fmtDate(iso) {
   })
 }
 
+// ── Shared style tokens ───────────────────────────────────────────────────────
+
 const labelStyle = {
   display: 'block', fontSize: 12, fontWeight: 600,
   color: '#374151', marginBottom: 6, fontFamily: F,
@@ -50,33 +75,27 @@ const inputBase = {
 
 const fieldWrap = { marginBottom: 18 }
 
-const railPanel = {
+const panelCard = {
   background: '#ffffff',
   border: '1px solid rgba(29,37,103,0.10)',
   borderRadius: 12,
-  padding: '16px 16px',
+  padding: '16px',
   boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
   fontFamily: F,
 }
 
-const railTitle = {
+const panelTitle = {
   fontSize: 12, fontWeight: 700, color: 'var(--color-accent-primary,#1D2567)',
   letterSpacing: '-0.01em', marginBottom: 2, fontFamily: F,
 }
 
-const railSubtitle = {
+const panelSubtitle = {
   fontSize: 10, color: '#9ca3af', fontFamily: F, marginBottom: 14,
 }
 
-const railBody = {
+const panelBody = {
   fontSize: 11, color: '#9ca3af', lineHeight: 1.65,
   margin: 0, fontFamily: F,
-}
-
-const futureRow = {
-  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-  padding: '7px 0', borderBottom: '1px solid #f3f4f6',
-  opacity: 0.5, cursor: 'default',
 }
 
 const futureBadge = {
@@ -85,23 +104,51 @@ const futureBadge = {
   fontFamily: F, textTransform: 'uppercase',
 }
 
+const sectionLabel = {
+  fontSize: 10, fontWeight: 700, color: '#9ca3af',
+  letterSpacing: '0.13em', textTransform: 'uppercase',
+  marginBottom: 6, fontFamily: F, display: 'block',
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export default function OutreachView({ cohortId, onNavigateToStudent }) {
-  const location     = useLocation()
-  // Read contact context passed from Contacts Email action (router state, not URL)
-  const fromContact  = location.state?.fromContact || null
+  const location       = useLocation()
+  const [searchParams] = useSearchParams()
 
-  // ── Outreach mode state ───────────────────────────────────────────────────
-  // Default to 'message' when arriving from a Contacts Email action
-  const [outreachMode, setOutreachMode] = useState(fromContact ? 'message' : 'survey')
+  // URL params provide explicit routing intent — used by Contacts Email button
+  const urlMode      = searchParams.get('mode')      // 'message' | 'survey' | null
+  const urlContactId = searchParams.get('contactId') // UUID | null
 
-  // ── Direct Message draft state ────────────────────────────────────────────
-  // Draft key scoped to contact — stores ONLY { subject, body }, never tokens or URLs
-  const DRAFT_KEY = fromContact?.id
-    ? `aspire.connect.outreach.directDraft.${fromContact.id}`
+  // Router state carries contact display info when navigating from Contacts
+  const fromContact = location.state?.fromContact || null
+
+  // Resolved contact ID: router state preferred, URL param as fallback
+  const contactId = fromContact?.id || urlContactId || null
+
+  // Display info (name, email) only available when router state is present.
+  // If contactId is from URL only (router state lost), show unavailable state.
+  const contactHasDisplayInfo = !!(fromContact?.name || fromContact?.email)
+
+  // ── Mode initialization: URL param > router state > localStorage > default ──
+  const [outreachMode, setOutreachMode] = useState(() => {
+    if (urlMode === 'message' || urlMode === 'survey') return urlMode
+    if (fromContact) return 'message'
+    const saved = localStorage.getItem(LAST_MODE_KEY)
+    return (saved === 'survey' || saved === 'message') ? saved : 'survey'
+  })
+
+  // ── Direct Message draft — scoped to contact ID ───────────────────────────
+  // Stores ONLY { subject, body }. surveyResult, surveyUrl, and tokens are
+  // NEVER stored in localStorage/sessionStorage.
+  const DRAFT_KEY = contactId
+    ? `aspire.connect.outreach.directDraft.${contactId}`
     : null
+
   const [msgSubject, setMsgSubject] = useState('')
   const [msgBody,    setMsgBody]    = useState('')
 
+  // ── Survey Invitation form state ──────────────────────────────────────────
   const [students,          setStudents]          = useState([])
   const [loadingStudents,   setLoadingStudents]   = useState(true)
   const [selectedStudentId, setSelectedStudentId] = useState('')
@@ -116,9 +163,14 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
   const [generating,    setGenerating]    = useState(false)
   const [generateError, setGenerateError] = useState(null)
   // surveyResult holds the returned payload — surveyUrl, assignmentId, expiresAt, student.
-  // Never persisted to localStorage/sessionStorage. Cleared on form field changes.
+  // NEVER persisted to localStorage/sessionStorage. Cleared on form field changes.
   const [surveyResult,  setSurveyResult]  = useState(null)
   const [copied,        setCopied]        = useState(false)
+
+  // ── Persist last mode ─────────────────────────────────────────────────────
+  useEffect(() => {
+    localStorage.setItem(LAST_MODE_KEY, outreachMode)
+  }, [outreachMode])
 
   // ── Fetch students ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -158,7 +210,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
   }, [selectedStudentId, timepoint, cohortId])
 
   // ── Clear generated link when form identity changes ───────────────────────
-  // Raw survey URL must not persist if the recipient, instrument, or timepoint change.
+  // Raw survey URL must not persist if recipient, instrument, or timepoint changes.
   useEffect(() => {
     setSurveyResult(null)
     setGenerateError(null)
@@ -175,8 +227,8 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
     } catch { /* ignore malformed draft */ }
   }, [DRAFT_KEY]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Direct Message draft: persist on change — stores ONLY { subject, body } ──
-  // surveyResult, surveyUrl, and any token-containing values are NEVER persisted here
+  // ── Direct Message draft: persist on change ───────────────────────────────
+  // Stores ONLY { subject, body } — never surveyResult, surveyUrl, or tokens
   useEffect(() => {
     if (!DRAFT_KEY) return
     localStorage.setItem(DRAFT_KEY, JSON.stringify({ subject: msgSubject, body: msgBody }))
@@ -195,8 +247,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
   const firstName        = selectedStudent?.first_name || null
   const instrumentLabel  = INSTRUMENTS.find(i => i.slug === instrument)?.label || ''
   const expiresFormatted = fmtDate(expiresAt)
-
-  const formValid = !!(selectedStudentId && instrument && timepoint)
+  const formValid        = !!(selectedStudentId && instrument && timepoint)
 
   // ── Generate Link handler ─────────────────────────────────────────────────
   const handleGenerateLink = useCallback(async () => {
@@ -228,15 +279,12 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
         }),
       })
 
-      // Parse JSON separately — if the server crashed before the handler ran
-      // (e.g., missing env var), Vercel returns an HTML error page, not JSON.
-      // Parsing that HTML as JSON throws, which would otherwise reach the catch
-      // block and show the misleading "Network error" message.
+      // Parse JSON separately — Vercel returns HTML on a handler crash,
+      // not JSON, which would otherwise surface as a misleading "Network error".
       let payload = null
       try {
         payload = await res.json()
       } catch {
-        // Non-JSON response — Vercel-level crash (likely missing env var in Production).
         setGenerateError(
           `Server error (HTTP ${res.status}). Check Vercel function logs for api/evaluation-create-invitation. Likely cause: missing Production environment variable.`
         )
@@ -258,7 +306,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
       // Store returned payload in React state only.
       // Raw survey URL is never logged or persisted beyond this state variable.
       setSurveyResult(payload)
-    } catch (err) {
+    } catch {
       setGenerateError('Network error. Please check your connection and try again.')
     } finally {
       setGenerating(false)
@@ -273,49 +321,68 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
     } catch {
-      // Clipboard API unavailable — link is still selectable in the display field.
       setCopied(false)
     }
   }, [surveyResult])
 
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
     <div style={{ padding: '20px 24px', fontFamily: F }}>
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        {/* ═══════════════════════════════════════════════════════════════
+            ZONE 1 — Audience / Recipients
+            Who the communication is for.
+        ════════════════════════════════════════════════════════════════ */}
+        <div style={{ ...panelCard, flex: '0 0 196px', minWidth: 156 }}>
+          <div style={panelTitle}>Audience</div>
+          <div style={panelSubtitle}>
+            {outreachMode === 'message' ? '1 recipient · direct message' : 'Survey invitation'}
+          </div>
 
-        {/* ── Zone 1: Recipient Context ─────────────────────────────────── */}
-        <div style={{ ...railPanel, flex: '0 0 196px', minWidth: 160 }}>
-          <div style={railTitle}>Recipient Context</div>
-          <div style={railSubtitle}>{outreachMode === 'message' ? 'Direct message' : 'Survey invitation'}</div>
-
-          {/* Contact context — shown when in Direct Message mode */}
+          {/* Contact context (Direct Message mode) */}
           {outreachMode === 'message' && (
-            fromContact ? (
+            contactId && contactHasDisplayInfo ? (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontWeight: 600, fontSize: 13, color: '#191919', fontFamily: F, lineHeight: 1.3 }}>
                   {fromContact.name}
                 </div>
                 {fromContact.email && (
-                  <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginTop: 3 }}>
+                  <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginTop: 3, wordBreak: 'break-all' }}>
                     {fromContact.email}
                   </div>
                 )}
-                <div style={{ marginTop: 8 }}>
+                <div style={{ marginTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   <span style={{
                     fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
                     background: '#EEF2FB', color: '#1D2567', border: '1px solid #c3cdf0',
                     fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
                   }}>Contact</span>
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                    background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0',
+                    fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
+                  }}>1 recipient</span>
                 </div>
               </div>
+            ) : contactId ? (
+              // contactId from URL but no display info (router state unavailable)
+              <div style={{
+                marginBottom: 14, padding: '9px 11px',
+                background: '#FBF5E8', border: '1px solid #f0c9b0',
+                borderRadius: 8, fontSize: 11, color: '#8B5E1A', fontFamily: F, lineHeight: 1.5,
+              }}>
+                Contact context unavailable. Return to Contacts and click Email.
+              </div>
             ) : (
-              <div style={{ ...railBody, marginBottom: 14 }}>
-                Return to Contacts and select Email to load contact context.
+              <div style={{ ...panelBody, marginBottom: 14 }}>
+                No contact selected. Return to Contacts and click Email.
               </div>
             )
           )}
 
-          {/* Selected student context — live from form state (survey mode) */}
+          {/* Student context (Survey Invitation mode) */}
           {outreachMode === 'survey' && (
             selectedStudent ? (
               <div style={{ marginBottom: 14 }}>
@@ -351,87 +418,347 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                 </div>
               </div>
             ) : (
-              <div style={{ ...railBody, marginBottom: 14 }}>
+              <div style={{ ...panelBody, marginBottom: 14 }}>
                 Select a student to see recipient context.
               </div>
             )
           )}
 
-          {/* Future segment rows — disabled, non-clickable */}
+          {/* Future audience options */}
           <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 10, marginBottom: 10 }}>
-            {['Student segments', 'Saved groups', 'School coordinators'].map(label => (
-              <div key={label} style={futureRow}>
-                <span style={{ fontSize: 11, color: '#374151', fontFamily: F }}>{label}</span>
-                <span style={futureBadge}>Future</span>
-              </div>
+            {FUTURE_AUDIENCES.map(label => (
+              <Tooltip key={label} label="Coming in a future release" placement="right">
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '6px 0', borderBottom: '1px solid #f3f4f6',
+                  opacity: 0.45, cursor: 'default',
+                }}>
+                  <span style={{ fontSize: 11, color: '#374151', fontFamily: F }}>{label}</span>
+                  <span style={futureBadge}>Future</span>
+                </div>
+              </Tooltip>
             ))}
           </div>
 
-          <p style={railBody}>
-            Single-student invitations are supported now. Segments and saved groups will be added in a future release.
+          <p style={panelBody}>
+            {outreachMode === 'message'
+              ? 'Groups and categories will be added in a future release.'
+              : 'Single-student invitations are supported now. Segments and groups coming soon.'}
           </p>
         </div>
 
-        {/* ── Zone 2: Compose ───────────────────────────────────────────── */}
-        <div style={{ flex: '2 1 320px', minWidth: 0 }}>
+        {/* ═══════════════════════════════════════════════════════════════
+            ZONE 2 — Message Type / Workflow
+            What kind of outreach this is and its workflow settings.
+        ════════════════════════════════════════════════════════════════ */}
+        <div style={{ ...panelCard, flex: '0 0 260px', minWidth: 220 }}>
+          <div style={panelTitle}>Message Type</div>
+          <div style={panelSubtitle}>Workflow</div>
 
-          {/* Mode switcher */}
-          <div style={{
-            display: 'flex', marginBottom: 20,
-            border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden',
-          }}>
-            {[
-              { key: 'survey',  label: 'Survey Invitation' },
-              { key: 'message', label: 'Direct Message' },
-            ].map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => setOutreachMode(key)}
-                style={{
-                  flex: 1, padding: '7px 12px',
-                  border: 'none', cursor: 'pointer',
-                  fontSize: 11, fontWeight: 600, fontFamily: F,
-                  background: outreachMode === key ? '#1D2567' : '#f9fafb',
-                  color: outreachMode === key ? '#fff' : '#6b7280',
-                  transition: 'background 0.12s, color 0.12s',
-                }}
-              >
-                {label}
-              </button>
-            ))}
+          {/* Type selector */}
+          <div style={{ marginBottom: 16 }}>
+            {MSG_TYPES.map(({ key, label, active }) =>
+              active ? (
+                <button
+                  key={label}
+                  onClick={() => setOutreachMode(key)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    width: '100%', padding: '7px 10px',
+                    border: outreachMode === key
+                      ? '1.5px solid #1D2567'
+                      : '1.5px solid #e5e7eb',
+                    borderRadius: 7,
+                    background: outreachMode === key ? '#EEF2FB' : '#fff',
+                    cursor: 'pointer', marginBottom: 4,
+                    fontSize: 12,
+                    fontWeight: outreachMode === key ? 700 : 500,
+                    color: outreachMode === key ? '#1D2567' : '#374151',
+                    fontFamily: F, textAlign: 'left',
+                    transition: 'all 0.1s',
+                  }}
+                >
+                  <span style={{
+                    width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+                    background: outreachMode === key ? '#1D2567' : 'transparent',
+                    border: outreachMode === key ? '2px solid #1D2567' : '2px solid #d1d5db',
+                    transition: 'all 0.1s',
+                  }} />
+                  {label}
+                </button>
+              ) : (
+                <Tooltip key={label} label="Coming in a future release" placement="right">
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    width: '100%', padding: '6px 10px',
+                    border: '1.5px solid #f3f4f6', borderRadius: 7,
+                    background: '#fafafa', cursor: 'not-allowed',
+                    marginBottom: 4, opacity: 0.5,
+                  }}>
+                    <span style={{
+                      width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+                      background: 'transparent', border: '2px solid #d1d5db',
+                    }} />
+                    <span style={{ fontSize: 12, fontWeight: 500, color: '#9ca3af', fontFamily: F }}>
+                      {label}
+                    </span>
+                    <span style={{ ...futureBadge, marginLeft: 'auto' }}>Future</span>
+                  </div>
+                </Tooltip>
+              )
+            )}
           </div>
 
-          {/* Direct Message compose — shown in message mode */}
-          {outreachMode === 'message' && (
-            <div>
-              {/* Recipient card */}
-              <div style={fieldWrap}>
-                <label style={labelStyle}>To</label>
-                {fromContact ? (
-                  <div style={{
-                    padding: '10px 13px', background: '#f9fafb',
-                    border: '1.5px solid #e5e7eb', borderRadius: 8,
-                    fontSize: 13, fontFamily: F, color: '#374151',
-                    display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-                  }}>
-                    <strong style={{ color: '#191919' }}>{fromContact.name}</strong>
-                    {fromContact.email && <>
-                      <span style={{ color: '#d1d5db' }}>·</span>
-                      <span style={{ color: '#6b7280', fontSize: 12 }}>{fromContact.email}</span>
-                    </>}
-                  </div>
-                ) : (
-                  <div style={{
-                    padding: '10px 13px', background: '#fef2f2',
-                    border: '1.5px solid #fecaca', borderRadius: 8,
-                    fontSize: 12, color: '#dc2626', fontFamily: F, lineHeight: 1.5,
-                  }}>
-                    No contact context. Return to Contacts and select Email to compose a direct message.
+          {/* Workflow settings for selected type */}
+          <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 14 }}>
+
+            {/* Direct Message workflow */}
+            {outreachMode === 'message' && (
+              <div>
+                <div style={{ ...fieldWrap }}>
+                  <span style={sectionLabel}>Recipient</span>
+                  {contactId && contactHasDisplayInfo ? (
+                    <div style={{
+                      padding: '9px 11px', background: '#f9fafb',
+                      border: '1.5px solid #e5e7eb', borderRadius: 8,
+                      fontSize: 12, fontFamily: F, color: '#374151',
+                    }}>
+                      <div style={{ fontWeight: 600, color: '#191919' }}>{fromContact.name}</div>
+                      {fromContact.email && (
+                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, wordBreak: 'break-all' }}>
+                          {fromContact.email}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p style={panelBody}>
+                      {contactId ? 'Contact context unavailable.' : 'No contact selected.'}
+                    </p>
+                  )}
+                </div>
+
+                <div style={{
+                  padding: '9px 11px', background: '#f9fafb',
+                  border: '1px solid #e5e7eb', borderRadius: 8,
+                  fontSize: 11, color: '#6b7280', fontFamily: F, lineHeight: 1.65,
+                }}>
+                  <div>Direct email sending will be enabled in a future release.</div>
+                  {DRAFT_KEY && (
+                    <div style={{ color: '#9ca3af', marginTop: 4 }}>
+                      Draft is saved locally for this contact.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Survey Invitation workflow — all form fields + Generate Link */}
+            {outreachMode === 'survey' && (
+              <div>
+                {/* Field 1 — Recipient */}
+                <div style={fieldWrap}>
+                  <label style={labelStyle}>
+                    Recipient <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
+                  </label>
+                  <select
+                    value={selectedStudentId}
+                    onChange={e => setSelectedStudentId(e.target.value)}
+                    style={inputBase}
+                  >
+                    <option value="">
+                      {loadingStudents ? 'Loading students…' : 'Select a student'}
+                    </option>
+                    {students.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.first_name} {s.last_name}{s.school ? ` — ${s.school}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Field 2 — Delivery email */}
+                {selectedStudent && (
+                  <div style={fieldWrap}>
+                    <label style={labelStyle}>Delivery email</label>
+                    {resolvedEmail ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <div style={{
+                          flex: 1, padding: '10px 13px',
+                          background: '#f9fafb', border: '1.5px solid #e5e7eb',
+                          borderRadius: 8, fontSize: 13, color: '#374151', fontFamily: F,
+                        }}>
+                          {resolvedEmail}
+                        </div>
+                        {emailSource && (
+                          <span style={{
+                            fontSize: 10, fontWeight: 600, padding: '2px 7px',
+                            borderRadius: 5, background: '#f3f4f6', color: '#6b7280',
+                            border: '1px solid #e5e7eb', whiteSpace: 'nowrap', fontFamily: F,
+                          }}>
+                            {emailSource}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{
+                        padding: '10px 13px', background: '#fef2f2',
+                        border: '1.5px solid #fecaca', borderRadius: 8,
+                        fontSize: 12, color: '#dc2626', fontFamily: F, lineHeight: 1.5,
+                      }}>
+                        No email address on file for this student.{' '}
+                        {onNavigateToStudent ? (
+                          <button
+                            onClick={() => onNavigateToStudent(selectedStudentId)}
+                            style={{
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              fontSize: 12, color: '#dc2626', fontFamily: F,
+                              fontWeight: 600, padding: 0,
+                              textDecoration: 'underline', textUnderlineOffset: 2,
+                            }}
+                          >
+                            Update student profile →
+                          </button>
+                        ) : (
+                          'Update the student profile before sending.'
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
 
-              {/* Subject */}
+                {/* Field 3 — Instrument */}
+                <div style={fieldWrap}>
+                  <label style={labelStyle}>
+                    Instrument <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
+                  </label>
+                  <select
+                    value={instrument}
+                    onChange={e => setInstrument(e.target.value)}
+                    style={inputBase}
+                  >
+                    {INSTRUMENTS.map(i => (
+                      <option key={i.slug} value={i.slug}>{i.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Field 4 — Timepoint */}
+                <div style={fieldWrap}>
+                  <label style={labelStyle}>
+                    Timepoint <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
+                  </label>
+                  <select
+                    value={timepoint}
+                    onChange={e => setTimepoint(e.target.value)}
+                    style={inputBase}
+                  >
+                    {TIMEPOINTS.map(t => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Field 5 — Expires at */}
+                <div style={fieldWrap}>
+                  <label style={labelStyle}>
+                    Expires <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={expiresAt}
+                    min={minExpiresAt()}
+                    onChange={e => setExpiresAt(e.target.value)}
+                    style={inputBase}
+                  />
+                </div>
+
+                {/* Field 6 — Notes */}
+                <div style={fieldWrap}>
+                  <label style={labelStyle}>
+                    Notes{' '}
+                    <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
+                  </label>
+                  <textarea
+                    value={notes}
+                    onChange={e => setNotes(e.target.value.slice(0, 500))}
+                    placeholder="Optional message or context for this invitation."
+                    rows={3}
+                    style={{ ...inputBase, resize: 'vertical', lineHeight: 1.5, minHeight: 74 }}
+                  />
+                  <div style={{
+                    fontSize: 11, color: notes.length > 480 ? '#dc2626' : '#9ca3af',
+                    textAlign: 'right', marginTop: 4, fontFamily: F,
+                  }}>
+                    {notes.length}/500
+                  </div>
+                </div>
+
+                {/* Duplicate guard */}
+                {selectedStudentId && timepoint && !checkingDuplicate && duplicateExists && (
+                  <div style={{
+                    padding: '11px 14px', marginBottom: 18,
+                    background: '#FBF5E8', border: '1px solid #f0c9b0',
+                    borderRadius: 8, fontSize: 12, color: '#8B5E1A',
+                    fontFamily: F, lineHeight: 1.6,
+                  }}>
+                    An assignment for this student and timepoint already exists. Review in the Evaluation tab before sending a new invitation.
+                  </div>
+                )}
+
+                {/* Error state */}
+                {generateError && (
+                  <div style={{
+                    padding: '11px 14px', marginBottom: 18,
+                    background: '#fef2f2', border: '1px solid #fecaca',
+                    borderRadius: 8, fontSize: 12, color: '#dc2626',
+                    fontFamily: F, lineHeight: 1.6,
+                  }}>
+                    {generateError}
+                  </div>
+                )}
+
+                {/* Generate Link action */}
+                <div style={{ paddingTop: 4 }}>
+                  <button
+                    onClick={handleGenerateLink}
+                    disabled={!formValid || generating}
+                    style={{
+                      padding: '9px 20px',
+                      background: formValid && !generating
+                        ? 'var(--color-accent-primary,#1D2567)'
+                        : '#e5e7eb',
+                      border: 'none', borderRadius: 8,
+                      fontSize: 13, fontWeight: 600, fontFamily: F,
+                      color: formValid && !generating ? '#fff' : '#9ca3af',
+                      cursor: formValid && !generating ? 'pointer' : 'not-allowed',
+                      transition: 'background 0.15s',
+                    }}
+                  >
+                    {generating ? 'Generating…' : 'Generate Link'}
+                  </button>
+                  {!formValid && (
+                    <div style={{ marginTop: 8, fontSize: 11, color: '#9ca3af', fontFamily: F, lineHeight: 1.5 }}>
+                      Select a student, instrument, and timepoint to generate a link.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════════
+            ZONE 3 — Compose / Preview / Action
+            Actual writing, preview, generated-link placement, and actions.
+        ════════════════════════════════════════════════════════════════ */}
+        <div style={{ flex: '1 1 300px', minWidth: 260 }}>
+
+          {/* Direct Message: subject + body editor + live preview + actions */}
+          {outreachMode === 'message' && (
+            <div style={panelCard}>
+
+              {/* Subject input */}
               <div style={fieldWrap}>
                 <label style={labelStyle}>Subject</label>
                 <input
@@ -440,23 +767,29 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                   onChange={e => setMsgSubject(e.target.value)}
                   placeholder="Email subject"
                   style={inputBase}
+                  disabled={!contactId}
                 />
               </div>
 
-              {/* Body */}
+              {/* Body textarea */}
               <div style={fieldWrap}>
                 <label style={labelStyle}>Message</label>
                 <textarea
                   value={msgBody}
                   onChange={e => setMsgBody(e.target.value)}
-                  placeholder="Compose your message…"
+                  placeholder={
+                    contactId
+                      ? 'Compose your message…'
+                      : 'Return to Contacts and click Email to compose a direct message.'
+                  }
                   rows={8}
                   style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, minHeight: 160 }}
+                  disabled={!contactId}
                 />
               </div>
 
               {/* Action bar */}
-              <div style={{ paddingTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 20 }}>
                 <Tooltip label="Draft persistence coming soon" placement="top">
                   <button disabled style={{
                     padding: '8px 16px', background: '#e5e7eb',
@@ -477,447 +810,196 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                     Send Email
                   </button>
                 </Tooltip>
-                <p style={{ margin: 0, fontSize: 11, color: '#9ca3af', fontFamily: F, lineHeight: 1.5, flex: '1 1 100%', paddingTop: 4 }}>
+                <p style={{
+                  margin: 0, fontSize: 11, color: '#9ca3af', fontFamily: F,
+                  lineHeight: 1.5, flex: '1 1 100%', paddingTop: 4,
+                }}>
                   Direct email sending will be enabled in a future release.
                 </p>
               </div>
+
+              {/* Live preview */}
+              <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 16 }}>
+                <span style={sectionLabel}>Preview</span>
+                <div style={{
+                  background: '#f9fafb', borderRadius: 8,
+                  border: '1px solid #e5e7eb', overflow: 'hidden',
+                }}>
+                  <div style={{ padding: '10px 14px', borderBottom: '1px solid #f3f4f6' }}>
+                    <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginBottom: 3 }}>Subject</div>
+                    <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.5 }}>
+                      {msgSubject || (
+                        <span style={{ color: '#d1d5db', fontStyle: 'italic' }}>No subject yet</span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ padding: '10px 14px' }}>
+                    <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginBottom: 6 }}>Body</div>
+                    <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                      {msgBody || (
+                        <span style={{ color: '#d1d5db', fontStyle: 'italic' }}>
+                          Start typing to see a preview…
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Survey Invitation form — shown in survey mode (display:none preserves form state) */}
-          <div style={{ display: outreachMode === 'survey' ? 'block' : 'none' }}>
+          {/* Survey Invitation: email preview + generated link card */}
+          {outreachMode === 'survey' && (
+            <div>
 
-          {/* Template indicator */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-              <span style={{
-                fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 6,
-                background: '#EDF5F4', color: '#275E63', border: '1px solid #c9e8e6',
-                letterSpacing: 0.3, fontFamily: F,
+              {/* Survey email preview */}
+              <div style={{
+                ...panelCard,
+                border: surveyResult
+                  ? '1px solid rgba(29,37,103,0.16)'
+                  : '1px solid rgba(29,37,103,0.10)',
               }}>
-                Survey Invitation
-              </span>
-            </div>
-            <p style={{ margin: 0, fontSize: 12, color: '#6b7280', fontFamily: F }}>
-              Send a pre-rotation readiness survey to a single student.
-            </p>
-          </div>
-
-          {/* Field 1 — Recipient */}
-          <div style={fieldWrap}>
-            <label style={labelStyle}>
-              Recipient <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
-            </label>
-            <select
-              value={selectedStudentId}
-              onChange={e => setSelectedStudentId(e.target.value)}
-              style={inputBase}
-            >
-              <option value="">
-                {loadingStudents ? 'Loading students…' : 'Select a student'}
-              </option>
-              {students.map(s => (
-                <option key={s.id} value={s.id}>
-                  {s.first_name} {s.last_name}{s.school ? ` — ${s.school}` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Field 2 — Delivery email */}
-          {selectedStudent && (
-            <div style={fieldWrap}>
-              <label style={labelStyle}>Delivery email</label>
-              {resolvedEmail ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <div style={{
-                    flex: 1, padding: '10px 13px',
-                    background: '#f9fafb', border: '1.5px solid #e5e7eb',
-                    borderRadius: 8, fontSize: 13, color: '#374151', fontFamily: F,
-                  }}>
-                    {resolvedEmail}
+                {/* Subject line */}
+                <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid #f3f4f6' }}>
+                  <span style={sectionLabel}>Subject</span>
+                  <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.5 }}>
+                    ASPIRE Program: Your Pre-Rotation Readiness Survey is ready
                   </div>
-                  {emailSource && (
-                    <span style={{
-                      fontSize: 10, fontWeight: 600, padding: '2px 7px',
-                      borderRadius: 5, background: '#f3f4f6', color: '#6b7280',
-                      border: '1px solid #e5e7eb', whiteSpace: 'nowrap', fontFamily: F,
-                    }}>
-                      {emailSource}
-                    </span>
-                  )}
                 </div>
-              ) : (
+
+                {/* Body preview */}
+                <div>
+                  <span style={sectionLabel}>Message preview</span>
+                  <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.8 }}>
+                    <p style={{ margin: '0 0 12px' }}>
+                      Dear{' '}
+                      {firstName
+                        ? <strong>{firstName}</strong>
+                        : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>[Student first name]</span>
+                      },
+                    </p>
+                    <p style={{ margin: '0 0 12px' }}>
+                      You are invited to complete the <em>{instrumentLabel}</em> as part of your participation in the ASPIRE Program.
+                    </p>
+                    {notes.trim() && (
+                      <p style={{ margin: '0 0 12px' }}>{notes.trim()}</p>
+                    )}
+                    <p style={{ margin: '0 0 12px' }}>
+                      Click the link below to begin. This survey expires on <strong>{expiresFormatted}</strong>.
+                    </p>
+
+                    {/* Survey link — placeholder before generation, real URL shown once after */}
+                    <p style={{ margin: '0 0 12px' }}>
+                      {surveyResult ? (
+                        <span style={{
+                          display: 'block', padding: '6px 10px',
+                          background: '#EEF7F0', border: '1px solid #c6d9a8', borderRadius: 6,
+                          fontSize: 11, color: '#166534',
+                          fontFamily: 'ui-monospace, monospace',
+                          wordBreak: 'break-all', lineHeight: 1.6,
+                          userSelect: 'text',
+                        }}>
+                          {surveyResult.surveyUrl}
+                        </span>
+                      ) : (
+                        <span style={{
+                          display: 'inline-block', padding: '3px 9px',
+                          background: '#f3f4f6', borderRadius: 5,
+                          fontSize: 12, color: '#6b7280', fontStyle: 'italic', fontFamily: F,
+                        }}>
+                          [Secure survey link will be generated]
+                        </span>
+                      )}
+                    </p>
+
+                    <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', lineHeight: 1.6 }}>
+                      Brawerman Nursing Institute · Cedars-Sinai<br />
+                      ASPIRE Program
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Generated link card — shown after successful Generate Link */}
+              {surveyResult && (
                 <div style={{
-                  padding: '10px 13px', background: '#fef2f2',
-                  border: '1.5px solid #fecaca', borderRadius: 8,
-                  fontSize: 12, color: '#dc2626', fontFamily: F, lineHeight: 1.5,
+                  marginTop: 10,
+                  background: '#fff', borderRadius: 12,
+                  border: '1px solid rgba(29,37,103,0.10)',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+                  overflow: 'hidden',
                 }}>
-                  No email address on file for this student.{' '}
-                  {onNavigateToStudent
-                    ? (
-                      <button
-                        onClick={() => onNavigateToStudent(selectedStudentId)}
-                        style={{
-                          background: 'none', border: 'none', cursor: 'pointer',
-                          fontSize: 12, color: '#dc2626', fontFamily: F,
-                          fontWeight: 600, padding: 0,
-                          textDecoration: 'underline', textUnderlineOffset: 2,
-                        }}
-                      >
-                        Update student profile →
-                      </button>
-                    )
-                    : 'Update the student profile before sending.'
-                  }
+                  {/* Success header */}
+                  <div style={{
+                    background: '#EEF7F0', borderBottom: '1px solid #c6d9a8',
+                    padding: '10px 16px',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                  }}>
+                    <span style={{ fontSize: 12, color: '#2F7D5C', fontWeight: 600, fontFamily: F }}>
+                      ✓ Link generated
+                    </span>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 5,
+                      background: '#c6d9a8', color: '#166534', fontFamily: F,
+                    }}>
+                      {surveyResult.student?.firstName} {surveyResult.student?.lastName}
+                    </span>
+                  </div>
+
+                  <div style={{ padding: '14px 16px' }}>
+                    {/* One-time warning */}
+                    <div style={{
+                      padding: '9px 12px', marginBottom: 12,
+                      background: '#FBF5E8', border: '1px solid #f0c9b0',
+                      borderRadius: 8, fontSize: 11, color: '#8B5E1A',
+                      fontFamily: F, lineHeight: 1.6,
+                    }}>
+                      This link is shown once. Copy it now before closing or changing the form.
+                    </div>
+
+                    {/* Copy action */}
+                    <button
+                      onClick={handleCopy}
+                      style={{
+                        padding: '7px 16px', marginBottom: 12,
+                        background: copied ? '#EEF7F0' : 'var(--color-accent-primary,#1D2567)',
+                        border: `1px solid ${copied ? '#c6d9a8' : 'transparent'}`,
+                        borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: F,
+                        color: copied ? '#2F7D5C' : '#fff', cursor: 'pointer',
+                        transition: 'background 0.15s',
+                      }}
+                    >
+                      {copied ? '✓ Copied' : 'Copy Link'}
+                    </button>
+
+                    {/* Assignment details */}
+                    <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, lineHeight: 1.7 }}>
+                      <div>
+                        <strong style={{ color: '#6b7280' }}>Assignment ID:</strong>{' '}
+                        {surveyResult.assignmentId}
+                      </div>
+                      <div>
+                        <strong style={{ color: '#6b7280' }}>Expires:</strong>{' '}
+                        {fmtDate(surveyResult.expiresAt?.split('T')[0])}
+                      </div>
+                      <div>
+                        <strong style={{ color: '#6b7280' }}>Timepoint:</strong>{' '}
+                        {TIMEPOINTS.find(t => t.value === surveyResult.timepoint)?.label || surveyResult.timepoint}
+                      </div>
+                      {surveyResult.student?.email && (
+                        <div>
+                          <strong style={{ color: '#6b7280' }}>Delivery email:</strong>{' '}
+                          {surveyResult.student.email}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
+
             </div>
           )}
 
-          {/* Field 3 — Instrument */}
-          <div style={fieldWrap}>
-            <label style={labelStyle}>
-              Instrument <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
-            </label>
-            <select
-              value={instrument}
-              onChange={e => setInstrument(e.target.value)}
-              style={inputBase}
-            >
-              {INSTRUMENTS.map(i => (
-                <option key={i.slug} value={i.slug}>{i.label}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Field 4 — Timepoint */}
-          <div style={fieldWrap}>
-            <label style={labelStyle}>
-              Timepoint <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
-            </label>
-            <select
-              value={timepoint}
-              onChange={e => setTimepoint(e.target.value)}
-              style={inputBase}
-            >
-              {TIMEPOINTS.map(t => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Field 5 — Expires at */}
-          <div style={fieldWrap}>
-            <label style={labelStyle}>
-              Expires <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
-            </label>
-            <input
-              type="date"
-              value={expiresAt}
-              min={minExpiresAt()}
-              onChange={e => setExpiresAt(e.target.value)}
-              style={inputBase}
-            />
-          </div>
-
-          {/* Field 6 — Notes */}
-          <div style={fieldWrap}>
-            <label style={labelStyle}>
-              Notes{' '}
-              <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span>
-            </label>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value.slice(0, 500))}
-              placeholder="Optional message or context for this invitation."
-              rows={3}
-              style={{ ...inputBase, resize: 'vertical', lineHeight: 1.5, minHeight: 74 }}
-            />
-            <div style={{
-              fontSize: 11, color: notes.length > 480 ? '#dc2626' : '#9ca3af',
-              textAlign: 'right', marginTop: 4, fontFamily: F,
-            }}>
-              {notes.length}/500
-            </div>
-          </div>
-
-          {/* Duplicate guard */}
-          {selectedStudentId && timepoint && !checkingDuplicate && duplicateExists && (
-            <div style={{
-              padding: '11px 14px', marginBottom: 18,
-              background: '#FBF5E8', border: '1px solid #f0c9b0',
-              borderRadius: 8, fontSize: 12, color: '#8B5E1A',
-              fontFamily: F, lineHeight: 1.6,
-            }}>
-              An assignment for this student and timepoint already exists. Review in the Evaluation tab before sending a new invitation.
-            </div>
-          )}
-
-          {/* Error state */}
-          {generateError && (
-            <div style={{
-              padding: '11px 14px', marginBottom: 18,
-              background: '#fef2f2', border: '1px solid #fecaca',
-              borderRadius: 8, fontSize: 12, color: '#dc2626',
-              fontFamily: F, lineHeight: 1.6,
-            }}>
-              {generateError}
-            </div>
-          )}
-
-          {/* Action bar */}
-          <div style={{ paddingTop: 4 }}>
-            <button
-              onClick={handleGenerateLink}
-              disabled={!formValid || generating}
-              style={{
-                padding: '9px 20px',
-                background: formValid && !generating ? 'var(--color-accent-primary,#1D2567)' : '#e5e7eb',
-                border: 'none', borderRadius: 8,
-                fontSize: 13, fontWeight: 600, fontFamily: F,
-                color: formValid && !generating ? '#fff' : '#9ca3af',
-                cursor: formValid && !generating ? 'pointer' : 'not-allowed',
-                transition: 'background 0.15s',
-              }}
-            >
-              {generating ? 'Generating…' : 'Generate Link'}
-            </button>
-            {!formValid && (
-              <div style={{ marginTop: 8, fontSize: 11, color: '#9ca3af', fontFamily: F, lineHeight: 1.5 }}>
-                Select a student, instrument, and timepoint to generate a link.
-              </div>
-            )}
-          </div>
-          </div>{/* end survey form wrapper */}
-        </div>
-
-        {/* ── Zone 3: Message Preview + Generated Link ──────────────────── */}
-        <div style={{ flex: '2 1 260px', minWidth: 0 }}>
-
-          {/* Direct Message preview — shown in message mode */}
-          {outreachMode === 'message' && (
-            <div style={{
-              background: '#fff', borderRadius: 12,
-              border: '1px solid rgba(29,37,103,0.10)',
-              boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
-              overflow: 'hidden',
-            }}>
-              <div style={{ padding: '14px 18px', borderBottom: '1px solid #f3f4f6' }}>
-                <div style={{
-                  fontSize: 10, fontWeight: 700, color: '#9ca3af',
-                  letterSpacing: '0.13em', textTransform: 'uppercase',
-                  marginBottom: 6, fontFamily: F,
-                }}>Subject</div>
-                <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.5 }}>
-                  {msgSubject || <span style={{ color: '#d1d5db', fontStyle: 'italic' }}>No subject yet</span>}
-                </div>
-              </div>
-              <div style={{ padding: '14px 18px' }}>
-                <div style={{
-                  fontSize: 10, fontWeight: 700, color: '#9ca3af',
-                  letterSpacing: '0.13em', textTransform: 'uppercase',
-                  marginBottom: 12, fontFamily: F,
-                }}>Message preview</div>
-                <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
-                  {msgBody || (
-                    <span style={{ color: '#d1d5db', fontStyle: 'italic' }}>
-                      Start typing to see a preview…
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Survey Invitation preview — shown in survey mode */}
-          <div style={{ display: outreachMode === 'survey' ? 'block' : 'none' }}>
-
-          {/* Message preview — always visible so Owner can see full message context */}
-          <div style={{
-            background: '#fff', borderRadius: 12,
-            border: surveyResult
-              ? '1px solid rgba(29,37,103,0.16)'
-              : '1px solid rgba(29,37,103,0.10)',
-            boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
-            overflow: 'hidden',
-          }}>
-            {/* Subject */}
-            <div style={{ padding: '14px 18px', borderBottom: '1px solid #f3f4f6' }}>
-              <div style={{
-                fontSize: 10, fontWeight: 700, color: '#9ca3af',
-                letterSpacing: '0.13em', textTransform: 'uppercase',
-                marginBottom: 6, fontFamily: F,
-              }}>
-                Subject
-              </div>
-              <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.5 }}>
-                ASPIRE Program: Your Pre-Rotation Readiness Survey is ready
-              </div>
-            </div>
-
-            {/* Message body */}
-            <div style={{ padding: '14px 18px' }}>
-              <div style={{
-                fontSize: 10, fontWeight: 700, color: '#9ca3af',
-                letterSpacing: '0.13em', textTransform: 'uppercase',
-                marginBottom: 12, fontFamily: F,
-              }}>
-                Message preview
-              </div>
-              <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.8 }}>
-                <p style={{ margin: '0 0 12px' }}>
-                  Dear{' '}
-                  {firstName
-                    ? <strong>{firstName}</strong>
-                    : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>[Student first name]</span>
-                  },
-                </p>
-                <p style={{ margin: '0 0 12px' }}>
-                  You are invited to complete the <em>{instrumentLabel}</em> as part of your participation in the ASPIRE Program.
-                </p>
-                {notes.trim() && (
-                  <p style={{ margin: '0 0 12px' }}>{notes.trim()}</p>
-                )}
-                <p style={{ margin: '0 0 12px' }}>
-                  Click the link below to begin. This survey expires on <strong>{expiresFormatted}</strong>.
-                </p>
-
-                {/* Survey link position — placeholder before generation, real URL after */}
-                <p style={{ margin: '0 0 12px' }}>
-                  {surveyResult ? (
-                    <span style={{
-                      display: 'block', padding: '6px 10px',
-                      background: '#EEF7F0', border: '1px solid #c6d9a8', borderRadius: 6,
-                      fontSize: 11, color: '#166534',
-                      fontFamily: 'ui-monospace, monospace',
-                      wordBreak: 'break-all', lineHeight: 1.6,
-                      userSelect: 'text',
-                    }}>
-                      {surveyResult.surveyUrl}
-                    </span>
-                  ) : (
-                    <span style={{
-                      display: 'inline-block', padding: '3px 9px',
-                      background: '#f3f4f6', borderRadius: 5,
-                      fontSize: 12, color: '#6b7280', fontStyle: 'italic', fontFamily: F,
-                    }}>
-                      [Secure survey link will be generated]
-                    </span>
-                  )}
-                </p>
-
-                <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', lineHeight: 1.6 }}>
-                  Brawerman Nursing Institute · Cedars-Sinai<br />
-                  ASPIRE Program
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Generated link card — compact details, shown below preview after success */}
-          {surveyResult && (
-            <div style={{
-              marginTop: 10,
-              background: '#fff', borderRadius: 12,
-              border: '1px solid rgba(29,37,103,0.10)',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
-              overflow: 'hidden',
-            }}>
-              {/* Success header */}
-              <div style={{
-                background: '#EEF7F0', borderBottom: '1px solid #c6d9a8',
-                padding: '10px 16px',
-                display: 'flex', alignItems: 'center', gap: 8,
-              }}>
-                <span style={{ fontSize: 12, color: '#2F7D5C', fontWeight: 600, fontFamily: F }}>
-                  ✓ Link generated
-                </span>
-                <span style={{
-                  fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 5,
-                  background: '#c6d9a8', color: '#166534', fontFamily: F,
-                }}>
-                  {surveyResult.student?.firstName} {surveyResult.student?.lastName}
-                </span>
-              </div>
-
-              <div style={{ padding: '14px 16px' }}>
-                {/* One-time warning */}
-                <div style={{
-                  padding: '9px 12px', marginBottom: 12,
-                  background: '#FBF5E8', border: '1px solid #f0c9b0',
-                  borderRadius: 8, fontSize: 11, color: '#8B5E1A',
-                  fontFamily: F, lineHeight: 1.6,
-                }}>
-                  This link is shown once. Copy it now before closing or changing the form.
-                </div>
-
-                {/* Copy button */}
-                <button
-                  onClick={handleCopy}
-                  style={{
-                    padding: '7px 16px', marginBottom: 12,
-                    background: copied ? '#EEF7F0' : 'var(--color-accent-primary,#1D2567)',
-                    border: `1px solid ${copied ? '#c6d9a8' : 'transparent'}`,
-                    borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: F,
-                    color: copied ? '#2F7D5C' : '#fff', cursor: 'pointer',
-                    transition: 'background 0.15s',
-                  }}
-                >
-                  {copied ? '✓ Copied' : 'Copy Link'}
-                </button>
-
-                {/* Assignment details */}
-                <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, lineHeight: 1.7 }}>
-                  <div><strong style={{ color: '#6b7280' }}>Assignment ID:</strong> {surveyResult.assignmentId}</div>
-                  <div><strong style={{ color: '#6b7280' }}>Expires:</strong> {fmtDate(surveyResult.expiresAt?.split('T')[0])}</div>
-                  <div><strong style={{ color: '#6b7280' }}>Timepoint:</strong> {TIMEPOINTS.find(t => t.value === surveyResult.timepoint)?.label || surveyResult.timepoint}</div>
-                  {surveyResult.student?.email && (
-                    <div><strong style={{ color: '#6b7280' }}>Delivery email:</strong> {surveyResult.student.email}</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-          </div>{/* end survey preview wrapper */}
-        </div>
-
-        {/* ── Zone 4: Activity ──────────────────────────────────────────── */}
-        <div style={{ ...railPanel, flex: '0 0 176px', minWidth: 148 }}>
-          <div style={railTitle}>Activity</div>
-          <div style={railSubtitle}>Outreach status</div>
-
-          {/* Real session-based activity — reflects actual current UI state */}
-          {surveyResult ? (
-            <div style={{
-              padding: '10px 12px', marginBottom: 12,
-              background: '#F9FAFB', border: '1px solid #e5e7eb', borderRadius: 8,
-            }}>
-              <span style={{
-                display: 'inline-block', marginBottom: 6,
-                fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-                background: '#EEF7F0', color: '#2F7D5C', border: '1px solid #c6d9a8',
-                fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
-              }}>Link generated</span>
-              <div style={{ fontWeight: 600, fontSize: 12, color: '#191919', fontFamily: F, lineHeight: 1.4 }}>
-                {surveyResult.student?.firstName} {surveyResult.student?.lastName}
-              </div>
-              <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginTop: 2 }}>
-                {TIMEPOINTS.find(t => t.value === surveyResult.timepoint)?.label || surveyResult.timepoint}
-              </div>
-              <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 2 }}>
-                Expires {fmtDate(surveyResult.expiresAt?.split('T')[0])}
-              </div>
-            </div>
-          ) : (
-            <p style={{ ...railBody, marginBottom: 12 }}>
-              No outreach activity in this session yet.
-            </p>
-          )}
-
-          <p style={railBody}>
-            Sent emails, reminders, and response activity will appear here in a future release.
-          </p>
         </div>
 
       </div>
