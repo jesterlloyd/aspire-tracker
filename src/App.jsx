@@ -39,6 +39,7 @@ import { logActivity } from './lib/logActivity'
 import { safeWrite } from './lib/safeWrite'
 import { MessagesSquare } from 'lucide-react'
 import ConnectPage from './pages/Connect'
+import Tooltip from './components/ui/Tooltip'
 
 /*
   COHORT ISOLATION CONTRACT
@@ -779,10 +780,11 @@ function MainApp({ onLogout }) {
           <div style={{ display:'flex', alignItems:'center', gap:14, flexShrink:0 }}>
             <img src="/cs-logo-large.png" alt="Cedars-Sinai" style={{ height:46, width:'auto', objectFit:'contain' }} />
             <div style={{ width:1, height:30, background:'rgba(255,255,255,0.18)', flexShrink:0 }} />
-            <div title="Affiliate Students' Pathway from Internship to Residency Experience"
-              style={{ fontSize:20, fontWeight:700, color:'#fff', letterSpacing:'-0.01em', cursor:'default' }}>
-              ASPIRE Intelligence
-            </div>
+            <Tooltip label="Affiliate Students' Pathway from Internship to Residency Experience" placement="bottom">
+              <div style={{ fontSize:20, fontWeight:700, color:'#fff', letterSpacing:'-0.01em', cursor:'default' }}>
+                ASPIRE Intelligence
+              </div>
+            </Tooltip>
           </div>
 
           <div style={{ flex:1 }} />
@@ -790,8 +792,10 @@ function MainApp({ onLogout }) {
           {/* Zone 2: Status — cohort picker + sync */}
           {cohorts.length > 0 && (
             <div ref={cohortPickerRef} style={{ position:'relative', flexShrink:0 }}>
+              <Tooltip label="Switch cohort" placement="bottom">
               <button
                 data-tour="cohort-switcher"
+                aria-label="Switch cohort"
                 onClick={() => setCohortOpen(p => !p)}
                 style={{
                   display:'flex', alignItems:'center', gap:8,
@@ -808,6 +812,7 @@ function MainApp({ onLogout }) {
                 <span style={{ fontSize:12.5, fontWeight:600 }}>{activeCohort?.name || 'Select cohort'}</span>
                 <span style={{ opacity:0.5, lineHeight:0, marginLeft:2 }}><HeaderChevron /></span>
               </button>
+              </Tooltip>
 
               {cohortOpen && (
                 <div style={{
@@ -958,9 +963,10 @@ function MainApp({ onLogout }) {
 
           {/* Zone 3: Actions — connect + bell + user menu */}
           {cohorts.length > 0 && (
+            <Tooltip label="ASPIRE Connect" placement="bottom">
             <button
               data-tour="connect"
-              aria-label="Open ASPIRE Connect"
+              aria-label="ASPIRE Connect"
               onClick={() => navigate('/connect/outreach')}
               style={{
                 position: 'relative', flexShrink: 0,
@@ -988,14 +994,16 @@ function MainApp({ onLogout }) {
                 }} />
               )}
             </button>
+            </Tooltip>
           )}
           {cohorts.length > 0 && (
+            <Tooltip label="Action Center" placement="bottom">
             <button
               ref={bellRef}
               id="keith-bell-trigger"
+              aria-label="Action Center"
               data-tour="action-center"
               onClick={() => setShowActionCenter(p => !p)}
-              title="Open Action Center"
               style={{
                 position:'relative', flexShrink:0,
                 width:34, height:34, display:'flex', alignItems:'center', justifyContent:'center',
@@ -1016,6 +1024,7 @@ function MainApp({ onLogout }) {
                 </span>
               )}
             </button>
+            </Tooltip>
           )}
 
           <UserMenu

@@ -1,3 +1,5 @@
+import Tooltip from './ui/Tooltip';
+
 const STATUS_CLASS = {
   Planning:  'cs-planning',
   Active:    'cs-active',
@@ -28,9 +30,11 @@ export default function CohortBar({ cohorts, activeCohortId, onSelect, onNew, on
             </span>
           )}
           {active?.accepting_submissions && (
-            <span className="cohort-open-badge" title="This cohort is currently accepting form submissions">
-              ● Accepting submissions
-            </span>
+            <Tooltip label="Accepting form submissions" placement="bottom">
+              <span className="cohort-open-badge">
+                ● Accepting submissions
+              </span>
+            </Tooltip>
           )}
           {active?.start_date && active?.end_date && (
             <span className="cohort-dates">{active.start_date} – {active.end_date}</span>

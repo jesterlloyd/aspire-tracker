@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { ChevronRight, ChevronDown } from 'lucide-react'
+import Tooltip from './ui/Tooltip'
 import { supabase } from '../lib/supabase'
 import { CS_COLORS } from '../lib/brand'
 import { useLastSynced } from '../hooks/useLastSynced'
@@ -35,12 +36,12 @@ const STATUS_CONFIG = {
 //   nightfall #1D2567 = colors.ink2, marina #275E63, sage #2F7D5C, dawn solid #8B5E1A (deepened),
 //   hickory #583733 = CS_COLORS.hickory (revoked), #4A5560 for neutral sent
 const KPI_CARD_DEFS = [
-  { key: 'total',     label: 'TOTAL ASSIGNED', sub: 'All assignments',    restBg: '#EDEEF4', restNum: '#1D2567', activeBg: '#1D2567' },
-  { key: 'sent',      label: 'SENT',           sub: 'Awaiting response',  restBg: '#F4F3F1', restNum: '#4A5560', activeBg: '#4A5560' },
-  { key: 'opened',    label: 'OPENED',         sub: 'In progress',        restBg: '#EDF5F4', restNum: '#275E63', activeBg: '#275E63' },
-  { key: 'completed', label: 'COMPLETED',      sub: 'Response submitted', restBg: '#EEF7F0', restNum: '#2F7D5C', activeBg: '#2F7D5C' },
-  { key: 'expired',   label: 'EXPIRED',        sub: 'Window closed',      restBg: '#FBF5E8', restNum: '#8B5E1A', activeBg: '#8B5E1A' },
-  { key: 'revoked',   label: 'REVOKED',        sub: 'Recalled by owner',  restBg: '#F3F4F6', restNum: '#4A5560', activeBg: '#583733' },
+  { key: 'total',     label: 'TOTAL ASSIGNED', sub: 'All assignments',    restBg: '#EDEEF4', restNum: '#1D2567', activeBg: '#1D2567', tooltip: 'All evaluation assignments for this cohort' },
+  { key: 'sent',      label: 'SENT',           sub: 'Awaiting response',  restBg: '#F4F3F1', restNum: '#4A5560', activeBg: '#4A5560', tooltip: 'Invitation sent, awaiting student response' },
+  { key: 'opened',    label: 'OPENED',         sub: 'In progress',        restBg: '#EDF5F4', restNum: '#275E63', activeBg: '#275E63', tooltip: 'Student opened the invitation' },
+  { key: 'completed', label: 'COMPLETED',      sub: 'Response submitted', restBg: '#EEF7F0', restNum: '#2F7D5C', activeBg: '#2F7D5C', tooltip: 'Student submitted responses' },
+  { key: 'expired',   label: 'EXPIRED',        sub: 'Window closed',      restBg: '#FBF5E8', restNum: '#8B5E1A', activeBg: '#8B5E1A', tooltip: 'Invitation expired without submission' },
+  { key: 'revoked',   label: 'REVOKED',        sub: 'Recalled by owner',  restBg: '#F3F4F6', restNum: '#4A5560', activeBg: '#583733', tooltip: 'Invitation revoked by owner' },
 ]
 
 // Shadow tokens matching KPIBand.jsx / designTokens.js shadows export
@@ -92,10 +93,11 @@ function extractResponse(assignment) {
 // Interactive KPI filter card — visual pattern mirrors FilterKPICard from KPIBand.jsx.
 // Each card uses its own solid category color (activeBg) as the active fill, matching
 // the per-accent p.solid treatment in Student Profiles.
-function EvalKPICard({ value, label, sub, restBg, restNum, activeBg, isActive, onClick }) {
-  return (
+function EvalKPICard({ value, label, sub, restBg, restNum, activeBg, isActive, onClick, tooltipLabel }) {
+  const card = (
     <button
       onClick={onClick}
+      aria-label={tooltipLabel || label}
       style={{
         background:   isActive ? activeBg : restBg,
         border:       `1px solid ${isActive ? activeBg : 'rgba(29,37,103,0.06)'}`,
@@ -148,6 +150,14 @@ function EvalKPICard({ value, label, sub, restBg, restNum, activeBg, isActive, o
       )}
     </button>
   )
+  if (tooltipLabel) {
+    return (
+      <Tooltip label={tooltipLabel} placement="top">
+        {card}
+      </Tooltip>
+    )
+  }
+  return card
 }
 
 // Read-only informational card for Section I averages.
@@ -590,6 +600,7 @@ export default function EvaluationTab({ cohortId }) {
                     activeBg={card.activeBg}
                     isActive={activeKpiFilter === (card.key === 'total' ? null : card.key)}
                     onClick={() => handleKpiClick(card.key)}
+                    tooltipLabel={card.tooltip}
                   />
                 ))}
 

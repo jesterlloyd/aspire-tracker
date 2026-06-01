@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import Tooltip from './ui/Tooltip';
 import { useQueryClient } from '@tanstack/react-query';
 import { SUGGESTED_PROMPTS, generateStaticResponse } from '../lib/keithKnowledge';
 import { useAuth } from '../contexts/AuthContext';
@@ -258,7 +259,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
       <button
         data-tour="keith-orb"
         onClick={() => setIsOpen(!isOpen)}
-        title="Ask Keith"
+        aria-label="Ask Keith"
         style={{
           position: 'fixed',
           bottom: '24px',
@@ -395,9 +396,9 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                 <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '16px', color: '#ffffff' }}>Keith</div>
                 <div style={{ fontFamily: 'DM Sans', fontWeight: 400, fontSize: '12px', color: 'rgba(255,255,255,0.65)' }}>ASPIRE Program Assistant</div>
               </div>
+              <Tooltip label="New conversation" placement="bottom">
               <button
                 onClick={() => setMessages([])}
-                title="New conversation"
                 style={{
                   marginLeft: 'auto',
                   background: 'none', border: 'none',
@@ -409,6 +410,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                 onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.9)'}
                 onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.55)'}
               >↺ New</button>
+              </Tooltip>
               <button
                 onClick={() => setIsOpen(false)}
                 style={{

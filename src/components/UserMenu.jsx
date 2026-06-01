@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { safeWrite } from '../lib/safeWrite';
 import { getAvatarUrl } from '../lib/getAvatar';
 import { LogOut, Users, ChevronDown } from 'lucide-react';
+import Tooltip from './ui/Tooltip';
 import ThemeToggle from './ThemeToggle';
 
 const ROLE_LABELS = {
@@ -68,10 +69,10 @@ export default function UserMenu({ onOpenUserManagement, onRestartTour }) {
 
       {/* People & Access icon — Owner and Admin */}
       {isAdmin && (
+        <Tooltip label="People & Access" placement="bottom">
         <button
           data-tour="people-access"
           onClick={onOpenUserManagement}
-          title="People & Access"
           style={{
             background: 'rgba(255,255,255,0.10)',
             border: '1px solid rgba(255,255,255,0.15)',
@@ -86,12 +87,13 @@ export default function UserMenu({ onOpenUserManagement, onRestartTour }) {
         >
           <Users size={15} color="#ffffff" strokeWidth={2} />
         </button>
+        </Tooltip>
       )}
 
       {/* User button */}
+      <Tooltip label="My Profile" placement="bottom">
       <button
         data-tour="user-profile"
-        title="My Profile"
         onClick={() => setIsOpen(!isOpen)}
         style={{
           display: 'flex', alignItems: 'center', gap: '8px',
@@ -127,6 +129,7 @@ export default function UserMenu({ onOpenUserManagement, onRestartTour }) {
           style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}
         />
       </button>
+      </Tooltip>
 
       {/* Dropdown */}
       {isOpen && (

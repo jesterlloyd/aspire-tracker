@@ -132,7 +132,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
         }}
         onMouseLeave={() => setShowTooltip(false)}
         onFocus={() => setShowTooltip(false)}
-        title="View status legend"
+        aria-label="View status legend"
         style={{
           background: 'none', border: 'none', cursor: 'pointer',
           width: '20px', height: '20px', flexShrink: 0,
