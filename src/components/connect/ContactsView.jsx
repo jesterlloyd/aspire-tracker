@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
+import Tooltip from '../ui/Tooltip'
 
 const F    = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
 
 // ── Category mapping ──────────────────────────────────────────────────────────
-// Maps contacts.role values to the UI filter category label.
 
 const CATEGORY_MAP = {
   'School Coordinator':   'Academic Partners',
@@ -111,12 +111,13 @@ function CopyButton({ value, label = 'Copy' }) {
       await navigator.clipboard.writeText(value)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch { /* Clipboard unavailable — user can select manually */ }
+    } catch { /* Clipboard unavailable */ }
   }, [value])
   return (
+    <Tooltip label={copied ? 'Copied!' : `Copy ${label}`} placement="top">
     <button
       onClick={handleCopy}
-      title={`Copy ${label}`}
+      aria-label={`Copy ${label}`}
       style={{
         background: 'none', border: 'none', cursor: 'pointer',
         fontSize: 11, color: copied ? '#2F7D5C' : '#9ca3af', fontFamily: F,
@@ -125,6 +126,7 @@ function CopyButton({ value, label = 'Copy' }) {
     >
       {copied ? '✓' : '⎘'}
     </button>
+    </Tooltip>
   )
 }
 
@@ -188,7 +190,6 @@ function CategoryDivider({ label, count }) {
 // ── Contact list row ──────────────────────────────────────────────────────────
 
 function ContactRow({ contact, isSelected, onClick }) {
-  // Unit contacts: show unit_name as context line; others: show organization
   const contextLine = contact.unit_name || contact.organization
   return (
     <div
@@ -246,170 +247,247 @@ function ContactRow({ contact, isSelected, onClick }) {
   )
 }
 
-// ── Contact detail panel ──────────────────────────────────────────────────────
+// ── Zone 2: Contact profile panel ────────────────────────────────────────────
 
-function ContactDetail({ contact, commHistory, loadingComm, linkedStudents, loadingStudents }) {
-  const hasWeeklyDigest = contact.notification_preferences?.weekly_digest !== false
+function ContactProfile({ contact }) {
   const relatedUnits = Array.isArray(contact.related_units) ? contact.related_units.filter(Boolean) : []
   const showAffiliation = contact.school_name || contact.program_type || contact.unit_name || relatedUnits.length > 0
+  const hasWeeklyDigest = contact.notification_preferences?.weekly_digest !== false
 
   return (
     <div>
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 22 }}>
+      {/* ── Profile header ── */}
+      <div style={{
+        padding: '28px 28px 22px',
+        borderBottom: '1px solid #f3f4f6',
+        textAlign: 'center',
+        background: '#fff',
+      }}>
+        {/* Avatar (initials — no avatar_url column in current schema) */}
         <div style={{
-          width: 52, height: 52, borderRadius: '50%', flexShrink: 0,
-          background: NAVY, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 17, fontWeight: 700, color: '#fff', fontFamily: F,
+          width: 72, height: 72, borderRadius: '50%',
+          background: NAVY, margin: '0 auto 14px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 24, fontWeight: 700, color: '#fff', fontFamily: F,
+          flexShrink: 0,
         }}>
           {initials(contact.full_name)}
         </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#191919', fontFamily: F, letterSpacing: '-0.01em' }}>
-              {contact.full_name}
-            </h2>
-            {contact.preferred_name && (
-              <span style={{ fontSize: 12, color: '#9ca3af', fontFamily: F }}>
-                · goes by <strong style={{ color: '#374151' }}>{contact.preferred_name}</strong>
-              </span>
-            )}
-            {contact.is_active === false && (
-              <span style={{
-                fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4,
-                background: '#f3f4f6', color: '#9ca3af', border: '1px solid #e5e7eb',
-                fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.07em',
-              }}>Inactive</span>
-            )}
-          </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span style={roleChip(contact.role)}>{contact.role}</span>
-            {contact.role_qualifier && (
-              <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F }}>· {contact.role_qualifier}</span>
-            )}
-          </div>
-          <div style={{ marginTop: 6, fontSize: 13, color: '#6b7280', fontFamily: F }}>
-            {contact.organization}
-          </div>
-        </div>
-      </div>
 
-      {/* Contact methods */}
-      <div style={{
-        background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10,
-        padding: '14px 16px', marginBottom: 18,
-      }}>
-        <SectionHeading>Contact</SectionHeading>
-        {contact.email ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <span style={{ fontSize: 11, color: '#9ca3af', width: 44, fontFamily: F, flexShrink: 0 }}>Email</span>
-            <a href={`mailto:${contact.email}`} style={{ fontSize: 13, color: NAVY, fontFamily: F, textDecoration: 'none', flex: 1 }}>
-              {contact.email}
+        {/* Name */}
+        <h2 style={{
+          margin: 0, fontSize: 20, fontWeight: 700, color: '#191919',
+          fontFamily: F, letterSpacing: '-0.01em', lineHeight: 1.2,
+        }}>
+          {contact.full_name}
+        </h2>
+        {contact.preferred_name && (
+          <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: F, marginTop: 4 }}>
+            goes by <strong style={{ color: '#374151' }}>{contact.preferred_name}</strong>
+          </div>
+        )}
+        {contact.is_active === false && (
+          <span style={{
+            display: 'inline-block', marginTop: 6,
+            fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4,
+            background: '#f3f4f6', color: '#9ca3af', border: '1px solid #e5e7eb',
+            fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.07em',
+          }}>Inactive</span>
+        )}
+
+        {/* Role + qualifier */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+          <span style={roleChip(contact.role)}>{contact.role}</span>
+          {contact.role_qualifier && (
+            <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F }}>
+              · {contact.role_qualifier}
+            </span>
+          )}
+        </div>
+
+        {/* Organization */}
+        <div style={{ marginTop: 6, fontSize: 13, color: '#6b7280', fontFamily: F }}>
+          {contact.organization}
+        </div>
+
+        {/* ── Action buttons ── */}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginTop: 18 }}>
+          {contact.email ? (
+            <a
+              href={`mailto:${contact.email}`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '7px 14px', borderRadius: 8,
+                background: NAVY, color: '#fff',
+                fontFamily: F, fontSize: 12, fontWeight: 600,
+                textDecoration: 'none', transition: 'opacity 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+            >
+              ✉ Email
             </a>
-            <CopyButton value={contact.email} label="email" />
-          </div>
-        ) : (
-          <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: F, marginBottom: 8 }}>No email on file</div>
-        )}
-        {contact.phone && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, color: '#9ca3af', width: 44, fontFamily: F, flexShrink: 0 }}>Phone</span>
-            <span style={{ fontSize: 13, color: '#374151', fontFamily: F, flex: 1 }}>{contact.phone}</span>
-            <CopyButton value={contact.phone} label="phone" />
-          </div>
-        )}
+          ) : (
+            <Tooltip label="No email on file" placement="bottom">
+              <button disabled style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '7px 14px', borderRadius: 8,
+                background: '#e5e7eb', color: '#9ca3af',
+                fontFamily: F, fontSize: 12, fontWeight: 600,
+                border: 'none', cursor: 'not-allowed',
+              }}>
+                ✉ Email
+              </button>
+            </Tooltip>
+          )}
+
+          {contact.phone ? (
+            <a
+              href={`tel:${contact.phone}`}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '7px 14px', borderRadius: 8,
+                background: '#fff', color: NAVY,
+                border: '1px solid rgba(29,37,103,0.20)',
+                fontFamily: F, fontSize: 12, fontWeight: 600,
+                textDecoration: 'none', transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = '#EEF2FB'}
+              onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+            >
+              📞 Call
+            </a>
+          ) : null}
+
+          {/* Edit — not functional in Phase 1 */}
+          <Tooltip label="Edit contact coming soon" placement="bottom">
+            <button disabled style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '7px 14px', borderRadius: 8,
+              background: '#f9fafb', color: '#9ca3af',
+              border: '1px solid #e5e7eb',
+              fontFamily: F, fontSize: 12, fontWeight: 600,
+              cursor: 'not-allowed',
+            }}>
+              ✎ Edit
+            </button>
+          </Tooltip>
+        </div>
       </div>
 
-      {/* Affiliation — unit_name, related_units, school_name */}
-      {showAffiliation && (
+      {/* ── Contact methods ── */}
+      <div style={{ padding: '20px 24px' }}>
         <div style={{
           background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10,
-          padding: '14px 16px', marginBottom: 18,
+          padding: '14px 16px', marginBottom: 16,
         }}>
-          <SectionHeading>Affiliation</SectionHeading>
-
-          {contact.unit_name && (
-            <div style={{ display: 'flex', gap: 8, marginBottom: relatedUnits.length > 0 ? 8 : 6 }}>
-              <span style={{ fontSize: 11, color: '#9ca3af', width: 76, fontFamily: F, flexShrink: 0 }}>
-                {relatedUnits.length > 0 ? 'Primary unit' : 'Unit'}
-              </span>
-              <span style={{ fontSize: 13, color: '#374151', fontFamily: F }}>{contact.unit_name}</span>
+          <SectionHeading>Contact</SectionHeading>
+          {contact.email ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: contact.phone ? 8 : 0 }}>
+              <span style={{ fontSize: 11, color: '#9ca3af', width: 44, fontFamily: F, flexShrink: 0 }}>Email</span>
+              <a href={`mailto:${contact.email}`} style={{ fontSize: 13, color: NAVY, fontFamily: F, textDecoration: 'none', flex: 1 }}>
+                {contact.email}
+              </a>
+              <CopyButton value={contact.email} label="email" />
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: F, marginBottom: contact.phone ? 8 : 0 }}>
+              No email on file
             </div>
           )}
+          {contact.phone && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, color: '#9ca3af', width: 44, fontFamily: F, flexShrink: 0 }}>Phone</span>
+              <span style={{ fontSize: 13, color: '#374151', fontFamily: F, flex: 1 }}>{contact.phone}</span>
+              <CopyButton value={contact.phone} label="phone" />
+            </div>
+          )}
+        </div>
 
-          {/* Related units (multi-unit contacts like Omar Tinio, Alice Chan, etc.) */}
-          {relatedUnits.length > 0 && (
-            <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
-              <span style={{ fontSize: 11, color: '#9ca3af', width: 76, fontFamily: F, flexShrink: 0 }}>All units</span>
-              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                {relatedUnits.map(u => (
-                  <span key={u} style={{
-                    fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 4,
-                    background: '#EEF2FB', color: NAVY, border: '1px solid #c3cdf0',
-                    fontFamily: F,
-                  }}>{u}</span>
-                ))}
+        {/* ── Affiliation ── */}
+        {showAffiliation && (
+          <div style={{
+            background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10,
+            padding: '14px 16px', marginBottom: 16,
+          }}>
+            <SectionHeading>Affiliation</SectionHeading>
+            {contact.unit_name && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: relatedUnits.length > 0 ? 8 : 6 }}>
+                <span style={{ fontSize: 11, color: '#9ca3af', width: 76, fontFamily: F, flexShrink: 0 }}>
+                  {relatedUnits.length > 0 ? 'Primary unit' : 'Unit'}
+                </span>
+                <span style={{ fontSize: 13, color: '#374151', fontFamily: F }}>{contact.unit_name}</span>
               </div>
-            </div>
-          )}
-
-          {contact.school_name && (
-            <div style={{ display: 'flex', gap: 8, marginBottom: 0 }}>
-              <span style={{ fontSize: 11, color: '#9ca3af', width: 76, fontFamily: F, flexShrink: 0 }}>School</span>
-              <span style={{ fontSize: 13, color: '#374151', fontFamily: F }}>
-                {contact.school_name}
-                {contact.program_type && <span style={{ color: '#9ca3af' }}> · {contact.program_type}</span>}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* CRM / last contact */}
-      {(contact.last_contacted_at || contact.last_contact_summary) && (
-        <div style={{
-          background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10,
-          padding: '14px 16px', marginBottom: 18,
-        }}>
-          <SectionHeading>Last Contact</SectionHeading>
-          {contact.last_contacted_at && (
-            <div style={{ fontSize: 13, color: '#374151', fontFamily: F, marginBottom: 4 }}>
-              <strong style={{ fontWeight: 600 }}>{fmtRelative(contact.last_contacted_at)}</strong>
-              <span style={{ color: '#9ca3af' }}> · {fmtDate(contact.last_contacted_at)}</span>
-              {contact.last_contact_type && (
-                <span style={{ color: '#9ca3af' }}> · {contact.last_contact_type.replace(/_/g, ' ')}</span>
-              )}
-            </div>
-          )}
-          {contact.last_contact_summary && (
-            <div style={{ fontSize: 12, color: '#6b7280', fontFamily: F, lineHeight: 1.5 }}>
-              {contact.last_contact_summary}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Notes */}
-      {contact.notes && (
-        <div style={{
-          background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10,
-          padding: '14px 16px', marginBottom: 18,
-        }}>
-          <SectionHeading>Notes</SectionHeading>
-          <div style={{ fontSize: 12, color: '#374151', fontFamily: F, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-            {contact.notes}
+            )}
+            {relatedUnits.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: '#9ca3af', width: 76, fontFamily: F, flexShrink: 0 }}>All units</span>
+                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                  {relatedUnits.map(u => (
+                    <span key={u} style={{
+                      fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 4,
+                      background: '#EEF2FB', color: NAVY, border: '1px solid #c3cdf0', fontFamily: F,
+                    }}>{u}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {contact.school_name && (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <span style={{ fontSize: 11, color: '#9ca3af', width: 76, fontFamily: F, flexShrink: 0 }}>School</span>
+                <span style={{ fontSize: 13, color: '#374151', fontFamily: F }}>
+                  {contact.school_name}
+                  {contact.program_type && <span style={{ color: '#9ca3af' }}> · {contact.program_type}</span>}
+                </span>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Notification preferences */}
-      <div style={{
-        background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10,
-        padding: '14px 16px', marginBottom: 18,
-      }}>
-        <SectionHeading>Notification Preferences</SectionHeading>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {/* ── Last contact ── */}
+        {(contact.last_contacted_at || contact.last_contact_summary) && (
+          <div style={{
+            background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10,
+            padding: '14px 16px', marginBottom: 16,
+          }}>
+            <SectionHeading>Last Contact</SectionHeading>
+            {contact.last_contacted_at && (
+              <div style={{ fontSize: 13, color: '#374151', fontFamily: F, marginBottom: 4 }}>
+                <strong style={{ fontWeight: 600 }}>{fmtRelative(contact.last_contacted_at)}</strong>
+                <span style={{ color: '#9ca3af' }}> · {fmtDate(contact.last_contacted_at)}</span>
+                {contact.last_contact_type && (
+                  <span style={{ color: '#9ca3af' }}> · {contact.last_contact_type.replace(/_/g, ' ')}</span>
+                )}
+              </div>
+            )}
+            {contact.last_contact_summary && (
+              <div style={{ fontSize: 12, color: '#6b7280', fontFamily: F, lineHeight: 1.5 }}>
+                {contact.last_contact_summary}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Notes ── */}
+        {contact.notes && (
+          <div style={{
+            background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10,
+            padding: '14px 16px', marginBottom: 16,
+          }}>
+            <SectionHeading>Notes</SectionHeading>
+            <div style={{ fontSize: 12, color: '#374151', fontFamily: F, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+              {contact.notes}
+            </div>
+          </div>
+        )}
+
+        {/* ── Notification preferences ── */}
+        <div style={{
+          background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10,
+          padding: '14px 16px', marginBottom: 8,
+        }}>
+          <SectionHeading>Notification Preferences</SectionHeading>
           <span style={{
             fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 4,
             background: hasWeeklyDigest ? '#EEF7F0' : '#f3f4f6',
@@ -421,11 +499,50 @@ function ContactDetail({ contact, commHistory, loadingComm, linkedStudents, load
           </span>
         </div>
       </div>
+    </div>
+  )
+}
 
-      {/* Linked students */}
+// ── Zone 3: Context panel (history + linked students) ────────────────────────
+
+function ContactContext({ contact, commHistory, loadingComm, linkedStudents, loadingStudents }) {
+  return (
+    <div style={{ padding: '20px 18px' }}>
+
+      {/* ── Communication history ── */}
       <div style={{
-        background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10,
-        padding: '14px 16px', marginBottom: 18,
+        background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
+        padding: '14px 16px', marginBottom: 14,
+      }}>
+        <SectionHeading>Communication History</SectionHeading>
+        {loadingComm ? (
+          <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', fontFamily: F }}>Loading…</p>
+        ) : commHistory.length === 0 ? (
+          <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', fontFamily: F, lineHeight: 1.6 }}>
+            No communication history on file. Sent emails and digest records will appear here.
+          </p>
+        ) : (
+          <div>
+            {commHistory.map(log => (
+              <div key={log.id} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', fontFamily: F, marginBottom: 3 }}>
+                  {log.subject || notifLabel(log.notification_type)}
+                </div>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <StatusBadge status={log.status} />
+                  <span style={{ fontSize: 10, color: '#9ca3af', fontFamily: F }}>{fmtDate(log.sent_at)}</span>
+                  {log.opened_at && <span style={{ fontSize: 10, color: '#9ca3af', fontFamily: F }}>· opened</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Linked students ── */}
+      <div style={{
+        background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
+        padding: '14px 16px',
       }}>
         <SectionHeading>Linked Students</SectionHeading>
         {!contact.school_name ? (
@@ -443,7 +560,7 @@ function ContactDetail({ contact, commHistory, loadingComm, linkedStudents, load
             <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginBottom: 8 }}>
               {linkedStudents.length} student{linkedStudents.length !== 1 ? 's' : ''} at {contact.school_name}
             </div>
-            {linkedStudents.slice(0, 8).map(s => (
+            {linkedStudents.slice(0, 10).map(s => (
               <div key={s.id} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '5px 0', borderBottom: '1px solid #f3f4f6',
@@ -458,50 +575,15 @@ function ContactDetail({ contact, commHistory, loadingComm, linkedStudents, load
                 </span>
               </div>
             ))}
-            {linkedStudents.length > 8 && (
+            {linkedStudents.length > 10 && (
               <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginTop: 6 }}>
-                +{linkedStudents.length - 8} more
+                +{linkedStudents.length - 10} more
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* Communication history */}
-      <div style={{
-        background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10,
-        padding: '14px 16px', marginBottom: 8,
-      }}>
-        <SectionHeading>Communication History</SectionHeading>
-        {loadingComm ? (
-          <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', fontFamily: F }}>Loading…</p>
-        ) : commHistory.length === 0 ? (
-          <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', fontFamily: F, lineHeight: 1.6 }}>
-            No communication history on file. Sent emails and digest records will appear here.
-          </p>
-        ) : (
-          <div>
-            {commHistory.map(log => (
-              <div key={log.id} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', fontFamily: F, marginBottom: 2 }}>
-                      {log.subject || notifLabel(log.notification_type)}
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <StatusBadge status={log.status} />
-                      <span style={{ fontSize: 10, color: '#9ca3af', fontFamily: F }}>{fmtDate(log.sent_at)}</span>
-                      {log.opened_at && (
-                        <span style={{ fontSize: 10, color: '#9ca3af', fontFamily: F }}>· opened</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   )
 }
@@ -516,18 +598,18 @@ function NoSelection({ count }) {
       height: '100%', padding: '40px 24px', textAlign: 'center',
     }}>
       <div style={{
-        width: 48, height: 48, borderRadius: '50%',
+        width: 52, height: 52, borderRadius: '50%',
         background: '#EEF2FB', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 20, marginBottom: 16,
+        fontSize: 22, marginBottom: 16,
       }}>
         👤
       </div>
       <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', fontFamily: F, marginBottom: 6 }}>
         {count > 0 ? 'Select a contact' : 'No contacts found'}
       </div>
-      <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: F, maxWidth: 280, lineHeight: 1.6 }}>
+      <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: F, maxWidth: 260, lineHeight: 1.6 }}>
         {count > 0
-          ? 'Choose a contact from the list to view details and communication history.'
+          ? 'Choose a contact from the list to view their profile and communication history.'
           : 'No contacts match your current search or filter.'}
       </div>
     </div>
@@ -600,19 +682,16 @@ export default function ContactsView() {
   // ── Derived values ──────────────────────────────────────────────────────────
   const selected = contacts.find(c => c.id === selectedId) || null
 
-  // Category counts from ALL loaded contacts (not affected by search)
   const categoryCounts = contacts.reduce((acc, c) => {
     const cat = roleToCategory(c.role)
     acc[cat] = (acc[cat] || 0) + 1
     return acc
   }, {})
 
-  // Active category labels (excluding categories with 0 contacts)
   const activeCategories = CATEGORY_ORDER.filter(cat =>
     cat === 'All' || (categoryCounts[cat] || 0) > 0
   )
 
-  // Filtered contacts: apply search + category filter
   const filtered = contacts.filter(c => {
     const q = search.trim().toLowerCase()
     if (q) {
@@ -631,10 +710,8 @@ export default function ContactsView() {
     return true
   })
 
-  // When showing "All" with no search: group contacts by category with dividers
   const showGrouped = categoryFilter === 'All' && !search.trim()
 
-  // Build grouped list items: [{type:'divider', label, count} | {type:'row', contact}]
   const listItems = []
   if (showGrouped) {
     const grouped = {}
@@ -653,11 +730,11 @@ export default function ContactsView() {
     filtered.forEach(c => listItems.push({ type: 'row', contact: c }))
   }
 
-  // ── Layout ─────────────────────────────────────────────────────────────────
+  // ── Three-zone CRM layout ─────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', height: '100%', fontFamily: F, overflow: 'hidden' }}>
 
-      {/* ── Left: list + search + filter ──────────────────────────────── */}
+      {/* ── Zone 1: Directory (left) ──────────────────────────────────── */}
       <div style={{
         width: 280, flexShrink: 0,
         borderRight: '1px solid rgba(29,37,103,0.08)',
@@ -665,8 +742,35 @@ export default function ContactsView() {
         background: '#fff',
       }}>
 
+        {/* Directory header with Add Contact */}
+        <div style={{
+          padding: '12px 14px 8px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          borderBottom: '1px solid rgba(29,37,103,0.06)',
+          flexShrink: 0,
+        }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#374151', fontFamily: F, letterSpacing: '-0.01em' }}>
+            Contacts
+          </span>
+          {/* Add Contact — not functional in Phase 1 */}
+          <Tooltip label="Add contact coming soon" placement="bottom">
+            <button
+              disabled
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                padding: '4px 9px', borderRadius: 6, border: '1px solid #e5e7eb',
+                background: '#f9fafb', color: '#9ca3af',
+                fontSize: 10, fontWeight: 600, fontFamily: F,
+                cursor: 'not-allowed',
+              }}
+            >
+              + Add
+            </button>
+          </Tooltip>
+        </div>
+
         {/* Search */}
-        <div style={{ padding: '14px 14px 10px' }}>
+        <div style={{ padding: '10px 14px 8px', flexShrink: 0 }}>
           <div style={{ position: 'relative' }}>
             <span style={{
               position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
@@ -693,10 +797,8 @@ export default function ContactsView() {
           </div>
         </div>
 
-        {/* Category filter pills with live counts */}
-        <div style={{
-          padding: '0 12px 10px', display: 'flex', gap: 4, flexWrap: 'wrap',
-        }}>
+        {/* Category filter pills */}
+        <div style={{ padding: '0 12px 8px', display: 'flex', gap: 4, flexWrap: 'wrap', flexShrink: 0 }}>
           {activeCategories.map(cat => {
             const isActive = categoryFilter === cat
             const accent = CATEGORY_ACCENT[cat] || CATEGORY_ACCENT['Other']
@@ -730,12 +832,12 @@ export default function ContactsView() {
         </div>
 
         {/* Contact count */}
-        <div style={{ padding: '0 14px 6px', fontSize: 10.5, color: '#9ca3af', fontFamily: F }}>
-          {loading ? 'Loading…' : error ? 'Failed to load' : `${filtered.length} of ${contacts.length} contacts`}
+        <div style={{ padding: '0 14px 6px', fontSize: 10.5, color: '#9ca3af', fontFamily: F, flexShrink: 0 }}>
+          {loading ? 'Loading…' : error ? 'Failed to load' : `${filtered.length} of ${contacts.length}`}
         </div>
 
         {/* Contact list (scrollable) */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           {loading ? (
             <div style={{ padding: '20px 16px', fontSize: 12, color: '#9ca3af', fontFamily: F }}>Loading contacts…</div>
           ) : error ? (
@@ -763,10 +865,28 @@ export default function ContactsView() {
         </div>
       </div>
 
-      {/* ── Right: detail panel ────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', background: '#FAFAF7' }}>
+      {/* ── Zone 2: Contact Profile (center) ──────────────────────────── */}
+      <div style={{
+        flex: 2, minWidth: 0,
+        overflowY: 'auto',
+        background: '#fff',
+        borderRight: '1px solid rgba(29,37,103,0.08)',
+      }}>
         {selected ? (
-          <ContactDetail
+          <ContactProfile contact={selected} />
+        ) : (
+          <NoSelection count={filtered.length} />
+        )}
+      </div>
+
+      {/* ── Zone 3: Context — history + linked students (right) ───────── */}
+      <div style={{
+        flex: '0 0 300px', minWidth: 0,
+        overflowY: 'auto',
+        background: '#FAFAF7',
+      }}>
+        {selected ? (
+          <ContactContext
             contact={selected}
             commHistory={commHistory}
             loadingComm={loadingComm}
@@ -774,7 +894,15 @@ export default function ContactsView() {
             loadingStudents={loadingStudents}
           />
         ) : (
-          <NoSelection count={filtered.length} />
+          <div style={{
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center',
+            height: '100%', padding: '40px 20px', textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: F, lineHeight: 1.6 }}>
+              Select a contact to view activity and linked students.
+            </div>
+          </div>
         )}
       </div>
 

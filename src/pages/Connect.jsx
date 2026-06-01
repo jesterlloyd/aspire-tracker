@@ -85,8 +85,9 @@ export default function ConnectPage({ cohortId, onNavigateToStudent }) {
       </div>
 
       {/* Sub-tab content — all three mounted; inactive hidden to preserve form state */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-        <div style={{ display: activeSubTab === 'contacts' ? 'block' : 'none' }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {/* Contacts uses flex+height:100% so its three columns scroll independently */}
+        <div style={{ display: activeSubTab === 'contacts' ? 'flex' : 'none', flexDirection: 'column', height: '100%', minHeight: 0 }}>
           <ContactsView />
         </div>
         <div style={{ display: activeSubTab === 'outreach' ? 'block' : 'none' }}>
