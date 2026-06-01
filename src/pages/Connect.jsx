@@ -14,6 +14,13 @@ export default function ConnectPage({ cohortId, onNavigateToStudent }) {
   const navigate = useNavigate()
   const location = useLocation()
 
+  // URL-routed sub-tab — declared first so useEffects below can safely reference it
+  const activeSubTab = location.pathname.startsWith('/connect/contacts')
+    ? 'contacts'
+    : location.pathname.startsWith('/connect/broadcasts')
+      ? 'broadcasts'
+      : 'outreach'
+
   // Redirect bare /connect to last active tab (or Contacts as default)
   useEffect(() => {
     if (location.pathname === '/connect') {
@@ -29,13 +36,6 @@ export default function ConnectPage({ cohortId, onNavigateToStudent }) {
       localStorage.setItem(CONNECT_LAST_TAB_KEY, activeSubTab)
     }
   }, [activeSubTab])
-
-  // URL-routed sub-tab, matching Rotation's pattern exactly
-  const activeSubTab = location.pathname.startsWith('/connect/contacts')
-    ? 'contacts'
-    : location.pathname.startsWith('/connect/broadcasts')
-      ? 'broadcasts'
-      : 'outreach'
 
   const btnStyle = key => ({
     height: 32, padding: '0 13px',
