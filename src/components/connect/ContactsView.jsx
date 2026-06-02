@@ -18,7 +18,8 @@ const NAVY = '#1D2567'
 const ACADEMIC_ROLES = new Set([
   'School Coordinator', 'Clinical Placement Coordinator', 'Clinical Placement Coordinators',
   'Program Assistant', 'Program Assistants',
-  'Manager', 'Manager, Clinical Operations',
+  'Manager', 'Manager, Clinical Operations', 'Manager, Clinical Faculty',
+  'Manager Clinical Faculty',
   'Clinical Faculty', 'Associate Professor',
   'Program Coordinator',
 ])
@@ -104,6 +105,8 @@ const ROLE_COLORS = {
   'Program Assistant':              { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
   'Manager':                        { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
   'Manager, Clinical Operations':   { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Manager, Clinical Faculty':      { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Manager Clinical Faculty':       { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
   'Clinical Faculty':               { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
   'Associate Professor':            { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
   // Unit Leadership
@@ -348,20 +351,22 @@ function ContactProfile({ contact, navigate, onEdit }) {
   return (
     <div>
 
-      {/* ── Profile header ── */}
+      {/* ── Profile hero ── */}
       <div style={{
-        padding: '28px 28px 22px',
-        borderBottom: '1px solid #f3f4f6',
+        padding: '28px 24px 22px',
+        borderBottom: '1px solid #f0ede8',
         textAlign: 'center',
-        background: '#fff',
+        background: 'linear-gradient(160deg, #dceff8 0%, #f0f6fb 50%, #ffffff 100%)',
+        borderRadius: '12px 12px 0 0',
       }}>
         {/* Avatar — shows image if avatar_url is present, falls back to initials */}
         <div style={{
-          width: 72, height: 72, borderRadius: '50%',
+          width: 80, height: 80, borderRadius: '50%',
           background: NAVY, margin: '0 auto 14px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 24, fontWeight: 700, color: '#fff', fontFamily: F,
+          fontSize: 26, fontWeight: 700, color: '#fff', fontFamily: F,
           flexShrink: 0, overflow: 'hidden', position: 'relative',
+          boxShadow: '0 0 0 3px #fff, 0 0 0 5px rgba(29,37,103,0.12)',
         }}>
           {contact.avatar_url ? (
             <img
@@ -697,43 +702,53 @@ function ContactContext({ contact, commHistory, loadingComm, linkedStudents, loa
         padding: '14px 16px',
       }}>
         <SectionHeading>Linked Students</SectionHeading>
-        {!contact.school_name ? (
-          <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', fontFamily: F, lineHeight: 1.6 }}>
-            Linked students and cohort relationships will appear here when available.
-          </p>
-        ) : loadingStudents ? (
-          <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', fontFamily: F }}>Loading…</p>
-        ) : linkedStudents.length === 0 ? (
-          <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', fontFamily: F, lineHeight: 1.6 }}>
-            No current students at {contact.school_name} in the active cohort.
-          </p>
-        ) : (
-          <div>
-            <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginBottom: 8 }}>
-              {linkedStudents.length} student{linkedStudents.length !== 1 ? 's' : ''} at {contact.school_name}
-            </div>
-            {linkedStudents.slice(0, 10).map(s => (
-              <div key={s.id} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '5px 0', borderBottom: '1px solid #f3f4f6',
-                fontSize: 12, color: '#374151', fontFamily: F,
-              }}>
-                <span>{s.last_name}, {s.first_name}</span>
-                <span style={{
-                  fontSize: 9, fontWeight: 600, padding: '1px 5px', borderRadius: 4,
-                  background: '#f3f4f6', color: '#6b7280', fontFamily: F,
+        {(() => {
+          const isPreceptor = PRECEPTOR_ROLES.has(contact.role)
+          const hasSource   = isPreceptor ? !!contact.email : !!contact.school_name
+          if (!hasSource) return (
+            <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', fontFamily: F, lineHeight: 1.6 }}>
+              Linked students and cohort relationships will appear here when available.
+            </p>
+          )
+          if (loadingStudents) return (
+            <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', fontFamily: F }}>Loading…</p>
+          )
+          if (linkedStudents.length === 0) return (
+            <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', fontFamily: F, lineHeight: 1.6 }}>
+              {isPreceptor
+                ? 'No students currently assigned to this preceptor.'
+                : `No current students at ${contact.school_name} in the active cohort.`}
+            </p>
+          )
+          return (
+            <div>
+              <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginBottom: 8 }}>
+                {linkedStudents.length} assigned student{linkedStudents.length !== 1 ? 's' : ''}
+                {!isPreceptor && ` at ${contact.school_name}`}
+              </div>
+              {linkedStudents.slice(0, 12).map(s => (
+                <div key={s.id} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '5px 0', borderBottom: '1px solid #f3f4f6',
+                  fontSize: 12, color: '#374151', fontFamily: F,
                 }}>
-                  {s.status || '—'}
-                </span>
-              </div>
-            ))}
-            {linkedStudents.length > 10 && (
-              <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginTop: 6 }}>
-                +{linkedStudents.length - 10} more
-              </div>
-            )}
-          </div>
-        )}
+                  <span>{s.last_name}, {s.first_name}</span>
+                  <span style={{
+                    fontSize: 9, fontWeight: 600, padding: '1px 5px', borderRadius: 4,
+                    background: '#f3f4f6', color: '#6b7280', fontFamily: F,
+                  }}>
+                    {s.status || '—'}
+                  </span>
+                </div>
+              ))}
+              {linkedStudents.length > 12 && (
+                <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginTop: 6 }}>
+                  +{linkedStudents.length - 12} more
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </div>
 
     </div>
@@ -1267,22 +1282,50 @@ export default function ContactsView() {
       })
   }, [selectedId])
 
-  // ── Fetch linked students by school_name ───────────────────────────────────
+  // ── Fetch linked students ─────────────────────────────────────────────────
+  // Academic Partners: students from the same school.
+  // Preceptors: students currently assigned to this preceptor via preceptor_email.
   useEffect(() => {
     const contact = contacts.find(c => c.id === selectedId)
-    if (!contact?.school_name) { setLinkedStudents([]); return }
-    setLoadingStudents(true)
-    supabase
-      .from('students')
-      .select('id, first_name, last_name, status')
-      .eq('school', contact.school_name)
-      .order('last_name')
-      .order('first_name')
-      .limit(12)
-      .then(({ data }) => {
-        setLinkedStudents(data || [])
-        setLoadingStudents(false)
-      })
+    if (!contact) { setLinkedStudents([]); return }
+
+    const isPreceptor = PRECEPTOR_ROLES.has(contact.role)
+
+    if (isPreceptor && contact.email) {
+      // Match students whose preceptor_email matches this contact's email
+      setLoadingStudents(true)
+      supabase
+        .from('students')
+        .select('id, first_name, last_name, status, matched_unit_id')
+        .ilike('preceptor_email', contact.email)
+        .not('status', 'in', '(Not Proceeding,Declined)')
+        .order('last_name')
+        .order('first_name')
+        .limit(15)
+        .then(({ data }) => {
+          setLinkedStudents(data || [])
+          setLoadingStudents(false)
+        })
+      return
+    }
+
+    if (contact.school_name) {
+      setLoadingStudents(true)
+      supabase
+        .from('students')
+        .select('id, first_name, last_name, status')
+        .eq('school', contact.school_name)
+        .order('last_name')
+        .order('first_name')
+        .limit(12)
+        .then(({ data }) => {
+          setLinkedStudents(data || [])
+          setLoadingStudents(false)
+        })
+      return
+    }
+
+    setLinkedStudents([])
   }, [selectedId, contacts])
 
   // ── Restore selected contact on initial load ───────────────────────────────
