@@ -16,9 +16,10 @@ const TIMEPOINTS = [
   { value: 'post_rotation',          label: 'Post-Rotation' },
 ]
 
-const LAST_MODE_KEY = 'aspire.connect.outreach.lastMode'
+const LAST_MODE_KEY    = 'aspire.connect.outreach.lastMode'  // inner message type key ('message'|'survey')
+const RECIPIENT_MODE_KEY = 'aspire.connect.outreach.mode'   // top-level mode key ('single'|'bulk')
 
-// Message type roster — active types are selectable, inactive are future placeholders
+// Message type roster for Single Recipient mode
 const MSG_TYPES = [
   { key: 'message', label: 'Direct Message',            active: true  },
   { key: 'survey',  label: 'Survey Invitation',          active: true  },
@@ -130,13 +131,33 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
   // If contactId is from URL only (router state lost), show unavailable state.
   const contactHasDisplayInfo = !!(fromContact?.name || fromContact?.email)
 
-  // ── Mode initialization: URL param > router state > localStorage > default ──
+  // ── Top-level recipient mode: 'single' | 'bulk' ─────────────────────────────
+  // Priority: URL/router state (contact deep-link forces 'single') > localStorage > default 'single'
+  const [recipientMode, setRecipientMode] = useState(() => {
+    // Any contact deep-link or direct-message param forces single recipient
+    if (urlMode === 'message' || fromContact) return 'single'
+    // Future: if (searchParams.get('bulk') === 'survey_invitation') return 'bulk'
+    const saved = localStorage.getItem(RECIPIENT_MODE_KEY)
+    return saved === 'bulk' ? 'bulk' : 'single'
+  })
+
+  // ── Inner message type within Single Recipient ────────────────────────────
+  // Priority: URL param > router state > localStorage > default ──
   const [outreachMode, setOutreachMode] = useState(() => {
     if (urlMode === 'message' || urlMode === 'survey') return urlMode
     if (fromContact) return 'message'
     const saved = localStorage.getItem(LAST_MODE_KEY)
     return (saved === 'survey' || saved === 'message') ? saved : 'survey'
   })
+
+  // ── Bulk Operation scaffold state (held in-memory only, never sent anywhere) ──
+  // These values are local UI state for Phase 3A scaffolding.
+  // No endpoint is called, no tokens generated, no data written.
+  const [bulkMsgType,     setBulkMsgType]     = useState('survey_invitation')
+  const [bulkInstrument,  setBulkInstrument]  = useState('casey_fink_readiness_2024')
+  const [bulkTimepoint,   setBulkTimepoint]   = useState('early_rotation_baseline')
+  const [bulkExpiresAt,   setBulkExpiresAt]   = useState(defaultExpiresAt)
+  const [bulkNotes,       setBulkNotes]       = useState('')
 
   // ── Direct Message draft — scoped to contact ID ───────────────────────────
   // Stores ONLY { subject, body }. surveyResult, surveyUrl, and tokens are
@@ -167,7 +188,12 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
   const [surveyResult,  setSurveyResult]  = useState(null)
   const [copied,        setCopied]        = useState(false)
 
-  // ── Persist last mode ─────────────────────────────────────────────────────
+  // ── Persist top-level recipient mode ─────────────────────────────────────
+  useEffect(() => {
+    localStorage.setItem(RECIPIENT_MODE_KEY, recipientMode)
+  }, [recipientMode])
+
+  // ── Persist inner message type ────────────────────────────────────────────
   useEffect(() => {
     localStorage.setItem(LAST_MODE_KEY, outreachMode)
   }, [outreachMode])
@@ -329,6 +355,55 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
 
   return (
     <div style={{ padding: '20px 24px', fontFamily: F }}>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          RECIPIENT MODE TOGGLE — Single vs Bulk
+          Segmented control above the three zones.
+      ═══════════════════════════════════════════════════════════════════ */}
+      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{
+          display: 'flex', border: '1px solid rgba(29,37,103,0.14)',
+          borderRadius: 8, overflow: 'hidden',
+        }}>
+          <Tooltip label="Compose a message for one contact, student, coordinator, or preceptor." placement="bottom">
+            <button
+              onClick={() => setRecipientMode('single')}
+              style={{
+                padding: '8px 20px', border: 'none', cursor: 'pointer',
+                background: recipientMode === 'single' ? '#1D2567' : '#f9fafb',
+                color: recipientMode === 'single' ? '#fff' : '#6b7280',
+                fontSize: 12, fontWeight: 600, fontFamily: F,
+                transition: 'background 0.12s, color 0.12s',
+              }}
+            >
+              Send to one recipient
+            </button>
+          </Tooltip>
+          <Tooltip label="Send surveys, announcements, or updates to multiple recipients." placement="bottom">
+            <button
+              onClick={() => setRecipientMode('bulk')}
+              style={{
+                padding: '8px 20px', border: 'none', cursor: 'pointer',
+                borderLeft: '1px solid rgba(29,37,103,0.14)',
+                background: recipientMode === 'bulk' ? '#1D2567' : '#f9fafb',
+                color: recipientMode === 'bulk' ? '#fff' : '#6b7280',
+                fontSize: 12, fontWeight: 600, fontFamily: F,
+                transition: 'background 0.12s, color 0.12s',
+              }}
+            >
+              Send to many
+            </button>
+          </Tooltip>
+        </div>
+        <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F }}>
+          {recipientMode === 'bulk' ? 'Bulk Operation — Phase 3A scaffolding' : ''}
+        </span>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          SINGLE RECIPIENT MODE — all existing three-zone behavior preserved
+      ═══════════════════════════════════════════════════════════════════ */}
+      {recipientMode === 'single' && (
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
         {/* ═══════════════════════════════════════════════════════════════
@@ -1003,6 +1078,237 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
         </div>
 
       </div>
+      )}{/* end recipientMode === 'single' */}
+
+      {/* ══════════════════════════════════════════════════════════════════
+          BULK OPERATION MODE — Phase 3A scaffold (UI only, no data sent)
+          No endpoint calls. No tokens. No data mutations.
+          Audience, workflow form values held in local state only.
+      ═══════════════════════════════════════════════════════════════════ */}
+      {recipientMode === 'bulk' && (
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+
+          {/* ── Bulk Zone 1: Audience / Recipients ───────────────────── */}
+          <div style={{ ...panelCard, flex: '0 0 220px', minWidth: 180 }}>
+            <div style={panelTitle}>Audience</div>
+            <div style={panelSubtitle}>Recipients</div>
+
+            {/* Recipient count */}
+            <div style={{
+              padding: '10px 12px', marginBottom: 14,
+              background: '#f9fafb', border: '1px solid #e5e7eb',
+              borderRadius: 8, fontSize: 12, color: '#374151', fontFamily: F,
+            }}>
+              <span style={{ fontWeight: 700, fontSize: 18, color: '#191919' }}>0</span>
+              <span style={{ marginLeft: 6, color: '#6b7280' }}>recipients selected</span>
+            </div>
+
+            {/* Audience filter controls — all disabled (Phase 3A) */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8, fontFamily: F }}>Filter by</div>
+              {['Cohort', 'School', 'Status', 'Unit', 'Missing email only', 'No existing assignment'].map(label => (
+                <Tooltip key={label} label="Coming in Phase 3A" placement="right">
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '6px 8px', marginBottom: 4,
+                    border: '1px solid #f3f4f6', borderRadius: 6,
+                    background: '#fafafa', opacity: 0.55, cursor: 'not-allowed',
+                  }}>
+                    <span style={{ fontSize: 11, color: '#374151', fontFamily: F }}>{label}</span>
+                    <span style={futureBadge}>3A</span>
+                  </div>
+                </Tooltip>
+              ))}
+            </div>
+
+            {/* Bulk selection controls — disabled */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+              <Tooltip label="Coming in Phase 3A" placement="bottom">
+                <button disabled style={{
+                  flex: 1, padding: '5px 8px', borderRadius: 6,
+                  border: '1px solid #e5e7eb', background: '#fafafa',
+                  fontSize: 10, fontWeight: 600, color: '#9ca3af',
+                  fontFamily: F, cursor: 'not-allowed',
+                }}>Select all</button>
+              </Tooltip>
+              <Tooltip label="Coming in Phase 3A" placement="bottom">
+                <button disabled style={{
+                  flex: 1, padding: '5px 8px', borderRadius: 6,
+                  border: '1px solid #e5e7eb', background: '#fafafa',
+                  fontSize: 10, fontWeight: 600, color: '#9ca3af',
+                  fontFamily: F, cursor: 'not-allowed',
+                }}>Clear</button>
+              </Tooltip>
+            </div>
+
+            <p style={panelBody}>
+              Student audience selection will be activated in Phase 3A.
+            </p>
+          </div>
+
+          {/* ── Bulk Zone 2: Message Type + Workflow form ─────────────── */}
+          <div style={{ ...panelCard, flex: '0 0 280px', minWidth: 240 }}>
+            <div style={panelTitle}>Message Type</div>
+            <div style={panelSubtitle}>Bulk workflow</div>
+
+            {/* Bulk message type selector */}
+            <div style={{ marginBottom: 16 }}>
+              {[
+                { key: 'survey_invitation', label: 'Survey Invitation', badge: '3A' },
+                { key: null, label: 'Announcement / Broadcast', badge: 'Future' },
+                { key: null, label: 'Coordinator Update',       badge: 'Future' },
+                { key: null, label: 'Reminder',                 badge: 'Future' },
+                { key: null, label: 'NGRP Update',             badge: 'Future' },
+                { key: null, label: 'Preceptor Communication',  badge: 'Future' },
+                { key: null, label: 'Check-In',                 badge: 'Future' },
+              ].map(({ key, label, badge }) =>
+                key ? (
+                  <button key={label} onClick={() => setBulkMsgType(key)} style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    width: '100%', padding: '7px 10px',
+                    border: bulkMsgType === key ? '1.5px solid #1D2567' : '1.5px solid #e5e7eb',
+                    borderRadius: 7, background: bulkMsgType === key ? '#EEF2FB' : '#fff',
+                    cursor: 'pointer', marginBottom: 4,
+                    fontSize: 12, fontWeight: bulkMsgType === key ? 700 : 500,
+                    color: bulkMsgType === key ? '#1D2567' : '#374151',
+                    fontFamily: F, textAlign: 'left', transition: 'all 0.1s',
+                  }}>
+                    <span style={{
+                      width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+                      background: bulkMsgType === key ? '#1D2567' : 'transparent',
+                      border: bulkMsgType === key ? '2px solid #1D2567' : '2px solid #d1d5db',
+                    }} />
+                    {label}
+                    <span style={{ ...futureBadge, marginLeft: 'auto', background: '#EEF2FB', color: '#1D2567', border: '1px solid #c3cdf0' }}>{badge}</span>
+                  </button>
+                ) : (
+                  <Tooltip key={label} label="Coming in a future release" placement="right">
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      width: '100%', padding: '6px 10px',
+                      border: '1.5px solid #f3f4f6', borderRadius: 7,
+                      background: '#fafafa', cursor: 'not-allowed',
+                      marginBottom: 4, opacity: 0.5,
+                    }}>
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, background: 'transparent', border: '2px solid #d1d5db' }} />
+                      <span style={{ fontSize: 12, fontWeight: 500, color: '#9ca3af', fontFamily: F }}>{label}</span>
+                      <span style={{ ...futureBadge, marginLeft: 'auto' }}>{badge}</span>
+                    </div>
+                  </Tooltip>
+                )
+              )}
+            </div>
+
+            {/* Survey Invitation bulk workflow — scaffold, local state only */}
+            {bulkMsgType === 'survey_invitation' && (
+              <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 14 }}>
+                <div style={{ ...fieldWrap }}>
+                  <label style={labelStyle}>Instrument</label>
+                  <select value={bulkInstrument} onChange={e => setBulkInstrument(e.target.value)} style={inputBase}>
+                    {INSTRUMENTS.map(i => <option key={i.slug} value={i.slug}>{i.label}</option>)}
+                  </select>
+                </div>
+                <div style={{ ...fieldWrap }}>
+                  <label style={labelStyle}>Timepoint</label>
+                  <select value={bulkTimepoint} onChange={e => setBulkTimepoint(e.target.value)} style={inputBase}>
+                    {TIMEPOINTS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div style={{ ...fieldWrap }}>
+                  <label style={labelStyle}>Expires</label>
+                  <input type="date" value={bulkExpiresAt} min={minExpiresAt()}
+                    onChange={e => setBulkExpiresAt(e.target.value)} style={inputBase} />
+                </div>
+                <div style={{ ...fieldWrap }}>
+                  <label style={labelStyle}>Notes <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span></label>
+                  <textarea value={bulkNotes} onChange={e => setBulkNotes(e.target.value.slice(0, 500))}
+                    placeholder="Optional context for this bulk invitation."
+                    rows={3} style={{ ...inputBase, resize: 'vertical', lineHeight: 1.5, minHeight: 74 }} />
+                  <div style={{ fontSize: 11, color: bulkNotes.length > 480 ? '#dc2626' : '#9ca3af', textAlign: 'right', marginTop: 4, fontFamily: F }}>
+                    {bulkNotes.length}/500
+                  </div>
+                </div>
+                <div style={{ padding: '9px 11px', background: '#FBF5E8', border: '1px solid #f0c9b0', borderRadius: 8, fontSize: 11, color: '#8B5E1A', fontFamily: F, lineHeight: 1.6 }}>
+                  Workflow settings are ready. Audience selection and generation will be enabled in Phase 3A.
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Bulk Zone 3: Compose / Preview / Action ───────────────── */}
+          <div style={{ flex: '1 1 280px', minWidth: 240 }}>
+            <div style={panelCard}>
+              {/* Header */}
+              <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid #f3f4f6' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#191919', fontFamily: F, marginBottom: 4 }}>
+                  Bulk Survey Invitation
+                </div>
+                <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, lineHeight: 1.6 }}>
+                  Phase 3A will generate one unique secure link per selected student and record each assignment in the Evaluation tab.
+                  Links are generated individually, not shared. No student sees another student's link.
+                </div>
+              </div>
+
+              {/* What will happen */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>What Phase 3A will do</div>
+                {[
+                  'Validate that each selected student has an email on file',
+                  'Check for existing active assignments (duplicate guard per student)',
+                  'Generate one unique secure survey link per eligible student',
+                  'Record each assignment in the Evaluation tab with the selected timepoint',
+                  'Display a results summary with per-student success or error status',
+                ].map((item, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0, fontFamily: F }}>·</span>
+                    <span style={{ fontSize: 11, color: '#6b7280', fontFamily: F, lineHeight: 1.5 }}>{item}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Action buttons — all disabled scaffold */}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                <Tooltip label="Coming in Phase 3A" placement="top">
+                  <button disabled style={{
+                    padding: '8px 16px', background: '#e5e7eb',
+                    border: 'none', borderRadius: 8,
+                    fontSize: 12, fontWeight: 600, fontFamily: F,
+                    color: '#9ca3af', cursor: 'not-allowed',
+                  }}>Review Recipients</button>
+                </Tooltip>
+                <Tooltip label="Coming in Phase 3A" placement="top">
+                  <button disabled style={{
+                    padding: '8px 16px', background: '#e5e7eb',
+                    border: 'none', borderRadius: 8,
+                    fontSize: 12, fontWeight: 600, fontFamily: F,
+                    color: '#9ca3af', cursor: 'not-allowed',
+                  }}>Generate Links</button>
+                </Tooltip>
+                <Tooltip label="Coming in Phase 3B" placement="top">
+                  <button disabled style={{
+                    padding: '8px 16px', background: '#e5e7eb',
+                    border: 'none', borderRadius: 8,
+                    fontSize: 12, fontWeight: 600, fontFamily: F,
+                    color: '#9ca3af', cursor: 'not-allowed',
+                  }}>Send via Resend</button>
+                </Tooltip>
+              </div>
+
+              {/* Results placeholder */}
+              <div style={{
+                padding: '14px 16px',
+                background: '#f9fafb', border: '1px dashed #e5e7eb',
+                borderRadius: 8, fontSize: 12, color: '#9ca3af',
+                fontFamily: F, lineHeight: 1.6, textAlign: 'center',
+              }}>
+                Generation results will appear here in Phase 3A.
+              </div>
+            </div>
+          </div>
+
+        </div>
+      )}{/* end recipientMode === 'bulk' */}
+
     </div>
   )
 }
