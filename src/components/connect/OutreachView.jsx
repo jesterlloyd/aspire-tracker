@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useLocation, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import Tooltip from '../ui/Tooltip'
+import { downloadCSV } from '../../lib/utils'
 
 const F = 'DM Sans, sans-serif'
 
@@ -39,6 +40,14 @@ const FUTURE_AUDIENCES = [
   'Students',
   'Preceptors',
 ]
+
+// Eligible student statuses per timepoint — mirrors backend TIMEPOINT_ELIGIBILITY
+const BULK_ELIGIBILITY = {
+  baseline:               ['Placed', 'Active Rotation'],
+  early_rotation_baseline: ['Placed', 'Active Rotation'],
+  midpoint:               ['Active Rotation'],
+  post_rotation:          ['Active Rotation', 'Completed'],
+}
 
 function defaultExpiresAt() {
   const d = new Date()
@@ -150,14 +159,31 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
     return (saved === 'survey' || saved === 'message') ? saved : 'survey'
   })
 
-  // ── Bulk Operation scaffold state (held in-memory only, never sent anywhere) ──
-  // These values are local UI state for Phase 3A scaffolding.
-  // No endpoint is called, no tokens generated, no data written.
-  const [bulkMsgType,     setBulkMsgType]     = useState('survey_invitation')
-  const [bulkInstrument,  setBulkInstrument]  = useState('casey_fink_readiness_2024')
-  const [bulkTimepoint,   setBulkTimepoint]   = useState('early_rotation_baseline')
-  const [bulkExpiresAt,   setBulkExpiresAt]   = useState(defaultExpiresAt)
-  const [bulkNotes,       setBulkNotes]       = useState('')
+  // ── Bulk Operation state ──────────────────────────────────────────────────
+  const [bulkMsgType,            setBulkMsgType]            = useState('survey_invitation')
+  const [bulkInstrument,         setBulkInstrument]         = useState('casey_fink_readiness_2024')
+  const [bulkTimepoint,          setBulkTimepoint]          = useState('early_rotation_baseline')
+  const [bulkExpiresAt,          setBulkExpiresAt]          = useState(defaultExpiresAt)
+  const [bulkNotes,              setBulkNotes]              = useState('')
+  // Active assignments map { student_id → { id, status } } for the selected timepoint
+  const [bulkActiveAssignments,  setBulkActiveAssignments]  = useState({})
+  const [bulkLoadingAssignments, setBulkLoadingAssignments] = useState(false)
+  // Selection: plain array stored in state, converted to Set for membership checks
+  const [bulkSelectedIds,        setBulkSelectedIds]        = useState([])
+  // Filters
+  const [bulkSearch,             setBulkSearch]             = useState('')
+  const [bulkFilterSchool,       setBulkFilterSchool]       = useState('')
+  const [bulkFilterStatus,       setBulkFilterStatus]       = useState('')
+  const [bulkFilterEmail,        setBulkFilterEmail]        = useState('hide_missing')
+  const [bulkFilterAssignment,   setBulkFilterAssignment]   = useState('all')
+  // Generation state — surveyUrls live in bulkResults ONLY, never in storage
+  const [bulkGenerating,         setBulkGenerating]         = useState(false)
+  const [bulkResults,            setBulkResults]            = useState(null)
+  const [bulkShowReview,         setBulkShowReview]         = useState(false)
+  const [bulkReviewReady,        setBulkReviewReady]        = useState(false)
+  // Per-row copy state — { assignmentId: true } for 2.5s after copy
+  const [bulkCopiedIds,          setBulkCopiedIds]          = useState({})
+  const bulkCopyTimers           = useRef({})
 
   // ── Direct Message draft — scoped to contact ID ───────────────────────────
   // Stores ONLY { subject, body }. surveyResult, surveyUrl, and tokens are
@@ -204,7 +230,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
     setLoadingStudents(true)
     supabase
       .from('students')
-      .select('id, first_name, last_name, school, school_email, personal_email')
+      .select('id, first_name, last_name, school, school_email, personal_email, status')
       .eq('cohort_id', cohortId)
       .order('last_name')
       .order('first_name')
@@ -259,6 +285,53 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
     if (!DRAFT_KEY) return
     localStorage.setItem(DRAFT_KEY, JSON.stringify({ subject: msgSubject, body: msgBody }))
   }, [msgSubject, msgBody, DRAFT_KEY])
+
+  // ── Bulk: fetch active assignments for the selected timepoint ─────────────
+  // Feeds the existing-assignment indicator in the student picker.
+  // Read-only query using the anon client (same auth surface as the single-mode
+  // duplicate guard that already uses evaluation_assignments client-side).
+  useEffect(() => {
+    if (recipientMode !== 'bulk' || !cohortId) {
+      setBulkActiveAssignments({})
+      return
+    }
+    setBulkLoadingAssignments(true)
+    supabase
+      .from('evaluation_assignments')
+      .select('student_id, id, status')
+      .eq('cohort_id', cohortId)
+      .eq('timepoint', bulkTimepoint)
+      .not('status', 'in', '(revoked,expired)')
+      .then(({ data }) => {
+        const map = {}
+        ;(data || []).forEach(a => { map[a.student_id] = { id: a.id, status: a.status } })
+        setBulkActiveAssignments(map)
+        setBulkLoadingAssignments(false)
+      })
+  }, [recipientMode, cohortId, bulkTimepoint])
+
+  // ── Bulk: clear selection + results when timepoint changes ────────────────
+  useEffect(() => {
+    setBulkSelectedIds([])
+    setBulkResults(null)
+  }, [bulkTimepoint])
+
+  // ── Bulk: clear results when leaving Bulk mode ────────────────────────────
+  // Generated survey URLs must not persist across mode switches.
+  useEffect(() => {
+    if (recipientMode !== 'bulk') {
+      setBulkResults(null)
+      setBulkShowReview(false)
+    }
+  }, [recipientMode])
+
+  // ── Bulk Review modal: 2-second safety delay before confirm is enabled ────
+  useEffect(() => {
+    if (!bulkShowReview) { setBulkReviewReady(false); return }
+    setBulkReviewReady(false)
+    const t = setTimeout(() => setBulkReviewReady(true), 2000)
+    return () => clearTimeout(t)
+  }, [bulkShowReview])
 
   // ── Derived values ────────────────────────────────────────────────────────
   const selectedStudent  = students.find(s => s.id === selectedStudentId) || null
@@ -350,6 +423,164 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
       setCopied(false)
     }
   }, [surveyResult])
+
+  // ── Bulk: derived values ──────────────────────────────────────────────────
+  const bulkSelectedSet    = new Set(bulkSelectedIds)
+  const bulkEligible       = BULK_ELIGIBILITY[bulkTimepoint] || ['Placed', 'Active Rotation']
+  const bulkSchools        = [...new Set(students.map(s => s.school).filter(Boolean))].sort()
+  const bulkStatusValues   = [...new Set(students.map(s => s.status).filter(Boolean))].sort()
+
+  const bulkFilteredStudents = students.filter(s => {
+    if (bulkSearch) {
+      const q = bulkSearch.toLowerCase()
+      const email = (s.personal_email || s.school_email || '').toLowerCase()
+      if (!`${s.first_name} ${s.last_name}`.toLowerCase().includes(q) && !email.includes(q)) return false
+    }
+    if (bulkFilterSchool && s.school !== bulkFilterSchool) return false
+    if (bulkFilterStatus && s.status !== bulkFilterStatus) return false
+    const hasEmail = !!(s.personal_email || s.school_email)
+    if (bulkFilterEmail === 'only_missing'  && hasEmail)  return false
+    if (bulkFilterEmail === 'hide_missing'  && !hasEmail) return false
+    const hasAssignment = !!bulkActiveAssignments[s.id]
+    if (bulkFilterAssignment === 'only_existing' && !hasAssignment) return false
+    if (bulkFilterAssignment === 'hide_existing' && hasAssignment)  return false
+    return true
+  })
+
+  // A student is checkbox-eligible if they have email AND no active assignment
+  const isBulkCheckboxEligible = s =>
+    !!(s.personal_email || s.school_email) && !bulkActiveAssignments[s.id]
+
+  const bulkVisibleEligible = bulkFilteredStudents.filter(isBulkCheckboxEligible)
+  const bulkHiddenSelectedCount = bulkSelectedIds.filter(
+    id => !bulkFilteredStudents.some(s => s.id === id)
+  ).length
+
+  // ── Bulk: handlers ────────────────────────────────────────────────────────
+
+  const handleBulkToggleStudent = useCallback((studentId) => {
+    setBulkSelectedIds(prev =>
+      prev.includes(studentId)
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    )
+  }, [])
+
+  const handleBulkSelectAllVisible = useCallback(() => {
+    const eligibleIds = bulkVisibleEligible.map(s => s.id)
+    setBulkSelectedIds(prev => {
+      const existing = new Set(prev)
+      eligibleIds.forEach(id => existing.add(id))
+      return [...existing]
+    })
+  }, [bulkVisibleEligible])
+
+  const handleBulkClearSelection = useCallback(() => {
+    setBulkSelectedIds([])
+  }, [])
+
+  const handleBulkOpenReview = useCallback(() => {
+    if (bulkSelectedIds.length === 0) return
+    setBulkShowReview(true)
+  }, [bulkSelectedIds])
+
+  const handleBulkCloseReview = useCallback(() => {
+    if (bulkGenerating) return
+    setBulkShowReview(false)
+  }, [bulkGenerating])
+
+  const handleBulkGenerate = useCallback(async () => {
+    if (!bulkReviewReady || bulkGenerating || bulkSelectedIds.length === 0) return
+    setBulkGenerating(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        setBulkResults({ error: 'Session expired. Please refresh and try again.' })
+        setBulkShowReview(false)
+        return
+      }
+      const res = await fetch('/api/evaluation-bulk-invitations', {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          cohortId,
+          studentIds: bulkSelectedIds,
+          timepoint:  bulkTimepoint,
+          expiresAt:  bulkExpiresAt,
+          notes:      bulkNotes.trim() || undefined,
+          mode:       'generate_only',
+        }),
+      })
+      let payload = null
+      try { payload = await res.json() } catch { /* ignore */ }
+
+      if (res.status === 401) {
+        setBulkResults({ error: 'Session expired. Please refresh and try again.' })
+      } else if (res.status === 403) {
+        setBulkResults({ error: 'Owner or admin access required to generate links.' })
+      } else if (!res.ok) {
+        setBulkResults({ error: payload?.error || 'Failed to generate links. Please try again.' })
+      } else {
+        // Generated survey URLs live in bulkResults (React state) only.
+        // They are never written to localStorage, sessionStorage, cookies, or URL params.
+        setBulkResults(payload)
+        setBulkShowReview(false)
+        // Refresh assignment map so newly created assignments appear as "existing"
+        setBulkActiveAssignments(prev => {
+          const next = { ...prev }
+          ;(payload.generated || []).forEach(g => {
+            next[g.studentId] = { id: g.assignmentId, status: 'sent' }
+          })
+          return next
+        })
+      }
+    } catch {
+      setBulkResults({ error: 'Network error. Please check your connection and try again.' })
+      setBulkShowReview(false)
+    } finally {
+      setBulkGenerating(false)
+    }
+  }, [bulkReviewReady, bulkGenerating, bulkSelectedIds, cohortId, bulkTimepoint, bulkExpiresAt, bulkNotes])
+
+  const handleBulkCopyUrl = useCallback((assignmentId, url) => {
+    navigator.clipboard.writeText(url).then(() => {
+      setBulkCopiedIds(prev => ({ ...prev, [assignmentId]: true }))
+      if (bulkCopyTimers.current[assignmentId]) clearTimeout(bulkCopyTimers.current[assignmentId])
+      bulkCopyTimers.current[assignmentId] = setTimeout(() => {
+        setBulkCopiedIds(prev => { const n = { ...prev }; delete n[assignmentId]; return n })
+      }, 2500)
+    }).catch(() => {})
+  }, [])
+
+  const handleBulkExportCSV = useCallback(() => {
+    if (!bulkResults?.generated?.length) return
+    const header = 'Name,Email,School,Assignment ID,Survey URL'
+    const rows = bulkResults.generated.map(g => {
+      const escape = v => `"${String(v || '').replace(/"/g, '""')}"`
+      return [g.studentName, g.email, g.school, g.assignmentId, g.surveyUrl].map(escape).join(',')
+    })
+    downloadCSV([header, ...rows].join('\n'),
+      `aspire-bulk-survey-${bulkTimepoint}-${new Date().toISOString().slice(0, 10)}.csv`)
+  }, [bulkResults, bulkTimepoint])
+
+  const handleBulkClearResults = useCallback(() => {
+    setBulkResults(null)
+  }, [])
+
+  const handleBulkReset = useCallback(() => {
+    setBulkResults(null)
+    setBulkSelectedIds([])
+    setBulkSearch('')
+    setBulkFilterSchool('')
+    setBulkFilterStatus('')
+    setBulkFilterEmail('hide_missing')
+    setBulkFilterAssignment('all')
+    setBulkNotes('')
+    setBulkExpiresAt(defaultExpiresAt())
+  }, [])
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -1081,72 +1312,172 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
       )}{/* end recipientMode === 'single' */}
 
       {/* ══════════════════════════════════════════════════════════════════
-          BULK OPERATION MODE — Phase 3A scaffold (UI only, no data sent)
-          No endpoint calls. No tokens. No data mutations.
-          Audience, workflow form values held in local state only.
+          BULK OPERATION MODE — Phase 3A active
+          Calls /api/evaluation-bulk-invitations for generate_only.
+          No email. No Resend. Generated surveyUrls live in React state only.
       ═══════════════════════════════════════════════════════════════════ */}
       {recipientMode === 'bulk' && (
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
-          {/* ── Bulk Zone 1: Audience / Recipients ───────────────────── */}
-          <div style={{ ...panelCard, flex: '0 0 220px', minWidth: 180 }}>
+          {/* ── Bulk Zone 1: Student Audience Picker ─────────────────── */}
+          <div style={{ ...panelCard, flex: '0 0 340px', minWidth: 280, maxHeight: 'calc(100dvh - 280px)', overflowY: 'auto' }}>
             <div style={panelTitle}>Audience</div>
-            <div style={panelSubtitle}>Recipients</div>
+            <div style={panelSubtitle}>
+              {loadingStudents ? 'Loading students…' : `${students.length} students in cohort`}
+            </div>
 
-            {/* Recipient count */}
+            {/* Selection summary */}
             <div style={{
-              padding: '10px 12px', marginBottom: 14,
-              background: '#f9fafb', border: '1px solid #e5e7eb',
-              borderRadius: 8, fontSize: 12, color: '#374151', fontFamily: F,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '8px 11px', marginBottom: 12,
+              background: bulkSelectedIds.length > 0 ? '#EEF2FB' : '#f9fafb',
+              border: `1px solid ${bulkSelectedIds.length > 0 ? '#c3cdf0' : '#e5e7eb'}`,
+              borderRadius: 8,
             }}>
-              <span style={{ fontWeight: 700, fontSize: 18, color: '#191919' }}>0</span>
-              <span style={{ marginLeft: 6, color: '#6b7280' }}>recipients selected</span>
+              <span style={{ fontSize: 12, fontFamily: F, color: '#374151' }}>
+                <span style={{ fontWeight: 700, fontSize: 16, color: '#1D2567' }}>{bulkSelectedIds.length}</span>
+                <span style={{ marginLeft: 5, color: '#6b7280' }}>selected</span>
+                {bulkHiddenSelectedCount > 0 && (
+                  <span style={{ marginLeft: 6, fontSize: 10, color: '#9ca3af' }}>
+                    ({bulkHiddenSelectedCount} hidden by filter)
+                  </span>
+                )}
+              </span>
+              <div style={{ display: 'flex', gap: 5 }}>
+                {bulkVisibleEligible.length > 0 && (
+                  <button onClick={handleBulkSelectAllVisible} style={{
+                    padding: '3px 8px', borderRadius: 5, fontSize: 10, fontWeight: 600,
+                    border: `1px solid #1D2567`, background: '#fff', color: '#1D2567',
+                    fontFamily: F, cursor: 'pointer',
+                  }}>Select all eligible</button>
+                )}
+                {bulkSelectedIds.length > 0 && (
+                  <button onClick={handleBulkClearSelection} style={{
+                    padding: '3px 8px', borderRadius: 5, fontSize: 10, fontWeight: 600,
+                    border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280',
+                    fontFamily: F, cursor: 'pointer',
+                  }}>Clear</button>
+                )}
+              </div>
             </div>
 
-            {/* Audience filter controls — all disabled (Phase 3A) */}
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 8, fontFamily: F }}>Filter by</div>
-              {['Cohort', 'School', 'Status', 'Unit', 'Missing email only', 'No existing assignment'].map(label => (
-                <Tooltip key={label} label="Coming in Phase 3A" placement="right">
-                  <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '6px 8px', marginBottom: 4,
-                    border: '1px solid #f3f4f6', borderRadius: 6,
-                    background: '#fafafa', opacity: 0.55, cursor: 'not-allowed',
-                  }}>
-                    <span style={{ fontSize: 11, color: '#374151', fontFamily: F }}>{label}</span>
-                    <span style={futureBadge}>3A</span>
+            {/* Filters */}
+            <div style={{ marginBottom: 10 }}>
+              {/* Search */}
+              <input
+                value={bulkSearch} onChange={e => setBulkSearch(e.target.value)}
+                placeholder="Search name or email…"
+                style={{ ...inputBase, fontSize: 12, padding: '7px 10px', marginBottom: 6 }}
+              />
+              {/* School filter */}
+              {bulkSchools.length > 1 && (
+                <select value={bulkFilterSchool} onChange={e => setBulkFilterSchool(e.target.value)}
+                  style={{ ...inputBase, fontSize: 11, padding: '5px 8px', marginBottom: 6 }}>
+                  <option value="">All schools</option>
+                  {bulkSchools.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              )}
+              {/* Status filter */}
+              <select value={bulkFilterStatus} onChange={e => setBulkFilterStatus(e.target.value)}
+                style={{ ...inputBase, fontSize: 11, padding: '5px 8px', marginBottom: 6 }}>
+                <option value="">All statuses</option>
+                {bulkStatusValues.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {/* Email filter */}
+                <select value={bulkFilterEmail} onChange={e => setBulkFilterEmail(e.target.value)}
+                  style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
+                  <option value="all">Email: all</option>
+                  <option value="hide_missing">Hide missing email</option>
+                  <option value="only_missing">Only missing email</option>
+                </select>
+                {/* Assignment filter */}
+                <select value={bulkFilterAssignment} onChange={e => setBulkFilterAssignment(e.target.value)}
+                  style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
+                  <option value="all">Assignment: all</option>
+                  <option value="hide_existing">Hide existing</option>
+                  <option value="only_existing">Only existing</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Eligibility note */}
+            <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginBottom: 8, lineHeight: 1.5 }}>
+              Eligible for {TIMEPOINTS.find(t => t.value === bulkTimepoint)?.label || bulkTimepoint}:{' '}
+              <strong style={{ color: '#6b7280' }}>{bulkEligible.join(', ')}</strong>
+            </div>
+
+            {/* Student rows */}
+            {loadingStudents ? (
+              <div style={{ padding: '16px 0', textAlign: 'center', fontSize: 12, color: '#9ca3af', fontFamily: F }}>
+                Loading students…
+              </div>
+            ) : bulkFilteredStudents.length === 0 ? (
+              <div style={{ padding: '16px 0', textAlign: 'center', fontSize: 12, color: '#9ca3af', fontFamily: F }}>
+                No students match the current filters.
+              </div>
+            ) : (
+              <div>
+                {bulkFilteredStudents.map(s => {
+                  const email       = s.personal_email || s.school_email || null
+                  const hasEmail    = !!email
+                  const hasAssign   = !!bulkActiveAssignments[s.id]
+                  const eligible    = hasEmail && !hasAssign
+                  const isSelected  = bulkSelectedSet.has(s.id)
+                  return (
+                    <div key={s.id} onClick={() => eligible && handleBulkToggleStudent(s.id)} style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 8,
+                      padding: '7px 6px', borderRadius: 6, marginBottom: 3,
+                      background: isSelected ? '#EEF2FB' : 'transparent',
+                      cursor: eligible ? 'pointer' : 'default',
+                      opacity: eligible ? 1 : 0.55,
+                    }}>
+                      <input
+                        type="checkbox" checked={isSelected} readOnly
+                        disabled={!eligible}
+                        style={{ marginTop: 2, flexShrink: 0, accentColor: '#1D2567' }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: '#191919', fontFamily: F,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {s.last_name}, {s.first_name}
+                        </div>
+                        <div style={{ fontSize: 10, color: '#6b7280', fontFamily: F, marginTop: 1,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {email || <span style={{ color: '#dc2626' }}>No email on file</span>}
+                        </div>
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 3 }}>
+                          {s.school && <span style={{ fontSize: 9, color: '#9ca3af', fontFamily: F }}>{s.school}</span>}
+                          <span style={{
+                            fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
+                            background: '#f3f4f6', color: '#6b7280', fontFamily: F,
+                          }}>{s.status}</span>
+                          {!hasEmail && <span style={{
+                            fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
+                            background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', fontFamily: F,
+                          }}>No email</span>}
+                          {hasAssign && <span style={{
+                            fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
+                            background: '#FBF5E8', color: '#8B5E1A', border: '1px solid #f0c9b0', fontFamily: F,
+                          }}>Has active assignment</span>}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+                {bulkLoadingAssignments && (
+                  <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, textAlign: 'center', paddingTop: 6 }}>
+                    Loading assignment indicators…
                   </div>
-                </Tooltip>
-              ))}
-            </div>
-
-            {/* Bulk selection controls — disabled */}
-            <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-              <Tooltip label="Coming in Phase 3A" placement="bottom">
-                <button disabled style={{
-                  flex: 1, padding: '5px 8px', borderRadius: 6,
-                  border: '1px solid #e5e7eb', background: '#fafafa',
-                  fontSize: 10, fontWeight: 600, color: '#9ca3af',
-                  fontFamily: F, cursor: 'not-allowed',
-                }}>Select all</button>
-              </Tooltip>
-              <Tooltip label="Coming in Phase 3A" placement="bottom">
-                <button disabled style={{
-                  flex: 1, padding: '5px 8px', borderRadius: 6,
-                  border: '1px solid #e5e7eb', background: '#fafafa',
-                  fontSize: 10, fontWeight: 600, color: '#9ca3af',
-                  fontFamily: F, cursor: 'not-allowed',
-                }}>Clear</button>
-              </Tooltip>
-            </div>
-
-            <p style={panelBody}>
-              Student audience selection will be activated in Phase 3A.
-            </p>
+                )}
+                <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 8, textAlign: 'center' }}>
+                  {bulkFilteredStudents.length} shown · {bulkVisibleEligible.length} eligible
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* ── Bulk Zone 2: Message Type + Workflow form ─────────────── */}
+          {/* ── Bulk Zone 2: Message Type + Workflow ──────────────────── */}
           <div style={{ ...panelCard, flex: '0 0 280px', minWidth: 240 }}>
             <div style={panelTitle}>Message Type</div>
             <div style={panelSubtitle}>Bulk workflow</div>
@@ -1154,14 +1485,14 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
             {/* Bulk message type selector */}
             <div style={{ marginBottom: 16 }}>
               {[
-                { key: 'survey_invitation', label: 'Survey Invitation', badge: '3A' },
-                { key: null, label: 'Announcement / Broadcast', badge: 'Future' },
-                { key: null, label: 'Coordinator Update',       badge: 'Future' },
-                { key: null, label: 'Reminder',                 badge: 'Future' },
-                { key: null, label: 'NGRP Update',             badge: 'Future' },
-                { key: null, label: 'Preceptor Communication',  badge: 'Future' },
-                { key: null, label: 'Check-In',                 badge: 'Future' },
-              ].map(({ key, label, badge }) =>
+                { key: 'survey_invitation', label: 'Survey Invitation' },
+                { key: null, label: 'Announcement / Broadcast' },
+                { key: null, label: 'Coordinator Update' },
+                { key: null, label: 'Reminder' },
+                { key: null, label: 'NGRP Update' },
+                { key: null, label: 'Preceptor Communication' },
+                { key: null, label: 'Check-In' },
+              ].map(({ key, label }) =>
                 key ? (
                   <button key={label} onClick={() => setBulkMsgType(key)} style={{
                     display: 'flex', alignItems: 'center', gap: 8,
@@ -1179,7 +1510,6 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                       border: bulkMsgType === key ? '2px solid #1D2567' : '2px solid #d1d5db',
                     }} />
                     {label}
-                    <span style={{ ...futureBadge, marginLeft: 'auto', background: '#EEF2FB', color: '#1D2567', border: '1px solid #c3cdf0' }}>{badge}</span>
                   </button>
                 ) : (
                   <Tooltip key={label} label="Coming in a future release" placement="right">
@@ -1192,34 +1522,41 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                     }}>
                       <span style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, background: 'transparent', border: '2px solid #d1d5db' }} />
                       <span style={{ fontSize: 12, fontWeight: 500, color: '#9ca3af', fontFamily: F }}>{label}</span>
-                      <span style={{ ...futureBadge, marginLeft: 'auto' }}>{badge}</span>
+                      <span style={{ ...futureBadge, marginLeft: 'auto' }}>Future</span>
                     </div>
                   </Tooltip>
                 )
               )}
             </div>
 
-            {/* Survey Invitation bulk workflow — scaffold, local state only */}
+            {/* Survey Invitation workflow settings */}
             {bulkMsgType === 'survey_invitation' && (
               <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 14 }}>
-                <div style={{ ...fieldWrap }}>
+                <div style={fieldWrap}>
                   <label style={labelStyle}>Instrument</label>
-                  <select value={bulkInstrument} onChange={e => setBulkInstrument(e.target.value)} style={inputBase}>
-                    {INSTRUMENTS.map(i => <option key={i.slug} value={i.slug}>{i.label}</option>)}
-                  </select>
+                  <div style={{ ...inputBase, background: '#f9fafb', color: '#6b7280', fontSize: 12 }}>
+                    {INSTRUMENTS.find(i => i.slug === bulkInstrument)?.label || bulkInstrument}
+                  </div>
                 </div>
-                <div style={{ ...fieldWrap }}>
-                  <label style={labelStyle}>Timepoint</label>
+                <div style={fieldWrap}>
+                  <label style={labelStyle}>
+                    Timepoint <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
+                  </label>
                   <select value={bulkTimepoint} onChange={e => setBulkTimepoint(e.target.value)} style={inputBase}>
                     {TIMEPOINTS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
+                  <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 4, lineHeight: 1.5 }}>
+                    Eligible: {(BULK_ELIGIBILITY[bulkTimepoint] || []).join(', ')}
+                  </div>
                 </div>
-                <div style={{ ...fieldWrap }}>
-                  <label style={labelStyle}>Expires</label>
+                <div style={fieldWrap}>
+                  <label style={labelStyle}>
+                    Expires <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
+                  </label>
                   <input type="date" value={bulkExpiresAt} min={minExpiresAt()}
                     onChange={e => setBulkExpiresAt(e.target.value)} style={inputBase} />
                 </div>
-                <div style={{ ...fieldWrap }}>
+                <div style={fieldWrap}>
                   <label style={labelStyle}>Notes <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span></label>
                   <textarea value={bulkNotes} onChange={e => setBulkNotes(e.target.value.slice(0, 500))}
                     placeholder="Optional context for this bulk invitation."
@@ -1228,86 +1565,334 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                     {bulkNotes.length}/500
                   </div>
                 </div>
-                <div style={{ padding: '9px 11px', background: '#FBF5E8', border: '1px solid #f0c9b0', borderRadius: 8, fontSize: 11, color: '#8B5E1A', fontFamily: F, lineHeight: 1.6 }}>
-                  Workflow settings are ready. Audience selection and generation will be enabled in Phase 3A.
-                </div>
               </div>
             )}
           </div>
 
-          {/* ── Bulk Zone 3: Compose / Preview / Action ───────────────── */}
-          <div style={{ flex: '1 1 280px', minWidth: 240 }}>
-            <div style={panelCard}>
-              {/* Header */}
-              <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: '1px solid #f3f4f6' }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#191919', fontFamily: F, marginBottom: 4 }}>
+          {/* ── Bulk Zone 3: Preview / Action / Results ───────────────── */}
+          <div style={{ flex: '1 1 300px', minWidth: 260 }}>
+
+            {/* Pre-generation summary */}
+            {!bulkResults && (
+              <div style={panelCard}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#191919', fontFamily: F, marginBottom: 6 }}>
                   Bulk Survey Invitation
                 </div>
-                <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, lineHeight: 1.6 }}>
-                  Phase 3A will generate one unique secure link per selected student and record each assignment in the Evaluation tab.
-                  Links are generated individually, not shared. No student sees another student's link.
+                <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, lineHeight: 1.6, marginBottom: 16 }}>
+                  {INSTRUMENTS.find(i => i.slug === bulkInstrument)?.label}<br />
+                  {TIMEPOINTS.find(t => t.value === bulkTimepoint)?.label} · Expires {fmtDate(bulkExpiresAt)}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14,
+                  padding: '10px 12px', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8 }}>
+                  <span style={{ fontSize: 22, fontWeight: 700, color: '#1D2567', fontFamily: F }}>
+                    {bulkSelectedIds.length}
+                  </span>
+                  <span style={{ fontSize: 12, color: '#6b7280', fontFamily: F }}>
+                    {bulkSelectedIds.length === 1 ? 'student selected' : 'students selected'}
+                  </span>
+                </div>
+
+                {bulkSelectedIds.length > 0 && (
+                  <div style={{
+                    padding: '9px 12px', marginBottom: 16,
+                    background: '#FBF5E8', border: '1px solid #f0c9b0',
+                    borderRadius: 8, fontSize: 11, color: '#8B5E1A', fontFamily: F, lineHeight: 1.6,
+                  }}>
+                    Each selected student will receive a unique secure survey link. Links are shown once and are not stored after this session.
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {bulkSelectedIds.length === 0 ? (
+                    <Tooltip label="Select at least one student to generate links" placement="top">
+                      <button disabled style={{
+                        padding: '9px 20px', background: '#e5e7eb',
+                        border: 'none', borderRadius: 8,
+                        fontSize: 13, fontWeight: 600, fontFamily: F,
+                        color: '#9ca3af', cursor: 'not-allowed',
+                      }}>Generate Links</button>
+                    </Tooltip>
+                  ) : (
+                    <button onClick={handleBulkOpenReview} style={{
+                      padding: '9px 20px', background: '#1D2567',
+                      border: 'none', borderRadius: 8,
+                      fontSize: 13, fontWeight: 600, fontFamily: F,
+                      color: '#fff', cursor: 'pointer', transition: 'opacity 0.12s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                    onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                    >
+                      Generate {bulkSelectedIds.length} {bulkSelectedIds.length === 1 ? 'Link' : 'Links'}
+                    </button>
+                  )}
+                  <Tooltip label="Coming in Phase 3B" placement="top">
+                    <button disabled style={{
+                      padding: '9px 16px', background: '#e5e7eb',
+                      border: 'none', borderRadius: 8,
+                      fontSize: 12, fontWeight: 600, fontFamily: F,
+                      color: '#9ca3af', cursor: 'not-allowed',
+                    }}>Send via Resend</button>
+                  </Tooltip>
                 </div>
               </div>
+            )}
 
-              {/* What will happen */}
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>What Phase 3A will do</div>
-                {[
-                  'Validate that each selected student has an email on file',
-                  'Check for existing active assignments (duplicate guard per student)',
-                  'Generate one unique secure survey link per eligible student',
-                  'Record each assignment in the Evaluation tab with the selected timepoint',
-                  'Display a results summary with per-student success or error status',
-                ].map((item, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0, fontFamily: F }}>·</span>
-                    <span style={{ fontSize: 11, color: '#6b7280', fontFamily: F, lineHeight: 1.5 }}>{item}</span>
+            {/* Results */}
+            {bulkResults && (
+              <div>
+                {/* Error state */}
+                {bulkResults.error && (
+                  <div style={{ ...panelCard, padding: '14px 16px',
+                    background: '#fef2f2', border: '1px solid #fecaca' }}>
+                    <div style={{ fontSize: 12, color: '#dc2626', fontFamily: F, lineHeight: 1.6, marginBottom: 12 }}>
+                      {bulkResults.error}
+                    </div>
+                    <button onClick={handleBulkClearResults} style={{
+                      padding: '7px 14px', borderRadius: 7, border: '1px solid #fecaca',
+                      background: '#fff', fontSize: 11, fontWeight: 600,
+                      color: '#dc2626', fontFamily: F, cursor: 'pointer',
+                    }}>Try again</button>
                   </div>
-                ))}
-              </div>
+                )}
 
-              {/* Action buttons — all disabled scaffold */}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-                <Tooltip label="Coming in Phase 3A" placement="top">
-                  <button disabled style={{
-                    padding: '8px 16px', background: '#e5e7eb',
-                    border: 'none', borderRadius: 8,
-                    fontSize: 12, fontWeight: 600, fontFamily: F,
-                    color: '#9ca3af', cursor: 'not-allowed',
-                  }}>Review Recipients</button>
-                </Tooltip>
-                <Tooltip label="Coming in Phase 3A" placement="top">
-                  <button disabled style={{
-                    padding: '8px 16px', background: '#e5e7eb',
-                    border: 'none', borderRadius: 8,
-                    fontSize: 12, fontWeight: 600, fontFamily: F,
-                    color: '#9ca3af', cursor: 'not-allowed',
-                  }}>Generate Links</button>
-                </Tooltip>
-                <Tooltip label="Coming in Phase 3B" placement="top">
-                  <button disabled style={{
-                    padding: '8px 16px', background: '#e5e7eb',
-                    border: 'none', borderRadius: 8,
-                    fontSize: 12, fontWeight: 600, fontFamily: F,
-                    color: '#9ca3af', cursor: 'not-allowed',
-                  }}>Send via Resend</button>
-                </Tooltip>
-              </div>
+                {/* Success results */}
+                {!bulkResults.error && (
+                  <div>
+                    {/* One-time warning banner */}
+                    <div style={{
+                      padding: '10px 14px', marginBottom: 12,
+                      background: '#FBF5E8', border: '1px solid #f0c9b0',
+                      borderRadius: 8, fontSize: 11, color: '#8B5E1A',
+                      fontFamily: F, lineHeight: 1.6,
+                    }}>
+                      Survey links are shown only in this session. Copy any URLs you need now. Raw URLs are not stored by the app.
+                    </div>
 
-              {/* Results placeholder */}
-              <div style={{
-                padding: '14px 16px',
-                background: '#f9fafb', border: '1px dashed #e5e7eb',
-                borderRadius: 8, fontSize: 12, color: '#9ca3af',
-                fontFamily: F, lineHeight: 1.6, textAlign: 'center',
-              }}>
-                Generation results will appear here in Phase 3A.
+                    {/* Summary counts */}
+                    <div style={{ ...panelCard, marginBottom: 10 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
+                        {[
+                          { label: 'Generated',  value: bulkResults.createdCount,              color: '#2F7D5C', bg: '#EEF7F0' },
+                          { label: 'Duplicates', value: bulkResults.skippedDuplicateCount,     color: '#8B5E1A', bg: '#FBF5E8' },
+                          { label: 'Skipped',    value: (bulkResults.skippedMissingEmailCount || 0) + (bulkResults.skippedInvalidStatusCount || 0), color: '#6b7280', bg: '#f9fafb' },
+                        ].map(({ label, value, color, bg }) => (
+                          <div key={label} style={{ textAlign: 'center', padding: '8px 6px', background: bg, borderRadius: 8 }}>
+                            <div style={{ fontSize: 20, fontWeight: 700, color, fontFamily: F }}>{value}</div>
+                            <div style={{ fontSize: 10, color, fontFamily: F }}>{label}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {bulkResults.generated?.length > 0 && (
+                          <button onClick={handleBulkExportCSV} style={{
+                            padding: '7px 14px', borderRadius: 7, border: `1px solid #1D2567`,
+                            background: '#fff', fontSize: 11, fontWeight: 600,
+                            color: '#1D2567', fontFamily: F, cursor: 'pointer',
+                          }}>↓ Export CSV</button>
+                        )}
+                        <button onClick={handleBulkClearResults} style={{
+                          padding: '7px 14px', borderRadius: 7, border: '1px solid #e5e7eb',
+                          background: '#fff', fontSize: 11, fontWeight: 600,
+                          color: '#374151', fontFamily: F, cursor: 'pointer',
+                        }}>Generate more</button>
+                        <button onClick={handleBulkReset} style={{
+                          padding: '7px 14px', borderRadius: 7, border: '1px solid #e5e7eb',
+                          background: '#f9fafb', fontSize: 11, fontWeight: 600,
+                          color: '#6b7280', fontFamily: F, cursor: 'pointer',
+                        }}>Clear and reset</button>
+                      </div>
+                    </div>
+
+                    {/* Generated links */}
+                    {bulkResults.generated?.length > 0 && (
+                      <div style={{ ...panelCard, marginBottom: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#2F7D5C', fontFamily: F, marginBottom: 10 }}>
+                          ✓ {bulkResults.generated.length} link{bulkResults.generated.length !== 1 ? 's' : ''} generated
+                        </div>
+                        {bulkResults.generated.map(g => (
+                          <div key={g.assignmentId} style={{
+                            padding: '8px 10px', marginBottom: 6,
+                            background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8,
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: '#191919', fontFamily: F }}>{g.studentName}</div>
+                                <div style={{ fontSize: 10, color: '#6b7280', fontFamily: F }}>{g.email} · {g.school}</div>
+                                <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 2 }}>ID: {g.assignmentId}</div>
+                              </div>
+                              <button onClick={() => handleBulkCopyUrl(g.assignmentId, g.surveyUrl)} style={{
+                                flexShrink: 0, padding: '4px 10px', borderRadius: 6,
+                                background: bulkCopiedIds[g.assignmentId] ? '#EEF7F0' : '#fff',
+                                border: `1px solid ${bulkCopiedIds[g.assignmentId] ? '#c6d9a8' : '#e5e7eb'}`,
+                                fontSize: 10, fontWeight: 600,
+                                color: bulkCopiedIds[g.assignmentId] ? '#2F7D5C' : '#374151',
+                                fontFamily: F, cursor: 'pointer',
+                              }}>
+                                {bulkCopiedIds[g.assignmentId] ? '✓ Copied' : 'Copy URL'}
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Skipped duplicates */}
+                    {bulkResults.skippedDuplicates?.length > 0 && (
+                      <div style={{ ...panelCard, marginBottom: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#8B5E1A', fontFamily: F, marginBottom: 8 }}>
+                          {bulkResults.skippedDuplicates.length} skipped — active assignment exists
+                        </div>
+                        {bulkResults.skippedDuplicates.map(d => (
+                          <div key={d.existingAssignmentId} style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginBottom: 4 }}>
+                            {d.studentName} · existing ID: {d.existingAssignmentId} ({d.existingStatus})
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Skipped missing email */}
+                    {bulkResults.skippedMissingEmails?.length > 0 && (
+                      <div style={{ ...panelCard, marginBottom: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', fontFamily: F, marginBottom: 8 }}>
+                          {bulkResults.skippedMissingEmails.length} skipped — no email on file
+                        </div>
+                        {bulkResults.skippedMissingEmails.map(m => (
+                          <div key={m.studentId} style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginBottom: 2 }}>
+                            {m.studentName}{m.school ? ` · ${m.school}` : ''} — update student record to include.
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Skipped invalid status */}
+                    {bulkResults.skippedInvalidStatus?.length > 0 && (
+                      <div style={{ ...panelCard, marginBottom: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', fontFamily: F, marginBottom: 8 }}>
+                          {bulkResults.skippedInvalidStatus.length} skipped — status not eligible for this timepoint
+                        </div>
+                        {bulkResults.skippedInvalidStatus.map(si => (
+                          <div key={si.studentId} style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginBottom: 2 }}>
+                            {si.studentName} · current status: {si.status}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Failed */}
+                    {bulkResults.failed?.length > 0 && (
+                      <div style={{ ...panelCard, background: '#fef2f2', border: '1px solid #fecaca' }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', fontFamily: F, marginBottom: 8 }}>
+                          {bulkResults.failed.length} failed
+                        </div>
+                        {bulkResults.failed.map(f => (
+                          <div key={f.studentId} style={{ fontSize: 11, color: '#dc2626', fontFamily: F, marginBottom: 2 }}>
+                            {f.studentName} — {f.reason}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
+            )}
           </div>
 
         </div>
       )}{/* end recipientMode === 'bulk' */}
+
+      {/* ── Review Recipients Modal ───────────────────────────────────────── */}
+      {bulkShowReview && (
+        <div onClick={handleBulkCloseReview} style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#fff', borderRadius: 12,
+            padding: '28px 32px', maxWidth: 560, width: '90vw',
+            maxHeight: '80vh', overflowY: 'auto',
+            boxShadow: '0 8px 40px rgba(0,0,0,0.18)',
+            fontFamily: F, boxSizing: 'border-box',
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1D2567', fontFamily: F }}>
+                Review Recipients
+              </h2>
+              <button onClick={handleBulkCloseReview} disabled={bulkGenerating} style={{
+                background: 'none', border: 'none', cursor: bulkGenerating ? 'not-allowed' : 'pointer',
+                fontSize: 20, color: '#9ca3af', lineHeight: 1, padding: '2px 6px',
+              }}>×</button>
+            </div>
+
+            {/* Summary */}
+            <div style={{
+              padding: '10px 14px', marginBottom: 16,
+              background: '#EEF2FB', borderRadius: 8,
+              fontSize: 12, color: '#1D2567', fontFamily: F, lineHeight: 1.6,
+            }}>
+              You are about to generate <strong>{bulkSelectedIds.length}</strong> survey link{bulkSelectedIds.length !== 1 ? 's' : ''} for{' '}
+              <strong>Casey-Fink · {TIMEPOINTS.find(t => t.value === bulkTimepoint)?.label || bulkTimepoint}</strong>.
+              Links are one-time and will be shown once in the results panel.
+            </div>
+
+            {/* Student list */}
+            <div style={{ maxHeight: 320, overflowY: 'auto', marginBottom: 16, border: '1px solid #f3f4f6', borderRadius: 8 }}>
+              {students.filter(s => bulkSelectedSet.has(s.id)).map((s, i) => (
+                <div key={s.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '8px 12px',
+                  borderBottom: i < bulkSelectedIds.length - 1 ? '1px solid #f9fafb' : 'none',
+                  fontSize: 12, fontFamily: F, color: '#374151',
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, color: '#191919' }}>
+                      {s.last_name}, {s.first_name}
+                    </div>
+                    <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>
+                      {s.personal_email || s.school_email} · {s.school} · {s.status}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Safety delay note */}
+            {!bulkReviewReady && (
+              <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginBottom: 10, textAlign: 'center' }}>
+                Please review the list above before confirming…
+              </div>
+            )}
+
+            {/* Footer */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button type="button" onClick={handleBulkCloseReview} disabled={bulkGenerating} style={{
+                padding: '8px 18px', borderRadius: 8,
+                border: '1px solid #e5e7eb', background: '#fff',
+                fontSize: 12, fontWeight: 600, fontFamily: F,
+                color: '#374151', cursor: bulkGenerating ? 'not-allowed' : 'pointer',
+              }}>Cancel</button>
+              <button
+                type="button"
+                onClick={handleBulkGenerate}
+                disabled={!bulkReviewReady || bulkGenerating}
+                style={{
+                  padding: '8px 20px', borderRadius: 8, border: 'none',
+                  background: (!bulkReviewReady || bulkGenerating) ? '#e5e7eb' : '#1D2567',
+                  fontSize: 12, fontWeight: 600, fontFamily: F,
+                  color: (!bulkReviewReady || bulkGenerating) ? '#9ca3af' : '#fff',
+                  cursor: (!bulkReviewReady || bulkGenerating) ? 'not-allowed' : 'pointer',
+                  transition: 'background 0.12s',
+                }}
+              >
+                {bulkGenerating ? 'Generating…' : `Generate ${bulkSelectedIds.length} link${bulkSelectedIds.length !== 1 ? 's' : ''}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )
