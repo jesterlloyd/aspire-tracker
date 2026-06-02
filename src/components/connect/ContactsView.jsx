@@ -212,8 +212,16 @@ function ContactRow({ contact, isSelected, onClick }) {
           background: isSelected ? NAVY : '#e5e7eb',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 10, fontWeight: 700, color: isSelected ? '#fff' : '#6b7280',
-          fontFamily: F,
+          fontFamily: F, overflow: 'hidden', position: 'relative',
         }}>
+          {contact.avatar_url && (
+            <img
+              src={contact.avatar_url}
+              alt=""
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+              onError={e => { e.currentTarget.style.display = 'none' }}
+            />
+          )}
           {initials(contact.full_name)}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -1245,11 +1253,12 @@ export default function ContactsView() {
   // ── Three-zone CRM layout ─────────────────────────────────────────────────
   return (
     <>
-    <div style={{ display: 'flex', height: '100%', fontFamily: F, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100%', fontFamily: F, overflow: 'hidden', justifyContent: 'center' }}>
+    <div style={{ display: 'flex', width: '100%', maxWidth: 1400, height: '100%', overflow: 'hidden' }}>
 
       {/* ── Zone 1: Directory (left) ──────────────────────────────────── */}
       <div style={{
-        width: 280, flexShrink: 0,
+        flex: '0 0 300px', flexShrink: 0,
         borderRight: '1px solid rgba(29,37,103,0.08)',
         display: 'flex', flexDirection: 'column',
         background: '#fff',
@@ -1384,7 +1393,7 @@ export default function ContactsView() {
 
       {/* ── Zone 2: Contact Profile (center) ──────────────────────────── */}
       <div style={{
-        flex: 2, minWidth: 0,
+        flex: '1 1 0', minWidth: 0,
         overflowY: 'auto',
         background: '#fff',
         borderRight: '1px solid rgba(29,37,103,0.08)',
@@ -1398,7 +1407,7 @@ export default function ContactsView() {
 
       {/* ── Zone 3: Context — history + linked students (right) ───────── */}
       <div style={{
-        flex: '0 0 300px', minWidth: 0,
+        flex: '0 0 270px', minWidth: 0,
         overflowY: 'auto',
         background: '#FAFAF7',
       }}>
@@ -1423,7 +1432,8 @@ export default function ContactsView() {
         )}
       </div>
 
-    </div>
+    </div>{/* end max-width inner wrapper */}
+    </div>{/* end centering outer wrapper */}
 
     {/* Add / Edit Contact Modal */}
     {showContactModal && (
