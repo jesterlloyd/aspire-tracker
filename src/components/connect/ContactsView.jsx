@@ -10,40 +10,119 @@ const NAVY = '#1D2567'
 
 // ── Category mapping ──────────────────────────────────────────────────────────
 
-const CATEGORY_MAP = {
-  'School Coordinator':   'Academic Partners',
-  'Associate Director':   'Unit Leaders',
-  'Assistant Nurse Manager': 'Unit Leaders',
-  'Unit NPD-P':           'Unit NPD-Ps',
-  'NPD Practitioner':     'BNI Team',
-  'BNI Administration':   'BNI Team',
-  'Nursing Leadership':   'Nursing Leadership',
+// ── Multi-category contact model ───────────────────────────────────────────────
+// A contact may belong to more than one category.
+// getContactCategories() returns all categories a contact belongs to.
+// getPrimaryCategory() returns the single category used for grouping in All view.
+
+const ACADEMIC_ROLES = new Set([
+  'School Coordinator', 'Clinical Placement Coordinator', 'Clinical Placement Coordinators',
+  'Program Assistant', 'Program Assistants',
+  'Manager', 'Manager, Clinical Operations',
+  'Clinical Faculty', 'Associate Professor',
+  'Program Coordinator',
+])
+
+const UNIT_LEADERSHIP_ROLES = new Set([
+  'Associate Director', 'Assistant Nurse Manager',
+  'Unit NPD-P', 'Unit NPD Practitioner',
+])
+
+const PRECEPTOR_ROLES = new Set([
+  'Preceptor', 'Clinical Preceptor',
+])
+
+const BNI_TEAM_ROLES = new Set([
+  'NPD Practitioner', 'BNI Administration', 'BNI Team',
+])
+
+const NURSING_EXEC_ROLES = new Set([
+  'Nursing Leadership', 'Nursing Executive', 'Executive Director',
+  'Chief Nursing Officer',
+])
+
+// Returns all categories a contact belongs to (may be more than one)
+function getContactCategories(contact) {
+  const role = contact.role || ''
+  const org  = (contact.organization || '').toLowerCase()
+  const cats = new Set()
+
+  if (ACADEMIC_ROLES.has(role))          cats.add('Academic Partners')
+  if (UNIT_LEADERSHIP_ROLES.has(role))   cats.add('Unit Leadership')
+  // NPD Practitioner assigned to a unit → also Unit Leadership
+  if (role === 'NPD Practitioner' && contact.unit_name) cats.add('Unit Leadership')
+  if (PRECEPTOR_ROLES.has(role))         cats.add('Preceptors')
+  if (BNI_TEAM_ROLES.has(role))          cats.add('BNI Team')
+  if (NURSING_EXEC_ROLES.has(role))      cats.add('Nursing Executives')
+  // BNI executive contacts (e.g. Margo): nursing exec role + BNI/Brawerman org → both categories
+  if (NURSING_EXEC_ROLES.has(role) && (org.includes('brawerman') || org.includes(' bni '))) {
+    cats.add('BNI Team')
+  }
+
+  return cats.size > 0 ? [...cats] : ['Other']
+}
+
+// Primary category priority for grouping in All view (higher index = lower priority)
+const CATEGORY_PRIORITY = [
+  'Nursing Executives', 'BNI Team', 'Unit Leadership',
+  'Preceptors', 'Academic Partners', 'Other',
+]
+
+function getPrimaryCategory(contact) {
+  const cats = new Set(getContactCategories(contact))
+  for (const cat of CATEGORY_PRIORITY) {
+    if (cats.has(cat)) return cat
+  }
+  return 'Other'
+}
+
+// Role rank within Unit Leadership for sorting
+const UNIT_ROLE_RANK = {
+  'Associate Director':      1,
+  'Assistant Nurse Manager': 2,
+  'Unit NPD-P':              3,
+  'Unit NPD Practitioner':   3,
 }
 
 const CATEGORY_ORDER = [
   'All',
   'Academic Partners',
-  'Unit Leaders',
-  'Unit NPD-Ps',
+  'Unit Leadership',
+  'Preceptors',
   'BNI Team',
-  'Nursing Leadership',
+  'Nursing Executives',
   'Other',
 ]
-
-function roleToCategory(role) {
-  return CATEGORY_MAP[role] || 'Other'
-}
 
 // ── Role display config ───────────────────────────────────────────────────────
 
 const ROLE_COLORS = {
-  'School Coordinator':    { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
-  'Associate Director':    { color: '#0d7a8a', bg: '#E0F7FA', border: '#9dd6f2' },
-  'Assistant Nurse Manager': { color: '#166534', bg: '#EEF7F0', border: '#c6d9a8' },
-  'Unit NPD-P':            { color: '#065f46', bg: '#D1FAE5', border: '#6ee7b7' },
-  'NPD Practitioner':      { color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
-  'BNI Administration':    { color: '#5B21B6', bg: '#EDE9FE', border: '#C4B5FD' },
-  'Nursing Leadership':    { color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
+  // Academic Partners
+  'School Coordinator':             { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Clinical Placement Coordinator': { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Program Coordinator':            { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Program Assistant':              { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Manager':                        { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Manager, Clinical Operations':   { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Clinical Faculty':               { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Associate Professor':            { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  // Unit Leadership
+  'Associate Director':             { color: '#0d7a8a', bg: '#E0F7FA', border: '#9dd6f2' },
+  'Assistant Nurse Manager':        { color: '#166534', bg: '#EEF7F0', border: '#c6d9a8' },
+  'Unit NPD-P':                     { color: '#065f46', bg: '#D1FAE5', border: '#6ee7b7' },
+  'Unit NPD Practitioner':          { color: '#065f46', bg: '#D1FAE5', border: '#6ee7b7' },
+  // Preceptors
+  'Preceptor':                      { color: '#0e4e6e', bg: '#E1F3FB', border: '#89CEEA' },
+  'Clinical Preceptor':             { color: '#0e4e6e', bg: '#E1F3FB', border: '#89CEEA' },
+  // BNI Team
+  'NPD Practitioner':               { color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
+  'BNI Administration':             { color: '#5B21B6', bg: '#EDE9FE', border: '#C4B5FD' },
+  'BNI Team':                       { color: '#5B21B6', bg: '#EDE9FE', border: '#C4B5FD' },
+  // Nursing Executives
+  'Nursing Leadership':             { color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
+  'Nursing Executive':              { color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
+  'Executive Director':             { color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
+  'Chief Nursing Officer':          { color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
 }
 
 function roleChip(role) {
@@ -60,12 +139,12 @@ function roleChip(role) {
 // ── Category pill accent colors ───────────────────────────────────────────────
 
 const CATEGORY_ACCENT = {
-  'Academic Partners': { active: '#1D2567', activeText: '#fff', restText: '#6b7280' },
-  'Unit Leaders':      { active: '#0d7a8a', activeText: '#fff', restText: '#6b7280' },
-  'Unit NPD-Ps':       { active: '#065f46', activeText: '#fff', restText: '#6b7280' },
-  'BNI Team':          { active: '#7C3AED', activeText: '#fff', restText: '#6b7280' },
-  'Nursing Leadership':{ active: '#92400e', activeText: '#fff', restText: '#6b7280' },
-  'Other':             { active: '#374151', activeText: '#fff', restText: '#6b7280' },
+  'Academic Partners':  { active: '#1D2567', activeText: '#fff', restText: '#6b7280' },
+  'Unit Leadership':    { active: '#0d7a8a', activeText: '#fff', restText: '#6b7280' },
+  'Preceptors':         { active: '#0e4e6e', activeText: '#fff', restText: '#6b7280' },
+  'BNI Team':           { active: '#7C3AED', activeText: '#fff', restText: '#6b7280' },
+  'Nursing Executives': { active: '#92400e', activeText: '#fff', restText: '#6b7280' },
+  'Other':              { active: '#374151', activeText: '#fff', restText: '#6b7280' },
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -198,9 +277,10 @@ function ContactRow({ contact, isSelected, onClick }) {
     <div
       onClick={onClick}
       style={{
-        padding: '10px 16px', cursor: 'pointer',
+        padding: '8px 12px', cursor: 'pointer', margin: '2px 6px',
         background: isSelected ? '#EEF2FB' : 'transparent',
-        borderLeft: `3px solid ${isSelected ? NAVY : 'transparent'}`,
+        borderRadius: 8,
+        outline: isSelected ? `1.5px solid rgba(29,37,103,0.18)` : 'none',
         transition: 'background 0.1s',
       }}
       onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f9fafb' }}
@@ -739,11 +819,12 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
   // Role group drives which sections appear in the main form
   const roleGroup = (() => {
     const r = formData.role || ''
-    if (r === 'School Coordinator') return 'academic'
+    if (ACADEMIC_ROLES.has(r)) return 'academic'
     if (['Associate Director', 'Assistant Nurse Manager'].includes(r)) return 'unit-clinical'
-    if (r === 'Unit NPD-P') return 'unit-npd-p'
-    if (['NPD Practitioner', 'BNI Administration'].includes(r)) return 'bni'
-    if (r === 'Nursing Leadership') return 'nursing-leadership'
+    if (['Unit NPD-P', 'Unit NPD Practitioner'].includes(r)) return 'unit-npd-p'
+    if (PRECEPTOR_ROLES.has(r)) return 'preceptor'
+    if (BNI_TEAM_ROLES.has(r)) return 'bni'
+    if (NURSING_EXEC_ROLES.has(r)) return 'nursing-exec'
     return 'other'
   })()
 
@@ -989,6 +1070,7 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
 
           {/* ── Program / Unit Details (conditional by role group) ── */}
           {(roleGroup === 'academic' || roleGroup === 'unit-clinical' || roleGroup === 'unit-npd-p'
+            || roleGroup === 'preceptor'
             || (roleGroup !== 'academic' && (formData.school_name || formData.unit_name || formData.related_units || formData.program_type))) && (
             <>
               <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>Program / Unit Details</div>
@@ -1233,11 +1315,13 @@ export default function ContactsView() {
   // ── Derived values ──────────────────────────────────────────────────────────
   const selected = contacts.find(c => c.id === selectedId) || null
 
-  const categoryCounts = contacts.reduce((acc, c) => {
-    const cat = roleToCategory(c.role)
-    acc[cat] = (acc[cat] || 0) + 1
-    return acc
-  }, {})
+  // Category counts: each contact may appear in multiple categories
+  const categoryCounts = {}
+  contacts.forEach(c => {
+    getContactCategories(c).forEach(cat => {
+      categoryCounts[cat] = (categoryCounts[cat] || 0) + 1
+    })
+  })
 
   const activeCategories = CATEGORY_ORDER.filter(cat =>
     cat === 'All' || (categoryCounts[cat] || 0) > 0
@@ -1246,28 +1330,40 @@ export default function ContactsView() {
   const filtered = contacts.filter(c => {
     const q = search.trim().toLowerCase()
     if (q) {
-      const match =
-        c.full_name?.toLowerCase().includes(q) ||
-        c.preferred_name?.toLowerCase().includes(q) ||
-        c.email?.toLowerCase().includes(q) ||
-        c.organization?.toLowerCase().includes(q) ||
-        c.school_name?.toLowerCase().includes(q) ||
-        c.unit_name?.toLowerCase().includes(q) ||
-        c.role?.toLowerCase().includes(q) ||
-        c.notes?.toLowerCase().includes(q)
-      if (!match) return false
+      const relatedStr = Array.isArray(c.related_units) ? c.related_units.join(' ') : ''
+      const searchText = [
+        c.full_name, c.preferred_name, c.email, c.organization,
+        c.role, c.unit_name, relatedStr, c.school_name, c.notes,
+      ].filter(Boolean).join(' ').toLowerCase()
+      if (!searchText.includes(q)) return false
     }
-    if (categoryFilter !== 'All' && roleToCategory(c.role) !== categoryFilter) return false
+    if (categoryFilter !== 'All' && !getContactCategories(c).includes(categoryFilter)) return false
     return true
   })
+
+  // Unit Leadership sort: by unit_name → role rank → full_name
+  let sortedFiltered = filtered
+  if (categoryFilter === 'Unit Leadership') {
+    sortedFiltered = [...filtered].sort((a, b) => {
+      const uA = a.unit_name || (Array.isArray(a.related_units) ? a.related_units[0] : '') || ''
+      const uB = b.unit_name || (Array.isArray(b.related_units) ? b.related_units[0] : '') || ''
+      const unitCmp = uA.localeCompare(uB)
+      if (unitCmp !== 0) return unitCmp
+      const rA = UNIT_ROLE_RANK[a.role] || 99
+      const rB = UNIT_ROLE_RANK[b.role] || 99
+      if (rA !== rB) return rA - rB
+      return (a.full_name || '').localeCompare(b.full_name || '')
+    })
+  }
 
   const showGrouped = categoryFilter === 'All' && !search.trim()
 
   const listItems = []
   if (showGrouped) {
+    // Group by primary category — each contact appears exactly once
     const grouped = {}
-    filtered.forEach(c => {
-      const cat = roleToCategory(c.role)
+    sortedFiltered.forEach(c => {
+      const cat = getPrimaryCategory(c)
       if (!grouped[cat]) grouped[cat] = []
       grouped[cat].push(c)
     })
@@ -1278,20 +1374,28 @@ export default function ContactsView() {
       group.forEach(c => listItems.push({ type: 'row', contact: c }))
     })
   } else {
-    filtered.forEach(c => listItems.push({ type: 'row', contact: c }))
+    sortedFiltered.forEach(c => listItems.push({ type: 'row', contact: c }))
   }
 
   // ── Three-zone CRM layout ─────────────────────────────────────────────────
   return (
     <>
-    <div style={{ display: 'flex', height: '100%', fontFamily: F, overflow: 'hidden' }}>
+    <div style={{
+      display: 'flex', height: '100%', fontFamily: F, overflow: 'hidden',
+      padding: '10px 12px', gap: 10,
+      background: 'var(--bg-app, #F4F1EC)',
+      boxSizing: 'border-box',
+    }}>
 
       {/* ── Zone 1: Directory (left) ──────────────────────────────────── */}
       <div style={{
-        flex: '0 0 340px', flexShrink: 0,
-        borderRight: '1px solid rgba(29,37,103,0.08)',
+        flex: '0 0 320px', flexShrink: 0,
+        borderRadius: 12,
+        border: '1px solid rgba(29,37,103,0.10)',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
         display: 'flex', flexDirection: 'column',
         background: '#fff',
+        overflow: 'hidden',
       }}>
 
         {/* Directory header with Add Contact */}
@@ -1350,7 +1454,9 @@ export default function ContactsView() {
         </div>
 
         {/* Category filter pills */}
-        <div style={{ padding: '0 12px 8px', display: 'flex', gap: 4, flexWrap: 'wrap', flexShrink: 0 }}>
+        <div style={{ padding: '4px 12px 8px', flexShrink: 0 }}>
+        <div style={{ fontSize: 9, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: F, marginBottom: 5 }}>Category</div>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {activeCategories.map(cat => {
             const isActive = categoryFilter === cat
             const accent = CATEGORY_ACCENT[cat] || CATEGORY_ACCENT['Other']
@@ -1381,7 +1487,8 @@ export default function ContactsView() {
               </button>
             )
           })}
-        </div>
+        </div>{/* end flex wrap */}
+        </div>{/* end category section */}
 
         {/* Contact count */}
         <div style={{ padding: '0 14px 6px', fontSize: 10.5, color: '#9ca3af', fontFamily: F, flexShrink: 0 }}>
@@ -1426,7 +1533,9 @@ export default function ContactsView() {
         flex: '1 1 0', minWidth: 0,
         overflowY: 'auto',
         background: '#fff',
-        borderRight: '1px solid rgba(29,37,103,0.08)',
+        borderRadius: 12,
+        border: '1px solid rgba(29,37,103,0.10)',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
       }}>
         {selected ? (
           <ContactProfile contact={selected} navigate={navigate} onEdit={handleOpenEdit} />
@@ -1437,9 +1546,12 @@ export default function ContactsView() {
 
       {/* ── Zone 3: Context — history + linked students (right) ───────── */}
       <div style={{
-        flex: '0 0 300px', minWidth: 0,
+        flex: '0 0 280px', minWidth: 0,
         overflowY: 'auto',
-        background: '#FAFAF7',
+        background: '#fff',
+        borderRadius: 12,
+        border: '1px solid rgba(29,37,103,0.10)',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
       }}>
         {selected ? (
           <ContactContext
