@@ -261,10 +261,27 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
       case 'get_student_detail': {
         const { data: student, error } = await supabase
           .from('students')
-          .select('id, first_name, last_name, school, program_type, status, cumulative_gpa, school_email, personal_email, phone, unit_preference_1, unit_preference_2, unit_preference_3, matched_unit_id, matched_preceptor, shift_assigned, interview_scheduled_date, interview_scheduled_time, interview_assigned_interviewers, avg_composite_score, avg_cj_score, avg_pp_score, avg_ga_score, auto_recommendation, score_flag, score_flag_message, rubric_count, cs_stage1_submitted, cs_link_complete, badge_created, approved_hours, hours_required, flagged_for_second_interview, flag_note, cohort_school_rotation_id, interest_statement, headshot_url, resume_url')
+          .select('id, first_name, last_name, school, program_type, status, cumulative_gpa, school_email, personal_email, phone, unit_preference_1, unit_preference_2, unit_preference_3, matched_unit_id, matched_preceptor, preceptor_id, shift_assigned, interview_scheduled_date, interview_scheduled_time, interview_assigned_interviewers, avg_composite_score, avg_cj_score, avg_pp_score, avg_ga_score, auto_recommendation, score_flag, score_flag_message, rubric_count, cs_stage1_submitted, cs_link_complete, badge_created, approved_hours, hours_required, flagged_for_second_interview, flag_note, cohort_school_rotation_id, interest_statement, headshot_url, resume_url')
           .eq('id', input.student_id)
           .single();
         if (error || !student) return { error: 'Student not found' };
+
+        // Resolve preceptor via FK when free-text field is empty
+        let resolvedStudent = student;
+        if ((!student.matched_preceptor || !student.matched_preceptor.trim()) && student.preceptor_id) {
+          const { data: pRec } = await supabase
+            .from('preceptors')
+            .select('full_name, email')
+            .eq('id', student.preceptor_id)
+            .single();
+          if (pRec?.full_name) {
+            resolvedStudent = {
+              ...student,
+              matched_preceptor: pRec.full_name,
+              ...(pRec.email && !student.preceptor_email ? { preceptor_email: pRec.email } : {}),
+            };
+          }
+        }
 
         // Fetch rubrics
         const { data: rubrics } = await supabase
@@ -293,7 +310,7 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
           .limit(5);
 
         return {
-          student: stripSensitive(student),
+          student: stripSensitive(resolvedStudent),
           rubrics: rubrics || [],
           rotation,
           recent_communications: comms || [],
@@ -611,6 +628,35 @@ Rotation Window: ${cohort.start_date || 'TBD'} to ${cohort.end_date || 'TBD'}
 Cohort Status: ${cohort.status || 'unknown'}`
         : `Active Cohort ID: ${liveData.activeCohortId || 'none'}`;
 
+      // Preceptor FK fallback — fires only when cached matched_preceptor is empty
+      // but students.preceptor_id is set (data-consistency gap between FK and free-text field).
+      // Queries the preceptors table directly using the service role client.
+      // Skipped entirely when all placed students already have matched_preceptor populated.
+      let preceptorFallbackMap = {};
+      const studentsNeedingPreceptorLookup = placed
+        .filter(s => (!s.matched_preceptor || !s.matched_preceptor.trim()) && s.preceptor_id);
+      if (studentsNeedingPreceptorLookup.length > 0) {
+        console.log('[keith] preceptor FK fallback fired for', studentsNeedingPreceptorLookup.length, 'students');
+        const preceptorIds = [...new Set(studentsNeedingPreceptorLookup.map(s => s.preceptor_id))];
+        try {
+          const dbFallback = makeServiceRoleClient();
+          const { data: preceptorRecords, error: preceptorLookupError } = await dbFallback
+            .from('preceptors')
+            .select('id, full_name')
+            .in('id', preceptorIds);
+          if (preceptorLookupError) {
+            console.error('[keith] preceptor fallback lookup failed:', preceptorLookupError.message);
+          } else if (preceptorRecords) {
+            preceptorFallbackMap = preceptorRecords.reduce((acc, p) => {
+              acc[p.id] = p.full_name;
+              return acc;
+            }, {});
+          }
+        } catch (err) {
+          console.error('[keith] preceptor fallback lookup threw:', err.message);
+        }
+      }
+
       // Detailed placement block — one record per placed student
       const placementLines = placed.slice(0, 50).map(s => {
         const match         = matchesByStudentId[s.id];
@@ -619,12 +665,16 @@ Cohort Status: ${cohort.status || 'unknown'}`
         const requiredHrs   = s.hours_required || 90;
         const remainingHrs  = Math.max(0, requiredHrs - completedHrs);
         const quality       = match?.match_quality || '';
+        // Resolve preceptor: free-text (matched_preceptor) → FK lookup → 'pending'
+        const preceptorName = (s.matched_preceptor && s.matched_preceptor.trim())
+          ? s.matched_preceptor
+          : (s.preceptor_id && preceptorFallbackMap[s.preceptor_id]) || 'pending';
         return [
           `- ${s.last_name}, ${s.first_name}`,
           `  School: ${s.school || 'N/A'} | Program: ${s.program_type || 'N/A'} | GPA: ${s.cumulative_gpa || 'N/A'}`,
           `  School Email: ${s.school_email || 'N/A'} | Personal Email: ${s.personal_email || 'N/A'} | Phone: ${s.phone || 'N/A'}`,
           `  Unit: ${unit.unit_name || 'pending'}${unit.division ? ` [${unit.division}]` : ''}`,
-          `  Preceptor: ${s.matched_preceptor || 'pending'} | Shift: ${s.shift_assigned || s.shift_availability || 'N/A'}`,
+          `  Preceptor: ${preceptorName} | Shift: ${s.shift_assigned || s.shift_availability || 'N/A'}`,
           `  Rotation Dates: ${s.term_dates || 'N/A'}`,
           `  Hours: ${completedHrs.toFixed(1)}/${requiredHrs}h (${remainingHrs.toFixed(1)}h remaining)`,
           unit.contact_person ? `  Unit Leader: ${unit.contact_person} | ${unit.contact_email || 'no email'}` : null,
