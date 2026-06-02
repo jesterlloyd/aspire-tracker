@@ -252,7 +252,7 @@ function ContactRow({ contact, isSelected, onClick }) {
 
 // ── Zone 2: Contact profile panel ────────────────────────────────────────────
 
-function ContactProfile({ contact, navigate }) {
+function ContactProfile({ contact, navigate, onEdit }) {
   const relatedUnits = Array.isArray(contact.related_units) ? contact.related_units.filter(Boolean) : []
   const showAffiliation = contact.school_name || contact.program_type || contact.unit_name || relatedUnits.length > 0
   const hasWeeklyDigest = contact.notification_preferences?.weekly_digest !== false
@@ -267,15 +267,37 @@ function ContactProfile({ contact, navigate }) {
         textAlign: 'center',
         background: '#fff',
       }}>
-        {/* Avatar (initials — no avatar_url column in current schema) */}
+        {/* Avatar — shows image if avatar_url is present, falls back to initials */}
         <div style={{
           width: 72, height: 72, borderRadius: '50%',
           background: NAVY, margin: '0 auto 14px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 24, fontWeight: 700, color: '#fff', fontFamily: F,
-          flexShrink: 0,
+          flexShrink: 0, overflow: 'hidden', position: 'relative',
         }}>
-          {initials(contact.full_name)}
+          {contact.avatar_url ? (
+            <img
+              src={contact.avatar_url}
+              alt={contact.full_name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              onError={e => {
+                e.currentTarget.style.display = 'none'
+                e.currentTarget.parentElement.querySelector('.avatar-initials').style.display = 'flex'
+              }}
+            />
+          ) : null}
+          <span
+            className="avatar-initials"
+            style={{
+              display: contact.avatar_url ? 'none' : 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              width: '100%', height: '100%',
+              position: contact.avatar_url ? 'absolute' : 'static',
+              inset: 0,
+            }}
+          >
+            {initials(contact.full_name)}
+          </span>
         </div>
 
         {/* Name */}
@@ -368,19 +390,43 @@ function ContactProfile({ contact, navigate }) {
             </a>
           ) : null}
 
-          {/* Edit — not functional in Phase 1 */}
-          <Tooltip label="Edit contact coming soon" placement="bottom">
-            <button disabled style={{
+          {/* Edit */}
+          <button
+            onClick={() => onEdit && onEdit(contact)}
+            style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
               padding: '7px 14px', borderRadius: 8,
-              background: '#f9fafb', color: '#9ca3af',
-              border: '1px solid #e5e7eb',
+              background: '#f9fafb', color: NAVY,
+              border: `1px solid rgba(29,37,103,0.20)`,
               fontFamily: F, fontSize: 12, fontWeight: 600,
-              cursor: 'not-allowed',
-            }}>
-              ✎ Edit
-            </button>
-          </Tooltip>
+              cursor: 'pointer', transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = '#EEF2FB'}
+            onMouseLeave={e => e.currentTarget.style.background = '#f9fafb'}
+          >
+            ✎ Edit
+          </button>
+
+          {/* LinkedIn — shown when url is available */}
+          {contact.linkedin_url && (
+            <a
+              href={contact.linkedin_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '7px 14px', borderRadius: 8,
+                background: '#fff', color: '#0A66C2',
+                border: '1px solid rgba(10,102,194,0.25)',
+                fontFamily: F, fontSize: 12, fontWeight: 600,
+                textDecoration: 'none', transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = '#EFF6FF'}
+              onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+            >
+              in LinkedIn
+            </a>
+          )}
         </div>
       </div>
 
@@ -402,6 +448,18 @@ function ContactProfile({ contact, navigate }) {
           ) : (
             <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: F, marginBottom: contact.phone ? 8 : 0 }}>
               No email on file
+            </div>
+          )}
+          {contact.preferred_contact_method && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: contact.phone ? 8 : 0 }}>
+              <span style={{ fontSize: 11, color: '#9ca3af', width: 44, fontFamily: F, flexShrink: 0 }}>Prefers</span>
+              <span style={{
+                fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 4,
+                background: '#EEF2FB', color: NAVY, border: '1px solid #c3cdf0',
+                fontFamily: F, textTransform: 'capitalize',
+              }}>
+                {contact.preferred_contact_method.replace(/_/g, ' ')}
+              </span>
             </div>
           )}
           {contact.phone && (
@@ -624,12 +682,314 @@ function NoSelection({ count }) {
   )
 }
 
+// ── Add / Edit Contact Modal ──────────────────────────────────────────────────
+
+const PREFERRED_METHOD_OPTIONS = [
+  { value: '',             label: 'No preference' },
+  { value: 'email',       label: 'Email' },
+  { value: 'phone',       label: 'Phone' },
+  { value: 'text',        label: 'Text' },
+  { value: 'teams',       label: 'Microsoft Teams' },
+  { value: 'no_preference', label: 'No preference (explicit)' },
+]
+
+const inputStyle = {
+  width: '100%', boxSizing: 'border-box',
+  padding: '8px 11px', border: '1.5px solid #e5e7eb',
+  borderRadius: 8, fontSize: 13, fontFamily: F,
+  color: '#191919', background: '#fff', outline: 'none',
+}
+
+const labelStyle = {
+  display: 'block', fontSize: 11, fontWeight: 600,
+  color: '#374151', marginBottom: 4, fontFamily: F,
+}
+
+function ContactModal({ mode, initialData, onClose, onSaved }) {
+  const isEdit = mode === 'edit'
+  const [formData, setFormData] = useState(() => {
+    if (!isEdit || !initialData) return { is_active: true }
+    return {
+      ...initialData,
+      related_units: Array.isArray(initialData.related_units)
+        ? initialData.related_units.join(', ')
+        : (initialData.related_units || ''),
+      weekly_digest: initialData.notification_preferences?.weekly_digest !== false,
+    }
+  })
+  const [saving,  setSaving]  = useState(false)
+  const [errMsg,  setErrMsg]  = useState(null)
+
+  const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }))
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setErrMsg(null)
+    setSaving(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        setErrMsg('Session expired. Please refresh and try again.')
+        return
+      }
+      const body = {
+        ...(isEdit && initialData?.id ? { id: initialData.id } : {}),
+        full_name:                formData.full_name || '',
+        preferred_name:           formData.preferred_name || '',
+        email:                    formData.email || '',
+        phone:                    formData.phone || '',
+        organization:             formData.organization || '',
+        role:                     formData.role || '',
+        role_qualifier:           formData.role_qualifier || '',
+        school_name:              formData.school_name || '',
+        program_type:             formData.program_type || '',
+        unit_name:                formData.unit_name || '',
+        related_units:            formData.related_units || '',
+        linkedin_url:             formData.linkedin_url || '',
+        avatar_url:               formData.avatar_url || '',
+        preferred_contact_method: formData.preferred_contact_method || '',
+        is_active:                formData.is_active !== false,
+        notes:                    formData.notes || '',
+        notification_preferences: { weekly_digest: formData.weekly_digest !== false },
+      }
+      const res = await fetch('/api/contacts-upsert', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(body),
+      })
+      let payload = null
+      try { payload = await res.json() } catch { /* ignore */ }
+      if (res.status === 409) { setErrMsg(payload?.error || 'A contact with this email already exists.'); return }
+      if (res.status === 401 || res.status === 403) { setErrMsg('You do not have permission to edit contacts.'); return }
+      if (!res.ok) { setErrMsg(payload?.error || 'Failed to save contact. Please try again.'); return }
+      onSaved(payload.contact, isEdit)
+    } catch {
+      setErrMsg('Network error. Please check your connection and try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: '#fff', borderRadius: 12,
+          padding: '28px 32px', maxWidth: 680, width: '90vw',
+          maxHeight: '88vh', overflowY: 'auto',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.18)',
+          fontFamily: F, boxSizing: 'border-box',
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: NAVY, fontFamily: F }}>
+            {isEdit ? 'Edit Contact' : 'Add Contact'}
+          </h2>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 20, color: '#9ca3af', lineHeight: 1, padding: '2px 6px',
+          }}>×</button>
+        </div>
+
+        {/* Error */}
+        {errMsg && (
+          <div style={{
+            background: '#fef2f2', border: '1px solid #fecaca',
+            borderRadius: 8, padding: '10px 14px',
+            fontSize: 12, color: '#dc2626', fontFamily: F,
+            marginBottom: 18,
+          }}>
+            {errMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          {/* Full Name (full width, required) */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Full Name <span style={{ color: '#dc2626' }}>*</span></label>
+            <input
+              required value={formData.full_name || ''}
+              onChange={e => set('full_name', e.target.value)}
+              placeholder="e.g. Susan Hunter"
+              style={inputStyle}
+            />
+          </div>
+
+          {/* 2-col grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+
+            {/* Row 1 */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Preferred Name</label>
+              <input value={formData.preferred_name || ''} onChange={e => set('preferred_name', e.target.value)} placeholder="e.g. Sue" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Email</label>
+              <input type="email" value={formData.email || ''} onChange={e => set('email', e.target.value)} placeholder="name@example.com" style={inputStyle} />
+            </div>
+
+            {/* Row 2 */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Phone</label>
+              <input value={formData.phone || ''} onChange={e => set('phone', e.target.value)} placeholder="e.g. 310-555-0100" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Preferred Contact Method</label>
+              <select
+                value={formData.preferred_contact_method || ''}
+                onChange={e => set('preferred_contact_method', e.target.value)}
+                style={{ ...inputStyle }}
+              >
+                {PREFERRED_METHOD_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Row 3 */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Organization</label>
+              <input value={formData.organization || ''} onChange={e => set('organization', e.target.value)} placeholder="e.g. Azusa Pacific University" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Role</label>
+              <input value={formData.role || ''} onChange={e => set('role', e.target.value)} placeholder="e.g. School Coordinator" style={inputStyle} />
+            </div>
+
+            {/* Row 4 */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Role Qualifier / Title Detail</label>
+              <input value={formData.role_qualifier || ''} onChange={e => set('role_qualifier', e.target.value)} placeholder="e.g. BSN Programs" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>School Name</label>
+              <input value={formData.school_name || ''} onChange={e => set('school_name', e.target.value)} placeholder="e.g. APU" style={inputStyle} />
+            </div>
+
+            {/* Row 5 */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Program Type</label>
+              <input value={formData.program_type || ''} onChange={e => set('program_type', e.target.value)} placeholder="e.g. BSN, ABSN" style={inputStyle} />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Unit Name</label>
+              <input value={formData.unit_name || ''} onChange={e => set('unit_name', e.target.value)} placeholder="e.g. 5 SCCT" style={inputStyle} />
+            </div>
+          </div>
+
+          {/* Full-width fields */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>LinkedIn URL</label>
+            <input value={formData.linkedin_url || ''} onChange={e => set('linkedin_url', e.target.value)} placeholder="https://linkedin.com/in/..." style={inputStyle} />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Avatar URL</label>
+            <input value={formData.avatar_url || ''} onChange={e => set('avatar_url', e.target.value)} placeholder="https://..." style={inputStyle} />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Related Units <span style={{ fontWeight: 400, color: '#9ca3af' }}>(comma-separated)</span></label>
+            <input value={formData.related_units || ''} onChange={e => set('related_units', e.target.value)} placeholder="e.g. 5 SCCT, 4 South, 7 North" style={inputStyle} />
+          </div>
+
+          {/* Notes */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle}>Notes</label>
+            <textarea
+              value={formData.notes || ''}
+              onChange={e => set('notes', e.target.value)}
+              rows={3}
+              placeholder="Optional context or notes about this contact."
+              style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.55, minHeight: 72 }}
+            />
+          </div>
+
+          {/* Toggles */}
+          <div style={{ display: 'flex', gap: 24, marginBottom: 8 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12, fontFamily: F, color: '#374151' }}>
+              <input
+                type="checkbox" checked={formData.is_active !== false}
+                onChange={e => set('is_active', e.target.checked)}
+                style={{ width: 14, height: 14 }}
+              />
+              Active contact
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12, fontFamily: F, color: '#374151' }}>
+              <input
+                type="checkbox" checked={formData.weekly_digest !== false}
+                onChange={e => set('weekly_digest', e.target.checked)}
+                style={{ width: 14, height: 14 }}
+              />
+              Receives weekly digest
+            </label>
+          </div>
+
+          {/* Footer */}
+          <div style={{
+            display: 'flex', justifyContent: 'flex-end', gap: 10,
+            paddingTop: 20, marginTop: 8,
+            borderTop: '1px solid #f3f4f6',
+          }}>
+            <button type="button" onClick={onClose} style={{
+              padding: '8px 18px', borderRadius: 8,
+              border: '1px solid #e5e7eb', background: '#fff',
+              fontSize: 12, fontWeight: 600, fontFamily: F,
+              color: '#374151', cursor: 'pointer',
+            }}>
+              Cancel
+            </button>
+            <button type="submit" disabled={saving} style={{
+              padding: '8px 20px', borderRadius: 8,
+              border: 'none',
+              background: saving ? '#e5e7eb' : NAVY,
+              fontSize: 12, fontWeight: 600, fontFamily: F,
+              color: saving ? '#9ca3af' : '#fff',
+              cursor: saving ? 'not-allowed' : 'pointer',
+              transition: 'background 0.12s',
+            }}>
+              {saving ? 'Saving…' : (isEdit ? 'Save Changes' : 'Add Contact')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ContactsView() {
   const navigate    = useNavigate()
   const location    = useLocation()
   const restoredRef = useRef(false)   // tracks whether initial selection restore has run
+
+  const [showContactModal, setShowContactModal] = useState(false)
+  const [editingContact,   setEditingContact]   = useState(null)
+
+  const handleOpenAdd  = useCallback(() => { setEditingContact(null); setShowContactModal(true) }, [])
+  const handleOpenEdit = useCallback(contact => { setEditingContact(contact); setShowContactModal(true) }, [])
+  const handleModalClose = useCallback(() => { setShowContactModal(false); setEditingContact(null) }, [])
+
+  const handleContactSaved = useCallback((savedContact, wasEdit) => {
+    setContacts(prev =>
+      wasEdit
+        ? prev.map(c => c.id === savedContact.id ? savedContact : c)
+        : [...prev, savedContact]
+    )
+    setSelectedId(savedContact.id)
+    handleModalClose()
+  }, [handleModalClose])
 
   const [contacts,        setContacts]        = useState([])
   const [loading,         setLoading]         = useState(true)
@@ -771,6 +1131,7 @@ export default function ContactsView() {
 
   // ── Three-zone CRM layout ─────────────────────────────────────────────────
   return (
+    <>
     <div style={{ display: 'flex', height: '100%', fontFamily: F, overflow: 'hidden' }}>
 
       {/* ── Zone 1: Directory (left) ──────────────────────────────────── */}
@@ -791,21 +1152,21 @@ export default function ContactsView() {
           <span style={{ fontSize: 11, fontWeight: 700, color: '#374151', fontFamily: F, letterSpacing: '-0.01em' }}>
             Contacts
           </span>
-          {/* Add Contact — not functional in Phase 1 */}
-          <Tooltip label="Add contact coming soon" placement="bottom">
-            <button
-              disabled
-              style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                padding: '4px 9px', borderRadius: 6, border: '1px solid #e5e7eb',
-                background: '#f9fafb', color: '#9ca3af',
-                fontSize: 10, fontWeight: 600, fontFamily: F,
-                cursor: 'not-allowed',
-              }}
-            >
-              + Add
-            </button>
-          </Tooltip>
+          <button
+            onClick={handleOpenAdd}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '4px 9px', borderRadius: 6,
+              border: `1px solid ${NAVY}`,
+              background: NAVY, color: '#fff',
+              fontSize: 10, fontWeight: 600, fontFamily: F,
+              cursor: 'pointer', transition: 'opacity 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+          >
+            + Add
+          </button>
         </div>
 
         {/* Search */}
@@ -916,7 +1277,7 @@ export default function ContactsView() {
         borderRight: '1px solid rgba(29,37,103,0.08)',
       }}>
         {selected ? (
-          <ContactProfile contact={selected} navigate={navigate} />
+          <ContactProfile contact={selected} navigate={navigate} onEdit={handleOpenEdit} />
         ) : (
           <NoSelection count={filtered.length} />
         )}
@@ -950,5 +1311,16 @@ export default function ContactsView() {
       </div>
 
     </div>
+
+    {/* Add / Edit Contact Modal */}
+    {showContactModal && (
+      <ContactModal
+        mode={editingContact ? 'edit' : 'add'}
+        initialData={editingContact}
+        onClose={handleModalClose}
+        onSaved={handleContactSaved}
+      />
+    )}
+    </>
   )
 }
