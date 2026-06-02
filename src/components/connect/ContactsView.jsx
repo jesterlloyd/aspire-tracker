@@ -727,8 +727,25 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
   const [errMsg,         setErrMsg]         = useState(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [uploadErr,      setUploadErr]      = useState(null)
+  const [showAdvanced,   setShowAdvanced]   = useState(() => {
+    // Open Advanced Details automatically if the contact has data in non-primary fields
+    if (!isEdit || !initialData) return false
+    return !!(initialData.avatar_url || initialData.school_name || initialData.program_type
+           || initialData.unit_name || initialData.related_units)
+  })
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }))
+
+  // Role group drives which sections appear in the main form
+  const roleGroup = (() => {
+    const r = formData.role || ''
+    if (r === 'School Coordinator') return 'academic'
+    if (['Associate Director', 'Assistant Nurse Manager'].includes(r)) return 'unit-clinical'
+    if (r === 'Unit NPD-P') return 'unit-npd-p'
+    if (['NPD Practitioner', 'BNI Administration'].includes(r)) return 'bni'
+    if (r === 'Nursing Leadership') return 'nursing-leadership'
+    return 'other'
+  })()
 
   async function handlePhotoUpload(e) {
     const file = e.target.files?.[0]
@@ -867,30 +884,21 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
 
         <form onSubmit={handleSubmit}>
 
-          {/* ── Avatar preview + upload ── */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24 }}>
-            {/* Preview circle */}
+          {/* ── Photo ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 22 }}>
             <div style={{
               width: 80, height: 80, borderRadius: '50%',
               background: NAVY, overflow: 'hidden', flexShrink: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 26, fontWeight: 700, color: '#fff', fontFamily: F,
-              position: 'relative',
+              fontSize: 26, fontWeight: 700, color: '#fff', fontFamily: F, position: 'relative',
             }}>
               {formData.avatar_url ? (
-                <img
-                  src={formData.avatar_url}
-                  alt="Avatar preview"
+                <img src={formData.avatar_url} alt="Avatar preview"
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  onError={e => { e.currentTarget.style.display = 'none' }}
-                />
+                  onError={e => { e.currentTarget.style.display = 'none' }} />
               ) : null}
-              {!formData.avatar_url && (
-                <span>{initials(formData.full_name || '')}</span>
-              )}
+              {!formData.avatar_url && <span>{initials(formData.full_name || '')}</span>}
             </div>
-
-            {/* Upload / Remove buttons */}
             <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center' }}>
               <label style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -900,86 +908,61 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
                 color: uploadingPhoto ? '#9ca3af' : NAVY,
                 fontSize: 11, fontWeight: 600, fontFamily: F,
                 cursor: uploadingPhoto ? 'not-allowed' : 'pointer',
-                transition: 'background 0.12s',
               }}>
                 {uploadingPhoto ? 'Uploading…' : '↑ Upload Photo'}
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  style={{ display: 'none' }}
-                  disabled={uploadingPhoto}
-                  onChange={handlePhotoUpload}
-                />
+                <input type="file" accept="image/jpeg,image/png,image/webp"
+                  style={{ display: 'none' }} disabled={uploadingPhoto} onChange={handlePhotoUpload} />
               </label>
               {formData.avatar_url && !uploadingPhoto && (
-                <button
-                  type="button"
-                  onClick={handleRemovePhoto}
-                  style={{
-                    padding: '6px 13px', borderRadius: 7,
-                    border: '1px solid #e5e7eb', background: '#fff',
-                    color: '#6b7280', fontSize: 11, fontWeight: 600,
-                    fontFamily: F, cursor: 'pointer',
-                  }}
-                >
-                  Remove Photo
-                </button>
+                <button type="button" onClick={handleRemovePhoto} style={{
+                  padding: '6px 13px', borderRadius: 7, border: '1px solid #e5e7eb',
+                  background: '#fff', color: '#6b7280', fontSize: 11, fontWeight: 600,
+                  fontFamily: F, cursor: 'pointer',
+                }}>Remove Photo</button>
               )}
             </div>
-
-            {uploadErr && (
-              <div style={{ fontSize: 11, color: '#dc2626', fontFamily: F, marginTop: 6, textAlign: 'center' }}>
-                {uploadErr}
-              </div>
-            )}
-            <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 6 }}>
-              JPEG, PNG, or WebP · max 2 MB
-            </div>
+            {uploadErr && <div style={{ fontSize: 11, color: '#dc2626', fontFamily: F, marginTop: 6 }}>{uploadErr}</div>}
+            <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 4 }}>JPEG, PNG, or WebP · max 2 MB</div>
           </div>
 
-          {/* Full Name (full width, required) */}
+          {/* ── Section helper ── */}
+          {[
+            // Section headings rendered inline — this is a local style constant
+          ].map(() => null)}
+
+          {/* ── Identity ── */}
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>Identity</div>
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>Full Name <span style={{ color: '#dc2626' }}>*</span></label>
-            <input
-              required value={formData.full_name || ''}
-              onChange={e => set('full_name', e.target.value)}
-              placeholder="e.g. Susan Hunter"
-              style={inputStyle}
-            />
+            <input required value={formData.full_name || ''} onChange={e => set('full_name', e.target.value)} placeholder="e.g. Susan Hunter" style={inputStyle} />
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelStyle}>Preferred Name</label>
+            <input value={formData.preferred_name || ''} onChange={e => set('preferred_name', e.target.value)} placeholder="e.g. Sue" style={inputStyle} />
           </div>
 
-          {/* 2-col grid */}
+          {/* ── Contact Information ── */}
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>Contact Information</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
-
-            {/* Row 1 */}
-            <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>Preferred Name</label>
-              <input value={formData.preferred_name || ''} onChange={e => set('preferred_name', e.target.value)} placeholder="e.g. Sue" style={inputStyle} />
-            </div>
             <div style={{ marginBottom: 16 }}>
               <label style={labelStyle}>Email</label>
               <input type="email" value={formData.email || ''} onChange={e => set('email', e.target.value)} placeholder="name@example.com" style={inputStyle} />
             </div>
-
-            {/* Row 2 */}
             <div style={{ marginBottom: 16 }}>
               <label style={labelStyle}>Phone</label>
               <input value={formData.phone || ''} onChange={e => set('phone', e.target.value)} placeholder="e.g. 310-555-0100" style={inputStyle} />
             </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>Preferred Contact Method</label>
-              <select
-                value={formData.preferred_contact_method || ''}
-                onChange={e => set('preferred_contact_method', e.target.value)}
-                style={{ ...inputStyle }}
-              >
-                {PREFERRED_METHOD_OPTIONS.map(o => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </div>
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelStyle}>Preferred Contact Method</label>
+            <select value={formData.preferred_contact_method || ''} onChange={e => set('preferred_contact_method', e.target.value)} style={inputStyle}>
+              {PREFERRED_METHOD_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
 
-            {/* Row 3 */}
+          {/* ── Role and Affiliation ── */}
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>Role and Affiliation</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
             <div style={{ marginBottom: 16 }}>
               <label style={labelStyle}>Organization</label>
               <input value={formData.organization || ''} onChange={e => set('organization', e.target.value)} placeholder="e.g. Azusa Pacific University" style={inputStyle} />
@@ -988,72 +971,120 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
               <label style={labelStyle}>Role</label>
               <input value={formData.role || ''} onChange={e => set('role', e.target.value)} placeholder="e.g. School Coordinator" style={inputStyle} />
             </div>
-
-            {/* Row 4 */}
-            <div style={{ marginBottom: 16 }}>
+          </div>
+          {/* Role Qualifier shown for all named roles */}
+          {roleGroup !== 'other' && (
+            <div style={{ marginBottom: 20 }}>
               <label style={labelStyle}>Role Qualifier / Title Detail</label>
               <input value={formData.role_qualifier || ''} onChange={e => set('role_qualifier', e.target.value)} placeholder="e.g. BSN Programs" style={inputStyle} />
             </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>School Name</label>
-              <input value={formData.school_name || ''} onChange={e => set('school_name', e.target.value)} placeholder="e.g. APU" style={inputStyle} />
+          )}
+          {/* Show Role Qualifier in advanced for 'other' role if has data */}
+          {roleGroup === 'other' && formData.role_qualifier && (
+            <div style={{ marginBottom: 20 }}>
+              <label style={labelStyle}>Role Qualifier / Title Detail</label>
+              <input value={formData.role_qualifier || ''} onChange={e => set('role_qualifier', e.target.value)} placeholder="e.g. BSN Programs" style={inputStyle} />
             </div>
+          )}
 
-            {/* Row 5 */}
-            <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>Program Type</label>
-              <input value={formData.program_type || ''} onChange={e => set('program_type', e.target.value)} placeholder="e.g. BSN, ABSN" style={inputStyle} />
-            </div>
-            <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>Unit Name</label>
-              <input value={formData.unit_name || ''} onChange={e => set('unit_name', e.target.value)} placeholder="e.g. 5 SCCT" style={inputStyle} />
-            </div>
-          </div>
+          {/* ── Program / Unit Details (conditional by role group) ── */}
+          {(roleGroup === 'academic' || roleGroup === 'unit-clinical' || roleGroup === 'unit-npd-p'
+            || (roleGroup !== 'academic' && (formData.school_name || formData.unit_name || formData.related_units || formData.program_type))) && (
+            <>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>Program / Unit Details</div>
+              {/* Academic: school name + program type */}
+              {(roleGroup === 'academic' || formData.school_name) && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={labelStyle}>School Name</label>
+                  <input value={formData.school_name || ''} onChange={e => set('school_name', e.target.value)} placeholder="e.g. APU" style={inputStyle} />
+                </div>
+              )}
+              {(roleGroup === 'academic' || formData.program_type) && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={labelStyle}>Program Type</label>
+                  <input value={formData.program_type || ''} onChange={e => set('program_type', e.target.value)} placeholder="e.g. BSN, ABSN" style={inputStyle} />
+                </div>
+              )}
+              {/* Unit leaders and NPD-Ps: unit name + related units */}
+              {(['unit-clinical', 'unit-npd-p'].includes(roleGroup) || formData.unit_name) && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={labelStyle}>Unit Name</label>
+                  <input value={formData.unit_name || ''} onChange={e => set('unit_name', e.target.value)} placeholder="e.g. 5 SCCT" style={inputStyle} />
+                </div>
+              )}
+              {(['unit-clinical', 'unit-npd-p'].includes(roleGroup) || formData.related_units) && (
+                <div style={{ marginBottom: 20 }}>
+                  <label style={labelStyle}>Related Units <span style={{ fontWeight: 400, color: '#9ca3af' }}>(comma-separated)</span></label>
+                  <input value={formData.related_units || ''} onChange={e => set('related_units', e.target.value)} placeholder="e.g. 5 SCCT, 4 South, 7 North" style={inputStyle} />
+                </div>
+              )}
+            </>
+          )}
 
-          {/* Full-width fields */}
-          <div style={{ marginBottom: 16 }}>
+          {/* ── Online Profile ── */}
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>Online Profile</div>
+          <div style={{ marginBottom: 20 }}>
             <label style={labelStyle}>LinkedIn URL</label>
             <input value={formData.linkedin_url || ''} onChange={e => set('linkedin_url', e.target.value)} placeholder="https://linkedin.com/in/..." style={inputStyle} />
           </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Avatar URL <span style={{ fontWeight: 400, color: '#9ca3af' }}>(set by Upload Photo above, or paste directly)</span></label>
-            <input value={formData.avatar_url || ''} onChange={e => set('avatar_url', e.target.value)} placeholder="https://…" style={inputStyle} />
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Related Units <span style={{ fontWeight: 400, color: '#9ca3af' }}>(comma-separated)</span></label>
-            <input value={formData.related_units || ''} onChange={e => set('related_units', e.target.value)} placeholder="e.g. 5 SCCT, 4 South, 7 North" style={inputStyle} />
+
+          {/* ── Notes ── */}
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>Notes</div>
+          <div style={{ marginBottom: 20 }}>
+            <textarea value={formData.notes || ''} onChange={e => set('notes', e.target.value)}
+              rows={3} placeholder="Optional context or notes about this contact."
+              style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.55, minHeight: 72 }} />
           </div>
 
-          {/* Notes */}
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Notes</label>
-            <textarea
-              value={formData.notes || ''}
-              onChange={e => set('notes', e.target.value)}
-              rows={3}
-              placeholder="Optional context or notes about this contact."
-              style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.55, minHeight: 72 }}
-            />
-          </div>
-
-          {/* Toggles */}
-          <div style={{ display: 'flex', gap: 24, marginBottom: 8 }}>
+          {/* ── Preferences ── */}
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>Preferences</div>
+          <div style={{ display: 'flex', gap: 24, marginBottom: 20 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12, fontFamily: F, color: '#374151' }}>
-              <input
-                type="checkbox" checked={formData.is_active !== false}
-                onChange={e => set('is_active', e.target.checked)}
-                style={{ width: 14, height: 14 }}
-              />
+              <input type="checkbox" checked={formData.is_active !== false}
+                onChange={e => set('is_active', e.target.checked)} style={{ width: 14, height: 14 }} />
               Active contact
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12, fontFamily: F, color: '#374151' }}>
-              <input
-                type="checkbox" checked={formData.weekly_digest !== false}
-                onChange={e => set('weekly_digest', e.target.checked)}
-                style={{ width: 14, height: 14 }}
-              />
-              Receives weekly digest
-            </label>
+            {/* Weekly digest: shown for Academic Partners in main section; others see it in Advanced */}
+            {(roleGroup === 'academic' || formData.weekly_digest === false) && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12, fontFamily: F, color: '#374151' }}>
+                <input type="checkbox" checked={formData.weekly_digest !== false}
+                  onChange={e => set('weekly_digest', e.target.checked)} style={{ width: 14, height: 14 }} />
+                Receives weekly digest
+              </label>
+            )}
+          </div>
+
+          {/* ── Advanced Details (collapsible) ── */}
+          <div style={{ marginBottom: 8 }}>
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(v => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 11, fontWeight: 600, color: '#6b7280', fontFamily: F,
+                padding: '6px 0',
+              }}
+            >
+              <span style={{ display: 'inline-block', transform: showAdvanced ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', fontSize: 10 }}>▶</span>
+              Advanced Details
+            </button>
+            {showAdvanced && (
+              <div style={{ paddingTop: 12, borderTop: '1px solid #f3f4f6', marginTop: 4 }}>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={labelStyle}>Avatar URL <span style={{ fontWeight: 400, color: '#9ca3af' }}>(set by Upload Photo above, or paste directly)</span></label>
+                  <input value={formData.avatar_url || ''} onChange={e => set('avatar_url', e.target.value)} placeholder="https://…" style={inputStyle} />
+                </div>
+                {/* Weekly digest for non-academic roles */}
+                {roleGroup !== 'academic' && formData.weekly_digest !== false && (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12, fontFamily: F, color: '#374151', marginBottom: 16 }}>
+                    <input type="checkbox" checked={formData.weekly_digest !== false}
+                      onChange={e => set('weekly_digest', e.target.checked)} style={{ width: 14, height: 14 }} />
+                    Receives weekly digest
+                  </label>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Footer */}
@@ -1253,12 +1284,11 @@ export default function ContactsView() {
   // ── Three-zone CRM layout ─────────────────────────────────────────────────
   return (
     <>
-    <div style={{ display: 'flex', height: '100%', fontFamily: F, overflow: 'hidden', justifyContent: 'center' }}>
-    <div style={{ display: 'flex', width: '100%', maxWidth: 1400, height: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100%', fontFamily: F, overflow: 'hidden' }}>
 
       {/* ── Zone 1: Directory (left) ──────────────────────────────────── */}
       <div style={{
-        flex: '0 0 300px', flexShrink: 0,
+        flex: '0 0 340px', flexShrink: 0,
         borderRight: '1px solid rgba(29,37,103,0.08)',
         display: 'flex', flexDirection: 'column',
         background: '#fff',
@@ -1407,7 +1437,7 @@ export default function ContactsView() {
 
       {/* ── Zone 3: Context — history + linked students (right) ───────── */}
       <div style={{
-        flex: '0 0 270px', minWidth: 0,
+        flex: '0 0 300px', minWidth: 0,
         overflowY: 'auto',
         background: '#FAFAF7',
       }}>
@@ -1432,8 +1462,7 @@ export default function ContactsView() {
         )}
       </div>
 
-    </div>{/* end max-width inner wrapper */}
-    </div>{/* end centering outer wrapper */}
+    </div>{/* end three-zone layout */}
 
     {/* Add / Edit Contact Modal */}
     {showContactModal && (
