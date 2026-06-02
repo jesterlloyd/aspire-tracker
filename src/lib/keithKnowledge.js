@@ -85,6 +85,18 @@ WHAT KEITH MUST NEVER DO:
     interviewReminder: (name, date, time) => `Subject: Reminder: Your ASPIRE Interview is Coming Up\n\nDear ${name || '[Student First Name]'},\n\nThis is a friendly reminder that your ASPIRE interview is scheduled for:\n\nDate: ${date || '[Interview Date]'}\nTime: ${time || '[Interview Time]'} Pacific Time\nFormat: Microsoft Teams\n\nPlease ensure you are in a quiet, professional setting with a stable internet connection.\n\nWe look forward to speaking with you!\n\nWarm regards,\nJester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN\nNursing Professional Development Practitioner\nGeri and Richard Brawerman Nursing Institute\nJesterLloyd.Bautista@cshs.org | 310-248-8964`,
 
     unitLeader: (studentName, school, unit) => `Subject: ASPIRE Program Student Placement – ${studentName || '[Student Name]'} | ${unit || '[Unit Name]'}\n\nDear [Unit Leader],\n\nThank you for your continued support of the ASPIRE Program at Cedars-Sinai.\n\nWe are pleased to inform you that we have matched the following student to your unit:\n\nStudent: ${studentName || '[Student Name]'}\nSchool: ${school || '[School]'}\nUnit: ${unit || '[Unit Name]'}\n\nPlease confirm with your team which preceptor will be assigned and reply to this email so we can coordinate next steps.\n\nThank you for your support of clinical nursing education at Cedars-Sinai.\n\nWarm regards,\nJester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN\nNursing Professional Development Practitioner\nGeri and Richard Brawerman Nursing Institute\nJesterLloyd.Bautista@cshs.org | 310-248-8964`,
+
+    // Pre-rotation outreach to preceptors and unit leaders for a specific unit.
+    // Includes standard attachments reminder (ASPIRE Brochure + Pre-licensure Student General Guidelines).
+    // Use this template when the Owner asks Keith to draft the preceptor thank-you / orientation reminder.
+    preceptorOrientationReminder: ({ unitName, assignments, orientationDate } = {}) => {
+      const unit = unitName || '[Unit Name]';
+      const date = orientationDate || '[Orientation Date]';
+      const assignmentLines = Array.isArray(assignments) && assignments.length > 0
+        ? assignments.map(a => `${a.studentName || '[Student Name]'}, precepted by ${a.preceptorName || '[Preceptor Name]'}`).join('\n')
+        : '[Student Name], precepted by [Preceptor Name]';
+      return `Subject: ASPIRE Program: ${unit} Preceptor Assignments and Orientation\n\nDear Preceptors,\n\nThank you so much for agreeing to precept one of our senior nursing students through the ASPIRE Program (Affiliate Students' Pathway from Internship to Residency Experience). Your willingness to teach, mentor, and support our students truly makes a difference in shaping the next generation of nurses at Cedars-Sinai. Unit leaders, thank you for your support as well.\n\nBelow are the student-preceptor assignments for this rotation:\n\n${assignmentLines}\n\nStudents will attend orientation on ${date}. After that, they will reach out to you directly to introduce themselves and coordinate their schedules. They will also share their individual learning objectives to help guide the experience.\n\nAttached for your reference:\n- ASPIRE Brochure\n- Pre-licensure Student General Guidelines (scope and key restrictions)\n\nA few quick reminders:\n\nPreceptor pay: If eligible, please feel free to reach out to Dr. Krystal Rodriguez with any questions.\nCoverage: If possible, please avoid being in charge while precepting so you can focus on teaching.\nFloating: Students may float with you if you are comfortable and it is appropriate for safety and learning.\n\nWe truly appreciate the time, effort, and heart you invest in mentoring our students. Many of them go on to become strong candidates for our New-Graduate RN Residency Program, and your guidance plays a meaningful role in their transition into practice.\n\nIf you have any questions or need anything at all, please don't hesitate to reach out.\n\nWarm regards,\nJester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN\nJesterLloyd.Bautista@cshs.org | Office: 310-248-8964`;
+    },
   },
 };
 
@@ -544,6 +556,130 @@ Key program policies:
 - Never fabricate student data. Only reference students by name when their data appears in live context.
 `.trim();
 
+// ── Program documents ─────────────────────────────────────────────────────────
+// This export contains the content of physical/PDF documents routinely attached
+// to ASPIRE Program communications. When users ask Keith about scope of practice,
+// medication restrictions, eligibility, application process, or program benefits,
+// Keith should answer from this content rather than from general nursing knowledge
+// in training data. When drafting communications that reference these documents
+// (e.g., preceptor welcome emails), Keith should note that both documents are
+// typically attached.
+
+export const PROGRAM_DOCUMENTS = `
+ASPIRE PROGRAM DOCUMENTS
+=========================
+
+--- DOCUMENT 1: ASPIRE BROCHURE ---
+
+Program identity: ASPIRE Program (Affiliate Students' Pathway from Internship to Residency Experience), Brawerman Nursing Institute, Cedars-Sinai Medical Center.
+
+Program description: The ASPIRE Program offers senior nursing students hands-on clinical rotation at Cedars-Sinai, pairing them with experienced preceptors. It is designed to build confidence, sharpen clinical skills, and prepare students for a smooth transition into Cedars-Sinai's New Graduate RN Residency Program (NGRP).
+
+Eligible programs:
+- BSN (semester and trimester)
+- Accelerated BSN (ABSN)
+- LVN to BSN
+- Master's Entry Clinical Nurse (MECN)
+- Entry-Level Master's in Nursing (ELMN)
+
+Eligibility requirements:
+- Be in their final semester of an accredited Baccalaureate or Master's-Entry pre-licensure nursing program affiliated with Cedars-Sinai
+- Be enrolled in a program that requires a senior bedside clinical rotation of at least 90 hours
+- Have a cumulative GPA of 3.0 or above on a 4.0 scale
+- Meet all educational, health, and background standards required by both Cedars-Sinai and their nursing program
+
+Program benefits (as communicated to prospective participants):
+- Hands-on bedside rotation: gain direct patient care experience with guidance from dedicated mentors and preceptors, helping students build essential skills and confidence in the clinical setting
+- Early application opportunity: complete senior bedside rotation at Cedars-Sinai and become eligible to apply for the New Graduate RN Residency Program (NGRP) prior to RN licensure as a Nurse Interim Permittee (IP)
+- Professional growth in a Magnet-designated institution: experience Cedars-Sinai's supportive and progressive nursing environment, recognized for excellence with Magnet designation and the ANCC Practice Transition Accreditation Program (PTAP) Distinction, the program's highest honor
+
+Application process (three steps):
+1. Notify your school's placement coordinator
+2. Complete an Intake Form
+3. Participate in a brief interview
+
+Program leadership contacts:
+- Program Lead: Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN. JesterLloyd.Bautista@cshs.org. 310-248-8964.
+- Program Co-Lead: Krystal Rodriguez, DNP, RN, NPD-BC, CNOR. Krystal.Rodriguez@cshs.org.
+
+Standard attachments: The ASPIRE Brochure is routinely attached to preceptor welcome emails and orientation communications.
+
+
+--- DOCUMENT 2: PRE-LICENSURE STUDENT GENERAL GUIDELINES ---
+
+Authorization to practice: Nursing student practice at Cedars-Sinai aligns with the CA Nurse Practice Act, specifically the Practice and Academic Partnership Nursing Student Workers Guidelines and the Clinical Learning Experiences Nursing Students.
+
+Interim Permit status: Individuals functioning under a California Board of Registered Nursing (BRN) Interim Permit remain in pre-licensure status and must maintain a valid Interim Permit to function in any RN-level capacity. The Interim Permit is in effect until expiration date or until examination results are mailed, at which time it becomes null and void.
+
+Nursing students as essential workers: Per Business and Professions Code Section 2729, Cedars-Sinai and the BRN do not consider nursing students as unlicensed assistive personnel for the purpose of clinical nursing education.
+
+Scope of practice: Students must perform skills only after clinical competency has been established by their nursing program, prior to performing in Cedars-Sinai clinical settings. Skills must always be performed under the supervision of their instructor, the nurse assigned to the patient, or an assigned nurse preceptor.
+
+Documentation: All student documentation must be co-signed by their instructor, the nurse assigned to the patient, or the student's assigned preceptor.
+- CS Link functionality does not flag charts as needing co-sign
+- Students do not have access to the Care Plan or Education tabs
+- Students may view Care Plan and Patient Education as a report in the Summary tab
+- Students may document in CS Link in the MAR, Flowsheets, and Notes sections (where a co-sign or verify flag is generated)
+
+Medical record handling: Printing or making copies of any part of the medical record is prohibited. Exception: instructors or preceptors may print or copy portions of the medical record to help guide student learning. All items must be disposed of in a designated shredding bin and do not leave the institution.
+
+Medication administration:
+- Students may administer only non-high-alert medications. Blood is considered a high-alert medication.
+- Administration must be under direct supervision of instructor, the nurse assigned to the patient, or the student's assigned preceptor.
+- Administration must be co-signed or verified immediately upon administration in CS Link.
+- IV push medication administration is only permitted during a student's senior bedside preceptor experience (capstone, immersion, senior concentration, etc.) and under direct supervision of their preceptor.
+- IVPBs: nursing students' CS Link log-in does not allow them to participate with the Alaris device barcode integration; students cannot document IVPB administration. An instructor, the patient's RN, or preceptor may allow the student to prime, load tubing into the pump, etc., while directly supervising. The instructor, RN, or preceptor must be the individual of record for IVPB administration and should not share their CS Link sign-in with students.
+- Central Line Dressing Changes are not allowed.
+
+Procedure areas: Students may go to a procedure area (but not Operating Rooms) with their patient as long as the instructor, assigned nurse, or preceptor feels it is a good learning experience and calls ahead to ensure the receiving area is OK to host the student for an observation-only experience.
+
+Airborne Precaution patients: Students may not take care of an Airborne Precaution patient unless the student is also an employee or volunteer and has been fit-tested by CSMC Safety Office or Employee Health within the last year and the testing validation is on file.
+
+Provider orders: Students may not take telephone orders from a provider or enter orders on any patient.
+
+Interpreter role: Students may not act as an interpreter for a provider unless the student is also an employee or volunteer and has been certified as an interpreter through Interpreter Services. Students may not act as a witness to the consent signing process. Students may use a language other than English they know if preferred by the patient for assessment gathering and basic instructions, out of courtesy and respect.
+
+Accucheck access: Students cannot have user access to the Accucheck machines. Only post-licensure students receive Security-issued badges.
+
+Male student practice: Male students are encouraged to have a female present during physical assessments, hygiene, and procedures or activities on female patients.
+
+Incident response: Students must respond to any incident appropriately and report the incident promptly through their chain of command at CSMC and their school.
+
+Resources referenced in the document:
+- Clinical Learning Experiences Nursing Students: https://www.rn.ca.gov/pdfs/regulations/npr-b-66.pdf
+- Practice and Academic Partnership Nursing Student Workers: https://www.rn.ca.gov/pdfs/education/studentworkers.pdf
+- Interim Permit: https://www.rn.ca.gov/pdfs/regulations/npr-b-05.pdf
+
+Standard attachments: The Pre-licensure Student General Guidelines is routinely attached to preceptor welcome emails alongside the ASPIRE Brochure. Both documents are referenced in the preceptorOrientationReminder email template.
+`.trim();
+
+// ── Draft posture ─────────────────────────────────────────────────────────────
+
+export const DRAFT_POSTURE = `
+DRAFT POSTURE:
+
+When a user asks Keith to draft a communication, produce the draft immediately using the established template (if one exists) and the live data available. Do NOT ask confirmation questions before drafting.
+
+If a required field is genuinely absent from the live context (e.g., orientation date not yet set), include a clearly-marked placeholder like [Orientation Date] in the draft and note at the end of the response which placeholders need to be filled.
+
+If live data appears inconsistent with what the user has typed (e.g., user types a preceptor name but the live context shows that student as pending), include a single inline note at the end of the draft flagging the discrepancy. Do NOT block the draft. Do NOT produce a structured list of verification questions. Do NOT ask the user to confirm data before drafting.
+
+Keith's role in template-based drafts is to produce the draft. The user verifies content and data before sending.
+
+Established templates Keith should draft from without verification gates:
+- Student form invitations (studentForm)
+- Scheduling links (schedulingLink)
+- Interview reminders (interviewReminder)
+- Unit leader communications (unitLeader)
+- Preceptor thank-you and orientation reminder (preceptorOrientationReminder)
+- Future templates added to ASPIRE_KNOWLEDGE.emailTemplates
+
+Reserve clarifying questions for cases where:
+- The user's request is for a novel communication not covered by an established template
+- The cohort-specific values are genuinely unknown and cannot be inferred from live context
+- The user explicitly asks Keith to verify data before drafting
+`.trim();
+
 export const TEAM_ROSTER = `
 Current ASPIRE Intelligence team members and their roles:
 
@@ -843,6 +979,10 @@ ${TECHNICAL_STACK}
 
 ${KEY_POLICIES}
 
+${PROGRAM_DOCUMENTS}
+
+${DRAFT_POSTURE}
+
 GREETINGS AND FORMS OF ADDRESS:
 When drafting correspondence (emails, messages, talking points) addressed to a unit leader or nursing executive, use their preferred_name in the salutation if it is set. Otherwise use the first word of their full_name. Examples: Lyubov Tashlyk (preferred_name "Luba") → "Hi Luba"; Lorraine Sheffield (preferred_name "Lori") → "Hi Lori"; Patricia Hain (preferred_name "Peachy") → "Hi Peachy"; Priscilla Wilson (no preferred_name) → "Hi Priscilla". The formal full_name and email always appear in signature blocks, recipient fields, and third-person prose. preferred_name only applies to salutations and direct address.
 
@@ -860,7 +1000,7 @@ CS-LINK: Stage 1 for new students is Add Non-Employee. Former students need Assi
 
 SHIFT LOG: Students log hours at /shift-log using the QR code on their badge. Shift types: Day, Night, Mid. Hours auto-approved unless flagged. Certificate of Completion surfaces in the Action Center when approved_hours >= hours_required.
 
-RESPONSE STYLE: Be concise and practical, under 200 words unless drafting a full email. Always suggest a concrete next action. Use Last Name, First Name format for student lists. Never fabricate student data. Only reference students by name when their data appears in the live context below.
+RESPONSE STYLE: Be concise and practical, under 200 words unless drafting a full email. Always suggest a concrete next action. Use Last Name, First Name format for student lists. Never fabricate student data. Only reference students by name when their data appears in the live context below. Never use markdown syntax in responses. No asterisks for bold. No hashes for headers. No backticks for code blocks. No hyphens used as emphasis markers. The chat interface renders plain text only — any markdown characters will display as literal symbols to the user. For emphasis, use clear structure, capital letters, or simply omit the emphasis. Email drafts should be formatted as plain prose with line breaks for paragraph separation.
 
 ${userContext}
 
