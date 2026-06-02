@@ -407,24 +407,22 @@ function ContactProfile({ contact, navigate, onEdit }) {
             ✎ Edit
           </button>
 
-          {/* LinkedIn — shown when url is available */}
+          {/* LinkedIn — official wordmark from /linkedin-logo.svg */}
           {contact.linkedin_url && (
             <a
               href={contact.linkedin_url}
               target="_blank"
-              rel="noopener noreferrer"
+              rel="noreferrer"
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
+                display: 'inline-flex', alignItems: 'center',
                 padding: '7px 14px', borderRadius: 8,
-                background: '#fff', color: '#0A66C2',
-                border: '1px solid rgba(10,102,194,0.25)',
-                fontFamily: F, fontSize: 12, fontWeight: 600,
+                background: '#fff', border: '1px solid rgba(10,102,194,0.25)',
                 textDecoration: 'none', transition: 'background 0.15s',
               }}
               onMouseEnter={e => e.currentTarget.style.background = '#EFF6FF'}
               onMouseLeave={e => e.currentTarget.style.background = '#fff'}
             >
-              in LinkedIn
+              <img src="/linkedin-logo.svg" alt="LinkedIn" height={17} style={{ display: 'block' }} />
             </a>
           )}
         </div>
@@ -717,10 +715,54 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
       weekly_digest: initialData.notification_preferences?.weekly_digest !== false,
     }
   })
-  const [saving,  setSaving]  = useState(false)
-  const [errMsg,  setErrMsg]  = useState(null)
+  const [saving,         setSaving]         = useState(false)
+  const [errMsg,         setErrMsg]         = useState(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [uploadErr,      setUploadErr]      = useState(null)
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }))
+
+  async function handlePhotoUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp']
+    if (!validTypes.includes(file.type)) {
+      setUploadErr('Only JPEG, PNG, and WebP images are supported.')
+      if (e.target) e.target.value = ''
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setUploadErr('Image must be under 2 MB.')
+      if (e.target) e.target.value = ''
+      return
+    }
+    setUploadErr(null)
+    setUploadingPhoto(true)
+    try {
+      const ext      = file.name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+      const uniqueId = initialData?.id || `new-${Date.now()}`
+      const path     = `${uniqueId}-${Date.now()}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('contact-avatars')
+        .upload(path, file, { upsert: true, contentType: file.type })
+      if (uploadError) {
+        setUploadErr(`Upload failed: ${uploadError.message}`)
+        return
+      }
+      const { data: { publicUrl } } = supabase.storage.from('contact-avatars').getPublicUrl(path)
+      set('avatar_url', publicUrl)
+    } catch (err) {
+      setUploadErr(`Upload error: ${err.message}`)
+    } finally {
+      setUploadingPhoto(false)
+      if (e.target) e.target.value = ''
+    }
+  }
+
+  function handleRemovePhoto() {
+    set('avatar_url', '')
+    setUploadErr(null)
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -816,6 +858,77 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
         )}
 
         <form onSubmit={handleSubmit}>
+
+          {/* ── Avatar preview + upload ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24 }}>
+            {/* Preview circle */}
+            <div style={{
+              width: 80, height: 80, borderRadius: '50%',
+              background: NAVY, overflow: 'hidden', flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 26, fontWeight: 700, color: '#fff', fontFamily: F,
+              position: 'relative',
+            }}>
+              {formData.avatar_url ? (
+                <img
+                  src={formData.avatar_url}
+                  alt="Avatar preview"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={e => { e.currentTarget.style.display = 'none' }}
+                />
+              ) : null}
+              {!formData.avatar_url && (
+                <span>{initials(formData.full_name || '')}</span>
+              )}
+            </div>
+
+            {/* Upload / Remove buttons */}
+            <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center' }}>
+              <label style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '6px 13px', borderRadius: 7,
+                border: `1px solid ${uploadingPhoto ? '#e5e7eb' : NAVY}`,
+                background: uploadingPhoto ? '#f9fafb' : '#fff',
+                color: uploadingPhoto ? '#9ca3af' : NAVY,
+                fontSize: 11, fontWeight: 600, fontFamily: F,
+                cursor: uploadingPhoto ? 'not-allowed' : 'pointer',
+                transition: 'background 0.12s',
+              }}>
+                {uploadingPhoto ? 'Uploading…' : '↑ Upload Photo'}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  style={{ display: 'none' }}
+                  disabled={uploadingPhoto}
+                  onChange={handlePhotoUpload}
+                />
+              </label>
+              {formData.avatar_url && !uploadingPhoto && (
+                <button
+                  type="button"
+                  onClick={handleRemovePhoto}
+                  style={{
+                    padding: '6px 13px', borderRadius: 7,
+                    border: '1px solid #e5e7eb', background: '#fff',
+                    color: '#6b7280', fontSize: 11, fontWeight: 600,
+                    fontFamily: F, cursor: 'pointer',
+                  }}
+                >
+                  Remove Photo
+                </button>
+              )}
+            </div>
+
+            {uploadErr && (
+              <div style={{ fontSize: 11, color: '#dc2626', fontFamily: F, marginTop: 6, textAlign: 'center' }}>
+                {uploadErr}
+              </div>
+            )}
+            <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 6 }}>
+              JPEG, PNG, or WebP · max 2 MB
+            </div>
+          </div>
+
           {/* Full Name (full width, required) */}
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>Full Name <span style={{ color: '#dc2626' }}>*</span></label>
@@ -895,8 +1008,8 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
             <input value={formData.linkedin_url || ''} onChange={e => set('linkedin_url', e.target.value)} placeholder="https://linkedin.com/in/..." style={inputStyle} />
           </div>
           <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Avatar URL</label>
-            <input value={formData.avatar_url || ''} onChange={e => set('avatar_url', e.target.value)} placeholder="https://..." style={inputStyle} />
+            <label style={labelStyle}>Avatar URL <span style={{ fontWeight: 400, color: '#9ca3af' }}>(set by Upload Photo above, or paste directly)</span></label>
+            <input value={formData.avatar_url || ''} onChange={e => set('avatar_url', e.target.value)} placeholder="https://…" style={inputStyle} />
           </div>
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>Related Units <span style={{ fontWeight: 400, color: '#9ca3af' }}>(comma-separated)</span></label>
