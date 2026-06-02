@@ -184,6 +184,9 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
   // Per-row copy state — { assignmentId: true } for 2.5s after copy
   const [bulkCopiedIds,          setBulkCopiedIds]          = useState({})
   const bulkCopyTimers           = useRef({})
+  // Per-row test send state — { assignmentId: 'sending' | 'sent' | 'error' }
+  const [bulkTestSendState,      setBulkTestSendState]      = useState({})
+  const [bulkTestSendMsg,        setBulkTestSendMsg]        = useState({})
 
   // ── Direct Message draft — scoped to contact ID ───────────────────────────
   // Stores ONLY { subject, body }. surveyResult, surveyUrl, and tokens are
@@ -566,12 +569,57 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
       `aspire-bulk-survey-${bulkTimepoint}-${new Date().toISOString().slice(0, 10)}.csv`)
   }, [bulkResults, bulkTimepoint])
 
+  const handleBulkTestSend = useCallback(async (row) => {
+    const id = row.assignmentId
+    if (bulkTestSendState[id] === 'sending') return
+    setBulkTestSendState(prev => ({ ...prev, [id]: 'sending' }))
+    setBulkTestSendMsg(prev => { const n = { ...prev }; delete n[id]; return n })
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        setBulkTestSendState(prev => ({ ...prev, [id]: 'error' }))
+        setBulkTestSendMsg(prev => ({ ...prev, [id]: 'Session expired. Refresh and try again.' }))
+        return
+      }
+      const res = await fetch('/api/evaluation-send-test-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          assignment_id: id,
+          survey_url:    row.surveyUrl,
+          student_name:  row.studentName,
+          timepoint:     bulkTimepoint,
+          expires_at:    bulkExpiresAt,
+        }),
+      })
+      let payload = null
+      try { payload = await res.json() } catch { /* ignore */ }
+      if (res.ok && payload?.success) {
+        setBulkTestSendState(prev => ({ ...prev, [id]: 'sent' }))
+        setBulkTestSendMsg(prev => ({ ...prev, [id]: payload.message || 'Test email sent.' }))
+      } else {
+        setBulkTestSendState(prev => ({ ...prev, [id]: 'error' }))
+        setBulkTestSendMsg(prev => ({ ...prev, [id]: payload?.error || 'Send failed. Try again.' }))
+      }
+    } catch {
+      setBulkTestSendState(prev => ({ ...prev, [id]: 'error' }))
+      setBulkTestSendMsg(prev => ({ ...prev, [id]: 'Network error. Check your connection.' }))
+    }
+  }, [bulkTestSendState, bulkTimepoint, bulkExpiresAt])
+
   const handleBulkClearResults = useCallback(() => {
     setBulkResults(null)
+    setBulkTestSendState({})
+    setBulkTestSendMsg({})
   }, [])
 
   const handleBulkReset = useCallback(() => {
     setBulkResults(null)
+    setBulkTestSendState({})
+    setBulkTestSendMsg({})
     setBulkSelectedIds([])
     setBulkSearch('')
     setBulkFilterSchool('')
@@ -1722,16 +1770,61 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                                 <div style={{ fontSize: 10, color: '#6b7280', fontFamily: F }}>{g.email} · {g.school}</div>
                                 <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 2 }}>ID: {g.assignmentId}</div>
                               </div>
-                              <button onClick={() => handleBulkCopyUrl(g.assignmentId, g.surveyUrl)} style={{
-                                flexShrink: 0, padding: '4px 10px', borderRadius: 6,
-                                background: bulkCopiedIds[g.assignmentId] ? '#EEF7F0' : '#fff',
-                                border: `1px solid ${bulkCopiedIds[g.assignmentId] ? '#c6d9a8' : '#e5e7eb'}`,
-                                fontSize: 10, fontWeight: 600,
-                                color: bulkCopiedIds[g.assignmentId] ? '#2F7D5C' : '#374151',
-                                fontFamily: F, cursor: 'pointer',
-                              }}>
-                                {bulkCopiedIds[g.assignmentId] ? '✓ Copied' : 'Copy URL'}
-                              </button>
+                              <div style={{ display: 'flex', gap: 5, flexShrink: 0, flexDirection: 'column', alignItems: 'flex-end' }}>
+                                <div style={{ display: 'flex', gap: 5 }}>
+                                  <button onClick={() => handleBulkCopyUrl(g.assignmentId, g.surveyUrl)} style={{
+                                    padding: '4px 10px', borderRadius: 6,
+                                    background: bulkCopiedIds[g.assignmentId] ? '#EEF7F0' : '#fff',
+                                    border: `1px solid ${bulkCopiedIds[g.assignmentId] ? '#c6d9a8' : '#e5e7eb'}`,
+                                    fontSize: 10, fontWeight: 600,
+                                    color: bulkCopiedIds[g.assignmentId] ? '#2F7D5C' : '#374151',
+                                    fontFamily: F, cursor: 'pointer',
+                                  }}>
+                                    {bulkCopiedIds[g.assignmentId] ? '✓ Copied' : 'Copy URL'}
+                                  </button>
+                                  <Tooltip label="Send a test email to yourself with this row's survey link" placement="top">
+                                    <button
+                                      onClick={() => handleBulkTestSend(g)}
+                                      disabled={bulkTestSendState[g.assignmentId] === 'sending'}
+                                      style={{
+                                        padding: '4px 10px', borderRadius: 6,
+                                        background: bulkTestSendState[g.assignmentId] === 'sent'
+                                          ? '#EEF2FB'
+                                          : bulkTestSendState[g.assignmentId] === 'error'
+                                          ? '#fef2f2'
+                                          : '#fff',
+                                        border: `1px solid ${
+                                          bulkTestSendState[g.assignmentId] === 'sent' ? '#c3cdf0'
+                                          : bulkTestSendState[g.assignmentId] === 'error' ? '#fecaca'
+                                          : '#e5e7eb'
+                                        }`,
+                                        fontSize: 10, fontWeight: 600,
+                                        color: bulkTestSendState[g.assignmentId] === 'sent'
+                                          ? '#1D2567'
+                                          : bulkTestSendState[g.assignmentId] === 'error'
+                                          ? '#dc2626'
+                                          : '#374151',
+                                        fontFamily: F,
+                                        cursor: bulkTestSendState[g.assignmentId] === 'sending' ? 'not-allowed' : 'pointer',
+                                      }}
+                                    >
+                                      {bulkTestSendState[g.assignmentId] === 'sending' ? '↑ Sending…'
+                                       : bulkTestSendState[g.assignmentId] === 'sent'   ? '✓ Test sent'
+                                       : bulkTestSendState[g.assignmentId] === 'error'  ? '✗ Failed'
+                                       : '↑ Send test'}
+                                    </button>
+                                  </Tooltip>
+                                </div>
+                                {/* Inline feedback for test send result */}
+                                {bulkTestSendMsg[g.assignmentId] && (
+                                  <div style={{
+                                    fontSize: 9, fontFamily: F, lineHeight: 1.3, textAlign: 'right', maxWidth: 180,
+                                    color: bulkTestSendState[g.assignmentId] === 'error' ? '#dc2626' : '#6b7280',
+                                  }}>
+                                    {bulkTestSendMsg[g.assignmentId]}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         ))}
