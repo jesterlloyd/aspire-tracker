@@ -126,43 +126,50 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
   const location       = useLocation()
   const [searchParams] = useSearchParams()
 
-  // URL params provide explicit routing intent
-  const urlMode      = searchParams.get('mode')       // 'message' | 'survey' | null
-  const urlContactId = searchParams.get('contactId')  // UUID | null
-  const urlStudentId = searchParams.get('studentId')  // UUID | null
+  // URL params — support both legacy (studentId/contactId) and new (recipientType+recipientId) formats
+  const urlMode          = searchParams.get('mode')           // 'message' | 'survey' | null
+  const urlRecipientType = searchParams.get('recipientType')  // 'contact' | 'student' | null
+  const urlRecipientId   = searchParams.get('recipientId')    // UUID | null
+  // Resolve backward-compatible student/contact IDs from either format
+  const urlStudentId = urlRecipientType === 'student' ? urlRecipientId : searchParams.get('studentId')
+  const urlContactId = urlRecipientType === 'contact' ? urlRecipientId : searchParams.get('contactId')
 
-  // Router state carries display info from Contacts or Student Profiles
+  // Router state carries display info passed by the navigating component
   const fromContact = location.state?.fromContact || null  // { id, name, email }
   const fromStudent = location.state?.fromStudent || null  // { id, name, email, school }
 
-  // Resolved IDs
+  // An explicit recipient is present when the URL or router state carries one.
+  // Explicit routing wins over any localStorage-restored memory.
+  const hasExplicitRecipient = !!(urlStudentId || urlContactId || fromStudent || fromContact)
+
+  // Resolved IDs — explicit URL/state sources take precedence
   const contactId = fromContact?.id || urlContactId || null
   const studentId = fromStudent?.id || urlStudentId || null
 
-  // Display info availability
+  // Display info availability — router state preferred, fetched record as fallback
   const contactHasDisplayInfo = !!(fromContact?.name || fromContact?.email)
-  const studentHasDisplayInfo = !!(fromStudent?.name || fromStudent?.email)
+  // effectiveStudent merges router state (if present) with the fetch fallback
+  // so the recipient card populates even after a page refresh or direct URL open
 
-  // Recipient type: 'contact' | 'student' | null
-  const recipientType = contactId && contactHasDisplayInfo ? 'contact'
-                      : studentId ? 'student'
+  // Recipient type: student URL params are checked BEFORE contact to prevent
+  // a stale contact ID from shadowing an explicit student route.
+  const recipientType = studentId ? 'student'
+                      : contactId && contactHasDisplayInfo ? 'contact'
                       : null
 
   // ── Top-level recipient mode: 'single' | 'bulk' ─────────────────────────────
-  // Priority: URL/router state (contact or student deep-link forces 'single') > localStorage > default 'single'
+  // Priority: explicit URL/state recipient > localStorage > default 'single'
   const [recipientMode, setRecipientMode] = useState(() => {
-    // Any contact or student deep-link forces single recipient
-    if (urlMode === 'message' || fromContact || fromStudent || urlStudentId) return 'single'
-    // Future: if (searchParams.get('bulk') === 'survey_invitation') return 'bulk'
+    if (hasExplicitRecipient || urlMode === 'message') return 'single'
     const saved = localStorage.getItem(RECIPIENT_MODE_KEY)
     return saved === 'bulk' ? 'bulk' : 'single'
   })
 
   // ── Inner message type within Single Recipient ────────────────────────────
-  // Priority: URL param > router state (contact or student) > localStorage > default ──
+  // Priority: URL param > explicit router state > localStorage > default ──
   const [outreachMode, setOutreachMode] = useState(() => {
     if (urlMode === 'message' || urlMode === 'survey') return urlMode
-    if (fromContact || fromStudent || urlStudentId) return 'message'
+    if (hasExplicitRecipient) return 'message'
     const saved = localStorage.getItem(LAST_MODE_KEY)
     return (saved === 'survey' || saved === 'message') ? saved : 'survey'
   })
@@ -196,6 +203,12 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
   const [bulkTestSendState,      setBulkTestSendState]      = useState({})
   const [bulkTestSendMsg,        setBulkTestSendMsg]        = useState({})
 
+  // ── Student fetch-on-demand (when router state was lost on page refresh) ────
+  // When only studentId exists in URL but fromStudent has no display info,
+  // fetch the student record to populate the recipient card.
+  const [fetchedStudent,     setFetchedStudent]     = useState(null)
+  const [studentFetchFailed, setStudentFetchFailed] = useState(false)
+
   // ── Direct Message send state ─────────────────────────────────────────────
   const [includeSignature,  setIncludeSignature]  = useState(true)
   const [dmConfirmOpen,     setDmConfirmOpen]      = useState(false)
@@ -204,10 +217,11 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
   const [dmBodyExpanded,    setDmBodyExpanded]     = useState(false)
   const [dmSendStatus,      setDmSendStatus]       = useState(null) // null | { ok, msg }
 
-  // ── Direct Message draft — scoped to contact or student ID ──────────────────
-  // Stores ONLY { subject, body }. surveyResult, surveyUrl, and tokens are
-  // NEVER stored in localStorage/sessionStorage.
-  const draftRecipientId = contactId || studentId || null
+  // ── Direct Message draft — typed key prevents contact/student UUID collisions ──
+  // Stores ONLY { subject, body }. Tokens and URLs are NEVER stored.
+  const draftRecipientId = studentId ? `student:${studentId}`
+                         : contactId ? `contact:${contactId}`
+                         : null
   const DRAFT_KEY = draftRecipientId
     ? `aspire.connect.outreach.directDraft.${draftRecipientId}`
     : null
@@ -377,8 +391,27 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
     if (urlStudentId || urlContactId) {
       setRecipientMode('single')
       setOutreachMode('message')
+      // Clear any fetched student data from a previous student navigation
+      setFetchedStudent(null)
+      setStudentFetchFailed(false)
     }
   }, [urlStudentId, urlContactId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Fetch student when router state is missing (URL-only navigation / refresh) ──
+  useEffect(() => {
+    if (!studentId || studentHasDisplayInfo || fetchedStudent?.id === studentId) return
+    setFetchedStudent(null)
+    setStudentFetchFailed(false)
+    supabase
+      .from('students')
+      .select('id, first_name, last_name, personal_email, school_email, school')
+      .eq('id', studentId)
+      .single()
+      .then(({ data }) => {
+        if (data) setFetchedStudent(data)
+        else setStudentFetchFailed(true)
+      })
+  }, [studentId, studentHasDisplayInfo]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Clear compose when the active recipient changes ────────────────────────
   // Prevents showing a previous recipient's draft or status in the new context.
@@ -391,6 +424,11 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
   }, [draftRecipientId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Derived values ────────────────────────────────────────────────────────
+  // Unified student display object: prefer router state, fall back to fetched record
+  const effectiveStudent = fromStudent || (fetchedStudent?.id === studentId ? fetchedStudent : null)
+  const studentHasDisplayInfo = !!(effectiveStudent?.name || effectiveStudent?.email ||
+    (fetchedStudent && fetchedStudent.id === studentId))
+
   // True when any DM recipient is loaded — enables compose fields for both contacts and students
   const dmHasAnyRecipient = !!(contactId || studentId)
 
@@ -723,7 +761,8 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
         setDmBodyExpanded(false)
         // Clear saved draft — sent content should not restore on next visit
         if (DRAFT_KEY) localStorage.removeItem(DRAFT_KEY)
-        const recipientDisplayName = recipientType === 'contact' ? fromContact?.name : fromStudent?.name
+        const recipientDisplayName = recipientType === 'contact' ? fromContact?.name
+          : (effectiveStudent?.name || `${fetchedStudent?.first_name || ''} ${fetchedStudent?.last_name || ''}`.trim())
         setDmSendStatus({ ok: true, msg: payload.message || `Email sent to ${recipientDisplayName || 'recipient'}.` })
       } else {
         const errMsg = payload?.error || (res.status === 403 ? 'Access denied or recipient cannot receive email.' : 'Failed to send email. Please try again.')
@@ -830,17 +869,17 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
             ) : studentId && studentHasDisplayInfo ? (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontWeight: 600, fontSize: 13, color: '#191919', fontFamily: F, lineHeight: 1.3 }}>
-                  {fromStudent.name}
+                  {effectiveStudent?.name || `${fetchedStudent?.first_name || ''} ${fetchedStudent?.last_name || ''}`.trim()}
                 </div>
-                {fromStudent.email ? (
+                {(effectiveStudent?.email || fetchedStudent?.personal_email || fetchedStudent?.school_email) ? (
                   <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginTop: 3, wordBreak: 'break-all' }}>
-                    {fromStudent.email}
+                    {effectiveStudent?.email || fetchedStudent?.personal_email || fetchedStudent?.school_email}
                   </div>
                 ) : (
                   <div style={{ fontSize: 11, color: '#dc2626', fontFamily: F, marginTop: 3 }}>No email on file</div>
                 )}
-                {fromStudent.school && (
-                  <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginTop: 2 }}>{fromStudent.school}</div>
+                {(effectiveStudent?.school || fetchedStudent?.school) && (
+                  <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginTop: 2 }}>{effectiveStudent?.school || fetchedStudent?.school}</div>
                 )}
                 <div style={{ marginTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   <span style={{
@@ -855,13 +894,24 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                   }}>1 recipient</span>
                 </div>
               </div>
-            ) : contactId || studentId ? (
+            ) : studentId && studentFetchFailed ? (
+              <div style={{
+                marginBottom: 14, padding: '9px 11px',
+                background: '#fef2f2', border: '1px solid #fecaca',
+                borderRadius: 8, fontSize: 11, color: '#dc2626', fontFamily: F, lineHeight: 1.5,
+              }}>
+                Student context unavailable. Return to Student Profiles and click Email.
+              </div>
+            ) : studentId ? (
+              // Fetching student display info...
+              <div style={{ ...panelBody, marginBottom: 14 }}>Loading recipient…</div>
+            ) : contactId ? (
               <div style={{
                 marginBottom: 14, padding: '9px 11px',
                 background: '#FBF5E8', border: '1px solid #f0c9b0',
                 borderRadius: 8, fontSize: 11, color: '#8B5E1A', fontFamily: F, lineHeight: 1.5,
               }}>
-                Recipient context unavailable. Return to Contacts or Student Profiles and click Email.
+                Contact context unavailable. Return to Contacts and click Email.
               </div>
             ) : (
               <div style={{ ...panelBody, marginBottom: 14 }}>
@@ -1012,12 +1062,19 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                     </div>
                   ) : studentId && studentHasDisplayInfo ? (
                     <div style={{ padding: '9px 11px', background: '#f9fafb', border: '1.5px solid #fde68a', borderRadius: 8, fontSize: 12, fontFamily: F, color: '#374151' }}>
-                      <div style={{ fontWeight: 600, color: '#191919' }}>{fromStudent.name}</div>
-                      {fromStudent.email
-                        ? <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, wordBreak: 'break-all' }}>{fromStudent.email}</div>
-                        : <div style={{ fontSize: 11, color: '#dc2626', marginTop: 2 }}>No email on file</div>
-                      }
-                      {fromStudent.school && <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>{fromStudent.school}</div>}
+                      {(() => {
+                        const name  = effectiveStudent?.name || `${fetchedStudent?.first_name || ''} ${fetchedStudent?.last_name || ''}`.trim()
+                        const email = effectiveStudent?.email || fetchedStudent?.personal_email || fetchedStudent?.school_email
+                        const school = effectiveStudent?.school || fetchedStudent?.school
+                        return (
+                          <>
+                            <div style={{ fontWeight: 600, color: '#191919' }}>{name}</div>
+                            {email ? <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, wordBreak: 'break-all' }}>{email}</div>
+                                   : <div style={{ fontSize: 11, color: '#dc2626', marginTop: 2 }}>No email on file</div>}
+                            {school && <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>{school}</div>}
+                          </>
+                        )
+                      })()}
                     </div>
                   ) : (
                     <p style={panelBody}>
@@ -1294,7 +1351,8 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
               {/* Action bar */}
               {(() => {
                 const hasContactRecipient = !!(contactId && contactHasDisplayInfo && fromContact?.email)
-                const hasStudentRecipient = !!(studentId && fromStudent?.email)
+                const studentEmail = effectiveStudent?.email || fetchedStudent?.personal_email || fetchedStudent?.school_email
+                const hasStudentRecipient = !!(studentId && studentEmail)
                 const hasRecipient = hasContactRecipient || hasStudentRecipient
                 const hasSubject   = !!msgSubject.trim()
                 const hasBody      = !!msgBody.trim()

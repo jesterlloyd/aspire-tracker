@@ -1306,13 +1306,20 @@ export default function ContactsView() {
     const savedId = localStorage.getItem(LAST_CONTACT_KEY)
     if (savedId && contacts.find(c => c.id === savedId)) {
       setSelectedId(savedId)
-      navigate(`/connect/contacts?contactId=${savedId}`, { replace: true })
+      // Only update the URL when the Contacts tab is actually active.
+      // If the user navigated directly to Outreach or another tab, do NOT
+      // replace their URL with a contact URL — that would stomp the explicit route.
+      if (location.pathname.startsWith('/connect/contacts')) {
+        navigate(`/connect/contacts?contactId=${savedId}`, { replace: true })
+      }
       return
     }
 
     // 3. First contact as default
     setSelectedId(contacts[0].id)
-    navigate(`/connect/contacts?contactId=${contacts[0].id}`, { replace: true })
+    if (location.pathname.startsWith('/connect/contacts')) {
+      navigate(`/connect/contacts?contactId=${contacts[0].id}`, { replace: true })
+    }
   }, [loading, contacts]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Derived values ──────────────────────────────────────────────────────────

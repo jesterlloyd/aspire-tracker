@@ -884,7 +884,7 @@ export default function StudentSidePanel({
                       icon="✉"
                       label="Email"
                       onClick={() => navigate(
-                        `/connect/outreach?mode=message&studentId=${data.id}`,
+                        `/connect/outreach?mode=message&recipientType=student&recipientId=${data.id}`,
                         { state: { fromStudent: {
                             id:    data.id,
                             name:  `${data.first_name || ''} ${data.last_name || ''}`.trim(),
