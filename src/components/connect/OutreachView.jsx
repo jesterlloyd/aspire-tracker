@@ -188,6 +188,14 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
   const [bulkTestSendState,      setBulkTestSendState]      = useState({})
   const [bulkTestSendMsg,        setBulkTestSendMsg]        = useState({})
 
+  // ── Direct Message send state ─────────────────────────────────────────────
+  const [includeSignature,  setIncludeSignature]  = useState(true)
+  const [dmConfirmOpen,     setDmConfirmOpen]      = useState(false)
+  const [dmConfirmReady,    setDmConfirmReady]     = useState(false)
+  const [dmSendInFlight,    setDmSendInFlight]     = useState(false)
+  const [dmBodyExpanded,    setDmBodyExpanded]     = useState(false)
+  const [dmSendStatus,      setDmSendStatus]       = useState(null) // null | { ok, msg }
+
   // ── Direct Message draft — scoped to contact ID ───────────────────────────
   // Stores ONLY { subject, body }. surveyResult, surveyUrl, and tokens are
   // NEVER stored in localStorage/sessionStorage.
@@ -335,6 +343,22 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
     const t = setTimeout(() => setBulkReviewReady(true), 2000)
     return () => clearTimeout(t)
   }, [bulkShowReview])
+
+  // ── Direct Message confirm modal: 2-second safety delay ───────────────────
+  useEffect(() => {
+    if (!dmConfirmOpen) { setDmConfirmReady(false); return }
+    setDmConfirmReady(false)
+    const t = setTimeout(() => setDmConfirmReady(true), 2000)
+    return () => clearTimeout(t)
+  }, [dmConfirmOpen])
+
+  // ── Clear DM compose state on mode/recipient change ────────────────────────
+  useEffect(() => {
+    if (outreachMode !== 'message') {
+      setDmConfirmOpen(false)
+      setDmSendStatus(null)
+    }
+  }, [outreachMode, contactId])
 
   // ── Derived values ────────────────────────────────────────────────────────
   const selectedStudent  = students.find(s => s.id === selectedStudentId) || null
@@ -629,6 +653,53 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
     setBulkNotes('')
     setBulkExpiresAt(defaultExpiresAt())
   }, [])
+
+  // ── Direct Message send handler ───────────────────────────────────────────
+  const handleDmSend = useCallback(async () => {
+    if (!dmConfirmReady || dmSendInFlight) return
+    setDmSendInFlight(true)
+    setDmSendStatus(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        setDmSendStatus({ ok: false, msg: 'Session expired. Please refresh and try again.' })
+        setDmConfirmOpen(false)
+        return
+      }
+      const res = await fetch('/api/connect-send-direct-email', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          contact_id:        contactId,
+          subject:           msgSubject.trim(),
+          body:              msgBody.trim(),
+          body_format:       'text',
+          include_signature: includeSignature,
+        }),
+      })
+      let payload = null
+      try { payload = await res.json() } catch { /* ignore */ }
+      setDmConfirmOpen(false)
+      if (res.ok && payload?.success) {
+        // Clear compose on success; keep contact selected
+        setMsgSubject('')
+        setMsgBody('')
+        setIncludeSignature(true)
+        setDmBodyExpanded(false)
+        // Clear saved draft — sent content should not restore on next visit to this contact
+        if (DRAFT_KEY) localStorage.removeItem(DRAFT_KEY)
+        setDmSendStatus({ ok: true, msg: payload.message || `Email sent to ${fromContact?.name || 'contact'}.` })
+      } else {
+        const errMsg = payload?.error || (res.status === 403 ? 'Contact is inactive or access denied.' : 'Failed to send email. Please try again.')
+        setDmSendStatus({ ok: false, msg: errMsg })
+      }
+    } catch {
+      setDmConfirmOpen(false)
+      setDmSendStatus({ ok: false, msg: 'Network error. Please check your connection and try again.' })
+    } finally {
+      setDmSendInFlight(false)
+    }
+  }, [dmConfirmReady, dmSendInFlight, contactId, msgSubject, msgBody, includeSignature, fromContact])
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -1142,35 +1213,80 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                 />
               </div>
 
-              {/* Action bar */}
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 20 }}>
-                <Tooltip label="Draft persistence coming soon" placement="top">
-                  <button disabled style={{
-                    padding: '8px 16px', background: '#e5e7eb',
-                    border: 'none', borderRadius: 8,
-                    fontSize: 12, fontWeight: 600, fontFamily: F,
-                    color: '#9ca3af', cursor: 'not-allowed',
-                  }}>
-                    Save Draft
-                  </button>
-                </Tooltip>
-                <Tooltip label="Email sending will be enabled in a future release" placement="top">
-                  <button disabled style={{
-                    padding: '8px 16px', background: '#e5e7eb',
-                    border: 'none', borderRadius: 8,
-                    fontSize: 12, fontWeight: 600, fontFamily: F,
-                    color: '#9ca3af', cursor: 'not-allowed',
-                  }}>
-                    Send Email
-                  </button>
-                </Tooltip>
-                <p style={{
-                  margin: 0, fontSize: 11, color: '#9ca3af', fontFamily: F,
-                  lineHeight: 1.5, flex: '1 1 100%', paddingTop: 4,
-                }}>
-                  Direct email sending will be enabled in a future release.
-                </p>
+              {/* Signature toggle */}
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12, fontFamily: F, color: '#374151' }}>
+                  <input
+                    type="checkbox"
+                    checked={includeSignature}
+                    onChange={e => setIncludeSignature(e.target.checked)}
+                    style={{ width: 14, height: 14, accentColor: '#1D2567' }}
+                  />
+                  Include ASPIRE Program signature
+                </label>
               </div>
+
+              {/* Action bar */}
+              {(() => {
+                const hasContact = !!(contactId && contactHasDisplayInfo && fromContact?.email)
+                const hasSubject = !!msgSubject.trim()
+                const hasBody    = !!msgBody.trim()
+                const canSend    = hasContact && hasSubject && hasBody
+
+                const disabledTip = !hasContact  ? 'Select a contact with an email to send'
+                                  : !hasSubject  ? 'Enter a subject'
+                                  : !hasBody     ? 'Enter a message body'
+                                  : ''
+                return (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+                    <Tooltip label="Draft persistence coming soon" placement="top">
+                      <button disabled style={{
+                        padding: '8px 16px', background: '#e5e7eb',
+                        border: 'none', borderRadius: 8,
+                        fontSize: 12, fontWeight: 600, fontFamily: F,
+                        color: '#9ca3af', cursor: 'not-allowed',
+                      }}>Save Draft</button>
+                    </Tooltip>
+                    {canSend ? (
+                      <button
+                        onClick={() => { setDmBodyExpanded(false); setDmConfirmOpen(true) }}
+                        style={{
+                          padding: '8px 18px', background: '#1D2567',
+                          border: 'none', borderRadius: 8,
+                          fontSize: 12, fontWeight: 600, fontFamily: F,
+                          color: '#fff', cursor: 'pointer', transition: 'opacity 0.12s',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                        onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                      >
+                        Send Email
+                      </button>
+                    ) : (
+                      <Tooltip label={disabledTip} placement="top">
+                        <button disabled style={{
+                          padding: '8px 18px', background: '#e5e7eb',
+                          border: 'none', borderRadius: 8,
+                          fontSize: 12, fontWeight: 600, fontFamily: F,
+                          color: '#9ca3af', cursor: 'not-allowed',
+                        }}>Send Email</button>
+                      </Tooltip>
+                    )}
+                  </div>
+                )
+              })()}
+
+              {/* Inline send status feedback */}
+              {dmSendStatus && (
+                <div style={{
+                  padding: '8px 12px', borderRadius: 8, marginBottom: 12,
+                  background: dmSendStatus.ok ? '#EEF7F0' : '#fef2f2',
+                  border: `1px solid ${dmSendStatus.ok ? '#c6d9a8' : '#fecaca'}`,
+                  fontSize: 12, fontFamily: F,
+                  color: dmSendStatus.ok ? '#2F7D5C' : '#dc2626',
+                }}>
+                  {dmSendStatus.msg}
+                </div>
+              )}
 
               {/* Live preview */}
               <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 16 }}>
@@ -1981,6 +2097,98 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                 }}
               >
                 {bulkGenerating ? 'Generating…' : `Generate ${bulkSelectedIds.length} link${bulkSelectedIds.length !== 1 ? 's' : ''}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Direct Message confirmation modal ─────────────────────────────── */}
+      {dmConfirmOpen && (
+        <div onClick={() => { if (!dmSendInFlight) setDmConfirmOpen(false) }} style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#fff', borderRadius: 12,
+            padding: '28px 32px', maxWidth: 520, width: '90vw',
+            maxHeight: '80vh', overflowY: 'auto',
+            boxShadow: '0 8px 40px rgba(0,0,0,0.18)',
+            fontFamily: F, boxSizing: 'border-box',
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1D2567', fontFamily: F }}>
+                Send direct email
+              </h2>
+              <button onClick={() => { if (!dmSendInFlight) setDmConfirmOpen(false) }}
+                disabled={dmSendInFlight}
+                style={{ background: 'none', border: 'none', cursor: dmSendInFlight ? 'not-allowed' : 'pointer', fontSize: 20, color: '#9ca3af', lineHeight: 1, padding: '2px 6px' }}>×</button>
+            </div>
+
+            {/* Recipient + metadata */}
+            <div style={{ padding: '10px 14px', marginBottom: 14, background: '#EEF2FB', border: '1px solid #c3cdf0', borderRadius: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#1D2567', fontFamily: F }}>
+                {fromContact?.name || contactId}
+              </div>
+              {fromContact?.email && (
+                <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginTop: 2 }}>{fromContact.email}</div>
+              )}
+              {fromContact?.role && (
+                <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginTop: 2 }}>{fromContact.role}</div>
+              )}
+            </div>
+
+            {/* Subject */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: F, marginBottom: 4 }}>Subject</div>
+              <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.5 }}>{msgSubject}</div>
+            </div>
+
+            {/* Body preview */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: F, marginBottom: 4 }}>Message</div>
+              <div style={{ fontSize: 12, color: '#374151', fontFamily: F, lineHeight: 1.6, whiteSpace: 'pre-wrap', background: '#f9fafb', padding: '10px 12px', borderRadius: 6, border: '1px solid #e5e7eb', maxHeight: dmBodyExpanded ? 320 : 80, overflowY: dmBodyExpanded ? 'auto' : 'hidden' }}>
+                {msgBody}
+              </div>
+              {msgBody.length > 200 && (
+                <button onClick={() => setDmBodyExpanded(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#6b7280', fontFamily: F, padding: '4px 0', marginTop: 2 }}>
+                  {dmBodyExpanded ? 'Collapse' : 'Show full message'}
+                </button>
+              )}
+            </div>
+
+            {/* Signature indicator */}
+            <div style={{ marginBottom: 16, fontSize: 11, color: '#9ca3af', fontFamily: F }}>
+              ASPIRE Program signature: <strong style={{ color: '#374151' }}>{includeSignature ? 'included' : 'omitted'}</strong>
+            </div>
+
+            {/* Safety delay note */}
+            {!dmConfirmReady && (
+              <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginBottom: 10, textAlign: 'center' }}>
+                Please review the details above before sending…
+              </div>
+            )}
+
+            {/* Footer */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button type="button" onClick={() => { if (!dmSendInFlight) setDmConfirmOpen(false) }}
+                disabled={dmSendInFlight}
+                style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, fontFamily: F, color: '#374151', cursor: dmSendInFlight ? 'not-allowed' : 'pointer' }}>
+                Cancel
+              </button>
+              <button type="button" onClick={handleDmSend}
+                disabled={!dmConfirmReady || dmSendInFlight}
+                style={{
+                  padding: '8px 20px', borderRadius: 8, border: 'none',
+                  background: (!dmConfirmReady || dmSendInFlight) ? '#e5e7eb' : '#1D2567',
+                  fontSize: 12, fontWeight: 600, fontFamily: F,
+                  color: (!dmConfirmReady || dmSendInFlight) ? '#9ca3af' : '#fff',
+                  cursor: (!dmConfirmReady || dmSendInFlight) ? 'not-allowed' : 'pointer',
+                  transition: 'background 0.12s',
+                }}>
+                {dmSendInFlight ? 'Sending…' : 'Send'}
               </button>
             </div>
           </div>
