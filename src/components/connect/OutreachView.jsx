@@ -148,8 +148,6 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
 
   // Display info availability — router state preferred, fetched record as fallback
   const contactHasDisplayInfo = !!(fromContact?.name || fromContact?.email)
-  // effectiveStudent merges router state (if present) with the fetch fallback
-  // so the recipient card populates even after a page refresh or direct URL open
 
   // Recipient type: student URL params are checked BEFORE contact to prevent
   // a stale contact ID from shadowing an explicit student route.
@@ -208,6 +206,12 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
   // fetch the student record to populate the recipient card.
   const [fetchedStudent,     setFetchedStudent]     = useState(null)
   const [studentFetchFailed, setStudentFetchFailed] = useState(false)
+
+  // ── effectiveStudent / studentHasDisplayInfo ─────────────────────────────────
+  // Declared HERE before effects that reference them to avoid TDZ in production builds.
+  const effectiveStudent      = fromStudent || (fetchedStudent?.id === studentId ? fetchedStudent : null)
+  const studentHasDisplayInfo = !!(effectiveStudent?.name || effectiveStudent?.email ||
+    (fetchedStudent && fetchedStudent.id === studentId))
 
   // ── Direct Message send state ─────────────────────────────────────────────
   const [includeSignature,  setIncludeSignature]  = useState(true)
@@ -424,10 +428,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
   }, [draftRecipientId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Derived values ────────────────────────────────────────────────────────
-  // Unified student display object: prefer router state, fall back to fetched record
-  const effectiveStudent = fromStudent || (fetchedStudent?.id === studentId ? fetchedStudent : null)
-  const studentHasDisplayInfo = !!(effectiveStudent?.name || effectiveStudent?.email ||
-    (fetchedStudent && fetchedStudent.id === studentId))
+  // effectiveStudent and studentHasDisplayInfo are declared earlier (before effects) to avoid TDZ.
 
   // True when any DM recipient is loaded — enables compose fields for both contacts and students
   const dmHasAnyRecipient = !!(contactId || studentId)
