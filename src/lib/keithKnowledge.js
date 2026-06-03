@@ -111,6 +111,11 @@ export const SUGGESTED_PROMPTS = [
   { label: 'Draft a student form email.', category: 'email' },
   { label: 'Explain the ASPIRE status journey.', category: 'info' },
   { label: 'How does CS-Link access work?', category: 'info' },
+  { label: 'How do I email a student from Student Profiles?', category: 'connect' },
+  { label: 'How do I email a contact from Contacts?', category: 'connect' },
+  { label: 'What can I do in Outreach right now?', category: 'connect' },
+  { label: 'Can I send bulk survey invitations yet?', category: 'connect' },
+  { label: 'What contact categories are available?', category: 'connect' },
 ];
 
 export function generateStaticResponse(userMessage, cohortName, context) {
@@ -818,15 +823,55 @@ The public /school-form now has a "Rotation Dates" section between School Inform
 `.trim();
 
 export const CONTACTS_AND_DIGEST_KNOWLEDGE = `
-CONTACTS TABLE:
-A centralized phone book at the DB level. Phase 1 seeded with six school placement coordinators:
-- Susan Hunter (APU, all programs)
-- Alyssa Manlangit (Cal State LA, Accelerated BSN)
-- Marissa Grafil Ramirez (Cal State LA, catch-all for non-ABSN programs)
-- Lucy Van Otterloo (Cal State Long Beach, all programs)
-- Joelene Balatero (West Coast University Anaheim)
-- Tony Kim (West Coast University North Hollywood)
-Future phases will add unit leaders, nursing executives, and BNI NPD-Ps.
+ASPIRE CONNECT:
+ASPIRE Connect is the communication hub for the ASPIRE Program. It includes three sections: Contacts, Outreach, and Broadcasts.
+
+CONTACTS:
+A centralized contact directory for external and internal program contacts. Contacts are not student records; students remain in Student Profiles as the source of truth and are not imported into Contacts.
+
+Contact categories (multi-category — a contact may belong to more than one):
+- Academic Partners: school coordinators, clinical placement coordinators, program coordinators, program assistants, clinical faculty, managers, associate professors, and related school partners.
+- Unit Leadership: Associate Directors, Assistant Nurse Managers, Unit NPD Practitioners.
+- Preceptors: contacts imported from Rotation > Preceptors. Preceptor contacts can show linked assigned students in the right context rail.
+- BNI Team: NPD Practitioners, BNI Administration, and Brawerman Nursing Institute contacts.
+- Nursing Executives: Nursing Leadership, Executive Directors, Chief Nursing Officers.
+- Other: anything unmapped.
+A BNI executive (like the BNI Executive Director) may belong to both BNI Team and Nursing Executives.
+
+Contacts capabilities (as of June 2026):
+- Add/Edit Contact via owner/admin-gated API endpoint.
+- Contact avatar/profile photo upload and display.
+- LinkedIn profile links.
+- Preferred contact method, role qualifier, affiliation fields.
+- Preceptors imported from Rotation > Preceptors appear in the Preceptors category.
+- Rotations > Preceptors table shows uploaded Contact avatars by email match (read-only display; upload happens through Contacts).
+- Contact last-contact fields (last_contacted_at, last_contact_type, last_contact_summary) are updated after each direct email send.
+
+OUTREACH:
+Outreach is the direct communication workflow inside ASPIRE Connect. It supports two modes: Send to one recipient and Send to many.
+
+Direct Message (one-to-one email via Resend):
+- A contact can be emailed from Contacts: select a contact and click Email. Outreach opens in Direct Message mode with the contact prefilled.
+- A student can be emailed from Student Profiles: select a student and click Email. Outreach opens in Direct Message mode with the student prefilled.
+- Direct email supports both contact recipients and student recipients.
+- Direct email sends one email per send action via Resend through the ASPIRE Program sender (noreply@aspire-program.com).
+- Direct email does NOT create evaluation assignments, tokens, or survey links.
+- Direct email is logged in notification_log as type "direct_message_sent" with recipient_type = "contact" or "student".
+- Contact last-contact fields are updated after a successful direct email send.
+- Student last-contact fields are not yet updated (future enhancement — those columns do not currently exist).
+- ASPIRE Program signature can be included or excluded per send.
+- Draft compose state is preserved per recipient (contact or student) and restored on return.
+- Explicit Email navigation always loads the selected recipient, overriding remembered last-activity state.
+- Remembered state (last opened contact or draft) is only restored when there is no explicit recipient in the route.
+
+Bulk Survey Invitation (Send to many):
+- Owner can select students, configure Casey-Fink instrument, timepoint, expiration, and notes.
+- Generate Links creates one unique secure survey link per selected student via the evaluation endpoint.
+- Survey links are shown once in the results panel (React state only) and are NOT persisted to localStorage or any database field.
+- Owner can send a test email of one generated survey link to their own inbox for verification.
+- Actual bulk Send via Resend for student survey invitations is NOT yet enabled. That button remains disabled.
+- Scheduling/cron bulk sends are not yet enabled.
+- Reminder automation is not yet enabled.
 
 WEEKLY COORDINATOR DIGEST:
 A cron (api/cron/coordinator-weekly-digest.js) runs every Friday at 16:00 UTC (8 AM Pacific). It sends each coordinator a digest of their students' activity from the past 7 days: Form Received, Interview Scheduled, Interview Completed, Unit Placement events. Routing: coordinators receive events for students from their school (and program type for Cal State LA split). Recovery endpoint: POST /api/admin/resend-coordinator-digest.
@@ -857,13 +902,26 @@ Pill philosophy: status pills, match quality chips, capacity descriptors, and he
 `.trim();
 
 export const ROADMAP_AND_LIMITATIONS = `
-STRATEGIC ROADMAP (what is coming):
-- ASPIRE Connect: in-app messaging layer that replaces mailto and enables Keith to send emails on behalf of users, threading communications under contact records. Foundation is in place (Resend integration, communications table, contacts table, aspire-program.com domain). Phase 1 build is approximately 2-3 weeks of focused work; not yet scheduled.
-- CS-Link Management worklist: second worklist following the Interview Room five-column pattern. Building it will inform extracting a shared Worklist component.
-- Badge Management worklist: third planned surface for tracking photo status, badge generation, and distribution.
-- Placement Follow-Up worklist: fourth planned surface for tracking post-placement progress.
-- Keith tool infrastructure (next prompt): giving Keith live database read access so it can answer questions about specific students, rubric scores, and unit availability on demand. Currently Keith works from static knowledge and what users share in conversation.
-- Predictive models (longer term): NGRP likelihood scoring, at-risk student detection, demand forecasting. Requires several cohorts of clean longitudinal data before training is meaningful.
+WHAT IS LIVE IN ASPIRE CONNECT (as of June 2026):
+- Contacts directory with Add/Edit, avatar upload, LinkedIn links, multi-category filtering.
+- Preceptors imported into Contacts from Rotation > Preceptors.
+- Direct Message one-to-one email via Resend to contacts and students.
+- Bulk Casey-Fink survey link generation (generate-only mode, no automated student send).
+- Owner test email for survey link verification.
+
+WHAT IS NOT YET ENABLED (Keith must state these clearly):
+- Bulk Send via Resend for student survey invitations: not yet enabled. The button is disabled.
+- Scheduled/cron bulk email sends: not yet enabled.
+- Reminder automation for survey follow-up: not yet enabled.
+- Student last-contacted fields: future enhancement (columns do not currently exist in students table).
+- Broadcasts tab: scaffold only; not yet functional.
+
+STRATEGIC ROADMAP (planned next):
+- Bulk Send via Resend for survey invitations (Phase 3B.2B): when ready, the bulk Send via Resend button will send one survey email per eligible student using the verified ASPIRE Program sender.
+- CS-Link Management worklist: following the Interview Room five-column pattern.
+- Badge Management worklist: tracking photo status, badge generation, and distribution.
+- Placement Follow-Up worklist: tracking post-placement progress.
+- Predictive models (longer term): NGRP likelihood scoring, at-risk detection, demand forecasting.
 
 ACKNOWLEDGED LIMITATIONS (honest answers Keith must give):
 Keith does NOT have direct database query access. It works from static knowledge embedded in this prompt and from whatever live cohort summary context is passed in. Keith cannot:
@@ -872,9 +930,7 @@ Keith does NOT have direct database query access. It works from static knowledge
 - Send emails, update records, or perform any write action
 - Access data outside what is in the live cohort context block
 
-When users ask questions that require live data Keith does not have, Keith should say honestly that it does not have access to that specific data, and direct the user to the appropriate tab where the answer lives: Student Profiles for student details, Interview Room for rubric and scheduling data, Embed for placement and slot status, Aggregate for cohort-level overview.
-
-Tool infrastructure (giving Keith live read access and write actions) is queued for the next development prompt.
+When users ask questions that require live data Keith does not have, Keith should say honestly that it does not have access to that specific data, and direct the user to the appropriate tab: Student Profiles for student details, Interview Room for rubric and scheduling data, Embed for placement and slot status, Aggregate for cohort-level overview, Contacts for contact records, Outreach for sending direct messages or survey invitations.
 `.trim();
 
 /**
