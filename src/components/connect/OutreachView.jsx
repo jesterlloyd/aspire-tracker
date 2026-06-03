@@ -2080,6 +2080,36 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                         ))}
                       </div>
 
+                      {/* Send via Resend — visible in results row so it's accessible after generation */}
+                      {(() => {
+                        const eligibleInResults = (bulkResults.generated || []).filter(g => !bulkSentIds.has(g.assignmentId))
+                        const allSentInResults  = bulkResults.generated?.length > 0 && eligibleInResults.length === 0
+                        return (
+                          <div style={{ marginBottom: 12, padding: '10px 12px', background: '#EEF2FB', border: '1px solid #c3cdf0', borderRadius: 8 }}>
+                            <div style={{ fontSize: 11, color: '#1D2567', fontFamily: F, marginBottom: 8, lineHeight: 1.5 }}>
+                              Use <strong>Send via Resend</strong> to email these survey links to students.
+                              Use <strong>↑ Send test to me</strong> to preview the email in your own inbox.
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                              {allSentInResults ? (
+                                <button disabled style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #c6d9a8', background: '#EEF7F0', fontSize: 12, fontWeight: 600, fontFamily: F, color: '#2F7D5C', cursor: 'not-allowed' }}>
+                                  ✓ All sent via Resend
+                                </button>
+                              ) : eligibleInResults.length > 0 ? (
+                                <button
+                                  onClick={() => { setBulkSendConfirmOpen(true); setBulkSendPhrase('') }}
+                                  style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#1D2567', fontSize: 12, fontWeight: 600, fontFamily: F, color: '#fff', cursor: 'pointer', transition: 'opacity 0.12s' }}
+                                  onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                                >
+                                  {bulkSentIds.size > 0 ? `Send remaining ${eligibleInResults.length} via Resend` : `Send ${eligibleInResults.length} via Resend`}
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                        )
+                      })()}
+
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         {bulkResults.generated?.length > 0 && (
                           <button onClick={handleBulkExportCSV} style={{
@@ -2157,9 +2187,9 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                                       }}
                                     >
                                       {bulkTestSendState[g.assignmentId] === 'sending' ? '↑ Sending…'
-                                       : bulkTestSendState[g.assignmentId] === 'sent'   ? '✓ Test sent'
+                                       : bulkTestSendState[g.assignmentId] === 'sent'   ? '✓ Test sent to me'
                                        : bulkTestSendState[g.assignmentId] === 'error'  ? '✗ Failed'
-                                       : '↑ Send test'}
+                                       : '↑ Send test to me'}
                                     </button>
                                   </Tooltip>
                                 </div>
