@@ -665,9 +665,8 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
 
   // ── Direct Message send handler ───────────────────────────────────────────
   const handleDmSend = useCallback(async () => {
-    // Student sending not yet enabled — this guard prevents accidental calls
-    if (recipientType === 'student') return
     if (!dmConfirmReady || dmSendInFlight) return
+    if (!recipientType) return  // no recipient loaded
     setDmSendInFlight(true)
     setDmSendStatus(null)
     try {
@@ -677,11 +676,13 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
         setDmConfirmOpen(false)
         return
       }
+      // Use unified recipient_type + recipient_id shape for both contacts and students
       const res = await fetch('/api/connect-send-direct-email', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify({
-          contact_id:        contactId,
+          recipient_type:    recipientType,
+          recipient_id:      recipientType === 'contact' ? contactId : studentId,
           subject:           msgSubject.trim(),
           body:              msgBody.trim(),
           body_format:       'text',
@@ -692,16 +693,16 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
       try { payload = await res.json() } catch { /* ignore */ }
       setDmConfirmOpen(false)
       if (res.ok && payload?.success) {
-        // Clear compose on success; keep contact selected
         setMsgSubject('')
         setMsgBody('')
         setIncludeSignature(true)
         setDmBodyExpanded(false)
-        // Clear saved draft — sent content should not restore on next visit to this contact
+        // Clear saved draft — sent content should not restore on next visit
         if (DRAFT_KEY) localStorage.removeItem(DRAFT_KEY)
-        setDmSendStatus({ ok: true, msg: payload.message || `Email sent to ${fromContact?.name || 'contact'}.` })
+        const recipientDisplayName = recipientType === 'contact' ? fromContact?.name : fromStudent?.name
+        setDmSendStatus({ ok: true, msg: payload.message || `Email sent to ${recipientDisplayName || 'recipient'}.` })
       } else {
-        const errMsg = payload?.error || (res.status === 403 ? 'Contact is inactive or access denied.' : 'Failed to send email. Please try again.')
+        const errMsg = payload?.error || (res.status === 403 ? 'Access denied or recipient cannot receive email.' : 'Failed to send email. Please try again.')
         setDmSendStatus({ ok: false, msg: errMsg })
       }
     } catch {
@@ -710,7 +711,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
     } finally {
       setDmSendInFlight(false)
     }
-  }, [dmConfirmReady, dmSendInFlight, contactId, msgSubject, msgBody, includeSignature, fromContact])
+  }, [dmConfirmReady, dmSendInFlight, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, fromContact, fromStudent])
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -1267,17 +1268,18 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
 
               {/* Action bar */}
               {(() => {
-                const hasContact = !!(contactId && contactHasDisplayInfo && fromContact?.email)
-                const hasSubject = !!msgSubject.trim()
-                const hasBody    = !!msgBody.trim()
-                // Student direct email sending is not yet enabled — handled in Phase 3B.2A.1
-                const canSend    = hasContact && hasSubject && hasBody
+                const hasContactRecipient = !!(contactId && contactHasDisplayInfo && fromContact?.email)
+                const hasStudentRecipient = !!(studentId && fromStudent?.email)
+                const hasRecipient = hasContactRecipient || hasStudentRecipient
+                const hasSubject   = !!msgSubject.trim()
+                const hasBody      = !!msgBody.trim()
+                const canSend      = hasRecipient && hasSubject && hasBody
 
-                const disabledTip = recipientType === 'student'
-                                    ? 'Student direct email sending will be enabled in the next phase.'
-                                    : !hasContact  ? 'Select a contact with an email to compose'
-                                    : !hasSubject  ? 'Enter a subject'
-                                    : !hasBody     ? 'Enter a message body'
+                const disabledTip = !hasRecipient && studentId && !fromStudent?.email
+                                    ? 'Recipient has no email on file'
+                                    : !hasRecipient ? 'Select a recipient to send'
+                                    : !hasSubject   ? 'Enter a subject'
+                                    : !hasBody      ? 'Enter a message body'
                                     : ''
                 return (
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>

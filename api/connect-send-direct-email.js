@@ -1,38 +1,43 @@
 // api/connect-send-direct-email.js
 //
 // Owner/admin-authenticated endpoint for sending a direct one-to-one email
-// to a contact via Resend. Phase 3B.2A of ASPIRE Connect Direct Message.
+// to a contact or student via Resend. Phase 3B.2A.1.
 //
 // INVARIANTS:
 //   - Sends ONE email per request.
-//   - Recipient email is ALWAYS resolved server-side from contacts.id.
+//   - Recipient email is ALWAYS resolved server-side from recipient_id + recipient_type.
 //   - No recipient field is accepted from the request body.
 //   - Does NOT send bulk survey invitations or evaluation assignments.
-//   - Does NOT update evaluation_assignments, students, or unrelated tables.
+//   - Does NOT update evaluation_assignments, evaluation tokens, or evaluation responses.
+//   - Does NOT import students into Contacts.
 //   - Does NOT trigger cron, scheduling, or downstream sends.
 //   - Writes ONE notification_log row with notification_type='direct_message_sent'.
-//   - Updates contacts.last_contacted_at, last_contact_type, last_contact_summary
-//     ONLY after a successful Resend send and successful notification_log write.
+//   - Updates contacts.last_contacted_at only after successful Resend send AND log write.
+//   - Students do not yet have last_contacted_at; that update is deferred.
 //   - Subject and safe metadata stored in notification_log; body content is NOT stored.
 //
 // POST /api/connect-send-direct-email
 // Authorization: Bearer <session-token>
 //
-// Body (JSON):
-//   contact_id         — required UUID of the contacts row
-//   subject            — required non-empty string, max 200 chars
-//   body               — required non-empty string, max 10000 chars
-//   body_format?       — optional 'text' | 'html', defaults to 'text'
+// Unified body shape (Phase 3B.2A.1):
+//   recipient_type — 'contact' | 'student'
+//   recipient_id   — required UUID
+//   subject        — required non-empty string, max 200 chars
+//   body           — required non-empty string, max 10000 chars
+//   body_format?   — optional, only 'text' supported
 //   include_signature? — optional boolean, defaults to true
 //
+// Legacy contact shape (backward compatible):
+//   contact_id — normalized internally as recipient_type='contact', recipient_id=contact_id
+//
 // Success (200):
-//   { success: true, message, resend_message_id, notification_log_id, sent_at }
+//   { success: true, message, resend_message_id, notification_log_id, audit_logged, sent_at }
 //
 // Errors:
 //   400 — validation failure or recipient override attempt
 //   401 — missing or invalid session
 //   403 — not owner/admin, or contact is inactive
-//   404 — contact not found or contact has no email
+//   404 — recipient not found or has no email
 //   500 — Resend failure or server error
 
 import { createClient } from '@supabase/supabase-js';
@@ -40,10 +45,9 @@ import { Resend } from 'resend';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { buildDirectMessageEmail } from '../lib/server/connect/emailTemplates.js';
 
-// From-address: use the confirmed working domain.
-// aspire@aspire-program.com is not confirmed as a verified Resend sender in this project.
-// noreply@aspire-program.com is used in all production Resend integrations
-// (coordinator digest, interview reminders, survey test email) and is the safe fallback.
+// From-address: noreply@aspire-program.com is the confirmed working sender
+// used in all production Resend integrations. aspire@aspire-program.com is
+// not confirmed as a verified sender.
 const FROM     = 'ASPIRE Program <noreply@aspire-program.com>';
 const REPLY_TO = 'JesterLloyd.Bautista@cshs.org';
 
@@ -121,23 +125,40 @@ async function _handler(req, res, startMs) {
   }
 
   // Reject any attempt to override the recipient from the request body.
-  const RECIPIENT_OVERRIDE_FIELDS = ['recipient', 'recipient_email', 'email', 'to', 'cc', 'bcc']
+  const RECIPIENT_OVERRIDE_FIELDS = ['recipient', 'recipient_email', 'email', 'to', 'cc', 'bcc'];
   for (const field of RECIPIENT_OVERRIDE_FIELDS) {
     if (field in body) {
       return res.status(400).json({
         success: false,
-        error: `Field '${field}' is not permitted. Recipient is resolved server-side from contact_id.`,
+        error: `Field '${field}' is not permitted. Recipient is resolved server-side from recipient_id.`,
       });
     }
   }
 
-  const { contact_id, subject, body: msgBody, body_format, include_signature } = body;
+  // Normalize legacy contact_id to unified shape for backward compatibility.
+  // Phase 3B.2A.0 UI sends contact_id; Phase 3B.2A.1 UI sends recipient_type + recipient_id.
+  let recipientType = body.recipient_type;
+  let recipientId   = body.recipient_id;
 
-  // contact_id
-  if (!contact_id) return res.status(400).json({ success: false, error: 'contact_id is required' });
-  if (!isUuid(contact_id)) return res.status(400).json({ success: false, error: 'contact_id must be a valid UUID' });
+  if (!recipientType && body.contact_id) {
+    recipientType = 'contact';
+    recipientId   = body.contact_id;
+  }
+
+  // Validate recipient_type
+  if (!recipientType || !['contact', 'student'].includes(recipientType)) {
+    return res.status(400).json({
+      success: false,
+      error: "recipient_type must be 'contact' or 'student' (or use legacy contact_id for contacts)",
+    });
+  }
+
+  // Validate recipient_id
+  if (!recipientId) return res.status(400).json({ success: false, error: 'recipient_id is required' });
+  if (!isUuid(recipientId)) return res.status(400).json({ success: false, error: 'recipient_id must be a valid UUID' });
 
   // subject
+  const { subject, body: msgBody, body_format, include_signature } = body;
   if (!subject || typeof subject !== 'string' || !subject.trim()) {
     return res.status(400).json({ success: false, error: 'subject is required and must be non-empty' });
   }
@@ -153,18 +174,17 @@ async function _handler(req, res, startMs) {
     return res.status(400).json({ success: false, error: 'body must not exceed 10000 characters' });
   }
 
-  // body_format — Phase 3B.2A supports text only.
-  // HTML composition and sanitization are deferred to a future release.
+  // body_format — text only
   const resolvedBodyFormat = body_format ?? 'text';
   if (resolvedBodyFormat !== 'text') {
     return res.status(400).json({
       success: false,
-      error:   'Only text email body format is supported in this release.',
+      error: 'Only text email body format is supported in this release.',
     });
   }
 
   // include_signature
-  const resolvedIncludeSignature = include_signature !== false; // defaults to true
+  const resolvedIncludeSignature = include_signature !== false;
   if (include_signature !== undefined && typeof include_signature !== 'boolean') {
     return res.status(400).json({ success: false, error: 'include_signature must be a boolean' });
   }
@@ -172,27 +192,61 @@ async function _handler(req, res, startMs) {
   const trimmedSubject = subject.trim();
   const trimmedBody    = msgBody.trim();
 
-  // ── 4. Resolve recipient server-side from contacts table ──────────────────────
-  const { data: contact, error: contactErr } = await supabaseAdmin
-    .from('contacts')
-    .select('id, full_name, email, role, is_active')
-    .eq('id', contact_id)
-    .single();
+  // ── 4. Resolve recipient server-side ──────────────────────────────────────────
+  let recipientEmail;
+  let recipientName;
+  let recipientRole;
+  let notificationAudience;
 
-  if (contactErr || !contact) {
-    return res.status(404).json({ success: false, error: 'Contact not found' });
-  }
-  if (!contact.email || !contact.email.trim()) {
-    return res.status(400).json({ success: false, error: 'Contact has no email on file' });
-  }
-  if (contact.is_active === false) {
-    return res.status(403).json({ success: false, error: 'Contact is inactive and cannot receive email' });
+  if (recipientType === 'contact') {
+    const { data: contact, error: contactErr } = await supabaseAdmin
+      .from('contacts')
+      .select('id, full_name, email, role, is_active')
+      .eq('id', recipientId)
+      .single();
+
+    if (contactErr || !contact) {
+      return res.status(404).json({ success: false, error: 'Contact not found' });
+    }
+    if (!contact.email || !contact.email.trim()) {
+      return res.status(400).json({ success: false, error: 'Contact has no email on file' });
+    }
+    if (contact.is_active === false) {
+      return res.status(403).json({ success: false, error: 'Contact is inactive and cannot receive email' });
+    }
+
+    recipientEmail       = contact.email.trim();
+    recipientName        = contact.full_name || null;
+    recipientRole        = contact.role || null;
+    notificationAudience = 'contact';
+
+  } else {
+    // recipient_type === 'student'
+    const { data: student, error: studentErr } = await supabaseAdmin
+      .from('students')
+      .select('id, first_name, last_name, personal_email, school_email, school, status')
+      .eq('id', recipientId)
+      .single();
+
+    if (studentErr || !student) {
+      return res.status(404).json({ success: false, error: 'Student not found' });
+    }
+    const resolvedStudentEmail = student.personal_email || student.school_email || null;
+    if (!resolvedStudentEmail) {
+      return res.status(400).json({ success: false, error: 'Student has no email on file' });
+    }
+
+    recipientEmail       = resolvedStudentEmail.trim();
+    recipientName        = `${student.first_name || ''} ${student.last_name || ''}`.trim() || null;
+    recipientRole        = 'Student';
+    notificationAudience = 'student';
   }
 
-  const recipientEmail = contact.email.trim();
-  const recipientName  = contact.full_name || null;
-
-  console.log('[connect-send-direct] handler_entry:', { contact_id, by: ownerUserProfileId });
+  console.log('[connect-send-direct] handler_entry:', {
+    recipient_type: recipientType,
+    recipient_id:   recipientId,
+    by:             ownerUserProfileId,
+  });
 
   // ── 5. Build email HTML ───────────────────────────────────────────────────────
   const { html } = buildDirectMessageEmail({
@@ -215,100 +269,105 @@ async function _handler(req, res, startMs) {
       subject:  trimmedSubject,
       html,
       tags: [
-        { name: 'type',       value: 'direct_message' },
-        { name: 'contact_id', value: contact_id },
+        { name: 'type',           value: 'direct_message' },
+        { name: 'recipient_type', value: recipientType },
+        { name: 'recipient_id',   value: recipientId },
       ],
     });
 
     if (emailErr) {
       sendError = emailErr.message || JSON.stringify(emailErr);
-      console.error('[connect-send-direct] failed:', { contact_id, error: sendError });
+      console.error('[connect-send-direct] failed:', { recipient_type: recipientType, recipient_id: recipientId, error: sendError });
     } else {
       resendMessageId = emailData?.id || null;
-      console.log('[connect-send-direct] sent:', { contact_id, resend_message_id: resendMessageId });
+      console.log('[connect-send-direct] sent:', { recipient_type: recipientType, recipient_id: recipientId, resend_message_id: resendMessageId });
     }
   } catch (err) {
     sendError = err.message;
-    console.error('[connect-send-direct] failed:', { contact_id, error: sendError });
+    console.error('[connect-send-direct] failed:', { recipient_type: recipientType, recipient_id: recipientId, error: sendError });
   }
 
   if (sendError) {
     const durationMs = Date.now() - startMs;
-    console.log('[connect-send-direct] complete:', { contact_id, duration_ms: durationMs, status: 'failed' });
+    console.log('[connect-send-direct] complete:', { recipient_type: recipientType, recipient_id: recipientId, duration_ms: durationMs, status: 'failed' });
     return res.status(500).json({ success: false, error: `Failed to send email: ${sendError}` });
   }
 
   const sentAt = new Date().toISOString();
 
   // ── 7. Audit log to notification_log ─────────────────────────────────────────
-  // Body content is NOT stored (privacy). Only safe metadata is kept.
-  // If the notification_log insert fails, the contacts CRM update is skipped
-  // to keep the audit record and the CRM update in sync.
+  // Body content is NOT stored. Only safe metadata is kept.
+  // If the notification_log insert fails, the last-contact update is skipped.
   let notificationLogId = null;
   let auditLogged       = false;
+
+  const logMetadata = recipientType === 'contact'
+    ? { recipient_type: 'contact', contact_id: recipientId,  sent_by_user_id: ownerUserProfileId, sent_by_email: ownerEmail, body_format: resolvedBodyFormat, body_length: trimmedBody.length, signature_included: resolvedIncludeSignature }
+    : { recipient_type: 'student', student_id: recipientId, sent_by_user_id: ownerUserProfileId, sent_by_email: ownerEmail, body_format: resolvedBodyFormat, body_length: trimmedBody.length, signature_included: resolvedIncludeSignature };
+
   try {
     const { data: logRow, error: logErr } = await supabaseAdmin
       .from('notification_log')
       .insert({
         notification_type: 'direct_message_sent',
-        audience:          'contact',
+        audience:          notificationAudience,
         recipient_email:   recipientEmail,
         recipient_name:    recipientName,
-        recipient_role:    contact.role || null,
+        recipient_role:    recipientRole,
         subject:           trimmedSubject,
         status:            'sent',
         resend_email_id:   resendMessageId,
         sent_at:           sentAt,
-        metadata: {
-          contact_id,
-          sent_by_user_id:    ownerUserProfileId,
-          sent_by_email:      ownerEmail,
-          body_format:        resolvedBodyFormat,
-          body_length:        trimmedBody.length,
-          signature_included: resolvedIncludeSignature,
-        },
+        metadata:          logMetadata,
       })
       .select('id')
       .single();
 
     if (logErr) {
       console.error('[connect-send-direct] log write failed:', logErr.message);
-      // auditLogged remains false — contacts update will be skipped
     } else {
       notificationLogId = logRow?.id || null;
       auditLogged       = true;
     }
   } catch (logException) {
     console.error('[connect-send-direct] log write threw:', logException.message);
-    // auditLogged remains false
   }
 
-  // ── 8. Update contacts CRM metadata ───────────────────────────────────────────
-  // ONLY runs if notification_log was successfully written.
-  // Mirrors the pattern in api/cron/coordinator-weekly-digest.js.
+  // ── 8. Update last-contact metadata (ONLY after successful send + audit log) ──
   if (auditLogged) {
-    try {
-      const { error: crmErr } = await supabaseAdmin
-        .from('contacts')
-        .update({
-          last_contacted_at:    sentAt,
-          last_contact_type:    'direct_message',
-          last_contact_summary: trimmedSubject.slice(0, 200),
-        })
-        .eq('id', contact_id);
-
-      if (crmErr) {
-        console.error('[connect-send-direct] contacts_update_failed:', { contact_id, error: crmErr.message });
+    if (recipientType === 'contact') {
+      // Contacts have last_contacted_at, last_contact_type, last_contact_summary
+      try {
+        const { error: crmErr } = await supabaseAdmin
+          .from('contacts')
+          .update({
+            last_contacted_at:    sentAt,
+            last_contact_type:    'direct_message',
+            last_contact_summary: trimmedSubject.slice(0, 200),
+          })
+          .eq('id', recipientId);
+        if (crmErr) {
+          console.error('[connect-send-direct] contacts_update_failed:', { recipient_id: recipientId, error: crmErr.message });
+        }
+      } catch (crmException) {
+        console.error('[connect-send-direct] contacts_update_failed:', { recipient_id: recipientId, error: crmException.message });
       }
-    } catch (crmException) {
-      console.error('[connect-send-direct] contacts_update_failed:', { contact_id, error: crmException.message });
+    } else {
+      // Students do not yet have last_contacted_at columns.
+      // This update is deferred to a future migration.
+      console.log('[connect-send-direct] student_last_contact_skipped: column not yet available for', recipientId);
     }
   } else {
-    console.warn('[connect-send-direct] contacts_update_skipped: notification_log write failed for', contact_id);
+    console.warn('[connect-send-direct] last_contact_update_skipped: notification_log write failed for', recipientId);
   }
 
   const durationMs = Date.now() - startMs;
-  console.log('[connect-send-direct] complete:', { contact_id, duration_ms: durationMs, audit_logged: auditLogged });
+  console.log('[connect-send-direct] complete:', {
+    recipient_type: recipientType,
+    recipient_id:   recipientId,
+    duration_ms:    durationMs,
+    audit_logged:   auditLogged,
+  });
 
   return res.status(200).json({
     success:             true,
