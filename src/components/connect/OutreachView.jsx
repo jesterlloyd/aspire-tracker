@@ -200,6 +200,12 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
   // Per-row test send state — { assignmentId: 'sending' | 'sent' | 'error' }
   const [bulkTestSendState,      setBulkTestSendState]      = useState({})
   const [bulkTestSendMsg,        setBulkTestSendMsg]        = useState({})
+  // Bulk send via Resend state (Phase 3B.2B)
+  const [bulkSendConfirmOpen,    setBulkSendConfirmOpen]    = useState(false)
+  const [bulkSendPhrase,         setBulkSendPhrase]         = useState('')
+  const [bulkSendInFlight,       setBulkSendInFlight]       = useState(false)
+  const [bulkSentIds,            setBulkSentIds]            = useState(new Set()) // assignmentIds sent this session
+  const [bulkSendResults,        setBulkSendResults]        = useState(null)     // { sent, skipped, failed }
 
   // ── Student fetch-on-demand (when router state was lost on page refresh) ────
   // When only studentId exists in URL but fromStudent has no display info,
@@ -776,6 +782,53 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
       setDmSendInFlight(false)
     }
   }, [dmConfirmReady, dmSendInFlight, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, fromContact, fromStudent])
+
+  // ── Bulk Send via Resend handler (Phase 3B.2B) ───────────────────────────
+  const handleBulkSendViaResend = useCallback(async () => {
+    if (bulkSendInFlight || !bulkResults?.generated?.length) return
+    const eligibleItems = bulkResults.generated.filter(g => !bulkSentIds.has(g.assignmentId))
+    if (!eligibleItems.length) return
+    setBulkSendInFlight(true)
+    setBulkSendResults(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        setBulkSendResults({ error: 'Session expired. Please refresh and try again.' })
+        return
+      }
+      const res = await fetch('/api/evaluation-send-bulk-invitations', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          confirmation_phrase: 'SEND SURVEYS',
+          items: eligibleItems.map(g => ({
+            assignment_id: g.assignmentId,
+            student_id:    g.studentId || g.student_id,
+            survey_url:    g.surveyUrl,
+          })),
+          instrument_slug: bulkInstrument,
+          timepoint:       bulkTimepoint,
+          expires_at:      bulkExpiresAt,
+        }),
+      })
+      let payload = null
+      try { payload = await res.json() } catch { /* ignore */ }
+      if (res.ok && payload?.success) {
+        const newSentIds = new Set(bulkSentIds)
+        ;(payload.sent || []).forEach(s => newSentIds.add(s.assignment_id))
+        setBulkSentIds(newSentIds)
+        setBulkSendResults(payload)
+        setBulkSendConfirmOpen(false)
+        setBulkSendPhrase('')
+      } else {
+        setBulkSendResults({ error: payload?.error || 'Failed to send emails. Please try again.' })
+      }
+    } catch {
+      setBulkSendResults({ error: 'Network error. Please check your connection.' })
+    } finally {
+      setBulkSendInFlight(false)
+    }
+  }, [bulkSendInFlight, bulkResults, bulkSentIds, bulkInstrument, bulkTimepoint, bulkExpiresAt])
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -1918,14 +1971,35 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                       Generate {bulkSelectedIds.length} {bulkSelectedIds.length === 1 ? 'Link' : 'Links'}
                     </button>
                   )}
-                  <Tooltip label="Coming in Phase 3B" placement="top">
-                    <button disabled style={{
-                      padding: '9px 16px', background: '#e5e7eb',
-                      border: 'none', borderRadius: 8,
-                      fontSize: 12, fontWeight: 600, fontFamily: F,
-                      color: '#9ca3af', cursor: 'not-allowed',
-                    }}>Send via Resend</button>
-                  </Tooltip>
+                  {/* Send via Resend — enabled when generated rows exist */}
+                  {(() => {
+                    const eligible = (bulkResults?.generated || []).filter(g => !bulkSentIds.has(g.assignmentId))
+                    const allSent  = bulkResults?.generated?.length > 0 && eligible.length === 0
+                    if (allSent) return (
+                      <button disabled style={{ padding: '9px 16px', background: '#EEF7F0', border: '1px solid #c6d9a8', borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: F, color: '#2F7D5C', cursor: 'not-allowed' }}>
+                        ✓ All sent
+                      </button>
+                    )
+                    const hasGenerated = eligible.length > 0
+                    if (!hasGenerated) return (
+                      <Tooltip label="Generate links first, then send via Resend" placement="top">
+                        <button disabled style={{ padding: '9px 16px', background: '#e5e7eb', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: F, color: '#9ca3af', cursor: 'not-allowed' }}>
+                          Send via Resend
+                        </button>
+                      </Tooltip>
+                    )
+                    const label = bulkSentIds.size > 0 ? `Send remaining ${eligible.length}` : `Send ${eligible.length} via Resend`
+                    return (
+                      <button
+                        onClick={() => { setBulkSendConfirmOpen(true); setBulkSendPhrase('') }}
+                        style={{ padding: '9px 16px', background: '#1D2567', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: F, color: '#fff', cursor: 'pointer', transition: 'opacity 0.12s' }}
+                        onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                        onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                      >
+                        {label}
+                      </button>
+                    )
+                  })()}
                 </div>
               </div>
             )}
@@ -1951,6 +2025,10 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                 {/* Success results */}
                 {!bulkResults.error && (
                   <div>
+                    {/* Session caveat */}
+                    <div style={{ padding: '6px 12px', marginBottom: 10, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 10, color: '#9ca3af', fontFamily: F }}>
+                      Send status shown for this session only. Database audit is permanent.
+                    </div>
                     {/* One-time warning banner */}
                     <div style={{
                       padding: '10px 14px', marginBottom: 12,
@@ -2068,6 +2146,10 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                                     {bulkTestSendMsg[g.assignmentId]}
                                   </div>
                                 )}
+                                {/* Per-row bulk send status badge */}
+                                {bulkSentIds.has(g.assignmentId) && (
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: '#2F7D5C', fontFamily: F, textAlign: 'right' }}>✓ Sent via Resend</div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -2140,6 +2222,82 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
       )}{/* end recipientMode === 'bulk' */}
 
       {/* ── Review Recipients Modal ───────────────────────────────────────── */}
+      {/* ── Bulk Send via Resend confirmation modal (Phase 3B.2B) ─────────── */}
+      {bulkSendConfirmOpen && (() => {
+        const eligible = (bulkResults?.generated || []).filter(g => !bulkSentIds.has(g.assignmentId))
+        const phraseMatch = bulkSendPhrase === 'SEND SURVEYS'
+        return (
+          <div onClick={() => { if (!bulkSendInFlight) { setBulkSendConfirmOpen(false); setBulkSendPhrase('') } }} style={{
+            position: 'fixed', inset: 0, zIndex: 1001,
+            background: 'rgba(0,0,0,0.55)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <div onClick={e => e.stopPropagation()} style={{
+              background: '#fff', borderRadius: 12,
+              padding: '28px 32px', maxWidth: 500, width: '90vw',
+              maxHeight: '80vh', overflowY: 'auto',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.22)',
+              fontFamily: F, boxSizing: 'border-box',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#dc2626', fontFamily: F }}>Send Survey Invitations</h2>
+                <button onClick={() => { if (!bulkSendInFlight) { setBulkSendConfirmOpen(false); setBulkSendPhrase('') } }}
+                  disabled={bulkSendInFlight}
+                  style={{ background: 'none', border: 'none', cursor: bulkSendInFlight ? 'not-allowed' : 'pointer', fontSize: 20, color: '#9ca3af', lineHeight: 1, padding: '2px 6px' }}>×</button>
+              </div>
+              <div style={{ padding: '10px 14px', marginBottom: 16, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12, color: '#dc2626', fontFamily: F, lineHeight: 1.6, fontWeight: 600 }}>
+                These are real emails to real students. They cannot be unsent.
+              </div>
+              <div style={{ marginBottom: 16, fontSize: 12, fontFamily: F, color: '#374151', lineHeight: 1.6 }}>
+                <div><strong>Survey:</strong> Casey-Fink Readiness for Practice Survey 2024</div>
+                <div><strong>Timepoint:</strong> {TIMEPOINTS.find(t => t.value === bulkTimepoint)?.label || bulkTimepoint}</div>
+                <div><strong>Expires:</strong> {fmtDate(bulkExpiresAt)}</div>
+                <div><strong>Recipients:</strong> {eligible.length} student{eligible.length !== 1 ? 's' : ''}</div>
+                {bulkSentIds.size > 0 && <div style={{ color: '#9ca3af' }}>({bulkSentIds.size} already sent this session, skipped)</div>}
+                <div><strong>From:</strong> ASPIRE Program &lt;noreply@aspire-program.com&gt;</div>
+                <div><strong>Reply-To:</strong> JesterLloyd.Bautista@cshs.org</div>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', fontFamily: F, marginBottom: 6 }}>
+                  Type <strong>SEND SURVEYS</strong> to confirm:
+                </div>
+                <input
+                  type="text"
+                  value={bulkSendPhrase}
+                  onChange={e => setBulkSendPhrase(e.target.value)}
+                  placeholder="SEND SURVEYS"
+                  disabled={bulkSendInFlight}
+                  style={{ ...inputBase, fontFamily: 'monospace', letterSpacing: '0.05em' }}
+                  autoFocus
+                />
+              </div>
+              {bulkSendResults?.error && (
+                <div style={{ padding: '8px 12px', marginBottom: 12, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12, color: '#dc2626', fontFamily: F }}>{bulkSendResults.error}</div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button type="button" onClick={() => { if (!bulkSendInFlight) { setBulkSendConfirmOpen(false); setBulkSendPhrase('') } }}
+                  disabled={bulkSendInFlight}
+                  style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, fontFamily: F, color: '#374151', cursor: bulkSendInFlight ? 'not-allowed' : 'pointer' }}>
+                  Cancel
+                </button>
+                <button type="button" onClick={handleBulkSendViaResend}
+                  disabled={!phraseMatch || bulkSendInFlight || eligible.length === 0}
+                  style={{
+                    padding: '8px 20px', borderRadius: 8, border: 'none',
+                    background: (!phraseMatch || bulkSendInFlight || !eligible.length) ? '#e5e7eb' : '#dc2626',
+                    fontSize: 12, fontWeight: 600, fontFamily: F,
+                    color: (!phraseMatch || bulkSendInFlight || !eligible.length) ? '#9ca3af' : '#fff',
+                    cursor: (!phraseMatch || bulkSendInFlight || !eligible.length) ? 'not-allowed' : 'pointer',
+                    transition: 'background 0.12s',
+                  }}>
+                  {bulkSendInFlight ? `Sending ${eligible.length}…` : `Send ${eligible.length} email${eligible.length !== 1 ? 's' : ''}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {bulkShowReview && (
         <div onClick={handleBulkCloseReview} style={{
           position: 'fixed', inset: 0, zIndex: 1000,
