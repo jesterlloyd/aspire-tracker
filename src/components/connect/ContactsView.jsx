@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import ProfileActionButton from '../ui/ProfileActionButton'
 
 const LAST_CONTACT_KEY = 'aspire.connect.contacts.lastContactId'
 import { supabase } from '../../lib/supabase'
@@ -431,76 +432,34 @@ function ContactProfile({ contact, navigate, onEdit }) {
 
         {/* ── Action buttons ── */}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginTop: 18 }}>
-          {contact.email ? (
-            <Tooltip label="Compose via Outreach" placement="bottom">
-            <button
-              onClick={() => navigate(
-                `/connect/outreach?mode=message&contactId=${contact.id}`,
-                { state: { fromContact: { id: contact.id, name: contact.full_name, email: contact.email } } }
-              )}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                padding: '7px 14px', borderRadius: 8,
-                background: NAVY, color: '#fff',
-                fontFamily: F, fontSize: 12, fontWeight: 600,
-                border: 'none', cursor: 'pointer', transition: 'opacity 0.15s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
-              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-            >
-              ✉ Email
-            </button>
-            </Tooltip>
-          ) : (
-            <Tooltip label="No email on file" placement="bottom">
-              <button disabled style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                padding: '7px 14px', borderRadius: 8,
-                background: '#e5e7eb', color: '#9ca3af',
-                fontFamily: F, fontSize: 12, fontWeight: 600,
-                border: 'none', cursor: 'not-allowed',
-              }}>
-                ✉ Email
-              </button>
-            </Tooltip>
-          )}
+          <ProfileActionButton
+            variant="primary"
+            icon="✉"
+            label="Email"
+            onClick={() => navigate(
+              `/connect/outreach?mode=message&contactId=${contact.id}`,
+              { state: { fromContact: { id: contact.id, name: contact.full_name, email: contact.email } } }
+            )}
+            disabled={!contact.email}
+            disabledReason="No email on file"
+          />
 
-          {contact.phone ? (
-            <a
-              href={`tel:${contact.phone}`}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 5,
-                padding: '7px 14px', borderRadius: 8,
-                background: '#fff', color: NAVY,
-                border: '1px solid rgba(29,37,103,0.20)',
-                fontFamily: F, fontSize: 12, fontWeight: 600,
-                textDecoration: 'none', transition: 'background 0.15s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = '#EEF2FB'}
-              onMouseLeave={e => e.currentTarget.style.background = '#fff'}
-            >
-              📞 Call
-            </a>
-          ) : null}
+          <ProfileActionButton
+            variant="secondary"
+            icon="📞"
+            label="Call"
+            href={contact.phone ? `tel:${contact.phone}` : undefined}
+            disabled={!contact.phone}
+            disabledReason="No phone on file"
+          />
 
-          {/* Edit */}
-          <button
+          <ProfileActionButton
+            variant="secondary"
+            icon="✎"
+            label="Edit"
             onClick={() => onEdit && onEdit(contact)}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '7px 14px', borderRadius: 8,
-              background: '#f9fafb', color: NAVY,
-              border: `1px solid rgba(29,37,103,0.20)`,
-              fontFamily: F, fontSize: 12, fontWeight: 600,
-              cursor: 'pointer', transition: 'background 0.15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = '#EEF2FB'}
-            onMouseLeave={e => e.currentTarget.style.background = '#f9fafb'}
-          >
-            ✎ Edit
-          </button>
+          />
 
-          {/* LinkedIn — official wordmark from /linkedin-logo.svg */}
           {contact.linkedin_url && (
             <a
               href={contact.linkedin_url}
@@ -508,9 +467,10 @@ function ContactProfile({ contact, navigate, onEdit }) {
               rel="noreferrer"
               style={{
                 display: 'inline-flex', alignItems: 'center',
-                padding: '7px 14px', borderRadius: 8,
+                padding: '7px 14px', height: 34, borderRadius: 8,
                 background: '#fff', border: '1px solid rgba(10,102,194,0.25)',
-                textDecoration: 'none', transition: 'background 0.15s',
+                textDecoration: 'none', transition: 'background 0.12s',
+                boxSizing: 'border-box',
               }}
               onMouseEnter={e => e.currentTarget.style.background = '#EFF6FF'}
               onMouseLeave={e => e.currentTarget.style.background = '#fff'}

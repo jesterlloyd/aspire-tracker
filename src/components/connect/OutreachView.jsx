@@ -126,35 +126,43 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
   const location       = useLocation()
   const [searchParams] = useSearchParams()
 
-  // URL params provide explicit routing intent — used by Contacts Email button
-  const urlMode      = searchParams.get('mode')      // 'message' | 'survey' | null
-  const urlContactId = searchParams.get('contactId') // UUID | null
+  // URL params provide explicit routing intent
+  const urlMode      = searchParams.get('mode')       // 'message' | 'survey' | null
+  const urlContactId = searchParams.get('contactId')  // UUID | null
+  const urlStudentId = searchParams.get('studentId')  // UUID | null
 
-  // Router state carries contact display info when navigating from Contacts
-  const fromContact = location.state?.fromContact || null
+  // Router state carries display info from Contacts or Student Profiles
+  const fromContact = location.state?.fromContact || null  // { id, name, email }
+  const fromStudent = location.state?.fromStudent || null  // { id, name, email, school }
 
-  // Resolved contact ID: router state preferred, URL param as fallback
+  // Resolved IDs
   const contactId = fromContact?.id || urlContactId || null
+  const studentId = fromStudent?.id || urlStudentId || null
 
-  // Display info (name, email) only available when router state is present.
-  // If contactId is from URL only (router state lost), show unavailable state.
+  // Display info availability
   const contactHasDisplayInfo = !!(fromContact?.name || fromContact?.email)
+  const studentHasDisplayInfo = !!(fromStudent?.name || fromStudent?.email)
+
+  // Recipient type: 'contact' | 'student' | null
+  const recipientType = contactId && contactHasDisplayInfo ? 'contact'
+                      : studentId ? 'student'
+                      : null
 
   // ── Top-level recipient mode: 'single' | 'bulk' ─────────────────────────────
-  // Priority: URL/router state (contact deep-link forces 'single') > localStorage > default 'single'
+  // Priority: URL/router state (contact or student deep-link forces 'single') > localStorage > default 'single'
   const [recipientMode, setRecipientMode] = useState(() => {
-    // Any contact deep-link or direct-message param forces single recipient
-    if (urlMode === 'message' || fromContact) return 'single'
+    // Any contact or student deep-link forces single recipient
+    if (urlMode === 'message' || fromContact || fromStudent || urlStudentId) return 'single'
     // Future: if (searchParams.get('bulk') === 'survey_invitation') return 'bulk'
     const saved = localStorage.getItem(RECIPIENT_MODE_KEY)
     return saved === 'bulk' ? 'bulk' : 'single'
   })
 
   // ── Inner message type within Single Recipient ────────────────────────────
-  // Priority: URL param > router state > localStorage > default ──
+  // Priority: URL param > router state (contact or student) > localStorage > default ──
   const [outreachMode, setOutreachMode] = useState(() => {
     if (urlMode === 'message' || urlMode === 'survey') return urlMode
-    if (fromContact) return 'message'
+    if (fromContact || fromStudent || urlStudentId) return 'message'
     const saved = localStorage.getItem(LAST_MODE_KEY)
     return (saved === 'survey' || saved === 'message') ? saved : 'survey'
   })
@@ -196,11 +204,12 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
   const [dmBodyExpanded,    setDmBodyExpanded]     = useState(false)
   const [dmSendStatus,      setDmSendStatus]       = useState(null) // null | { ok, msg }
 
-  // ── Direct Message draft — scoped to contact ID ───────────────────────────
+  // ── Direct Message draft — scoped to contact or student ID ──────────────────
   // Stores ONLY { subject, body }. surveyResult, surveyUrl, and tokens are
   // NEVER stored in localStorage/sessionStorage.
-  const DRAFT_KEY = contactId
-    ? `aspire.connect.outreach.directDraft.${contactId}`
+  const draftRecipientId = contactId || studentId || null
+  const DRAFT_KEY = draftRecipientId
+    ? `aspire.connect.outreach.directDraft.${draftRecipientId}`
     : null
 
   const [msgSubject, setMsgSubject] = useState('')
@@ -656,6 +665,8 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
 
   // ── Direct Message send handler ───────────────────────────────────────────
   const handleDmSend = useCallback(async () => {
+    // Student sending not yet enabled — this guard prevents accidental calls
+    if (recipientType === 'student') return
     if (!dmConfirmReady || dmSendInFlight) return
     setDmSendInFlight(true)
     setDmSendStatus(null)
@@ -766,7 +777,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
             {outreachMode === 'message' ? '1 recipient · direct message' : 'Survey invitation'}
           </div>
 
-          {/* Contact context (Direct Message mode) */}
+          {/* Recipient context (Direct Message mode) — contact or student */}
           {outreachMode === 'message' && (
             contactId && contactHasDisplayInfo ? (
               <div style={{ marginBottom: 14 }}>
@@ -791,18 +802,45 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                   }}>1 recipient</span>
                 </div>
               </div>
-            ) : contactId ? (
-              // contactId from URL but no display info (router state unavailable)
+            ) : studentId && studentHasDisplayInfo ? (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, color: '#191919', fontFamily: F, lineHeight: 1.3 }}>
+                  {fromStudent.name}
+                </div>
+                {fromStudent.email ? (
+                  <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginTop: 3, wordBreak: 'break-all' }}>
+                    {fromStudent.email}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11, color: '#dc2626', fontFamily: F, marginTop: 3 }}>No email on file</div>
+                )}
+                {fromStudent.school && (
+                  <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginTop: 2 }}>{fromStudent.school}</div>
+                )}
+                <div style={{ marginTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                    background: '#FEF3C7', color: '#92400e', border: '1px solid #fde68a',
+                    fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
+                  }}>Student</span>
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                    background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0',
+                    fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
+                  }}>1 recipient</span>
+                </div>
+              </div>
+            ) : contactId || studentId ? (
               <div style={{
                 marginBottom: 14, padding: '9px 11px',
                 background: '#FBF5E8', border: '1px solid #f0c9b0',
                 borderRadius: 8, fontSize: 11, color: '#8B5E1A', fontFamily: F, lineHeight: 1.5,
               }}>
-                Contact context unavailable. Return to Contacts and click Email.
+                Recipient context unavailable. Return to Contacts or Student Profiles and click Email.
               </div>
             ) : (
               <div style={{ ...panelBody, marginBottom: 14 }}>
-                No contact selected. Return to Contacts and click Email.
+                Select a contact or student and click Email to compose a direct message.
               </div>
             )
           )}
@@ -943,21 +981,22 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                 <div style={{ ...fieldWrap }}>
                   <span style={sectionLabel}>Recipient</span>
                   {contactId && contactHasDisplayInfo ? (
-                    <div style={{
-                      padding: '9px 11px', background: '#f9fafb',
-                      border: '1.5px solid #e5e7eb', borderRadius: 8,
-                      fontSize: 12, fontFamily: F, color: '#374151',
-                    }}>
+                    <div style={{ padding: '9px 11px', background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 12, fontFamily: F, color: '#374151' }}>
                       <div style={{ fontWeight: 600, color: '#191919' }}>{fromContact.name}</div>
-                      {fromContact.email && (
-                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, wordBreak: 'break-all' }}>
-                          {fromContact.email}
-                        </div>
-                      )}
+                      {fromContact.email && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, wordBreak: 'break-all' }}>{fromContact.email}</div>}
+                    </div>
+                  ) : studentId && studentHasDisplayInfo ? (
+                    <div style={{ padding: '9px 11px', background: '#f9fafb', border: '1.5px solid #fde68a', borderRadius: 8, fontSize: 12, fontFamily: F, color: '#374151' }}>
+                      <div style={{ fontWeight: 600, color: '#191919' }}>{fromStudent.name}</div>
+                      {fromStudent.email
+                        ? <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, wordBreak: 'break-all' }}>{fromStudent.email}</div>
+                        : <div style={{ fontSize: 11, color: '#dc2626', marginTop: 2 }}>No email on file</div>
+                      }
+                      {fromStudent.school && <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>{fromStudent.school}</div>}
                     </div>
                   ) : (
                     <p style={panelBody}>
-                      {contactId ? 'Contact context unavailable.' : 'No contact selected.'}
+                      {contactId || studentId ? 'Recipient context unavailable.' : 'No recipient selected.'}
                     </p>
                   )}
                 </div>
@@ -1231,12 +1270,15 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                 const hasContact = !!(contactId && contactHasDisplayInfo && fromContact?.email)
                 const hasSubject = !!msgSubject.trim()
                 const hasBody    = !!msgBody.trim()
+                // Student direct email sending is not yet enabled — handled in Phase 3B.2A.1
                 const canSend    = hasContact && hasSubject && hasBody
 
-                const disabledTip = !hasContact  ? 'Select a contact with an email to send'
-                                  : !hasSubject  ? 'Enter a subject'
-                                  : !hasBody     ? 'Enter a message body'
-                                  : ''
+                const disabledTip = recipientType === 'student'
+                                    ? 'Student direct email sending will be enabled in the next phase.'
+                                    : !hasContact  ? 'Select a contact with an email to compose'
+                                    : !hasSubject  ? 'Enter a subject'
+                                    : !hasBody     ? 'Enter a message body'
+                                    : ''
                 return (
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
                     <Tooltip label="Draft persistence coming soon" placement="top">

@@ -1,4 +1,6 @@
 import { useState, useRef, useCallback, useEffect, createContext, useContext } from 'react'
+import { useNavigate } from 'react-router-dom'
+import ProfileActionButton from './ui/ProfileActionButton'
 import Tooltip from './ui/Tooltip'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
@@ -146,6 +148,7 @@ export default function StudentSidePanel({
   const [showDispositionModal, setShowDispositionModal] = useState(false)
   const [summaryCopied,    setSummaryCopied]    = useState(false)
   const { canEdit, canInterview, userProfile } = useAuth()
+  const navigate    = useNavigate()
   const queryClient = useQueryClient()
   const [uploadingRes,  setUploadingRes]  = useState(false)
   const [uploadingHead, setUploadingHead] = useState(false)
@@ -874,20 +877,44 @@ export default function StudentSidePanel({
                       </span>
                     </div>
                   })()}
-                  {/* Contact icons */}
-                  <div style={{ display:'flex', justifyContent:'center', gap:22, marginBottom:10 }}>
-                    <Tooltip label="Send email" placement="top">
-                    <button aria-label="Send email" onClick={() => openMailtoLink(`mailto:${data.personal_email||data.school_email||''}`)}
-                      style={{ background:'none', border:'none', cursor:'pointer', fontSize:17, color:'#6b7280', lineHeight:1 }}>✉</button>
-                    </Tooltip>
-                    <Tooltip label="Call student" placement="top">
-                    <button aria-label="Call student" onClick={() => { if(data.phone){ const a=document.createElement('a'); a.href=`tel:${data.phone}`; a.click() } }}
-                      style={{ background:'none', border:'none', cursor:data.phone?'pointer':'default', fontSize:17, color:data.phone?'#6b7280':'#d1d5db', lineHeight:1 }}>📞</button>
-                    </Tooltip>
-                    <Tooltip label="Edit profile" placement="top">
-                    <button aria-label="Edit profile" onClick={() => { const inp=document.querySelector('.sp-content .sp-input'); if(inp){inp.scrollIntoView({behavior:'smooth',block:'center'}); inp.focus()} }}
-                      style={{ background:'none', border:'none', cursor:'pointer', fontSize:17, color:'#6b7280', lineHeight:1 }}>✏</button>
-                    </Tooltip>
+                  {/* Contact actions */}
+                  <div style={{ display:'flex', justifyContent:'center', gap:8, flexWrap:'wrap', marginBottom:10 }}>
+                    <ProfileActionButton
+                      variant="primary"
+                      icon="✉"
+                      label="Email"
+                      onClick={() => navigate(
+                        `/connect/outreach?mode=message&studentId=${data.id}`,
+                        { state: { fromStudent: {
+                            id:    data.id,
+                            name:  `${data.first_name || ''} ${data.last_name || ''}`.trim(),
+                            email: data.personal_email || data.school_email || null,
+                            school: data.school || null,
+                          }
+                        }}
+                      )}
+                      disabled={!data.personal_email && !data.school_email}
+                      disabledReason="No email on file"
+                    />
+                    <ProfileActionButton
+                      variant="secondary"
+                      icon="📞"
+                      label="Call"
+                      href={data.phone ? `tel:${data.phone}` : undefined}
+                      disabled={!data.phone}
+                      disabledReason="No phone on file"
+                    />
+                    {canEdit && (
+                      <ProfileActionButton
+                        variant="secondary"
+                        icon="✏"
+                        label="Edit"
+                        onClick={() => {
+                          const inp = document.querySelector('.sp-content .sp-input')
+                          if (inp) { inp.scrollIntoView({ behavior:'smooth', block:'center' }); inp.focus() }
+                        }}
+                      />
+                    )}
                   </div>
                   {canEdit && <button onClick={handleCopySummary}
                     style={{
