@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import Tooltip from './ui/Tooltip'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { usePreceptors } from '../hooks/usePreceptors'
@@ -23,6 +23,30 @@ function getInitials(name) {
 
 export default function PreceptorsTable({ students = [], cohortId, toast }) {
   const { data: preceptors = [], isLoading, error } = usePreceptors()
+
+  // Fetch avatar_url from contacts by email for display-only avatar resolution.
+  // Preceptors imported into Contacts carry avatar_url on the contacts row.
+  // This is read-only; no mutation occurs here.
+  const { data: contactAvatarMap = {} } = useQuery({
+    queryKey: ['preceptor_contact_avatars'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('contacts')
+        .select('email, avatar_url')
+        .not('avatar_url', 'is', null)
+        .not('email', 'is', null)
+      if (!data) return {}
+      // Build a lowercase-email → avatar_url map (first match wins)
+      const map = {}
+      for (const c of data) {
+        const key = c.email.toLowerCase().trim()
+        if (!map[key]) map[key] = c.avatar_url
+      }
+      return map
+    },
+    staleTime: 5 * 60 * 1000, // 5-minute cache; avatars don't change often
+  })
+
   const queryClient = useQueryClient()
   const [search,       setSearch]       = useState('')
   const [addOpen,      setAddOpen]      = useState(false)
@@ -189,6 +213,9 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
               {sorted.map(p => {
                 const currentStudent = studentByPreceptorId[p.id]
                 const isActive       = p.is_active !== false
+                const avatarUrl      = p.email
+                  ? contactAvatarMap[p.email.toLowerCase().trim()] || null
+                  : null
 
                 return (
                   <tr key={p.id} className="am-row">
@@ -198,7 +225,16 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
                           width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
                           background: '#1D2567', display: 'flex', alignItems: 'center', justifyContent: 'center',
                           fontSize: 11, fontWeight: 700, color: '#fff', userSelect: 'none',
+                          overflow: 'hidden', position: 'relative',
                         }}>
+                          {avatarUrl && (
+                            <img
+                              src={avatarUrl}
+                              alt={p.full_name}
+                              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={e => { e.currentTarget.style.display = 'none' }}
+                            />
+                          )}
                           {getInitials(p.full_name)}
                         </div>
                         {p.full_name}
