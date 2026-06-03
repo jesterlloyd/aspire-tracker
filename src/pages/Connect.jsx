@@ -68,52 +68,21 @@ export default function ConnectPage({ cohortId, onNavigateToStudent }) {
 
       {/* Page header — elevated workspace treatment */}
       <div style={{ padding: '12px 28px 0', flexShrink: 0 }}>
-        <div style={{
-          display: 'flex', alignItems: 'flex-start',
-          justifyContent: 'space-between', marginBottom: 12,
-        }}>
-          <div>
-            <h1 style={{
-              margin: 0, fontSize: 24, fontWeight: 700,
-              color: 'var(--text-primary,#0E1428)',
-              letterSpacing: '-0.02em', lineHeight: 1.2, fontFamily: F,
-            }}>
-              ASPIRE Connect
-            </h1>
-            <p style={{ margin: '5px 0 0', fontSize: 13, color: '#6b7280', lineHeight: 1.5, fontFamily: F }}>
-              Contacts, outreach, and announcements across cohorts.
-            </p>
-          </div>
-          {/* Refresh button — re-fetches active sub-tab data without clearing state */}
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            aria-label="Refresh Connect data"
-            aria-busy={refreshing}
-            title="Refresh Connect data"
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 32, height: 32, borderRadius: 7,
-              border: '1px solid var(--border-input,rgba(29,37,103,0.10))',
-              background: 'var(--bg-input,#fff)',
-              cursor: refreshing ? 'not-allowed' : 'pointer',
-              color: 'var(--text-secondary,#4A5560)',
-              transition: 'background 0.12s, opacity 0.12s',
-              opacity: refreshing ? 0.55 : 1,
-            }}
-            onMouseEnter={e => { if (!refreshing) e.currentTarget.style.background = '#f3f4f6' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-input,#fff)' }}
-          >
-            <RefreshCw
-              size={14}
-              strokeWidth={2}
-              style={{ transition: 'transform 0.6s ease', transform: refreshing ? 'rotate(360deg)' : 'none' }}
-            />
-          </button>
+        <div style={{ marginBottom: 12 }}>
+          <h1 style={{
+            margin: 0, fontSize: 24, fontWeight: 700,
+            color: 'var(--text-primary,#0E1428)',
+            letterSpacing: '-0.02em', lineHeight: 1.2, fontFamily: F,
+          }}>
+            ASPIRE Connect
+          </h1>
+          <p style={{ margin: '5px 0 0', fontSize: 13, color: '#6b7280', lineHeight: 1.5, fontFamily: F }}>
+            Contacts, outreach, and announcements across cohorts.
+          </p>
         </div>
 
-        {/* Sub-tab picker — mirrors RotationTab's pill-group shape exactly */}
-        <div style={{ paddingBottom: 12 }}>
+        {/* Sub-tab picker + refresh button — aligned in the same row */}
+        <div style={{ paddingBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{
             display: 'flex',
             borderRadius: 7,
@@ -134,6 +103,33 @@ export default function ConnectPage({ cohortId, onNavigateToStudent }) {
               Broadcasts
             </button>
           </div>
+          {/* Refresh button — inline with sub-tab pills; re-fetches data without clearing state */}
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            aria-label="Refresh Connect data"
+            aria-busy={refreshing}
+            title="Refresh Connect data"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 32, height: 32, borderRadius: 7,
+              border: '1px solid var(--border-input,rgba(29,37,103,0.10))',
+              background: 'var(--bg-input,#fff)',
+              cursor: refreshing ? 'not-allowed' : 'pointer',
+              color: 'var(--text-secondary,#4A5560)',
+              transition: 'background 0.12s, opacity 0.12s',
+              opacity: refreshing ? 0.55 : 1,
+              flexShrink: 0,
+            }}
+            onMouseEnter={e => { if (!refreshing) e.currentTarget.style.background = '#f3f4f6' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-input,#fff)' }}
+          >
+            <RefreshCw
+              size={14}
+              strokeWidth={2}
+              style={{ transition: 'transform 0.6s ease', transform: refreshing ? 'rotate(360deg)' : 'none' }}
+            />
+          </button>
         </div>
       </div>
 

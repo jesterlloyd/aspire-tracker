@@ -17,6 +17,14 @@ const TIMEPOINTS = [
   { value: 'post_rotation',          label: 'Post-Rotation' },
 ]
 
+// Casey-Fink is sent twice: Baseline (pre-rotation start) and Post-Rotation.
+// Only these two appear in the Bulk Survey Invitation UI.
+// Backend validation accepts all values; historical records remain unaffected.
+const BULK_CASEY_FINK_TIMEPOINTS = [
+  { value: 'baseline',      label: 'Baseline' },
+  { value: 'post_rotation', label: 'Post-Rotation' },
+]
+
 const LAST_MODE_KEY    = 'aspire.connect.outreach.lastMode'  // inner message type key ('message'|'survey')
 const RECIPIENT_MODE_KEY = 'aspire.connect.outreach.mode'   // top-level mode key ('single'|'bulk')
 
@@ -49,16 +57,24 @@ const BULK_ELIGIBILITY = {
   post_rotation:          ['Active Rotation', 'Completed'],
 }
 
+function localDateString(d) {
+  // Use local year/month/day to avoid UTC midnight rollback in Pacific timezone
+  const y  = d.getFullYear()
+  const m  = String(d.getMonth() + 1).padStart(2, '0')
+  const dy = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dy}`
+}
+
 function defaultExpiresAt() {
   const d = new Date()
-  d.setDate(d.getDate() + 28)
-  return d.toISOString().split('T')[0]
+  d.setDate(d.getDate() + 7) // 7 days default; matches email display date exactly
+  return localDateString(d)
 }
 
 function minExpiresAt() {
   const d = new Date()
   d.setDate(d.getDate() + 1)
-  return d.toISOString().split('T')[0]
+  return localDateString(d)
 }
 
 function fmtDate(iso) {
@@ -175,7 +191,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   // ── Bulk Operation state ──────────────────────────────────────────────────
   const [bulkMsgType,            setBulkMsgType]            = useState('survey_invitation')
   const [bulkInstrument,         setBulkInstrument]         = useState('casey_fink_readiness_2024')
-  const [bulkTimepoint,          setBulkTimepoint]          = useState('early_rotation_baseline')
+  const [bulkTimepoint,          setBulkTimepoint]          = useState('baseline')
   const [bulkExpiresAt,          setBulkExpiresAt]          = useState(defaultExpiresAt)
   const [bulkNotes,              setBulkNotes]              = useState('')
   // Active assignments map { student_id → { id, status } } for the selected timepoint
@@ -1914,7 +1930,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                     Timepoint <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
                   </label>
                   <select value={bulkTimepoint} onChange={e => setBulkTimepoint(e.target.value)} style={inputBase}>
-                    {TIMEPOINTS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    {BULK_CASEY_FINK_TIMEPOINTS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                   <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 4, lineHeight: 1.5 }}>
                     Eligible: {(BULK_ELIGIBILITY[bulkTimepoint] || []).join(', ')}
