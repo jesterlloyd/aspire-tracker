@@ -367,9 +367,33 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
       setDmConfirmOpen(false)
       setDmSendStatus(null)
     }
-  }, [outreachMode, contactId])
+  }, [outreachMode, contactId, studentId])
+
+  // ── Sync modes when URL recipient params change ───────────────────────────
+  // OutreachView stays mounted behind display:none. useState initializers only
+  // run once, so navigating here with a new URL doesn't update stale state.
+  // This effect re-applies the correct mode whenever the URL recipient changes.
+  useEffect(() => {
+    if (urlStudentId || urlContactId) {
+      setRecipientMode('single')
+      setOutreachMode('message')
+    }
+  }, [urlStudentId, urlContactId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Clear compose when the active recipient changes ────────────────────────
+  // Prevents showing a previous recipient's draft or status in the new context.
+  // The draft-restore effect re-populates from localStorage for the new recipient.
+  useEffect(() => {
+    setMsgSubject('')
+    setMsgBody('')
+    setDmSendStatus(null)
+    setDmConfirmOpen(false)
+  }, [draftRecipientId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Derived values ────────────────────────────────────────────────────────
+  // True when any DM recipient is loaded — enables compose fields for both contacts and students
+  const dmHasAnyRecipient = !!(contactId || studentId)
+
   const selectedStudent  = students.find(s => s.id === selectedStudentId) || null
   const resolvedEmail    = selectedStudent
     ? (selectedStudent.personal_email || selectedStudent.school_email || null)
@@ -1224,6 +1248,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
             <div style={panelCard}>
 
               {/* Subject input */}
+              {/* Subject input — enabled for any loaded recipient (contact or student) */}
               <div style={fieldWrap}>
                 <label style={labelStyle}>Subject</label>
                 <input
@@ -1232,7 +1257,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                   onChange={e => setMsgSubject(e.target.value)}
                   placeholder="Email subject"
                   style={inputBase}
-                  disabled={!contactId}
+                  disabled={!dmHasAnyRecipient}
                 />
               </div>
 
@@ -1243,13 +1268,13 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
                   value={msgBody}
                   onChange={e => setMsgBody(e.target.value)}
                   placeholder={
-                    contactId
+                    dmHasAnyRecipient
                       ? 'Compose your message…'
-                      : 'Return to Contacts and click Email to compose a direct message.'
+                      : 'Return to Contacts or Student Profiles and click Email to compose a direct message.'
                   }
                   rows={8}
                   style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, minHeight: 160 }}
-                  disabled={!contactId}
+                  disabled={!dmHasAnyRecipient}
                 />
               </div>
 
