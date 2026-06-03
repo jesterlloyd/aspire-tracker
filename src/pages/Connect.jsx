@@ -81,8 +81,8 @@ export default function ConnectPage({ cohortId, onNavigateToStudent }) {
           </p>
         </div>
 
-        {/* Sub-tab picker + refresh button — aligned in the same row */}
-        <div style={{ paddingBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* Sub-tab picker + refresh button — pills left, refresh far right */}
+        <div style={{ paddingBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{
             display: 'flex',
             borderRadius: 7,

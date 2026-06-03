@@ -260,7 +260,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   const [loadingStudents,   setLoadingStudents]   = useState(true)
   const [selectedStudentId, setSelectedStudentId] = useState('')
   const [instrument,        setInstrument]        = useState('casey_fink_readiness_2024')
-  const [timepoint,         setTimepoint]         = useState('early_rotation_baseline')
+  const [timepoint,         setTimepoint]         = useState('baseline')
   const [expiresAt,         setExpiresAt]         = useState(defaultExpiresAt)
   const [notes,             setNotes]             = useState('')
   const [duplicateExists,   setDuplicateExists]   = useState(false)
@@ -273,6 +273,14 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   // NEVER persisted to localStorage/sessionStorage. Cleared on form field changes.
   const [surveyResult,  setSurveyResult]  = useState(null)
   const [copied,        setCopied]        = useState(false)
+  // ── Single-recipient survey result actions (Phase 3B.2D+) ────────────────
+  const [singleTestSendState,   setSingleTestSendState]   = useState(null) // null|'sending'|'sent'|'error'
+  const [singleTestSendMsg,     setSingleTestSendMsg]     = useState(null)
+  const [singleSendConfirmOpen, setSingleSendConfirmOpen] = useState(false)
+  const [singleSendPhrase,      setSingleSendPhrase]      = useState('')
+  const [singleSendInFlight,    setSingleSendInFlight]    = useState(false)
+  const [singleSendState,       setSingleSendState]       = useState(null) // null|'sent'|'error'
+  const [singleSendMsg,         setSingleSendMsg]         = useState(null)
 
   // ── Persist top-level recipient mode ─────────────────────────────────────
   useEffect(() => {
@@ -327,6 +335,10 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     setSurveyResult(null)
     setGenerateError(null)
     setCopied(false)
+    setSingleTestSendState(null)
+    setSingleTestSendMsg(null)
+    setSingleSendState(null)
+    setSingleSendMsg(null)
   }, [selectedStudentId, instrument, timepoint])
 
   // ── Direct Message draft: restore on mount ────────────────────────────────
@@ -754,6 +766,108 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     setBulkExpiresAt(defaultExpiresAt())
   }, [])
 
+  // ── Single-recipient survey: test send to Owner ───────────────────────────
+  const handleSingleTestSend = useCallback(async () => {
+    if (singleTestSendState === 'sending' || !surveyResult) return
+    setSingleTestSendState('sending')
+    setSingleTestSendMsg(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        setSingleTestSendState('error')
+        setSingleTestSendMsg('Session expired. Refresh and try again.')
+        return
+      }
+      const res = await fetch('/api/evaluation-send-test-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          assignment_id: surveyResult.assignmentId,
+          survey_url:    surveyResult.surveyUrl,
+          student_name:  `${surveyResult.student.firstName} ${surveyResult.student.lastName}`.trim(),
+          timepoint:     surveyResult.timepoint,
+          expires_at:    surveyResult.expiresAt,
+        }),
+      })
+      let payload = null
+      try { payload = await res.json() } catch { /* ignore */ }
+      if (res.ok && payload?.success) {
+        setSingleTestSendState('sent')
+        const msg = payload.message || 'Test email sent.'
+        setSingleTestSendMsg(msg)
+        toast?.success('Test email sent', msg)
+      } else {
+        const errMsg = payload?.error || 'Test send failed. Try again.'
+        setSingleTestSendState('error')
+        setSingleTestSendMsg(errMsg)
+        toast?.error('Test email not sent', errMsg)
+      }
+    } catch {
+      const netMsg = 'Network error. Check your connection.'
+      setSingleTestSendState('error')
+      setSingleTestSendMsg(netMsg)
+      toast?.error('Test email not sent', netMsg)
+    }
+  }, [singleTestSendState, surveyResult])
+
+  // ── Single-recipient survey: real send to student via Resend ──────────────
+  // Reuses existing bulk send endpoint with a one-item payload.
+  const handleSingleSendViaResend = useCallback(async () => {
+    if (singleSendInFlight || !surveyResult) return
+    setSingleSendInFlight(true)
+    setSingleSendState(null)
+    setSingleSendMsg(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        setSingleSendState('error')
+        setSingleSendMsg('Session expired. Refresh and try again.')
+        setSingleSendConfirmOpen(false)
+        return
+      }
+      const res = await fetch('/api/evaluation-send-bulk-invitations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          confirmation_phrase: 'SEND SURVEYS',
+          items: [{
+            assignment_id: surveyResult.assignmentId,
+            student_id:    surveyResult.student.id,
+            survey_url:    surveyResult.surveyUrl,
+          }],
+          instrument_slug: 'casey_fink_readiness_2024',
+          timepoint:       surveyResult.timepoint,
+          expires_at:      surveyResult.expiresAt,
+        }),
+      })
+      let payload = null
+      try { payload = await res.json() } catch { /* ignore */ }
+      setSingleSendConfirmOpen(false)
+      setSingleSendPhrase('')
+      if (res.ok && payload?.success) {
+        const name = `${surveyResult.student.firstName} ${surveyResult.student.lastName}`.trim()
+        const alreadySent = payload.summary?.total_skipped > 0 && payload.summary?.total_sent === 0
+        const sentMsg = alreadySent ? `Survey already sent to ${name}.` : `Survey sent to ${name}.`
+        setSingleSendState('sent')
+        setSingleSendMsg(sentMsg)
+        toast?.success('Survey sent', sentMsg)
+      } else {
+        const errMsg = payload?.error || 'Send failed. Try again.'
+        setSingleSendState('error')
+        setSingleSendMsg(errMsg)
+        toast?.error('Survey not sent', errMsg)
+      }
+    } catch {
+      setSingleSendConfirmOpen(false)
+      const netMsg = 'Network error. Check your connection.'
+      setSingleSendState('error')
+      setSingleSendMsg(netMsg)
+      toast?.error('Survey not sent', netMsg)
+    } finally {
+      setSingleSendInFlight(false)
+    }
+  }, [singleSendInFlight, surveyResult])
+
   // ── Direct Message send handler ───────────────────────────────────────────
   const handleDmSend = useCallback(async () => {
     if (!dmConfirmReady || dmSendInFlight) return
@@ -931,7 +1045,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
             ZONE 1 — Audience / Recipients
             Who the communication is for.
         ════════════════════════════════════════════════════════════════ */}
-        <div style={{ ...panelCard, flex: '0 0 196px', minWidth: 156 }}>
+        <div style={{ ...panelCard, flex: '0 0 220px', minWidth: 160 }}>
           <div style={panelTitle}>Audience</div>
           <div style={panelSubtitle}>
             {outreachMode === 'message' ? '1 recipient · direct message' : 'Survey invitation'}
@@ -1085,7 +1199,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
             ZONE 2 — Message Type / Workflow
             What kind of outreach this is and its workflow settings.
         ════════════════════════════════════════════════════════════════ */}
-        <div style={{ ...panelCard, flex: '0 0 260px', minWidth: 220 }}>
+        <div style={{ ...panelCard, flex: '0 0 270px', minWidth: 220 }}>
           <div style={panelTitle}>Message Type</div>
           <div style={panelSubtitle}>Workflow</div>
 
@@ -1284,7 +1398,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                   </select>
                 </div>
 
-                {/* Field 4 — Timepoint */}
+                {/* Field 4 — Timepoint (Casey-Fink is sent at Baseline and Post-Rotation only) */}
                 <div style={fieldWrap}>
                   <label style={labelStyle}>
                     Timepoint <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
@@ -1294,7 +1408,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                     onChange={e => setTimepoint(e.target.value)}
                     style={inputBase}
                   >
-                    {TIMEPOINTS.map(t => (
+                    {BULK_CASEY_FINK_TIMEPOINTS.map(t => (
                       <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
                   </select>
@@ -1650,20 +1764,65 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                       This link is shown once. Copy it now before closing or changing the form.
                     </div>
 
-                    {/* Copy action */}
-                    <button
-                      onClick={handleCopy}
-                      style={{
-                        padding: '7px 16px', marginBottom: 12,
-                        background: copied ? '#EEF7F0' : 'var(--color-accent-primary,#1D2567)',
-                        border: `1px solid ${copied ? '#c6d9a8' : 'transparent'}`,
-                        borderRadius: 8, fontSize: 12, fontWeight: 600, fontFamily: F,
-                        color: copied ? '#2F7D5C' : '#fff', cursor: 'pointer',
-                        transition: 'background 0.15s',
-                      }}
-                    >
-                      {copied ? '✓ Copied' : 'Copy Link'}
-                    </button>
+                    {/* Action row: Copy + Send test to me + Send to student */}
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                      <button
+                        onClick={handleCopy}
+                        style={{
+                          padding: '7px 14px',
+                          background: copied ? '#EEF7F0' : 'var(--color-accent-primary,#1D2567)',
+                          border: `1px solid ${copied ? '#c6d9a8' : 'transparent'}`,
+                          borderRadius: 8, fontSize: 11, fontWeight: 600, fontFamily: F,
+                          color: copied ? '#2F7D5C' : '#fff', cursor: 'pointer',
+                          transition: 'background 0.15s',
+                        }}
+                      >
+                        {copied ? '✓ Copied' : 'Copy Link'}
+                      </button>
+
+                      <Tooltip label="Send a test survey email to your own inbox" placement="top">
+                        <button
+                          onClick={handleSingleTestSend}
+                          disabled={singleTestSendState === 'sending'}
+                          style={{
+                            padding: '7px 13px', borderRadius: 8,
+                            border: '1px solid #e5e7eb', fontFamily: F, fontSize: 11, fontWeight: 600,
+                            background: singleTestSendState === 'sent' ? '#EEF2FB' : singleTestSendState === 'error' ? '#fef2f2' : '#fff',
+                            color: singleTestSendState === 'sent' ? '#1D2567' : singleTestSendState === 'error' ? '#dc2626' : '#374151',
+                            cursor: singleTestSendState === 'sending' ? 'not-allowed' : 'pointer',
+                            transition: 'background 0.12s',
+                          }}
+                        >
+                          {singleTestSendState === 'sending' ? '↑ Sending…'
+                           : singleTestSendState === 'sent'   ? '✓ Test sent to me'
+                           : singleTestSendState === 'error'  ? '✗ Test failed'
+                           : '↑ Send test to me'}
+                        </button>
+                      </Tooltip>
+
+                      {singleSendState === 'sent' ? (
+                        <button disabled style={{ padding: '7px 13px', borderRadius: 8, border: '1px solid #c6d9a8', background: '#EEF7F0', fontSize: 11, fontWeight: 600, fontFamily: F, color: '#2F7D5C', cursor: 'not-allowed' }}>
+                          ✓ Sent to student
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => { setSingleSendConfirmOpen(true); setSingleSendPhrase('') }}
+                          disabled={singleSendInFlight}
+                          style={{
+                            padding: '7px 13px', borderRadius: 8, border: 'none',
+                            background: singleSendInFlight ? '#e5e7eb' : '#1D2567',
+                            fontSize: 11, fontWeight: 600, fontFamily: F,
+                            color: singleSendInFlight ? '#9ca3af' : '#fff',
+                            cursor: singleSendInFlight ? 'not-allowed' : 'pointer',
+                            transition: 'opacity 0.12s',
+                          }}
+                          onMouseEnter={e => { if (!singleSendInFlight) e.currentTarget.style.opacity = '0.85' }}
+                          onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+                        >
+                          {singleSendInFlight ? 'Sending…' : 'Send to student via Resend'}
+                        </button>
+                      )}
+                    </div>
 
                     {/* Assignment details */}
                     <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, lineHeight: 1.7 }}>
@@ -1865,7 +2024,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
           </div>
 
           {/* ── Bulk Zone 2: Message Type + Workflow ──────────────────── */}
-          <div style={{ ...panelCard, flex: '0 0 280px', minWidth: 240 }}>
+          <div style={{ ...panelCard, flex: '0 0 270px', minWidth: 220 }}>
             <div style={panelTitle}>Message Type</div>
             <div style={panelSubtitle}>Bulk workflow</div>
 
@@ -2369,6 +2528,66 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
           </div>
         )
       })()}
+
+      {/* ── Single-recipient survey: typed send confirmation modal ────────── */}
+      {singleSendConfirmOpen && surveyResult && (
+        <div onClick={() => { if (!singleSendInFlight) { setSingleSendConfirmOpen(false); setSingleSendPhrase('') } }} style={{
+          position: 'fixed', inset: 0, zIndex: 1001, background: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#fff', borderRadius: 12, padding: '28px 32px', maxWidth: 480, width: '90vw',
+            maxHeight: '80vh', overflowY: 'auto',
+            boxShadow: '0 8px 40px rgba(0,0,0,0.22)', fontFamily: F, boxSizing: 'border-box',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#dc2626', fontFamily: F }}>Send Survey Invitation</h2>
+              <button onClick={() => { if (!singleSendInFlight) { setSingleSendConfirmOpen(false); setSingleSendPhrase('') } }}
+                disabled={singleSendInFlight}
+                style={{ background: 'none', border: 'none', cursor: singleSendInFlight ? 'not-allowed' : 'pointer', fontSize: 20, color: '#9ca3af', lineHeight: 1, padding: '2px 6px' }}>×</button>
+            </div>
+            <div style={{ padding: '9px 12px', marginBottom: 14, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12, color: '#dc2626', fontFamily: F, fontWeight: 600, lineHeight: 1.6 }}>
+              This is a real email to a real student. It cannot be unsent.
+            </div>
+            <div style={{ marginBottom: 14, fontSize: 12, fontFamily: F, color: '#374151', lineHeight: 1.7 }}>
+              <div><strong>Student:</strong> {surveyResult.student.firstName} {surveyResult.student.lastName}</div>
+              <div><strong>Email:</strong> {surveyResult.student.email}</div>
+              <div><strong>Timepoint:</strong> {BULK_CASEY_FINK_TIMEPOINTS.find(t => t.value === surveyResult.timepoint)?.label || surveyResult.timepoint}</div>
+              <div><strong>Expires:</strong> {fmtDate(surveyResult.expiresAt?.split('T')[0])}</div>
+              <div><strong>From:</strong> ASPIRE Program &lt;noreply@aspire-program.com&gt;</div>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', fontFamily: F, marginBottom: 6 }}>
+                Type <strong>SEND SURVEYS</strong> to confirm:
+              </div>
+              <input
+                type="text" value={singleSendPhrase} onChange={e => setSingleSendPhrase(e.target.value)}
+                placeholder="SEND SURVEYS" disabled={singleSendInFlight} autoFocus
+                style={{ ...inputBase, fontFamily: 'monospace', letterSpacing: '0.05em' }}
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button type="button" onClick={() => { if (!singleSendInFlight) { setSingleSendConfirmOpen(false); setSingleSendPhrase('') } }}
+                disabled={singleSendInFlight}
+                style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, fontFamily: F, color: '#374151', cursor: singleSendInFlight ? 'not-allowed' : 'pointer' }}>
+                Cancel
+              </button>
+              <button type="button" onClick={handleSingleSendViaResend}
+                disabled={singleSendPhrase !== 'SEND SURVEYS' || singleSendInFlight}
+                style={{
+                  padding: '8px 20px', borderRadius: 8, border: 'none',
+                  background: singleSendPhrase !== 'SEND SURVEYS' || singleSendInFlight ? '#e5e7eb' : '#dc2626',
+                  fontSize: 12, fontWeight: 600, fontFamily: F,
+                  color: singleSendPhrase !== 'SEND SURVEYS' || singleSendInFlight ? '#9ca3af' : '#fff',
+                  cursor: singleSendPhrase !== 'SEND SURVEYS' || singleSendInFlight ? 'not-allowed' : 'pointer',
+                  transition: 'background 0.12s',
+                }}>
+                {singleSendInFlight ? 'Sending…' : 'Send email'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {bulkShowReview && (
         <div onClick={handleBulkCloseReview} style={{
