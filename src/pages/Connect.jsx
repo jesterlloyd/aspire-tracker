@@ -1,18 +1,34 @@
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 
 const CONNECT_LAST_TAB_KEY = 'aspire.connect.lastTab'
 const VALID_TABS = new Set(['contacts', 'outreach', 'broadcasts'])
-import { Users, Send, Megaphone } from 'lucide-react'
+import { Users, Send, Megaphone, RefreshCw } from 'lucide-react'
 import ContactsView from '../components/connect/ContactsView'
 import OutreachView from '../components/connect/OutreachView'
 import BroadcastsView from '../components/connect/BroadcastsView'
+import { useToast } from '../hooks/useToast'
+import { ToastContainer } from '../components/Toast'
 
 const F = 'DM Sans, sans-serif'
 
 export default function ConnectPage({ cohortId, onNavigateToStudent }) {
   const navigate = useNavigate()
   const location = useLocation()
+  const { toasts, removeToast, toast } = useToast()
+
+  // ── Refresh key — increment to trigger re-fetch in active sub-tab ──────────
+  // Does NOT clear drafts, recipients, generated results, filters, or session state.
+  const [refreshKey, setRefreshKey]   = useState(0)
+  const [refreshing,  setRefreshing]  = useState(false)
+
+  const handleRefresh = useCallback(() => {
+    if (refreshing) return
+    setRefreshing(true)
+    setRefreshKey(k => k + 1)
+    // Brief loading state — resets after re-fetch cycles complete
+    setTimeout(() => setRefreshing(false), 1200)
+  }, [refreshing])
 
   // URL-routed sub-tab — declared first so useEffects below can safely reference it
   const activeSubTab = location.pathname.startsWith('/connect/contacts')
@@ -68,7 +84,32 @@ export default function ConnectPage({ cohortId, onNavigateToStudent }) {
               Contacts, outreach, and announcements across cohorts.
             </p>
           </div>
-          {/* Right-aligned action buttons reserved for future stages */}
+          {/* Refresh button — re-fetches active sub-tab data without clearing state */}
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            aria-label="Refresh Connect data"
+            aria-busy={refreshing}
+            title="Refresh Connect data"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 32, height: 32, borderRadius: 7,
+              border: '1px solid var(--border-input,rgba(29,37,103,0.10))',
+              background: 'var(--bg-input,#fff)',
+              cursor: refreshing ? 'not-allowed' : 'pointer',
+              color: 'var(--text-secondary,#4A5560)',
+              transition: 'background 0.12s, opacity 0.12s',
+              opacity: refreshing ? 0.55 : 1,
+            }}
+            onMouseEnter={e => { if (!refreshing) e.currentTarget.style.background = '#f3f4f6' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-input,#fff)' }}
+          >
+            <RefreshCw
+              size={14}
+              strokeWidth={2}
+              style={{ transition: 'transform 0.6s ease', transform: refreshing ? 'rotate(360deg)' : 'none' }}
+            />
+          </button>
         </div>
 
         {/* Sub-tab picker — mirrors RotationTab's pill-group shape exactly */}
@@ -100,16 +141,17 @@ export default function ConnectPage({ cohortId, onNavigateToStudent }) {
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {/* Contacts uses flex+height:100% so its three columns scroll independently */}
         <div style={{ display: activeSubTab === 'contacts' ? 'flex' : 'none', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-          <ContactsView />
+          <ContactsView refreshKey={refreshKey} />
         </div>
         <div style={{ display: activeSubTab === 'outreach' ? 'block' : 'none' }}>
-          <OutreachView cohortId={cohortId} onNavigateToStudent={onNavigateToStudent} />
+          <OutreachView cohortId={cohortId} onNavigateToStudent={onNavigateToStudent} toast={toast} refreshKey={refreshKey} />
         </div>
         <div style={{ display: activeSubTab === 'broadcasts' ? 'block' : 'none' }}>
           <BroadcastsView />
         </div>
       </div>
 
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   )
 }

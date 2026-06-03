@@ -122,7 +122,7 @@ const sectionLabel = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function OutreachView({ cohortId, onNavigateToStudent }) {
+export default function OutreachView({ cohortId, onNavigateToStudent, toast, refreshKey = 0 }) {
   const location       = useLocation()
   const [searchParams] = useSearchParams()
 
@@ -282,7 +282,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
         setStudents(data || [])
         setLoadingStudents(false)
       })
-  }, [cohortId])
+  }, [cohortId, refreshKey]) // refreshKey triggers re-fetch on Connect refresh
 
   // ── Duplicate guard ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -352,7 +352,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
         setBulkActiveAssignments(map)
         setBulkLoadingAssignments(false)
       })
-  }, [recipientMode, cohortId, bulkTimepoint])
+  }, [recipientMode, cohortId, bulkTimepoint, refreshKey]) // refreshKey re-fetches assignment indicators on Connect refresh
 
   // ── Bulk: clear selection + results when timepoint changes ────────────────
   useEffect(() => {
@@ -701,14 +701,20 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
       try { payload = await res.json() } catch { /* ignore */ }
       if (res.ok && payload?.success) {
         setBulkTestSendState(prev => ({ ...prev, [id]: 'sent' }))
-        setBulkTestSendMsg(prev => ({ ...prev, [id]: payload.message || 'Test email sent.' }))
+        const testMsg = payload.message || 'Test email sent.'
+        setBulkTestSendMsg(prev => ({ ...prev, [id]: testMsg }))
+        toast?.success('Test email sent', testMsg)
       } else {
+        const errMsg = payload?.error || 'Send failed. Try again.'
         setBulkTestSendState(prev => ({ ...prev, [id]: 'error' }))
-        setBulkTestSendMsg(prev => ({ ...prev, [id]: payload?.error || 'Send failed. Try again.' }))
+        setBulkTestSendMsg(prev => ({ ...prev, [id]: errMsg }))
+        toast?.error('Test email not sent', errMsg)
       }
     } catch {
+      const networkMsg = 'Network error. Check your connection.'
       setBulkTestSendState(prev => ({ ...prev, [id]: 'error' }))
-      setBulkTestSendMsg(prev => ({ ...prev, [id]: 'Network error. Check your connection.' }))
+      setBulkTestSendMsg(prev => ({ ...prev, [id]: networkMsg }))
+      toast?.error('Test email not sent', networkMsg)
     }
   }, [bulkTestSendState, bulkTimepoint, bulkExpiresAt])
 
@@ -770,14 +776,19 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
         if (DRAFT_KEY) localStorage.removeItem(DRAFT_KEY)
         const recipientDisplayName = recipientType === 'contact' ? fromContact?.name
           : (effectiveStudent?.name || `${fetchedStudent?.first_name || ''} ${fetchedStudent?.last_name || ''}`.trim())
-        setDmSendStatus({ ok: true, msg: payload.message || `Email sent to ${recipientDisplayName || 'recipient'}.` })
+        const successMsg = payload.message || `Email sent to ${recipientDisplayName || 'recipient'}.`
+        setDmSendStatus({ ok: true, msg: successMsg })
+        toast?.success('Email sent', successMsg)
       } else {
         const errMsg = payload?.error || (res.status === 403 ? 'Access denied or recipient cannot receive email.' : 'Failed to send email. Please try again.')
         setDmSendStatus({ ok: false, msg: errMsg })
+        toast?.error('Email not sent', errMsg)
       }
     } catch {
+      const networkMsg = 'Network error. Please check your connection and try again.'
       setDmConfirmOpen(false)
-      setDmSendStatus({ ok: false, msg: 'Network error. Please check your connection and try again.' })
+      setDmSendStatus({ ok: false, msg: networkMsg })
+      toast?.error('Email not sent', networkMsg)
     } finally {
       setDmSendInFlight(false)
     }
@@ -820,8 +831,23 @@ export default function OutreachView({ cohortId, onNavigateToStudent }) {
         setBulkSendResults(payload)
         setBulkSendConfirmOpen(false)
         setBulkSendPhrase('')
+        // Summary toast — 5 scenarios based on counts
+        const { total_sent: s = 0, total_skipped: sk = 0, total_failed: f = 0 } = payload.summary || {}
+        if (s > 0 && f === 0 && sk === 0) {
+          toast?.success('Surveys sent', `Sent ${s} survey invitation${s !== 1 ? 's' : ''}`)
+        } else if (s > 0 && sk > 0 && f === 0) {
+          toast?.success('Surveys sent', `Sent ${s} · Skipped ${sk} (already sent)`)
+        } else if (s > 0 && f > 0) {
+          toast?.warning('Surveys sent with failures', `Sent ${s} · Failed ${f} — review results below`)
+        } else if (s === 0 && f > 0) {
+          toast?.error('No surveys sent', `${f} failed — see error details below`)
+        } else if (s === 0 && sk > 0) {
+          toast?.info('All already sent', 'All recipients were sent in a previous batch')
+        }
       } else {
-        setBulkSendResults({ error: payload?.error || 'Failed to send emails. Please try again.' })
+        const errMsg = payload?.error || 'Failed to send emails. Please try again.'
+        setBulkSendResults({ error: errMsg })
+        toast?.error('Send failed', errMsg)
       }
     } catch {
       setBulkSendResults({ error: 'Network error. Please check your connection.' })

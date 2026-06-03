@@ -1178,7 +1178,7 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function ContactsView() {
+export default function ContactsView({ refreshKey = 0 }) {
   const navigate    = useNavigate()
   const location    = useLocation()
   const restoredRef = useRef(false)   // tracks whether initial selection restore has run
@@ -1224,7 +1224,7 @@ export default function ContactsView() {
         else setContacts(data || [])
         setLoading(false)
       })
-  }, [])
+  }, [refreshKey]) // refreshKey triggers re-fetch when Connect refresh button is clicked
 
   // ── Fetch communication history on contact select ──────────────────────────
   useEffect(() => {
