@@ -33,8 +33,8 @@ function wrap(content, preheader) {
 <table role="presentation" width="600" cellpadding="0" cellspacing="0"
   style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
 
-<!-- Nightfall header with reversed CS logo -->
-<tr><td style="background:${NAVY};padding:20px 28px;">
+<!-- Nightfall header with reversed CS logo — compact -->
+<tr><td style="background:${NAVY};padding:12px 28px;">
   <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
     <td style="vertical-align:middle;">
       <img src="https://aspire-tracker.vercel.app/cs-logo-large.png"
