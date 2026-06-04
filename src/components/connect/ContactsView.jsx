@@ -743,7 +743,8 @@ function NoSelection({ count }) {
   )
 }
 
-// ── Sync Preceptors → Contacts Modal ─────────────────────────────────────────
+// ── Repair Preceptor Contacts Modal ──────────────────────────────────────────
+// Backfill/repair tool for preceptors added before automatic contact sync.
 // Compares the preceptors table against contacts by lowercase-trimmed email.
 // Shows a bucketed preview and only writes after Owner confirmation.
 
@@ -830,8 +831,8 @@ function SyncPreceptorsModal({ onClose, onSynced }) {
   const confirmLabel = isSyncing
     ? 'Syncing…'
     : preview.toInsert.length > 0
-      ? `Sync ${preview.toInsert.length} Preceptor${preview.toInsert.length !== 1 ? 's' : ''} to Contacts`
-      : 'Nothing to Sync'
+      ? `Add ${preview.toInsert.length} Missing Preceptor${preview.toInsert.length !== 1 ? 's' : ''} to Contacts`
+      : 'Nothing to Add'
 
   return (
     <div
@@ -844,7 +845,7 @@ function SyncPreceptorsModal({ onClose, onSynced }) {
       >
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0E1428', fontFamily: F }}>Sync Preceptors to Contacts</h2>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0E1428', fontFamily: F }}>Repair Preceptor Contacts</h2>
           {!isSyncing && (
             <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: '#9ca3af', lineHeight: 1, padding: '0 2px' }} aria-label="Close">×</button>
           )}
@@ -868,6 +869,9 @@ function SyncPreceptorsModal({ onClose, onSynced }) {
         {/* Preview */}
         {phase === 'preview' && !loadErr && (
           <>
+            <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 12px', lineHeight: 1.6, fontStyle: 'italic' }}>
+              Only needed for preceptors added before automatic contact sync was enabled, or to repair missing contacts. New preceptors now sync automatically when saved.
+            </p>
             <p style={{ fontSize: 13, color: '#374151', margin: '0 0 16px', lineHeight: 1.6 }}>
               This will create new Contact records for preceptors who have an email and are not already in Contacts.{' '}
               <strong>Existing Contacts will not be overwritten.</strong>
@@ -1642,38 +1646,21 @@ export default function ContactsView({ refreshKey = 0 }) {
           <span style={{ fontSize: 11, fontWeight: 700, color: '#374151', fontFamily: F, letterSpacing: '-0.01em' }}>
             Contacts
           </span>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button
-              onClick={() => setShowSyncModal(true)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                padding: '4px 9px', borderRadius: 6,
-                border: `1px solid ${NAVY}`,
-                background: '#fff', color: NAVY,
-                fontSize: 10, fontWeight: 600, fontFamily: F,
-                cursor: 'pointer', transition: 'opacity 0.15s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
-              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-            >
-              Sync Preceptors
-            </button>
-            <button
-              onClick={handleOpenAdd}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                padding: '4px 9px', borderRadius: 6,
-                border: `1px solid ${NAVY}`,
-                background: NAVY, color: '#fff',
-                fontSize: 10, fontWeight: 600, fontFamily: F,
-                cursor: 'pointer', transition: 'opacity 0.15s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
-              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-            >
-              + Add
-            </button>
-          </div>
+          <button
+            onClick={handleOpenAdd}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '4px 9px', borderRadius: 6,
+              border: `1px solid ${NAVY}`,
+              background: NAVY, color: '#fff',
+              fontSize: 10, fontWeight: 600, fontFamily: F,
+              cursor: 'pointer', transition: 'opacity 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+          >
+            + Add
+          </button>
         </div>
 
         {/* Search */}
@@ -1747,7 +1734,7 @@ export default function ContactsView({ refreshKey = 0 }) {
         </div>
 
         {/* Contact list (scrollable) */}
-        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, position: 'relative' }}>
           {loading ? (
             <div style={{ padding: '20px 16px', fontSize: 12, color: '#9ca3af', fontFamily: F }}>Loading contacts…</div>
           ) : error ? (
@@ -1777,6 +1764,19 @@ export default function ContactsView({ refreshKey = 0 }) {
             )
           )}
         </div>
+
+        {/* Repair tool — muted footer link for backfilling pre-auto-sync preceptors */}
+        <div style={{ padding: '6px 14px 8px', borderTop: '1px solid rgba(29,37,103,0.05)', flexShrink: 0, textAlign: 'center' }}>
+          <button
+            onClick={() => setShowSyncModal(true)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 10, color: '#c0c7d0', fontFamily: F, padding: 0 }}
+            onMouseEnter={e => e.currentTarget.style.color = '#6b7280'}
+            onMouseLeave={e => e.currentTarget.style.color = '#c0c7d0'}
+          >
+            Repair Preceptor Contacts
+          </button>
+        </div>
+
       </div>
 
       {/* ── Zone 2: Contact Profile (center) ──────────────────────────── */}
@@ -1837,7 +1837,7 @@ export default function ContactsView({ refreshKey = 0 }) {
       />
     )}
 
-    {/* Sync Preceptors Modal */}
+    {/* Repair Preceptor Contacts Modal */}
     {showSyncModal && (
       <SyncPreceptorsModal
         onClose={() => setShowSyncModal(false)}
