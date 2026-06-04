@@ -3,11 +3,43 @@ import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 
+// Ensures a Contact record exists for this preceptor in ASPIRE Connect.
+// Called after every successful preceptor create/update.
+// Safe: 409 = already exists (skip). Failure = non-blocking (preceptor still saved).
+async function ensurePreceptorContact(preceptor) {
+  if (!preceptor?.email?.trim()) return { status: 'no_email' }
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) return { status: 'error' }
+    const body = {
+      full_name:    preceptor.full_name,
+      email:        preceptor.email.toLowerCase().trim(),
+      role:         'Preceptor',
+      organization: 'Cedars-Sinai Medical Center',
+      is_active:    true,
+      notes:        'Imported from Rotations > Preceptors.',
+      ...(preceptor.unit_name ? { unit_name: preceptor.unit_name } : {}),
+      ...(preceptor.phone     ? { phone:     preceptor.phone     } : {}),
+    }
+    const res = await fetch('/api/contacts-upsert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify(body),
+    })
+    if (res.status === 409) return { status: 'exists' }  // already in Contacts — safe skip
+    if (!res.ok)            return { status: 'error' }
+    return { status: 'created' }
+  } catch {
+    return { status: 'error' }
+  }
+}
+
 export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialData = null, cohortId }) {
   const [form, setForm]   = useState({ full_name: '', email: '', unit_id: '', shift_type: 'Variable', phone: '', notes: '' })
-  const [saving, setSaving] = useState(false)
-  const [error, setError]   = useState(null)
-  const [units, setUnits]   = useState([])
+  const [saving, setSaving]   = useState(false)
+  const [error, setError]     = useState(null)
+  const [syncNote, setSyncNote] = useState(null)  // non-blocking contact sync feedback
+  const [units, setUnits]     = useState([])
   const queryClient = useQueryClient()
 
   useEffect(() => {
@@ -41,6 +73,7 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
       setForm({ full_name: '', email: '', unit_id: '', shift_type: 'Variable', phone: '', notes: '' })
     }
     setError(null)
+    setSyncNote(null)
   }, [isOpen, initialData])
 
   if (!isOpen) return null
@@ -107,6 +140,21 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
         if (partErr) console.error('[PreceptorFormModal] cohort participation insert failed:', partErr)
       }
 
+      // ── Auto-sync preceptor to ASPIRE Connect Contacts ────────────────────────
+      // Non-blocking: preceptor is already saved. 409 = already in Contacts (fine).
+      // Any other failure shows a brief warning and auto-closes — never blocks the save.
+      if (result.data?.email) {
+        const sync = await ensurePreceptorContact(result.data)
+        if (sync.status === 'error') {
+          setSyncNote('Preceptor saved. Contact sync did not complete — use Sync Preceptors in Contacts if needed.')
+          queryClient.invalidateQueries({ queryKey: ['preceptors'] })
+          onSaved?.(result.data)
+          setSaving(false)
+          setTimeout(onClose, 3000)
+          return
+        }
+      }
+
       queryClient.invalidateQueries({ queryKey: ['preceptors'] })
       onSaved?.(result.data)
       onClose()
@@ -131,6 +179,11 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
             {error && <div className="error-msg">{error}</div>}
+            {syncNote && (
+              <div style={{ fontSize: 12, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '8px 12px', marginBottom: 8 }}>
+                {syncNote}
+              </div>
+            )}
 
             <div className="form-field">
               <label className="form-label">Full Name *</label>
@@ -202,7 +255,7 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
 
           <div className="modal-footer">
             <button type="button" className="btn btn-outline-modal" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
+            <button type="submit" className="btn btn-primary" disabled={saving || !!syncNote}>
               {saving ? 'Saving…' : initialData ? 'Save Changes' : 'Add Preceptor'}
             </button>
           </div>
