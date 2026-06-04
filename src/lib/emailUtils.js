@@ -49,5 +49,5 @@ Nursing Professional Development Practitioner
 Geri and Richard Brawerman Nursing Institute
 JesterLloyd.Bautista@cshs.org | 310-248-8964`
 
-  return `mailto:?bcc=${encodeURIComponent(emailList)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  return `https://outlook.office.com/mail/deeplink/compose?bcc=${encodeURIComponent(emailList)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }
