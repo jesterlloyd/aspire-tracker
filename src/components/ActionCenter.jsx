@@ -48,10 +48,10 @@ function getActionLabel(item) {
     case 'interview_link_not_sent':    return 'Send Scheduling Link'
     case 'interview_reminder_overdue': return 'Send Reminder'
     case 'unit_notification_needed':
-      return item.title === 'Preceptor Welcome Email' ? 'Send Welcome Email' : 'Notify Unit Leader'
+      return item.title === 'Preceptor Welcome Email' ? 'Open in Outlook' : 'Notify Unit Leader'
     case 'midpoint_checkin':           return 'Send Check-In'
-    case 'midpoint_eval':              return 'Request Eval'
-    case 'end_eval':                   return 'Request Final Eval'
+    case 'midpoint_eval':              return 'Open in Outlook'
+    case 'end_eval':                   return 'Open in Outlook'
     case 'post_survey':                return 'Send Survey'
     case 'hours_completed':            return 'Send Certificate'
     default:                           return item.emailHref ? 'Send Email' : null
@@ -73,6 +73,15 @@ JesterLloyd.Bautista@cshs.org | 310-248-8964`
 
 function mailto(to, subject, body, cc='') {
   return `mailto:${encodeURIComponent(to)}${cc?`?cc=${encodeURIComponent(cc)}&`:'?'}subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+}
+
+// Opens Outlook Web compose (office.com) instead of the OS default mailto handler.
+// Used for all preceptor-bound emails so they open under the Cedars-Sinai O365 account.
+function outlookCompose(to, subject, body, cc = '') {
+  const base = 'https://outlook.office.com/mail/deeplink/compose'
+  let url = `${base}?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  if (cc) url += `&cc=${encodeURIComponent(cc)}`
+  return url
 }
 
 function buildStudentFormEmail(s) {
@@ -155,7 +164,7 @@ ${SIG}`)
 function buildMidpointEvalEmail(s) {
   const prec = s.matched_preceptor || 'Preceptor'
   const precFirst = prec.split(' ')[0]
-  return mailto(s.preceptor_email, `ASPIRE Midpoint Evaluation – ${s.last_name}, ${s.first_name}`,
+  return outlookCompose(s.preceptor_email, `ASPIRE Midpoint Evaluation – ${s.last_name}, ${s.first_name}`,
 `Dear ${precFirst},
 
 Thank you for mentoring ${s.first_name} through their senior rotation at Cedars-Sinai. We hope the experience has been rewarding for both of you.
@@ -216,7 +225,7 @@ ${KR_SIG}`)
 function buildEndEvalEmail(s) {
   const prec = s.matched_preceptor || 'Preceptor'
   const precFirst = prec.split(' ')[0]
-  return mailto(s.preceptor_email, `ASPIRE End-of-Rotation Evaluation – ${s.last_name}, ${s.first_name}`,
+  return outlookCompose(s.preceptor_email, `ASPIRE End-of-Rotation Evaluation – ${s.last_name}, ${s.first_name}`,
 `Dear ${precFirst},
 
 Thank you so much for serving as a preceptor for ${s.first_name} this rotation cycle. Your mentorship has made a lasting impact on their development as a future nurse.
@@ -238,7 +247,7 @@ function buildPreceptorWelcomeEmail(s, unitContactEmail) {
   const prec = s.matched_preceptor || 'Preceptor'
   const precFirst = prec.split(' ')[0]
   const cc = unitContactEmail || ''
-  return mailto(s.preceptor_email, 'ASPIRE Program – Student Preceptor Assignment',
+  return outlookCompose(s.preceptor_email, 'ASPIRE Program – Student Preceptor Assignment',
 `Dear ${precFirst},
 
 Thank you so much for agreeing to precept one of our senior nursing students through the ASPIRE Program (Affiliate Students' Pathway from Internship to Residency Experience). Your willingness to teach, mentor, and support our students truly makes a difference in shaping the next generation of nurses at Cedars-Sinai.
