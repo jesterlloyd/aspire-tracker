@@ -1045,7 +1045,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
             ZONE 1 — Audience / Recipients
             Who the communication is for.
         ════════════════════════════════════════════════════════════════ */}
-        <div style={{ ...panelCard, flex: '0 0 220px', minWidth: 160 }}>
+        <div style={{ ...panelCard, flex: '0 0 340px', minWidth: 280 }}>
           <div style={panelTitle}>Audience</div>
           <div style={panelSubtitle}>
             {outreachMode === 'message' ? '1 recipient · direct message' : 'Survey invitation'}
