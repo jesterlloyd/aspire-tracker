@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useUnreadStudents } from '../hooks/useUnreadStudents'
 import Tooltip from './ui/Tooltip'
 
-export function RefreshHint({ onClick }) {
+export function RefreshHint({ onClick, tooltipLabel }) {
   const shortcut = useMemo(() => {
     if (typeof navigator === 'undefined') return '⌘R'
     const p = navigator.platform || '', ua = navigator.userAgent || ''
@@ -10,11 +10,12 @@ export function RefreshHint({ onClick }) {
   }, [])
 
   const handleClick = onClick ?? (() => window.location.reload())
+  const tipLabel = tooltipLabel ?? `Refresh app (${shortcut})`
 
   return (
     <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:'#98A2B3', fontFamily:'DM Sans, sans-serif', lineHeight:1, marginLeft:'auto', paddingRight:4, flexShrink:0, alignSelf:'center' }}>
       <span style={{ whiteSpace:'nowrap' }}>Missing data? Refresh</span>
-      <Tooltip label={`Refresh app (${shortcut})`} placement="bottom">
+      <Tooltip label={tipLabel} placement="bottom">
       <button
         onClick={handleClick}
         aria-label="Refresh app"

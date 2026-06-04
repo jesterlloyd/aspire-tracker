@@ -1088,7 +1088,7 @@ function MainApp({ onLogout }) {
               </svg>
               Back to {backLabel}
             </button>
-            <RefreshHint onClick={() => connectRefreshRef.current?.()} />
+            <RefreshHint onClick={() => connectRefreshRef.current?.()} tooltipLabel="Refresh Connect data" />
           </div>
         )}
       </div>
