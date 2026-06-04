@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 
 const CONNECT_LAST_TAB_KEY = 'aspire.connect.lastTab'
 const VALID_TABS = new Set(['contacts', 'outreach', 'broadcasts'])
-import { Users, Send, Megaphone, RefreshCw } from 'lucide-react'
+import { Users, Send, Megaphone } from 'lucide-react'
 import ContactsView from '../components/connect/ContactsView'
 import OutreachView from '../components/connect/OutreachView'
 import BroadcastsView from '../components/connect/BroadcastsView'
@@ -12,7 +12,7 @@ import { ToastContainer } from '../components/Toast'
 
 const F = 'DM Sans, sans-serif'
 
-export default function ConnectPage({ cohortId, onNavigateToStudent }) {
+export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { toasts, removeToast, toast } = useToast()
@@ -26,9 +26,13 @@ export default function ConnectPage({ cohortId, onNavigateToStudent }) {
     if (refreshing) return
     setRefreshing(true)
     setRefreshKey(k => k + 1)
-    // Brief loading state — resets after re-fetch cycles complete
     setTimeout(() => setRefreshing(false), 1200)
   }, [refreshing])
+
+  // Register with the App-level ref so the toolbar RefreshHint can call soft-refresh
+  useEffect(() => {
+    if (refreshRef) refreshRef.current = handleRefresh
+  }, [refreshRef, handleRefresh])
 
   // URL-routed sub-tab — declared first so useEffects below can safely reference it
   const activeSubTab = location.pathname.startsWith('/connect/contacts')
@@ -66,48 +70,19 @@ export default function ConnectPage({ cohortId, onNavigateToStudent }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 128px)', fontFamily: F }}>
 
-      {/* Page header — elevated workspace treatment */}
+      {/* Page header */}
       <div style={{ padding: '12px 28px 0', flexShrink: 0 }}>
-        {/* Title row — refresh button pinned to far right, same visual level as h1 */}
-        <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <h1 style={{
-              margin: 0, fontSize: 24, fontWeight: 700,
-              color: 'var(--text-primary,#0E1428)',
-              letterSpacing: '-0.02em', lineHeight: 1.2, fontFamily: F,
-            }}>
-              ASPIRE Connect
-            </h1>
-            <p style={{ margin: '5px 0 0', fontSize: 13, color: '#6b7280', lineHeight: 1.5, fontFamily: F }}>
-              Contacts, outreach, and announcements across cohorts.
-            </p>
-          </div>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            aria-label="Refresh Connect data"
-            aria-busy={refreshing}
-            title="Refresh Connect data"
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              width: 32, height: 32, borderRadius: 7, flexShrink: 0,
-              border: '1px solid var(--border-input,rgba(29,37,103,0.10))',
-              background: 'var(--bg-input,#fff)',
-              cursor: refreshing ? 'not-allowed' : 'pointer',
-              color: 'var(--text-secondary,#4A5560)',
-              transition: 'background 0.12s, opacity 0.12s',
-              opacity: refreshing ? 0.55 : 1,
-              marginTop: 2,
-            }}
-            onMouseEnter={e => { if (!refreshing) e.currentTarget.style.background = '#f3f4f6' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg-input,#fff)' }}
-          >
-            <RefreshCw
-              size={14}
-              strokeWidth={2}
-              style={{ transition: 'transform 0.6s ease', transform: refreshing ? 'rotate(360deg)' : 'none' }}
-            />
-          </button>
+        <div style={{ marginBottom: 12 }}>
+          <h1 style={{
+            margin: 0, fontSize: 24, fontWeight: 700,
+            color: 'var(--text-primary,#0E1428)',
+            letterSpacing: '-0.02em', lineHeight: 1.2, fontFamily: F,
+          }}>
+            ASPIRE Connect
+          </h1>
+          <p style={{ margin: '5px 0 0', fontSize: 13, color: '#6b7280', lineHeight: 1.5, fontFamily: F }}>
+            Contacts, outreach, and announcements across cohorts.
+          </p>
         </div>
 
         {/* Sub-tab picker */}

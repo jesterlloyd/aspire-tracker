@@ -12,7 +12,7 @@ import InterviewRubricTab from './components/InterviewRubricTab'
 import RotationTab from './components/RotationTab'
 import EvaluationTab from './components/EvaluationTab'
 import AddStudentModal from './components/AddStudentModal'
-import UnifiedNav from './components/UnifiedNav'
+import UnifiedNav, { RefreshHint } from './components/UnifiedNav'
 import NewCohortModal from './components/NewCohortModal'
 import ManageCohortModal from './components/ManageCohortModal'
 import { useAuth } from './contexts/AuthContext'
@@ -255,6 +255,9 @@ function MainApp({ onLogout }) {
   const [showAddModal,       setShowAddModal]       = useState(false)
   const [showInterviewersModal, setShowInterviewersModal] = useState(false)
   const [focusStudentId,     setFocusStudentId]     = useState(null)
+  // Ref for Connect soft-refresh — ConnectPage registers its handleRefresh here so the
+  // toolbar RefreshHint can call it without a full page reload.
+  const connectRefreshRef = useRef(null)
   const [highlightUnitId,    setHighlightUnitId]    = useState(null)
   const [search,  setSearch]  = useState('')
   const [filters, setFilters] = useState({ school: '', status: '', cohort: '' })
@@ -1065,7 +1068,7 @@ function MainApp({ onLogout }) {
             background: 'var(--bg-card,#FAFAF7)',
             borderBottom: '1px solid var(--border-divider,rgba(29,37,103,0.08))',
             padding: '0 32px', height: 44,
-            display: 'flex', alignItems: 'center',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             fontFamily: 'DM Sans, sans-serif', flexShrink: 0,
           }}>
             <button
@@ -1085,6 +1088,7 @@ function MainApp({ onLogout }) {
               </svg>
               Back to {backLabel}
             </button>
+            <RefreshHint onClick={() => connectRefreshRef.current?.()} />
           </div>
         )}
       </div>
@@ -1175,6 +1179,7 @@ function MainApp({ onLogout }) {
               <ConnectPage
                 cohortId={activeCohortId}
                 onNavigateToStudent={id => { setFocusStudentId(id); switchTab('profiles') }}
+                refreshRef={connectRefreshRef}
               />
             )}
           </>

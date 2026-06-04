@@ -2,19 +2,21 @@ import { useMemo } from 'react'
 import { useUnreadStudents } from '../hooks/useUnreadStudents'
 import Tooltip from './ui/Tooltip'
 
-function RefreshHint() {
+export function RefreshHint({ onClick }) {
   const shortcut = useMemo(() => {
     if (typeof navigator === 'undefined') return '⌘R'
     const p = navigator.platform || '', ua = navigator.userAgent || ''
     return /Mac|iPhone|iPad|iPod/.test(p) || /Mac OS/.test(ua) ? '⌘R' : 'Ctrl+R'
   }, [])
 
+  const handleClick = onClick ?? (() => window.location.reload())
+
   return (
     <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:'#98A2B3', fontFamily:'DM Sans, sans-serif', lineHeight:1, marginLeft:'auto', paddingRight:4, flexShrink:0, alignSelf:'center' }}>
       <span style={{ whiteSpace:'nowrap' }}>Missing data? Refresh</span>
       <Tooltip label={`Refresh app (${shortcut})`} placement="bottom">
       <button
-        onClick={() => window.location.reload()}
+        onClick={handleClick}
         aria-label="Refresh app"
         style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'4px 8px', background:'rgba(29,37,103,0.04)', border:'1px solid rgba(29,37,103,0.10)', borderRadius:6, color:'#475467', fontSize:11, fontWeight:500, fontFamily:'DM Sans, sans-serif', cursor:'pointer', transition:'all 0.15s ease' }}
         onMouseEnter={e => { e.currentTarget.style.background='rgba(29,37,103,0.08)'; e.currentTarget.style.color='#1D2567' }}
