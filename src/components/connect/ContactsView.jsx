@@ -21,7 +21,7 @@ const ACADEMIC_ROLES = new Set([
   'Program Assistant', 'Program Assistants',
   'Manager', 'Manager, Clinical Operations', 'Manager, Clinical Faculty',
   'Manager Clinical Faculty',
-  'Clinical Faculty', 'Associate Professor',
+  'Clinical Faculty', 'Associate Professor', 'Professor & Assistant Director',
   'Program Coordinator',
 ])
 
@@ -1249,6 +1249,7 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
             <div style={{ marginBottom: 16 }}>
               <label style={labelStyle}>Organization</label>
               <input value={formData.organization || ''} onChange={e => set('organization', e.target.value)} placeholder="e.g. Azusa Pacific University" style={inputStyle} />
+              <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginTop: 4, lineHeight: 1.4 }}>Display only; not used for linked student or weekly digest matching.</div>
             </div>
             <div style={{ marginBottom: 16 }}>
               <label style={labelStyle}>Role</label>
@@ -1281,6 +1282,7 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
                 <div style={{ marginBottom: 16 }}>
                   <label style={labelStyle}>School Name</label>
                   <input value={formData.school_name || ''} onChange={e => set('school_name', e.target.value)} placeholder="e.g. APU" style={inputStyle} />
+                  <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginTop: 4, lineHeight: 1.4 }}>Used for linked students and weekly digest matching.</div>
                 </div>
               )}
               {(roleGroup === 'academic' || formData.program_type) && (
@@ -1328,14 +1330,12 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
                 onChange={e => set('is_active', e.target.checked)} style={{ width: 14, height: 14 }} />
               Active contact
             </label>
-            {/* Weekly digest: shown for Academic Partners in main section; others see it in Advanced */}
-            {(roleGroup === 'academic' || formData.weekly_digest === false) && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12, fontFamily: F, color: '#374151' }}>
-                <input type="checkbox" checked={formData.weekly_digest !== false}
-                  onChange={e => set('weekly_digest', e.target.checked)} style={{ width: 14, height: 14 }} />
-                Receives weekly digest
-              </label>
-            )}
+            {/* Weekly digest: always shown in main Preferences for all contact roles */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12, fontFamily: F, color: '#374151' }}>
+              <input type="checkbox" checked={formData.weekly_digest !== false}
+                onChange={e => set('weekly_digest', e.target.checked)} style={{ width: 14, height: 14 }} />
+              Receives weekly digest
+            </label>
           </div>
 
           {/* ── Advanced Details (collapsible) ── */}
@@ -1359,14 +1359,6 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
                   <label style={labelStyle}>Avatar URL <span style={{ fontWeight: 400, color: '#9ca3af' }}>(set by Upload Photo above, or paste directly)</span></label>
                   <input value={formData.avatar_url || ''} onChange={e => set('avatar_url', e.target.value)} placeholder="https://…" style={inputStyle} />
                 </div>
-                {/* Weekly digest for non-academic roles */}
-                {roleGroup !== 'academic' && formData.weekly_digest !== false && (
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12, fontFamily: F, color: '#374151', marginBottom: 16 }}>
-                    <input type="checkbox" checked={formData.weekly_digest !== false}
-                      onChange={e => set('weekly_digest', e.target.checked)} style={{ width: 14, height: 14 }} />
-                    Receives weekly digest
-                  </label>
-                )}
               </div>
             )}
           </div>
