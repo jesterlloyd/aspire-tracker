@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import ProfileActionButton from '../ui/ProfileActionButton'
+import { useToast } from '../../hooks/useToast'
+import { ToastContainer } from '../Toast'
 
 const LAST_CONTACT_KEY = 'aspire.connect.contacts.lastContactId'
 import { supabase } from '../../lib/supabase'
@@ -311,6 +313,7 @@ function ContactRow({ contact, isSelected, onClick }) {
         borderRadius: 8,
         outline: isSelected ? `1.5px solid rgba(29,37,103,0.18)` : 'none',
         transition: 'background 0.1s',
+        opacity: contact.is_active === false ? 0.6 : 1,
       }}
       onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f9fafb' }}
       onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent' }}
@@ -369,7 +372,7 @@ function ContactRow({ contact, isSelected, onClick }) {
 
 // ── Zone 2: Contact profile panel ────────────────────────────────────────────
 
-function ContactProfile({ contact, navigate, onEdit }) {
+function ContactProfile({ contact, navigate, onEdit, onDeactivate }) {
   const relatedUnits = Array.isArray(contact.related_units) ? contact.related_units.filter(Boolean) : []
   const showAffiliation = contact.school_name || contact.program_type || contact.unit_name || relatedUnits.length > 0
   const hasWeeklyDigest = contact.notification_preferences?.weekly_digest !== false
@@ -640,6 +643,34 @@ function ContactProfile({ contact, navigate, onEdit }) {
             Weekly digest {hasWeeklyDigest ? 'on' : 'off'}
           </span>
         </div>
+
+        {/* ── Deactivate / Reactivate ── */}
+        {onDeactivate && (
+          <div style={{ paddingTop: 14, borderTop: '1px solid #f3f4f6', marginTop: 8 }}>
+            <button
+              onClick={onDeactivate}
+              style={{
+                display: 'block', width: '100%',
+                padding: '8px 14px', borderRadius: 8,
+                border: contact.is_active === false ? `1.5px solid ${NAVY}` : '1px solid #e5e7eb',
+                background: '#fff',
+                fontSize: 11, fontWeight: 600, fontFamily: F,
+                color: contact.is_active === false ? NAVY : '#9ca3af',
+                cursor: 'pointer', transition: 'all 0.12s', textAlign: 'center',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderColor = contact.is_active === false ? NAVY : '#dc2626'
+                e.currentTarget.style.color = contact.is_active === false ? NAVY : '#dc2626'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = contact.is_active === false ? NAVY : '#e5e7eb'
+                e.currentTarget.style.color = contact.is_active === false ? NAVY : '#9ca3af'
+              }}
+            >
+              {contact.is_active === false ? 'Reactivate Contact' : 'Deactivate Contact'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -990,6 +1021,53 @@ function SyncPreceptorsModal({ onClose, onSynced }) {
               </button>
             </>
           )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Deactivate / Reactivate Confirmation Modal ────────────────────────────────
+
+function DeactivateModal({ contact, action, onConfirm, onClose, saving }) {
+  const isDeactivate = action === 'deactivate'
+  return (
+    <div
+      onClick={!saving ? onClose : undefined}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: '#fff', borderRadius: 12, padding: '28px 32px', maxWidth: 420, width: '90vw', boxShadow: '0 8px 40px rgba(0,0,0,0.18)', fontFamily: F }}
+      >
+        <h2 style={{ margin: '0 0 14px', fontSize: 16, fontWeight: 700, color: '#0E1428', fontFamily: F }}>
+          {isDeactivate ? 'Deactivate this contact?' : 'Reactivate this contact?'}
+        </h2>
+        <p style={{ margin: '0 0 24px', fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.65 }}>
+          {isDeactivate
+            ? `This will hide ${contact.full_name} from active contact lists and outreach. Their data is preserved and you can reactivate them any time.`
+            : `This will return ${contact.full_name} to active contact lists and outreach.`
+          }
+        </p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, fontFamily: F, color: '#374151', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.5 : 1 }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={saving}
+            style={{ padding: '8px 20px', borderRadius: 8, border: 'none', background: isDeactivate ? '#dc2626' : NAVY, fontSize: 12, fontWeight: 600, fontFamily: F, color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.65 : 1 }}
+          >
+            {saving
+              ? (isDeactivate ? 'Deactivating…' : 'Reactivating…')
+              : (isDeactivate ? 'Deactivate' : 'Reactivate')}
+          </button>
         </div>
       </div>
     </div>
@@ -1492,10 +1570,14 @@ export default function ContactsView({ refreshKey = 0 }) {
   const navigate    = useNavigate()
   const location    = useLocation()
   const restoredRef = useRef(false)   // tracks whether initial selection restore has run
+  const { toasts, removeToast, toast } = useToast()
 
   const [showContactModal, setShowContactModal] = useState(false)
   const [editingContact,   setEditingContact]   = useState(null)
   const [showSyncModal,    setShowSyncModal]    = useState(false)
+  const [showInactive,     setShowInactive]     = useState(false)
+  const [deactivateTarget, setDeactivateTarget] = useState(null)  // { contact, action }
+  const [deactivating,     setDeactivating]     = useState(false)
 
   const handleOpenAdd  = useCallback(() => { setEditingContact(null); setShowContactModal(true) }, [])
   const handleOpenEdit = useCallback(contact => { setEditingContact(contact); setShowContactModal(true) }, [])
@@ -1510,6 +1592,44 @@ export default function ContactsView({ refreshKey = 0 }) {
     setSelectedId(savedContact.id)
     handleModalClose()
   }, [handleModalClose])
+
+  const handleDeactivateConfirm = useCallback(async () => {
+    if (!deactivateTarget) return
+    const { contact, action } = deactivateTarget
+    const newIsActive = action === 'reactivate'
+    setDeactivating(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        toast.error('Error', 'Session expired. Please refresh and try again.')
+        return
+      }
+      const res = await fetch('/api/contacts-upsert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ id: contact.id, is_active: newIsActive }),
+      })
+      let payload = null
+      try { payload = await res.json() } catch {}
+      if (!res.ok) {
+        toast.error('Error', payload?.error || `Failed to ${action} contact.`)
+        return
+      }
+      setContacts(prev => prev.map(c => c.id === contact.id ? { ...c, is_active: newIsActive } : c))
+      setDeactivateTarget(null)
+      if (!newIsActive && !showInactive) setSelectedId(null)
+      toast.success(
+        newIsActive ? 'Reactivated' : 'Deactivated',
+        newIsActive
+          ? `${contact.full_name} has been reactivated.`
+          : `${contact.full_name} has been deactivated.`
+      )
+    } catch {
+      toast.error('Error', 'Network error. Please try again.')
+    } finally {
+      setDeactivating(false)
+    }
+  }, [deactivateTarget, showInactive, toast])
 
   const [contacts,        setContacts]        = useState([])
   const [loading,         setLoading]         = useState(true)
@@ -1636,19 +1756,25 @@ export default function ContactsView({ refreshKey = 0 }) {
   // ── Derived values ──────────────────────────────────────────────────────────
   const selected = contacts.find(c => c.id === selectedId) || null
 
-  // Category counts: each contact may appear in multiple categories
+  // Category counts — respect the showInactive toggle so pills count only visible contacts
   const categoryCounts = {}
-  contacts.forEach(c => {
-    getContactCategories(c).forEach(cat => {
-      categoryCounts[cat] = (categoryCounts[cat] || 0) + 1
+  contacts
+    .filter(c => showInactive || c.is_active !== false)
+    .forEach(c => {
+      getContactCategories(c).forEach(cat => {
+        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1
+      })
     })
-  })
+  const inactiveCount   = contacts.filter(c => c.is_active === false).length
+  const activeCount     = contacts.length - inactiveCount
 
   const activeCategories = CATEGORY_ORDER.filter(cat =>
     cat === 'All' || (categoryCounts[cat] || 0) > 0
   )
 
   const filtered = contacts.filter(c => {
+    // Hide inactive contacts when toggle is OFF
+    if (!showInactive && c.is_active === false) return false
     const q = search.trim().toLowerCase()
     if (q) {
       const relatedStr = Array.isArray(c.related_units) ? c.related_units.join(' ') : ''
@@ -1781,7 +1907,7 @@ export default function ContactsView({ refreshKey = 0 }) {
           {activeCategories.map(cat => {
             const isActive = categoryFilter === cat
             const accent = CATEGORY_ACCENT[cat] || CATEGORY_ACCENT['Other']
-            const count = cat === 'All' ? contacts.length : (categoryCounts[cat] || 0)
+            const count = cat === 'All' ? (showInactive ? contacts.length : activeCount) : (categoryCounts[cat] || 0)
             return (
               <button
                 key={cat}
@@ -1811,9 +1937,26 @@ export default function ContactsView({ refreshKey = 0 }) {
         </div>{/* end flex wrap */}
         </div>{/* end category section */}
 
+        {/* Show inactive toggle — only when inactive contacts exist */}
+        {inactiveCount > 0 && (
+          <div style={{ padding: '2px 14px 6px', flexShrink: 0 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={showInactive}
+                onChange={e => setShowInactive(e.target.checked)}
+                style={{ width: 12, height: 12, accentColor: NAVY }}
+              />
+              <span style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, fontWeight: 500 }}>
+                Show inactive ({inactiveCount})
+              </span>
+            </label>
+          </div>
+        )}
+
         {/* Contact count */}
         <div style={{ padding: '0 14px 6px', fontSize: 10.5, color: '#9ca3af', fontFamily: F, flexShrink: 0 }}>
-          {loading ? 'Loading…' : error ? 'Failed to load' : `${filtered.length} of ${contacts.length}`}
+          {loading ? 'Loading…' : error ? 'Failed to load' : `${filtered.length} of ${showInactive ? contacts.length : activeCount}`}
         </div>
 
         {/* Contact list (scrollable) */}
@@ -1872,7 +2015,15 @@ export default function ContactsView({ refreshKey = 0 }) {
         boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
       }}>
         {selected ? (
-          <ContactProfile contact={selected} navigate={navigate} onEdit={handleOpenEdit} />
+          <ContactProfile
+            contact={selected}
+            navigate={navigate}
+            onEdit={handleOpenEdit}
+            onDeactivate={() => setDeactivateTarget({
+              contact: selected,
+              action: selected.is_active === false ? 'reactivate' : 'deactivate',
+            })}
+          />
         ) : (
           <NoSelection count={filtered.length} />
         )}
@@ -1920,6 +2071,17 @@ export default function ContactsView({ refreshKey = 0 }) {
       />
     )}
 
+    {/* Deactivate / Reactivate Modal */}
+    {deactivateTarget && (
+      <DeactivateModal
+        contact={deactivateTarget.contact}
+        action={deactivateTarget.action}
+        onConfirm={handleDeactivateConfirm}
+        onClose={() => { if (!deactivating) setDeactivateTarget(null) }}
+        saving={deactivating}
+      />
+    )}
+
     {/* Repair Preceptor Contacts Modal */}
     {showSyncModal && (
       <SyncPreceptorsModal
@@ -1931,6 +2093,7 @@ export default function ContactsView({ refreshKey = 0 }) {
         }}
       />
     )}
+    <ToastContainer toasts={toasts} removeToast={removeToast} />
     </>
   )
 }
