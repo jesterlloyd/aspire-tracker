@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useLocation, useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import Tooltip from '../ui/Tooltip'
 import { downloadCSV } from '../../lib/utils'
 import RecipientProfileCard from './RecipientProfileCard'
+import RecipientPicker from './RecipientPicker'
 
 const F = 'DM Sans, sans-serif'
 
@@ -141,6 +142,7 @@ const sectionLabel = {
 
 export default function OutreachView({ cohortId, onNavigateToStudent, toast, refreshKey = 0 }) {
   const location       = useLocation()
+  const navigate       = useNavigate()
   const [searchParams] = useSearchParams()
 
   // URL params — support both legacy (studentId/contactId) and new (recipientType+recipientId) formats
@@ -284,6 +286,33 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   const [singleSendInFlight,    setSingleSendInFlight]    = useState(false)
   const [singleSendState,       setSingleSendState]       = useState(null) // null|'sent'|'error'
   const [singleSendMsg,         setSingleSendMsg]         = useState(null)
+
+  // ── Recipient picker (Phase 1 — single-recipient only) ───────────────────
+  // pickerOpen is the explicit "Change recipient" toggle. The picker also shows
+  // implicitly as the empty state when no recipient is resolved (see showPicker
+  // in render). Selecting a recipient navigates exactly like a deep link, so the
+  // existing recipient/enrichment/draft pipeline is reused unchanged.
+  const [pickerOpen, setPickerOpen] = useState(false)
+
+  const handlePickerSelect = useCallback((r) => {
+    if (!r) return
+    if (r.kind === 'contact') {
+      navigate(
+        `/connect/outreach?mode=message&contactId=${r.id}`,
+        { state: { fromContact: { id: r.id, name: r.name, email: r.email } } },
+      )
+    } else {
+      navigate(
+        `/connect/outreach?mode=message&recipientType=student&recipientId=${r.id}`,
+        { state: { fromStudent: { id: r.id, name: r.name, email: r.email, school: r.school } } },
+      )
+    }
+    setPickerOpen(false)
+  }, [navigate])
+
+  // Cancel a "Change recipient" without picking — the previous recipient remains
+  // active (we never navigated away), so its draft/compose stay intact.
+  const handlePickerCancel = useCallback(() => setPickerOpen(false), [])
 
   // ── Persist top-level recipient mode ─────────────────────────────────────
   useEffect(() => {
@@ -1077,16 +1106,53 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
         ════════════════════════════════════════════════════════════════ */}
         <div style={{ flex: '0 0 340px', minWidth: 280, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-          {/* Recipient profile card */}
-          <RecipientProfileCard
-            recipientType={contactId ? 'contact' : (studentId || selectedStudentId) ? 'student' : null}
-            contact={fetchedContact}
-            fromContact={fromContact}
-            displayStudent={outreachMode === 'survey' ? selectedStudent : effectiveStudent}
-            fetchedStudent={fetchedStudent}
-            studentFetchFailed={studentFetchFailed}
-            outreachMode={outreachMode}
-          />
+          {/* ── Recipient picker (Phase 1) vs. profile card ──────────────────
+              urlRecipient: recipient came from a deep link OR a picker selection
+                (drives Direct Message). anyRecipient also counts a survey-mode
+                student chosen via the existing dropdown (so the picker does not
+                shadow the survey selection). The picker shows when explicitly
+                reopened ("Change recipient") or when no recipient is resolved. */}
+          {(() => {
+            const urlRecipient = !!(contactId || studentId)
+            const anyRecipient = urlRecipient || !!selectedStudentId
+            const showPicker   = pickerOpen || !anyRecipient
+            if (showPicker) {
+              return (
+                <RecipientPicker
+                  students={students}
+                  onSelect={handlePickerSelect}
+                  onCancel={handlePickerCancel}
+                  canCancel={anyRecipient}
+                />
+              )
+            }
+            return (
+              <>
+                {urlRecipient && (
+                  <button
+                    type="button"
+                    onClick={() => setPickerOpen(true)}
+                    style={{
+                      alignSelf: 'flex-start', background: 'none', border: 'none',
+                      cursor: 'pointer', padding: 0, fontFamily: F,
+                      fontSize: 11, fontWeight: 600, color: '#1D2567',
+                    }}
+                  >
+                    ← Change recipient
+                  </button>
+                )}
+                <RecipientProfileCard
+                  recipientType={contactId ? 'contact' : (studentId || selectedStudentId) ? 'student' : null}
+                  contact={fetchedContact}
+                  fromContact={fromContact}
+                  displayStudent={outreachMode === 'survey' ? selectedStudent : effectiveStudent}
+                  fetchedStudent={fetchedStudent}
+                  studentFetchFailed={studentFetchFailed}
+                  outreachMode={outreachMode}
+                />
+              </>
+            )
+          })()}
 
           {/* ── Message Type picker (moved into left column below profile card) ── */}
           <div style={{ ...panelCard }}>
