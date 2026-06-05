@@ -813,6 +813,7 @@ function SyncPreceptorsModal({ onClose, onSynced }) {
           full_name:    p.full_name,
           email:        p.email.toLowerCase().trim(),
           role:         'Preceptor',
+          category:     'Preceptors',
           organization: 'Cedars-Sinai Medical Center',
           is_active:    true,
           notes:        'Imported from Rotations > Preceptors.',

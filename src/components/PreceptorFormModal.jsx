@@ -15,6 +15,7 @@ async function ensurePreceptorContact(preceptor) {
       full_name:    preceptor.full_name,
       email:        preceptor.email.toLowerCase().trim(),
       role:         'Preceptor',
+      category:     'Preceptors',
       organization: 'Cedars-Sinai Medical Center',
       is_active:    true,
       notes:        'Imported from Rotations > Preceptors.',
