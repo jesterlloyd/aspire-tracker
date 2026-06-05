@@ -440,12 +440,28 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
 
   // ── Fetch student when router state is missing (URL-only navigation / refresh) ──
   useEffect(() => {
-    if (!studentId || studentHasDisplayInfo || fetchedStudent?.id === studentId) return
+    if (!studentId) { setFetchedStudent(null); setStudentFetchFailed(false); return }
+    if (fetchedStudent?.id === studentId) return
+
+    if (studentHasDisplayInfo) {
+      // Display info already available from router state.
+      // Lightweight headshot-only fetch so the profile card can show the student photo.
+      supabase
+        .from('students')
+        .select('headshot_url')
+        .eq('id', studentId)
+        .single()
+        .then(({ data }) => {
+          if (data) setFetchedStudent({ id: studentId, headshot_url: data.headshot_url || null })
+        })
+      return
+    }
+
     setFetchedStudent(null)
     setStudentFetchFailed(false)
     supabase
       .from('students')
-      .select('id, first_name, last_name, personal_email, school_email, school')
+      .select('id, first_name, last_name, personal_email, school_email, school, headshot_url')
       .eq('id', studentId)
       .single()
       .then(({ data }) => {

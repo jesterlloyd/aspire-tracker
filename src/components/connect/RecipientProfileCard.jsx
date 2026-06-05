@@ -3,6 +3,8 @@
 // Displays contact or student data with avatar, role badge, and key contact details.
 // Visual style mirrors ContactProfile in ContactsView (gradient header, avatar ring, role chip).
 
+import { useState, useEffect } from 'react'
+
 const F    = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
 
@@ -78,6 +80,10 @@ const heroStyle = {
 }
 
 function Avatar({ url, name }) {
+  const [imgError, setImgError] = useState(false)
+  // Reset error state whenever the URL changes (new contact/student loaded)
+  useEffect(() => { setImgError(false) }, [url])
+  const hasPhoto = !!(url && url.trim() !== '' && !imgError)
   return (
     <div style={{
       width: 64, height: 64, borderRadius: '50%',
@@ -87,19 +93,15 @@ function Avatar({ url, name }) {
       flexShrink: 0, overflow: 'hidden', position: 'relative',
       boxShadow: '0 0 0 3px #fff, 0 0 0 5px rgba(29,37,103,0.12)',
     }}>
-      {url ? (
+      {hasPhoto ? (
         <img src={url} alt={name}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          onError={e => { e.currentTarget.style.display = 'none' }} />
-      ) : null}
-      <span style={{
-        display: url ? 'none' : 'flex',
-        alignItems: 'center', justifyContent: 'center',
-        width: '100%', height: '100%',
-        position: url ? 'absolute' : 'static', inset: 0,
-      }}>
-        {initials(name)}
-      </span>
+          onError={() => setImgError(true)}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      ) : (
+        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+          {initials(name)}
+        </span>
+      )}
     </div>
   )
 }
@@ -257,16 +259,18 @@ export default function RecipientProfileCard({
     )
   }
 
-  const sName   = student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim() || '—'
-  const sEmail  = student.email || student.personal_email || student.school_email
-  const sSchool = student.school
-  const sStatus = student.status
+  const sName      = student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim() || '—'
+  const sEmail     = student.email || student.personal_email || student.school_email
+  const sSchool    = student.school
+  const sStatus    = student.status
+  // headshot from displayStudent or fetchedStudent (lightweight headshot-only fetch for router-state path)
+  const sAvatarUrl = displayStudent?.headshot_url || fetchedStudent?.headshot_url || null
 
   return (
     <div style={cardStyle}>
       {/* Hero */}
       <div style={heroStyle}>
-        <Avatar url={null} name={sName} />
+        <Avatar url={sAvatarUrl} name={sName} />
 
         <h3 style={{
           margin: 0, fontSize: 16, fontWeight: 700, color: '#191919',
