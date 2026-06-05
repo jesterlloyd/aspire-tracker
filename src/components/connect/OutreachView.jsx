@@ -3,6 +3,7 @@ import { useLocation, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import Tooltip from '../ui/Tooltip'
 import { downloadCSV } from '../../lib/utils'
+import RecipientProfileCard from './RecipientProfileCard'
 
 const F = 'DM Sans, sans-serif'
 
@@ -228,6 +229,8 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   // fetch the student record to populate the recipient card.
   const [fetchedStudent,     setFetchedStudent]     = useState(null)
   const [studentFetchFailed, setStudentFetchFailed] = useState(false)
+  // Full contact record for the rich profile card (fromContact only has id/name/email)
+  const [fetchedContact,    setFetchedContact]     = useState(null)
 
   // ── effectiveStudent / studentHasDisplayInfo ─────────────────────────────────
   // Declared HERE before effects that reference them to avoid TDZ in production builds.
@@ -450,6 +453,20 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
         else setStudentFetchFailed(true)
       })
   }, [studentId, studentHasDisplayInfo]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Fetch full contact record for the rich profile card ──────────────────
+  // fromContact only carries { id, name, email }. This fetches avatar, role,
+  // category, phone, organization, and other display fields.
+  useEffect(() => {
+    if (!contactId) { setFetchedContact(null); return }
+    if (fetchedContact?.id === contactId) return
+    supabase
+      .from('contacts')
+      .select('*')
+      .eq('id', contactId)
+      .single()
+      .then(({ data }) => { if (data) setFetchedContact(data) })
+  }, [contactId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Clear compose when the active recipient changes ────────────────────────
   // Prevents showing a previous recipient's draft or status in the new context.
@@ -1042,164 +1059,25 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
         {/* ═══════════════════════════════════════════════════════════════
-            ZONE 1 — Audience / Recipients
-            Who the communication is for.
+            LEFT COLUMN — Recipient profile card + message type picker
+            (Rich profile card replaces the former Audience card.
+             Message Type picker is stacked below it in this column.)
         ════════════════════════════════════════════════════════════════ */}
-        <div style={{ ...panelCard, flex: '0 0 340px', minWidth: 280 }}>
-          <div style={panelTitle}>Audience</div>
-          <div style={panelSubtitle}>
-            {outreachMode === 'message' ? '1 recipient · direct message' : 'Survey invitation'}
-          </div>
+        <div style={{ flex: '0 0 340px', minWidth: 280, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-          {/* Recipient context (Direct Message mode) — contact or student */}
-          {outreachMode === 'message' && (
-            contactId && contactHasDisplayInfo ? (
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontWeight: 600, fontSize: 13, color: '#191919', fontFamily: F, lineHeight: 1.3 }}>
-                  {fromContact.name}
-                </div>
-                {fromContact.email && (
-                  <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginTop: 3, wordBreak: 'break-all' }}>
-                    {fromContact.email}
-                  </div>
-                )}
-                <div style={{ marginTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  <span style={{
-                    fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-                    background: '#EEF2FB', color: '#1D2567', border: '1px solid #c3cdf0',
-                    fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
-                  }}>Contact</span>
-                  <span style={{
-                    fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-                    background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0',
-                    fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
-                  }}>1 recipient</span>
-                </div>
-              </div>
-            ) : studentId && studentHasDisplayInfo ? (
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontWeight: 600, fontSize: 13, color: '#191919', fontFamily: F, lineHeight: 1.3 }}>
-                  {effectiveStudent?.name || `${fetchedStudent?.first_name || ''} ${fetchedStudent?.last_name || ''}`.trim()}
-                </div>
-                {(effectiveStudent?.email || fetchedStudent?.personal_email || fetchedStudent?.school_email) ? (
-                  <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginTop: 3, wordBreak: 'break-all' }}>
-                    {effectiveStudent?.email || fetchedStudent?.personal_email || fetchedStudent?.school_email}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 11, color: '#dc2626', fontFamily: F, marginTop: 3 }}>No email on file</div>
-                )}
-                {(effectiveStudent?.school || fetchedStudent?.school) && (
-                  <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginTop: 2 }}>{effectiveStudent?.school || fetchedStudent?.school}</div>
-                )}
-                <div style={{ marginTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  <span style={{
-                    fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-                    background: '#FEF3C7', color: '#92400e', border: '1px solid #fde68a',
-                    fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
-                  }}>Student</span>
-                  <span style={{
-                    fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-                    background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0',
-                    fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
-                  }}>1 recipient</span>
-                </div>
-              </div>
-            ) : studentId && studentFetchFailed ? (
-              <div style={{
-                marginBottom: 14, padding: '9px 11px',
-                background: '#fef2f2', border: '1px solid #fecaca',
-                borderRadius: 8, fontSize: 11, color: '#dc2626', fontFamily: F, lineHeight: 1.5,
-              }}>
-                Student context unavailable. Return to Student Profiles and click Email.
-              </div>
-            ) : studentId ? (
-              // Fetching student display info...
-              <div style={{ ...panelBody, marginBottom: 14 }}>Loading recipient…</div>
-            ) : contactId ? (
-              <div style={{
-                marginBottom: 14, padding: '9px 11px',
-                background: '#FBF5E8', border: '1px solid #f0c9b0',
-                borderRadius: 8, fontSize: 11, color: '#8B5E1A', fontFamily: F, lineHeight: 1.5,
-              }}>
-                Contact context unavailable. Return to Contacts and click Email.
-              </div>
-            ) : (
-              <div style={{ ...panelBody, marginBottom: 14 }}>
-                Select a contact or student and click Email to compose a direct message.
-              </div>
-            )
-          )}
+          {/* Recipient profile card */}
+          <RecipientProfileCard
+            recipientType={contactId ? 'contact' : (studentId || selectedStudentId) ? 'student' : null}
+            contact={fetchedContact}
+            fromContact={fromContact}
+            displayStudent={outreachMode === 'survey' ? selectedStudent : effectiveStudent}
+            fetchedStudent={fetchedStudent}
+            studentFetchFailed={studentFetchFailed}
+            outreachMode={outreachMode}
+          />
 
-          {/* Student context (Survey Invitation mode) */}
-          {outreachMode === 'survey' && (
-            selectedStudent ? (
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontWeight: 600, fontSize: 13, color: '#191919', fontFamily: F, lineHeight: 1.3 }}>
-                  {selectedStudent.first_name} {selectedStudent.last_name}
-                </div>
-                {selectedStudent.school && (
-                  <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginTop: 3 }}>
-                    {selectedStudent.school}
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 8 }}>
-                  {resolvedEmail ? (
-                    <span style={{
-                      fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-                      background: '#EEF7F0', color: '#166534', border: '1px solid #c6d9a8',
-                      fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
-                    }}>Email on file</span>
-                  ) : (
-                    <span style={{
-                      fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-                      background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca',
-                      fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
-                    }}>Missing email</span>
-                  )}
-                  <span style={{
-                    fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-                    background: '#EEF2FB', color: '#1D2567', border: '1px solid #c3cdf0',
-                    fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
-                  }}>
-                    {TIMEPOINTS.find(t => t.value === timepoint)?.label || timepoint}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div style={{ ...panelBody, marginBottom: 14 }}>
-                Select a student to see recipient context.
-              </div>
-            )
-          )}
-
-          {/* Future audience options */}
-          <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 10, marginBottom: 10 }}>
-            {FUTURE_AUDIENCES.map(label => (
-              <Tooltip key={label} label="Coming in a future release" placement="right">
-                <div style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '6px 0', borderBottom: '1px solid #f3f4f6',
-                  opacity: 0.45, cursor: 'default',
-                }}>
-                  <span style={{ fontSize: 11, color: '#374151', fontFamily: F }}>{label}</span>
-                  <span style={futureBadge}>Future</span>
-                </div>
-              </Tooltip>
-            ))}
-          </div>
-
-          <p style={panelBody}>
-            {outreachMode === 'message'
-              ? 'Groups and categories will be added in a future release.'
-              : 'Single-student invitations are supported now. Segments and groups coming soon.'}
-          </p>
-        </div>
-
-        {/* ═══════════════════════════════════════════════════════════════
-            ZONE 2 — Message Type / Workflow
-            What kind of outreach this is and its workflow settings.
-        ════════════════════════════════════════════════════════════════ */}
-        <div style={{ ...panelCard, flex: '0 0 270px', minWidth: 220 }}>
+          {/* ── Message Type picker (moved into left column below profile card) ── */}
+          <div style={{ ...panelCard }}>
           <div style={panelTitle}>Message Type</div>
           <div style={panelSubtitle}>Workflow</div>
 
@@ -1260,45 +1138,15 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
           {/* Workflow settings for selected type */}
           <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 14 }}>
 
-            {/* Direct Message workflow */}
+            {/* Direct Message workflow — recipient details shown in profile card above */}
             {outreachMode === 'message' && (
               <div>
-                <div style={{ ...fieldWrap }}>
-                  <span style={sectionLabel}>Recipient</span>
-                  {contactId && contactHasDisplayInfo ? (
-                    <div style={{ padding: '9px 11px', background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: 8, fontSize: 12, fontFamily: F, color: '#374151' }}>
-                      <div style={{ fontWeight: 600, color: '#191919' }}>{fromContact.name}</div>
-                      {fromContact.email && <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, wordBreak: 'break-all' }}>{fromContact.email}</div>}
-                    </div>
-                  ) : studentId && studentHasDisplayInfo ? (
-                    <div style={{ padding: '9px 11px', background: '#f9fafb', border: '1.5px solid #fde68a', borderRadius: 8, fontSize: 12, fontFamily: F, color: '#374151' }}>
-                      {(() => {
-                        const name  = effectiveStudent?.name || `${fetchedStudent?.first_name || ''} ${fetchedStudent?.last_name || ''}`.trim()
-                        const email = effectiveStudent?.email || fetchedStudent?.personal_email || fetchedStudent?.school_email
-                        const school = effectiveStudent?.school || fetchedStudent?.school
-                        return (
-                          <>
-                            <div style={{ fontWeight: 600, color: '#191919' }}>{name}</div>
-                            {email ? <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, wordBreak: 'break-all' }}>{email}</div>
-                                   : <div style={{ fontSize: 11, color: '#dc2626', marginTop: 2 }}>No email on file</div>}
-                            {school && <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>{school}</div>}
-                          </>
-                        )
-                      })()}
-                    </div>
-                  ) : (
-                    <p style={panelBody}>
-                      {contactId || studentId ? 'Recipient context unavailable.' : 'No recipient selected.'}
-                    </p>
-                  )}
-                </div>
-
                 <div style={{
                   padding: '9px 11px', background: '#f9fafb',
                   border: '1px solid #e5e7eb', borderRadius: 8,
                   fontSize: 11, color: '#6b7280', fontFamily: F, lineHeight: 1.65,
                 }}>
-                  <div>Direct email sending will be enabled in a future release.</div>
+                  <div>Send a direct ASPIRE email to this recipient.</div>
                   {DRAFT_KEY && (
                     <div style={{ color: '#9ca3af', marginTop: 4 }}>
                       Draft is saved locally for this contact.
@@ -1502,11 +1350,13 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
             )}
 
           </div>
-        </div>
+        </div>{/* end message type picker panel */}
+        </div>{/* end left column */}
 
         {/* ═══════════════════════════════════════════════════════════════
             ZONE 3 — Compose / Preview / Action
             Actual writing, preview, generated-link placement, and actions.
+            Right column: fills remaining width.
         ════════════════════════════════════════════════════════════════ */}
         <div style={{ flex: '1 1 300px', minWidth: 260 }}>
 
