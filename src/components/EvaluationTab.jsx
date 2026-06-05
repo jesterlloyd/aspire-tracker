@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { ChevronRight, ChevronDown } from 'lucide-react'
-import Tooltip from './ui/Tooltip'
 import { supabase } from '../lib/supabase'
 import { CS_COLORS } from '../lib/brand'
 import { useLastSynced } from '../hooks/useLastSynced'
@@ -150,13 +149,6 @@ function EvalKPICard({ value, label, sub, restBg, restNum, activeBg, isActive, o
       )}
     </button>
   )
-  if (tooltipLabel) {
-    return (
-      <Tooltip label={tooltipLabel} placement="top">
-        {card}
-      </Tooltip>
-    )
-  }
   return card
 }
 

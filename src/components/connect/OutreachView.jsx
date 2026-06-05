@@ -1017,35 +1017,31 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
           display: 'flex', border: '1px solid rgba(29,37,103,0.14)',
           borderRadius: 8, overflow: 'hidden',
         }}>
-          <Tooltip label="Compose a message for one contact, student, coordinator, or preceptor." placement="bottom">
-            <button
-              onClick={() => setRecipientMode('single')}
-              style={{
-                padding: '8px 20px', border: 'none', cursor: 'pointer',
-                background: recipientMode === 'single' ? '#1D2567' : '#f9fafb',
-                color: recipientMode === 'single' ? '#fff' : '#6b7280',
-                fontSize: 12, fontWeight: 600, fontFamily: F,
-                transition: 'background 0.12s, color 0.12s',
-              }}
-            >
-              Send to one recipient
-            </button>
-          </Tooltip>
-          <Tooltip label="Send surveys, announcements, or updates to multiple recipients." placement="bottom">
-            <button
-              onClick={() => setRecipientMode('bulk')}
-              style={{
-                padding: '8px 20px', border: 'none', cursor: 'pointer',
-                borderLeft: '1px solid rgba(29,37,103,0.14)',
-                background: recipientMode === 'bulk' ? '#1D2567' : '#f9fafb',
-                color: recipientMode === 'bulk' ? '#fff' : '#6b7280',
-                fontSize: 12, fontWeight: 600, fontFamily: F,
-                transition: 'background 0.12s, color 0.12s',
-              }}
-            >
-              Send to many
-            </button>
-          </Tooltip>
+          <button
+            onClick={() => setRecipientMode('single')}
+            style={{
+              padding: '8px 20px', border: 'none', cursor: 'pointer',
+              background: recipientMode === 'single' ? '#1D2567' : '#f9fafb',
+              color: recipientMode === 'single' ? '#fff' : '#6b7280',
+              fontSize: 12, fontWeight: 600, fontFamily: F,
+              transition: 'background 0.12s, color 0.12s',
+            }}
+          >
+            Send to one recipient
+          </button>
+          <button
+            onClick={() => setRecipientMode('bulk')}
+            style={{
+              padding: '8px 20px', border: 'none', cursor: 'pointer',
+              borderLeft: '1px solid rgba(29,37,103,0.14)',
+              background: recipientMode === 'bulk' ? '#1D2567' : '#f9fafb',
+              color: recipientMode === 'bulk' ? '#fff' : '#6b7280',
+              fontSize: 12, fontWeight: 600, fontFamily: F,
+              transition: 'background 0.12s, color 0.12s',
+            }}
+          >
+            Send to many
+          </button>
         </div>
         <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F }}>
           {recipientMode === 'bulk' ? 'Bulk Operation — Phase 3A scaffolding' : ''}
