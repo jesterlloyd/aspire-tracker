@@ -1032,17 +1032,42 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
 
   const set = (field, value) => setFormData(prev => ({ ...prev, [field]: value }))
 
-  // Role group drives which sections appear in the main form
-  const roleGroup = (() => {
-    const r = formData.role || ''
-    if (ACADEMIC_ROLES.has(r)) return 'academic'
-    if (['Associate Director', 'Assistant Nurse Manager'].includes(r)) return 'unit-clinical'
-    if (['Unit NPD-P', 'Unit NPD Practitioner'].includes(r)) return 'unit-npd-p'
-    if (PRECEPTOR_ROLES.has(r)) return 'preceptor'
-    if (BNI_TEAM_ROLES.has(r)) return 'bni'
-    if (NURSING_EXEC_ROLES.has(r)) return 'nursing-exec'
-    return 'other'
-  })()
+  // Category drives which sections appear in the main form (Phase C.3.B)
+  const cat = formData.category || ''
+
+  // Auto-default Organization for new contacts in categories that imply Cedars-Sinai
+  const handleCategoryChange = (newCat) => {
+    const updates = { category: newCat }
+    if (!isEdit && ['Unit Leadership', 'Preceptors', 'BNI Team'].includes(newCat) && !formData.organization) {
+      updates.organization = 'Cedars-Sinai Medical Center'
+    }
+    setFormData(prev => ({ ...prev, ...updates }))
+  }
+
+  // Warn when the selected category would hide currently-populated fields.
+  // 'Other' is the flexible catch-all — it shows all fields, so nothing is hidden by it.
+  const hiddenPopulatedFields = []
+  if (cat) {
+    if (cat !== 'Academic Partners' && cat !== 'Other') {
+      if (formData.school_name) hiddenPopulatedFields.push('School Name')
+      if (formData.program_type) hiddenPopulatedFields.push('Program Type')
+    }
+    if (!['Unit Leadership', 'Preceptors', 'Other'].includes(cat)) {
+      if (formData.unit_name) hiddenPopulatedFields.push('Unit Name')
+    }
+    if (cat !== 'Unit Leadership' && cat !== 'Other') {
+      if (formData.related_units) hiddenPopulatedFields.push('Related Units')
+    }
+    if (['Unit Leadership', 'Preceptors'].includes(cat)) {
+      if (formData.role_qualifier) hiddenPopulatedFields.push('Role Qualifier')
+    }
+  }
+
+  // Save is enabled when name, category, and (for Academic Partners) school_name are set
+  const canSave = !saving &&
+    !!formData.full_name?.trim() &&
+    !!formData.category &&
+    (formData.category !== 'Academic Partners' || !!formData.school_name?.trim())
 
   async function handlePhotoUpload(e) {
     const file = e.target.files?.[0]
@@ -1104,6 +1129,7 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
         phone:                    formData.phone || '',
         organization:             formData.organization || '',
         role:                     formData.role || '',
+        category:                 formData.category || '',
         role_qualifier:           formData.role_qualifier || '',
         school_name:              formData.school_name || '',
         program_type:             formData.program_type || '',
@@ -1227,6 +1253,34 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
             // Section headings rendered inline — this is a local style constant
           ].map(() => null)}
 
+          {/* ── Category ── */}
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>Category</div>
+          <div style={{ marginBottom: 4 }}>
+            <label style={labelStyle}>Category <span style={{ color: '#dc2626' }}>*</span></label>
+            <select
+              value={formData.category || ''}
+              onChange={e => handleCategoryChange(e.target.value)}
+              style={inputStyle}
+            >
+              <option value="">Select category…</option>
+              <option value="Academic Partners">Academic Partners</option>
+              <option value="Unit Leadership">Unit Leadership</option>
+              <option value="Preceptors">Preceptors</option>
+              <option value="BNI Team">BNI Team</option>
+              <option value="Nursing Executives">Nursing Executives</option>
+              <option value="Other">Other</option>
+            </select>
+            <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginTop: 4, lineHeight: 1.4 }}>
+              Category determines how this contact is organized and which fields appear below.
+            </div>
+          </div>
+          {hiddenPopulatedFields.length > 0 && (
+            <div style={{ fontSize: 12, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 7, padding: '8px 12px', marginBottom: 16, marginTop: 8 }}>
+              Changing category will hide the following populated fields from this form:{' '}
+              <strong>{hiddenPopulatedFields.join(', ')}</strong>. Their data will be preserved in the database.
+            </div>
+          )}
+
           {/* ── Identity ── */}
           <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>Identity</div>
           <div style={{ marginBottom: 16 }}>
@@ -1270,49 +1324,50 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
               <input value={formData.role || ''} onChange={e => set('role', e.target.value)} placeholder="e.g. School Coordinator" style={inputStyle} />
             </div>
           </div>
-          {/* Role Qualifier shown for all named roles */}
-          {roleGroup !== 'other' && (
+          {/* Role Qualifier — label and visibility driven by category */}
+          {(cat === 'Academic Partners' || cat === 'BNI Team' || cat === 'Nursing Executives' || cat === 'Other' || !!formData.role_qualifier) && (
             <div style={{ marginBottom: 20 }}>
-              <label style={labelStyle}>Role Qualifier / Title Detail</label>
-              <input value={formData.role_qualifier || ''} onChange={e => set('role_qualifier', e.target.value)} placeholder="e.g. BSN Programs" style={inputStyle} />
-            </div>
-          )}
-          {/* Show Role Qualifier in advanced for 'other' role if has data */}
-          {roleGroup === 'other' && formData.role_qualifier && (
-            <div style={{ marginBottom: 20 }}>
-              <label style={labelStyle}>Role Qualifier / Title Detail</label>
-              <input value={formData.role_qualifier || ''} onChange={e => set('role_qualifier', e.target.value)} placeholder="e.g. BSN Programs" style={inputStyle} />
+              <label style={labelStyle}>{cat === 'Academic Partners' ? 'Program Focus' : 'Title Detail'}</label>
+              <input
+                value={formData.role_qualifier || ''}
+                onChange={e => set('role_qualifier', e.target.value)}
+                placeholder={cat === 'Academic Partners' ? 'e.g. BSN Programs' : 'e.g. Additional title or specialization'}
+                style={inputStyle}
+              />
             </div>
           )}
 
-          {/* ── Program / Unit Details (conditional by role group) ── */}
-          {(roleGroup === 'academic' || roleGroup === 'unit-clinical' || roleGroup === 'unit-npd-p'
-            || roleGroup === 'preceptor'
-            || (roleGroup !== 'academic' && (formData.school_name || formData.unit_name || formData.related_units || formData.program_type))) && (
+          {/* ── Program / Unit Details (conditional by category) ── */}
+          {(cat === 'Academic Partners' || cat === 'Unit Leadership' || cat === 'Preceptors' || cat === 'Other'
+            || !!(formData.school_name || formData.unit_name || formData.related_units || formData.program_type)) && (
             <>
               <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, fontFamily: F }}>Program / Unit Details</div>
-              {/* Academic: school name + program type */}
-              {(roleGroup === 'academic' || formData.school_name) && (
+              {/* School Name: required for Academic Partners, shown for Other; visible if populated for remaining */}
+              {(cat === 'Academic Partners' || cat === 'Other' || !!formData.school_name) && (
                 <div style={{ marginBottom: 16 }}>
-                  <label style={labelStyle}>School Name</label>
+                  <label style={labelStyle}>
+                    School Name{cat === 'Academic Partners' && <span style={{ color: '#dc2626' }}> *</span>}
+                  </label>
                   <input value={formData.school_name || ''} onChange={e => set('school_name', e.target.value)} placeholder="e.g. APU" style={inputStyle} />
                   <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginTop: 4, lineHeight: 1.4 }}>Used for linked students and weekly digest matching.</div>
                 </div>
               )}
-              {(roleGroup === 'academic' || formData.program_type) && (
+              {/* Program Type: shown for Academic Partners and Other; visible if populated for remaining */}
+              {(cat === 'Academic Partners' || cat === 'Other' || !!formData.program_type) && (
                 <div style={{ marginBottom: 16 }}>
                   <label style={labelStyle}>Program Type</label>
                   <input value={formData.program_type || ''} onChange={e => set('program_type', e.target.value)} placeholder="e.g. BSN, ABSN" style={inputStyle} />
                 </div>
               )}
-              {/* Unit leaders and NPD-Ps: unit name + related units */}
-              {(['unit-clinical', 'unit-npd-p'].includes(roleGroup) || formData.unit_name) && (
+              {/* Unit Name: shown for Unit Leadership, Preceptors, and Other; visible if populated for remaining */}
+              {(cat === 'Unit Leadership' || cat === 'Preceptors' || cat === 'Other' || !!formData.unit_name) && (
                 <div style={{ marginBottom: 16 }}>
                   <label style={labelStyle}>Unit Name</label>
                   <input value={formData.unit_name || ''} onChange={e => set('unit_name', e.target.value)} placeholder="e.g. 5 SCCT" style={inputStyle} />
                 </div>
               )}
-              {(['unit-clinical', 'unit-npd-p'].includes(roleGroup) || formData.related_units) && (
+              {/* Related Units: shown for Unit Leadership and Other; visible if populated for remaining */}
+              {(cat === 'Unit Leadership' || cat === 'Other' || !!formData.related_units) && (
                 <div style={{ marginBottom: 20 }}>
                   <label style={labelStyle}>Related Units <span style={{ fontWeight: 400, color: '#9ca3af' }}>(comma-separated)</span></label>
                   <input value={formData.related_units || ''} onChange={e => set('related_units', e.target.value)} placeholder="e.g. 5 SCCT, 4 South, 7 North" style={inputStyle} />
@@ -1391,15 +1446,25 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
             }}>
               Cancel
             </button>
-            <button type="submit" disabled={saving} style={{
-              padding: '8px 20px', borderRadius: 8,
-              border: 'none',
-              background: saving ? '#e5e7eb' : NAVY,
-              fontSize: 12, fontWeight: 600, fontFamily: F,
-              color: saving ? '#9ca3af' : '#fff',
-              cursor: saving ? 'not-allowed' : 'pointer',
-              transition: 'background 0.12s',
-            }}>
+            <button
+              type="submit"
+              disabled={!canSave}
+              title={
+                !formData.full_name?.trim() ? 'Enter a name to continue' :
+                !formData.category ? 'Select a category to continue' :
+                (formData.category === 'Academic Partners' && !formData.school_name?.trim()) ? 'School Name is required for Academic Partners' :
+                undefined
+              }
+              style={{
+                padding: '8px 20px', borderRadius: 8,
+                border: 'none',
+                background: canSave ? NAVY : '#e5e7eb',
+                fontSize: 12, fontWeight: 600, fontFamily: F,
+                color: canSave ? '#fff' : '#9ca3af',
+                cursor: canSave ? 'pointer' : 'not-allowed',
+                transition: 'background 0.12s',
+              }}
+            >
               {saving ? 'Saving…' : (isEdit ? 'Save Changes' : 'Add Contact')}
             </button>
           </div>
