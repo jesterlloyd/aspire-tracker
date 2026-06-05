@@ -99,6 +99,17 @@ function HeaderSearchIcon() {
   return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
 }
 
+// Contact category badge colors for universal search results
+// Matches CATEGORY_CHIP_STYLES in ContactsView.jsx
+const CONTACT_CAT_COLORS = {
+  'Academic Partners':  { bg:'#EEF2FB', text:'#1D2567',  border:'#c3cdf0' },
+  'Unit Leadership':    { bg:'#E0F7FA', text:'#0d7a8a',  border:'#9dd6f2' },
+  'Preceptors':         { bg:'#E1F3FB', text:'#0e4e6e',  border:'#89CEEA' },
+  'BNI Team':           { bg:'#EDE9FE', text:'#5B21B6',  border:'#C4B5FD' },
+  'Nursing Executives': { bg:'#FEF3C7', text:'#92400e',  border:'#fde68a' },
+}
+const getContactCatStyle = cat => CONTACT_CAT_COLORS[cat] || { bg:'#f3f4f6', text:'#6b7280', border:'#e5e7eb' }
+
 function LastSyncedIndicator() {
   const queryClient = useQueryClient()
   const [label, setLabel] = useState('Synced just now')
@@ -191,7 +202,7 @@ function MainApp({ onLogout }) {
   // ── Header: search state ─────────────────────────────────────────────────────
   const [searchQuery,     setSearchQuery]     = useState('')
   const [searchOpen,      setSearchOpen]      = useState(false)
-  const [searchResults,   setSearchResults]   = useState({ students:[], units:[], placements:[] })
+  const [searchResults,   setSearchResults]   = useState({ students:[], units:[], placements:[], contacts:[] })
   const [searchLoading,   setSearchLoading]   = useState(false)
   const [searchActiveIdx, setSearchActiveIdx] = useState(-1)
   const [searchFocused,   setSearchFocused]   = useState(false)
@@ -689,14 +700,17 @@ function MainApp({ onLogout }) {
   })
 
   const runSearch = useCallback(async q => {
-    if (!activeCohortId || q.length < 2) { setSearchResults({ students:[], units:[], placements:[] }); setSearchOpen(false); return }
+    if (!activeCohortId || q.length < 2) { setSearchResults({ students:[], units:[], placements:[], contacts:[] }); setSearchOpen(false); return }
     setSearchLoading(true); setSearchOpen(true)
-    const [stuRes, unitRes] = await Promise.all([
+    const [stuRes, unitRes, contRes] = await Promise.all([
       supabase.from('students').select('id, first_name, last_name, school, school_email, status, headshot_url')
         .eq('cohort_id', activeCohortId)
         .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,school_email.ilike.%${q}%,personal_email.ilike.%${q}%,phone.ilike.%${q}%,school.ilike.%${q}%`).limit(6),
       supabase.from('units').select('id, unit_name, division, contact_person, slots_remaining, total_slots')
         .eq('cohort_id', activeCohortId).or(`unit_name.ilike.%${q}%,contact_person.ilike.%${q}%`).limit(6),
+      supabase.from('contacts').select('id, full_name, email, role, category, avatar_url, organization, school_name')
+        .eq('is_active', true)
+        .or(`full_name.ilike.%${q}%,email.ilike.%${q}%,role.ilike.%${q}%,school_name.ilike.%${q}%`).limit(5),
     ])
     const ql = q.toLowerCase()
     const placements = students.filter(s => {
@@ -704,14 +718,14 @@ function MainApp({ onLogout }) {
       const u = units.find(u => u.id === s.matched_unit_id)
       return `${s.last_name} ${s.first_name}`.toLowerCase().includes(ql) || (u?.unit_name||'').toLowerCase().includes(ql)
     }).map(s => ({ student: s, unit: units.find(u => u.id === s.matched_unit_id) })).slice(0, 5)
-    setSearchResults({ students: stuRes.data||[], units: unitRes.data||[], placements })
+    setSearchResults({ students: stuRes.data||[], units: unitRes.data||[], placements, contacts: contRes.data||[] })
     setSearchLoading(false); setSearchActiveIdx(-1)
   }, [activeCohortId, students, units]) // eslint-disable-line
 
   const handleSearchChange = e => {
     const q = e.target.value; setSearchQuery(q)
     clearTimeout(searchTimer.current)
-    if (q.length < 2) { setSearchResults({ students:[], units:[], placements:[] }); setSearchOpen(false); return }
+    if (q.length < 2) { setSearchResults({ students:[], units:[], placements:[], contacts:[] }); setSearchOpen(false); return }
     searchTimer.current = setTimeout(() => runSearch(q), 300)
   }
 
@@ -719,6 +733,7 @@ function MainApp({ onLogout }) {
     ...searchResults.students.map(s => ({ type:'student', data:s })),
     ...searchResults.units.map(u => ({ type:'unit', data:u })),
     ...searchResults.placements.map(p => ({ type:'placement', data:p })),
+    ...searchResults.contacts.map(c => ({ type:'contact', data:c })),
   ]
 
   const handleSearchKey = e => {
@@ -734,6 +749,7 @@ function MainApp({ onLogout }) {
     if (item.type === 'student') { switchTab('profiles'); setFocusStudentId(item.data.id) }
     else if (item.type === 'unit') { setHighlightUnitId(item.data.id); switchTab('rotation'); setTimeout(() => setHighlightUnitId(null), 2500) }
     else if (item.type === 'placement') { setHighlightUnitId(item.data.unit?.id); switchTab('rotation'); setTimeout(() => setHighlightUnitId(null), 2500) }
+    else if (item.type === 'contact') { navigate(`/connect/contacts?contactId=${item.data.id}`) }
   }
 
   const actionBadgeCount = (() => {
@@ -881,7 +897,7 @@ function MainApp({ onLogout }) {
                   borderRadius:8, color:'#fff', fontSize:12.5, fontFamily:'DM Sans',
                   outline:'none',
                 }}
-                placeholder="Search students, units…"
+                placeholder="Search students, units, contacts…"
               />
               <span style={{ position:'absolute', right:10, pointerEvents:'none', fontSize:10, fontWeight:500, color:'rgba(255,255,255,0.70)', fontFamily:'ui-monospace, monospace', background:'rgba(255,255,255,0.10)', border:'1px solid rgba(255,255,255,0.15)', padding:'1px 5px', borderRadius:3 }}>⌘K</span>
             </div>
@@ -953,6 +969,32 @@ function MainApp({ onLogout }) {
                                 <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)' }}>{displayName(s)} → {u?.unit_name||'—'}</div>
                                 <div style={{ fontSize:12, color:'#6b7280' }}>{s.status === 'Completed' ? 'Completed' : 'Active Placement'}</div>
                               </div>
+                            </div>
+                          )
+                        })}
+                      </>
+                    )}
+                    {searchResults.contacts.length > 0 && (
+                      <>
+                        <div style={{ padding:'8px 12px', fontSize:11, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.05em', background:'var(--sand)' }}>Contacts</div>
+                        {searchResults.contacts.map((c, i) => {
+                          const fi = searchResults.students.length + searchResults.units.length + searchResults.placements.length + i
+                          const isAct = searchActiveIdx === fi
+                          const catStyle = getContactCatStyle(c.category)
+                          return (
+                            <div key={c.id} onClick={() => handleSearchResult({ type:'contact', data:c })}
+                              style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', cursor:'pointer', background: isAct ? 'var(--sand)' : 'transparent' }}
+                              onMouseEnter={() => setSearchActiveIdx(fi)} onMouseLeave={() => setSearchActiveIdx(-1)}>
+                              {/* Avatar: image with initials fallback */}
+                              <div style={{ width:28, height:28, borderRadius:'50%', background:'#1D2567', flexShrink:0, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, color:'#fff', position:'relative' }}>
+                                {c.avatar_url && <img src={c.avatar_url} alt="" style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }} onError={e => { e.currentTarget.style.display = 'none' }} />}
+                                {(c.full_name||'?').split(' ').slice(0,2).map(w => w[0]?.toUpperCase()||'').join('')}
+                              </div>
+                              <div style={{ flex:1, minWidth:0 }}>
+                                <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.full_name}</div>
+                                <div style={{ fontSize:12, color:'#6b7280', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.role}{c.email ? ` · ${c.email}` : ''}</div>
+                              </div>
+                              {c.category && <span style={{ fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:10, background:catStyle.bg, color:catStyle.text, border:`1px solid ${catStyle.border}`, flexShrink:0, whiteSpace:'nowrap' }}>{c.category}</span>}
                             </div>
                           )
                         })}
