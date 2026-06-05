@@ -114,7 +114,7 @@ export const SUGGESTED_PROMPTS = [
   { label: 'How do I email a student from Student Profiles?', category: 'connect' },
   { label: 'How do I email a contact from Contacts?', category: 'connect' },
   { label: 'What can I do in Outreach right now?', category: 'connect' },
-  { label: 'Can I send bulk survey invitations yet?', category: 'connect' },
+  { label: 'How do I send bulk Casey-Fink survey invitations?', category: 'connect' },
   { label: 'What contact categories are available?', category: 'connect' },
 ];
 
@@ -307,7 +307,7 @@ export function generateStaticResponse(userMessage, cohortName, context) {
   }
 
   return {
-    text: `I'm Keith, your ASPIRE Program assistant. Try asking me:\n\n• "Who needs follow-up today?"\n• "Summarize this cohort"\n• "Who is on campus today?"\n• "Who still needs an interview?"\n• "Who is missing CS-Link access?"\n• "Draft a unit leader email"\n\nOr ask anything about ASPIRE operations.`,
+    text: `I'm Keith, your ASPIRE Intelligence assistant. Try asking me:\n\n• "Who needs follow-up today?"\n• "Summarize this cohort"\n• "Who is on campus today?"\n• "Who still needs an interview?"\n• "Who is missing CS-Link access?"\n• "Draft a unit leader email"\n\nOr ask anything about ASPIRE operations.`,
   };
 }
 
@@ -429,8 +429,11 @@ The platform supports four main workflows organized as tabs:
 - Student Profiles (SP): Individual student records, placement, outcomes, communications.
 - Interview Room (IR): Scoring, scheduling, interviewer management.
 - Embed (E): Drag-and-drop matching board for student-to-unit placement.
+- ASPIRE Connect (C): Communication hub for contacts, outreach, and broadcasts.
 
 The program is led by Jester Lloyd Bautista (Owner, NPD Practitioner) and co-led by Krystal Rodriguez (Admin).
+
+Keith is the AI assistant built into ASPIRE Intelligence. Keith is named after Keith Hoshal, MSN, RN, NPD-BC, OCN, the creator of the Graduate Nurse Trainee-Transition to Practice (GNT-TTP) Program at Cedars-Sinai. The GNT-TTP Program is the predecessor from which the ASPIRE Program evolved. When asked about his name or backstory, Keith should share this lineage.
 `.trim();
 
 export const USER_ROLES = `
@@ -840,15 +843,24 @@ A BNI executive (like the BNI Executive Director) may belong to both BNI Team an
 
 Contacts capabilities (as of June 2026):
 - Add/Edit Contact via owner/admin-gated API endpoint.
+- Category is explicitly stored per contact. When adding or editing a contact, the Owner selects the category from a dropdown. The six available categories are Academic Partners, Unit Leadership, Preceptors, BNI Team, Nursing Executives, and Other.
+- The Category dropdown controls which form fields are shown. Academic Partners require a School Name field, because that field is used to link students and route weekly digest emails to the correct coordinator. Other categories show different relevant fields.
 - Contact avatar/profile photo upload and display.
 - LinkedIn profile links.
 - Preferred contact method, role qualifier, affiliation fields.
 - Preceptors imported from Rotation > Preceptors appear in the Preceptors category.
 - Rotations > Preceptors table shows uploaded Contact avatars by email match (read-only display; upload happens through Contacts).
 - Contact last-contact fields (last_contacted_at, last_contact_type, last_contact_summary) are updated after each direct email send.
+- Contacts can be deactivated. A deactivated contact is hidden from the active contact list, from outreach workflows, and from universal search by default. Deactivation is reversible: data is fully preserved and the contact can be reactivated at any time.
+- The "Show inactive" toggle in the Contacts list reveals deactivated contacts so the Owner can review or reactivate them.
+
+UNIVERSAL SEARCH:
+ASPIRE Intelligence has a universal search bar (top navigation) that searches across students, units, and active contacts. Typing at least two characters returns matching results across all entity types. Contact results show the contact's name, role, category badge, and email. Selecting a Contact result navigates to ASPIRE Connect > Contacts with that contact selected. Inactive contacts are excluded from universal search results.
 
 OUTREACH:
 Outreach is the direct communication workflow inside ASPIRE Connect. It supports two modes: Send to one recipient and Send to many.
+
+In Send to one recipient mode, a rich recipient profile card appears on the left side. The card shows the recipient's name, role, category, organization, contact details, and photo (contact avatar if available, student headshot if available, initials if no photo is on file). Below the profile card is the Message Type picker (Direct Message or Survey Invitation). The compose panel is on the right with subject, body, signature, preview, and send controls. Inactive contacts are not surfaced in outreach recipient selection.
 
 Direct Message (one-to-one email via Resend):
 - A contact can be emailed from Contacts: select a contact and click Email. Outreach opens in Direct Message mode with the contact prefilled.
@@ -868,8 +880,9 @@ Bulk Survey Invitation (Send to many):
 - Owner can select students, configure Casey-Fink instrument, timepoint, expiration, and notes.
 - Generate Links creates one unique secure survey link per selected student via the evaluation endpoint.
 - Survey links are shown once in the results panel (React state only) and are NOT persisted to localStorage or any database field.
-- Owner can send a test email of one generated survey link to their own inbox for verification.
-- Actual bulk Send via Resend for student survey invitations is NOT yet enabled. That button remains disabled.
+- Bulk Send via Resend is enabled. Sends require typed confirmation ("SEND SURVEYS"), send sequentially with a maximum batch size of 5, and perform an idempotency check before each send to prevent duplicate sends.
+- Owner can send a test survey email to their own inbox before sending to students.
+- Single-recipient survey send is also available through Send to one recipient mode in Outreach.
 - Scheduling/cron bulk sends are not yet enabled.
 - Reminder automation is not yet enabled.
 
@@ -904,20 +917,23 @@ Pill philosophy: status pills, match quality chips, capacity descriptors, and he
 export const ROADMAP_AND_LIMITATIONS = `
 WHAT IS LIVE IN ASPIRE CONNECT (as of June 2026):
 - Contacts directory with Add/Edit, avatar upload, LinkedIn links, multi-category filtering.
+- Explicit stored category per contact with a Category dropdown in the Add/Edit form; category drives which fields are shown.
+- Contact deactivate and reactivate: inactive contacts are hidden from active lists, outreach, and universal search by default; revealed via the Show inactive toggle.
+- Universal search bar (top navigation) includes active contacts alongside students and units.
 - Preceptors imported into Contacts from Rotation > Preceptors.
 - Direct Message one-to-one email via Resend to contacts and students.
-- Bulk Casey-Fink survey link generation (generate-only mode, no automated student send).
-- Owner test email for survey link verification.
+- Rich recipient profile card in Send to one recipient mode: name, role, category, organization, photo (avatar or headshot), contact details.
+- Bulk Casey-Fink survey invitations: generate links and send via Resend with typed SEND SURVEYS confirmation, sequential sends, maximum batch size of 5, and idempotency checks.
+- Owner test email for survey link verification before bulk send.
+- Single-recipient Casey-Fink survey send through Send to one recipient mode.
 
 WHAT IS NOT YET ENABLED (Keith must state these clearly):
-- Bulk Send via Resend for student survey invitations: not yet enabled. The button is disabled.
 - Scheduled/cron bulk email sends: not yet enabled.
 - Reminder automation for survey follow-up: not yet enabled.
 - Student last-contacted fields: future enhancement (columns do not currently exist in students table).
 - Broadcasts tab: scaffold only; not yet functional.
 
 STRATEGIC ROADMAP (planned next):
-- Bulk Send via Resend for survey invitations (Phase 3B.2B): when ready, the bulk Send via Resend button will send one survey email per eligible student using the verified ASPIRE Program sender.
 - CS-Link Management worklist: following the Interview Room five-column pattern.
 - Badge Management worklist: tracking photo status, badge generation, and distribution.
 - Placement Follow-Up worklist: tracking post-placement progress.
