@@ -11,7 +11,7 @@
 //   preferred_name, email, phone, organization, role, role_qualifier,
 //   school_name, program_type, unit_name, related_units, is_active,
 //   notification_preferences, notes, linkedin_url,
-//   preferred_contact_method, avatar_url  — all optional
+//   preferred_contact_method, avatar_url, category  — all optional
 //
 // Success response:
 //   200 { contact: { id, full_name, email, ... } }
@@ -44,6 +44,7 @@ const ALLOWED_FIELDS = new Set([
   'linkedin_url',
   'preferred_contact_method',
   'avatar_url',
+  'category',
 ]);
 
 const VALID_PREFERRED_CONTACT_METHODS = new Set([
@@ -52,6 +53,15 @@ const VALID_PREFERRED_CONTACT_METHODS = new Set([
   'text',
   'teams',
   'no_preference',
+]);
+
+const VALID_CATEGORIES = new Set([
+  'Academic Partners',
+  'Unit Leadership',
+  'Preceptors',
+  'BNI Team',
+  'Nursing Executives',
+  'Other',
 ]);
 
 const EMAIL_PATTERN = /^[^@]+@[^@]+\.[^@]+$/;
@@ -197,7 +207,17 @@ async function _handler(req, res) {
     }
   }
 
-  // 11. Validate and normalize related_units (optional)
+  // 11. Validate category (optional enum)
+  // Absent and null are accepted (nullable column). Empty string is already null after step 6.
+  if (payload.category !== undefined && payload.category !== null) {
+    if (!VALID_CATEGORIES.has(payload.category)) {
+      return res.status(400).json({
+        error: `Invalid category. Must be one of: ${[...VALID_CATEGORIES].join(', ')}`,
+      });
+    }
+  }
+
+  // 12. Validate and normalize related_units (optional)
   if (payload.related_units !== undefined && payload.related_units !== null) {
     if (typeof payload.related_units === 'string') {
       // Accept comma-separated string and split to array
@@ -214,7 +234,7 @@ async function _handler(req, res) {
     }
   }
 
-  // 12. Validate is_active (boolean, default true on create)
+  // 13. Validate is_active (boolean, default true on create)
   if (!isUpdate && payload.is_active === undefined) {
     payload.is_active = true;
   }
@@ -224,7 +244,7 @@ async function _handler(req, res) {
     }
   }
 
-  // 13. Duplicate email check
+  // 14. Duplicate email check
   if (payload.email) {
     const emailLower = payload.email.toLowerCase();
     let dupQuery = supabaseAdmin
@@ -247,7 +267,7 @@ async function _handler(req, res) {
     }
   }
 
-  // 14. Perform INSERT or UPDATE
+  // 15. Perform INSERT or UPDATE
   let contact;
   const operation = isUpdate ? 'updated' : 'created';
 
