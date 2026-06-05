@@ -43,39 +43,52 @@ const NURSING_EXEC_ROLES = new Set([
   'Chief Nursing Officer',
 ])
 
-// Returns all categories a contact belongs to (may be more than one)
-function getContactCategories(contact) {
+// Returns the inferred primary category from role only (no stored category consulted).
+// Priority: Nursing Executives > BNI Team > Unit Leadership > Preceptors > Academic Partners
+// Returns null if no role Set matches.
+function inferPrimaryCategory(contact) {
   const role = contact.role || ''
-  const org  = (contact.organization || '').toLowerCase()
+  if (NURSING_EXEC_ROLES.has(role))    return 'Nursing Executives'
+  if (BNI_TEAM_ROLES.has(role))        return 'BNI Team'
+  if (UNIT_LEADERSHIP_ROLES.has(role)) return 'Unit Leadership'
+  if (PRECEPTOR_ROLES.has(role))       return 'Preceptors'
+  if (ACADEMIC_ROLES.has(role))        return 'Academic Partners'
+  return null
+}
+
+// Returns the primary category for a contact.
+// contacts.category (stored) takes precedence — Phase C.2.
+// Falls back to role inference for contacts with NULL category (future-resilient).
+function getPrimaryCategory(contact) {
+  if (contact.category) return contact.category
+  return inferPrimaryCategory(contact)
+}
+
+// Returns all categories a contact belongs to (may be more than one).
+// Primary: stored contacts.category if set; otherwise inferred from role Sets.
+// Secondary rules are additive (computed at read-time, not stored in contacts.category):
+//   - NPD Practitioner with unit_name also appears in Unit Leadership
+//   - Nursing Exec role in Brawerman/BNI organization also appears in BNI Team
+function getContactCategories(contact) {
   const cats = new Set()
 
-  if (ACADEMIC_ROLES.has(role))          cats.add('Academic Partners')
-  if (UNIT_LEADERSHIP_ROLES.has(role))   cats.add('Unit Leadership')
+  const primary = getPrimaryCategory(contact)
+  if (primary) cats.add(primary)
+
   // NPD Practitioner assigned to a unit → also Unit Leadership
-  if (role === 'NPD Practitioner' && contact.unit_name) cats.add('Unit Leadership')
-  if (PRECEPTOR_ROLES.has(role))         cats.add('Preceptors')
-  if (BNI_TEAM_ROLES.has(role))          cats.add('BNI Team')
-  if (NURSING_EXEC_ROLES.has(role))      cats.add('Nursing Executives')
-  // BNI executive contacts (e.g. Margo): nursing exec role + BNI/Brawerman org → both categories
-  if (NURSING_EXEC_ROLES.has(role) && (org.includes('brawerman') || org.includes(' bni '))) {
-    cats.add('BNI Team')
+  if ((contact.role || '') === 'NPD Practitioner' && contact.unit_name) {
+    cats.add('Unit Leadership')
+  }
+
+  // Nursing exec roles in Brawerman/BNI organizations → also BNI Team
+  if (NURSING_EXEC_ROLES.has(contact.role || '')) {
+    const org = (contact.organization || '').toLowerCase().trim()
+    if (org.includes('brawerman') || org === 'bni' || org.includes(' bni ') || org.endsWith(' bni') || org.startsWith('bni ')) {
+      cats.add('BNI Team')
+    }
   }
 
   return cats.size > 0 ? [...cats] : ['Other']
-}
-
-// Primary category priority for grouping in All view (higher index = lower priority)
-const CATEGORY_PRIORITY = [
-  'Nursing Executives', 'BNI Team', 'Unit Leadership',
-  'Preceptors', 'Academic Partners', 'Other',
-]
-
-function getPrimaryCategory(contact) {
-  const cats = new Set(getContactCategories(contact))
-  for (const cat of CATEGORY_PRIORITY) {
-    if (cats.has(cat)) return cat
-  }
-  return 'Other'
 }
 
 // Role rank within Unit Leadership for sorting
