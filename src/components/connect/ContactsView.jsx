@@ -142,8 +142,20 @@ const ROLE_COLORS = {
   'Chief Nursing Officer':          { color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
 }
 
-function roleChip(role) {
-  const cfg = ROLE_COLORS[role] || { color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb' }
+// Category-level chip fallback — used when the contact's role string isn't in ROLE_COLORS.
+// Ensures contacts with non-standard role titles (e.g., "Professor & Assistant Director")
+// still receive the correct category color rather than the generic gray default.
+const CATEGORY_CHIP_STYLES = {
+  'Academic Partners':  { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Unit Leadership':    { color: '#0d7a8a', bg: '#E0F7FA', border: '#9dd6f2' },
+  'Preceptors':         { color: '#0e4e6e', bg: '#E1F3FB', border: '#89CEEA' },
+  'BNI Team':           { color: '#5B21B6', bg: '#EDE9FE', border: '#C4B5FD' },
+  'Nursing Executives': { color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
+  'Other':              { color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb' },
+}
+
+function roleChip(role, category) {
+  const cfg = ROLE_COLORS[role] || CATEGORY_CHIP_STYLES[category] || CATEGORY_CHIP_STYLES['Other']
   return {
     display: 'inline-block',
     fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 4,
@@ -339,7 +351,7 @@ function ContactRow({ contact, isSelected, onClick }) {
             {contextLine}
           </div>
           <div style={{ marginTop: 4 }}>
-            <span style={roleChip(contact.role)}>{contact.role}</span>
+            <span style={roleChip(contact.role, getPrimaryCategory(contact))}>{contact.role}</span>
             {contact.is_active === false && (
               <span style={{
                 marginLeft: 4, fontSize: 9, fontWeight: 700, padding: '1px 5px',
@@ -430,7 +442,7 @@ function ContactProfile({ contact, navigate, onEdit }) {
 
         {/* Role + qualifier */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
-          <span style={roleChip(contact.role)}>{contact.role}</span>
+          <span style={roleChip(contact.role, getPrimaryCategory(contact))}>{contact.role}</span>
           {contact.role_qualifier && (
             <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F }}>
               · {contact.role_qualifier}
