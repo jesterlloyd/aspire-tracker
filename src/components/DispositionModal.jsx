@@ -33,6 +33,7 @@ export default function DispositionModal({
   cohort,
   onSuccess,
   toast,
+  initialValues = null,
 }) {
   const { canEdit, isOwner, isAdmin, userProfile } = useAuth()
 
@@ -48,14 +49,26 @@ export default function DispositionModal({
 
   useEffect(() => {
     if (!isOpen) return
-    setSelectedType('')
-    setSelectedReason('')
-    setEffectiveDate(toLocalDateStr(new Date()))
-    setInternalNote('')
-    setSelectedFollowups([])
+    if (initialValues) {
+      // Edit mode: pre-populate from the existing (active) disposition.
+      // Set type directly (NOT handleTypeChange) so default follow-ups are NOT
+      // applied — each supersession records fresh follow-up tasks by design.
+      setSelectedType(initialValues.disposition_type || '')
+      setSelectedReason(initialValues.reason_category || '')
+      setEffectiveDate(initialValues.effective_date || toLocalDateStr(new Date()))
+      setInternalNote(initialValues.internal_note || '')
+      setSelectedFollowups([])
+    } else {
+      // Create mode: blank defaults.
+      setSelectedType('')
+      setSelectedReason('')
+      setEffectiveDate(toLocalDateStr(new Date()))
+      setInternalNote('')
+      setSelectedFollowups([])
+    }
     setError(null)
     setSubmitting(false)
-  }, [isOpen])
+  }, [isOpen, initialValues])
 
   const handleTypeChange = (type) => {
     setSelectedType(type)
@@ -136,12 +149,31 @@ export default function DispositionModal({
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="modal-header">
           <h2 style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: 18 }}>
-            Update Program Disposition
+            {initialValues ? 'Update Program Disposition' : 'Record Program Disposition'}
           </h2>
           <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
         </div>
 
         <div className="modal-body">
+
+          {/* ── Supersession notice (edit mode only) — Phase 2B.2f ────────── */}
+          {initialValues && (
+            <div style={{
+              background: 'rgba(244,220,176,0.18)',
+              border: '1px solid #f0c9b0',
+              borderRadius: 8,
+              padding: '10px 12px',
+              marginBottom: 16,
+              fontFamily: 'DM Sans',
+              fontSize: 12,
+              lineHeight: 1.5,
+              color: 'var(--text-secondary, #6b7280)',
+            }}>
+              Saving will create a new disposition record. The previous version remains
+              in the audit trail. Internal note and follow-ups are recorded fresh for
+              the new entry.
+            </div>
+          )}
 
           {/* ── Student Context ─────────────────────────────────────────── */}
           <div style={{

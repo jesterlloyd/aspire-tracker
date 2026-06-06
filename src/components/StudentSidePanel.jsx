@@ -460,6 +460,23 @@ export default function StudentSidePanel({
     enabled: !!activeDisposition?.id && canEdit,
   })
 
+  // Private internal note for the active disposition (Phase 2B.2f).
+  // student_disposition_private_notes is Owner/Admin RLS — unauthorized users get
+  // null, so the Internal Note section simply does not render for them.
+  const { data: privateNote, refetch: refetchPrivateNote } = useQuery({
+    queryKey: ['disposition_private_note', activeDisposition?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('student_disposition_private_notes')
+        .select('internal_note, created_by_name, created_at, updated_at')
+        .eq('disposition_id', activeDisposition.id)
+        .maybeSingle()
+      if (error) throw error
+      return data
+    },
+    enabled: !!activeDisposition?.id && canEdit,
+  })
+
   const handleUpdateDisposition = () => setShowDispositionModal(true)
 
   const handleDispositionSuccess = () => {
@@ -467,6 +484,7 @@ export default function StudentSidePanel({
     setData(p => ({ ...p, status: 'Not Proceeding' }))
     onUpdate(student.id, { status: 'Not Proceeding' })
     refetchDisposition()
+    refetchPrivateNote()
   }
 
   // Follow-up completion inline state
@@ -1965,6 +1983,23 @@ export default function StudentSidePanel({
                     )}
                   </div>
                 )}
+                {/* Internal note (Owner/Admin only — RLS-gated) — Phase 2B.2f */}
+                {canEdit && privateNote?.internal_note && (
+                  <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid var(--border-lt,#e5e7eb)' }}>
+                    <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:'var(--text-secondary,#6b7280)', marginBottom:8 }}>
+                      Internal Note · Owner/Admin only
+                    </div>
+                    <div style={{ background:'rgba(244,220,176,0.18)', border:'1px solid #f0c9b0', borderRadius:8, padding:'10px 12px', fontSize:13, lineHeight:1.55, color:'var(--raven,#111827)', whiteSpace:'pre-wrap' }}>
+                      {privateNote.internal_note}
+                    </div>
+                    <div style={{ fontSize:11, color:'var(--text-secondary,#6b7280)', marginTop:6 }}>
+                      Recorded by {privateNote.created_by_name || '—'} on {new Date(privateNote.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+                      {privateNote.updated_at && privateNote.updated_at !== privateNote.created_at && (
+                        <> · Updated {new Date(privateNote.updated_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {canEdit && (
                   <div style={{ marginTop:14 }}>
                     <button
@@ -2322,6 +2357,12 @@ export default function StudentSidePanel({
           }}
           toast={toast}
           onSuccess={handleDispositionSuccess}
+          initialValues={activeDisposition ? {
+            disposition_type: activeDisposition.disposition_type,
+            reason_category:  activeDisposition.reason_category,
+            effective_date:   activeDisposition.effective_date,
+            internal_note:    privateNote?.internal_note || '',
+          } : null}
         />
       )}
 
