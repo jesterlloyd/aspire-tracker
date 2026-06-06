@@ -5,6 +5,7 @@ import Tooltip from '../ui/Tooltip'
 import { downloadCSV } from '../../lib/utils'
 import RecipientProfileCard from './RecipientProfileCard'
 import RecipientPicker from './RecipientPicker'
+import SentHistory from './SentHistory'
 
 const F = 'DM Sans, sans-serif'
 
@@ -1118,6 +1119,19 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
             }}
           >
             Send to many
+          </button>
+          <button
+            onClick={() => setRecipientMode('history')}
+            style={{
+              padding: '8px 20px', border: 'none', cursor: 'pointer',
+              borderLeft: '1px solid rgba(29,37,103,0.14)',
+              background: recipientMode === 'history' ? '#1D2567' : '#f9fafb',
+              color: recipientMode === 'history' ? '#fff' : '#6b7280',
+              fontSize: 12, fontWeight: 600, fontFamily: F,
+              transition: 'background 0.12s, color 0.12s',
+            }}
+          >
+            Sent History
           </button>
         </div>
         <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F }}>
@@ -2464,6 +2478,13 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
 
         </div>
       )}{/* end recipientMode === 'bulk' */}
+
+      {/* ══════════════════════════════════════════════════════════════════
+          SENT HISTORY MODE — read-only outbound audit trail (Phase C.1)
+      ═══════════════════════════════════════════════════════════════════ */}
+      {recipientMode === 'history' && (
+        <SentHistory />
+      )}
 
       {/* ── Review Recipients Modal ───────────────────────────────────────── */}
       {/* ── Bulk Send via Resend confirmation modal (Phase 3B.2B) ─────────── */}
