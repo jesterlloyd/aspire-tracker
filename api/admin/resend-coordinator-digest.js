@@ -222,6 +222,7 @@ export default async function handler(req, res) {
           notification_type: 'coordinator_weekly_digest_test',
           audience:          'school_coordinator',
           contact_id:        null,
+          recipient_type:    null,  // Owner/test email with no real contact_id (per B.2.A recipient-linkage rule)
           recipient_email:   testRecipientEmail,
           recipient_name:    'Owner (Test Mode)',
           recipient_role:    'owner',
@@ -304,6 +305,7 @@ export default async function handler(req, res) {
           notification_type: 'coordinator_weekly_digest',
           audience:          'school_coordinator',
           contact_id:        coordinatorId,
+          recipient_type:    'contact',
           recipient_email:   coordinator.email,
           recipient_name:    coordinator.full_name,
           recipient_role:    'school_coordinator',
@@ -339,6 +341,7 @@ export default async function handler(req, res) {
             notification_type: 'coordinator_weekly_digest',
             audience:          'school_coordinator',
             contact_id:        coordinatorId,
+            recipient_type:    'contact',
             recipient_email:   coordinator.email,
             recipient_name:    coordinator.full_name,
             recipient_role:    'school_coordinator',

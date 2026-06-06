@@ -275,6 +275,7 @@ async function _handler(req, res, startMs) {
         recipient_role:    profile.role,
         student_id:        assignment.student_id,
         cohort_id:         assignment.cohort_id,
+        recipient_type:    'student',
         subject,
         resend_email_id:   resendMessageId,
         status:            sendStatus,

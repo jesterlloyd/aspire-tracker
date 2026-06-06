@@ -322,6 +322,7 @@ async function _handler(req, res, startMs) {
           resend_email_id:   resendMessageId,
           sent_at:           sentAt,
           student_id,
+          recipient_type:    'student',
           metadata: {
             assignment_id,
             student_id,

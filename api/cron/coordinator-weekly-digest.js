@@ -474,6 +474,7 @@ export default async function handler(req, res) {
           notification_type: 'coordinator_weekly_digest',
           audience:          'school_coordinator',
           contact_id:        coordinatorId,
+          recipient_type:    'contact',
           recipient_email:   coordinator.email,
           recipient_name:    coordinator.full_name,
           recipient_role:    'school_coordinator',
