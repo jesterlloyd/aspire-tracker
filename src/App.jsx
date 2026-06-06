@@ -708,9 +708,9 @@ function MainApp({ onLogout }) {
         .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,school_email.ilike.%${q}%,personal_email.ilike.%${q}%,phone.ilike.%${q}%,school.ilike.%${q}%`).limit(6),
       supabase.from('units').select('id, unit_name, division, contact_person, slots_remaining, total_slots')
         .eq('cohort_id', activeCohortId).or(`unit_name.ilike.%${q}%,contact_person.ilike.%${q}%`).limit(6),
-      supabase.from('contacts').select('id, full_name, email, role, category, avatar_url, organization, school_name')
+      supabase.from('contacts').select('id, full_name, preferred_name, email, role, category, avatar_url, organization, school_name, unit_name')
         .eq('is_active', true)
-        .or(`full_name.ilike.%${q}%,email.ilike.%${q}%,role.ilike.%${q}%,school_name.ilike.%${q}%`).limit(5),
+        .or(`full_name.ilike.%${q}%,preferred_name.ilike.%${q}%,email.ilike.%${q}%,role.ilike.%${q}%,school_name.ilike.%${q}%,unit_name.ilike.%${q}%,category.ilike.%${q}%,organization.ilike.%${q}%`).limit(5),
     ])
     const ql = q.toLowerCase()
     const placements = students.filter(s => {

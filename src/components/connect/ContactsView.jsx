@@ -1753,6 +1753,20 @@ export default function ContactsView({ refreshKey = 0 }) {
     }
   }, [loading, contacts]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── React to ?contactId changes after initial mount ────────────────────────
+  // Universal Search (and other deep links) can change the URL contactId while
+  // ContactsView is already mounted. The restore effect above runs only once, so
+  // without this the selection would not follow the new URL. Acts only on an
+  // explicit, valid, changed id; absence of contactId is intentionally left to
+  // the restore effect / existing state (direct nav to /connect/contacts keeps
+  // the current selection). A non-existent/deleted id silently no-ops.
+  useEffect(() => {
+    const urlId = new URLSearchParams(location.search).get('contactId')
+    if (urlId && urlId !== selectedId && contacts.some(c => c.id === urlId)) {
+      setSelectedId(urlId)
+    }
+  }, [location.search, contacts]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Derived values ──────────────────────────────────────────────────────────
   const selected = contacts.find(c => c.id === selectedId) || null
 
