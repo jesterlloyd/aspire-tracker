@@ -590,7 +590,13 @@ function MainApp({ onLogout }) {
       .eq('student_id', student.id)
       .limit(1)
     const hasInterview = rubrics && rubrics.length > 0
-    const revertStatus = hasInterview ? 'Interviewed' : 'Form Received'
+    // Phase 2B.2e: disposition is the source of truth for program status.
+    // Unmatching releases the unit slot but must NOT undo a documented program
+    // decision — preserve 'Not Proceeding' when the student has an active
+    // disposition; otherwise revert as before.
+    const revertStatus = student.active_disposition?.disposition_type
+      ? 'Not Proceeding'
+      : (hasInterview ? 'Interviewed' : 'Form Received')
 
     const match = matches.find(m => m.student_id === student.id && m.unit_id === unit.id)
     if (match) await safeWrite(() => supabase.from('matches').delete().eq('id', match.id), { name: 'delete match on unmatch' })
