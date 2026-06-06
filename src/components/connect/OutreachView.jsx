@@ -175,9 +175,10 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                       : contactId && contactHasDisplayInfo ? 'contact'
                       : null
 
-  // ── Top-level recipient mode: 'single' | 'bulk' ─────────────────────────────
-  // Priority: explicit URL/state recipient > localStorage > default 'single'
+  // ── Top-level recipient mode: 'single' | 'bulk' | 'history' ─────────────────
+  // Priority: explicit Sent History deep link > explicit recipient > localStorage.
   const [recipientMode, setRecipientMode] = useState(() => {
+    if (searchParams.get('tab') === 'sent_history') return 'history'  // Phase D.1 deep link
     if (hasExplicitRecipient || urlMode === 'message') return 'single'
     const saved = localStorage.getItem(RECIPIENT_MODE_KEY)
     return saved === 'bulk' ? 'bulk' : 'single'
@@ -467,6 +468,14 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
       setStudentFetchFailed(false)
     }
   }, [urlStudentId, urlContactId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Sync to Sent History when the URL requests it (Phase D.1) ─────────────
+  // OutreachView stays mounted, so a navigation to ?tab=sent_history while
+  // already mounted must switch the sub-tab. Send-to-one / send-to-many behavior
+  // is otherwise untouched.
+  useEffect(() => {
+    if (searchParams.get('tab') === 'sent_history') setRecipientMode('history')
+  }, [searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Auto-populate the Survey Invitation dropdown from a student recipient ──
   // When the Send-to-one recipient is a student (Student Profiles → Email deep

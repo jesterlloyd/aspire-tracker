@@ -678,7 +678,7 @@ function ContactProfile({ contact, navigate, onEdit, onDeactivate }) {
 
 // ── Zone 3: Context panel (history + linked students) ────────────────────────
 
-function ContactContext({ contact, commHistory, loadingComm, linkedStudents, loadingStudents }) {
+function ContactContext({ contact, navigate, commHistory, loadingComm, linkedStudents, loadingStudents }) {
   return (
     <div style={{ padding: '20px 18px' }}>
 
@@ -709,6 +709,18 @@ function ContactContext({ contact, commHistory, loadingComm, linkedStudents, loa
               </div>
             ))}
           </div>
+        )}
+        {/* View all → Outreach Sent History, pre-filtered to this contact (Phase D.1) */}
+        {navigate && (
+          <button
+            onClick={() => navigate(`/connect/outreach?tab=sent_history&contact_id=${contact.id}`)}
+            style={{
+              marginTop: 10, background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+              fontSize: 11, fontWeight: 600, color: '#1D2567', fontFamily: F,
+            }}
+          >
+            View all communications for this contact →
+          </button>
         )}
       </div>
 
@@ -1666,7 +1678,7 @@ export default function ContactsView({ refreshKey = 0 }) {
       .select('id, notification_type, subject, status, sent_at, delivered_at, opened_at')
       .eq('contact_id', selectedId)
       .order('sent_at', { ascending: false })
-      .limit(10)
+      .limit(5)
       .then(({ data }) => {
         setCommHistory(data || [])
         setLoadingComm(false)
@@ -2055,6 +2067,7 @@ export default function ContactsView({ refreshKey = 0 }) {
         {selected ? (
           <ContactContext
             contact={selected}
+            navigate={navigate}
             commHistory={commHistory}
             loadingComm={loadingComm}
             linkedStudents={linkedStudents}
