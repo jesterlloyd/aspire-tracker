@@ -305,6 +305,15 @@ async function _handler(req, res, startMs) {
     ? { recipient_type: 'contact', contact_id: recipientId,  sent_by_user_id: ownerUserProfileId, sent_by_email: ownerEmail, body_format: resolvedBodyFormat, body_length: trimmedBody.length, signature_included: resolvedIncludeSignature }
     : { recipient_type: 'student', student_id: recipientId, sent_by_user_id: ownerUserProfileId, sent_by_email: ownerEmail, body_format: resolvedBodyFormat, body_length: trimmedBody.length, signature_included: resolvedIncludeSignature };
 
+  // Top-level recipient columns (Phase B.1). Mirror the identity already kept in
+  // metadata so direct messages surface in per-contact / per-student history
+  // queries that filter on the top-level columns (e.g. ContactsView). metadata
+  // is preserved unchanged above. recipientType is validated to 'contact' |
+  // 'student' upstream, so exactly one id is set and the other is null.
+  const logRecipientColumns = recipientType === 'contact'
+    ? { contact_id: recipientId, student_id: null,        recipient_type: 'contact' }
+    : { contact_id: null,        student_id: recipientId, recipient_type: 'student' };
+
   try {
     const { data: logRow, error: logErr } = await supabaseAdmin
       .from('notification_log')
@@ -318,6 +327,7 @@ async function _handler(req, res, startMs) {
         status:            'sent',
         resend_email_id:   resendMessageId,
         sent_at:           sentAt,
+        ...logRecipientColumns,
         metadata:          logMetadata,
       })
       .select('id')
