@@ -210,11 +210,18 @@ export default function SentHistory() {
   const [totalPages, setTotalPages] = useState(1)
   const [expandedRowIds, setExpandedRowIds] = useState(() => new Set())
 
-  // Recipient constraint (Phase D.1) — URL-based, ephemeral (NOT persisted to
-  // localStorage). When a contact_id is present the view is constrained to that
-  // recipient and a dismissable filter pill is shown.
+  // Recipient constraint (Phase D.1 contact, D.2 student) — URL-based, ephemeral
+  // (NOT persisted to localStorage). student_id takes precedence over contact_id
+  // so the two never apply at once (no ambiguous combined constraint); a single
+  // dismissable filter pill reflects the active constraint.
   const [searchParams, setSearchParams] = useSearchParams()
+  const constrainedStudentId = searchParams.get('student_id') || null
   const constrainedContactId = searchParams.get('contact_id') || null
+  const activeConstraint = constrainedStudentId
+    ? { type: 'student', id: constrainedStudentId }
+    : constrainedContactId
+      ? { type: 'contact', id: constrainedContactId }
+      : null
   const [pillName, setPillName] = useState('')
 
   // Filters — initialized from localStorage so the first fetch uses restored state.
@@ -250,11 +257,12 @@ export default function SentHistory() {
     else if (folder?.types) params.set('notification_types', folder.types.join(','))
 
     if (failedOnly) params.set('status_filter', 'failed')
-    if (constrainedContactId) params.set('contact_id', constrainedContactId)
+    if (activeConstraint?.type === 'student') params.set('student_id', activeConstraint.id)
+    else if (activeConstraint?.type === 'contact') params.set('contact_id', activeConstraint.id)
     params.set('page', String(page))
     params.set('per_page', String(PER_PAGE))
     return params.toString()
-  }, [dateRange, customStartDate, customEndDate, pseudoFolder, failedOnly, page, constrainedContactId])
+  }, [dateRange, customStartDate, customEndDate, pseudoFolder, failedOnly, page, constrainedStudentId, constrainedContactId])
 
   const fetchHistory = useCallback(async () => {
     setLoading(true)
@@ -282,20 +290,21 @@ export default function SentHistory() {
   // Resolve the pill name from the first resolved row; stays stable across
   // sub-filters that may empty the result set. Falls back to "Selected contact".
   useEffect(() => {
-    if (!constrainedContactId) { setPillName(''); return }
+    if (!activeConstraint) { setPillName(''); return }
     if (rows.length && rows[0].recipient_name) setPillName(rows[0].recipient_name)
-  }, [constrainedContactId, rows])
+  }, [activeConstraint?.id, rows]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset to page 1 when the recipient constraint changes (skip initial mount).
   const constraintMounted = useRef(false)
   useEffect(() => {
     if (!constraintMounted.current) { constraintMounted.current = true; return }
     setPage(1)
-  }, [constrainedContactId])
+  }, [constrainedStudentId, constrainedContactId])
 
   const clearConstraint = () => {
     const next = new URLSearchParams(searchParams)
-    next.delete('contact_id')
+    if (activeConstraint?.type === 'student') next.delete('student_id')
+    else if (activeConstraint?.type === 'contact') next.delete('contact_id')
     setSearchParams(next, { replace: true })
   }
 
@@ -317,10 +326,10 @@ export default function SentHistory() {
   }
   const FilterBar = (
     <div style={{ marginBottom: 16 }}>
-      {constrainedContactId && (
+      {activeConstraint && (
         <div style={{ marginBottom: 10 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 10px', borderRadius: 16, background: '#EEF2FB', border: '1px solid #c3cdf0', fontSize: 12, fontWeight: 600, color: NAVY, fontFamily: F }}>
-            Showing communications for: {pillName || 'Selected contact'}
+            Showing communications for: {pillName || (activeConstraint.type === 'student' ? 'Selected student' : 'Selected contact')}
             <button onClick={clearConstraint} aria-label="Clear recipient filter" style={{ display: 'inline-flex', alignItems: 'center', background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: NAVY }}>
               <X size={13} />
             </button>

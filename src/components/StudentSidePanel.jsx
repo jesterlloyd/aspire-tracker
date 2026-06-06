@@ -93,6 +93,29 @@ function SavedBadge() {
   )
 }
 
+// Friendly labels for notification_log rows in the Recent Communications list
+// (Phase D.2). Mirrors the labels used in SentHistory; falls back to the raw type.
+const COMM_TYPE_LABELS = {
+  direct_message_sent:              'Direct Message',
+  evaluation_invitation_sent:       'Survey Invitation',
+  evaluation_invitation_test:       'Survey Invitation (Test)',
+  coordinator_weekly_digest:        'Weekly Digest',
+  coordinator_weekly_digest_test:   'Weekly Digest (Test)',
+  interview_reminder:               'Interview Reminder',
+  midpoint_checkin:                 'Midpoint Check-In',
+  form_received:                    'Form Received',
+  unit_form_received:               'Unit Form Received',
+  teams_invite_reminder:            'Teams Invite Reminder',
+  teams_invite_reminder_escalation: 'Teams Invite Escalation',
+}
+function commTypeLabel(t) { return COMM_TYPE_LABELS[t] || t || '—' }
+function fmtCommDate(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 function SectionHeader({ title, icon, children }) {
   return (
     <div className="sp-section-hdr" style={{ display:'flex', alignItems:'center', gap:7 }}>
@@ -411,6 +434,25 @@ export default function StudentSidePanel({
       const { data, error } = await supabase.from('communications')
         .select('*').eq('student_id', student.id)
         .order('sent_at', { ascending: false })
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!student.id,
+  })
+
+  // Recent communications (Phase D.2) — notification_log, ALL-TIME, latest 5.
+  // Reads notification_log (the Sent History source) by top-level student_id, so
+  // it stays consistent with Outreach → Sent History. Not date-limited, so older
+  // communications are never hidden.
+  const { data: recentComms = [] } = useQuery({
+    queryKey: ['student_recent_comms', student.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('notification_log')
+        .select('id, notification_type, subject, status, sent_at')
+        .eq('student_id', student.id)
+        .order('sent_at', { ascending: false })
+        .limit(5)
       if (error) throw error
       return data || []
     },
@@ -2281,7 +2323,34 @@ export default function StudentSidePanel({
             )}
           </div>}
 
-          {/* Communication History — data collection in communications table continues; UI not rendered */}
+          {/* Communication History (Phase D.2) — recent notification_log sends, all-time, latest 5 */}
+          <div style={{ marginBottom:8 }}>
+            <SectionHeader title="Communication History" icon={<MessageSquare size={13} />} />
+            {recentComms.length === 0 ? (
+              <div style={{ fontSize:12, color:'var(--text-secondary,#6b7280)', fontFamily:'DM Sans,sans-serif', padding:'2px 0 8px' }}>
+                No communications recorded yet for this student.
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:8 }}>
+                {recentComms.map(c => (
+                  <div key={c.id} style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                    <div style={{ fontSize:13, fontWeight:600, color:'#374151', fontFamily:'DM Sans,sans-serif', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {c.subject || commTypeLabel(c.notification_type)}
+                    </div>
+                    <div style={{ fontSize:11, color:'#9ca3af', fontFamily:'DM Sans,sans-serif' }}>
+                      {commTypeLabel(c.notification_type)} · {c.status || 'unknown'} · {fmtCommDate(c.sent_at)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              onClick={() => navigate(`/connect/outreach?tab=sent_history&student_id=${student.id}`)}
+              style={{ background:'none', border:'none', padding:0, cursor:'pointer', fontSize:11, fontWeight:600, color:'#1D2567', fontFamily:'DM Sans,sans-serif' }}
+            >
+              View all communications for this student →
+            </button>
+          </div>
 
           </div>{/* end unified section container */}
 
