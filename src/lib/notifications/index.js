@@ -107,6 +107,12 @@ export async function sendNotification(type, context = {}) {
         recipient_email:   recipient.email,
         recipient_role:    recipient.role  || null,
         recipient_name:    recipient.name  || null,
+        // recipient_type reflects who actually RECEIVES this row, derived from the
+        // per-recipient audience — NOT context.studentId, which here is the subject
+        // student and is the same across every recipient of a notification. So
+        // internal-team / coordinator / interviewer / submitter rows stay null even
+        // when student_id is populated as the subject. (Phase B.2.B, Option B.)
+        recipient_type:    recipient.audience === 'student' ? 'student' : null,
         student_id:        context.studentId || null,
         cohort_id:         context.cohortId  || null,
         subject,
