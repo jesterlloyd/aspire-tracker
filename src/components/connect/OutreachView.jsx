@@ -559,6 +559,22 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   const expiresFormatted = fmtDate(expiresAt)
   const formValid        = !!(selectedStudentId && instrument && timepoint)
 
+  // ── Survey Invitation recipient clarity (Phase 1.2) ───────────────────────
+  // Three render states for the Survey Invitation form, driven by the Send-to-one
+  // recipient (URL / picker / deep link), NOT the standalone dropdown:
+  //   • student recipient → hide the dropdown, show a recipient summary
+  //   • contact recipient → hide the form, show a guard message
+  //   • no recipient      → preserve the standalone student dropdown (fallback)
+  const recipientIsStudent = !!studentId
+  const recipientIsContact = !!contactId
+  const surveyRecipientName =
+    (selectedStudent ? `${selectedStudent.first_name || ''} ${selectedStudent.last_name || ''}`.trim() : '') ||
+    effectiveStudent?.name ||
+    (fetchedStudent ? `${fetchedStudent.first_name || ''} ${fetchedStudent.last_name || ''}`.trim() : '') ||
+    'Selected student'
+  const surveyRecipientSchool =
+    selectedStudent?.school || fetchedStudent?.school || effectiveStudent?.school || null
+
   // ── Generate Link handler ─────────────────────────────────────────────────
   const handleGenerateLink = useCallback(async () => {
     if (!formValid || generating) return
@@ -1250,29 +1266,81 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
               </div>
             )}
 
-            {/* Survey Invitation workflow — all form fields + Generate Link */}
-            {outreachMode === 'survey' && (
+            {/* Survey Invitation — State 2: Contact recipient → guard (form hidden) */}
+            {outreachMode === 'survey' && recipientIsContact && (
+              <div style={{
+                padding: '14px 16px',
+                background: '#FBF5E8', border: '1px solid #f0c9b0',
+                borderRadius: 10, fontFamily: F,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
+                  <span style={{ fontSize: 15, lineHeight: 1.2, flexShrink: 0 }} aria-hidden="true">ⓘ</span>
+                  <div style={{ fontSize: 12.5, color: '#8B5E1A', lineHeight: 1.6 }}>
+                    Survey invitations are available for student recipients only.
+                    Change recipient to a student to send a survey invitation.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen(true)}
+                  style={{
+                    marginTop: 12, padding: '8px 16px',
+                    background: 'var(--color-accent-primary,#1D2567)', border: 'none',
+                    borderRadius: 8, fontSize: 12.5, fontWeight: 600, color: '#fff',
+                    fontFamily: F, cursor: 'pointer',
+                  }}
+                >
+                  Change recipient
+                </button>
+              </div>
+            )}
+
+            {/* Survey Invitation workflow — all form fields + Generate Link
+                (State 1 student recipient → summary; State 3 no recipient → dropdown) */}
+            {outreachMode === 'survey' && !recipientIsContact && (
               <div>
                 {/* Field 1 — Recipient */}
-                <div style={fieldWrap}>
-                  <label style={labelStyle}>
-                    Recipient <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
-                  </label>
-                  <select
-                    value={selectedStudentId}
-                    onChange={e => setSelectedStudentId(e.target.value)}
-                    style={inputBase}
-                  >
-                    <option value="">
-                      {loadingStudents ? 'Loading students…' : 'Select a student'}
-                    </option>
-                    {students.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.first_name} {s.last_name}{s.school ? ` — ${s.school}` : ''}
+                {recipientIsStudent ? (
+                  /* State 1 — student recipient: summary in place of the dropdown */
+                  <div style={fieldWrap}>
+                    <label style={labelStyle}>Survey recipient</label>
+                    <div style={{
+                      padding: '10px 13px',
+                      background: '#EEF2FB', border: '1px solid #c3cdf0',
+                      borderRadius: 8, fontFamily: F,
+                    }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1D2567', lineHeight: 1.3 }}>
+                        {surveyRecipientName}
+                      </div>
+                      {surveyRecipientSchool && (
+                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+                          {surveyRecipientSchool}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* State 3 — no recipient: standalone student dropdown (preserved) */
+                  <div style={fieldWrap}>
+                    <label style={labelStyle}>
+                      Recipient <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
+                    </label>
+                    <select
+                      value={selectedStudentId}
+                      onChange={e => setSelectedStudentId(e.target.value)}
+                      style={inputBase}
+                    >
+                      <option value="">
+                        {loadingStudents ? 'Loading students…' : 'Select a student'}
                       </option>
-                    ))}
-                  </select>
-                </div>
+                      {students.map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.first_name} {s.last_name}{s.school ? ` — ${s.school}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 {/* Field 2 — Delivery email */}
                 {selectedStudent && (
@@ -1599,8 +1667,9 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
             </div>
           )}
 
-          {/* Survey Invitation: email preview + generated link card */}
-          {outreachMode === 'survey' && (
+          {/* Survey Invitation: email preview + generated link card
+              Hidden for a contact recipient (State 2) — the left column shows the guard. */}
+          {outreachMode === 'survey' && !recipientIsContact && (
             <div>
 
               {/* Survey email preview */}
