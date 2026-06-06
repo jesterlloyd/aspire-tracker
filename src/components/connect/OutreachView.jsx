@@ -467,6 +467,22 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     }
   }, [urlStudentId, urlContactId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Auto-populate the Survey Invitation dropdown from a student recipient ──
+  // When the Send-to-one recipient is a student (Student Profiles → Email deep
+  // link OR the Outreach picker), mirror it into selectedStudentId so switching
+  // Message Type → Survey Invitation is already populated with that student.
+  //
+  // Keyed on the recipient identity only (studentId/contactId). A manual dropdown
+  // change moves selectedStudentId but NOT the recipient, so it is preserved until
+  // the recipient itself changes again. Contacts never populate the student
+  // dropdown; switching to a contact recipient clears a previously-synced student
+  // to avoid a stale survey target. Direct entry with no recipient leaves any
+  // manual survey selection untouched.
+  useEffect(() => {
+    if (studentId) setSelectedStudentId(studentId)
+    else if (contactId) setSelectedStudentId('')
+  }, [studentId, contactId])
+
   // ── Fetch student when router state is missing (URL-only navigation / refresh) ──
   useEffect(() => {
     if (!studentId) { setFetchedStudent(null); setStudentFetchFailed(false); return }
