@@ -1814,8 +1814,26 @@ export default function ContactsView({ refreshKey = 0 }) {
     return true
   })
 
-  // Unit Leadership sort: by unit_name → role rank → full_name
-  let sortedFiltered = filtered
+  // Stable alphabetical order by the EXACT displayed name (preferred name when
+  // shown, else full_name), case-insensitive + numeric, with full_name then id
+  // as deterministic tie-breakers. Replaces the prior server org-grouped order
+  // (`.order('organization').order('full_name')`), which made the list look
+  // unsorted. Both the grouped and flat render paths consume sortedFiltered.
+  const contactDisplayName = c => {
+    const full = c.full_name || ''
+    if (c.preferred_name) return `${c.preferred_name} ${full.split(' ').slice(1).join(' ')}`.trim()
+    return full
+  }
+  let sortedFiltered = [...filtered].sort((a, b) => {
+    const cmp = contactDisplayName(a).localeCompare(contactDisplayName(b), undefined, { sensitivity: 'base', numeric: true })
+    if (cmp !== 0) return cmp
+    const fc = (a.full_name || '').localeCompare(b.full_name || '', undefined, { sensitivity: 'base', numeric: true })
+    if (fc !== 0) return fc
+    return (a.id || '').localeCompare(b.id || '')
+  })
+
+  // Unit Leadership keeps its intentional unit_name → role rank → full_name
+  // grouping (overrides the alphabetical base for that category only).
   if (categoryFilter === 'Unit Leadership') {
     sortedFiltered = [...filtered].sort((a, b) => {
       const uA = a.unit_name || (Array.isArray(a.related_units) ? a.related_units[0] : '') || ''
