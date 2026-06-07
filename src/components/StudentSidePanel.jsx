@@ -19,7 +19,8 @@ import { EVENT_TYPES, EVENT_TYPE_LABELS, getEventColor } from '../lib/eventTypes
 import { logEvent, eventExists } from '../lib/logEvent'
 import { calculateProfileCompletion, getCompletionColor } from '../lib/profileCompletion'
 import { generateStudentSummary } from '../lib/generateSummary'
-import { Copy, Check, Mail, User, GraduationCap, Briefcase, MapPin, FileText, MessageSquare, CheckCircle2, Award, ClipboardList, CalendarDays, Flag } from 'lucide-react'
+import { Copy, Check, Mail, User, GraduationCap, Briefcase, MapPin, FileText, MessageSquare, CheckCircle2, Award, ClipboardList, CalendarDays, Flag, Info } from 'lucide-react'
+import ShiftDetailsModal from './ShiftDetailsModal'
 // All external navigation must use openLink helpers (src/lib/openLink.js)
 import { openMailtoLink } from '../lib/openLink'
 import SyncIndicator from './SyncIndicator'
@@ -355,6 +356,7 @@ export default function StudentSidePanel({
 
   const [adjustingId,  setAdjustingId]  = useState(null)
   const [adjustHours,  setAdjustHours]  = useState('')
+  const [selectedShift, setSelectedShift] = useState(null)  // Phase S.1 — Shift Details modal
   const [adminNote,    setAdminNote]    = useState('')
   const adminNoteTimer = useRef(null)
 
@@ -2172,7 +2174,7 @@ export default function StudentSidePanel({
                 <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
                   <thead>
                     <tr style={{ background:'var(--sand)' }}>
-                      {['Date','Hrs','Unit','Preceptor','Type','Status',''].map(h => (
+                      {['Date','Hrs','Unit','Preceptor','Type','Status','Details',''].map(h => (
                         <th key={h} style={{ padding:'5px 8px', textAlign:'left', fontWeight:700, color:'#6b7280', fontSize:10, textTransform:'uppercase', letterSpacing:'0.04em', whiteSpace:'nowrap' }}>{h}</th>
                       ))}
                     </tr>
@@ -2212,6 +2214,16 @@ export default function StudentSidePanel({
                             )
                           })()}
                         </td>
+                        <td style={{ padding:'6px 8px' }}>
+                          <button
+                            onClick={() => setSelectedShift(log)}
+                            aria-label="View shift details"
+                            title="View shift details"
+                            style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', background:'none', border:'none', cursor:'pointer', color:'#9ca3af', padding:2 }}
+                          >
+                            <Info size={16} />
+                          </button>
+                        </td>
                         <td style={{ padding:'6px 8px', whiteSpace:'nowrap' }}>
                           {['Pending Review', 'needs_review'].includes(log.status) && (
                             adjustingId===log.id ? (
@@ -2237,6 +2249,8 @@ export default function StudentSidePanel({
                 </table>
               </div>
             )}
+            {/* Phase S.1 — read-only Shift Details modal */}
+            <ShiftDetailsModal shift={selectedShift} onClose={() => setSelectedShift(null)} />
           </div>
 
           {/* 10. Notes */}
