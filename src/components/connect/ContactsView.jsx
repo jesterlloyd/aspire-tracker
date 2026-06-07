@@ -687,7 +687,7 @@ function ContactContext({ contact, navigate, commHistory, loadingComm, linkedStu
         background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
         padding: '14px 16px', marginBottom: 14,
       }}>
-        <SectionHeading>Communication History</SectionHeading>
+        <SectionHeading>Recent Communications</SectionHeading>
         {loadingComm ? (
           <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', fontFamily: F }}>Loading…</p>
         ) : commHistory.length === 0 ? (

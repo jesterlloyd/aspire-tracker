@@ -2325,7 +2325,7 @@ export default function StudentSidePanel({
 
           {/* Communication History (Phase D.2) — recent notification_log sends, all-time, latest 5 */}
           <div style={{ marginBottom:8 }}>
-            <SectionHeader title="Communication History" icon={<MessageSquare size={13} />} />
+            <SectionHeader title="Recent Communications" icon={<MessageSquare size={13} />} />
             {recentComms.length === 0 ? (
               <div style={{ fontSize:12, color:'var(--text-secondary,#6b7280)', fontFamily:'DM Sans,sans-serif', padding:'2px 0 8px' }}>
                 No communications recorded yet for this student.
