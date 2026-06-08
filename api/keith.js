@@ -6,6 +6,7 @@
 
 import { buildSystemPrompt, getRecentCommunications, getSchoolCoordinators, getUnitResponseStats, getUnitResponses, getUnitLeadersForKeith, getUnitCatalogForKeith, getNursingExecutiveLeadership } from '../src/lib/keithKnowledge.js';
 import { createClient } from '@supabase/supabase-js';
+import { randomUUID } from 'crypto';
 
 const KEITH_TOTAL_DEADLINE_MS          = 25000;
 const KEITH_CONTEXT_TIMEOUT_MS         = 5000;
@@ -173,6 +174,114 @@ RESPONSE STYLE: Warm, concise, professional. Under 200 words unless drafting a f
 ${liveData}
 Current cohort: ${cohort}`;
 }
+
+// ── WS1: server-verified caller identity (replaces client-supplied trust) ─────
+// Authorization derives ONLY from the verified Supabase JWT + the user_profiles
+// row keyed by auth_user_id. req.body.userProfile is display-only and is NEVER
+// trusted for any authorization decision. Reuses the project's standard
+// anon-userClient + getUser + supabaseAdmin profile-lookup pattern.
+async function verifyCaller(req) {
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'] || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!token) {
+    return { authenticated: false, status: 401, error: 'unauthorized', message: 'Authentication required', reason: 'missing_token' };
+  }
+  const url     = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+  let user;
+  try {
+    const userClient = createClient(url, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const { data, error } = await userClient.auth.getUser();
+    if (error || !data?.user) {
+      return { authenticated: false, status: 401, error: 'unauthorized', message: 'Authentication required', reason: 'invalid_token' };
+    }
+    user = data.user;
+  } catch {
+    return { authenticated: false, status: 401, error: 'unauthorized', message: 'Authentication required', reason: 'verify_threw' };
+  }
+  try {
+    const admin = makeServiceRoleClient();
+    const { data: profile, error: pErr } = await admin
+      .from('user_profiles')
+      .select('id, role, is_owner')
+      .eq('auth_user_id', user.id)
+      .maybeSingle();
+    if (pErr) {
+      return { authenticated: false, status: 401, error: 'unauthorized', message: 'Authentication required', reason: 'profile_lookup_failed' };
+    }
+    if (!profile) {
+      return { authenticated: false, status: 403, error: 'forbidden', message: 'Profile not found. Contact the ASPIRE team.', reason: 'no_profile' };
+    }
+    return { authenticated: true, userId: user.id, role: profile.role || '', isOwner: profile.is_owner === true };
+  } catch {
+    return { authenticated: false, status: 401, error: 'unauthorized', message: 'Authentication required', reason: 'profile_threw' };
+  }
+}
+
+// ── WS1: server-authoritative per-tool authorization matrix ───────────────────
+// Preserves the prior EFFECTIVE access (owner OR admin OR interviewer → all
+// tools; every other role → none) but now derived from server-verified identity
+// and structured per-tool. Default deny: unknown tool or unlisted role → denied.
+// DEFERRED (Owner decision — see pre-commit report): co-lead/co_lead currently
+// have NO Keith tool access. Whether to grant it, and which exact role string the
+// live DB uses, is unverified — do NOT add an unverified role string here.
+const TOOL_AUTHORIZATION = {
+  search_students:    { allowedRoles: ['admin', 'interviewer'], allowOwner: true },
+  get_student_detail: { allowedRoles: ['admin', 'interviewer'], allowOwner: true },
+  get_unit_details:   { allowedRoles: ['admin', 'interviewer'], allowOwner: true },
+  get_cohort_summary: { allowedRoles: ['admin', 'interviewer'], allowOwner: true },
+};
+function isToolAllowed(toolName, role, isOwner) {
+  const policy = TOOL_AUTHORIZATION[toolName];
+  if (!policy) return false;                 // unknown tool → deny
+  if (isOwner && policy.allowOwner) return true;
+  return policy.allowedRoles.includes(role);
+}
+
+// ── WS1: grounding / source-precedence / unsupported-claim guardrails ─────────
+const GROUNDING_GUARDRAILS = `
+=== GROUNDING & SOURCE RULES (AUTHORITATIVE) ===
+
+INTERIM SOURCE PRECEDENCE — when sources disagree, trust in this order:
+1. Live operational database (your tools / the LIVE COHORT DATA block) — AUTHORITATIVE for any current student, placement, school, unit, preceptor, dates, hours, status, or contact.
+2. General program guidance (the background knowledge in this prompt) — usable ONLY to explain how the program works in general terms. It is NOT a source of current operational facts and must NEVER override live data.
+3. Your own wording — you compose language; you NEVER invent operational facts.
+
+GROUNDING REQUIREMENTS
+When the request involves a specific student, placement, unit, preceptor, school, rotation dates, or required hours you MUST:
+1. Identify the specific live record. If you cannot identify the exact record (e.g. an ambiguous first name matching multiple students), ask the user to clarify before drafting.
+2. Verify the relevant live fields (use your tools if available); do not draft from memory or assumption.
+3. Begin placement-specific communication drafts with a compact verification block:
+   Using these assignment details:
+   - Student: <name>
+   - School: <school>
+   - Cohort: <cohort>
+   - Unit: <unit>
+   - Preceptor: <preceptor>
+   - Shift type: <shift type>
+   - Rotation dates: <start> to <end>
+   - Required hours: <hours>
+   Include only fields relevant to the draft; mark any unavailable field as "Unavailable" rather than omitting it silently.
+4. If fields conflict across sources, STOP and surface the conflict with the competing values; do not pick a best guess; ask the user to resolve it.
+5. Never silently substitute data from another student, school, unit, preceptor, or placement. If a record's data is missing, say so explicitly.
+
+UNSUPPORTED CLAIMS — do NOT state any of the following unless verified via a live tool or the live data block:
+- that an attachment is included or available
+- that a policy applies, or a restriction is in effect, for a specific situation
+- that a recipient email exists
+- that a preceptor or unit leader has agreed to anything
+- that an assignment is confirmed
+- that a school or program is associated with a specific student
+- that a rotation date or required-hours value is correct for a specific student
+For attachments, distinguish: attached to this request / available in a verified record / recommended for the user to attach / unavailable.
+
+MISSING DATA — mark the field "Unavailable", do not invent it, do not imply it exists elsewhere, and do not claim a draft is "ready to send" when required recipient information is missing.
+
+The background program knowledge that follows is GENERAL GUIDANCE ONLY, subordinate to live data per the precedence above.
+`.trim();
 
 // ── Tool definitions ─────────────────────────────────────────────────────────
 
@@ -424,7 +533,7 @@ function generateResultSummary(toolName, result) {
 
 // ── Tool-use conversation loop ────────────────────────────────────────────────
 
-async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activeCohortId, timeRemaining) {
+async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activeCohortId, timeRemaining, auth, requestId) {
   const messages = [...initialMessages];
   const allToolCalls = [];
   const MAX_ROUNDS = 5;
@@ -463,19 +572,47 @@ async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activ
     const toolResults = [];
     for (const block of content) {
       if (block.type !== 'tool_use') continue;
-      const result  = await executeToolCall(block.name, block.input, null, supabase, activeCohortId);
+
+      // WS1: defense-in-depth recheck at execution time. Even though the model
+      // only sees allowed tools, never trust it to stay within them. Deny →
+      // return an is_error tool_result (no record existence disclosed).
+      const allowed = !!auth && isToolAllowed(block.name, auth.role, auth.isOwner);
+      if (!allowed) {
+        console.log('[keith] tool denied', { tool: block.name, role: auth?.role, is_owner: auth?.isOwner === true, request_id: requestId });
+        allToolCalls.push({ tool: block.name, input: undefined, result_summary: 'access denied' });
+        try {
+          await supabase.from('program_events').insert({
+            student_id:  null,
+            cohort_id:   activeCohortId,
+            event_type:  'keith_tool_call',
+            event_date:  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date()),
+            notes:       `Keith tool DENIED ${block.name} | role=${auth?.role || 'none'} owner=${auth?.isOwner === true} authorized=false req=${requestId}`,
+            created_by:  'system',
+          })
+        } catch (auditEx) { console.warn('[keith audit] threw:', auditEx.message) }
+        toolResults.push({
+          type:        'tool_result',
+          tool_use_id: block.id,
+          is_error:    true,
+          content:     'Access denied. This information is not available for your role. Continue with general program guidance only.',
+        });
+        continue;
+      }
+
+      const result  = await executeToolCall(block.name, block.input, auth.role, supabase, activeCohortId);
       const summary = generateResultSummary(block.name, result);
       allToolCalls.push({ tool: block.name, input: block.input, result_summary: summary });
 
-      // Audit log (non-blocking)
-      // Audit log -- non-blocking; a logging failure must never crash the user request
+      // Audit log -- non-blocking; a logging failure must never crash the user
+      // request. PII-free: record tool name + server-verified role/owner +
+      // authorized flag + request id only (never names/emails/summary text).
       try {
         const { error: auditErr } = await supabase.from('program_events').insert({
           student_id:  null,
           cohort_id:   activeCohortId,
           event_type:  'keith_tool_call',
           event_date:  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date()),
-          notes:       `Keith called ${block.name}: ${summary}`,
+          notes:       `Keith called ${block.name} | role=${auth?.role || 'none'} owner=${auth?.isOwner === true} authorized=true req=${requestId}`,
           created_by:  'system',
         })
         if (auditErr) console.warn('[keith audit] insert error:', auditErr.message)
@@ -505,7 +642,7 @@ async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activ
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -522,6 +659,16 @@ export default async function handler(req, res) {
 
   if (!process.env.ANTHROPIC_API_KEY) {
     return res.status(500).json({ error: 'API key not configured' });
+  }
+
+  // WS1: verify the caller server-side. ALL authorization below derives from this
+  // result — never from req.body. Assistant-level access is preserved (any
+  // authenticated user with a profile may chat); tools are gated per-role below.
+  const requestId = `req_${randomUUID().slice(0, 8)}`;
+  const auth = await verifyCaller(req);
+  if (!auth.authenticated) {
+    console.log('[keith] auth rejected', { reason: auth.reason, request_id: requestId });
+    return res.status(auth.status).json({ error: auth.error, message: auth.message });
   }
 
   const deadline = Date.now() + KEITH_TOTAL_DEADLINE_MS;
@@ -897,13 +1044,16 @@ CRITICAL DATA ACCESS RULES:
     }
   }
 
-  // Determine tool access from userProfile role (matches existing request-body trust pattern)
-  const role        = userProfile?.role || '';
-  const canUseTools = userProfile?.is_owner || ['admin', 'interviewer'].includes(role);
+  // WS1: tool access derives from the SERVER-VERIFIED identity only (never req.body).
+  // Per-tool filtering means the model only ever sees tools this caller may use.
+  const activeTools = KEITH_TOOLS.filter(t => isToolAllowed(t.name, auth.role, auth.isOwner));
+  const canUseTools = activeTools.length > 0;
   const activeCohortId = liveData?.activeCohortId || liveData?.cohort?.id || null;
 
-  // Build system prompt; append tool instructions for tool-enabled users
-  const baseSystemPrompt = buildSystemPrompt({ userProfile, context, cohortName, liveDataStr });
+  // Build the system prompt from a SERVER-VERIFIED profile so the in-prompt role
+  // reflects the true role (client-supplied role/is_owner are ignored for this).
+  const verifiedProfile = { ...(userProfile || {}), role: auth.role, is_owner: auth.isOwner };
+  const baseSystemPrompt = buildSystemPrompt({ userProfile: verifiedProfile, context, cohortName, liveDataStr });
   const toolInstruction  = canUseTools ? `
 
 LIVE DATA TOOLS -- USE THESE INSTEAD OF HEDGING:
@@ -921,10 +1071,13 @@ Never hedge by saying "you should check the Interview Room" when the tools can a
 Be transparent: after forming a recommendation, briefly note which tools you used and what they showed.
 `.trim() : '';
 
-  const systemPrompt = baseSystemPrompt + (toolInstruction ? '\n\n' + toolInstruction : '');
-
-  // Tools array: omit entirely for viewer role so Claude never sees them
-  const activeTools = canUseTools ? KEITH_TOOLS : [];
+  // WS1: grounding/source-precedence/unsupported-claim guardrails apply to ALL
+  // callers (with or without tools). activeTools was computed above from the
+  // server-verified identity.
+  const systemPrompt =
+    baseSystemPrompt +
+    '\n\n' + GROUNDING_GUARDRAILS +
+    (toolInstruction ? '\n\n' + toolInstruction : '');
 
   // Set up Supabase service client for tool execution
   const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -947,7 +1100,9 @@ Be transparent: after forming a recommendation, briefly note which tools you use
       activeTools,
       toolsSupabase,
       activeCohortId,
-      timeRemaining
+      timeRemaining,
+      auth,
+      requestId
     );
     if (!text) return res.status(502).json({ error: 'Unexpected AI response format' });
     return res.status(200).json({ response: text, tool_calls: toolCalls });

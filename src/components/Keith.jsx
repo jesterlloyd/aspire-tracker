@@ -134,9 +134,20 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
 
     try {
       try {
+        // WS1: forward the Supabase access token so the server can verify identity
+        // and authorize tools server-side (req.body identity is no longer trusted).
+        let accessToken = null;
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          accessToken = session?.access_token || null;
+        } catch { /* no session → server returns 401 */ }
+
         const response = await fetch('/api/keith', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
           body: JSON.stringify({
             messages: conversationHistory,
             liveData,
