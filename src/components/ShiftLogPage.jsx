@@ -21,9 +21,9 @@ function fmtDisplayDate(s) {
   return d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'})
 }
 
-export default function ShiftLogPage() {
+export default function ShiftLogPage({ initialSchoolEmail = '' }) {
   const [screen,   setScreen]   = useState('email') // email | form | confirm
-  const [email,    setEmail]    = useState('')
+  const [email,    setEmail]    = useState(initialSchoolEmail || '')
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState(null)
   const [student,  setStudent]  = useState(null)

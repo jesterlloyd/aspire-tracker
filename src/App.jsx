@@ -26,6 +26,7 @@ import SchoolFormPage from './components/SchoolFormPage'
 import StudentIntakeFormPage from './components/StudentIntakeFormPage'
 import InterviewSchedulePage from './components/InterviewSchedulePage'
 import ShiftLogPage from './components/ShiftLogPage'
+import ShiftLogLifecycle from './components/shift-log-lifecycle/ShiftLogLifecycle'
 import InterviewersModal from './components/InterviewersModal'
 import ActionCenter from './components/ActionCenter'
 import CustomOnboardingTour from './components/CustomOnboardingTour'
@@ -1332,7 +1333,7 @@ export default function App() {
       <Route path="/school-form/*"        element={<div data-theme-lock="light"><SchoolFormPage /></div>} />
       <Route path="/student-form/*"       element={<div data-theme-lock="light"><StudentIntakeFormPage /></div>} />
       <Route path="/interview-schedule/*" element={<div data-theme-lock="light"><InterviewSchedulePage /></div>} />
-      <Route path="/shift-log/*"          element={<div data-theme-lock="light"><ShiftLogPage /></div>} />
+      <Route path="/shift-log/*"          element={<ShiftLogLifecycle />} />
       <Route path="/evaluation/readiness/*" element={<div data-theme-lock="light"><EvaluationPage /></div>} />
       {/* Legacy URL redirects */}
       <Route path="/interview-room"        element={<Navigate to="/interviews" replace />} />
