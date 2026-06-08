@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Tooltip from './ui/Tooltip'
 import { useQuery } from '@tanstack/react-query'
 import { useUpdatedLabel, KPICell } from './KPIBand'
@@ -548,10 +548,39 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     refetchInterval: 60 * 1000,
   })
 
+  // On Campus Now — lifecycle source (S.5): students with a live in_progress
+  // check-in from the /shift-log lifecycle. Runs on the same 60s cadence as the
+  // time-window fallback above. Independent query so a failure here degrades to
+  // fallback-only (and vice versa) rather than blanking the panel.
+  const { data: campusLifecycleLogs = [] } = useQuery({
+    queryKey: ['on_campus_now_lifecycle', cohortId],
+    queryFn:  async () => {
+      const { data, error } = await supabase
+        .from('student_shift_logs')
+        .select('id, student_id, checked_in_at')
+        .eq('cohort_id', cohortId)
+        .eq('lifecycle_state', 'in_progress')
+        .order('checked_in_at', { ascending: false })
+      if (error) throw error
+      return data || []
+    },
+    enabled:        !!cohortId,
+    refetchInterval: 60 * 1000,
+  })
+
+  // Hybrid merge: lifecycle rows take precedence (live check-ins, checked_in_at
+  // DESC), then time-window fallback rows excluding any student already shown via
+  // lifecycle — so a student appears at most once. S.6 will drop the fallback.
+  const mergedCampusLogs = useMemo(() => {
+    const lifecycleStudentIds = new Set(campusLifecycleLogs.map(r => r.student_id))
+    const fallbackOnly = campusLogs.filter(r => !lifecycleStudentIds.has(r.student_id))
+    return [...campusLifecycleLogs, ...fallbackOnly]
+  }, [campusLifecycleLogs, campusLogs])
+
   // Auto-expand the panel when shifts arrive for the first time
   useEffect(() => {
-    if (campusLogs.length > 0) setCampusOpen(true)
-  }, [campusLogs])
+    if (mergedCampusLogs.length > 0) setCampusOpen(true)
+  }, [mergedCampusLogs.length])
 
   // Unit Response Status — query unit_cohort_responses for current cohort
   const { data: unitResponses = [] } = useQuery({
@@ -1006,7 +1035,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         </div>
 
         {/* ── On Campus Now — StudentCard grid, full-collapse when empty ── */}
-        {!campusLoading && campusLogs.length > 0 && (
+        {!campusLoading && mergedCampusLogs.length > 0 && (
           <div style={{ margin:'20px 0 24px', fontFamily:'DM Sans, sans-serif' }}>
             {/* Section eyebrow */}
             <div style={{ display:'flex', alignItems:'baseline', gap:8, marginBottom:14 }}>
@@ -1023,7 +1052,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
               <span style={{ fontSize:11, color:'#9ca3af' }}>
                 {new Date().toLocaleDateString('en-US', { month:'short', day:'numeric' })}
                 {' · '}
-                {campusLogs.length} student{campusLogs.length !== 1 ? 's' : ''}
+                {mergedCampusLogs.length} student{mergedCampusLogs.length !== 1 ? 's' : ''}
               </span>
             </div>
             {/* Card grid */}
@@ -1032,7 +1061,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
               gridTemplateColumns: 'repeat(auto-fill, minmax(152px, 1fr))',
               gap: 12,
             }}>
-              {campusLogs.map(log => {
+              {mergedCampusLogs.map(log => {
                 const stu = students.find(s => s.id === log.student_id)
                 if (!stu) return null
                 return (
