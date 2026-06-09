@@ -2,10 +2,25 @@
 // they last loaded this student.  When supplied, the API adds
 // .eq('updated_at', loadedUpdatedAt) to the WHERE clause; a 409 response means
 // another user (or tab) saved while this user was editing.
+//
+// WS1e-A1: /api/student-update now requires a server-verified staff Bearer token.
+// All callers route through this helper, so we forward the current session token
+// centrally here (rather than per component). Authorization is decided server-side.
+import { supabase } from './supabase'
+
+async function authHeaders() {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
+}
+
 export async function updateStudent(studentId, fields, loadedUpdatedAt) {
   const res = await fetch('/api/student-update', {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders(),
     body:    JSON.stringify({
       action: 'update',
       student_id: studentId,
@@ -13,35 +28,35 @@ export async function updateStudent(studentId, fields, loadedUpdatedAt) {
       loaded_updated_at: loadedUpdatedAt || null,
     }),
   })
-  const data = await res.json()
+  const data = await res.json().catch(() => ({}))
   if (res.status === 409) {
     const err = new Error('CONFLICT')
     err.conflict = true
     err.currentUpdatedAt = data.current_updated_at
     throw err
   }
-  if (!res.ok) throw new Error(data.error || 'Update failed')
+  if (!res.ok) throw new Error(data.message || data.error || 'Update failed')
   return data.data  // full updated row including fresh updated_at
 }
 
 export async function updateStudentStatus(studentId, status, declineReason) {
   const res = await fetch('/api/student-update', {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders(),
     body:    JSON.stringify({ action: 'update_status', student_id: studentId, status, decline_reason: declineReason || null }),
   })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Status update failed')
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.message || data.error || 'Status update failed')
   return data.data
 }
 
 export async function logStudentEvent(studentId, cohortId, eventType, notes, createdBy) {
   const res = await fetch('/api/student-update', {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders(),
     body:    JSON.stringify({ action: 'log_event', student_id: studentId, cohort_id: cohortId, event_type: eventType, notes: notes || '', created_by: createdBy || 'System' }),
   })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Event log failed')
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.message || data.error || 'Event log failed')
   return true
 }
