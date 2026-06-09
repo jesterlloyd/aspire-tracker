@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { groupUnitNamesByDivision, getUnit, DIVISION_ORDER } from '../lib/unitCatalog'
-import { setAspireStatus } from '../lib/statusUtils'
-import { logEvent, eventExists } from '../lib/logEvent'
-import { updateStudent as proxyUpdateStudent } from '../lib/studentProxy'
+// WS1e-A0: public intake submission now goes through the dedicated
+// /api/student-intake-submit endpoint (was: proxyUpdateStudent + setAspireStatus
+// + logEvent against the staff student-update path).
 
 const PAGE_TITLE = 'ASPIRE Program: Student Information Form'
 
@@ -221,10 +221,14 @@ export default function StudentIntakeFormPage() {
       ? 'No prior experience'
       : selectedRoles.length > 0 ? selectedRoles.join(', ') : 'Yes (no roles specified)'
 
-    const updates = {
+    // WS1e-A0: submit via the dedicated public intake endpoint. The student is
+    // re-resolved server-side by school_email within the accepting cohort; the
+    // server sets submitted_via, status='Form Received', and logs the event.
+    // (studentId/activeCohortId above are used only for the file-upload paths.)
+    const payload = {
+      school_email:               cleanEmail,
       first_name:                 form.first_name.trim(),
       last_name:                  form.last_name.trim(),
-      name:                       `${form.first_name.trim()} ${form.last_name.trim()}`,
       personal_email:             form.personal_email.trim(),
       phone:                      form.phone.trim(),
       date_of_birth:              form.date_of_birth,
@@ -237,31 +241,29 @@ export default function StudentIntakeFormPage() {
       unit_preference_1:          form.unit_preference_1,
       unit_preference_2:          form.unit_preference_2,
       unit_preference_3:          form.unit_preference_3,
-      cumulative_gpa:             parseFloat(form.cumulative_gpa) || null,
+      cumulative_gpa:             form.cumulative_gpa,
       shift_availability:         form.shift_availability,
       interest_statement:         form.interest_statement.trim(),
-      submitted_via:              'student_form',
       ...(resume_url   && { resume_url }),
       ...(headshot_url && { headshot_url }),
     }
 
     try {
-      await proxyUpdateStudent(studentId, updates)
-    } catch (updateErr) {
+      const res = await fetch('/api/student-intake-submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(data.message || 'Something went wrong. Please try again or contact the ASPIRE team.')
+        setSubmitting(false)
+        return
+      }
+    } catch (submitErr) {
       setError('Something went wrong. Please try again or contact the ASPIRE team.')
       setSubmitting(false)
       return
-    }
-    await setAspireStatus(studentId, 'Form Received')
-    const alreadyLogged = await eventExists(supabase, studentId, 'form_received')
-    if (!alreadyLogged) {
-      await logEvent(supabase, {
-        studentId,
-        cohortId: acceptingCohort.id,
-        eventType: 'form_received',
-        notes: 'Student submitted /student-form',
-        auto: true,
-      })
     }
     setSubmitted(true)
   }
