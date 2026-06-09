@@ -58,6 +58,37 @@ export async function updatePreceptorAssignment(studentId, fields) {
   return data
 }
 
+// WS1e-A3a: the ONLY client path for manual interview scheduling. Sends only the
+// exact scheduling contract; server sets status='Interview Scheduled'.
+export async function updateInterviewSchedule(studentId, schedule) {
+  const res = await fetch('/api/student-update', {
+    method:  'POST',
+    headers: await authHeaders(),
+    body:    JSON.stringify({
+      action: 'update_interview_schedule',
+      student_id: studentId,
+      interview_scheduled_date:        schedule.interview_scheduled_date,
+      interview_scheduled_time:        schedule.interview_scheduled_time,
+      interview_duration_minutes:      schedule.interview_duration_minutes,
+      interview_assigned_interviewers: schedule.interview_assigned_interviewers,
+    }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.message || data.error || 'Scheduling failed')
+  return data
+}
+
+export async function clearInterviewSchedule(studentId) {
+  const res = await fetch('/api/student-update', {
+    method:  'POST',
+    headers: await authHeaders(),
+    body:    JSON.stringify({ action: 'update_interview_schedule', student_id: studentId, clear: true }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.message || data.error || 'Clear schedule failed')
+  return data
+}
+
 export async function updateStudentStatus(studentId, status, declineReason) {
   const res = await fetch('/api/student-update', {
     method:  'POST',

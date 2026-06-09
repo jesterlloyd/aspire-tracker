@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
-import { setAspireStatus } from '../lib/statusUtils'
-import { updateStudent as proxyUpdateStudent } from '../lib/studentProxy'
+// WS1e-A3a: scheduling goes through the explicit endpoint action, which also
+// server-sets status='Interview Scheduled' (was: generic update + setAspireStatus).
+import { updateInterviewSchedule } from '../lib/studentProxy'
 
 // 15-minute increments 7:00 AM – 6:00 PM
 const TIME_SLOTS = []
@@ -46,14 +47,13 @@ export default function ScheduleInterviewModal({ students, defaults, onClose, on
     if (!studentId || !date) { setError('Please select a student and date.'); return }
     setSaving(true); setError(null)
     try {
-      await proxyUpdateStudent(studentId, {
+      await updateInterviewSchedule(studentId, {
         interview_scheduled_date: date,
         interview_scheduled_time: time,
         interview_duration_minutes: duration,
         interview_assigned_interviewers: assigned.join(', '),
       })
     } catch (err) { setError(err.message); setSaving(false); return }
-    await setAspireStatus(studentId, 'Interview Scheduled')
     await onSaved()
     onClose()
   }

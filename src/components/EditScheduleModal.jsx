@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
-import { setAspireStatus } from '../lib/statusUtils'
-import { updateStudent as proxyUpdateStudent } from '../lib/studentProxy'
+// WS1e-A3a: scheduling/clearing goes through the explicit endpoint action
+// (was: generic update + setAspireStatus).
+import { updateInterviewSchedule, clearInterviewSchedule } from '../lib/studentProxy'
 
 const TIME_SLOTS = []
 for (let h = 7; h <= 18; h++) {
@@ -39,12 +40,11 @@ export default function EditScheduleModal({ student, onClose, onSaved, onOpenRub
     if (!date) { setError('Please select a date.'); return }
     setSaving(true); setError(null)
     try {
-      await proxyUpdateStudent(student.id, {
+      await updateInterviewSchedule(student.id, {
         interview_scheduled_date: date, interview_scheduled_time: time,
         interview_duration_minutes: duration, interview_assigned_interviewers: assigned.join(', '),
       })
     } catch (err) { setError(err.message); setSaving(false); return }
-    await setAspireStatus(student.id, 'Interview Scheduled')
     await onSaved()
     onClose()
   }
@@ -52,10 +52,7 @@ export default function EditScheduleModal({ student, onClose, onSaved, onOpenRub
   const handleDelete = async () => {
     setDeleting(true)
     try {
-      await proxyUpdateStudent(student.id, {
-        interview_scheduled_date: '', interview_scheduled_time: '',
-        interview_duration_minutes: null, interview_assigned_interviewers: '',
-      })
+      await clearInterviewSchedule(student.id)
     } catch (err) { setError(err.message); setDeleting(false); setConfirmDelete(false); return }
     await onSaved()
     onClose()

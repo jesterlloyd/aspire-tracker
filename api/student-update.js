@@ -142,6 +142,15 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'invalid_request', field: migratedPlacement[0], message: 'Use update_preceptor_assignment for preceptor/shift assignment.' })
       }
 
+      // WS1e-A3a: interview scheduling fields are owned exclusively by
+      // update_interview_schedule — reject before the whitelist/fallback.
+      const migratedSchedule = Object.keys(fields).filter(k =>
+        k === 'interview_scheduled_date' || k === 'interview_scheduled_time' ||
+        k === 'interview_duration_minutes' || k === 'interview_assigned_interviewers')
+      if (migratedSchedule.length > 0) {
+        return res.status(400).json({ error: 'invalid_request', field: migratedSchedule[0], message: 'Use update_interview_schedule for interview scheduling.' })
+      }
+
       const allowed = [
         'first_name', 'last_name', 'name', 'email', 'school_email', 'personal_email',
         'phone', 'school', 'program', 'program_type', 'cohort_id',
@@ -172,8 +181,8 @@ export default async function handler(req, res) {
         'preceptor_name', 'preceptor_assigned', 'assigned_preceptor',
         'shift', 'shift_type', 'clinical_shift', 'shift_preference',
         'match_notes', 'placement_notes', 'unit_notes', 'preceptor_notes',
-        'interview_scheduled_date', 'interview_scheduled_time',
-        'interview_duration_minutes', 'interview_assigned_interviewers',
+        // WS1e-A3a: interview_scheduled_date/time, interview_duration_minutes,
+        // interview_assigned_interviewers migrated to update_interview_schedule.
         'flagged_for_second_interview', 'auto_recommendation',
         'resume_url', 'headshot_url', 'scheduling_viewed_at',
         'interest_statement', 'submitted_via',
@@ -284,6 +293,104 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'internal_error' })
       }
       console.log('[student-update] preceptor-assignment update', { request_id: requestId, callerRole: auth.role, callerIsOwner: auth.isOwner, studentId: student_id, cohortId: stu.cohort_id, fields: Object.keys(upd) })
+      return res.status(200).json({ success: true })
+    }
+
+    // WS1e-A3a: explicit interview scheduling — the ONLY student-update path for
+    // the four scheduling fields. Server-controls status='Interview Scheduled'.
+    // Owner/Admin only. Two explicit modes: schedule/reschedule, or clear.
+    if (action === 'update_interview_schedule') {
+      if (!isOwnerAdmin) {
+        return res.status(403).json({ error: 'forbidden', message: 'You do not have permission to schedule interviews.' })
+      }
+      const { student_id } = payload
+      if (!student_id || typeof student_id !== 'string') {
+        return res.status(400).json({ error: 'invalid_request', field: 'student_id' })
+      }
+      const isClear = req.body?.clear === true
+
+      // ── Clear mode: { action, student_id, clear:true } — no mixed values ──────
+      if (isClear) {
+        const CLEAR_ALLOWED = ['action', 'student_id', 'clear']
+        const unexpected = Object.keys(req.body || {}).filter(k => !CLEAR_ALLOWED.includes(k))
+        if (unexpected.length > 0) {
+          return res.status(400).json({ error: 'invalid_request', field: unexpected[0], message: 'Unexpected field (clear mode accepts no scheduling values).' })
+        }
+        const { data: stu, error: stuErr } = await db.from('students')
+          .select('id, cohort_id, interview_scheduled_date, interview_scheduled_time, interview_duration_minutes, interview_assigned_interviewers')
+          .eq('id', student_id).maybeSingle()
+        if (stuErr) return res.status(500).json({ error: 'internal_error' })
+        if (!stu) return res.status(404).json({ error: 'not_found' })
+        const alreadyClear = (stu.interview_scheduled_date ?? '') === '' && (stu.interview_scheduled_time ?? '') === ''
+          && stu.interview_duration_minutes == null && (stu.interview_assigned_interviewers ?? '') === ''
+        if (alreadyClear) return res.status(200).json({ success: true, no_change: true })
+        // status intentionally preserved (matches current EditScheduleModal delete behavior).
+        const { error: updErr } = await db.from('students').update({
+          interview_scheduled_date: '', interview_scheduled_time: '',
+          interview_duration_minutes: null, interview_assigned_interviewers: '',
+        }).eq('id', student_id)
+        if (updErr) {
+          console.log('[student-update] schedule clear failed', { request_id: requestId, errorCode: updErr.code })
+          return res.status(500).json({ error: 'internal_error' })
+        }
+        console.log('[student-update] interview schedule cleared', { request_id: requestId, callerRole: auth.role, studentId: student_id, cohortId: stu.cohort_id ?? null })
+        return res.status(200).json({ success: true })
+      }
+
+      // ── Schedule / reschedule mode (exact schema) ─────────────────────────────
+      const SCHED_ALLOWED = ['action', 'student_id', 'interview_scheduled_date', 'interview_scheduled_time', 'interview_duration_minutes', 'interview_assigned_interviewers']
+      const unexpected = Object.keys(req.body || {}).filter(k => !SCHED_ALLOWED.includes(k))
+      if (unexpected.length > 0) {
+        return res.status(400).json({ error: 'invalid_request', field: unexpected[0], message: 'Unexpected field.' })
+      }
+      const { interview_scheduled_date: schedDate, interview_scheduled_time: schedTime,
+              interview_duration_minutes: schedDuration, interview_assigned_interviewers: schedInterviewers } = payload
+
+      if (typeof schedDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(schedDate)) {
+        return res.status(400).json({ error: 'invalid_request', field: 'interview_scheduled_date', message: 'Expected YYYY-MM-DD.' })
+      }
+      {
+        const [y, m, d] = schedDate.split('-').map(Number)
+        const dt = new Date(y, m - 1, d)
+        if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) {
+          return res.status(400).json({ error: 'invalid_request', field: 'interview_scheduled_date', message: 'Invalid calendar date.' })
+        }
+      }
+      if (typeof schedTime !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(schedTime)) {
+        return res.status(400).json({ error: 'invalid_request', field: 'interview_scheduled_time', message: 'Expected HH:MM.' })
+      }
+      if (!Number.isInteger(schedDuration) || ![30, 45].includes(schedDuration)) {
+        return res.status(400).json({ error: 'invalid_request', field: 'interview_duration_minutes' })
+      }
+      if (typeof schedInterviewers !== 'string' || schedInterviewers.length > 500) {
+        return res.status(400).json({ error: 'invalid_request', field: 'interview_assigned_interviewers' })
+      }
+
+      const { data: stu, error: stuErr } = await db.from('students')
+        .select('id, cohort_id, status, interview_scheduled_date, interview_scheduled_time, interview_duration_minutes, interview_assigned_interviewers')
+        .eq('id', student_id).maybeSingle()
+      if (stuErr) return res.status(500).json({ error: 'internal_error' })
+      if (!stu) return res.status(404).json({ error: 'not_found' })
+
+      const fieldsMatch = (stu.interview_scheduled_date ?? '') === schedDate
+        && (stu.interview_scheduled_time ?? '') === schedTime
+        && (stu.interview_duration_minutes ?? null) === schedDuration
+        && (stu.interview_assigned_interviewers ?? '') === schedInterviewers
+      if (fieldsMatch && stu.status === 'Interview Scheduled') {
+        return res.status(200).json({ success: true, no_change: true })
+      }
+      const { error: updErr } = await db.from('students').update({
+        interview_scheduled_date: schedDate,
+        interview_scheduled_time: schedTime,
+        interview_duration_minutes: schedDuration,
+        interview_assigned_interviewers: schedInterviewers,
+        status: 'Interview Scheduled',
+      }).eq('id', student_id)
+      if (updErr) {
+        console.log('[student-update] schedule failed', { request_id: requestId, errorCode: updErr.code })
+        return res.status(500).json({ error: 'internal_error' })
+      }
+      console.log('[student-update] interview scheduled', { request_id: requestId, callerRole: auth.role, studentId: student_id, cohortId: stu.cohort_id ?? null })
       return res.status(200).json({ success: true })
     }
 
