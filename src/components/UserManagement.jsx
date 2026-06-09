@@ -222,12 +222,20 @@ export default function UserManagement({ isOpen, onClose }) {
 
   // ── Admin proxy ───────────────────────────────────────────────────────────────
   const adminProxy = async (body) => {
+    // WS1c: forward the Supabase access token so the server can verify the caller
+    // and authorize the user-administration operation server-side.
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
     const res = await fetch('/api/admin-users', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify(body),
     })
-    const data = await res.json()
-    if (!res.ok) { console.error('admin-users error:', data.error); return false }
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) { console.error('admin-users error:', data.error || data.message); return false }
     return true
   }
 
