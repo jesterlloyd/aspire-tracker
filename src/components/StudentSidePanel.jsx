@@ -243,9 +243,14 @@ export default function StudentSidePanel({
   const handleConfirmRotationSave = async () => {
     setRotSaving(true)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
       const res = await fetch('/api/update-rotation-dates', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           rotation_id:         student.cohort_school_rotation_id,
           rotation_start_date: rotConfirmModal.start,
