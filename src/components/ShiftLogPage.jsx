@@ -1,10 +1,13 @@
 // All external navigation must use openLink helpers (src/lib/openLink.js)
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { SHIFT_LOG_STATUSES } from '../lib/shiftLogValidation'
-import { logEvent, eventExists } from '../lib/logEvent'
-import { updateStudent as proxyUpdateStudent } from '../lib/studentProxy'
 import { openMailtoLink } from '../lib/openLink'
+// WS1e-A0b: past-shift submission now goes through /api/shift-log/submit-past-shift.
+// The server resolves the student, classifies the shift, inserts the completed
+// student_shift_logs row, recomputes approved/pending totals, applies the
+// Placed→Active Rotation promotion, and logs events. (Was: direct student_shift_logs
+// insert + proxyUpdateStudent aggregate writes + client-side program_events.)
 
 const JESTER = 'JesterLloyd.Bautista@cshs.org'
 
@@ -45,6 +48,8 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
   const [attestation,       setAttestation]       = useState(false)
   const [formErrors,        setFormErrors]        = useState([])
   const [submitting,        setSubmitting]        = useState(false)
+  // WS1e-A0b: one stable idempotency key per deliberate submission attempt.
+  const submissionIdRef = useRef(null)
 
   // Confirmation state
   const [submittedStatus,   setSubmittedStatus]   = useState(null)
@@ -94,45 +99,8 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
     setLoading(false)
   }
 
-  // ── Form validation + exception flags ────────────────────────
-  const buildExceptionFlags = async () => {
-    const flags = []
-    if (hours > 13) flags.push('hours_over_13')
-    if (hours < 2)  flags.push('hours_under_2')
-
-    // Check term_dates range
-    if (student?.term_dates) {
-      const parts = student.term_dates.split(/[-–—to]+/).map(s => s.trim())
-      if (parts.length >= 2) {
-        const start = Date.parse(parts[0]), end = Date.parse(parts[1])
-        const sd = parseLD(shiftDate)?.getTime()
-        if (sd && !isNaN(start) && !isNaN(end) && (sd < start || sd > end))
-          flags.push('outside_rotation_dates')
-      }
-    }
-
-    // Check daily total overlap (count only accepted/approved shifts)
-    const { data: existing } = await supabase.from('student_shift_logs')
-      .select('total_hours').eq('student_id', student.id).eq('shift_date', shiftDate)
-      .in('status', [SHIFT_LOG_STATUSES.AUTO_ACCEPTED, SHIFT_LOG_STATUSES.APPROVED])
-    const dailySum = (existing||[]).reduce((s,r) => s + parseFloat(r.total_hours||0), 0) + hours
-    if (dailySum > 24) flags.push('daily_hours_exceed_24')
-
-    if (!preceptorName.trim()) flags.push('missing_preceptor')
-
-    if (!['Placed','Active Rotation'].includes(student?.status)) flags.push('pre_placement_log')
-
-    const actualUnit = isDiffUnit ? diffUnitName.trim() : unitName
-    if (isDiffUnit && diffUnitName.trim() !== unitName) {
-      if (preceptorName.trim() === (student?.matched_preceptor||'').trim()) {
-        // same preceptor, different unit — auto-approved, no flag
-      } else {
-        flags.push('unit_and_preceptor_mismatch')
-      }
-    }
-
-    return flags
-  }
+  // Exception-flag classification, totals, status promotion, and events are all
+  // computed server-side by /api/shift-log/submit-past-shift (WS1e-A0b).
 
   // ── Form submit ───────────────────────────────────────────────
   const handleFormSubmit = async e => {
@@ -145,133 +113,59 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
     setFormErrors(errs)
     if (errs.length > 0) return
 
+    // WS1e-A0b: one stable idempotency key per deliberate submission attempt.
+    // Reused on retry of THIS attempt; regenerated only on resetForm (new shift).
+    if (!submissionIdRef.current) {
+      submissionIdRef.current = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`
+    }
+
     setSubmitting(true)
-    const withTimeout = p => Promise.race([
-      p,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Submission timed out. Please try again.')), 30000)),
-    ])
+    setFormErrors([])
     try {
-      // Duplicate detection: same student, same date, same hours, submitted within last 60 s
-      const sixtySecondsAgo = new Date(Date.now() - 60_000).toISOString()
-      const { data: recentDup } = await supabase
-        .from('student_shift_logs')
-        .select('id')
-        .eq('student_id', student.id)
-        .eq('shift_date', shiftDate)
-        .eq('total_hours', hours)
-        .gte('submitted_at', sixtySecondsAgo)
-        .limit(1)
-      if (recentDup && recentDup.length > 0) {
-        setFormErrors(['This shift was just submitted. Please scroll up to see your record, or wait a moment and refresh.'])
+      const payload = {
+        submission_id:          submissionIdRef.current,
+        school_email:           student.school_email,
+        shift_date:             shiftDate,
+        total_hours:            hours,
+        shift_type:             shiftType,
+        unit_name:              isDiffUnit ? diffUnitName.trim() : unitName,
+        preceptor_name:         preceptorName.trim(),
+        is_assigned_unit:       !isDiffUnit,
+        is_assigned_preceptor:  preceptorName.trim() === (student.matched_preceptor || '').trim(),
+        attestation:            true,
+        ...(isDiffUnit && { unit_override_reason: diffUnitReason.trim() }),
+        ...(learningHighlight.trim() && { learning_highlight: learningHighlight.trim() }),
+        ...(supportNeeded.trim()    && { support_needed: supportNeeded.trim() }),
+      }
+
+      const res = await fetch('/api/shift-log/submit-past-shift', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setFormErrors([data.message || 'Submission failed. Please try again.'])
+        setSubmitting(false)
         return
       }
 
-      const flags = await withTimeout(buildExceptionFlags())
-      const status = flags.length > 0
-        ? SHIFT_LOG_STATUSES.PENDING_REVIEW
-        : SHIFT_LOG_STATUSES.AUTO_ACCEPTED
-      const reviewReason = flags.length > 0 ? flags.join('; ') : null
-      const now = new Date().toISOString()
+      // Server is authoritative for classification, totals, status promotion, events.
+      const newStatus    = data.shift?.status || null
+      const newReason    = data.shift?.review_reason || null
+      const newApprovedV = parseFloat(data.totals?.approved_hours ?? 0)
+      const prevApproved = parseFloat(student.approved_hours || 0)
+      const requiredH    = parseFloat(student.hours_required || 0)
 
-      const { error: insertError } = await withTimeout(
-        supabase.from('student_shift_logs').insert({
-          student_id:             student.id,
-          cohort_id:              cohortId,
-          school_email:           student.school_email,
-          shift_date:             shiftDate,
-          total_hours:            hours,
-          unit_name:              isDiffUnit ? diffUnitName.trim() : unitName,
-          is_assigned_unit:       !isDiffUnit,
-          unit_override_reason:   diffUnitReason,
-          preceptor_name:         preceptorName.trim(),
-          is_assigned_preceptor:  preceptorName.trim() === (student.matched_preceptor||'').trim(),
-          shift_type:             shiftType,
-          learning_highlight:     learningHighlight,
-          support_needed:         supportNeeded,
-          attestation:            true,
-          status,
-          exception_flags:        flags,
-          review_reason:          reviewReason,
-          submitted_at:           now,
-        })
-      )
-      if (insertError) throw insertError
-
-      // Update student hours
-      const currentApproved = parseFloat(student.approved_hours||0)
-      const currentPending  = parseFloat(student.pending_hours||0)
-      const hoursReq        = parseFloat(student.hours_required||0)
-      let newApprovedVal    = currentApproved
-      let newPendingVal     = currentPending
-
-      if (status === SHIFT_LOG_STATUSES.AUTO_ACCEPTED) {
-        newApprovedVal = currentApproved + hours
-        proxyUpdateStudent(student.id, { approved_hours: newApprovedVal }).catch(err => console.warn('approved_hours update:', err.message))
-
-        // Automation 5: Rotation Start — first auto-accepted shift
-        const { data: existingShifts } = await supabase
-          .from('student_shift_logs').select('id')
-          .eq('student_id', student.id)
-          .in('status', [SHIFT_LOG_STATUSES.AUTO_ACCEPTED, SHIFT_LOG_STATUSES.APPROVED])
-          .limit(2)
-        const isFirstShift = existingShifts && existingShifts.length === 1
-        const alreadyRotStart = await eventExists(supabase, student.id, 'rotation_start')
-        if (isFirstShift && !alreadyRotStart) {
-          const { error: rotStartErr } = await withTimeout(
-            supabase.from('program_events').insert({
-              student_id:  student.id,
-              cohort_id:   cohortId,
-              event_type:  'rotation_start',
-              event_date:  fmtLocalDate(new Date()),
-              event_time:  null,
-              notes:       `[Auto-logged] First shift logged: ${isDiffUnit ? diffUnitName.trim() : unitName}`.trim(),
-              created_by:  'system',
-            })
-          )
-          if (rotStartErr) console.error('rotation_start log failed:', rotStartErr.message)
-          // Auto-promote status: first approved shift IS the operational signal that
-          // active rotation has begun. Keeps the KPI count in sync with On Campus Today.
-          if (student.status === 'Placed') {
-            proxyUpdateStudent(student.id, { status: 'Active Rotation' })
-              .catch(err => console.warn('[ShiftLogPage] status promotion failed:', err.message))
-            logEvent(supabase, {
-              studentId: student.id, cohortId,
-              eventType: 'status_change_active_rotation',
-              notes: 'Status automatically promoted from Placed to Active Rotation on first approved shift.',
-              auto: true,
-            }).catch(() => {})
-          }
-        }
-
-        // Automation 6: Rotation End — required hours met
-        const hoursNowMet = hoursReq > 0 && newApprovedVal >= hoursReq
-        const alreadyRotEnd = await eventExists(supabase, student.id, 'rotation_end')
-        if (hoursNowMet && !alreadyRotEnd) {
-          const { error: rotEndErr } = await withTimeout(
-            supabase.from('program_events').insert({
-              student_id:  student.id,
-              cohort_id:   cohortId,
-              event_type:  'rotation_end',
-              event_date:  fmtLocalDate(new Date()),
-              event_time:  null,
-              notes:       `[Auto-logged] Required hours met: ${newApprovedVal}/${hoursReq} hrs`.trim(),
-              created_by:  'system',
-            })
-          )
-          if (rotEndErr) console.error('rotation_end log failed:', rotEndErr.message)
-        }
-      } else {
-        newPendingVal = currentPending + hours
-        proxyUpdateStudent(student.id, { pending_hours: newPendingVal }).catch(err => console.warn('pending_hours update:', err.message))
-      }
-
-      setNewApproved(newApprovedVal)
-      setSubmittedStatus(status)
-      setSubmittedReason(reviewReason)
-      setCelebration(status === SHIFT_LOG_STATUSES.AUTO_ACCEPTED && newApprovedVal >= hoursReq && currentApproved < hoursReq)
+      submissionIdRef.current = null  // attempt complete — next submission gets a new key
+      setNewApproved(newApprovedV)
+      setSubmittedStatus(newStatus)
+      setSubmittedReason(newReason)
+      setCelebration(newStatus === SHIFT_LOG_STATUSES.AUTO_ACCEPTED && newApprovedV >= requiredH && prevApproved < requiredH)
       setScreen('confirm')
     } catch (err) {
-      console.error(err)
       setFormErrors([err?.message || 'Submission failed. Please try again.'])
     } finally {
       setSubmitting(false)   // ALWAYS resets — no path can leave the button stuck
@@ -279,6 +173,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
   }
 
   const resetForm = () => {
+    submissionIdRef.current = null  // a fresh submission gets a fresh idempotency key
     setShiftDate(today); setHours(12); setShiftType('Day')
     setIsDiffUnit(false); setDiffUnitName(''); setDiffUnitReason('')
     setPreceptorChanged(false)

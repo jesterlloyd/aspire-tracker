@@ -1,0 +1,350 @@
+// api/shift-log/submit-past-shift.js
+//
+// WS1e-A0b: dedicated PUBLIC past-shift submission endpoint for the legacy
+// "Log a Past Shift" form (ShiftLogPage). Extracts that public flow off the
+// staff-oriented api/student-update.js.
+//
+// Source-of-truth model (Option 1 — direct completed insert + server recompute):
+//   1. resolve the student by normalized school_email (non-Archived cohort),
+//      requiring exactly one match (ambiguous → 409, none → 404)
+//   2. validate the exact past-shift schema (reject unexpected/staff fields)
+//   3. classify via the same server-side exception rules as the lifecycle
+//   4. insert ONE completed student_shift_logs row (id = caller submission_id,
+//      for request-level idempotency; PK conflict → idempotent success)
+//   5. recompute approved_hours / pending_hours from ALL authoritative completed
+//      shift rows (formula DUPLICATED from the shift_log_check_out RPC — must stay
+//      synchronized until a shared recompute RPC is approved)
+//   6. server-controlled status promotion (Placed → Active Rotation on first
+//      auto-accepted shift) — never client-supplied
+//   7. return the created shift + recomputed totals
+//
+// NOT transactional: the insert and the recompute/update are separate statements
+// (A0b adds no RPC/transaction). The shift rows are authoritative; any later
+// authoritative recompute corrects aggregate drift. Never computes totals from
+// client-supplied previous totals.
+//
+// Does not touch a live in_progress shift (completed insert is unaffected by the
+// one-open-shift partial unique index; recompute counts completed rows only).
+
+import { createClient } from '@supabase/supabase-js'
+import { toLocalDateStr } from '../../shared/dateUtils.js'
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const VALID_SHIFT_TYPES = ['Day', 'Night', 'Mid']
+// Terminal statuses for which logging a new past shift is inappropriate.
+const TERMINAL_STATUSES = ['Completed', 'Not Proceeding']
+
+const ALLOWED_BODY_KEYS = [
+  'submission_id', 'school_email', 'shift_date', 'total_hours', 'shift_type',
+  'unit_name', 'preceptor_name', 'is_assigned_unit', 'unit_override_reason',
+  'is_assigned_preceptor', 'preceptor_override_note', 'attestation',
+  'learning_highlight', 'support_needed',
+]
+
+function findUnexpectedKeys(object, allowedKeys) {
+  if (!object || typeof object !== 'object' || Array.isArray(object)) return []
+  return Object.keys(object).filter(k => !allowedKeys.includes(k))
+}
+const str = (v) => (typeof v === 'string' ? v.trim() : '')
+
+function getDb() {
+  const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) throw new Error('Missing Supabase service role credentials')
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+}
+
+// Local YYYY-MM-DD → Date (matches ShiftLogPage parseLD; avoids tz rollover).
+function parseLocalDate(s) {
+  if (!s) return null
+  const [y, m, d] = String(s).split('-').map(Number)
+  if (!y || !m || !d) return null
+  return new Date(y, m - 1, d)
+}
+
+// Exception classification — duplicated from ShiftLogPage.buildExceptionFlags /
+// the check-out endpoint. Must stay synchronized with that logic.
+async function buildExceptionFlags(db, ctx) {
+  const { totalHours, preceptorName, unitName, isAssignedUnit, shiftDate, student } = ctx
+  const flags = []
+  if (totalHours > 13) flags.push('hours_over_13')
+  if (totalHours < 2) flags.push('hours_under_2')
+
+  if (student?.term_dates) {
+    const parts = String(student.term_dates).split(/[-–—to]+/).map(s => s.trim())
+    if (parts.length >= 2) {
+      const start = Date.parse(parts[0]), end = Date.parse(parts[1])
+      const sd = parseLocalDate(shiftDate)?.getTime()
+      if (sd && !Number.isNaN(start) && !Number.isNaN(end) && (sd < start || sd > end)) flags.push('outside_rotation_dates')
+    }
+  }
+
+  // Same-day already-credited hours (completed Auto-Accepted/Approved) + this shift.
+  const { data: sameDay } = await db
+    .from('student_shift_logs')
+    .select('total_hours')
+    .eq('student_id', student.id)
+    .eq('shift_date', shiftDate)
+    .eq('lifecycle_state', 'completed')
+    .in('status', ['Auto-Accepted', 'Approved'])
+  const dailySum = (sameDay || []).reduce((s, r) => s + (parseFloat(r.total_hours) || 0), 0) + totalHours
+  if (dailySum > 24) flags.push('daily_hours_exceed_24')
+
+  if (!preceptorName.trim()) flags.push('missing_preceptor')
+  if (!['Placed', 'Active Rotation'].includes(student?.status)) flags.push('pre_placement_log')
+
+  // unit_and_preceptor_mismatch: different unit AND different preceptor.
+  if (!isAssignedUnit) {
+    let assignedUnitName = ''
+    if (student.matched_unit_id) {
+      const { data: unit } = await db.from('units').select('unit_name').eq('id', student.matched_unit_id).maybeSingle()
+      assignedUnitName = unit?.unit_name || ''
+    }
+    const finalUnitDiffers = unitName.trim() !== String(assignedUnitName || '').trim()
+    const preceptorDiffers = preceptorName.trim() !== String(student.matched_preceptor || '').trim()
+    if (finalUnitDiffers && preceptorDiffers) flags.push('unit_and_preceptor_mismatch')
+  }
+  return flags
+}
+
+// Recompute formula — DUPLICATED from shift_log_check_out RPC (must stay in sync).
+async function recomputeTotals(db, studentId) {
+  const { data: approvedRows } = await db
+    .from('student_shift_logs').select('total_hours')
+    .eq('student_id', studentId).eq('lifecycle_state', 'completed')
+    .in('status', ['Auto-Accepted', 'Approved'])
+  const { data: pendingRows } = await db
+    .from('student_shift_logs').select('total_hours')
+    .eq('student_id', studentId).eq('lifecycle_state', 'completed')
+    .eq('status', 'Pending Review')
+  const approved = (approvedRows || []).reduce((s, r) => s + (parseFloat(r.total_hours) || 0), 0)
+  const pending  = (pendingRows  || []).reduce((s, r) => s + (parseFloat(r.total_hours) || 0), 0)
+  await db.from('students').update({ approved_hours: approved, pending_hours: pending }).eq('id', studentId)
+  return { approved_hours: approved, pending_hours: pending }
+}
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  if (req.method === 'OPTIONS') return res.status(200).end()
+  if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' })
+  if (!(process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL) || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return res.status(500).json({ error: 'internal_error' })
+  }
+
+  const requestId = `req_${Math.random().toString(36).slice(2, 10)}`
+  const body = (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) ? req.body : {}
+
+  // ── Exact-schema enforcement ────────────────────────────────────────────────
+  const unexpected = findUnexpectedKeys(body, ALLOWED_BODY_KEYS)
+  if (unexpected.length > 0) {
+    return res.status(400).json({ error: 'invalid_request', field: unexpected[0], message: 'Unexpected field.' })
+  }
+
+  // ── Idempotency key ─────────────────────────────────────────────────────────
+  const submissionId = str(body.submission_id)
+  if (!submissionId || !UUID_REGEX.test(submissionId)) {
+    return res.status(400).json({ error: 'invalid_request', field: 'submission_id' })
+  }
+
+  // ── Hard validation (mirrors legacy form) ───────────────────────────────────
+  const schoolEmail = str(body.school_email)
+  if (!schoolEmail || !schoolEmail.includes('@') || !schoolEmail.includes('.')) {
+    return res.status(400).json({ error: 'invalid_request', field: 'school_email' })
+  }
+  const shiftDate = str(body.shift_date)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(shiftDate)) {
+    return res.status(400).json({ error: 'invalid_request', field: 'shift_date', message: 'Expected YYYY-MM-DD.' })
+  }
+  if (shiftDate > toLocalDateStr()) {
+    return res.status(400).json({ error: 'invalid_request', field: 'shift_date', message: 'Shift date cannot be in the future.' })
+  }
+  const totalHours = Number(body.total_hours)
+  if (!Number.isFinite(totalHours) || totalHours < 1 || totalHours > 13) {
+    return res.status(400).json({ error: 'invalid_request', field: 'total_hours', message: 'Hours must be between 1 and 13.' })
+  }
+  const shiftType = str(body.shift_type)
+  if (!VALID_SHIFT_TYPES.includes(shiftType)) {
+    return res.status(400).json({ error: 'invalid_request', field: 'shift_type' })
+  }
+  const unitName = str(body.unit_name)
+  if (!unitName) return res.status(400).json({ error: 'invalid_request', field: 'unit_name' })
+  const preceptorName = str(body.preceptor_name)
+  if (typeof body.is_assigned_unit !== 'boolean') return res.status(400).json({ error: 'invalid_request', field: 'is_assigned_unit' })
+  if (typeof body.is_assigned_preceptor !== 'boolean') return res.status(400).json({ error: 'invalid_request', field: 'is_assigned_preceptor' })
+  const isAssignedUnit = body.is_assigned_unit
+  if (body.attestation !== true) return res.status(400).json({ error: 'invalid_request', field: 'attestation', message: 'You must confirm the attestation.' })
+  let unitOverrideReason = null
+  if (!isAssignedUnit) {
+    unitOverrideReason = str(body.unit_override_reason)
+    if (!unitOverrideReason) return res.status(400).json({ error: 'invalid_request', field: 'unit_override_reason', message: 'Please explain why you worked a different unit.' })
+  }
+  const preceptorOverrideNote = (body.is_assigned_preceptor === false && str(body.preceptor_override_note)) ? str(body.preceptor_override_note) : null
+  const learningHighlight = str(body.learning_highlight) || null
+  const supportNeeded = str(body.support_needed) || null
+
+  const db = getDb()
+
+  // ── Resolve the student by school_email across non-Archived cohorts ─────────
+  // Legacy model (no accepting_submissions gate); ambiguity-safe (require one).
+  const cleanEmail = schoolEmail.toLowerCase()
+  const { data: rows, error: lookupErr } = await db
+    .from('students')
+    .select('id, cohort_id, status, term_dates, matched_preceptor, matched_unit_id, hours_required, school_email, cohorts:cohort_id ( status )')
+    .ilike('school_email', cleanEmail)
+  if (lookupErr) return res.status(500).json({ error: 'internal_error' })
+  const eligible = (rows || []).filter(r => (r.cohorts?.status || '') !== 'Archived')
+  const byId = new Map()
+  eligible.forEach(r => byId.set(r.id, r))
+  const ids = [...byId.keys()]
+  if (ids.length === 0) {
+    return res.status(404).json({ error: 'not_found', message: 'We could not find your email in the current ASPIRE cohort. Please check the spelling or contact the ASPIRE team.' })
+  }
+  if (ids.length > 1) {
+    console.log('[submit-past-shift] ambiguous student match', { request_id: requestId, matchCount: ids.length })
+    return res.status(409).json({ error: 'ambiguous_student', message: 'We could not uniquely identify your record. Please contact the ASPIRE team.' })
+  }
+  const student = byId.get(ids[0])
+
+  // ── Eligibility: reject terminal statuses (preserve active range incl. Placed)
+  if (TERMINAL_STATUSES.includes(student.status)) {
+    return res.status(403).json({ error: 'not_eligible', message: 'Shift logging is not available for your current status. Please contact the ASPIRE team.' })
+  }
+
+  // ── Payload-consistency check for a reused submission_id ────────────────────
+  // Compares ONLY client-provided fields (normalized). Server-derived fields
+  // (status, exception_flags, review_reason, submitted_at, lifecycle_state) are
+  // intentionally excluded — they don't appear in the request.
+  const COMPARE_SELECT = 'id, student_id, cohort_id, school_email, shift_date, total_hours, shift_type, unit_name, preceptor_name, is_assigned_unit, unit_override_reason, is_assigned_preceptor, preceptor_override_note, attestation, learning_highlight, support_needed, status, review_reason'
+  const nstr = (v) => (v == null ? '' : String(v).trim())
+  const samePayload = (row) =>
+    row.student_id === student.id &&
+    row.cohort_id === student.cohort_id &&
+    nstr(row.school_email).toLowerCase() === nstr(student.school_email).toLowerCase() &&
+    nstr(row.shift_date) === shiftDate &&
+    Number(row.total_hours) === totalHours &&
+    nstr(row.shift_type) === shiftType &&
+    nstr(row.unit_name) === unitName &&
+    nstr(row.preceptor_name) === preceptorName &&
+    row.is_assigned_unit === isAssignedUnit &&
+    nstr(row.unit_override_reason) === nstr(unitOverrideReason) &&
+    row.is_assigned_preceptor === body.is_assigned_preceptor &&
+    nstr(row.preceptor_override_note) === nstr(preceptorOverrideNote) &&
+    row.attestation === true &&
+    nstr(row.learning_highlight) === nstr(learningHighlight) &&
+    nstr(row.support_needed) === nstr(supportNeeded)
+
+  // ── Idempotent re-submit: a row already exists with this submission_id ──────
+  const { data: existingShift } = await db
+    .from('student_shift_logs')
+    .select(COMPARE_SELECT)
+    .eq('id', submissionId)
+    .maybeSingle()
+  if (existingShift) {
+    if (existingShift.student_id !== student.id || !samePayload(existingShift)) {
+      console.log('[submit-past-shift] submission_id reuse mismatch', { request_id: requestId })
+      return res.status(409).json({ error: 'conflict', message: 'This submission could not be processed. Please refresh and try again.' })
+    }
+    const totals = await recomputeTotals(db, student.id) // re-affirm authoritative totals
+    return res.status(200).json({ success: true, idempotent: true, shift: existingShift, totals })
+  }
+
+  // ── Classify (server-side) ──────────────────────────────────────────────────
+  const flags = await buildExceptionFlags(db, { totalHours, preceptorName, unitName, isAssignedUnit, shiftDate, student })
+  const status = flags.length > 0 ? 'Pending Review' : 'Auto-Accepted'
+  const reviewReason = flags.length > 0 ? flags.join('; ') : null
+
+  // ── Insert ONE completed shift row (id = submission_id) ─────────────────────
+  const { data: inserted, error: insertErr } = await db
+    .from('student_shift_logs')
+    .insert({
+      id: submissionId,
+      student_id: student.id,
+      cohort_id: student.cohort_id,
+      school_email: student.school_email,
+      shift_date: shiftDate,
+      total_hours: totalHours,
+      unit_name: unitName,
+      is_assigned_unit: isAssignedUnit,
+      unit_override_reason: unitOverrideReason,
+      preceptor_name: preceptorName,
+      is_assigned_preceptor: body.is_assigned_preceptor,
+      preceptor_override_note: preceptorOverrideNote,
+      shift_type: shiftType,
+      learning_highlight: learningHighlight,
+      support_needed: supportNeeded,
+      attestation: true,
+      lifecycle_state: 'completed',
+      status,
+      exception_flags: flags,
+      review_reason: reviewReason,
+      submitted_at: new Date().toISOString(),
+    })
+    .select('id, status, review_reason, shift_date, total_hours, unit_name')
+    .single()
+
+  if (insertErr) {
+    // Race: another retry inserted this submission_id between our check and insert.
+    if (insertErr.code === '23505') {
+      const { data: raceRow } = await db
+        .from('student_shift_logs').select(COMPARE_SELECT)
+        .eq('id', submissionId).maybeSingle()
+      if (raceRow && raceRow.student_id === student.id && samePayload(raceRow)) {
+        const totals = await recomputeTotals(db, student.id)
+        return res.status(200).json({ success: true, idempotent: true, shift: raceRow, totals })
+      }
+      console.log('[submit-past-shift] race submission_id reuse mismatch', { request_id: requestId })
+      return res.status(409).json({ error: 'conflict', message: 'This submission could not be processed. Please refresh and try again.' })
+    }
+    console.log('[submit-past-shift] insert failed', { request_id: requestId, errorCode: insertErr.code })
+    return res.status(500).json({ error: 'internal_error' })
+  }
+
+  // ── Server-controlled status promotion + rotation events (auto-accepted only)
+  if (status === 'Auto-Accepted') {
+    const { data: acceptedShifts } = await db
+      .from('student_shift_logs').select('id')
+      .eq('student_id', student.id).eq('lifecycle_state', 'completed')
+      .in('status', ['Auto-Accepted', 'Approved']).limit(2)
+    const isFirstShift = acceptedShifts && acceptedShifts.length === 1
+
+    if (isFirstShift) {
+      await logEventOnce(db, student.id, student.cohort_id, 'rotation_start', `[Auto-logged] First shift logged: ${unitName}`)
+      if (student.status === 'Placed') {
+        await db.from('students').update({ status: 'Active Rotation' }).eq('id', student.id)
+        await logEventOnce(db, student.id, student.cohort_id, 'status_change_active_rotation', 'Status automatically promoted from Placed to Active Rotation on first approved shift.')
+      }
+    }
+  }
+
+  // ── Recompute authoritative totals from completed rows ──────────────────────
+  const totals = await recomputeTotals(db, student.id)
+
+  // rotation_end when required hours met (after recompute)
+  if (status === 'Auto-Accepted') {
+    const hoursReq = parseFloat(student.hours_required || 0)
+    if (hoursReq > 0 && totals.approved_hours >= hoursReq) {
+      await logEventOnce(db, student.id, student.cohort_id, 'rotation_end', `[Auto-logged] Required hours met: ${totals.approved_hours}/${hoursReq} hrs`)
+    }
+  }
+
+  console.log('[submit-past-shift] shift recorded', { request_id: requestId, cohortId: student.cohort_id, shiftStatus: status })
+  return res.status(200).json({ success: true, shift: inserted, totals })
+}
+
+// Insert a program_events row once (deduped by student + cohort + type). Server
+// label only; non-transactional with the shift insert (best-effort).
+async function logEventOnce(db, studentId, cohortId, eventType, notes) {
+  try {
+    const { data: existing } = await db
+      .from('program_events').select('id')
+      .eq('student_id', studentId).eq('cohort_id', cohortId).eq('event_type', eventType)
+      .limit(1).maybeSingle()
+    if (existing) return
+    await db.from('program_events').insert({
+      student_id: studentId, cohort_id: cohortId, event_type: eventType,
+      event_date: toLocalDateStr(), notes, created_by: 'Shift Log',
+    })
+  } catch { /* best-effort; shift row is authoritative */ }
+}
