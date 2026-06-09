@@ -39,6 +39,25 @@ export async function updateStudent(studentId, fields, loadedUpdatedAt) {
   return data.data  // full updated row including fresh updated_at
 }
 
+// WS1e-A2: the ONLY client path for preceptor/shift assignment. Accepts only the
+// two approved fields (matched_preceptor / shift_assigned); never a generic object.
+export async function updatePreceptorAssignment(studentId, fields) {
+  const body = { action: 'update_preceptor_assignment', student_id: studentId }
+  if (fields && fields.matched_preceptor !== undefined) body.matched_preceptor = fields.matched_preceptor
+  if (fields && fields.shift_assigned     !== undefined) body.shift_assigned     = fields.shift_assigned
+  if (body.matched_preceptor === undefined && body.shift_assigned === undefined) {
+    throw new Error('No preceptor/shift fields to update')
+  }
+  const res = await fetch('/api/student-update', {
+    method:  'POST',
+    headers: await authHeaders(),
+    body:    JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.message || data.error || 'Preceptor assignment failed')
+  return data
+}
+
 export async function updateStudentStatus(studentId, status, declineReason) {
   const res = await fetch('/api/student-update', {
     method:  'POST',

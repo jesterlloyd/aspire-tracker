@@ -5,6 +5,7 @@ import {
 } from '../lib/constants'
 import { displayName } from '../lib/utils'
 import { supabase } from '../lib/supabase'
+import { updatePreceptorAssignment } from '../lib/studentProxy'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 import ScoreFlag from './ScoreFlag'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
@@ -47,6 +48,17 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
 
   const doSave = useCallback(async (field, value) => {
     setSaveState('saving')
+    // WS1e-A2: preceptor/shift assignment go through the explicit placement action.
+    if (field === 'matched_preceptor' || field === 'shift_assigned') {
+      try {
+        await updatePreceptorAssignment(student.id, { [field]: value })
+        setSaveState('saved')
+        setTimeout(() => setSaveState('idle'), 2000)
+      } catch (e) {
+        setSaveState('error')
+      }
+      return
+    }
     const err = await onUpdate(student.id, { [field]: value })
     setSaveState(err ? 'error' : 'saved')
     if (!err) setTimeout(() => setSaveState('idle'), 2000)

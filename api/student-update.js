@@ -133,6 +133,15 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'forbidden', message: 'You do not have permission to update students.' })
       }
 
+      // WS1e-A2: these fields are owned exclusively by update_preceptor_assignment.
+      // Reject them explicitly so they can never slip through the all-pass-through
+      // fallback below (a request of ONLY these would otherwise hit the fallback).
+      const migratedPlacement = Object.keys(fields).filter(k =>
+        k === 'matched_preceptor' || k === 'shift_assigned' || k === 'assigned_shift')
+      if (migratedPlacement.length > 0) {
+        return res.status(400).json({ error: 'invalid_request', field: migratedPlacement[0], message: 'Use update_preceptor_assignment for preceptor/shift assignment.' })
+      }
+
       const allowed = [
         'first_name', 'last_name', 'name', 'email', 'school_email', 'personal_email',
         'phone', 'school', 'program', 'program_type', 'cohort_id',
@@ -158,8 +167,10 @@ export default async function handler(req, res) {
         'emergency_contact', 'emergency_phone',
         'preferred_name', 'pronouns',
         'interview_score', 'recommendation', 'self_scheduled',
-        'preceptor_name', 'matched_preceptor', 'preceptor_assigned', 'assigned_preceptor',
-        'shift', 'shift_type', 'shift_assigned', 'assigned_shift', 'clinical_shift', 'shift_preference',
+        // WS1e-A2: matched_preceptor / shift_assigned / assigned_shift migrated to
+        // the explicit update_preceptor_assignment action — intentionally NOT here.
+        'preceptor_name', 'preceptor_assigned', 'assigned_preceptor',
+        'shift', 'shift_type', 'clinical_shift', 'shift_preference',
         'match_notes', 'placement_notes', 'unit_notes', 'preceptor_notes',
         'interview_scheduled_date', 'interview_scheduled_time',
         'interview_duration_minutes', 'interview_assigned_interviewers',
@@ -213,6 +224,67 @@ export default async function handler(req, res) {
         fieldsWritten: Object.keys(fieldsToSave),
         droppedFields: rejectedFields,
       })
+    }
+
+    // WS1e-A2: explicit, narrow placement operation — the ONLY student-update path
+    // permitted to mutate matched_preceptor / shift_assigned. Owner/Admin only.
+    if (action === 'update_preceptor_assignment') {
+      if (!isOwnerAdmin) {
+        return res.status(403).json({ error: 'forbidden', message: 'You do not have permission to assign placement.' })
+      }
+      // Exact top-level schema (besides action): student_id + optional preceptor/shift.
+      const PA_ALLOWED = ['action', 'student_id', 'matched_preceptor', 'shift_assigned']
+      const unexpectedPA = Object.keys(req.body || {}).filter(k => !PA_ALLOWED.includes(k))
+      if (unexpectedPA.length > 0) {
+        return res.status(400).json({ error: 'invalid_request', field: unexpectedPA[0], message: 'Unexpected field.' })
+      }
+      const { student_id, matched_preceptor, shift_assigned } = payload
+      if (!student_id || typeof student_id !== 'string') {
+        return res.status(400).json({ error: 'invalid_request', field: 'student_id' })
+      }
+      const hasPreceptor = matched_preceptor !== undefined
+      const hasShift     = shift_assigned !== undefined
+      if (!hasPreceptor && !hasShift) {
+        return res.status(400).json({ error: 'invalid_request', message: 'At least one of matched_preceptor or shift_assigned is required.' })
+      }
+
+      const upd = {}
+      if (hasPreceptor) {
+        if (typeof matched_preceptor !== 'string') {
+          return res.status(400).json({ error: 'invalid_request', field: 'matched_preceptor' })
+        }
+        const v = matched_preceptor.trim() // free text; empty string clears. NOT a verified record; preceptor_id not written.
+        if (v.length > 200) return res.status(400).json({ error: 'invalid_request', field: 'matched_preceptor', message: 'Too long.' })
+        if (/[\u0000-\u001F\u007F]/.test(v)) return res.status(400).json({ error: 'invalid_request', field: 'matched_preceptor', message: 'Invalid characters.' })
+        upd.matched_preceptor = v
+      }
+      if (hasShift) {
+        const SHIFTS = ['Day', 'Night', 'Midshift', 'Either', ''] // '' clears
+        if (typeof shift_assigned !== 'string' || !SHIFTS.includes(shift_assigned)) {
+          return res.status(400).json({ error: 'invalid_request', field: 'shift_assigned' })
+        }
+        upd.shift_assigned = shift_assigned
+      }
+
+      // Resolve student; derive cohort context; evaluate idempotency on requested fields only.
+      const { data: stu, error: stuErr } = await db
+        .from('students').select('id, cohort_id, matched_preceptor, shift_assigned')
+        .eq('id', student_id).maybeSingle()
+      if (stuErr) return res.status(500).json({ error: 'internal_error' })
+      if (!stu) return res.status(404).json({ error: 'not_found' })
+
+      const noChange = Object.keys(upd).every(k => (stu[k] ?? '') === (upd[k] ?? ''))
+      if (noChange) {
+        return res.status(200).json({ success: true, no_change: true })
+      }
+
+      const { error: updErr } = await db.from('students').update(upd).eq('id', student_id)
+      if (updErr) {
+        console.log('[student-update] preceptor-assignment update failed', { request_id: requestId, errorCode: updErr.code })
+        return res.status(500).json({ error: 'internal_error' })
+      }
+      console.log('[student-update] preceptor-assignment update', { request_id: requestId, callerRole: auth.role, callerIsOwner: auth.isOwner, studentId: student_id, cohortId: stu.cohort_id, fields: Object.keys(upd) })
+      return res.status(200).json({ success: true })
     }
 
     // WS1e-A1: the actions below have NO active UI caller today. Authenticated +

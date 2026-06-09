@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './lib/supabase'
-import { updateStudent as proxyUpdateStudent } from './lib/studentProxy'
+import { updateStudent as proxyUpdateStudent, updatePreceptorAssignment } from './lib/studentProxy'
 import { displayName } from './lib/utils'
 import { ASPIRE_STATUS_CONFIG } from './lib/constants'
 import StudentAvatar from './components/StudentAvatar'
@@ -635,7 +635,8 @@ function MainApp({ onLogout }) {
       if (updates.preceptor_assigned !== undefined) su.matched_preceptor = updates.preceptor_assigned
       if (updates.shift_assigned     !== undefined) su.shift_assigned     = updates.shift_assigned
       if (Object.keys(su).length) {
-        proxyUpdateStudent(studentId, su).catch(err => console.error('Match student update:', err.message))
+        // WS1e-A2: explicit placement action (was generic proxyUpdateStudent).
+        updatePreceptorAssignment(studentId, su).catch(err => console.error('Match student update:', err.message))
         setStudents(prev => prev.map(s => s.id === studentId ? { ...s, ...su } : s))
       }
     }
