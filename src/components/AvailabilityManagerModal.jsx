@@ -107,9 +107,11 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
 
     setSaving(true)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
       const response = await fetch('/api/availability', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
           action:             'create_block',
           cohort_id:          cohortId,
@@ -151,9 +153,11 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
   const deleteBlock = async (blockId) => {
     if (!window.confirm('Delete this availability block? Unbooked slots will be removed.')) return
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
       const response = await fetch('/api/availability', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ action: 'delete_block', block_id: blockId }),
       })
       const data = await response.json()

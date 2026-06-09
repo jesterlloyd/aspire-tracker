@@ -1,231 +1,327 @@
-import { createClient } from '@supabase/supabase-js'
+// api/availability.js
+//
+// WS1d-B: secure interview availability + booking administration.
+//
+// Authorization is SERVER-VERIFIED (WS1/WS1b/WS1c pattern). This is scheduling
+// self-service + oversight (NOT account administration):
+//   - Owner/Admin may manage all blocks and cancel any booking.
+//   - Interviewer may create blocks (attributed to themselves), delete only the
+//     blocks they created, and cancel bookings only on slots of blocks they created.
+// Ownership is resolved via interview_availability_blocks.created_by_user_id →
+// user_profiles.id (profile PK), matching the existing UI model. The caller's
+// profile is resolved from the verified JWT; request-supplied interviewer identity
+// is never trusted as ownership proof.
+//
+// Owner-immutability does NOT apply here: an Owner who participates as an
+// interviewer is doing operational scheduling work, not mutating account state.
+// These operations never change role/is_owner/account state; such fields are
+// rejected if present in the body.
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-  if (req.method === 'OPTIONS') return res.status(200).end()
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+import { createClient } from '@supabase/supabase-js';
+import { randomUUID } from 'crypto';
 
-  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
-  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const ALLOWED_ACTIONS = ['create_block', 'delete_block', 'cancel_booking'];
 
-  if (!supabaseUrl || !serviceKey) {
-    return res.status(500).json({ error: 'Server configuration error' })
+async function verifyCaller(req) {
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'] || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!token) return { authenticated: false, status: 401, reason: 'missing_token' };
+
+  const url        = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const anonKey    = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  let user;
+  try {
+    const userClient = createClient(url, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const { data, error } = await userClient.auth.getUser();
+    if (error || !data?.user) return { authenticated: false, status: 401, reason: 'invalid_token' };
+    user = data.user;
+  } catch {
+    return { authenticated: false, status: 401, reason: 'verify_threw' };
   }
 
-  const db = createClient(supabaseUrl, serviceKey)
-  const { action, ...payload } = req.body || {}
+  try {
+    const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data: profile, error: pErr } = await admin
+      .from('user_profiles')
+      .select('id, role, is_owner, full_name')
+      .eq('auth_user_id', user.id)
+      .maybeSingle();
+    if (pErr) return { authenticated: false, status: 401, reason: 'profile_lookup_failed' };
+    if (!profile) return { authenticated: false, status: 403, reason: 'no_profile' };
+    return { authenticated: true, userId: user.id, profileId: profile.id, fullName: profile.full_name || '', role: profile.role || '', isOwner: profile.is_owner === true };
+  } catch {
+    return { authenticated: false, status: 401, reason: 'profile_threw' };
+  }
+}
+
+// Owner/Admin/Interviewer may use availability (ownership enforced per-action). Default deny.
+function canUseAvailability(role, isOwner) {
+  if (isOwner) return true;
+  return role === 'admin' || role === 'interviewer';
+}
+function isAdminLevel(role, isOwner) {
+  return isOwner || role === 'admin';
+}
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' });
+
+  const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) return res.status(500).json({ error: 'internal_error' });
+
+  const requestId = `req_${randomUUID().slice(0, 8)}`;
+
+  // Gate 1 & 2: JWT + caller profile
+  const auth = await verifyCaller(req);
+  if (!auth.authenticated) {
+    console.log('[availability] auth rejected', { reason: auth.reason, request_id: requestId });
+    if (auth.reason === 'no_profile') return res.status(403).json({ error: 'forbidden', message: 'Access denied.' });
+    return res.status(401).json({ error: 'unauthorized', message: 'Authentication required' });
+  }
+
+  const body = (req.body && typeof req.body === 'object') ? req.body : {};
+  const action = typeof body.action === 'string' ? body.action : null;
+
+  // Gate 3: action allow-list
+  if (!action || !ALLOWED_ACTIONS.includes(action)) {
+    return res.status(400).json({ error: 'invalid_request', field: 'action', message: 'Operation not permitted.' });
+  }
+
+  // Gate 4: caller authorized to use availability at all
+  if (!canUseAvailability(auth.role, auth.isOwner)) {
+    console.log('[availability] insufficient authority', { callerRole: auth.role, callerIsOwner: auth.isOwner, action, request_id: requestId });
+    return res.status(403).json({ error: 'forbidden', message: 'You do not have permission to manage availability.' });
+  }
+
+  // Gate 5: reject account-authority/state fields (this endpoint never changes them)
+  for (const f of ['is_owner', 'role', 'is_active']) {
+    if (Object.prototype.hasOwnProperty.call(body, f)) {
+      return res.status(400).json({ error: 'invalid_request', field: f, message: 'That field cannot be set through this endpoint.' });
+    }
+  }
+
+  const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const adminLevel = isAdminLevel(auth.role, auth.isOwner);
 
   try {
-
-    // CREATE BLOCK + GENERATE SLOTS
+    // ── CREATE BLOCK + GENERATE SLOTS ─────────────────────────────────────────
     if (action === 'create_block') {
-      const {
-        cohort_id, interviewer_name, block_date,
-        start_time, end_time, duration_minutes,
-        created_by_user_id,
-      } = payload
-
+      const { cohort_id, block_date, start_time, end_time, duration_minutes } = body;
       if (!cohort_id || !block_date || !start_time || !end_time || !duration_minutes) {
-        return res.status(400).json({ error: 'Missing required fields' })
+        return res.status(400).json({ error: 'invalid_request', message: 'Missing required fields' });
       }
-      // interviewer_name must be a real person — never fall back to a generic label
-      if (!interviewer_name?.trim()) {
-        return res.status(400).json({ error: 'interviewer_name is required. Blocks must be attributed to a specific interviewer.' })
+
+      // Attribution: Owner/Admin may name any interviewer; an interviewer is forced
+      // to themselves. created_by_user_id is always the verified caller's profile id.
+      let interviewerName;
+      if (adminLevel) {
+        interviewerName = typeof body.interviewer_name === 'string' ? body.interviewer_name.trim() : '';
+        if (!interviewerName) return res.status(400).json({ error: 'invalid_request', field: 'interviewer_name', message: 'interviewer_name is required.' });
+      } else {
+        interviewerName = (auth.fullName || '').trim();
+        if (!interviewerName) return res.status(500).json({ error: 'internal_error' });
       }
 
       const { data: block, error: blockError } = await db
         .from('interview_availability_blocks')
         .insert({
           cohort_id,
-          interviewer_name: interviewer_name.trim(),
+          interviewer_name: interviewerName,
           block_date,
           start_time,
           end_time,
           duration_minutes: parseInt(duration_minutes),
           is_active: true,
-          created_by_user_id: created_by_user_id || null,
+          created_by_user_id: auth.profileId,
         })
         .select('id, cohort_id, interviewer_name, block_date, start_time, end_time, duration_minutes')
-        .single()
+        .single();
 
-      if (blockError) return res.status(400).json({ error: blockError.message })
-
-      // Generate time slots
-      const slots = []
-      const [startH, startM] = start_time.split(':').map(Number)
-      const [endH,   endM  ] = end_time.split(':').map(Number)
-      const startTotal = startH * 60 + startM
-      const endTotal   = endH   * 60 + endM
-      const dur        = parseInt(duration_minutes)
-
-      for (let t = startTotal; t + dur <= endTotal; t += dur) {
-        const h = Math.floor(t / 60).toString().padStart(2, '0')
-        const m = (t % 60).toString().padStart(2, '0')
-        slots.push({
-          block_id:         block.id,
-          cohort_id,
-          slot_date:        block_date,
-          slot_time:        `${h}:${m}`,
-          duration_minutes: dur,
-          interviewer_name: interviewer_name.trim(),
-          is_booked:        false,
-          status:           'available',
-        })
+      if (blockError) {
+        console.log('[availability] create_block failed', { callerRole: auth.role, request_id: requestId, errorCode: blockError.code });
+        return res.status(500).json({ error: 'internal_error' });
       }
 
+      // Generate time slots (preserved logic)
+      const slots = [];
+      const [startH, startM] = start_time.split(':').map(Number);
+      const [endH, endM]     = end_time.split(':').map(Number);
+      const startTotal = startH * 60 + startM;
+      const endTotal   = endH * 60 + endM;
+      const dur        = parseInt(duration_minutes);
+      for (let t = startTotal; t + dur <= endTotal; t += dur) {
+        const h = Math.floor(t / 60).toString().padStart(2, '0');
+        const m = (t % 60).toString().padStart(2, '0');
+        slots.push({
+          block_id: block.id, cohort_id, slot_date: block_date, slot_time: `${h}:${m}`,
+          duration_minutes: dur, interviewer_name: interviewerName, is_booked: false, status: 'available',
+        });
+      }
       if (slots.length === 0) {
-        return res.status(400).json({
-          error: 'No slots generated. Check that end time is after start time and duration fits within the block.',
-        })
+        await db.from('interview_availability_blocks').delete().eq('id', block.id);
+        return res.status(400).json({ error: 'invalid_request', message: 'No slots generated. Check that end time is after start time and duration fits within the block.' });
       }
 
       const { data: createdSlots, error: slotsError } = await db
         .from('interview_slots')
         .insert(slots)
-        .select('id, slot_date, slot_time, duration_minutes, interviewer_name, is_booked')
-
+        .select('id, slot_date, slot_time, duration_minutes, interviewer_name, is_booked');
       if (slotsError) {
-        await db.from('interview_availability_blocks').delete().eq('id', block.id)
-        return res.status(400).json({ error: `Slot generation failed: ${slotsError.message}` })
+        await db.from('interview_availability_blocks').delete().eq('id', block.id);
+        console.log('[availability] slot generation failed', { callerRole: auth.role, request_id: requestId, errorCode: slotsError.code });
+        return res.status(500).json({ error: 'internal_error' });
       }
 
-      return res.status(200).json({
-        success: true,
-        block,
-        slots: createdSlots,
-        slot_count: createdSlots.length,
-      })
+      console.log('[availability] block created', { callerRole: auth.role, callerIsOwner: auth.isOwner, blockId: block.id, createdBy: auth.profileId, request_id: requestId });
+      return res.status(200).json({ success: true, block, slots: createdSlots, slot_count: createdSlots.length });
     }
 
-    // DELETE BLOCK + ITS SLOTS
+    // ── DELETE BLOCK + ITS UNBOOKED SLOTS ─────────────────────────────────────
     if (action === 'delete_block') {
-      const { block_id } = payload
-
-      // Strict validation — never delete without a valid UUID
-      if (!block_id || typeof block_id !== 'string' || block_id.length < 10) {
-        console.error('delete_block called with invalid block_id:', block_id)
-        return res.status(400).json({ error: 'Invalid block_id. Delete aborted.' })
+      const blockId = typeof body.block_id === 'string' ? body.block_id : null;
+      if (!blockId || !UUID_REGEX.test(blockId)) {
+        return res.status(400).json({ error: 'invalid_request', field: 'block_id' });
       }
 
-      console.log('Deleting block:', block_id)
-
-      // Delete only unbooked slots for this specific block
-      const { error: slotsError } = await db
-        .from('interview_slots')
-        .delete()
-        .eq('block_id', block_id)
-        .eq('is_booked', false)
-
-      if (slotsError) {
-        console.error('Slot delete error:', slotsError.message)
-        return res.status(400).json({ error: slotsError.message })
-      }
-
-      // Check for remaining booked slots
-      const { count } = await db
-        .from('interview_slots')
-        .select('*', { count: 'exact', head: true })
-        .eq('block_id', block_id)
-        .eq('is_booked', true)
-
-      if ((count || 0) > 0) {
-        return res.status(400).json({
-          error: `Cannot delete: ${count} booked slot${count !== 1 ? 's' : ''} in this block. Cancel those bookings first.`,
-        })
-      }
-
-      // Delete the block itself
-      const { error: blockError } = await db
+      // Resolve block + ownership
+      const { data: block, error: blockFetchError } = await db
         .from('interview_availability_blocks')
-        .delete()
-        .eq('id', block_id)
+        .select('id, created_by_user_id')
+        .eq('id', blockId)
+        .maybeSingle();
+      if (blockFetchError) return res.status(500).json({ error: 'internal_error' });
+      if (!block) return res.status(404).json({ error: 'not_found' });
 
-      if (blockError) return res.status(400).json({ error: blockError.message })
-      return res.status(200).json({ success: true })
+      // Ownership: Owner/Admin any; interviewer only their own (resolved profile id).
+      if (!adminLevel && block.created_by_user_id !== auth.profileId) {
+        console.log('[availability] delete ownership denied', { callerRole: auth.role, blockId, request_id: requestId });
+        return res.status(403).json({ error: 'forbidden', message: 'You can only manage your own availability.' });
+      }
+
+      // Scheduling integrity (preserved): drop unbooked slots, refuse if booked remain.
+      const { error: slotsError } = await db.from('interview_slots').delete().eq('block_id', blockId).eq('is_booked', false);
+      if (slotsError) return res.status(500).json({ error: 'internal_error' });
+
+      const { count } = await db.from('interview_slots').select('*', { count: 'exact', head: true }).eq('block_id', blockId).eq('is_booked', true);
+      if ((count || 0) > 0) {
+        return res.status(409).json({ error: 'conflict', message: `Cannot delete: ${count} booked slot${count !== 1 ? 's' : ''} in this block. Cancel those bookings first.` });
+      }
+
+      const { error: blockError } = await db.from('interview_availability_blocks').delete().eq('id', blockId);
+      if (blockError) return res.status(500).json({ error: 'internal_error' });
+
+      console.log('[availability] block deleted', { callerRole: auth.role, callerIsOwner: auth.isOwner, blockId, request_id: requestId });
+      return res.status(200).json({ success: true });
     }
 
-    // CANCEL BOOKING
+    // ── CANCEL BOOKING (reverts student) ──────────────────────────────────────
     if (action === 'cancel_booking') {
-      const { slot_id, student_id, cohort_id: cid, cancelled_by } = payload
-
-      if (!slot_id || !student_id) {
-        return res.status(400).json({ error: 'slot_id and student_id are required' })
+      const slotId = typeof body.slot_id === 'string' ? body.slot_id : null;
+      if (!slotId || !UUID_REGEX.test(slotId)) {
+        return res.status(400).json({ error: 'invalid_request', field: 'slot_id' });
       }
 
-      console.log('Cancelling booking:', { slot_id, student_id })
+      // Resolve the slot authoritatively: the affected student is the slot's
+      // booked student — NEVER req.body.student_id (which is only validated to
+      // match, for backward compatibility).
+      const { data: slot, error: slotFetchError } = await db
+        .from('interview_slots')
+        .select('id, block_id, cohort_id, is_booked, booked_by_student_id')
+        .eq('id', slotId)
+        .maybeSingle();
+      if (slotFetchError) return res.status(500).json({ error: 'internal_error' });
+      if (!slot) return res.status(404).json({ error: 'not_found' });
 
-      // 1. Clear the slot — reset status to 'available' so the calendar reads it correctly
+      // The slot must currently be booked to exactly one student (single column).
+      const bookedStudentId = slot.booked_by_student_id;
+      if (!slot.is_booked || !bookedStudentId) {
+        return res.status(409).json({ error: 'conflict', message: 'This slot is not currently booked.' });
+      }
+
+      // Backward-compat: if a student_id is supplied it MUST match the authoritative
+      // booked student. Mismatch → reject with no mutation (prevents reverting an
+      // unrelated student via an own-block slot id).
+      if (Object.prototype.hasOwnProperty.call(body, 'student_id')) {
+        const bodyStudentId = typeof body.student_id === 'string' ? body.student_id : null;
+        if (!bodyStudentId || !UUID_REGEX.test(bodyStudentId) || bodyStudentId !== bookedStudentId) {
+          console.log('[availability] cancel student mismatch', { callerRole: auth.role, slotId, request_id: requestId });
+          return res.status(409).json({ error: 'conflict', message: 'student_id does not match the booked student.' });
+        }
+      }
+
+      // Ownership: Owner/Admin any; interviewer only if the slot's block is theirs.
+      if (!adminLevel) {
+        const { data: block, error: blockFetchError } = await db
+          .from('interview_availability_blocks')
+          .select('id, created_by_user_id')
+          .eq('id', slot.block_id)
+          .maybeSingle();
+        if (blockFetchError) return res.status(500).json({ error: 'internal_error' });
+        if (!block || block.created_by_user_id !== auth.profileId) {
+          console.log('[availability] cancel ownership denied', { callerRole: auth.role, slotId, request_id: requestId });
+          return res.status(403).json({ error: 'forbidden', message: 'You can only manage bookings for your own availability.' });
+        }
+      }
+
+      // All mutations use the RESOLVED bookedStudentId + slot.cohort_id.
       const { error: slotError } = await db
         .from('interview_slots')
         .update({ status: 'available', is_booked: false, booked_by_student_id: null, booked_at: null })
-        .eq('id', slot_id)
-        .eq('booked_by_student_id', student_id)
+        .eq('id', slotId)
+        .eq('booked_by_student_id', bookedStudentId);
+      if (slotError) return res.status(500).json({ error: 'internal_error' });
 
-      if (slotError) {
-        console.error('Slot clear error:', slotError.message)
-        return res.status(400).json({ error: slotError.message })
-      }
-
-      // 2. Delete sessions for this slot with no rubric data
+      // Prune ONLY rubric-less sessions for the EXACT canceled booking: this slot
+      // AND the resolved booked student. Scored/submitted sessions, and any sessions
+      // for the same student on other slots/attempts/cohorts, are preserved. (The
+      // prior broad student-only pass was legacy cleanup with no business rule or
+      // uniqueness constraint backing it, so it is narrowed here.)
       const { data: sessions } = await db
         .from('interview_sessions')
         .select('id, cj_question_text, pp_question_text, ga_question_text')
-        .eq('slot_id', slot_id)
-
+        .eq('slot_id', slotId)
+        .eq('student_id', bookedStudentId);
       if (sessions?.length > 0) {
         for (const sess of sessions) {
-          const hasRubric = sess.cj_question_text || sess.pp_question_text || sess.ga_question_text
-          if (!hasRubric) await db.from('interview_sessions').delete().eq('id', sess.id)
+          const hasRubric = sess.cj_question_text || sess.pp_question_text || sess.ga_question_text;
+          if (!hasRubric) await db.from('interview_sessions').delete().eq('id', sess.id);
         }
       }
 
-      // 3. Delete orphaned sessions linked by student_id with no rubric data
-      const { data: studentSessions } = await db
-        .from('interview_sessions')
-        .select('id, cj_question_text, pp_question_text, ga_question_text')
-        .eq('student_id', student_id)
-
-      if (studentSessions?.length > 0) {
-        for (const sess of studentSessions) {
-          const hasRubric = sess.cj_question_text || sess.pp_question_text || sess.ga_question_text
-          if (!hasRubric) await db.from('interview_sessions').delete().eq('id', sess.id)
-        }
-      }
-
-      // 4. Revert student status and clear scheduled date/time fields
       const { error: studentError } = await db
         .from('students')
-        .update({
-          status:                   'Form Received',
-          interview_scheduled_date: null,
-          interview_scheduled_time: null,
-        })
-        .eq('id', student_id)
+        .update({ status: 'Form Received', interview_scheduled_date: null, interview_scheduled_time: null })
+        .eq('id', bookedStudentId);
+      if (studentError) console.warn('[availability] student revert error', { request_id: requestId, errorCode: studentError.code });
 
-      if (studentError) console.error('Student status revert error:', studentError.message)
-
-      // 5. Log event
-      if (cid) {
+      const eventCohort = slot.cohort_id || (typeof body.cohort_id === 'string' ? body.cohort_id : null);
+      if (eventCohort) {
         const { error: logErr } = await db.from('program_events').insert({
-          student_id:  student_id,
-          cohort_id:   cid,
-          event_type:  'interview_cancelled',
-          event_date:  new Date().toISOString().split('T')[0],
-          notes:       'Interview booking cancelled.',
-          created_by:  cancelled_by || 'System',
-        })
-        if (logErr) console.warn('Event log error:', logErr.message)
+          student_id: bookedStudentId, cohort_id: eventCohort, event_type: 'interview_cancelled',
+          event_date: new Date().toISOString().split('T')[0], notes: 'Interview booking cancelled.',
+          created_by: auth.fullName || 'Coordinator',
+        });
+        if (logErr) console.warn('[availability] event log error', { request_id: requestId, errorCode: logErr.code });
       }
 
-      return res.status(200).json({ success: true })
+      console.log('[availability] booking cancelled', { callerRole: auth.role, callerIsOwner: auth.isOwner, slotId, request_id: requestId });
+      return res.status(200).json({ success: true });
     }
 
-    return res.status(400).json({ error: `Unknown action: ${action}` })
-
+    return res.status(400).json({ error: 'invalid_request', field: 'action' });
   } catch (err) {
-    console.error('availability error:', err)
-    return res.status(500).json({ error: err.message })
+    console.log('[availability] unexpected error', { request_id: requestId, errorCode: err?.code });
+    return res.status(500).json({ error: 'internal_error' });
   }
 }

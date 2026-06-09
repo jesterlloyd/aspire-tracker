@@ -44,9 +44,11 @@ function CreatePopover({ date, startTime, endTime, position, interviewerProfiles
     }
     setSaving(true); setError('')
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
       const res = await fetch('/api/availability', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
           action:             'create_block',
           cohort_id:          cohortId,
@@ -1128,9 +1130,11 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
       alert('Error: No block ID found. Please close this popover and try again.')
       return
     }
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
     const res  = await fetch('/api/availability', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ action: 'delete_block', block_id: blockId }),
     })
     const data = await res.json()
@@ -1150,9 +1154,11 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
     if (!window.confirm(`Cancel ${name}'s booking? Their status will return to Form Received.`)) return
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
       const res = await fetch('/api/availability', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
           action:       'cancel_booking',
           slot_id:      slot.id,
