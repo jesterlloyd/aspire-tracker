@@ -241,8 +241,16 @@ export default function UserManagement({ isOpen, onClose }) {
     if (!inviteData.email || !inviteData.full_name || !inviteData.role) return
     setInviteLoading(true); setInviteResult(null)
     try {
+      // WS1b: forward the Supabase access token so the server can verify the
+      // caller and authorize the invitation server-side.
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
       const res = await fetch('/api/invite-user', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(inviteData),
       })
       const data = await res.json()
@@ -251,7 +259,7 @@ export default function UserManagement({ isOpen, onClose }) {
         setInviteData({ email: '', full_name: '', role: 'interviewer' })
         refetch()
       } else {
-        setInviteResult({ success: false, message: data.error })
+        setInviteResult({ success: false, message: data.message || data.error || 'Invitation failed.' })
       }
     } catch (err) { setInviteResult({ success: false, message: err.message }) }
     setInviteLoading(false)
