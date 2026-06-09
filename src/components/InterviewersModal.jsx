@@ -69,13 +69,20 @@ export default function InterviewersModal({ isOpen, onClose }) {
   }, [isOpen, fetchInterviewers])
 
   const callProxy = async (body) => {
+    // WS1d-A: forward the Supabase access token so the server can verify the
+    // caller and authorize interviewer-directory administration server-side.
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
     const response = await fetch('/api/manage-interviewers', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify(body),
     })
-    const data = await response.json()
-    if (!response.ok) throw new Error(data.error || 'Request failed')
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.message || data.error || 'Request failed')
     return data
   }
 
