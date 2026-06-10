@@ -19,7 +19,6 @@ import { useAuth } from './contexts/AuthContext'
 import LoginNew from './pages/Login'
 import DevDispositionModal from './pages/DevDispositionModal'
 import EvaluationPage from './pages/EvaluationPage'
-import UserManagement from './components/UserManagement'
 import UnitFormPage from './components/UnitFormPage'
 import SchoolFormPage from './components/SchoolFormPage'
 import StudentIntakeFormPage from './components/StudentIntakeFormPage'
@@ -125,7 +124,6 @@ function MainApp({ onLogout }) {
   const [showNewCohort,    setShowNewCohort]    = useState(false)
   const [showManageCohort, setShowManageCohort] = useState(false)
   const [confirmLogout,    setConfirmLogout]    = useState(false)
-  const [showUserManagement, setShowUserManagement] = useState(false)
 
   // ── Header: cohort picker state ──────────────────────────────────────────────
   const [cohortOpen, setCohortOpen] = useState(false)
@@ -753,7 +751,7 @@ function MainApp({ onLogout }) {
         <Header
           cohort={{ cohorts, cohortPickerRef, cohortOpen, setCohortOpen, activeCohort, activeCohortId, sortedCohorts, handleCohortSwitch, canEdit, setShowManageCohort, setShowNewCohort }}
           search={{ searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading, searchFlat, searchResults, searchActiveIdx, setSearchActiveIdx, setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult }}
-          actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, actionBadgeCount, onOpenUserManagement: () => setShowUserManagement(true), onRestartTour: () => { switchTab('overview'); setTimeout(() => setTourRunning(true), 400) } }}
+          actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, actionBadgeCount, onRestartTour: () => { switchTab('overview'); setTimeout(() => setTourRunning(true), 400) } }}
         />
 
         {cohorts.length > 0 && activeTab !== 'connect' && activeTab !== 'settings' && (
@@ -948,12 +946,9 @@ function MainApp({ onLogout }) {
       />
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       <CustomOnboardingTour run={tourRunning} onClose={() => setTourRunning(false)} />
-      {showUserManagement && (
-        <UserManagement
-          isOpen={showUserManagement}
-          onClose={() => setShowUserManagement(false)}
-        />
-      )}
+      {/* WS2.2: People & Access re-homed to Settings → /settings/accounts.
+          The legacy UserManagement modal render (formerly here) was removed; the
+          modal wrapper component is retained in its file for direct callers/rollback. */}
     </div>
   )
 }

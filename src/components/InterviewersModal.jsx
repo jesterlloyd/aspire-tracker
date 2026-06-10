@@ -16,7 +16,10 @@ const saveCache = (data) => {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)) } catch {}
 }
 
-export default function InterviewersModal({ isOpen, onClose }) {
+// WS2.2: reusable inline content (no modal chrome). Rendered by AccountsAccessPanel
+// (Settings → Accounts & Access) and by the legacy InterviewersModal wrapper below.
+// Pass onRequestClose to show a close button (modal mode); omit it for inline (Settings).
+export function InterviewersContent({ onRequestClose }) {
   const queryClient = useQueryClient()
   const [interviewers, setInterviewers] = useState([])
   const [loading,      setLoading]      = useState(false)
@@ -147,15 +150,14 @@ export default function InterviewersModal({ isOpen, onClose }) {
   const emailChanged = (interviewer) =>
     (editEmails[interviewer.id] ?? interviewer.email ?? '') !== (interviewer.email ?? '')
 
-  if (!isOpen) return null
-
   return (
     <>
-      <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:1998 }} />
+      {/* WS2.2: content column. Modal positioning/backdrop live in the InterviewersModal
+          wrapper below; inline (Settings) renders this column directly. */}
       <div style={{
-        position:'fixed', top:0, right:0, bottom:0, width:'440px',
-        background:'#ffffff', zIndex:1999, display:'flex', flexDirection:'column',
-        boxShadow:'-8px 0 32px rgba(29,37,103,0.18)', fontFamily:'DM Sans, sans-serif',
+        width:'100%', height:'100%',
+        background:'#ffffff', display:'flex', flexDirection:'column',
+        fontFamily:'DM Sans, sans-serif',
       }}>
         {/* Header */}
         <div style={{
@@ -169,13 +171,15 @@ export default function InterviewersModal({ isOpen, onClose }) {
               People who conduct ASPIRE interviews. Separate from app login accounts.
             </div>
           </div>
-          <button onClick={onClose} style={{
+          {onRequestClose && (
+          <button onClick={onRequestClose} style={{
             background:'rgba(255,255,255,0.1)', border:'none', borderRadius:'8px',
             width:'32px', height:'32px', display:'flex', alignItems:'center',
             justifyContent:'center', cursor:'pointer', color:'#ffffff', flexShrink:0,
           }}>
             <X size={16} />
           </button>
+          )}
         </div>
 
         {/* Body */}
@@ -315,6 +319,21 @@ export default function InterviewersModal({ isOpen, onClose }) {
             )}
           </div>
         </div>
+      </div>
+    </>
+  )
+}
+
+// WS2.2: legacy modal wrapper — preserves the existing fixed right-drawer presentation
+// for callers that open it directly (e.g. WeekCalendar's "Manage Interviewers"). The
+// reusable content lives in InterviewersContent above.
+export default function InterviewersModal({ isOpen, onClose }) {
+  if (!isOpen) return null
+  return (
+    <>
+      <div onClick={onClose} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', zIndex:1998 }} />
+      <div style={{ position:'fixed', top:0, right:0, bottom:0, width:'440px', zIndex:1999, boxShadow:'-8px 0 32px rgba(29,37,103,0.18)' }}>
+        <InterviewersContent onRequestClose={onClose} />
       </div>
     </>
   )

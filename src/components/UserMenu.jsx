@@ -15,7 +15,7 @@ const ROLE_LABELS = {
   viewer:      { label: 'Viewer',      bg: '#6b7280', color: '#ffffff' },
 };
 
-export default function UserMenu({ onOpenUserManagement, onRestartTour }) {
+export default function UserMenu({ onRestartTour }) {
   const { userProfile, signOut, isOwner, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [isOpen,    setIsOpen]    = useState(false);
@@ -74,7 +74,8 @@ export default function UserMenu({ onOpenUserManagement, onRestartTour }) {
         <Tooltip label="People & Access" placement="bottom">
         <button
           data-tour="people-access"
-          onClick={onOpenUserManagement}
+          aria-label="People & Access"
+          onClick={() => navigate('/settings/accounts')}
           style={{
             background: 'rgba(255,255,255,0.10)',
             border: '1px solid rgba(255,255,255,0.15)',

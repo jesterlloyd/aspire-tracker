@@ -129,7 +129,10 @@ function UserInitials({ user, size = 40 }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function UserManagement({ isOpen, onClose }) {
+// WS2.2: reusable inline content (no modal chrome). Rendered by AccountsAccessPanel
+// (Settings → Accounts & Access) and by the legacy UserManagement modal wrapper below.
+// Pass onRequestClose to show a close button (modal mode); omit it for inline (Settings).
+export function UserManagementContent({ onRequestClose }) {
   const buildSha = import.meta.env.VITE_BUILD_SHA;
   const buildEnv = import.meta.env.VITE_BUILD_ENV;
 
@@ -140,10 +143,10 @@ export default function UserManagement({ isOpen, onClose }) {
   // ── Data via TanStack Query ──────────────────────────────────────────────────
 
   // User list — org-wide, no cohortId.
-  // enabled depends only on canEdit, NOT on isOpen. The conditional render in
-  // App.jsx ({showUserManagement && <UserManagement />}) already guarantees this
-  // component is only mounted when open, so isOpen is always true on mount.
-  // Including isOpen in enabled introduced a race with the auth context: on the
+  // enabled depends only on canEdit. This content mounts only when shown (inline in
+  // Settings → Accounts & Access, or via the modal wrapper), both of which are
+  // canEdit-gated, so no extra mount gate is needed here.
+  // (Historically, including an isOpen flag in enabled introduced a race with the
   // very first render after mount, userProfile can still be null, making
   // canEdit false, which makes enabled false, which makes TQ set isLoading=true
   // without ever firing a network request (perpetual "Loading users..." state).
@@ -369,7 +372,7 @@ export default function UserManagement({ isOpen, onClose }) {
   }
 
   // ── Guard ─────────────────────────────────────────────────────────────────────
-  if (!isOpen || !canEdit) return null
+  if (!canEdit) return null // server authorization is still the real gate
 
   const inputStyle = {
     width: '100%', padding: '8px 12px', border: '1px solid #e5e7eb',
@@ -382,9 +385,6 @@ export default function UserManagement({ isOpen, onClose }) {
 
   return (
     <>
-      {/* Backdrop */}
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1998 }} />
-
       {/* Toast */}
       {saveToast && (
         <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 2500, padding: '10px 18px', borderRadius: '10px', fontFamily: 'DM Sans', fontSize: '13px', fontWeight: 600, background: saveToast.type === 'error' ? '#fee2e2' : '#f0fdf4', color: saveToast.type === 'error' ? '#991b1b' : '#166534', border: `1px solid ${saveToast.type === 'error' ? '#fca5a5' : '#86efac'}`, boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }}>
@@ -416,8 +416,9 @@ export default function UserManagement({ isOpen, onClose }) {
         </div>
       )}
 
-      {/* Drawer */}
-      <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '560px', background: '#ffffff', boxShadow: '-8px 0 32px rgba(29,37,103,0.18)', zIndex: 1999, display: 'flex', flexDirection: 'column', fontFamily: 'DM Sans, sans-serif' }}>
+      {/* WS2.2: content column. Modal positioning/backdrop live in the UserManagement
+          wrapper below; inline (Settings) renders this column directly. */}
+      <div style={{ width: '100%', height: '100%', background: '#ffffff', display: 'flex', flexDirection: 'column', fontFamily: 'DM Sans, sans-serif' }}>
 
         {/* Header */}
         <div style={{ background: 'linear-gradient(180deg, #1c2452 0%, #141928 100%)', padding: '20px 24px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
@@ -435,9 +436,11 @@ export default function UserManagement({ isOpen, onClose }) {
               onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
               <RefreshCw size={14} style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }} />
             </button>
-            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ffffff', flexShrink: 0 }}>
+            {onRequestClose && (
+            <button onClick={onRequestClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ffffff', flexShrink: 0 }}>
               <X size={16} />
             </button>
+            )}
           </div>
         </div>
 
@@ -829,6 +832,24 @@ export default function UserManagement({ isOpen, onClose }) {
             Build: {buildSha} · {buildEnv}
           </div>
         </div>
+      </div>
+    </>
+  )
+}
+
+// WS2.2: legacy modal/drawer wrapper — preserves the existing fixed right-drawer
+// presentation + backdrop for callers that open it directly (retained during/after
+// migration). The reusable content lives in UserManagementContent above.
+export default function UserManagement({ isOpen, onClose }) {
+  const { canEdit } = useAuth()
+  if (!isOpen || !canEdit) return null
+  return (
+    <>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1998 }} />
+      {/* Drawer chrome */}
+      <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '560px', boxShadow: '-8px 0 32px rgba(29,37,103,0.18)', zIndex: 1999 }}>
+        <UserManagementContent onRequestClose={onClose} />
       </div>
     </>
   )

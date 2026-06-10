@@ -13,6 +13,7 @@ import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { visibleSections } from './settingsSections'
 import GeneralPanel from './GeneralPanel'
+import AccountsAccessPanel from './AccountsAccessPanel'
 
 export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Aggregate' }) {
   const location = useLocation()
@@ -85,7 +86,8 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Ag
 
         {/* Active panel */}
         <div style={{ flex: '1 1 360px', minWidth: 0, maxWidth: 720 }}>
-          {currentKey === 'general' && <GeneralPanel />}
+          {currentKey === 'general'  && <GeneralPanel />}
+          {currentKey === 'accounts' && <AccountsAccessPanel />}
         </div>
       </div>
     </div>

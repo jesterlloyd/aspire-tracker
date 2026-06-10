@@ -9,7 +9,7 @@ import UserMenu from '../UserMenu'
 
 export default function HeaderActions({
   cohorts, navigate, activeTab, bellRef, setShowActionCenter, actionBadgeCount,
-  onOpenUserManagement, onRestartTour,
+  onRestartTour,
 }) {
   return (
     <>
@@ -106,7 +106,6 @@ export default function HeaderActions({
       </Tooltip>
 
       <UserMenu
-        onOpenUserManagement={onOpenUserManagement}
         onRestartTour={onRestartTour}
       />
     </>
