@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { safeWrite } from '../lib/safeWrite';
 import { getAvatarUrl } from '../lib/getAvatar';
-import { LogOut, Users, ChevronDown } from 'lucide-react';
+import { LogOut, Users, ChevronDown, Settings } from 'lucide-react';
 import Tooltip from './ui/Tooltip';
 import ThemeToggle from './ThemeToggle';
 
@@ -16,6 +17,7 @@ const ROLE_LABELS = {
 
 export default function UserMenu({ onOpenUserManagement, onRestartTour }) {
   const { userProfile, signOut, isOwner, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [isOpen,    setIsOpen]    = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
@@ -189,6 +191,17 @@ export default function UserMenu({ onOpenUserManagement, onRestartTour }) {
                 )}
               </div>
             </div>
+
+            {/* WS2.1: Settings link (additive — navigates to Settings → General) */}
+            <button
+              onClick={() => { setIsOpen(false); navigate('/settings/general'); }}
+              style={{ width: '100%', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)', cursor: 'pointer', textAlign: 'left', borderTop: '1px solid var(--color-border-subtle,#f3f4f6)', transition: 'background 0.15s ease' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-hover,#f9fafb)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'none'}
+            >
+              <Settings size={14} strokeWidth={2} color="#6b7280" />
+              Settings
+            </button>
 
             {/* Restart tour */}
             {onRestartTour && (

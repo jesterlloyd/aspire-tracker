@@ -3,7 +3,7 @@
 // props. Navigation mechanism preserved exactly (Connect uses the passed react-router
 // `navigate`). UserMenu and the floating Keith assistant are unchanged (Keith stays
 // floating in App.jsx; it is NOT part of these header actions).
-import { MessagesSquare } from 'lucide-react'
+import { MessagesSquare, Settings } from 'lucide-react'
 import Tooltip from '../ui/Tooltip'
 import UserMenu from '../UserMenu'
 
@@ -81,6 +81,29 @@ export default function HeaderActions({
         </button>
         </Tooltip>
       )}
+
+      {/* WS2.1: Settings utility — placed immediately before UserMenu. Same nav
+          mechanism as ASPIRE Connect (react-router navigate). */}
+      <Tooltip label="Settings" placement="bottom">
+        <button
+          aria-label="Settings"
+          data-tour="settings"
+          onClick={() => navigate('/settings/general')}
+          style={{
+            position:'relative', flexShrink:0,
+            width:34, height:34, display:'flex', alignItems:'center', justifyContent:'center',
+            background: activeTab === 'settings' ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)',
+            border: `1px solid ${activeTab === 'settings' ? 'rgba(255,255,255,0.50)' : 'rgba(255,255,255,0.10)'}`,
+            borderRadius:8,
+            color: activeTab === 'settings' ? '#fff' : 'rgba(255,255,255,0.75)',
+            cursor:'pointer', transition:'background 0.15s, border-color 0.15s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.14)'}
+          onMouseLeave={e => e.currentTarget.style.background = activeTab === 'settings' ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)'}
+        >
+          <Settings size={15} strokeWidth={1.9} />
+        </button>
+      </Tooltip>
 
       <UserMenu
         onOpenUserManagement={onOpenUserManagement}

@@ -12,6 +12,7 @@ import EvaluationTab from './components/EvaluationTab'
 import AddStudentModal from './components/AddStudentModal'
 import UnifiedNav, { RefreshHint } from './components/UnifiedNav'
 import Header from './components/Header/Header'
+import SettingsShell from './components/settings/SettingsShell'
 import NewCohortModal from './components/NewCohortModal'
 import ManageCohortModal from './components/ManageCohortModal'
 import { useAuth } from './contexts/AuthContext'
@@ -161,13 +162,16 @@ function MainApp({ onLogout }) {
     const p = location.pathname
     if (p.startsWith('/rotation')) return 'rotation'
     if (p.startsWith('/connect'))  return 'connect'
+    if (p.startsWith('/settings')) return 'settings' // WS2.1: app-level utility section
     return PATH_TO_TAB[p] || 'overview'
   })()
 
   // Track the last non-Connect path for the workspace back affordance.
   // Stored in a ref so it never triggers re-renders.
   useEffect(() => {
-    if (!location.pathname.startsWith('/connect')) {
+    // WS2.1: Settings (like Connect) is an app-level utility, not a workspace — exclude
+    // it so Back-to-workspace returns to the prior operational tab, not /settings.
+    if (!location.pathname.startsWith('/connect') && !location.pathname.startsWith('/settings')) {
       prevWorkspacePath.current = location.pathname
     }
   }, [location.pathname])
@@ -752,7 +756,7 @@ function MainApp({ onLogout }) {
           actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, actionBadgeCount, onOpenUserManagement: () => setShowUserManagement(true), onRestartTour: () => { switchTab('overview'); setTimeout(() => setTourRunning(true), 400) } }}
         />
 
-        {cohorts.length > 0 && activeTab !== 'connect' && (
+        {cohorts.length > 0 && activeTab !== 'connect' && activeTab !== 'settings' && (
           <UnifiedNav
             cohorts={cohorts}
             activeCohortId={activeCohortId}
@@ -806,7 +810,12 @@ function MainApp({ onLogout }) {
       </div>
 
       <main className="app-main">
-        {cohorts.length === 0 && !loading && (
+        {/* WS2.1: Settings is an app-level utility section (available regardless of
+            cohorts); it renders here while the operational tabs stay mounted+hidden. */}
+        {activeTab === 'settings' && (
+          <SettingsShell backPath={backPath} backLabel={backLabel} />
+        )}
+        {cohorts.length === 0 && !loading && activeTab !== 'settings' && (
           <div className="state-box" style={{ marginTop: 40 }}>
             <p style={{ marginBottom: 8, fontSize: 16, fontWeight: 600 }}>Welcome to ASPIRE Intelligence</p>
             <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>Get started by creating your first cohort.</p>
