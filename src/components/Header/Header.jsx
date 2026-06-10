@@ -1,11 +1,11 @@
 // WS2.0: application header container, extracted from App.jsx. Composes the existing
 // header zones with NO behavior change. All state/handlers/refs remain owned by App.jsx
 // and are passed in via the grouped `cohort` / `search` / `actions` props. This is the
-// foundation WS2.1 (Settings shell) will build on — Settings will later be added inside
-// HeaderActions. No utilities are added/removed/reordered here. LastSyncedIndicator stays.
+// foundation WS2.1 (Settings shell) built on. WS2.2b: the visible LastSyncedIndicator
+// was removed from the header (the component file is retained, now unrendered). Settings
+// is reached via the UserMenu dropdown, not a header gear.
 import HeaderBrand from './HeaderBrand'
 import CohortPicker from './CohortPicker'
-import LastSyncedIndicator from './LastSyncedIndicator'
 import UniversalSearch from './UniversalSearch'
 import HeaderActions from './HeaderActions'
 
@@ -27,10 +27,8 @@ export default function Header({ cohort, search, actions }) {
 
       <div style={{ flex:1 }} />
 
-      {/* Zone 2: Status — cohort picker + sync */}
+      {/* Zone 2: Status — cohort picker */}
       <CohortPicker {...cohort} />
-
-      <LastSyncedIndicator />
 
       {/* Zone 3: Search */}
       <UniversalSearch {...search} />

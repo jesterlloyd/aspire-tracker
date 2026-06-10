@@ -3,7 +3,7 @@
 // props. Navigation mechanism preserved exactly (Connect uses the passed react-router
 // `navigate`). UserMenu and the floating Keith assistant are unchanged (Keith stays
 // floating in App.jsx; it is NOT part of these header actions).
-import { MessagesSquare, Settings } from 'lucide-react'
+import { MessagesSquare } from 'lucide-react'
 import Tooltip from '../ui/Tooltip'
 import UserMenu from '../UserMenu'
 
@@ -82,28 +82,12 @@ export default function HeaderActions({
         </Tooltip>
       )}
 
-      {/* WS2.1: Settings utility — placed immediately before UserMenu. Same nav
-          mechanism as ASPIRE Connect (react-router navigate). */}
-      <Tooltip label="Settings" placement="bottom">
-        <button
-          aria-label="Settings"
-          data-tour="settings"
-          onClick={() => navigate('/settings/general')}
-          style={{
-            position:'relative', flexShrink:0,
-            width:34, height:34, display:'flex', alignItems:'center', justifyContent:'center',
-            background: activeTab === 'settings' ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)',
-            border: `1px solid ${activeTab === 'settings' ? 'rgba(255,255,255,0.50)' : 'rgba(255,255,255,0.10)'}`,
-            borderRadius:8,
-            color: activeTab === 'settings' ? '#fff' : 'rgba(255,255,255,0.75)',
-            cursor:'pointer', transition:'background 0.15s, border-color 0.15s',
-          }}
-          onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.14)'}
-          onMouseLeave={e => e.currentTarget.style.background = activeTab === 'settings' ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)'}
-        >
-          <Settings size={15} strokeWidth={1.9} />
-        </button>
-      </Tooltip>
+      {/* WS2.2b: the standalone Settings gear was removed from the visible header.
+          Settings remains reachable via the UserMenu dropdown (→ /settings/general),
+          which is the settings/control center. The Settings routes/shell are unchanged.
+          (The gear's data-tour="settings" was not referenced by any tour step.)
+          ASPIRE Catalog is intentionally NOT rendered yet (Approach B — added later
+          when it has an approved scope, data model, and real destination). */}
 
       <UserMenu
         onRestartTour={onRestartTour}
