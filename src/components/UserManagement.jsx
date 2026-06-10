@@ -210,12 +210,13 @@ export function UserManagementContent({ onRequestClose }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [menuOpenId])
 
-  // ── Reset UI state on drawer open (fetching handled by useQuery above) ─────────
+  // ── Reset UI state on mount (the content mounts when shown — inline in Settings,
+  //    or when the modal wrapper opens). Was previously gated on the modal's isOpen,
+  //    which no longer exists on this extracted content component (WS2.2 fix). ───────
   useEffect(() => {
-    if (!isOpen) return
     setChipFilter('all')
     setExpandedUserId(null)
-  }, [isOpen])
+  }, [])
 
   // ── Manual refresh — invalidates both user list and activity log ──────────────
   const refetch = useCallback(() => {

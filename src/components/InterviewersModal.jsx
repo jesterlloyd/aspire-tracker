@@ -64,12 +64,13 @@ export function InterviewersContent({ onRequestClose }) {
     }
   }, [])
 
+  // Fetch on mount (the content mounts when shown — inline in Settings, or when the
+  // modal wrapper opens). Was previously gated on the modal's isOpen, which no longer
+  // exists on this extracted content component (WS2.2 fix).
   useEffect(() => {
-    if (isOpen) {
-      fetchInterviewers()
-      setSavedIds({})
-    }
-  }, [isOpen, fetchInterviewers])
+    fetchInterviewers()
+    setSavedIds({})
+  }, [fetchInterviewers])
 
   const callProxy = async (body) => {
     // WS1d-A: forward the Supabase access token so the server can verify the
