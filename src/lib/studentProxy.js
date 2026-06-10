@@ -89,6 +89,31 @@ export async function clearInterviewSchedule(studentId) {
   return data
 }
 
+// WS1e-A3b: unified rubric-outcome persistence (Owner/Admin/Interviewer). Sends
+// only the supplied rubric fields (partial updates supported); server validates.
+export async function saveInterviewOutcome(studentId, fields) {
+  const res = await fetch('/api/student-update', {
+    method:  'POST',
+    headers: await authHeaders(),
+    body:    JSON.stringify({ action: 'save_interview_outcome', student_id: studentId, ...fields }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.message || data.error || 'Save interview outcome failed')
+  return data
+}
+
+// WS1e-A3b: manual single-field interview_outcome override (Owner/Admin only).
+export async function updateInterviewOutcome(studentId, interviewOutcome) {
+  const res = await fetch('/api/student-update', {
+    method:  'POST',
+    headers: await authHeaders(),
+    body:    JSON.stringify({ action: 'update_interview_outcome', student_id: studentId, interview_outcome: interviewOutcome }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.message || data.error || 'Update interview outcome failed')
+  return data
+}
+
 export async function updateStudentStatus(studentId, status, declineReason) {
   const res = await fetch('/api/student-update', {
     method:  'POST',

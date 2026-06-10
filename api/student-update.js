@@ -35,11 +35,10 @@ async function verifyCaller(req) {
   }
 }
 
-// WS1e-A1: temporary NARROW Interviewer allow-list — exactly the fields the
-// RubricSession workflow submits to the student record. Interviewers may set
-// NOTHING else through the generic `update` action. (Owner/Admin retain the
-// broad legacy surface temporarily; A2–A5 migrate/remove it.)
-const INTERVIEWER_RUBRIC_FIELDS = [
+// WS1e-A3b: exact rubric-outcome field set for save_interview_outcome (used by
+// Owner/Admin/Interviewer). These fields are NO LONGER writable via the generic
+// `update` action (see MIGRATED_RUBRIC below).
+const RUBRIC_OUTCOME_FIELDS = [
   'unit_preference_1', 'unit_preference_2', 'unit_preference_3',
   'avg_cj_score', 'avg_pp_score', 'avg_ga_score', 'avg_composite_score', 'rubric_count',
   'auto_recommendation', 'score_flag', 'score_flag_message', 'interview_outcome',
@@ -48,7 +47,22 @@ const INTERVIEWER_RUBRIC_FIELDS = [
 const RUBRIC_AUTO_REC = ['Recommend', 'Recommend with Reservations', 'Do Not Recommend at This Time']
 const RUBRIC_OUTCOME  = ['Recommend', 'Recommend with Reservations', 'Do Not Recommend']
 const RUBRIC_STATUS   = ['Interviewed'] // the only status the rubric workflow assigns
-function validateInterviewerField(k, v) {
+// Manual interview_outcome override options (StudentSidePanel/StudentRow selects).
+const MANUAL_OUTCOME_VALUES = ['Pending Interview', 'Recommend', 'Recommend with Reservations', 'Do Not Recommend']
+
+// Fields migrated OFF the generic `update` action into explicit actions. Rejected
+// before the whitelist/fallback so the all-pass-through fallback can never write
+// them. `status` is intentionally NOT here (cross-domain; kept generic for Owner/Admin).
+const MIGRATED_PLACEMENT = ['matched_preceptor', 'shift_assigned', 'assigned_shift']
+const MIGRATED_SCHEDULE  = ['interview_scheduled_date', 'interview_scheduled_time', 'interview_duration_minutes', 'interview_assigned_interviewers']
+const MIGRATED_RUBRIC    = ['unit_preference_1', 'unit_preference_2', 'unit_preference_3', 'avg_cj_score', 'avg_pp_score', 'avg_ga_score', 'avg_composite_score', 'rubric_count', 'auto_recommendation', 'score_flag', 'score_flag_message', 'interview_outcome', 'flagged_for_second_interview', 'flag_note']
+function migratedFieldHint(field) {
+  if (MIGRATED_PLACEMENT.includes(field)) return 'Use update_preceptor_assignment for preceptor/shift assignment.'
+  if (MIGRATED_SCHEDULE.includes(field))  return 'Use update_interview_schedule for interview scheduling.'
+  return 'Use save_interview_outcome / update_interview_outcome for interview outcome fields.'
+}
+
+function validateRubricField(k, v) {
   switch (k) {
     case 'status':                       return RUBRIC_STATUS.includes(v)
     case 'auto_recommendation':          return RUBRIC_AUTO_REC.includes(v)
@@ -103,52 +117,19 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'invalid_request', field: 'fields' })
       }
 
-      // ── Interviewer: narrow rubric-only path (exact allow-list, no fallback) ──
-      if (isInterviewer && !isOwnerAdmin) {
-        const keys = Object.keys(fields)
-        const unexpected = keys.filter(k => !INTERVIEWER_RUBRIC_FIELDS.includes(k))
-        if (unexpected.length > 0) {
-          console.log('[student-update] interviewer non-rubric field denied', { request_id: requestId, denied: unexpected.length })
-          return res.status(403).json({ error: 'forbidden', message: 'Interviewers may only update interview rubric fields.' })
-        }
-        for (const k of keys) {
-          if (!validateInterviewerField(k, fields[k])) {
-            return res.status(400).json({ error: 'invalid_request', field: k, message: 'Invalid value for this field.' })
-          }
-        }
-        const { data: stu, error: stuErr } = await db.from('students').select('id').eq('id', student_id).maybeSingle()
-        if (stuErr) return res.status(500).json({ error: 'internal_error' })
-        if (!stu) return res.status(404).json({ error: 'not_found' })
-        const { error: updErr } = await db.from('students').update(fields).eq('id', student_id)
-        if (updErr) {
-          console.log('[student-update] interviewer update failed', { request_id: requestId, errorCode: updErr.code })
-          return res.status(500).json({ error: 'internal_error' })
-        }
-        console.log('[student-update] interviewer rubric update', { request_id: requestId, callerRole: auth.role, studentId: student_id, fields: keys })
-        return res.status(200).json({ success: true })
-      }
-
-      // ── Owner/Admin only beyond here (temporary broad legacy surface; A2–A5) ──
+      // ── Owner/Admin only. Interviewers have NO generic-update access (WS1e-A3b);
+      //    their only student write path is save_interview_outcome. ──────────────
       if (!isOwnerAdmin) {
         return res.status(403).json({ error: 'forbidden', message: 'You do not have permission to update students.' })
       }
 
-      // WS1e-A2: these fields are owned exclusively by update_preceptor_assignment.
-      // Reject them explicitly so they can never slip through the all-pass-through
-      // fallback below (a request of ONLY these would otherwise hit the fallback).
-      const migratedPlacement = Object.keys(fields).filter(k =>
-        k === 'matched_preceptor' || k === 'shift_assigned' || k === 'assigned_shift')
-      if (migratedPlacement.length > 0) {
-        return res.status(400).json({ error: 'invalid_request', field: migratedPlacement[0], message: 'Use update_preceptor_assignment for preceptor/shift assignment.' })
-      }
-
-      // WS1e-A3a: interview scheduling fields are owned exclusively by
-      // update_interview_schedule — reject before the whitelist/fallback.
-      const migratedSchedule = Object.keys(fields).filter(k =>
-        k === 'interview_scheduled_date' || k === 'interview_scheduled_time' ||
-        k === 'interview_duration_minutes' || k === 'interview_assigned_interviewers')
-      if (migratedSchedule.length > 0) {
-        return res.status(400).json({ error: 'invalid_request', field: migratedSchedule[0], message: 'Use update_interview_schedule for interview scheduling.' })
+      // Fields migrated to explicit actions (placement A2, scheduling A3a, rubric
+      // outcomes A3b) — reject BEFORE the whitelist/fallback so the all-pass-through
+      // fallback can never write them.
+      const migratedField = Object.keys(fields).find(k =>
+        MIGRATED_PLACEMENT.includes(k) || MIGRATED_SCHEDULE.includes(k) || MIGRATED_RUBRIC.includes(k))
+      if (migratedField) {
+        return res.status(400).json({ error: 'invalid_request', field: migratedField, message: migratedFieldHint(migratedField) })
       }
 
       const allowed = [
@@ -156,7 +137,7 @@ export default async function handler(req, res) {
         'phone', 'school', 'program', 'program_type', 'cohort_id',
         'cumulative_gpa', 'gpa', 'expected_graduation', 'graduation_date', 'graduation_semester',
         'status', 'decline_reason',
-        'unit_preference_1', 'unit_preference_2', 'unit_preference_3',
+        // WS1e-A3b: unit_preference_1/2/3 migrated to save_interview_outcome.
         'unit_preference', 'specialty_interest',
         'notes', 'internal_notes', 'admin_notes',
         'badge_created', 'badge_issued', 'badge_printed',
@@ -181,9 +162,9 @@ export default async function handler(req, res) {
         'preceptor_name', 'preceptor_assigned', 'assigned_preceptor',
         'shift', 'shift_type', 'clinical_shift', 'shift_preference',
         'match_notes', 'placement_notes', 'unit_notes', 'preceptor_notes',
-        // WS1e-A3a: interview_scheduled_date/time, interview_duration_minutes,
-        // interview_assigned_interviewers migrated to update_interview_schedule.
-        'flagged_for_second_interview', 'auto_recommendation',
+        // WS1e-A3a: interview_scheduled_* migrated to update_interview_schedule.
+        // WS1e-A3b: flagged_for_second_interview / auto_recommendation / interview_outcome
+        // and rubric aggregates migrated to save_interview_outcome.
         'resume_url', 'headshot_url', 'scheduling_viewed_at',
         'interest_statement', 'submitted_via',
         'date_of_birth', 'ssn_last4', 'gender', 'shift_availability',
@@ -391,6 +372,87 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'internal_error' })
       }
       console.log('[student-update] interview scheduled', { request_id: requestId, callerRole: auth.role, studentId: student_id, cohortId: stu.cohort_id ?? null })
+      return res.status(200).json({ success: true })
+    }
+
+    // WS1e-A3b: unified rubric-outcome persistence — the ONLY student-update path
+    // for the rubric field set. Owner/Admin/Interviewer (interviewer status only
+    // 'Interviewed', enforced by validateRubricField). Partial updates supported.
+    if (action === 'save_interview_outcome') {
+      if (!(isOwnerAdmin || isInterviewer)) {
+        return res.status(403).json({ error: 'forbidden', message: 'You do not have permission to save interview outcomes.' })
+      }
+      const ALLOWED = ['action', 'student_id', ...RUBRIC_OUTCOME_FIELDS]
+      const unexpected = Object.keys(req.body || {}).filter(k => !ALLOWED.includes(k))
+      if (unexpected.length > 0) {
+        return res.status(400).json({ error: 'invalid_request', field: unexpected[0], message: 'Unexpected field.' })
+      }
+      const { student_id } = payload
+      if (!student_id || typeof student_id !== 'string') {
+        return res.status(400).json({ error: 'invalid_request', field: 'student_id' })
+      }
+      const supplied = RUBRIC_OUTCOME_FIELDS.filter(k => payload[k] !== undefined)
+      if (supplied.length === 0) {
+        return res.status(400).json({ error: 'invalid_request', message: 'At least one rubric field is required.' })
+      }
+      for (const k of supplied) {
+        // status (if supplied) is restricted to 'Interviewed' for ALL roles here.
+        if (!validateRubricField(k, payload[k])) {
+          return res.status(400).json({ error: 'invalid_request', field: k, message: 'Invalid value for this field.' })
+        }
+      }
+      const upd = {}
+      for (const k of supplied) upd[k] = payload[k]
+
+      // supplied keys come only from the fixed RUBRIC_OUTCOME_FIELDS allow-list.
+      const { data: stu, error: stuErr } = await db.from('students')
+        .select(['id', 'cohort_id', ...supplied].join(', ')).eq('id', student_id).maybeSingle()
+      if (stuErr) return res.status(500).json({ error: 'internal_error' })
+      if (!stu) return res.status(404).json({ error: 'not_found' })
+
+      const noChange = supplied.every(k => (stu[k] ?? null) === (upd[k] ?? null))
+      if (noChange) return res.status(200).json({ success: true, no_change: true })
+
+      const { error: updErr } = await db.from('students').update(upd).eq('id', student_id)
+      if (updErr) {
+        console.log('[student-update] save_interview_outcome failed', { request_id: requestId, errorCode: updErr.code })
+        return res.status(500).json({ error: 'internal_error' })
+      }
+      console.log('[student-update] interview outcome saved', { request_id: requestId, callerRole: auth.role, studentId: student_id, cohortId: stu.cohort_id ?? null, fields: supplied })
+      return res.status(200).json({ success: true })
+    }
+
+    // WS1e-A3b: manual single-field interview_outcome override — Owner/Admin only,
+    // distinct from the full rubric submission. Cannot touch any other field.
+    if (action === 'update_interview_outcome') {
+      if (!isOwnerAdmin) {
+        return res.status(403).json({ error: 'forbidden', message: 'You do not have permission to set interview outcome.' })
+      }
+      const ALLOWED = ['action', 'student_id', 'interview_outcome']
+      const unexpected = Object.keys(req.body || {}).filter(k => !ALLOWED.includes(k))
+      if (unexpected.length > 0) {
+        return res.status(400).json({ error: 'invalid_request', field: unexpected[0], message: 'Unexpected field.' })
+      }
+      const { student_id, interview_outcome } = payload
+      if (!student_id || typeof student_id !== 'string') {
+        return res.status(400).json({ error: 'invalid_request', field: 'student_id' })
+      }
+      if (typeof interview_outcome !== 'string' || !MANUAL_OUTCOME_VALUES.includes(interview_outcome)) {
+        return res.status(400).json({ error: 'invalid_request', field: 'interview_outcome' })
+      }
+      const { data: stu, error: stuErr } = await db.from('students')
+        .select('id, cohort_id, interview_outcome').eq('id', student_id).maybeSingle()
+      if (stuErr) return res.status(500).json({ error: 'internal_error' })
+      if (!stu) return res.status(404).json({ error: 'not_found' })
+      if ((stu.interview_outcome ?? '') === interview_outcome) {
+        return res.status(200).json({ success: true, no_change: true })
+      }
+      const { error: updErr } = await db.from('students').update({ interview_outcome }).eq('id', student_id)
+      if (updErr) {
+        console.log('[student-update] update_interview_outcome failed', { request_id: requestId, errorCode: updErr.code })
+        return res.status(500).json({ error: 'internal_error' })
+      }
+      console.log('[student-update] manual interview outcome updated', { request_id: requestId, callerRole: auth.role, studentId: student_id, cohortId: stu.cohort_id ?? null })
       return res.status(200).json({ success: true })
     }
 

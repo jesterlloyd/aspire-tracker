@@ -5,7 +5,7 @@ import {
 } from '../lib/constants'
 import { displayName } from '../lib/utils'
 import { supabase } from '../lib/supabase'
-import { updatePreceptorAssignment } from '../lib/studentProxy'
+import { updatePreceptorAssignment, updateInterviewOutcome } from '../lib/studentProxy'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 import ScoreFlag from './ScoreFlag'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
@@ -52,6 +52,17 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
     if (field === 'matched_preceptor' || field === 'shift_assigned') {
       try {
         await updatePreceptorAssignment(student.id, { [field]: value })
+        setSaveState('saved')
+        setTimeout(() => setSaveState('idle'), 2000)
+      } catch (e) {
+        setSaveState('error')
+      }
+      return
+    }
+    // WS1e-A3b: manual interview_outcome override goes through its explicit action.
+    if (field === 'interview_outcome') {
+      try {
+        await updateInterviewOutcome(student.id, value)
         setSaveState('saved')
         setTimeout(() => setSaveState('idle'), 2000)
       } catch (e) {

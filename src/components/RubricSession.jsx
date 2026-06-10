@@ -12,6 +12,9 @@ import ScoreFlag from './ScoreFlag'
 import { logEvent, eventExists } from '../lib/logEvent'
 import { logActivity } from '../lib/logActivity'
 import { useAuth } from '../contexts/AuthContext'
+// WS1e-A3b: rubric outcomes persist through the explicit save_interview_outcome
+// action (Owner/Admin/Interviewer) instead of the generic onStudentUpdate path.
+import { saveInterviewOutcome } from '../lib/studentProxy'
 
 // ── Domain data ──────────────────────────────────────────────
 const CJ_QUESTIONS = [
@@ -526,7 +529,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   }
   const savePreference = async (field, value) => {
     setPrefs(p => ({ ...p, [field]: value }))
-    await onStudentUpdate(student.id, { [field]: value })
+    await saveInterviewOutcome(student.id, { [field]: value })
   }
 
   const handleMarkComplete = async () => {
@@ -542,7 +545,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     setForm(p => ({ ...p, status:'Completed', composite_score: composite }))
     // Fetch all completed rubrics fresh from DB so stale local state can never affect the result
     const recalc = await recalculateStudentAverages(student.id, supabase)
-    if (recalc) await onStudentUpdate(student.id, recalc)
+    if (recalc) await saveInterviewOutcome(student.id, recalc)
     // Auto-log interview event on first rubric completion
     const already = await eventExists(supabase, student.id, 'interview')
     if (!already) {
@@ -585,11 +588,11 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
   const handleFlag = async () => {
     setIsFlagged(true); setFlagging(false)
-    await onStudentUpdate(student.id, { flagged_for_second_interview: true, flag_note: flagNote })
+    await saveInterviewOutcome(student.id, { flagged_for_second_interview: true, flag_note: flagNote })
   }
   const handleUnflag = async () => {
     setIsFlagged(false)
-    await onStudentUpdate(student.id, { flagged_for_second_interview: false, flag_note: '' })
+    await saveInterviewOutcome(student.id, { flagged_for_second_interview: false, flag_note: '' })
   }
 
   const handleRubricEdit = async (rubricId, updates) => {
@@ -601,7 +604,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     // Fetch all completed rubrics fresh from DB so stale local state can never affect the result
     const recalc = await recalculateStudentAverages(student.id, supabase)
     if (recalc) {
-      await onStudentUpdate(student.id, recalc)
+      await saveInterviewOutcome(student.id, recalc)
     }
   }
 
@@ -992,7 +995,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                   onChange={e => setFlagNote(e.target.value)} placeholder="Flag note…" />
                 <div style={{ display:'flex', gap:8 }}>
                   <button className="btn btn-outline-modal" style={{ fontSize:12 }}
-                    onClick={async () => { await onStudentUpdate(student.id, { flag_note: flagNote }) }}>Save Note</button>
+                    onClick={async () => { await saveInterviewOutcome(student.id, { flag_note: flagNote }) }}>Save Note</button>
                   <button className="btn btn-outline-modal" style={{ fontSize:12 }} onClick={handleUnflag}>Unflag</button>
                 </div>
               </div>

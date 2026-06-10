@@ -17,7 +17,7 @@ import { downloadFile, buildStudentFilename } from '../lib/fileUtils'
 import { DECLINE_REASONS } from '../lib/statuses'
 import { EVENT_TYPES, EVENT_TYPE_LABELS, getEventColor } from '../lib/eventTypes'
 import { logEvent, eventExists } from '../lib/logEvent'
-import { updatePreceptorAssignment } from '../lib/studentProxy'
+import { updatePreceptorAssignment, updateInterviewOutcome } from '../lib/studentProxy'
 import { calculateProfileCompletion, getCompletionColor } from '../lib/profileCompletion'
 import { generateStudentSummary } from '../lib/generateSummary'
 import { Copy, Check, Mail, User, GraduationCap, Briefcase, MapPin, FileText, MessageSquare, CheckCircle2, Award, ClipboardList, CalendarDays, Flag, Info } from 'lucide-react'
@@ -609,6 +609,22 @@ export default function StudentSidePanel({
     setSaveStatus('saving')
     // WS1e-A2: preceptor/shift assignment is migrated off the generic update to the
     // explicit placement action (no OCC guard on that narrow operation).
+    // WS1e-A3b: manual interview_outcome override goes through its explicit action.
+    if (field === 'interview_outcome') {
+      try {
+        await updateInterviewOutcome(student.id, value)
+        setSaveStatus('saved')
+        const { data: fresh } = await supabase.from('students').select('updated_at').eq('id', student.id).single()
+        if (fresh?.updated_at) setLoadedUpdatedAt(fresh.updated_at)
+        setTimeout(() => setSaveStatus('idle'), 1800)
+        setFieldSaved(field)
+        setTimeout(() => setFieldSaved(prev => prev === field ? null : prev), 1800)
+      } catch (e) {
+        setSaveStatus('error')
+        toast?.error('Save failed', 'Unable to save changes. Please try again.')
+      }
+      return
+    }
     if (field === 'matched_preceptor' || field === 'shift_assigned') {
       try {
         await updatePreceptorAssignment(student.id, { [field]: value })
