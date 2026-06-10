@@ -4,8 +4,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './lib/supabase'
 import { updatePreceptorAssignment, updateContact, updateProfile, updateRequirements, updateCslink, updateNgrp, updateBadge, updateNotes, updateStatus, updateInterviewOutcome } from './lib/studentProxy'
 import { displayName } from './lib/utils'
-import { ASPIRE_STATUS_CONFIG } from './lib/constants'
-import StudentAvatar from './components/StudentAvatar'
 import OverviewTab from './components/OverviewTab'
 import StudentProfilesTab from './components/StudentProfilesTab'
 import InterviewRubricTab from './components/InterviewRubricTab'
@@ -13,13 +11,13 @@ import RotationTab from './components/RotationTab'
 import EvaluationTab from './components/EvaluationTab'
 import AddStudentModal from './components/AddStudentModal'
 import UnifiedNav, { RefreshHint } from './components/UnifiedNav'
+import Header from './components/Header/Header'
 import NewCohortModal from './components/NewCohortModal'
 import ManageCohortModal from './components/ManageCohortModal'
 import { useAuth } from './contexts/AuthContext'
 import LoginNew from './pages/Login'
 import DevDispositionModal from './pages/DevDispositionModal'
 import EvaluationPage from './pages/EvaluationPage'
-import UserMenu from './components/UserMenu'
 import UserManagement from './components/UserManagement'
 import UnitFormPage from './components/UnitFormPage'
 import SchoolFormPage from './components/SchoolFormPage'
@@ -38,9 +36,7 @@ import { useToast } from './hooks/useToast'
 import { ToastContainer } from './components/Toast'
 import { logActivity } from './lib/logActivity'
 import { safeWrite } from './lib/safeWrite'
-import { MessagesSquare } from 'lucide-react'
 import ConnectPage from './pages/Connect'
-import Tooltip from './components/ui/Tooltip'
 
 /*
   COHORT ISOLATION CONTRACT
@@ -70,71 +66,7 @@ function computeMatchSummary(matchList) {
   }
 }
 
-// ── Header helpers (moved from UnifiedNav) ────────────────────────────────────
-
-const COHORT_STATUS_COLORS = {
-  Planning:  { bg:'#dbeafe', color:'#1d4ed8' },
-  Active:    { bg:'#dcfce7', color:'#166534' },
-  Completed: { bg:'#f3f4f6', color:'#6b7280' },
-  Archived:  { bg:'#f3f4f6', color:'#9ca3af' },
-}
-
-function fmtCohortDate(d) {
-  if (!d) return ''
-  const s = typeof d === 'string' ? d : ''
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-    const [y, m, day] = s.split('T')[0].split('-').map(Number)
-    return new Date(y, m - 1, day).toLocaleDateString('en-US', { month:'short', day:'numeric' })
-  }
-  const p = new Date(s); return isNaN(p.getTime()) ? s.replace(/,?\s*\d{4}/,'').trim() : p.toLocaleDateString('en-US', { month:'short', day:'numeric' })
-}
-function fmtCohortRange(a, b) {
-  if (!a && !b) return ''; if (!b) return fmtCohortDate(a)
-  return `${fmtCohortDate(a)} – ${fmtCohortDate(b)}`
-}
-
-function HeaderChevron() {
-  return <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-}
-function HeaderSearchIcon() {
-  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-}
-
-// Contact category badge colors for universal search results
-// Matches CATEGORY_CHIP_STYLES in ContactsView.jsx
-const CONTACT_CAT_COLORS = {
-  'Academic Partners':  { bg:'#EEF2FB', text:'#1D2567',  border:'#c3cdf0' },
-  'Unit Leadership':    { bg:'#E0F7FA', text:'#0d7a8a',  border:'#9dd6f2' },
-  'Preceptors':         { bg:'#E1F3FB', text:'#0e4e6e',  border:'#89CEEA' },
-  'BNI Team':           { bg:'#EDE9FE', text:'#5B21B6',  border:'#C4B5FD' },
-  'Nursing Executives': { bg:'#FEF3C7', text:'#92400e',  border:'#fde68a' },
-}
-const getContactCatStyle = cat => CONTACT_CAT_COLORS[cat] || { bg:'#f3f4f6', text:'#6b7280', border:'#e5e7eb' }
-
-function LastSyncedIndicator() {
-  const queryClient = useQueryClient()
-  const [label, setLabel] = useState('Synced just now')
-  useEffect(() => {
-    function compute() {
-      const qs = queryClient.getQueryCache().getAll()
-      const ok = qs.filter(q => q.state.status === 'success' && q.state.dataUpdatedAt)
-      if (!ok.length) { setLabel('Not yet synced'); return }
-      const newest = Math.max(...ok.map(q => q.state.dataUpdatedAt))
-      const s = Math.floor((Date.now() - newest) / 1000)
-      if (s < 10) setLabel('Synced just now')
-      else if (s < 60) setLabel(`Synced ${s}s ago`)
-      else if (s < 3600) setLabel(`Synced ${Math.floor(s/60)}m ago`)
-      else setLabel(`Synced ${Math.floor(s/3600)}h ago`)
-    }
-    compute(); const id = setInterval(compute, 5000); return () => clearInterval(id)
-  }, [queryClient])
-  return (
-    <span style={{ flexShrink:0, fontSize:11.5, color:'rgba(255,255,255,0.55)', fontFamily:'DM Sans, sans-serif', display:'flex', alignItems:'center', gap:5 }}>
-      <span style={{ width:6, height:6, borderRadius:'50%', background:'#5DD39E', flexShrink:0, boxShadow:'0 0 0 3px rgba(93,211,158,0.18)' }} />
-      {label}
-    </span>
-  )
-}
+// WS2.0: header helpers, icons, and LastSyncedIndicator moved to src/components/Header/*
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tab ID ↔ URL path mapping (internal IDs never change; URLs are what's new)
@@ -813,304 +745,12 @@ function MainApp({ onLogout }) {
   return (
     <div className="app">
       <div className="top-section">
-        {/* ── Application header: brand | spacer | status + actions ── */}
-        <header style={{
-          background: 'linear-gradient(180deg, #1D2567 0%, #161D52 100%)',
-          padding: '0 24px',
-          height: 64,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          fontFamily: 'DM Sans, sans-serif',
-          flexShrink: 0,
-          position: 'relative',
-        }}>
-          {/* Zone 1: Brand */}
-          <div style={{ display:'flex', alignItems:'center', gap:14, flexShrink:0 }}>
-            <img src="/cs-logo-large.png" alt="Cedars-Sinai" style={{ height:46, width:'auto', objectFit:'contain' }} />
-            <div style={{ width:1, height:30, background:'rgba(255,255,255,0.18)', flexShrink:0 }} />
-            <Tooltip label="Affiliate Students' Pathway from Internship to Residency Experience" placement="bottom">
-              <div style={{ fontSize:20, fontWeight:700, color:'#fff', letterSpacing:'-0.01em', cursor:'default' }}>
-                ASPIRE Intelligence
-              </div>
-            </Tooltip>
-          </div>
-
-          <div style={{ flex:1 }} />
-
-          {/* Zone 2: Status — cohort picker + sync */}
-          {cohorts.length > 0 && (
-            <div ref={cohortPickerRef} style={{ position:'relative', flexShrink:0 }}>
-              <Tooltip label="Switch cohort" placement="bottom">
-              <button
-                data-tour="cohort-switcher"
-                aria-label="Switch cohort"
-                onClick={() => setCohortOpen(p => !p)}
-                style={{
-                  display:'flex', alignItems:'center', gap:8,
-                  background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.10)',
-                  borderRadius:999, padding:'7px 13px',
-                  color:'#fff', cursor:'pointer', fontFamily:'DM Sans, sans-serif',
-                  transition:'background 0.15s',
-                }}
-                onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.12)'}
-                onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.07)'}
-              >
-                <span style={{ width:6, height:6, borderRadius:'50%', flexShrink:0, background: activeCohort?.accepting_submissions ? '#5DD39E' : '#9ca3af', boxShadow: activeCohort?.accepting_submissions ? '0 0 0 3px rgba(93,211,158,0.2)' : 'none' }} />
-                <span style={{ fontSize:10, color:'rgba(255,255,255,0.5)', textTransform:'uppercase', letterSpacing:'0.08em', marginRight:2 }}>Cohort</span>
-                <span style={{ fontSize:12.5, fontWeight:600 }}>{activeCohort?.name || 'Select cohort'}</span>
-                <span style={{ opacity:0.5, lineHeight:0, marginLeft:2 }}><HeaderChevron /></span>
-              </button>
-              </Tooltip>
-
-              {cohortOpen && (
-                <div style={{
-                  position:'absolute', top:'calc(100% + 6px)', right:0, width:380,
-                  background:'var(--pearl)', border:'1px solid #e5e7eb', borderRadius:12,
-                  boxShadow:'0 8px 24px rgba(0,0,0,0.12)', zIndex:400, overflow:'hidden',
-                }}>
-                  <div style={{ padding:'10px 14px 6px', fontSize:11, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em', background:'var(--sand)' }}>Select Cohort</div>
-                  {sortedCohorts.map(c => {
-                    const isSel = c.id === activeCohortId
-                    const sc = COHORT_STATUS_COLORS[c.status] || { bg:'#f3f4f6', color:'#6b7280' }
-                    return (
-                      <div key={c.id}
-                        onClick={() => { handleCohortSwitch(c.id); setCohortOpen(false) }}
-                        style={{ padding:'14px 16px', cursor:'pointer', background: isSel ? '#e8edf8' : 'transparent', borderLeft: isSel ? '3px solid #1d2567' : '3px solid transparent', transition:'background 0.1s' }}
-                        onMouseEnter={e => { if (!isSel) e.currentTarget.style.background='var(--sand)' }}
-                        onMouseLeave={e => { if (!isSel) e.currentTarget.style.background='transparent' }}>
-                        <div style={{ fontSize:15, fontWeight:600, color:'#374151' }}>{c.name}</div>
-                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:3 }}>
-                          <span style={{ fontSize:12, color:'#6b7280' }}>{fmtCohortRange(c.start_date, c.end_date) || ' '}</span>
-                          <div style={{ display:'flex', gap:4, flexShrink:0, marginLeft:8 }}>
-                            {c.status && <span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20, background:sc.bg, color:sc.color }}>{c.status}</span>}
-                            {c.accepting_submissions && <span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20, background:'#dbeafe', color:'#1e40af', border:'1px solid #bfdbfe' }}>Accepting</span>}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                  {canEdit && (
-                    <div style={{ display:'flex', gap:8, padding:'10px 14px', borderTop:'1px solid #f3f4f6', background:'var(--sand)' }}>
-                      {activeCohort && <button onClick={() => { setShowManageCohort(true); setCohortOpen(false) }} style={{ flex:1, padding:'7px', background:'#fff', border:'1px solid #e5e7eb', borderRadius:8, fontFamily:'DM Sans', fontSize:12, cursor:'pointer', color:'#374151' }}>✏ Edit Cohort</button>}
-                      <button onClick={() => { setShowNewCohort(true); setCohortOpen(false) }} style={{ flex:1, padding:'7px', background:'#1D2567', border:'none', borderRadius:8, fontFamily:'DM Sans', fontSize:12, fontWeight:600, cursor:'pointer', color:'#fff' }}>+ New Cohort</button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          <LastSyncedIndicator />
-
-          {/* Zone 3: Search */}
-          <div ref={searchAreaRef} style={{ position:'relative', flexShrink:0 }}>
-            <div style={{ position:'relative', display:'flex', alignItems:'center' }}>
-              <span style={{ position:'absolute', left:11, pointerEvents:'none', lineHeight:0, zIndex:1, color:'#fff', opacity: searchFocused ? 1 : 0.95 }}>
-                <HeaderSearchIcon />
-              </span>
-              <input
-                ref={searchInputRef}
-                data-tour="global-search"
-                value={searchQuery}
-                onChange={handleSearchChange}
-                onKeyDown={handleSearchKey}
-                onFocus={() => { setSearchFocused(true); if (searchQuery.length >= 2) setSearchOpen(true) }}
-                onBlur={() => setSearchFocused(false)}
-                className="header-search-input"
-                style={{
-                  height:34, paddingLeft:32, paddingRight:44,
-                  width: searchFocused ? 280 : 220,
-                  transition:'width 200ms ease, border-color 150ms ease',
-                  background: searchFocused ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)',
-                  border:`1px solid ${searchFocused ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.10)'}`,
-                  borderRadius:8, color:'#fff', fontSize:12.5, fontFamily:'DM Sans',
-                  outline:'none',
-                }}
-                placeholder="Search students, units, contacts…"
-              />
-              <span style={{ position:'absolute', right:10, pointerEvents:'none', fontSize:10, fontWeight:500, color:'rgba(255,255,255,0.70)', fontFamily:'ui-monospace, monospace', background:'rgba(255,255,255,0.10)', border:'1px solid rgba(255,255,255,0.15)', padding:'1px 5px', borderRadius:3 }}>⌘K</span>
-            </div>
-
-            {/* Search dropdown */}
-            {searchOpen && (
-              <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, width:360, maxHeight:480, overflowY:'auto', background:'var(--pearl)', border:'1px solid #e5e7eb', borderRadius:12, boxShadow:'0 8px 24px rgba(0,0,0,0.12)', zIndex:400 }}>
-                {searchLoading ? (
-                  <div style={{ padding:20, display:'flex', flexDirection:'column', gap:8 }}>
-                    {[80,60,70].map((w,i) => <div key={i} style={{ height:12, borderRadius:6, background:'#f3f4f6', width:`${w}%` }} />)}
-                  </div>
-                ) : searchFlat.length === 0 ? (
-                  <div style={{ padding:20, textAlign:'center', fontSize:13, color:'#9ca3af' }}>No results found</div>
-                ) : (
-                  <>
-                    {searchResults.students.length > 0 && (
-                      <>
-                        <div style={{ padding:'8px 12px', fontSize:11, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.05em', background:'var(--sand)' }}>Students</div>
-                        {searchResults.students.map((s, i) => {
-                          const isAct = searchActiveIdx === i
-                          const cfg = ASPIRE_STATUS_CONFIG[s.status] || { bg:'#f3f4f6', text:'#6b7280', border:'#d1d5db' }
-                          return (
-                            <div key={s.id} onClick={() => handleSearchResult({ type:'student', data:s })}
-                              style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', cursor:'pointer', background: isAct ? 'var(--sand)' : 'transparent' }}
-                              onMouseEnter={() => setSearchActiveIdx(i)} onMouseLeave={() => setSearchActiveIdx(-1)}>
-                              <StudentAvatar student={s} size={28} />
-                              <div style={{ flex:1, minWidth:0 }}>
-                                <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{s.last_name}{s.last_name&&s.first_name?', ':''}{s.first_name}</div>
-                                <div style={{ fontSize:12, color:'#6b7280' }}>{s.school}</div>
-                              </div>
-                              {s.status && <span style={{ fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:10, background:cfg.bg, color:cfg.text, border:`1px solid ${cfg.border}`, flexShrink:0 }}>{s.status}</span>}
-                            </div>
-                          )
-                        })}
-                      </>
-                    )}
-                    {searchResults.units.length > 0 && (
-                      <>
-                        <div style={{ padding:'8px 12px', fontSize:11, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.05em', background:'var(--sand)' }}>Units</div>
-                        {searchResults.units.map((u, i) => {
-                          const fi = searchResults.students.length + i
-                          const isAct = searchActiveIdx === fi
-                          return (
-                            <div key={u.id} onClick={() => handleSearchResult({ type:'unit', data:u })}
-                              style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', cursor:'pointer', background: isAct ? 'var(--sand)' : 'transparent' }}
-                              onMouseEnter={() => setSearchActiveIdx(fi)} onMouseLeave={() => setSearchActiveIdx(-1)}>
-                              <span style={{ color:'#6b7280', fontSize:16, flexShrink:0 }}>🏥</span>
-                              <div style={{ flex:1, minWidth:0 }}>
-                                <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)' }}>{u.unit_name}</div>
-                                <div style={{ fontSize:12, color:'#6b7280' }}>{u.division}{u.division?' · ':''}{u.slots_remaining ?? u.total_slots} of {u.total_slots} slots open</div>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </>
-                    )}
-                    {searchResults.placements.length > 0 && (
-                      <>
-                        <div style={{ padding:'8px 12px', fontSize:11, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.05em', background:'var(--sand)' }}>Placements</div>
-                        {searchResults.placements.map(({ student: s, unit: u }, i) => {
-                          const fi = searchResults.students.length + searchResults.units.length + i
-                          const isAct = searchActiveIdx === fi
-                          return (
-                            <div key={s.id} onClick={() => handleSearchResult({ type:'placement', data:{ student:s, unit:u } })}
-                              style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', cursor:'pointer', background: isAct ? 'var(--sand)' : 'transparent' }}
-                              onMouseEnter={() => setSearchActiveIdx(fi)} onMouseLeave={() => setSearchActiveIdx(-1)}>
-                              <span style={{ color:'#6b7280', fontSize:14, flexShrink:0 }}>🔗</span>
-                              <div style={{ flex:1, minWidth:0 }}>
-                                <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)' }}>{displayName(s)} → {u?.unit_name||'—'}</div>
-                                <div style={{ fontSize:12, color:'#6b7280' }}>{s.status === 'Completed' ? 'Completed' : 'Active Placement'}</div>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </>
-                    )}
-                    {searchResults.contacts.length > 0 && (
-                      <>
-                        <div style={{ padding:'8px 12px', fontSize:11, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.05em', background:'var(--sand)' }}>Contacts</div>
-                        {searchResults.contacts.map((c, i) => {
-                          const fi = searchResults.students.length + searchResults.units.length + searchResults.placements.length + i
-                          const isAct = searchActiveIdx === fi
-                          const catStyle = getContactCatStyle(c.category)
-                          return (
-                            <div key={c.id} onClick={() => handleSearchResult({ type:'contact', data:c })}
-                              style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', cursor:'pointer', background: isAct ? 'var(--sand)' : 'transparent' }}
-                              onMouseEnter={() => setSearchActiveIdx(fi)} onMouseLeave={() => setSearchActiveIdx(-1)}>
-                              {/* Avatar: image with initials fallback */}
-                              <div style={{ width:28, height:28, borderRadius:'50%', background:'#1D2567', flexShrink:0, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:9, fontWeight:700, color:'#fff', position:'relative' }}>
-                                {c.avatar_url && <img src={c.avatar_url} alt="" style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover' }} onError={e => { e.currentTarget.style.display = 'none' }} />}
-                                {(c.full_name||'?').split(' ').slice(0,2).map(w => w[0]?.toUpperCase()||'').join('')}
-                              </div>
-                              <div style={{ flex:1, minWidth:0 }}>
-                                <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.full_name}</div>
-                                <div style={{ fontSize:12, color:'#6b7280', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.role}{c.email ? ` · ${c.email}` : ''}</div>
-                              </div>
-                              {c.category && <span style={{ fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:10, background:catStyle.bg, color:catStyle.text, border:`1px solid ${catStyle.border}`, flexShrink:0, whiteSpace:'nowrap' }}>{c.category}</span>}
-                            </div>
-                          )
-                        })}
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Zone 3: Actions — connect + bell + user menu */}
-          {cohorts.length > 0 && (
-            <Tooltip label="ASPIRE Connect" placement="bottom">
-            <button
-              data-tour="connect"
-              aria-label="ASPIRE Connect"
-              onClick={() => {
-                const saved = localStorage.getItem('aspire.connect.lastTab')
-                const tab = (['contacts','outreach','broadcasts'].includes(saved)) ? saved : 'contacts'
-                navigate(`/connect/${tab}`)
-              }}
-              style={{
-                position: 'relative', flexShrink: 0,
-                width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: activeTab === 'connect' ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)',
-                border: `1px solid ${activeTab === 'connect' ? 'rgba(255,255,255,0.50)' : 'rgba(255,255,255,0.10)'}`,
-                borderRadius: 8,
-                color: activeTab === 'connect' ? '#fff' : 'rgba(255,255,255,0.75)',
-                cursor: 'pointer',
-                transition: 'background 0.15s, border-color 0.15s',
-                overflow: 'visible',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.14)'}
-              onMouseLeave={e => e.currentTarget.style.background = activeTab === 'connect' ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)'}
-            >
-              <MessagesSquare size={15} strokeWidth={1.9} />
-              {activeTab === 'connect' && (
-                <span style={{
-                  position: 'absolute', bottom: -6, left: '50%', transform: 'translateX(-50%)',
-                  width: 0, height: 0,
-                  borderLeft: '4px solid transparent',
-                  borderRight: '4px solid transparent',
-                  borderTop: '5px solid rgba(255,255,255,0.65)',
-                  display: 'block',
-                }} />
-              )}
-            </button>
-            </Tooltip>
-          )}
-          {cohorts.length > 0 && (
-            <Tooltip label="Action Center" placement="bottom">
-            <button
-              ref={bellRef}
-              id="keith-bell-trigger"
-              aria-label="Action Center"
-              data-tour="action-center"
-              onClick={() => setShowActionCenter(p => !p)}
-              style={{
-                position:'relative', flexShrink:0,
-                width:34, height:34, display:'flex', alignItems:'center', justifyContent:'center',
-                background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.10)',
-                borderRadius:8, color:'rgba(255,255,255,0.75)', cursor:'pointer',
-                transition:'background 0.15s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.12)'}
-              onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.06)'}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-              </svg>
-              {actionBadgeCount > 0 && (
-                <span style={{ position:'absolute', top:-3, right:-3, minWidth:16, height:16, borderRadius:8, background:'#930045', color:'#fff', fontSize:10, fontWeight:700, fontFamily:'DM Sans', display:'flex', alignItems:'center', justifyContent:'center', padding:'0 3px', lineHeight:1, border:'1.5px solid #1D2567' }}>
-                  {actionBadgeCount >= 10 ? '9+' : actionBadgeCount}
-                </span>
-              )}
-            </button>
-            </Tooltip>
-          )}
-
-          <UserMenu
-            onOpenUserManagement={() => setShowUserManagement(true)}
-            onRestartTour={() => { switchTab('overview'); setTimeout(() => setTourRunning(true), 400) }}
-          />
-        </header>
+        {/* ── Application header (WS2.0: extracted to components/Header) ── */}
+        <Header
+          cohort={{ cohorts, cohortPickerRef, cohortOpen, setCohortOpen, activeCohort, activeCohortId, sortedCohorts, handleCohortSwitch, canEdit, setShowManageCohort, setShowNewCohort }}
+          search={{ searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading, searchFlat, searchResults, searchActiveIdx, setSearchActiveIdx, setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult }}
+          actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, actionBadgeCount, onOpenUserManagement: () => setShowUserManagement(true), onRestartTour: () => { switchTab('overview'); setTimeout(() => setTourRunning(true), 400) } }}
+        />
 
         {cohorts.length > 0 && activeTab !== 'connect' && (
           <UnifiedNav
