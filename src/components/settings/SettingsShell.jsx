@@ -13,6 +13,7 @@ import { ChevronLeft } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { visibleSections } from './settingsSections'
 import GeneralPanel from './GeneralPanel'
+import AppearancePanel from './AppearancePanel'
 import AccountsAccessPanel from './AccountsAccessPanel'
 import ToursHelpPanel from './ToursHelpPanel'
 
@@ -87,9 +88,10 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Ag
 
         {/* Active panel */}
         <div style={{ flex: '1 1 360px', minWidth: 0, maxWidth: 720 }}>
-          {currentKey === 'general'  && <GeneralPanel />}
-          {currentKey === 'accounts' && <AccountsAccessPanel />}
-          {currentKey === 'tours'    && <ToursHelpPanel onRestartTour={onRestartTour} />}
+          {currentKey === 'general'    && <GeneralPanel />}
+          {currentKey === 'appearance' && <AppearancePanel />}
+          {currentKey === 'accounts'   && <AccountsAccessPanel />}
+          {currentKey === 'tours'      && <ToursHelpPanel onRestartTour={onRestartTour} />}
         </div>
       </div>
     </div>

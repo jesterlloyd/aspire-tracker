@@ -6,9 +6,10 @@
 // client-side visibility is for navigation only; it is NOT a substitute for the
 // server-side authorization each future panel's data operations must enforce.
 export const SETTINGS_SECTIONS = [
-  { key: 'general',   label: 'General',           path: '/settings/general',   implemented: true,  visible: () => true },
-  { key: 'accounts',  label: 'Accounts & Access', path: '/settings/accounts',  implemented: true,  visible: r => r.isAdmin }, // WS2.2: Owner/Admin only
-  { key: 'tours',     label: 'Tours & Help',      path: '/settings/tours',     implemented: true,  visible: () => true },     // WS2.3: all authenticated users
+  { key: 'general',    label: 'General',           path: '/settings/general',    implemented: true,  visible: () => true },
+  { key: 'appearance', label: 'Appearance',        path: '/settings/appearance', implemented: true,  visible: () => true },     // WS2.4: all authenticated users
+  { key: 'accounts',   label: 'Accounts & Access', path: '/settings/accounts',   implemented: true,  visible: r => r.isAdmin }, // WS2.2: Owner/Admin only
+  { key: 'tours',      label: 'Tours & Help',      path: '/settings/tours',      implemented: true,  visible: () => true },     // WS2.3: all authenticated users
   // Future sections (NOT rendered yet — no disabled/"coming soon" placeholders):
   { key: 'keith',     label: 'Keith',             path: '/settings/keith',     implemented: false, visible: r => r.isAdmin },
   { key: 'templates', label: 'Templates',         path: '/settings/templates', implemented: false, visible: r => r.isAdmin },

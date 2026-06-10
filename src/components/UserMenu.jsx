@@ -4,9 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { safeWrite } from '../lib/safeWrite';
 import { getAvatarUrl } from '../lib/getAvatar';
-import { LogOut, Users, ChevronDown, Settings } from 'lucide-react';
+import { LogOut, ChevronDown, Settings } from 'lucide-react';
 import Tooltip from './ui/Tooltip';
-import ThemeToggle from './ThemeToggle';
 
 const ROLE_LABELS = {
   owner:       { label: 'Owner',       bg: '#1D2567', color: '#ffffff' },
@@ -15,8 +14,8 @@ const ROLE_LABELS = {
   viewer:      { label: 'Viewer',      bg: '#6b7280', color: '#ffffff' },
 };
 
-export default function UserMenu({ onRestartTour }) {
-  const { userProfile, signOut, isOwner, isAdmin } = useAuth();
+export default function UserMenu() {
+  const { userProfile, signOut } = useAuth();
   const navigate = useNavigate();
   const [isOpen,    setIsOpen]    = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -187,37 +186,10 @@ export default function UserMenu({ onRestartTour }) {
               Settings
             </button>
 
-            {/* WS2.2a: People & Access (moved from the standalone header icon) — Owner/Admin */}
-            {isAdmin && (
-              <button
-                onClick={() => { setIsOpen(false); navigate('/settings/accounts'); }}
-                style={{ width: '100%', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)', cursor: 'pointer', textAlign: 'left', borderTop: '1px solid var(--color-border-subtle,#f3f4f6)', transition: 'background 0.15s ease' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-hover,#f9fafb)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'none'}
-              >
-                <Users size={14} strokeWidth={2} color="#6b7280" />
-                People & Access
-              </button>
-            )}
-
-            {/* Restart tour */}
-            {onRestartTour && (
-              <button
-                onClick={() => { setIsOpen(false); onRestartTour(); }}
-                style={{ width: '100%', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)', cursor: 'pointer', textAlign: 'left', borderTop: '1px solid var(--color-border-subtle,#f3f4f6)', transition: 'background 0.15s ease' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-hover,#f9fafb)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'none'}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
-                Restart Welcome Tour
-              </button>
-            )}
-
-            {/* Theme toggle */}
-            <div style={{ padding:'10px 16px', borderTop:'1px solid var(--color-border-subtle, #f3f4f6)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
-              <span style={{ fontFamily:'DM Sans', fontSize:12, color:'var(--color-text-secondary, #6b7280)', fontWeight:500 }}>Appearance</span>
-              <ThemeToggle />
-            </div>
+            {/* WS2.4: People & Access, Restart Welcome Tour, and Appearance were removed
+                from the UserMenu so each control has a single canonical home in Settings
+                (Accounts & Access / Tours & Help / Appearance). UserMenu is now identity +
+                Settings + Sign out. */}
 
             {/* Sign out */}
             <button

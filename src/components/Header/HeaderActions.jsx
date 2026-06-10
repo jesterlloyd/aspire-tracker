@@ -9,7 +9,6 @@ import UserMenu from '../UserMenu'
 
 export default function HeaderActions({
   cohorts, navigate, activeTab, bellRef, setShowActionCenter, actionBadgeCount,
-  onRestartTour,
 }) {
   return (
     <>
@@ -89,9 +88,7 @@ export default function HeaderActions({
           ASPIRE Catalog is intentionally NOT rendered yet (Approach B — added later
           when it has an approved scope, data model, and real destination). */}
 
-      <UserMenu
-        onRestartTour={onRestartTour}
-      />
+      <UserMenu />
     </>
   )
 }

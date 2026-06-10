@@ -370,9 +370,9 @@ function MainApp({ onLogout }) {
     navigate(TAB_TO_PATH[tab] || '/aggregate')
   }
 
-  // WS2.3: single source of truth for the tour-restart behavior, reused by the
-  // UserMenu entry (Header actions) and the Settings → Tours & Help panel. Behavior
-  // is unchanged: jump to the Aggregate/overview workspace, then start the tour.
+  // WS2.3/WS2.4: single source of truth for the tour-restart behavior. WS2.4 removed the
+  // UserMenu duplicate, so the Settings → Tours & Help panel is now the sole consumer.
+  // Behavior is unchanged: jump to the Aggregate/overview workspace, then start the tour.
   const restartTour = () => { switchTab('overview'); setTimeout(() => setTourRunning(true), 400) }
 
   // Refetch students and units whenever the Aggregate tab becomes active
@@ -756,7 +756,7 @@ function MainApp({ onLogout }) {
         <Header
           cohort={{ cohorts, cohortPickerRef, cohortOpen, setCohortOpen, activeCohort, activeCohortId, sortedCohorts, handleCohortSwitch, canEdit, setShowManageCohort, setShowNewCohort }}
           search={{ searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading, searchFlat, searchResults, searchActiveIdx, setSearchActiveIdx, setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult }}
-          actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, actionBadgeCount, onRestartTour: restartTour }}
+          actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, actionBadgeCount }}
         />
 
         {cohorts.length > 0 && activeTab !== 'connect' && activeTab !== 'settings' && (

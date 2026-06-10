@@ -1,7 +1,21 @@
-// WS2.1: Settings → General panel. Re-homes the Appearance control by reusing the
-// existing ThemeToggle (unchanged). No new preference storage; theme persistence,
-// data-theme behavior, OS listener, and public data-theme-lock all stay in ThemeContext.
-import ThemeToggle from '../ThemeToggle'
+// WS2.4: Settings → General is now an About/reference panel. The Appearance control moved
+// to Settings → Appearance (single canonical home). This panel shows only static, already-
+// safe metadata: the app name, a short description, and the deployed environment/build —
+// the latter read from the EXISTING build-time vars (VITE_BUILD_ENV / VITE_BUILD_SHA,
+// defined in vite.config.js from Vercel's standard VERCEL_ENV / VERCEL_GIT_COMMIT_SHA).
+// No new API, endpoint, secret, or build tooling is introduced. When those vars are not
+// injected (local dev), they read 'development' / 'dev' — version metadata beyond this is
+// intentionally deferred (see WS2.4 report).
+const APP_NAME = 'ASPIRE Intelligence'
+const buildEnv = import.meta.env.VITE_BUILD_ENV
+const buildSha = import.meta.env.VITE_BUILD_SHA
+
+const rowStyle = {
+  display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16,
+  padding: '11px 0', borderTop: '1px solid var(--color-border-subtle, #f3f4f6)',
+}
+const labelStyle = { fontSize: 12.5, color: 'var(--color-text-secondary, #6b7280)', fontWeight: 500 }
+const valueStyle = { fontSize: 13, color: 'var(--color-text-primary, #191919)', fontWeight: 600, textAlign: 'right', wordBreak: 'break-word' }
 
 export default function GeneralPanel() {
   return (
@@ -13,23 +27,33 @@ export default function GeneralPanel() {
         General
       </h2>
       <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--color-text-secondary, #6b7280)' }}>
-        Global preferences for how ASPIRE Intelligence looks and behaves.
+        About ASPIRE Intelligence and this deployment.
       </p>
 
-      {/* Appearance */}
+      {/* About */}
       <div style={{
         border: '1px solid var(--color-border-default, #e5e7eb)',
-        borderRadius: 12, padding: '16px 18px',
+        borderRadius: 12, padding: '6px 18px 14px',
         background: 'var(--color-bg-surface, #ffffff)',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap',
       }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-text-primary, #191919)' }}>Appearance</div>
-          <div style={{ fontSize: 12.5, color: 'var(--color-text-secondary, #6b7280)', marginTop: 2 }}>
-            Choose Light, Dark, or follow your system setting.
-          </div>
+        <div style={{ ...rowStyle, borderTop: 'none' }}>
+          <span style={labelStyle}>Application</span>
+          <span style={valueStyle}>{APP_NAME}</span>
         </div>
-        <ThemeToggle />
+        <div style={rowStyle}>
+          <span style={labelStyle}>Description</span>
+          <span style={{ ...valueStyle, fontWeight: 500, color: 'var(--color-text-secondary, #6b7280)', maxWidth: 380 }}>
+            Workspace for managing the ASPIRE Program — cohorts, student profiles, interviews, rotations, and outreach.
+          </span>
+        </div>
+        <div style={rowStyle}>
+          <span style={labelStyle}>Environment</span>
+          <span style={valueStyle}>{buildEnv}</span>
+        </div>
+        <div style={rowStyle}>
+          <span style={labelStyle}>Build</span>
+          <span style={{ ...valueStyle, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', letterSpacing: 0.2 }}>{buildSha}</span>
+        </div>
       </div>
     </section>
   )
