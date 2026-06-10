@@ -4,7 +4,6 @@ import { safeWrite } from '../lib/safeWrite'
 import { buildUnitLeaderEmail } from '../lib/emailUtils'
 import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 export { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
-import { updateStudent as proxyUpdateStudent } from '../lib/studentProxy'
 import { useAuth } from '../contexts/AuthContext'
 import { DISPOSITION_TYPES, FOLLOWUP_TYPES } from '../lib/dispositions'
 

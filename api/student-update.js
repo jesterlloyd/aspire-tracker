@@ -50,18 +50,6 @@ const RUBRIC_STATUS   = ['Interviewed'] // the only status the rubric workflow a
 // Manual interview_outcome override options (StudentSidePanel/StudentRow selects).
 const MANUAL_OUTCOME_VALUES = ['Pending Interview', 'Recommend', 'Recommend with Reservations', 'Do Not Recommend']
 
-// Fields migrated OFF the generic `update` action into explicit actions. Rejected
-// before the whitelist/fallback so the all-pass-through fallback can never write
-// them. `status` is intentionally NOT here (cross-domain; kept generic for Owner/Admin).
-const MIGRATED_PLACEMENT = ['matched_preceptor', 'shift_assigned', 'assigned_shift']
-const MIGRATED_SCHEDULE  = ['interview_scheduled_date', 'interview_scheduled_time', 'interview_duration_minutes', 'interview_assigned_interviewers']
-const MIGRATED_RUBRIC    = ['unit_preference_1', 'unit_preference_2', 'unit_preference_3', 'avg_cj_score', 'avg_pp_score', 'avg_ga_score', 'avg_composite_score', 'rubric_count', 'auto_recommendation', 'score_flag', 'score_flag_message', 'interview_outcome', 'flagged_for_second_interview', 'flag_note']
-function migratedFieldHint(field) {
-  if (MIGRATED_PLACEMENT.includes(field)) return 'Use update_preceptor_assignment for preceptor/shift assignment.'
-  if (MIGRATED_SCHEDULE.includes(field))  return 'Use update_interview_schedule for interview scheduling.'
-  return 'Use save_interview_outcome / update_interview_outcome for interview outcome fields.'
-}
-
 
 function validateRubricField(k, v) {
   switch (k) {
@@ -209,112 +197,6 @@ export default async function handler(req, res) {
   const { action, ...payload } = req.body || {}
 
   try {
-
-    if (action === 'update') {
-      const { student_id, fields, loaded_updated_at } = payload
-      if (!student_id) return res.status(400).json({ error: 'invalid_request', field: 'student_id' })
-      if (!fields || typeof fields !== 'object' || Array.isArray(fields) || Object.keys(fields).length === 0) {
-        return res.status(400).json({ error: 'invalid_request', field: 'fields' })
-      }
-
-      // ── Owner/Admin only. Interviewers have NO generic-update access (WS1e-A3b);
-      //    their only student write path is save_interview_outcome. ──────────────
-      if (!isOwnerAdmin) {
-        return res.status(403).json({ error: 'forbidden', message: 'You do not have permission to update students.' })
-      }
-
-      // Fields migrated to explicit actions (placement A2, scheduling A3a, rubric
-      // outcomes A3b) — reject BEFORE the whitelist/fallback so the all-pass-through
-      // fallback can never write them.
-      const migratedField = Object.keys(fields).find(k =>
-        MIGRATED_PLACEMENT.includes(k) || MIGRATED_SCHEDULE.includes(k) || MIGRATED_RUBRIC.includes(k))
-      if (migratedField) {
-        return res.status(400).json({ error: 'invalid_request', field: migratedField, message: migratedFieldHint(migratedField) })
-      }
-
-      const allowed = [
-        'first_name', 'last_name', 'name', 'email', 'school_email', 'personal_email',
-        'phone', 'school', 'program', 'program_type', 'cohort_id',
-        'cumulative_gpa', 'gpa', 'expected_graduation', 'graduation_date', 'graduation_semester',
-        'status', 'decline_reason',
-        // WS1e-A3b: unit_preference_1/2/3 migrated to save_interview_outcome.
-        'unit_preference', 'specialty_interest',
-        'notes', 'internal_notes', 'admin_notes',
-        'badge_created', 'badge_issued', 'badge_printed',
-        // CS-Link Access Manager — all 4 paired boolean+date fields plus action, status, notes
-        'cs_cedars_status',
-        'cs_stage1_action',
-        'cs_stage1_submitted', 'cs_stage1_submitted_date',
-        'cs_stage1_complete',  'cs_stage1_complete_date',
-        'cs_link_requested',   'cs_link_requested_date',
-        'cs_link_complete',    'cs_link_complete_date',
-        'cs_access_notes',
-        'approved_hours', 'hours_required', 'pending_hours',
-        'matched_unit_id', 'preceptor_id',
-        'orientation_sent_at', 'interview_preference',
-        'shift_preference', 'availability_notes',
-        'linkedin_url', 'portfolio_url',
-        'emergency_contact', 'emergency_phone',
-        'preferred_name', 'pronouns',
-        'interview_score', 'recommendation', 'self_scheduled',
-        // WS1e-A2: matched_preceptor / shift_assigned / assigned_shift migrated to
-        // the explicit update_preceptor_assignment action — intentionally NOT here.
-        'preceptor_name', 'preceptor_assigned', 'assigned_preceptor',
-        'shift', 'shift_type', 'clinical_shift', 'shift_preference',
-        'match_notes', 'placement_notes', 'unit_notes', 'preceptor_notes',
-        // WS1e-A3a: interview_scheduled_* migrated to update_interview_schedule.
-        // WS1e-A3b: flagged_for_second_interview / auto_recommendation / interview_outcome
-        // and rubric aggregates migrated to save_interview_outcome.
-        'resume_url', 'headshot_url', 'scheduling_viewed_at',
-        'interest_statement', 'submitted_via',
-        'date_of_birth', 'ssn_last4', 'gender', 'shift_availability',
-        'cs_affiliation', 'cs_department', 'cs_role', 'prior_healthcare_experience',
-        'estimated_graduation_date',
-        // cohort_school_rotation_id intentionally omitted: owned by school-form
-        // submission handler and the rotation override panel, not generic drawer edits
-      ]
-
-      const rejectedFields = Object.keys(fields).filter(k => !allowed.includes(k))
-      if (rejectedFields.length > 0) console.warn('[student-update] rejected (not in whitelist):', rejectedFields)
-
-      const safeFields = {}
-      Object.keys(fields).forEach(key => { if (allowed.includes(key)) safeFields[key] = fields[key] })
-
-      // If ALL fields were rejected, pass everything through rather than silently fail
-      const fieldsToSave = Object.keys(safeFields).length > 0 ? safeFields : fields
-
-      console.log('[student-update] whitelisted fields:', { request_id: requestId, callerRole: auth.role, fields: Object.keys(fieldsToSave) }) // PII-safe: names only
-
-      // Build the update query; attach OCC guard when caller supplies loaded_updated_at
-      let query = db.from('students').update(fieldsToSave).eq('id', student_id)
-      if (loaded_updated_at) {
-        query = query.eq('updated_at', loaded_updated_at)
-      }
-      // Use .select() (not .single()) so 0-row results don't throw PGRST116
-      const { data, error } = await query.select()
-      if (error) {
-        console.error('student update DB error:', error)
-        return res.status(400).json({ error: error.message })
-      }
-
-      // OCC conflict: filter matched but 0 rows updated (another write changed updated_at)
-      if (loaded_updated_at && data.length === 0) {
-        const { data: existing } = await db.from('students')
-          .select('id, updated_at').eq('id', student_id).maybeSingle()
-        if (existing) {
-          console.warn('[student-update] OCC conflict on', student_id)
-          return res.status(409).json({ conflict: true, current_updated_at: existing.updated_at })
-        }
-        return res.status(404).json({ error: 'Student not found' })
-      }
-
-      return res.status(200).json({
-        success: true,
-        data: data[0] || null,
-        fieldsWritten: Object.keys(fieldsToSave),
-        droppedFields: rejectedFields,
-      })
-    }
 
     // WS1e-A2: explicit, narrow placement operation — the ONLY student-update path
     // permitted to mutate matched_preceptor / shift_assigned. Owner/Admin only.
@@ -670,46 +552,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true })
     }
 
-
-    // WS1e-A1: the actions below have NO active UI caller today. Authenticated +
-    // Owner/Admin only (Interviewer/others denied). Contracts unchanged otherwise.
-    if (action === 'update_status') {
-      if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
-      const { student_id, status, decline_reason } = payload
-      if (!student_id || !status) return res.status(400).json({ error: 'student_id and status are required' })
-      const updateFields = { status }
-      if (decline_reason !== undefined) updateFields.decline_reason = decline_reason
-      const { data, error } = await db.from('students').update(updateFields).eq('id', student_id).select().single()
-      if (error) return res.status(400).json({ error: error.message })
-      return res.status(200).json({ success: true, data })
-    }
-
-    if (action === 'log_communication') {
-      if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
-      const { student_id, cohort_id: cid, type, notes, sent_by } = payload
-      if (!student_id || !type) return res.status(400).json({ error: 'student_id and type are required' })
-      const { error } = await db.from('communications').insert({
-        student_id, cohort_id: cid || null, type,
-        notes: notes || '',
-        sent_at: new Date().toISOString(),
-        sent_by: sent_by || 'Coordinator',
-      })
-      if (error) return res.status(400).json({ error: error.message })
-      return res.status(200).json({ success: true })
-    }
-
-    if (action === 'log_event') {
-      if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
-      const { student_id, cohort_id, event_type, notes, created_by } = payload
-      if (!student_id || !event_type) return res.status(400).json({ error: 'student_id and event_type are required' })
-      const { error } = await db.from('program_events').insert({
-        student_id, cohort_id: cohort_id || null, event_type,
-        event_date: toLocalDateStr(),
-        notes: notes || '', created_by: created_by || 'System',
-      })
-      if (error) return res.status(400).json({ error: error.message })
-      return res.status(200).json({ success: true })
-    }
 
     return res.status(400).json({ error: 'invalid_request', message: 'Unknown action.' })
 
