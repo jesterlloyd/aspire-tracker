@@ -36,15 +36,17 @@ const stepInterviewRubric = {
 
 const stepEmbed = {
   target: '[data-tour="tab-embed"]',
-  title: 'Embed: Matching Board',
+  title: 'Rotations: Matching Board',
   content: 'The drag-and-drop board for assigning students to units based on their preferences. Available to Owner, Admin, and Co-Lead roles.',
 };
 
-const stepPeopleAccess = {
-  target: '[data-tour="people-access"]',
-  title: 'People & Access',
-  content: 'Manage app users, assign roles, configure interviewer access and calendar colors, and review the activity log.',
-};
+// WS2.3: stepPeopleAccess was removed. Its target [data-tour="people-access"] was the
+// standalone header icon, retired in WS2.2a; People & Access now lives only inside the
+// UserMenu dropdown (a hidden item — not a reliable tour target) and Settings → Accounts
+// & Access. No safe, non-confusing visible target remains, so the privileged tour drops
+// this step. TOUR_VERSION is intentionally NOT bumped: a completed privileged user is not
+// required to retake the tour for one fewer step (see report). The internal step
+// identifier is not referenced elsewhere.
 
 const stepActionCenter = {
   target: '[data-tour="action-center"]',
@@ -105,7 +107,6 @@ export function getTourSteps(userProfile) {
       stepStudentProfiles,
       stepInterviewRubric,
       stepEmbed,
-      stepPeopleAccess,
       stepActionCenter,
       stepSearch,
       stepKeith,

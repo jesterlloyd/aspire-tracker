@@ -14,8 +14,9 @@ import { useAuth } from '../../contexts/AuthContext'
 import { visibleSections } from './settingsSections'
 import GeneralPanel from './GeneralPanel'
 import AccountsAccessPanel from './AccountsAccessPanel'
+import ToursHelpPanel from './ToursHelpPanel'
 
-export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Aggregate' }) {
+export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Aggregate', onRestartTour }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { isOwner, isAdmin } = useAuth()
@@ -88,6 +89,7 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Ag
         <div style={{ flex: '1 1 360px', minWidth: 0, maxWidth: 720 }}>
           {currentKey === 'general'  && <GeneralPanel />}
           {currentKey === 'accounts' && <AccountsAccessPanel />}
+          {currentKey === 'tours'    && <ToursHelpPanel onRestartTour={onRestartTour} />}
         </div>
       </div>
     </div>

@@ -634,7 +634,7 @@ export function UserManagementContent({ onRequestClose }) {
                                   {u.role === 'interviewer' && !isOwnerUser && (
                                     <div style={{ fontSize: '11px', color: '#9ca3af', lineHeight: 1.5, marginBottom: '2px' }}>
                                       <span style={{ color: '#6b7280' }}>Access:</span> Aggregate, Student Profiles, Interview Room<br />
-                                      <span style={{ color: '#6b7280' }}>Restricted:</span> Embed, People &amp; Access
+                                      <span style={{ color: '#6b7280' }}>Restricted:</span> Rotations, People &amp; Access
                                     </div>
                                   )}
 
