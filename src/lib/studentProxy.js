@@ -89,6 +89,42 @@ export async function clearInterviewSchedule(studentId) {
   return data
 }
 
+// WS1e-A4: explicit staff-domain helpers. Each sends only its action + the
+// supplied fields (partial updates supported); the server validates and authorizes.
+function domainHelper(action) {
+  return async (studentId, fields) => {
+    const res = await fetch('/api/student-update', {
+      method:  'POST',
+      headers: await authHeaders(),
+      body:    JSON.stringify({ action, student_id: studentId, ...fields }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.message || data.error || `${action} failed`)
+    return data
+  }
+}
+export const updateContact      = domainHelper('update_contact')
+export const updateProfile      = domainHelper('update_profile')
+export const updateRequirements = domainHelper('update_requirements')
+export const updateCslink       = domainHelper('update_cslink')
+export const updateNgrp         = domainHelper('update_ngrp')
+export const updateBadge        = domainHelper('update_badge')
+export const updateNotes        = domainHelper('update_notes')
+
+// WS1e-A4: administrative status override (Owner/Admin), recognized enum only.
+export async function updateStatus(studentId, status, declineReason) {
+  const body = { action: 'update_student_status', student_id: studentId, status }
+  if (declineReason !== undefined) body.decline_reason = declineReason
+  const res = await fetch('/api/student-update', {
+    method:  'POST',
+    headers: await authHeaders(),
+    body:    JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.message || data.error || 'Status update failed')
+  return data
+}
+
 // WS1e-A3b: unified rubric-outcome persistence (Owner/Admin/Interviewer). Sends
 // only the supplied rubric fields (partial updates supported); server validates.
 export async function saveInterviewOutcome(studentId, fields) {

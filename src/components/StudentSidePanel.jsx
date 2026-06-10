@@ -383,57 +383,12 @@ export default function StudentSidePanel({
   // Mark synced when shift log data loads
   useEffect(() => { markHoursSynced() }, [shiftLogs]) // eslint-disable-line
 
-  const handleApproveShift = async (log) => {
-    const hours = parseFloat(log.total_hours||0)
-    await safeWrite(
-      () => supabase.from('student_shift_logs').update({ status: 'Approved', reviewed_at: new Date().toISOString(), reviewed_by: 'Admin' }).eq('id', log.id),
-      { name: 'approve shift log' }
-    )
-    const newApproved = parseFloat(data.approved_hours||0) + hours
-    const newPending  = Math.max(0, parseFloat(data.pending_hours||0) - hours)
-    await onUpdate(student.id, { approved_hours: newApproved, pending_hours: newPending })
-    setData(p => ({ ...p, approved_hours: newApproved, pending_hours: newPending }))
-    queryClient.setQueryData(['student_shift_logs', student.id], (prev = []) =>
-      prev.map(l => l.id===log.id ? { ...l, status:'Approved', reviewed_at: new Date().toISOString() } : l))
-    toast?.success('Shift approved', `${hours} hours approved for ${student.first_name}.`)
-  }
-
-  const handleRejectShift = async (log) => {
-    const hours = parseFloat(log.total_hours||0)
-    await safeWrite(
-      () => supabase.from('student_shift_logs').update({ status: 'Rejected', reviewed_at: new Date().toISOString(), reviewed_by: 'Admin' }).eq('id', log.id),
-      { name: 'reject shift log' }
-    )
-    const newPending = Math.max(0, parseFloat(data.pending_hours||0) - hours)
-    await onUpdate(student.id, { pending_hours: newPending })
-    setData(p => ({ ...p, pending_hours: newPending }))
-    queryClient.setQueryData(['student_shift_logs', student.id], (prev = []) =>
-      prev.map(l => l.id===log.id ? { ...l, status:'Rejected' } : l))
-  }
-
-  const handleAdjustShift = async (log) => {
-    const newHours = parseFloat(adjustHours)
-    if (isNaN(newHours) || newHours <= 0) return
-    const oldHours = parseFloat(log.total_hours||0)
-    const diff = newHours - oldHours
-    await safeWrite(
-      () => supabase.from('student_shift_logs').update({ total_hours: newHours, reviewed_at: new Date().toISOString(), reviewed_by: 'Admin' }).eq('id', log.id),
-      { name: 'adjust shift log hours' }
-    )
-    if (['Auto-Accepted', 'Approved'].includes(log.status)) {
-      const newApproved = Math.max(0, parseFloat(data.approved_hours||0) + diff)
-      await onUpdate(student.id, { approved_hours: newApproved })
-      setData(p => ({ ...p, approved_hours: newApproved }))
-    } else if (log.status === 'Pending Review') {
-      const newApproved = parseFloat(data.approved_hours||0) + newHours
-      const newPending  = Math.max(0, parseFloat(data.pending_hours||0) - oldHours)
-      await onUpdate(student.id, { approved_hours: newApproved, pending_hours: newPending })
-      setData(p => ({ ...p, approved_hours: newApproved, pending_hours: newPending }))
-    }
-    queryClient.setQueryData(['student_shift_logs', student.id], (prev = []) =>
-      prev.map(l => l.id===log.id ? { ...l, total_hours: newHours, status:'Approved' } : l))
-    setAdjustingId(null); setAdjustHours('')
-  }
+  // WS1e-A4: earned-hour aggregate mutation is prohibited (approved/pending hours are
+  // derived from submitted shift logs). The per-shift approve/reject/adjust controls
+  // are disabled in the UI; these handlers are retained but no longer mutate aggregates.
+  const handleApproveShift = async (_log) => { /* disabled — see WS1e-A4 */ }
+  const handleRejectShift = async (_log) => { /* disabled — see WS1e-A4 */ }
+  const handleAdjustShift = async (_log) => { /* disabled — see WS1e-A4 */ }
 
   // Communications — cached per student
   const { data: studentComms = [] } = useQuery({
@@ -667,8 +622,9 @@ export default function StudentSidePanel({
   const handleNameField = (field, value) => {
     setData(prev => {
       const updated = { ...prev, [field]: value }
-      updated.name = `${updated.first_name||''} ${updated.last_name||''}`.trim()
-      pendingNameSave.current = { first_name: updated.first_name||'', last_name: updated.last_name||'', name: updated.name }
+      updated.name = `${updated.first_name||''} ${updated.last_name||''}`.trim() // local display only
+      // WS1e-A4 (corr.2): persist only first/last; server composes the authoritative name.
+      pendingNameSave.current = { first_name: updated.first_name||'', last_name: updated.last_name||'' }
       return updated
     })
     setSaveStatus('saving')
@@ -1169,8 +1125,9 @@ export default function StudentSidePanel({
               </Field>
               <Field label="Last 4 SSN">
                 <div style={{ display:'flex', gap:6 }}>
+                  {/* WS1e-A4: ssn_last4 is read-only (no longer staff-editable; set at intake). */}
                   <input className="sp-input" type={showSSN ? 'text' : 'password'} maxLength={4}
-                    value={data.ssn_last4||''} onChange={e => handleText('ssn_last4', e.target.value.replace(/\D/g,'').slice(0,4))} />
+                    value={data.ssn_last4||''} readOnly title="Read-only — set during student intake." />
                   <button className="btn-clear" style={{ fontSize:11, padding:'4px 8px' }} onClick={() => setShowSSN(p => !p)}>
                     {showSSN ? 'Hide' : 'Show'}
                   </button>
@@ -1617,7 +1574,7 @@ export default function StudentSidePanel({
                         Submitted to Service Center
                       </label>
                       {data.cs_stage1_submitted && (
-                        <input className="csw-date-input" value={data.cs_stage1_submitted_date||''}
+                        <input className="csw-date-input" type="date" value={data.cs_stage1_submitted_date||''}
                           placeholder="Date" onChange={e => handleText('cs_stage1_submitted_date', e.target.value)} />
                       )}
                     </div>
@@ -1642,7 +1599,7 @@ export default function StudentSidePanel({
                         Submitted to Service Center
                       </label>
                       {data.cs_stage1_submitted && (
-                        <input className="csw-date-input" value={data.cs_stage1_submitted_date||''}
+                        <input className="csw-date-input" type="date" value={data.cs_stage1_submitted_date||''}
                           placeholder="Date" onChange={e => handleText('cs_stage1_submitted_date', e.target.value)} />
                       )}
                     </div>
@@ -1667,7 +1624,7 @@ export default function StudentSidePanel({
                         Account is active in the system
                       </label>
                       {data.cs_stage1_complete && (
-                        <input className="csw-date-input" value={data.cs_stage1_complete_date||''}
+                        <input className="csw-date-input" type="date" value={data.cs_stage1_complete_date||''}
                           placeholder="Date" onChange={e => handleText('cs_stage1_complete_date', e.target.value)} />
                       )}
                     </div>
@@ -1689,7 +1646,7 @@ export default function StudentSidePanel({
                     CS-Link access requested
                   </label>
                   {data.cs_link_requested && (
-                    <input className="csw-date-input" value={data.cs_link_requested_date||''}
+                    <input className="csw-date-input" type="date" value={data.cs_link_requested_date||''}
                       placeholder="Date" onChange={e => handleText('cs_link_requested_date', e.target.value)} />
                   )}
                 </div>
@@ -1702,7 +1659,7 @@ export default function StudentSidePanel({
                       CS-Link confirmed active and working
                     </label>
                     {data.cs_link_complete && (
-                      <input className="csw-date-input" value={data.cs_link_complete_date||''}
+                      <input className="csw-date-input" type="date" value={data.cs_link_complete_date||''}
                         placeholder="Date" onChange={e => handleText('cs_link_complete_date', e.target.value)} />
                     )}
                   </div>
@@ -2264,22 +2221,14 @@ export default function StudentSidePanel({
                           </button>
                         </td>
                         <td style={{ padding:'6px 8px', whiteSpace:'nowrap' }}>
+                          {/* WS1e-A4: per-shift approve/adjust/reject controls disabled — approved
+                              and pending hours are calculated from submitted shift logs and cannot
+                              be edited directly. Read-only status only. */}
                           {['Pending Review', 'needs_review'].includes(log.status) && (
-                            adjustingId===log.id ? (
-                              <span style={{ display:'flex', gap:4, alignItems:'center' }}>
-                                <input type="number" step="0.5" min="0.5" max="14" value={adjustHours}
-                                  onChange={e=>setAdjustHours(e.target.value)}
-                                  style={{ width:52, padding:'2px 4px', fontSize:12, border:'1px solid #e5e7eb', borderRadius:4 }} />
-                                <button onClick={()=>handleAdjustShift(log)} style={{ fontSize:11, padding:'2px 6px', background:'#166534', color:'#fff', border:'none', borderRadius:4, cursor:'pointer' }}>✓</button>
-                                <button onClick={()=>setAdjustingId(null)} style={{ fontSize:11, padding:'2px 6px', background:'#9ca3af', color:'#fff', border:'none', borderRadius:4, cursor:'pointer' }}>✕</button>
-                              </span>
-                            ) : (
-                              <span style={{ display:'flex', gap:4 }}>
-                                <button onClick={()=>handleApproveShift(log)} style={{ fontSize:11, padding:'2px 6px', background:'#166534', color:'#fff', border:'none', borderRadius:4, cursor:'pointer' }}>Approve</button>
-                                <button onClick={()=>{ setAdjustingId(log.id); setAdjustHours(log.total_hours) }} style={{ fontSize:11, padding:'2px 6px', background:'var(--nightfall)', color:'#fff', border:'none', borderRadius:4, cursor:'pointer' }}>Adjust</button>
-                                <button onClick={()=>handleRejectShift(log)} style={{ fontSize:11, padding:'2px 6px', background:'#991b1b', color:'#fff', border:'none', borderRadius:4, cursor:'pointer' }}>Reject</button>
-                              </span>
-                            )
+                            <span style={{ fontSize:11, color:'#6b7280', fontStyle:'italic' }}
+                              title="Approved and pending hours are calculated from submitted shift logs and cannot be edited directly.">
+                              Pending review
+                            </span>
                           )}
                         </td>
                       </tr>

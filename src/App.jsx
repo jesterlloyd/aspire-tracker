@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './lib/supabase'
-import { updateStudent as proxyUpdateStudent, updatePreceptorAssignment } from './lib/studentProxy'
+import { updatePreceptorAssignment, updateContact, updateProfile, updateRequirements, updateCslink, updateNgrp, updateBadge, updateNotes, updateStatus, updateInterviewOutcome } from './lib/studentProxy'
 import { displayName } from './lib/utils'
 import { ASPIRE_STATUS_CONFIG } from './lib/constants'
 import StudentAvatar from './components/StudentAvatar'
@@ -467,18 +467,40 @@ function MainApp({ onLogout }) {
   // loadedUpdatedAt is the updated_at timestamp the caller had when they loaded the
   // student.  When supplied, the save API enforces OCC: if the row changed since
   // then, it returns a conflict error instead of silently overwriting.
-  const updateStudent = useCallback(async (id, updates, loadedUpdatedAt) => {
+  // WS1e-A4: explicit field→action router (replaces the generic update wrapper).
+  // Every field maps to one explicit, server-validated action; there is NO generic
+  // fallback — an unmapped field throws. The local students-state merge is preserved.
+  // (Preceptor/shift/interview_outcome are routed at the component level (A2/A3b);
+  // this router covers the remaining staff domains.)
+  const updateStudent = useCallback(async (id, updates, _loadedUpdatedAt) => {
+    const DOMAINS = [
+      { keys: ['personal_email', 'phone'], helper: updateContact },
+      { keys: ['first_name', 'last_name', 'date_of_birth', 'gender', 'cumulative_gpa', 'program_type', 'shift_availability', 'prior_healthcare_experience', 'cs_affiliation', 'cs_department', 'cs_role', 'interest_statement', 'resume_url', 'headshot_url'], helper: updateProfile },
+      { keys: ['hours_required'], helper: updateRequirements },
+      { keys: ['cs_cedars_status', 'cs_stage1_action', 'cs_stage1_submitted', 'cs_stage1_submitted_date', 'cs_stage1_complete', 'cs_stage1_complete_date', 'cs_link_requested', 'cs_link_requested_date', 'cs_link_complete', 'cs_link_complete_date', 'cs_access_notes'], helper: updateCslink },
+      { keys: ['ngrp_cohort_target', 'ngrp_outcome'], helper: updateNgrp },
+      { keys: ['badge_created'], helper: updateBadge },
+      { keys: ['notes'], helper: updateNotes },
+      { keys: ['matched_preceptor', 'shift_assigned', 'preceptor_email'], helper: updatePreceptorAssignment },
+    ]
     try {
-      const updatedRow = await proxyUpdateStudent(id, updates, loadedUpdatedAt)
-      // Merge the full returned row so updated_at propagates to the student prop
-      setStudents(prev => prev.map(s =>
-        s.id === id
-          ? { ...s, ...updates, ...(updatedRow?.updated_at ? { updated_at: updatedRow.updated_at } : {}) }
-          : s
-      ))
+      const keys = Object.keys(updates || {})
+      if (keys.length === 0) return null
+
+      // Status (with optional decline_reason) → administrative status action.
+      if (keys.every(k => k === 'status' || k === 'decline_reason')) {
+        await updateStatus(id, updates.status, updates.decline_reason)
+      } else if (keys.length === 1 && keys[0] === 'interview_outcome') {
+        await updateInterviewOutcome(id, updates.interview_outcome)
+      } else {
+        const domain = DOMAINS.find(d => keys.every(k => d.keys.includes(k)))
+        if (!domain) throw new Error(`No explicit action for fields: ${keys.join(', ')}`)
+        await domain.helper(id, updates)
+      }
+      setStudents(prev => prev.map(s => (s.id === id ? { ...s, ...updates } : s)))
       return null
     } catch (err) {
-      return err  // err.conflict === true when OCC guard fires (HTTP 409)
+      return err
     }
   }, [])
 

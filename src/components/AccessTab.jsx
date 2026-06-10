@@ -211,17 +211,20 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
     if (!student?.id || !formData || saving) return
     setSaving(true)
 
+    // WS1e-A4 (corr.3): dates must be exact YYYY-MM-DD; coerce any legacy/free-text
+    // value to null so a stale non-ISO date never blocks a save.
+    const isoOrNull = v => (/^\d{4}-\d{2}-\d{2}$/.test(v || '') ? v : null)
     const payload = {
       cs_cedars_status:         formData.cs_cedars_status         || null,
       cs_stage1_action:         formData.cs_stage1_action         || null,
       cs_stage1_submitted:      formData.cs_stage1_submitted,
-      cs_stage1_submitted_date: formData.cs_stage1_submitted_date || null,
+      cs_stage1_submitted_date: isoOrNull(formData.cs_stage1_submitted_date),
       cs_stage1_complete:       formData.cs_stage1_complete,
-      cs_stage1_complete_date:  formData.cs_stage1_complete_date  || null,
+      cs_stage1_complete_date:  isoOrNull(formData.cs_stage1_complete_date),
       cs_link_requested:        formData.cs_link_requested,
-      cs_link_requested_date:   formData.cs_link_requested_date   || null,
+      cs_link_requested_date:   isoOrNull(formData.cs_link_requested_date),
       cs_link_complete:         formData.cs_link_complete,
-      cs_link_complete_date:    formData.cs_link_complete_date    || null,
+      cs_link_complete_date:    isoOrNull(formData.cs_link_complete_date),
       cs_access_notes:          formData.cs_access_notes          || null,
     }
 
@@ -300,7 +303,7 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
             {/* Date rendered only when checked, but value comes from formData
                 so it's preserved when unchecked and restored on re-check */}
             {formData.cs_stage1_submitted && (
-              <input type="text" className="am-date-input"
+              <input type="date" className="am-date-input"
                 value={formData.cs_stage1_submitted_date || ''}
                 onChange={e => handleChangeField('cs_stage1_submitted_date', e.target.value)}
                 placeholder="Date" />
@@ -316,7 +319,7 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
             checked={formData.cs_stage1_complete || false}
             onChange={() => handleToggleBox('cs_stage1_complete')} />
           {formData.cs_stage1_complete && (
-            <input type="text" className="am-date-input"
+            <input type="date" className="am-date-input"
               value={formData.cs_stage1_complete_date || ''}
               onChange={e => handleChangeField('cs_stage1_complete_date', e.target.value)}
               placeholder="Date" />
@@ -335,7 +338,7 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
               Requested
             </label>
             {formData.cs_link_requested && (
-              <input type="text" className="am-date-input"
+              <input type="date" className="am-date-input"
                 value={formData.cs_link_requested_date || ''}
                 onChange={e => handleChangeField('cs_link_requested_date', e.target.value)}
                 placeholder="Date" />
@@ -349,7 +352,7 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
               Complete
             </label>
             {formData.cs_link_complete && (
-              <input type="text" className="am-date-input"
+              <input type="date" className="am-date-input"
                 value={formData.cs_link_complete_date || ''}
                 onChange={e => handleChangeField('cs_link_complete_date', e.target.value)}
                 placeholder="Date" />

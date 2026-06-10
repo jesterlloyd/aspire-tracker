@@ -62,6 +62,7 @@ function migratedFieldHint(field) {
   return 'Use save_interview_outcome / update_interview_outcome for interview outcome fields.'
 }
 
+
 function validateRubricField(k, v) {
   switch (k) {
     case 'status':                       return RUBRIC_STATUS.includes(v)
@@ -81,6 +82,104 @@ function validateRubricField(k, v) {
     case 'unit_preference_3':            return typeof v === 'string' && v.length <= 120
     default:                             return false
   }
+}
+
+// ── WS1e-A4: explicit staff-domain field sets, enums, and validation ──────────
+// Status enum duplicated from src/lib/constants.js ASPIRE_STATUSES (keep in sync).
+const ASPIRE_STATUSES = ['Pending Outreach', 'Form Sent', 'Form Received', 'Interview Scheduled', 'Interviewed', 'Placed', 'Active Rotation', 'Completed', 'Declined', 'Not Proceeding']
+const NGRP_OUTCOMES   = ['Pending', 'Applied', 'Interviewed', 'Offered', 'Hired', 'Declined']
+const CEDARS_STATUS   = ['new', 'former', 'employee']
+const STAGE1_ACTIONS  = ['add_non_employee', 'assignment_change', 'extend_end_date', 'reactivate', 'not_applicable']
+
+const CONTACT_FIELDS = ['personal_email', 'phone']
+// WS1e-A4 (corr.2): `name` is NOT client-writable — server composes it from
+// first_name/last_name. Client may submit first_name and/or last_name only.
+const PROFILE_FIELDS = ['first_name', 'last_name', 'date_of_birth', 'gender', 'cumulative_gpa', 'program_type', 'shift_availability', 'prior_healthcare_experience', 'cs_affiliation', 'cs_department', 'cs_role', 'interest_statement', 'resume_url', 'headshot_url']
+const REQUIREMENT_FIELDS = ['hours_required']
+const CSLINK_FIELDS  = ['cs_cedars_status', 'cs_stage1_action', 'cs_stage1_submitted', 'cs_stage1_submitted_date', 'cs_stage1_complete', 'cs_stage1_complete_date', 'cs_link_requested', 'cs_link_requested_date', 'cs_link_complete', 'cs_link_complete_date', 'cs_access_notes']
+const CSLINK_PAIRS = [['cs_stage1_submitted', 'cs_stage1_submitted_date'], ['cs_stage1_complete', 'cs_stage1_complete_date'], ['cs_link_requested', 'cs_link_requested_date'], ['cs_link_complete', 'cs_link_complete_date']]
+const NGRP_FIELDS    = ['ngrp_cohort_target', 'ngrp_outcome']
+const BADGE_FIELDS   = ['badge_created'] // WS1e-A4 (corr.1): only active badge mutation
+const NOTES_FIELDS   = ['notes']
+
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+function isValidYMD(s) {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false
+  const [y, m, d] = s.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d
+}
+function validateA4Field(k, v) {
+  switch (k) {
+    case 'personal_email':            return v === '' || (typeof v === 'string' && v.length <= 200 && EMAIL_RE.test(v))
+    case 'phone':                     return typeof v === 'string' && v.length <= 40
+    case 'first_name':
+    case 'last_name':
+    case 'name':                      return typeof v === 'string' && v.length <= 120
+    case 'date_of_birth':             return v === '' || v === null || isValidYMD(v)
+    case 'gender':                    return typeof v === 'string' && v.length <= 50
+    case 'cumulative_gpa':            return v === null || v === '' || (typeof v === 'number' && v >= 0 && v <= 4.5)
+    case 'program_type':
+    case 'shift_availability':
+    case 'cs_affiliation':
+    case 'cs_department':
+    case 'cs_role':                   return typeof v === 'string' && v.length <= 120
+    case 'prior_healthcare_experience':
+    case 'interest_statement':        return typeof v === 'string' && v.length <= 5000
+    case 'resume_url':
+    case 'headshot_url':              return v === '' || (typeof v === 'string' && v.length <= 500)
+    case 'hours_required':            return Number.isInteger(v) && v >= 0 && v <= 10000
+    case 'cs_cedars_status':          return v === '' || v === null || CEDARS_STATUS.includes(v)
+    case 'cs_stage1_action':          return v === '' || v === null || STAGE1_ACTIONS.includes(v)
+    case 'cs_stage1_submitted':
+    case 'cs_stage1_complete':
+    case 'cs_link_requested':
+    case 'cs_link_complete':          return typeof v === 'boolean'
+    case 'cs_stage1_submitted_date':
+    case 'cs_stage1_complete_date':
+    case 'cs_link_requested_date':
+    case 'cs_link_complete_date':     return v === '' || v === null || isValidYMD(v) // WS1e-A4 (corr.3): exact YYYY-MM-DD
+    case 'cs_access_notes':           return v === '' || v === null || (typeof v === 'string' && v.length <= 5000)
+    case 'ngrp_cohort_target':        return typeof v === 'string' && v.length <= 120
+    case 'ngrp_outcome':              return v === '' || v === null || NGRP_OUTCOMES.includes(v)
+    case 'badge_created':             return typeof v === 'boolean'
+    case 'notes':                     return typeof v === 'string' && v.length <= 10000
+    default:                          return false
+  }
+}
+
+// Shared runner for the simple domain actions (exact schema, ≥1 field, idempotent).
+// crossValidate(payload) → returns an offending field name (400) or null.
+async function handleDomainUpdate({ res, db, requestId, auth, body, payload, domainFields, label, crossValidate }) {
+  const ALLOWED = ['action', 'student_id', ...domainFields]
+  const unexpected = Object.keys(body || {}).filter(k => !ALLOWED.includes(k))
+  if (unexpected.length > 0) return res.status(400).json({ error: 'invalid_request', field: unexpected[0], message: 'Unexpected field.' })
+  const { student_id } = payload
+  if (!student_id || typeof student_id !== 'string') return res.status(400).json({ error: 'invalid_request', field: 'student_id' })
+  const supplied = domainFields.filter(k => payload[k] !== undefined)
+  if (supplied.length === 0) return res.status(400).json({ error: 'invalid_request', message: 'At least one field is required.' })
+  for (const k of supplied) {
+    if (!validateA4Field(k, payload[k])) return res.status(400).json({ error: 'invalid_request', field: k, message: 'Invalid value for this field.' })
+  }
+  if (crossValidate) {
+    const bad = crossValidate(payload)
+    if (bad) return res.status(400).json({ error: 'invalid_request', field: bad, message: 'Inconsistent paired fields.' })
+  }
+  const { data: stu, error: stuErr } = await db.from('students')
+    .select(['id', 'cohort_id', ...supplied].join(', ')).eq('id', student_id).maybeSingle()
+  if (stuErr) return res.status(500).json({ error: 'internal_error' })
+  if (!stu) return res.status(404).json({ error: 'not_found' })
+  const upd = {}
+  for (const k of supplied) upd[k] = payload[k]
+  const noChange = supplied.every(k => (stu[k] ?? null) === (upd[k] ?? null))
+  if (noChange) return res.status(200).json({ success: true, no_change: true })
+  const { error: updErr } = await db.from('students').update(upd).eq('id', student_id)
+  if (updErr) {
+    console.log(`[student-update] ${label} failed`, { request_id: requestId, errorCode: updErr.code })
+    return res.status(500).json({ error: 'internal_error' })
+  }
+  console.log(`[student-update] ${label}`, { request_id: requestId, callerRole: auth.role, studentId: student_id, cohortId: stu.cohort_id ?? null, fields: supplied })
+  return res.status(200).json({ success: true })
 }
 
 export default async function handler(req, res) {
@@ -110,6 +209,7 @@ export default async function handler(req, res) {
   const { action, ...payload } = req.body || {}
 
   try {
+
     if (action === 'update') {
       const { student_id, fields, loaded_updated_at } = payload
       if (!student_id) return res.status(400).json({ error: 'invalid_request', field: 'student_id' })
@@ -222,20 +322,22 @@ export default async function handler(req, res) {
       if (!isOwnerAdmin) {
         return res.status(403).json({ error: 'forbidden', message: 'You do not have permission to assign placement.' })
       }
-      // Exact top-level schema (besides action): student_id + optional preceptor/shift.
-      const PA_ALLOWED = ['action', 'student_id', 'matched_preceptor', 'shift_assigned']
+      // Exact top-level schema (besides action): student_id + optional preceptor/shift/email.
+      // WS1e-A4: preceptor_email added here (placement-adjacent; NOT student contact info).
+      const PA_ALLOWED = ['action', 'student_id', 'matched_preceptor', 'shift_assigned', 'preceptor_email']
       const unexpectedPA = Object.keys(req.body || {}).filter(k => !PA_ALLOWED.includes(k))
       if (unexpectedPA.length > 0) {
         return res.status(400).json({ error: 'invalid_request', field: unexpectedPA[0], message: 'Unexpected field.' })
       }
-      const { student_id, matched_preceptor, shift_assigned } = payload
+      const { student_id, matched_preceptor, shift_assigned, preceptor_email } = payload
       if (!student_id || typeof student_id !== 'string') {
         return res.status(400).json({ error: 'invalid_request', field: 'student_id' })
       }
       const hasPreceptor = matched_preceptor !== undefined
       const hasShift     = shift_assigned !== undefined
-      if (!hasPreceptor && !hasShift) {
-        return res.status(400).json({ error: 'invalid_request', message: 'At least one of matched_preceptor or shift_assigned is required.' })
+      const hasEmail     = preceptor_email !== undefined
+      if (!hasPreceptor && !hasShift && !hasEmail) {
+        return res.status(400).json({ error: 'invalid_request', message: 'At least one of matched_preceptor, shift_assigned, or preceptor_email is required.' })
       }
 
       const upd = {}
@@ -255,10 +357,17 @@ export default async function handler(req, res) {
         }
         upd.shift_assigned = shift_assigned
       }
+      if (hasEmail) {
+        // Free-text preceptor contact email; '' clears. preceptor_id NOT inferred/written.
+        if (typeof preceptor_email !== 'string' || (preceptor_email !== '' && (preceptor_email.length > 200 || !EMAIL_RE.test(preceptor_email)))) {
+          return res.status(400).json({ error: 'invalid_request', field: 'preceptor_email' })
+        }
+        upd.preceptor_email = preceptor_email
+      }
 
       // Resolve student; derive cohort context; evaluate idempotency on requested fields only.
       const { data: stu, error: stuErr } = await db
-        .from('students').select('id, cohort_id, matched_preceptor, shift_assigned')
+        .from('students').select('id, cohort_id, matched_preceptor, shift_assigned, preceptor_email')
         .eq('id', student_id).maybeSingle()
       if (stuErr) return res.status(500).json({ error: 'internal_error' })
       if (!stu) return res.status(404).json({ error: 'not_found' })
@@ -456,6 +565,112 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true })
     }
 
+    // ── WS1e-A4: explicit staff-domain actions (Owner/Admin only) ─────────────
+    if (action === 'update_contact') {
+      if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
+      return handleDomainUpdate({ res, db, requestId, auth, body: req.body, payload, domainFields: CONTACT_FIELDS, label: 'contact update' })
+    }
+    // WS1e-A4 (corr.2): name is server-composed from first_name/last_name; client
+    // may not submit `name` (rejected as unexpected).
+    if (action === 'update_profile') {
+      if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
+      const ALLOWED = ['action', 'student_id', ...PROFILE_FIELDS]
+      const unexpected = Object.keys(req.body || {}).filter(k => !ALLOWED.includes(k))
+      if (unexpected.length > 0) return res.status(400).json({ error: 'invalid_request', field: unexpected[0], message: 'Unexpected field.' })
+      const { student_id } = payload
+      if (!student_id || typeof student_id !== 'string') return res.status(400).json({ error: 'invalid_request', field: 'student_id' })
+      const supplied = PROFILE_FIELDS.filter(k => payload[k] !== undefined)
+      if (supplied.length === 0) return res.status(400).json({ error: 'invalid_request', message: 'At least one field is required.' })
+      for (const k of supplied) {
+        if (!validateA4Field(k, payload[k])) return res.status(400).json({ error: 'invalid_request', field: k, message: 'Invalid value for this field.' })
+      }
+      const selectCols = [...new Set(['id', 'cohort_id', 'name', 'first_name', 'last_name', ...supplied])].join(', ')
+      const { data: stu, error: stuErr } = await db.from('students').select(selectCols).eq('id', student_id).maybeSingle()
+      if (stuErr) return res.status(500).json({ error: 'internal_error' })
+      if (!stu) return res.status(404).json({ error: 'not_found' })
+      const upd = {}
+      for (const k of supplied) upd[k] = payload[k]
+      // Server-compose name from the resulting first/last whenever either changes.
+      if (upd.first_name !== undefined || upd.last_name !== undefined) {
+        const f = (upd.first_name !== undefined ? upd.first_name : (stu.first_name || '')).trim()
+        const l = (upd.last_name  !== undefined ? upd.last_name  : (stu.last_name  || '')).trim()
+        upd.name = `${f} ${l}`.trim()
+      }
+      const compareKeys = Object.keys(upd)
+      const noChange = compareKeys.every(k => (stu[k] ?? null) === (upd[k] ?? null))
+      if (noChange) return res.status(200).json({ success: true, no_change: true })
+      const { error: updErr } = await db.from('students').update(upd).eq('id', student_id)
+      if (updErr) {
+        console.log('[student-update] profile update failed', { request_id: requestId, errorCode: updErr.code })
+        return res.status(500).json({ error: 'internal_error' })
+      }
+      console.log('[student-update] profile update', { request_id: requestId, callerRole: auth.role, studentId: student_id, cohortId: stu.cohort_id ?? null, fields: compareKeys })
+      return res.status(200).json({ success: true })
+    }
+    if (action === 'update_requirements') {
+      if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
+      return handleDomainUpdate({ res, db, requestId, auth, body: req.body, payload, domainFields: REQUIREMENT_FIELDS, label: 'requirements update' })
+    }
+    // WS1e-A4 (corr.3): CS-Link dates are exact YYYY-MM-DD; pairing rejects a false
+    // boolean accompanied (same request) by a non-empty paired date.
+    if (action === 'update_cslink') {
+      if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
+      const crossValidate = (p) => {
+        for (const [boolKey, dateKey] of CSLINK_PAIRS) {
+          if (p[boolKey] === false && p[dateKey] !== undefined && p[dateKey] !== '' && p[dateKey] !== null) return dateKey
+        }
+        return null
+      }
+      return handleDomainUpdate({ res, db, requestId, auth, body: req.body, payload, domainFields: CSLINK_FIELDS, label: 'cslink update', crossValidate })
+    }
+    if (action === 'update_ngrp') {
+      if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
+      return handleDomainUpdate({ res, db, requestId, auth, body: req.body, payload, domainFields: NGRP_FIELDS, label: 'ngrp update' })
+    }
+    if (action === 'update_badge') {
+      if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
+      return handleDomainUpdate({ res, db, requestId, auth, body: req.body, payload, domainFields: BADGE_FIELDS, label: 'badge update' })
+    }
+    if (action === 'update_notes') {
+      if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
+      return handleDomainUpdate({ res, db, requestId, auth, body: req.body, payload, domainFields: NOTES_FIELDS, label: 'notes update' })
+    }
+
+    // WS1e-A4: administrative status override (Owner/Admin), recognized enum only.
+    if (action === 'update_student_status') {
+      if (!isOwnerAdmin) return res.status(403).json({ error: 'forbidden' })
+      const ALLOWED = ['action', 'student_id', 'status', 'decline_reason']
+      const unexpected = Object.keys(req.body || {}).filter(k => !ALLOWED.includes(k))
+      if (unexpected.length > 0) return res.status(400).json({ error: 'invalid_request', field: unexpected[0], message: 'Unexpected field.' })
+      const { student_id, status, decline_reason } = payload
+      if (!student_id || typeof student_id !== 'string') return res.status(400).json({ error: 'invalid_request', field: 'student_id' })
+      if (typeof status !== 'string' || !ASPIRE_STATUSES.includes(status)) return res.status(400).json({ error: 'invalid_request', field: 'status' })
+      if (decline_reason !== undefined && (typeof decline_reason !== 'string' || decline_reason.length > 2000)) {
+        return res.status(400).json({ error: 'invalid_request', field: 'decline_reason' })
+      }
+      // WS1e-A4: decline_reason is only meaningful for 'Declined' — reject it with any
+      // other status. (Existing reasons on a non-Declined transition are left as-is.)
+      if (decline_reason !== undefined && status !== 'Declined') {
+        return res.status(400).json({ error: 'invalid_request', field: 'decline_reason', message: 'decline_reason is only valid with status Declined.' })
+      }
+      const { data: stu, error: stuErr } = await db.from('students')
+        .select('id, cohort_id, status, decline_reason').eq('id', student_id).maybeSingle()
+      if (stuErr) return res.status(500).json({ error: 'internal_error' })
+      if (!stu) return res.status(404).json({ error: 'not_found' })
+      const declineChanges = decline_reason !== undefined && (stu.decline_reason ?? '') !== decline_reason
+      if (stu.status === status && !declineChanges) return res.status(200).json({ success: true, no_change: true })
+      const upd = { status }
+      if (decline_reason !== undefined) upd.decline_reason = decline_reason
+      const { error: updErr } = await db.from('students').update(upd).eq('id', student_id)
+      if (updErr) {
+        console.log('[student-update] status update failed', { request_id: requestId, errorCode: updErr.code })
+        return res.status(500).json({ error: 'internal_error' })
+      }
+      console.log('[student-update] status updated', { request_id: requestId, callerRole: auth.role, studentId: student_id, cohortId: stu.cohort_id ?? null, status })
+      return res.status(200).json({ success: true })
+    }
+
+
     // WS1e-A1: the actions below have NO active UI caller today. Authenticated +
     // Owner/Admin only (Interviewer/others denied). Contracts unchanged otherwise.
     if (action === 'update_status') {
@@ -496,7 +711,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true })
     }
 
-    return res.status(400).json({ error: `Unknown action: ${action}` })
+    return res.status(400).json({ error: 'invalid_request', message: 'Unknown action.' })
 
   } catch (err) {
     console.error('student-update error:', err)

@@ -86,11 +86,11 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
   const handleNameField = (field, value) => {
     setData(prev => {
       const updated = { ...prev, [field]: value }
-      updated.name = `${updated.first_name || ''} ${updated.last_name || ''}`.trim()
+      updated.name = `${updated.first_name || ''} ${updated.last_name || ''}`.trim() // local display only
+      // WS1e-A4 (corr.2): persist only first/last; server composes the authoritative name.
       pendingNameSave.current = {
         first_name: updated.first_name || '',
         last_name:  updated.last_name  || '',
-        name:       updated.name,
       }
       return updated
     })
@@ -294,9 +294,9 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
               </Field>
               <Field label="Last 4 SSN">
                 <div style={{ display: 'flex', gap: 6 }}>
+                  {/* WS1e-A4: ssn_last4 is read-only (no longer staff-editable; set at intake). */}
                   <input className="form-input" type={showSSN ? 'text' : 'password'}
-                    value={data.ssn_last4 || ''} maxLength={4}
-                    onChange={e => handleText('ssn_last4', e.target.value.replace(/\D/g,'').slice(0,4))} />
+                    value={data.ssn_last4 || ''} maxLength={4} readOnly title="Read-only — set during student intake." />
                   <button type="button" className="btn-clear"
                     style={{ flexShrink: 0, padding: '4px 8px', fontSize: 11 }}
                     onClick={() => setShowSSN(p => !p)}>
