@@ -69,29 +69,12 @@ export default function UserMenu({ onRestartTour }) {
   return (
     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
 
-      {/* People & Access icon — Owner and Admin */}
-      {isAdmin && (
-        <Tooltip label="People & Access" placement="bottom">
-        <button
-          data-tour="people-access"
-          aria-label="People & Access"
-          onClick={() => navigate('/settings/accounts')}
-          style={{
-            background: 'rgba(255,255,255,0.10)',
-            border: '1px solid rgba(255,255,255,0.15)',
-            borderRadius: '8px',
-            width: '34px', height: '34px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'background 0.15s ease',
-          }}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.10)'}
-        >
-          <Users size={15} color="#ffffff" strokeWidth={2} />
-        </button>
-        </Tooltip>
-      )}
+      {/* WS2.2a: the standalone People & Access header icon was removed; the entry now
+          lives in the dropdown below (→ /settings/accounts). The old icon carried
+          data-tour="people-access"; it was removed with the icon (a closed dropdown
+          item is not a reliable tour target, and the visible avatar trigger already
+          carries data-tour="user-profile"). WS2.3 will re-point or remove the
+          privileged People & Access tour step in onboardingTours.js. */}
 
       {/* User button */}
       <Tooltip label="My Profile" placement="bottom">
@@ -203,6 +186,19 @@ export default function UserMenu({ onRestartTour }) {
               <Settings size={14} strokeWidth={2} color="#6b7280" />
               Settings
             </button>
+
+            {/* WS2.2a: People & Access (moved from the standalone header icon) — Owner/Admin */}
+            {isAdmin && (
+              <button
+                onClick={() => { setIsOpen(false); navigate('/settings/accounts'); }}
+                style={{ width: '100%', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)', cursor: 'pointer', textAlign: 'left', borderTop: '1px solid var(--color-border-subtle,#f3f4f6)', transition: 'background 0.15s ease' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-hover,#f9fafb)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'none'}
+              >
+                <Users size={14} strokeWidth={2} color="#6b7280" />
+                People & Access
+              </button>
+            )}
 
             {/* Restart tour */}
             {onRestartTour && (
