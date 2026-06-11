@@ -58,7 +58,31 @@ const ACTION_SCHEMAS = {
   get_partial:               ['action', 'partial_id'],
   create_partial_draft:      ['action', 'name', 'description', 'body'],
   update_partial_draft:      ['action', 'partial_id', 'name', 'description', 'body'],
+
+  // KT-2b lifecycle (delegated to RPCs) + version reads (service-role reads)
+  activate_template:         ['action', 'template_id', 'change_note'],
+  apply_template_revision:   ['action', 'template_id'],
+  restore_template_version:  ['action', 'template_id', 'version_number', 'change_note'],
+  change_template_state:     ['action', 'template_id', 'target_state'],
+  list_template_versions:    ['action', 'template_id'],
+  get_template_version:      ['action', 'template_id', 'version_number'],
+  activate_partial:          ['action', 'partial_id', 'change_note'],
+  restore_partial_version:   ['action', 'partial_id', 'version_number', 'change_note'],
+  change_partial_state:      ['action', 'partial_id', 'target_state'],
+  list_partial_versions:     ['action', 'partial_id'],
+  get_partial_version:       ['action', 'partial_id', 'version_number'],
 }
+
+// KT-2b: lifecycle actions are Owner-only (Admin denied lifecycle, may read versions).
+// Partials have no apply action by design.
+const LIFECYCLE_ACTIONS = new Set([
+  'activate_template', 'apply_template_revision', 'restore_template_version', 'change_template_state',
+  'activate_partial', 'restore_partial_version', 'change_partial_state',
+])
+
+// Version list projections: metadata only (NO body/content). get returns full snapshot.
+const TEMPLATE_VERSION_LIST_COLS = 'version_number, change_note, editor_id, created_at'
+const PARTIAL_VERSION_LIST_COLS  = 'version_number, change_note, editor_id, created_at'
 
 // List projections (body omitted for leanness; full row on get).
 const TEMPLATE_LIST_COLS = 'id, title, purpose, audience, channel, subject_pattern, placeholder_schema, management, state, current_version, created_by, updated_by, created_at, updated_at'
@@ -77,6 +101,47 @@ function isCappedString(v, max) {
 }
 function isPlainObject(v) {
   return v !== null && typeof v === 'object' && !Array.isArray(v)
+}
+function isPositiveInt(v) {
+  return Number.isInteger(v) && v > 0
+}
+
+// KT-2b: map a governance RPC's typed exception to a normalized HTTP response.
+// Detection mirrors the house pattern (api/shift-log/check-out.js handleRpcError):
+// primary on rpcError.code (SQLSTATE), fallback on rpcError.message token. Bodies
+// are sanitized (no SQLSTATE/function names/SQL text); full detail to server log only.
+function mapGovernanceRpcError(rpcError, res, requestId, ctx) {
+  const code = rpcError.code
+  const msg = rpcError.message || ''
+  const is = (c, token) => code === c || msg.includes(token)
+
+  if (is('P0101', 'governance_target_not_found') ||
+      is('P0102', 'governance_revision_not_found') ||
+      is('P0103', 'governance_version_not_found')) {
+    console.log('[templates-admin] rpc not_found', { ...ctx, code, request_id: requestId })
+    return res.status(404).json({ error: 'not_found' })
+  }
+  if (is('P0104', 'governance_invalid_transition')) {
+    console.log('[templates-admin] rpc invalid_transition', { ...ctx, code, request_id: requestId })
+    return res.status(409).json({ error: 'conflict', message: 'Invalid state transition.' })
+  }
+  if (is('P0105', 'governance_archived_terminal')) {
+    console.log('[templates-admin] rpc archived_terminal', { ...ctx, code, request_id: requestId })
+    return res.status(409).json({ error: 'conflict', message: 'Archived records cannot change state.' })
+  }
+  if (is('P0106', 'governance_invalid_version_sequence')) {
+    console.log('[templates-admin] rpc invalid_version_sequence', { ...ctx, code, request_id: requestId })
+    return res.status(409).json({ error: 'conflict', message: 'Version sequence conflict; please retry.' })
+  }
+  if (is('P0107', 'governance_invalid_actor')) {
+    // The endpoint always passes auth.profileId (resolved by verifyCaller); P0107
+    // means it no longer resolves in-RPC — a data-integrity anomaly, not a normal
+    // client error. Loud server log; sanitized 403 (KT-2a no_profile → 403 parity).
+    console.error('[templates-admin] governance_invalid_actor: actor profileId did not resolve in user_profiles (data-integrity anomaly)', { ...ctx, request_id: requestId })
+    return res.status(403).json({ error: 'forbidden', message: 'Access denied.' })
+  }
+  console.error('[templates-admin] rpc unexpected error', { ...ctx, code, msg, request_id: requestId })
+  return res.status(500).json({ error: 'internal_error' })
 }
 
 // placeholder_schema: JSON array; each element an object whose keys are a subset
@@ -252,10 +317,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'invalid_request', field: unexpected[0], message: 'Unexpected request field.' })
   }
 
-  // (5) role authorization — Owner/Admin only.
+  // (5) role authorization — Owner/Admin for every action (denies co-lead/co_lead/
+  // interviewer/viewer/no-profile). KT-2b lifecycle actions tighten to Owner-only.
   if (!canGovern(auth.role, auth.isOwner)) {
     console.log('[templates-admin] insufficient authority', { action, callerRole: auth.role, callerIsOwner: auth.isOwner, request_id: requestId })
     return res.status(403).json({ error: 'forbidden', message: 'You do not have permission to perform this action.' })
+  }
+  if (LIFECYCLE_ACTIONS.has(action) && !auth.isOwner) {
+    console.log('[templates-admin] lifecycle requires owner', { action, callerRole: auth.role, request_id: requestId })
+    return res.status(403).json({ error: 'forbidden', message: 'Only the Owner may perform lifecycle actions.' })
   }
 
   const db = getDb()
@@ -528,6 +598,113 @@ export default async function handler(req, res) {
           requestId,
         })
         return res.status(200).json({ success: true, partial_id: body.partial_id })
+      }
+
+      // ── KT-2b template lifecycle (delegated to RPCs) ──────────────────────────
+      case 'activate_template': {
+        if (!UUID_REGEX.test(String(body.template_id || ''))) return res.status(400).json({ error: 'invalid_request', field: 'template_id' })
+        if (body.change_note !== undefined && !isCappedString(body.change_note, MAX_CHANGE_NOTE)) return res.status(400).json({ error: 'invalid_request', field: 'change_note', message: 'Max 2000 characters.' })
+        const params = { p_template_id: body.template_id, p_actor_profile_id: auth.profileId }
+        if (body.change_note !== undefined) params.p_change_note = body.change_note
+        const { data, error } = await db.rpc('governance_activate_template', params)
+        if (error) return mapGovernanceRpcError(error, res, requestId, { action, template_id: body.template_id })
+        return res.status(200).json({ success: true, ...(data || {}) })
+      }
+
+      case 'apply_template_revision': {
+        if (!UUID_REGEX.test(String(body.template_id || ''))) return res.status(400).json({ error: 'invalid_request', field: 'template_id' })
+        const { data, error } = await db.rpc('governance_apply_template_revision', { p_template_id: body.template_id, p_actor_profile_id: auth.profileId })
+        if (error) return mapGovernanceRpcError(error, res, requestId, { action, template_id: body.template_id })
+        return res.status(200).json({ success: true, ...(data || {}) })
+      }
+
+      case 'restore_template_version': {
+        if (!UUID_REGEX.test(String(body.template_id || ''))) return res.status(400).json({ error: 'invalid_request', field: 'template_id' })
+        if (!isPositiveInt(body.version_number)) return res.status(400).json({ error: 'invalid_request', field: 'version_number', message: 'Positive integer required.' })
+        if (body.change_note !== undefined && !isCappedString(body.change_note, MAX_CHANGE_NOTE)) return res.status(400).json({ error: 'invalid_request', field: 'change_note', message: 'Max 2000 characters.' })
+        const params = { p_template_id: body.template_id, p_version_number: body.version_number, p_actor_profile_id: auth.profileId }
+        if (body.change_note !== undefined) params.p_change_note = body.change_note
+        const { data, error } = await db.rpc('governance_restore_template_version', params)
+        if (error) return mapGovernanceRpcError(error, res, requestId, { action, template_id: body.template_id, version_number: body.version_number })
+        return res.status(200).json({ success: true, ...(data || {}) })
+      }
+
+      case 'change_template_state': {
+        if (!UUID_REGEX.test(String(body.template_id || ''))) return res.status(400).json({ error: 'invalid_request', field: 'template_id' })
+        if (typeof body.target_state !== 'string' || !STATES.includes(body.target_state)) return res.status(400).json({ error: 'invalid_request', field: 'target_state' })
+        const { data, error } = await db.rpc('governance_change_template_state', { p_template_id: body.template_id, p_target_state: body.target_state, p_actor_profile_id: auth.profileId })
+        if (error) return mapGovernanceRpcError(error, res, requestId, { action, template_id: body.template_id, target_state: body.target_state })
+        return res.status(200).json({ success: true, ...(data || {}) })
+      }
+
+      // ── KT-2b template version reads (service-role reads; no RPC) ──────────────
+      case 'list_template_versions': {
+        if (!UUID_REGEX.test(String(body.template_id || ''))) return res.status(400).json({ error: 'invalid_request', field: 'template_id' })
+        const { data: tpl, error: pErr } = await db.from('templates').select('id').eq('id', body.template_id).maybeSingle()
+        if (pErr) return res.status(500).json({ error: 'internal_error' })
+        if (!tpl) return res.status(404).json({ error: 'not_found' })
+        const { data, error } = await db.from('template_versions').select(TEMPLATE_VERSION_LIST_COLS).eq('template_id', body.template_id).order('version_number', { ascending: false })
+        if (error) return res.status(500).json({ error: 'internal_error' })
+        return res.status(200).json({ versions: data || [] })
+      }
+
+      case 'get_template_version': {
+        if (!UUID_REGEX.test(String(body.template_id || ''))) return res.status(400).json({ error: 'invalid_request', field: 'template_id' })
+        if (!isPositiveInt(body.version_number)) return res.status(400).json({ error: 'invalid_request', field: 'version_number', message: 'Positive integer required.' })
+        const { data, error } = await db.from('template_versions').select('*').eq('template_id', body.template_id).eq('version_number', body.version_number).maybeSingle()
+        if (error) return res.status(500).json({ error: 'internal_error' })
+        if (!data) return res.status(404).json({ error: 'not_found' })
+        return res.status(200).json({ version: data })
+      }
+
+      // ── KT-2b partial lifecycle (delegated to RPCs; no apply by design) ───────
+      case 'activate_partial': {
+        if (!UUID_REGEX.test(String(body.partial_id || ''))) return res.status(400).json({ error: 'invalid_request', field: 'partial_id' })
+        if (body.change_note !== undefined && !isCappedString(body.change_note, MAX_CHANGE_NOTE)) return res.status(400).json({ error: 'invalid_request', field: 'change_note', message: 'Max 2000 characters.' })
+        const params = { p_partial_id: body.partial_id, p_actor_profile_id: auth.profileId }
+        if (body.change_note !== undefined) params.p_change_note = body.change_note
+        const { data, error } = await db.rpc('governance_activate_template_partial', params)
+        if (error) return mapGovernanceRpcError(error, res, requestId, { action, partial_id: body.partial_id })
+        return res.status(200).json({ success: true, ...(data || {}) })
+      }
+
+      case 'restore_partial_version': {
+        if (!UUID_REGEX.test(String(body.partial_id || ''))) return res.status(400).json({ error: 'invalid_request', field: 'partial_id' })
+        if (!isPositiveInt(body.version_number)) return res.status(400).json({ error: 'invalid_request', field: 'version_number', message: 'Positive integer required.' })
+        if (body.change_note !== undefined && !isCappedString(body.change_note, MAX_CHANGE_NOTE)) return res.status(400).json({ error: 'invalid_request', field: 'change_note', message: 'Max 2000 characters.' })
+        const params = { p_partial_id: body.partial_id, p_version_number: body.version_number, p_actor_profile_id: auth.profileId }
+        if (body.change_note !== undefined) params.p_change_note = body.change_note
+        const { data, error } = await db.rpc('governance_restore_template_partial_version', params)
+        if (error) return mapGovernanceRpcError(error, res, requestId, { action, partial_id: body.partial_id, version_number: body.version_number })
+        return res.status(200).json({ success: true, ...(data || {}) })
+      }
+
+      case 'change_partial_state': {
+        if (!UUID_REGEX.test(String(body.partial_id || ''))) return res.status(400).json({ error: 'invalid_request', field: 'partial_id' })
+        if (typeof body.target_state !== 'string' || !STATES.includes(body.target_state)) return res.status(400).json({ error: 'invalid_request', field: 'target_state' })
+        const { data, error } = await db.rpc('governance_change_template_partial_state', { p_partial_id: body.partial_id, p_target_state: body.target_state, p_actor_profile_id: auth.profileId })
+        if (error) return mapGovernanceRpcError(error, res, requestId, { action, partial_id: body.partial_id, target_state: body.target_state })
+        return res.status(200).json({ success: true, ...(data || {}) })
+      }
+
+      // ── KT-2b partial version reads (service-role reads; no RPC) ──────────────
+      case 'list_partial_versions': {
+        if (!UUID_REGEX.test(String(body.partial_id || ''))) return res.status(400).json({ error: 'invalid_request', field: 'partial_id' })
+        const { data: partial, error: pErr } = await db.from('template_partials').select('id').eq('id', body.partial_id).maybeSingle()
+        if (pErr) return res.status(500).json({ error: 'internal_error' })
+        if (!partial) return res.status(404).json({ error: 'not_found' })
+        const { data, error } = await db.from('template_partial_versions').select(PARTIAL_VERSION_LIST_COLS).eq('partial_id', body.partial_id).order('version_number', { ascending: false })
+        if (error) return res.status(500).json({ error: 'internal_error' })
+        return res.status(200).json({ versions: data || [] })
+      }
+
+      case 'get_partial_version': {
+        if (!UUID_REGEX.test(String(body.partial_id || ''))) return res.status(400).json({ error: 'invalid_request', field: 'partial_id' })
+        if (!isPositiveInt(body.version_number)) return res.status(400).json({ error: 'invalid_request', field: 'version_number', message: 'Positive integer required.' })
+        const { data, error } = await db.from('template_partial_versions').select('*').eq('partial_id', body.partial_id).eq('version_number', body.version_number).maybeSingle()
+        if (error) return res.status(500).json({ error: 'internal_error' })
+        if (!data) return res.status(404).json({ error: 'not_found' })
+        return res.status(200).json({ version: data })
       }
 
       default:
