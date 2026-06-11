@@ -1,3 +1,32 @@
+// ── Student email lookup normalization (shared by frontend + serverless API) ──
+//
+// All student-email lookups must be forgiving: case-insensitive, whitespace- and
+// invisible-character-tolerant. Normalize BOTH the typed/pasted input AND the
+// stored value before comparing, so capitalization, surrounding spaces, and
+// zero-width characters introduced by copy/paste never block a match.
+//   - NFKC Unicode-normalize
+//   - strip zero-width chars: U+200B ZWSP, U+200C ZWNJ, U+200D ZWJ, U+FEFF BOM
+//   - trim, then lowercase
+export function normalizeEmailForLookup(value) {
+  // Zero-width set built via RegExp string so the source stays plain-ASCII and
+  // robust (no literal invisible characters): U+200B ZWSP, U+200C ZWNJ,
+  // U+200D ZWJ, U+FEFF BOM / zero-width no-break space.
+  const ZERO_WIDTH = new RegExp('[\\u200B-\\u200D\\uFEFF]', 'g')
+  return String(value || '')
+    .normalize('NFKC')
+    .replace(ZERO_WIDTH, '')
+    .trim()
+    .toLowerCase()
+}
+
+// Escape LIKE/ILIKE metacharacters so a normalized email is matched LITERALLY
+// (case-insensitively) rather than treating % or _ within the address as
+// wildcards. Pair an ilike(escapeLikePattern(norm)) filter with a JS
+// normalizeEmailForLookup equality check to guarantee no broad/wrong-student match.
+export function escapeLikePattern(value) {
+  return String(value || '').replace(/[\\%_]/g, m => `\\${m}`)
+}
+
 export function buildUnitLeaderEmail({
   contactPersons,
   contactEmails,

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { normalizeEmailForLookup, escapeLikePattern } from '../src/lib/emailUtils.js'
 
 const ELIGIBLE_STATUSES = new Set([
   'Form Received', 'Interview Scheduled', 'Interviewed',
@@ -31,9 +32,12 @@ export default async function handler(req, res) {
       .select('id, name').eq('accepting_submissions', true).limit(1).maybeSingle()
     if (!cohort) return res.status(400).json({ error: 'Scheduling is not currently open. Please contact the ASPIRE team.' })
 
-    // 2. Student by school_email
-    const { data: student } = await db.from('students')
-      .select('*').eq('cohort_id', cohort.id).ilike('school_email', email.trim()).limit(1).maybeSingle()
+    // 2. Student by school_email — forgiving match (case/whitespace/zero-width),
+    //    escaped ilike (no % / _ wildcard broadening), JS normalized-equality confirm.
+    const cleanEmail = normalizeEmailForLookup(email)
+    const { data: candidates } = await db.from('students')
+      .select('*').eq('cohort_id', cohort.id).ilike('school_email', escapeLikePattern(cleanEmail)).limit(5)
+    const student = (candidates || []).find(s => normalizeEmailForLookup(s.school_email) === cleanEmail) || null
     if (!student) return res.status(404).json({ error: 'We could not find your information. Please confirm your school email address or contact the ASPIRE team.' })
 
     // 3. Eligibility check

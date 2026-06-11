@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { SHIFT_LOG_STATUSES } from '../lib/shiftLogValidation'
 import { openMailtoLink } from '../lib/openLink'
+import { normalizeEmailForLookup, escapeLikePattern } from '../lib/emailUtils'
 // WS1e-A0b: past-shift submission now goes through /api/shift-log/submit-past-shift.
 // The server resolves the student, classifies the shift, inserts the completed
 // student_shift_logs row, recomputes approved/pending totals, applies the
@@ -64,16 +65,26 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
     e.preventDefault()
     setError(null); setLoading(true)
     try {
+      // Forgiving email match: case-insensitive, trimmed, zero-width-tolerant.
+      // ilike(escaped) avoids % / _ wildcard broadening; a JS normalized-equality
+      // check confirms exact identity so no wrong student is ever selected.
+      const normEmail = normalizeEmailForLookup(email)
+      if (!normEmail) {
+        setError(`Please enter your school email. If you need help, contact ${JESTER}.`)
+        setLoading(false); return
+      }
       // Search across all non-Archived cohorts so Active Rotation students can log hours
       // regardless of whether their cohort is still accepting intake submissions.
-      const { data: stu } = await supabase
+      const { data: candidates } = await supabase
         .from('students')
         .select('*, cohorts!inner(id, name, status, accepting_submissions)')
-        .ilike('school_email', email.trim())
+        .ilike('school_email', escapeLikePattern(normEmail))
         .not('cohorts.status', 'eq', 'Archived')
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+        .limit(5)
+
+      // Confirm exact normalized equality (most-recent non-archived match wins).
+      const stu = (candidates || []).find(c => normalizeEmailForLookup(c.school_email) === normEmail) || null
 
       if (!stu || stu.cohorts?.status === 'Archived') {
         setError(`We could not find your email in the current ASPIRE cohort. Please check the spelling or contact ${JESTER}.`)

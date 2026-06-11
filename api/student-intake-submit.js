@@ -23,6 +23,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { toLocalDateStr } from '../shared/dateUtils.js'
+import { normalizeEmailForLookup, escapeLikePattern } from '../src/lib/emailUtils.js'
 
 function getDb() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -116,14 +117,16 @@ export default async function handler(req, res) {
   // ── Eligibility 2: the submitted email must resolve to EXACTLY ONE student ──
   // within the cohort, across school_email AND personal_email. No first-match
   // fallback: collect the distinct matching student IDs and require exactly one.
-  // (ilike without wildcards = case-insensitive exact match.)
-  const cleanEmail = schoolEmail.toLowerCase()
+  // Normalized (case/whitespace/zero-width); escaped ilike = case-insensitive
+  // EXACT match (no % / _ wildcard broadening).
+  const cleanEmail = normalizeEmailForLookup(schoolEmail)
+  const likeEmail = escapeLikePattern(cleanEmail)
   const { data: bySchool, error: e1 } = await db
     .from('students').select('id, cohort_id, status')
-    .eq('cohort_id', cohortId).ilike('school_email', cleanEmail)
+    .eq('cohort_id', cohortId).ilike('school_email', likeEmail)
   const { data: byPersonal, error: e2 } = await db
     .from('students').select('id, cohort_id, status')
-    .eq('cohort_id', cohortId).ilike('personal_email', cleanEmail)
+    .eq('cohort_id', cohortId).ilike('personal_email', likeEmail)
   if (e1 || e2) return res.status(500).json({ error: 'internal_error' })
 
   const matched = new Map()
@@ -151,7 +154,7 @@ export default async function handler(req, res) {
     first_name: firstName,
     last_name: lastName,
     name: `${firstName} ${lastName}`,
-    personal_email: str(body.personal_email),
+    personal_email: normalizeEmailForLookup(body.personal_email), // store normalized going forward
     phone: str(body.phone),
     date_of_birth: str(body.date_of_birth) || null,
     ssn_last4: str(body.ssn_last4),

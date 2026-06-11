@@ -28,6 +28,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { toLocalDateStr } from '../../shared/dateUtils.js'
+import { normalizeEmailForLookup, escapeLikePattern } from '../../src/lib/emailUtils.js'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const VALID_SHIFT_TYPES = ['Day', 'Night', 'Mid']
@@ -188,13 +189,18 @@ export default async function handler(req, res) {
 
   // ── Resolve the student by school_email across non-Archived cohorts ─────────
   // Legacy model (no accepting_submissions gate); ambiguity-safe (require one).
-  const cleanEmail = schoolEmail.toLowerCase()
+  // Forgiving match: normalized (case/whitespace/zero-width), wildcards escaped,
+  // then a JS normalized-equality confirm so no % / _ over-match selects a wrong
+  // student.
+  const cleanEmail = normalizeEmailForLookup(schoolEmail)
   const { data: rows, error: lookupErr } = await db
     .from('students')
     .select('id, cohort_id, status, term_dates, matched_preceptor, matched_unit_id, hours_required, school_email, cohorts:cohort_id ( status )')
-    .ilike('school_email', cleanEmail)
+    .ilike('school_email', escapeLikePattern(cleanEmail))
   if (lookupErr) return res.status(500).json({ error: 'internal_error' })
-  const eligible = (rows || []).filter(r => (r.cohorts?.status || '') !== 'Archived')
+  const eligible = (rows || [])
+    .filter(r => normalizeEmailForLookup(r.school_email) === cleanEmail)
+    .filter(r => (r.cohorts?.status || '') !== 'Archived')
   const byId = new Map()
   eligible.forEach(r => byId.set(r.id, r))
   const ids = [...byId.keys()]

@@ -16,12 +16,7 @@
 // Read-only. No writes. No PII returned beyond the student's own safe fields.
 
 import supabaseAdmin from '../../lib/server/evaluation/supabase_admin.js'
-
-// Escape LIKE/ILIKE metacharacters so the DB does an exact (case-insensitive)
-// match rather than treating % or _ in the input as wildcards.
-function escapeLike(s) {
-  return s.replace(/[\\%_]/g, m => `\\${m}`)
-}
+import { normalizeEmailForLookup, escapeLikePattern } from '../../src/lib/emailUtils.js'
 
 /**
  * Look up a student by school email, evaluate eligibility, and (only when
@@ -35,13 +30,12 @@ function escapeLike(s) {
  *   { found:true, eligible:true, student:{...safe...}, open_shift:{...}|null }
  */
 export async function lookupStudentByEmail(schoolEmail) {
-  const norm = (schoolEmail || '').trim()
+  // Forgiving normalization: case-insensitive, trimmed, zero-width-tolerant.
+  const norm = normalizeEmailForLookup(schoolEmail)
   if (!norm) return { found: false, error: 'invalid_email' }
 
-  const lower = norm.toLowerCase()
-
   // Case-insensitive EXACT match (wildcards escaped). Fetch a few to detect
-  // duplicate-email anomalies; JS re-checks exact equality as a safety net.
+  // duplicate-email anomalies; JS re-checks normalized equality as a safety net.
   const { data: candidates, error: studentError } = await supabaseAdmin
     .from('students')
     .select(`
@@ -59,7 +53,7 @@ export async function lookupStudentByEmail(schoolEmail) {
       pending_hours,
       cohorts:cohort_id ( id, name, status )
     `)
-    .ilike('school_email', escapeLike(norm))
+    .ilike('school_email', escapeLikePattern(norm))
     .limit(5)
 
   if (studentError) {
@@ -67,7 +61,7 @@ export async function lookupStudentByEmail(schoolEmail) {
   }
 
   const matches = (candidates || []).filter(
-    s => (s.school_email || '').trim().toLowerCase() === lower
+    s => normalizeEmailForLookup(s.school_email) === norm
   )
 
   if (matches.length === 0) return { found: false }
