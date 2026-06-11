@@ -8,15 +8,22 @@
 //   - Identity = registered school_email, matched EXACT + case-insensitively
 //     (trimmed; NO % / _ wildcard broadening; duplicates are an error, never
 //     silently resolved to "most recent").
-//   - eligible:true means the student may use the (future) check-in/check-out
-//     workflow: a match exists, cohort is NOT 'Archived', AND status is exactly
-//     'Active Rotation'.
+//   - eligible:true means the student may use the check-in/check-out/past-shift
+//     workflow: a match exists, cohort is NOT 'Archived', AND status is either
+//     'Placed' (logging their first shift) or 'Active Rotation' (continuing). A
+//     student's first successfully-logged shift promotes Placed → Active Rotation
+//     (handled at submit-past-shift / check-out, not here).
 //   - Ineligible students return only minimal safe fields and NO open-shift query.
 //
 // Read-only. No writes. No PII returned beyond the student's own safe fields.
 
 import supabaseAdmin from '../../lib/server/evaluation/supabase_admin.js'
 import { normalizeEmailForLookup, escapeLikePattern } from '../../src/lib/emailUtils.js'
+
+// Statuses eligible to access/log shifts. 'Placed' covers the first shift (which
+// then promotes to 'Active Rotation'); 'Active Rotation' covers all subsequent
+// shifts. Every other status (Completed, Not Proceeding, etc.) is ineligible.
+const SHIFT_LOG_ELIGIBLE_STATUSES = ['Placed', 'Active Rotation']
 
 /**
  * Look up a student by school email, evaluate eligibility, and (only when
@@ -75,7 +82,7 @@ export async function lookupStudentByEmail(schoolEmail) {
   const fullName = `${student.first_name || ''} ${student.last_name || ''}`.trim()
   const cohort = student.cohorts || null
 
-  // ── Eligibility (Owner-corrected): cohort not archived AND Active Rotation ──
+  // ── Eligibility: cohort not archived AND status Placed OR Active Rotation ───
   if (cohort?.status === 'Archived') {
     return {
       found: true,
@@ -84,7 +91,7 @@ export async function lookupStudentByEmail(schoolEmail) {
       student: { id: student.id, full_name: fullName, school_email: student.school_email },
     }
   }
-  if (student.status !== 'Active Rotation') {
+  if (!SHIFT_LOG_ELIGIBLE_STATUSES.includes(student.status)) {
     return {
       found: true,
       eligible: false,

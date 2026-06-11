@@ -26,6 +26,7 @@
 import { randomUUID } from 'crypto'
 import supabaseAdmin from '../../lib/server/evaluation/supabase_admin.js'
 import { lookupStudentByEmail } from '../lib/shiftLogLookup.js'
+import { toLocalDateStr } from '../../shared/dateUtils.js'
 
 const VALID_SHIFT_TYPES = ['Day', 'Night', 'Mid']
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -249,6 +250,24 @@ export default async function handler(req, res) {
     logRequest(requestId, 'error', student.id, shiftId, Date.now() - startTime, 'rpc_returned_malformed_result')
     return res.status(500).json({ error: 'internal_error', request_id: requestId })
   }
+  // ── Promote Placed → Active Rotation on first completed (auto-accepted) shift ──
+  // Mirrors api/shift-log/submit-past-shift.js. The status guard makes this fire
+  // exactly once: a subsequent check-out reads 'Active Rotation' and skips it.
+  // Best-effort: the completed shift (RPC) is authoritative even if this fails.
+  if (status === 'Auto-Accepted' && student.status === 'Placed') {
+    try {
+      await supabaseAdmin.from('students').update({ status: 'Active Rotation' }).eq('id', student.id)
+      await supabaseAdmin.from('program_events').insert({
+        student_id: student.id,
+        cohort_id: student.cohort_id,
+        event_type: 'status_change_active_rotation',
+        event_date: toLocalDateStr(),
+        notes: 'Status automatically promoted from Placed to Active Rotation on first completed shift.',
+        created_by: 'Shift Log',
+      })
+    } catch { /* best-effort; the completed shift is authoritative */ }
+  }
+
   logRequest(requestId, 'completed', student.id, shiftId, Date.now() - startTime)
   return res.status(200).json({
     completed: true,
