@@ -1,22 +1,24 @@
-// KT-3a-1: Settings → Knowledge Center (READ-ONLY shell).
-// UI-1: now composed from the shared ui/ primitives (SurfaceCard, MetricCard,
-// FilterChip, Toolbar, Button, DataTable, StatusBadge via StateBadge) — the
-// primitives were extracted from this panel's shipped pixels, so rendering is
-// visually identical. Behavior unchanged from KT-3a-1.
+// KT-3a-2a: Settings → Knowledge Center — Owner/Admin INPUT enabled.
+// Builds on the KT-3a-1 read-only shell + UI-1 primitives (SurfaceCard, MetricCard,
+// FilterChip, Toolbar, Button, DataTable, StateBadge). This phase makes the panel
+// usable for authoring: the New Entry button opens a create drawer, clicking a row
+// opens a detail drawer (read-only view), and draft entries can be edited — all via
+// KnowledgeEntryDrawer, which talks only to the existing api/knowledge-admin.js
+// actions (list_entries, get_entry, create_entry_draft, update_entry_draft). No
+// lifecycle/version-history controls here; non-draft entries remain read-only.
 //
 // Owner/Admin only (registry-hidden otherwise + defensive guard here; the backend
-// is the real authority). Reads governed knowledge entries via the existing
-// api/knowledge-admin.js `list_entries` action ONLY. No create/edit/lifecycle/
-// revision/version actions in this phase — the New Entry button is intentionally
-// inert (arrives in KT-3a-2). All search/filtering is client-side. Only draft,
-// active, deprecated, and archived are valid lifecycle states.
-import { useState, useEffect, useMemo } from 'react'
+// is the real authority). All search/filtering is client-side. Only draft, active,
+// deprecated, and archived are valid lifecycle states.
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { FileText, Search, Plus } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import EmptyState from '../EmptyState'
 import StateBadge from './StateBadge'
 import SettingsPageHeader from './SettingsPageHeader'
+import KnowledgeEntryDrawer from './KnowledgeEntryDrawer'
+import { KNOWLEDGE_STATES, CATEGORY_LABELS, CATEGORY_KEYS, fmtDate } from './knowledgeCategories'
 import SurfaceCard from '../ui/SurfaceCard'
 import MetricCard from '../ui/MetricCard'
 import FilterChip from '../ui/FilterChip'
@@ -24,27 +26,20 @@ import Toolbar from '../ui/Toolbar'
 import Button from '../ui/Button'
 import DataTable from '../ui/DataTable'
 
-const STATES = ['draft', 'active', 'deprecated', 'archived']
+const STATES = KNOWLEDGE_STATES
 const STATE_CHIPS = [{ key: 'all', label: 'All' }, ...STATES.map(s => ({ key: s, label: s.charAt(0).toUpperCase() + s.slice(1) }))]
 
-// Eight KT-1 knowledge categories (display labels for the snake_case enum values).
-const CATEGORY_LABELS = {
-  program_overview: 'Program Overview',
-  eligibility_placement: 'Eligibility & Placement',
-  interview_selection: 'Interview & Selection',
-  rotations_matching: 'Rotations & Matching',
-  student_requirements: 'Student Requirements',
-  communication_guidance: 'Communication Guidance',
-  terminology_navigation: 'Terminology & Navigation',
-  faq: 'FAQ',
-}
-const CATEGORY_KEYS = Object.keys(CATEGORY_LABELS)
-
-function fmtDate(value) {
-  if (!value) return '—'
-  const t = Date.parse(value)
-  if (Number.isNaN(t)) return '—'
-  return new Date(t).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+// Authenticated POST helper for the knowledge-admin endpoint (the backend authorizes
+// every action server-side regardless of client gating).
+async function postAdmin(payload) {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+  const res = await fetch('/api/knowledge-admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(payload),
+  })
+  return res
 }
 
 // Entries table columns (DataTable) — identical cells to the KT-3a-1 table.
@@ -65,35 +60,82 @@ export default function KnowledgeCenterPanel() {
   const [stateFilter, setStateFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
 
+  // Detail drawer: mode 'create' | 'view' | 'edit'. selectedEntry holds the full
+  // row (from get_entry, includes body) for view/edit; null in create mode.
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerMode, setDrawerMode] = useState('view')
+  const [selectedEntry, setSelectedEntry] = useState(null)
+  const [rowBusy, setRowBusy] = useState(false) // guards double-fetch while a row opens
+
   // Defensive: client visibility is not authorization; the registry already hides
   // this section from non-admins and the endpoint authorizes server-side regardless.
   const allowed = isAdmin
 
+  // Reusable list fetch so the drawer can refresh counts + rows after a save.
+  const loadEntries = useCallback(async () => {
+    setLoading(true); setError(null)
+    try {
+      const res = await postAdmin({ action: 'list_entries' })
+      if (!res.ok) throw new Error(`status_${res.status}`)
+      const json = await res.json()
+      setEntries(Array.isArray(json.entries) ? json.entries : [])
+    } catch {
+      setError('We couldn’t load knowledge entries. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (!allowed) return
-    let cancelled = false
-    async function load() {
-      setLoading(true); setError(null)
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        const token = session?.access_token
-        const res = await fetch('/api/knowledge-admin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-          body: JSON.stringify({ action: 'list_entries' }),
-        })
-        if (!res.ok) throw new Error(`status_${res.status}`)
-        const json = await res.json()
-        if (!cancelled) setEntries(Array.isArray(json.entries) ? json.entries : [])
-      } catch {
-        if (!cancelled) setError('We couldn’t load knowledge entries. Please try again.')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
+    loadEntries()
+  }, [allowed, loadEntries])
+
+  // Fetch a single entry (with body) and open the drawer in view mode.
+  const openEntry = useCallback(async (entryId) => {
+    if (rowBusy) return
+    setRowBusy(true)
+    try {
+      const res = await postAdmin({ action: 'get_entry', entry_id: entryId })
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.entry) return
+      setSelectedEntry(json.entry)
+      setDrawerMode('view')
+      setDrawerOpen(true)
+    } catch {
+      /* row click is best-effort; failure leaves the list untouched */
+    } finally {
+      setRowBusy(false)
     }
-    load()
-    return () => { cancelled = true }
-  }, [allowed])
+  }, [rowBusy])
+
+  function openCreate() {
+    setSelectedEntry(null)
+    setDrawerMode('create')
+    setDrawerOpen(true)
+  }
+
+  function closeDrawer() {
+    setDrawerOpen(false)
+  }
+
+  // After a successful create/edit: refresh the list, then re-fetch the saved entry
+  // into view mode so the author sees the persisted result.
+  const handleSaved = useCallback(async (entryId) => {
+    await loadEntries()
+    if (entryId) {
+      try {
+        const res = await postAdmin({ action: 'get_entry', entry_id: entryId })
+        const json = await res.json().catch(() => null)
+        if (res.ok && json?.entry) {
+          setSelectedEntry(json.entry)
+          setDrawerMode('view')
+          return
+        }
+      } catch { /* fall through to closing the drawer */ }
+    }
+    setDrawerOpen(false)
+  }, [loadEntries])
 
   const counts = useMemo(() => {
     const c = { draft: 0, active: 0, deprecated: 0, archived: 0 }
@@ -140,7 +182,7 @@ export default function KnowledgeCenterPanel() {
         ))}
       </div>
 
-      {/* Toolbar: search + category filter + (inert) New Entry */}
+      {/* Toolbar: search + category filter + New Entry */}
       <Toolbar
         search={(
           <>
@@ -178,15 +220,12 @@ export default function KnowledgeCenterPanel() {
           </select>
         )}
         primaryAction={(
-          /* New Entry — INERT in UI-1 (create workflow arrives in KT-3a-2a). */
           <Button
-            variant="secondary"
-            disabled
+            variant="primary"
             icon={<Plus size={14} strokeWidth={2.2} />}
-            title="Creating entries arrives in the next update"
+            onClick={openCreate}
           >
             New Entry
-            <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.85 }}>· soon</span>
           </Button>
         )}
       />
@@ -212,7 +251,7 @@ export default function KnowledgeCenterPanel() {
           <EmptyState
             icon={<FileText />}
             heading="No knowledge entries yet"
-            subtext="Governed Keith knowledge will live here — program rules, eligibility, rotations, terminology, and FAQs that Keith can cite. Authoring tools arrive in the next update."
+            subtext="Governed Keith knowledge will live here — program rules, eligibility, rotations, terminology, and FAQs that Keith can cite. Use New Entry to add your first draft."
           />
         </SurfaceCard>
       ) : (
@@ -220,6 +259,8 @@ export default function KnowledgeCenterPanel() {
           columns={ENTRY_COLUMNS}
           rows={filtered}
           getRowKey={e => e.id}
+          onRowClick={e => openEntry(e.id)}
+          rowSelected={e => drawerOpen && selectedEntry?.id === e.id}
           empty={(
             <div style={{ padding: '24px 18px', textAlign: 'center', color: 'var(--color-text-secondary, #6b7280)', fontSize: 13, fontFamily: 'DM Sans, sans-serif' }}>
               No entries match your search and filters.
@@ -227,6 +268,15 @@ export default function KnowledgeCenterPanel() {
           )}
         />
       )}
+
+      <KnowledgeEntryDrawer
+        open={drawerOpen}
+        mode={drawerMode}
+        entry={selectedEntry}
+        onClose={closeDrawer}
+        onSaved={handleSaved}
+        onRequestEdit={() => setDrawerMode('edit')}
+      />
     </section>
   )
 }
