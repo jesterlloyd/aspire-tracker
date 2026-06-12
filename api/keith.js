@@ -4,7 +4,8 @@
 // Or:  try { await supabase.from(...).insert(...) } catch (err) { ... }
 // Regular fetch() and response.json() ARE Promises -- .catch() is fine there.
 
-import { buildSystemPrompt, getRecentCommunications, getSchoolCoordinators, getUnitResponseStats, getUnitResponses, getUnitLeadersForKeith, getUnitCatalogForKeith, getNursingExecutiveLeadership } from '../src/lib/keithKnowledge.js';
+import { buildSystemPrompt, LEGACY_REFERENCE_HEADER, getRecentCommunications, getSchoolCoordinators, getUnitResponseStats, getUnitResponses, getUnitLeadersForKeith, getUnitCatalogForKeith, getNursingExecutiveLeadership } from '../src/lib/keithKnowledge.js';
+import { retrieveGovernedKnowledge } from '../lib/server/keith/knowledgeRetrieval.js';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 
@@ -557,6 +558,14 @@ async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activ
     if (tools && tools.length > 0) payload.tools = tools;
 
     const response = await callAnthropicWithRetry(payload, { timeRemaining });
+    // [keith-tokens]: PII-free token instrumentation from the model usage block.
+    const usage = response?.usage || {};
+    console.log('[keith-tokens]', {
+      request_id: requestId,
+      round,
+      input_tokens: usage.input_tokens ?? null,
+      output_tokens: usage.output_tokens ?? null,
+    });
     const content  = response?.content || [];
     const hasTools = content.some(b => b.type === 'tool_use');
 
@@ -1053,7 +1062,36 @@ CRITICAL DATA ACCESS RULES:
   // Build the system prompt from a SERVER-VERIFIED profile so the in-prompt role
   // reflects the true role (client-supplied role/is_owner are ignored for this).
   const verifiedProfile = { ...(userProfile || {}), role: auth.role, is_owner: auth.isOwner };
-  const baseSystemPrompt = buildSystemPrompt({ userProfile: verifiedProfile, context, cohortName, liveDataStr });
+  let baseSystemPrompt = buildSystemPrompt({ userProfile: verifiedProfile, context, cohortName, liveDataStr });
+
+  // KT-4: retrieve governed (Active) Knowledge Center entries for this question and
+  // inject them as the authoritative source of truth ABOVE the legacy reference. The
+  // retrieval is resilient (any failure yields a zero-coverage note so Keith still
+  // answers from legacy fallback). The user's question is used only for lexical
+  // scoring and is NEVER logged.
+  const lastUserText = [...anthropicMessages].reverse().find(m => m.role === 'user')?.content || '';
+  const governed = await retrieveGovernedKnowledge(makeServiceRoleClient(), lastUserText);
+  // Slot the governed block immediately above the legacy reference header so identity
+  // and grounding rules stay first, governed knowledge sits above legacy, and legacy
+  // remains clearly labeled fallback. If the seam is somehow absent, prepend safely.
+  const seam = baseSystemPrompt.indexOf(LEGACY_REFERENCE_HEADER);
+  if (seam !== -1) {
+    baseSystemPrompt = baseSystemPrompt.slice(0, seam) + governed.block + '\n\n' + baseSystemPrompt.slice(seam);
+  } else {
+    baseSystemPrompt = governed.block + '\n\n' + baseSystemPrompt;
+  }
+  // [keith-retrieval]: PII-free instrumentation. Records governed coverage + derived
+  // entry metadata only — never the raw question, names, or message content.
+  console.log('[keith-retrieval]', {
+    request_id: requestId,
+    governed_coverage: governed.governedCovered,
+    matched: governed.matchedCount,
+    slugs: governed.slugs,
+    scores: governed.scores,
+    block_chars: governed.blockChars,
+    ...(governed.error ? { retrieval_error: governed.error } : {}),
+  });
+
   const toolInstruction  = canUseTools ? `
 
 LIVE DATA TOOLS -- USE THESE INSTEAD OF HEDGING:

@@ -953,6 +953,14 @@ When users ask questions that require live data Keith does not have, Keith shoul
  * Builds the full system prompt for Keith, merging platform knowledge,
  * live cohort context, and the logged-in user's identity.
  */
+// KT-4: label that demotes the static program knowledge below to FALLBACK ONLY.
+// The governed Knowledge Center block (injected above this point by api/keith.js) is
+// the authoritative source of truth; these legacy sections are used only where no
+// governed entry covers the topic. Exported so the handler can locate the seam and
+// inject the governed block immediately above it.
+export const LEGACY_REFERENCE_HEADER = `================ LEGACY REFERENCE (FALLBACK ONLY) ================
+The sections below are legacy static background knowledge. Treat them as FALLBACK ONLY: use them for general, non-sensitive explanations that the GOVERNED KNOWLEDGE block above does not cover. Where a governed entry covers a topic, it overrides anything here. These sections are not a source of current operational facts.`;
+
 export function buildSystemPrompt({ userProfile, context, cohortName, liveDataStr } = {}) {
   const cohort = cohortName || 'the current cohort';
 
@@ -1022,6 +1030,8 @@ You have unit response data in the PLACEMENT CAPACITY section of your context. W
 CRITICAL: Never fabricate
 Never invent student names, unit leader names, email addresses, slot counts, or any other specific fact. If data is missing, say so. If you are unsure, say so. A wrong confident answer is worse than an honest "I don't have that in my current context."
 
+${LEGACY_REFERENCE_HEADER}
+
 ${PLATFORM_OVERVIEW}
 
 ${UNIT_CATALOG_KNOWLEDGE}
@@ -1035,19 +1045,11 @@ ${BNI_ORGANIZATION}
 
 ${TEAM_ROSTER}
 
-${RECENT_UPDATES}
-
 ${ROTATION_AND_BADGE_KNOWLEDGE}
 
 ${CONTACTS_AND_DIGEST_KNOWLEDGE}
 
 ${DATA_CONVENTIONS}
-
-${DESIGN_SYSTEM_KNOWLEDGE}
-
-${ROADMAP_AND_LIMITATIONS}
-
-${TECHNICAL_STACK}
 
 ${KEY_POLICIES}
 
