@@ -1,52 +1,66 @@
 export const TOUR_VERSION = 'v1';
 
 // ── Step definitions ─────────────────────────────────────────────────────────
+// TOUR-1: copy refreshed to current ASPIRE Intelligence terminology and the
+// Evaluation + ASPIRE Connect areas added. All targets reuse anchors that already
+// exist live (nav tab-* anchors, header connect / action-center / global-search,
+// keith-orb, feedback-button, user-profile) — no anchor changes. Internal step
+// identifiers and the tab-embed anchor (Rotation tab) are intentionally preserved.
 
 const stepWelcome = (firstName) => ({
   target: 'body',
   placement: 'center',
   disableBeacon: true,
   title: `Welcome, ${firstName}!`,
-  content: "This is ASPIRE Intelligence, your workspace for the ASPIRE Program. This short tour walks you through the areas you'll use most.",
+  content: "This is ASPIRE Intelligence, your workspace for managing ASPIRE cohorts — students, interviews, placements, evaluations, and communication. This short tour walks you through the areas you'll use most.",
 });
 
 const stepCohortSwitcher = {
   target: '[data-tour="cohort-switcher"]',
-  title: 'Cohort Switcher',
+  title: 'Cohort Picker',
   content: 'Switch between active and past ASPIRE cohorts here. Most of the app scopes to the selected cohort.',
 };
 
 const stepAggregate = {
   target: '[data-tour="tab-aggregate"]',
   title: 'Start here: Aggregate',
-  content: 'This dashboard gives you a real-time overview of the active cohort: placement activity, student requests, on-campus logs, and program status.',
+  content: 'A real-time overview of the active cohort: placement activity, student requests, on-campus logs, and program status.',
 };
 
 const stepStudentProfiles = {
   target: '[data-tour="tab-student-profiles"]',
   title: 'Student Profiles',
-  content: 'Review student records before interviews: school, program, interest statement, GPA, and unit preferences. The side panel shows the full profile.',
+  content: 'Review student records — school, program, GPA, unit preferences, status, and rotation progress. The side panel opens the full profile.',
 };
 
 const stepInterviewRubric = {
   target: '[data-tour="tab-interview-rubric"]',
-  title: 'Interview Room',
-  content: 'View scheduled interviews, open a student session, complete the rubric (Clinical Judgment, Professional Presence, Goal Alignment), and submit your recommendation.',
+  title: 'Interviews',
+  content: 'Open a scheduled interview to score the ASPIRE rubric — Clinical Judgment, Professional Presence, and Goal Alignment — then submit your recommendation.',
 };
 
+// Rotation tab. Internal name + the tab-embed anchor are preserved; user-facing
+// copy uses the current "Rotation" label.
 const stepEmbed = {
   target: '[data-tour="tab-embed"]',
-  title: 'Rotations: Matching Board',
-  content: 'The drag-and-drop board for assigning students to units based on their preferences. Available to Owner, Admin, and Co-Lead roles.',
+  title: 'Rotation',
+  content: 'The matching board for placing students into units by preference. Unit availability, placement capacity, and matches live here. Owner, Admin, and Co-Lead.',
 };
 
-// WS2.3: stepPeopleAccess was removed. Its target [data-tour="people-access"] was the
-// standalone header icon, retired in WS2.2a; People & Access now lives only inside the
-// UserMenu dropdown (a hidden item — not a reliable tour target) and Settings → Accounts
-// & Access. No safe, non-confusing visible target remains, so the privileged tour drops
-// this step. TOUR_VERSION is intentionally NOT bumped: a completed privileged user is not
-// required to retake the tour for one fewer step (see report). The internal step
-// identifier is not referenced elsewhere.
+const stepEvaluation = {
+  target: '[data-tour="tab-evaluation"]',
+  title: 'Evaluation',
+  content: 'Manage evaluation workflows — Casey-Fink readiness surveys and related student and preceptor evaluation activity for the cohort.',
+};
+
+const stepConnect = {
+  target: '[data-tour="connect"]',
+  title: 'ASPIRE Connect',
+  content: 'Manage contacts, outreach, and survey invitations — compose messages, send invitations, and review sent history.',
+  placement: 'bottom-end',
+  spotlightPadding: 6,
+  disableBeacon: true,
+};
 
 const stepActionCenter = {
   target: '[data-tour="action-center"]',
@@ -59,14 +73,14 @@ const stepActionCenter = {
 
 const stepSearch = {
   target: '[data-tour="global-search"]',
-  title: 'Global Search',
-  content: 'Find any student, school, or unit from anywhere in the app. Results jump directly to the relevant tab.',
+  title: 'Universal Search',
+  content: 'Find any student, school, unit, or contact from anywhere in the app. Results jump straight to the relevant area.',
 };
 
 const stepKeith = {
   target: '[data-tour="keith-orb"]',
   title: 'Keith, your AI assistant',
-  content: 'Ask Keith anything about the platform: workflows, recent changes, who handles what, or how to complete a task. Available bottom-right.',
+  content: 'Ask Keith about ASPIRE workflows, rules, and how to complete a task. Keith answers within your role’s access — look bottom-right.',
 };
 
 const stepFeedback = {
@@ -78,7 +92,7 @@ const stepFeedback = {
 const stepUserMenu = {
   target: '[data-tour="user-profile"]',
   title: 'Your Profile',
-  content: 'View your role, manage your profile photo, restart this tour anytime, or sign out.',
+  content: 'View your role, open Settings, update your photo, restart this tour, or sign out. Settings holds appearance and help — and, for Owners and Admins, account access and the governed Knowledge Center.',
   placement: 'bottom-end',
   spotlightPadding: 6,
   disableBeacon: true,
@@ -107,6 +121,8 @@ export function getTourSteps(userProfile) {
       stepStudentProfiles,
       stepInterviewRubric,
       stepEmbed,
+      stepEvaluation,
+      stepConnect,
       stepActionCenter,
       stepSearch,
       stepKeith,
@@ -123,6 +139,7 @@ export function getTourSteps(userProfile) {
       stepAggregate,
       stepStudentProfiles,
       stepInterviewRubric,
+      stepEvaluation,
       stepActionCenter,
       stepSearch,
       stepKeith,
@@ -139,6 +156,7 @@ export function getTourSteps(userProfile) {
     stepAggregate,
     stepStudentProfiles,
     stepInterviewRubric,
+    stepEvaluation,
     stepSearch,
     stepKeith,
     stepUserMenu,
