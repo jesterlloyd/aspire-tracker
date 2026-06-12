@@ -52,7 +52,7 @@ const ENTRY_COLUMNS = [
 ]
 
 export default function KnowledgeCenterPanel() {
-  const { isAdmin } = useAuth() // owner/admin; registry hides this section otherwise
+  const { isAdmin, isOwner } = useAuth() // owner/admin; registry hides this section otherwise
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -273,6 +273,7 @@ export default function KnowledgeCenterPanel() {
         open={drawerOpen}
         mode={drawerMode}
         entry={selectedEntry}
+        isOwner={isOwner}
         onClose={closeDrawer}
         onSaved={handleSaved}
         onRequestEdit={() => setDrawerMode('edit')}

@@ -1,8 +1,13 @@
-// KT-3a-2a: Knowledge Center entry drawer — view / create / edit modes inside the
-// shared DetailDrawer. Owner/Admin only (rendered solely from the gated KC panel;
-// the backend authorizes every call regardless). Talks ONLY to the existing
-// api/knowledge-admin.js actions create_entry_draft and update_entry_draft. No
-// lifecycle (activate/deprecate/archive) and no version history here.
+// KT-3a-2a → KT-3a-2b: Knowledge Center entry drawer — view / create / edit modes
+// inside the shared DetailDrawer. Owner/Admin only (rendered solely from the gated
+// KC panel; the backend authorizes every call regardless). Content authoring talks
+// to create_entry_draft / update_entry_draft. KT-3a-2b adds, in view mode:
+//   • Owner-only lifecycle controls (Activate / Deprecate / Reactivate / Archive),
+//     each delegated to an existing api/knowledge-admin.js action with a confirmation
+//     step. Activate is the only action that carries an optional change note.
+//   • Read-only Version History (Owner + Admin) via KnowledgeVersionHistory.
+// Lifecycle is separate from content editing; only Draft entries are content-editable.
+// Revision workflow and version restore are deferred to KT-3a-2c.
 //
 // Field mapping is faithful to the KT-1 schema — title, category, body,
 // source_attribution, precedence_rank, effective_date, expires_at. There are no
@@ -15,7 +20,42 @@ import { supabase } from '../../lib/supabase'
 import DetailDrawer from '../ui/DetailDrawer'
 import Button from '../ui/Button'
 import StateBadge from './StateBadge'
+import KnowledgeVersionHistory from './KnowledgeVersionHistory'
 import { CATEGORY_LABELS, CATEGORY_KEYS, CAPS, isValidDateStr, fmtDate } from './knowledgeCategories'
+
+async function postAdmin(payload) {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+  return fetch('/api/knowledge-admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(payload),
+  })
+}
+
+// State → Owner lifecycle actions. Every action is delegated to an existing
+// api/knowledge-admin.js action, so invalid transitions are simply never offered:
+//   • activate  (draft → active)        → activate_entry        (writes version 1; optional note)
+//   • archive   (draft/deprecated → archived) → change_entry_state target archived
+//   • deprecate (active → deprecated)   → change_entry_state target deprecated
+//   • reactivate(deprecated → active)   → change_entry_state target active
+// archived is terminal (no actions). change_entry_state takes no note.
+const LIFECYCLE_ACTIONS = {
+  draft: [
+    { key: 'activate', label: 'Activate', next: 'active', variant: 'primary', note: true, consequence: 'This entry becomes governed Knowledge Center guidance.' },
+    { key: 'archive', label: 'Archive', next: 'archived', variant: 'quiet', consequence: 'This is permanent. Archived entries cannot be restored.' },
+  ],
+  active: [
+    { key: 'deprecate', label: 'Deprecate', next: 'deprecated', variant: 'secondary', consequence: 'This entry will no longer be current guidance.' },
+  ],
+  deprecated: [
+    { key: 'reactivate', label: 'Reactivate', next: 'active', variant: 'secondary', consequence: 'This entry will become current guidance again.' },
+    { key: 'archive', label: 'Archive', next: 'archived', variant: 'quiet', consequence: 'This is permanent. Archived entries cannot be restored.' },
+  ],
+  archived: [],
+}
+
+const sectionLabel = { fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--color-text-secondary, #9ca3af)', marginBottom: 8 }
 
 const EMPTY = { title: '', category: '', body: '', source_attribution: '', precedence_rank: '', effective_date: '', expires_at: '' }
 
@@ -38,12 +78,20 @@ function Field({ label, hint, error, children }) {
   )
 }
 
-export default function KnowledgeEntryDrawer({ open, mode, entry, onClose, onSaved, onRequestEdit }) {
+export default function KnowledgeEntryDrawer({ open, mode, entry, isOwner = false, onClose, onSaved, onRequestEdit }) {
   const editing = mode === 'create' || mode === 'edit'
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [fieldErr, setFieldErr] = useState({})
+
+  // Lifecycle (view mode, Owner only). `confirm` holds the pending action object;
+  // `lcConflict` flips a 409/404 into a refresh affordance instead of a retry.
+  const [confirm, setConfirm] = useState(null)
+  const [note, setNote] = useState('')
+  const [lcSaving, setLcSaving] = useState(false)
+  const [lcError, setLcError] = useState(null)
+  const [lcConflict, setLcConflict] = useState(false)
 
   // (Re)initialize the form whenever the drawer opens in create/edit or the entry changes.
   useEffect(() => {
@@ -61,6 +109,8 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, onClose, onSav
       })
     }
     setError(null); setFieldErr({})
+    // Reset any in-progress lifecycle confirmation on open / mode / entry change.
+    setConfirm(null); setNote(''); setLcError(null); setLcConflict(false)
   }, [open, mode, entry?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -158,6 +208,41 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, onClose, onSav
     }
   }
 
+  // ── Lifecycle (Owner only, view mode) ────────────────────────────────────────
+  function startConfirm(a) { setConfirm(a); setNote(''); setLcError(null); setLcConflict(false) }
+  function cancelConfirm() { setConfirm(null); setLcError(null); setLcConflict(false) }
+  // Re-sync after a 409/404: re-fetch the entry + reload the list (drawer updates in place).
+  function refreshFromConflict() { setConfirm(null); setLcError(null); setLcConflict(false); onSaved?.(entry?.id) }
+
+  async function runLifecycle() {
+    if (!confirm || lcSaving || !entry?.id) return
+    setLcSaving(true); setLcError(null); setLcConflict(false)
+    try {
+      const payload = confirm.key === 'activate'
+        ? { action: 'activate_entry', entry_id: entry.id, ...(note.trim() !== '' ? { change_note: note } : {}) }
+        : { action: 'change_entry_state', entry_id: entry.id, target_state: confirm.next }
+      const res = await postAdmin(payload)
+      const json = await res.json().catch(() => null)
+      if (!res.ok || !json?.success) {
+        // 409/404 mean the entry moved underneath us — offer a refresh, not a retry,
+        // and never surface the raw backend message.
+        if (res.status === 409) { setLcConflict(true); setLcError('This entry changed since you opened it, so that action can’t be applied. Refresh to load the latest state.') }
+        else if (res.status === 404) { setLcConflict(true); setLcError('This entry no longer exists. Refresh to update the list.') }
+        else if (res.status === 403) setLcError('You don’t have permission to perform this action.')
+        else setLcError('We couldn’t complete that action. Please try again.')
+        return
+      }
+      // Success: clear the confirmation, then refresh list + counts and re-fetch the
+      // entry into the open drawer (in place) so it shows the new state.
+      setConfirm(null); setNote('')
+      onSaved?.(entry.id)
+    } catch {
+      setLcError('Network error. Please try again.')
+    } finally {
+      setLcSaving(false)
+    }
+  }
+
   // ── Footer per mode ──────────────────────────────────────────────────────────
   let footer
   if (editing) {
@@ -170,8 +255,8 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, onClose, onSav
   } else { // view
     footer = (
       <>
-        <Button variant="quiet" onClick={onClose}>Close</Button>
-        {entry?.state === 'draft' && <Button variant="primary" onClick={onRequestEdit}>Edit Draft</Button>}
+        <Button variant="quiet" onClick={onClose} disabled={lcSaving}>Close</Button>
+        {entry?.state === 'draft' && <Button variant="primary" onClick={onRequestEdit} disabled={lcSaving}>Edit Draft</Button>}
       </>
     )
   }
@@ -263,6 +348,79 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, onClose, onSav
               {entry?.effective_date && <span>Effective {fmtDate(entry.effective_date)}</span>}
               {entry?.expires_at && <span>Expires {fmtDate(entry.expires_at)}</span>}
             </div>
+          )}
+
+          {/* Lifecycle controls — Owner only; never rendered in table rows or for
+              invalid transitions; archived shows a terminal notice. */}
+          {isOwner && (
+            <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--color-border-subtle, #f3f4f6)' }}>
+              <div style={sectionLabel}>Lifecycle</div>
+              {entry?.state === 'archived' ? (
+                <div style={{ padding: '10px 12px', borderRadius: 8, background: 'var(--color-bg-elevated, #eef2fb)', color: 'var(--color-text-secondary, #6b7280)', fontSize: 12.5 }}>
+                  This entry is archived. Archived entries are permanent and can’t be changed.
+                </div>
+              ) : confirm ? (
+                <div style={{ border: '1px solid var(--color-border-default, #e5e7eb)', borderRadius: 10, padding: '14px 16px', background: 'var(--color-bg-surface, #ffffff)' }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--color-text-primary, #191919)', marginBottom: 6 }}>{confirm.label} this entry?</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--color-text-secondary, #6b7280)', marginBottom: 10, wordBreak: 'break-word' }}>{entry?.title}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                    <StateBadge state={entry?.state} />
+                    <span style={{ color: 'var(--color-text-secondary, #9ca3af)' }}>→</span>
+                    <StateBadge state={confirm.next} />
+                  </div>
+                  <div style={{ fontSize: 12.5, color: 'var(--color-text-primary, #374151)', marginBottom: 12 }}>{confirm.consequence}</div>
+
+                  {confirm.note && (
+                    <div style={{ marginBottom: 12 }}>
+                      <label style={labelStyle}>Change note<span style={{ fontWeight: 500, color: 'var(--color-text-secondary, #9ca3af)' }}> · optional</span></label>
+                      <textarea
+                        style={{ ...inputStyle, minHeight: 64, resize: 'vertical', lineHeight: 1.5 }}
+                        value={note}
+                        maxLength={CAPS.source}
+                        onChange={e => setNote(e.target.value)}
+                        placeholder="Why is this being activated? (optional)"
+                      />
+                    </div>
+                  )}
+
+                  {lcError && (
+                    <div style={{ padding: '8px 12px', marginBottom: 12, borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', fontSize: 12.5 }}>
+                      {lcError}
+                      {lcConflict && (
+                        <div style={{ marginTop: 8 }}>
+                          <Button variant="secondary" onClick={refreshFromConflict}>Refresh</Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <Button variant="quiet" onClick={cancelConfirm} disabled={lcSaving}>Cancel</Button>
+                    {!lcConflict && (
+                      <Button variant={confirm.variant} onClick={runLifecycle} disabled={lcSaving}>
+                        {lcSaving ? 'Working…' : `Confirm ${confirm.label}`}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {(LIFECYCLE_ACTIONS[entry?.state] || []).map(a => (
+                    <Button key={a.key} variant={a.variant} onClick={() => startConfirm(a)}>{a.label}</Button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Read-only version history — Owner + Admin. reloadToken bumps on every
+              lifecycle change so v1 appears right after activation. */}
+          {entry?.id && (
+            <KnowledgeVersionHistory
+              entryId={entry.id}
+              open={open}
+              reloadToken={`${entry?.state}:${entry?.current_version}:${entry?.updated_at}`}
+            />
           )}
         </div>
       )}
