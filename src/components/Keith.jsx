@@ -3,6 +3,7 @@ import Tooltip from './ui/Tooltip';
 import { useQueryClient } from '@tanstack/react-query';
 import { SUGGESTED_PROMPTS, generateStaticResponse } from '../lib/keithKnowledge';
 import { useAuth } from '../contexts/AuthContext';
+import { announceFloatingPanelOpen, onFloatingPanelOpen } from '../lib/floatingPanels';
 
 const KEITH_CLIENT_TIMEOUT_MS   = 28000;
 const KEITH_PREFETCH_CEILING_MS = 5000;
@@ -31,6 +32,13 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   useEffect(() => {
     if (isOpen && inputRef.current) inputRef.current.focus();
   }, [isOpen]);
+
+  // UI-0.5: mutual dismiss — close this panel when another floating panel
+  // (e.g. the UserMenu) announces it is opening. Closing only toggles isOpen;
+  // chat/message state is untouched, exactly like the existing backdrop close.
+  useEffect(() => onFloatingPanelOpen(source => {
+    if (source !== 'keith') setIsOpen(false);
+  }), []);
 
   const firstName = userProfile?.full_name?.split(' ')[0];
   const welcomeMessage = {
@@ -269,7 +277,11 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
       {/* Floating button */}
       <button
         data-tour="keith-orb"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          const next = !isOpen;
+          if (next) announceFloatingPanelOpen('keith'); // UI-0.5: closes an open UserMenu
+          setIsOpen(next);
+        }}
         aria-label="Ask Keith"
         style={{
           position: 'fixed',

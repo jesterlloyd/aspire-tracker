@@ -1,9 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { safeWrite } from '../lib/safeWrite';
 import { getAvatarUrl } from '../lib/getAvatar';
+import { announceFloatingPanelOpen, onFloatingPanelOpen } from '../lib/floatingPanels';
 import { LogOut, ChevronDown, Settings } from 'lucide-react';
 import Tooltip from './ui/Tooltip';
 
@@ -20,6 +21,12 @@ export default function UserMenu() {
   const [isOpen,    setIsOpen]    = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
+
+  // UI-0.5: mutual dismiss — close this dropdown when another floating panel
+  // (e.g. the Keith panel) announces it is opening.
+  useEffect(() => onFloatingPanelOpen(source => {
+    if (source !== 'user-menu') setIsOpen(false);
+  }), []);
 
   const handleAvatarUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -79,7 +86,11 @@ export default function UserMenu() {
       <Tooltip label="My Profile" placement="bottom">
       <button
         data-tour="user-profile"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          const next = !isOpen;
+          if (next) announceFloatingPanelOpen('user-menu'); // UI-0.5: closes an open Keith panel
+          setIsOpen(next);
+        }}
         style={{
           display: 'flex', alignItems: 'center', gap: '8px',
           background: 'rgba(255,255,255,0.10)',
