@@ -31,6 +31,18 @@ const BULK_CASEY_FINK_TIMEPOINTS = [
 const LAST_MODE_KEY    = 'aspire.connect.outreach.lastMode'  // inner message type key ('message'|'survey')
 const RECIPIENT_MODE_KEY = 'aspire.connect.outreach.mode'   // top-level mode key ('single'|'bulk')
 
+// Bulk survey send chunk size. The send endpoint caps items per request
+// (a defensive guard against the Vercel function timeout), so the UI splits the
+// selected recipients into chunks of this size and sends them sequentially —
+// invisibly to the owner, who simply selects any group size and sends once.
+// Keep aligned with the backend per-request limit.
+const SEND_CHUNK_SIZE = 5
+function chunkArray(arr, size) {
+  const out = []
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
+  return out
+}
+
 // Message type roster for Single Recipient mode
 const MSG_TYPES = [
   { key: 'message', label: 'Direct Message',            active: true  },
@@ -1029,6 +1041,11 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   }, [dmConfirmReady, dmSendInFlight, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, fromContact, fromStudent])
 
   // ── Bulk Send via Resend handler (Phase 3B.2B) ───────────────────────────
+  // Sends every eligible (not-yet-sent) recipient by splitting them into internal
+  // chunks of SEND_CHUNK_SIZE and POSTing each chunk sequentially to the same
+  // endpoint. Results accumulate into ONE summary; the owner never sees a hard
+  // stop or a per-chunk result. Idempotency and the token/URL security model are
+  // unchanged — we only pass through already-generated assignment_id + survey_url.
   const handleBulkSendViaResend = useCallback(async () => {
     if (bulkSendInFlight || !bulkResults?.generated?.length) return
     const eligibleItems = bulkResults.generated.filter(g => !bulkSentIds.has(g.assignmentId))
@@ -1041,47 +1058,89 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
         setBulkSendResults({ error: 'Session expired. Please refresh and try again.' })
         return
       }
-      const res = await fetch('/api/evaluation-send-bulk-invitations', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({
-          confirmation_phrase: 'SEND SURVEYS',
-          items: eligibleItems.map(g => ({
-            assignment_id: g.assignmentId,
-            student_id:    g.studentId || g.student_id,
-            survey_url:    g.surveyUrl,
-          })),
-          instrument_slug: bulkInstrument,
-          timepoint:       bulkTimepoint,
-          expires_at:      bulkExpiresAt,
-        }),
+
+      const toItem = g => ({
+        assignment_id: g.assignmentId,
+        student_id:    g.studentId || g.student_id,
+        survey_url:    g.surveyUrl,
       })
-      let payload = null
-      try { payload = await res.json() } catch { /* ignore */ }
-      if (res.ok && payload?.success) {
-        const newSentIds = new Set(bulkSentIds)
-        ;(payload.sent || []).forEach(s => newSentIds.add(s.assignment_id))
-        setBulkSentIds(newSentIds)
-        setBulkSendResults(payload)
+      const batches = chunkArray(eligibleItems, SEND_CHUNK_SIZE)
+      const acc = { sent: [], skipped: [], failed: [] }
+      let stoppedError = null
+
+      for (let bi = 0; bi < batches.length; bi++) {
+        const batch = batches[bi]
+        let res = null
+        let payload = null
+        try {
+          res = await fetch('/api/evaluation-send-bulk-invitations', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+            body: JSON.stringify({
+              confirmation_phrase: 'SEND SURVEYS',
+              items: batch.map(toItem),
+              instrument_slug: bulkInstrument,
+              timepoint:       bulkTimepoint,
+              expires_at:      bulkExpiresAt,
+            }),
+          })
+          try { payload = await res.json() } catch { /* ignore */ }
+        } catch {
+          stoppedError = 'Network error. Please check your connection.'
+        }
+
+        if (!stoppedError && res?.ok && payload?.success) {
+          // Per-recipient outcomes accumulate; per-recipient failures inside a
+          // successful response do NOT stop the run.
+          acc.sent.push(...(payload.sent || []))
+          acc.skipped.push(...(payload.skipped || []))
+          acc.failed.push(...(payload.failed || []))
+        } else {
+          // Whole-request error (auth/validation/server/network). It is structural
+          // and would recur, so preserve successes, mark THIS batch and every
+          // remaining batch as failed, then stop.
+          const errMsg = stoppedError || payload?.error || 'Failed to send emails. Please try again.'
+          for (let rb = bi; rb < batches.length; rb++) {
+            batches[rb].forEach(g => acc.failed.push({ ...toItem(g), reason: errMsg }))
+          }
+          stoppedError = errMsg
+          break
+        }
+      }
+
+      // Merge into the payload shape the results UI expects (one overall result).
+      const summary = {
+        total_sent:    acc.sent.length,
+        total_skipped: acc.skipped.length,
+        total_failed:  acc.failed.length,
+      }
+      const merged = { success: true, ...acc, summary, ...(stoppedError ? { error: stoppedError } : {}) }
+
+      // Mark every confirmed-sent assignment so this session / retries never resend
+      // them (failed/unsent stay eligible for a retry, which re-chunks the rest).
+      const newSentIds = new Set(bulkSentIds)
+      acc.sent.forEach(s => newSentIds.add(s.assignment_id))
+      setBulkSentIds(newSentIds)
+      setBulkSendResults(merged)
+      // Clean completion closes the confirm dialog; a structural error keeps it open
+      // with the error banner so the owner can review and retry the remainder.
+      if (!stoppedError) {
         setBulkSendConfirmOpen(false)
         setBulkSendPhrase('')
-        // Summary toast — 5 scenarios based on counts
-        const { total_sent: s = 0, total_skipped: sk = 0, total_failed: f = 0 } = payload.summary || {}
-        if (s > 0 && f === 0 && sk === 0) {
-          toast?.success('Surveys sent', `Sent ${s} survey invitation${s !== 1 ? 's' : ''}`)
-        } else if (s > 0 && sk > 0 && f === 0) {
-          toast?.success('Surveys sent', `Sent ${s} · Skipped ${sk} (already sent)`)
-        } else if (s > 0 && f > 0) {
-          toast?.warning('Surveys sent with failures', `Sent ${s} · Failed ${f} — review results below`)
-        } else if (s === 0 && f > 0) {
-          toast?.error('No surveys sent', `${f} failed — see error details below`)
-        } else if (s === 0 && sk > 0) {
-          toast?.info('All already sent', 'All recipients were sent in a previous batch')
-        }
-      } else {
-        const errMsg = payload?.error || 'Failed to send emails. Please try again.'
-        setBulkSendResults({ error: errMsg })
-        toast?.error('Send failed', errMsg)
+      }
+
+      // One overall summary toast — same five scenarios, on accumulated totals.
+      const { total_sent: s, total_skipped: sk, total_failed: f } = summary
+      if (s > 0 && f === 0 && sk === 0) {
+        toast?.success('Surveys sent', `Sent ${s} survey invitation${s !== 1 ? 's' : ''}`)
+      } else if (s > 0 && sk > 0 && f === 0) {
+        toast?.success('Surveys sent', `Sent ${s} · Skipped ${sk} (already sent)`)
+      } else if (s > 0 && f > 0) {
+        toast?.warning('Surveys sent with failures', `Sent ${s} · Failed ${f} — review results below`)
+      } else if (s === 0 && f > 0) {
+        toast?.error('No surveys sent', `${f} failed — see error details below`)
+      } else if (s === 0 && sk > 0) {
+        toast?.info('All already sent', 'All recipients were sent in a previous batch')
       }
     } catch {
       setBulkSendResults({ error: 'Network error. Please check your connection.' })
