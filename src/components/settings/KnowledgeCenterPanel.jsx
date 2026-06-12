@@ -1,4 +1,8 @@
 // KT-3a-1: Settings → Knowledge Center (READ-ONLY shell).
+// UI-1: now composed from the shared ui/ primitives (SurfaceCard, MetricCard,
+// FilterChip, Toolbar, Button, DataTable, StatusBadge via StateBadge) — the
+// primitives were extracted from this panel's shipped pixels, so rendering is
+// visually identical. Behavior unchanged from KT-3a-1.
 //
 // Owner/Admin only (registry-hidden otherwise + defensive guard here; the backend
 // is the real authority). Reads governed knowledge entries via the existing
@@ -13,6 +17,12 @@ import { supabase } from '../../lib/supabase'
 import EmptyState from '../EmptyState'
 import StateBadge from './StateBadge'
 import SettingsPageHeader from './SettingsPageHeader'
+import SurfaceCard from '../ui/SurfaceCard'
+import MetricCard from '../ui/MetricCard'
+import FilterChip from '../ui/FilterChip'
+import Toolbar from '../ui/Toolbar'
+import Button from '../ui/Button'
+import DataTable from '../ui/DataTable'
 
 const STATES = ['draft', 'active', 'deprecated', 'archived']
 const STATE_CHIPS = [{ key: 'all', label: 'All' }, ...STATES.map(s => ({ key: s, label: s.charAt(0).toUpperCase() + s.slice(1) }))]
@@ -36,6 +46,15 @@ function fmtDate(value) {
   if (Number.isNaN(t)) return '—'
   return new Date(t).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
+
+// Entries table columns (DataTable) — identical cells to the KT-3a-1 table.
+const ENTRY_COLUMNS = [
+  { key: 'title',    label: 'Title',    cellStyle: { fontWeight: 600 }, render: e => e.title || 'Untitled' },
+  { key: 'category', label: 'Category', cellStyle: { color: 'var(--color-text-secondary, #6b7280)' }, render: e => CATEGORY_LABELS[e.category] || e.category },
+  { key: 'state',    label: 'State',    render: e => <StateBadge state={e.state} /> },
+  { key: 'version',  label: 'Version',  align: 'right', cellStyle: { fontVariantNumeric: 'tabular-nums' }, render: e => e.current_version },
+  { key: 'updated',  label: 'Updated',  align: 'right', cellStyle: { color: 'var(--color-text-secondary, #6b7280)', whiteSpace: 'nowrap' }, render: e => fmtDate(e.updated_at) },
+]
 
 export default function KnowledgeCenterPanel() {
   const { isAdmin } = useAuth() // owner/admin; registry hides this section otherwise
@@ -109,175 +128,105 @@ export default function KnowledgeCenterPanel() {
         />
       </div>
 
-      {/* Summary cards */}
+      {/* Summary cards — passive metrics (MetricCard summary register) */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
         {STATES.map(s => (
-          <SummaryCard key={s} state={s} count={counts[s]} loading={loading} />
+          <MetricCard
+            key={s}
+            badge={<StateBadge state={s} />}
+            value={loading ? '—' : counts[s]}
+            sub={`${s.charAt(0).toUpperCase() + s.slice(1)} entries`}
+          />
         ))}
       </div>
 
-      {/* Toolbar */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
-        <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 180 }}>
-          <Search size={15} strokeWidth={2} color="var(--color-text-secondary, #9ca3af)"
-            style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search by title"
-            aria-label="Search knowledge entries by title"
+      {/* Toolbar: search + category filter + (inert) New Entry */}
+      <Toolbar
+        search={(
+          <>
+            <Search size={15} strokeWidth={2} color="var(--color-text-secondary, #9ca3af)"
+              style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by title"
+              aria-label="Search knowledge entries by title"
+              style={{
+                width: '100%', padding: '8px 10px 8px 30px', borderRadius: 9,
+                border: '1px solid var(--color-border-default, #e5e7eb)',
+                background: 'var(--color-bg-surface, #ffffff)', color: 'var(--color-text-primary, #191919)',
+                fontFamily: 'DM Sans, sans-serif', fontSize: 13, outline: 'none',
+              }}
+            />
+          </>
+        )}
+        filters={(
+          <select
+            value={categoryFilter}
+            onChange={e => setCategoryFilter(e.target.value)}
+            aria-label="Filter by category"
             style={{
-              width: '100%', padding: '8px 10px 8px 30px', borderRadius: 9,
+              padding: '8px 10px', borderRadius: 9,
               border: '1px solid var(--color-border-default, #e5e7eb)',
               background: 'var(--color-bg-surface, #ffffff)', color: 'var(--color-text-primary, #191919)',
-              fontFamily: 'DM Sans, sans-serif', fontSize: 13, outline: 'none',
+              fontFamily: 'DM Sans, sans-serif', fontSize: 13, cursor: 'pointer',
             }}
-          />
-        </div>
-
-        <select
-          value={categoryFilter}
-          onChange={e => setCategoryFilter(e.target.value)}
-          aria-label="Filter by category"
-          style={{
-            padding: '8px 10px', borderRadius: 9,
-            border: '1px solid var(--color-border-default, #e5e7eb)',
-            background: 'var(--color-bg-surface, #ffffff)', color: 'var(--color-text-primary, #191919)',
-            fontFamily: 'DM Sans, sans-serif', fontSize: 13, cursor: 'pointer',
-          }}
-        >
-          <option value="all">All categories</option>
-          {CATEGORY_KEYS.map(k => <option key={k} value={k}>{CATEGORY_LABELS[k]}</option>)}
-        </select>
-
-        {/* New Entry — INERT in KT-3a-1 (create workflow arrives in the next update). */}
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          title="Creating entries arrives in the next update"
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 'auto',
-            padding: '8px 14px', borderRadius: 9, border: 'none',
-            background: 'var(--color-bg-elevated, #eef2fb)', color: 'var(--color-text-secondary, #6b7280)',
-            fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: 600,
-            cursor: 'not-allowed', opacity: 0.6,
-          }}
-        >
-          <Plus size={14} strokeWidth={2.2} />
-          New Entry
-          <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.85 }}>· soon</span>
-        </button>
-      </div>
+          >
+            <option value="all">All categories</option>
+            {CATEGORY_KEYS.map(k => <option key={k} value={k}>{CATEGORY_LABELS[k]}</option>)}
+          </select>
+        )}
+        primaryAction={(
+          /* New Entry — INERT in UI-1 (create workflow arrives in KT-3a-2a). */
+          <Button
+            variant="secondary"
+            disabled
+            icon={<Plus size={14} strokeWidth={2.2} />}
+            title="Creating entries arrives in the next update"
+          >
+            New Entry
+            <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.85 }}>· soon</span>
+          </Button>
+        )}
+      />
 
       {/* State filter chips */}
       <div role="group" aria-label="Filter by state" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
-        {STATE_CHIPS.map(c => {
-          const active = stateFilter === c.key
-          return (
-            <button
-              key={c.key}
-              type="button"
-              aria-pressed={active}
-              onClick={() => setStateFilter(c.key)}
-              style={{
-                padding: '5px 12px', borderRadius: 999, cursor: 'pointer',
-                border: `1px solid ${active ? 'var(--color-accent-primary, #1D2567)' : 'var(--color-border-default, #e5e7eb)'}`,
-                background: active ? 'var(--color-accent-primary, #1D2567)' : 'var(--color-bg-surface, #ffffff)',
-                color: active ? '#ffffff' : 'var(--color-text-secondary, #6b7280)',
-                fontFamily: 'DM Sans, sans-serif', fontSize: 12.5, fontWeight: active ? 600 : 500,
-                transition: 'background 0.15s, color 0.15s, border-color 0.15s',
-              }}
-            >
-              {c.label}
-            </button>
-          )
-        })}
+        {STATE_CHIPS.map(c => (
+          <FilterChip key={c.key} label={c.label} active={stateFilter === c.key} onClick={() => setStateFilter(c.key)} />
+        ))}
       </div>
 
-      {/* Content states: loading → error → empty → list */}
+      {/* Content states: loading → error → empty → table (with no-match empty) */}
       {loading ? (
         <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--color-text-secondary, #6b7280)', fontSize: 13 }}>
           Loading knowledge entries…
         </div>
       ) : error ? (
-        <div style={{
-          padding: '16px 18px', borderRadius: 12,
-          background: 'var(--color-bg-surface, #ffffff)', boxShadow: '0 1px 3px rgba(16,24,40,0.06)',
-          color: 'var(--color-text-secondary, #6b7280)', fontSize: 13,
-        }}>
+        <SurfaceCard padding="16px 18px" style={{ color: 'var(--color-text-secondary, #6b7280)', fontSize: 13 }}>
           {error}
-        </div>
+        </SurfaceCard>
       ) : entries.length === 0 ? (
-        <div style={{ borderRadius: 12, background: 'var(--color-bg-surface, #ffffff)', boxShadow: '0 1px 3px rgba(16,24,40,0.06)' }}>
+        <SurfaceCard>
           <EmptyState
             icon={<FileText />}
             heading="No knowledge entries yet"
             subtext="Governed Keith knowledge will live here — program rules, eligibility, rotations, terminology, and FAQs that Keith can cite. Authoring tools arrive in the next update."
           />
-        </div>
-      ) : filtered.length === 0 ? (
-        <div style={{
-          padding: '24px 18px', borderRadius: 12, textAlign: 'center',
-          background: 'var(--color-bg-surface, #ffffff)', boxShadow: '0 1px 3px rgba(16,24,40,0.06)',
-          color: 'var(--color-text-secondary, #6b7280)', fontSize: 13,
-        }}>
-          No entries match your search and filters.
-        </div>
+        </SurfaceCard>
       ) : (
-        <EntriesTable entries={filtered} />
+        <DataTable
+          columns={ENTRY_COLUMNS}
+          rows={filtered}
+          getRowKey={e => e.id}
+          empty={(
+            <div style={{ padding: '24px 18px', textAlign: 'center', color: 'var(--color-text-secondary, #6b7280)', fontSize: 13, fontFamily: 'DM Sans, sans-serif' }}>
+              No entries match your search and filters.
+            </div>
+          )}
+        />
       )}
     </section>
-  )
-}
-
-// ── Summary card ──────────────────────────────────────────────────────────────
-function SummaryCard({ state, count, loading }) {
-  const label = state.charAt(0).toUpperCase() + state.slice(1)
-  return (
-    <div style={{
-      flex: '1 1 140px', minWidth: 120,
-      padding: '14px 16px', borderRadius: 12,
-      background: 'var(--color-bg-surface, #ffffff)', boxShadow: '0 1px 3px rgba(16,24,40,0.06)',
-    }}>
-      <div style={{ marginBottom: 8 }}><StateBadge state={state} /></div>
-      <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--color-text-primary, #191919)', lineHeight: 1 }}>
-        {loading ? '—' : count}
-      </div>
-      <div style={{ fontSize: 11.5, color: 'var(--color-text-secondary, #6b7280)', marginTop: 3 }}>{label} entries</div>
-    </div>
-  )
-}
-
-// ── Entries table ─────────────────────────────────────────────────────────────
-function EntriesTable({ entries }) {
-  const cell = { padding: '10px 14px', fontSize: 13, color: 'var(--color-text-primary, #374151)', verticalAlign: 'middle' }
-  const th = { padding: '9px 14px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--color-text-secondary, #6b7280)', textAlign: 'left', whiteSpace: 'nowrap' }
-  return (
-    <div style={{ borderRadius: 12, overflow: 'hidden', background: 'var(--color-bg-surface, #ffffff)', boxShadow: '0 1px 3px rgba(16,24,40,0.06)' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'DM Sans, sans-serif' }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid var(--color-border-subtle, #f3f4f6)' }}>
-            <th style={th}>Title</th>
-            <th style={th}>Category</th>
-            <th style={th}>State</th>
-            <th style={{ ...th, textAlign: 'right' }}>Version</th>
-            <th style={{ ...th, textAlign: 'right' }}>Updated</th>
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map(e => (
-            <tr key={e.id} style={{ borderTop: '1px solid var(--color-border-subtle, #f3f4f6)' }}>
-              <td style={{ ...cell, fontWeight: 600 }}>{e.title || 'Untitled'}</td>
-              <td style={{ ...cell, color: 'var(--color-text-secondary, #6b7280)' }}>{CATEGORY_LABELS[e.category] || e.category}</td>
-              <td style={cell}><StateBadge state={e.state} /></td>
-              <td style={{ ...cell, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{e.current_version}</td>
-              <td style={{ ...cell, textAlign: 'right', color: 'var(--color-text-secondary, #6b7280)', whiteSpace: 'nowrap' }}>{fmtDate(e.updated_at)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   )
 }

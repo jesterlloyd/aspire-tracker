@@ -17,6 +17,7 @@ import AppearancePanel from './AppearancePanel'
 import AccountsAccessPanel from './AccountsAccessPanel'
 import ToursHelpPanel from './ToursHelpPanel'
 import KnowledgeCenterPanel from './KnowledgeCenterPanel'
+import SurfaceCard from '../ui/SurfaceCard'
 
 // Rail icons (lucide-react, all already used elsewhere in the project).
 const SECTION_ICONS = {
@@ -66,13 +67,10 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Ag
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 28, alignItems: 'flex-start' }}>
         {/* Navigation rail — workspace-grade: icons, grouping, active/hover states.
-            Sections come from the registry (role-filtered); no placeholders. */}
-        <nav aria-label="Settings sections" style={{
-          flex: '0 0 236px', minWidth: 212,
-          padding: 10, borderRadius: 14,
-          background: 'var(--color-bg-surface, #ffffff)',
-          boxShadow: '0 1px 3px rgba(16,24,40,0.06)',
-        }}>
+            Sections come from the registry (role-filtered); no placeholders.
+            UI-1: the rail surface is the shared SurfaceCard primitive (same pixels). */}
+        <SurfaceCard as="nav" aria-label="Settings sections" radius={14} padding={10}
+          style={{ flex: '0 0 236px', minWidth: 212 }}>
           {sections.map((s, i) => {
             const Icon = SECTION_ICONS[s.key]
             const active = s.key === currentKey
@@ -110,7 +108,7 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Ag
               </Fragment>
             )
           })}
-        </nav>
+        </SurfaceCard>
 
         {/* Active panel. Knowledge Center is wider (table); existing panels keep
             their established max width and render unchanged. */}
