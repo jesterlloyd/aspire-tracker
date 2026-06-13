@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Tooltip from './ui/Tooltip';
 import { useQueryClient } from '@tanstack/react-query';
-import { SUGGESTED_PROMPTS, generateStaticResponse } from '../lib/keithKnowledge';
+import { SUGGESTED_PROMPTS } from '../lib/keithKnowledge';
 import { useAuth } from '../contexts/AuthContext';
 import { announceFloatingPanelOpen, onFloatingPanelOpen } from '../lib/floatingPanels';
 
@@ -214,12 +214,12 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
       }
     } catch (err) {
       console.warn('Keith API call failed:', err.message);
-      // Fallback to Phase 2 static responses if API unavailable
-      await new Promise(resolve => setTimeout(resolve, 600));
-      const staticResponse = generateStaticResponse(text, cohortName, null);
+      // KT-5: no legacy static ASPIRE fallback. If the API is unreachable, show a
+      // neutral unavailable message rather than answering from retired static content.
       setMessages(prev => [...prev, {
         id: Date.now() + 1, role: 'keith',
-        ...staticResponse, isAI: false,
+        text: "Keith is temporarily unavailable. Please try again in a moment. For current ASPIRE guidance, check the Knowledge Center or verify with the ASPIRE Owner or Admin.",
+        isAI: false, canRetry: true, retryText: text,
       }]);
     } finally {
       setIsTyping(false);

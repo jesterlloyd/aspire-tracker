@@ -4,7 +4,7 @@
 // Or:  try { await supabase.from(...).insert(...) } catch (err) { ... }
 // Regular fetch() and response.json() ARE Promises -- .catch() is fine there.
 
-import { buildSystemPrompt, LEGACY_REFERENCE_HEADER, getRecentCommunications, getSchoolCoordinators, getUnitResponseStats, getUnitResponses, getUnitLeadersForKeith, getUnitCatalogForKeith, getNursingExecutiveLeadership } from '../src/lib/keithKnowledge.js';
+import { buildSystemPrompt, GOVERNED_KNOWLEDGE_MARKER, getRecentCommunications, getUnitResponseStats, getUnitResponses, getUnitLeadersForKeith } from '../src/lib/keithKnowledge.js';
 import { retrieveGovernedKnowledge } from '../lib/server/keith/knowledgeRetrieval.js';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
@@ -843,31 +843,9 @@ Cohort Status: ${cohort.status || 'unknown'}`
         `- ${s.last_name}, ${s.first_name} | ${s.school || '?'} | GPA: ${s.cumulative_gpa || 'N/A'} | ${s.school_email || 'no email'} | Status: ${s.status}`
       ).join('\n') || '(none)';
 
-      // Build school coordinator roster for Keith awareness
-      const coordRoster = (() => {
-        try {
-          const coords = getSchoolCoordinators()
-          const lines = coords.map(({ school, primary, cc, programRoutes }) => {
-            let line = `- ${school}: ${primary.name} <${primary.email}> (${primary.title})`
-            if (programRoutes) {
-              const routes = Object.entries(programRoutes)
-              const seen = new Set()
-              const routeLines = routes
-                .filter(([, r]) => { const key = r.email; if (seen.has(key)) return false; seen.add(key); return true })
-                .map(([, r]) => `${r.name} <${r.email}>`)
-              line += ` [program-routed: ${routeLines.join(', ')}]`
-            }
-            if (cc.length) {
-              line += ` [CC: ${cc.map(c => `${c.name} <${c.email}>`).join(', ')}]`
-            }
-            return line
-          })
-          return `\n\nSCHOOL COORDINATOR ROSTER (${coords.length} affiliated schools):\n${lines.join('\n')}`
-        } catch (err) {
-          console.warn('[keith] coordinator roster failed (non-fatal):', err.message)
-          return ''
-        }
-      })()
+      // KT-5: the static SCHOOL COORDINATOR ROSTER (a hard-coded directory) is no
+      // longer injected. Current people/contact information is governed by ASPIRE
+      // Connect Contacts (live contact retrieval is a future phase).
 
       // ── All server-side DB fetches use a single client with hoisted credentials ──
       const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -953,24 +931,12 @@ ${stats.pending_units.map(u => `  - ${u}`).join('\n') || '  (none)'}`;
                 : '';
               return `  ${unit}: ${primaryDisplay}${opsLine}`;
             }).join('\n');
-            // Nursing executive layer (synchronous — no extra DB call needed)
-            const execData = getNursingExecutiveLeadership();
-            const execLines = execData.map(exec => {
-              const nameStr = exec.preferred_name
-                ? `${exec.full_name} (known as ${exec.preferred_name})`
-                : exec.full_name;
-              const credStr = exec.credentials ? `, ${exec.credentials}` : '';
-              const addlStr = exec.additional_title ? ` | also: ${exec.additional_title}` : '';
-              const unitsStr = exec.related_units?.length
-                ? `; oversees: ${exec.related_units.join(', ')}`
-                : '';
-              return `  ${nameStr}${credStr}: ${exec.role}${addlStr}${unitsStr}`;
-            }).join('\n');
+            // KT-5: the static NURSING EXECUTIVE LEADERSHIP layer (hard-coded names)
+            // is no longer injected. The live UNIT LEADERSHIP ROSTER below is genuine
+            // live data and is retained; executive/contact lookups belong to ASPIRE
+            // Connect Contacts (a future retrieval phase).
             unitLeaderSection = `\n\nUNIT LEADERSHIP ROSTER (${Object.keys(byUnit).length} units — authoritative, do not invent names outside this list):
-${rosterLines}
-
-NURSING EXECUTIVE LEADERSHIP (layer above unit Associate Directors — do not confuse with AD-level contacts):
-${execLines}`;
+${rosterLines}`;
           } else {
             unitLeaderSection = '\n\nUNIT LEADERSHIP ROSTER: No data returned from database.';
           }
@@ -1016,23 +982,14 @@ ${safeList(needsCsLink)}
 Needs badge (${needsBadge.length}):
 ${safeList(needsBadge)}
 ${commsSection}
-${coordRoster}
 ${unitResponseSection}
 ${unitLeaderSection}
 === END LIVE DATA ===
 
-SCHOOL COORDINATOR AWARENESS:
-- liveData includes the full ASPIRE school coordinator roster in the SCHOOL COORDINATOR ROSTER section above.
-- When asked "who is the coordinator at [school]?": look up the school, mention the primary contact and their title.
-- If programRoutes exists (Cal State LA), mention program-type routing: ABSN students → Alyssa Manlangit, BSN students → Marissa Grafil Ramirez.
-- If a CC list exists (WCU campuses), mention who's CC'd on notifications.
-- Cross-reference with recentCommunications: "what schools haven't been contacted recently?" = filter communications by audience='school_coordinator' and compare against roster.
-
 UNIT RESPONSE AWARENESS:
 - Your context includes a PLACEMENT CAPACITY section with the exact hosting/not-hosting/pending breakdown for the current cohort. Use it. Never say you lack this data if the section is populated.
 - Your context includes a UNIT LEADERSHIP ROSTER. For any unit leader question, look up the unit by exact canonical name in that roster and return the listed names verbatim. Never substitute a name from a different unit.
-- When a user mentions a unit informally ("the SICU", "8 SE/SW"), translate to canonical first using the translation table in your prompt, then look up.
-- If a unit name is not in the roster, say so explicitly rather than guessing.
+- If a unit name is not in the roster, say so explicitly rather than guessing, and direct the user to ASPIRE Connect Contacts.
 - When Jester asks for an executive-summary report on unit responses (e.g., "draft a unit response summary for Margo"), generate a well-structured email. Do not send it automatically.
 
 COMMUNICATION AWARENESS:
@@ -1071,12 +1028,11 @@ CRITICAL DATA ACCESS RULES:
   // scoring and is NEVER logged.
   const lastUserText = [...anthropicMessages].reverse().find(m => m.role === 'user')?.content || '';
   const governed = await retrieveGovernedKnowledge(makeServiceRoleClient(), lastUserText);
-  // Slot the governed block immediately above the legacy reference header so identity
-  // and grounding rules stay first, governed knowledge sits above legacy, and legacy
-  // remains clearly labeled fallback. If the seam is somehow absent, prepend safely.
-  const seam = baseSystemPrompt.indexOf(LEGACY_REFERENCE_HEADER);
-  if (seam !== -1) {
-    baseSystemPrompt = baseSystemPrompt.slice(0, seam) + governed.block + '\n\n' + baseSystemPrompt.slice(seam);
+  // KT-5: inject the governed block at the explicit GOVERNED_KNOWLEDGE_MARKER slot in
+  // the scaffolding prompt (no legacy block remains). If the marker is somehow absent,
+  // prepend safely so the governed block is never dropped.
+  if (baseSystemPrompt.includes(GOVERNED_KNOWLEDGE_MARKER)) {
+    baseSystemPrompt = baseSystemPrompt.replace(GOVERNED_KNOWLEDGE_MARKER, governed.block);
   } else {
     baseSystemPrompt = governed.block + '\n\n' + baseSystemPrompt;
   }
