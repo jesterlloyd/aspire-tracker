@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { useAuth } from '../contexts/AuthContext'
 import { FilterKPICard } from './KPIBand'
+import { computeStatusCounts } from '../lib/derivations/cohortStatus'
 import ImportStudentsCSV from './ImportStudentsCSV'
 import { Search, X, LayoutGrid, List, Info } from 'lucide-react'
 import Tooltip from './ui/Tooltip'
@@ -74,17 +75,10 @@ export default function StudentProfilesTab({
     markAsRead()
   }, [selectedStudentId, userProfile?.id, cohortId]) // eslint-disable-line
 
-  // Pipeline counts — always computed against FULL cohort, not filtered
-  const pipelineCounts = useMemo(() => ({
-    total:             students.length,
-    needsOutreach:     students.filter(s => ['Pending Outreach','Form Sent'].includes(s.status)).length,
-    awaitingInterview: students.filter(s => ['Form Received', 'Interview Scheduled'].includes(s.status)).length,
-    interviewed:       students.filter(s => s.status === 'Interviewed').length,
-    placed:            students.filter(s => s.status === 'Placed').length,
-    activeRotation:    students.filter(s => s.status === 'Active Rotation').length,
-    completed:         students.filter(s => s.status === 'Completed').length,
-    notProceeding:     students.filter(s => s.status === 'Not Proceeding' || s.status === 'Declined').length,
-  }), [students])
+  // Pipeline counts — always computed against FULL cohort, not filtered.
+  // KLD-1: derivation moved verbatim into the shared canonical module so Keith and this
+  // KPI strip share exactly one source of truth.
+  const pipelineCounts = useMemo(() => computeStatusCounts(students), [students])
 
   // Filtered + sorted students
   const displayedStudents = useMemo(() => {

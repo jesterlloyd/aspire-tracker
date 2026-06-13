@@ -6,6 +6,8 @@
 
 import { buildSystemPrompt, GOVERNED_KNOWLEDGE_MARKER, getRecentCommunications, getUnitResponseStats, getUnitResponses, getUnitLeadersForKeith } from '../src/lib/keithKnowledge.js';
 import { retrieveGovernedKnowledge } from '../lib/server/keith/knowledgeRetrieval.js';
+import { computeStatusCounts, STATUS_DEFINITIONS } from '../src/lib/derivations/cohortStatus.js';
+import { summarizeCsLink } from '../src/lib/derivations/csLink.js';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 
@@ -727,15 +729,11 @@ export default async function handler(req, res) {
       const studentMap = {};
       liveData.students.forEach(s => { studentMap[s.id] = s; });
 
-      // Status breakdown
-      const byStatus = {};
-      liveData.students.forEach(s => {
-        if (!byStatus[s.status]) byStatus[s.status] = [];
-        byStatus[s.status].push(s);
-      });
-      const statusSummary = Object.entries(byStatus)
-        .map(([st, arr]) => `  ${st}: ${arr.length}`)
-        .join('\n') || '  No data';
+      // KLD-1: canonical status + CS-Link summaries from the shared derivation modules
+      // (the exact logic the Student Profiles KPI strip and CS-Link Access table use),
+      // so Keith's live answers match the UI instead of a divergent local derivation.
+      const statusCounts  = computeStatusCounts(liveData.students);
+      const csLinkSummary = summarizeCsLink(liveData.students);
 
       // On campus today — raw shift log rows joined with students
       const onCampusLines = (liveData.onCampusToday || []).map(log => {
@@ -756,9 +754,8 @@ export default async function handler(req, res) {
         ['Form Received', 'Interview Scheduled'].includes(s.status));
       const placed           = liveData.students.filter(s => s.status === 'Placed');
       const activeRotation   = liveData.students.filter(s => s.status === 'Active Rotation');
-      const needsCsLink      = liveData.students.filter(s =>
-        ['Form Received', 'Interview Scheduled', 'Interviewed', 'Placed', 'Active Rotation'].includes(s.status)
-        && !s.cs_stage1_submitted);
+      // KLD-1: the legacy single-boolean "Needs CS-Link" derivation is retired in favor
+      // of the canonical five-category csLinkSummary computed above.
       const needsBadge       = liveData.students.filter(s => s.status === 'Placed' && !s.badge_created);
 
       const activeList = activeRotation.slice(0, 50).map(s =>
@@ -961,8 +958,14 @@ ${cohortContext}
 
 Total students in cohort: ${liveData.students.length}
 
-Status breakdown:
-${statusSummary}
+COHORT STATUS (canonical, per Student Profiles live data — use these exact status names and never merge buckets):
+Total students: ${statusCounts.total}
+Not Proceeding: ${statusCounts.notProceeding} (${STATUS_DEFINITIONS['Not Proceeding']})
+Placed: ${statusCounts.placed} (${STATUS_DEFINITIONS['Placed']})
+Active Rotation: ${statusCounts.activeRotation} (${STATUS_DEFINITIONS['Active Rotation']})
+Completed: ${statusCounts.completed} (${STATUS_DEFINITIONS['Completed']})
+Interviewed: ${statusCounts.interviewed} · Awaiting Interview: ${statusCounts.awaitingInterview} · Needs Outreach: ${statusCounts.needsOutreach}
+Placed does NOT mean rotating. When summarizing the cohort, state the total, then Not Proceeding, then Placed and Active Rotation with their definitions; never describe Placed students as rotating.
 
 On Campus Now (${(liveData.onCampusToday || []).length} shifts):
 ${onCampusLines}
@@ -976,8 +979,8 @@ ${placementLines}
 Active Rotation (${activeRotation.length}):
 ${activeList}
 
-Needs CS-Link (${needsCsLink.length}):
-${safeList(needsCsLink)}
+CS-LINK ACCESS (canonical five categories, per Student Profiles → CS-Link Access live data — report ONLY these categories, never a "Needs CS-Link" count):
+${csLinkSummary.map(c => `  ${c.label}: ${c.count}`).join('\n')}
 
 Needs badge (${needsBadge.length}):
 ${safeList(needsBadge)}
@@ -988,8 +991,7 @@ ${unitLeaderSection}
 
 UNIT RESPONSE AWARENESS:
 - Your context includes a PLACEMENT CAPACITY section with the exact hosting/not-hosting/pending breakdown for the current cohort. Use it. Never say you lack this data if the section is populated.
-- Your context includes a UNIT LEADERSHIP ROSTER. For any unit leader question, look up the unit by exact canonical name in that roster and return the listed names verbatim. Never substitute a name from a different unit.
-- If a unit name is not in the roster, say so explicitly rather than guessing, and direct the user to ASPIRE Connect Contacts.
+- Your context may include a UNIT LEADERSHIP ROSTER. It is reference data for drafting correspondence to a known unit's leadership only. Do NOT answer standalone "who is", "who leads", "who holds role Y", or "who to contact" questions from it, and never infer a person or role (such as an NPD-P) from it. For current person/role/contact questions, say that live ASPIRE Connect Contacts access is not yet available and direct the user to ASPIRE Connect Contacts (never say a person does not exist or is not in your context).
 - When Jester asks for an executive-summary report on unit responses (e.g., "draft a unit response summary for Margo"), generate a well-structured email. Do not send it automatically.
 
 COMMUNICATION AWARENESS:
