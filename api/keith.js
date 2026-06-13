@@ -9,6 +9,7 @@ import { retrieveGovernedKnowledge } from '../lib/server/keith/knowledgeRetrieva
 import { computeStatusCounts, STATUS_DEFINITIONS } from '../src/lib/derivations/cohortStatus.js';
 import { summarizeCsLink } from '../src/lib/derivations/csLink.js';
 import { classifyIntent, INTENTS } from '../lib/server/keith/queryIntent.js';
+import { answerPersonContactQuery, CONTACTS_ROLE_DENIED } from '../lib/server/keith/contactsLookup.js';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 
@@ -707,6 +708,24 @@ export default async function handler(req, res) {
   const isPersonContactRole = intent === INTENTS.PERSON_CONTACT_ROLE;
   const allowRoster = intent === INTENTS.EMAIL_DRAFTING; // unit-leadership roster: drafting only
   console.log('[keith-intent]', { request_id: requestId, intent }); // PII-free: label only
+
+  // CONTACTS-1b: person/contact/role questions are answered deterministically from
+  // ASPIRE Connect Contacts (Owner/Admin ONLY), BEFORE any prompt/context assembly,
+  // governed retrieval, or model call. This structurally guarantees that no adjacent
+  // person-bearing source (cohort/student data, unit leadership roster, communications)
+  // and no tool is ever involved for these queries — they short-circuit here.
+  if (isPersonContactRole) {
+    const contactsAllowed = auth.isOwner === true || ['owner', 'admin'].includes(auth.role);
+    if (!contactsAllowed) {
+      // Do NOT look up or confirm whether a record exists for an unauthorized role.
+      console.log('[keith-contacts]', { request_id: requestId, intent, role_gate: 'fail' });
+      return res.status(200).json({ response: CONTACTS_ROLE_DENIED, tool_calls: [] });
+    }
+    const { response, resultCount, error } = await answerPersonContactQuery(makeServiceRoleClient(), lastUserText);
+    // [keith-contacts]: PII-free — no query text, names, emails, or contact content.
+    console.log('[keith-contacts]', { request_id: requestId, intent, role_gate: 'pass', result_count: resultCount ?? 0, ...(error ? { error } : {}) });
+    return res.status(200).json({ response, tool_calls: [] });
+  }
 
   // ── Pacific-Time helpers ──────────────────────────────────────────────────────
   function getPacificContext() {
