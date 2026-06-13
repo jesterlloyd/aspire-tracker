@@ -709,13 +709,17 @@ export default async function handler(req, res) {
   const allowRoster = intent === INTENTS.EMAIL_DRAFTING; // unit-leadership roster: drafting only
   console.log('[keith-intent]', { request_id: requestId, intent }); // PII-free: label only
 
-  // CONTACTS-1b: person/contact/role questions are answered deterministically from
-  // ASPIRE Connect Contacts (Owner/Admin ONLY), BEFORE any prompt/context assembly,
-  // governed retrieval, or model call. This structurally guarantees that no adjacent
-  // person-bearing source (cohort/student data, unit leadership roster, communications)
-  // and no tool is ever involved for these queries — they short-circuit here.
+  // CONTACTS-1b/1d: person/contact/role questions are answered deterministically from
+  // ASPIRE Connect Contacts, BEFORE any prompt/context assembly, governed retrieval, or
+  // model call. This structurally guarantees that no adjacent person-bearing source
+  // (cohort/student data, unit leadership roster, communications) and no tool is ever
+  // involved for these queries — they short-circuit here.
+  // CONTACTS-1d: role gate aligned with confirmed ASPIRE Connect UI access — Owner,
+  // Admin, and Interviewer may use Contacts lookup; Viewer and all other/unknown roles
+  // remain denied (pending separate Owner confirmation of their UI Contacts access).
   if (isPersonContactRole) {
-    const contactsAllowed = auth.isOwner === true || ['owner', 'admin'].includes(auth.role);
+    const normalizedRole = String(auth.role || '').toLowerCase();
+    const contactsAllowed = auth.isOwner === true || ['owner', 'admin', 'interviewer'].includes(normalizedRole);
     if (!contactsAllowed) {
       // Do NOT look up or confirm whether a record exists for an unauthorized role.
       console.log('[keith-contacts]', { request_id: requestId, intent, role_gate: 'fail' });
