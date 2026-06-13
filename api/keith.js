@@ -8,6 +8,7 @@ import { buildSystemPrompt, GOVERNED_KNOWLEDGE_MARKER, getRecentCommunications, 
 import { retrieveGovernedKnowledge } from '../lib/server/keith/knowledgeRetrieval.js';
 import { computeStatusCounts, STATUS_DEFINITIONS } from '../src/lib/derivations/cohortStatus.js';
 import { summarizeCsLink } from '../src/lib/derivations/csLink.js';
+import { classifyIntent, INTENTS } from '../lib/server/keith/queryIntent.js';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 
@@ -698,6 +699,15 @@ export default async function handler(req, res) {
       content: String(m.text),
     }));
 
+  // KLD-1.1: deterministic query-intent classification BEFORE context assembly. Intent
+  // gates which live sources the model is shown, so it cannot infer from a source it
+  // must not use. The user's text is used only for classification and is NEVER logged.
+  const lastUserText = [...anthropicMessages].reverse().find(m => m.role === 'user')?.content || '';
+  const intent = classifyIntent(lastUserText);
+  const isPersonContactRole = intent === INTENTS.PERSON_CONTACT_ROLE;
+  const allowRoster = intent === INTENTS.EMAIL_DRAFTING; // unit-leadership roster: drafting only
+  console.log('[keith-intent]', { request_id: requestId, intent }); // PII-free: label only
+
   // ── Pacific-Time helpers ──────────────────────────────────────────────────────
   function getPacificContext() {
     const now = new Date();
@@ -721,7 +731,18 @@ export default async function handler(req, res) {
 
   // Build live context string from the React Query cache snapshot sent by the client
   let liveDataStr = null;
-  if (liveData && Array.isArray(liveData.students)) {
+  if (isPersonContactRole) {
+    // KLD-1.1: for person/contact/role questions, withhold ALL person-bearing live
+    // sources (cohort/student data, unit leadership roster, communications). The model
+    // is shown only date/time and an explicit redirect, so it cannot name a person,
+    // suggest an adjacent leader, or claim a person does not exist / is not in context.
+    liveDataStr = `CURRENT DATE AND TIME (Pacific Time): Today is ${todayLong}; current time ${nowTime}.
+
+CONTACT/ROLE QUESTION — SOURCES WITHHELD BY DESIGN:
+Live person, contact, and role sources (cohort/student data, unit leadership roster, communications logs) are intentionally NOT loaded for this question, and live ASPIRE Connect Contacts access is not yet available to you.
+Respond ONLY with: live ASPIRE Connect Contacts access is not yet available, so you cannot verify current contact or role records, and the user should verify the person or role in ASPIRE Connect Contacts.
+Do NOT name any person. Do NOT suggest an adjacent unit leader or alternative contact. Do NOT say the person does not exist, is not in your context, or is absent from cohort/roster/communications.`;
+  } else if (liveData && Array.isArray(liveData.students)) {
     try {
       const today = todayIso; // Pacific-aware; replaces plain new Date().toLocaleDateString('en-CA')
 
@@ -861,7 +882,9 @@ Cohort Status: ${cohort.status || 'unknown'}`
           getRecentCommunications(dbkeith, { limit: 30, sinceDays: 30 }),
           ctxCohortId ? getUnitResponseStats(dbkeith, ctxCohortId) : Promise.resolve(null),
           ctxCohortId ? getUnitResponses(dbkeith, ctxCohortId) : Promise.resolve([]),
-          getUnitLeadersForKeith(dbkeith),
+          // KLD-1.1: the unit-leadership roster (person-bearing) is fetched ONLY for
+          // email drafting; other intents never receive it as a people directory.
+          allowRoster ? getUnitLeadersForKeith(dbkeith) : Promise.resolve([]),
         ]);
 
         // Recent communications
@@ -903,8 +926,10 @@ Pending / no response (${stats.pending_count} units):
 ${stats.pending_units.map(u => `  - ${u}`).join('\n') || '  (none)'}`;
         }
 
-        // Unit leadership roster — full roster, all roles, not just primary leads
-        if (leadersResult.status === 'fulfilled') {
+        // Unit leadership roster — full roster, all roles, not just primary leads.
+        // KLD-1.1: only assembled for email_drafting intent (allowRoster); for every
+        // other intent unitLeaderSection stays empty so the roster never enters context.
+        if (allowRoster && leadersResult.status === 'fulfilled') {
           const leaders = leadersResult.value;
           if (leaders.length > 0) {
             const byUnit = {};
@@ -937,7 +962,7 @@ ${rosterLines}`;
           } else {
             unitLeaderSection = '\n\nUNIT LEADERSHIP ROSTER: No data returned from database.';
           }
-        } else {
+        } else if (allowRoster) {
           console.warn('[keith] unit leader fetch failed (non-fatal):', leadersResult.reason?.message);
           unitLeaderSection = '\n\nUNIT LEADERSHIP ROSTER: Fetch error — do not fabricate names.';
         }
@@ -1014,7 +1039,12 @@ CRITICAL DATA ACCESS RULES:
 
   // WS1: tool access derives from the SERVER-VERIFIED identity only (never req.body).
   // Per-tool filtering means the model only ever sees tools this caller may use.
-  const activeTools = KEITH_TOOLS.filter(t => isToolAllowed(t.name, auth.role, auth.isOwner));
+  // KLD-1.1: for person/contact/role questions, expose NO tools — the data tools query
+  // adjacent person-bearing sources (students, units), which must not be used to infer
+  // a contact or role. This makes source discipline structural, not instruction-only.
+  const activeTools = isPersonContactRole
+    ? []
+    : KEITH_TOOLS.filter(t => isToolAllowed(t.name, auth.role, auth.isOwner));
   const canUseTools = activeTools.length > 0;
   const activeCohortId = liveData?.activeCohortId || liveData?.cohort?.id || null;
 
@@ -1027,8 +1057,7 @@ CRITICAL DATA ACCESS RULES:
   // inject them as the authoritative source of truth ABOVE the legacy reference. The
   // retrieval is resilient (any failure yields a zero-coverage note so Keith still
   // answers from legacy fallback). The user's question is used only for lexical
-  // scoring and is NEVER logged.
-  const lastUserText = [...anthropicMessages].reverse().find(m => m.role === 'user')?.content || '';
+  // scoring and is NEVER logged. (lastUserText was computed at intent classification.)
   const governed = await retrieveGovernedKnowledge(makeServiceRoleClient(), lastUserText);
   // KT-5: inject the governed block at the explicit GOVERNED_KNOWLEDGE_MARKER slot in
   // the scaffolding prompt (no legacy block remains). If the marker is somehow absent,
