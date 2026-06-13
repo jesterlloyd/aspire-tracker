@@ -17,7 +17,7 @@ export const ASPIRE_KNOWLEDGE = {
 3. Form Received – Student submitted their personal information and unit preferences
 4. Interview Scheduled – Interview booked on the calendar
 5. Interviewed – All rubrics submitted and scored
-6. Placed – Matched to a unit and preceptor in the Embed board
+6. Placed – Matched to a unit and preceptor in Rotation → Matrix
 7. Active Rotation – Currently completing their clinical hours
 8. Completed – Rotation finished, certificate pending
 
@@ -51,9 +51,9 @@ WHAT KEITH MUST NEVER DO:
 - Reveal decided_by_name, decision_origin, or internal notes at the individual student level`,
 
   tabs: {
-    aggregate: `The Aggregate tab shows the program overview: Placement Capacity (units by division with response status and slot counts) and Placement Requests (students grouped by school). It includes summary cards for Total Slots, Slots Filled, Slots Remaining, Students Requesting, and Gap. It also shows the On Campus Today panel for students who logged shifts today.`,
+    aggregate: `The Aggregate tab shows the program overview: Placement Capacity (units by division with response status and slot counts) and Placement Requests (students grouped by school). It includes summary cards for Total Slots, Slots Filled, Slots Remaining, Students Requesting, and Gap. It also shows the On Campus Now panel for students who logged shifts today.`,
     studentProfiles: `The Student Profiles tab shows two views: Profiles (student list with side panel detail) and CS-Link Access (bulk access workflow table). The student list shows avatars, names, school, program, contact info, GPA, ASPIRE status, and CS-Link status. The side panel shows full profile with all sections including CS-Link workflow, Clinical Hours, Documents, and Communication History.`,
-    interviewRubric: `The Interview Room (IR tab) manages interviews. Above the worklist: a booking calendar, interview slot management, and six KPI filter cards (Total, Scheduled, Completed, Not Scheduled, Flagged, Recommended). The worklist below the KPIs is five columns: Student (avatar, name, school/program), Appointment (date/time and interviewer or "Not Scheduled"), Workflow Status (ASPIRE Stage pill + Teams Invite chip), Outcome (rubric count, average score, recommendation), and Action (contextual button: Schedule, Send Invite, Review Flag, or empty when row-click suffices). Clicking a row opens the rubric session for that student. Flagged rows show an amber or red flag chip at the left edge with a hover-revealed reason. Student and Appointment columns are sortable. The rubric form has 7 sections: Interview Info, Unit Preferences and Rationale, Clinical Judgment, Professional Presence, Goal Alignment, Student Questions, and Overall Recommendation. Scoring 1-5. Auto recommendation uses majority vote of interviewers. Auto-save every 30 seconds protects in-progress rubrics.`,
+    interviewRubric: `The Interviews workspace manages interviews. Above the worklist: a booking calendar, interview slot management, and six KPI filter cards (Total, Scheduled, Completed, Not Scheduled, Flagged, Recommended). The worklist below the KPIs is five columns: Student (avatar, name, school/program), Appointment (date/time and interviewer or "Not Scheduled"), Workflow Status (ASPIRE Stage pill + Teams Invite chip), Outcome (rubric count, average score, recommendation), and Action (contextual button: Schedule, Send Invite, Review Flag, or empty when row-click suffices). Clicking a row opens the rubric session for that student. Flagged rows show an amber or red flag chip at the left edge with a hover-revealed reason. Student and Appointment columns are sortable. The rubric form has 7 sections: Interview Info, Unit Preferences and Rationale, Clinical Judgment, Professional Presence, Goal Alignment, Student Questions, and Overall Recommendation. Scoring 1-5. Auto recommendation uses majority vote of interviewers. Auto-save every 30 seconds protects in-progress rubrics.`,
     rotation: `The Rotation tab has two sub-tabs: Matrix and Preceptors. The Matrix sub-tab is the matching board. Above: Placement at a Glance KPIs and Preference Match donut. Below: a 50/50 split workspace. Unit Pool (left): unit cards in three zones -- Identity (unit name, specialty, division chip), Capacity (dot indicators: filled sage dots, open hollow rings; slot count descriptor), and Placements (compact 36px rows with 24px avatars, match quality chips). Match quality chips: "Perfect Match" (sage, 1st choice), "2nd Choice Match" (amber), "3rd Choice Match" (slate-blue), "Compatible" or "Manual placement" (muted). Clicking a Unit Card filters Student Pool to students who picked that unit as a preference, ranked 1st/2nd/3rd choice. Each filtered Student Pool card shows a header chip like "1st Choice for 5 SCCT". Full units with unnotified placements show a "Notify Unit Leader" button that opens a mailto. Student Pool (right): StudentMatchingCard grid with avatar, name, school/program, status pills, and preference rows with slot availability. Clicking a student creates a match when clicking an open slot. In the Placements zone, placed students without a preceptor show a "+ Assign preceptor" button that opens the PreceptorAssignmentModal. The Preceptors sub-tab shows the full preceptor roster with Add Preceptor button, search, and a table showing name, email, unit, shift type, active/inactive status, current student (for this cohort), cohort count, and last active date.`,
   },
 
@@ -61,7 +61,7 @@ WHAT KEITH MUST NEVER DO:
 
   csLinkWorkflow: `CS-Link Access is a two-stage process. Stage 1 is a Service Center request: new students need Add Non-Employee, former students need Assignment Change, Extend End Date, or Reactivate. Cedars employees skip Stage 1. Stage 2 is adding CS-Link access for all students. The Action Center flags students from Form Received onwards who have not yet had Stage 1 submitted.`,
 
-  shiftLog: `Students log clinical hours at /shift-log using a universal QR code on their badge. They enter their school email, verify their identity, then submit a shift: date, hours worked, shift type (Day or Night), unit, preceptor, optional learning highlight, and optional concern. Hours are auto-approved unless flagged for exceptions (over 13 hours, under 2 hours, outside rotation dates, unit mismatch with non-matching preceptor). The On Campus Today panel in Aggregate shows students who logged shifts for today.`,
+  shiftLog: `Students log clinical hours at /shift-log using a universal QR code on their badge. They enter their school email, verify their identity, then submit a shift: date, hours worked, shift type (Day or Night), unit, preceptor, optional learning highlight, and optional concern. Hours are auto-approved unless flagged for exceptions (over 13 hours, under 2 hours, outside rotation dates, unit mismatch with non-matching preceptor). The On Campus Now panel in Aggregate shows students who logged shifts for today.`,
 
   actionCenter: `The Action Center (bell icon in the header) shows 13 categories of items needing attention: Send Student Form, Send Interview Scheduling Link, Interview Reminder, Selection Decision Needed, Unit Leader Placement Notification, Preceptor Welcome Email, CS-Link Not Started, Orientation Email and Pre-Program Survey, Midpoint Student Check-In, Midpoint Preceptor Evaluation, Post-Program Student Survey, Certificate of Completion, and End Preceptor Evaluation. Each item has a one-click email button that opens a pre-filled mailto draft. "Selection Decision Needed" is an urgent-priority item surfacing students whose interview_outcome is 'Do Not Recommend' and whose status remains 'Interviewed' — it requires explicit human selection review (Phase 2A safety guardrail, May 26, 2026). Clicking 'Open Interview Review' navigates to the student's profile.`,
 
@@ -212,14 +212,14 @@ export function generateStaticResponse(userMessage, cohortName, context) {
       const list = nameList(unscheduled);
       return {
         text: unscheduled.length === 0
-          ? `All Form Received students in ${cohort} have their interviews scheduled. Check the Interview Room tab for upcoming interviews.`
+          ? `All Form Received students in ${cohort} have their interviews scheduled. Check the Interviews workspace for upcoming interviews.`
           : `${unscheduled.length} student${unscheduled.length > 1 ? 's have' : ' has'} submitted their form but not yet scheduled an interview:\n\n${list}\n\nSend them the scheduling link from the Action Center.`,
-        action: { label: 'Go to Interview Room', type: 'tab', tab: 'interviews' },
+        action: { label: 'Go to Interviews', type: 'tab', tab: 'interviews' },
       };
     }
     return {
-      text: `Check the Interview Room tab student list for Interview Status per student. The Action Center sends scheduling links with one click.`,
-      action: { label: 'Go to Interview Room', type: 'tab', tab: 'interviews' },
+      text: `Check the Interviews workspace student list for Interview Status per student. The Action Center sends scheduling links with one click.`,
+      action: { label: 'Go to Interviews', type: 'tab', tab: 'interviews' },
     };
   }
 
@@ -238,7 +238,7 @@ export function generateStaticResponse(userMessage, cohortName, context) {
       };
     }
     return {
-      text: `The On Campus Today panel in the Aggregate tab shows students who logged shifts for today using the QR code on their badge.`,
+      text: `The On Campus Now panel in the Aggregate tab shows students who logged shifts for today using the QR code on their badge.`,
       action: { label: 'Go to Aggregate', type: 'tab', tab: 'overview' },
     };
   }
@@ -427,8 +427,8 @@ ASPIRE places senior pre-licensure nursing students from affiliated schools (Cal
 The platform supports four main workflows organized as tabs:
 - Aggregate (A): Cohort-level dashboard and stats.
 - Student Profiles (SP): Individual student records, placement, outcomes, communications.
-- Interview Room (IR): Scoring, scheduling, interviewer management.
-- Embed (E): Drag-and-drop matching board for student-to-unit placement.
+- Interviews (I): Scoring, scheduling, and interviewer management.
+- Rotation (R): Placement matching workspace; its Matrix board matches students to units, using the Unit Pool and Student Pool.
 - ASPIRE Connect (C): Communication hub for contacts, outreach, and broadcasts.
 
 The program is led by Jester Lloyd Bautista (Owner, NPD Practitioner) and co-led by Krystal Rodriguez (Admin).
@@ -439,12 +439,12 @@ Keith is the AI assistant built into ASPIRE Intelligence. Keith is named after K
 export const USER_ROLES = `
 User roles and permissions:
 - Owner: full access, only one (Jester). Cannot be demoted.
-- Admin: full access including People & Access and cohort management.
+- Admin: full access including Accounts & Access and cohort management.
 - Co-Lead: operational access, can perform placements, cannot manage users.
-- Interviewer: limited to Aggregate, Student Profiles (limited view), and Interview Room. No Embed or People & Access.
+- Interviewer: limited to Aggregate, Student Profiles (limited view), and Interviews. No Rotation or Accounts & Access.
 - Viewer: read-only.
 
-Interviewers can conduct interviews by default. Owner, Admin, and Co-Lead can also conduct interviews if the toggle is enabled in People & Access.
+Interviewers can conduct interviews by default. Owner, Admin, and Co-Lead can also conduct interviews if the toggle is enabled in Accounts & Access.
 `.trim();
 
 export const RECENT_UPDATES = `
@@ -710,7 +710,7 @@ Interviewers:
 Viewer:
 - Michael Balot (Michael.Balot@cshs.org), joining May 2026
 
-When Keith recognizes one of these users from the logged-in profile, greet them by first name and tailor responses to their role. Interviewer-role users should be guided toward the Interview Room, availability blocks, rubric scoring, and student preparation. Viewer-role users have read-only access and should not be advised on actions like editing or placement.
+When Keith recognizes one of these users from the logged-in profile, greet them by first name and tailor responses to their role. Interviewer-role users should be guided toward Interviews, availability blocks, rubric scoring, and student preparation. Viewer-role users have read-only access and should not be advised on actions like editing or placement.
 
 The Summer 2026 ASPIRE cohort is preparing for student interviews in the coming two weeks. New interviewers may need orientation on creating availability blocks and using the interview rubric.
 `.trim();
@@ -1004,7 +1004,7 @@ Total students: ${context.totalStudents || 0}
 Unit slots: ${context.totalSlots || 0} total, ${context.totalRemaining || 0} remaining
 Status breakdown:
 ${statusSummary || '  No data'}
-On campus today: ${onCampus}
+On Campus Now: ${onCampus}
 Needs student form: ${safeList(context.needsStudentForm)}
 Needs scheduling link: ${safeList(context.needsSchedulingLink)}
 Needs CS-Link started: ${safeList(context.needsCsLink)}
@@ -1037,7 +1037,7 @@ ${PLATFORM_OVERVIEW}
 ${UNIT_CATALOG_KNOWLEDGE}
 
 ASPIRE STATUS JOURNEY (8 active stages + terminal):
-Pending Outreach -> Form Sent -> Form Received -> Interview Scheduled -> Interviewed -> Placed -> Active Rotation -> Completed. Terminal non-completion: Not Proceeding (with specific disposition type: Not Selected, Student Declined Offer, Application Withdrawn, or Ineligible). Status automations: Form Received fires on /student-form submit, Interview Scheduled fires on /interview-schedule booking, Interviewed fires on rubric submission, Placed fires on Embed match. Keith must only answer aggregate Not Proceeding questions — never reveal which individual student received which disposition or expose private note content.
+Pending Outreach -> Form Sent -> Form Received -> Interview Scheduled -> Interviewed -> Placed -> Active Rotation -> Completed. Terminal non-completion: Not Proceeding (with specific disposition type: Not Selected, Student Declined Offer, Application Withdrawn, or Ineligible). Status automations: Form Received fires on /student-form submit, Interview Scheduled fires on /interview-schedule booking, Interviewed fires on rubric submission, Placed follows an official Rotation matching workflow (Rotation → Matrix). Keith must only answer aggregate Not Proceeding questions — never reveal which individual student received which disposition or expose private note content.
 
 ${USER_ROLES}
 

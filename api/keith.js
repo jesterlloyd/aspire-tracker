@@ -998,7 +998,7 @@ Total students in cohort: ${liveData.students.length}
 Status breakdown:
 ${statusSummary}
 
-On campus today (${(liveData.onCampusToday || []).length} shifts):
+On Campus Now (${(liveData.onCampusToday || []).length} shifts):
 ${onCampusLines}
 
 Pending interview / Form Received (${pendingInterview.length}):
@@ -1046,7 +1046,7 @@ CRITICAL DATA ACCESS RULES:
 - The LIVE COHORT DATA above contains full student records including school_email, personal_email, phone, GPA, program type, term dates (rotation dates), unit, preceptor, shift, hours progress, and unit leader contacts.
 - When drafting any email (preceptor welcome, unit leader, student scheduling link, etc.), populate EVERY field from the data above. Do NOT use bracket placeholders like [student email] or [start date] when the real value appears in LIVE COHORT DATA.
 - If a field is literally null or N/A in the data, state that clearly. Never invent or bracket-substitute it.
-- Do NOT tell the user to check the Embed tab, Student Profiles, or any other part of the app when the answer is in this prompt.
+- Do NOT tell the user to check a specific app workspace when the answer is already available in this prompt or governed Knowledge Center context.
 - Only say data is unavailable if it genuinely does not appear anywhere in LIVE COHORT DATA.`;
     } catch (e) {
       liveDataStr = `LIVE COHORT DATA: Cache read error (${e.message})`;
@@ -1104,7 +1104,7 @@ You have four read-only tools to query live ASPIRE data. Call them whenever a qu
 
 Workflow for placement recommendations: (1) call get_unit_details to see demand and open slots; (2) call search_students(status="Interviewed") to find eligible candidates; (3) call get_student_detail on top candidates to compare rubric scores and rationale; (4) present a grounded recommendation with specific scores.
 
-Never hedge by saying "you should check the Interview Room" when the tools can answer the question directly. Never speculate about scores or recommendations you have not seen in a tool result. If data is missing, say so explicitly.
+Never hedge by saying "you should check the Interviews workspace" when the tools can answer the question directly. Never speculate about scores or recommendations you have not seen in a tool result. If data is missing, say so explicitly.
 
 Be transparent: after forming a recommendation, briefly note which tools you used and what they showed.
 `.trim() : '';
