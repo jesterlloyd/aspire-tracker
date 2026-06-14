@@ -1,22 +1,23 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { classifyCohort, AUTO_PERIODS, PERIOD_LABELS } from '../../lib/evaluation/preceptorDueDetection'
+import { classifyCohort, PERIOD_LABELS } from '../../lib/evaluation/preceptorDueDetection'
 
-// PS-3a — READ-ONLY due-detection evidence surface for automated preceptor surveys.
+// PS-3a/PS-3b — Survey Automation due-detection + Owner/Admin per-item RELEASE.
 //
-// This panel READS only (students, preceptors, preceptor_progress assignments via the
-// existing Owner/Admin RLS SELECT policies) and classifies each student/period using the
-// pure preceptorDueDetection module. It performs NO writes, NO sends, NO token/assignment
-// creation, NO Resend, NO cron, and exposes NO send/approve/release action. It exists only
-// to prove the trigger logic before any automation is allowed (PS-3b/PS-3c).
+// Detection is READ-ONLY and live-computed by the pure preceptorDueDetection module
+// (students, preceptors, preceptor_progress assignments via the existing Owner/Admin RLS
+// SELECT policies). PS-3b adds a per-item Release control on due_sendable rows that calls
+// the release endpoint (student_id + period only — no recipient override). The endpoint
+// re-runs detection server-side and sends through the SAME shared core as the PS-2b manual
+// send. There is NO queue table, NO cron, NO auto-send, and NO bulk/Release-All.
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
 
 const GROUPS = [
-  { key: 'due_sendable',        label: 'Due — sendable',        fg: '#166534', bg: '#EDF7F0' },
-  { key: 'due_unsendable',      label: 'Due — unsendable',      fg: '#991b1b', bg: '#FEECEC' },
+  { key: 'due_sendable',        label: 'Ready to release',      fg: '#166534', bg: '#EDF7F0', releasable: true },
+  { key: 'due_unsendable',      label: 'Needs attention',       fg: '#991b1b', bg: '#FEECEC' },
   { key: 'suppressed_existing', label: 'Suppressed (existing)', fg: '#1D2567', bg: '#EEF1FB' },
   { key: 'ineligible_hours',    label: 'Ineligible hours',      fg: '#92400e', bg: '#FBF5E8' },
   { key: 'not_due',             label: 'Not due',               fg: '#4A5560', bg: '#F4F3F1' },
@@ -37,6 +38,11 @@ export default function PreceptorAutomationPanel({ cohortId }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [detectedAtMs, setDetectedAtMs] = useState(0)
+
+  // PS-3b release state
+  const [confirm, setConfirm] = useState(null)        // row pending release confirmation
+  const [releasing, setReleasing] = useState(false)
+  const [releaseMsg, setReleaseMsg] = useState(null)  // { tone:'ok'|'err', text }
 
   const load = useCallback(async () => {
     if (!cohortId || !canView) return
@@ -96,6 +102,42 @@ export default function PreceptorAutomationPanel({ cohortId }) {
     return g
   }, [rows])
 
+  // PS-3b: release one due_sendable item. Sends only { student_id, period } — the server
+  // re-validates and resolves the recipient. No recipient is ever sent from the client.
+  const doRelease = useCallback(async (row) => {
+    setReleasing(true); setReleaseMsg(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        setReleaseMsg({ tone: 'err', text: 'Your session expired. Please sign in again.' })
+        setReleasing(false); return
+      }
+      // expected_preceptor_email is the recipient the Owner saw — sent for a server-side
+      // mismatch check ONLY. The server still resolves the actual recipient from the student.
+      const res = await fetch('/api/evaluation-release-preceptor-survey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          student_id: row.studentId,
+          period: row.period,
+          ...(row.preceptorEmail ? { expected_preceptor_email: row.preceptorEmail } : {}),
+        }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (res.ok && body.released) {
+        setReleaseMsg({ tone: 'ok', text: `Released — survey sent to ${body.preceptor_name || body.preceptor_email || 'the preceptor'} for ${row.studentName} (${PERIOD_LABELS[row.period]}).` })
+      } else {
+        setReleaseMsg({ tone: 'err', text: `Release refused for ${row.studentName} (${PERIOD_LABELS[row.period]}): ${body.reason || body.error || 'no longer sendable'}` })
+      }
+    } catch {
+      setReleaseMsg({ tone: 'err', text: 'Network error. Please try again.' })
+    } finally {
+      setReleasing(false)
+      setConfirm(null)
+      await load() // refresh detection — a released item moves to suppressed_existing
+    }
+  }, [load])
+
   if (!canView) {
     return (
       <div style={{ padding: '32px 20px', color: '#9ca3af', fontSize: 14, fontFamily: F }}>
@@ -108,31 +150,32 @@ export default function PreceptorAutomationPanel({ cohortId }) {
     <div style={{ padding: '4px 20px 32px', maxWidth: 1200, fontFamily: F }}>
       <div style={{ marginBottom: 14 }}>
         <h2 style={{ fontSize: 18, fontWeight: 700, color: '#191919', margin: '0 0 4px' }}>
-          Survey Automation — Due Detection (Preview)
+          Survey Automation — Review &amp; Release
         </h2>
         <p style={{ fontSize: 13, color: '#9ca3af', margin: 0, lineHeight: 1.6 }}>
-          Read-only evidence for which students are due for an automated preceptor survey.
-          Midpoint is due at ≥ 50% of required hours; End of Rotation at ≥ 100%.
+          Live-computed queue of students due for an automated preceptor survey. Midpoint is
+          due at ≥ 50% of required hours; End of Rotation at ≥ 100%. Release is per-item and
+          human-approved — there is no auto-send.
         </p>
       </div>
 
-      {/* Read-only banner — this surface never sends or writes */}
+      {/* Banner — no cron / no auto-send / no recipient override */}
       <div style={{
         fontSize: 12.5, color: '#1D2567', background: '#EEF1FB', border: '1px solid #d7ddf5',
         borderRadius: 8, padding: '10px 14px', marginBottom: 18, lineHeight: 1.55,
       }}>
-        <strong>Read-only.</strong> This is detection evidence only (PS-3a). Nothing is sent,
-        queued, or written — no assignments, tokens, emails, or schedules are created here.
-        Use Evaluation → Preceptor Feedback to send manually.
+        <strong>Human-approved sends only.</strong> Releasing re-checks eligibility on the
+        server and sends the preceptor survey through the same path as a manual send. The
+        recipient is resolved server-side from the student — there is no recipient field.
       </div>
 
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 18, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
         <button
           onClick={load}
-          disabled={loading}
+          disabled={loading || releasing}
           style={{
             padding: '7px 14px', background: NAVY, color: '#fff', border: 'none', borderRadius: 7,
-            fontSize: 12.5, fontWeight: 600, fontFamily: F, cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.6 : 1,
+            fontSize: 12.5, fontWeight: 600, fontFamily: F, cursor: (loading || releasing) ? 'default' : 'pointer', opacity: (loading || releasing) ? 0.6 : 1,
           }}
         >
           {loading ? 'Detecting…' : 'Re-run detection'}
@@ -141,6 +184,17 @@ export default function PreceptorAutomationPanel({ cohortId }) {
           {detectedAtMs ? `Detected ${new Date(detectedAtMs).toLocaleString('en-US')}` : ''}
         </span>
       </div>
+
+      {releaseMsg && (
+        <div style={{
+          fontSize: 13, borderRadius: 8, padding: '10px 14px', marginBottom: 16, lineHeight: 1.5,
+          background: releaseMsg.tone === 'ok' ? '#EDF7F0' : '#FEECEC',
+          color: releaseMsg.tone === 'ok' ? '#166534' : '#991b1b',
+          border: `1px solid ${releaseMsg.tone === 'ok' ? '#c6e7d0' : '#f3c6c6'}`,
+        }}>
+          {releaseMsg.text}
+        </div>
+      )}
 
       {error && (
         <div style={{ padding: '14px 0', color: '#dc2626', fontSize: 14 }}>
@@ -167,7 +221,7 @@ export default function PreceptorAutomationPanel({ cohortId }) {
             ))}
           </div>
 
-          {/* Grouped read-only tables */}
+          {/* Grouped tables. Only the releasable group (due_sendable) shows a Release action. */}
           {GROUPS.map(g => {
             const list = grouped[g.key] || []
             return (
@@ -185,6 +239,7 @@ export default function PreceptorAutomationPanel({ cohortId }) {
                           {['Student', 'Period', 'Approved / Required', 'Preceptor', 'Reason'].map(h => (
                             <th key={h} style={{ padding: '9px 13px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6b7280' }}>{h}</th>
                           ))}
+                          {g.releasable && <th style={{ padding: '9px 13px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: '#6b7280' }}>Action</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -215,6 +270,21 @@ export default function PreceptorAutomationPanel({ cohortId }) {
                                 </div>
                               )}
                             </td>
+                            {g.releasable && (
+                              <td style={{ padding: '9px 13px', textAlign: 'right' }}>
+                                <button
+                                  onClick={() => { setReleaseMsg(null); setConfirm(r) }}
+                                  disabled={releasing}
+                                  style={{
+                                    padding: '6px 14px', background: '#166534', color: '#fff', border: 'none',
+                                    borderRadius: 7, fontSize: 12, fontWeight: 600, fontFamily: F,
+                                    cursor: releasing ? 'default' : 'pointer', opacity: releasing ? 0.6 : 1, whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  Release
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
@@ -231,6 +301,56 @@ export default function PreceptorAutomationPanel({ cohortId }) {
             </div>
           )}
         </>
+      )}
+
+      {/* Release confirmation — no editable recipient field. */}
+      {confirm && (
+        <div className="modal-overlay" onMouseDown={() => !releasing && setConfirm(null)}>
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            style={{ maxWidth: 460, fontFamily: F }}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1D2567', fontFamily: F }}>
+                Release preceptor survey?
+              </h2>
+            </div>
+            <div style={{ padding: '16px 20px', fontSize: 13.5, color: '#374151', lineHeight: 1.6 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '6px 12px', marginBottom: 14 }}>
+                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Student</span><span style={{ fontWeight: 600, color: '#191919' }}>{confirm.studentName}</span>
+                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Period</span><span>{PERIOD_LABELS[confirm.period]}</span>
+                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Hours</span><span>{fmtHours(confirm.approvedHours)} / {fmtHours(confirm.hoursRequired)}</span>
+                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Preceptor</span>
+                <span>
+                  {confirm.preceptorName || '—'}
+                  {confirm.preceptorEmail && <div style={{ fontSize: 12, color: '#6b7280' }}>{confirm.preceptorEmail}</div>}
+                </span>
+              </div>
+              <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>
+                This will send the ASPIRE Preceptor Student Progress &amp; Readiness Feedback
+                survey to the resolved preceptor via email (Resend). Eligibility is re-checked
+                on the server before sending.
+              </p>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="btn-outline-modal" onClick={() => setConfirm(null)} disabled={releasing}>Cancel</button>
+              <button
+                onClick={() => doRelease(confirm)}
+                disabled={releasing}
+                style={{
+                  padding: '8px 18px', background: '#166534', color: '#fff', border: 'none',
+                  borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: F,
+                  cursor: releasing ? 'default' : 'pointer', opacity: releasing ? 0.6 : 1,
+                }}
+              >
+                {releasing ? 'Releasing…' : 'Confirm & Release'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
