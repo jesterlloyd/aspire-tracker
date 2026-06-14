@@ -15,6 +15,12 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// notification_log.status is advanced by the Resend webhook (sent → delivered → opened →
+// clicked, plus terminal bounced/complained and transient delayed). Idempotency must treat
+// ALL of these as "already sent" so a delivered/opened/clicked check-in is never re-sent on
+// a later daily run. Only 'failed' (Resend handoff failure) and 'queued' stay retryable.
+const ALREADY_SENT_STATUSES = ['sent', 'delivered', 'opened', 'clicked', 'delayed', 'bounced', 'complained'];
+
 export default async function handler(req, res) {
   if (req.headers['authorization'] !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -53,13 +59,15 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: studentsErr.message });
     }
 
-    // Fetch already-sent check-ins from notification_log (last 6 months to cover all rotations)
+    // Fetch already-sent check-ins from notification_log (last 6 months to cover all rotations).
+    // Match any non-failed/non-queued status so webhook-advanced rows (delivered/opened/...)
+    // still count as already sent — this is the duplicate-send fix.
     const cutoff = new Date(now.getTime() - 180 * 24 * 3600 * 1000).toISOString();
     const { data: sentLog } = await supabase
       .from('notification_log')
       .select('student_id')
       .eq('notification_type', 'midpoint_checkin')
-      .eq('status', 'sent')
+      .in('status', ALREADY_SENT_STATUSES)
       .gte('sent_at', cutoff);
 
     const alreadySentStudentIds = new Set(
