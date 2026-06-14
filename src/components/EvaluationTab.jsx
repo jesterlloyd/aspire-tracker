@@ -3,7 +3,10 @@ import { ChevronRight, ChevronDown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { CS_COLORS } from '../lib/brand'
 import { useLastSynced } from '../hooks/useLastSynced'
+import { useAuth } from '../contexts/AuthContext'
 import EvaluationResponseDetail from './EvaluationResponseDetail'
+import PreceptorFeedbackPanel from './evaluation/PreceptorFeedbackPanel'
+import PreceptorResponseDetail from './evaluation/PreceptorResponseDetail'
 
 const F = 'DM Sans, sans-serif'
 
@@ -286,6 +289,7 @@ function ExpandedRow({ assignment: a, response }) {
 
 export default function EvaluationTab({ cohortId }) {
   const { markSynced, display: syncDisplay } = useLastSynced()
+  const { isOwner, isAdmin } = useAuth()
 
   const [activeSubTab,    setActiveSubTab]    = useState('cohort')
   const [assignments,     setAssignments]     = useState([])
@@ -318,6 +322,7 @@ export default function EvaluationTab({ cohortId }) {
           id, timepoint, status,
           invited_at, sent_at, opened_at, expires_at, revoked_at,
           approved_hours_at_invitation, approved_hours_at_completion, notes,
+          respondent_type, respondent_name,
           students!inner ( id, first_name, last_name ),
           evaluation_instruments!inner ( slug, display_name ),
           evaluation_responses (
@@ -511,6 +516,9 @@ export default function EvaluationTab({ cohortId }) {
         }}>
           <button onClick={() => setActiveSubTab('cohort')}  style={btnStyle('cohort')}>Cohort View</button>
           <button onClick={() => setActiveSubTab('program')} style={btnStyle('program')}>Program View</button>
+          {(isOwner || isAdmin) && (
+            <button onClick={() => setActiveSubTab('preceptor')} style={btnStyle('preceptor')}>Preceptor Feedback</button>
+          )}
         </div>
       </div>
 
@@ -534,6 +542,11 @@ export default function EvaluationTab({ cohortId }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Preceptor Feedback (Owner/Admin only) ───────────────────────── */}
+      {activeSubTab === 'preceptor' && (isOwner || isAdmin) && (
+        <PreceptorFeedbackPanel cohortId={cohortId} />
       )}
 
       {/* ── Cohort View ─────────────────────────────────────────────────── */}
@@ -774,17 +787,28 @@ export default function EvaluationTab({ cohortId }) {
         </div>
       )}
 
-      {/* Response detail modal — mounted at EvaluationTab level, one at a time */}
-      <EvaluationResponseDetail
-        assignment={detailAssignment}
-        instrumentContent={
-          detailAssignment?.evaluation_instruments?.slug
-            ? contentCache[detailAssignment.evaluation_instruments.slug]
-            : undefined
-        }
-        isOpen={!!detailAssignment}
-        onClose={handleCloseDetail}
-      />
+      {/* Response detail modal — mounted at EvaluationTab level, one at a time.
+          Preceptor responses render in the isolated PreceptorResponseDetail (section-keyed,
+          Owner/Admin-only); Casey-Fink/student responses keep the existing detail view. */}
+      {detailAssignment?.evaluation_instruments?.slug === 'preceptor_progress' ? (
+        <PreceptorResponseDetail
+          assignment={detailAssignment}
+          instrumentContent={contentCache['preceptor_progress']}
+          isOpen={!!detailAssignment}
+          onClose={handleCloseDetail}
+        />
+      ) : (
+        <EvaluationResponseDetail
+          assignment={detailAssignment}
+          instrumentContent={
+            detailAssignment?.evaluation_instruments?.slug
+              ? contentCache[detailAssignment.evaluation_instruments.slug]
+              : undefined
+          }
+          isOpen={!!detailAssignment}
+          onClose={handleCloseDetail}
+        />
+      )}
     </div>
   )
 }

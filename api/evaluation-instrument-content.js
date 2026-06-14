@@ -2,7 +2,10 @@ import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 
 function allowedInstrumentSlugs() {
-  const slugs = ['casey_fink_readiness_2024'];
+  // Owner/Admin-authenticated content loader. preceptor_progress is included so the
+  // Owner/Admin response-detail view can render the preceptor survey labels. This is
+  // NOT the Casey-Fink public token-validation path.
+  const slugs = ['casey_fink_readiness_2024', 'preceptor_progress'];
   if (process.env.EVALUATION_QA_MODE === '1') {
     slugs.push('qa_test_instrument');
   }

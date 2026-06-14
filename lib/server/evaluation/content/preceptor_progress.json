@@ -1,0 +1,165 @@
+{
+  "slug": "preceptor_progress",
+  "displayName": "ASPIRE Preceptor Student Progress & Readiness Feedback",
+  "intro": {
+    "heading": "Student Progress & Readiness Feedback",
+    "body": "Thank you for precepting an ASPIRE student. This feedback supports the student's development and readiness as they prepare to transition into professional nursing practice. Specific examples are especially helpful. Any endorsement you provide is for consideration only and is not a hiring decision. The confidential section is reviewed by the ASPIRE team and unit leadership. This survey does not replace real-time coaching during the shift.",
+    "compliance_note": "Endorsement reflects whether you would endorse this student for consideration. It is not a hiring decision, job offer, interview guarantee, or placement guarantee."
+  },
+  "ratingScale": [
+    "Not Observed / Unable to Assess",
+    "Needs Close Support",
+    "Developing",
+    "Meeting Expected Student Level",
+    "Exceeding Expected Student Level"
+  ],
+  "periodLabels": {
+    "midpoint": "Midpoint",
+    "end_of_rotation": "End of Rotation",
+    "other_interim": "Other / Interim Check-In"
+  },
+  "section1": {
+    "title": "Student and Preceptor Details",
+    "instructions": "Names and unit are pre-filled from the ASPIRE record where known.",
+    "fields": {
+      "student_name": { "label": "Student Name", "mode": "display" },
+      "preceptor_name": { "label": "Preceptor Name", "mode": "display" },
+      "rotation_unit": { "label": "Rotation Unit / Area", "mode": "display" },
+      "feedback_period": {
+        "label": "Feedback Period",
+        "required": true,
+        "options": [
+          { "value": "midpoint", "label": "Midpoint" },
+          { "value": "end_of_rotation", "label": "End of Rotation" },
+          { "value": "other_interim", "label": "Other / Interim Check-In" }
+        ]
+      },
+      "shifts_observed": {
+        "label": "Approximate Number of Shifts Observed With This Student",
+        "required": false,
+        "options": ["1 shift", "2–3 shifts", "4–6 shifts", "7 or more shifts", "Not sure"]
+      }
+    }
+  },
+  "section2": {
+    "title": "Clinical Progress and Competency",
+    "instructions": "For each area, choose the rating that best reflects this student's current level. Comments with specific examples are encouraged.",
+    "commentLabel": "What examples support your rating?",
+    "items": {
+      "clinical_judgment": {
+        "label": "Clinical Judgment",
+        "prompt": "The student notices relevant patient cues, interprets changes appropriately, prioritizes needs, seeks help when appropriate, and reflects on actions to improve care."
+      },
+      "patient_centered_care": {
+        "label": "Patient-Centered Care",
+        "prompt": "The student provides compassionate, respectful, individualized care and considers patient preferences, values, culture, dignity, and comfort while applying classroom knowledge at the bedside."
+      },
+      "safety_quality": {
+        "label": "Safety and Quality",
+        "prompt": "The student prioritizes patient safety, follows policy and supervision expectations, minimizes risk, asks clarifying questions when unsure, and contributes to safe, evidence-informed care."
+      },
+      "teamwork_communication_collaboration": {
+        "label": "Teamwork, Communication, and Collaboration",
+        "prompt": "The student communicates respectfully with the healthcare team, gives and receives information appropriately, seeks guidance when needed, and demonstrates awareness of team-based care."
+      },
+      "professionalism_accountability": {
+        "label": "Professionalism and Accountability",
+        "prompt": "The student demonstrates accountability, punctuality, preparation, ethical behavior, receptiveness to feedback, appropriate boundaries, and commitment to learning."
+      },
+      "advanced_beginner_readiness": {
+        "label": "Growth Toward Advanced Beginner Readiness",
+        "prompt": "The student is progressing toward the expected advanced beginner level for a senior nursing student preparing to transition into professional nursing practice."
+      }
+    }
+  },
+  "section3": {
+    "title": "Narrative Feedback",
+    "fields": {
+      "strengths_observed": {
+        "label": "Strengths Observed",
+        "prompt": "What strengths have you observed in this student? Please include specific examples when possible.",
+        "required": true
+      },
+      "areas_for_development": {
+        "label": "Areas for Development or Coaching",
+        "prompt": "What areas should the student continue to develop? Please frame feedback in a constructive way and include examples or suggestions when possible.",
+        "required": true
+      },
+      "suggested_support_plan": {
+        "label": "Suggested Support Plan",
+        "prompt": "What support, coaching, experiences, or learning opportunities would help this student continue progressing?",
+        "required": false,
+        "examples": [
+          "more practice with prioritization",
+          "more opportunities for focused assessments",
+          "reinforcement of medication safety",
+          "practice communicating with the interprofessional team",
+          "support with time management",
+          "exposure to patient education",
+          "continued confidence-building"
+        ]
+      }
+    }
+  },
+  "section4": {
+    "title": "Readiness and Endorsement",
+    "fields": {
+      "transition_readiness": {
+        "label": "Based on your observations, how would you describe this student's readiness for transition into professional nursing practice?",
+        "required": true,
+        "options": [
+          "Strongly progressing and demonstrating readiness",
+          "Progressing appropriately for student level",
+          "Progressing, with continued focused support recommended",
+          "Not yet demonstrating expected readiness",
+          "Unable to assess"
+        ]
+      },
+      "unit_endorsement_consideration": {
+        "label": "If this student applied for a position on your unit, would you endorse them for consideration?",
+        "required": true,
+        "options": [
+          "Yes, enthusiastically",
+          "Yes",
+          "Yes, with focused support or continued development",
+          "Not at this time",
+          "Unable to assess"
+        ]
+      },
+      "endorsement_explanation": {
+        "label": "Please explain your endorsement recommendation.",
+        "prompt": "Please include strengths, development needs, or conditions for success. If you selected \"Not at this time\" or \"Yes, with focused support,\" please describe what support or growth would strengthen the student's readiness.",
+        "required": true
+      },
+      "cedars_consideration_recommendation": {
+        "label": "Would you recommend this student for consideration within Cedars-Sinai, even if not necessarily on your specific unit?",
+        "required": true,
+        "options": [
+          "Yes, enthusiastically",
+          "Yes",
+          "Yes, with focused support or continued development",
+          "Not at this time",
+          "Unable to assess"
+        ]
+      },
+      "best_fit_environment": {
+        "label": "If applicable, what type of unit, environment, or preceptor style may help this student be successful?",
+        "required": false
+      }
+    }
+  },
+  "section5": {
+    "title": "Confidential ASPIRE Team Comments",
+    "fields": {
+      "confidential_comments": {
+        "label": "Confidential comments for ASPIRE team or unit leadership",
+        "prompt": "This section is not intended to replace real-time coaching. If the student needs feedback related to clinical performance, professional behavior, or patient safety, please provide timely feedback during the shift and notify the ASPIRE team as needed. Use this space for confidential context, concerns, or recommendations that should be reviewed by the ASPIRE team or unit leadership.",
+        "required": false
+      }
+    }
+  },
+  "attestation": {
+    "label": "I confirm this feedback is based on my direct observations and is intended to support student development, safe practice, and transition readiness.",
+    "required": true
+  }
+}

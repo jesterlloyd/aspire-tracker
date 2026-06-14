@@ -41,6 +41,7 @@
     "api/school-form-submit.js":                   { "maxDuration": 30 },
     "api/update-rotation-dates.js":                { "maxDuration": 15 },
     "api/cron/midpoint-checkin.js":                { "maxDuration": 60 },
-    "api/send-midpoint-checkin.js":                { "maxDuration": 15 }
+    "api/send-midpoint-checkin.js":                { "maxDuration": 15 },
+    "api/evaluation-send-preceptor-invitations.js": { "maxDuration": 60 }
   }
 }
