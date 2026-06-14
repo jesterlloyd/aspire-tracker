@@ -28,8 +28,11 @@ import { buildCoordinatorWeeklyDigestEmail, formatDateRange } from '../../src/li
 const FROM     = 'ASPIRE Intelligence <noreply@aspire-program.com>';
 const REPLY_TO = 'JesterLloyd.Bautista@cshs.org';
 
-// Event types to include; maps to digest section keys
-const DIGEST_EVENT_TYPES = ['form_received', 'interview_booked', 'interview', 'placement'];
+// Event types to include; maps to digest section keys. rotation_start and
+// status_change_active_rotation are two events for the same milestone (a student beginning
+// active rotation); both collapse into the single 'rotation' digest category below and a
+// student is shown once even if both events occur in the window.
+const DIGEST_EVENT_TYPES = ['form_received', 'interview_booked', 'interview', 'placement', 'rotation_start', 'status_change_active_rotation'];
 
 // Alert if more than this share of eligible coordinators fail to receive the digest
 const ALERT_THRESHOLD = 0.2;
@@ -189,6 +192,7 @@ export default async function handler(req, res) {
             interview_booked: [],
             interview:        [],
             placement:        [],
+            rotation:         [],
           },
         };
       }
@@ -224,6 +228,16 @@ export default async function handler(req, res) {
           const unitMatch = event.notes?.match(/Placed in (.+)$/);
           const unit = unitMatch?.[1]?.trim();
           bucket.placement.push({ line: `${studentName}${unit ? ` — ${unit}` : ''}` });
+          break;
+        }
+
+        // rotation_start and status_change_active_rotation are the same milestone — collapse
+        // both into one 'rotation' line and show the student once (dedup by student id).
+        case 'rotation_start':
+        case 'status_change_active_rotation': {
+          if (!bucket.rotation.some(r => r.studentId === student.id)) {
+            bucket.rotation.push({ line: studentName, studentId: student.id });
+          }
           break;
         }
       }

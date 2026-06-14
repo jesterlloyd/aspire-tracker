@@ -18,6 +18,7 @@ const CATEGORIES = [
   { key: 'interview_booked', label: 'Interviews Scheduled' },
   { key: 'interview',        label: 'Interviews Completed' },
   { key: 'placement',        label: 'Unit Placements'      },
+  { key: 'rotation',         label: 'Began Active Rotation' },
 ];
 
 // ── HTML wrapper ─────────────────────────────────────────────────────────────

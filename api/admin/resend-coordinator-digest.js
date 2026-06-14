@@ -29,7 +29,9 @@ import { buildCoordinatorWeeklyDigestEmail, formatDateRange } from '../../src/li
 
 const FROM     = 'ASPIRE Intelligence <noreply@aspire-program.com>';
 const REPLY_TO = 'JesterLloyd.Bautista@cshs.org';
-const DIGEST_EVENT_TYPES = ['form_received', 'interview_booked', 'interview', 'placement'];
+// Must match api/cron/coordinator-weekly-digest.js so manual resends render the same digest.
+// rotation_start + status_change_active_rotation collapse into one 'rotation' category below.
+const DIGEST_EVENT_TYPES = ['form_received', 'interview_booked', 'interview', 'placement', 'rotation_start', 'status_change_active_rotation'];
 
 function getServiceClient() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
@@ -115,7 +117,7 @@ export default async function handler(req, res) {
       if (!grouped[coordinator.id]) {
         grouped[coordinator.id] = {
           coordinator,
-          transitions: { form_received: [], interview_booked: [], interview: [], placement: [] },
+          transitions: { form_received: [], interview_booked: [], interview: [], placement: [], rotation: [] },
         };
       }
 
@@ -143,6 +145,15 @@ export default async function handler(req, res) {
         case 'placement': {
           const unitMatch = event.notes?.match(/Placed in (.+)$/);
           bucket.placement.push({ line: `${studentName}${unitMatch?.[1] ? ` — ${unitMatch[1].trim()}` : ''}` });
+          break;
+        }
+        // rotation_start + status_change_active_rotation collapse into one rotation line;
+        // student shown once (dedup by student id). Mirrors the cron handler.
+        case 'rotation_start':
+        case 'status_change_active_rotation': {
+          if (!bucket.rotation.some(r => r.studentId === student.id)) {
+            bucket.rotation.push({ line: studentName, studentId: student.id });
+          }
           break;
         }
       }
