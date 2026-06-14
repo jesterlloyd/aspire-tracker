@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext'
 import EvaluationResponseDetail from './EvaluationResponseDetail'
 import PreceptorFeedbackPanel from './evaluation/PreceptorFeedbackPanel'
 import PreceptorResponseDetail from './evaluation/PreceptorResponseDetail'
+import PreceptorAutomationPanel from './evaluation/PreceptorAutomationPanel'
 
 const F = 'DM Sans, sans-serif'
 
@@ -519,6 +520,9 @@ export default function EvaluationTab({ cohortId }) {
           {(isOwner || isAdmin) && (
             <button onClick={() => setActiveSubTab('preceptor')} style={btnStyle('preceptor')}>Preceptor Feedback</button>
           )}
+          {(isOwner || isAdmin) && (
+            <button onClick={() => setActiveSubTab('automation')} style={btnStyle('automation')}>Survey Automation</button>
+          )}
         </div>
       </div>
 
@@ -547,6 +551,11 @@ export default function EvaluationTab({ cohortId }) {
       {/* ── Preceptor Feedback (Owner/Admin only) ───────────────────────── */}
       {activeSubTab === 'preceptor' && (isOwner || isAdmin) && (
         <PreceptorFeedbackPanel cohortId={cohortId} />
+      )}
+
+      {/* ── Survey Automation — read-only due detection (Owner/Admin only) ── */}
+      {activeSubTab === 'automation' && (isOwner || isAdmin) && (
+        <PreceptorAutomationPanel cohortId={cohortId} />
       )}
 
       {/* ── Cohort View ─────────────────────────────────────────────────── */}
