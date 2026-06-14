@@ -21,6 +21,7 @@ import DetailDrawer from '../ui/DetailDrawer'
 import Button from '../ui/Button'
 import StateBadge from './StateBadge'
 import KnowledgeVersionHistory from './KnowledgeVersionHistory'
+import KnowledgeRevisionPanel from './KnowledgeRevisionPanel'
 import { CATEGORY_LABELS, CATEGORY_KEYS, CAPS, isValidDateStr, fmtDate } from './knowledgeCategories'
 
 async function postAdmin(payload) {
@@ -327,11 +328,15 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, isOwner = fals
             <span style={{ color: 'var(--color-text-secondary, #6b7280)' }}>Updated {fmtDate(entry?.updated_at)}</span>
           </div>
 
-          {entry?.state !== 'draft' && (
+          {entry?.state === 'active' ? (
             <div style={{ padding: '8px 12px', marginBottom: 14, borderRadius: 8, background: 'var(--color-bg-elevated, #eef2fb)', color: 'var(--color-text-secondary, #6b7280)', fontSize: 12.5 }}>
-              Only draft entries can be edited in this phase.
+              This entry is Active. Content is changed through a revision (see Revision below); direct in-place editing is disabled.
             </div>
-          )}
+          ) : entry?.state !== 'draft' ? (
+            <div style={{ padding: '8px 12px', marginBottom: 14, borderRadius: 8, background: 'var(--color-bg-elevated, #eef2fb)', color: 'var(--color-text-secondary, #6b7280)', fontSize: 12.5 }}>
+              This entry is read-only in its current state.
+            </div>
+          ) : null}
 
           <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--color-text-secondary, #9ca3af)', marginBottom: 6 }}>Body</div>
           <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.55, marginBottom: 18 }}>{entry?.body || <span style={{ color: 'var(--color-text-secondary, #9ca3af)' }}>(empty)</span>}</div>
@@ -349,6 +354,11 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, isOwner = fals
               {entry?.expires_at && <span>Expires {fmtDate(entry.expires_at)}</span>}
             </div>
           )}
+
+          {/* Revision workflow — Active entries only (Owner/Admin; the panel self-gates
+              by role and authorship). On apply, the parent re-fetches the entry so the
+              new content + version history refresh in place. */}
+          <KnowledgeRevisionPanel entry={entry} onApplied={() => onSaved?.(entry?.id)} />
 
           {/* Lifecycle controls — Owner only; never rendered in table rows or for
               invalid transitions; archived shows a terminal notice. */}
