@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext'
 import EvaluationResponseDetail from './EvaluationResponseDetail'
 import PreceptorFeedbackPanel from './evaluation/PreceptorFeedbackPanel'
 import PreceptorResponseDetail from './evaluation/PreceptorResponseDetail'
+import StudentEvalResponseDetail from './evaluation/StudentEvalResponseDetail'
 import PreceptorAutomationPanel from './evaluation/PreceptorAutomationPanel'
 
 const F = 'DM Sans, sans-serif'
@@ -796,13 +797,21 @@ export default function EvaluationTab({ cohortId }) {
         </div>
       )}
 
-      {/* Response detail modal — mounted at EvaluationTab level, one at a time.
-          Preceptor responses render in the isolated PreceptorResponseDetail (section-keyed,
-          Owner/Admin-only); Casey-Fink/student responses keep the existing detail view. */}
+      {/* Response detail modal — mounted at EvaluationTab level, one at a time. Each
+          survey type renders in its own isolated, Owner/Admin-only detail (section-keyed):
+          preceptor_progress → PreceptorResponseDetail, student_preceptor_eval →
+          StudentEvalResponseDetail; Casey-Fink/student keeps the existing detail view. */}
       {detailAssignment?.evaluation_instruments?.slug === 'preceptor_progress' ? (
         <PreceptorResponseDetail
           assignment={detailAssignment}
           instrumentContent={contentCache['preceptor_progress']}
+          isOpen={!!detailAssignment}
+          onClose={handleCloseDetail}
+        />
+      ) : detailAssignment?.evaluation_instruments?.slug === 'student_preceptor_eval' ? (
+        <StudentEvalResponseDetail
+          assignment={detailAssignment}
+          instrumentContent={contentCache['student_preceptor_eval']}
           isOpen={!!detailAssignment}
           onClose={handleCloseDetail}
         />
