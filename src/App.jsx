@@ -20,6 +20,7 @@ import LoginNew from './pages/Login'
 import DevDispositionModal from './pages/DevDispositionModal'
 import EvaluationPage from './pages/EvaluationPage'
 import PreceptorEvaluationPage from './pages/PreceptorEvaluationPage'
+import StudentEvaluationPage from './pages/StudentEvaluationPage'
 import UnitFormPage from './components/UnitFormPage'
 import SchoolFormPage from './components/SchoolFormPage'
 import StudentIntakeFormPage from './components/StudentIntakeFormPage'
@@ -1009,6 +1010,7 @@ export default function App() {
       <Route path="/shift-log/*"          element={<ShiftLogLifecycle />} />
       <Route path="/evaluation/readiness/*" element={<div data-theme-lock="light"><EvaluationPage /></div>} />
       <Route path="/evaluation/feedback/*"  element={<div data-theme-lock="light"><PreceptorEvaluationPage /></div>} />
+      <Route path="/evaluation/experience/*" element={<div data-theme-lock="light"><StudentEvaluationPage /></div>} />
       {/* Legacy URL redirects */}
       <Route path="/interview-room"        element={<Navigate to="/interviews" replace />} />
       <Route path="/embed"                 element={<Navigate to="/rotation/matrix" replace />} />
