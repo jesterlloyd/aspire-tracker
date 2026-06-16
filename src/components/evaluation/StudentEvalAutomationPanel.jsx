@@ -15,7 +15,7 @@ const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
 
 const GROUPS = [
-  { key: 'due_sendable',        label: 'Ready to release',      fg: '#166534', bg: '#EDF7F0' },
+  { key: 'due_sendable',        label: 'Ready to release',      fg: '#166534', bg: '#EDF7F0', releasable: true },
   { key: 'due_unsendable',      label: 'Needs attention',       fg: '#991b1b', bg: '#FEECEC' },
   { key: 'suppressed_existing', label: 'Suppressed (existing)', fg: '#1D2567', bg: '#EEF1FB' },
   { key: 'ineligible_hours',    label: 'Ineligible hours',      fg: '#92400e', bg: '#FBF5E8' },
@@ -37,6 +37,11 @@ export default function StudentEvalAutomationPanel({ cohortId }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [detectedAtMs, setDetectedAtMs] = useState(0)
+
+  // Release state (SR-2b-2)
+  const [confirm, setConfirm] = useState(null)        // row pending release confirmation
+  const [releasing, setReleasing] = useState(false)
+  const [releaseMsg, setReleaseMsg] = useState(null)  // { tone:'ok'|'err', text }
 
   const load = useCallback(async () => {
     if (!cohortId || !canView) return
@@ -88,6 +93,36 @@ export default function StudentEvalAutomationPanel({ cohortId }) {
     [students, preceptors, assignments, detectedAtMs]
   )
 
+  // SR-2b-2: release one due_sendable item. Sends only { student_id } — the server
+  // re-validates (SR-2b-1 detector) and resolves the student recipient. No recipient override.
+  const doRelease = useCallback(async (row) => {
+    setReleasing(true); setReleaseMsg(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        setReleaseMsg({ tone: 'err', text: 'Your session expired. Please sign in again.' })
+        setReleasing(false); return
+      }
+      const res = await fetch('/api/evaluation-release-student-eval-survey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ student_id: row.studentId }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (res.ok && body.released) {
+        setReleaseMsg({ tone: 'ok', text: `Released — survey sent to ${body.student_email || 'the student'} for ${row.studentName}.` })
+      } else {
+        setReleaseMsg({ tone: 'err', text: `Release refused for ${row.studentName}: ${body.reason || body.error || 'no longer sendable'}` })
+      }
+    } catch {
+      setReleaseMsg({ tone: 'err', text: 'Network error. Please try again.' })
+    } finally {
+      setReleasing(false)
+      setConfirm(null)
+      await load() // refresh detection — a released item moves to suppressed_existing
+    }
+  }, [load])
+
   const grouped = useMemo(() => {
     const g = {}
     for (const grp of GROUPS) g[grp.key] = []
@@ -116,23 +151,23 @@ export default function StudentEvalAutomationPanel({ cohortId }) {
         </p>
       </div>
 
-      {/* Read-only banner — this surface never sends, releases, or writes */}
+      {/* Banner — human-approved per-student release; no auto-send/cron/bulk */}
       <div style={{
         fontSize: 12.5, color: '#1D2567', background: '#EEF1FB', border: '1px solid #d7ddf5',
         borderRadius: 8, padding: '10px 14px', marginBottom: 18, lineHeight: 1.55,
       }}>
-        <strong>Read-only.</strong> Detection evidence only (SR-2b-1). Nothing is sent, queued,
-        or written — no assignments, tokens, emails, or schedules are created here. "Ready to
-        release" is a status label, not an action.
+        <strong>Human-approved sends only.</strong> Releasing re-checks eligibility on the
+        server and emails the student the survey. The recipient is resolved server-side from
+        the student record — there is no recipient field, no auto-send, and no bulk release.
       </div>
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
         <button
           onClick={load}
-          disabled={loading}
+          disabled={loading || releasing}
           style={{
             padding: '7px 14px', background: NAVY, color: '#fff', border: 'none', borderRadius: 7,
-            fontSize: 12.5, fontWeight: 600, fontFamily: F, cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.6 : 1,
+            fontSize: 12.5, fontWeight: 600, fontFamily: F, cursor: (loading || releasing) ? 'default' : 'pointer', opacity: (loading || releasing) ? 0.6 : 1,
           }}
         >
           {loading ? 'Detecting…' : 'Re-run detection'}
@@ -141,6 +176,17 @@ export default function StudentEvalAutomationPanel({ cohortId }) {
           {detectedAtMs ? `Detected ${new Date(detectedAtMs).toLocaleString('en-US')}` : ''}
         </span>
       </div>
+
+      {releaseMsg && (
+        <div style={{
+          fontSize: 13, borderRadius: 8, padding: '10px 14px', marginBottom: 16, lineHeight: 1.5,
+          background: releaseMsg.tone === 'ok' ? '#EDF7F0' : '#FEECEC',
+          color: releaseMsg.tone === 'ok' ? '#166534' : '#991b1b',
+          border: `1px solid ${releaseMsg.tone === 'ok' ? '#c6e7d0' : '#f3c6c6'}`,
+        }}>
+          {releaseMsg.text}
+        </div>
+      )}
 
       {error && (
         <div style={{ padding: '14px 0', color: '#dc2626', fontSize: 14 }}>
@@ -167,7 +213,7 @@ export default function StudentEvalAutomationPanel({ cohortId }) {
             ))}
           </div>
 
-          {/* Grouped read-only tables (no release/send action in SR-2b-1) */}
+          {/* Grouped tables. Only the releasable group (due_sendable) shows a Release action. */}
           {GROUPS.map(g => {
             const list = grouped[g.key] || []
             return (
@@ -185,6 +231,7 @@ export default function StudentEvalAutomationPanel({ cohortId }) {
                           {['Student', 'Approved / Required', 'Recipient (student)', 'Evaluated target', 'Reason'].map(h => (
                             <th key={h} style={{ padding: '9px 13px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6b7280' }}>{h}</th>
                           ))}
+                          {g.releasable && <th style={{ padding: '9px 13px', textAlign: 'right', fontSize: 11, fontWeight: 700, color: '#6b7280' }}>Action</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -222,6 +269,21 @@ export default function StudentEvalAutomationPanel({ cohortId }) {
                                 </div>
                               )}
                             </td>
+                            {g.releasable && (
+                              <td style={{ padding: '9px 13px', textAlign: 'right' }}>
+                                <button
+                                  onClick={() => { setReleaseMsg(null); setConfirm(r) }}
+                                  disabled={releasing}
+                                  style={{
+                                    padding: '6px 14px', background: '#166534', color: '#fff', border: 'none',
+                                    borderRadius: 7, fontSize: 12, fontWeight: 600, fontFamily: F,
+                                    cursor: releasing ? 'default' : 'pointer', opacity: releasing ? 0.6 : 1, whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  Release
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>
@@ -238,6 +300,54 @@ export default function StudentEvalAutomationPanel({ cohortId }) {
             </div>
           )}
         </>
+      )}
+
+      {/* Release confirmation — shows the server-resolved STUDENT recipient; no editable field. */}
+      {confirm && (
+        <div className="modal-overlay" onMouseDown={() => !releasing && setConfirm(null)}>
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            style={{ maxWidth: 460, fontFamily: F }}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1D2567', fontFamily: F }}>
+                Send student survey?
+              </h2>
+            </div>
+            <div style={{ padding: '16px 20px', fontSize: 13.5, color: '#374151', lineHeight: 1.6 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '6px 12px', marginBottom: 14 }}>
+                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Student</span><span style={{ fontWeight: 600, color: '#191919' }}>{confirm.studentName}</span>
+                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Recipient email</span><span>{confirm.studentEmail || '—'}</span>
+                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Hours</span><span>{fmtHours(confirm.approvedHours)} / {fmtHours(confirm.hoursRequired)}</span>
+                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Evaluated target</span>
+                <span>{confirm.evaluatedTarget?.available
+                  ? [confirm.evaluatedTarget.preceptor_name, confirm.evaluatedTarget.unit].filter(Boolean).join(' · ')
+                  : 'unavailable (context only)'}</span>
+              </div>
+              <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>
+                This emails the Student Evaluation of Preceptor/Unit Experience survey to the
+                student above (Resend). Eligibility is re-checked on the server before sending.
+              </p>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="btn-outline-modal" onClick={() => setConfirm(null)} disabled={releasing}>Cancel</button>
+              <button
+                onClick={() => doRelease(confirm)}
+                disabled={releasing}
+                style={{
+                  padding: '8px 18px', background: '#166534', color: '#fff', border: 'none',
+                  borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: F,
+                  cursor: releasing ? 'default' : 'pointer', opacity: releasing ? 0.6 : 1,
+                }}
+              >
+                {releasing ? 'Sending…' : 'Confirm & Send'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
