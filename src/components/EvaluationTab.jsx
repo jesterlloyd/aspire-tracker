@@ -9,6 +9,7 @@ import PreceptorFeedbackPanel from './evaluation/PreceptorFeedbackPanel'
 import PreceptorResponseDetail from './evaluation/PreceptorResponseDetail'
 import StudentEvalResponseDetail from './evaluation/StudentEvalResponseDetail'
 import PreceptorAutomationPanel from './evaluation/PreceptorAutomationPanel'
+import StudentEvalAutomationPanel from './evaluation/StudentEvalAutomationPanel'
 
 const F = 'DM Sans, sans-serif'
 
@@ -556,7 +557,12 @@ export default function EvaluationTab({ cohortId }) {
 
       {/* ── Survey Automation — read-only due detection (Owner/Admin only) ── */}
       {activeSubTab === 'automation' && (isOwner || isAdmin) && (
-        <PreceptorAutomationPanel cohortId={cohortId} />
+        <>
+          <PreceptorAutomationPanel cohortId={cohortId} />
+          {/* SR-2b-1: separate read-only queue for the student-completed survey. */}
+          <div style={{ borderTop: '1px solid #e8e4dc', margin: '8px 20px 0' }} />
+          <StudentEvalAutomationPanel cohortId={cohortId} />
+        </>
       )}
 
       {/* ── Cohort View ─────────────────────────────────────────────────── */}
