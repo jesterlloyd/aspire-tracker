@@ -1,0 +1,99 @@
+{
+  "slug": "student_preceptor_eval",
+  "displayName": "Student Evaluation of Preceptor/Unit Experience",
+  "intro": {
+    "heading": "Your Rotation Experience",
+    "body": "Thank you for completing your ASPIRE clinical rotation. This short survey asks about your learning experience and the support you received. It is used to improve the ASPIRE learning environment. This is NOT a personnel performance review of your preceptor.",
+    "compliance_note": "Your feedback helps ASPIRE strengthen the learning environment for future students. Please answer honestly based on your own experience."
+  },
+  "ratingScale": [
+    { "value": 5, "label": "Strongly Agree" },
+    { "value": 4, "label": "Agree" },
+    { "value": 3, "label": "Neutral" },
+    { "value": 2, "label": "Disagree" },
+    { "value": 1, "label": "Strongly Disagree" },
+    { "value": "na", "label": "N/A / Unable to assess" }
+  ],
+  "evaluatedTarget": {
+    "title": "Preceptor / Unit",
+    "instructions": "These details are pre-filled from your ASPIRE record. They identify the rotation this feedback is about.",
+    "fields": {
+      "preceptor_name": { "label": "Preceptor", "mode": "display" },
+      "preceptor_id":   { "label": "Preceptor ID", "mode": "hidden" },
+      "unit":           { "label": "Unit / Area", "mode": "display" }
+    }
+  },
+  "section1": {
+    "key": "preceptor_support",
+    "title": "Preceptor Support",
+    "instructions": "Please rate the following statements about your preceptor's support of your learning.",
+    "commentLabel": "Comments about preceptor support (optional)",
+    "commentKey": "preceptor_support_comment",
+    "items": {
+      "approachable_available": "My preceptor was approachable and available when I needed guidance.",
+      "clear_explanations":     "My preceptor provided clear explanations and expectations.",
+      "useful_feedback":        "My preceptor gave useful and timely feedback.",
+      "skill_development":       "My preceptor supported my skill development and growing independence."
+    }
+  },
+  "section2": {
+    "key": "learning_environment",
+    "title": "Learning Environment",
+    "instructions": "Please rate the following statements about the unit as a learning environment.",
+    "commentLabel": "Comments about the learning environment (optional)",
+    "commentKey": "learning_environment_comment",
+    "items": {
+      "included_in_care":   "I was meaningfully included in patient care activities.",
+      "welcoming_unit":     "The unit was welcoming and supportive of students.",
+      "practice_opportunities": "I had appropriate opportunities to practice and learn.",
+      "workflow_supported_learning": "The unit workflow and assignments supported my learning."
+    }
+  },
+  "section3": {
+    "key": "psychological_safety",
+    "title": "Psychological Safety",
+    "instructions": "Please rate the following statements about how comfortable you felt during the rotation.",
+    "items": {
+      "comfortable_questions":  "I felt comfortable asking questions.",
+      "comfortable_speaking_up": "I felt comfortable speaking up when I was unsure.",
+      "comfortable_raising_concerns": "I felt comfortable raising concerns about patient care or safety.",
+      "treated_with_respect":   "I was treated with respect."
+    }
+  },
+  "section4": {
+    "key": "overall_experience",
+    "title": "Overall Experience",
+    "instructions": "A few overall questions about your rotation.",
+    "items": {
+      "valuable_experience": "Overall, this rotation was a valuable learning experience.",
+      "would_recommend":     "I would recommend this unit as a learning environment for future ASPIRE students."
+    },
+    "ratingItem": {
+      "overall_rating": {
+        "label": "Overall rating of the rotation experience",
+        "scale": [
+          { "value": 5, "label": "Excellent" },
+          { "value": 4, "label": "Very good" },
+          { "value": 3, "label": "Good" },
+          { "value": 2, "label": "Fair" },
+          { "value": 1, "label": "Poor" }
+        ]
+      }
+    }
+  },
+  "section5": {
+    "key": "narrative",
+    "title": "Your Comments",
+    "fields": {
+      "strengths":    { "label": "What worked well about your preceptor/unit experience?", "required": false },
+      "suggestions":  { "label": "What could improve the experience for future students?", "required": false },
+      "open_comment": { "label": "Additional comments", "required": false }
+    }
+  },
+  "attestation": {
+    "key": "attestation",
+    "field": "attestation_confirmed",
+    "label": "I confirm this feedback reflects my genuine experience and is intended to help improve the ASPIRE learning environment.",
+    "required": true
+  }
+}
