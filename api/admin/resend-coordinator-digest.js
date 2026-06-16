@@ -97,11 +97,18 @@ export default async function handler(req, res) {
       });
     }
 
-    // 2. Batch-resolve coordinators
+    // 2. Batch-resolve coordinators (attribute-based, not role-based — matches the cron).
+    // Eligibility = is_active AND school_name matches an event school; role is display-only.
+    // The contact_ids override NARROWS the active-contact query (it never drops is_active);
+    // the resolver still enforces school_name/program_type matching, so a selected contact
+    // that doesn't match the event school/program will not resolve.
     const schools = [...new Set(events.map(e => e.students?.school).filter(Boolean))];
-    let coordQuery = db.from('contacts').select('*').eq('role', 'School Coordinator').eq('is_active', true);
-    if (schools.length > 0) coordQuery = coordQuery.in('school_name', schools);
-    if (contact_ids?.length) coordQuery = db.from('contacts').select('*').in('id', contact_ids);
+    let coordQuery = db.from('contacts').select('*').eq('is_active', true);
+    if (contact_ids?.length) {
+      coordQuery = coordQuery.in('id', contact_ids);
+    } else if (schools.length > 0) {
+      coordQuery = coordQuery.in('school_name', schools);
+    }
 
     const { data: allCoordinators } = await coordQuery;
 
@@ -110,51 +117,57 @@ export default async function handler(req, res) {
     for (const event of events) {
       const student = event.students;
       if (!student?.school) continue;
-      const coordinator = resolveCoordinator(student, allCoordinators || []);
-      if (!coordinator) continue;
-      if (contact_ids?.length && !contact_ids.includes(coordinator.id)) continue;
 
-      if (!grouped[coordinator.id]) {
-        grouped[coordinator.id] = {
-          coordinator,
-          transitions: { form_received: [], interview_booked: [], interview: [], placement: [], rotation: [] },
-        };
-      }
+      // An event may route to multiple eligible contacts (school-wide + matching program-specific).
+      const matchedCoordinators = resolveCoordinators(student, allCoordinators || []);
+      if (matchedCoordinators.length === 0) continue;
 
       const studentName = `${student.first_name} ${student.last_name}`;
-      const bucket = grouped[coordinator.id].transitions;
 
-      switch (event.event_type) {
-        case 'form_received':
-          bucket.form_received.push({ line: studentName });
-          break;
-        case 'interview_booked': {
-          const timeMatch = event.notes?.match(/for (\d{4}-\d{2}-\d{2}) at (\d{2}:\d{2}) with (.+?)(?:\s*\(\d+)/);
-          const datePart  = timeMatch?.[1] || event.event_date;
-          const timePart  = timeMatch?.[2];
-          const intName   = timeMatch?.[3]?.trim();
-          const when      = [datePart && formatShortDate(datePart), timePart && formatTime(timePart)].filter(Boolean).join(' at ');
-          bucket.interview_booked.push({ line: `${studentName}${when ? ' — ' + when : ''}${intName ? ' with ' + intName : ''}` });
-          break;
+      for (const coordinator of matchedCoordinators) {
+        if (contact_ids?.length && !contact_ids.includes(coordinator.id)) continue;
+
+        if (!grouped[coordinator.id]) {
+          grouped[coordinator.id] = {
+            coordinator,
+            transitions: { form_received: [], interview_booked: [], interview: [], placement: [], rotation: [] },
+          };
         }
-        case 'interview': {
-          const scoreMatch = event.notes?.match(/Score:\s*([\d.]+)\/15/);
-          bucket.interview.push({ line: `${studentName}${scoreMatch?.[1] ? ` (${scoreMatch[1]}/15)` : ''}` });
-          break;
-        }
-        case 'placement': {
-          const unitMatch = event.notes?.match(/Placed in (.+)$/);
-          bucket.placement.push({ line: `${studentName}${unitMatch?.[1] ? ` — ${unitMatch[1].trim()}` : ''}` });
-          break;
-        }
-        // rotation_start + status_change_active_rotation collapse into one rotation line;
-        // student shown once (dedup by student id). Mirrors the cron handler.
-        case 'rotation_start':
-        case 'status_change_active_rotation': {
-          if (!bucket.rotation.some(r => r.studentId === student.id)) {
-            bucket.rotation.push({ line: studentName, studentId: student.id });
+
+        const bucket = grouped[coordinator.id].transitions;
+
+        switch (event.event_type) {
+          case 'form_received':
+            bucket.form_received.push({ line: studentName });
+            break;
+          case 'interview_booked': {
+            const timeMatch = event.notes?.match(/for (\d{4}-\d{2}-\d{2}) at (\d{2}:\d{2}) with (.+?)(?:\s*\(\d+)/);
+            const datePart  = timeMatch?.[1] || event.event_date;
+            const timePart  = timeMatch?.[2];
+            const intName   = timeMatch?.[3]?.trim();
+            const when      = [datePart && formatShortDate(datePart), timePart && formatTime(timePart)].filter(Boolean).join(' at ');
+            bucket.interview_booked.push({ line: `${studentName}${when ? ' — ' + when : ''}${intName ? ' with ' + intName : ''}` });
+            break;
           }
-          break;
+          case 'interview': {
+            const scoreMatch = event.notes?.match(/Score:\s*([\d.]+)\/15/);
+            bucket.interview.push({ line: `${studentName}${scoreMatch?.[1] ? ` (${scoreMatch[1]}/15)` : ''}` });
+            break;
+          }
+          case 'placement': {
+            const unitMatch = event.notes?.match(/Placed in (.+)$/);
+            bucket.placement.push({ line: `${studentName}${unitMatch?.[1] ? ` — ${unitMatch[1].trim()}` : ''}` });
+            break;
+          }
+          // rotation_start + status_change_active_rotation collapse into one rotation line;
+          // student shown once (dedup by student id). Mirrors the cron handler.
+          case 'rotation_start':
+          case 'status_change_active_rotation': {
+            if (!bucket.rotation.some(r => r.studentId === student.id)) {
+              bucket.rotation.push({ line: studentName, studentId: student.id });
+            }
+            break;
+          }
         }
       }
     }
@@ -396,11 +409,18 @@ function getDefaultWindowEnd(now) {
   return new Date(`${todayPacific}T00:00:00${sign}${String(Math.abs(offsetH)).padStart(2,'0')}:00`);
 }
 
-function resolveCoordinator(student, coordinators) {
-  if (!student.school) return null;
-  return coordinators.find(c => c.school_name === student.school && c.program_type === student.program_type)
-    || coordinators.find(c => c.school_name === student.school && c.program_type === null)
-    || null;
+// Attribute-based multi-match (mirrors api/cron/coordinator-weekly-digest.js).
+// All eligible contacts for the student's school receive: school-wide (program_type NULL)
+// always, plus program-specific contacts whose program_type exactly matches a non-null
+// student program_type. role is display-only; null school_name can never match (hard skip).
+function resolveCoordinators(student, contacts) {
+  if (!student.school) return [];
+  return contacts.filter(c =>
+    c.school_name === student.school && (
+      c.program_type == null ||
+      (student.program_type != null && c.program_type === student.program_type)
+    )
+  );
 }
 
 function formatShortDate(dateStr) {

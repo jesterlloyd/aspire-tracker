@@ -13,9 +13,11 @@
 //   interview        → "Interviews Completed"   (rubric submitted)
 //   placement        → "Unit Placements"
 //
-// Coordinator routing uses the contacts table (role = 'School Coordinator').
-// For each student, we first try (school_name, program_type) exact match,
-// then fall back to (school_name, program_type IS NULL) as a catch-all.
+// Recipient routing is attribute-based on the contacts table (role is display-only):
+// a contact is eligible when is_active = true and its school_name matches the student's
+// school. Program scope: program_type NULL = school-wide (every student of that school);
+// program_type set = only students whose program_type matches exactly. A student/event may
+// route to MULTIPLE eligible contacts; school-wide contacts are never suppressed.
 //
 // Dry-run mode: add ?dryRun=1 (or ?dry_run=1) to preview what would be sent
 // without calling Resend, writing notification_log, or updating contacts.
@@ -153,12 +155,16 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, message: 'No qualifying events', sent: 0 });
     }
 
-    // ── 2. Batch-resolve coordinators ─────────────────────────────────────────
+    // ── 2. Batch-resolve coordinators (attribute-based, not role-based) ────────
+    // Academic-partner recipient model: eligibility is by attributes, not title.
+    // Eligible = is_active AND school_name matches one of the event schools (which
+    // also enforces school_name NOT NULL, since a null can't be in a non-null list).
+    // role is display-only and intentionally NOT used to filter. The per-recipient
+    // email-present check below still skips contacts with a missing email.
     // (schools was computed above for Log 2)
     const { data: allCoordinators, error: coordinatorsErr } = await db
       .from('contacts')
       .select('*')
-      .eq('role', 'School Coordinator')
       .eq('is_active', true)
       .in('school_name', schools);
 
@@ -178,67 +184,73 @@ export default async function handler(req, res) {
       const student = event.students;
       if (!student?.school) continue;
 
-      const coordinator = resolveCoordinator(student, allCoordinators || []);
-      if (!coordinator) {
+      // An event may route to MULTIPLE eligible contacts (a school-wide contact plus any
+      // program-specific contact whose program_type matches). School-wide contacts are
+      // never suppressed by a program-specific match.
+      const matchedCoordinators = resolveCoordinators(student, allCoordinators || []);
+      if (matchedCoordinators.length === 0) {
         console.warn(`[coordinator-digest] no coordinator for school="${student.school}" program="${student.program_type}"`);
         continue;
       }
 
-      if (!grouped[coordinator.id]) {
-        grouped[coordinator.id] = {
-          coordinator,
-          transitions: {
-            form_received:    [],
-            interview_booked: [],
-            interview:        [],
-            placement:        [],
-            rotation:         [],
-          },
-        };
-      }
-
       const studentName = `${student.first_name} ${student.last_name}`;
-      const bucket = grouped[coordinator.id].transitions;
 
-      switch (event.event_type) {
-        case 'form_received':
-          bucket.form_received.push({ line: studentName });
-          break;
-
-        case 'interview_booked': {
-          // notes = "Interview self-scheduled for DATE at TIME with INTERVIEWER"
-          const timeMatch = event.notes?.match(/for (\d{4}-\d{2}-\d{2}) at (\d{2}:\d{2}) with (.+?)(?:\s*\(\d+)/);
-          const datePart = timeMatch?.[1] || event.event_date;
-          const timePart = timeMatch?.[2];
-          const intName  = timeMatch?.[3]?.trim();
-          const when = [datePart && formatShortDate(datePart), timePart && formatTime(timePart)].filter(Boolean).join(' at ');
-          const with_ = intName ? ` with ${intName}` : '';
-          bucket.interview_booked.push({ line: `${studentName}${when ? ' — ' + when : ''}${with_}` });
-          break;
+      for (const coordinator of matchedCoordinators) {
+        if (!grouped[coordinator.id]) {
+          grouped[coordinator.id] = {
+            coordinator,
+            transitions: {
+              form_received:    [],
+              interview_booked: [],
+              interview:        [],
+              placement:        [],
+              rotation:         [],
+            },
+          };
         }
 
-        case 'interview': {
-          const scoreMatch = event.notes?.match(/Score:\s*([\d.]+)\/15/);
-          const score = scoreMatch?.[1];
-          bucket.interview.push({ line: `${studentName}${score ? ` (${score}/15)` : ''}` });
-          break;
-        }
+        const bucket = grouped[coordinator.id].transitions;
 
-        case 'placement': {
-          const unitMatch = event.notes?.match(/Placed in (.+)$/);
-          const unit = unitMatch?.[1]?.trim();
-          bucket.placement.push({ line: `${studentName}${unit ? ` — ${unit}` : ''}` });
-          break;
-        }
+        switch (event.event_type) {
+          case 'form_received':
+            bucket.form_received.push({ line: studentName });
+            break;
 
-        // rotation_start and status_change_active_rotation are the same milestone — collapse
-        // both into one 'rotation' line and show the student once (dedup by student id).
-        case 'rotation_start':
-        case 'status_change_active_rotation': {
-          if (!bucket.rotation.some(r => r.studentId === student.id)) {
-            bucket.rotation.push({ line: studentName, studentId: student.id });
+          case 'interview_booked': {
+            // notes = "Interview self-scheduled for DATE at TIME with INTERVIEWER"
+            const timeMatch = event.notes?.match(/for (\d{4}-\d{2}-\d{2}) at (\d{2}:\d{2}) with (.+?)(?:\s*\(\d+)/);
+            const datePart = timeMatch?.[1] || event.event_date;
+            const timePart = timeMatch?.[2];
+            const intName  = timeMatch?.[3]?.trim();
+            const when = [datePart && formatShortDate(datePart), timePart && formatTime(timePart)].filter(Boolean).join(' at ');
+            const with_ = intName ? ` with ${intName}` : '';
+            bucket.interview_booked.push({ line: `${studentName}${when ? ' — ' + when : ''}${with_}` });
+            break;
           }
-          break;
+
+          case 'interview': {
+            const scoreMatch = event.notes?.match(/Score:\s*([\d.]+)\/15/);
+            const score = scoreMatch?.[1];
+            bucket.interview.push({ line: `${studentName}${score ? ` (${score}/15)` : ''}` });
+            break;
+          }
+
+          case 'placement': {
+            const unitMatch = event.notes?.match(/Placed in (.+)$/);
+            const unit = unitMatch?.[1]?.trim();
+            bucket.placement.push({ line: `${studentName}${unit ? ` — ${unit}` : ''}` });
+            break;
+          }
+
+          // rotation_start and status_change_active_rotation are the same milestone — collapse
+          // both into one 'rotation' line and show the student once (dedup by student id).
+          case 'rotation_start':
+          case 'status_change_active_rotation': {
+            if (!bucket.rotation.some(r => r.studentId === student.id)) {
+              bucket.rotation.push({ line: studentName, studentId: student.id });
+            }
+            break;
+          }
         }
       }
     }
@@ -641,23 +653,22 @@ function pacificMidnight(dateStr) {
   return new Date(`${dateStr}T00:00:00${sign}${String(Math.abs(offsetH)).padStart(2,'0')}:${String(offsetM).padStart(2,'0')}`);
 }
 
-// Resolve the best-matching coordinator for a student.
-// Priority: (school, program_type) exact match → (school, NULL) catch-all.
-function resolveCoordinator(student, coordinators) {
-  if (!student.school) return null;
-
-  // 1. Exact match
-  const exact = coordinators.find(c =>
-    c.school_name === student.school &&
-    c.program_type === student.program_type
+// Resolve ALL eligible academic-partner contacts for a student (attribute-based routing).
+// A contact is eligible when its school_name matches the student's school AND either:
+//   - school-wide  (program_type IS NULL)  — receives every student of that school; or
+//   - program-specific (program_type set)  — receives only students whose program_type
+//     exactly matches (and the student's program_type must be non-null).
+// Multiple contacts may match; a school-wide contact is never suppressed by a
+// program-specific one. role is NOT used. Contacts were already filtered to is_active +
+// matching school_name in the query, so a null school_name can never match here (hard skip).
+function resolveCoordinators(student, contacts) {
+  if (!student.school) return [];
+  return contacts.filter(c =>
+    c.school_name === student.school && (
+      c.program_type == null ||
+      (student.program_type != null && c.program_type === student.program_type)
+    )
   );
-  if (exact) return exact;
-
-  // 2. Catch-all (program_type IS NULL)
-  return coordinators.find(c =>
-    c.school_name === student.school &&
-    c.program_type === null
-  ) || null;
 }
 
 function formatShortDate(dateStr) {
