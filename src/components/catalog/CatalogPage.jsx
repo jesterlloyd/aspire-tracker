@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { Search, FileText, FileType2, ExternalLink, Star, Pin, Folder, Clock, Download } from 'lucide-react'
+import { Search, FileText, FileType2, ExternalLink, Star, Pin, Folder, Clock, Download, Plus, X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { FilterKPICard } from '../KPIBand'
@@ -27,6 +27,11 @@ const CATEGORIES = [
   { key: 'policies',            label: 'Policies' },
 ]
 const CATEGORY_LABEL = Object.fromEntries(CATEGORIES.map(c => [c.key, c.label]))
+// Upload form uses the stored categories only (no "All").
+const UPLOAD_CATEGORIES = CATEGORIES.filter(c => c.key !== 'all')
+// Client-side pre-check allowlist (server re-validates authoritatively).
+const ALLOWED_EXTS = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'png', 'jpg', 'jpeg']
+const MAX_FILE_BYTES = 10 * 1024 * 1024
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -59,6 +64,8 @@ export default function CatalogPage() {
   // busy = { id, mode } so the right action button on the right row shows progress.
   const [busy, setBusy] = useState(null)
   const [openError, setOpenError] = useState(null)
+  // CATALOG-2B: Owner/Admin "Add resource" upload modal state.
+  const [showAdd, setShowAdd] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -199,12 +206,33 @@ export default function CatalogPage() {
   return (
     <div style={{ padding: '4px 24px 40px', maxWidth: 1280, margin: '0 auto', fontFamily: F }}>
       {/* Header */}
-      <div style={{ marginBottom: 18 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#191919', margin: '0 0 4px' }}>ASPIRE Catalog</h1>
-        <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>
-          Curated resources, guides, forms, and documents for the ASPIRE Program.
-        </p>
+      <div style={{ marginBottom: 18, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#191919', margin: '0 0 4px' }}>ASPIRE Catalog</h1>
+          <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>
+            Curated resources, guides, forms, and documents for the ASPIRE Program.
+          </p>
+        </div>
+        {/* Owner/Admin only — page is already RLS/role-gated; the upload endpoint re-verifies. */}
+        <button
+          type="button"
+          onClick={() => setShowAdd(true)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0,
+            padding: '9px 16px', background: NAVY, color: '#fff', border: 'none',
+            borderRadius: 9, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer',
+          }}
+        >
+          <Plus size={15} strokeWidth={2.2} /> Add resource
+        </button>
       </div>
+
+      {showAdd && (
+        <AddResourceModal
+          onClose={() => setShowAdd(false)}
+          onCreated={() => { setShowAdd(false); load() }}
+        />
+      )}
 
       {/* Search */}
       <div style={{ position: 'relative', marginBottom: 14, maxWidth: 520 }}>
@@ -387,6 +415,157 @@ function RailCard({ icon, title, children }) {
 
 function RailEmpty({ children }) {
   return <div style={{ fontSize: 12.5, color: '#9ca3af', padding: '6px 0' }}>{children}</div>
+}
+
+// CATALOG-2B — Owner/Admin "Add resource" modal. Uploads a NEW internal_file via the
+// signed-upload-URL flow: (1) POST phase 'sign' to get a one-time per-path token, (2) PUT the
+// bytes straight to Supabase via uploadToSignedUrl, (3) POST phase 'commit' so the server
+// verifies the object and inserts the row. The client never holds a broad Storage credential
+// and never writes catalog_resources directly.
+function AddResourceModal({ onClose, onCreated }) {
+  const [file, setFile] = useState(null)
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [category, setCategory] = useState(UPLOAD_CATEGORIES[0].key)
+  const [tagsStr, setTagsStr] = useState('')
+  const [isFeatured, setIsFeatured] = useState(false)
+  const [isPinned, setIsPinned] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [err, setErr] = useState(null)
+
+  const fieldStyle = {
+    width: '100%', boxSizing: 'border-box', padding: '9px 11px', fontSize: 13.5, fontFamily: F,
+    color: '#191919', border: '1px solid #e2e0d9', borderRadius: 8, background: '#fff', outline: 'none',
+  }
+  const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: '#4A5560', marginBottom: 5 }
+
+  async function submit() {
+    setErr(null)
+    if (!file) { setErr('Choose a file to upload.'); return }
+    if (!title.trim()) { setErr('Title is required.'); return }
+    const ext = (file.name.split('.').pop() || '').toLowerCase()
+    if (!ALLOWED_EXTS.includes(ext)) { setErr(`Unsupported file type “.${ext}”. Allowed: ${ALLOWED_EXTS.join(', ')}.`); return }
+    if (file.size > MAX_FILE_BYTES) { setErr('File exceeds the 10 MB limit.'); return }
+
+    const meta = {
+      title: title.trim(),
+      description: description.trim(),
+      category,
+      filename: file.name,
+      tags: tagsStr.split(',').map(t => t.trim()).filter(Boolean),
+      is_featured: isFeatured,
+      is_pinned: isPinned,
+    }
+
+    setUploading(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) { setErr('Your session expired. Please sign in again.'); return }
+      const authHeaders = { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }
+
+      // 1) sign
+      const signRes = await fetch('/api/catalog-resource-upload', {
+        method: 'POST', headers: authHeaders, body: JSON.stringify({ phase: 'sign', ...meta, size: file.size }),
+      })
+      const sign = await signRes.json().catch(() => ({}))
+      if (!signRes.ok) { setErr(sign.error || 'Could not start the upload.'); return }
+
+      // 2) upload bytes directly to Supabase Storage via the one-time token
+      const up = await supabase.storage.from('aspire-catalog')
+        .uploadToSignedUrl(sign.path, sign.token, file, { contentType: file.type || undefined })
+      if (up.error) { setErr(`File upload failed: ${up.error.message}`); return }
+
+      // 3) commit — server verifies the object and inserts the row
+      const commitRes = await fetch('/api/catalog-resource-upload', {
+        method: 'POST', headers: authHeaders, body: JSON.stringify({ phase: 'commit', ...meta }),
+      })
+      const commit = await commitRes.json().catch(() => ({}))
+      if (!commitRes.ok) { setErr(commit.error || 'Could not save the resource.'); return }
+
+      onCreated()
+    } catch {
+      setErr('Network error. Please try again.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onMouseDown={() => !uploading && onClose()}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        style={{ maxWidth: 520, fontFamily: F }}
+        onMouseDown={e => e.stopPropagation()}
+      >
+        <div className="modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1D2567', fontFamily: F }}>Add resource</h2>
+          <button type="button" onClick={() => !uploading && onClose()} aria-label="Close"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 4 }}>
+            <X size={18} strokeWidth={2} />
+          </button>
+        </div>
+
+        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={labelStyle}>File <span style={{ color: '#9ca3af', fontWeight: 400 }}>(PDF, DOC, PPT, XLS, or image · max 10 MB)</span></label>
+            <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg"
+              onChange={e => setFile(e.target.files?.[0] || null)} style={{ fontSize: 13, fontFamily: F }} />
+          </div>
+          <div>
+            <label style={labelStyle}>Title</label>
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Pre-licensure Student General Guidelines" style={fieldStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Description <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span></label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} style={{ ...fieldStyle, resize: 'vertical' }} />
+          </div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 200px' }}>
+              <label style={labelStyle}>Category</label>
+              <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...fieldStyle, cursor: 'pointer' }}>
+                {UPLOAD_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: '1 1 200px' }}>
+              <label style={labelStyle}>Tags <span style={{ color: '#9ca3af', fontWeight: 400 }}>(comma-separated)</span></label>
+              <input type="text" value={tagsStr} onChange={e => setTagsStr(e.target.value)} placeholder="guidelines, onboarding" style={fieldStyle} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 18 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#374151', cursor: 'pointer' }}>
+              <input type="checkbox" checked={isFeatured} onChange={e => setIsFeatured(e.target.checked)} /> Featured
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#374151', cursor: 'pointer' }}>
+              <input type="checkbox" checked={isPinned} onChange={e => setIsPinned(e.target.checked)} /> Pinned
+            </label>
+          </div>
+
+          {err && (
+            <div style={{ fontSize: 12.5, borderRadius: 8, padding: '9px 12px', background: '#FEECEC', color: '#991b1b', border: '1px solid #f3c6c6' }}>
+              {err}
+            </div>
+          )}
+        </div>
+
+        <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button className="btn-outline-modal" onClick={() => !uploading && onClose()} disabled={uploading}>Cancel</button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={uploading}
+            style={{
+              padding: '9px 18px', background: NAVY, color: '#fff', border: 'none', borderRadius: 8,
+              fontSize: 13, fontWeight: 600, fontFamily: F, cursor: uploading ? 'default' : 'pointer', opacity: uploading ? 0.6 : 1,
+            }}
+          >
+            {uploading ? 'Uploading…' : 'Upload resource'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // One resource row. Open (inline) is primary; Download (attachment) is offered for
