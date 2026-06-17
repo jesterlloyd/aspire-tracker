@@ -295,6 +295,15 @@ export default function EvaluationTab({ cohortId }) {
 
   const [activeSubTab,    setActiveSubTab]    = useState('cohort')
   const [assignments,     setAssignments]     = useState([])
+
+  // EVAL-NAV-1: 'program' and 'preceptor' are no longer reachable from the visible subnav.
+  // If state ever lands on one of those hidden keys, fall back to Responses ('cohort').
+  useEffect(() => {
+    if (activeSubTab === 'program' || activeSubTab === 'preceptor') {
+      setActiveSubTab('cohort')
+    }
+  }, [activeSubTab])
+
   const [loading,         setLoading]         = useState(false)
   const [error,           setError]           = useState(null)
   const [expandedIds,     setExpandedIds]     = useState(new Set())
@@ -516,13 +525,12 @@ export default function EvaluationTab({ cohortId }) {
           overflow: 'hidden',
           width: 'fit-content',
         }}>
-          <button onClick={() => setActiveSubTab('cohort')}  style={btnStyle('cohort')}>Cohort View</button>
-          <button onClick={() => setActiveSubTab('program')} style={btnStyle('program')}>Program View</button>
+          {/* EVAL-NAV-1: visible subnav simplified to Responses + Review & Release.
+              Internal keys ('cohort','automation') are unchanged. The 'program' and
+              'preceptor' tabs are hidden (components retained, see blocks below). */}
+          <button onClick={() => setActiveSubTab('cohort')}  style={btnStyle('cohort')}>Responses</button>
           {(isOwner || isAdmin) && (
-            <button onClick={() => setActiveSubTab('preceptor')} style={btnStyle('preceptor')}>Preceptor Feedback</button>
-          )}
-          {(isOwner || isAdmin) && (
-            <button onClick={() => setActiveSubTab('automation')} style={btnStyle('automation')}>Survey Automation</button>
+            <button onClick={() => setActiveSubTab('automation')} style={btnStyle('automation')}>Review &amp; Release</button>
           )}
         </div>
       </div>
