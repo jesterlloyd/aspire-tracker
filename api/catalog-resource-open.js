@@ -85,6 +85,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing slug' });
   }
 
+  // mode controls ONLY the signed-URL disposition (inline view vs attachment download).
+  // It never influences object selection — that is always the server-resolved storage_path.
+  const mode = req.body?.mode === 'download' ? 'download' : 'open';
+
   // 3) Resolve the object server-side from catalog_resources (service role)
   const { data: row, error: lookupErr } = await supabaseAdmin
     .from('catalog_resources')
@@ -102,15 +106,19 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Resource is not an internal file' });
   }
 
-  // 4) Mint a short-lived signed URL for that one object in the PRIVATE bucket
+  // 4) Mint a short-lived signed URL for that one object in the PRIVATE bucket.
+  //    For download mode, request attachment disposition (Supabase sets
+  //    response-content-disposition: attachment). This only affects how the browser
+  //    handles the same object — never which object is signed.
+  const signOptions = mode === 'download' ? { download: true } : undefined;
   const { data: signed, error: signErr } = await supabaseAdmin.storage
     .from(BUCKET)
-    .createSignedUrl(row.storage_path, SIGNED_URL_TTL_SECONDS);
+    .createSignedUrl(row.storage_path, SIGNED_URL_TTL_SECONDS, signOptions);
 
   if (signErr || !signed?.signedUrl) {
     return res.status(502).json({ error: 'Could not open file' });
   }
 
   // 5) Return only the short-lived URL (never persisted/logged)
-  return res.status(200).json({ signedUrl: signed.signedUrl, expiresIn: SIGNED_URL_TTL_SECONDS });
+  return res.status(200).json({ signedUrl: signed.signedUrl, expiresIn: SIGNED_URL_TTL_SECONDS, mode });
 }
