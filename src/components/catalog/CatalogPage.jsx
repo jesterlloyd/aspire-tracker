@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Search, FileText, FileType2, ExternalLink, Star, Pin, Folder, Clock, Download } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
+import { FilterKPICard } from '../KPIBand'
 
 // CATALOG-1 — Read-only ASPIRE Catalog browse UI (Owner/Admin only).
 //
@@ -246,26 +247,28 @@ export default function CatalogPage() {
         })}
       </div>
 
-      {/* Metric cards — interactive KPI filters (computed counts; client-side filtering). */}
+      {/* Metric cards — interactive KPI filters. Reuses the shared FilterKPICard so the
+          hover lift / shadow / active treatment matches Student Profiles exactly. Counts are
+          computed from loaded data; filtering stays client-side. */}
       <div className="stat-cards-row" style={{ marginBottom: 24 }}>
-        <KpiCard
-          variant="card-nightfall" value={metrics.resources} label="Resources"
-          sub="Show all" active={kpi === 'all' && category === 'all' && !grouped && query === ''}
+        <FilterKPICard
+          accent="nightfall" value={metrics.resources} label="Resources" sub="Show all"
+          active={kpi === 'all' && category === 'all' && !grouped && query === ''}
           onClick={() => { setKpi('all'); setCategory('all'); setGrouped(false); setQuery('') }}
         />
-        <KpiCard
-          variant="card-marina" value={metrics.categories} label="Categories"
+        <FilterKPICard
+          accent="marina" value={metrics.categories} label="Categories"
           sub={grouped ? 'Grouped' : 'Group view'} active={grouped}
           onClick={() => setGrouped(g => !g)}
         />
-        <KpiCard
-          variant="card-green" value={metrics.recent} label="Recently Updated"
-          sub="Last 30 days" active={kpi === 'recent'}
+        <FilterKPICard
+          accent="sage" value={metrics.recent} label="Recently Updated" sub="Last 30 days"
+          active={kpi === 'recent'}
           onClick={() => setKpi(k => (k === 'recent' ? 'all' : 'recent'))}
         />
-        <KpiCard
-          variant="card-amber" value={metrics.featured} label="Featured"
-          sub="Highlighted" active={kpi === 'featured'}
+        <FilterKPICard
+          accent="dawn" value={metrics.featured} label="Featured" sub="Highlighted"
+          active={kpi === 'featured'}
           onClick={() => setKpi(k => (k === 'featured' ? 'all' : 'featured'))}
         />
       </div>
@@ -384,28 +387,6 @@ function RailCard({ icon, title, children }) {
 
 function RailEmpty({ children }) {
   return <div style={{ fontSize: 12.5, color: '#9ca3af', padding: '6px 0' }}>{children}</div>
-}
-
-// Interactive KPI / filter card. Reuses the shared .summary-card + color variant classes;
-// active state is shown with an outline ring + aria-pressed + a small "Active" tag (not
-// color alone). Rendered as a button for native keyboard support.
-function KpiCard({ variant, value, label, sub, active, onClick }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={`summary-card ${variant}`}
-      style={{
-        appearance: 'none', font: 'inherit', textAlign: 'left', cursor: 'pointer',
-        outline: active ? `2.5px solid ${NAVY}` : 'none', outlineOffset: 2,
-      }}
-    >
-      <div className="summary-card-value">{value}</div>
-      <div className="summary-card-label">{label}</div>
-      <div className="summary-card-sub">{active ? '● Active' : sub}</div>
-    </button>
-  )
 }
 
 // One resource row. Open (inline) is primary; Download (attachment) is offered for

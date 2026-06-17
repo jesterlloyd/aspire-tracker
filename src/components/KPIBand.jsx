@@ -112,6 +112,7 @@ export function FilterKPICard({ value, label, sub, accent = 'nightfall', active,
   return (
     <button
       onClick={onClick}
+      aria-pressed={active}
       style={{
         background:   active ? p.solid    : p.tint,
         border:       `1px solid ${active ? p.solid : 'rgba(29,37,103,0.06)'}`,
