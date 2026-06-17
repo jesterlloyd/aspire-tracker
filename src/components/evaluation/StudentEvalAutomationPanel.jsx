@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { classifyStudentEvalCohort } from '../../lib/evaluation/studentEvalDueDetection'
+import SurveyAutomationCard from './SurveyAutomationCard'
 
 // SR-2b-1 — READ-ONLY due-detection queue for the Student Evaluation of Preceptor/Unit
 // Experience survey (slug: student_preceptor_eval). Recipient is the STUDENT.
@@ -42,6 +43,11 @@ export default function StudentEvalAutomationPanel({ cohortId }) {
   const [confirm, setConfirm] = useState(null)        // row pending release confirmation
   const [releasing, setReleasing] = useState(false)
   const [releaseMsg, setReleaseMsg] = useState(null)  // { tone:'ok'|'err', text }
+
+  // SURVEY-UX-1 — accordion expand/collapse (presentation only). Default collapsed;
+  // the actionability effect below force-expands when there is anything actionable.
+  const [expanded, setExpanded] = useState(false)
+  const lastActionableDetectRef = useRef(0)
 
   const load = useCallback(async () => {
     if (!cohortId || !canView) return
@@ -130,6 +136,17 @@ export default function StudentEvalAutomationPanel({ cohortId }) {
     return g
   }, [rows])
 
+  // SURVEY-UX-1 — re-apply actionability on each fresh detection so a newly actionable
+  // survey is never hidden. Force-expand (never force-collapse) when this detection has
+  // anything Ready to release or Needs attention; manual collapse otherwise persists.
+  const actionable = (summary.due_sendable || 0) > 0 || (summary.due_unsendable || 0) > 0
+  useEffect(() => {
+    if (detectedAtMs && detectedAtMs !== lastActionableDetectRef.current) {
+      lastActionableDetectRef.current = detectedAtMs
+      if (actionable) setExpanded(true)
+    }
+  }, [detectedAtMs, actionable])
+
   if (!canView) {
     return (
       <div style={{ padding: '32px 20px', color: '#9ca3af', fontSize: 14, fontFamily: F }}>
@@ -140,16 +157,19 @@ export default function StudentEvalAutomationPanel({ cohortId }) {
 
   return (
     <div style={{ padding: '4px 20px 32px', maxWidth: 1200, fontFamily: F }}>
-      <div style={{ marginBottom: 14 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, color: '#191919', margin: '0 0 4px' }}>
-          Student Evaluation of Preceptor/Unit — Recipient: Student
-        </h2>
-        <p style={{ fontSize: 13, color: '#9ca3af', margin: 0, lineHeight: 1.6 }}>
-          Read-only detection of students due for the post-rotation Student Evaluation of
-          Preceptor/Unit Experience survey. Due at ≥ 100% of required hours. The recipient is
-          the student; the preceptor/unit is the evaluated target (context only).
-        </p>
-      </div>
+      <SurveyAutomationCard
+        title="Student Evaluation of Preceptor/Unit"
+        recipientLabel="Student"
+        counts={summary}
+        expanded={expanded}
+        onToggle={() => setExpanded(e => !e)}
+      >
+      <div style={{ padding: '16px 18px' }}>
+      <p style={{ fontSize: 13, color: '#9ca3af', margin: '0 0 16px', lineHeight: 1.6 }}>
+        Read-only detection of students due for the post-rotation Student Evaluation of
+        Preceptor/Unit Experience survey. Due at ≥ 100% of required hours. The recipient is
+        the student; the preceptor/unit is the evaluated target (context only).
+      </p>
 
       {/* Banner — human-approved per-student release; no auto-send/cron/bulk */}
       <div style={{
@@ -196,23 +216,6 @@ export default function StudentEvalAutomationPanel({ cohortId }) {
 
       {!error && (
         <>
-          {/* Summary counts */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 22 }}>
-            {GROUPS.map(g => (
-              <div key={g.key} style={{
-                background: g.bg, borderRadius: 10, padding: '10px 16px', minWidth: 120,
-                border: '1px solid rgba(29,37,103,0.06)',
-              }}>
-                <div style={{ fontSize: 24, fontWeight: 700, color: g.fg, lineHeight: 1 }}>
-                  {summary[g.key] ?? 0}
-                </div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: g.fg, marginTop: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  {g.label}
-                </div>
-              </div>
-            ))}
-          </div>
-
           {/* Grouped tables. Only the releasable group (due_sendable) shows a Release action. */}
           {GROUPS.map(g => {
             const list = grouped[g.key] || []
@@ -301,6 +304,8 @@ export default function StudentEvalAutomationPanel({ cohortId }) {
           )}
         </>
       )}
+      </div>
+      </SurveyAutomationCard>
 
       {/* Release confirmation — shows the server-resolved STUDENT recipient; no editable field. */}
       {confirm && (

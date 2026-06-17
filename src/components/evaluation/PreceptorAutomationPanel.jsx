@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { classifyCohort, PERIOD_LABELS } from '../../lib/evaluation/preceptorDueDetection'
+import SurveyAutomationCard from './SurveyAutomationCard'
 
 // PS-3a/PS-3b — Survey Automation due-detection + Owner/Admin per-item RELEASE.
 //
@@ -43,6 +44,11 @@ export default function PreceptorAutomationPanel({ cohortId }) {
   const [confirm, setConfirm] = useState(null)        // row pending release confirmation
   const [releasing, setReleasing] = useState(false)
   const [releaseMsg, setReleaseMsg] = useState(null)  // { tone:'ok'|'err', text }
+
+  // SURVEY-UX-1 — accordion expand/collapse (presentation only). Default collapsed;
+  // the actionability effect below force-expands when there is anything actionable.
+  const [expanded, setExpanded] = useState(false)
+  const lastActionableDetectRef = useRef(0)
 
   const load = useCallback(async () => {
     if (!cohortId || !canView) return
@@ -102,6 +108,17 @@ export default function PreceptorAutomationPanel({ cohortId }) {
     return g
   }, [rows])
 
+  // SURVEY-UX-1 — re-apply actionability on each fresh detection so a newly actionable
+  // survey is never hidden. Force-expand (never force-collapse) when this detection has
+  // anything Ready to release or Needs attention; manual collapse otherwise persists.
+  const actionable = (summary.due_sendable || 0) > 0 || (summary.due_unsendable || 0) > 0
+  useEffect(() => {
+    if (detectedAtMs && detectedAtMs !== lastActionableDetectRef.current) {
+      lastActionableDetectRef.current = detectedAtMs
+      if (actionable) setExpanded(true)
+    }
+  }, [detectedAtMs, actionable])
+
   // PS-3b: release one due_sendable item. Sends only { student_id, period } — the server
   // re-validates and resolves the recipient. No recipient is ever sent from the client.
   const doRelease = useCallback(async (row) => {
@@ -148,16 +165,19 @@ export default function PreceptorAutomationPanel({ cohortId }) {
 
   return (
     <div style={{ padding: '4px 20px 32px', maxWidth: 1200, fontFamily: F }}>
-      <div style={{ marginBottom: 14 }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, color: '#191919', margin: '0 0 4px' }}>
-          Survey Automation — Review &amp; Release
-        </h2>
-        <p style={{ fontSize: 13, color: '#9ca3af', margin: 0, lineHeight: 1.6 }}>
-          Live-computed queue of students due for an automated preceptor survey. Midpoint is
-          due at ≥ 50% of required hours; End of Rotation at ≥ 100%. Release is per-item and
-          human-approved — there is no auto-send.
-        </p>
-      </div>
+      <SurveyAutomationCard
+        title="Preceptor Progress Feedback"
+        recipientLabel="Preceptor"
+        counts={summary}
+        expanded={expanded}
+        onToggle={() => setExpanded(e => !e)}
+      >
+      <div style={{ padding: '16px 18px' }}>
+      <p style={{ fontSize: 13, color: '#9ca3af', margin: '0 0 16px', lineHeight: 1.6 }}>
+        Live-computed queue of students due for an automated preceptor survey. Midpoint is
+        due at ≥ 50% of required hours; End of Rotation at ≥ 100%. Release is per-item and
+        human-approved — there is no auto-send.
+      </p>
 
       {/* Banner — no cron / no auto-send / no recipient override */}
       <div style={{
@@ -204,23 +224,6 @@ export default function PreceptorAutomationPanel({ cohortId }) {
 
       {!error && (
         <>
-          {/* Summary counts */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 22 }}>
-            {GROUPS.map(g => (
-              <div key={g.key} style={{
-                background: g.bg, borderRadius: 10, padding: '10px 16px', minWidth: 120,
-                border: '1px solid rgba(29,37,103,0.06)',
-              }}>
-                <div style={{ fontSize: 24, fontWeight: 700, color: g.fg, lineHeight: 1 }}>
-                  {summary[g.key] ?? 0}
-                </div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: g.fg, marginTop: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  {g.label}
-                </div>
-              </div>
-            ))}
-          </div>
-
           {/* Grouped tables. Only the releasable group (due_sendable) shows a Release action. */}
           {GROUPS.map(g => {
             const list = grouped[g.key] || []
@@ -302,6 +305,8 @@ export default function PreceptorAutomationPanel({ cohortId }) {
           )}
         </>
       )}
+      </div>
+      </SurveyAutomationCard>
 
       {/* Release confirmation — no editable recipient field. */}
       {confirm && (
