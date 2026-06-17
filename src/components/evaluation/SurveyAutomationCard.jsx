@@ -1,14 +1,15 @@
-import React, { useId } from 'react'
+import React from 'react'
 
-// SURVEY-UX-1 / UX-2 — Presentational-only collapsible dashboard tile for a Survey
-// Automation workflow. Renders the accordion header (survey name + recipient badge +
-// one-line status summary + five count chips + toggle) and shows `children` (the panel's
-// existing body) when expanded. It holds NO detection, release, or send logic — the parent
-// panel owns all of that and passes `counts` (its summary object), `expanded`, `onToggle`.
+// SURVEY-UX-3 — Presentational-only COMPACT SUMMARY CARD for a Survey Automation workflow.
+// It is a selection control: clicking it selects this workflow, whose detail then renders in
+// the shared full-width workspace below (it no longer expands dense content in place). Holds
+// NO detection, release, or send logic — the parent passes `counts` (the workflow's reported
+// summary), `selected`, and `onSelect`.
 
 const F = 'DM Sans, sans-serif'
+const NAVY = '#1D2567'
 
-// Header count chips, in fixed order. Each shows a number AND a text label (never color-only).
+// Count chips, in fixed order. Each shows a number AND a text label (never color-only).
 const CHIPS = [
   { key: 'due_sendable',        label: 'Ready to release', fg: '#166534', bg: '#EDF7F0' },
   { key: 'due_unsendable',      label: 'Needs attention',  fg: '#991b1b', bg: '#FEECEC' },
@@ -39,73 +40,57 @@ function buildStatusLine(counts = {}) {
   return parts.join(' · ')
 }
 
-export default function SurveyAutomationCard({ title, recipientLabel, counts = {}, expanded, onToggle, children }) {
-  const baseId   = useId()
-  const headerId = `${baseId}-header`
-  const panelId  = `${baseId}-panel`
+export default function SurveyAutomationCard({ title, recipientLabel, counts = {}, selected, onSelect, workspaceId }) {
   const statusLine = buildStatusLine(counts)
 
   return (
-    <div style={{
-      background: '#fff', border: '1px solid #e8e4dc', borderRadius: 14,
-      boxShadow: '0 1px 3px rgba(25,25,25,0.06)', overflow: 'hidden', fontFamily: F,
-    }}>
-      {/* Focus ring for the header button (keyboard accessibility). */}
-      <style>{`.survey-accordion-header:focus-visible{outline:3px solid #93c5fd;outline-offset:-3px;}`}</style>
+    <button
+      type="button"
+      className="survey-summary-card"
+      aria-expanded={!!selected}
+      aria-controls={workspaceId}
+      onClick={onSelect}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 10, width: '100%',
+        padding: '16px 18px', textAlign: 'left', cursor: 'pointer', fontFamily: F,
+        background: selected ? '#fbfaf8' : '#fff',
+        border: `1px solid ${selected ? NAVY : '#e8e4dc'}`, borderRadius: 14,
+        boxShadow: selected ? `0 0 0 2px rgba(29,37,103,0.35)` : '0 1px 3px rgba(25,25,25,0.06)',
+      }}
+    >
+      {/* Focus ring for keyboard users. */}
+      <style>{`.survey-summary-card:focus-visible{outline:3px solid #93c5fd;outline-offset:2px;}`}</style>
 
-      <button
-        type="button"
-        id={headerId}
-        className="survey-accordion-header"
-        aria-expanded={expanded}
-        aria-controls={panelId}
-        onClick={onToggle}
-        style={{
-          width: '100%', display: 'flex', flexDirection: 'column', gap: 10,
-          padding: '16px 18px', background: expanded ? '#fbfaf8' : '#fff', border: 'none',
-          borderBottom: expanded ? '1px solid #e8e4dc' : 'none',
-          cursor: 'pointer', textAlign: 'left', fontFamily: F,
-        }}
-      >
-        {/* Top row: title + recipient badge (left), chevron (right) */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: '#191919' }}>{title}</span>
-            <span style={{
-              fontSize: 11, fontWeight: 700, color: '#1D2567', background: '#EEF1FB',
-              border: '1px solid #d7ddf5', borderRadius: 999, padding: '2px 9px', whiteSpace: 'nowrap',
-            }}>
-              Recipient: {recipientLabel}
-            </span>
+      {/* Title + recipient badge */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+        <span style={{ fontSize: 15, fontWeight: 700, color: '#191919' }}>{title}</span>
+        <span style={{
+          fontSize: 11, fontWeight: 700, color: '#1D2567', background: '#EEF1FB',
+          border: '1px solid #d7ddf5', borderRadius: 999, padding: '2px 9px', whiteSpace: 'nowrap',
+        }}>
+          Recipient: {recipientLabel}
+        </span>
+      </div>
+
+      {/* One-line status summary */}
+      <div style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.4 }}>{statusLine}</div>
+
+      {/* Count chips — each shows number + label */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {CHIPS.map(c => (
+          <span key={c.key} style={{
+            fontSize: 11, fontWeight: 600, color: c.fg, background: c.bg,
+            borderRadius: 8, padding: '3px 9px', whiteSpace: 'nowrap',
+          }}>
+            <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{counts[c.key] ?? 0}</span>{' '}{c.label}
           </span>
-          {/* Chevron — rotates with state; aria-hidden (state conveyed by aria-expanded). */}
-          <span aria-hidden="true" style={{
-            flexShrink: 0, color: '#6b7280', fontSize: 14, lineHeight: 1, marginTop: 2,
-            transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s',
-          }}>▸</span>
-        </div>
+        ))}
+      </div>
 
-        {/* One-line status summary */}
-        <div style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.4 }}>{statusLine}</div>
-
-        {/* Count chips — each shows number + label */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {CHIPS.map(c => (
-            <span key={c.key} style={{
-              fontSize: 11, fontWeight: 600, color: c.fg, background: c.bg,
-              borderRadius: 8, padding: '3px 9px', whiteSpace: 'nowrap',
-            }}>
-              <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{counts[c.key] ?? 0}</span>{' '}{c.label}
-            </span>
-          ))}
-        </div>
-      </button>
-
-      {expanded && (
-        <div id={panelId} role="region" aria-labelledby={headerId}>
-          {children}
-        </div>
-      )}
-    </div>
+      {/* Selection affordance — text conveys state (not color alone). */}
+      <div style={{ fontSize: 12, fontWeight: 700, color: NAVY, marginTop: 2 }}>
+        {selected ? 'Viewing details below ▾' : 'View details →'}
+      </div>
+    </button>
   )
 }

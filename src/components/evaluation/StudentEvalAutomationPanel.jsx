@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { classifyStudentEvalCohort } from '../../lib/evaluation/studentEvalDueDetection'
-import SurveyAutomationCard from './SurveyAutomationCard'
 
 // SR-2b-1 — READ-ONLY due-detection queue for the Student Evaluation of Preceptor/Unit
 // Experience survey (slug: student_preceptor_eval). Recipient is the STUDENT.
@@ -28,7 +27,7 @@ function fmtHours(n) {
   return Number.isInteger(n) ? String(n) : Number(n).toFixed(2)
 }
 
-export default function StudentEvalAutomationPanel({ cohortId, onCounts }) {
+export default function StudentEvalAutomationPanel({ cohortId, onCounts, active }) {
   const { isOwner, isAdmin } = useAuth()
   const canView = isOwner || isAdmin
 
@@ -43,11 +42,6 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts }) {
   const [confirm, setConfirm] = useState(null)        // row pending release confirmation
   const [releasing, setReleasing] = useState(false)
   const [releaseMsg, setReleaseMsg] = useState(null)  // { tone:'ok'|'err', text }
-
-  // SURVEY-UX-1 — accordion expand/collapse (presentation only). Default collapsed;
-  // the actionability effect below force-expands when there is anything actionable.
-  const [expanded, setExpanded] = useState(false)
-  const lastActionableDetectRef = useRef(0)
 
   const load = useCallback(async () => {
     if (!cohortId || !canView) return
@@ -136,21 +130,15 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts }) {
     return g
   }, [rows])
 
-  // SURVEY-UX-1 — re-apply actionability on each fresh detection so a newly actionable
-  // survey is never hidden. Force-expand (never force-collapse) when this detection has
-  // anything Ready to release or Needs attention; manual collapse otherwise persists.
-  const actionable = (summary.due_sendable || 0) > 0 || (summary.due_unsendable || 0) > 0
-  useEffect(() => {
-    if (detectedAtMs && detectedAtMs !== lastActionableDetectRef.current) {
-      lastActionableDetectRef.current = detectedAtMs
-      if (actionable) setExpanded(true)
-    }
-  }, [detectedAtMs, actionable])
-
   // SURVEY-UX-2 — report this survey's already-computed counts up to the dashboard status
   // band (presentational rollup only; no detection change). summary is memoized, so this
   // fires only when detection actually changes.
   useEffect(() => { onCounts?.(summary) }, [onCounts, summary])
+
+  // SURVEY-UX-3 — render the full-width detail body only when this is the selected workflow.
+  // Detection + count reporting hooks above still run regardless, so the summary card and
+  // status band stay live even while this workflow's detail is not shown.
+  if (!active) return null
 
   if (!canView) {
     return (
@@ -162,14 +150,17 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts }) {
 
   return (
     <>
-      <SurveyAutomationCard
-        title="Student Evaluation of Preceptor/Unit"
-        recipientLabel="Student"
-        counts={summary}
-        expanded={expanded}
-        onToggle={() => setExpanded(e => !e)}
-      >
-      <div style={{ padding: '16px 18px' }}>
+      <div style={{ fontFamily: F }}>
+      {/* Workspace header — restates the selected workflow + recipient. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+        <h2 style={{ fontSize: 17, fontWeight: 700, color: '#191919', margin: 0 }}>Student Evaluation of Preceptor/Unit</h2>
+        <span style={{
+          fontSize: 11, fontWeight: 700, color: '#1D2567', background: '#EEF1FB',
+          border: '1px solid #d7ddf5', borderRadius: 999, padding: '2px 9px', whiteSpace: 'nowrap',
+        }}>
+          Recipient: Student
+        </span>
+      </div>
       <p style={{ fontSize: 13, color: '#9ca3af', margin: '0 0 16px', lineHeight: 1.6 }}>
         Read-only detection of students due for the post-rotation Student Evaluation of
         Preceptor/Unit Experience survey. Due at ≥ 100% of required hours. The recipient is
@@ -232,7 +223,7 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts }) {
                 {list.length === 0 ? (
                   <div style={{ fontSize: 12.5, color: '#9ca3af', padding: '4px 0' }}>None.</div>
                 ) : (
-                  <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+                  <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: F }}>
                       <thead>
                         <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
@@ -310,7 +301,6 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts }) {
         </>
       )}
       </div>
-      </SurveyAutomationCard>
 
       {/* Release confirmation — shows the server-resolved STUDENT recipient; no editable field. */}
       {confirm && (

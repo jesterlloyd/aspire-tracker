@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { classifyCohort, PERIOD_LABELS } from '../../lib/evaluation/preceptorDueDetection'
-import SurveyAutomationCard from './SurveyAutomationCard'
 
 // PS-3a/PS-3b — Survey Automation due-detection + Owner/Admin per-item RELEASE.
 //
@@ -29,7 +28,7 @@ function fmtHours(n) {
   return Number.isInteger(n) ? String(n) : Number(n).toFixed(2)
 }
 
-export default function PreceptorAutomationPanel({ cohortId, onCounts }) {
+export default function PreceptorAutomationPanel({ cohortId, onCounts, active }) {
   const { isOwner, isAdmin } = useAuth()
   const canView = isOwner || isAdmin
 
@@ -44,11 +43,6 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts }) {
   const [confirm, setConfirm] = useState(null)        // row pending release confirmation
   const [releasing, setReleasing] = useState(false)
   const [releaseMsg, setReleaseMsg] = useState(null)  // { tone:'ok'|'err', text }
-
-  // SURVEY-UX-1 — accordion expand/collapse (presentation only). Default collapsed;
-  // the actionability effect below force-expands when there is anything actionable.
-  const [expanded, setExpanded] = useState(false)
-  const lastActionableDetectRef = useRef(0)
 
   const load = useCallback(async () => {
     if (!cohortId || !canView) return
@@ -108,17 +102,6 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts }) {
     return g
   }, [rows])
 
-  // SURVEY-UX-1 — re-apply actionability on each fresh detection so a newly actionable
-  // survey is never hidden. Force-expand (never force-collapse) when this detection has
-  // anything Ready to release or Needs attention; manual collapse otherwise persists.
-  const actionable = (summary.due_sendable || 0) > 0 || (summary.due_unsendable || 0) > 0
-  useEffect(() => {
-    if (detectedAtMs && detectedAtMs !== lastActionableDetectRef.current) {
-      lastActionableDetectRef.current = detectedAtMs
-      if (actionable) setExpanded(true)
-    }
-  }, [detectedAtMs, actionable])
-
   // SURVEY-UX-2 — report this survey's already-computed counts up to the dashboard status
   // band (presentational rollup only; no detection change). summary is memoized, so this
   // fires only when detection actually changes.
@@ -160,6 +143,11 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts }) {
     }
   }, [load])
 
+  // SURVEY-UX-3 — render the full-width detail body only when this is the selected workflow.
+  // Detection + count reporting hooks above still run regardless, so the summary card and
+  // status band stay live even while this workflow's detail is not shown.
+  if (!active) return null
+
   if (!canView) {
     return (
       <div style={{ padding: '32px 20px', color: '#9ca3af', fontSize: 14, fontFamily: F }}>
@@ -170,14 +158,17 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts }) {
 
   return (
     <>
-      <SurveyAutomationCard
-        title="Preceptor Progress Feedback"
-        recipientLabel="Preceptor"
-        counts={summary}
-        expanded={expanded}
-        onToggle={() => setExpanded(e => !e)}
-      >
-      <div style={{ padding: '16px 18px' }}>
+      <div style={{ fontFamily: F }}>
+      {/* Workspace header — restates the selected workflow + recipient. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+        <h2 style={{ fontSize: 17, fontWeight: 700, color: '#191919', margin: 0 }}>Preceptor Progress Feedback</h2>
+        <span style={{
+          fontSize: 11, fontWeight: 700, color: '#1D2567', background: '#EEF1FB',
+          border: '1px solid #d7ddf5', borderRadius: 999, padding: '2px 9px', whiteSpace: 'nowrap',
+        }}>
+          Recipient: Preceptor
+        </span>
+      </div>
       <p style={{ fontSize: 13, color: '#9ca3af', margin: '0 0 16px', lineHeight: 1.6 }}>
         Live-computed queue of students due for an automated preceptor survey. Midpoint is
         due at ≥ 50% of required hours; End of Rotation at ≥ 100%. Release is per-item and
@@ -240,7 +231,7 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts }) {
                 {list.length === 0 ? (
                   <div style={{ fontSize: 12.5, color: '#9ca3af', padding: '4px 0' }}>None.</div>
                 ) : (
-                  <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+                  <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: F }}>
                       <thead>
                         <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
@@ -311,7 +302,6 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts }) {
         </>
       )}
       </div>
-      </SurveyAutomationCard>
 
       {/* Release confirmation — no editable recipient field. */}
       {confirm && (
