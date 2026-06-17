@@ -39,6 +39,7 @@ import { ToastContainer } from './components/Toast'
 import { logActivity } from './lib/logActivity'
 import { safeWrite } from './lib/safeWrite'
 import ConnectPage from './pages/Connect'
+import CatalogPage from './components/catalog/CatalogPage'
 
 /*
   COHORT ISOLATION CONTRACT
@@ -162,6 +163,7 @@ function MainApp({ onLogout }) {
     const p = location.pathname
     if (p.startsWith('/rotation')) return 'rotation'
     if (p.startsWith('/connect'))  return 'connect'
+    if (p.startsWith('/catalog'))  return 'catalog'  // CATALOG-1: app-level utility section
     if (p.startsWith('/settings')) return 'settings' // WS2.1: app-level utility section
     return PATH_TO_TAB[p] || 'overview'
   })()
@@ -171,7 +173,7 @@ function MainApp({ onLogout }) {
   useEffect(() => {
     // WS2.1: Settings (like Connect) is an app-level utility, not a workspace — exclude
     // it so Back-to-workspace returns to the prior operational tab, not /settings.
-    if (!location.pathname.startsWith('/connect') && !location.pathname.startsWith('/settings')) {
+    if (!location.pathname.startsWith('/connect') && !location.pathname.startsWith('/settings') && !location.pathname.startsWith('/catalog')) {
       prevWorkspacePath.current = location.pathname
     }
   }, [location.pathname])
@@ -761,7 +763,7 @@ function MainApp({ onLogout }) {
           actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, actionBadgeCount }}
         />
 
-        {cohorts.length > 0 && activeTab !== 'connect' && activeTab !== 'settings' && (
+        {cohorts.length > 0 && activeTab !== 'connect' && activeTab !== 'settings' && activeTab !== 'catalog' && (
           <UnifiedNav
             cohorts={cohorts}
             activeCohortId={activeCohortId}
@@ -810,6 +812,33 @@ function MainApp({ onLogout }) {
               Back to {backLabel}
             </button>
             <RefreshHint onClick={() => connectRefreshRef.current?.()} tooltipLabel="Refresh Connect data" />
+          </div>
+        )}
+        {cohorts.length > 0 && activeTab === 'catalog' && (
+          <div style={{
+            background: 'var(--bg-card,#FAFAF7)',
+            borderBottom: '1px solid var(--border-divider,rgba(29,37,103,0.08))',
+            padding: '0 32px', height: 44,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            fontFamily: 'DM Sans, sans-serif', flexShrink: 0,
+          }}>
+            <button
+              onClick={() => navigate(backPath)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 13, fontWeight: 500, color: '#6B7280',
+                padding: '4px 0', fontFamily: 'DM Sans, sans-serif',
+                transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = '#1D2567'}
+              onMouseLeave={e => e.currentTarget.style.color = '#6B7280'}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              Back to {backLabel}
+            </button>
           </div>
         )}
       </div>
@@ -907,6 +936,11 @@ function MainApp({ onLogout }) {
                 onNavigateToStudent={id => { setFocusStudentId(id); switchTab('profiles') }}
                 refreshRef={connectRefreshRef}
               />
+            )}
+
+            {/* CATALOG-1: read-only ASPIRE Catalog (Owner/Admin gated by RLS + endpoint). */}
+            {activeTab === 'catalog' && (
+              <CatalogPage />
             )}
           </>
         )}

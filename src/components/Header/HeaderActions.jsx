@@ -3,13 +3,16 @@
 // props. Navigation mechanism preserved exactly (Connect uses the passed react-router
 // `navigate`). UserMenu and the floating Keith assistant are unchanged (Keith stays
 // floating in App.jsx; it is NOT part of these header actions).
-import { MessagesSquare } from 'lucide-react'
+import { MessagesSquare, Library } from 'lucide-react'
 import Tooltip from '../ui/Tooltip'
 import UserMenu from '../UserMenu'
+import { useAuth } from '../../contexts/AuthContext'
 
 export default function HeaderActions({
   cohorts, navigate, activeTab, bellRef, setShowActionCenter, actionBadgeCount,
 }) {
+  const { isOwner, isAdmin } = useAuth()
+  const canViewCatalog = isOwner || isAdmin
   return (
     <>
       {cohorts.length > 0 && (
@@ -38,6 +41,40 @@ export default function HeaderActions({
         >
           <MessagesSquare size={15} strokeWidth={1.9} />
           {activeTab === 'connect' && (
+            <span style={{
+              position: 'absolute', bottom: -6, left: '50%', transform: 'translateX(-50%)',
+              width: 0, height: 0,
+              borderLeft: '4px solid transparent',
+              borderRight: '4px solid transparent',
+              borderTop: '5px solid rgba(255,255,255,0.65)',
+              display: 'block',
+            }} />
+          )}
+        </button>
+        </Tooltip>
+      )}
+      {cohorts.length > 0 && canViewCatalog && (
+        <Tooltip label="ASPIRE Catalog" placement="bottom">
+        <button
+          data-tour="catalog"
+          aria-label="ASPIRE Catalog"
+          onClick={() => navigate('/catalog')}
+          style={{
+            position: 'relative', flexShrink: 0,
+            width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: activeTab === 'catalog' ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)',
+            border: `1px solid ${activeTab === 'catalog' ? 'rgba(255,255,255,0.50)' : 'rgba(255,255,255,0.10)'}`,
+            borderRadius: 8,
+            color: activeTab === 'catalog' ? '#fff' : 'rgba(255,255,255,0.75)',
+            cursor: 'pointer',
+            transition: 'background 0.15s, border-color 0.15s',
+            overflow: 'visible',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.14)'}
+          onMouseLeave={e => e.currentTarget.style.background = activeTab === 'catalog' ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)'}
+        >
+          <Library size={15} strokeWidth={1.9} />
+          {activeTab === 'catalog' && (
             <span style={{
               position: 'absolute', bottom: -6, left: '50%', transform: 'translateX(-50%)',
               width: 0, height: 0,
