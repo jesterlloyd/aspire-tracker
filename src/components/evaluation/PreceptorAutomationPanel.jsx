@@ -29,7 +29,7 @@ function fmtHours(n) {
   return Number.isInteger(n) ? String(n) : Number(n).toFixed(2)
 }
 
-export default function PreceptorAutomationPanel({ cohortId }) {
+export default function PreceptorAutomationPanel({ cohortId, onCounts }) {
   const { isOwner, isAdmin } = useAuth()
   const canView = isOwner || isAdmin
 
@@ -119,6 +119,11 @@ export default function PreceptorAutomationPanel({ cohortId }) {
     }
   }, [detectedAtMs, actionable])
 
+  // SURVEY-UX-2 — report this survey's already-computed counts up to the dashboard status
+  // band (presentational rollup only; no detection change). summary is memoized, so this
+  // fires only when detection actually changes.
+  useEffect(() => { onCounts?.(summary) }, [onCounts, summary])
+
   // PS-3b: release one due_sendable item. Sends only { student_id, period } — the server
   // re-validates and resolves the recipient. No recipient is ever sent from the client.
   const doRelease = useCallback(async (row) => {
@@ -164,7 +169,7 @@ export default function PreceptorAutomationPanel({ cohortId }) {
   }
 
   return (
-    <div style={{ padding: '4px 20px 32px', maxWidth: 1200, fontFamily: F }}>
+    <>
       <SurveyAutomationCard
         title="Preceptor Progress Feedback"
         recipientLabel="Preceptor"
@@ -357,6 +362,6 @@ export default function PreceptorAutomationPanel({ cohortId }) {
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }

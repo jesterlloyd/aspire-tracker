@@ -28,7 +28,7 @@ function fmtHours(n) {
   return Number.isInteger(n) ? String(n) : Number(n).toFixed(2)
 }
 
-export default function StudentEvalAutomationPanel({ cohortId }) {
+export default function StudentEvalAutomationPanel({ cohortId, onCounts }) {
   const { isOwner, isAdmin } = useAuth()
   const canView = isOwner || isAdmin
 
@@ -147,6 +147,11 @@ export default function StudentEvalAutomationPanel({ cohortId }) {
     }
   }, [detectedAtMs, actionable])
 
+  // SURVEY-UX-2 — report this survey's already-computed counts up to the dashboard status
+  // band (presentational rollup only; no detection change). summary is memoized, so this
+  // fires only when detection actually changes.
+  useEffect(() => { onCounts?.(summary) }, [onCounts, summary])
+
   if (!canView) {
     return (
       <div style={{ padding: '32px 20px', color: '#9ca3af', fontSize: 14, fontFamily: F }}>
@@ -156,7 +161,7 @@ export default function StudentEvalAutomationPanel({ cohortId }) {
   }
 
   return (
-    <div style={{ padding: '4px 20px 32px', maxWidth: 1200, fontFamily: F }}>
+    <>
       <SurveyAutomationCard
         title="Student Evaluation of Preceptor/Unit"
         recipientLabel="Student"
@@ -354,6 +359,6 @@ export default function StudentEvalAutomationPanel({ cohortId }) {
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
