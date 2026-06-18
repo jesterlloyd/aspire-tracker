@@ -12,6 +12,7 @@ import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
 import StudentCard from './StudentCard'
 import { isShiftCurrentlyActive } from '../lib/shiftWindows'
+import { shiftTypeOf, shiftBadge, isOpenShift, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../lib/shiftStatus'
 import { Clock, GraduationCap, MapPin, Users, Copy } from 'lucide-react'
 
 // ── Capacity Coverage Gauge ───────────────────────────────────────────────────
@@ -210,13 +211,24 @@ function CampusStudentCard({ log, student, units, onSelectStudent }) {
   const hasPhoto  = !!(student.headshot_url && !imgError)
   const initials  = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`.toUpperCase()
   const unitName  = log.unit_name || units?.find(u => u.id === student.matched_unit_id)?.unit_name || '—'
-  const isNight   = log.shift_type === 'Night'
-  const isMid     = log.shift_type === 'Mid'
-  const badge     = isNight
-    ? { bg:'#EDE9FE', color:'#5B21B6', label:'Night' }
-    : isMid
-      ? { bg:'#DCEFF8', color:'#1D2567', label:'Mid' }
-      : { bg:'#D1EFD8', color:'#166534', label:'Day' }
+
+  // SHIFT-VIS-1: badge derives from the shift actually being worked (shift_type for completed
+  // rows, planned_shift_type for open rows); unknown → "Shift not specified" (never guessed).
+  const shiftType = shiftTypeOf(log)
+  const { label: shiftLabel, tone } = shiftBadge(shiftType)
+  const BADGE_TONES = {
+    day:         { bg:'#D1EFD8', color:'#166534' },
+    night:       { bg:'#EDE9FE', color:'#5B21B6' },
+    mid:         { bg:'#DCEFF8', color:'#1D2567' },
+    variable:    { bg:'#E8EAF2', color:'#1D2567' },
+    unspecified: { bg:'#F1EFEA', color:'#6b7280' },
+  }
+  const badge = { ...(BADGE_TONES[tone] || BADGE_TONES.unspecified), label: shiftLabel }
+
+  // SHIFT-VIS-1: open-shift duration + hedged overdue (read-only; live clock_in → now).
+  const openShift = isOpenShift(log)
+  const openDur   = openShift ? formatDuration(openShiftMs(log)) : null
+  const overdue   = openShift && isClockoutMaybeOverdue(log)
 
   return (
     <button
@@ -260,9 +272,24 @@ function CampusStudentCard({ log, student, units, onSelectStudent }) {
             with {student.matched_preceptor}
           </div>
         )}
-        <div style={{ marginTop:6, fontSize:11, color:'#475467', fontWeight:500 }}>
-          {log.total_hours} hrs logged
-        </div>
+        {openShift ? (
+          <div style={{ marginTop:6 }}>
+            <div style={{ fontSize:11, color:'#475467', fontWeight:600 }}>
+              Open {openDur}
+            </div>
+            {overdue && (
+              <div style={{ marginTop:2, fontSize:10.5, fontWeight:600, color:'#92400e' }}>
+                Clock-out may be overdue
+              </div>
+            )}
+          </div>
+        ) : (
+          log.total_hours != null && (
+            <div style={{ marginTop:6, fontSize:11, color:'#475467', fontWeight:500 }}>
+              {log.total_hours} hrs logged
+            </div>
+          )
+        )}
       </div>
     </button>
   )
@@ -557,7 +584,9 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     queryFn:  async () => {
       const { data, error } = await supabase
         .from('student_shift_logs')
-        .select('id, student_id, checked_in_at')
+        // SHIFT-VIS-1: also load lifecycle_state + planned_shift_type (read-only) so open-shift
+        // cards can show the shift badge + open duration. No behavior change.
+        .select('id, student_id, checked_in_at, lifecycle_state, planned_shift_type')
         .eq('cohort_id', cohortId)
         .eq('lifecycle_state', 'in_progress')
         .order('checked_in_at', { ascending: false })
