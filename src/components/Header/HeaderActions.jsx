@@ -11,8 +11,8 @@ import { useAuth } from '../../contexts/AuthContext'
 export default function HeaderActions({
   cohorts, navigate, activeTab, bellRef, setShowActionCenter, actionBadgeCount,
 }) {
-  const { isOwner, isAdmin } = useAuth()
-  const canViewCatalog = isOwner || isAdmin
+  const { isOwner, isAdmin, isInterviewer } = useAuth()
+  const canViewCatalog = isOwner || isAdmin || isInterviewer
   return (
     <>
       {cohorts.length > 0 && (

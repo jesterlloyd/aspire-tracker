@@ -3,8 +3,8 @@ import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 
 // CATALOG-1 — Authenticated open/preview endpoint for ASPIRE Catalog INTERNAL files.
 //
-// Security model (Owner/Admin only):
-//   - Verifies the caller's session bearer token AND Owner/Admin role ON THE SERVER
+// Security model (Owner/Admin/Interviewer read; ACTIVE resources only):
+//   - Verifies the caller's session bearer token AND a Catalog-read role ON THE SERVER
 //     (reuses the WS1 verifyCaller → user_profiles pattern). UI button-hiding is NOT
 //     the gate; a direct call by a non-Owner/Admin is refused here.
 //   - Accepts a resource SLUG only — never a client-supplied storage path.
@@ -59,8 +59,10 @@ async function verifyCaller(req) {
   }
 }
 
-function isOwnerAdmin(role, isOwner) {
-  return isOwner === true || role === 'owner' || role === 'admin';
+// Read access (open/download): Owner/Admin AND Interviewer. The is_active check below limits
+// every caller to ACTIVE resources, so Interviewers can never open an inactive/soft-removed file.
+function canReadCatalog(role, isOwner) {
+  return isOwner === true || role === 'owner' || role === 'admin' || role === 'interviewer';
 }
 
 export default async function handler(req, res) {
@@ -70,12 +72,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // 1) Server-side authentication + Owner/Admin authorization
+  // 1) Server-side authentication + Owner/Admin/Interviewer read authorization
   const auth = await verifyCaller(req);
   if (!auth.authenticated) {
     return res.status(auth.status || 401).json({ error: 'Unauthorized' });
   }
-  if (!isOwnerAdmin(auth.role, auth.isOwner)) {
+  if (!canReadCatalog(auth.role, auth.isOwner)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 

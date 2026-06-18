@@ -53,8 +53,9 @@ function fileIcon(label) {
 }
 
 export default function CatalogPage() {
-  const { isOwner, isAdmin } = useAuth()
-  const canView = isOwner || isAdmin
+  const { isOwner, isAdmin, isInterviewer } = useAuth()
+  const canView = isOwner || isAdmin || isInterviewer  // read access (Interviewers included)
+  const canManage = isOwner || isAdmin                  // upload / edit / move / feature / pin / remove
 
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
@@ -305,18 +306,20 @@ export default function CatalogPage() {
             Curated resources, guides, forms, and documents for the ASPIRE Program.
           </p>
         </div>
-        {/* Owner/Admin only — page is already RLS/role-gated; the upload endpoint re-verifies. */}
-        <button
-          type="button"
-          onClick={() => setShowAdd(true)}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0,
-            padding: '9px 16px', background: NAVY, color: '#fff', border: 'none',
-            borderRadius: 9, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer',
-          }}
-        >
-          <Plus size={15} strokeWidth={2.2} /> Add resource
-        </button>
+        {/* Owner/Admin only — the upload endpoint re-verifies server-side. */}
+        {canManage && (
+          <button
+            type="button"
+            onClick={() => setShowAdd(true)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0,
+              padding: '9px 16px', background: NAVY, color: '#fff', border: 'none',
+              borderRadius: 9, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer',
+            }}
+          >
+            <Plus size={15} strokeWidth={2.2} /> Add resource
+          </button>
+        )}
       </div>
 
       {showAdd && (
@@ -454,10 +457,12 @@ export default function CatalogPage() {
             <option value="pinned">Pinned first</option>
           </select>
         </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: '#4A5560', cursor: 'pointer' }}>
-          <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} />
-          Show removed
-        </label>
+        {canManage && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: '#4A5560', cursor: 'pointer' }}>
+            <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} />
+            Show removed
+          </label>
+        )}
       </div>
 
       {/* Two-column: resource list + right rail */}
@@ -488,7 +493,7 @@ export default function CatalogPage() {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                       {list.map(r => (
-                        <ResourceRow key={r.id} r={r} busy={busy} onAccess={accessResource} actions={rowActions} highlight={r.slug === highlightSlug} />
+                        <ResourceRow key={r.id} r={r} busy={busy} onAccess={accessResource} actions={rowActions} canManage={canManage} highlight={r.slug === highlightSlug} />
                       ))}
                     </div>
                   </div>
@@ -498,7 +503,7 @@ export default function CatalogPage() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {sorted.map(r => (
-                <ResourceRow key={r.id} r={r} busy={busy} onAccess={accessResource} actions={rowActions} highlight={r.slug === highlightSlug} />
+                <ResourceRow key={r.id} r={r} busy={busy} onAccess={accessResource} actions={rowActions} canManage={canManage} highlight={r.slug === highlightSlug} />
               ))}
             </div>
           )}
@@ -721,7 +726,7 @@ function AddResourceModal({ onClose, onCreated }) {
 // One resource row. Open (inline) is primary; Download (attachment) is offered for
 // internal_file only. External links show a single "Open external" action. Both internal
 // actions route through onAccess(r, mode) → the slug-only signed-URL endpoint.
-function ResourceRow({ r, busy, onAccess, actions, highlight }) {
+function ResourceRow({ r, busy, onAccess, actions, canManage, highlight }) {
   const external = r.resource_type === 'external_link'
   const openBusy = busy?.id === r.id && busy?.mode === 'open'
   const dlBusy = busy?.id === r.id && busy?.mode === 'download'
@@ -812,7 +817,7 @@ function ResourceRow({ r, busy, onAccess, actions, highlight }) {
             <Download size={13} strokeWidth={2} /> {dlBusy ? 'Preparing…' : 'Download'}
           </button>
         )}
-        {actions && <RowMenu r={r} external={external} inactive={inactive} onAccess={onAccess} actions={actions} />}
+        {actions && <RowMenu r={r} external={external} inactive={inactive} onAccess={onAccess} actions={actions} canManage={canManage} />}
       </div>
     </div>
   )
@@ -820,7 +825,7 @@ function ResourceRow({ r, busy, onAccess, actions, highlight }) {
 
 // Row "…" action menu (Owner/Admin). Metadata-only actions + Open/Download/Copy-link. NO
 // rename-storage, hard-delete, or broad-share entries. Closes on outside click / Escape.
-function RowMenu({ r, external, inactive, onAccess, actions }) {
+function RowMenu({ r, external, inactive, onAccess, actions, canManage }) {
   const [open, setOpen] = useState(false)
   const [moveOpen, setMoveOpen] = useState(false)
   const wrapRef = useRef(null)
@@ -878,9 +883,10 @@ function RowMenu({ r, external, inactive, onAccess, actions }) {
             <Link2 size={14} /> Copy link
           </button>
 
-          <div style={{ height: 1, background: '#f1efe9', margin: '4px 0' }} />
+          {/* Management actions — Owner/Admin only. Interviewers see read actions above only. */}
+          {canManage && <div style={{ height: 1, background: '#f1efe9', margin: '4px 0' }} />}
 
-          {inactive ? (
+          {canManage && (inactive ? (
             <button type="button" style={{ ...itemStyle, color: '#166534', fontWeight: 600 }} onClick={() => run(() => actions.onReactivate(r))}>
               <RotateCcw size={14} /> Reactivate
             </button>
@@ -919,7 +925,7 @@ function RowMenu({ r, external, inactive, onAccess, actions }) {
                 <Archive size={14} /> Remove from catalog
               </button>
             </>
-          )}
+          ))}
         </div>
       )}
     </div>
