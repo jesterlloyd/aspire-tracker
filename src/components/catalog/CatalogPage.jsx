@@ -1,5 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { Search, FileText, FileType2, ExternalLink, Star, Pin, Folder, Clock, Download, Plus, X } from 'lucide-react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import {
+  Search, FileText, FileType2, ExternalLink, Star, Pin, Folder, Clock, Download, Plus, X,
+  MoreHorizontal, Pencil, Link2, FolderInput, Archive, RotateCcw, Check,
+} from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { FilterKPICard } from '../KPIBand'
@@ -66,17 +69,26 @@ export default function CatalogPage() {
   const [openError, setOpenError] = useState(null)
   // CATALOG-2B: Owner/Admin "Add resource" upload modal state.
   const [showAdd, setShowAdd] = useState(false)
+  // CATALOG-2C: sort, soft-removed visibility, metadata edit/remove, deep-link, action feedback.
+  const [sortBy, setSortBy] = useState('recent')
+  const [showInactive, setShowInactive] = useState(false)
+  const [editing, setEditing] = useState(null)          // resource being edited (metadata)
+  const [confirmRemove, setConfirmRemove] = useState(null)
+  const [actionMsg, setActionMsg] = useState(null)      // { tone:'ok'|'err', text }
+  const [highlightSlug, setHighlightSlug] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const { data, error: qErr } = await supabase
+      let q = supabase
         .from('catalog_resources')
         .select(`
           id, slug, title, description, category, resource_type, external_url,
-          file_type_label, tags, collection_keys, sort_order, is_featured, is_pinned, updated_at
+          file_type_label, tags, collection_keys, sort_order, is_featured, is_pinned, is_active, updated_at
         `)
-        .eq('is_active', true)
+      // Default view = active only. "Show removed" includes soft-deactivated rows (Owner/Admin).
+      if (!showInactive) q = q.eq('is_active', true)
+      const { data, error: qErr } = await q
         .order('sort_order', { ascending: true })
         .order('updated_at', { ascending: false })
       if (qErr) throw qErr
@@ -86,23 +98,32 @@ export default function CatalogPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [showInactive])
 
   useEffect(() => { if (canView) load(); else setLoading(false) }, [canView, load])
 
-  // Metric cards — computed from the loaded data (never hardcoded).
+  // Deep-link: /catalog?resource=<slug> highlights + scrolls to that resource (no file access).
+  useEffect(() => {
+    const slug = new URLSearchParams(window.location.search).get('resource')
+    if (slug) setHighlightSlug(slug)
+  }, [])
+
+  // Active (non-deactivated) rows drive the metrics and right rail, regardless of "Show removed".
+  const activeRows = useMemo(() => rows.filter(r => r.is_active !== false), [rows])
+
+  // Metric cards — computed from the active data (never hardcoded).
   const metrics = useMemo(() => {
     const now = Date.now()
-    const categories = new Set(rows.map(r => r.category).filter(Boolean))
-    const recent = rows.filter(r => r.updated_at && (now - new Date(r.updated_at).getTime()) <= 30 * DAY_MS)
-    const featured = rows.filter(r => r.is_featured)
+    const categories = new Set(activeRows.map(r => r.category).filter(Boolean))
+    const recent = activeRows.filter(r => r.updated_at && (now - new Date(r.updated_at).getTime()) <= 30 * DAY_MS)
+    const featured = activeRows.filter(r => r.is_featured)
     return {
-      resources: rows.length,
+      resources: activeRows.length,
       categories: categories.size,
       recent: recent.length,
       featured: featured.length,
     }
-  }, [rows])
+  }, [activeRows])
 
   // Search + category + KPI filter, all client-side over the loaded rows (no new query).
   // KPI filters (recent / featured) AND-combine with the category chip and search.
@@ -122,22 +143,50 @@ export default function CatalogPage() {
     })
   }, [rows, query, category, kpi])
 
-  // Right-rail derivations.
+  // Right-rail derivations (active resources only).
   const featuredCollections = useMemo(() => {
     const counts = new Map()
-    for (const r of rows) {
+    for (const r of activeRows) {
       for (const k of (Array.isArray(r.collection_keys) ? r.collection_keys : [])) {
         counts.set(k, (counts.get(k) || 0) + 1)
       }
     }
     return [...counts.entries()].map(([key, count]) => ({ key, count }))
-  }, [rows])
+  }, [activeRows])
 
   const recentUpdates = useMemo(
-    () => [...rows].sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0)).slice(0, 5),
-    [rows]
+    () => [...activeRows].sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0)).slice(0, 5),
+    [activeRows]
   )
-  const pinned = useMemo(() => rows.filter(r => r.is_pinned), [rows])
+  const pinned = useMemo(() => activeRows.filter(r => r.is_pinned), [activeRows])
+
+  // Client-side sort over the filtered set (no query/schema change).
+  const sorted = useMemo(() => {
+    const arr = [...filtered]
+    switch (sortBy) {
+      case 'title':
+        arr.sort((a, b) => (a.title || '').localeCompare(b.title || '')); break
+      case 'category':
+        arr.sort((a, b) =>
+          (CATEGORY_LABEL[a.category] || a.category || '').localeCompare(CATEGORY_LABEL[b.category] || b.category || '')
+          || (a.title || '').localeCompare(b.title || '')); break
+      case 'featured':
+        arr.sort((a, b) => (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0)); break
+      case 'pinned':
+        arr.sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)); break
+      case 'recent':
+      default:
+        arr.sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0)); break
+    }
+    return arr
+  }, [filtered, sortBy])
+
+  // After data is ready, scroll a deep-linked resource into view.
+  useEffect(() => {
+    if (!highlightSlug || loading) return
+    const el = document.getElementById(`catalog-res-${highlightSlug}`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [highlightSlug, loading, sorted])
 
   // Open/Download an internal_file via the server signed-URL endpoint; external_link → navigate.
   // mode is 'open' (inline view) or 'download' (attachment disposition). The client still sends
@@ -195,6 +244,49 @@ export default function CatalogPage() {
     }
   }, [])
 
+  // CATALOG-2C — metadata-only update via the server-verified endpoint (strict whitelist).
+  // Used by edit, move-to-category, feature/pin toggles, soft-remove, and reactivate. No
+  // Storage operation is ever involved; the server updates metadata columns only.
+  const runUpdate = useCallback(async (id, patch, okText) => {
+    setActionMsg(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) { setActionMsg({ tone: 'err', text: 'Your session expired. Please sign in again.' }); return false }
+      const res = await fetch('/api/catalog-resource-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ id, ...patch }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (res.ok && body.resource) { setActionMsg({ tone: 'ok', text: okText }); await load(); return true }
+      setActionMsg({ tone: 'err', text: body.error || 'Update failed.' }); return false
+    } catch {
+      setActionMsg({ tone: 'err', text: 'Network error. Please try again.' }); return false
+    }
+  }, [load])
+
+  const copyLink = useCallback(async (r) => {
+    // Internal slug-link only — NOT a signed/file URL. Opening it still requires auth + Owner/Admin.
+    const link = `${window.location.origin}/catalog?resource=${encodeURIComponent(r.slug)}`
+    try {
+      await navigator.clipboard.writeText(link)
+      setActionMsg({ tone: 'ok', text: 'Catalog link copied.' })
+    } catch {
+      setActionMsg({ tone: 'err', text: `Copy failed. Link: ${link}` })
+    }
+  }, [])
+
+  // Bundle of metadata actions handed to each row's "…" menu.
+  const rowActions = useMemo(() => ({
+    onEdit: (r) => { setActionMsg(null); setEditing(r) },
+    onMove: (r, cat) => runUpdate(r.id, { category: cat }, `Moved to ${CATEGORY_LABEL[cat] || cat}.`),
+    onCopyLink: copyLink,
+    onToggleFeatured: (r) => runUpdate(r.id, { is_featured: !r.is_featured }, r.is_featured ? 'Unfeatured.' : 'Featured.'),
+    onTogglePinned: (r) => runUpdate(r.id, { is_pinned: !r.is_pinned }, r.is_pinned ? 'Unpinned.' : 'Pinned.'),
+    onRemove: (r) => { setActionMsg(null); setConfirmRemove(r) },
+    onReactivate: (r) => runUpdate(r.id, { is_active: true }, 'Resource restored.'),
+  }), [runUpdate, copyLink])
+
   if (!canView) {
     return (
       <div style={{ padding: '40px 24px', color: '#9ca3af', fontSize: 14, fontFamily: F }}>
@@ -231,6 +323,28 @@ export default function CatalogPage() {
         <AddResourceModal
           onClose={() => setShowAdd(false)}
           onCreated={() => { setShowAdd(false); load() }}
+        />
+      )}
+
+      {editing && (
+        <EditResourceModal
+          resource={editing}
+          onClose={() => setEditing(null)}
+          onSaved={async (patch) => {
+            const ok = await runUpdate(editing.id, patch, 'Resource updated.')
+            if (ok) setEditing(null)
+          }}
+        />
+      )}
+
+      {confirmRemove && (
+        <RemoveConfirmDialog
+          resource={confirmRemove}
+          onCancel={() => setConfirmRemove(null)}
+          onConfirm={async () => {
+            const ok = await runUpdate(confirmRemove.id, { is_active: false }, 'Removed from catalog (reversible via “Show removed”).')
+            if (ok) setConfirmRemove(null)
+          }}
         />
       )}
 
@@ -310,6 +424,42 @@ export default function CatalogPage() {
         </div>
       )}
 
+      {actionMsg && (
+        <div style={{
+          fontSize: 13, borderRadius: 8, padding: '10px 14px', marginBottom: 16,
+          background: actionMsg.tone === 'ok' ? '#EDF7F0' : '#FEECEC',
+          color: actionMsg.tone === 'ok' ? '#166534' : '#991b1b',
+          border: `1px solid ${actionMsg.tone === 'ok' ? '#c6e7d0' : '#f3c6c6'}`,
+        }}>
+          {actionMsg.text}
+        </div>
+      )}
+
+      {/* Toolbar: sort + show-removed (Owner/Admin). Sort is client-side over loaded rows. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16, flexWrap: 'wrap' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: '#4A5560' }}>
+          Sort
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value)}
+            style={{
+              fontSize: 12.5, fontFamily: F, color: '#191919', cursor: 'pointer',
+              border: '1px solid #e2e0d9', borderRadius: 8, background: '#fff', padding: '6px 9px',
+            }}
+          >
+            <option value="recent">Most Recent</option>
+            <option value="title">Title A–Z</option>
+            <option value="category">Category</option>
+            <option value="featured">Featured first</option>
+            <option value="pinned">Pinned first</option>
+          </select>
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: '#4A5560', cursor: 'pointer' }}>
+          <input type="checkbox" checked={showInactive} onChange={e => setShowInactive(e.target.checked)} />
+          Show removed
+        </label>
+      </div>
+
       {/* Two-column: resource list + right rail */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: 22, alignItems: 'start' }}>
         {/* Main: resource list */}
@@ -325,11 +475,11 @@ export default function CatalogPage() {
               {rows.length === 0 ? 'No resources yet.' : 'No resources match your filters.'}
             </div>
           ) : grouped ? (
-            // Grouped-by-category view (Categories KPI). Category chip + search + KPI still apply
-            // via `filtered`; we just section the same filtered rows by category.
+            // Grouped-by-category view (Categories KPI). Category chip + search + KPI + sort still
+            // apply via `sorted`; we just section the same rows by category.
             <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
               {CATEGORIES.filter(c => c.key !== 'all').map(c => {
-                const list = filtered.filter(r => r.category === c.key)
+                const list = sorted.filter(r => r.category === c.key)
                 if (list.length === 0) return null
                 return (
                   <div key={c.key}>
@@ -338,7 +488,7 @@ export default function CatalogPage() {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                       {list.map(r => (
-                        <ResourceRow key={r.id} r={r} busy={busy} onAccess={accessResource} />
+                        <ResourceRow key={r.id} r={r} busy={busy} onAccess={accessResource} actions={rowActions} highlight={r.slug === highlightSlug} />
                       ))}
                     </div>
                   </div>
@@ -347,8 +497,8 @@ export default function CatalogPage() {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {filtered.map(r => (
-                <ResourceRow key={r.id} r={r} busy={busy} onAccess={accessResource} />
+              {sorted.map(r => (
+                <ResourceRow key={r.id} r={r} busy={busy} onAccess={accessResource} actions={rowActions} highlight={r.slug === highlightSlug} />
               ))}
             </div>
           )}
@@ -571,18 +721,24 @@ function AddResourceModal({ onClose, onCreated }) {
 // One resource row. Open (inline) is primary; Download (attachment) is offered for
 // internal_file only. External links show a single "Open external" action. Both internal
 // actions route through onAccess(r, mode) → the slug-only signed-URL endpoint.
-function ResourceRow({ r, busy, onAccess }) {
+function ResourceRow({ r, busy, onAccess, actions, highlight }) {
   const external = r.resource_type === 'external_link'
   const openBusy = busy?.id === r.id && busy?.mode === 'open'
   const dlBusy = busy?.id === r.id && busy?.mode === 'download'
   const anyBusy = busy?.id === r.id
+  const inactive = r.is_active === false
 
   return (
-    <div style={{
-      display: 'flex', alignItems: 'flex-start', gap: 14, padding: '16px 18px',
-      background: '#fff', border: '1px solid #e8e4dc', borderRadius: 14,
-      boxShadow: '0 1px 3px rgba(25,25,25,0.06)',
-    }}>
+    <div
+      id={`catalog-res-${r.slug}`}
+      style={{
+        display: 'flex', alignItems: 'flex-start', gap: 14, padding: '16px 18px',
+        background: inactive ? '#faf9f7' : '#fff',
+        border: `1px solid ${highlight ? NAVY : '#e8e4dc'}`, borderRadius: 14,
+        boxShadow: highlight ? `0 0 0 2px rgba(29,37,103,0.30)` : '0 1px 3px rgba(25,25,25,0.06)',
+        opacity: inactive ? 0.72 : 1,
+      }}
+    >
       {/* Icon */}
       <div style={{
         flexShrink: 0, width: 38, height: 38, borderRadius: 10,
@@ -595,6 +751,11 @@ function ResourceRow({ r, busy, onAccess }) {
       <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 14.5, fontWeight: 700, color: '#191919' }}>{r.title}</span>
+          {inactive && (
+            <span style={{ fontSize: 10.5, fontWeight: 700, color: '#991b1b', background: '#FEECEC', border: '1px solid #f3c6c6', borderRadius: 999, padding: '1px 7px' }}>
+              Removed
+            </span>
+          )}
           {r.is_featured && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10.5, fontWeight: 700, color: '#92400e', background: '#FBF5E8', border: '1px solid #f0e0bd', borderRadius: 999, padding: '1px 7px' }}>
               <Star size={10} strokeWidth={2.2} /> Featured
@@ -651,6 +812,242 @@ function ResourceRow({ r, busy, onAccess }) {
             <Download size={13} strokeWidth={2} /> {dlBusy ? 'Preparing…' : 'Download'}
           </button>
         )}
+        {actions && <RowMenu r={r} external={external} inactive={inactive} onAccess={onAccess} actions={actions} />}
+      </div>
+    </div>
+  )
+}
+
+// Row "…" action menu (Owner/Admin). Metadata-only actions + Open/Download/Copy-link. NO
+// rename-storage, hard-delete, or broad-share entries. Closes on outside click / Escape.
+function RowMenu({ r, external, inactive, onAccess, actions }) {
+  const [open, setOpen] = useState(false)
+  const [moveOpen, setMoveOpen] = useState(false)
+  const wrapRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) { setOpen(false); setMoveOpen(false) } }
+    const onKey = (e) => { if (e.key === 'Escape') { setOpen(false); setMoveOpen(false) } }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey) }
+  }, [open])
+
+  const close = () => { setOpen(false); setMoveOpen(false) }
+  const run = (fn) => { close(); fn() }
+
+  const itemStyle = {
+    display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left',
+    padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer',
+    fontSize: 12.5, fontFamily: F, color: '#374151', whiteSpace: 'nowrap',
+  }
+
+  return (
+    <div ref={wrapRef} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        aria-label="More actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32,
+          background: open ? '#f1efe9' : '#fff', color: '#6b7280', border: '1px solid #e2e0d9',
+          borderRadius: 8, cursor: 'pointer',
+        }}
+      >
+        <MoreHorizontal size={16} strokeWidth={2} />
+      </button>
+
+      {open && (
+        <div role="menu" style={{
+          position: 'absolute', top: '110%', right: 0, zIndex: 20, minWidth: 200,
+          background: '#fff', border: '1px solid #e8e4dc', borderRadius: 12,
+          boxShadow: '0 8px 24px rgba(25,25,25,0.14)', overflow: 'hidden', padding: '4px 0',
+        }}>
+          <button type="button" style={itemStyle} onClick={() => run(() => onAccess(r, 'open'))}>
+            {external ? <ExternalLink size={14} /> : <FileText size={14} />} {external ? 'Open external' : 'Open'}
+          </button>
+          {!external && (
+            <button type="button" style={itemStyle} onClick={() => run(() => onAccess(r, 'download'))}>
+              <Download size={14} /> Download
+            </button>
+          )}
+          <button type="button" style={itemStyle} onClick={() => run(() => actions.onCopyLink(r))}>
+            <Link2 size={14} /> Copy link
+          </button>
+
+          <div style={{ height: 1, background: '#f1efe9', margin: '4px 0' }} />
+
+          {inactive ? (
+            <button type="button" style={{ ...itemStyle, color: '#166534', fontWeight: 600 }} onClick={() => run(() => actions.onReactivate(r))}>
+              <RotateCcw size={14} /> Reactivate
+            </button>
+          ) : (
+            <>
+              <button type="button" style={itemStyle} onClick={() => run(() => actions.onEdit(r))}>
+                <Pencil size={14} /> Edit details
+              </button>
+
+              {/* Move to category — metadata-only category-field change (file never moves). */}
+              <button type="button" style={itemStyle} onClick={() => setMoveOpen(o => !o)} aria-expanded={moveOpen}>
+                <FolderInput size={14} /> Move to category
+              </button>
+              {moveOpen && (
+                <div style={{ padding: '2px 0 2px 0', background: '#faf9f7' }}>
+                  {UPLOAD_CATEGORIES.map(c => (
+                    <button key={c.key} type="button"
+                      style={{ ...itemStyle, padding: '7px 12px 7px 34px', color: c.key === r.category ? NAVY : '#374151', fontWeight: c.key === r.category ? 700 : 400 }}
+                      onClick={() => run(() => actions.onMove(r, c.key))}>
+                      {c.key === r.category && <Check size={13} />} {c.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <button type="button" style={itemStyle} onClick={() => run(() => actions.onToggleFeatured(r))}>
+                <Star size={14} /> {r.is_featured ? 'Unfeature' : 'Feature'}
+              </button>
+              <button type="button" style={itemStyle} onClick={() => run(() => actions.onTogglePinned(r))}>
+                <Pin size={14} /> {r.is_pinned ? 'Unpin' : 'Pin'}
+              </button>
+
+              <div style={{ height: 1, background: '#f1efe9', margin: '4px 0' }} />
+
+              <button type="button" style={{ ...itemStyle, color: '#991b1b' }} onClick={() => run(() => actions.onRemove(r))}>
+                <Archive size={14} /> Remove from catalog
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// CATALOG-2C — Edit details (metadata only). Sends only title/description/category/tags/
+// featured/pinned to the strict-whitelist endpoint. Slug, storage_path, and the file are never
+// touched (copied links stay stable; the file stays at its original key).
+function EditResourceModal({ resource, onClose, onSaved }) {
+  const [title, setTitle] = useState(resource.title || '')
+  const [description, setDescription] = useState(resource.description || '')
+  const [category, setCategory] = useState(resource.category || UPLOAD_CATEGORIES[0].key)
+  const [tagsStr, setTagsStr] = useState(Array.isArray(resource.tags) ? resource.tags.join(', ') : '')
+  const [isFeatured, setIsFeatured] = useState(!!resource.is_featured)
+  const [isPinned, setIsPinned] = useState(!!resource.is_pinned)
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState(null)
+
+  const fieldStyle = {
+    width: '100%', boxSizing: 'border-box', padding: '9px 11px', fontSize: 13.5, fontFamily: F,
+    color: '#191919', border: '1px solid #e2e0d9', borderRadius: 8, background: '#fff', outline: 'none',
+  }
+  const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: '#4A5560', marginBottom: 5 }
+
+  async function save() {
+    setErr(null)
+    if (!title.trim()) { setErr('Title is required.'); return }
+    setSaving(true)
+    try {
+      await onSaved({
+        title: title.trim(),
+        description: description.trim(),
+        category,
+        tags: tagsStr.split(',').map(t => t.trim()).filter(Boolean),
+        is_featured: isFeatured,
+        is_pinned: isPinned,
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onMouseDown={() => !saving && onClose()}>
+      <div className="modal" role="dialog" aria-modal="true" style={{ maxWidth: 520, fontFamily: F }} onMouseDown={e => e.stopPropagation()}>
+        <div className="modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1D2567', fontFamily: F }}>Edit details</h2>
+          <button type="button" onClick={() => !saving && onClose()} aria-label="Close"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 4 }}>
+            <X size={18} strokeWidth={2} />
+          </button>
+        </div>
+
+        <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={labelStyle}>Title</label>
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)} style={fieldStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Description <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional)</span></label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} style={{ ...fieldStyle, resize: 'vertical' }} />
+          </div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 200px' }}>
+              <label style={labelStyle}>Category</label>
+              <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...fieldStyle, cursor: 'pointer' }}>
+                {UPLOAD_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: '1 1 200px' }}>
+              <label style={labelStyle}>Tags <span style={{ color: '#9ca3af', fontWeight: 400 }}>(comma-separated)</span></label>
+              <input type="text" value={tagsStr} onChange={e => setTagsStr(e.target.value)} style={fieldStyle} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 18 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#374151', cursor: 'pointer' }}>
+              <input type="checkbox" checked={isFeatured} onChange={e => setIsFeatured(e.target.checked)} /> Featured
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, color: '#374151', cursor: 'pointer' }}>
+              <input type="checkbox" checked={isPinned} onChange={e => setIsPinned(e.target.checked)} /> Pinned
+            </label>
+          </div>
+          <div style={{ fontSize: 11.5, color: '#9ca3af' }}>
+            The file and its link stay the same — only these details change.
+          </div>
+          {err && (
+            <div style={{ fontSize: 12.5, borderRadius: 8, padding: '9px 12px', background: '#FEECEC', color: '#991b1b', border: '1px solid #f3c6c6' }}>
+              {err}
+            </div>
+          )}
+        </div>
+
+        <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button className="btn-outline-modal" onClick={() => !saving && onClose()} disabled={saving}>Cancel</button>
+          <button type="button" onClick={save} disabled={saving}
+            style={{ padding: '9px 18px', background: NAVY, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.6 : 1 }}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// CATALOG-2C — Soft-remove confirmation. Sets is_active=false (reversible); never deletes the
+// row and never touches Storage.
+function RemoveConfirmDialog({ resource, onCancel, onConfirm }) {
+  const [working, setWorking] = useState(false)
+  return (
+    <div className="modal-overlay" onMouseDown={() => !working && onCancel()}>
+      <div className="modal" role="dialog" aria-modal="true" style={{ maxWidth: 440, fontFamily: F }} onMouseDown={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1D2567', fontFamily: F }}>Remove from catalog?</h2>
+        </div>
+        <div style={{ padding: '16px 20px', fontSize: 13.5, color: '#374151', lineHeight: 1.6 }}>
+          <p style={{ margin: '0 0 10px' }}>
+            <strong>{resource.title}</strong> will be hidden from the catalog. The file is <strong>not</strong> deleted
+            and this is reversible — turn on <strong>Show removed</strong> to restore it.
+          </p>
+        </div>
+        <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button className="btn-outline-modal" onClick={() => !working && onCancel()} disabled={working}>Cancel</button>
+          <button type="button" onClick={async () => { setWorking(true); try { await onConfirm() } finally { setWorking(false) } }} disabled={working}
+            style={{ padding: '9px 18px', background: '#991b1b', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: working ? 'default' : 'pointer', opacity: working ? 0.6 : 1 }}>
+            {working ? 'Removing…' : 'Remove'}
+          </button>
+        </div>
       </div>
     </div>
   )
