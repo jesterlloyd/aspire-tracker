@@ -56,6 +56,16 @@ import { calculateProfileCompletion } from '../lib/profileCompletion'
 import { CARD } from '../lib/designTokens'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import { formatSchoolProgram } from '../lib/displayFormatters'
+import { shiftBadge } from '../lib/shiftStatus'
+
+// SHIFT-VIS-1: tone → pill colors for the On Campus Now shift badge.
+const SHIFT_BADGE_TONES = {
+  day:         { bg: '#D1EFD8', color: '#166534' },
+  night:       { bg: '#EDE9FE', color: '#5B21B6' },
+  mid:         { bg: '#DCEFF8', color: '#1D2567' },
+  variable:    { bg: '#E8EAF2', color: '#1D2567' },
+  unspecified: { bg: '#F1EFEA', color: '#6b7280' },
+}
 
 // ── Token-derived style constants ─────────────────────────────────────────────
 
@@ -161,13 +171,25 @@ function ProfileStrip({ student }) {
   )
 }
 
-function OnCampusStrip({ hoursCompleted, hoursRequired }) {
+function OnCampusStrip({ hoursCompleted, hoursRequired, shiftType, openShift, openDur, overdue }) {
   const done = parseFloat(hoursCompleted) || 0
   const req  = parseFloat(hoursRequired)  || 200
   const pct  = Math.min(100, req > 0 ? (done / req) * 100 : 0)
   const barColor = barColorFor(pct)
+  // SHIFT-VIS-1: shift badge from the actual shift type (null → "Shift not specified").
+  const { label: shiftLabel, tone } = shiftBadge(shiftType)
+  const badgeTone = SHIFT_BADGE_TONES[tone] || SHIFT_BADGE_TONES.unspecified
   return (
     <div style={{ padding: '8px 12px 10px' }}>
+      {/* Shift badge — always shown for on-campus cards (Day/Night/Mid/Variable/Shift not specified) */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}>
+        <span style={{
+          fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+          background: badgeTone.bg, color: badgeTone.color, whiteSpace: 'nowrap', ...F,
+        }}>
+          {shiftLabel}
+        </span>
+      </div>
       <div style={{
         fontSize: 12, fontWeight: 600, color: '#374151', ...F,
         textAlign: 'center', marginBottom: 5,
@@ -183,6 +205,17 @@ function OnCampusStrip({ hoursCompleted, hoursRequired }) {
           transition: 'width 0.3s ease',
         }} />
       </div>
+      {/* Open-shift duration + hedged overdue — true open (in_progress) rows only */}
+      {openShift && (
+        <div style={{ textAlign: 'center', marginTop: 6 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 600, color: '#475467', ...F }}>Open {openDur}</div>
+          {overdue && (
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#92400e', marginTop: 1, ...F }}>
+              Clock-out may be overdue
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -344,6 +377,10 @@ export default function StudentCard({ student, variant, onClick, variantProps = 
           <OnCampusStrip
             hoursCompleted={variantProps.hoursCompleted}
             hoursRequired={variantProps.hoursRequired}
+            shiftType={variantProps.shiftType}
+            openShift={variantProps.openShift}
+            openDur={variantProps.openDur}
+            overdue={variantProps.overdue}
           />
         )}
         {variant === 'interview' && (

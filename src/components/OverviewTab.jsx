@@ -1102,6 +1102,11 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                     variantProps={{
                       hoursCompleted: parseFloat(stu.approved_hours) || 0,
                       hoursRequired:  parseFloat(stu.hours_required)  || 200,
+                      // SHIFT-VIS-1: shift badge + open-shift duration from the shift log (read-only).
+                      shiftType: shiftTypeOf(log),
+                      openShift: isOpenShift(log),
+                      openDur:   isOpenShift(log) ? formatDuration(openShiftMs(log)) : null,
+                      overdue:   isOpenShift(log) && isClockoutMaybeOverdue(log),
                     }}
                   />
                 )
