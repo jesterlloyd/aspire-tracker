@@ -85,19 +85,19 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Ag
                   onClick={() => navigate(s.path)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
-                    padding: '10px 12px', marginBottom: 3, borderRadius: 10,
-                    borderLeft: `3px solid ${active ? 'var(--color-accent-primary, #1D2567)' : 'transparent'}`,
-                    borderTop: 'none', borderRight: 'none', borderBottom: 'none', cursor: 'pointer',
+                    padding: '10px 12px', marginBottom: 4, borderRadius: 10, border: 'none', cursor: 'pointer',
                     fontFamily: 'DM Sans, sans-serif', fontSize: 13.5, fontWeight: active ? 700 : 500,
-                    background: active ? 'rgba(29,37,103,0.10)' : 'transparent',
-                    boxShadow: active ? 'inset 0 0 0 1px rgba(29,37,103,0.14)' : 'none',
-                    color: active ? 'var(--color-accent-primary, #1D2567)' : 'var(--color-text-primary, #374151)',
+                    // Active = solid navy pill with white text/icon (unmistakable). Inactive = quiet.
+                    background: active ? 'var(--color-accent-primary, #1D2567)' : 'transparent',
+                    boxShadow: active ? '0 1px 3px rgba(29,37,103,0.30)' : 'none',
+                    color: active ? '#ffffff' : 'var(--color-text-primary, #374151)',
                     transition: 'background 0.15s, color 0.15s, box-shadow 0.15s',
                   }}
-                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--color-bg-hover, #f4f3f1)' }}
+                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--color-bg-hover, #f1efe9)' }}
                   onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
                 >
-                  {Icon && <Icon size={16} strokeWidth={active ? 2.4 : 2} style={{ flexShrink: 0 }} />}
+                  {Icon && <Icon size={16} strokeWidth={active ? 2.4 : 2}
+                    style={{ flexShrink: 0, color: active ? '#ffffff' : 'var(--color-accent-primary, #1D2567)' }} />}
                   {s.label}
                 </button>
               </Fragment>
