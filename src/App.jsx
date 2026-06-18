@@ -10,7 +10,7 @@ import InterviewRubricTab from './components/InterviewRubricTab'
 import RotationTab from './components/RotationTab'
 import EvaluationTab from './components/EvaluationTab'
 import AddStudentModal from './components/AddStudentModal'
-import UnifiedNav, { RefreshHint } from './components/UnifiedNav'
+import UnifiedNav from './components/UnifiedNav'
 import Header from './components/Header/Header'
 import SettingsShell from './components/settings/SettingsShell'
 import NewCohortModal from './components/NewCohortModal'
@@ -40,7 +40,6 @@ import { logActivity } from './lib/logActivity'
 import { safeWrite } from './lib/safeWrite'
 import ConnectPage from './pages/Connect'
 import CatalogPage from './components/catalog/CatalogPage'
-import WorkspaceBackLink from './components/ui/WorkspaceBackLink'
 
 /*
   COHORT ISOLATION CONTRACT
@@ -787,29 +786,6 @@ function MainApp({ onLogout }) {
             }}
           />
         )}
-        {cohorts.length > 0 && activeTab === 'connect' && (
-          <div style={{
-            background: 'var(--bg-card,#FAFAF7)',
-            borderBottom: '1px solid var(--border-divider,rgba(29,37,103,0.08))',
-            padding: '0 32px', height: 44,
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            fontFamily: 'DM Sans, sans-serif', flexShrink: 0,
-          }}>
-            <WorkspaceBackLink path={backPath} label={backLabel} />
-            <RefreshHint onClick={() => connectRefreshRef.current?.()} tooltipLabel="Refresh Connect data" />
-          </div>
-        )}
-        {cohorts.length > 0 && activeTab === 'catalog' && (
-          <div style={{
-            background: 'var(--bg-card,#FAFAF7)',
-            borderBottom: '1px solid var(--border-divider,rgba(29,37,103,0.08))',
-            padding: '0 32px', height: 44,
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            fontFamily: 'DM Sans, sans-serif', flexShrink: 0,
-          }}>
-            <WorkspaceBackLink path={backPath} label={backLabel} />
-          </div>
-        )}
       </div>
 
       <main className="app-main">
@@ -904,12 +880,14 @@ function MainApp({ onLogout }) {
                 cohortId={activeCohortId}
                 onNavigateToStudent={id => { setFocusStudentId(id); switchTab('profiles') }}
                 refreshRef={connectRefreshRef}
+                backPath={backPath}
+                backLabel={backLabel}
               />
             )}
 
             {/* CATALOG-1: read-only ASPIRE Catalog (Owner/Admin gated by RLS + endpoint). */}
             {activeTab === 'catalog' && (
-              <CatalogPage />
+              <CatalogPage backPath={backPath} backLabel={backLabel} />
             )}
           </>
         )}

@@ -6,6 +6,7 @@ import {
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { FilterKPICard } from '../KPIBand'
+import WorkspaceBackLink from '../ui/WorkspaceBackLink'
 
 // CATALOG-1 — Read-only ASPIRE Catalog browse UI (Owner/Admin only).
 //
@@ -52,7 +53,7 @@ function fileIcon(label) {
   return <FileText size={16} strokeWidth={1.9} /> // PDF / default
 }
 
-export default function CatalogPage() {
+export default function CatalogPage({ backPath = '/aggregate', backLabel = 'Aggregate' }) {
   const { isOwner, isAdmin, isInterviewer } = useAuth()
   const canView = isOwner || isAdmin || isInterviewer  // read access (Interviewers included)
   const canManage = isOwner || isAdmin                  // upload / edit / move / feature / pin / remove
@@ -325,6 +326,10 @@ export default function CatalogPage() {
 
   return (
     <div style={{ padding: '4px 24px 40px', maxWidth: 1280, margin: '0 auto', fontFamily: F }}>
+      {/* Return control — on the page background, no utility bar. */}
+      <div style={{ marginBottom: 12 }}>
+        <WorkspaceBackLink path={backPath} label={backLabel} />
+      </div>
       {/* Header */}
       <div style={{ marginBottom: 18, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>

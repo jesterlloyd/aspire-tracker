@@ -9,10 +9,12 @@ import OutreachView from '../components/connect/OutreachView'
 import BroadcastsView from '../components/connect/BroadcastsView'
 import { useToast } from '../hooks/useToast'
 import { ToastContainer } from '../components/Toast'
+import { RefreshHint } from '../components/UnifiedNav'
+import WorkspaceBackLink from '../components/ui/WorkspaceBackLink'
 
 const F = 'DM Sans, sans-serif'
 
-export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef }) {
+export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef, backPath = '/aggregate', backLabel = 'Aggregate' }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { toasts, removeToast, toast } = useToast()
@@ -72,6 +74,11 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef 
 
       {/* Page header */}
       <div style={{ padding: '12px 28px 0', flexShrink: 0 }}>
+        {/* Return control (left) + refresh (right) — on the page background, no utility bar. */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+          <WorkspaceBackLink path={backPath} label={backLabel} />
+          <RefreshHint onClick={handleRefresh} tooltipLabel="Refresh Connect data" />
+        </div>
         <div style={{ marginBottom: 12 }}>
           <h1 style={{
             margin: 0, fontSize: 24, fontWeight: 700,
