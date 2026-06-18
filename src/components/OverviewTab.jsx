@@ -13,8 +13,6 @@ import EmptyState from './EmptyState'
 import StudentCard from './StudentCard'
 import { isShiftCurrentlyActive } from '../lib/shiftWindows'
 import { shiftTypeOf, shiftBadge, isOpenShift, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../lib/shiftStatus'
-import { useAuth } from '../contexts/AuthContext'
-import OpenShiftReview from './OpenShiftReview'
 import { Clock, GraduationCap, MapPin, Users, Copy } from 'lucide-react'
 
 // ── Capacity Coverage Gauge ───────────────────────────────────────────────────
@@ -530,10 +528,6 @@ function openMailto(bcc, body) {
 }
 
 export default function OverviewTab({ students, units, onStudentUpdate, cohortId, cohort, toast, onSelectStudent }) {
-  // CLOCKOUT-DETECT-1: the Open Shift Review detector is Owner/Admin-only (shows email
-  // availability + attendance/clock-in status — not for Interviewers/students).
-  const { isOwner, isAdmin } = useAuth()
-  const canReviewOpenShifts = isOwner || isAdmin
   const [unitGroupsOpen,   setUnitGroupsOpen]   = useState({})
   const [schoolGroupsOpen, setSchoolGroupsOpen] = useState({})
   const [unitStatusFilter, setUnitStatusFilter] = useState('all')
@@ -1119,16 +1113,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
               })}
             </div>
           </div>
-        )}
-
-        {/* CLOCKOUT-DETECT-1 — read-only Open Shift Review (Owner/Admin only). Full open-shift
-            population (in_progress) classified via shiftStatus.js; no email/cron/write. */}
-        {canReviewOpenShifts && (
-          <OpenShiftReview
-            openLogs={campusLifecycleLogs}
-            students={students}
-            onSelectStudent={onSelectStudent}
-          />
         )}
 
       </div>
