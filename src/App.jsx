@@ -40,6 +40,7 @@ import { logActivity } from './lib/logActivity'
 import { safeWrite } from './lib/safeWrite'
 import ConnectPage from './pages/Connect'
 import CatalogPage from './components/catalog/CatalogPage'
+import WorkspaceBackLink from './components/ui/WorkspaceBackLink'
 
 /*
   COHORT ISOLATION CONTRACT
@@ -794,23 +795,7 @@ function MainApp({ onLogout }) {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             fontFamily: 'DM Sans, sans-serif', flexShrink: 0,
           }}>
-            <button
-              onClick={() => navigate(backPath)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 13, fontWeight: 500, color: '#6B7280',
-                padding: '4px 0', fontFamily: 'DM Sans, sans-serif',
-                transition: 'color 0.15s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.color = '#1D2567'}
-              onMouseLeave={e => e.currentTarget.style.color = '#6B7280'}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-              Back to {backLabel}
-            </button>
+            <WorkspaceBackLink path={backPath} label={backLabel} />
             <RefreshHint onClick={() => connectRefreshRef.current?.()} tooltipLabel="Refresh Connect data" />
           </div>
         )}
@@ -822,23 +807,7 @@ function MainApp({ onLogout }) {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             fontFamily: 'DM Sans, sans-serif', flexShrink: 0,
           }}>
-            <button
-              onClick={() => navigate(backPath)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 13, fontWeight: 500, color: '#6B7280',
-                padding: '4px 0', fontFamily: 'DM Sans, sans-serif',
-                transition: 'color 0.15s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.color = '#1D2567'}
-              onMouseLeave={e => e.currentTarget.style.color = '#6B7280'}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-              Back to {backLabel}
-            </button>
+            <WorkspaceBackLink path={backPath} label={backLabel} />
           </div>
         )}
       </div>

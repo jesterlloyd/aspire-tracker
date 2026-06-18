@@ -9,7 +9,7 @@
 // data fetching, API calls, theme persistence, or cohort/operational state.
 import { useEffect, Fragment } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Settings, Monitor, Users, FileText, Info } from 'lucide-react'
+import { Settings, Monitor, Users, FileText, Info } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { visibleSections } from './settingsSections'
 import GeneralPanel from './GeneralPanel'
@@ -18,6 +18,7 @@ import AccountsAccessPanel from './AccountsAccessPanel'
 import ToursHelpPanel from './ToursHelpPanel'
 import KnowledgeCenterPanel from './KnowledgeCenterPanel'
 import SurfaceCard from '../ui/SurfaceCard'
+import WorkspaceBackLink from '../ui/WorkspaceBackLink'
 
 // Rail icons (lucide-react, all already used elsewhere in the project).
 const SECTION_ICONS = {
@@ -45,25 +46,18 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Ag
 
   return (
     <div style={{ padding: '20px 32px 40px', fontFamily: 'DM Sans, sans-serif' }}>
-      {/* Back-to-workspace affordance (reuses MainApp's prior-workspace path) */}
-      <button
-        onClick={() => navigate(backPath)}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          background: 'none', border: 'none', cursor: 'pointer',
-          fontSize: 13, fontWeight: 500, color: 'var(--color-text-secondary, #6b7280)',
-          padding: '4px 0', fontFamily: 'DM Sans, sans-serif', transition: 'color 0.15s',
-        }}
-        onMouseEnter={e => e.currentTarget.style.color = 'var(--color-accent-primary, #1D2567)'}
-        onMouseLeave={e => e.currentTarget.style.color = 'var(--color-text-secondary, #6b7280)'}
-      >
-        <ChevronLeft size={14} strokeWidth={2.2} />
-        Back to {backLabel}
-      </button>
+      {/* Back-to-workspace affordance — shared component (reuses MainApp's prior-workspace path) */}
+      <WorkspaceBackLink path={backPath} label={backLabel} />
 
-      <h1 style={{ margin: '8px 0 18px', fontSize: 24, fontWeight: 700, color: 'var(--color-text-primary, #191919)' }}>
-        Settings
-      </h1>
+      {/* Header — title + subtitle for a clearer, more polished page hierarchy. */}
+      <div style={{ margin: '10px 0 24px' }}>
+        <h1 style={{ margin: 0, fontSize: 25, fontWeight: 700, color: 'var(--color-text-primary, #191919)', letterSpacing: '-0.01em' }}>
+          Settings
+        </h1>
+        <p style={{ margin: '5px 0 0', fontSize: 14, color: 'var(--color-text-secondary, #6b7280)', lineHeight: 1.5 }}>
+          Manage your ASPIRE Intelligence workspace — preferences, access, and resources.
+        </p>
+      </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 28, alignItems: 'flex-start' }}>
         {/* Navigation rail — workspace-grade: icons, grouping, active/hover states.
@@ -91,18 +85,19 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Ag
                   onClick={() => navigate(s.path)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
-                    padding: '9px 11px', marginBottom: 2, borderRadius: 9,
+                    padding: '10px 12px', marginBottom: 3, borderRadius: 10,
                     borderLeft: `3px solid ${active ? 'var(--color-accent-primary, #1D2567)' : 'transparent'}`,
-                    border: 'none', cursor: 'pointer',
-                    fontFamily: 'DM Sans, sans-serif', fontSize: 13.5, fontWeight: active ? 600 : 500,
-                    background: active ? 'var(--color-bg-elevated, #eef2fb)' : 'transparent',
+                    borderTop: 'none', borderRight: 'none', borderBottom: 'none', cursor: 'pointer',
+                    fontFamily: 'DM Sans, sans-serif', fontSize: 13.5, fontWeight: active ? 700 : 500,
+                    background: active ? 'rgba(29,37,103,0.10)' : 'transparent',
+                    boxShadow: active ? 'inset 0 0 0 1px rgba(29,37,103,0.14)' : 'none',
                     color: active ? 'var(--color-accent-primary, #1D2567)' : 'var(--color-text-primary, #374151)',
-                    transition: 'background 0.15s, color 0.15s',
+                    transition: 'background 0.15s, color 0.15s, box-shadow 0.15s',
                   }}
-                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--color-bg-hover, #f9fafb)' }}
+                  onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--color-bg-hover, #f4f3f1)' }}
                   onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
                 >
-                  {Icon && <Icon size={16} strokeWidth={2} style={{ flexShrink: 0 }} />}
+                  {Icon && <Icon size={16} strokeWidth={active ? 2.4 : 2} style={{ flexShrink: 0 }} />}
                   {s.label}
                 </button>
               </Fragment>
