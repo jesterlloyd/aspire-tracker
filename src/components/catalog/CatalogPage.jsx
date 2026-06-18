@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   Search, FileText, FileType2, ExternalLink, Star, Pin, Folder, Clock, Download, Plus, X,
-  MoreHorizontal, Pencil, Link2, FolderInput, Archive, RotateCcw, Check,
+  MoreHorizontal, Pencil, Link2, FolderInput, Archive, RotateCcw, Check, ChevronUp, ChevronDown,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -77,6 +77,9 @@ export default function CatalogPage() {
   const [confirmRemove, setConfirmRemove] = useState(null)
   const [actionMsg, setActionMsg] = useState(null)      // { tone:'ok'|'err', text }
   const [highlightSlug, setHighlightSlug] = useState(null)
+  // CATALOG-3: editable categories (display_name + sort_order) from catalog_categories.
+  const [cats, setCats] = useState([])
+  const [showCats, setShowCats] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -102,6 +105,30 @@ export default function CatalogPage() {
   }, [showInactive])
 
   useEffect(() => { if (canView) load(); else setLoading(false) }, [canView, load])
+
+  // CATALOG-3: load editable categories (read policy allows Owner/Admin/Interviewer).
+  const loadCats = useCallback(async () => {
+    const { data } = await supabase
+      .from('catalog_categories')
+      .select('slug, display_name, description, sort_order')
+      .order('sort_order', { ascending: true })
+    setCats(data || [])
+  }, [])
+  useEffect(() => { if (canView) loadCats() }, [canView, loadCats])
+
+  // Category label/order derived from catalog_categories, with the static list as a fallback
+  // until it loads. Filtering/grouping/selection keep operating on the stable SLUG (c.key).
+  const storedCats = useMemo(
+    () => (cats.length ? cats.map(c => ({ key: c.slug, label: c.display_name })) : UPLOAD_CATEGORIES),
+    [cats]
+  )
+  const chipCats = useMemo(() => [{ key: 'all', label: 'All' }, ...storedCats], [storedCats])
+  const catLabelMap = useMemo(() => {
+    const m = { ...CATEGORY_LABEL }
+    for (const c of cats) m[c.slug] = c.display_name
+    return m
+  }, [cats])
+  const catLabel = useCallback((slug) => catLabelMap[slug] || slug, [catLabelMap])
 
   // Deep-link: /catalog?resource=<slug> highlights + scrolls to that resource (no file access).
   useEffect(() => {
@@ -169,7 +196,7 @@ export default function CatalogPage() {
         arr.sort((a, b) => (a.title || '').localeCompare(b.title || '')); break
       case 'category':
         arr.sort((a, b) =>
-          (CATEGORY_LABEL[a.category] || a.category || '').localeCompare(CATEGORY_LABEL[b.category] || b.category || '')
+          (catLabel(a.category) || '').localeCompare(catLabel(b.category) || '')
           || (a.title || '').localeCompare(b.title || '')); break
       case 'featured':
         arr.sort((a, b) => (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0)); break
@@ -180,7 +207,7 @@ export default function CatalogPage() {
         arr.sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0)); break
     }
     return arr
-  }, [filtered, sortBy])
+  }, [filtered, sortBy, catLabel])
 
   // After data is ready, scroll a deep-linked resource into view.
   useEffect(() => {
@@ -280,13 +307,13 @@ export default function CatalogPage() {
   // Bundle of metadata actions handed to each row's "…" menu.
   const rowActions = useMemo(() => ({
     onEdit: (r) => { setActionMsg(null); setEditing(r) },
-    onMove: (r, cat) => runUpdate(r.id, { category: cat }, `Moved to ${CATEGORY_LABEL[cat] || cat}.`),
+    onMove: (r, cat) => runUpdate(r.id, { category: cat }, `Moved to ${catLabel(cat)}.`),
     onCopyLink: copyLink,
     onToggleFeatured: (r) => runUpdate(r.id, { is_featured: !r.is_featured }, r.is_featured ? 'Unfeatured.' : 'Featured.'),
     onTogglePinned: (r) => runUpdate(r.id, { is_pinned: !r.is_pinned }, r.is_pinned ? 'Unpinned.' : 'Pinned.'),
     onRemove: (r) => { setActionMsg(null); setConfirmRemove(r) },
     onReactivate: (r) => runUpdate(r.id, { is_active: true }, 'Resource restored.'),
-  }), [runUpdate, copyLink])
+  }), [runUpdate, copyLink, catLabel])
 
   if (!canView) {
     return (
@@ -306,32 +333,56 @@ export default function CatalogPage() {
             Curated resources, guides, forms, and documents for the ASPIRE Program.
           </p>
         </div>
-        {/* Owner/Admin only — the upload endpoint re-verifies server-side. */}
+        {/* Owner/Admin only — the upload/category endpoints re-verify server-side. */}
         {canManage && (
-          <button
-            type="button"
-            onClick={() => setShowAdd(true)}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0,
-              padding: '9px 16px', background: NAVY, color: '#fff', border: 'none',
-              borderRadius: 9, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer',
-            }}
-          >
-            <Plus size={15} strokeWidth={2.2} /> Add resource
-          </button>
+          <div style={{ display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setShowCats(true)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '9px 14px', background: '#fff', color: NAVY, border: `1px solid ${NAVY}`,
+                borderRadius: 9, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer',
+              }}
+            >
+              <FolderInput size={15} strokeWidth={2} /> Manage categories
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAdd(true)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '9px 16px', background: NAVY, color: '#fff', border: 'none',
+                borderRadius: 9, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer',
+              }}
+            >
+              <Plus size={15} strokeWidth={2.2} /> Add resource
+            </button>
+          </div>
         )}
       </div>
 
       {showAdd && (
         <AddResourceModal
+          categories={storedCats}
           onClose={() => setShowAdd(false)}
           onCreated={() => { setShowAdd(false); load() }}
+        />
+      )}
+
+      {showCats && (
+        <ManageCategoriesModal
+          cats={cats}
+          onClose={() => setShowCats(false)}
+          onSaved={() => { loadCats() }}
+          setActionMsg={setActionMsg}
         />
       )}
 
       {editing && (
         <EditResourceModal
           resource={editing}
+          categories={storedCats}
           onClose={() => setEditing(null)}
           onSaved={async (patch) => {
             const ok = await runUpdate(editing.id, patch, 'Resource updated.')
@@ -370,7 +421,7 @@ export default function CatalogPage() {
 
       {/* Category chips */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-        {CATEGORIES.map(c => {
+        {chipCats.map(c => {
           const on = category === c.key
           return (
             <button
@@ -483,7 +534,7 @@ export default function CatalogPage() {
             // Grouped-by-category view (Categories KPI). Category chip + search + KPI + sort still
             // apply via `sorted`; we just section the same rows by category.
             <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-              {CATEGORIES.filter(c => c.key !== 'all').map(c => {
+              {storedCats.map(c => {
                 const list = sorted.filter(r => r.category === c.key)
                 if (list.length === 0) return null
                 return (
@@ -493,7 +544,7 @@ export default function CatalogPage() {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                       {list.map(r => (
-                        <ResourceRow key={r.id} r={r} busy={busy} onAccess={accessResource} actions={rowActions} canManage={canManage} highlight={r.slug === highlightSlug} />
+                        <ResourceRow key={r.id} r={r} busy={busy} onAccess={accessResource} actions={rowActions} canManage={canManage} categories={storedCats} catLabel={catLabel} highlight={r.slug === highlightSlug} />
                       ))}
                     </div>
                   </div>
@@ -503,7 +554,7 @@ export default function CatalogPage() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {sorted.map(r => (
-                <ResourceRow key={r.id} r={r} busy={busy} onAccess={accessResource} actions={rowActions} canManage={canManage} highlight={r.slug === highlightSlug} />
+                <ResourceRow key={r.id} r={r} busy={busy} onAccess={accessResource} actions={rowActions} canManage={canManage} categories={storedCats} catLabel={catLabel} highlight={r.slug === highlightSlug} />
               ))}
             </div>
           )}
@@ -577,11 +628,11 @@ function RailEmpty({ children }) {
 // bytes straight to Supabase via uploadToSignedUrl, (3) POST phase 'commit' so the server
 // verifies the object and inserts the row. The client never holds a broad Storage credential
 // and never writes catalog_resources directly.
-function AddResourceModal({ onClose, onCreated }) {
+function AddResourceModal({ categories = UPLOAD_CATEGORIES, onClose, onCreated }) {
   const [file, setFile] = useState(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [category, setCategory] = useState(UPLOAD_CATEGORIES[0].key)
+  const [category, setCategory] = useState(categories[0].key)
   const [tagsStr, setTagsStr] = useState('')
   const [isFeatured, setIsFeatured] = useState(false)
   const [isPinned, setIsPinned] = useState(false)
@@ -680,7 +731,7 @@ function AddResourceModal({ onClose, onCreated }) {
             <div style={{ flex: '1 1 200px' }}>
               <label style={labelStyle}>Category</label>
               <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...fieldStyle, cursor: 'pointer' }}>
-                {UPLOAD_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                {categories.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
               </select>
             </div>
             <div style={{ flex: '1 1 200px' }}>
@@ -726,7 +777,7 @@ function AddResourceModal({ onClose, onCreated }) {
 // One resource row. Open (inline) is primary; Download (attachment) is offered for
 // internal_file only. External links show a single "Open external" action. Both internal
 // actions route through onAccess(r, mode) → the slug-only signed-URL endpoint.
-function ResourceRow({ r, busy, onAccess, actions, canManage, highlight }) {
+function ResourceRow({ r, busy, onAccess, actions, canManage, categories, catLabel, highlight }) {
   const external = r.resource_type === 'external_link'
   const openBusy = busy?.id === r.id && busy?.mode === 'open'
   const dlBusy = busy?.id === r.id && busy?.mode === 'download'
@@ -777,7 +828,7 @@ function ResourceRow({ r, busy, onAccess, actions, canManage, highlight }) {
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 11, fontWeight: 600, color: '#4A5560', background: '#F4F3F1', borderRadius: 8, padding: '2px 9px' }}>
-            {CATEGORY_LABEL[r.category] || r.category}
+            {catLabel ? catLabel(r.category) : (CATEGORY_LABEL[r.category] || r.category)}
           </span>
           <span style={{ fontSize: 11.5, color: '#9ca3af' }}>Updated {fmtDate(r.updated_at)}</span>
           {external && (
@@ -817,7 +868,7 @@ function ResourceRow({ r, busy, onAccess, actions, canManage, highlight }) {
             <Download size={13} strokeWidth={2} /> {dlBusy ? 'Preparing…' : 'Download'}
           </button>
         )}
-        {actions && <RowMenu r={r} external={external} inactive={inactive} onAccess={onAccess} actions={actions} canManage={canManage} />}
+        {actions && <RowMenu r={r} external={external} inactive={inactive} onAccess={onAccess} actions={actions} canManage={canManage} categories={categories} />}
       </div>
     </div>
   )
@@ -825,7 +876,7 @@ function ResourceRow({ r, busy, onAccess, actions, canManage, highlight }) {
 
 // Row "…" action menu (Owner/Admin). Metadata-only actions + Open/Download/Copy-link. NO
 // rename-storage, hard-delete, or broad-share entries. Closes on outside click / Escape.
-function RowMenu({ r, external, inactive, onAccess, actions, canManage }) {
+function RowMenu({ r, external, inactive, onAccess, actions, canManage, categories = UPLOAD_CATEGORIES }) {
   const [open, setOpen] = useState(false)
   const [moveOpen, setMoveOpen] = useState(false)
   const wrapRef = useRef(null)
@@ -902,7 +953,7 @@ function RowMenu({ r, external, inactive, onAccess, actions, canManage }) {
               </button>
               {moveOpen && (
                 <div style={{ padding: '2px 0 2px 0', background: '#faf9f7' }}>
-                  {UPLOAD_CATEGORIES.map(c => (
+                  {categories.map(c => (
                     <button key={c.key} type="button"
                       style={{ ...itemStyle, padding: '7px 12px 7px 34px', color: c.key === r.category ? NAVY : '#374151', fontWeight: c.key === r.category ? 700 : 400 }}
                       onClick={() => run(() => actions.onMove(r, c.key))}>
@@ -935,10 +986,10 @@ function RowMenu({ r, external, inactive, onAccess, actions, canManage }) {
 // CATALOG-2C — Edit details (metadata only). Sends only title/description/category/tags/
 // featured/pinned to the strict-whitelist endpoint. Slug, storage_path, and the file are never
 // touched (copied links stay stable; the file stays at its original key).
-function EditResourceModal({ resource, onClose, onSaved }) {
+function EditResourceModal({ resource, categories = UPLOAD_CATEGORIES, onClose, onSaved }) {
   const [title, setTitle] = useState(resource.title || '')
   const [description, setDescription] = useState(resource.description || '')
-  const [category, setCategory] = useState(resource.category || UPLOAD_CATEGORIES[0].key)
+  const [category, setCategory] = useState(resource.category || categories[0].key)
   const [tagsStr, setTagsStr] = useState(Array.isArray(resource.tags) ? resource.tags.join(', ') : '')
   const [isFeatured, setIsFeatured] = useState(!!resource.is_featured)
   const [isPinned, setIsPinned] = useState(!!resource.is_pinned)
@@ -993,7 +1044,7 @@ function EditResourceModal({ resource, onClose, onSaved }) {
             <div style={{ flex: '1 1 200px' }}>
               <label style={labelStyle}>Category</label>
               <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...fieldStyle, cursor: 'pointer' }}>
-                {UPLOAD_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                {categories.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
               </select>
             </div>
             <div style={{ flex: '1 1 200px' }}>
@@ -1052,6 +1103,138 @@ function RemoveConfirmDialog({ resource, onCancel, onConfirm }) {
           <button type="button" onClick={async () => { setWorking(true); try { await onConfirm() } finally { setWorking(false) } }} disabled={working}
             style={{ padding: '9px 18px', background: '#991b1b', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: working ? 'default' : 'pointer', opacity: working ? 0.6 : 1 }}>
             {working ? 'Removing…' : 'Remove'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// CATALOG-3 — Manage Categories (Owner/Admin). Rename display_name (+ optional description) and
+// reorder via up/down. Saves through the server endpoint: renames as per-category metadata
+// updates, reorder as ONE coherent write of the full ordered slug list. NO Add, NO Archive, NO
+// slug editing — slug is shown read-only as the stable anchor. No resource row or Storage touch.
+function ManageCategoriesModal({ cats, onClose, onSaved, setActionMsg }) {
+  const [draft, setDraft] = useState(() => cats.map(c => ({
+    slug: c.slug, display_name: c.display_name || '', description: c.description || '',
+  })))
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState(null)
+
+  const move = (i, dir) => {
+    const j = i + dir
+    if (j < 0 || j >= draft.length) return
+    const next = draft.slice()
+    ;[next[i], next[j]] = [next[j], next[i]]
+    setDraft(next)
+  }
+  const setField = (i, field, val) => {
+    const next = draft.slice()
+    next[i] = { ...next[i], [field]: val }
+    setDraft(next)
+  }
+
+  async function post(body) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) throw new Error('Your session expired. Please sign in again.')
+    const res = await fetch('/api/catalog-category-update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify(body),
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(json.error || 'Save failed.')
+    return json
+  }
+
+  async function save() {
+    setErr(null)
+    if (draft.some(d => !d.display_name.trim())) { setErr('Display name is required for every category.'); return }
+    const origBySlug = Object.fromEntries(cats.map(c => [c.slug, c]))
+    setSaving(true)
+    try {
+      // 1) Renames (display_name / description changes) — per-category metadata updates.
+      for (const d of draft) {
+        const o = origBySlug[d.slug] || {}
+        const dn = d.display_name.trim()
+        const desc = d.description.trim()
+        if (dn !== (o.display_name || '') || desc !== (o.description || '')) {
+          await post({ action: 'rename', slug: d.slug, display_name: dn, description: desc })
+        }
+      }
+      // 2) Reorder — one coherent write of the full ordered slug list (only if order changed).
+      const newOrder = draft.map(d => d.slug)
+      const oldOrder = cats.map(c => c.slug)
+      if (JSON.stringify(newOrder) !== JSON.stringify(oldOrder)) {
+        await post({ action: 'reorder', order: newOrder })
+      }
+      setActionMsg?.({ tone: 'ok', text: 'Categories updated.' })
+      onSaved()
+      onClose()
+    } catch (e) {
+      setErr(e.message || 'Save failed.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputStyle = {
+    flex: 1, minWidth: 0, boxSizing: 'border-box', padding: '7px 10px', fontSize: 13, fontFamily: F,
+    color: '#191919', border: '1px solid #e2e0d9', borderRadius: 8, background: '#fff', outline: 'none',
+  }
+  const arrowBtn = (disabled) => ({
+    display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 22,
+    background: '#fff', color: disabled ? '#cbd0d6' : '#4A5560', border: '1px solid #e2e0d9',
+    borderRadius: 6, cursor: disabled ? 'default' : 'pointer',
+  })
+
+  return (
+    <div className="modal-overlay" onMouseDown={() => !saving && onClose()}>
+      <div className="modal" role="dialog" aria-modal="true" style={{ maxWidth: 580, fontFamily: F }} onMouseDown={e => e.stopPropagation()}>
+        <div className="modal-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1D2567', fontFamily: F }}>Manage categories</h2>
+          <button type="button" onClick={() => !saving && onClose()} aria-label="Close"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', display: 'flex', padding: 4 }}>
+            <X size={18} strokeWidth={2} />
+          </button>
+        </div>
+
+        <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 2 }}>
+            Rename display names and reorder. Category IDs (slugs) are fixed, so existing resources and links keep working.
+          </div>
+          {draft.map((d, i) => (
+            <div key={d.slug} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', background: '#faf9f7', border: '1px solid #eee7da', borderRadius: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
+                <button type="button" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)} style={arrowBtn(i === 0)}>
+                  <ChevronUp size={14} strokeWidth={2.2} />
+                </button>
+                <button type="button" aria-label="Move down" disabled={i === draft.length - 1} onClick={() => move(i, 1)} style={arrowBtn(i === draft.length - 1)}>
+                  <ChevronDown size={14} strokeWidth={2.2} />
+                </button>
+              </div>
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <input type="text" value={d.display_name} onChange={e => setField(i, 'display_name', e.target.value)}
+                  aria-label={`Display name for ${d.slug}`} placeholder="Display name" style={inputStyle} />
+                <input type="text" value={d.description} onChange={e => setField(i, 'description', e.target.value)}
+                  aria-label={`Description for ${d.slug}`} placeholder="Description (optional)" style={{ ...inputStyle, fontSize: 12, color: '#6b7280' }} />
+              </div>
+              <span style={{ flexShrink: 0, fontSize: 10.5, color: '#9ca3af', fontFamily: 'monospace' }}>{d.slug}</span>
+            </div>
+          ))}
+
+          {err && (
+            <div style={{ fontSize: 12.5, borderRadius: 8, padding: '9px 12px', background: '#FEECEC', color: '#991b1b', border: '1px solid #f3c6c6' }}>
+              {err}
+            </div>
+          )}
+        </div>
+
+        <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button className="btn-outline-modal" onClick={() => !saving && onClose()} disabled={saving}>Cancel</button>
+          <button type="button" onClick={save} disabled={saving}
+            style={{ padding: '9px 18px', background: NAVY, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: F, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.6 : 1 }}>
+            {saving ? 'Saving…' : 'Save categories'}
           </button>
         </div>
       </div>
