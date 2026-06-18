@@ -27,8 +27,10 @@ function fmtCheckedIn(iso) {
   return sameDay ? time : `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${time}`
 }
 
-export default function OpenShiftReview({ openLogs = [], students = [], onSelectStudent }) {
-  const [open, setOpen] = useState(false)
+export default function OpenShiftReview({ openLogs = [], students = [], onSelectStudent, defaultOpen = false }) {
+  // SHIFT-ACTIVITY-1b: callers can default the list expanded (Rotation > Activity). Detection,
+  // classification, thresholds, and wording are unchanged — only the initial open state.
+  const [open, setOpen] = useState(defaultOpen)
 
   const rows = useMemo(() => {
     const list = openLogs.map(log => {

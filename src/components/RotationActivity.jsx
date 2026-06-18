@@ -46,7 +46,8 @@ export default function RotationActivity({ students = [], cohortId }) {
           No open shifts right now.
         </div>
       ) : (
-        <OpenShiftReview openLogs={openLogs} students={students} />
+        // SHIFT-ACTIVITY-1b: Activity is the operational home — show the list expanded by default.
+        <OpenShiftReview openLogs={openLogs} students={students} defaultOpen />
       )}
     </div>
   )
