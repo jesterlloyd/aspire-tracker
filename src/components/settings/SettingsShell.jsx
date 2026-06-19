@@ -9,7 +9,7 @@
 // data fetching, API calls, theme persistence, or cohort/operational state.
 import { useEffect, Fragment } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Settings, Monitor, Users, FileText, Info } from 'lucide-react'
+import { Settings, Monitor, Users, FileText, Info, Scale } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { visibleSections } from './settingsSections'
 import GeneralPanel from './GeneralPanel'
@@ -17,12 +17,13 @@ import AppearancePanel from './AppearancePanel'
 import AccountsAccessPanel from './AccountsAccessPanel'
 import ToursHelpPanel from './ToursHelpPanel'
 import KnowledgeCenterPanel from './KnowledgeCenterPanel'
+import PreceptorParityPanel from './PreceptorParityPanel'
 import SurfaceCard from '../ui/SurfaceCard'
 import WorkspaceBackLink from '../ui/WorkspaceBackLink'
 
 // Rail icons (lucide-react, all already used elsewhere in the project).
 const SECTION_ICONS = {
-  general: Settings, appearance: Monitor, accounts: Users, knowledge: FileText, tours: Info,
+  general: Settings, appearance: Monitor, accounts: Users, knowledge: FileText, preceptorParity: Scale, tours: Info,
 }
 
 export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Aggregate', onRestartTour }) {
@@ -107,11 +108,12 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Ag
 
         {/* Active panel. Knowledge Center is wider (table); existing panels keep
             their established max width and render unchanged. */}
-        <div style={{ flex: '1 1 360px', minWidth: 0, maxWidth: currentKey === 'knowledge' ? 1040 : 720 }}>
+        <div style={{ flex: '1 1 360px', minWidth: 0, maxWidth: ['knowledge', 'preceptorParity'].includes(currentKey) ? 1040 : 720 }}>
           {currentKey === 'general'    && <GeneralPanel />}
           {currentKey === 'appearance' && <AppearancePanel />}
           {currentKey === 'accounts'   && <AccountsAccessPanel />}
           {currentKey === 'knowledge'  && <KnowledgeCenterPanel />}
+          {currentKey === 'preceptorParity' && <PreceptorParityPanel />}
           {currentKey === 'tours'      && <ToursHelpPanel onRestartTour={onRestartTour} />}
         </div>
       </div>

@@ -13,6 +13,7 @@ export const SETTINGS_SECTIONS = [
   { key: 'appearance', label: 'Appearance',        path: '/settings/appearance', group: 'Workspace',      implemented: true,  visible: () => true },     // WS2.4: all authenticated users
   { key: 'accounts',   label: 'Accounts & Access', path: '/settings/accounts',   group: 'Administration', implemented: true,  visible: r => r.isAdmin }, // WS2.2: Owner/Admin only
   { key: 'knowledge',  label: 'Knowledge Center',  path: '/settings/knowledge',  group: 'Administration', implemented: true,  visible: r => r.isAdmin }, // KT-3a-1: Owner/Admin only
+  { key: 'preceptorParity', label: 'Preceptor Parity', path: '/settings/preceptor-parity', group: 'Administration', implemented: true, visible: r => r.isAdmin }, // PRECEPTOR-MODEL-2: read-only Owner/Admin diagnostic
   { key: 'tours',      label: 'Tours & Help',      path: '/settings/tours',      group: 'Support',        implemented: true,  visible: () => true },     // WS2.3: all authenticated users
   // Future sections (NOT rendered yet — no disabled/"coming soon" placeholders):
   { key: 'keith',     label: 'Keith',             path: '/settings/keith',     implemented: false, visible: r => r.isAdmin },
