@@ -203,23 +203,11 @@ async function _handler(req, res, startMs) {
     const { assignment_id, student_id, survey_url } = item;
 
     try {
-      // 5a. Idempotency: skip if already sent
-      const { data: existingLog } = await supabaseAdmin
-        .from('notification_log')
-        .select('id')
-        .eq('notification_type', 'evaluation_invitation_sent')
-        .filter('metadata->>assignment_id', 'eq', assignment_id)
-        .limit(1);
-
-      if (existingLog && existingLog.length > 0) {
-        skipped.push({ assignment_id, student_id, reason: 'Already sent' });
-        continue;
-      }
-
-      // 5b. Assignment validation — read only, no mutation
+      // 5a. Assignment validation — read only, no mutation. Fetched FIRST so the idempotency check
+      //     (5b) can be scoped to the current invitation cycle via invited_at.
       const { data: assignment, error: assignErr } = await supabaseAdmin
         .from('evaluation_assignments')
-        .select('id, student_id, instrument_id, timepoint, status, expires_at')
+        .select('id, student_id, instrument_id, timepoint, status, expires_at, invited_at')
         .eq('id', assignment_id)
         .single();
 
@@ -245,6 +233,27 @@ async function _handler(req, res, startMs) {
       }
       if (new Date(assignment.expires_at) < new Date()) {
         failed.push({ assignment_id, student_id, reason: 'Assignment has expired' });
+        continue;
+      }
+
+      // 5b. Idempotency: skip only if THIS invitation cycle has already been emailed. Keyed on
+      //     assignment_id AND sent_at >= the assignment's current invited_at. A reissue REUSES the
+      //     assignment_id and refreshes invited_at, so a send logged in a PRIOR cycle (the original,
+      //     expired/uncompleted invitation) must NOT suppress the reissued send. Without this cycle
+      //     scope the reissued "Send to student" was silently skipped — never reaching Resend.
+      let dedupQuery = supabaseAdmin
+        .from('notification_log')
+        .select('id')
+        .eq('notification_type', 'evaluation_invitation_sent')
+        .filter('metadata->>assignment_id', 'eq', assignment_id)
+        .limit(1);
+      if (assignment.invited_at) {
+        dedupQuery = dedupQuery.gte('sent_at', assignment.invited_at);
+      }
+      const { data: existingLog } = await dedupQuery;
+
+      if (existingLog && existingLog.length > 0) {
+        skipped.push({ assignment_id, student_id, reason: 'Already sent' });
         continue;
       }
 

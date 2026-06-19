@@ -986,15 +986,24 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
       try { payload = await res.json() } catch { /* ignore */ }
       setSingleSendConfirmOpen(false)
       setSingleSendPhrase('')
-      if (res.ok && payload?.success) {
-        const name = `${surveyResult.student.firstName} ${surveyResult.student.lastName}`.trim()
-        const alreadySent = payload.summary?.total_skipped > 0 && payload.summary?.total_sent === 0
-        const sentMsg = alreadySent ? `Survey already sent to ${name}.` : `Survey sent to ${name}.`
+      const name = `${surveyResult.student.firstName} ${surveyResult.student.lastName}`.trim()
+      const s = payload?.summary || {}
+      if (res.ok && payload?.success && s.total_sent > 0) {
+        // A real email was actually sent this cycle.
+        const sentMsg = `Survey sent to ${name}.`
         setSingleSendState('sent')
         setSingleSendMsg(sentMsg)
         toast?.success('Survey sent', sentMsg)
+      } else if (res.ok && payload?.success && s.total_skipped > 0 && (s.total_failed || 0) === 0) {
+        // Nothing sent because this invitation cycle was already emailed (legitimate idempotency).
+        const skipMsg = `Survey already sent to ${name}.`
+        setSingleSendState('sent')
+        setSingleSendMsg(skipMsg)
+        toast?.success('Survey already sent', skipMsg)
       } else {
-        const errMsg = payload?.error || 'Send failed. Try again.'
+        // Nothing sent due to a failure (or unexpected zero result). Surface the specific safe reason
+        // (e.g. "Student has no email on file") rather than a misleading success.
+        const errMsg = payload?.failed?.[0]?.reason || payload?.error || 'Send failed. Try again.'
         setSingleSendState('error')
         setSingleSendMsg(errMsg)
         toast?.error('Survey not sent', errMsg)
