@@ -26,6 +26,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { buildCoordinatorWeeklyDigestEmail, formatDateRange } from '../../src/lib/notifications/templates/coordinatorWeeklyDigest.js';
+import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
 
 const FROM     = 'ASPIRE Intelligence <noreply@aspire-program.com>';
 const REPLY_TO = 'JesterLloyd.Bautista@cshs.org';
@@ -65,6 +66,12 @@ export default async function handler(req, res) {
   const now = new Date();
   console.log(`[coordinator-digest] cron run at ${now.toISOString()}`);
 
+  // CRON-OBS-1: best-effort heartbeat client, separate from the in-try `db` so the catch can
+  // record status='error'. getServiceClient() may throw on missing creds — guarded, non-fatal.
+  let hbDb = null;
+  try { hbDb = getServiceClient(); } catch { /* heartbeat unavailable; non-fatal */ }
+  const runId = await startCronRun(hbDb, 'coordinator-weekly-digest');
+
   try {
     const db     = getServiceClient();
     const resend = new Resend(process.env.RESEND_API_KEY);
@@ -103,6 +110,7 @@ export default async function handler(req, res) {
     if (eventsErr) {
       console.error('[coordinator-digest] events query error:', eventsErr);
       console.error('[coordinator-digest] events_query_error:', { error_message: eventsErr.message });
+      await finishCronRunError(hbDb, runId, eventsErr.message);
       return res.status(500).json({ error: eventsErr.message });
     }
 
@@ -133,6 +141,7 @@ export default async function handler(req, res) {
         duration_ms:                Date.now() - handlerStartTime,
         status:                     'completed_no_qualifying_events',
       });
+      await finishCronRunSuccess(hbDb, runId, { dry_run: isDryRun, event_count: 0, sent_count: 0 });
       if (isDryRun) {
         return res.status(200).json({
           dryRun:                   true,
@@ -174,6 +183,7 @@ export default async function handler(req, res) {
         error_code:    coordinatorsErr.code    || null,
         error_details: coordinatorsErr.details || null,
       });
+      await finishCronRunError(hbDb, runId, coordinatorsErr.message);
       return res.status(500).json({ error: coordinatorsErr.message });
     }
 
@@ -283,6 +293,7 @@ export default async function handler(req, res) {
         duration_ms:                Date.now() - handlerStartTime,
         status:                     'completed_no_recipients_resolved',
       });
+      await finishCronRunSuccess(hbDb, runId, { dry_run: isDryRun, event_count: events.length, coordinators_resolved: 0, sent_count: 0 });
       if (isDryRun) {
         return res.status(200).json({
           dryRun:                   true,
@@ -320,6 +331,7 @@ export default async function handler(req, res) {
         error_code:    recentLogsErr.code    || null,
         error_details: recentLogsErr.details || null,
       });
+      await finishCronRunError(hbDb, runId, recentLogsErr.message);
       return res.status(500).json({ error: recentLogsErr.message });
     }
 
@@ -558,6 +570,13 @@ export default async function handler(req, res) {
         skipped_reasons:            skippedReasons,
         duration_ms:                Date.now() - handlerStartTime,
       });
+      await finishCronRunSuccess(hbDb, runId, {
+        dry_run: true,
+        event_count: events.length,
+        coordinators_resolved: coordinatorEntries.length,
+        would_send_count: wouldSendCount,
+        skipped_count: skippedList.length,
+      });
       return res.status(200).json({
         dryRun:                   true,
         windowStart:              windowStart.toISOString(),
@@ -605,6 +624,14 @@ export default async function handler(req, res) {
       status:                     runStatus,
     });
 
+    await finishCronRunSuccess(hbDb, runId, {
+      dry_run: false,
+      event_count: events.length,
+      coordinators_resolved: coordinatorEntries.length,
+      sent_count: summary.sent,
+      skipped_count: summary.skipped,
+      failed_count: summary.failed,
+    });
     return res.status(200).json({
       success:        true,
       checkedAt:      now.toISOString(),
@@ -616,6 +643,7 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error('[coordinator-digest] unexpected error:', err);
+    await finishCronRunError(hbDb, runId, err.message);
     return res.status(500).json({ error: err.message });
   }
 }

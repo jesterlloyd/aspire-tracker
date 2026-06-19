@@ -7,6 +7,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { sendNotification } from '../../src/lib/notifications/index.js';
+import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -27,6 +28,7 @@ export default async function handler(req, res) {
 
   const now = new Date();
   console.log(`[teams-reminders] cron run at ${now.toISOString()}`);
+  const runId = await startCronRun(supabase, 'teams-invite-reminders');
 
   try {
     const { data: sessions, error } = await supabase
@@ -51,6 +53,7 @@ export default async function handler(req, res) {
 
     if (error) {
       console.error('[teams-reminders] query failed:', error);
+      await finishCronRunError(supabase, runId, error.message);
       return res.status(500).json({ error: error.message });
     }
 
@@ -66,6 +69,11 @@ export default async function handler(req, res) {
       else skipped.push(result);
     }
 
+    await finishCronRunSuccess(supabase, runId, {
+      checked_count: candidates.length,
+      fired_count: fired.length,
+      skipped_count: skipped.length,
+    });
     return res.status(200).json({
       success: true,
       checkedAt: now.toISOString(),
@@ -76,6 +84,7 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error('[teams-reminders] error:', err);
+    await finishCronRunError(supabase, runId, err.message);
     return res.status(500).json({ error: err.message });
   }
 }

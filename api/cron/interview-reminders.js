@@ -20,6 +20,7 @@
 // confirmed" reminder triggered at booking time.
 
 import { createClient } from '@supabase/supabase-js';
+import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
 import { sendNotification } from '../../src/lib/notifications/index.js';
 
 const supabase = createClient(
@@ -38,6 +39,7 @@ export default async function handler(req, res) {
 
   const now = new Date();
   console.log(`[interview-reminders] cron run at ${now.toISOString()}`);
+  const runId = await startCronRun(supabase, 'interview-reminders');
 
   try {
     // Fetch all upcoming sessions with student + slot data
@@ -63,6 +65,7 @@ export default async function handler(req, res) {
 
     if (sessionsErr) {
       console.error('[interview-reminders] query error:', sessionsErr);
+      await finishCronRunError(supabase, runId, sessionsErr.message);
       return res.status(500).json({ error: sessionsErr.message });
     }
 
@@ -161,6 +164,13 @@ export default async function handler(req, res) {
       );
     }
 
+    await finishCronRunSuccess(supabase, runId, {
+      checked_count: candidates.length,
+      eligible_count: tomorrowCount,
+      fired_count: fired.length,
+      skipped_count: skipped.length,
+      skip_reasons: skipReasons,
+    });
     return res.status(200).json({
       success:         true,
       checkedAt:       now.toISOString(),
@@ -173,6 +183,7 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error('[interview-reminders] unexpected error:', err);
+    await finishCronRunError(supabase, runId, err.message);
     return res.status(500).json({ error: err.message });
   }
 }

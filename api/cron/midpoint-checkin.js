@@ -9,6 +9,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { sendNotification } from '../../src/lib/notifications/index.js';
+import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -28,6 +29,7 @@ export default async function handler(req, res) {
 
   const now = new Date();
   console.log(`[midpoint-checkin] cron run at ${now.toISOString()}`);
+  const runId = await startCronRun(supabase, 'midpoint-checkin');
 
   try {
     // Fetch cohorts with automation enabled
@@ -38,10 +40,12 @@ export default async function handler(req, res) {
 
     if (cohortsErr) {
       console.error('[midpoint-checkin] cohorts query error:', cohortsErr);
+      await finishCronRunError(supabase, runId, cohortsErr.message);
       return res.status(500).json({ error: cohortsErr.message });
     }
     if (!cohorts || cohorts.length === 0) {
       console.log('[midpoint-checkin] no cohorts with automation enabled');
+      await finishCronRunSuccess(supabase, runId, { cohort_count: 0, sent_count: 0 });
       return res.status(200).json({ success: true, message: 'no enabled cohorts', fired: 0 });
     }
 
@@ -56,6 +60,7 @@ export default async function handler(req, res) {
 
     if (studentsErr) {
       console.error('[midpoint-checkin] students query error:', studentsErr);
+      await finishCronRunError(supabase, runId, studentsErr.message);
       return res.status(500).json({ error: studentsErr.message });
     }
 
@@ -154,6 +159,13 @@ export default async function handler(req, res) {
     console.log(`[midpoint-checkin] SUMMARY: eligible=${(students||[]).length} sent=${fired.length} skipped=${skipped.length}`);
     console.log('[midpoint-checkin] skip breakdown:', JSON.stringify(skipReasons));
 
+    await finishCronRunSuccess(supabase, runId, {
+      cohort_count: cohorts.length,
+      checked_count: (students || []).length,
+      sent_count: fired.length,
+      skipped_count: skipped.length,
+      skip_reasons: skipReasons,
+    });
     return res.status(200).json({
       success:  true,
       checkedAt: now.toISOString(),
@@ -165,6 +177,7 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error('[midpoint-checkin] unexpected error:', err);
+    await finishCronRunError(supabase, runId, err.message);
     return res.status(500).json({ error: err.message });
   }
 }
