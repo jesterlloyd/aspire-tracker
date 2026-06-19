@@ -359,7 +359,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   // ── Prior-invitation pre-check (UX assist only; server enforces) ──────────
   // Classifies any existing assignment for the tuple so the form can show whether generation will
   // be blocked (completed / unexpired active) or allowed as a reissue (expired / revoked, no
-  // completion). Mirrors the server classifier in api/lib/server/evaluation/assignment_reissue.js.
+  // completion). Mirrors the server's inlined reissue classifier in api/evaluation-create-invitation.js.
   useEffect(() => {
     if (!selectedStudentId || !timepoint || !cohortId) {
       setPriorInvitation(null)

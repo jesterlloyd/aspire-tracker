@@ -39,7 +39,38 @@
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { generateToken } from '../lib/server/evaluation/tokens.js';
-import { classifyExistingAssignment } from '../lib/server/evaluation/assignment_reissue.js';
+
+// ── Reissue classifier (INLINED) ────────────────────────────────────────────────────────────────
+// SURVEY-REISSUE-1 HOTFIX-4: inlined from the former api/lib/server/evaluation/assignment_reissue.js
+// to remove a shared-import dependency suspected in a Vercel FUNCTION_INVOCATION_FAILED (module-load)
+// crash. Logic is byte-for-byte identical to the former shared helper; the bulk endpoint keeps the
+// SAME inlined copy so the two never diverge. Follow-up cleanup: re-extract to a shared module once
+// the bundling cause is confirmed/resolved.
+//
+//   { kind: 'completed', row } — block; a completed response already exists.
+//   { kind: 'active',    row } — block; an unexpired usable invitation already exists.
+//   { kind: 'reissue',   row } — reuse this row; it is expired/revoked and not completed.
+//   { kind: 'new' }            — no existing row; insert a fresh assignment.
+function isCompletedAssignment(row) {
+  return row?.status === 'completed' || !!row?.completed_at;
+}
+function isActiveUsableAssignment(row, nowMs) {
+  if (!row) return false;
+  if (['revoked', 'expired', 'completed'].includes(row.status)) return false;
+  if (row.completed_at) return false;
+  if (!row.expires_at) return true;
+  return new Date(row.expires_at).getTime() > nowMs;
+}
+function classifyExistingAssignment(rows, nowMs) {
+  const list = Array.isArray(rows) ? rows : [];
+  const completedRow = list.find(isCompletedAssignment);
+  if (completedRow) return { kind: 'completed', row: completedRow };
+  const activeRow = list.find((r) => isActiveUsableAssignment(r, nowMs));
+  if (activeRow) return { kind: 'active', row: activeRow };
+  const reissueRow = list[0] || null;
+  if (reissueRow) return { kind: 'reissue', row: reissueRow };
+  return { kind: 'new' };
+}
 
 const INSTRUMENT_SLUG   = 'casey_fink_readiness_2024';
 const VALID_TIMEPOINTS  = new Set(['baseline', 'early_rotation_baseline', 'midpoint', 'post_rotation', 'custom']);
@@ -77,8 +108,14 @@ export default async function handler(req, res) {
   try {
     return await _handler(req, res);
   } catch (err) {
-    console.error('[create-invitation] unhandled exception:', err?.message || err);
-    return res.status(500).json({ error: `Server error: ${err?.message || 'unknown'}` });
+    // Any runtime throw inside _handler lands here as safe JSON. (A module-LOAD failure crashes the
+    // function before this runs — which is why the reissue import was inlined above.)
+    console.error('[create-invitation] evaluation_create_invitation_unhandled:', err?.message || err);
+    return res.status(500).json({
+      error:   'Unexpected server error while creating invitation',
+      code:    'evaluation_create_invitation_unhandled',
+      message: err?.message || 'unknown',
+    });
   }
 }
 
