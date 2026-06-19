@@ -248,6 +248,8 @@ async function _handler(req, res) {
     // token IN PLACE: update the existing row to the new hash (the old hash is discarded, so the old
     // link stops validating) and clear revoked_at. If no token row exists yet (e.g. an earlier
     // partial state), insert a fresh one.
+    console.log('[create-invitation] reissue branch', { assignment_id: reissueRow.id });
+
     const { data: updatedTokens, error: tokenUpdateErr } = await supabaseAdmin
       .from('evaluation_assignment_tokens')
       .update({
@@ -261,8 +263,9 @@ async function _handler(req, res) {
 
     if (tokenUpdateErr) {
       // No assignment state changed yet — the row stays expired/revoked. Safe to fail with no cleanup.
-      console.error('[create-invitation] reissue token update error:', tokenUpdateErr.code, tokenUpdateErr.message);
-      return res.status(500).json({ error: 'Failed to issue invitation token' });
+      console.error('[create-invitation] reissue_token_refresh_failed:',
+        { assignment_id: reissueRow.id, code: tokenUpdateErr.code, message: tokenUpdateErr.message, details: tokenUpdateErr.details, hint: tokenUpdateErr.hint });
+      return res.status(500).json({ error: 'Failed to issue invitation token', code: 'reissue_token_refresh_failed' });
     }
 
     if (!updatedTokens || updatedTokens.length === 0) {
@@ -275,15 +278,19 @@ async function _handler(req, res) {
           expires_at:        tokenExpiresAt.toISOString(),
         });
       if (tokenInsertErr) {
-        console.error('[create-invitation] reissue token insert error:', tokenInsertErr.code, tokenInsertErr.message);
-        return res.status(500).json({ error: 'Failed to issue invitation token' });
+        console.error('[create-invitation] reissue_token_refresh_failed (insert):',
+          { assignment_id: reissueRow.id, code: tokenInsertErr.code, message: tokenInsertErr.message, details: tokenInsertErr.details, hint: tokenInsertErr.hint });
+        return res.status(500).json({ error: 'Failed to issue invitation token', code: 'reissue_token_refresh_failed' });
       }
     }
 
-    // Refresh the existing row to a fresh sent-state. Same send-state fields a fresh insert sets, plus
-    // updated_at (mirroring the established assignments update in evaluation-release-student-eval-survey),
-    // so chk_assignment_send_state is satisfied. revoked_at is cleared (only ever reached for
-    // non-completed rows). completed_at is NOT touched (completed rows blocked at step 8).
+    // Refresh the existing row to a fresh sent-state. The payload is restricted to EXACTLY the fields
+    // a successful fresh insert writes (status + the three send-state timestamps + approved-hours
+    // snapshot + notes), so it cannot reference a column the insert path does not, and it satisfies
+    // chk_assignment_send_state the same way. revoked_at is additionally cleared so reissuing a
+    // previously-revoked row is consistent (column confirmed present — read in token-validate). No
+    // updated_at is written (not confirmed present in Production). completed_at is NOT touched
+    // (completed rows were blocked at step 8).
     const { data: updated, error: updateErr } = await supabaseAdmin
       .from('evaluation_assignments')
       .update({
@@ -293,7 +300,6 @@ async function _handler(req, res) {
         expires_at:                   expiresAt.toISOString(),
         approved_hours_at_invitation: approvedHoursSnapshot,
         revoked_at:                   null,
-        updated_at:                   now.toISOString(),
         notes:                        body.notes || null,
       })
       .eq('id', reissueRow.id)
@@ -303,8 +309,9 @@ async function _handler(req, res) {
     if (updateErr || !updated) {
       // The token row was refreshed but the assignment window was NOT (still expired), so the new
       // link will not validate. No false-active state is produced. Report the failure.
-      console.error('[create-invitation] reissue assignment update error:', updateErr?.code, updateErr?.message);
-      return res.status(500).json({ error: 'Failed to refresh assignment for reissue' });
+      console.error('[create-invitation] reissue_assignment_refresh_failed:',
+        { assignment_id: reissueRow.id, code: updateErr?.code, message: updateErr?.message, details: updateErr?.details, hint: updateErr?.hint });
+      return res.status(500).json({ error: 'Failed to refresh assignment for reissue', code: 'reissue_assignment_refresh_failed' });
     }
     assignmentId = updated.id;
   } else {

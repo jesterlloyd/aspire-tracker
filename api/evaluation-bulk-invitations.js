@@ -339,7 +339,8 @@ async function _handler(req, res) {
 
         if (tokenUpdateErr) {
           // No assignment state changed — the row stays expired/revoked. Safe to fail with no cleanup.
-          console.error('[bulk-invitations] reissue token update error for student', studentId, tokenUpdateErr.code, tokenUpdateErr.message);
+          console.error('[bulk-invitations] reissue_token_refresh_failed for student', studentId,
+            { assignment_id: reissueRow.id, code: tokenUpdateErr.code, message: tokenUpdateErr.message, details: tokenUpdateErr.details, hint: tokenUpdateErr.hint });
           failed.push({ studentId, studentName, reason: 'Token reissue failed' });
           continue;
         }
@@ -354,16 +355,19 @@ async function _handler(req, res) {
               expires_at:        tokenExpiresAt.toISOString(),
             });
           if (tokenInsertErr) {
-            console.error('[bulk-invitations] reissue token insert error for student', studentId, tokenInsertErr.code, tokenInsertErr.message);
+            console.error('[bulk-invitations] reissue_token_refresh_failed (insert) for student', studentId,
+              { assignment_id: reissueRow.id, code: tokenInsertErr.code, message: tokenInsertErr.message, details: tokenInsertErr.details, hint: tokenInsertErr.hint });
             failed.push({ studentId, studentName, reason: 'Token reissue failed' });
             continue;
           }
         }
 
-        // Refresh to a fresh sent-state. Same send-state fields a fresh insert sets, plus updated_at
-        // (mirroring the established assignments update in evaluation-release-student-eval-survey), so
-        // chk_assignment_send_state holds. revoked_at cleared; completed_at never touched (completed
-        // rows were skipped above).
+        // Refresh to a fresh sent-state. The payload is restricted to EXACTLY the fields a successful
+        // fresh insert writes (status + send-state timestamps + approved-hours snapshot + notes), so it
+        // cannot reference a column the insert path does not, and satisfies chk_assignment_send_state
+        // the same way. revoked_at is additionally cleared (column confirmed present). No updated_at is
+        // written (not confirmed present in Production). completed_at never touched (completed rows
+        // were skipped above).
         const { data: updated, error: updateErr } = await supabaseAdmin
           .from('evaluation_assignments')
           .update({
@@ -373,7 +377,6 @@ async function _handler(req, res) {
             expires_at:                   expiresAt.toISOString(),
             approved_hours_at_invitation: approvedHoursSnapshot,
             revoked_at:                   null,
-            updated_at:                   now.toISOString(),
             notes,
           })
           .eq('id', reissueRow.id)
@@ -383,7 +386,8 @@ async function _handler(req, res) {
         if (updateErr || !updated) {
           // Token refreshed but the row's window was not (still expired) → new link will not
           // validate; no false-active state. Report as failed for this student.
-          console.error('[bulk-invitations] reissue assignment update error for student', studentId, updateErr?.code, updateErr?.message);
+          console.error('[bulk-invitations] reissue_assignment_refresh_failed for student', studentId,
+            { assignment_id: reissueRow.id, code: updateErr?.code, message: updateErr?.message, details: updateErr?.details, hint: updateErr?.hint });
           failed.push({ studentId, studentName, reason: 'Assignment reissue failed' });
           continue;
         }
