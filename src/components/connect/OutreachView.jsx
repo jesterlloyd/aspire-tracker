@@ -642,16 +642,15 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
         }),
       })
 
-      // Parse JSON separately — Vercel returns HTML on a handler crash,
-      // not JSON, which would otherwise surface as a misleading "Network error".
+      // Read the body as text ONCE, then try to parse JSON. A handler crash / platform error returns
+      // HTML, not JSON — reading the raw text lets us show what actually came back instead of a
+      // misleading "missing env var" guess. (Owner/Admin-only surface; no tokens are in error bodies.)
+      const rawText = await res.text()
       let payload = null
       try {
-        payload = await res.json()
+        payload = rawText ? JSON.parse(rawText) : null
       } catch {
-        setGenerateError(
-          `Server error (HTTP ${res.status}). Check Vercel function logs for api/evaluation-create-invitation. Likely cause: missing Production environment variable.`
-        )
-        return
+        payload = null
       }
 
       if (res.status === 409) {
@@ -662,7 +661,19 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
         return
       }
       if (!res.ok) {
-        setGenerateError(payload?.error || 'Failed to generate link. Please try again.')
+        if (payload) {
+          // Our endpoint returned a structured JSON error. Surface the safe classification + Supabase
+          // diagnostics (code/message) so the exact failing step is visible without Vercel logs.
+          const bits = [payload.error || 'Failed to generate link.']
+          const diag = [payload.code, payload.dbCode, payload.dbMessage].filter(Boolean).join(' · ')
+          if (diag) bits.push(`[${diag}]`)
+          setGenerateError(bits.join(' '))
+        } else {
+          // Non-JSON body = crash outside the handler (module load, timeout, or a stale deploy).
+          // Show the status and a short, safe snippet of the actual response.
+          const snippet = (rawText || '').replace(/\s+/g, ' ').trim().slice(0, 300)
+          setGenerateError(`Server error (HTTP ${res.status}). Non-JSON response${snippet ? `: ${snippet}` : '.'}`)
+        }
         return
       }
 

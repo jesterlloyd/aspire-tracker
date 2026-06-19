@@ -50,6 +50,20 @@ const TOKEN_GRACE_DAYS       = 2;    // token expires this many days after assig
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isUuid(v) { return typeof v === 'string' && UUID_PATTERN.test(v); }
 
+// Safe error payload for an Owner/Admin-gated JSON 500. Surfaces the classification plus the
+// Supabase error fields (code/message/details/hint) so the exact failing step is visible in the
+// browser Network → Response without Vercel logs. These are schema-level diagnostics
+// (e.g. "column X does not exist") — NEVER tokens, hashes, keys, secrets, emails, or links.
+function safeDbError(code, err) {
+  return {
+    code,
+    dbCode:    err?.code    || null,
+    dbMessage: err?.message || null,
+    dbDetails: err?.details || null,
+    dbHint:    err?.hint    || null,
+  };
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
 
@@ -265,7 +279,7 @@ async function _handler(req, res) {
       // No assignment state changed yet — the row stays expired/revoked. Safe to fail with no cleanup.
       console.error('[create-invitation] reissue_token_refresh_failed:',
         { assignment_id: reissueRow.id, code: tokenUpdateErr.code, message: tokenUpdateErr.message, details: tokenUpdateErr.details, hint: tokenUpdateErr.hint });
-      return res.status(500).json({ error: 'Failed to issue invitation token', code: 'reissue_token_refresh_failed' });
+      return res.status(500).json({ error: 'Failed to issue invitation token', ...safeDbError('reissue_token_refresh_failed', tokenUpdateErr) });
     }
 
     if (!updatedTokens || updatedTokens.length === 0) {
@@ -280,7 +294,7 @@ async function _handler(req, res) {
       if (tokenInsertErr) {
         console.error('[create-invitation] reissue_token_refresh_failed (insert):',
           { assignment_id: reissueRow.id, code: tokenInsertErr.code, message: tokenInsertErr.message, details: tokenInsertErr.details, hint: tokenInsertErr.hint });
-        return res.status(500).json({ error: 'Failed to issue invitation token', code: 'reissue_token_refresh_failed' });
+        return res.status(500).json({ error: 'Failed to issue invitation token', ...safeDbError('reissue_token_refresh_failed', tokenInsertErr) });
       }
     }
 
@@ -311,7 +325,7 @@ async function _handler(req, res) {
       // link will not validate. No false-active state is produced. Report the failure.
       console.error('[create-invitation] reissue_assignment_refresh_failed:',
         { assignment_id: reissueRow.id, code: updateErr?.code, message: updateErr?.message, details: updateErr?.details, hint: updateErr?.hint });
-      return res.status(500).json({ error: 'Failed to refresh assignment for reissue', code: 'reissue_assignment_refresh_failed' });
+      return res.status(500).json({ error: 'Failed to refresh assignment for reissue', ...safeDbError('reissue_assignment_refresh_failed', updateErr) });
     }
     assignmentId = updated.id;
   } else {
