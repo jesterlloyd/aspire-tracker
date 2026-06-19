@@ -282,7 +282,9 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   const [timepoint,         setTimepoint]         = useState('baseline')
   const [expiresAt,         setExpiresAt]         = useState(defaultExpiresAt)
   const [notes,             setNotes]             = useState('')
-  const [duplicateExists,   setDuplicateExists]   = useState(false)
+  // SURVEY-REISSUE-1: prior-invitation classification (UX assist only — server is source of truth).
+  // null | 'completed' (block) | 'active' (block) | 'reissuable' (expired/revoked, incomplete → allowed)
+  const [priorInvitation,   setPriorInvitation]   = useState(null)
   const [checkingDuplicate, setCheckingDuplicate] = useState(false)
 
   // ── Generate Link state ───────────────────────────────────────────────────
@@ -354,23 +356,36 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
       })
   }, [cohortId, refreshKey]) // refreshKey triggers re-fetch on Connect refresh
 
-  // ── Duplicate guard ───────────────────────────────────────────────────────
+  // ── Prior-invitation pre-check (UX assist only; server enforces) ──────────
+  // Classifies any existing assignment for the tuple so the form can show whether generation will
+  // be blocked (completed / unexpired active) or allowed as a reissue (expired / revoked, no
+  // completion). Mirrors the server classifier in api/lib/server/evaluation/assignment_reissue.js.
   useEffect(() => {
     if (!selectedStudentId || !timepoint || !cohortId) {
-      setDuplicateExists(false)
+      setPriorInvitation(null)
       return
     }
     setCheckingDuplicate(true)
     supabase
       .from('evaluation_assignments')
-      .select('id')
+      .select('id, status, expires_at, completed_at')
       .eq('student_id', selectedStudentId)
       .eq('cohort_id', cohortId)
       .eq('timepoint', timepoint)
-      .not('status', 'in', '(revoked,expired)')
-      .limit(1)
       .then(({ data }) => {
-        setDuplicateExists(!!(data && data.length > 0))
+        const rows  = data || []
+        const nowMs = Date.now()
+        const completed = rows.find(r => r.status === 'completed' || r.completed_at)
+        const active    = rows.find(r =>
+          !['revoked', 'expired', 'completed'].includes(r.status) &&
+          !r.completed_at &&
+          (!r.expires_at || new Date(r.expires_at).getTime() > nowMs)
+        )
+        let kind = null
+        if (completed)            kind = 'completed'
+        else if (active)          kind = 'active'
+        else if (rows.length > 0) kind = 'reissuable'
+        setPriorInvitation(kind)
         setCheckingDuplicate(false)
       })
   }, [selectedStudentId, timepoint, cohortId])
@@ -1541,15 +1556,35 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                   </div>
                 </div>
 
-                {/* Duplicate guard */}
-                {selectedStudentId && timepoint && !checkingDuplicate && duplicateExists && (
+                {/* Prior-invitation status (server is source of truth; this is a UX assist) */}
+                {selectedStudentId && timepoint && !checkingDuplicate && priorInvitation === 'completed' && (
+                  <div style={{
+                    padding: '11px 14px', marginBottom: 18,
+                    background: '#fef2f2', border: '1px solid #fecaca',
+                    borderRadius: 8, fontSize: 12, color: '#dc2626',
+                    fontFamily: F, lineHeight: 1.6,
+                  }}>
+                    A completed response already exists for this student and timepoint.
+                  </div>
+                )}
+                {selectedStudentId && timepoint && !checkingDuplicate && priorInvitation === 'active' && (
                   <div style={{
                     padding: '11px 14px', marginBottom: 18,
                     background: '#FBF5E8', border: '1px solid #f0c9b0',
                     borderRadius: 8, fontSize: 12, color: '#8B5E1A',
                     fontFamily: F, lineHeight: 1.6,
                   }}>
-                    An assignment for this student and timepoint already exists. Review in the Evaluation tab before sending a new invitation.
+                    An active invitation already exists for this student and timepoint. Review in the Evaluation tab before sending a new invitation.
+                  </div>
+                )}
+                {selectedStudentId && timepoint && !checkingDuplicate && priorInvitation === 'reissuable' && (
+                  <div style={{
+                    padding: '11px 14px', marginBottom: 18,
+                    background: '#eef6ee', border: '1px solid #bcd9bf',
+                    borderRadius: 8, fontSize: 12, color: '#2f6b34',
+                    fontFamily: F, lineHeight: 1.6,
+                  }}>
+                    Previous invitation expired. A new invitation can be generated.
                   </div>
                 )}
 

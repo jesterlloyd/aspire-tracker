@@ -36,6 +36,7 @@
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { generateToken } from '../lib/server/evaluation/tokens.js';
+import { classifyExistingAssignment } from '../lib/server/evaluation/assignment_reissue.js';
 
 const INSTRUMENT_SLUG      = 'casey_fink_readiness_2024';
 const VALID_TIMEPOINTS     = new Set(['baseline', 'early_rotation_baseline', 'midpoint', 'post_rotation', 'custom']);
@@ -273,32 +274,38 @@ async function _handler(req, res) {
         continue;
       }
 
-      // Step 4: Duplicate active assignment check — mirrors single endpoint exactly
-      // Active = anything NOT 'revoked' or 'expired'
-      const { data: existing, error: dupErr } = await supabaseAdmin
+      // Step 4: Classify existing assignment(s) for this tuple — shared with the single endpoint, so
+      // single and bulk never diverge. Fetch lifecycle fields (not just id/status) so an
+      // expired-but-still-'sent' row is recognized as reissuable rather than blocking.
+      const { data: existingRows, error: dupErr } = await supabaseAdmin
         .from('evaluation_assignments')
-        .select('id, status')
+        .select('id, status, expires_at, completed_at')
         .eq('instrument_id', instrument.id)
         .eq('student_id', studentId)
         .eq('cohort_id', cohortId)
-        .eq('timepoint', timepoint)
-        .not('status', 'in', '(revoked,expired)')
-        .limit(1);
+        .eq('timepoint', timepoint);
 
       if (dupErr) {
-        console.error('[bulk-invitations] duplicate check error for student', studentId, dupErr.message);
+        console.error('[bulk-invitations] existing-assignment check error for student', studentId, dupErr.message);
         failed.push({ studentId, studentName, reason: 'Duplicate check failed' });
         continue;
       }
-      if (existing && existing.length > 0) {
+
+      const decision = classifyExistingAssignment(existingRows, now.getTime());
+
+      // Completed responses and unexpired active invitations both block (skipped, not reissued).
+      // A completed row is never modified.
+      if (decision.kind === 'completed' || decision.kind === 'active') {
         skippedDuplicates.push({
           studentId,
           studentName,
-          existingAssignmentId: existing[0].id,
-          existingStatus:       existing[0].status,
+          existingAssignmentId: decision.row.id,
+          existingStatus:       decision.kind === 'completed' ? 'completed' : decision.row.status,
         });
         continue;
       }
+      // 'reissue' → reuse the expired/revoked, non-completed row. 'new' → insert fresh.
+      const reissueRow = decision.kind === 'reissue' ? decision.row : null;
 
       // Step 5: Generate token
       // Raw token lives only in this loop iteration scope.
@@ -308,56 +315,107 @@ async function _handler(req, res) {
 
       const approvedHoursSnapshot = parseFloat(student.approved_hours || 0);
 
-      // Step 6: Insert assignment
-      // Satisfies chk_assignment_send_state: status='sent' + invited_at + sent_at + expires_at all set.
-      const { data: assignment, error: assignmentErr } = await supabaseAdmin
-        .from('evaluation_assignments')
-        .insert({
-          instrument_id:               instrument.id,
-          student_id:                  studentId,
-          cohort_id:                   cohortId,
-          timepoint,
-          assigned_by:                 assignedBy,
-          status:                      'sent',
-          invited_at:                  now.toISOString(),
-          sent_at:                     now.toISOString(),
-          expires_at:                  expiresAt.toISOString(),
-          approved_hours_at_invitation: approvedHoursSnapshot,
-          notes,
-        })
-        .select('id')
-        .single();
+      let assignmentId;
 
-      if (assignmentErr || !assignment) {
-        console.error('[bulk-invitations] assignment insert error for student', studentId, assignmentErr?.message);
-        failed.push({ studentId, studentName, reason: 'Assignment insert failed' });
-        continue;
-      }
+      if (reissueRow) {
+        // Step 6a: REISSUE — reuse the existing row (uq_assignment forbids a second). Token-FIRST so
+        // the row is never flipped to a fresh active state without a usable new token. Old token
+        // row(s) are left untouched — each keeps its own past expiry, so old links stay dead.
+        const { error: tokenErr } = await supabaseAdmin
+          .from('evaluation_assignment_tokens')
+          .insert({
+            assignment_id:     reissueRow.id,
+            token_hash:        tokenHash,
+            token_hash_prefix: tokenHashPrefix,
+            expires_at:        tokenExpiresAt.toISOString(),
+          });
 
-      // Step 7: Insert token (hash only — raw token never stored)
-      const { error: tokenErr } = await supabaseAdmin
-        .from('evaluation_assignment_tokens')
-        .insert({
-          assignment_id:     assignment.id,
-          token_hash:        tokenHash,
-          token_hash_prefix: tokenHashPrefix,
-          expires_at:        tokenExpiresAt.toISOString(),
-        });
-
-      if (tokenErr) {
-        // Rollback the orphaned assignment row
-        console.error('[bulk-invitations] token insert error for student', studentId, tokenErr.message);
-        const { error: rollbackErr } = await supabaseAdmin
-          .from('evaluation_assignments')
-          .delete()
-          .eq('id', assignment.id);
-        if (rollbackErr) {
-          console.error('[bulk-invitations] ROLLBACK FAILED — orphaned assignment:', assignment.id, rollbackErr.message);
-        } else {
-          console.error('[bulk-invitations] assignment rolled back after token failure for student', studentId);
+        if (tokenErr) {
+          // No assignment state changed — the row stays expired/revoked. Safe to fail with no cleanup.
+          console.error('[bulk-invitations] reissue token insert error for student', studentId, tokenErr.message);
+          failed.push({ studentId, studentName, reason: 'Token insert failed' });
+          continue;
         }
-        failed.push({ studentId, studentName, reason: 'Token insert failed' });
-        continue;
+
+        // Refresh to a fresh sent-state. Same send-state fields a fresh insert sets, so
+        // chk_assignment_send_state holds. revoked_at cleared; completed_at never touched (completed
+        // rows were skipped above).
+        const { data: updated, error: updateErr } = await supabaseAdmin
+          .from('evaluation_assignments')
+          .update({
+            status:                       'sent',
+            invited_at:                   now.toISOString(),
+            sent_at:                      now.toISOString(),
+            expires_at:                   expiresAt.toISOString(),
+            approved_hours_at_invitation: approvedHoursSnapshot,
+            revoked_at:                   null,
+            notes,
+          })
+          .eq('id', reissueRow.id)
+          .select('id')
+          .single();
+
+        if (updateErr || !updated) {
+          // New token exists but the row's window was not refreshed (still expired) → new link will
+          // not validate; no false-active state. Report as failed for this student.
+          console.error('[bulk-invitations] reissue assignment update error for student', studentId, updateErr?.message);
+          failed.push({ studentId, studentName, reason: 'Assignment reissue failed' });
+          continue;
+        }
+        assignmentId = updated.id;
+      } else {
+        // Step 6b: NEW — insert assignment.
+        // Satisfies chk_assignment_send_state: status='sent' + invited_at + sent_at + expires_at all set.
+        const { data: assignment, error: assignmentErr } = await supabaseAdmin
+          .from('evaluation_assignments')
+          .insert({
+            instrument_id:               instrument.id,
+            student_id:                  studentId,
+            cohort_id:                   cohortId,
+            timepoint,
+            assigned_by:                 assignedBy,
+            status:                      'sent',
+            invited_at:                  now.toISOString(),
+            sent_at:                     now.toISOString(),
+            expires_at:                  expiresAt.toISOString(),
+            approved_hours_at_invitation: approvedHoursSnapshot,
+            notes,
+          })
+          .select('id')
+          .single();
+
+        if (assignmentErr || !assignment) {
+          console.error('[bulk-invitations] assignment insert error for student', studentId, assignmentErr?.message);
+          failed.push({ studentId, studentName, reason: 'Assignment insert failed' });
+          continue;
+        }
+
+        // Step 7: Insert token (hash only — raw token never stored)
+        const { error: tokenErr } = await supabaseAdmin
+          .from('evaluation_assignment_tokens')
+          .insert({
+            assignment_id:     assignment.id,
+            token_hash:        tokenHash,
+            token_hash_prefix: tokenHashPrefix,
+            expires_at:        tokenExpiresAt.toISOString(),
+          });
+
+        if (tokenErr) {
+          // Rollback the orphaned NEW assignment row (never a reused row).
+          console.error('[bulk-invitations] token insert error for student', studentId, tokenErr.message);
+          const { error: rollbackErr } = await supabaseAdmin
+            .from('evaluation_assignments')
+            .delete()
+            .eq('id', assignment.id);
+          if (rollbackErr) {
+            console.error('[bulk-invitations] ROLLBACK FAILED — orphaned assignment:', assignment.id, rollbackErr.message);
+          } else {
+            console.error('[bulk-invitations] assignment rolled back after token failure for student', studentId);
+          }
+          failed.push({ studentId, studentName, reason: 'Token insert failed' });
+          continue;
+        }
+        assignmentId = assignment.id;
       }
 
       // Step 8: Build survey URL (raw token in hash fragment, never reaches server)
@@ -365,7 +423,8 @@ async function _handler(req, res) {
 
       // Safe log: assignment id and student id only — no raw token, no survey URL
       console.log('[bulk-invitations] generated:', {
-        assignment_id:     assignment.id,
+        assignment_id:     assignmentId,
+        reissued:          !!reissueRow,
         student_id:        studentId,
         token_hash_prefix: tokenHashPrefix,
       });
@@ -375,7 +434,7 @@ async function _handler(req, res) {
         studentName,
         school:       student.school || null,
         email:        resolvedEmail,
-        assignmentId: assignment.id,
+        assignmentId,
         timepoint,
         expiresAt:    expiresAt.toISOString(),
         surveyUrl,
