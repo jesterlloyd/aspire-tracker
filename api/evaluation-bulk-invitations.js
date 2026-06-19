@@ -319,25 +319,49 @@ async function _handler(req, res) {
 
       if (reissueRow) {
         // Step 6a: REISSUE — reuse the existing row (uq_assignment forbids a second). Token-FIRST so
-        // the row is never flipped to a fresh active state without a usable new token. Old token
-        // row(s) are left untouched — each keeps its own past expiry, so old links stay dead.
-        const { error: tokenErr } = await supabaseAdmin
+        // the row is never flipped to a fresh active state without a usable new token.
+        //
+        // One token row per assignment (lookups by token_hash; revocation/rollback key on
+        // assignment_id), so a SECOND insert for an existing assignment violates uniqueness — the
+        // post-6f11cf8 reissue 500. Reissue the token IN PLACE: update the existing row to the new
+        // hash (old hash discarded → old link stops validating), clear revoked_at; insert only if no
+        // token row exists yet.
+        const { data: updatedTokens, error: tokenUpdateErr } = await supabaseAdmin
           .from('evaluation_assignment_tokens')
-          .insert({
-            assignment_id:     reissueRow.id,
+          .update({
             token_hash:        tokenHash,
             token_hash_prefix: tokenHashPrefix,
             expires_at:        tokenExpiresAt.toISOString(),
-          });
+            revoked_at:        null,
+          })
+          .eq('assignment_id', reissueRow.id)
+          .select('assignment_id');
 
-        if (tokenErr) {
+        if (tokenUpdateErr) {
           // No assignment state changed — the row stays expired/revoked. Safe to fail with no cleanup.
-          console.error('[bulk-invitations] reissue token insert error for student', studentId, tokenErr.message);
-          failed.push({ studentId, studentName, reason: 'Token insert failed' });
+          console.error('[bulk-invitations] reissue token update error for student', studentId, tokenUpdateErr.code, tokenUpdateErr.message);
+          failed.push({ studentId, studentName, reason: 'Token reissue failed' });
           continue;
         }
 
-        // Refresh to a fresh sent-state. Same send-state fields a fresh insert sets, so
+        if (!updatedTokens || updatedTokens.length === 0) {
+          const { error: tokenInsertErr } = await supabaseAdmin
+            .from('evaluation_assignment_tokens')
+            .insert({
+              assignment_id:     reissueRow.id,
+              token_hash:        tokenHash,
+              token_hash_prefix: tokenHashPrefix,
+              expires_at:        tokenExpiresAt.toISOString(),
+            });
+          if (tokenInsertErr) {
+            console.error('[bulk-invitations] reissue token insert error for student', studentId, tokenInsertErr.code, tokenInsertErr.message);
+            failed.push({ studentId, studentName, reason: 'Token reissue failed' });
+            continue;
+          }
+        }
+
+        // Refresh to a fresh sent-state. Same send-state fields a fresh insert sets, plus updated_at
+        // (mirroring the established assignments update in evaluation-release-student-eval-survey), so
         // chk_assignment_send_state holds. revoked_at cleared; completed_at never touched (completed
         // rows were skipped above).
         const { data: updated, error: updateErr } = await supabaseAdmin
@@ -349,6 +373,7 @@ async function _handler(req, res) {
             expires_at:                   expiresAt.toISOString(),
             approved_hours_at_invitation: approvedHoursSnapshot,
             revoked_at:                   null,
+            updated_at:                   now.toISOString(),
             notes,
           })
           .eq('id', reissueRow.id)
@@ -356,9 +381,9 @@ async function _handler(req, res) {
           .single();
 
         if (updateErr || !updated) {
-          // New token exists but the row's window was not refreshed (still expired) → new link will
-          // not validate; no false-active state. Report as failed for this student.
-          console.error('[bulk-invitations] reissue assignment update error for student', studentId, updateErr?.message);
+          // Token refreshed but the row's window was not (still expired) → new link will not
+          // validate; no false-active state. Report as failed for this student.
+          console.error('[bulk-invitations] reissue assignment update error for student', studentId, updateErr?.code, updateErr?.message);
           failed.push({ studentId, studentName, reason: 'Assignment reissue failed' });
           continue;
         }
