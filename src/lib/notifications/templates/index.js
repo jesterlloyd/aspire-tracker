@@ -3,6 +3,7 @@ import { teamsInviteReminder, teamsInviteReminderEscalation } from './teamsInvit
 import { unitFormReceived } from './unitFormReceived.js';
 import { interviewReminder } from './interviewReminder.js';
 import { midpointCheckin } from './midpointCheckin.js';
+import { clockoutReminder } from './clockoutReminder.js';
 
 export const templates = {
   form_received:                    formReceived,
@@ -11,4 +12,5 @@ export const templates = {
   unit_form_received:               unitFormReceived,
   interview_reminder:               interviewReminder,
   midpoint_checkin:                 midpointCheckin,
+  clockout_reminder:                clockoutReminder,
 };

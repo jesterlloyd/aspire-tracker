@@ -150,6 +150,8 @@ export async function resolveRecipients(type, context) {
       return resolveInterviewReminder(context);
     case 'midpoint_checkin':
       return resolveMidpointCheckin(context);
+    case 'clockout_reminder':
+      return resolveClockoutReminder(context);
     default:
       console.warn(`[notifications/recipients] no resolver for type: ${type}`);
       return [];
@@ -172,6 +174,21 @@ function resolveInterviewReminder(context) {
 function resolveMidpointCheckin(context) {
   if (!context.studentEmail) {
     console.warn('[notifications/recipients] midpoint_checkin: no studentEmail in context');
+    return [];
+  }
+  return [{
+    email:    context.studentEmail,
+    role:     'student',
+    name:     context.firstName || null,
+    audience: 'student',
+  }];
+}
+
+// CLOCKOUT-NUDGE-LIVE-1: the cron resolves personal_email->school_email and passes the chosen
+// address as context.studentEmail; this returns that single student recipient.
+function resolveClockoutReminder(context) {
+  if (!context.studentEmail) {
+    console.warn('[notifications/recipients] clockout_reminder: no studentEmail in context');
     return [];
   }
   return [{
