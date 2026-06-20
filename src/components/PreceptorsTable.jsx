@@ -64,10 +64,35 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
       )
     : preceptors
 
-  // Map preceptor_id → student for current cohort
+  // Map preceptor_id → student for current cohort (PRIMARY source — students.preceptor_id, unchanged)
   const studentByPreceptorId = {}
   for (const s of students) {
     if (s.preceptor_id) studentByPreceptorId[s.preceptor_id] = s
+  }
+
+  // PRECEPTOR-MODEL-3: read-only cohort-scoped ACTIVE secondary/coverage assignments so a preceptor
+  // with a coverage relationship is no longer shown "without a student assigned". Read via the
+  // table's Owner/Admin SELECT RLS; this only AUGMENTS the predicate, it does not change the primary
+  // source. (Backfilled active-primary rows are intentionally ignored here — primary is shown above.)
+  const { data: coverageRows = [] } = useQuery({
+    queryKey: ['spa_active_coverage', cohortId],
+    enabled: !!cohortId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('student_preceptor_assignments')
+        .select('preceptor_id, student_id, role, status')
+        .eq('cohort_id', cohortId)
+        .eq('status', 'active')
+        .in('role', ['secondary', 'coverage'])
+      return data || []
+    },
+    staleTime: 60 * 1000,
+  })
+  const studentById = {}
+  for (const s of students) studentById[s.id] = s
+  const coverageByPreceptorId = {}
+  for (const r of coverageRows) {
+    (coverageByPreceptorId[r.preceptor_id] ||= []).push(r)
   }
 
   function getSortValue(p, col) {
@@ -261,7 +286,24 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
                     <td className="am-td" style={{ color: '#374151', whiteSpace: 'nowrap' }}>
                       {currentStudent
                         ? `${currentStudent.first_name} ${currentStudent.last_name}`
-                        : <span style={{ color: '#9ca3af' }}>—</span>
+                        : (() => {
+                            // PRECEPTOR-MODEL-3: no PRIMARY student, but an active secondary/coverage
+                            // relationship means this preceptor IS assigned — show it role-labeled
+                            // instead of "—". (Primary, when present, is shown unchanged above.)
+                            const cov = coverageByPreceptorId[p.id] || []
+                            if (cov.length === 0) return <span style={{ color: '#9ca3af' }}>—</span>
+                            const first = cov[0]
+                            const stu = studentById[first.student_id]
+                            const name = stu ? `${stu.first_name} ${stu.last_name}` : 'Assigned'
+                            const roleLabel = first.role === 'coverage' ? 'Coverage' : 'Secondary'
+                            const extra = cov.length > 1 ? ` +${cov.length - 1}` : ''
+                            return (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                {name}{extra}
+                                <span style={{ fontSize: 10.5, fontWeight: 700, color: '#3730a3', background: '#eef2ff', padding: '1px 6px', borderRadius: 4 }}>{roleLabel}</span>
+                              </span>
+                            )
+                          })()
                       }
                     </td>
                     <td className="am-td" style={{ color: '#6b7280', textAlign: 'center' }}>

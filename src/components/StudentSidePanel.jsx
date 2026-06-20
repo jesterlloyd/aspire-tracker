@@ -33,6 +33,7 @@ import { generateBadgePNGs, calculateBadgeDates } from '../lib/badgeGenerator'
 import { usePreceptors } from '../hooks/usePreceptors'
 import { resolvePreceptor } from '../lib/preceptor'
 import PreceptorAssignmentModal from './PreceptorAssignmentModal'
+import AdditionalPreceptors from './AdditionalPreceptors'
 import DispositionModal from './DispositionModal'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS, DECISION_ORIGINS, FOLLOWUP_TYPES, REASON_CATEGORIES_BY_TYPE } from '../lib/dispositions'
 
@@ -1772,6 +1773,9 @@ export default function StudentSidePanel({
                     <span style={{ fontSize:13, color:'#9ca3af' }}>No preceptor assigned</span>
                   )
                 )}
+                {/* PRECEPTOR-MODEL-3: additive secondary/coverage display + Owner/Admin assign flow.
+                    Primary above stays sourced from students.preceptor_id (unchanged). */}
+                <AdditionalPreceptors student={data} preceptors={preceptors} canEdit={canEdit} />
               </div>
               <Field label="Shift">
                 <select className="sp-select" value={data.shift_assigned||''} onChange={e => handleSelect('shift_assigned', e.target.value)}>
