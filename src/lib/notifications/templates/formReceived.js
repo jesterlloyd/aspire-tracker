@@ -1,20 +1,61 @@
 // src/lib/notifications/templates/formReceived.js
 // Three audience variants for the 'form_received' notification type.
+// EMAIL-TEMPLATE-BRAND-2B — rendered in the canonical Nightfall/Cedars ASPIRE shell (navy header,
+// reversed CS logo, ASPIRE Program / Brawerman Nursing Institute), matching the other ASPIRE emails.
 import { JESTER_SIGNATURE } from './signatures.js';
 
-const SHARED_FOOTER = `
-  <p style="margin-top:32px;padding-top:16px;border-top:1px solid #E5E7EB;font-size:11px;color:#98A2B3;line-height:1.5;">
-    This is an automated notification from ASPIRE Intelligence. The Affiliate Students' Pathway from Internship to Residency Experience is a program of the Geri and Richard Brawerman Nursing Institute at Cedars-Sinai Medical Center.
-  </p>
-`;
+const NAVY  = '#1D2567';   // Nightfall — ASPIRE Intelligence primary brand color
+const SAND  = '#F4F1EC';   // Sand — ASPIRE app background
+const RAVEN = '#191919';   // Near-black body text
 
-const base = 'font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:580px;color:#0E1428;line-height:1.55;';
+// Footer attribution preserved verbatim from the prior SHARED_FOOTER, now in the canonical footer cell.
+const FOOTER_TEXT = `This is an automated notification from ASPIRE Intelligence. The Affiliate Students' Pathway from Internship to Residency Experience is a program of the Geri and Richard Brawerman Nursing Institute at Cedars-Sinai Medical Center.`;
+
+function wrap(content, preheader = '') {
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ASPIRE Program</title></head>
+<body style="margin:0;padding:0;background:${SAND};font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:${RAVEN};">
+<div style="display:none;max-height:0;overflow:hidden;">${preheader}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${SAND};padding:32px 16px;">
+<tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0"
+  style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+
+<!-- Nightfall header with reversed CS logo — canonical ASPIRE shell -->
+<tr><td style="background:${NAVY};padding:12px 28px;">
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
+    <td style="vertical-align:middle;">
+      <img src="https://aspire-tracker.vercel.app/cs-logo-large.png"
+           alt="Cedars-Sinai"
+           width="160" height="auto"
+           style="display:block;height:auto;max-height:46px;width:auto;max-width:160px;border:0;" />
+    </td>
+    <td style="text-align:right;vertical-align:middle;">
+      <div style="color:#ffffff;font-size:11px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;line-height:1.4;">ASPIRE Program</div>
+      <div style="color:rgba(255,255,255,0.75);font-size:10px;letter-spacing:0.3px;margin-top:3px;line-height:1.4;">Brawerman Nursing Institute</div>
+    </td>
+  </tr></table>
+</td></tr>
+
+<!-- Body -->
+<tr><td style="padding:32px 28px;font-size:15px;line-height:1.6;color:${RAVEN};">${content}</td></tr>
+
+<!-- Footer -->
+<tr><td style="padding:16px 28px 28px;font-size:12px;color:#9ca3af;line-height:1.5;border-top:1px solid #f0ede8;">
+  ${FOOTER_TEXT}
+</td></tr>
+
+</table>
+</td></tr>
+</table>
+</body></html>`;
+}
 
 export const formReceived = {
   student: (ctx) => ({
     subject: 'We received your ASPIRE application',
-    html: `
-      <div style="${base}">
+    html: wrap(`
         <h2 style="color:#1D2567;font-weight:600;margin:0 0 12px;">Welcome, ${ctx.studentFirstName || 'there'}.</h2>
         <p>Thank you for submitting your application to the ASPIRE Program at Cedars-Sinai. We've received your information and your placement coordinator at <strong>${ctx.school || 'your school'}</strong> has been notified.</p>
 
@@ -33,16 +74,13 @@ export const formReceived = {
           ${JESTER_SIGNATURE.fullName}<br/>
           <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.title}</span><br/>
           <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.affiliation}</span>
-        </p>
-        ${SHARED_FOOTER}
-      </div>
-    `,
+        </p>`,
+      `We've received your ASPIRE application.`),
   }),
 
   internal_team: (ctx) => ({
     subject: `New ASPIRE application: ${ctx.studentName} (${ctx.school || 'unknown school'})`,
-    html: `
-      <div style="${base}">
+    html: wrap(`
         <h2 style="color:#1D2567;font-weight:600;margin:0 0 12px;">New ASPIRE Application</h2>
 
         <table style="border-collapse:collapse;margin:16px 0;font-size:14px;">
@@ -56,18 +94,15 @@ export const formReceived = {
 
         <p style="margin-top:20px;">
           <a href="https://aspire-tracker.vercel.app" style="display:inline-block;padding:10px 18px;background:#1D2567;color:#fff;text-decoration:none;border-radius:8px;font-weight:500;font-size:13px;">Open in ASPIRE Intelligence</a>
-        </p>
-        ${SHARED_FOOTER}
-      </div>
-    `,
+        </p>`,
+      `New ASPIRE application from ${ctx.studentName}.`),
   }),
 
   school_coordinator: (ctx, recipient) => {
     const coordFirst = recipient?.name?.split(' ')[0] || 'there';
     return {
       subject: `${ctx.studentName} has submitted their ASPIRE application`,
-      html: `
-        <div style="${base}">
+      html: wrap(`
           <p>Hi ${coordFirst},</p>
           <p>This is a heads-up that <strong>${ctx.studentName}</strong> from ${ctx.school} has just submitted their ASPIRE Program application at Cedars-Sinai.</p>
 
@@ -84,10 +119,8 @@ export const formReceived = {
             Best,<br/>
             ${JESTER_SIGNATURE.fullName}<br/>
             <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.title}, Cedars-Sinai</span>
-          </p>
-          ${SHARED_FOOTER}
-        </div>
-      `,
+          </p>`,
+        `${ctx.studentName} submitted their ASPIRE application.`),
     };
   },
 };
