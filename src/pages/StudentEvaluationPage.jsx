@@ -204,7 +204,7 @@ export default function StudentEvaluationPage() {
         <div className="se-title-block">
           <div className="se-title-inner">
             <h1 style={{ fontSize: 21, fontWeight: 700, color: '#191919', margin: '0 0 4px', fontFamily: 'DM Sans, system-ui, sans-serif', lineHeight: 1.3 }}>
-              Student Evaluation of Preceptor/Unit Experience
+              Student Feedback: Preceptor & Unit
             </h1>
             <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontFamily: 'DM Sans, system-ui, sans-serif' }}>
               Your feedback helps improve the ASPIRE learning environment

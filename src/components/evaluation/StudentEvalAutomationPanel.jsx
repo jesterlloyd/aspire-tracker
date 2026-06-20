@@ -153,7 +153,7 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
       <div style={{ fontFamily: F }}>
       {/* Workspace header — restates the selected workflow + recipient. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-        <h2 style={{ fontSize: 17, fontWeight: 700, color: '#191919', margin: 0 }}>Student Evaluation of Preceptor/Unit</h2>
+        <h2 style={{ fontSize: 17, fontWeight: 700, color: '#191919', margin: 0 }}>Student Feedback: Preceptor & Unit</h2>
         <span style={{
           fontSize: 11, fontWeight: 700, color: '#1D2567', background: '#EEF1FB',
           border: '1px solid #d7ddf5', borderRadius: 999, padding: '2px 9px', whiteSpace: 'nowrap',
@@ -328,7 +328,7 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
                   : 'unavailable (context only)'}</span>
               </div>
               <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>
-                This emails the Student Evaluation of Preceptor/Unit Experience survey to the
+                This emails the Student Feedback: Preceptor & Unit survey to the
                 student above (Resend). Eligibility is re-checked on the server before sending.
               </p>
             </div>

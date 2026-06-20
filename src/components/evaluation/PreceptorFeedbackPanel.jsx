@@ -156,7 +156,7 @@ export default function PreceptorFeedbackPanel({ cohortId }) {
           Preceptor Feedback Requests
         </h2>
         <p style={{ fontSize: 13, color: '#9ca3af', margin: 0, lineHeight: 1.6 }}>
-          Send the ASPIRE Preceptor Student Progress &amp; Readiness Feedback survey to each
+          Send the Preceptor Student Readiness Assessment to each
           selected student&rsquo;s preceptor. This is developmental and readiness feedback, not a
           hiring tool. Up to {MAX_BATCH} students per send.
         </p>

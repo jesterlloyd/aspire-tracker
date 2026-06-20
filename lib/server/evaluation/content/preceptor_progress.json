@@ -1,8 +1,8 @@
 {
   "slug": "preceptor_progress",
-  "displayName": "ASPIRE Preceptor Student Progress & Readiness Feedback",
+  "displayName": "Preceptor Student Readiness Assessment",
   "intro": {
-    "heading": "Student Progress & Readiness Feedback",
+    "heading": "Preceptor Student Readiness Assessment",
     "body": "Thank you for precepting an ASPIRE student. This feedback supports the student's development and readiness as they prepare to transition into professional nursing practice. Specific examples are especially helpful. Any endorsement you provide is for consideration only and is not a hiring decision. The confidential section is reviewed by the ASPIRE team and unit leadership. This survey does not replace real-time coaching during the shift.",
     "compliance_note": "Endorsement reflects whether you would endorse this student for consideration. It is not a hiring decision, job offer, interview guarantee, or placement guarantee."
   },

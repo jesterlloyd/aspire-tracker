@@ -118,7 +118,7 @@ export default function PreceptorResponseDetail({ assignment, instrumentContent,
               {assignment.students?.first_name} {assignment.students?.last_name}
             </h2>
             <div style={{ fontSize: 12, color: '#6b7280', fontFamily: F, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontWeight: 500, color: '#374151' }}>Preceptor Student Progress &amp; Readiness Feedback</span>
+              <span style={{ fontWeight: 500, color: '#374151' }}>Preceptor Student Readiness Assessment</span>
               <span>·</span>
               <span>{periodLabel}</span>
               <span>·</span>

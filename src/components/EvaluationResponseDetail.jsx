@@ -6,9 +6,9 @@ const F = 'DM Sans, sans-serif'
 
 const TIMEPOINT_LABELS = {
   baseline:                'Baseline',
-  early_rotation_baseline: 'Early-Rotation Baseline',
+  early_rotation_baseline: 'Baseline',
   mid_rotation:            'Mid-Rotation Check-In',
-  post_rotation:           'Post-Rotation Reflection',
+  post_rotation:           'Post-Rotation',
 }
 
 // Mirror of STATUS_CONFIG in EvaluationTab.jsx — inline so this component

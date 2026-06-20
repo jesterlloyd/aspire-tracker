@@ -161,7 +161,7 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
       <div style={{ fontFamily: F }}>
       {/* Workspace header — restates the selected workflow + recipient. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-        <h2 style={{ fontSize: 17, fontWeight: 700, color: '#191919', margin: 0 }}>Preceptor Progress Feedback</h2>
+        <h2 style={{ fontSize: 17, fontWeight: 700, color: '#191919', margin: 0 }}>Preceptor Student Readiness Assessment</h2>
         <span style={{
           fontSize: 11, fontWeight: 700, color: '#1D2567', background: '#EEF1FB',
           border: '1px solid #d7ddf5', borderRadius: 999, padding: '2px 9px', whiteSpace: 'nowrap',
@@ -330,8 +330,8 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
                 </span>
               </div>
               <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>
-                This will send the ASPIRE Preceptor Student Progress &amp; Readiness Feedback
-                survey to the resolved preceptor via email (Resend). Eligibility is re-checked
+                This will send the Preceptor Student Readiness Assessment
+                to the resolved preceptor via email (Resend). Eligibility is re-checked
                 on the server before sending.
               </p>
             </div>

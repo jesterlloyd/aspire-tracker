@@ -428,10 +428,10 @@ export default function EvaluationPage() {
               fontSize: 22, fontWeight: 700, color: '#191919',
               margin: '0 0 6px', fontFamily: 'DM Sans, system-ui, sans-serif', lineHeight: 1.3,
             }}>
-              ASPIRE Program Pre-Rotation Readiness Survey
+              Casey-Fink Readiness for Practice Survey
             </h1>
             <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontFamily: 'DM Sans, system-ui, sans-serif' }}>
-              Instrument: Casey-Fink Readiness for Practice Survey, 2024
+              Instrument: Casey-Fink Readiness for Practice Survey
             </p>
           </div>
         </div>

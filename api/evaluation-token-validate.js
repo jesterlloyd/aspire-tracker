@@ -5,9 +5,9 @@ import { SCHEMA } from '../lib/server/evaluation/casey_fink_2024_validation.js';
 
 const TIMEPOINT_LABELS = {
   baseline:               'Baseline',
-  early_rotation_baseline:'Early-Rotation Baseline',
+  early_rotation_baseline:'Baseline',
   mid_rotation:           'Mid-Rotation Check-In',
-  post_rotation:          'Post-Rotation Reflection',
+  post_rotation:          'Post-Rotation',
 };
 
 function allowedInstrumentSlugs() {

@@ -254,7 +254,7 @@ export default function PreceptorEvaluationPage() {
         <div className="pe-title-block">
           <div className="pe-title-inner">
             <h1 style={{ fontSize: 21, fontWeight: 700, color: '#191919', margin: '0 0 4px', fontFamily: 'DM Sans, system-ui, sans-serif', lineHeight: 1.3 }}>
-              ASPIRE Preceptor Student Progress &amp; Readiness Feedback
+              Preceptor Student Readiness Assessment
             </h1>
             <p style={{ fontSize: 12, color: '#9ca3af', margin: 0, fontFamily: 'DM Sans, system-ui, sans-serif' }}>
               Developmental and readiness feedback to support student growth

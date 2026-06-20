@@ -16,8 +16,8 @@ const WORKSPACE_ID = 'survey-automation-workspace'
 
 // The two survey workflows, in display order. `key` drives selection + the count rollup.
 const WORKFLOWS = [
-  { key: 'preceptor', title: 'Preceptor Progress Feedback',          recipientLabel: 'Preceptor' },
-  { key: 'student',   title: 'Student Evaluation of Preceptor/Unit', recipientLabel: 'Student' },
+  { key: 'preceptor', title: 'Preceptor Student Readiness Assessment', recipientLabel: 'Preceptor' },
+  { key: 'student',   title: 'Student Feedback: Preceptor & Unit',     recipientLabel: 'Student' },
 ]
 
 export default function SurveyAutomationDashboard({ cohortId }) {

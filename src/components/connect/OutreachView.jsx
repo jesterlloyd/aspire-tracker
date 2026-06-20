@@ -10,12 +10,12 @@ import SentHistory from './SentHistory'
 const F = 'DM Sans, sans-serif'
 
 const INSTRUMENTS = [
-  { slug: 'casey_fink_readiness_2024', label: 'Casey-Fink Readiness for Practice Survey, 2024' },
+  { slug: 'casey_fink_readiness_2024', label: 'Casey-Fink Readiness for Practice Survey' },
 ]
 
 const TIMEPOINTS = [
   { value: 'baseline',                label: 'Baseline' },
-  { value: 'early_rotation_baseline', label: 'Early-Rotation Baseline' },
+  { value: 'early_rotation_baseline', label: 'Baseline' },
   { value: 'midpoint',               label: 'Mid-Rotation Check-In' },
   { value: 'post_rotation',          label: 'Post-Rotation' },
 ]
@@ -1820,7 +1820,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                 <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid #f3f4f6' }}>
                   <span style={sectionLabel}>Subject</span>
                   <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.5 }}>
-                    ASPIRE Program: Your Pre-Rotation Readiness Survey is ready
+                    ASPIRE: Casey-Fink Readiness Survey — Baseline
                   </div>
                 </div>
 
@@ -2637,7 +2637,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                 These are real emails to real students. They cannot be unsent.
               </div>
               <div style={{ marginBottom: 16, fontSize: 12, fontFamily: F, color: '#374151', lineHeight: 1.6 }}>
-                <div><strong>Survey:</strong> Casey-Fink Readiness for Practice Survey 2024</div>
+                <div><strong>Survey:</strong> Casey-Fink Readiness for Practice Survey</div>
                 <div><strong>Timepoint:</strong> {TIMEPOINTS.find(t => t.value === bulkTimepoint)?.label || bulkTimepoint}</div>
                 <div><strong>Expires:</strong> {fmtDate(bulkExpiresAt)}</div>
                 <div><strong>Recipients:</strong> {eligible.length} student{eligible.length !== 1 ? 's' : ''}</div>
