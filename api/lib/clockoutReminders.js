@@ -84,7 +84,10 @@ export async function runClockoutReminders(supabase, { mode = 'dry-run', cronNam
     // ── 2. Overdue subset — reuse shiftStatus.js thresholds (Day 14h, others 16h). No duplication.
     const overdue = open.filter(log => isClockoutMaybeOverdue(log, nowMs));
 
-    // ── 3. Recipient resolution (read-only): personal_email then school_email
+    // ── 3. Recipient resolution (read-only): school_email then personal_email
+    //      SHIFT-EMAIL-ROUTING-1: clock-out reminders are ACTIVE-SHIFT operational comms and students
+    //      log shifts under their school email, so school_email is preferred; personal_email is only a
+    //      fallback when school_email is missing/blank (the fallback is flagged + reported).
     const studentIds = [...new Set(overdue.map(l => l.student_id).filter(Boolean))];
     let studentMap = {};
     if (studentIds.length) {
@@ -127,20 +130,23 @@ export async function runClockoutReminders(supabase, { mode = 'dry-run', cronNam
         skippedRecent.push(rowSummary(log, stu, nowMs));
         continue;
       }
-      const personalEmail = stu?.personal_email || '';
-      const schoolEmail   = stu?.school_email || '';
-      const recipient     = personalEmail || schoolEmail || '';
+      const schoolEmail   = (stu?.school_email || '').trim();
+      const personalEmail = (stu?.personal_email || '').trim();
+      // School-first; personal_email only as fallback when school_email is missing/blank.
+      const recipient     = schoolEmail || personalEmail || '';
       if (!recipient) {
         skippedNoEmail.push(rowSummary(log, stu, nowMs));
         continue;
       }
-      const recipientType = personalEmail ? 'personal_email' : 'school_email';
+      const fallbackUsed  = !schoolEmail && !!personalEmail;
+      const recipientType = fallbackUsed ? 'personal_email_fallback' : 'school_email';
       const firstName     = stu?.first_name || 'there';
 
       const row = {
         ...rowSummary(log, stu, nowMs),
         recipient,
         recipientType,
+        fallbackUsed,
         firstName,
         cohortId: log.cohort_id,
       };
@@ -152,6 +158,7 @@ export async function runClockoutReminders(supabase, { mode = 'dry-run', cronNam
           subject:       CLOCKOUT_REMINDER_SUBJECT,
           body:          clockoutReminderText(firstName),
           recipientType,
+          fallbackUsed,
           studentName:   row.studentName,
           shift:         row.shift,
           openDuration:  row.openDuration,
@@ -198,6 +205,9 @@ export async function runClockoutReminders(supabase, { mode = 'dry-run', cronNam
       open_checked: open.length,
       overdue_count: overdue.length,
       would_send_count: wouldSend.length,
+      // SHIFT-EMAIL-ROUTING-1: how many would-send rows fell back to personal_email (school_email
+      // missing/blank). Counts-only — no names/emails persisted to cron_runs.
+      personal_email_fallback_count: wouldSend.filter(r => r.fallbackUsed).length,
       sent_count: sentCount,
       skipped_no_email_count: skippedNoEmail.length,
       skipped_recently_reminded_count: skippedRecent.length,
