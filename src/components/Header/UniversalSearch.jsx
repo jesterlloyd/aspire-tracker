@@ -152,6 +152,66 @@ export default function UniversalSearch({
                   })}
                 </>
               )}
+              {searchResults.preceptors.length > 0 && (
+                <>
+                  <div style={{ padding:'8px 12px', fontSize:11, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.05em', background:'var(--sand)' }}>Preceptors</div>
+                  {searchResults.preceptors.map((p, i) => {
+                    const fi = searchResults.students.length + searchResults.units.length + searchResults.placements.length + searchResults.contacts.length + i
+                    const isAct = searchActiveIdx === fi
+                    return (
+                      <div key={p.id} onClick={() => handleSearchResult({ type:'preceptor', data:p })}
+                        style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', cursor:'pointer', background: isAct ? 'var(--sand)' : 'transparent' }}
+                        onMouseEnter={() => setSearchActiveIdx(fi)} onMouseLeave={() => setSearchActiveIdx(-1)}>
+                        <span style={{ color:'#6b7280', fontSize:15, flexShrink:0 }}>🩺</span>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{p.full_name}</div>
+                          <div style={{ fontSize:12, color:'#6b7280', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{p.unit_name||''}{p.unit_name&&p.email?' · ':''}{p.email||''}</div>
+                        </div>
+                        {p.shift_type && <span style={{ fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:10, background:'#E1F3FB', color:'#0e4e6e', border:'1px solid #89CEEA', flexShrink:0 }}>{p.shift_type}</span>}
+                      </div>
+                    )
+                  })}
+                </>
+              )}
+              {searchResults.cohorts.length > 0 && (
+                <>
+                  <div style={{ padding:'8px 12px', fontSize:11, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.05em', background:'var(--sand)' }}>Cohorts</div>
+                  {searchResults.cohorts.map((c, i) => {
+                    const fi = searchResults.students.length + searchResults.units.length + searchResults.placements.length + searchResults.contacts.length + searchResults.preceptors.length + i
+                    const isAct = searchActiveIdx === fi
+                    return (
+                      <div key={c.id} onClick={() => handleSearchResult({ type:'cohort', data:c })}
+                        style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', cursor:'pointer', background: isAct ? 'var(--sand)' : 'transparent' }}
+                        onMouseEnter={() => setSearchActiveIdx(fi)} onMouseLeave={() => setSearchActiveIdx(-1)}>
+                        <span style={{ color:'#6b7280', fontSize:15, flexShrink:0 }}>📅</span>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.name}</div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </>
+              )}
+              {searchResults.catalog.length > 0 && (
+                <>
+                  <div style={{ padding:'8px 12px', fontSize:11, fontWeight:600, color:'#9ca3af', textTransform:'uppercase', letterSpacing:'0.05em', background:'var(--sand)' }}>Catalog</div>
+                  {searchResults.catalog.map((r, i) => {
+                    const fi = searchResults.students.length + searchResults.units.length + searchResults.placements.length + searchResults.contacts.length + searchResults.preceptors.length + searchResults.cohorts.length + i
+                    const isAct = searchActiveIdx === fi
+                    return (
+                      <div key={r.id} onClick={() => handleSearchResult({ type:'catalog', data:r })}
+                        style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', cursor:'pointer', background: isAct ? 'var(--sand)' : 'transparent' }}
+                        onMouseEnter={() => setSearchActiveIdx(fi)} onMouseLeave={() => setSearchActiveIdx(-1)}>
+                        <span style={{ color:'#6b7280', fontSize:15, flexShrink:0 }}>📄</span>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{r.title}</div>
+                          <div style={{ fontSize:12, color:'#6b7280', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{r.category||''}{r.category&&r.description?' · ':''}{r.description||''}</div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </>
+              )}
             </>
           )}
         </div>

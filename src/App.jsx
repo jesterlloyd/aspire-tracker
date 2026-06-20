@@ -137,7 +137,7 @@ function MainApp({ onLogout }) {
   // ── Header: search state ─────────────────────────────────────────────────────
   const [searchQuery,     setSearchQuery]     = useState('')
   const [searchOpen,      setSearchOpen]      = useState(false)
-  const [searchResults,   setSearchResults]   = useState({ students:[], units:[], placements:[], contacts:[] })
+  const [searchResults,   setSearchResults]   = useState({ students:[], units:[], placements:[], contacts:[], preceptors:[], cohorts:[], catalog:[] })
   const [searchLoading,   setSearchLoading]   = useState(false)
   const [searchActiveIdx, setSearchActiveIdx] = useState(-1)
   const [searchFocused,   setSearchFocused]   = useState(false)
@@ -673,9 +673,12 @@ function MainApp({ onLogout }) {
   })
 
   const runSearch = useCallback(async q => {
-    if (!activeCohortId || q.length < 2) { setSearchResults({ students:[], units:[], placements:[], contacts:[] }); setSearchOpen(false); return }
+    if (!activeCohortId || q.length < 2) { setSearchResults({ students:[], units:[], placements:[], contacts:[], preceptors:[], cohorts:[], catalog:[] }); setSearchOpen(false); return }
     setSearchLoading(true); setSearchOpen(true)
-    const [stuRes, unitRes, contRes] = await Promise.all([
+    // UNIVERSAL-SEARCH-1: every query below is an EXISTING-RLS-backed client read — permissioning is
+    // the table's own RLS (students/units cohort-scoped; contacts is_active; preceptors authenticated
+    // read; catalog Owner/Admin/Interviewer-tiered). No new endpoint, no schema, read-only.
+    const [stuRes, unitRes, contRes, precRes, catRes] = await Promise.all([
       supabase.from('students').select('id, first_name, last_name, school, school_email, status, headshot_url')
         .eq('cohort_id', activeCohortId)
         .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,school_email.ilike.%${q}%,personal_email.ilike.%${q}%,phone.ilike.%${q}%,school.ilike.%${q}%`).limit(6),
@@ -684,6 +687,13 @@ function MainApp({ onLogout }) {
       supabase.from('contacts').select('id, full_name, preferred_name, email, role, category, avatar_url, organization, school_name, unit_name')
         .eq('is_active', true)
         .or(`full_name.ilike.%${q}%,preferred_name.ilike.%${q}%,email.ilike.%${q}%,role.ilike.%${q}%,school_name.ilike.%${q}%,unit_name.ilike.%${q}%,category.ilike.%${q}%,organization.ilike.%${q}%`).limit(5),
+      // Preceptors: operational roster (global, not cohort-scoped). RLS = authenticated_read_preceptors.
+      supabase.from('preceptors').select('id, full_name, email, unit_name, shift_type')
+        .or(`full_name.ilike.%${q}%,email.ilike.%${q}%,unit_name.ilike.%${q}%`).limit(5),
+      // Catalog: SAFE metadata only — slug (routing), title, description, category, tags. storage_path
+      // is NEVER selected. RLS returns only rows this role may see; client-filtered below (text[] tags).
+      supabase.from('catalog_resources').select('id, slug, title, description, category, tags')
+        .eq('is_active', true).limit(100),
     ])
     const ql = q.toLowerCase()
     const placements = students.filter(s => {
@@ -691,14 +701,24 @@ function MainApp({ onLogout }) {
       const u = units.find(u => u.id === s.matched_unit_id)
       return `${s.last_name} ${s.first_name}`.toLowerCase().includes(ql) || (u?.unit_name||'').toLowerCase().includes(ql)
     }).map(s => ({ student: s, unit: units.find(u => u.id === s.matched_unit_id) })).slice(0, 5)
-    setSearchResults({ students: stuRes.data||[], units: unitRes.data||[], placements, contacts: contRes.data||[] })
+    // Cohorts: filter the already-loaded (RLS-backed) cohort list in-memory; no extra query.
+    const cohortMatches = (cohorts || []).filter(c => (c.name||'').toLowerCase().includes(ql)).slice(0, 5)
+    // Catalog metadata match across title/description/category/tags (tags is text[] → client filter).
+    const catalogMatches = (catRes.data || []).filter(r => {
+      const hay = [r.title, r.description, r.category, ...(Array.isArray(r.tags) ? r.tags : [])].join(' ').toLowerCase()
+      return hay.includes(ql)
+    }).slice(0, 5)
+    setSearchResults({
+      students: stuRes.data||[], units: unitRes.data||[], placements, contacts: contRes.data||[],
+      preceptors: precRes.data||[], cohorts: cohortMatches, catalog: catalogMatches,
+    })
     setSearchLoading(false); setSearchActiveIdx(-1)
-  }, [activeCohortId, students, units]) // eslint-disable-line
+  }, [activeCohortId, students, units, cohorts]) // eslint-disable-line
 
   const handleSearchChange = e => {
     const q = e.target.value; setSearchQuery(q)
     clearTimeout(searchTimer.current)
-    if (q.length < 2) { setSearchResults({ students:[], units:[], placements:[], contacts:[] }); setSearchOpen(false); return }
+    if (q.length < 2) { setSearchResults({ students:[], units:[], placements:[], contacts:[], preceptors:[], cohorts:[], catalog:[] }); setSearchOpen(false); return }
     searchTimer.current = setTimeout(() => runSearch(q), 300)
   }
 
@@ -707,6 +727,9 @@ function MainApp({ onLogout }) {
     ...searchResults.units.map(u => ({ type:'unit', data:u })),
     ...searchResults.placements.map(p => ({ type:'placement', data:p })),
     ...searchResults.contacts.map(c => ({ type:'contact', data:c })),
+    ...searchResults.preceptors.map(p => ({ type:'preceptor', data:p })),
+    ...searchResults.cohorts.map(c => ({ type:'cohort', data:c })),
+    ...searchResults.catalog.map(r => ({ type:'catalog', data:r })),
   ]
 
   const handleSearchKey = e => {
@@ -723,6 +746,10 @@ function MainApp({ onLogout }) {
     else if (item.type === 'unit') { setHighlightUnitId(item.data.id); switchTab('rotation'); setTimeout(() => setHighlightUnitId(null), 2500) }
     else if (item.type === 'placement') { setHighlightUnitId(item.data.unit?.id); switchTab('rotation'); setTimeout(() => setHighlightUnitId(null), 2500) }
     else if (item.type === 'contact') { navigate(`/connect/contacts?contactId=${item.data.id}`) }
+    // UNIVERSAL-SEARCH-1 — existing safe destinations only; no file access, no secure URLs.
+    else if (item.type === 'preceptor') { navigate('/rotation/preceptors') }
+    else if (item.type === 'cohort') { handleCohortSwitch(item.data.id) }
+    else if (item.type === 'catalog') { navigate(`/catalog?resource=${encodeURIComponent(item.data.slug)}`) }
   }
 
   const actionBadgeCount = (() => {
