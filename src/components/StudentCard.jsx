@@ -91,12 +91,13 @@ function getInitials(name) {
 }
 
 /** Progress bar color by completion percentage. */
-// ON-CAMPUS-NOW-UX-2: tone for the compact accumulated-hours avatar badge.
+// ON-CAMPUS-NOW-UX-2B: tone for the accumulated-hours avatar ring + badge. Low progress is
+// branded indigo (NOT grey) so a just-started student still reads as on-track, not inactive.
 function hoursBadgeColor(pct) {
   if (pct >= 100) return '#15803d'   // strong green — required hours met/exceeded
   if (pct >= 80)  return '#16a34a'   // green — near completion
   if (pct >= 40)  return '#f59e0b'   // amber — moderate progress
-  return '#64748b'                    // slate — low / just starting
+  return '#4f46e5'                    // indigo (branded) — low / just starting
 }
 
 /** Abbreviate school names to fit the compact card width. */
@@ -311,20 +312,42 @@ export default function StudentCard({ student, variant, onClick, variantProps = 
         userSelect: 'none',
       }}
     >
-      {/* Avatar with optional badge. ON-CAMPUS-NOW-UX-2: on-campus cards show a compact
-          accumulated-hours pill straddling the avatar's lower edge (extra marginBottom gives
-          the centered pill clearance from the name). */}
-      <div style={{ position: 'relative', marginBottom: variant === 'on-campus' ? 14 : 8 }}>
-        <StudentAvatar
-          student={student}
-          size={CARD.avatarSize}
-          style={{
-            border: isSelected
-              ? '3px solid #1D2567'
-              : '3px solid #fff',
-            boxShadow: '0 2px 8px rgba(29,37,103,0.12)',
-          }}
-        />
+      {/* Avatar with optional badge. ON-CAMPUS-NOW-UX-2B: on-campus cards wrap the avatar in a
+          conic-gradient HOURS PROGRESS RING (branded-indigo base at 0% → green when complete) and
+          show a compact hours pill at the lower-right corner — mirroring the Student Profiles grid
+          completion badge. Profile/interview variants are unchanged. */}
+      <div style={{ position: 'relative', marginBottom: 8 }}>
+        {variant === 'on-campus' ? (() => {
+          const done = parseFloat(variantProps.hoursCompleted) || 0
+          const req  = parseFloat(variantProps.hoursRequired)  || 200
+          const hp   = req > 0 ? Math.min(100, (done / req) * 100) : 0
+          const RING = 4 // ring thickness (px)
+          return (
+            <div style={{
+              width: CARD.avatarSize + RING * 2, height: CARD.avatarSize + RING * 2,
+              borderRadius: '50%', padding: RING, boxSizing: 'border-box',
+              // fill up to hp%, then a faint branded-navy track for the remainder (visible at 0%)
+              background: `conic-gradient(${hoursBadgeColor(hp)} ${hp}%, rgba(29,37,103,0.12) ${hp}% 100%)`,
+            }}>
+              <StudentAvatar
+                student={student}
+                size={CARD.avatarSize}
+                style={{ border: '2px solid #fff', boxShadow: '0 2px 8px rgba(29,37,103,0.12)' }}
+              />
+            </div>
+          )
+        })() : (
+          <StudentAvatar
+            student={student}
+            size={CARD.avatarSize}
+            style={{
+              border: isSelected
+                ? '3px solid #1D2567'
+                : '3px solid #fff',
+              boxShadow: '0 2px 8px rgba(29,37,103,0.12)',
+            }}
+          />
+        )}
         {showBadge && (
           <span style={{
             position: 'absolute', bottom: -2, right: -2,
@@ -343,11 +366,12 @@ export default function StudentCard({ student, variant, onClick, variantProps = 
           const hp   = req > 0 ? Math.min(100, (done / req) * 100) : 0
           const fmt  = (n) => Number.isInteger(n) ? String(n) : String(Math.round(n * 10) / 10)
           return (
+            // Lower-right corner, partly outside the ring — mirrors the grid completion badge.
             <span style={{
-              position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
+              position: 'absolute', bottom: -3, right: -6,
               background: hoursBadgeColor(hp), color: '#fff',
               fontSize: 9, fontWeight: 800,
-              padding: '1px 6px', borderRadius: 9, lineHeight: 1.5,
+              padding: '1px 6px', borderRadius: 9, lineHeight: 1.4,
               boxShadow: '0 1px 3px rgba(0,0,0,0.22)', whiteSpace: 'nowrap',
               fontFamily: F.family,
             }}>
