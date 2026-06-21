@@ -100,22 +100,16 @@ WHAT KEITH MUST NEVER DO:
   },
 };
 
+// KEITH-SUGGESTIONS-UI-1: a calmer, higher-value default set. Reduced from 15 chips to 6
+// so the starter area is easy to scan; every removed prompt still works if typed manually
+// (Keith's capabilities are unchanged — this only trims the default visible suggestions).
 export const SUGGESTED_PROMPTS = [
   { label: 'Who needs follow-up today?', category: 'action' },
   { label: 'Summarize this cohort.', category: 'summary' },
-  { label: 'Who is ready for rotation?', category: 'readiness' },
-  { label: 'Who is missing CS-Link access?', category: 'cslink' },
-  { label: 'Who still needs an interview?', category: 'interview' },
+  { label: 'Draft an ASPIRE email.', category: 'email' },
   { label: 'Who is on campus today?', category: 'campus' },
-  { label: 'Draft a unit leader notification email.', category: 'email' },
-  { label: 'Draft a student form email.', category: 'email' },
   { label: 'Explain the ASPIRE status journey.', category: 'info' },
   { label: 'How does CS-Link access work?', category: 'info' },
-  { label: 'How do I email a student from Student Profiles?', category: 'connect' },
-  { label: 'How do I email a contact from Contacts?', category: 'connect' },
-  { label: 'What can I do in Outreach right now?', category: 'connect' },
-  { label: 'How do I send bulk Casey-Fink survey invitations?', category: 'connect' },
-  { label: 'What contact categories are available?', category: 'connect' },
 ];
 
 export function generateStaticResponse(userMessage, cohortName, context) {
