@@ -8,7 +8,7 @@ import { buildSystemPrompt, GOVERNED_KNOWLEDGE_MARKER, getRecentCommunications, 
 import { retrieveGovernedKnowledge } from '../lib/server/keith/knowledgeRetrieval.js';
 import { computeStatusCounts, STATUS_DEFINITIONS } from '../src/lib/derivations/cohortStatus.js';
 import { summarizeCsLink } from '../src/lib/derivations/csLink.js';
-import { selectActiveWindowRows, mergeOnCampusNow } from '../src/lib/onCampusNow.js';
+import { selectActiveWindowRows, mergeOnCampusNow, openShiftUnit, openShiftPreceptor } from '../src/lib/onCampusNow.js';
 import { shiftTypeOf, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../src/lib/shiftStatus.js';
 import { displayName } from '../src/lib/utils.js';
 import { classifyIntent, INTENTS, isExplicitEmailDrafting } from '../lib/server/keith/queryIntent.js';
@@ -959,7 +959,11 @@ Cohort Status: ${cohort.status || 'unknown'}`
             })();
             const [lifecycleRes, windowRes] = await Promise.allSettled([
               dbkeith.from('student_shift_logs')
-                .select('id, student_id, checked_in_at, lifecycle_state, planned_shift_type, unit_name, total_hours, shift_type, shift_date')
+                // KEITH-ON-CAMPUS-DETAILS-1: include planned_* (logged at check-in) + final
+                // unit_name/preceptor_name so On Campus Now shows the same unit + logged
+                // preceptor as Rotation > Activity. For in_progress shifts the planned_* fields
+                // hold the live values (final unit_name/preceptor_name are null until check-out).
+                .select('id, student_id, checked_in_at, lifecycle_state, planned_shift_type, planned_unit_name, planned_preceptor_name, unit_name, preceptor_name, total_hours, shift_type, shift_date')
                 .eq('cohort_id', ctxCohortId)
                 .eq('lifecycle_state', 'in_progress')
                 .order('checked_in_at', { ascending: false }),
@@ -980,14 +984,29 @@ Cohort Status: ${cohort.status || 'unknown'}`
             onCampusLines = merged.map(log => {
               const s = studentMap[log.student_id];
               const name = s ? displayName(s) : '(student not in current cohort cache)';
+              const schoolProg = s ? [s.school, s.program_type].filter(Boolean).join(' · ') : '';
               const type = shiftTypeOf(log);
-              const unit = log.unit_name || 'unit not yet recorded';
+              // KEITH-ON-CAMPUS-DETAILS-1: unit + logged preceptor via the SAME shared resolvers
+              // as Rotation > Activity Open Shift Review (planned_* first for in-progress shifts).
+              const unit = openShiftUnit(log, s, liveData.units || []) || 'Unavailable';
+              const { logged, assigned } = openShiftPreceptor(log, s);
+              const preceptor = logged
+                ? logged
+                : (assigned ? `Assigned: ${assigned} (not logged)` : 'Not logged');
               const openMs = openShiftMs(log, Date.now());
               const duration = openMs != null
-                ? `, open ${formatDuration(openMs)}`
-                : (log.total_hours ? `, ${log.total_hours}h logged` : '');
+                ? `open ${formatDuration(openMs)}`
+                : (log.total_hours ? `${log.total_hours}h logged` : null);
               const overdue = isClockoutMaybeOverdue(log, Date.now()) ? ' [clock-out may be overdue]' : '';
-              return `- ${name} (${s?.school || 'school N/A'}) at ${unit}${type ? `, ${type}` : ''}${duration}${overdue}`;
+              const parts = [
+                name,
+                schoolProg || null,
+                `Unit: ${unit}`,
+                `Preceptor: ${preceptor}`,
+                type ? `${type} shift` : null,
+                duration,
+              ].filter(Boolean);
+              return `- ${parts.join(' — ')}${overdue}`;
             }).join('\n') || '(none currently on campus)';
           } catch (e) {
             console.warn('[keith] on-campus-now derive failed (non-fatal):', e.message);
@@ -1110,8 +1129,8 @@ Completed: ${statusCounts.completed} (${STATUS_DEFINITIONS['Completed']})
 Interviewed: ${statusCounts.interviewed} · Awaiting Interview: ${statusCounts.awaitingInterview} · Needs Outreach: ${statusCounts.needsOutreach}
 Placed does NOT mean rotating. When summarizing the cohort, state the total, then Not Proceeding, then Placed and Active Rotation with their definitions; never describe Placed students as rotating.
 
-On Campus Now (${onCampusNowCount} student${onCampusNowCount === 1 ? '' : 's'} currently on campus):
-This is the SAME On Campus Now list shown in the Aggregate tab: students with a live open/in-progress shift check-in, plus any whose logged shift window currently contains the present moment. When asked "who is on campus today" or "who is on campus now", answer from THIS list. If it is empty, say no students have an open or current on-campus shift log right now; do NOT say "no shifts are scheduled" (this list is about live/open shifts, not the schedule).
+On Campus Now — current open shift logs (${onCampusNowCount} student${onCampusNowCount === 1 ? '' : 's'} currently on campus):
+This is the SAME On Campus Now / Open Shift Review list shown in the Aggregate and Rotation > Activity tabs: students with a live open/in-progress shift check-in, plus any whose logged shift window currently contains the present moment. Each row already includes the student's logged unit and logged preceptor for the open shift. When asked "who is on campus today" or "who is on campus now", answer from THIS list and cite the source as the current open shift logs (or the On Campus Now / open shift data) — do NOT attribute it to "Student Profiles live data". Report each student's unit and preceptor EXACTLY as written here: if a row says "Unit: Unavailable" say the unit is unavailable for that student only (never claim all units are unrecorded when other rows have a unit); if it says "Preceptor: Not logged" say the preceptor was not logged (never substitute an assigned preceptor as logged); a preceptor shown as "Assigned: <name> (not logged)" must be described as the assigned preceptor that was not logged on this shift. If the list is empty, say no students have an open or current on-campus shift log right now; do NOT say "no shifts are scheduled" (this is about live/open shifts, not the schedule).
 ${onCampusLines}
 
 Pending interview / Form Received (${pendingInterview.length}):

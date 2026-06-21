@@ -38,3 +38,26 @@ export function mergeOnCampusNow(lifecycleRows, activeWindowRows) {
   const fallbackOnly = (activeWindowRows || []).filter(r => !lifecycleStudentIds.has(r.student_id))
   return [...(lifecycleRows || []), ...fallbackOnly]
 }
+
+// KEITH-ON-CAMPUS-DETAILS-1 — shared open-shift detail resolvers so the Rotation > Activity
+// Open Shift Review table and Keith's On Campus Now answer derive unit/preceptor identically.
+//
+// Unit precedence: what the student logged at check-in (planned_unit_name) → the final
+// unit_name (set at check-out) → the student's matched/assigned unit → null. For an OPEN
+// (in_progress) shift the final unit_name is null, so planned_unit_name is the live value.
+export function openShiftUnit(log, student, units = []) {
+  return log?.planned_unit_name
+    || log?.unit_name
+    || (units || []).find(u => u.id === student?.matched_unit_id)?.unit_name
+    || null
+}
+
+// The preceptor the student actually LOGGED on this shift (planned at check-in, or final at
+// check-out). Never substitutes the assigned preceptor as logged — it is returned separately
+// as a clearly-labeled fallback. Both are trimmed; '' means absent.
+export function openShiftPreceptor(log, student) {
+  return {
+    logged:   (log?.planned_preceptor_name || log?.preceptor_name || '').trim(),
+    assigned: (student?.matched_preceptor || '').trim(),
+  }
+}

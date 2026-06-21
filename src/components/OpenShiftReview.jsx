@@ -13,6 +13,7 @@
 import { useState, useMemo } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { shiftTypeOf, shiftBadge, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../lib/shiftStatus'
+import { openShiftUnit, openShiftPreceptor } from '../lib/onCampusNow'
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -42,20 +43,12 @@ export default function OpenShiftReview({ openLogs = [], students = [], units = 
       const email = stu ? (stu.personal_email || stu.school_email || '') : ''
       const klass = !overdue ? 'ok' : (email ? 'overdue_email' : 'overdue_no_email')
 
-      // ROTATION-ACTIVITY-OPEN-SHIFT-UX-1 — Unit: prefer what the student logged on this open
-      // shift (planned_unit_name at check-in, or final unit_name), then fall back to the
-      // student's matched/assigned unit. Null → shown as a muted "Unavailable".
-      const unit = log.planned_unit_name
-        || log.unit_name
-        || units.find(u => u.id === stu?.matched_unit_id)?.unit_name
-        || null
-
-      // Logged Preceptor: ONLY the value the student actually captured on the shift log
-      // (planned at check-in, or final at check-out). Never silently substitute the assigned
-      // preceptor as "logged". When nothing was logged, the assigned preceptor (free-text
-      // students.matched_preceptor) is offered as a CLEARLY LABELED fallback, else "Not logged".
-      const loggedPreceptor   = (log.planned_preceptor_name || log.preceptor_name || '').trim()
-      const assignedPreceptor = (stu?.matched_preceptor || '').trim()
+      // KEITH-ON-CAMPUS-DETAILS-1: unit + preceptor now come from shared resolvers (src/lib/
+      // onCampusNow.js) so this table and Keith's On Campus Now answer stay in lockstep.
+      // Unit: planned_unit_name → unit_name → matched/assigned unit → null ("Unavailable").
+      const unit = openShiftUnit(log, stu, units)
+      // Logged preceptor only (never assigned-as-logged); assigned returned as labeled fallback.
+      const { logged: loggedPreceptor, assigned: assignedPreceptor } = openShiftPreceptor(log, stu)
 
       return { log, stu, shiftType, overdue, email, klass, unit, loggedPreceptor, assignedPreceptor, ms: openShiftMs(log) ?? 0 }
     })
