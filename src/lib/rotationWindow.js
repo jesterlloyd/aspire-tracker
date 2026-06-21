@@ -40,6 +40,25 @@ export function isOutsideRotationWindow(shiftDate, rotationRow) {
   return sd < start || sd > end
 }
 
+// STUDENT-PROFILE-CANON-1D — cohort-wide canonical date span derived from the coordinator-owned
+// rotation rows: earliest non-sentinel rotation_start_date → latest non-sentinel rotation_end_date.
+// Sentinel/invalid rows are excluded. Returns { start, end } (YYYY-MM-DD) or null when no valid row
+// exists (caller should show a pending message, never the sentinel). YYYY-MM-DD sorts chronologically.
+export function deriveCohortRange(rotationRows) {
+  const starts = []
+  const ends = []
+  for (const r of rotationRows || []) {
+    const win = canonicalRotationWindow(r)
+    if (!win) continue
+    starts.push(win.start)
+    ends.push(win.end)
+  }
+  if (!starts.length || !ends.length) return null
+  starts.sort()
+  ends.sort()
+  return { start: starts[0], end: ends[ends.length - 1] }
+}
+
 // Human-readable canonical range, or the pending message when unavailable/sentinel. `dateFmt`
 // optionally formats each YYYY-MM-DD value (e.g. to a Pacific "Mon D, YYYY"); defaults to raw.
 export function formatRotationRange(rotationRow, dateFmt = (d) => d) {
