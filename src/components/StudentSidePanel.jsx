@@ -496,6 +496,44 @@ export default function StudentSidePanel({
     refetchPrivateNote()
   }
 
+  // STUDENT-PROFILE-CANON-1E: clear (inactivate) the active disposition without hard delete.
+  // Clearing NEVER changes student.status / interview_outcome / ngrp_outcome — if the admin
+  // wants to change status they do it separately. History is preserved; an audit event is logged.
+  const [showClearModal, setShowClearModal] = useState(false)
+  const [clearReason,    setClearReason]    = useState('')
+  const [clearing,       setClearing]       = useState(false)
+  const [clearError,     setClearError]     = useState(null)
+
+  const handleOpenClearDisposition = () => {
+    setClearReason('')
+    setClearError(null)
+    setShowClearModal(true)
+  }
+
+  const handleConfirmClearDisposition = async () => {
+    setClearing(true)
+    setClearError(null)
+    try {
+      const { data: result, error } = await supabase.rpc('clear_student_disposition', {
+        p_student_id: student.id,
+        p_reason:     clearReason.trim() || null,
+      })
+      if (error) { setClearError(error.message || 'Could not clear disposition.'); setClearing(false); return }
+      if (result && result.cleared === false) {
+        toast?.info('No active disposition', 'There was no active disposition to clear.')
+      } else {
+        toast?.success('Disposition cleared', 'The active disposition was cleared. Student status was not changed.')
+      }
+      await refetchDisposition()
+      // Refresh any list/other surfaces reading the active-disposition view.
+      queryClient.invalidateQueries({ queryKey: ['student_active_disposition'] })
+      setShowClearModal(false)
+    } catch (e) {
+      setClearError(e.message || 'Could not clear disposition.')
+    }
+    setClearing(false)
+  }
+
   // Follow-up completion inline state
   const [completingFollowupId, setCompletingFollowupId] = useState(null)
   const [completionNote,       setCompletionNote]       = useState('')
@@ -2059,18 +2097,30 @@ export default function StudentSidePanel({
                   </div>
                 )}
                 {canEdit && (
-                  <div style={{ marginTop:14 }}>
+                  <div style={{ marginTop:14, display:'flex', gap:8, flexWrap:'wrap' }}>
                     <button
                       onClick={handleUpdateDisposition}
                       style={{ fontSize:12, color:'#1D2567', background:'#f0f3ff', border:'1px solid #e0e7ff', borderRadius:6, padding:'5px 14px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:600 }}
                     >
                       Update Disposition
                     </button>
+                    <button
+                      onClick={handleOpenClearDisposition}
+                      style={{ fontSize:12, color:'#92400e', background:'#fdf6ec', border:'1px solid #f0c9b0', borderRadius:6, padding:'5px 14px', cursor:'pointer', fontFamily:'DM Sans,sans-serif', fontWeight:600 }}
+                    >
+                      Clear Disposition
+                    </button>
                   </div>
                 )}
               </>
             ) : (
               <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:10, padding:'4px 0' }}>
+                {/* STUDENT-PROFILE-CANON-1E: status/disposition inconsistency warning (non-blocking). */}
+                {data.status === 'Not Proceeding' && (
+                  <div style={{ background:'#fdf6ec', border:'1px solid #f0c9b0', borderRadius:8, padding:'8px 12px', fontSize:12.5, lineHeight:1.5, color:'#583733', fontWeight:600 }}>
+                    This student’s status is Not Proceeding but there is no active disposition. Verify this is intentional.
+                  </div>
+                )}
                 <span style={{ fontSize:13, color:'var(--text-secondary,#6b7280)' }}>No disposition recorded.</span>
                 {canEdit && (
                   <button
@@ -2453,6 +2503,75 @@ export default function StudentSidePanel({
             internal_note:    privateNote?.internal_note || '',
           } : null}
         />
+      )}
+
+      {/* STUDENT-PROFILE-CANON-1E: Clear Disposition confirmation. Clearing inactivates the
+          active disposition (no hard delete, history preserved) and does NOT change status. */}
+      {showClearModal && activeDisposition && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:3000,
+          display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+          onMouseDown={() => !clearing && setShowClearModal(false)}>
+          <div style={{ background:'#fff', borderRadius:14, maxWidth:460, width:'100%',
+            padding:'22px 24px 20px', fontFamily:'DM Sans, sans-serif',
+            boxShadow:'0 20px 50px rgba(0,0,0,0.18)' }}
+            onMouseDown={e => e.stopPropagation()}>
+            <div style={{ fontWeight:700, fontSize:16, color:'#1D2567', marginBottom:10 }}>
+              Clear Disposition
+            </div>
+            <div style={{ fontSize:13, color:'#374151', lineHeight:1.6, marginBottom:12 }}>
+              <div style={{ marginBottom:6 }}>
+                <strong>{student.first_name} {student.last_name}</strong>
+              </div>
+              <div style={{ marginBottom:10 }}>
+                Active disposition:{' '}
+                <strong>{DISPOSITION_TYPES[activeDisposition.disposition_type] || activeDisposition.disposition_type}</strong>
+              </div>
+              This will clear the active disposition. It will not change the student’s status.
+              The previous record is preserved in the audit trail.
+            </div>
+
+            {data.status === 'Not Proceeding' && (
+              <div style={{ background:'#fdf6ec', border:'1px solid #f0c9b0', borderRadius:8,
+                padding:'8px 12px', fontSize:12.5, lineHeight:1.5, color:'#583733', fontWeight:600, marginBottom:12 }}>
+                This student’s status will remain Not Proceeding. If that is no longer accurate,
+                update status separately after clearing.
+              </div>
+            )}
+
+            <label style={{ display:'block', fontSize:11, fontWeight:700, textTransform:'uppercase',
+              letterSpacing:'0.05em', color:'#6b7280', marginBottom:5 }}>
+              Reason (optional)
+            </label>
+            <textarea
+              className="form-input"
+              value={clearReason}
+              onChange={e => setClearReason(e.target.value)}
+              placeholder="Why is this disposition being cleared?"
+              rows={3}
+              maxLength={1000}
+              style={{ width:'100%', resize:'vertical', fontFamily:'DM Sans', fontSize:13, lineHeight:1.5, marginBottom:12 }}
+            />
+
+            {clearError && (
+              <div className="error-msg" style={{ marginBottom:12 }}>{clearError}</div>
+            )}
+
+            <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+              <button onClick={() => setShowClearModal(false)} disabled={clearing}
+                style={{ padding:'9px 18px', borderRadius:8, border:'1px solid #e5e7eb',
+                  background:'#f9fafb', fontFamily:'DM Sans', fontWeight:600, fontSize:13,
+                  cursor: clearing ? 'not-allowed' : 'pointer', color:'#374151' }}>
+                Cancel
+              </button>
+              <button onClick={handleConfirmClearDisposition} disabled={clearing}
+                style={{ padding:'9px 18px', borderRadius:8, border:'none',
+                  background:'#92400e', fontFamily:'DM Sans', fontWeight:700, fontSize:13,
+                  cursor: clearing ? 'not-allowed' : 'pointer', color:'#fff' }}>
+                {clearing ? 'Clearing…' : 'Clear Disposition'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showDeclineModal && (
