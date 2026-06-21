@@ -326,7 +326,10 @@ export default function StudentCard({ student, variant, onClick, variantProps = 
             <div style={{
               width: CARD.avatarSize + RING * 2, height: CARD.avatarSize + RING * 2,
               borderRadius: '50%', padding: RING, boxSizing: 'border-box',
-              // fill up to hp%, then a faint branded-navy track for the remainder (visible at 0%)
+              // ON-CAMPUS-NOW-UX-2C: standard circular-progress convention — the fill starts at
+              // 12 o'clock (conic-gradient default) and wraps CLOCKWISE toward 100% (50% = halfway).
+              // Avatar and hours pill are NOT rotated. Track (remainder) is a faint branded navy,
+              // visible as a subtle base ring at 0%.
               background: `conic-gradient(${hoursBadgeColor(hp)} ${hp}%, rgba(29,37,103,0.12) ${hp}% 100%)`,
             }}>
               <StudentAvatar
