@@ -93,6 +93,10 @@ const PATH_TO_TAB = {
 // inheriting the previous user's tab. The prior global 'aspire_active_tab' key is no longer
 // read for restore (left untouched in storage; not wiped).
 const lastTabKey = (userId) => `aspire:lastActiveTab:${userId}`
+// AUTH-UX-1B: remembers which authenticated user was last active in THIS browser so a
+// different account logging in (while the browser is still on a prior route like /connect)
+// is reset to Aggregate once, instead of inheriting the previous user's visible route.
+const LAST_AUTH_USER_KEY = 'aspire:lastAuthenticatedUserId'
 // ─────────────────────────────────────────────────────────────────────────────
 
 function MainApp({ onLogout }) {
@@ -207,6 +211,24 @@ function MainApp({ onLogout }) {
       navigate('/rotation/matrix', { replace: true })
     }
   }, [location.pathname])
+
+  // AUTH-UX-1B: when the AUTHENTICATED IDENTITY changes between sessions in the same browser,
+  // force the new user to Aggregate ONCE — fixes the case where logout/login leaves the browser
+  // on the prior user's route (e.g. /connect, /catalog) so the `/`-only restore above is bypassed.
+  // Same-user refresh: previous id === current id → no redirect (current route preserved).
+  // First user in this browser: no previous id → no redirect (just records the id). The `/`
+  // restore above and the welcome tour are untouched.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!user?.id) return
+    const prevAuthId = localStorage.getItem(LAST_AUTH_USER_KEY)
+    if (prevAuthId && prevAuthId !== user.id) {
+      navigate('/aggregate', { replace: true })
+    }
+    if (prevAuthId !== user.id) {
+      localStorage.setItem(LAST_AUTH_USER_KEY, user.id)
+    }
+  }, [user?.id])
 
   const [profilesView, setProfilesView] = useState('records')
   const [accessFocusId, setAccessFocusId] = useState(null)
