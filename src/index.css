@@ -1326,7 +1326,27 @@ a.doc-file-link:hover { text-decoration: underline; }
 .sp-content { flex: 1; overflow-y: auto; min-height: 0; padding-bottom: 120px; }
 .sp-section { border-bottom: 1px solid #e5e7eb; padding: 16px; }
 /* Pastel card variant — header integrated into same panel, no separate white strip */
-.sp-section.sp-card { border-bottom: none; }
+/* STUDENT-PROFILE-UX-1B: standardized card rhythm (radius + spacing) so each section no longer
+   repeats inline borderRadius/marginBottom. Tints come from the zoned .sp-zone-* classes below. */
+.sp-section.sp-card { border-bottom: none; border-radius: 12px; margin-bottom: 10px; }
+
+/* STUDENT-PROFILE-UX-1B: coherent zoned palette — a small family of soft, low-saturation tints
+   replacing the prior ~12 ad-hoc per-section backgrounds, grouped by logical zone. */
+.sp-zone-contact  { background: rgba(96,120,170,0.055); }   /* Contact & demographics */
+.sp-zone-program  { background: rgba(110,150,135,0.075); }  /* Program, rotation & availability */
+.sp-zone-student  { background: rgba(212,184,138,0.10); }   /* Student-provided materials/preferences */
+.sp-zone-admin    { background: rgba(150,120,150,0.06); }   /* Admin workflow */
+.sp-zone-records  { background: rgba(120,124,134,0.05); }   /* Notes & communications (records) */
+
+/* STUDENT-PROFILE-UX-1B: labeled destructive-action container, separated from footer nav. */
+.sp-danger-zone {
+  margin: 14px 12px 8px; padding: 12px 14px;
+  border: 1px solid #f0c9c0; border-radius: 12px; background: rgba(220,80,60,0.04);
+}
+.sp-danger-zone-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: #b23b2e; margin-bottom: 8px;
+}
 .sp-section-hdr {
   display: flex; align-items: center; justify-content: space-between;
   font-size: 12px; font-weight: 600; color: var(--text-secondary);
@@ -1335,8 +1355,8 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 /* Inside a pastel card, the header inherits the panel background */
 .sp-card .sp-section-hdr {
-  background: transparent; padding: 0 0 12px 0; margin: 0 0 2px 0;
-  border-bottom: 1px solid rgba(0,0,0,0.06);
+  background: transparent; padding: 0 0 10px 0; margin: 0 0 2px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.045);
 }
 /* Form fields inside pastel cards: semi-transparent so the tint shows through */
 .sp-card .sp-input,

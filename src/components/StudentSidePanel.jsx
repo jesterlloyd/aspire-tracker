@@ -122,7 +122,9 @@ function fmtCommDate(iso) {
 
 function SectionHeader({ title, icon, children }) {
   return (
-    <div className="sp-section-hdr" style={{ display:'flex', alignItems:'center', gap:7 }}>
+    // STUDENT-PROFILE-UX-1B: flexWrap so the right-slot (SourceTag + Edit/actions) drops cleanly
+    // below the title on narrow panel widths instead of overflowing.
+    <div className="sp-section-hdr" style={{ display:'flex', alignItems:'center', gap:7, flexWrap:'wrap', rowGap:6 }}>
       {icon && <span style={{ opacity:0.65, flexShrink:0 }}>{icon}</span>}
       <span style={{ flex:1, textTransform:'uppercase', letterSpacing:'0.1em', fontSize:11 }}>{title}</span>
       {children}
@@ -133,17 +135,19 @@ function SectionHeader({ title, icon, children }) {
 // STUDENT-PROFILE-CANON-1F: compact, de-emphasized section-level provenance label. Makes the
 // data owner of each major profile section obvious (student form / coordinator school form /
 // ASPIRE-admin) without labeling every field or adding heavy UI.
+// STUDENT-PROFILE-UX-1B: softer, calmer tones (lower-contrast text + gentler backgrounds) while
+// keeping each owner's color cue legible. Same tone keys, same meaning — provenance preserved.
 const SOURCE_TAG_TONES = {
-  student:     { bg:'#eef2ff', color:'#3730a3', border:'#e0e7ff' },
-  coordinator: { bg:'#f4f7fb', color:'#1D2567', border:'#dbe6f0' },
-  admin:       { bg:'#f4f3f1', color:'#4A5560', border:'#e6e2da' },
-  pending:     { bg:'#fdf6ec', color:'#92400e', border:'#f0c9b0' },
-  muted:       { bg:'#f4f3f1', color:'#6b7280', border:'#e6e2da' },
+  student:     { bg:'#f3f5fc', color:'#4750a0', border:'#e4e8f6' },
+  coordinator: { bg:'#f4f7fb', color:'#3a4673', border:'#e1e8f1' },
+  admin:       { bg:'#f5f4f2', color:'#5a626c', border:'#e8e4dd' },
+  pending:     { bg:'#fdf6ec', color:'#9a6312', border:'#f1d6b4' },
+  muted:       { bg:'#f5f4f2', color:'#7a8089', border:'#e8e4dd' },
 }
 function SourceTag({ label, tone = 'muted' }) {
   const c = SOURCE_TAG_TONES[tone] || SOURCE_TAG_TONES.muted
   return (
-    <span style={{ fontSize:9.5, fontWeight:700, letterSpacing:'0.02em', padding:'2px 7px',
+    <span style={{ fontSize:9.5, fontWeight:600, letterSpacing:'0.02em', padding:'2px 8px',
       borderRadius:10, background:c.bg, color:c.color, border:`1px solid ${c.border}`,
       whiteSpace:'nowrap', flexShrink:0, textTransform:'none' }}>
       {label}
@@ -1162,7 +1166,7 @@ export default function StudentSidePanel({
           <div style={{ margin:'22px 14px 0', background:'var(--bg-card,#fff)', borderRadius:14, padding:'12px 12px 4px', boxShadow:'0 1px 4px rgba(29,37,103,0.05)' }}>
 
           {/* 1. Contact Information */}
-          <div className="sp-section sp-card" style={{ background:'rgba(100,130,200,0.06)', borderRadius:12, marginBottom:10 }}>
+          <div className="sp-section sp-card sp-zone-contact">
             <SectionHeader title="Contact Information" icon={<Mail size={13} />} />
             <Field label="School Email">
               <div style={{ display:'flex', gap:6, alignItems:'center' }}>
@@ -1193,7 +1197,7 @@ export default function StudentSidePanel({
           </div>
 
           {/* 2. Personal Information */}
-          <div className="sp-section sp-card" style={{ background:'rgba(244,241,236,0.6)', borderRadius:12, marginBottom:10 }}>
+          <div className="sp-section sp-card sp-zone-contact">
             <SectionHeader title="Personal Information" icon={<User size={13} />} />
             <div className="sp-grid-2">
               <Field label="First Name" fieldKey="first_name">
@@ -1243,7 +1247,7 @@ export default function StudentSidePanel({
           </div>
 
           {/* 3. Program Details */}
-          <div className="sp-section sp-card" style={{ background:'rgba(200,213,192,0.12)', borderRadius:12, marginBottom:10 }}>
+          <div className="sp-section sp-card sp-zone-program">
             <SectionHeader title="Program Details" icon={<GraduationCap size={13} />} />
             <div className="sp-grid-2">
               <Field label="School"><div className="sp-readonly">{data.school||'—'}</div></Field>
@@ -1271,7 +1275,7 @@ export default function StudentSidePanel({
           {/* 3b. Rotation Dates — STUDENT-PROFILE-CANON-1B: the single canonical placement-window
               block, sourced from the coordinator-owned cohort_school_rotations row. Always rendered
               (shows "pending review" when no linked/valid row) so it is the one date source of truth. */}
-          <div className="sp-section sp-card" style={{ background:'rgba(199,219,230,0.18)', borderRadius:12, marginBottom:10 }}>
+          <div className="sp-section sp-card sp-zone-program">
               <SectionHeader title="Rotation Dates" icon={<CalendarDays size={13} />}>
                 <SourceTag label="Source: Coordinator school form" tone="coordinator" />
                 {canEdit && rotationRow && !isSentinel && !editingRotation && (
@@ -1406,7 +1410,7 @@ export default function StudentSidePanel({
           {/* 3c. Availability & Scheduling (AVAILABILITY-CANON-1C) — display only, two
               provenance-labeled sub-blocks: coordinator program constraints (cohort_school_rotations)
               and student availability (students). Null-safe; no risk logic in this phase. */}
-          <div className="sp-section sp-card" style={{ background:'rgba(199,219,230,0.10)', borderRadius:12, marginBottom:10 }}>
+          <div className="sp-section sp-card sp-zone-program">
             <SectionHeader title="Availability & Scheduling" icon={<CalendarDays size={13} />} />
             <p style={{ fontSize:11.5, color:'var(--text-caption,#6b7280)', lineHeight:1.5, margin:'0 0 12px' }}>
               Availability is considered during matching but does not guarantee a specific unit, preceptor, or shift.
@@ -1455,7 +1459,7 @@ export default function StudentSidePanel({
           </div>
 
           {/* 4. Background and Affiliation */}
-          <div className="sp-section sp-card" style={{ background:'rgba(234,220,196,0.20)', borderRadius:12, marginBottom:10 }}>
+          <div className="sp-section sp-card sp-zone-student">
             <SectionHeader title="Background and Affiliation" icon={<Briefcase size={13} />}>
               <SourceTag label={studentSourceLabel} tone={studentSourceTone} />
             </SectionHeader>
@@ -1481,7 +1485,7 @@ export default function StudentSidePanel({
           </div>
 
           {/* 5. Unit Placement Preferences */}
-          <div className="sp-section sp-card" style={{ background:'rgba(79,109,168,0.06)', borderRadius:12, marginBottom:10 }}>
+          <div className="sp-section sp-card sp-zone-student">
             <SectionHeader title="Unit Placement Preferences" icon={<MapPin size={13} />}>
               <SourceTag label={studentSourceLabel} tone={studentSourceTone} />
             </SectionHeader>
@@ -1498,7 +1502,7 @@ export default function StudentSidePanel({
           </div>
 
           {/* 6. Documents */}
-          <div className="sp-section sp-card" style={{ background:'rgba(244,220,176,0.12)', borderRadius:12, marginBottom:10 }}>
+          <div className="sp-section sp-card sp-zone-student">
             <SectionHeader title="Documents" icon={<FileText size={13} />}>
               <SourceTag label={studentSourceLabel} tone={studentSourceTone} />
             </SectionHeader>
@@ -1570,7 +1574,7 @@ export default function StudentSidePanel({
           </div>
 
           {/* 7. Interest Statement */}
-          <div className="sp-section sp-card" style={{ background:'rgba(226,86,156,0.05)', borderRadius:12, marginBottom:10 }}>
+          <div className="sp-section sp-card sp-zone-student">
             <SectionHeader title="Interest Statement" icon={<MessageSquare size={13} />}>
               <SourceTag label={studentSourceLabel} tone={studentSourceTone} />
             </SectionHeader>
@@ -1680,7 +1684,7 @@ export default function StudentSidePanel({
           </div>}
 
           {/* 8. CS-Link Access Workflow — editors only */}
-          {canEdit && <div className="sp-section sp-card" style={{ background:'rgba(250,250,250,0.9)', borderRadius:12, marginBottom:10 }}>
+          {canEdit && <div className="sp-section sp-card sp-zone-admin">
             <SectionHeader title="CS-Link Access" icon={<CheckCircle2 size={13} />}>
               <SourceTag label="Source: ASPIRE/admin" tone="admin" />
               <span style={{ fontSize:11, fontWeight:600, padding:'2px 9px', borderRadius:20, background:csStatusCfg.bg, color:csStatusCfg.text }}>
@@ -1835,7 +1839,7 @@ export default function StudentSidePanel({
           </div>}
 
           {/* 9. Placement and Outcomes */}
-          <div className="sp-section sp-card" style={{ background:'rgba(200,213,192,0.22)', borderRadius:12, marginBottom:10 }}>
+          <div className="sp-section sp-card sp-zone-admin">
             <SectionHeader title="Placement and Outcomes" icon={<Award size={13} />}>
               <SourceTag label="Source: ASPIRE/admin" tone="admin" />
             </SectionHeader>
@@ -1957,7 +1961,7 @@ export default function StudentSidePanel({
           </div>
 
           {/* ── Program Disposition (Phase 2B.2b) ─────────────────────────── */}
-          <div className="sp-section sp-card" style={{ background:'rgba(157,23,77,0.04)', borderRadius:12, marginBottom:10 }}>
+          <div className="sp-section sp-card sp-zone-admin">
             <SectionHeader title="Program Disposition" icon={<Flag size={13} />}>
               <SourceTag label="Source: ASPIRE/admin" tone="admin" />
             </SectionHeader>
@@ -2415,7 +2419,7 @@ export default function StudentSidePanel({
           </div>
 
           {/* 10. Notes */}
-          <div className="sp-section sp-card" style={{ background:'rgba(244,241,236,0.4)', borderRadius:12, marginBottom:10 }}>
+          <div className="sp-section sp-card sp-zone-records">
             <SectionHeader title="Notes" icon={<ClipboardList size={13} />} />
             <Field label="" fieldKey="notes">
               <textarea className="sp-textarea" rows={4} value={data.notes||''} onChange={e => handleText('notes', e.target.value)} placeholder="Add notes…" />
@@ -2499,7 +2503,8 @@ export default function StudentSidePanel({
           </div>}
 
           {/* Communication History (Phase D.2) — recent notification_log sends, all-time, latest 5 */}
-          <div style={{ marginBottom:8 }}>
+          {/* STUDENT-PROFILE-UX-1B: wrapped as a records-zone card to match Notes (styling only). */}
+          <div className="sp-section sp-card sp-zone-records">
             <SectionHeader title="Recent Communications" icon={<MessageSquare size={13} />} />
             {recentComms.length === 0 ? (
               <div style={{ fontSize:12, color:'var(--text-secondary,#6b7280)', fontFamily:'DM Sans,sans-serif', padding:'2px 0 8px' }}>
@@ -2529,8 +2534,10 @@ export default function StudentSidePanel({
 
           </div>{/* end unified section container */}
 
-          {/* Delete */}
-          <div style={{ padding:'16px 12px', marginTop:4 }}>
+          {/* Delete — STUDENT-PROFILE-UX-1B: intentional, labeled danger zone, visually separated
+              from the Prev/Next footer. Button behavior + confirm modal unchanged. */}
+          <div className="sp-danger-zone">
+            <div className="sp-danger-zone-label">Danger Zone</div>
             <button className="btn btn-destructive" onClick={() => setConfirmDelete(true)}>Delete Student</button>
           </div>
 
