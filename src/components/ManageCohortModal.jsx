@@ -1,6 +1,16 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '../lib/supabase'
+import { deriveCohortRange } from '../lib/rotationWindow'
 import { COHORT_STATUSES } from '../lib/constants'
 import { Eye, EyeOff } from 'lucide-react'
+
+// STUDENT-PROFILE-CANON-1D-B: format a YYYY-MM-DD canonical date to Pacific long form (matches
+// CohortBar). Canonical dates are date-only; anchor at noon UTC to avoid a tz day-shift.
+const fmtCohortDate = (d) =>
+  new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Los_Angeles', month: 'long', day: 'numeric', year: 'numeric',
+  }).format(new Date(d + 'T12:00:00Z'))
 
 export default function ManageCohortModal({ cohort, onSave, onClose }) {
   const [form, setForm]         = useState({ ...cohort })
@@ -9,6 +19,25 @@ export default function ManageCohortModal({ cohort, onSave, onClose }) {
   const [showPwd, setShowPwd]   = useState(false)
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  // STUDENT-PROFILE-CANON-1D-B: the canonical cohort range is DERIVED (read-only) from the
+  // coordinator-owned cohort_school_rotations rows — same source/logic as CohortBar (1D).
+  // Earliest non-sentinel start → latest non-sentinel end; sentinel 1900-01-01 rows excluded.
+  const { data: rotationRows = [], isLoading: rangeLoading } = useQuery({
+    queryKey: ['cohort_rotation_range', cohort?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cohort_school_rotations')
+        .select('rotation_start_date, rotation_end_date')
+        .eq('cohort_id', cohort.id)
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!cohort?.id,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  })
+  const derivedRange = deriveCohortRange(rotationRows)
 
   const handleSubmit = async e => {
     e.preventDefault()
@@ -49,21 +78,46 @@ export default function ManageCohortModal({ cohort, onSave, onClose }) {
               />
             </div>
 
-            <div className="form-grid form-grid-3">
-              <div className="form-field">
-                <label className="form-label">Status</label>
-                <select className="form-select" value={form.status} onChange={e => set('status', e.target.value)}>
-                  {COHORT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+            <div className="form-field">
+              <label className="form-label">Status</label>
+              <select className="form-select" value={form.status} onChange={e => set('status', e.target.value)}>
+                {COHORT_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+
+            {/* STUDENT-PROFILE-CANON-1D-B: canonical, read-only cohort range derived from the
+                coordinator-submitted school rotation dates (cohort_school_rotations). */}
+            <div className="form-field">
+              <label className="form-label">Derived Rotation Range</label>
+              <div style={{ padding: '8px 12px', background: '#f4f7fb', border: '1px solid #dbe6f0',
+                borderRadius: 8, fontSize: 13, color: '#1D2567', fontWeight: 600 }}>
+                {rangeLoading
+                  ? 'Loading…'
+                  : derivedRange
+                    ? `${fmtCohortDate(derivedRange.start)} to ${fmtCohortDate(derivedRange.end)}`
+                    : 'Rotation dates pending'}
               </div>
+              <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4, lineHeight: 1.5 }}>
+                Calculated from school-form rotation dates submitted by clinical placement coordinators.
+                This is the official cohort range.
+              </div>
+            </div>
+
+            {/* Legacy/manual cohort dates — NOT the canonical source when coordinator rotation
+                dates are available. Relabeled as administrative fallback; date-picker conversion
+                deferred to avoid clobbering existing free-text values (e.g. "May 4, 2026"). */}
+            <div className="form-grid form-grid-2">
               <div className="form-field">
-                <label className="form-label">Start Date</label>
+                <label className="form-label">Administrative fallback start date</label>
                 <input className="form-input" value={form.start_date || ''} onChange={e => set('start_date', e.target.value)} />
               </div>
               <div className="form-field">
-                <label className="form-label">End Date</label>
+                <label className="form-label">Administrative fallback end date</label>
                 <input className="form-input" value={form.end_date || ''} onChange={e => set('end_date', e.target.value)} />
               </div>
+            </div>
+            <div style={{ fontSize: 12, color: '#6b7280', marginTop: -4, marginBottom: 4, lineHeight: 1.5 }}>
+              These fields do not control the official cohort range when coordinator rotation dates are available.
             </div>
 
             <div className="form-field">
