@@ -10,6 +10,7 @@ import { computeStatusCounts, STATUS_DEFINITIONS } from '../src/lib/derivations/
 import { summarizeCsLink } from '../src/lib/derivations/csLink.js';
 import { selectActiveWindowRows, mergeOnCampusNow, openShiftUnit, openShiftPreceptor } from '../src/lib/onCampusNow.js';
 import { shiftTypeOf, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../src/lib/shiftStatus.js';
+import { formatRotationRange, canonicalRotationWindow } from '../src/lib/rotationWindow.js';
 import { displayName } from '../src/lib/utils.js';
 import { classifyIntent, INTENTS, isExplicitEmailDrafting } from '../lib/server/keith/queryIntent.js';
 import { answerPersonContactQuery, CONTACTS_ROLE_DENIED } from '../lib/server/keith/contactsLookup.js';
@@ -426,8 +427,11 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
           .eq('student_id', input.student_id)
           .order('created_at', { ascending: false });
 
-        // Fetch linked rotation
+        // Fetch linked rotation (canonical coordinator-owned dates).
+        // STUDENT-PROFILE-CANON-1C: expose a ready display string and treat the 1900-01-01
+        // sentinel / missing window as pending, so the model never emits a sentinel date.
         let rotation = null;
+        let rotationDatesDisplay = 'Pending coordinator/admin review';
         if (student.cohort_school_rotation_id) {
           const { data: rot } = await supabase
             .from('cohort_school_rotations')
@@ -435,6 +439,11 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
             .eq('id', student.cohort_school_rotation_id)
             .single();
           rotation = rot || null;
+          rotationDatesDisplay = formatRotationRange(rot);
+          // Null out the sentinel so a raw 1900-01-01 can never surface to the model.
+          if (rot && !canonicalRotationWindow(rot)) {
+            rotation = { ...rot, rotation_start_date: null, rotation_end_date: null };
+          }
         }
 
         // Fetch recent communications
@@ -449,6 +458,7 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
           student: stripSensitive(resolvedStudent),
           rubrics: rubrics || [],
           rotation,
+          rotation_dates: rotationDatesDisplay,
           recent_communications: comms || [],
         };
       }
@@ -899,6 +909,27 @@ Cohort Status: ${cohort.status || 'unknown'}`
         }
       }
 
+      // STUDENT-PROFILE-CANON-1C: canonical rotation dates come from cohort_school_rotations
+      // (NOT legacy students.term_dates). Fetch the cohort's rotation rows once and map by id;
+      // each placed student resolves its window via cohort_school_rotation_id. Sentinel/missing
+      // windows render as "Pending coordinator/admin review" (never 1900-01-01 or term_dates).
+      const rotationById = {};
+      try {
+        const rotCohortId = liveData.activeCohortId || liveData.cohort?.id;
+        if (rotCohortId) {
+          const { data: rotRows } = await makeServiceRoleClient()
+            .from('cohort_school_rotations')
+            .select('id, rotation_start_date, rotation_end_date')
+            .eq('cohort_id', rotCohortId);
+          (rotRows || []).forEach(r => { rotationById[r.id] = r; });
+        }
+      } catch (e) {
+        console.warn('[keith] rotation map fetch failed (non-fatal):', e.message);
+      }
+      const fmtRotDatePT = (d) => new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', year: 'numeric',
+      }).format(new Date(d + 'T12:00:00Z'));
+
       // Detailed placement block — one record per placed student
       const placementLines = placed.slice(0, 50).map(s => {
         const match         = matchesByStudentId[s.id];
@@ -917,7 +948,7 @@ Cohort Status: ${cohort.status || 'unknown'}`
           `  School Email: ${s.school_email || 'N/A'} | Personal Email: ${s.personal_email || 'N/A'} | Phone: ${s.phone || 'N/A'}`,
           `  Unit: ${unit.unit_name || 'pending'}${unit.division ? ` [${unit.division}]` : ''}`,
           `  Preceptor: ${preceptorName} | Shift: ${s.shift_assigned || s.shift_availability || 'N/A'}`,
-          `  Rotation Dates: ${s.term_dates || 'N/A'}`,
+          `  Rotation Dates: ${formatRotationRange(rotationById[s.cohort_school_rotation_id], fmtRotDatePT)}`,
           `  Hours: ${completedHrs.toFixed(1)}/${requiredHrs}h (${remainingHrs.toFixed(1)}h remaining)`,
           unit.contact_person ? `  Unit Leader: ${unit.contact_person} | ${unit.contact_email || 'no email'}` : null,
           quality ? `  Match Quality: ${quality}` : null,

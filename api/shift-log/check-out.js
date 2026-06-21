@@ -27,6 +27,7 @@ import { randomUUID } from 'crypto'
 import supabaseAdmin from '../../lib/server/evaluation/supabase_admin.js'
 import { lookupStudentByEmail } from '../lib/shiftLogLookup.js'
 import { toLocalDateStr } from '../../shared/dateUtils.js'
+import { isOutsideRotationWindow } from '../../src/lib/rotationWindow.js'
 
 const VALID_SHIFT_TYPES = ['Day', 'Night', 'Mid']
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -288,15 +289,11 @@ function buildExceptionFlags(ctx) {
   if (totalHours > 13) flags.push('hours_over_13')
   if (totalHours < 2)  flags.push('hours_under_2')
 
-  if (studentContext?.term_dates) {
-    const parts = String(studentContext.term_dates).split(/[-–—to]+/).map(s => s.trim())
-    if (parts.length >= 2) {
-      const start = Date.parse(parts[0]), end = Date.parse(parts[1])
-      const sd = parseLocalDate(shiftDate)?.getTime()
-      if (sd && !Number.isNaN(start) && !Number.isNaN(end) && (sd < start || sd > end)) {
-        flags.push('outside_rotation_dates')
-      }
-    }
+  // STUDENT-PROFILE-CANON-1C: outside_rotation_dates is computed from the canonical
+  // coordinator-owned rotation window (cohort_school_rotations via the embedded `rotation`),
+  // NOT the legacy free-text students.term_dates. Sentinel/unavailable windows never flag.
+  if (isOutsideRotationWindow(shiftDate, studentContext?.rotation)) {
+    flags.push('outside_rotation_dates')
   }
 
   if ((sameDayApprovedHours + totalHours) > 24) flags.push('daily_hours_exceed_24')
@@ -368,7 +365,7 @@ async function fetchStudentTotals(studentId) {
 async function fetchStudentContext(studentId) {
   const { data, error } = await supabaseAdmin
     .from('students')
-    .select('status, term_dates, matched_preceptor, matched_unit_id')
+    .select('status, matched_preceptor, matched_unit_id, rotation:cohort_school_rotation_id ( rotation_start_date, rotation_end_date )')
     .eq('id', studentId)
     .maybeSingle()
   if (error || !data) return null

@@ -29,6 +29,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { toLocalDateStr } from '../../shared/dateUtils.js'
 import { normalizeEmailForLookup, escapeLikePattern } from '../../src/lib/emailUtils.js'
+import { isOutsideRotationWindow } from '../../src/lib/rotationWindow.js'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const VALID_SHIFT_TYPES = ['Day', 'Night', 'Mid']
@@ -71,14 +72,10 @@ async function buildExceptionFlags(db, ctx) {
   if (totalHours > 13) flags.push('hours_over_13')
   if (totalHours < 2) flags.push('hours_under_2')
 
-  if (student?.term_dates) {
-    const parts = String(student.term_dates).split(/[-–—to]+/).map(s => s.trim())
-    if (parts.length >= 2) {
-      const start = Date.parse(parts[0]), end = Date.parse(parts[1])
-      const sd = parseLocalDate(shiftDate)?.getTime()
-      if (sd && !Number.isNaN(start) && !Number.isNaN(end) && (sd < start || sd > end)) flags.push('outside_rotation_dates')
-    }
-  }
+  // STUDENT-PROFILE-CANON-1C: outside_rotation_dates is computed from the canonical
+  // coordinator-owned rotation window (cohort_school_rotations via the embedded `rotation`),
+  // NOT the legacy free-text students.term_dates. Sentinel/unavailable windows never flag.
+  if (isOutsideRotationWindow(shiftDate, student?.rotation)) flags.push('outside_rotation_dates')
 
   // Same-day already-credited hours (completed Auto-Accepted/Approved) + this shift.
   const { data: sameDay } = await db
@@ -195,7 +192,7 @@ export default async function handler(req, res) {
   const cleanEmail = normalizeEmailForLookup(schoolEmail)
   const { data: rows, error: lookupErr } = await db
     .from('students')
-    .select('id, cohort_id, status, term_dates, matched_preceptor, matched_unit_id, hours_required, school_email, cohorts:cohort_id ( status )')
+    .select('id, cohort_id, status, matched_preceptor, matched_unit_id, hours_required, school_email, cohorts:cohort_id ( status ), rotation:cohort_school_rotation_id ( rotation_start_date, rotation_end_date )')
     .ilike('school_email', escapeLikePattern(cleanEmail))
   if (lookupErr) return res.status(500).json({ error: 'internal_error' })
   const eligible = (rows || [])
