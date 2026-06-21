@@ -87,11 +87,17 @@ const PATH_TO_TAB = {
   '/evaluation': 'evaluation',
   // /rotation/* handled by startsWith in activeTab derivation below
 }
+
+// AUTH-UX-1: the last-active-tab is persisted PER AUTHENTICATED USER (by Supabase user.id),
+// so a different account logging in on the same browser starts on Aggregate rather than
+// inheriting the previous user's tab. The prior global 'aspire_active_tab' key is no longer
+// read for restore (left untouched in storage; not wiped).
+const lastTabKey = (userId) => `aspire:lastActiveTab:${userId}`
 // ─────────────────────────────────────────────────────────────────────────────
 
 function MainApp({ onLogout }) {
   const { toasts, removeToast, toast } = useToast()
-  const { userProfile: currentUserProfile, canEdit } = useAuth()
+  const { user, userProfile: currentUserProfile, canEdit } = useAuth()
 
   // One-time cleanup of old shared-password auth storage keys
   useEffect(() => {
@@ -190,7 +196,9 @@ function MainApp({ onLogout }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (location.pathname === '/') {
-      const saved = localStorage.getItem('aspire_active_tab')
+      // AUTH-UX-1: restore THIS user's own saved tab only (MainApp renders only when `user`
+      // is present). No saved value (new user / different account) → default to Aggregate.
+      const saved = user?.id ? localStorage.getItem(lastTabKey(user.id)) : null
       // migrate old 'matching' tab id
       const resolved = saved === 'matching' ? 'rotation' : saved
       navigate(TAB_TO_PATH[resolved] || '/aggregate', { replace: true })
@@ -370,7 +378,8 @@ function MainApp({ onLogout }) {
   ])
 
   const switchTab = tab => {
-    localStorage.setItem('aspire_active_tab', tab)
+    // AUTH-UX-1: persist under THIS user's scoped key so it cannot leak to another account.
+    if (user?.id) localStorage.setItem(lastTabKey(user.id), tab)
     navigate(TAB_TO_PATH[tab] || '/aggregate')
   }
 
