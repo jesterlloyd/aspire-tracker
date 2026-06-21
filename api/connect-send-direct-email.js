@@ -44,6 +44,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { buildDirectMessageEmail } from '../lib/server/connect/emailTemplates.js';
+import { resolveStudentCorrespondenceRecipient } from '../src/lib/notifications/studentRecipient.js';
 
 // From-address: noreply@aspire-program.com is the confirmed working sender
 // used in all production Resend integrations. aspire@aspire-program.com is
@@ -124,6 +125,10 @@ async function _handler(req, res, startMs) {
     return res.status(400).json({ success: false, error: 'Invalid request body' });
   }
 
+  // CONNECT-COMMS-1B: preview mode returns the exact branded HTML + resolved recipient WITHOUT
+  // sending or logging. Same auth/role gate, same renderer, same recipient resolver as send.
+  const isPreview = body.preview === true;
+
   // Reject any attempt to override the recipient from the request body.
   const RECIPIENT_OVERRIDE_FIELDS = ['recipient', 'recipient_email', 'email', 'to', 'cc', 'bcc'];
   for (const field of RECIPIENT_OVERRIDE_FIELDS) {
@@ -157,22 +162,17 @@ async function _handler(req, res, startMs) {
   if (!recipientId) return res.status(400).json({ success: false, error: 'recipient_id is required' });
   if (!isUuid(recipientId)) return res.status(400).json({ success: false, error: 'recipient_id must be a valid UUID' });
 
-  // subject
+  // subject/body — required for SEND; for PREVIEW they may be empty/partial (user still typing).
+  // Length caps apply in both modes; values are coerced to safe strings either way.
   const { subject, body: msgBody, body_format, include_signature } = body;
-  if (!subject || typeof subject !== 'string' || !subject.trim()) {
-    return res.status(400).json({ success: false, error: 'subject is required and must be non-empty' });
+  const subjStr = typeof subject === 'string' ? subject : '';
+  const bodyStr = typeof msgBody === 'string' ? msgBody : '';
+  if (!isPreview) {
+    if (!subjStr.trim()) return res.status(400).json({ success: false, error: 'subject is required and must be non-empty' });
+    if (!bodyStr.trim()) return res.status(400).json({ success: false, error: 'body is required and must be non-empty' });
   }
-  if (subject.trim().length > 200) {
-    return res.status(400).json({ success: false, error: 'subject must not exceed 200 characters' });
-  }
-
-  // body
-  if (!msgBody || typeof msgBody !== 'string' || !msgBody.trim()) {
-    return res.status(400).json({ success: false, error: 'body is required and must be non-empty' });
-  }
-  if (msgBody.trim().length > 10000) {
-    return res.status(400).json({ success: false, error: 'body must not exceed 10000 characters' });
-  }
+  if (subjStr.trim().length > 200)   return res.status(400).json({ success: false, error: 'subject must not exceed 200 characters' });
+  if (bodyStr.trim().length > 10000) return res.status(400).json({ success: false, error: 'body must not exceed 10000 characters' });
 
   // body_format — text only
   const resolvedBodyFormat = body_format ?? 'text';
@@ -184,19 +184,26 @@ async function _handler(req, res, startMs) {
   }
 
   // include_signature
-  const resolvedIncludeSignature = include_signature !== false;
   if (include_signature !== undefined && typeof include_signature !== 'boolean') {
     return res.status(400).json({ success: false, error: 'include_signature must be a boolean' });
   }
+  const resolvedIncludeSignature = include_signature !== false;
 
-  const trimmedSubject = subject.trim();
-  const trimmedBody    = msgBody.trim();
+  const trimmedSubject = subjStr.trim();
+  const trimmedBody    = bodyStr.trim();
 
   // ── 4. Resolve recipient server-side ──────────────────────────────────────────
-  let recipientEmail;
-  let recipientName;
-  let recipientRole;
-  let notificationAudience;
+  // Students route SCHOOL-FIRST via the shared canon resolver (CONNECT-COMMS-1B). A descriptor
+  // (email/source/reason/warning) is always computed; hard failures are applied only in SEND mode
+  // so PREVIEW can still render the branded email and surface a missing/fallback recipient.
+  let recipientEmail       = null;
+  let recipientName        = null;
+  let recipientRole        = null;
+  let notificationAudience = null;
+  let recipientSource      = recipientType; // 'contact' | 'school' | 'personal' | 'override' | 'missing'
+  let recipientReason      = null;
+  let recipientWarning     = null;
+  let hardError            = null;          // { status, error } — enforced in SEND mode only
 
   if (recipientType === 'contact') {
     const { data: contact, error: contactErr } = await supabaseAdmin
@@ -206,40 +213,51 @@ async function _handler(req, res, startMs) {
       .single();
 
     if (contactErr || !contact) {
-      return res.status(404).json({ success: false, error: 'Contact not found' });
+      hardError = { status: 404, error: 'Contact not found' };
+      recipientSource = 'missing';
+    } else {
+      recipientName        = contact.full_name || null;
+      recipientRole        = contact.role || null;
+      notificationAudience = 'contact';
+      recipientSource      = 'contact';
+      const email = (contact.email || '').trim();
+      if (!email) {
+        hardError = { status: 400, error: 'Contact has no email on file' };
+        recipientSource = 'missing';
+        recipientWarning = 'No email on file for this contact.';
+      } else if (contact.is_active === false) {
+        recipientEmail = email; // shown in preview, but blocked for send
+        hardError = { status: 403, error: 'Contact is inactive and cannot receive email' };
+        recipientWarning = 'Contact is inactive and cannot receive email.';
+      } else {
+        recipientEmail = email;
+      }
     }
-    if (!contact.email || !contact.email.trim()) {
-      return res.status(400).json({ success: false, error: 'Contact has no email on file' });
-    }
-    if (contact.is_active === false) {
-      return res.status(403).json({ success: false, error: 'Contact is inactive and cannot receive email' });
-    }
-
-    recipientEmail       = contact.email.trim();
-    recipientName        = contact.full_name || null;
-    recipientRole        = contact.role || null;
-    notificationAudience = 'contact';
 
   } else {
-    // recipient_type === 'student'
+    // recipient_type === 'student' — SCHOOL-FIRST canon resolver
     const { data: student, error: studentErr } = await supabaseAdmin
       .from('students')
-      .select('id, first_name, last_name, personal_email, school_email, school, status')
+      .select('id, first_name, last_name, personal_email, school_email, school, status, cohort_school_rotation_id')
       .eq('id', recipientId)
       .single();
 
     if (studentErr || !student) {
-      return res.status(404).json({ success: false, error: 'Student not found' });
+      hardError = { status: 404, error: 'Student not found' };
+      recipientSource = 'missing';
+    } else {
+      const resolved = resolveStudentCorrespondenceRecipient(student, null, {});
+      recipientEmail       = resolved.email;
+      recipientName        = `${student.first_name || ''} ${student.last_name || ''}`.trim() || null;
+      recipientRole        = 'Student';
+      notificationAudience = 'student';
+      recipientSource      = resolved.type;   // 'school' | 'personal' | 'missing'
+      recipientReason      = resolved.reason;
+      recipientWarning     = resolved.warning;
+      if (resolved.type === 'missing' || !recipientEmail) {
+        hardError = { status: 400, error: 'Student has no valid email on file' };
+      }
     }
-    const resolvedStudentEmail = student.personal_email || student.school_email || null;
-    if (!resolvedStudentEmail) {
-      return res.status(400).json({ success: false, error: 'Student has no email on file' });
-    }
-
-    recipientEmail       = resolvedStudentEmail.trim();
-    recipientName        = `${student.first_name || ''} ${student.last_name || ''}`.trim() || null;
-    recipientRole        = 'Student';
-    notificationAudience = 'student';
   }
 
   console.log('[connect-send-direct] handler_entry:', {
@@ -248,12 +266,32 @@ async function _handler(req, res, startMs) {
     by:             ownerUserProfileId,
   });
 
-  // ── 5. Build email HTML ───────────────────────────────────────────────────────
+  // ── 5. Build email HTML (same renderer used for sending) ──────────────────────
   const { html } = buildDirectMessageEmail({
     body:             trimmedBody,
     bodyFormat:       resolvedBodyFormat,
     includeSignature: resolvedIncludeSignature,
   });
+
+  // ── 5b. PREVIEW: return exact HTML + resolved recipient. No send, no notification_log. ──
+  if (isPreview) {
+    return res.status(200).json({
+      success: true,
+      html,
+      recipient: {
+        email:   recipientEmail,
+        type:    recipientSource,
+        name:    recipientName,
+        reason:  recipientReason,
+        warning: recipientWarning,
+      },
+    });
+  }
+
+  // SEND mode: enforce any hard recipient failure now (after preview short-circuit).
+  if (hardError) {
+    return res.status(hardError.status).json({ success: false, error: hardError.error });
+  }
 
   // ── 6. Send via Resend ────────────────────────────────────────────────────────
   const resend = new Resend(process.env.RESEND_API_KEY);
@@ -301,9 +339,11 @@ async function _handler(req, res, startMs) {
   let notificationLogId = null;
   let auditLogged       = false;
 
+  // CONNECT-COMMS-1B: record which email source was used (school/personal/contact/override) so the
+  // school-first routing is auditable without a schema migration (stored in the metadata jsonb).
   const logMetadata = recipientType === 'contact'
-    ? { recipient_type: 'contact', contact_id: recipientId,  sent_by_user_id: ownerUserProfileId, sent_by_email: ownerEmail, body_format: resolvedBodyFormat, body_length: trimmedBody.length, signature_included: resolvedIncludeSignature }
-    : { recipient_type: 'student', student_id: recipientId, sent_by_user_id: ownerUserProfileId, sent_by_email: ownerEmail, body_format: resolvedBodyFormat, body_length: trimmedBody.length, signature_included: resolvedIncludeSignature };
+    ? { recipient_type: 'contact', contact_id: recipientId,  recipient_source: recipientSource, sent_by_user_id: ownerUserProfileId, sent_by_email: ownerEmail, body_format: resolvedBodyFormat, body_length: trimmedBody.length, signature_included: resolvedIncludeSignature }
+    : { recipient_type: 'student', student_id: recipientId, recipient_source: recipientSource, sent_by_user_id: ownerUserProfileId, sent_by_email: ownerEmail, body_format: resolvedBodyFormat, body_length: trimmedBody.length, signature_included: resolvedIncludeSignature };
 
   // Top-level recipient columns (Phase B.1). Mirror the identity already kept in
   // metadata so direct messages surface in per-contact / per-student history

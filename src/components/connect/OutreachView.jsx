@@ -261,6 +261,9 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   const [dmSendInFlight,    setDmSendInFlight]     = useState(false)
   const [dmBodyExpanded,    setDmBodyExpanded]     = useState(false)
   const [dmSendStatus,      setDmSendStatus]       = useState(null) // null | { ok, msg }
+  // CONNECT-COMMS-1B: true "Preview as sent" — the exact branded HTML + server-resolved recipient,
+  // fetched (debounced) from the same endpoint/renderer used to send. { html, recipient, loading, error }
+  const [dmPreview,         setDmPreview]          = useState({ html: '', recipient: null, loading: false, error: null })
 
   // ── Direct Message draft — typed key prevents contact/student UUID collisions ──
   // Stores ONLY { subject, body }. Tokens and URLs are NEVER stored.
@@ -1075,6 +1078,65 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     }
   }, [dmConfirmReady, dmSendInFlight, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, fromContact, fromStudent])
 
+  // ── CONNECT-COMMS-1B: debounced true-preview fetch ────────────────────────
+  // Calls the send endpoint in preview:true mode (no send, no log) so the inline preview and the
+  // confirmation modal render the EXACT branded HTML that will be sent, and show the server's
+  // school-first resolved recipient. Debounced so it does not fire per keystroke.
+  useEffect(() => {
+    if (outreachMode !== 'message' || !recipientType) {
+      setDmPreview({ html: '', recipient: null, loading: false, error: null })
+      return
+    }
+    const rid = recipientType === 'contact' ? contactId : studentId
+    if (!rid || !msgBody.trim()) {
+      setDmPreview(p => ({ ...p, html: '', loading: false, error: null }))
+      return
+    }
+    let cancelled = false
+    setDmPreview(p => ({ ...p, loading: true, error: null }))
+    const timer = setTimeout(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) {
+          if (!cancelled) setDmPreview(p => ({ ...p, loading: false, error: 'Session expired — refresh to preview.' }))
+          return
+        }
+        const res = await fetch('/api/connect-send-direct-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify({
+            preview:           true,
+            recipient_type:    recipientType,
+            recipient_id:      rid,
+            subject:           msgSubject,
+            body:              msgBody,
+            body_format:       'text',
+            include_signature: includeSignature,
+          }),
+        })
+        const data = await res.json().catch(() => null)
+        if (cancelled) return
+        if (res.ok && data?.success) {
+          setDmPreview({ html: data.html || '', recipient: data.recipient || null, loading: false, error: null })
+        } else {
+          setDmPreview(p => ({ ...p, loading: false, error: data?.error || 'Preview unavailable.' }))
+        }
+      } catch {
+        if (!cancelled) setDmPreview(p => ({ ...p, loading: false, error: 'Preview unavailable.' }))
+      }
+    }, 450)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [outreachMode, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature])
+
+  // CONNECT-COMMS-1B: recipient source chip styling (school/personal-fallback/override/contact/missing).
+  const dmSourceChip = (type) => ({
+    school:   { label: 'School email',        bg: '#eef5ef', color: '#2F7D5C', border: '#cfe6d6' },
+    personal: { label: 'Personal (fallback)', bg: '#fdf6ec', color: '#92400e', border: '#f0c9b0' },
+    override: { label: 'Override',            bg: '#eef2ff', color: '#3730a3', border: '#e0e7ff' },
+    contact:  { label: 'Contact',             bg: '#f3f4f6', color: '#4A5560', border: '#e5e7eb' },
+    missing:  { label: 'Missing email',       bg: '#fef2f2', color: '#991b1b', border: '#fecaca' },
+  }[type] || { label: 'Recipient', bg: '#f3f4f6', color: '#4A5560', border: '#e5e7eb' })
+
   // ── Bulk Send via Resend handler (Phase 3B.2B) ───────────────────────────
   // Sends every eligible (not-yet-sent) recipient by splitting them into internal
   // chunks of SEND_CHUNK_SIZE and POSTing each chunk sequentially to the same
@@ -1710,7 +1772,11 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
               {/* Action bar */}
               {(() => {
                 const hasContactRecipient = !!(contactId && contactHasDisplayInfo && fromContact?.email)
-                const studentEmail = effectiveStudent?.email || fetchedStudent?.personal_email || fetchedStudent?.school_email
+                // CONNECT-COMMS-1B: gate on having ANY email; prefer school-first for consistency
+                // with the canon (authoritative resolution + which-email-used happen server-side).
+                const studentEmail = effectiveStudent?.school_email || fetchedStudent?.school_email
+                                     || effectiveStudent?.personal_email || fetchedStudent?.personal_email
+                                     || effectiveStudent?.email
                 const hasStudentRecipient = !!(studentId && studentEmail)
                 const hasRecipient = hasContactRecipient || hasStudentRecipient
                 const hasSubject   = !!msgSubject.trim()
@@ -1774,31 +1840,48 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                 </div>
               )}
 
-              {/* Live preview */}
+              {/* CONNECT-COMMS-1B: true "Preview as sent" — exact branded HTML from the same server
+                  renderer/endpoint used to send, plus the server-resolved (school-first) recipient. */}
               <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 16 }}>
-                <span style={sectionLabel}>Preview</span>
-                <div style={{
-                  background: '#f9fafb', borderRadius: 8,
-                  border: '1px solid #e5e7eb', overflow: 'hidden',
-                }}>
-                  <div style={{ padding: '10px 14px', borderBottom: '1px solid #f3f4f6' }}>
-                    <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginBottom: 3 }}>Subject</div>
-                    <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.5 }}>
-                      {msgSubject || (
-                        <span style={{ color: '#d1d5db', fontStyle: 'italic' }}>No subject yet</span>
+                <span style={sectionLabel}>Preview as sent</span>
+
+                {/* Resolved recipient + source */}
+                {dmPreview.recipient && (() => {
+                  const c = dmSourceChip(dmPreview.recipient.type)
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: '2px 0 10px' }}>
+                      <span style={{ fontSize: 12, color: '#374151', fontFamily: F }}>
+                        To: <strong>{dmPreview.recipient.email || '—'}</strong>
+                      </span>
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 10,
+                        textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: F,
+                        background: c.bg, color: c.color, border: `1px solid ${c.border}` }}>
+                        {c.label}
+                      </span>
+                      {dmPreview.recipient.warning && (
+                        <span style={{ fontSize: 11, color: '#92400e', fontFamily: F }}>{dmPreview.recipient.warning}</span>
                       )}
                     </div>
-                  </div>
-                  <div style={{ padding: '10px 14px' }}>
-                    <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginBottom: 6 }}>Body</div>
-                    <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
-                      {msgBody || (
-                        <span style={{ color: '#d1d5db', fontStyle: 'italic' }}>
-                          Start typing to see a preview…
-                        </span>
-                      )}
+                  )
+                })()}
+
+                <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+                  {dmPreview.loading ? (
+                    <div style={{ padding: '24px 14px', fontSize: 12, color: '#9ca3af', fontFamily: F, textAlign: 'center' }}>Rendering preview…</div>
+                  ) : dmPreview.error ? (
+                    <div style={{ padding: '16px 14px', fontSize: 12, color: '#dc2626', fontFamily: F }}>{dmPreview.error}</div>
+                  ) : dmPreview.html ? (
+                    <iframe
+                      title="Preview as sent"
+                      srcDoc={dmPreview.html}
+                      sandbox="allow-same-origin"
+                      style={{ width: '100%', height: 520, border: 'none', background: '#fff', display: 'block' }}
+                    />
+                  ) : (
+                    <div style={{ padding: '24px 14px', fontSize: 13, color: '#d1d5db', fontStyle: 'italic', fontFamily: F, textAlign: 'center' }}>
+                      Start typing a message to see the branded email…
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -2861,17 +2944,32 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                 style={{ background: 'none', border: 'none', cursor: dmSendInFlight ? 'not-allowed' : 'pointer', fontSize: 20, color: '#9ca3af', lineHeight: 1, padding: '2px 6px' }}>×</button>
             </div>
 
-            {/* Recipient + metadata */}
+            {/* Recipient + source — server-resolved (school-first for students). Fixes the prior
+                gap where a student recipient's email did not appear in this modal. */}
             <div style={{ padding: '10px 14px', marginBottom: 14, background: '#EEF2FB', border: '1px solid #c3cdf0', borderRadius: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#1D2567', fontFamily: F }}>
-                {fromContact?.name || contactId}
-              </div>
-              {fromContact?.email && (
-                <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginTop: 2 }}>{fromContact.email}</div>
-              )}
-              {fromContact?.role && (
-                <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, marginTop: 2 }}>{fromContact.role}</div>
-              )}
+              {(() => {
+                const r = dmPreview.recipient
+                const name = r?.name || fromContact?.name || '—'
+                const c = dmSourceChip(r?.type || (recipientType === 'contact' ? 'contact' : 'missing'))
+                return (
+                  <>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1D2567', fontFamily: F }}>{name}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 3 }}>
+                      <span style={{ fontSize: 11, color: '#6b7280', fontFamily: F }}>
+                        {r?.email || fromContact?.email || 'No email resolved'}
+                      </span>
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 10,
+                        textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: F,
+                        background: c.bg, color: c.color, border: `1px solid ${c.border}` }}>
+                        {c.label}
+                      </span>
+                    </div>
+                    {r?.warning && (
+                      <div style={{ fontSize: 11, color: '#92400e', fontFamily: F, marginTop: 4 }}>{r.warning}</div>
+                    )}
+                  </>
+                )
+              })()}
             </div>
 
             {/* Subject */}
@@ -2880,23 +2978,38 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
               <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.5 }}>{msgSubject}</div>
             </div>
 
-            {/* Body preview */}
+            {/* Preview as sent — exact branded HTML (same server renderer as send) */}
             <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: F, marginBottom: 4 }}>Message</div>
-              <div style={{ fontSize: 12, color: '#374151', fontFamily: F, lineHeight: 1.6, whiteSpace: 'pre-wrap', background: '#f9fafb', padding: '10px 12px', borderRadius: 6, border: '1px solid #e5e7eb', maxHeight: dmBodyExpanded ? 320 : 80, overflowY: dmBodyExpanded ? 'auto' : 'hidden' }}>
-                {msgBody}
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: F, marginBottom: 4 }}>Preview as sent</div>
+              <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden' }}>
+                {dmPreview.loading ? (
+                  <div style={{ padding: '20px 12px', fontSize: 12, color: '#9ca3af', fontFamily: F, textAlign: 'center' }}>Rendering preview…</div>
+                ) : dmPreview.error ? (
+                  <div style={{ padding: '14px 12px', fontSize: 12, color: '#dc2626', fontFamily: F }}>{dmPreview.error}</div>
+                ) : dmPreview.html ? (
+                  <iframe
+                    title="Preview as sent"
+                    srcDoc={dmPreview.html}
+                    sandbox="allow-same-origin"
+                    style={{ width: '100%', height: 360, border: 'none', background: '#fff', display: 'block' }}
+                  />
+                ) : (
+                  <div style={{ padding: '20px 12px', fontSize: 12, color: '#9ca3af', fontFamily: F, textAlign: 'center' }}>Preview unavailable.</div>
+                )}
               </div>
-              {msgBody.length > 200 && (
-                <button onClick={() => setDmBodyExpanded(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#6b7280', fontFamily: F, padding: '4px 0', marginTop: 2 }}>
-                  {dmBodyExpanded ? 'Collapse' : 'Show full message'}
-                </button>
-              )}
             </div>
 
             {/* Signature indicator */}
             <div style={{ marginBottom: 16, fontSize: 11, color: '#9ca3af', fontFamily: F }}>
               ASPIRE Program signature: <strong style={{ color: '#374151' }}>{includeSignature ? 'included' : 'omitted'}</strong>
             </div>
+
+            {/* CONNECT-COMMS-1B: block send if no valid recipient email resolved. */}
+            {dmPreview.recipient?.type === 'missing' && (
+              <div style={{ fontSize: 12, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontFamily: F }}>
+                No valid email on file for this recipient — cannot send.
+              </div>
+            )}
 
             {/* Safety delay note */}
             {!dmConfirmReady && (
@@ -2906,25 +3019,30 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
             )}
 
             {/* Footer */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button type="button" onClick={() => { if (!dmSendInFlight) setDmConfirmOpen(false) }}
-                disabled={dmSendInFlight}
-                style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, fontFamily: F, color: '#374151', cursor: dmSendInFlight ? 'not-allowed' : 'pointer' }}>
-                Cancel
-              </button>
-              <button type="button" onClick={handleDmSend}
-                disabled={!dmConfirmReady || dmSendInFlight}
-                style={{
-                  padding: '8px 20px', borderRadius: 8, border: 'none',
-                  background: (!dmConfirmReady || dmSendInFlight) ? '#e5e7eb' : '#1D2567',
-                  fontSize: 12, fontWeight: 600, fontFamily: F,
-                  color: (!dmConfirmReady || dmSendInFlight) ? '#9ca3af' : '#fff',
-                  cursor: (!dmConfirmReady || dmSendInFlight) ? 'not-allowed' : 'pointer',
-                  transition: 'background 0.12s',
-                }}>
-                {dmSendInFlight ? 'Sending…' : 'Send'}
-              </button>
-            </div>
+            {(() => {
+              const sendBlocked = !dmConfirmReady || dmSendInFlight || dmPreview.recipient?.type === 'missing'
+              return (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                  <button type="button" onClick={() => { if (!dmSendInFlight) setDmConfirmOpen(false) }}
+                    disabled={dmSendInFlight}
+                    style={{ padding: '8px 18px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, fontFamily: F, color: '#374151', cursor: dmSendInFlight ? 'not-allowed' : 'pointer' }}>
+                    Cancel
+                  </button>
+                  <button type="button" onClick={handleDmSend}
+                    disabled={sendBlocked}
+                    style={{
+                      padding: '8px 20px', borderRadius: 8, border: 'none',
+                      background: sendBlocked ? '#e5e7eb' : '#1D2567',
+                      fontSize: 12, fontWeight: 600, fontFamily: F,
+                      color: sendBlocked ? '#9ca3af' : '#fff',
+                      cursor: sendBlocked ? 'not-allowed' : 'pointer',
+                      transition: 'background 0.12s',
+                    }}>
+                    {dmSendInFlight ? 'Sending…' : 'Send'}
+                  </button>
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}
