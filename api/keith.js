@@ -8,6 +8,9 @@ import { buildSystemPrompt, GOVERNED_KNOWLEDGE_MARKER, getRecentCommunications, 
 import { retrieveGovernedKnowledge } from '../lib/server/keith/knowledgeRetrieval.js';
 import { computeStatusCounts, STATUS_DEFINITIONS } from '../src/lib/derivations/cohortStatus.js';
 import { summarizeCsLink } from '../src/lib/derivations/csLink.js';
+import { selectActiveWindowRows, mergeOnCampusNow } from '../src/lib/onCampusNow.js';
+import { shiftTypeOf, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../src/lib/shiftStatus.js';
+import { displayName } from '../src/lib/utils.js';
 import { classifyIntent, INTENTS, isExplicitEmailDrafting } from '../lib/server/keith/queryIntent.js';
 import { answerPersonContactQuery, CONTACTS_ROLE_DENIED } from '../lib/server/keith/contactsLookup.js';
 import { createClient } from '@supabase/supabase-js';
@@ -763,6 +766,24 @@ export default async function handler(req, res) {
     return { todayIso, todayLong, nowTime };
   }
 
+  // KEITH-ON-CAMPUS-NOW-1: a Date whose wall-clock fields (read in the server's local
+  // frame) equal the current Pacific wall clock. getShiftWindow() builds shift windows
+  // from a Pacific calendar date using new Date(y,m,d,h,…) in that same local frame, so
+  // comparing this "now" against those windows is timezone-correct on a UTC server
+  // (where new Date() would otherwise place the window ~7-8h off). Used only for the
+  // time-window fallback; lifecycle in_progress rows have no timezone dependency.
+  function pacificNowAsLocal() {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Los_Angeles',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    }).formatToParts(new Date());
+    const g = (t) => Number(parts.find(p => p.type === t)?.value);
+    // hour can come back as "24" at midnight in some environments; normalize to 0.
+    const hour = g('hour') === 24 ? 0 : g('hour');
+    return new Date(g('year'), g('month') - 1, g('day'), hour, g('minute'), g('second'));
+  }
+
   function formatTimestampPT(iso) {
     if (!iso) return null;
     return new Intl.DateTimeFormat('en-US', {
@@ -802,12 +823,13 @@ Do NOT name any person. Do NOT suggest an adjacent unit leader or alternative co
       const statusCounts  = computeStatusCounts(liveData.students);
       const csLinkSummary = summarizeCsLink(liveData.students);
 
-      // On campus today — raw shift log rows joined with students
-      const onCampusLines = (liveData.onCampusToday || []).map(log => {
-        const s = studentMap[log.student_id];
-        const name = s ? `${s.last_name}, ${s.first_name}` : '(unknown)';
-        return `- ${name} (${s?.school || '?'}) at ${log.unit_name}, ${log.total_hours}h ${log.shift_type || ''}`;
-      }).join('\n') || '(none today)';
+      // KEITH-ON-CAMPUS-NOW-1: On Campus Now is derived server-side from the database
+      // (see the dbkeith block below) using the SAME shared derivation as the Aggregate
+      // tab. The prior path read liveData.onCampusToday, a client React Query key
+      // (on_campus_today) that no query ever populated, so Keith always reported zero.
+      // These are assigned in the dbkeith block; defaults cover the no-DB-credentials path.
+      let onCampusLines = '(no live shift-log data available for this response)';
+      let onCampusNowCount = 0;
 
       // Key student lists
       const safeList = (arr, max = 50) => {
@@ -922,6 +944,56 @@ Cohort Status: ${cohort.status || 'unknown'}`
       if (supabaseUrl && serviceKey) {
         const dbkeith = makeServiceRoleClient();
         const ctxCohortId = liveData.activeCohortId || liveData.cohort?.id;
+
+        // KEITH-ON-CAMPUS-NOW-1: derive On Campus Now from the database using the SAME
+        // shared logic as the Aggregate tab (lifecycle in_progress rows take precedence,
+        // plus the active time-window fallback). This replaces the empty client array.
+        if (ctxCohortId) {
+          try {
+            const today = todayIso; // Pacific calendar date
+            const yesterday = (() => {
+              const [y, m, d] = todayIso.split('-').map(Number);
+              const dt = new Date(Date.UTC(y, m - 1, d));
+              dt.setUTCDate(dt.getUTCDate() - 1);
+              return new Intl.DateTimeFormat('en-CA', { timeZone: 'UTC' }).format(dt);
+            })();
+            const [lifecycleRes, windowRes] = await Promise.allSettled([
+              dbkeith.from('student_shift_logs')
+                .select('id, student_id, checked_in_at, lifecycle_state, planned_shift_type, unit_name, total_hours, shift_type, shift_date')
+                .eq('cohort_id', ctxCohortId)
+                .eq('lifecycle_state', 'in_progress')
+                .order('checked_in_at', { ascending: false }),
+              dbkeith.from('student_shift_logs')
+                .select('*')
+                .eq('cohort_id', ctxCohortId)
+                .in('shift_date', [yesterday, today])
+                .in('status', ['Auto-Accepted', 'Approved']),
+            ]);
+            const lifecycleRows = lifecycleRes.status === 'fulfilled' ? (lifecycleRes.value?.data || []) : [];
+            const windowRows    = windowRes.status === 'fulfilled' ? (windowRes.value?.data || []) : [];
+            if (lifecycleRes.status === 'rejected' && windowRes.status === 'rejected') {
+              throw new Error(lifecycleRes.reason?.message || 'on_campus_fetch_failed');
+            }
+            const activeWindow = selectActiveWindowRows(windowRows, pacificNowAsLocal());
+            const merged = mergeOnCampusNow(lifecycleRows, activeWindow);
+            onCampusNowCount = merged.length;
+            onCampusLines = merged.map(log => {
+              const s = studentMap[log.student_id];
+              const name = s ? displayName(s) : '(student not in current cohort cache)';
+              const type = shiftTypeOf(log);
+              const unit = log.unit_name || 'unit not yet recorded';
+              const openMs = openShiftMs(log, Date.now());
+              const duration = openMs != null
+                ? `, open ${formatDuration(openMs)}`
+                : (log.total_hours ? `, ${log.total_hours}h logged` : '');
+              const overdue = isClockoutMaybeOverdue(log, Date.now()) ? ' [clock-out may be overdue]' : '';
+              return `- ${name} (${s?.school || 'school N/A'}) at ${unit}${type ? `, ${type}` : ''}${duration}${overdue}`;
+            }).join('\n') || '(none currently on campus)';
+          } catch (e) {
+            console.warn('[keith] on-campus-now derive failed (non-fatal):', e.message);
+            onCampusLines = 'ON CAMPUS NOW: Fetch error — data unavailable for this response';
+          }
+        }
 
         // All four context fetches run in parallel; individual failures get unavailable placeholders
         const [commsResult, statsResult, responsesResult, leadersResult] = await Promise.allSettled([
@@ -1038,7 +1110,8 @@ Completed: ${statusCounts.completed} (${STATUS_DEFINITIONS['Completed']})
 Interviewed: ${statusCounts.interviewed} · Awaiting Interview: ${statusCounts.awaitingInterview} · Needs Outreach: ${statusCounts.needsOutreach}
 Placed does NOT mean rotating. When summarizing the cohort, state the total, then Not Proceeding, then Placed and Active Rotation with their definitions; never describe Placed students as rotating.
 
-On Campus Now (${(liveData.onCampusToday || []).length} shifts):
+On Campus Now (${onCampusNowCount} student${onCampusNowCount === 1 ? '' : 's'} currently on campus):
+This is the SAME On Campus Now list shown in the Aggregate tab: students with a live open/in-progress shift check-in, plus any whose logged shift window currently contains the present moment. When asked "who is on campus today" or "who is on campus now", answer from THIS list. If it is empty, say no students have an open or current on-campus shift log right now; do NOT say "no shifts are scheduled" (this list is about live/open shifts, not the schedule).
 ${onCampusLines}
 
 Pending interview / Form Received (${pendingInterview.length}):

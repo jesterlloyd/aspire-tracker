@@ -11,7 +11,7 @@ import StudentAvatar from './StudentAvatar'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
 import StudentCard from './StudentCard'
-import { isShiftCurrentlyActive } from '../lib/shiftWindows'
+import { selectActiveWindowRows, mergeOnCampusNow } from '../lib/onCampusNow'
 import { shiftTypeOf, shiftBadge, isOpenShift, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../lib/shiftStatus'
 import { Clock, GraduationCap, MapPin, Users, Copy } from 'lucide-react'
 
@@ -555,21 +555,9 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         .in('status', ['Auto-Accepted', 'Approved'])
       if (error) throw error
 
-      const now = new Date()
-      const activeLogs = (data || []).filter(log =>
-        isShiftCurrentlyActive(log.shift_date, log.shift_type, now)
-      )
-
-      // Deduplicate: if a student has multiple active logs (e.g. Day + Night same date),
-      // keep the most recently submitted one
-      const byStudent = new Map()
-      for (const log of activeLogs) {
-        const existing = byStudent.get(log.student_id)
-        if (!existing || new Date(log.submitted_at) > new Date(existing.submitted_at)) {
-          byStudent.set(log.student_id, log)
-        }
-      }
-      return Array.from(byStudent.values())
+      // KEITH-ON-CAMPUS-NOW-1: shared derivation (active-window filter + per-student dedup)
+      // so Keith's server-side On Campus Now uses the exact same logic as this panel.
+      return selectActiveWindowRows(data, new Date())
     },
     enabled:        !!cohortId,
     refetchInterval: 60 * 1000,
@@ -600,11 +588,10 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   // Hybrid merge: lifecycle rows take precedence (live check-ins, checked_in_at
   // DESC), then time-window fallback rows excluding any student already shown via
   // lifecycle — so a student appears at most once. S.6 will drop the fallback.
-  const mergedCampusLogs = useMemo(() => {
-    const lifecycleStudentIds = new Set(campusLifecycleLogs.map(r => r.student_id))
-    const fallbackOnly = campusLogs.filter(r => !lifecycleStudentIds.has(r.student_id))
-    return [...campusLifecycleLogs, ...fallbackOnly]
-  }, [campusLifecycleLogs, campusLogs])
+  const mergedCampusLogs = useMemo(
+    () => mergeOnCampusNow(campusLifecycleLogs, campusLogs),
+    [campusLifecycleLogs, campusLogs]
+  )
 
   // Auto-expand the panel when shifts arrive for the first time
   useEffect(() => {
