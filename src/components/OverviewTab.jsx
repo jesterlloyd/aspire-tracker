@@ -574,7 +574,8 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         .from('student_shift_logs')
         // SHIFT-VIS-1: also load lifecycle_state + planned_shift_type (read-only) so open-shift
         // cards can show the shift badge + open duration. No behavior change.
-        .select('id, student_id, checked_in_at, lifecycle_state, planned_shift_type')
+        // ON-CAMPUS-NOW-UX-1: also load unit_name so On Campus Now cards can show the current unit.
+        .select('id, student_id, checked_in_at, lifecycle_state, planned_shift_type, unit_name')
         .eq('cohort_id', cohortId)
         .eq('lifecycle_state', 'in_progress')
         .order('checked_in_at', { ascending: false })
@@ -1080,6 +1081,11 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
               {mergedCampusLogs.map(log => {
                 const stu = students.find(s => s.id === log.student_id)
                 if (!stu) return null
+                // ON-CAMPUS-NOW-UX-1: prefer the current shift log / lifecycle row's unit;
+                // fall back to the student's matched/assigned unit when the row has none.
+                const unitName = log.unit_name
+                  || units?.find(u => u.id === stu.matched_unit_id)?.unit_name
+                  || null
                 return (
                   <StudentCard
                     key={log.id}
@@ -1094,6 +1100,8 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                       openShift: isOpenShift(log),
                       openDur:   isOpenShift(log) ? formatDuration(openShiftMs(log)) : null,
                       overdue:   isOpenShift(log) && isClockoutMaybeOverdue(log),
+                      // ON-CAMPUS-NOW-UX-1: current unit (shift-log/lifecycle first, placement fallback).
+                      unit:      unitName,
                     }}
                   />
                 )

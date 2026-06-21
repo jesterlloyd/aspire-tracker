@@ -171,7 +171,7 @@ function ProfileStrip({ student }) {
   )
 }
 
-function OnCampusStrip({ hoursCompleted, hoursRequired, shiftType, openShift, openDur, overdue }) {
+function OnCampusStrip({ hoursCompleted, hoursRequired, shiftType, openShift, openDur, overdue, unit }) {
   const done = parseFloat(hoursCompleted) || 0
   const req  = parseFloat(hoursRequired)  || 200
   const pct  = Math.min(100, req > 0 ? (done / req) * 100 : 0)
@@ -182,7 +182,7 @@ function OnCampusStrip({ hoursCompleted, hoursRequired, shiftType, openShift, op
   return (
     <div style={{ padding: '8px 12px 10px' }}>
       {/* Shift badge — always shown for on-campus cards (Day/Night/Mid/Variable/Shift not specified) */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: unit ? 3 : 6 }}>
         <span style={{
           fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
           background: badgeTone.bg, color: badgeTone.color, whiteSpace: 'nowrap', ...F,
@@ -190,6 +190,15 @@ function OnCampusStrip({ hoursCompleted, hoursRequired, shiftType, openShift, op
           {shiftLabel}
         </span>
       </div>
+      {/* ON-CAMPUS-NOW-UX-1: current unit — compact, centered, single line under the shift badge. */}
+      {unit && (
+        <div style={{
+          fontSize: 10.5, fontWeight: 600, color: '#475467', textAlign: 'center',
+          marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', ...F,
+        }}>
+          {unit}
+        </div>
+      )}
       <div style={{
         fontSize: 12, fontWeight: 600, color: '#374151', ...F,
         textAlign: 'center', marginBottom: 5,
@@ -381,6 +390,7 @@ export default function StudentCard({ student, variant, onClick, variantProps = 
             openShift={variantProps.openShift}
             openDur={variantProps.openDur}
             overdue={variantProps.overdue}
+            unit={variantProps.unit}
           />
         )}
         {variant === 'interview' && (

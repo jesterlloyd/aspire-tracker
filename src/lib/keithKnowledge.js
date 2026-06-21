@@ -107,7 +107,7 @@ export const SUGGESTED_PROMPTS = [
   { label: 'Who needs follow-up today?', category: 'action' },
   { label: 'Summarize this cohort.', category: 'summary' },
   { label: 'Draft an ASPIRE email.', category: 'email' },
-  { label: 'Who is on campus today?', category: 'campus' },
+  { label: 'Who is on campus now?', category: 'campus' },
   { label: 'Explain the ASPIRE status journey.', category: 'info' },
   { label: 'How does CS-Link access work?', category: 'info' },
 ];

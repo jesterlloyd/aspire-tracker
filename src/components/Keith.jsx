@@ -61,13 +61,14 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     const conversationHistory = [...messages, userMessage].slice(-10);
 
     // Read live cohort data from the React Query cache
-    const todayDate = new Date().toLocaleDateString('en-CA');
+    // ON-CAMPUS-NOW-UX-1: the obsolete onCampusToday read was removed. It read the phantom
+    // key ['on_campus_today', …] that no query ever wrote (always []), and Keith now derives
+    // On Campus Now server-authoritatively in api/keith.js (KEITH-ON-CAMPUS-NOW-1).
     const allCohorts = queryClient.getQueryData(['cohorts_all']) || [];
     const liveData = {
       activeCohortId:   cohortId,
       cohort:           allCohorts.find(c => c.id === cohortId) || null,
       students:         queryClient.getQueryData(['students_in_cohort', cohortId]) || [],
-      onCampusToday:    queryClient.getQueryData(['on_campus_today', cohortId, todayDate]) || [],
       cohorts:          allCohorts,
       units:            queryClient.getQueryData(['units_cohort', cohortId]) || [],
       matches:          queryClient.getQueryData(['embed_matches', cohortId]) || [],
