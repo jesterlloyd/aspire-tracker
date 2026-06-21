@@ -13,6 +13,7 @@
 // prevents spoofed submissions against closed cohorts.
 
 import { createClient } from '@supabase/supabase-js'
+import { normalizeEmailForLookup } from '../src/lib/emailUtils.js'
 
 function getDb() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -79,32 +80,79 @@ export default async function handler(req, res) {
 
   const rotationId = rotationRow.id
   const added   = []
+  const updated = []
   const skipped = []
 
+  // STUDENT-PROFILE-CANON-1G: case/whitespace/zero-width-insensitive matching. Fetch the cohort's
+  // existing students once and index by NORMALIZED school_email. The prior dedup used a
+  // case-sensitive .eq(school_email), so a coordinator re-submit with different casing/whitespace
+  // (e.g. ivan.cruz01@… vs Ivan.Cruz01@…) could fail to match and create a duplicate. lower(trim())
+  // is not expressible as a Supabase filter, so the comparison is done in JS (mirrors /student-form).
+  const { data: cohortStudents, error: rosterErr } = await db
+    .from('students')
+    .select('id, school_email, submitted_via')
+    .eq('cohort_id', cohortId)
+  if (rosterErr) {
+    console.error('[school-form-submit] roster fetch error:', rosterErr)
+    return res.status(500).json({ error: 'Failed to load existing students for matching.' })
+  }
+  const existingByEmail = new Map()
+  for (const st of (cohortStudents || [])) {
+    const key = normalizeEmailForLookup(st.school_email)
+    if (key && !existingByEmail.has(key)) existingByEmail.set(key, st)
+  }
+
   for (const s of students) {
-    const schoolEmail = (s.email || '').trim()
-    if (!s.first_name?.trim() || !s.last_name?.trim() || !schoolEmail) {
+    const firstName = (s.first_name || '').trim()
+    const lastName  = (s.last_name || '').trim()
+    const normEmail = normalizeEmailForLookup(s.email)
+    if (!firstName || !lastName || !normEmail) {
       console.warn('[school-form-submit] skipping incomplete student row')
+      skipped.push(`${firstName} ${lastName}`.trim() || '(incomplete row)')
       continue
     }
+    const fullName = `${firstName} ${lastName}`
 
-    // Duplicate check: same school_email in this cohort
-    const { data: existing } = await db
-      .from('students').select('id')
-      .eq('cohort_id', cohortId).eq('school_email', schoolEmail)
-      .limit(1).maybeSingle()
-
+    const existing = existingByEmail.get(normEmail)
     if (existing) {
-      skipped.push(`${s.first_name.trim()} ${s.last_name.trim()}`)
+      // Existing student matched case-insensitively → UPDATE only coordinator-owned seed fields.
+      // NEVER touch student-owned (personal_email, phone, date_of_birth, resume_url, headshot_url,
+      // prior_healthcare_experience, interest_statement, unit_preference_*) or ASPIRE/admin-owned
+      // (status, interview_outcome, ngrp_outcome, disposition, matched_unit_id, matched_preceptor,
+      // preceptor_id, shift_assigned, CS-Link/badge, notes). Preserve submitted_via='student_form'.
+      const updatePayload = {
+        first_name:                firstName,
+        last_name:                 lastName,
+        name:                      fullName,
+        school_email:              normEmail,                // normalize stored value (same address)
+        school:                    coordinator.school.trim(),
+        program_type:              s.program_type || '',
+        hours_required:            parseInt(s.hours_required) || 0,
+        estimated_graduation_date: s.estimated_graduation_date || null,
+        estimated_graduation:      s.estimated_graduation_date || '',
+        school_coordinator_name:   coordinator.name.trim(),
+        school_coordinator_email:  coordinator.email.trim(),
+        coordinators:              (coordinator.notes || '').trim(),
+        aspire_cohort:             cohortName || '',
+        cohort_school_rotation_id: rotationId,
+        // submitted_via: preserve any existing value (especially 'student_form'); set only when null.
+        ...(existing.submitted_via ? {} : { submitted_via: 'school_form' }),
+      }
+      const { error: updErr } = await db.from('students').update(updatePayload).eq('id', existing.id)
+      if (updErr) {
+        console.error('[school-form-submit] student update error:', updErr)
+        return res.status(500).json({ error: `Failed to update student ${fullName}.` })
+      }
+      updated.push({ name: fullName, id: existing.id, email: normEmail })
       continue
     }
 
     const { data: newStudent, error: insertErr } = await db
       .from('students').insert({
-        name:                       `${s.first_name.trim()} ${s.last_name.trim()}`,
-        first_name:                 s.first_name.trim(),
-        last_name:                  s.last_name.trim(),
-        school_email:               schoolEmail,
+        name:                       fullName,
+        first_name:                 firstName,
+        last_name:                  lastName,
+        school_email:               normEmail,
         phone:                      (s.phone || '').trim(),
         school:                     coordinator.school.trim(),
         program_type:               s.program_type || '',
@@ -132,10 +180,12 @@ export default async function handler(req, res) {
 
     if (insertErr) {
       console.error('[school-form-submit] student insert error:', insertErr)
-      return res.status(500).json({ error: `Failed to add student ${s.first_name} ${s.last_name}.` })
+      return res.status(500).json({ error: `Failed to add student ${fullName}.` })
     }
 
-    added.push({ name: `${s.first_name.trim()} ${s.last_name.trim()}`, id: newStudent.id, email: schoolEmail })
+    // Index the new row so a duplicate email within THIS same submission updates, not re-inserts.
+    existingByEmail.set(normEmail, { id: newStudent.id, school_email: normEmail, submitted_via: 'school_form' })
+    added.push({ name: fullName, id: newStudent.id, email: normEmail })
   }
 
   // Log rotation_created event for the first new student
@@ -171,6 +221,7 @@ export default async function handler(req, res) {
   return res.status(200).json({
     success: true,
     added:   added.map(s => s.name),
+    updated: updated.map(s => s.name),
     skipped,
     rotationId,
   })

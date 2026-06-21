@@ -103,7 +103,7 @@ export default function SchoolFormPage() {
         setSubmitting(false)
         return
       }
-      setResult({ added: data.added, skipped: data.skipped })
+      setResult({ added: data.added || [], updated: data.updated || [], skipped: data.skipped || [] })
     } catch (e) {
       setError('Network error. Please check your connection and try again.')
     }
@@ -271,15 +271,21 @@ export default function SchoolFormPage() {
             {' '}to the ASPIRE Program for {cohortName}.
           </p>
         )}
+        {result.updated?.length > 0 && (
+          <p className="uf-confirm-msg" style={{ marginTop: 12, color: 'var(--text-secondary)', fontSize: 14 }}>
+            <strong>{result.updated.length} existing student{result.updated.length !== 1 ? 's' : ''} updated</strong>{' '}
+            with the latest placement details.
+          </p>
+        )}
         {result.skipped.length > 0 && (
           <p className="uf-confirm-msg" style={{ marginTop: 12, color: 'var(--text-secondary)', fontSize: 14 }}>
-            <strong>{result.skipped.length} skipped</strong> (already on file):{' '}
+            <strong>{result.skipped.length} skipped</strong> (incomplete rows):{' '}
             {result.skipped.join(', ')}
           </p>
         )}
-        {result.added.length === 0 && result.skipped.length > 0 && (
+        {result.added.length === 0 && (result.updated?.length || 0) === 0 && result.skipped.length > 0 && (
           <p className="uf-confirm-msg" style={{ marginTop: 8, fontSize: 13, color: 'var(--text-secondary)' }}>
-            All submitted students were already in the system. Please contact the ASPIRE team if changes are needed.
+            No students could be added or updated. Please contact the ASPIRE team if changes are needed.
           </p>
         )}
       </div>
