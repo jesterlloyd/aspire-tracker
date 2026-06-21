@@ -27,7 +27,7 @@ function fmtCheckedIn(iso) {
   return sameDay ? time : `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${time}`
 }
 
-export default function OpenShiftReview({ openLogs = [], students = [], onSelectStudent, defaultOpen = false }) {
+export default function OpenShiftReview({ openLogs = [], students = [], units = [], onSelectStudent, defaultOpen = false }) {
   // SHIFT-ACTIVITY-1b: callers can default the list expanded (Rotation > Activity). Detection,
   // classification, thresholds, and wording are unchanged — only the initial open state.
   const [open, setOpen] = useState(defaultOpen)
@@ -37,14 +37,31 @@ export default function OpenShiftReview({ openLogs = [], students = [], onSelect
       const stu = students.find(s => s.id === log.student_id) || null
       const shiftType = shiftTypeOf(log)
       const overdue = isClockoutMaybeOverdue(log)
-      // Read-only email classification: personal first, then school.
+      // Read-only email classification: personal first, then school. Still drives the summary
+      // chips (emailable / no email) even though Email is no longer a visible table column.
       const email = stu ? (stu.personal_email || stu.school_email || '') : ''
       const klass = !overdue ? 'ok' : (email ? 'overdue_email' : 'overdue_no_email')
-      return { log, stu, shiftType, overdue, email, klass, ms: openShiftMs(log) ?? 0 }
+
+      // ROTATION-ACTIVITY-OPEN-SHIFT-UX-1 — Unit: prefer what the student logged on this open
+      // shift (planned_unit_name at check-in, or final unit_name), then fall back to the
+      // student's matched/assigned unit. Null → shown as a muted "Unavailable".
+      const unit = log.planned_unit_name
+        || log.unit_name
+        || units.find(u => u.id === stu?.matched_unit_id)?.unit_name
+        || null
+
+      // Logged Preceptor: ONLY the value the student actually captured on the shift log
+      // (planned at check-in, or final at check-out). Never silently substitute the assigned
+      // preceptor as "logged". When nothing was logged, the assigned preceptor (free-text
+      // students.matched_preceptor) is offered as a CLEARLY LABELED fallback, else "Not logged".
+      const loggedPreceptor   = (log.planned_preceptor_name || log.preceptor_name || '').trim()
+      const assignedPreceptor = (stu?.matched_preceptor || '').trim()
+
+      return { log, stu, shiftType, overdue, email, klass, unit, loggedPreceptor, assignedPreceptor, ms: openShiftMs(log) ?? 0 }
     })
     // Longest-open first — the most likely forgotten clock-outs surface at the top.
     return list.sort((a, b) => b.ms - a.ms)
-  }, [openLogs, students])
+  }, [openLogs, students, units])
 
   const counts = useMemo(() => ({
     total:    rows.length,
@@ -94,26 +111,43 @@ export default function OpenShiftReview({ openLogs = [], students = [], onSelect
               <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: F }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #eee7da' }}>
-                    {['Student', 'School · Program', 'Shift', 'Checked in', 'Open', 'Status', 'Email'].map(h => (
+                    {['Student', 'Unit', 'Logged Preceptor', 'Shift', 'Checked in', 'Open', 'Status'].map(h => (
                       <th key={h} style={th}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map(({ log, stu, shiftType, overdue, email, klass, ms }) => {
+                  {rows.map(({ log, stu, shiftType, overdue, unit, loggedPreceptor, assignedPreceptor, ms }) => {
                     const name = stu ? `${stu.first_name || ''} ${stu.last_name || ''}`.trim() || '—' : 'Unknown student'
                     const schoolProg = stu ? [stu.school, stu.program_type].filter(Boolean).join(' · ') : ''
                     return (
                       <tr key={log.id} style={{ borderBottom: '1px solid #f5f3ee' }}>
-                        <td style={{ ...td, fontWeight: 600, color: '#191919' }}>
+                        {/* Student — name primary, school · program as compact secondary text. */}
+                        <td style={{ ...td, color: '#191919' }}>
                           {onSelectStudent && stu ? (
                             <button type="button" onClick={() => onSelectStudent(stu.id)}
                               style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: NAVY, fontWeight: 600, fontFamily: F, fontSize: 12.5 }}>
                               {name}
                             </button>
-                          ) : name}
+                          ) : <span style={{ fontWeight: 600 }}>{name}</span>}
+                          {schoolProg && (
+                            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{schoolProg}</div>
+                          )}
                         </td>
-                        <td style={{ ...td, color: '#6b7280' }}>{schoolProg || '—'}</td>
+                        {/* Unit — logged on the open shift, else matched/assigned, else Unavailable. */}
+                        <td style={td}>
+                          {unit
+                            ? <span style={{ color: '#374151' }}>{unit}</span>
+                            : <span style={{ color: '#9ca3af' }}>Unavailable</span>}
+                        </td>
+                        {/* Logged Preceptor — only the value actually logged; assigned shown only as a labeled fallback. */}
+                        <td style={td}>
+                          {loggedPreceptor
+                            ? <span style={{ color: '#374151' }}>{loggedPreceptor}</span>
+                            : assignedPreceptor
+                              ? <span style={{ color: '#6b7280' }}>Assigned: {assignedPreceptor} <span style={{ fontSize: 10.5, color: '#9ca3af' }}>(not logged)</span></span>
+                              : <span style={{ color: '#9ca3af' }}>Not logged</span>}
+                        </td>
                         <td style={td}>{shiftBadge(shiftType).label}</td>
                         <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmtCheckedIn(log.checked_in_at)}</td>
                         <td style={{ ...td, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{formatDuration(ms)}</td>
@@ -121,13 +155,6 @@ export default function OpenShiftReview({ openLogs = [], students = [], onSelect
                           {overdue
                             ? <span style={{ fontWeight: 700, color: '#92400e' }}>Clock-out may be overdue</span>
                             : <span style={{ color: '#6b7280' }}>Within window</span>}
-                        </td>
-                        <td style={td}>
-                          {klass === 'overdue_no_email'
-                            ? <span style={{ fontWeight: 700, color: '#991b1b' }}>No email on file</span>
-                            : email
-                              ? <span style={{ color: '#374151' }}>{email}</span>
-                              : <span style={{ color: '#9ca3af' }}>—</span>}
                         </td>
                       </tr>
                     )

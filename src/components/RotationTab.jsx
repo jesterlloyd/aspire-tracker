@@ -64,6 +64,7 @@ export default function RotationTab(props) {
         <div style={{ display: activeSubTab === 'activity' ? 'block' : 'none', flex: 1, minHeight: 0, overflowY: 'auto' }}>
           <RotationActivity
             students={props.students}
+            units={props.units}
             cohortId={props.cohortId || props.activeCohort?.id}
           />
         </div>
