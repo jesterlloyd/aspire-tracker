@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { supabase } from '../lib/supabase'
 import Tooltip from './ui/Tooltip'
 import EmbedUnitCard from './EmbedUnitCard'
 import StudentMatchingCard from './StudentMatchingCard'
@@ -139,6 +141,29 @@ export default function MatchingTab({
   const totalSlots      = participating.reduce((s, u) => s + u.total_slots,     0)
   const slotsRemaining  = participating.reduce((s, u) => s + u.slots_remaining, 0)
   const unitsWithOpen   = participating.filter(u => u.slots_remaining > 0).length
+  // AVAILABILITY-CANON-1D: read-only coordinator availability for the readiness badge.
+  // Only the fields the badge/readiness helper needs; mapped by rotation id and passed to each
+  // StudentMatchingCard. Skips safely when there is no cohort. No writes.
+  const { data: rotationRows = [] } = useQuery({
+    queryKey: ['cohort_rotation_avail', cohortId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cohort_school_rotations')
+        .select('id, unavailable_weekdays, min_days_per_week, weekends_allowed, nights_allowed, blackout_dates')
+        .eq('cohort_id', cohortId)
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!cohortId,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  })
+  const rotationById = useMemo(() => {
+    const m = {}
+    for (const r of rotationRows) m[r.id] = r
+    return m
+  }, [rotationRows])
+
   const matchedStudents = students.filter(s =>  s.matched_unit_id)
   // Pool only shows students who are unmatched AND have an eligible ASPIRE status
   // (excludes Placed, Active Rotation, Completed, Declined)
@@ -586,6 +611,7 @@ export default function MatchingTab({
                         isFadingIn={fadeInStudentIds.has(s.id)}
                         units={participating}
                         focusedUnit={focusedUnit}
+                        rotation={rotationById[s.cohort_school_rotation_id]}
                       />
                     </div>
                   ))}

@@ -32,6 +32,7 @@ import { CARD } from '../lib/designTokens'
 import { formatSchoolProgram } from '../lib/displayFormatters'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
+import { getAvailabilityReadiness } from '../lib/availability'
 
 // ── Preference tier colors (matches the strip used in MatchingTab focus banner) ─
 const ORDINAL_COLOR = { 1: '#059669', 2: '#B5895A', 3: '#7C8FD9' }
@@ -62,7 +63,7 @@ function getOpenCount(unitName, units) {
 
 export default function StudentMatchingCard({
   student, isSelected, onSelect, isReadOnly,
-  isFading, isFadingIn, units, focusedUnit,
+  isFading, isFadingIn, units, focusedUnit, rotation,
 }) {
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
@@ -282,15 +283,37 @@ export default function StudentMatchingCard({
         )}
       </div>
 
-      {(() => {
-        const sa = student.shift_availability
-        const s = { display: 'inline-flex', alignItems: 'center', fontSize: 10, fontWeight: 500, color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: 20, padding: '2px 8px', background: '#F9FAFB', whiteSpace: 'nowrap', fontFamily: F }
-        if (!sa || !sa.trim())              return <span style={s}>Pref: Not specified</span>
-        if (sa === 'Day Shift Preferred')   return <span style={s}>Pref: ☀ Day</span>
-        if (sa === 'Night Shift Preferred') return <span style={s}>Pref: ☾ Night</span>
-        if (sa === 'No Preference')         return <span style={s}>Pref: ☀ / ☾ Flexible</span>
-        return <span style={s}>Pref: Verify</span>
-      })()}
+      {/* Shift preference + AVAILABILITY-CANON-1D readiness badge (readiness/review only — NOT
+          preceptor compatibility). Privacy-safe: tooltip shows structural facts, never free text. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
+        {(() => {
+          const sa = student.shift_availability
+          const s = { display: 'inline-flex', alignItems: 'center', fontSize: 10, fontWeight: 500, color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: 20, padding: '2px 8px', background: '#F9FAFB', whiteSpace: 'nowrap', fontFamily: F }
+          if (!sa || !sa.trim())              return <span style={s}>Pref: Not specified</span>
+          if (sa === 'Day Shift Preferred')   return <span style={s}>Pref: ☀ Day</span>
+          if (sa === 'Night Shift Preferred') return <span style={s}>Pref: ☾ Night</span>
+          if (sa === 'No Preference')         return <span style={s}>Pref: ☀ / ☾ Flexible</span>
+          return <span style={s}>Pref: Verify</span>
+        })()}
+        {(() => {
+          const readiness = getAvailabilityReadiness({ student, rotation })
+          const tone = {
+            confirmed:  { bg: '#F0FDF4', color: '#166534', border: '#BBF7D0' },
+            pending:    { bg: '#F9FAFB', color: '#6B7280', border: '#E5E7EB' },
+            review:     { bg: '#FFFBEB', color: '#92400E', border: '#FDE68A' },
+            restricted: { bg: '#FEF2F2', color: '#991B1B', border: '#FECACA' },
+          }[readiness.level] || { bg: '#F9FAFB', color: '#6B7280', border: '#E5E7EB' }
+          return (
+            <span
+              title={readiness.facts.join(' · ')}
+              style={{ display: 'inline-flex', alignItems: 'center', fontSize: 10, fontWeight: 600,
+                color: tone.color, border: `1px solid ${tone.border}`, borderRadius: 20,
+                padding: '2px 8px', background: tone.bg, whiteSpace: 'nowrap', fontFamily: F }}>
+              {readiness.label}
+            </span>
+          )
+        })()}
+      </div>
 
       {/* ── Preference rows ─────────────────────────────────────────────── */}
       {prefs.length > 0 && (

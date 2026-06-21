@@ -121,3 +121,74 @@ export function formatMinDays(value) {
   const n = coerceMinDaysOrNull(value)
   return n == null ? NOT_PROVIDED : String(n)
 }
+
+// ── AVAILABILITY-CANON-1D: Rotation > Matrix availability READINESS ───────────
+// PURE + null-safe. Returns a coarse readiness signal for the matching pool from the
+// data that EXISTS today — STUDENT availability + COORDINATOR program constraints only.
+// It is NOT preceptor compatibility (no preceptor weekly schedule exists) and makes no
+// "match" claim. `facts` are PRIVACY-SAFE structural values only (no free-text reasons/notes).
+
+const WEEKEND_DAYS = new Set(['Sat', 'Sun'])
+
+// Weekdays the student can rotate: all 7 minus (student ∪ coordinator) unavailable weekdays;
+// weekends removed when the coordinator disallows them or the student is unavailable weekends.
+function availableRotationDays(student, rotation) {
+  // toArray() tolerates real arrays, stringified jsonb, and comma strings (same as the formatters).
+  const sUnavail = new Set(sanitizeWeekdays(toArray(student?.unavailable_weekdays)))
+  const cUnavail = new Set(sanitizeWeekdays(toArray(rotation?.unavailable_weekdays)))
+  let days = WEEKDAYS.filter(d => !sUnavail.has(d) && !cUnavail.has(d))
+  const weekendsBlocked = rotation?.weekends_allowed === false || student?.weekends_available === false
+  if (weekendsBlocked) days = days.filter(d => !WEEKEND_DAYS.has(d))
+  return days
+}
+
+export function getAvailabilityReadiness({ student, rotation } = {}) {
+  const ack          = student?.availability_ack === true
+  const minDays      = coerceMinDaysOrNull(rotation?.min_days_per_week)
+  const studentDays  = sanitizeWeekdays(toArray(student?.unavailable_weekdays))
+  const coordDays    = sanitizeWeekdays(toArray(rotation?.unavailable_weekdays))
+  const combined     = new Set([...studentDays, ...coordDays])
+  const availDays    = availableRotationDays(student, rotation)
+  const availCount   = availDays.length
+  const blackoutCount = sanitizeIsoDates(toArray(student?.personal_blackout_dates)).length
+
+  // PRIVACY-SAFE structural facts only (no reasons/notes/narrative).
+  const facts = [
+    `Unavailable: ${formatWeekdays(student?.unavailable_weekdays)}`,
+    `Nights: ${formatBooleanYesNo(student?.nights_available)}`,
+    `Weekends: ${formatBooleanYesNo(student?.weekends_available)}`,
+    `Blackout dates: ${blackoutCount}`,
+    `Acknowledged: ${ack ? 'Yes' : 'No'}`,
+  ]
+  const preferred = sanitizeWeekdays(toArray(student?.preferred_days))
+  if (preferred.length) facts.splice(1, 0, `Preferred: ${preferred.join(', ')}`)
+  if (rotation) facts.push(`Program min days/week: ${formatMinDays(rotation?.min_days_per_week)}`)
+
+  // RESTRICTED — a clear, strong restriction (surfaced regardless of acknowledgment).
+  const restricted =
+    (minDays != null && availCount < minDays) ||  // below program minimum
+    combined.size >= 4 ||                          // many unavailable weekdays
+    availCount <= 2                                // very few days left to rotate
+
+  let level
+  if (restricted) level = 'restricted'
+  else if (!ack)  level = 'pending'                // not acknowledged / legacy / mostly missing
+  else {
+    // Acknowledged and not restricted → confirmed unless something warrants a look.
+    const needsReview =
+      minDays == null ||                           // coordinator constraints missing
+      availCount === minDays ||                     // no scheduling slack
+      studentDays.length >= 2 ||                    // several unavailable weekdays (still meets min)
+      student?.nights_available == null ||          // night/weekend data missing/mixed
+      student?.weekends_available == null ||
+      blackoutCount > 0                             // has blackout dates to review
+    level = needsReview ? 'review' : 'confirmed'
+  }
+
+  const label = level === 'confirmed' ? 'Availability confirmed'
+    : level === 'pending' ? 'Student availability pending'
+    : level === 'review' ? 'Review availability'
+    : 'Highly restricted availability'
+
+  return { level, label, facts }
+}
