@@ -9,11 +9,12 @@
 // data fetching, API calls, theme persistence, or cohort/operational state.
 import { useEffect, Fragment } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Settings, Monitor, Users, FileText, Info, Scale } from 'lucide-react'
+import { Settings, Monitor, Users, FileText, Info, Scale, PenLine } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { visibleSections } from './settingsSections'
 import GeneralPanel from './GeneralPanel'
 import AppearancePanel from './AppearancePanel'
+import SignaturePanel from './SignaturePanel'
 import AccountsAccessPanel from './AccountsAccessPanel'
 import ToursHelpPanel from './ToursHelpPanel'
 import KnowledgeCenterPanel from './KnowledgeCenterPanel'
@@ -23,7 +24,7 @@ import WorkspaceBackLink from '../ui/WorkspaceBackLink'
 
 // Rail icons (lucide-react, all already used elsewhere in the project).
 const SECTION_ICONS = {
-  general: Settings, appearance: Monitor, accounts: Users, knowledge: FileText, preceptorParity: Scale, tours: Info,
+  general: Settings, appearance: Monitor, signature: PenLine, accounts: Users, knowledge: FileText, preceptorParity: Scale, tours: Info,
 }
 
 export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Aggregate', onRestartTour }) {
@@ -111,6 +112,7 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Ag
         <div style={{ flex: '1 1 360px', minWidth: 0, maxWidth: ['knowledge', 'preceptorParity'].includes(currentKey) ? 1040 : 720 }}>
           {currentKey === 'general'    && <GeneralPanel />}
           {currentKey === 'appearance' && <AppearancePanel />}
+          {currentKey === 'signature'  && <SignaturePanel />}
           {currentKey === 'accounts'   && <AccountsAccessPanel />}
           {currentKey === 'knowledge'  && <KnowledgeCenterPanel />}
           {currentKey === 'preceptorParity' && <PreceptorParityPanel />}

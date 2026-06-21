@@ -6,6 +6,7 @@ import { downloadCSV } from '../../lib/utils'
 import RecipientProfileCard from './RecipientProfileCard'
 import RecipientPicker from './RecipientPicker'
 import SentHistory from './SentHistory'
+import { isValidEmail } from '../../lib/notifications/studentRecipient'
 
 const F = 'DM Sans, sans-serif'
 
@@ -263,7 +264,13 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   const [dmSendStatus,      setDmSendStatus]       = useState(null) // null | { ok, msg }
   // CONNECT-COMMS-1B: true "Preview as sent" — the exact branded HTML + server-resolved recipient,
   // fetched (debounced) from the same endpoint/renderer used to send. { html, recipient, loading, error }
-  const [dmPreview,         setDmPreview]          = useState({ html: '', recipient: null, loading: false, error: null })
+  const [dmPreview,         setDmPreview]          = useState({ html: '', recipient: null, cc: [], signature: null, loading: false, error: null })
+  // CONNECT-COMMS-1D: CC support (Direct Message only). ccList = confirmed chips; ccInput = in-progress typing.
+  // ccAutoSuggested flags that the coordinator chip was pre-filled (vs. manually added) for metadata/telemetry.
+  const [ccList,            setCcList]             = useState([])
+  const [ccInput,           setCcInput]            = useState('')
+  const [ccInputError,      setCcInputError]       = useState(null)
+  const [ccAutoSuggested,   setCcAutoSuggested]    = useState(false)
 
   // ── Direct Message draft — typed key prevents contact/student UUID collisions ──
   // Stores ONLY { subject, body }. Tokens and URLs are NEVER stored.
@@ -349,7 +356,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     setLoadingStudents(true)
     supabase
       .from('students')
-      .select('id, first_name, last_name, school, school_email, personal_email, status')
+      .select('id, first_name, last_name, school, school_email, personal_email, status, school_coordinator_email, school_coordinator_name')
       .eq('cohort_id', cohortId)
       .order('last_name')
       .order('first_name')
@@ -546,7 +553,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     setStudentFetchFailed(false)
     supabase
       .from('students')
-      .select('id, first_name, last_name, personal_email, school_email, school, headshot_url')
+      .select('id, first_name, last_name, personal_email, school_email, school, headshot_url, school_coordinator_email, school_coordinator_name')
       .eq('id', studentId)
       .single()
       .then(({ data }) => {
@@ -1035,6 +1042,12 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
         setDmConfirmOpen(false)
         return
       }
+      // Flush any pending (un-chipped) CC text so a typed-but-not-Entered address still sends.
+      const ccToSend = [...ccList]
+      const pendingCc = ccInput.trim().replace(/[,;]+$/, '').trim()
+      if (pendingCc && isValidEmail(pendingCc) && !ccToSend.some(x => x.toLowerCase() === pendingCc.toLowerCase())) {
+        ccToSend.push(pendingCc)
+      }
       // Use unified recipient_type + recipient_id shape for both contacts and students
       const res = await fetch('/api/connect-send-direct-email', {
         method:  'POST',
@@ -1046,6 +1059,8 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
           body:              msgBody.trim(),
           body_format:       'text',
           include_signature: includeSignature,
+          cc:                ccToSend,
+          cc_auto_suggested: ccAutoSuggested,
         }),
       })
       let payload = null
@@ -1055,6 +1070,9 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
         setMsgSubject('')
         setMsgBody('')
         setIncludeSignature(true)
+        setCcList([])
+        setCcInput('')
+        setCcInputError(null)
         setDmBodyExpanded(false)
         // Clear saved draft — sent content should not restore on next visit
         if (DRAFT_KEY) localStorage.removeItem(DRAFT_KEY)
@@ -1076,7 +1094,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     } finally {
       setDmSendInFlight(false)
     }
-  }, [dmConfirmReady, dmSendInFlight, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, fromContact, fromStudent])
+  }, [dmConfirmReady, dmSendInFlight, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, ccList, ccInput, ccAutoSuggested, fromContact, fromStudent])
 
   // ── CONNECT-COMMS-1B: debounced true-preview fetch ────────────────────────
   // Calls the send endpoint in preview:true mode (no send, no log) so the inline preview and the
@@ -1084,7 +1102,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   // school-first resolved recipient. Debounced so it does not fire per keystroke.
   useEffect(() => {
     if (outreachMode !== 'message' || !recipientType) {
-      setDmPreview({ html: '', recipient: null, loading: false, error: null })
+      setDmPreview({ html: '', recipient: null, cc: [], signature: null, loading: false, error: null })
       return
     }
     const rid = recipientType === 'contact' ? contactId : studentId
@@ -1112,12 +1130,14 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
             body:              msgBody,
             body_format:       'text',
             include_signature: includeSignature,
+            cc:                ccList,
+            cc_auto_suggested: ccAutoSuggested,
           }),
         })
         const data = await res.json().catch(() => null)
         if (cancelled) return
         if (res.ok && data?.success) {
-          setDmPreview({ html: data.html || '', recipient: data.recipient || null, loading: false, error: null })
+          setDmPreview({ html: data.html || '', recipient: data.recipient || null, cc: Array.isArray(data.cc) ? data.cc : [], signature: data.signature || null, loading: false, error: null })
         } else {
           setDmPreview(p => ({ ...p, loading: false, error: data?.error || 'Preview unavailable.' }))
         }
@@ -1126,7 +1146,55 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
       }
     }, 450)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [outreachMode, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature])
+  }, [outreachMode, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, ccList])
+
+  // ── CONNECT-COMMS-1D: coordinator CC suggestion (removable, never forced) ──
+  // The clinical coordinator's email is sourced from fetchedStudent (the navigation state in
+  // fromStudent does not carry coordinator fields). We pre-fill exactly ONE removable chip when:
+  // a student recipient is loaded, the coordinator email is valid, and it is not the same address
+  // we'd send To (school-first). Re-runs only when the recipient or coordinator email changes —
+  // so manual chip edits are preserved, and a removed coordinator chip is not re-added.
+  const coordEmail = (fetchedStudent?.id === studentId ? (fetchedStudent?.school_coordinator_email || '') : '').trim()
+  const coordName  = (fetchedStudent?.id === studentId ? (fetchedStudent?.school_coordinator_name  || '') : '').trim()
+  useEffect(() => {
+    setCcInput('')
+    setCcInputError(null)
+    if (recipientType === 'student' && coordEmail && isValidEmail(coordEmail)) {
+      const toApprox = (
+        effectiveStudent?.school_email || fetchedStudent?.school_email ||
+        effectiveStudent?.personal_email || fetchedStudent?.personal_email || ''
+      ).trim().toLowerCase()
+      if (coordEmail.toLowerCase() !== toApprox) {
+        setCcList([coordEmail])
+        setCcAutoSuggested(true)
+        return
+      }
+    }
+    setCcList([])
+    setCcAutoSuggested(false)
+  }, [recipientType, studentId, contactId, coordEmail]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Add/remove CC chips. Validation mirrors the server (isValidEmail + case-insensitive dedupe);
+  // the server remains the source of truth (dedupe, drop CC==To, cap 5, reject invalid).
+  const addCcChip = useCallback((raw) => {
+    const e = (raw || '').trim().replace(/[,;]+$/, '').trim()
+    if (!e) return true
+    if (!isValidEmail(e)) { setCcInputError(`"${e}" is not a valid email.`); return false }
+    setCcList(prev => prev.some(x => x.toLowerCase() === e.toLowerCase()) ? prev : [...prev, e])
+    setCcInputError(null)
+    return true
+  }, [])
+  const removeCcChip = useCallback((e) => {
+    setCcList(prev => prev.filter(x => x !== e))
+  }, [])
+  const handleCcKeyDown = useCallback((ev) => {
+    if (ev.key === 'Enter' || ev.key === ',' || ev.key === ';') {
+      ev.preventDefault()
+      if (addCcChip(ccInput)) setCcInput('')
+    } else if (ev.key === 'Backspace' && !ccInput && ccList.length) {
+      removeCcChip(ccList[ccList.length - 1])
+    }
+  }, [ccInput, ccList, addCcChip, removeCcChip])
 
   // CONNECT-COMMS-1B: recipient source chip styling (school/personal-fallback/override/contact/missing).
   const dmSourceChip = (type) => ({
@@ -1756,6 +1824,55 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                 />
               </div>
 
+              {/* CC field (CONNECT-COMMS-1D) — Direct Message only. Chips + free entry; the clinical
+                  coordinator is pre-filled as a removable suggestion. Server is source of truth
+                  (validates, dedupes, drops CC==To, caps at 5). */}
+              <div style={fieldWrap}>
+                <label style={labelStyle}>CC <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
+                <div style={{
+                  display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center',
+                  padding: '6px 8px', border: '1px solid #e5e7eb', borderRadius: 8,
+                  background: dmHasAnyRecipient ? '#fff' : '#f9fafb',
+                }}>
+                  {ccList.map((e) => {
+                    const isCoord = ccAutoSuggested && coordEmail && e.toLowerCase() === coordEmail.toLowerCase()
+                    return (
+                      <span key={e} style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 6px 3px 9px',
+                        borderRadius: 14, fontSize: 11.5, fontFamily: F,
+                        background: isCoord ? '#eef2ff' : '#f1efe9', color: '#374151',
+                        border: `1px solid ${isCoord ? '#c7d2fe' : '#e5e7eb'}`,
+                      }}>
+                        {isCoord && <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em', color: '#4338ca' }}>Clinical Coordinator ·</span>}
+                        {e}
+                        <button type="button" onClick={() => removeCcChip(e)} aria-label={`Remove ${e}`} style={{
+                          border: 'none', background: 'transparent', cursor: 'pointer', color: '#9ca3af',
+                          fontSize: 14, lineHeight: 1, padding: 0, marginLeft: 1,
+                        }}>×</button>
+                      </span>
+                    )
+                  })}
+                  <input
+                    type="text"
+                    value={ccInput}
+                    onChange={e => { setCcInput(e.target.value); setCcInputError(null) }}
+                    onKeyDown={handleCcKeyDown}
+                    onBlur={() => { if (addCcChip(ccInput)) setCcInput('') }}
+                    placeholder={ccList.length ? 'Add another…' : 'Add CC email…'}
+                    disabled={!dmHasAnyRecipient}
+                    style={{ flex: '1 1 120px', minWidth: 120, border: 'none', outline: 'none', fontSize: 12.5, fontFamily: F, color: '#191919', background: 'transparent', padding: '3px 2px' }}
+                  />
+                </div>
+                {ccInputError && (
+                  <div style={{ marginTop: 5, fontSize: 11, color: '#dc2626', fontFamily: F }}>{ccInputError}</div>
+                )}
+                {ccAutoSuggested && ccList.some(e => coordEmail && e.toLowerCase() === coordEmail.toLowerCase()) && (
+                  <div style={{ marginTop: 5, fontSize: 11, color: '#6b7280', fontFamily: F }}>
+                    Suggested from this student's clinical coordinator{coordName ? ` (${coordName})` : ''}. Remove if not needed.
+                  </div>
+                )}
+              </div>
+
               {/* Signature toggle */}
               <div style={{ marginBottom: 12 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 12, fontFamily: F, color: '#374151' }}>
@@ -1765,7 +1882,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                     onChange={e => setIncludeSignature(e.target.checked)}
                     style={{ width: 14, height: 14, accentColor: '#1D2567' }}
                   />
-                  Include ASPIRE Program signature
+                  Include my email signature
                 </label>
               </div>
 
@@ -1864,6 +1981,23 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                     </div>
                   )
                 })()}
+
+                {/* CC + signature source (CONNECT-COMMS-1D) */}
+                {dmPreview.cc?.length > 0 && (
+                  <div style={{ fontSize: 12, color: '#374151', fontFamily: F, margin: '0 0 8px' }}>
+                    CC: <strong>{dmPreview.cc.join(', ')}</strong>
+                  </div>
+                )}
+                {dmPreview.signature && (
+                  <div style={{ fontSize: 11, color: dmPreview.signature.warning ? '#92400e' : '#6b7280', fontFamily: F, margin: '0 0 10px' }}>
+                    Signature: <strong>{dmPreview.signature.display_name || '—'}</strong>
+                    {dmPreview.signature.source && dmPreview.signature.source !== 'user' && (
+                      <> · {dmPreview.signature.source === 'static' || dmPreview.signature.source === 'fallback'
+                        ? 'using a fallback signature — set yours in Settings → Email Signature'
+                        : `seeded (${dmPreview.signature.source})`}</>
+                    )}
+                  </div>
+                )}
 
                 <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
                   {dmPreview.loading ? (
@@ -2972,6 +3106,24 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
               })()}
             </div>
 
+            {/* CC + signature source (CONNECT-COMMS-1D) */}
+            {dmPreview.cc?.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: F, marginBottom: 4 }}>CC</div>
+                <div style={{ fontSize: 12.5, color: '#374151', fontFamily: F, lineHeight: 1.5 }}>{dmPreview.cc.join(', ')}</div>
+              </div>
+            )}
+            {dmPreview.signature && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: F, marginBottom: 4 }}>Signature</div>
+                <div style={{ fontSize: 12.5, color: dmPreview.signature.warning ? '#92400e' : '#374151', fontFamily: F, lineHeight: 1.5 }}>
+                  {includeSignature
+                    ? <><strong>{dmPreview.signature.display_name || '—'}</strong>{dmPreview.signature.source && dmPreview.signature.source !== 'user' ? ((dmPreview.signature.source === 'static' || dmPreview.signature.source === 'fallback') ? ' · fallback (set yours in Settings → Email Signature)' : ` · seeded`) : ''}</>
+                    : <span style={{ color: '#6b7280' }}>Omitted</span>}
+                </div>
+              </div>
+            )}
+
             {/* Subject */}
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: F, marginBottom: 4 }}>Subject</div>
@@ -2997,11 +3149,6 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                   <div style={{ padding: '20px 12px', fontSize: 12, color: '#9ca3af', fontFamily: F, textAlign: 'center' }}>Preview unavailable.</div>
                 )}
               </div>
-            </div>
-
-            {/* Signature indicator */}
-            <div style={{ marginBottom: 16, fontSize: 11, color: '#9ca3af', fontFamily: F }}>
-              ASPIRE Program signature: <strong style={{ color: '#374151' }}>{includeSignature ? 'included' : 'omitted'}</strong>
             </div>
 
             {/* CONNECT-COMMS-1B: block send if no valid recipient email resolved. */}

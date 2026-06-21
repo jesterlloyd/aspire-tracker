@@ -44,7 +44,84 @@ import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { buildDirectMessageEmail } from '../lib/server/connect/emailTemplates.js';
-import { resolveStudentCorrespondenceRecipient } from '../src/lib/notifications/studentRecipient.js';
+import { resolveStudentCorrespondenceRecipient, isValidEmail } from '../src/lib/notifications/studentRecipient.js';
+import { normalizeEmailForLookup } from '../src/lib/emailUtils.js';
+import { JESTER_SIGNATURE, KRYSTAL_SIGNATURE } from '../src/lib/notifications/templates/signatures.js';
+
+// CONNECT-COMMS-1D: seeded fallback signatures for the two known leads (by email), used when a
+// sender has not configured their own connect_signature yet. (signatures.js has no phone field.)
+const SIGNATURE_SEED = {
+  [JESTER_SIGNATURE.email.toLowerCase()]:  { ...JESTER_SIGNATURE, phone: '310-248-8964' },
+  [KRYSTAL_SIGNATURE.email.toLowerCase()]: { ...KRYSTAL_SIGNATURE, phone: '' },
+};
+
+// Resolve the manual sender's signature (normalized for the renderer) with a documented fallback
+// chain. Returns { source: 'user'|'seeded'|'fallback'|'static', signature: object|null, displayName }.
+function resolveSenderSignature(profile) {
+  const email = (profile?.email || '').trim();
+  const cs = (profile?.connect_signature && typeof profile.connect_signature === 'object') ? profile.connect_signature : null;
+
+  // 1. User-configured + enabled signature.
+  if (cs && cs.signature_enabled !== false && String(cs.display_name || '').trim()) {
+    const displayName = String(cs.display_name).trim();
+    return {
+      source: 'user',
+      displayName,
+      signature: {
+        displayName,
+        credentials: String(cs.credentials || '').trim(),
+        title:       String(cs.title || '').trim(),
+        affiliation: String(cs.department || '').trim() || 'Brawerman Nursing Institute, Cedars-Sinai',
+        email,
+        phone:       String(cs.phone || '').trim(),
+      },
+    };
+  }
+  // 2. Seeded fallback for known leads.
+  const seed = SIGNATURE_SEED[email.toLowerCase()];
+  if (seed) {
+    return {
+      source: 'seeded',
+      displayName: seed.fullName,
+      signature: { displayName: seed.fullName, credentials: '', title: seed.title || '', affiliation: seed.affiliation, email: seed.email, phone: seed.phone || '' },
+    };
+  }
+  // 3. Profile-derived fallback (name + role).
+  if (String(profile?.full_name || '').trim()) {
+    const displayName = String(profile.full_name).trim();
+    return {
+      source: 'fallback',
+      displayName,
+      signature: { displayName, credentials: '', title: profile?.role ? String(profile.role) : '', affiliation: 'ASPIRE Program · Brawerman Nursing Institute, Cedars-Sinai', email, phone: '' },
+    };
+  }
+  // 4. Final compatibility fallback — renderer uses the static Jester block.
+  return { source: 'static', displayName: JESTER_SIGNATURE.fullName, signature: null };
+}
+
+// Validate + sanitize a client-supplied CC list (array or comma/semicolon/newline string).
+// Drops invalids into `invalid` (caller blocks on these), dedupes, drops entries equal to To,
+// caps at 5. Returns { cc, invalid, capped }.
+function resolveCcList(rawCc, toEmail) {
+  let arr = [];
+  if (Array.isArray(rawCc)) arr = rawCc;
+  else if (typeof rawCc === 'string') arr = rawCc.split(/[,;\n]/);
+  const toNorm = normalizeEmailForLookup(toEmail || '');
+  const seen = new Set();
+  const cc = [];
+  const invalid = [];
+  for (const raw of arr) {
+    const e = String(raw || '').trim();
+    if (!e) continue;
+    if (!isValidEmail(e)) { invalid.push(e); continue; }
+    const norm = normalizeEmailForLookup(e);
+    if (norm === toNorm) continue;     // drop CC == To
+    if (seen.has(norm)) continue;       // dedupe
+    seen.add(norm);
+    cc.push(e);
+  }
+  return { cc: cc.slice(0, 5), invalid, capped: cc.length > 5 };
+}
 
 // From-address: noreply@aspire-program.com is the confirmed working sender
 // used in all production Resend integrations. aspire@aspire-program.com is
@@ -102,7 +179,8 @@ async function _handler(req, res, startMs) {
   // ── 2. Role check + resolve sender identity ───────────────────────────────────
   const { data: profile } = await supabaseAdmin
     .from('user_profiles')
-    .select('id, role, email')
+    // CONNECT-COMMS-1D: include full_name + connect_signature to resolve the manual sender's signature.
+    .select('id, role, email, full_name, connect_signature')
     .eq('auth_user_id', user.id)
     .single();
 
@@ -112,6 +190,9 @@ async function _handler(req, res, startMs) {
 
   const ownerUserProfileId = profile.id;
   const ownerEmail         = profile.email;
+  // Resolve sender signature server-side (re-fetched here every request — preview AND send — so a
+  // client can never inject a signature and preview always matches what will actually be sent).
+  const senderSig = resolveSenderSignature(profile);
 
   // ── 3. Parse and validate body ────────────────────────────────────────────────
   let body;
@@ -129,8 +210,10 @@ async function _handler(req, res, startMs) {
   // sending or logging. Same auth/role gate, same renderer, same recipient resolver as send.
   const isPreview = body.preview === true;
 
-  // Reject any attempt to override the recipient from the request body.
-  const RECIPIENT_OVERRIDE_FIELDS = ['recipient', 'recipient_email', 'email', 'to', 'cc', 'bcc'];
+  // Reject any attempt to override the PRIMARY recipient from the request body. CONNECT-COMMS-1D:
+  // 'cc' is now an explicitly validated field (handled below), so it is no longer rejected here.
+  // The To recipient remains server-resolved and un-overridable.
+  const RECIPIENT_OVERRIDE_FIELDS = ['recipient', 'recipient_email', 'email', 'to', 'bcc'];
   for (const field of RECIPIENT_OVERRIDE_FIELDS) {
     if (field in body) {
       return res.status(400).json({
@@ -238,7 +321,7 @@ async function _handler(req, res, startMs) {
     // recipient_type === 'student' — SCHOOL-FIRST canon resolver
     const { data: student, error: studentErr } = await supabaseAdmin
       .from('students')
-      .select('id, first_name, last_name, personal_email, school_email, school, status, cohort_school_rotation_id')
+      .select('id, first_name, last_name, personal_email, school_email, school, status, cohort_school_rotation_id, school_coordinator_email, school_coordinator_name')
       .eq('id', recipientId)
       .single();
 
@@ -266,14 +349,26 @@ async function _handler(req, res, startMs) {
     by:             ownerUserProfileId,
   });
 
-  // ── 5. Build email HTML (same renderer used for sending) ──────────────────────
+  // ── 4b. Resolve + validate CC (CONNECT-COMMS-1D) ──────────────────────────────
+  // CC is the only caller-supplied recipient field; To stays server-resolved. Invalid CC blocks
+  // (both preview and send) so a typo never silently drops a recipient. Auto-suggested flag is
+  // advisory audit only. cc==To and duplicates are dropped; capped at 5.
+  const ccResult = resolveCcList(body.cc, recipientEmail);
+  const ccList = ccResult.cc;
+  const ccAutoSuggested = body.cc_auto_suggested === true;
+  if (ccResult.invalid.length > 0) {
+    return res.status(400).json({ success: false, error: `Invalid CC email: ${ccResult.invalid[0]}` });
+  }
+
+  // ── 5. Build email HTML (same renderer + same resolved signature for preview AND send) ──
   const { html } = buildDirectMessageEmail({
     body:             trimmedBody,
     bodyFormat:       resolvedBodyFormat,
     includeSignature: resolvedIncludeSignature,
+    signature:        senderSig.signature,
   });
 
-  // ── 5b. PREVIEW: return exact HTML + resolved recipient. No send, no notification_log. ──
+  // ── 5b. PREVIEW: return exact HTML + resolved recipient/CC/signature. No send, no log. ──
   if (isPreview) {
     return res.status(200).json({
       success: true,
@@ -284,6 +379,14 @@ async function _handler(req, res, startMs) {
         name:    recipientName,
         reason:  recipientReason,
         warning: recipientWarning,
+      },
+      cc: ccList,
+      signature: {
+        source:       senderSig.source,
+        display_name: senderSig.displayName,
+        warning:      resolvedIncludeSignature && senderSig.source !== 'user'
+          ? 'Using a fallback signature — configure yours in Settings → Email Signature.'
+          : null,
       },
     });
   }
@@ -303,7 +406,10 @@ async function _handler(req, res, startMs) {
     const { data: emailData, error: emailErr } = await resend.emails.send({
       from:     FROM,
       to:       [recipientEmail],
-      reply_to: REPLY_TO,
+      // CONNECT-COMMS-1D: reply_to = the logged-in sender's email when valid, else the prior default.
+      reply_to: isValidEmail(ownerEmail) ? ownerEmail.trim() : REPLY_TO,
+      // CC only when non-empty (never send cc: []).
+      ...(ccList.length ? { cc: ccList } : {}),
       subject:  trimmedSubject,
       html,
       tags: [
@@ -341,9 +447,27 @@ async function _handler(req, res, startMs) {
 
   // CONNECT-COMMS-1B: record which email source was used (school/personal/contact/override) so the
   // school-first routing is auditable without a schema migration (stored in the metadata jsonb).
+  // CONNECT-COMMS-1D: sender/signature/CC audit (jsonb metadata — no migration). Body NOT stored.
+  const sharedMeta = {
+    recipient_source:      recipientSource,
+    sent_by_user_id:       ownerUserProfileId,
+    sent_by_email:         ownerEmail,
+    sender_user_id:        ownerUserProfileId,
+    sender_name:           senderSig.displayName,
+    sender_email:          ownerEmail,
+    signature_source:      senderSig.source,
+    signature_display_name: senderSig.displayName,
+    include_signature:     resolvedIncludeSignature,
+    signature_included:    resolvedIncludeSignature,
+    recipient_warning:     recipientWarning || null,
+    cc_recipients:         ccList,
+    cc_auto_suggested:     ccAutoSuggested,
+    body_format:           resolvedBodyFormat,
+    body_length:           trimmedBody.length,
+  };
   const logMetadata = recipientType === 'contact'
-    ? { recipient_type: 'contact', contact_id: recipientId,  recipient_source: recipientSource, sent_by_user_id: ownerUserProfileId, sent_by_email: ownerEmail, body_format: resolvedBodyFormat, body_length: trimmedBody.length, signature_included: resolvedIncludeSignature }
-    : { recipient_type: 'student', student_id: recipientId, recipient_source: recipientSource, sent_by_user_id: ownerUserProfileId, sent_by_email: ownerEmail, body_format: resolvedBodyFormat, body_length: trimmedBody.length, signature_included: resolvedIncludeSignature };
+    ? { recipient_type: 'contact', contact_id: recipientId,  ...sharedMeta }
+    : { recipient_type: 'student', student_id: recipientId, ...sharedMeta };
 
   // Top-level recipient columns (Phase B.1). Mirror the identity already kept in
   // metadata so direct messages surface in per-contact / per-student history

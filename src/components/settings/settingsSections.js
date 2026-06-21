@@ -11,6 +11,7 @@
 export const SETTINGS_SECTIONS = [
   { key: 'general',    label: 'General',           path: '/settings/general',    group: 'Workspace',      implemented: true,  visible: () => true },
   { key: 'appearance', label: 'Appearance',        path: '/settings/appearance', group: 'Workspace',      implemented: true,  visible: () => true },     // WS2.4: all authenticated users
+  { key: 'signature',  label: 'Email Signature',   path: '/settings/signature',  group: 'Workspace',      implemented: true,  visible: () => true },     // CONNECT-COMMS-1D: per-user manual Connect signature
   { key: 'accounts',   label: 'Accounts & Access', path: '/settings/accounts',   group: 'Administration', implemented: true,  visible: r => r.isAdmin }, // WS2.2: Owner/Admin only
   { key: 'knowledge',  label: 'Knowledge Center',  path: '/settings/knowledge',  group: 'Administration', implemented: true,  visible: r => r.isAdmin }, // KT-3a-1: Owner/Admin only
   { key: 'preceptorParity', label: 'Preceptor Parity', path: '/settings/preceptor-parity', group: 'Administration', implemented: true, visible: r => r.isAdmin }, // PRECEPTOR-MODEL-2: read-only Owner/Admin diagnostic
