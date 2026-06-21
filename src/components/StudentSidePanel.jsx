@@ -280,6 +280,9 @@ export default function StudentSidePanel({
     return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' })
   }
   const isSentinel = rotationRow?.rotation_start_date === '1900-01-01'
+  // STUDENT-PROFILE-CANON-1B: canonical Rotation Dates are "pending" when there is no linked
+  // coordinator rotation row, or the linked row still holds the 1900-01-01 sentinel.
+  const rotationPending = !rotationRow || isSentinel
 
   // ── Optimistic concurrency control ───────────────────────────────────────
   // Tracks the updated_at value the user had when they last loaded this student.
@@ -1175,8 +1178,10 @@ export default function StudentSidePanel({
                   )}
                 </select>
               </Field>
-              {/* term_dates kept for legacy read-only display; new submissions use cohort_school_rotation_id */}
-              {data.term_dates && <Field label="Term Dates (legacy)"><div className="sp-readonly">{data.term_dates}</div></Field>}
+              {/* STUDENT-PROFILE-CANON-1B: legacy students.term_dates is intentionally NOT shown in the
+                  profile — the canonical placement window is the coordinator-owned "Rotation Dates"
+                  section below (cohort_school_rotations). The term_dates column is left untouched in
+                  the database (Phase 1C will address shift-log/Keith paths that still read it). */}
               <Field label="Hours Required" fieldKey="hours_required">
                 <input className="sp-input" type="text" inputMode="numeric" pattern="[0-9]*"
                   value={data.hours_required??''} onChange={e => handleText('hours_required', e.target.value)} />
@@ -1185,11 +1190,12 @@ export default function StudentSidePanel({
             </div>
           </div>
 
-          {/* 3b. Rotation Dates */}
-          {(rotationRow || student.cohort_school_rotation_id) && (
-            <div className="sp-section sp-card" style={{ background:'rgba(199,219,230,0.18)', borderRadius:12, marginBottom:10 }}>
+          {/* 3b. Rotation Dates — STUDENT-PROFILE-CANON-1B: the single canonical placement-window
+              block, sourced from the coordinator-owned cohort_school_rotations row. Always rendered
+              (shows "pending review" when no linked/valid row) so it is the one date source of truth. */}
+          <div className="sp-section sp-card" style={{ background:'rgba(199,219,230,0.18)', borderRadius:12, marginBottom:10 }}>
               <SectionHeader title="Rotation Dates" icon={<CalendarDays size={13} />}
-                children={canEdit && !editingRotation && (
+                children={canEdit && rotationRow && !isSentinel && !editingRotation && (
                   <button
                     onClick={handleOpenRotationEdit}
                     style={{ fontSize:11, fontWeight:600, padding:'2px 10px', borderRadius:6,
@@ -1200,41 +1206,50 @@ export default function StudentSidePanel({
                 )}
               />
 
-              {isSentinel && (
-                <div style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 10px',
-                  background:'#fdf6ec', border:'1px solid #f0c9b0', borderRadius:8, marginBottom:8,
-                  fontFamily:'DM Sans', fontSize:12, color:'#583733', fontWeight:600 }}>
+              {(rotationLoading && student.cohort_school_rotation_id) ? (
+                <div style={{ fontSize:12, color:'var(--text-caption,#6b7280)', fontFamily:'DM Sans' }}>Loading…</div>
+              ) : rotationPending ? (
+                <div style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 12px',
+                  background:'#fdf6ec', border:'1px solid #f0c9b0', borderRadius:8,
+                  fontFamily:'DM Sans', fontSize:12.5, color:'#583733', fontWeight:600 }}>
                   <span>&#9651;</span>
-                  Rotation dates pending: please set actual dates
+                  Rotation Dates: Pending coordinator/admin review
                 </div>
-              )}
-
-              {!editingRotation ? (
-                <div className="sp-grid-2">
-                  <div>
-                    <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-caption,#6b7280)',
-                      textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>Start</div>
-                    <div style={{ fontSize:13, color:'var(--text-heading,#191919)' }}>
-                      {fmtRotDate(rotationRow?.rotation_start_date)}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-caption,#6b7280)',
-                      textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>End</div>
-                    <div style={{ fontSize:13, color:'var(--text-heading,#191919)' }}>
-                      {fmtRotDate(rotationRow?.rotation_end_date)}
-                    </div>
-                  </div>
-                  {rotationRow?.school_name && (
-                    <div style={{ gridColumn:'1 / -1' }}>
+              ) : !editingRotation ? (
+                <>
+                  <div className="sp-grid-2">
+                    <div>
                       <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-caption,#6b7280)',
-                        textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>School</div>
+                        textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>Start</div>
                       <div style={{ fontSize:13, color:'var(--text-heading,#191919)' }}>
-                        {rotationRow.school_name}
+                        {fmtRotDate(rotationRow?.rotation_start_date)}
                       </div>
                     </div>
-                  )}
-                </div>
+                    <div>
+                      <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-caption,#6b7280)',
+                        textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>End</div>
+                      <div style={{ fontSize:13, color:'var(--text-heading,#191919)' }}>
+                        {fmtRotDate(rotationRow?.rotation_end_date)}
+                      </div>
+                    </div>
+                    {rotationRow?.school_name && (
+                      <div style={{ gridColumn:'1 / -1' }}>
+                        <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-caption,#6b7280)',
+                          textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:2 }}>School</div>
+                        <div style={{ fontSize:13, color:'var(--text-heading,#191919)' }}>
+                          {rotationRow.school_name}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {/* Coordinator provenance — this date window is coordinator-owned (school form). */}
+                  <div style={{ marginTop:8, fontSize:11, color:'var(--text-caption,#6b7280)',
+                    fontFamily:'DM Sans', fontStyle:'italic' }}>
+                    {rotationRow?.coordinator_name
+                      ? `Submitted by ${rotationRow.coordinator_name}${rotationRow.coordinator_email ? `, ${rotationRow.coordinator_email}` : ''}`
+                      : 'Coordinator-submitted via school form'}
+                  </div>
+                </>
               ) : (
                 <div>
                   {rotEditError && (
@@ -1308,7 +1323,6 @@ export default function StudentSidePanel({
                 </div>
               )}
             </div>
-          )}
 
           {/* 4. Background and Affiliation */}
           <div className="sp-section sp-card" style={{ background:'rgba(234,220,196,0.20)', borderRadius:12, marginBottom:10 }}>
