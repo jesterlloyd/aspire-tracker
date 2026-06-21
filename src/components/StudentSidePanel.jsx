@@ -19,6 +19,7 @@ import { EVENT_TYPES, EVENT_TYPE_LABELS, getEventColor } from '../lib/eventTypes
 import { logEvent, eventExists } from '../lib/logEvent'
 import { updatePreceptorAssignment, updateInterviewOutcome } from '../lib/studentProxy'
 import { calculateProfileCompletion, getCompletionColor } from '../lib/profileCompletion'
+import { formatWeekdays, formatDates, formatBooleanYesNo, formatBooleanAvailable, formatText, formatMinDays } from '../lib/availability'
 import { generateStudentSummary } from '../lib/generateSummary'
 import { Copy, Check, Mail, User, GraduationCap, Briefcase, MapPin, FileText, MessageSquare, CheckCircle2, Award, ClipboardList, CalendarDays, Flag, Info } from 'lucide-react'
 import ShiftDetailsModal from './ShiftDetailsModal'
@@ -225,7 +226,8 @@ export default function StudentSidePanel({
       if (!student.cohort_school_rotation_id) return null
       const { data, error } = await supabase
         .from('cohort_school_rotations')
-        .select('id, school_name, rotation_start_date, rotation_end_date, coordinator_name, coordinator_email')
+        // AVAILABILITY-CANON-1C: also load coordinator-owned availability for the Availability & Scheduling section.
+        .select('id, school_name, rotation_start_date, rotation_end_date, coordinator_name, coordinator_email, unavailable_weekdays, min_days_per_week, weekends_allowed, nights_allowed, blackout_dates, scheduling_notes')
         .eq('id', student.cohort_school_rotation_id)
         .single()
       if (error) {
@@ -1400,6 +1402,57 @@ export default function StudentSidePanel({
                 </div>
               )}
             </div>
+
+          {/* 3c. Availability & Scheduling (AVAILABILITY-CANON-1C) — display only, two
+              provenance-labeled sub-blocks: coordinator program constraints (cohort_school_rotations)
+              and student availability (students). Null-safe; no risk logic in this phase. */}
+          <div className="sp-section sp-card" style={{ background:'rgba(199,219,230,0.10)', borderRadius:12, marginBottom:10 }}>
+            <SectionHeader title="Availability & Scheduling" icon={<CalendarDays size={13} />} />
+            <p style={{ fontSize:11.5, color:'var(--text-caption,#6b7280)', lineHeight:1.5, margin:'0 0 12px' }}>
+              Availability is considered during matching but does not guarantee a specific unit, preceptor, or shift.
+            </p>
+
+            {/* Sub-block 1: Coordinator Program Constraints */}
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+              <span style={{ fontSize:10.5, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:'var(--text-caption,#6b7280)' }}>
+                Coordinator Program Constraints
+              </span>
+              <SourceTag label="Source: Coordinator school form" tone="coordinator" />
+            </div>
+            <div className="sp-grid-2">
+              <Field label="Program unavailable weekdays"><div className="sp-readonly">{formatWeekdays(rotationRow?.unavailable_weekdays)}</div></Field>
+              <Field label="Minimum clinical days/week"><div className="sp-readonly">{formatMinDays(rotationRow?.min_days_per_week)}</div></Field>
+              <Field label="Weekend rotations allowed"><div className="sp-readonly">{formatBooleanYesNo(rotationRow?.weekends_allowed)}</div></Field>
+              <Field label="Night shifts allowed"><div className="sp-readonly">{formatBooleanYesNo(rotationRow?.nights_allowed)}</div></Field>
+              <Field label="School blackout dates"><div className="sp-readonly">{formatDates(rotationRow?.blackout_dates)}</div></Field>
+              <Field label="Coordinator scheduling notes"><div className="sp-readonly">{formatText(rotationRow?.scheduling_notes)}</div></Field>
+            </div>
+
+            {/* Sub-block 2: Student Availability */}
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:14, marginBottom:8,
+              paddingTop:12, borderTop:'1px solid var(--border-lt,#e5e7eb)' }}>
+              <span style={{ fontSize:10.5, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', color:'var(--text-caption,#6b7280)' }}>
+                Student Availability
+              </span>
+              <SourceTag label="Source: Student form" tone="student" />
+            </div>
+            {data.availability_ack !== true && (
+              <div style={{ fontSize:11.5, color:'#92400e', fontStyle:'italic', marginBottom:8 }}>
+                Student availability not yet confirmed
+              </div>
+            )}
+            <div className="sp-grid-2">
+              <Field label="Shift preference"><div className="sp-readonly">{formatText(data.shift_availability)}</div></Field>
+              <Field label="Student unavailable weekdays"><div className="sp-readonly">{formatWeekdays(data.unavailable_weekdays)}</div></Field>
+              <Field label="Reason / details"><div className="sp-readonly">{formatText(data.unavailable_weekdays_reason)}</div></Field>
+              <Field label="Personal blackout dates"><div className="sp-readonly">{formatDates(data.personal_blackout_dates)}</div></Field>
+              <Field label="Weekend availability"><div className="sp-readonly">{formatBooleanAvailable(data.weekends_available)}</div></Field>
+              <Field label="Night availability"><div className="sp-readonly">{formatBooleanAvailable(data.nights_available)}</div></Field>
+              <Field label="Preferred days"><div className="sp-readonly">{formatWeekdays(data.preferred_days)}</div></Field>
+              <Field label="Availability acknowledgment"><div className="sp-readonly">{data.availability_ack === true ? 'Completed' : 'Not completed'}</div></Field>
+              <Field label="Student availability notes"><div className="sp-readonly">{formatText(data.availability_notes)}</div></Field>
+            </div>
+          </div>
 
           {/* 4. Background and Affiliation */}
           <div className="sp-section sp-card" style={{ background:'rgba(234,220,196,0.20)', borderRadius:12, marginBottom:10 }}>

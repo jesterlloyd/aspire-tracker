@@ -63,3 +63,61 @@ export function toggleWeekday(arr, day) {
   else set.add(day)
   return sanitizeWeekdays([...set])
 }
+
+// ── AVAILABILITY-CANON-1C: null-safe DISPLAY formatters ──────────────────────
+// These are tolerant by design: jsonb may arrive as an array, or (defensively) as a
+// JSON string, or null/empty. They never throw and never render "null"/"undefined".
+const NOT_PROVIDED = 'Not provided'
+
+// Coerce a possibly-stringified jsonb value into an array of trimmed strings.
+function toArray(value) {
+  if (Array.isArray(value)) return value.filter(v => v != null).map(v => String(v).trim()).filter(Boolean)
+  if (typeof value === 'string') {
+    const s = value.trim()
+    if (!s) return []
+    if (s.startsWith('[')) {
+      try { const parsed = JSON.parse(s); return Array.isArray(parsed) ? parsed.map(v => String(v).trim()).filter(Boolean) : [] }
+      catch { /* fall through to comma split */ }
+    }
+    return s.split(',').map(v => v.trim()).filter(Boolean)
+  }
+  return []
+}
+
+// Weekdays → "Mon, Tue" in canonical order; empty/invalid → "Not provided".
+export function formatWeekdays(value) {
+  const days = sanitizeWeekdays(toArray(value))
+  return days.length ? days.join(', ') : NOT_PROVIDED
+}
+
+// ISO date list → "2026-06-28, 2026-06-29"; empty/invalid → "Not provided".
+export function formatDates(value) {
+  const dates = sanitizeIsoDates(toArray(value))
+  return dates.length ? dates.join(', ') : NOT_PROVIDED
+}
+
+// Boolean → "Yes"/"No"; null/undefined → "Not provided".
+export function formatBooleanYesNo(value) {
+  if (value === true) return 'Yes'
+  if (value === false) return 'No'
+  return NOT_PROVIDED
+}
+
+// Boolean → "Available"/"Not available"; null/undefined → "Not provided".
+export function formatBooleanAvailable(value) {
+  if (value === true) return 'Available'
+  if (value === false) return 'Not available'
+  return NOT_PROVIDED
+}
+
+// Free text → trimmed string; empty/null → "Not provided".
+export function formatText(value) {
+  const s = (value == null) ? '' : String(value).trim()
+  return s || NOT_PROVIDED
+}
+
+// min_days_per_week (int or null) → "3"; null/invalid → "Not provided".
+export function formatMinDays(value) {
+  const n = coerceMinDaysOrNull(value)
+  return n == null ? NOT_PROVIDED : String(n)
+}
