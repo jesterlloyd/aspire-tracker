@@ -129,6 +129,27 @@ function SectionHeader({ title, icon, children }) {
   )
 }
 
+// STUDENT-PROFILE-CANON-1F: compact, de-emphasized section-level provenance label. Makes the
+// data owner of each major profile section obvious (student form / coordinator school form /
+// ASPIRE-admin) without labeling every field or adding heavy UI.
+const SOURCE_TAG_TONES = {
+  student:     { bg:'#eef2ff', color:'#3730a3', border:'#e0e7ff' },
+  coordinator: { bg:'#f4f7fb', color:'#1D2567', border:'#dbe6f0' },
+  admin:       { bg:'#f4f3f1', color:'#4A5560', border:'#e6e2da' },
+  pending:     { bg:'#fdf6ec', color:'#92400e', border:'#f0c9b0' },
+  muted:       { bg:'#f4f3f1', color:'#6b7280', border:'#e6e2da' },
+}
+function SourceTag({ label, tone = 'muted' }) {
+  const c = SOURCE_TAG_TONES[tone] || SOURCE_TAG_TONES.muted
+  return (
+    <span style={{ fontSize:9.5, fontWeight:700, letterSpacing:'0.02em', padding:'2px 7px',
+      borderRadius:10, background:c.bg, color:c.color, border:`1px solid ${c.border}`,
+      whiteSpace:'nowrap', flexShrink:0, textTransform:'none' }}>
+      {label}
+    </span>
+  )
+}
+
 // Pastel section card — wraps each profile section with icon + uppercase header + subtle bg
 function SectionCard({ icon: Icon, title, bg, iconColor, children, headerExtra }) {
   return (
@@ -283,6 +304,12 @@ export default function StudentSidePanel({
   // STUDENT-PROFILE-CANON-1B: canonical Rotation Dates are "pending" when there is no linked
   // coordinator rotation row, or the linked row still holds the 1900-01-01 sentinel.
   const rotationPending = !rotationRow || isSentinel
+
+  // STUDENT-PROFILE-CANON-1F: student-form provenance/completion signal. Conservative — a
+  // received student form is signalled by submitted_via === 'student_form' (no new DB field).
+  const studentFormReceived = (data.submitted_via || student.submitted_via) === 'student_form'
+  const studentSourceTone   = studentFormReceived ? 'student' : 'pending'
+  const studentSourceLabel  = studentFormReceived ? 'Source: Student form' : 'Awaiting student form'
 
   // ── Optimistic concurrency control ───────────────────────────────────────
   // Tracks the updated_at value the user had when they last loaded this student.
@@ -1097,6 +1124,17 @@ export default function StudentSidePanel({
                       <div style={{ height:5, borderRadius:3, background:'rgba(0,0,0,0.10)', marginBottom:9 }}>
                         <div style={{ width:`${pct}%`, height:'100%', borderRadius:3, background:barClr, transition:'width 0.3s ease' }} />
                       </div>
+                      {/* STUDENT-PROFILE-CANON-1F: student-form completion indicator (conservative). */}
+                      <div style={{ marginBottom:8 }}>
+                        {(() => {
+                          const chip = studentFormReceived
+                            ? { label: 'Student form received', tone: 'student' }
+                            : (pct > 0
+                                ? { label: 'Profile partially complete', tone: 'pending' }
+                                : { label: 'Student form pending', tone: 'muted' })
+                          return <SourceTag label={chip.label} tone={chip.tone} />
+                        })()}
+                      </div>
                       {completion.missing.length > 0 && (
                         <div style={{ marginBottom:8 }}>
                           <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text-muted,#6b7280)', marginBottom:4 }}>Missing</div>
@@ -1232,8 +1270,9 @@ export default function StudentSidePanel({
               block, sourced from the coordinator-owned cohort_school_rotations row. Always rendered
               (shows "pending review" when no linked/valid row) so it is the one date source of truth. */}
           <div className="sp-section sp-card" style={{ background:'rgba(199,219,230,0.18)', borderRadius:12, marginBottom:10 }}>
-              <SectionHeader title="Rotation Dates" icon={<CalendarDays size={13} />}
-                children={canEdit && rotationRow && !isSentinel && !editingRotation && (
+              <SectionHeader title="Rotation Dates" icon={<CalendarDays size={13} />}>
+                <SourceTag label="Source: Coordinator school form" tone="coordinator" />
+                {canEdit && rotationRow && !isSentinel && !editingRotation && (
                   <button
                     onClick={handleOpenRotationEdit}
                     style={{ fontSize:11, fontWeight:600, padding:'2px 10px', borderRadius:6,
@@ -1242,7 +1281,7 @@ export default function StudentSidePanel({
                     Edit
                   </button>
                 )}
-              />
+              </SectionHeader>
 
               {(rotationLoading && student.cohort_school_rotation_id) ? (
                 <div style={{ fontSize:12, color:'var(--text-caption,#6b7280)', fontFamily:'DM Sans' }}>Loading…</div>
@@ -1364,7 +1403,9 @@ export default function StudentSidePanel({
 
           {/* 4. Background and Affiliation */}
           <div className="sp-section sp-card" style={{ background:'rgba(234,220,196,0.20)', borderRadius:12, marginBottom:10 }}>
-            <SectionHeader title="Background and Affiliation" icon={<Briefcase size={13} />} />
+            <SectionHeader title="Background and Affiliation" icon={<Briefcase size={13} />}>
+              <SourceTag label={studentSourceLabel} tone={studentSourceTone} />
+            </SectionHeader>
             <Field label="Prior Healthcare Experience">
               <input className="sp-input" value={data.prior_healthcare_experience||''} onChange={e => handleText('prior_healthcare_experience', e.target.value)} placeholder="e.g. CNA, EMT" />
             </Field>
@@ -1388,7 +1429,9 @@ export default function StudentSidePanel({
 
           {/* 5. Unit Placement Preferences */}
           <div className="sp-section sp-card" style={{ background:'rgba(79,109,168,0.06)', borderRadius:12, marginBottom:10 }}>
-            <SectionHeader title="Unit Placement Preferences" icon={<MapPin size={13} />} />
+            <SectionHeader title="Unit Placement Preferences" icon={<MapPin size={13} />}>
+              <SourceTag label={studentSourceLabel} tone={studentSourceTone} />
+            </SectionHeader>
             <div className="sp-grid-3">
               {['unit_preference_1','unit_preference_2','unit_preference_3'].map((f,i) => (
                 <Field key={f} label={`Preference ${i+1}`} fieldKey={f}>
@@ -1403,7 +1446,9 @@ export default function StudentSidePanel({
 
           {/* 6. Documents */}
           <div className="sp-section sp-card" style={{ background:'rgba(244,220,176,0.12)', borderRadius:12, marginBottom:10 }}>
-            <SectionHeader title="Documents" icon={<FileText size={13} />} />
+            <SectionHeader title="Documents" icon={<FileText size={13} />}>
+              <SourceTag label={studentSourceLabel} tone={studentSourceTone} />
+            </SectionHeader>
             <div className="doc-section">
               <div className="doc-upload-area">
                 <div className="doc-area-label">Resume</div>
@@ -1473,7 +1518,9 @@ export default function StudentSidePanel({
 
           {/* 7. Interest Statement */}
           <div className="sp-section sp-card" style={{ background:'rgba(226,86,156,0.05)', borderRadius:12, marginBottom:10 }}>
-            <SectionHeader title="Interest Statement" icon={<MessageSquare size={13} />} />
+            <SectionHeader title="Interest Statement" icon={<MessageSquare size={13} />}>
+              <SourceTag label={studentSourceLabel} tone={studentSourceTone} />
+            </SectionHeader>
             {!editingInterest ? (
               <div onClick={() => setEditingInterest(true)}
                 style={{ fontFamily:'DM Sans', fontSize:'13px', color:data.interest_statement?'#374151':'#9ca3af', lineHeight:1.6, padding:'10px 12px', borderRadius:'8px', border:'1px solid transparent', cursor:'text', minHeight:'80px', transition:'border-color 0.15s ease, background 0.15s ease' }}
@@ -1582,6 +1629,7 @@ export default function StudentSidePanel({
           {/* 8. CS-Link Access Workflow — editors only */}
           {canEdit && <div className="sp-section sp-card" style={{ background:'rgba(250,250,250,0.9)', borderRadius:12, marginBottom:10 }}>
             <SectionHeader title="CS-Link Access" icon={<CheckCircle2 size={13} />}>
+              <SourceTag label="Source: ASPIRE/admin" tone="admin" />
               <span style={{ fontSize:11, fontWeight:600, padding:'2px 9px', borderRadius:20, background:csStatusCfg.bg, color:csStatusCfg.text }}>
                 {csStatusCfg.label}
               </span>
@@ -1735,7 +1783,9 @@ export default function StudentSidePanel({
 
           {/* 9. Placement and Outcomes */}
           <div className="sp-section sp-card" style={{ background:'rgba(200,213,192,0.22)', borderRadius:12, marginBottom:10 }}>
-            <SectionHeader title="Placement and Outcomes" icon={<Award size={13} />} />
+            <SectionHeader title="Placement and Outcomes" icon={<Award size={13} />}>
+              <SourceTag label="Source: ASPIRE/admin" tone="admin" />
+            </SectionHeader>
             <div className="sp-grid-2">
               <Field label="ASPIRE Status">
                 <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
@@ -1855,7 +1905,9 @@ export default function StudentSidePanel({
 
           {/* ── Program Disposition (Phase 2B.2b) ─────────────────────────── */}
           <div className="sp-section sp-card" style={{ background:'rgba(157,23,77,0.04)', borderRadius:12, marginBottom:10 }}>
-            <SectionHeader title="Program Disposition" icon={<Flag size={13} />} />
+            <SectionHeader title="Program Disposition" icon={<Flag size={13} />}>
+              <SourceTag label="Source: ASPIRE/admin" tone="admin" />
+            </SectionHeader>
             {activeDisposition ? (
               <>
                 <Field label="Disposition Type">
