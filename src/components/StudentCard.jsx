@@ -91,10 +91,12 @@ function getInitials(name) {
 }
 
 /** Progress bar color by completion percentage. */
-function barColorFor(pct) {
-  if (pct >= 100) return '#16a34a'   // sage
-  if (pct >= 67)  return '#f59e0b'   // amber
-  return '#E2569C'                    // rose
+// ON-CAMPUS-NOW-UX-2: tone for the compact accumulated-hours avatar badge.
+function hoursBadgeColor(pct) {
+  if (pct >= 100) return '#15803d'   // strong green — required hours met/exceeded
+  if (pct >= 80)  return '#16a34a'   // green — near completion
+  if (pct >= 40)  return '#f59e0b'   // amber — moderate progress
+  return '#64748b'                    // slate — low / just starting
 }
 
 /** Abbreviate school names to fit the compact card width. */
@@ -171,52 +173,35 @@ function ProfileStrip({ student }) {
   )
 }
 
-function OnCampusStrip({ hoursCompleted, hoursRequired, shiftType, openShift, openDur, overdue, unit }) {
-  const done = parseFloat(hoursCompleted) || 0
-  const req  = parseFloat(hoursRequired)  || 200
-  const pct  = Math.min(100, req > 0 ? (done / req) * 100 : 0)
-  const barColor = barColorFor(pct)
+// ON-CAMPUS-NOW-UX-2: compact strip — accumulated hours moved to the avatar badge and the
+// horizontal progress bar removed, so the card is shorter/squarer. Shift type + unit share one
+// centered row; open duration + overdue warning are preserved.
+function OnCampusStrip({ shiftType, openShift, openDur, overdue, unit }) {
   // SHIFT-VIS-1: shift badge from the actual shift type (null → "Shift not specified").
   const { label: shiftLabel, tone } = shiftBadge(shiftType)
   const badgeTone = SHIFT_BADGE_TONES[tone] || SHIFT_BADGE_TONES.unspecified
   return (
-    <div style={{ padding: '8px 12px 10px' }}>
-      {/* Shift badge — always shown for on-campus cards (Day/Night/Mid/Variable/Shift not specified) */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: unit ? 3 : 6 }}>
+    <div style={{ padding: '2px 10px 8px' }}>
+      {/* Shift badge + current unit — one centered row to keep the card compact. */}
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
         <span style={{
           fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
           background: badgeTone.bg, color: badgeTone.color, whiteSpace: 'nowrap', ...F,
         }}>
           {shiftLabel}
         </span>
-      </div>
-      {/* ON-CAMPUS-NOW-UX-1: current unit — compact, centered, single line under the shift badge. */}
-      {unit && (
-        <div style={{
-          fontSize: 10.5, fontWeight: 600, color: '#475467', textAlign: 'center',
-          marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', ...F,
-        }}>
-          {unit}
-        </div>
-      )}
-      <div style={{
-        fontSize: 12, fontWeight: 600, color: '#374151', ...F,
-        textAlign: 'center', marginBottom: 5,
-      }}>
-        {done}h&thinsp;/&thinsp;{req}h
-      </div>
-      {/* Thin inline progress bar */}
-      <div style={{ height: 3, background: '#e5e7eb', borderRadius: 2, overflow: 'hidden' }}>
-        <div style={{
-          height: '100%', borderRadius: 2,
-          width: `${pct}%`,
-          background: barColor,
-          transition: 'width 0.3s ease',
-        }} />
+        {unit && (
+          <span style={{
+            fontSize: 10.5, fontWeight: 600, color: '#475467', whiteSpace: 'nowrap',
+            overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 110, ...F,
+          }}>
+            {unit}
+          </span>
+        )}
       </div>
       {/* Open-shift duration + hedged overdue — true open (in_progress) rows only */}
       {openShift && (
-        <div style={{ textAlign: 'center', marginTop: 6 }}>
+        <div style={{ textAlign: 'center', marginTop: 4 }}>
           <div style={{ fontSize: 10.5, fontWeight: 600, color: '#475467', ...F }}>Open {openDur}</div>
           {overdue && (
             <div style={{ fontSize: 10, fontWeight: 600, color: '#92400e', marginTop: 1, ...F }}>
@@ -326,8 +311,10 @@ export default function StudentCard({ student, variant, onClick, variantProps = 
         userSelect: 'none',
       }}
     >
-      {/* Avatar with optional completion badge */}
-      <div style={{ position: 'relative', marginBottom: 8 }}>
+      {/* Avatar with optional badge. ON-CAMPUS-NOW-UX-2: on-campus cards show a compact
+          accumulated-hours pill straddling the avatar's lower edge (extra marginBottom gives
+          the centered pill clearance from the name). */}
+      <div style={{ position: 'relative', marginBottom: variant === 'on-campus' ? 14 : 8 }}>
         <StudentAvatar
           student={student}
           size={CARD.avatarSize}
@@ -350,6 +337,24 @@ export default function StudentCard({ student, variant, onClick, variantProps = 
             {pct}%
           </span>
         )}
+        {variant === 'on-campus' && (() => {
+          const done = parseFloat(variantProps.hoursCompleted) || 0
+          const req  = parseFloat(variantProps.hoursRequired)  || 200
+          const hp   = req > 0 ? Math.min(100, (done / req) * 100) : 0
+          const fmt  = (n) => Number.isInteger(n) ? String(n) : String(Math.round(n * 10) / 10)
+          return (
+            <span style={{
+              position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
+              background: hoursBadgeColor(hp), color: '#fff',
+              fontSize: 9, fontWeight: 800,
+              padding: '1px 6px', borderRadius: 9, lineHeight: 1.5,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.22)', whiteSpace: 'nowrap',
+              fontFamily: F.family,
+            }}>
+              {fmt(done)}/{fmt(req)}h
+            </span>
+          )
+        })()}
       </div>
 
       {/* Short name */}
@@ -384,8 +389,6 @@ export default function StudentCard({ student, variant, onClick, variantProps = 
         {variant === 'profile' && <ProfileStrip student={student} />}
         {variant === 'on-campus' && (
           <OnCampusStrip
-            hoursCompleted={variantProps.hoursCompleted}
-            hoursRequired={variantProps.hoursRequired}
             shiftType={variantProps.shiftType}
             openShift={variantProps.openShift}
             openDur={variantProps.openDur}
