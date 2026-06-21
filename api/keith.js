@@ -8,7 +8,7 @@ import { buildSystemPrompt, GOVERNED_KNOWLEDGE_MARKER, getRecentCommunications, 
 import { retrieveGovernedKnowledge } from '../lib/server/keith/knowledgeRetrieval.js';
 import { computeStatusCounts, STATUS_DEFINITIONS } from '../src/lib/derivations/cohortStatus.js';
 import { summarizeCsLink } from '../src/lib/derivations/csLink.js';
-import { classifyIntent, INTENTS } from '../lib/server/keith/queryIntent.js';
+import { classifyIntent, INTENTS, isExplicitEmailDrafting } from '../lib/server/keith/queryIntent.js';
 import { answerPersonContactQuery, CONTACTS_ROLE_DENIED } from '../lib/server/keith/contactsLookup.js';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
@@ -705,7 +705,11 @@ export default async function handler(req, res) {
   // must not use. The user's text is used only for classification and is NEVER logged.
   const lastUserText = [...anthropicMessages].reverse().find(m => m.role === 'user')?.content || '';
   const intent = classifyIntent(lastUserText);
-  const isPersonContactRole = intent === INTENTS.PERSON_CONTACT_ROLE;
+  // KEITH-INTENT-ROUTING-1: defense-in-depth — a clear drafting/revision request (compose verb +
+  // message noun) must never be intercepted by the person_contact_role contacts short-circuit, even
+  // if it also names a role word like "preceptor". The classifier already routes these to
+  // email_drafting; this guard is a redundant safety net at the short-circuit boundary.
+  const isPersonContactRole = intent === INTENTS.PERSON_CONTACT_ROLE && !isExplicitEmailDrafting(lastUserText);
   const allowRoster = intent === INTENTS.EMAIL_DRAFTING; // unit-leadership roster: drafting only
   console.log('[keith-intent]', { request_id: requestId, intent }); // PII-free: label only
 
