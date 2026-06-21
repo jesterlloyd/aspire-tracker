@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useLocation, useSearchParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import Tooltip from '../ui/Tooltip'
@@ -6,7 +6,9 @@ import { downloadCSV } from '../../lib/utils'
 import RecipientProfileCard from './RecipientProfileCard'
 import RecipientPicker from './RecipientPicker'
 import SentHistory from './SentHistory'
+import ContactAutocomplete from './ContactAutocomplete'
 import { isValidEmail } from '../../lib/notifications/studentRecipient'
+import { normalizeEmailForLookup } from '../../lib/emailUtils'
 
 const F = 'DM Sans, sans-serif'
 
@@ -1174,27 +1176,46 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     setCcAutoSuggested(false)
   }, [recipientType, studentId, contactId, coordEmail]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Add/remove CC chips. Validation mirrors the server (isValidEmail + case-insensitive dedupe);
-  // the server remains the source of truth (dedupe, drop CC==To, cap 5, reject invalid).
+  // CONNECT-COMMS-1F: the server-resolved primary To (preferred), falling back to the school-first
+  // client approximation, then a contact's email. Used to drop CC==To and to exclude it from
+  // autocomplete suggestions. The server still enforces this authoritatively.
+  const resolvedToEmail = (
+    dmPreview.recipient?.email ||
+    effectiveStudent?.school_email || fetchedStudent?.school_email ||
+    effectiveStudent?.personal_email || fetchedStudent?.personal_email ||
+    (recipientType === 'contact' ? (fromContact?.email || fetchedContact?.email) : '') || ''
+  )
+
+  // Add/remove CC chips. Validation mirrors the server (isValidEmail + case-insensitive dedupe,
+  // drop CC==To, cap 5); the server remains the source of truth and re-validates on send.
   const addCcChip = useCallback((raw) => {
     const e = (raw || '').trim().replace(/[,;]+$/, '').trim()
     if (!e) return true
     if (!isValidEmail(e)) { setCcInputError(`"${e}" is not a valid email.`); return false }
-    setCcList(prev => prev.some(x => x.toLowerCase() === e.toLowerCase()) ? prev : [...prev, e])
+    const norm = normalizeEmailForLookup(e)
+    if (resolvedToEmail && norm === normalizeEmailForLookup(resolvedToEmail)) {
+      setCcInputError('That address is already the To recipient.'); return false
+    }
+    let added = false
+    setCcList(prev => {
+      if (prev.some(x => normalizeEmailForLookup(x) === norm)) return prev   // duplicate
+      if (prev.length >= 5) { return prev }                                  // cap 5
+      added = true
+      return [...prev, e]
+    })
+    if (!added && ccList.length >= 5) { setCcInputError('Maximum of 5 CC recipients.'); return false }
     setCcInputError(null)
     return true
-  }, [])
+  }, [resolvedToEmail, ccList])
   const removeCcChip = useCallback((e) => {
     setCcList(prev => prev.filter(x => x !== e))
   }, [])
-  const handleCcKeyDown = useCallback((ev) => {
-    if (ev.key === 'Enter' || ev.key === ',' || ev.key === ';') {
-      ev.preventDefault()
-      if (addCcChip(ccInput)) setCcInput('')
-    } else if (ev.key === 'Backspace' && !ccInput && ccList.length) {
-      removeCcChip(ccList[ccList.length - 1])
-    }
-  }, [ccInput, ccList, addCcChip, removeCcChip])
+  // Normalized set of addresses the autocomplete should NOT suggest (already-added CC + the To).
+  const ccExcludeSet = useMemo(() => {
+    const s = new Set(ccList.map(normalizeEmailForLookup))
+    if (resolvedToEmail) s.add(normalizeEmailForLookup(resolvedToEmail))
+    return s
+  }, [ccList, resolvedToEmail])
 
   // CONNECT-COMMS-1B: recipient source chip styling (school/personal-fallback/override/contact/missing).
   const dmSourceChip = (type) => ({
@@ -1830,6 +1851,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
               <div style={fieldWrap}>
                 <label style={labelStyle}>CC <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
                 <div style={{
+                  position: 'relative',   // CONNECT-COMMS-1F: anchor for the autocomplete dropdown
                   display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center',
                   padding: '6px 8px', border: '1px solid #e5e7eb', borderRadius: 8,
                   background: dmHasAnyRecipient ? '#fff' : '#f9fafb',
@@ -1852,15 +1874,20 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                       </span>
                     )
                   })}
-                  <input
-                    type="text"
+                  {/* CONNECT-COMMS-1F: reusable contact typeahead. Suggestions augment — never replace —
+                      manual entry; the server (resolveCcList) remains the source of truth. */}
+                  <ContactAutocomplete
                     value={ccInput}
-                    onChange={e => { setCcInput(e.target.value); setCcInputError(null) }}
-                    onKeyDown={handleCcKeyDown}
-                    onBlur={() => { if (addCcChip(ccInput)) setCcInput('') }}
-                    placeholder={ccList.length ? 'Add another…' : 'Add CC email…'}
+                    onChange={(v) => { setCcInput(v); setCcInputError(null) }}
                     disabled={!dmHasAnyRecipient}
-                    style={{ flex: '1 1 120px', minWidth: 120, border: 'none', outline: 'none', fontSize: 12.5, fontFamily: F, color: '#191919', background: 'transparent', padding: '3px 2px' }}
+                    maxReached={ccList.length >= 5}
+                    placeholder={ccList.length ? 'Add another…' : 'Add CC email…'}
+                    students={students}
+                    coordinator={recipientType === 'student' && coordEmail && isValidEmail(coordEmail) ? { email: coordEmail, name: coordName } : null}
+                    excludeEmails={ccExcludeSet}
+                    onSelect={(r) => { if (addCcChip(r.email)) setCcInput('') }}
+                    onCommitManual={(text) => { if (addCcChip(text)) setCcInput('') }}
+                    onBackspaceEmpty={() => { if (ccList.length) removeCcChip(ccList[ccList.length - 1]) }}
                   />
                 </div>
                 {ccInputError && (
