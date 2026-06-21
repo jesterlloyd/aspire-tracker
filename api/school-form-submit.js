@@ -14,6 +14,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { normalizeEmailForLookup } from '../src/lib/emailUtils.js'
+import { sanitizeWeekdays, sanitizeIsoDates, coerceBoolOrNull, coerceMinDaysOrNull } from '../src/lib/availability.js'
 
 function getDb() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -33,8 +34,22 @@ export default async function handler(req, res) {
     cohortId, cohortName,
     coordinator,
     rotationStartDate, rotationEndDate,
+    availability,
     students = [],
   } = req.body || {}
+
+  // AVAILABILITY-CANON-1B: coordinator-owned, school-wide availability constraints. Sanitized to
+  // canonical encodings (weekdays Mon–Sun, ISO dates) and written ONLY to cohort_school_rotations.
+  // Invalid weekday/date entries are dropped (not rejected) so a submission never hard-fails on them.
+  const av = (availability && typeof availability === 'object' && !Array.isArray(availability)) ? availability : {}
+  const availabilityCols = {
+    unavailable_weekdays: sanitizeWeekdays(av.unavailable_weekdays),
+    min_days_per_week:    coerceMinDaysOrNull(av.min_days_per_week),
+    weekends_allowed:     coerceBoolOrNull(av.weekends_allowed),
+    nights_allowed:       coerceBoolOrNull(av.nights_allowed),
+    blackout_dates:       sanitizeIsoDates(av.blackout_dates),
+    scheduling_notes:     (typeof av.scheduling_notes === 'string' ? av.scheduling_notes.trim().slice(0, 2000) : '') || null,
+  }
 
   // Required field validation
   if (!cohortId) return res.status(400).json({ error: 'cohortId is required' })
@@ -67,6 +82,8 @@ export default async function handler(req, res) {
         rotation_end_date:   rotationEndDate,
         coordinator_name:    coordinator.name.trim(),
         coordinator_email:   coordinator.email.trim(),
+        // AVAILABILITY-CANON-1B: coordinator-owned availability (school-wide), upserted alongside dates.
+        ...availabilityCols,
         updated_at:          new Date().toISOString(),
       },
       { onConflict: 'cohort_id,school_name' }

@@ -24,6 +24,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { toLocalDateStr } from '../shared/dateUtils.js'
 import { normalizeEmailForLookup, escapeLikePattern } from '../src/lib/emailUtils.js'
+import { sanitizeWeekdays, sanitizeIsoDates, coerceBoolOrNull } from '../src/lib/availability.js'
 
 function getDb() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -42,6 +43,10 @@ const ALLOWED_BODY_KEYS = [
   'unit_preference_1', 'unit_preference_2', 'unit_preference_3',
   'cumulative_gpa', 'shift_availability', 'interest_statement',
   'resume_url', 'headshot_url',   // references already produced by the existing upload flow
+  // AVAILABILITY-CANON-1B: student-owned rotation availability (all student-entered).
+  'unavailable_weekdays', 'unavailable_weekdays_reason', 'personal_blackout_dates',
+  'weekends_available', 'nights_available', 'preferred_days', 'availability_notes',
+  'availability_ack',
 ]
 
 // Statuses for which public intake submission is permitted. Beyond these, the
@@ -94,6 +99,11 @@ export default async function handler(req, res) {
     if (!Number.isFinite(gpa) || gpa < 0 || gpa > 4.5) {
       return res.status(400).json({ error: 'invalid_request', field: 'cumulative_gpa', message: 'Enter a valid GPA.' })
     }
+  }
+
+  // AVAILABILITY-CANON-1B: the availability acknowledgment is REQUIRED to submit.
+  if (body.availability_ack !== true) {
+    return res.status(400).json({ error: 'invalid_request', field: 'availability_ack', message: 'Please acknowledge the availability statement to submit.' })
   }
 
   const db = getDb()
@@ -169,6 +179,16 @@ export default async function handler(req, res) {
     cumulative_gpa: gpa,
     shift_availability: str(body.shift_availability),
     interest_statement: str(body.interest_statement),
+    // AVAILABILITY-CANON-1B: student-owned availability, sanitized to canonical encodings.
+    // (Written ONLY to students; coordinator-owned rotation availability is never touched here.)
+    unavailable_weekdays:        sanitizeWeekdays(body.unavailable_weekdays),
+    unavailable_weekdays_reason: str(body.unavailable_weekdays_reason).slice(0, 500),
+    personal_blackout_dates:     sanitizeIsoDates(body.personal_blackout_dates),
+    weekends_available:          coerceBoolOrNull(body.weekends_available),
+    nights_available:            coerceBoolOrNull(body.nights_available),
+    preferred_days:              sanitizeWeekdays(body.preferred_days),
+    availability_notes:          str(body.availability_notes).slice(0, 1000),
+    availability_ack:            true,
     submitted_via: 'student_form',
     status: 'Form Received',
   }

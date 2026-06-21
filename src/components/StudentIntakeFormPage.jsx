@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { groupUnitNamesByDivision, getUnit, DIVISION_ORDER } from '../lib/unitCatalog'
+import { WEEKDAYS, toggleWeekday, isValidIsoDate } from '../lib/availability'
 // WS1e-A0: public intake submission now goes through the dedicated
 // /api/student-intake-submit endpoint (was: proxyUpdateStudent + setAspireStatus
 // + logEvent against the staff student-update path).
@@ -60,7 +61,21 @@ const initForm = () => ({
   cs_affiliation: '', cs_department: '', cs_role: '',
   unit_preference_1: '', unit_preference_2: '', unit_preference_3: '',
   interest_statement: '',
+  // AVAILABILITY-CANON-1B: student-owned rotation availability
+  unavailable_weekdays: [],
+  unavailable_weekdays_reason: '',
+  personal_blackout_dates: [],
+  weekends_available: null,
+  nights_available: null,
+  preferred_days: [],
+  availability_notes: '',
+  availability_ack: false,
 })
+
+const AVAILABILITY_ACK_TEXT =
+  'I understand that ASPIRE will consider my availability when matching me to a unit and preceptor, ' +
+  'but placement depends on unit capacity, preceptor availability, and clinical learning goals. ' +
+  'I understand that failure to disclose recurring availability conflicts may delay matching or require coordinator review.'
 
 export default function StudentIntakeFormPage() {
   const [cohortId,       setCohortId]       = useState(null)
@@ -76,6 +91,7 @@ export default function StudentIntakeFormPage() {
   const [submitting,     setSubmitting]     = useState(false)
   const [submitted,      setSubmitted]      = useState(false)
   const [error,          setError]          = useState(null)
+  const [blackoutInput,  setBlackoutInput]  = useState('')  // AVAILABILITY-CANON-1B: pending blackout date
 
   useEffect(() => {
     document.title = 'ASPIRE Intelligence'
@@ -138,6 +154,9 @@ export default function StudentIntakeFormPage() {
     }
     if (!form.interest_statement.trim() || form.interest_statement.trim().length < 50) {
       setError('Please share why you are interested in Cedars-Sinai (at least 50 characters).'); return
+    }
+    if (!form.availability_ack) {
+      setError('Please acknowledge the availability statement before submitting.'); return
     }
 
     setSubmitting(true)
@@ -244,6 +263,15 @@ export default function StudentIntakeFormPage() {
       cumulative_gpa:             form.cumulative_gpa,
       shift_availability:         form.shift_availability,
       interest_statement:         form.interest_statement.trim(),
+      // AVAILABILITY-CANON-1B: student-owned availability
+      unavailable_weekdays:        form.unavailable_weekdays,
+      unavailable_weekdays_reason: form.unavailable_weekdays_reason.trim(),
+      personal_blackout_dates:     form.personal_blackout_dates,
+      weekends_available:          form.weekends_available,
+      nights_available:            form.nights_available,
+      preferred_days:              form.preferred_days,
+      availability_notes:          form.availability_notes.trim(),
+      availability_ack:            form.availability_ack,
       ...(resume_url   && { resume_url }),
       ...(headshot_url && { headshot_url }),
     }
@@ -601,6 +629,129 @@ export default function StudentIntakeFormPage() {
                 )}
               </div>
 
+            </div>
+          </div>
+
+          {/* ── Rotation Availability (AVAILABILITY-CANON-1B) ── */}
+          <div className="uf-section">
+            <div className="sf-section-title">Rotation Availability</div>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 16px' }}>
+              This helps ASPIRE identify possible scheduling conflicts before matching you with a
+              preceptor. Your availability is considered during matching but cannot be guaranteed.
+            </p>
+
+            <div className="uf-field">
+              <label className="uf-label">
+                Which weekdays are you unavailable to rotate (class, work, or other commitments)?
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {WEEKDAYS.map(day => {
+                  const on = form.unavailable_weekdays.includes(day)
+                  return (
+                    <button type="button" key={day}
+                      onClick={() => set('unavailable_weekdays', toggleWeekday(form.unavailable_weekdays, day))}
+                      style={{ padding: '6px 12px', borderRadius: 8, fontFamily: 'DM Sans', fontSize: 13,
+                        fontWeight: 600, cursor: 'pointer',
+                        background: on ? '#1D2567' : '#fff', color: on ? '#fff' : '#374151',
+                        border: `1px solid ${on ? '#1D2567' : '#d1d5db'}` }}>
+                      {day}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="uf-field">
+              <label className="uf-label">Briefly explain your recurring unavailable days (optional)</label>
+              <input className="uf-input" value={form.unavailable_weekdays_reason}
+                onChange={e => set('unavailable_weekdays_reason', e.target.value)}
+                placeholder="e.g. Class on Mondays and Tuesdays" />
+            </div>
+
+            <div className="uf-field">
+              <label className="uf-label">Any personal blackout dates during your rotation window? (optional)</label>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <input className="uf-input" type="date" value={blackoutInput}
+                  onChange={e => setBlackoutInput(e.target.value)} style={{ colorScheme: 'light', maxWidth: 200 }} />
+                <button type="button" className="sf-add-btn" style={{ marginTop: 0 }}
+                  onClick={() => {
+                    if (isValidIsoDate(blackoutInput) && !form.personal_blackout_dates.includes(blackoutInput)) {
+                      set('personal_blackout_dates', [...form.personal_blackout_dates, blackoutInput])
+                    }
+                    setBlackoutInput('')
+                  }}>
+                  + Add date
+                </button>
+              </div>
+              {form.personal_blackout_dates.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                  {form.personal_blackout_dates.map(d => (
+                    <span key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px',
+                      borderRadius: 16, background: '#f1f5f9', color: '#374151', fontSize: 12, fontFamily: 'DM Sans' }}>
+                      {d}
+                      <button type="button" onClick={() => set('personal_blackout_dates', form.personal_blackout_dates.filter(x => x !== d))}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontWeight: 700, padding: 0 }}>×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="sf-row-2">
+              <div className="uf-field">
+                <label className="uf-label">Available for weekend shifts?</label>
+                <select className="uf-input"
+                  value={form.weekends_available === null ? '' : (form.weekends_available ? 'yes' : 'no')}
+                  onChange={e => set('weekends_available', e.target.value === '' ? null : e.target.value === 'yes')}>
+                  <option value="">Select…</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+              <div className="uf-field">
+                <label className="uf-label">Available for night shifts?</label>
+                <select className="uf-input"
+                  value={form.nights_available === null ? '' : (form.nights_available ? 'yes' : 'no')}
+                  onChange={e => set('nights_available', e.target.value === '' ? null : e.target.value === 'yes')}>
+                  <option value="">Select…</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="uf-field">
+              <label className="uf-label">Preferred rotation days (optional)</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {WEEKDAYS.map(day => {
+                  const on = form.preferred_days.includes(day)
+                  return (
+                    <button type="button" key={day}
+                      onClick={() => set('preferred_days', toggleWeekday(form.preferred_days, day))}
+                      style={{ padding: '6px 12px', borderRadius: 8, fontFamily: 'DM Sans', fontSize: 13,
+                        fontWeight: 600, cursor: 'pointer',
+                        background: on ? '#16a34a' : '#fff', color: on ? '#fff' : '#374151',
+                        border: `1px solid ${on ? '#16a34a' : '#d1d5db'}` }}>
+                      {day}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="uf-field">
+              <label className="uf-label">Anything else ASPIRE should know about your availability? (optional)</label>
+              <textarea className="uf-textarea" rows={2} value={form.availability_notes}
+                onChange={e => set('availability_notes', e.target.value)}
+                placeholder="Share any other scheduling considerations." />
+            </div>
+
+            <div className="uf-field">
+              <label className="uf-check-label" style={{ alignItems: 'flex-start', gap: 10 }}>
+                <input type="checkbox" checked={form.availability_ack}
+                  onChange={e => set('availability_ack', e.target.checked)} style={{ marginTop: 3 }} />
+                <span style={{ fontSize: 13, lineHeight: 1.55 }}>{AVAILABILITY_ACK_TEXT} <span style={{ color: '#ef4444' }}>*</span></span>
+              </label>
             </div>
           </div>
 
