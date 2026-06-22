@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { ChevronRight, ChevronDown, Lock } from 'lucide-react'
+import { ChevronRight, ChevronDown } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { CS_COLORS } from '../lib/brand'
 import { useLastSynced } from '../hooks/useLastSynced'
@@ -9,6 +9,7 @@ import PreceptorFeedbackPanel from './evaluation/PreceptorFeedbackPanel'
 import PreceptorResponseDetail from './evaluation/PreceptorResponseDetail'
 import StudentEvalResponseDetail from './evaluation/StudentEvalResponseDetail'
 import SurveyAutomationDashboard from './evaluation/SurveyAutomationDashboard'
+import RestrictedAccessOverlay from './RestrictedAccessOverlay'
 
 const F = 'DM Sans, sans-serif'
 
@@ -518,28 +519,40 @@ export default function EvaluationTab({ cohortId }) {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  // EVALUATION-INTERVIEWER-ACCESS-UX: restricted-access message for interviewers — no KPIs,
-  // tables, charts, filters, exports, or response detail. Mirrors the Rotation restricted card.
-  // (Placed after all hooks so hook order is stable; the data fetch above is also skipped.)
+  // EVALUATION-INTERVIEWER-ACCESS-UX + RESTRICTED-ACCESS-OVERLAY-UNIFORMITY: restricted-access
+  // overlay for interviewers — same centered card + blurred backdrop as the Rotation tab. The
+  // backdrop is a NON-SENSITIVE decorative skeleton (no data, no fetch); the sensitive evaluation
+  // fetch above is skipped, so interviewers never load KPIs/tables/charts/responses.
+  // (Placed after all hooks so hook order is stable.)
   if (evaluationRestricted) {
+    const skelCard = { background: '#fff', border: '1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius: 12, height: 84 }
+    const skelBar  = (w) => ({ height: 12, width: w, borderRadius: 6, background: '#EDEEF4' })
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 420, padding: '40px 20px', fontFamily: F }}>
-        <div style={{ maxWidth: 520, background: '#ffffff', border: '1px solid #E5E7EB', borderRadius: 12, padding: 32, textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.08)' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#EDEEF4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Lock size={20} color="#1D2567" />
-            </div>
+      <div style={{ position: 'relative', minHeight: 520, fontFamily: F }}>
+        {/* Non-sensitive placeholder backdrop — purely decorative gray shapes (no evaluation data). */}
+        <div aria-hidden="true" style={{ padding: 16, userSelect: 'none', pointerEvents: 'none' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 16 }}>
+            {[0,1,2,3,4,5].map(i => <div key={i} style={skelCard} />)}
           </div>
-          <div style={{ fontSize: 20, fontWeight: 600, color: '#1D2567', marginBottom: 12 }}>
-            Evaluation results are restricted
-          </div>
-          <div style={{ fontSize: 14, lineHeight: 1.7, color: '#374151' }}>
-            Evaluation summary, survey responses, and feedback are reviewed by ASPIRE program leads and administrative staff. To protect student feedback and response details, this dashboard is available to program leads only.
-          </div>
-          <div style={{ fontSize: 14, lineHeight: 1.7, color: '#6b7280', marginTop: 12 }}>
-            If you need access to evaluation information, please contact the ASPIRE program lead.
+          <div style={{ ...skelCard, height: 'auto', padding: 16 }}>
+            {[0,1,2,3,4].map(i => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 4px', borderBottom: i < 4 ? '1px solid #f3f4f6' : 'none' }}>
+                <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#EDEEF4', flexShrink: 0 }} />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  <div style={skelBar('45%')} />
+                  <div style={skelBar('28%')} />
+                </div>
+                <div style={skelBar('64px')} />
+              </div>
+            ))}
           </div>
         </div>
+
+        <RestrictedAccessOverlay
+          title="Evaluation results are restricted"
+          body="Evaluation summary, survey responses, and feedback are reviewed by ASPIRE program leads and administrative staff. To protect student feedback and response details, this dashboard is available to program leads only."
+          contact="If you need access to evaluation information, please contact the ASPIRE program lead."
+        />
       </div>
     )
   }

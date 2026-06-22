@@ -12,6 +12,7 @@ import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
 import { Users, MapPin, ClipboardList, Info } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import RestrictedAccessOverlay from './RestrictedAccessOverlay'
 import { canPerformMatching } from '../lib/permissions'
 import { KPICell, useUpdatedLabel } from './KPIBand'
 // ── Unified Placement Overview — single panel replacing Placement at a Glance + Preference Match Ring ──
@@ -370,18 +371,12 @@ export default function MatchingTab({
   return (
     <div className="matching-tab embed-tab" style={{ position: 'relative' }}>
 
-      {/* Access overlay for non-matching roles — sits above everything */}
+      {/* Access overlay for non-matching roles — sits above everything (shared with Evaluation). */}
       {!canMatch && (
-        <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(244,241,236,0.55)', backdropFilter:'blur(2px)', zIndex:10 }}>
-          <div style={{ maxWidth:520, background:'#ffffff', border:'1px solid #E5E7EB', borderRadius:12, padding:32, textAlign:'center', boxShadow:'0 10px 40px rgba(0,0,0,0.08)', fontFamily:'DM Sans,sans-serif' }}>
-            <div style={{ fontSize:20, fontWeight:600, color:'#1D2567', marginBottom:12 }}>
-              Placement decisions are made by the program leads.
-            </div>
-            <div style={{ fontSize:14, lineHeight:1.7, color:'#374151' }}>
-              If you have a unit recommendation for a student, please include it in the interview rubric notes section. Jester and Krystal will review your recommendations during the placement process.
-            </div>
-          </div>
-        </div>
+        <RestrictedAccessOverlay
+          title="Placement decisions are made by the program leads."
+          body="If you have a unit recommendation for a student, please include it in the interview rubric notes section. The program leads will review your recommendation during the matching process."
+        />
       )}
 
       {/* ── Unified Placement Overview ── */}
