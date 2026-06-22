@@ -10,6 +10,17 @@ import PreceptorResponseDetail from './evaluation/PreceptorResponseDetail'
 import StudentEvalResponseDetail from './evaluation/StudentEvalResponseDetail'
 import SurveyAutomationDashboard from './evaluation/SurveyAutomationDashboard'
 import RestrictedAccessOverlay from './RestrictedAccessOverlay'
+import { instrumentCompactLabel, instrumentSortIndex, timepointSortIndex, statusSortIndex, completedByLabel, INSTRUMENT_ORDER } from '../lib/evaluationLabels'
+
+// Composite Section I mean (CPS/LA/PR) for a row, or null when not all three are present.
+function sectionIMean(assignment) {
+  const r = extractResponse(assignment)
+  const cps = r?.score_s1_clinical_problem_solving
+  const la  = r?.score_s1_learning_activities
+  const pr  = r?.score_s1_practice_readiness
+  if (cps == null || la == null || pr == null) return null
+  return (Number(cps) + Number(la) + Number(pr)) / 3
+}
 
 const F = 'DM Sans, sans-serif'
 
@@ -372,6 +383,12 @@ export default function EvaluationTab({ cohortId }) {
   const instruments = ['All', ...new Set(
     assignments.map(a => a.evaluation_instruments?.display_name).filter(Boolean)
   )]
+  // display_name → slug, so the dropdown can show compact labels while the filter still keys on display_name.
+  const slugByDisplayName = {}
+  assignments.forEach(a => {
+    const ei = a.evaluation_instruments
+    if (ei?.display_name && ei?.slug && !slugByDisplayName[ei.display_name]) slugByDisplayName[ei.display_name] = ei.slug
+  })
   const timepoints = ['All', ...new Set(
     assignments.map(a => a.timepoint).filter(Boolean)
   )]
@@ -402,12 +419,29 @@ export default function EvaluationTab({ cohortId }) {
     return true
   })
 
-  // Client-side sort
+  // Client-side sort — all columns sortable (rows already loaded; safe for cohort scale).
   const sorted = [...filtered].sort((a, b) => {
+    const dir = sortDir === 'asc' ? 1 : -1
+    // Canonical-index columns (numeric order)
+    if (sortKey === 'instrument') return dir * (instrumentSortIndex(a.evaluation_instruments?.slug) - instrumentSortIndex(b.evaluation_instruments?.slug))
+    if (sortKey === 'timepoint')  return dir * (timepointSortIndex(a.timepoint) - timepointSortIndex(b.timepoint))
+    if (sortKey === 'status')     return dir * (statusSortIndex(effectiveStatus(a)) - statusSortIndex(effectiveStatus(b)))
+    // Numeric Section I composite — nulls always last regardless of direction
+    if (sortKey === 'section_i') {
+      const ma = sectionIMean(a), mb = sectionIMean(b)
+      if (ma == null && mb == null) return 0
+      if (ma == null) return 1
+      if (mb == null) return -1
+      return dir * (ma - mb)
+    }
+    // String columns
     let va, vb
     if (sortKey === 'student') {
       va = `${a.students?.last_name || ''} ${a.students?.first_name || ''}`.toLowerCase()
       vb = `${b.students?.last_name || ''} ${b.students?.first_name || ''}`.toLowerCase()
+    } else if (sortKey === 'completed_by') {
+      va = completedByLabel(a.respondent_type, a.respondent_name).toLowerCase()
+      vb = completedByLabel(b.respondent_type, b.respondent_name).toLowerCase()
     } else if (sortKey === 'submitted_at') {
       va = extractResponse(a)?.submitted_at || ''
       vb = extractResponse(b)?.submitted_at || ''
@@ -416,8 +450,20 @@ export default function EvaluationTab({ cohortId }) {
       vb = b[sortKey] || ''
     }
     if (va === vb) return 0
-    return sortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1)
+    return dir * (va > vb ? 1 : -1)
   })
+
+  // Instrument cards: per-instrument completed/assigned within the current timepoint filter (NOT
+  // instrument-filtered, so every instrument is always visible). Only the canonical instruments that
+  // actually appear in this cohort are shown — Program Experience is never shown.
+  const timepointScoped = assignments.filter(a => filterTimepoint === 'All' || a.timepoint === filterTimepoint)
+  const instrumentCards = INSTRUMENT_ORDER.map(slug => {
+    const rows = timepointScoped.filter(a => a.evaluation_instruments?.slug === slug)
+    if (rows.length === 0) return null
+    const displayName = rows[0].evaluation_instruments?.display_name
+    const completed = rows.filter(a => effectiveStatus(a) === 'completed').length
+    return { slug, displayName, label: instrumentCompactLabel(slug, displayName), assigned: rows.length, completed }
+  }).filter(Boolean)
 
   // Section I averages — instrument and timepoint filters only; independent of the
   // active status KPI card. Completed responses are always shown regardless of which
@@ -625,7 +671,42 @@ export default function EvaluationTab({ cohortId }) {
           {/* KPI cards + content */}
           {!loading && !error && (
             <>
-              {/* KPI card band — 7-column grid matching StudentProfilesTab pattern */}
+              {/* Instrument cards — primary grouping. Clickable to set the instrument filter
+                  (toggles off when the active one is clicked again). Shows completed/assigned +
+                  a thin completion bar. Compact labels; Program Experience never shown. */}
+              {instrumentCards.length > 0 && (
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+                  {instrumentCards.map(card => {
+                    const active = filterInstrument === card.displayName
+                    const pct = card.assigned > 0 ? Math.round((card.completed / card.assigned) * 100) : 0
+                    return (
+                      <button
+                        key={card.slug}
+                        type="button"
+                        onClick={() => setFilterInstrument(prev => prev === card.displayName ? 'All' : card.displayName)}
+                        title={card.displayName}
+                        style={{
+                          flex: '1 1 200px', minWidth: 200, textAlign: 'left', cursor: 'pointer',
+                          padding: '12px 14px', borderRadius: 10, fontFamily: F,
+                          border: `1px solid ${active ? '#1D2567' : '#e5e7eb'}`,
+                          background: active ? '#EEF2FB' : '#fff',
+                          boxShadow: active ? '0 1px 3px rgba(29,37,103,0.18)' : '0 1px 2px rgba(29,37,103,0.04)',
+                          transition: 'background 0.12s, border-color 0.12s',
+                        }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+                          <span style={{ fontSize: 12.5, fontWeight: 700, color: '#1D2567', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{card.label}</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{card.completed}/{card.assigned} · {pct}%</span>
+                        </div>
+                        <div style={{ height: 4, background: 'rgba(29,37,103,0.08)', borderRadius: 2, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${pct}%`, background: '#2F7D5C', borderRadius: 2 }} />
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Status KPI band (secondary) — 7-column grid matching StudentProfilesTab pattern */}
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(7, 1fr)',
@@ -692,7 +773,7 @@ export default function EvaluationTab({ cohortId }) {
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 20 }}>
                 <select value={filterInstrument} onChange={e => setFilterInstrument(e.target.value)} style={sel}>
                   {instruments.map(i => (
-                    <option key={i} value={i}>{i === 'All' ? 'All instruments' : i}</option>
+                    <option key={i} value={i}>{i === 'All' ? 'All instruments' : instrumentCompactLabel(slugByDisplayName[i], i)}</option>
                   ))}
                 </select>
 
@@ -721,12 +802,13 @@ export default function EvaluationTab({ cohortId }) {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: F }}>
                     <thead>
                       <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                        <Th label="Student"    sortable onClick={() => handleSort('student')}    active={sortKey === 'student'}    dir={sortDir} />
-                        <Th label="Instrument" />
-                        <Th label="Timepoint"  />
-                        <Th label="Status"     />
-                        <Th label="Submitted"  sortable onClick={() => handleSort('submitted_at')} active={sortKey === 'submitted_at'} dir={sortDir} />
-                        <Th label="Section I"  />
+                        <Th label="Student"      sortable onClick={() => handleSort('student')}      active={sortKey === 'student'}      dir={sortDir} />
+                        <Th label="Completed By" sortable onClick={() => handleSort('completed_by')} active={sortKey === 'completed_by'} dir={sortDir} />
+                        <Th label="Instrument"   sortable onClick={() => handleSort('instrument')}   active={sortKey === 'instrument'}   dir={sortDir} />
+                        <Th label="Timepoint"    sortable onClick={() => handleSort('timepoint')}    active={sortKey === 'timepoint'}    dir={sortDir} />
+                        <Th label="Status"       sortable onClick={() => handleSort('status')}       active={sortKey === 'status'}       dir={sortDir} />
+                        <Th label="Submitted"    sortable onClick={() => handleSort('submitted_at')} active={sortKey === 'submitted_at'} dir={sortDir} />
+                        <Th label="Section I"    sortable onClick={() => handleSort('section_i')}    active={sortKey === 'section_i'}    dir={sortDir} />
                       </tr>
                     </thead>
                     <tbody>
@@ -760,13 +842,18 @@ export default function EvaluationTab({ cohortId }) {
                                 </div>
                               </Td>
                               <Td>
+                                <span style={{ fontSize: 12, color: a.respondent_type === 'preceptor' ? '#1D2567' : '#6b7280' }}>
+                                  {completedByLabel(a.respondent_type, a.respondent_name)}
+                                </span>
+                              </Td>
+                              <Td>
                                 <span style={{
                                   fontSize: 12, color: '#374151',
                                   maxWidth: 220, display: 'inline-block',
                                   overflow: 'hidden', textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap', verticalAlign: 'middle',
-                                }}>
-                                  {a.evaluation_instruments?.display_name || '—'}
+                                }} title={a.evaluation_instruments?.display_name || ''}>
+                                  {instrumentCompactLabel(a.evaluation_instruments?.slug, a.evaluation_instruments?.display_name)}
                                 </span>
                               </Td>
                               <Td>
@@ -792,7 +879,7 @@ export default function EvaluationTab({ cohortId }) {
 
                             {isExpanded && (
                               <tr style={{ background: idx % 2 === 0 ? '#f8f9fe' : '#f4f5fa' }}>
-                                <td colSpan={6} style={{ padding: '16px 24px', borderBottom: '1px solid #e5e7eb' }}>
+                                <td colSpan={7} style={{ padding: '16px 24px', borderBottom: '1px solid #e5e7eb' }}>
                                   <ExpandedRow assignment={a} response={response} />
                                   {es === 'completed' && response?.responses && (
                                     <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #e5e7eb' }}>
