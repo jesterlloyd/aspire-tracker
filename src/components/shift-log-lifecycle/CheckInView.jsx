@@ -31,7 +31,13 @@ export default function CheckInView({ student, onSuccess, onNetworkError, onPast
   const [expectedHours, setExpectedHours] = useState('12')
   const [plannedUnit, setPlannedUnit] = useState(student?.assigned_unit_name || '')
   const [plannedPreceptor, setPlannedPreceptor] = useState(student?.matched_preceptor || '')
-  const [plannedShiftType, setPlannedShiftType] = useState('Day')
+  // SHIFT-LOG-ASSIGNED-SHIFT-DEFAULT: default to the student's assigned (preceptor) shift when the
+  // server confidently resolved it; otherwise keep the existing 'Day' fallback. useState INITIALIZER
+  // only — no effect re-syncs this, so a student's manual change is never overwritten after load.
+  const defaultedFromAssignment = SHIFT_TYPES.includes(student?.assigned_shift_type)
+  const [plannedShiftType, setPlannedShiftType] = useState(
+    defaultedFromAssignment ? student.assigned_shift_type : 'Day'
+  )
   const [error, setError] = useState(null)
 
   const hoursNum = Number(expectedHours)
@@ -106,6 +112,11 @@ export default function CheckInView({ student, onSuccess, onNetworkError, onPast
                 }}>{t}</button>
             ))}
           </div>
+          {defaultedFromAssignment && plannedShiftType === student.assigned_shift_type && (
+            <div style={{ marginTop: 8, fontSize: 13, color: '#6b7280', fontFamily: F }}>
+              Defaulted from your assigned shift — change if needed.
+            </div>
+          )}
         </div>
 
         <button style={{ ...BTN_PRIMARY, opacity: canSubmit ? 1 : 0.6 }} type="submit" disabled={!canSubmit}>

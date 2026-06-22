@@ -19,6 +19,7 @@
 
 import supabaseAdmin from '../../lib/server/evaluation/supabase_admin.js'
 import { normalizeEmailForLookup, escapeLikePattern } from '../../src/lib/emailUtils.js'
+import { normalizeAssignedShift } from './normalizeAssignedShift.js'
 
 // Statuses eligible to access/log shifts. 'Placed' covers the first shift (which
 // then promotes to 'Active Rotation'); 'Active Rotation' covers all subsequent
@@ -55,6 +56,7 @@ export async function lookupStudentByEmail(schoolEmail) {
       cohort_id,
       matched_unit_id,
       matched_preceptor,
+      preceptor_id,
       hours_required,
       approved_hours,
       pending_hours,
@@ -111,6 +113,25 @@ export async function lookupStudentByEmail(schoolEmail) {
     assignedUnitName = unit?.unit_name || null
   }
 
+  // ── Resolve the assigned shift from the primary preceptor's shift_type ───────
+  // SHIFT-LOG-ASSIGNED-SHIFT-DEFAULT: canonical source is preceptors.shift_type via the
+  // student's primary preceptor (students.preceptor_id). Normalized to 'Day'|'Night'|'Mid'
+  // or null ('Variable'/missing/unreadable/unrecognized → null → caller keeps 'Day').
+  // Defensive: a failure here NEVER fails the lookup.
+  let assignedShiftType = null
+  if (student.preceptor_id) {
+    try {
+      const { data: preceptor } = await supabaseAdmin
+        .from('preceptors')
+        .select('shift_type')
+        .eq('id', student.preceptor_id)
+        .maybeSingle()
+      assignedShiftType = normalizeAssignedShift(preceptor?.shift_type)
+    } catch {
+      assignedShiftType = null
+    }
+  }
+
   const { data: openShifts, error: shiftError } = await supabaseAdmin
     .from('student_shift_logs')
     .select('id, shift_date, checked_in_at, expected_hours, planned_unit_name, planned_preceptor_name, planned_shift_type')
@@ -137,6 +158,7 @@ export async function lookupStudentByEmail(schoolEmail) {
       cohort_name: cohort?.name || null,
       assigned_unit_name: assignedUnitName,
       matched_preceptor: student.matched_preceptor || null,
+      assigned_shift_type: assignedShiftType,   // 'Day'|'Night'|'Mid' or null (additive)
       hours_required: student.hours_required,
       approved_hours: student.approved_hours,
       pending_hours: student.pending_hours,
