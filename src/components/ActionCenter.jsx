@@ -54,44 +54,66 @@ const SECTION_ORDER = [
   { key: 'needs_followup', label: 'Needs follow-up', color: '#1D2567', hint: 'Outstanding outreach and setup' },
 ]
 
-// Liquid-glass shell styles. backdrop-filter where supported; @supports fallback
-// to a near-opaque panel so text stays AA-readable on browsers without blur.
+// Liquid-glass side-sheet styles. backdrop-filter where supported; @supports
+// fallback to a near-opaque panel so text stays AA-readable without blur.
 const AC_GLASS_STYLES = `
 .ac-scrim {
   position: fixed; inset: 0; z-index: 499;
-  background: rgba(20,26,48,0.16);
+  background: rgba(15,23,42,0.14);
 }
 .ac-panel {
-  background: rgba(255,255,255,0.80);
-  border: 1px solid rgba(255,255,255,0.6);
-  box-shadow: 0 14px 50px rgba(15,20,40,0.22), 0 2px 10px rgba(15,20,40,0.08);
+  background: rgba(255,255,255,0.62);
+  border: 1px solid rgba(255,255,255,0.42);
+  box-shadow: 0 24px 80px rgba(15,23,42,0.24), inset 0 1px 0 rgba(255,255,255,0.50);
 }
-.ac-caret {
-  background: rgba(255,255,255,0.80);
-  border-left: 1px solid rgba(255,255,255,0.6);
-  border-top: 1px solid rgba(255,255,255,0.6);
+/* Glass tiles for each task — translucent over the already-frosted panel (no nested blur). */
+.ac-card {
+  margin: 0 16px 9px;
+  border-radius: 17px;
+  background: rgba(255,255,255,0.50);
+  border: 1px solid rgba(255,255,255,0.35);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45);
+  transition: background 0.14s ease, box-shadow 0.14s ease;
 }
+.ac-card:hover { background: rgba(255,255,255,0.62); box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 4px 14px rgba(15,23,42,0.07); }
+.ac-pill {
+  flex-shrink: 0; padding: 5px 13px; border-radius: 18px; cursor: pointer;
+  font-family: 'DM Sans, sans-serif'; font-size: 11.5px; font-weight: 600;
+  transition: all 0.14s ease; white-space: nowrap;
+  background: rgba(255,255,255,0.42); border: 1px solid rgba(255,255,255,0.50); color: #3a4256;
+}
+.ac-pill:hover { background: rgba(255,255,255,0.60); }
+.ac-pill.on { background: rgba(29,37,103,0.92); border-color: rgba(29,37,103,0.92); color: #fff; }
+.ac-close {
+  background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.22); color: #fff;
+  font-size: 18px; line-height: 1; cursor: pointer; width: 30px; height: 30px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center; transition: background 0.14s ease;
+}
+.ac-close:hover { background: rgba(255,255,255,0.28); }
 @supports ((backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px))) {
-  .ac-scrim { -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); background: rgba(20,26,48,0.12); }
-  .ac-panel, .ac-caret { -webkit-backdrop-filter: blur(14px) saturate(150%); backdrop-filter: blur(14px) saturate(150%); }
+  .ac-scrim { -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); background: rgba(15,23,42,0.12); }
+  .ac-panel { -webkit-backdrop-filter: blur(22px) saturate(170%); backdrop-filter: blur(22px) saturate(170%); }
 }
 @supports not ((backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px))) {
-  .ac-panel { background: rgba(251,251,253,0.985); }
-  .ac-caret { background: rgba(251,251,253,0.985); }
+  .ac-panel { background: rgba(252,253,255,0.96); }
+  .ac-card { background: rgba(255,255,255,0.92); }
 }
-@keyframes acPanelIn { from { opacity: 0; transform: translateY(-6px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes acPanelIn { from { opacity: 0; transform: translate(14px, -6px); } to { opacity: 1; transform: none; } }
 @keyframes acScrimIn { from { opacity: 0; } to { opacity: 1; } }
-.ac-anim-panel { animation: acPanelIn 0.16s ease-out; }
+.ac-anim-panel { animation: acPanelIn 0.16s cubic-bezier(0.22,0.61,0.36,1); }
 .ac-anim-scrim { animation: acScrimIn 0.16s ease-out; }
 @media (prefers-reduced-motion: reduce) {
   .ac-anim-panel, .ac-anim-scrim { animation: none; }
 }
-[data-theme="dark"] .ac-scrim { background: rgba(0,0,0,0.34); }
-[data-theme="dark"] .ac-panel { background: rgba(28,33,58,0.82); border-color: rgba(255,255,255,0.10); }
-[data-theme="dark"] .ac-caret { background: rgba(28,33,58,0.82); border-color: rgba(255,255,255,0.10); }
+[data-theme="dark"] .ac-scrim { background: rgba(0,0,0,0.30); }
+[data-theme="dark"] .ac-panel { background: rgba(18,22,42,0.70); border-color: rgba(255,255,255,0.12); box-shadow: 0 24px 80px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.10); }
+[data-theme="dark"] .ac-card { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.08); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06); }
+[data-theme="dark"] .ac-card:hover { background: rgba(255,255,255,0.11); }
+[data-theme="dark"] .ac-pill { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.12); color: #cdd3e6; }
+[data-theme="dark"] .ac-pill.on { background: rgba(99,110,210,0.85); border-color: rgba(99,110,210,0.85); color: #fff; }
 @supports not ((backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px))) {
-  [data-theme="dark"] .ac-panel { background: rgba(24,29,52,0.985); }
-  [data-theme="dark"] .ac-caret { background: rgba(24,29,52,0.985); }
+  [data-theme="dark"] .ac-panel { background: rgba(18,22,42,0.96); }
+  [data-theme="dark"] .ac-card { background: rgba(40,46,72,0.96); }
 }
 `
 
@@ -354,7 +376,7 @@ function ItemCard({
   // Special orientation card
   if (item.isOrientation) {
     return (
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(29,37,103,0.05)', background: 'transparent' }}>
+      <div className="ac-card" style={{ padding: '14px 18px', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
           <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
             color: pCfg.color, background: pCfg.bg, padding: '2px 7px', borderRadius: 20, flexShrink: 0, marginTop: 1 }}>
@@ -411,8 +433,8 @@ function ItemCard({
 
   // Standard item card
   return (
-    <div style={{ padding: '11px 16px', borderBottom: '1px solid rgba(29,37,103,0.05)', background: 'transparent' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+    <div className="ac-card" style={{ padding: '14px 18px', minHeight: 76, boxSizing: 'border-box', display: 'flex', alignItems: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
         <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
           color: pCfg.color, background: pCfg.bg, padding: '2px 7px', borderRadius: 20, flexShrink: 0, marginTop: 1 }}>
           {pCfg.label}
@@ -545,25 +567,22 @@ export default function ActionCenter({
     }
   }, [isOpen])
 
-  // Popover positioning: anchored below bell button, right-aligned to it
-  const [pos, setPos] = useState({ top: 68, right: 12, width: 464, narrow: false, caretRight: 22 })
+  // Right-side glass sheet: fixed to the right edge, opening from the bell area.
+  const [pos, setPos] = useState({ top: 64, right: 20, width: 460, mobile: false })
   useLayoutEffect(() => {
-    if (!anchorEl || !isOpen) return
-    const rect = anchorEl.getBoundingClientRect()
+    if (!isOpen) return
     const vw = window.innerWidth
-    const narrow = vw < 480
-    if (narrow) {
-      // Near-full-width sheet; caret math gets awkward, so drop it.
-      const w = vw - 16
-      setPos({ top: rect.bottom + 8, right: 8, width: w, narrow: true, caretRight: null })
+    const mobile = vw < 640
+    // Sit just below the header (clamped 56–76px), near where the bell lives.
+    const bellBottom = anchorEl ? anchorEl.getBoundingClientRect().bottom + 8 : 64
+    const top = Math.min(Math.max(bellBottom, 56), 76)
+    if (mobile) {
+      // Near-full-width sheet with comfortable side margins; no pointer.
+      setPos({ top, right: 10, width: vw - 20, mobile: true })
       return
     }
-    const w = Math.min(464, vw - 16)
-    const right = Math.max(8, vw - rect.right)
-    // Caret points up at the bell: distance from panel's right edge to the bell center.
-    const bellCenterFromRight = vw - (rect.left + rect.width / 2)
-    const caretRight = Math.min(Math.max(bellCenterFromRight - right, 14), w - 26)
-    setPos({ top: rect.bottom + 10, right, width: w, narrow: false, caretRight })
+    const width = Math.min(460, vw - 48) // max-width: calc(100vw - 48px)
+    setPos({ top, right: 20, width, mobile: false })
   }, [anchorEl, isOpen])
 
   // Escape key
@@ -893,30 +912,12 @@ ${KR_SIG}`
     <>
       <style>{AC_GLASS_STYLES}</style>
 
-      {/* Soft light scrim — content stays faintly visible behind the glass */}
+      {/* Soft semi-clear veil — app content stays visible but softened */}
       <div
         className={`ac-scrim${REDUCED_MOTION ? '' : ' ac-anim-scrim'}`}
         aria-hidden="true"
         onMouseDown={onClose}
       />
-
-      {/* Caret pointing from the panel toward the bell (desktop only) */}
-      {!pos.narrow && pos.caretRight != null && (
-        <div
-          className="ac-caret"
-          aria-hidden="true"
-          style={{
-            position: 'fixed',
-            top: pos.top - 6,
-            right: pos.right + pos.caretRight,
-            width: 13,
-            height: 13,
-            transform: 'rotate(45deg)',
-            borderTopLeftRadius: 3,
-            zIndex: 501,
-          }}
-        />
-      )}
 
       <div
       ref={popoverRef}
@@ -928,8 +929,8 @@ ${KR_SIG}`
         top: pos.top,
         right: pos.right,
         width: pos.width,
-        maxHeight: 'min(640px, calc(100vh - 80px))',
-        borderRadius: 16,
+        maxHeight: 'calc(100vh - 80px)',
+        borderRadius: pos.mobile ? 20 : 24,
         display: 'flex',
         flexDirection: 'column',
         zIndex: 500,
@@ -937,55 +938,44 @@ ${KR_SIG}`
         overflow: 'hidden',
       }}
     >
-      {/* Header */}
-      <div style={{ background: '#1D2567', padding: '14px 16px 12px', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {/* Header — translucent layered band integrated into the glass sheet */}
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(25,31,92,0.82), rgba(28,36,98,0.60))',
+        padding: '18px 22px 14px', flexShrink: 0,
+        borderBottom: '1px solid rgba(255,255,255,0.10)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
               <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
-            <span style={{ fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing: '-0.01em' }}>Action Center</span>
+            <span style={{ fontSize: 17, fontWeight: 700, color: '#fff', letterSpacing: '-0.01em' }}>Action Center</span>
           </div>
-          <button onClick={onClose} aria-label="Close"
-            style={{ background: 'rgba(255,255,255,0.10)', border: 'none', color: '#fff', fontSize: 18, lineHeight: 1, cursor: 'pointer', width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.18)'}
-            onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,0.10)'}>
-            ×
-          </button>
+          <button onClick={onClose} aria-label="Close" className="ac-close">×</button>
         </div>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', marginBottom: 4 }}>
+        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.62)', marginBottom: 5 }}>
           Prioritized actions requiring attention
         </div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.9)' }}>
+        <div style={{ fontSize: 13.5, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>
           {totalCount} open action{totalCount !== 1 ? 's' : ''}
         </div>
       </div>
 
-      {/* Filter pills */}
+      {/* Filter pills — glass chips */}
       {totalCount > 0 && (
         <div style={{
-          display: 'flex', gap: 5, padding: '9px 14px',
-          borderBottom: '1px solid var(--border-card,rgba(29,37,103,0.08))',
+          display: 'flex', gap: 7, padding: '12px 18px 4px',
           flexShrink: 0, overflowX: 'auto', scrollbarWidth: 'none',
         }}>
-          {pills.map(pill => {
-            const isActive = activeFilter === pill.key
-            return (
-              <button
-                key={String(pill.key)}
-                onClick={() => setActiveFilter(pill.key)}
-                style={{
-                  flexShrink: 0, padding: '4px 10px', borderRadius: 20, border: 'none',
-                  cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: 11, fontWeight: 600,
-                  transition: 'all 0.12s',
-                  background: isActive ? '#1D2567' : 'rgba(29,37,103,0.07)',
-                  color: isActive ? '#fff' : '#475467',
-                }}>
-                {pill.label} {pill.count}
-              </button>
-            )
-          })}
+          {pills.map(pill => (
+            <button
+              key={String(pill.key)}
+              onClick={() => setActiveFilter(pill.key)}
+              className={`ac-pill${activeFilter === pill.key ? ' on' : ''}`}>
+              {pill.label} {pill.count}
+            </button>
+          ))}
         </div>
       )}
 
@@ -1012,19 +1002,24 @@ ${KR_SIG}`
       )}
 
       {/* Triage sections body */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '6px 0 16px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0 18px' }}>
         {totalCount === 0 && !hasFetchError && (shiftLogsLoading || dispositionFollowupsLoading) ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '64px 24px' }}>
             <span style={{ fontSize: 13, color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>Loading action items…</span>
           </div>
         ) : totalCount === 0 && !hasFetchError ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '44px 24px', gap: 10 }}>
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#7BA86B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-              <polyline points="22 4 12 14.01 9 11.01"/>
-            </svg>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#1D2567' }}>You're all caught up</div>
-            <div style={{ fontSize: 12, color: '#6b7280' }}>No open actions need attention right now.</div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 28px', gap: 12 }}>
+            <div style={{
+              width: 60, height: 60, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(123,168,107,0.14)', border: '1px solid rgba(123,168,107,0.30)',
+            }}>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#7BA86B" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+            </div>
+            <div style={{ fontSize: 15.5, fontWeight: 700, color: '#1D2567' }}>All caught up</div>
+            <div style={{ fontSize: 12.5, color: '#6b7280', textAlign: 'center', maxWidth: 260, lineHeight: 1.5 }}>No priority actions need your attention right now.</div>
           </div>
         ) : (
           visibleSections.map(section => {
@@ -1035,11 +1030,11 @@ ${KR_SIG}`
             const hiddenCount  = items.length - 3
 
             return (
-              <div key={section.key} style={{ marginBottom: 4 }}>
+              <div key={section.key} style={{ marginBottom: 14 }}>
                 {/* Section header */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px 6px' }}>
-                  <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: 999, background: section.color, flexShrink: 0 }} />
-                  <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: section.color }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 20px 9px' }}>
+                  <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 999, background: section.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: section.color }}>
                     {section.label}
                   </span>
                   <span style={{ fontSize: 10, fontWeight: 700, color: section.color, background: `${section.color}1A`, padding: '1px 7px', borderRadius: 20 }}>
@@ -1074,13 +1069,14 @@ ${KR_SIG}`
 
                 {/* Expand / collapse */}
                 {hiddenCount > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 20px 0' }}>
                     <span style={{ fontSize: 11, color: '#8a93a3' }}>
                       +{hiddenCount} more {section.label.toLowerCase()} item{hiddenCount !== 1 ? 's' : ''}
                     </span>
                     <button
                       onClick={() => setExpandedStacks(p => ({ ...p, [section.key]: !p[section.key] }))}
-                      style={{ fontSize: 11, fontWeight: 600, color: '#1D2567', background: 'rgba(29,37,103,0.08)', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                      className="ac-pill"
+                      style={{ fontSize: 11, padding: '4px 11px' }}>
                       {isExpanded ? 'Show less ▴' : 'Show all ▾'}
                     </button>
                   </div>
@@ -1092,11 +1088,11 @@ ${KR_SIG}`
 
         {/* Recently completed — only tasks resolved in this session; collapsed; omitted when empty */}
         {completedLog.length > 0 && (
-          <div style={{ marginTop: 6, borderTop: '1px solid rgba(29,37,103,0.07)' }}>
+          <div style={{ marginTop: 6, paddingTop: 4, borderTop: '1px solid rgba(255,255,255,0.30)' }}>
             <button
               onClick={() => setShowCompleted(s => !s)}
               aria-expanded={showCompleted}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 16px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', textAlign: 'left' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '11px 20px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', textAlign: 'left' }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7BA86B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
               </svg>
@@ -1109,7 +1105,7 @@ ${KR_SIG}`
               <span style={{ marginLeft: 'auto', fontSize: 11, color: '#8a93a3' }}>{showCompleted ? '▴' : '▾'}</span>
             </button>
             {showCompleted && completedLog.map(e => (
-              <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 16px 7px 37px' }}>
+              <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 20px 8px 40px' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, color: '#4b5563', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</div>
                   <div style={{ fontSize: 11, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.studentName}</div>
