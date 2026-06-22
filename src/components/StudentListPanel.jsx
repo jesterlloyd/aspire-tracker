@@ -14,6 +14,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useUnreadStudents } from '../hooks/useUnreadStudents'
 import StudentCard from './StudentCard'
 import { formatSchoolProgram } from '../lib/displayFormatters'
+import { getStudentPreferredFirstName } from '../lib/studentNameFormatters'
 
 // ── Small chip ────────────────────────────────────────────────────────────────
 function Chip({ label, bg, color, border }) {
@@ -176,7 +177,10 @@ export default function StudentListPanel({
     <>
       <div className="pl-list">
         {students.map(s => {
-          const name     = `${s.last_name||''}${s.last_name&&s.first_name?', ':''}${s.first_name||''}` || s.name || '—'
+          // STUDENT-PREFERRED-FIRST-NAME-1B: surface preferred first name (e.g. "Shin, Brian").
+          // Sort order is unchanged (still legal last_name). Last name stays legal.
+          const firstShown = getStudentPreferredFirstName(s)
+          const name     = `${s.last_name||''}${s.last_name&&firstShown?', ':''}${firstShown||''}` || s.name || '—'
           const csKey    = getCsLinkStatus(s)
           const acc      = CS_LINK_STATUS_CONFIG[csKey]
           const sel      = s.id === selectedStudentId

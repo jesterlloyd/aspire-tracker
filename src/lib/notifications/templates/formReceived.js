@@ -3,6 +3,7 @@
 // EMAIL-TEMPLATE-BRAND-2B — rendered in the canonical Nightfall/Cedars ASPIRE shell (navy header,
 // reversed CS logo, ASPIRE Program / Brawerman Nursing Institute), matching the other ASPIRE emails.
 import { JESTER_SIGNATURE } from './signatures.js';
+import { escapeHtml } from '../../htmlEscape.js';
 
 const NAVY  = '#1D2567';   // Nightfall — ASPIRE Intelligence primary brand color
 const SAND  = '#F4F1EC';   // Sand — ASPIRE app background
@@ -56,7 +57,7 @@ export const formReceived = {
   student: (ctx) => ({
     subject: 'We received your ASPIRE application',
     html: wrap(`
-        <h2 style="color:#1D2567;font-weight:600;margin:0 0 12px;">Welcome, ${ctx.studentFirstName || 'there'}.</h2>
+        <h2 style="color:#1D2567;font-weight:600;margin:0 0 12px;">Welcome, ${escapeHtml(ctx.studentGreetingName || ctx.studentFirstName || 'there')}.</h2>
         <p>Thank you for submitting your application to the ASPIRE Program at Cedars-Sinai. We've received your information and your placement coordinator at <strong>${ctx.school || 'your school'}</strong> has been notified.</p>
 
         <h3 style="font-size:13px;text-transform:uppercase;letter-spacing:0.12em;color:#475467;margin-top:24px;">What happens next</h3>

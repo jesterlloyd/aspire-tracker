@@ -57,6 +57,7 @@ export async function lookupStudentByEmail(schoolEmail) {
       matched_unit_id,
       matched_preceptor,
       preceptor_id,
+      preferred_first_name,
       hours_required,
       approved_hours,
       pending_hours,
@@ -151,6 +152,10 @@ export async function lookupStudentByEmail(schoolEmail) {
     student: {
       id: student.id,
       full_name: fullName,
+      // STUDENT-PREFERRED-FIRST-NAME-1B: surfaced so the greeting can prefer the student's
+      // preferred first name (getStudentPreferredGreetingName), falling back to legal first name.
+      first_name: student.first_name || null,
+      preferred_first_name: student.preferred_first_name || null,
       school: student.school || null,
       school_email: student.school_email,   // canonical stored form
       status: student.status,

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { SHIFT_LOG_STATUSES } from '../lib/shiftLogValidation'
 import { openMailtoLink } from '../lib/openLink'
 import { normalizeEmailForLookup, escapeLikePattern } from '../lib/emailUtils'
+import { getStudentPreferredGreetingName } from '../lib/studentNameFormatters'
 // WS1e-A0b: past-shift submission now goes through /api/shift-log/submit-past-shift.
 // The server resolves the student, classifies the shift, inserts the completed
 // student_shift_logs row, recomputes approved/pending totals, applies the
@@ -244,7 +245,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
             {/* Student summary card */}
             <div style={{ background:'#fff', borderRadius:16, padding:'20px', marginBottom:16, boxShadow:'0 2px 8px rgba(0,0,0,0.06)' }}>
               <div style={{ fontSize:22, fontWeight:700, color:'var(--nightfall)', marginBottom:10 }}>
-                Welcome, {student.first_name}!
+                Welcome, {getStudentPreferredGreetingName(student)}!
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px 16px', fontSize:13, color:'#6b7280', marginBottom:14 }}>
                 <span><strong style={{color:'var(--raven)'}}>School:</strong> {student.school||'—'}</span>
@@ -389,7 +390,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
               <div style={{ background:'#D1FAE5', borderRadius:10, padding:'16px 20px', marginBottom:16 }}>
                 <div style={{ fontSize:40, marginBottom:6 }}>✅</div>
                 <h2 style={{ fontSize:22, fontWeight:700, color:'#065F46', margin:'0 0 6px' }}>Shift Logged Successfully</h2>
-                <p style={{ fontSize:14, color:'#065F46', margin:0 }}>Welcome, {student.first_name}! Your shift has been added to your record.</p>
+                <p style={{ fontSize:14, color:'#065F46', margin:0 }}>Welcome, {getStudentPreferredGreetingName(student)}! Your shift has been added to your record.</p>
               </div>
             ) : submittedStatus === SHIFT_LOG_STATUSES.PENDING_REVIEW ? (
               <div style={{ background:'#FEF3C7', borderRadius:10, padding:'16px 20px', marginBottom:16 }}>

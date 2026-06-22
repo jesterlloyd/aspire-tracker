@@ -89,6 +89,7 @@ export default function StudentProfilesTab({
         const csLabel = (getCsLinkStatus(s) || '').toLowerCase()
         return (
           `${s.first_name||''} ${s.last_name||''}`.toLowerCase().includes(q) ||
+          (s.preferred_first_name||'').toLowerCase().includes(q) ||
           (s.school||'').toLowerCase().includes(q) ||
           (s.program_type||'').toLowerCase().includes(q) ||
           (s.school_email||'').toLowerCase().includes(q) ||

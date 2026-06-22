@@ -28,6 +28,7 @@ import {
 import { sendNotification } from '../../src/lib/notifications/index.js';
 import { CLOCKOUT_REMINDER_SUBJECT, clockoutReminderText } from '../../src/lib/notifications/templates/clockoutReminder.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from './cronRuns.js';
+import { getStudentPreferredGreetingName } from '../../src/lib/studentNameFormatters.js';
 
 // notification_type written by the live send (via sendNotification) and read for dedup. This is a
 // VALUE for the existing notification_log.notification_type column — NOT a new column.
@@ -93,7 +94,7 @@ export async function runClockoutReminders(supabase, { mode = 'dry-run', cronNam
     if (studentIds.length) {
       const { data: students, error: stuErr } = await supabase
         .from('students')
-        .select('id, first_name, last_name, school, program_type, personal_email, school_email')
+        .select('id, first_name, last_name, preferred_first_name, school, program_type, personal_email, school_email')
         .in('id', studentIds);
       if (stuErr) {
         console.error(`[${cronName}] students query error:`, stuErr);
@@ -140,7 +141,7 @@ export async function runClockoutReminders(supabase, { mode = 'dry-run', cronNam
       }
       const fallbackUsed  = !schoolEmail && !!personalEmail;
       const recipientType = fallbackUsed ? 'personal_email_fallback' : 'school_email';
-      const firstName     = stu?.first_name || 'there';
+      const firstName     = getStudentPreferredGreetingName(stu);
 
       const row = {
         ...rowSummary(log, stu, nowMs),

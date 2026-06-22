@@ -710,9 +710,9 @@ function MainApp({ onLogout }) {
     // the table's own RLS (students/units cohort-scoped; contacts is_active; preceptors authenticated
     // read; catalog Owner/Admin/Interviewer-tiered). No new endpoint, no schema, read-only.
     const [stuRes, unitRes, contRes, precRes, catRes] = await Promise.all([
-      supabase.from('students').select('id, first_name, last_name, school, school_email, status, headshot_url')
+      supabase.from('students').select('id, first_name, last_name, preferred_first_name, school, school_email, status, headshot_url')
         .eq('cohort_id', activeCohortId)
-        .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,school_email.ilike.%${q}%,personal_email.ilike.%${q}%,phone.ilike.%${q}%,school.ilike.%${q}%`).limit(6),
+        .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,preferred_first_name.ilike.%${q}%,school_email.ilike.%${q}%,personal_email.ilike.%${q}%,phone.ilike.%${q}%,school.ilike.%${q}%`).limit(6),
       supabase.from('units').select('id, unit_name, division, contact_person, slots_remaining, total_slots')
         .eq('cohort_id', activeCohortId).or(`unit_name.ilike.%${q}%,contact_person.ilike.%${q}%`).limit(6),
       supabase.from('contacts').select('id, full_name, preferred_name, email, role, category, avatar_url, organization, school_name, unit_name')

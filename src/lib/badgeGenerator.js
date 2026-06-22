@@ -13,6 +13,7 @@
 // exposed as named constants so a single value change propagates everywhere.
 
 import { fullSchool } from './displayFormatters'
+import { getStudentPreferredFullName } from './studentNameFormatters'
 
 // Output dimensions: 2.5" x 3.5" at 300 DPI
 const CANVAS_W = 750
@@ -30,8 +31,8 @@ const SENTINEL = '1900-01-01'
 const FRONT = {
   // 1.03" x 1.31" frame at (0.73", 0.92") from top-left
   photo:  { x: 219, y: 276, w: 309, h: 393 },
-  // ~13pt equivalent (54px), bold, centered on 750px canvas
-  name:   { x: 375, y: 760, fontSize: 54, fontWeight: 700, color: '#545454', align: 'center' },
+  // ~13pt equivalent (54px), bold, centered on 750px canvas; maxWidth scales long names to fit.
+  name:   { x: 375, y: 760, fontSize: 54, fontWeight: 700, color: '#545454', align: 'center', maxWidth: 680 },
   // ~10.9pt equivalent (45px), centered below name; maxWidth scales long names to fit
   school: { x: 375, y: 820, fontSize: 45, fontWeight: 400, color: '#545454', align: 'center', maxWidth: 700 },
 }
@@ -262,8 +263,10 @@ export async function generateBadgePNGs({ student, rotation, headshotUrl }) {
   fCtx.fillStyle    = nc.color
   fCtx.textAlign    = nc.align
   fCtx.textBaseline = 'alphabetic'
-  const fullName    = `${(student.first_name || '').trim()} ${(student.last_name || '').trim()}`.trim()
-  fCtx.fillText(fullName, nc.x, nc.y)
+  // STUDENT-PREFERRED-FIRST-NAME-1B: badge uses the preferred full name (Brian Shin) when set;
+  // maxWidth keeps long names from overflowing the card.
+  const fullName    = getStudentPreferredFullName(student)
+  fCtx.fillText(fullName, nc.x, nc.y, nc.maxWidth)
 
   // 4. School abbreviation
   const sc = FRONT.school

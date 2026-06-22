@@ -3,6 +3,7 @@
 // matched_preceptor can be null/blank — see A.5/B.4.A). All values editable.
 import { useState } from 'react'
 import { useCheckIn } from './useCheckIn'
+import { getStudentPreferredGreetingName } from '../../lib/studentNameFormatters'
 
 const F = 'DM Sans, sans-serif'
 const SHIFT_TYPES = ['Day', 'Night', 'Mid']
@@ -18,12 +19,10 @@ const BTN_PRIMARY = {
 }
 const LINK = { background: 'none', border: 'none', color: 'var(--nightfall,#1D2567)', fontSize: 14, fontFamily: F, cursor: 'pointer', textDecoration: 'underline', padding: 8 }
 
+// STUDENT-PREFERRED-FIRST-NAME-1B: greet by preferred first name when set, falling back to legal
+// first name, then the first token of the composed name, then 'there' (all handled by the helper).
 export function deriveGreeting(student) {
-  if (!student) return 'Hi there,'
-  const name = student.full_name || student.preferred_name || student.first_name
-  if (!name || typeof name !== 'string') return 'Hi there,'
-  const token = name.trim().split(/\s+/)[0]
-  return token ? `Hi ${token},` : 'Hi there,'
+  return `Hi ${getStudentPreferredGreetingName(student)},`
 }
 
 export default function CheckInView({ student, onSuccess, onNetworkError, onPastShift, onDifferentEmail }) {

@@ -10,14 +10,9 @@ import CheckOutView from './CheckOutView'
 import LifecycleResultView from './LifecycleResultView'
 import ShiftLogPage from '../ShiftLogPage'
 import { useLookupStudent } from './useLookupStudent'
+import { getStudentPreferredGreetingName } from '../../lib/studentNameFormatters'
 
 const F = 'DM Sans, sans-serif'
-
-function firstToken(fullName) {
-  if (!fullName || typeof fullName !== 'string') return null
-  const t = fullName.trim().split(/\s+/)[0]
-  return t || null
-}
 
 export default function ShiftLogLifecycle() {
   const { lookup, loading: lookupLoading } = useLookupStudent()
@@ -54,7 +49,8 @@ export default function ShiftLogLifecycle() {
     routeLookup(r)
   }, [lookup, routeLookup])
 
-  const studentName = firstToken(studentData?.full_name)
+  // Result screens greet by preferred first name (falls back to legal first / first token / 'there').
+  const studentName = studentData ? getStudentPreferredGreetingName(studentData) : null
 
   // ── Past Shift: render the legacy form (its own shell), with a back link ────
   if (phase === 'past_shift') {

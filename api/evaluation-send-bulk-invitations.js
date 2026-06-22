@@ -39,6 +39,7 @@ import {
   TIMEPOINT_LABELS,
   formatExpiresAt,
 } from '../lib/server/evaluation/emailTemplates.js';
+import { getStudentPreferredGreetingName } from '../src/lib/studentNameFormatters.js';
 
 const FROM          = 'ASPIRE Program <noreply@aspire-program.com>';
 const REPLY_TO      = 'JesterLloyd.Bautista@cshs.org';
@@ -260,7 +261,7 @@ async function _handler(req, res, startMs) {
       // 5c. Resolve student email server-side
       const { data: student, error: studentErr } = await supabaseAdmin
         .from('students')
-        .select('id, first_name, last_name, personal_email, school_email, school')
+        .select('id, first_name, last_name, preferred_first_name, personal_email, school_email, school')
         .eq('id', student_id)
         .single();
 
@@ -273,7 +274,7 @@ async function _handler(req, res, startMs) {
         failed.push({ assignment_id, student_id, reason: 'Student has no email on file' });
         continue;
       }
-      const studentFirstName = student.first_name || 'Student';
+      const studentFirstName = getStudentPreferredGreetingName(student);  // preferred → legal → 'there'
       const studentName      = `${student.first_name || ''} ${student.last_name || ''}`.trim();
 
       // 5d. Build email — survey_url used only in email body, never stored/logged

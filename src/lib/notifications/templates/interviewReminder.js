@@ -2,6 +2,7 @@
 // 24-hour interview reminder email sent to students.
 
 import { JESTER_SIGNATURE } from './signatures.js';
+import { escapeHtml } from '../../htmlEscape.js';
 
 const NAVY   = '#1D2567';   // Nightfall — ASPIRE Intelligence primary brand color
 const SAND   = '#F4F1EC';
@@ -54,7 +55,7 @@ export function buildInterviewReminderEmail({ firstName, interviewDate, intervie
   const preheader = `Your interview details, what to expect, and a few small things that might help.`;
 
   const body = `
-<p style="margin:0 0 16px;">Hi ${firstName},</p>
+<p style="margin:0 0 16px;">Hi ${escapeHtml(firstName)},</p>
 
 <p style="margin:0 0 16px;">Looking forward to meeting you tomorrow. Your interview with our Nursing Professional Development team is one of the last steps before we work on your unit placement, and we want you to feel as prepared and at ease as possible going in.</p>
 

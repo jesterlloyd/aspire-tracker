@@ -57,6 +57,7 @@ import { CARD } from '../lib/designTokens'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import { formatSchoolProgram } from '../lib/displayFormatters'
 import { shiftBadge } from '../lib/shiftStatus'
+import { getStudentPreferredFirstName, getStudentPreferredFullName } from '../lib/studentNameFormatters'
 
 // SHIFT-VIS-1: tone → pill colors for the On Campus Now shift badge.
 const SHIFT_BADGE_TONES = {
@@ -263,8 +264,8 @@ export default function StudentCard({ student, variant, onClick, variantProps = 
   const pct        = completion?.percentage ?? 0
   const badgeBg    = pct >= 100 ? '#16a34a' : pct >= 67 ? '#f59e0b' : '#E2569C'
 
-  // Short display name
-  const shortName = `${student.first_name || ''} ${(student.last_name || '')[0] || ''}.`.trim()
+  // Short display name — STUDENT-PREFERRED-FIRST-NAME-1B: preferred first name + last initial.
+  const shortName = `${getStudentPreferredFirstName(student)} ${(student.last_name || '')[0] || ''}.`.trim()
 
   const handleKey = (e) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.() }
@@ -283,7 +284,7 @@ export default function StudentCard({ student, variant, onClick, variantProps = 
     <div
       role="button"
       tabIndex={0}
-      aria-label={`${student.first_name} ${student.last_name}`}
+      aria-label={getStudentPreferredFullName(student)}
       onClick={onClick}
       onKeyDown={handleKey}
       onMouseEnter={() => setHovered(true)}

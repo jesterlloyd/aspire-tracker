@@ -26,6 +26,7 @@ import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { generateToken } from '../lib/server/evaluation/tokens.js';
 import { buildStudentEvalInvitationEmail, formatExpiresAt } from '../lib/server/evaluation/studentEvalEmailTemplates.js';
 import { classifyStudentEvalCohort } from '../src/lib/evaluation/studentEvalDueDetection.js';
+import { getStudentPreferredFirstName } from '../src/lib/studentNameFormatters.js';
 
 const INSTRUMENT_SLUG  = 'student_preceptor_eval';
 const TIMEPOINT        = 'post_rotation';
@@ -135,7 +136,7 @@ async function _handler(req, res) {
   // ── 4. Load detection inputs for THIS student (read-only) and re-run SR-2b-1. ────
   const { data: student, error: studentErr } = await supabaseAdmin
     .from('students')
-    .select('id, first_name, last_name, school, program_type, cohort_id, approved_hours, hours_required, personal_email, school_email, preceptor_id, matched_preceptor')
+    .select('id, first_name, last_name, preferred_first_name, school, program_type, cohort_id, approved_hours, hours_required, personal_email, school_email, preceptor_id, matched_preceptor')
     .eq('id', studentId)
     .single();
   if (studentErr || !student) {
@@ -278,7 +279,7 @@ async function _handler(req, res) {
   const baseUrl = host ? `${proto}://${host}` : (process.env.VITE_APP_URL || 'https://aspire-tracker.vercel.app');
   const surveyUrl = `${baseUrl}/evaluation/experience#t=${rawToken}`;
   const expiresAtHuman = formatExpiresAt(expiresAt.toISOString());
-  const studentFirstName = student.first_name || '';
+  const studentFirstName = getStudentPreferredFirstName(student);  // preferred → legal; '' keeps 'Hello,' fallback
 
   // ── 11. Send via Resend. ─────────────────────────────────────────────────────────
   const resend = new Resend(process.env.RESEND_API_KEY);

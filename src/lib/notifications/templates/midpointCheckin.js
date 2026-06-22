@@ -3,6 +3,7 @@
 // Template version: v1.0
 
 import { JESTER_SIGNATURE } from './signatures.js';
+import { escapeHtml } from '../../htmlEscape.js';
 
 const NAVY   = '#1D2567';   // Nightfall — ASPIRE Intelligence primary brand color
 const SAND   = '#F4F1EC';
@@ -59,7 +60,7 @@ export function buildMidpointCheckinEmail({ firstName, approvedHours, hoursRequi
     : '';
 
   const body = `
-<p style="margin:0 0 16px;">Hi ${firstName},</p>
+<p style="margin:0 0 16px;">Hi ${escapeHtml(firstName)},</p>
 
 <p style="margin:0 0 16px;">I hope your rotation is going well. I wanted to reach out directly to check in — not as a formality, but because I genuinely want to know how things are going for you.</p>
 

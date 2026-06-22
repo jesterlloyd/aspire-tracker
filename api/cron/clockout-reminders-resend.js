@@ -30,6 +30,7 @@ import {
 import { sendNotification } from '../../src/lib/notifications/index.js';
 import { CLOCKOUT_REMINDER_SUBJECT, clockoutReminderText } from '../../src/lib/notifications/templates/clockoutReminder.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
+import { getStudentPreferredGreetingName } from '../../src/lib/studentNameFormatters.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -93,7 +94,7 @@ export default async function handler(req, res) {
     if (studentIds.length) {
       const { data: students, error: stuErr } = await supabase
         .from('students')
-        .select('id, first_name, last_name, school, school_email')
+        .select('id, first_name, last_name, preferred_first_name, school, school_email')
         .in('id', studentIds);
       if (stuErr) {
         console.error('[clockout-reminders-resend] students query error:', stuErr);
@@ -128,7 +129,7 @@ export default async function handler(req, res) {
         continue;
       }
 
-      const firstName = stu?.first_name || 'there';
+      const firstName = getStudentPreferredGreetingName(stu);
       const row = {
         ...rowSummary(log, stu, nowMs),
         recipient:     schoolEmail,

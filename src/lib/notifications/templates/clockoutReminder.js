@@ -5,6 +5,8 @@
 // CLOCKOUT-EMAIL-BRAND-1 — uses the shared Nightfall/Cedars branded shell (same header markup as the
 // coordinator digest: navy header, reversed CS logo, ASPIRE Program / Brawerman Nursing Institute).
 
+import { escapeHtml } from '../../htmlEscape.js';
+
 const NAVY  = '#1D2567';   // Nightfall — ASPIRE Intelligence primary brand color
 const SAND  = '#F4F1EC';   // Sand — ASPIRE app background
 const RAVEN = '#191919';   // Near-black body text
@@ -71,7 +73,7 @@ export function buildClockoutReminderEmail({ firstName } = {}) {
   const name = (firstName && String(firstName).trim()) || 'there';
   const preheader = 'Your ASPIRE shift still appears open in the tracker.';
   const body = `
-    <p style="margin:0 0 16px;">Hi ${name},</p>
+    <p style="margin:0 0 16px;">Hi ${escapeHtml(name)},</p>
     <p style="margin:0 0 16px;">Your ASPIRE shift still appears open in the tracker. If your shift has ended, please clock out as soon as possible.</p>
     <p style="margin:0 0 20px;">If you are still on shift, no action is needed at this time.</p>
     <p style="margin:0 0 4px;">Thank you,</p>

@@ -12,6 +12,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { sendNotification } from '../src/lib/notifications/index.js';
 import { buildMidpointCheckinEmail } from '../src/lib/notifications/templates/midpointCheckin.js';
+import { getStudentPreferredGreetingName } from '../src/lib/studentNameFormatters.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -59,7 +60,7 @@ export default async function handler(req, res) {
   // Fetch student
   const { data: student, error: studentErr } = await supabase
     .from('students')
-    .select('id, first_name, last_name, school_email, personal_email, cohort_id, approved_hours, hours_required, matched_unit_id')
+    .select('id, first_name, last_name, preferred_first_name, school_email, personal_email, cohort_id, approved_hours, hours_required, matched_unit_id')
     .eq('id', studentId)
     .single();
 
@@ -84,7 +85,7 @@ export default async function handler(req, res) {
   }
 
   const ctx = {
-    firstName:     student.first_name || 'there',
+    firstName:     getStudentPreferredGreetingName(student),
     approvedHours: parseFloat(student.approved_hours || 0),
     hoursRequired: parseFloat(student.hours_required || 0),
     unitName,
