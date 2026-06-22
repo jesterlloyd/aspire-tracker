@@ -300,7 +300,7 @@ export default function InterviewSchedulePage() {
             </div>
 
             {/* Part A: Calendar grid */}
-            <div style={{ marginTop:20, background:'#fff', border:'1px solid #e5e7eb', borderRadius:12, overflow:'hidden' }}>
+            <div className="uf-cal" style={{ marginTop:20, background:'#fff', border:'1px solid #e5e7eb', borderRadius:12, overflow:'hidden' }}>
               {/* Calendar header */}
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px', borderBottom:'1px solid #f3f4f6' }}>
                 <button onClick={prevMonth} disabled={!canGoPrev}

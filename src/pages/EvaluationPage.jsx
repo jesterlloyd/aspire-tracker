@@ -63,7 +63,7 @@ const EVAL_CSS = `
     border: 1px solid #d1d5db;
     border-radius: 6px;
     padding: 9px 12px;
-    font-size: 14px;
+    font-size: 16px; /* FORMS-MOBILE-RESPONSIVE: prevent iOS auto-zoom */
     font-family: 'DM Sans', system-ui, sans-serif;
     color: #191919;
     box-sizing: border-box;
@@ -76,7 +76,7 @@ const EVAL_CSS = `
     border: 1px solid #d1d5db;
     border-radius: 6px;
     padding: 9px 12px;
-    font-size: 14px;
+    font-size: 16px; /* FORMS-MOBILE-RESPONSIVE: prevent iOS auto-zoom */
     font-family: 'DM Sans', system-ui, sans-serif;
     color: #191919;
     width: 100%;

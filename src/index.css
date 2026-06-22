@@ -980,9 +980,10 @@ body { min-height: 100vh; }
 .uf-field   { display: flex; flex-direction: column; gap: 6px; }
 .uf-label   { font-size: 13px; font-weight: 600; color: var(--raven); }
 
-.uf-input, .uf-textarea {
+.uf-input, .uf-textarea, .uf-select {
   padding: 10px 14px; border: 1px solid var(--border); border-radius: 4px;
-  font-size: 14px; color: var(--raven); background: var(--pearl); outline: none;
+  /* FORMS-MOBILE-RESPONSIVE: 16px prevents iOS Safari auto-zoom on focus. */
+  font-size: 16px; color: var(--raven); background: var(--pearl); outline: none;
   transition: border-color 0.12s, box-shadow 0.12s;
 }
 .uf-input:focus, .uf-textarea:focus { border-color: var(--nova); box-shadow: 0 0 0 2px var(--nova-tint); }
@@ -2463,6 +2464,21 @@ a.doc-file-link:hover { text-decoration: underline; }
   .units-grid     { grid-template-columns: repeat(2, 1fr); }
   .students-pool  { grid-template-columns: 1fr; }
   .sf-row-2, .sf-row-3 { grid-template-columns: 1fr; }
+  /* FORMS-MOBILE-RESPONSIVE: lighter public-form padding + stack upload grid on tablet/phone. */
+  .uf-page { padding: 24px 16px 48px; }
+  .uf-card { padding: 24px; }
+  .uf-card-confirm { padding: 32px 24px; }
+  .doc-section { grid-template-columns: 1fr; }
+}
+
+/* FORMS-MOBILE-RESPONSIVE: phone tightening — trim card padding further and let the public-form
+   calendar reclaim horizontal room so day cells stay comfortable tap targets (>=44px). */
+@media (max-width: 480px) {
+  .uf-page { padding: 16px 12px 40px; }
+  .uf-card { padding: 16px; }
+  .uf-card-confirm { padding: 28px 18px; }
+  .sf-row-2, .sf-row-3, .doc-section { grid-template-columns: 1fr; }
+  .uf-cal { margin-left: -8px; margin-right: -8px; }
 }
 
 /* ================================================================
