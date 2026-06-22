@@ -376,18 +376,22 @@ function MainApp({ onLogout }) {
   useEffect(() => {
     if (!currentUserProfile?.auth_user_id || !activeCohortId) return
 
-    const completed = currentUserProfile.onboarding_tour_completed === true &&
-                      currentUserProfile.onboarding_tour_version === TOUR_VERSION
-    const dismissed = currentUserProfile.onboarding_tour_dismissed === true
-    const snoozed   = sessionStorage.getItem('onboarding_tour_snoozed') === 'true'
+    // WELCOME-TOUR-REFRESH-RESET: acknowledgement is version-scoped — completing OR dismissing
+    // counts only for the version it was made against. A TOUR_VERSION bump therefore re-shows the
+    // tour once to everyone (completed AND previously-dismissed users), with no data mutation.
+    // Wait until the tour fields are loaded (undefined = profile/migration not ready yet).
+    if (currentUserProfile.onboarding_tour_completed === undefined) return
 
-    if (completed || dismissed || snoozed) {
-      setTourRunning(false)  // ensure tour is off if user refreshes after completing
+    const acknowledgedCurrent =
+      (currentUserProfile.onboarding_tour_completed === true ||
+       currentUserProfile.onboarding_tour_dismissed === true) &&
+      currentUserProfile.onboarding_tour_version === TOUR_VERSION
+    const snoozed = sessionStorage.getItem('onboarding_tour_snoozed') === 'true'
+
+    if (acknowledgedCurrent || snoozed) {
+      setTourRunning(false)  // ensure tour is off if user refreshes after acknowledging
       return
     }
-
-    // Only start if migration has run (column exists as false, not undefined)
-    if (currentUserProfile.onboarding_tour_completed !== false) return
 
     switchTab('overview')
     setTimeout(() => setTourRunning(true), 700)

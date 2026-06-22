@@ -1,4 +1,6 @@
-export const TOUR_VERSION = 'v1';
+// WELCOME-TOUR-REFRESH-RESET: bumped v1 → v2 to re-show the refreshed, role-aware tour
+// (adds ASPIRE Catalog; interviewers skip Rotation/Evaluation/Connect) once to everyone.
+export const TOUR_VERSION = 'v2';
 
 // ── Step definitions ─────────────────────────────────────────────────────────
 // TOUR-1: copy refreshed to current ASPIRE Intelligence terminology and the
@@ -30,7 +32,16 @@ const stepAggregate = {
 const stepStudentProfiles = {
   target: '[data-tour="tab-student-profiles"]',
   title: 'Student Profiles',
-  content: 'Review student records — school, program, GPA, unit preferences, status, and rotation progress. The side panel opens the full profile.',
+  content: 'Browse the cohort as a grid or list — names show a student’s preferred first name, with a profile-completion indicator. Open any student to review school, program, GPA, unit preferences, status, and rotation progress in the side panel.',
+};
+
+const stepCatalog = {
+  target: '[data-tour="catalog"]',
+  title: 'ASPIRE Catalog',
+  content: 'Curated resources, guides, forms, and documents for the ASPIRE Program — open it anytime from the header.',
+  placement: 'bottom-end',
+  spotlightPadding: 6,
+  disableBeacon: true,
 };
 
 const stepInterviewRubric = {
@@ -113,53 +124,64 @@ export function getTourSteps(userProfile) {
   const role = userProfile?.role;
   const isPrivileged = userProfile?.is_owner === true || ['admin', 'co-lead', 'co_lead'].includes(role);
 
+  // Sequence logic: Welcome → Cohort Picker (context) → main workflow TABS in order →
+  // header/taskbar TOOLS in order → Finish.
   if (isPrivileged) {
+    // Owner / Admin / Co-Lead — full tour incl. Catalog, Rotation, Evaluation, Connect.
     return [
       stepWelcome(firstName),
       stepCohortSwitcher,
+      // workflow tabs
       stepAggregate,
       stepStudentProfiles,
       stepInterviewRubric,
       stepEmbed,
       stepEvaluation,
-      stepConnect,
-      stepActionCenter,
+      // header tools
       stepSearch,
+      stepConnect,
+      stepCatalog,
+      stepActionCenter,
+      stepUserMenu,
       stepKeith,
       stepFeedback,
-      stepUserMenu,
       stepFinish,
     ];
   }
 
   if (role === 'interviewer') {
+    // Interviewers get Catalog but NOT Rotation / Evaluation / Connect — those are restricted
+    // (overlay-only) or owner/admin-oriented, so the tour does not walk them through those areas.
     return [
       stepWelcome(firstName),
       stepCohortSwitcher,
+      // workflow tabs (no Rotation / Evaluation)
       stepAggregate,
       stepStudentProfiles,
       stepInterviewRubric,
-      stepEvaluation,
-      stepActionCenter,
+      // header tools (no Connect)
       stepSearch,
+      stepCatalog,
+      stepUserMenu,
       stepKeith,
       stepFeedback,
-      stepUserMenu,
       stepFinish,
     ];
   }
 
-  // Viewer and default
+  // Viewer and default — conservative; Catalog is NOT shown (not visible to viewers).
   return [
     stepWelcome(firstName),
     stepCohortSwitcher,
+    // workflow tabs
     stepAggregate,
     stepStudentProfiles,
     stepInterviewRubric,
     stepEvaluation,
+    // header tools
     stepSearch,
-    stepKeith,
     stepUserMenu,
+    stepKeith,
     stepFinish,
   ];
 }

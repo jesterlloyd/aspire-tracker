@@ -86,9 +86,11 @@ export default function CustomOnboardingTour({ run, onClose }) {
   async function markDismissed(permanent) {
     if (!userProfile?.auth_user_id) return;
     if (permanent) {
+      // WELCOME-TOUR-REFRESH-RESET: stamp the version so "Don't show again" is version-scoped —
+      // a user who dismissed v1 still sees v2 once; dismissing v2 suppresses only v2.
       await supabase
         .from('user_profiles')
-        .update({ onboarding_tour_dismissed: true })
+        .update({ onboarding_tour_dismissed: true, onboarding_tour_version: TOUR_VERSION })
         .eq('auth_user_id', userProfile.auth_user_id);
       if (typeof refreshUserProfile === 'function') await refreshUserProfile();
     } else {
