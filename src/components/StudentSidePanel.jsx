@@ -32,6 +32,7 @@ import { logActivity } from '../lib/logActivity'
 import ConflictDialog from './ConflictDialog'
 import { generateBadgePNGs, calculateBadgeDates } from '../lib/badgeGenerator'
 import { getStudentLegalDisplayName } from '../lib/studentNameFormatters'
+import { isLegacyNonIsoDateValue, dateInputValue } from '../lib/csLinkDateUtils'
 import { usePreceptors } from '../hooks/usePreceptors'
 import { resolvePreceptor } from '../lib/preceptor'
 import PreceptorAssignmentModal from './PreceptorAssignmentModal'
@@ -173,6 +174,26 @@ function SectionCard({ icon: Icon, title, bg, iconColor, children, headerExtra }
     </div>
   )
 }
+// CSLINK-DATE-PICKER-DATA-RECOVERY: a CS-Link date input that surfaces a LEGACY non-ISO stored
+// value (which <input type="date"> cannot display) as visible text instead of a silent blank.
+// The picker stays cleanly empty for legacy values; selecting a real date saves it as ISO. Opening
+// the profile never saves, and the legacy value is never auto-blanked (onChange only fires on a
+// deliberate pick/clear).
+function CsLinkDateField({ value, onChange }) {
+  const legacy = isLegacyNonIsoDateValue(value)
+  return (
+    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 2 }}>
+      <input className="csw-date-input" type="date" placeholder="Date"
+        value={dateInputValue(value)} onChange={onChange} />
+      {legacy && (
+        <span style={{ fontSize: 11, color: '#92400e', fontFamily: 'DM Sans, sans-serif' }}>
+          Existing value: {value} — re-enter to update.
+        </span>
+      )}
+    </span>
+  )
+}
+
 function Field({ label, children, fieldKey }) {
   const savedField = useContext(FieldSavedCtx)
   const isSaved = fieldKey && savedField === fieldKey
@@ -1739,8 +1760,8 @@ export default function StudentSidePanel({
                         Submitted to Service Center
                       </label>
                       {data.cs_stage1_submitted && (
-                        <input className="csw-date-input" type="date" value={data.cs_stage1_submitted_date||''}
-                          placeholder="Date" onChange={e => handleText('cs_stage1_submitted_date', e.target.value)} />
+                        <CsLinkDateField value={data.cs_stage1_submitted_date}
+                          onChange={e => handleText('cs_stage1_submitted_date', e.target.value)} />
                       )}
                     </div>
                   </>
@@ -1764,8 +1785,8 @@ export default function StudentSidePanel({
                         Submitted to Service Center
                       </label>
                       {data.cs_stage1_submitted && (
-                        <input className="csw-date-input" type="date" value={data.cs_stage1_submitted_date||''}
-                          placeholder="Date" onChange={e => handleText('cs_stage1_submitted_date', e.target.value)} />
+                        <CsLinkDateField value={data.cs_stage1_submitted_date}
+                          onChange={e => handleText('cs_stage1_submitted_date', e.target.value)} />
                       )}
                     </div>
                   </>
@@ -1789,8 +1810,8 @@ export default function StudentSidePanel({
                         Account is active in the system
                       </label>
                       {data.cs_stage1_complete && (
-                        <input className="csw-date-input" type="date" value={data.cs_stage1_complete_date||''}
-                          placeholder="Date" onChange={e => handleText('cs_stage1_complete_date', e.target.value)} />
+                        <CsLinkDateField value={data.cs_stage1_complete_date}
+                          onChange={e => handleText('cs_stage1_complete_date', e.target.value)} />
                       )}
                     </div>
                     <p className="csw-note">Confirm the Service Center request was processed and the student's account is active before adding CS-Link.</p>
@@ -1811,8 +1832,8 @@ export default function StudentSidePanel({
                     CS-Link access requested
                   </label>
                   {data.cs_link_requested && (
-                    <input className="csw-date-input" type="date" value={data.cs_link_requested_date||''}
-                      placeholder="Date" onChange={e => handleText('cs_link_requested_date', e.target.value)} />
+                    <CsLinkDateField value={data.cs_link_requested_date}
+                      onChange={e => handleText('cs_link_requested_date', e.target.value)} />
                   )}
                 </div>
                 {data.cs_link_requested && (
@@ -1824,8 +1845,8 @@ export default function StudentSidePanel({
                       CS-Link confirmed active and working
                     </label>
                     {data.cs_link_complete && (
-                      <input className="csw-date-input" type="date" value={data.cs_link_complete_date||''}
-                        placeholder="Date" onChange={e => handleText('cs_link_complete_date', e.target.value)} />
+                      <CsLinkDateField value={data.cs_link_complete_date}
+                        onChange={e => handleText('cs_link_complete_date', e.target.value)} />
                     )}
                   </div>
                 )}

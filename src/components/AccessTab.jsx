@@ -1,8 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { ASPIRE_STATUSES } from '../lib/constants'
 import { displayName, downloadCSV, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
+import { isIsoDateString, isLegacyNonIsoDateValue, dateInputValue } from '../lib/csLinkDateUtils'
 import StudentAvatar from './StudentAvatar'
+
+// CSLINK-DATE-PICKER-DATA-RECOVERY: the four CS-Link date columns are TEXT and may hold legacy
+// non-ISO values. We only ever WRITE a date field the user actually touched — untouched fields are
+// omitted from the save so a legacy value is never coerced to null.
+const CSLINK_DATE_FIELDS = ['cs_stage1_submitted_date', 'cs_stage1_complete_date', 'cs_link_requested_date', 'cs_link_complete_date']
 
 const STAGE1_ACTION_LABELS = {
   add_non_employee:  'Add Non-Employee',
@@ -136,6 +142,8 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
   const [formData, setFormData] = useState(null)
   const [isDirty,  setIsDirty]  = useState(false)
   const [saving,   setSaving]   = useState(false)
+  // Which CS-Link date fields the user actually edited this session (reset when the student changes).
+  const touchedDatesRef = useRef(new Set())
 
   // Sync from server ONLY when:
   //   1. student.id is known
@@ -147,6 +155,7 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
     if (!student?.id) return
     if (formData?._sourceStudentId === student.id) return
     if (isDirty) return
+    touchedDatesRef.current = new Set()   // fresh student → no date edits yet
     setFormData({
       _sourceStudentId:         student.id,
       cs_cedars_status:         student.cs_cedars_status         ?? '',
@@ -187,6 +196,7 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
 
   // Update a date or text field in local state only — no save yet.
   const handleChangeField = (field, value) => {
+    if (CSLINK_DATE_FIELDS.includes(field)) touchedDatesRef.current.add(field)
     setFormData(prev => ({ ...prev, [field]: value }))
     setIsDirty(true)
   }
@@ -211,21 +221,23 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
     if (!student?.id || !formData || saving) return
     setSaving(true)
 
-    // WS1e-A4 (corr.3): dates must be exact YYYY-MM-DD; coerce any legacy/free-text
-    // value to null so a stale non-ISO date never blocks a save.
-    const isoOrNull = v => (/^\d{4}-\d{2}-\d{2}$/.test(v || '') ? v : null)
+    // CSLINK-DATE-PICKER-DATA-RECOVERY: never overwrite a legacy non-ISO date. Booleans / status /
+    // notes always save atomically; a date field is written ONLY if the user touched it this session
+    // — then a valid pick saves as ISO and an intentional clear saves null. Untouched date fields are
+    // OMITTED entirely, so the stored value (ISO or legacy free-text) is preserved as-is.
     const payload = {
-      cs_cedars_status:         formData.cs_cedars_status         || null,
-      cs_stage1_action:         formData.cs_stage1_action         || null,
-      cs_stage1_submitted:      formData.cs_stage1_submitted,
-      cs_stage1_submitted_date: isoOrNull(formData.cs_stage1_submitted_date),
-      cs_stage1_complete:       formData.cs_stage1_complete,
-      cs_stage1_complete_date:  isoOrNull(formData.cs_stage1_complete_date),
-      cs_link_requested:        formData.cs_link_requested,
-      cs_link_requested_date:   isoOrNull(formData.cs_link_requested_date),
-      cs_link_complete:         formData.cs_link_complete,
-      cs_link_complete_date:    isoOrNull(formData.cs_link_complete_date),
-      cs_access_notes:          formData.cs_access_notes          || null,
+      cs_cedars_status:    formData.cs_cedars_status || null,
+      cs_stage1_action:    formData.cs_stage1_action || null,
+      cs_stage1_submitted: formData.cs_stage1_submitted,
+      cs_stage1_complete:  formData.cs_stage1_complete,
+      cs_link_requested:   formData.cs_link_requested,
+      cs_link_complete:    formData.cs_link_complete,
+      cs_access_notes:     formData.cs_access_notes || null,
+    }
+    for (const f of CSLINK_DATE_FIELDS) {
+      if (!touchedDatesRef.current.has(f)) continue   // untouched → preserve stored value (omit)
+      const v = formData[f]
+      payload[f] = isIsoDateString(v) ? v : null       // touched: valid ISO, else intentional clear → null
     }
 
     console.log('[CS-Link save] sending:', payload)
@@ -303,10 +315,15 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
             {/* Date rendered only when checked, but value comes from formData
                 so it's preserved when unchecked and restored on re-check */}
             {formData.cs_stage1_submitted && (
-              <input type="date" className="am-date-input"
-                value={formData.cs_stage1_submitted_date || ''}
-                onChange={e => handleChangeField('cs_stage1_submitted_date', e.target.value)}
-                placeholder="Date" />
+              <>
+                <input type="date" className="am-date-input"
+                  value={dateInputValue(formData.cs_stage1_submitted_date)}
+                  onChange={e => handleChangeField('cs_stage1_submitted_date', e.target.value)}
+                  placeholder="Date" />
+                {isLegacyNonIsoDateValue(formData.cs_stage1_submitted_date) && (
+                  <span style={{ fontSize:9, color:'#92400e', display:'block' }} title="Legacy value — re-enter to update">was: {formData.cs_stage1_submitted_date}</span>
+                )}
+              </>
             )}
           </div>
         )}
@@ -319,10 +336,15 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
             checked={formData.cs_stage1_complete || false}
             onChange={() => handleToggleBox('cs_stage1_complete')} />
           {formData.cs_stage1_complete && (
-            <input type="date" className="am-date-input"
-              value={formData.cs_stage1_complete_date || ''}
-              onChange={e => handleChangeField('cs_stage1_complete_date', e.target.value)}
-              placeholder="Date" />
+            <>
+              <input type="date" className="am-date-input"
+                value={dateInputValue(formData.cs_stage1_complete_date)}
+                onChange={e => handleChangeField('cs_stage1_complete_date', e.target.value)}
+                placeholder="Date" />
+              {isLegacyNonIsoDateValue(formData.cs_stage1_complete_date) && (
+                <span style={{ fontSize:9, color:'#92400e', display:'block' }} title="Legacy value — re-enter to update">was: {formData.cs_stage1_complete_date}</span>
+              )}
+            </>
           )}
         </div>
       </td>
@@ -338,10 +360,15 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
               Requested
             </label>
             {formData.cs_link_requested && (
-              <input type="date" className="am-date-input"
-                value={formData.cs_link_requested_date || ''}
-                onChange={e => handleChangeField('cs_link_requested_date', e.target.value)}
-                placeholder="Date" />
+              <>
+                <input type="date" className="am-date-input"
+                  value={dateInputValue(formData.cs_link_requested_date)}
+                  onChange={e => handleChangeField('cs_link_requested_date', e.target.value)}
+                  placeholder="Date" />
+                {isLegacyNonIsoDateValue(formData.cs_link_requested_date) && (
+                  <span style={{ fontSize:9, color:'#92400e', display:'block' }} title="Legacy value — re-enter to update">was: {formData.cs_link_requested_date}</span>
+                )}
+              </>
             )}
           </div>
           <div className="am-access-cell">
@@ -352,10 +379,15 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
               Complete
             </label>
             {formData.cs_link_complete && (
-              <input type="date" className="am-date-input"
-                value={formData.cs_link_complete_date || ''}
-                onChange={e => handleChangeField('cs_link_complete_date', e.target.value)}
-                placeholder="Date" />
+              <>
+                <input type="date" className="am-date-input"
+                  value={dateInputValue(formData.cs_link_complete_date)}
+                  onChange={e => handleChangeField('cs_link_complete_date', e.target.value)}
+                  placeholder="Date" />
+                {isLegacyNonIsoDateValue(formData.cs_link_complete_date) && (
+                  <span style={{ fontSize:9, color:'#92400e', display:'block' }} title="Legacy value — re-enter to update">was: {formData.cs_link_complete_date}</span>
+                )}
+              </>
             )}
           </div>
         </div>
