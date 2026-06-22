@@ -13,9 +13,12 @@ const F = 'DM Sans, sans-serif'
 export default function RestrictedAccessOverlay({ title, body, contact }) {
   return (
     <div style={{
-      position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      // RESTRICTED-ACCESS-OVERLAY-VERTICAL-ALIGNMENT: the card is anchored to a CONSISTENT, viewport-
+      // relative top offset (not vertically centered within the container), so it lands at the same
+      // on-screen height in every tab regardless of how tall that tab's content is.
+      position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
       background: 'rgba(244,241,236,0.55)', backdropFilter: 'blur(2px)', WebkitBackdropFilter: 'blur(2px)',
-      zIndex: 10, padding: 20,
+      zIndex: 10, padding: '15vh 20px 20px',
     }}>
       <div style={{
         maxWidth: 520, background: '#ffffff', border: '1px solid #E5E7EB', borderRadius: 12,
