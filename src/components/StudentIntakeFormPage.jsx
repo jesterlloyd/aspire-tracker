@@ -52,7 +52,7 @@ const CS_WITH_DEPT    = ['Current Employee', 'Former Employee', 'Volunteer']
 
 const initForm = () => ({
   school_email: '',
-  first_name: '', last_name: '', personal_email: '', phone: '',
+  first_name: '', last_name: '', preferred_first_name: '', personal_email: '', phone: '',
   date_of_birth: '', ssn_last4: '', gender: '',
   cumulative_gpa: '', shift_availability: '',
   has_prior_experience: null,
@@ -248,6 +248,7 @@ export default function StudentIntakeFormPage() {
       school_email:               cleanEmail,
       first_name:                 form.first_name.trim(),
       last_name:                  form.last_name.trim(),
+      preferred_first_name:       form.preferred_first_name.trim(),
       personal_email:             form.personal_email.trim(),
       phone:                      form.phone.trim(),
       date_of_birth:              form.date_of_birth,
@@ -370,6 +371,16 @@ export default function StudentIntakeFormPage() {
                 <label className="uf-label">Last Name *</label>
                 <input className="uf-input" value={form.last_name}
                   onChange={e => set('last_name', e.target.value)} placeholder="Last" />
+              </div>
+            </div>
+
+            {/* STUDENT-PREFERRED-FIRST-NAME-1A: optional preferred FIRST name (last name unchanged). */}
+            <div className="uf-field">
+              <label className="uf-label">Preferred first name (if different from legal first name)</label>
+              <input className="uf-input" value={form.preferred_first_name}
+                onChange={e => set('preferred_first_name', e.target.value)} placeholder="e.g. Emi" />
+              <div style={{ fontSize: 12, color: '#6b7280', marginTop: 5, lineHeight: 1.4 }}>
+                If you go by a different first name in conversation, you can enter it here. We’ll use it in emails, shift logs, and badges.
               </div>
             </div>
 

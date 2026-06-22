@@ -82,7 +82,7 @@ const STAGE1_ACTIONS  = ['add_non_employee', 'assignment_change', 'extend_end_da
 const CONTACT_FIELDS = ['personal_email', 'phone']
 // WS1e-A4 (corr.2): `name` is NOT client-writable — server composes it from
 // first_name/last_name. Client may submit first_name and/or last_name only.
-const PROFILE_FIELDS = ['first_name', 'last_name', 'date_of_birth', 'gender', 'cumulative_gpa', 'program_type', 'shift_availability', 'prior_healthcare_experience', 'cs_affiliation', 'cs_department', 'cs_role', 'interest_statement', 'resume_url', 'headshot_url']
+const PROFILE_FIELDS = ['first_name', 'last_name', 'preferred_first_name', 'date_of_birth', 'gender', 'cumulative_gpa', 'program_type', 'shift_availability', 'prior_healthcare_experience', 'cs_affiliation', 'cs_department', 'cs_role', 'interest_statement', 'resume_url', 'headshot_url']
 const REQUIREMENT_FIELDS = ['hours_required']
 const CSLINK_FIELDS  = ['cs_cedars_status', 'cs_stage1_action', 'cs_stage1_submitted', 'cs_stage1_submitted_date', 'cs_stage1_complete', 'cs_stage1_complete_date', 'cs_link_requested', 'cs_link_requested_date', 'cs_link_complete', 'cs_link_complete_date', 'cs_access_notes']
 const CSLINK_PAIRS = [['cs_stage1_submitted', 'cs_stage1_submitted_date'], ['cs_stage1_complete', 'cs_stage1_complete_date'], ['cs_link_requested', 'cs_link_requested_date'], ['cs_link_complete', 'cs_link_complete_date']]
@@ -103,6 +103,7 @@ function validateA4Field(k, v) {
     case 'phone':                     return typeof v === 'string' && v.length <= 40
     case 'first_name':
     case 'last_name':
+    case 'preferred_first_name':      // optional; '' clears it (normalized to null on save)
     case 'name':                      return typeof v === 'string' && v.length <= 120
     case 'date_of_birth':             return v === '' || v === null || isValidYMD(v)
     case 'gender':                    return typeof v === 'string' && v.length <= 50
@@ -472,6 +473,11 @@ export default async function handler(req, res) {
       if (!stu) return res.status(404).json({ error: 'not_found' })
       const upd = {}
       for (const k of supplied) upd[k] = payload[k]
+      // STUDENT-PREFERRED-FIRST-NAME-1A: blank preferred first name clears to null (legal name untouched).
+      if (upd.preferred_first_name !== undefined) {
+        const p = (upd.preferred_first_name || '').trim()
+        upd.preferred_first_name = p || null
+      }
       // Server-compose name from the resulting first/last whenever either changes.
       if (upd.first_name !== undefined || upd.last_name !== undefined) {
         const f = (upd.first_name !== undefined ? upd.first_name : (stu.first_name || '')).trim()

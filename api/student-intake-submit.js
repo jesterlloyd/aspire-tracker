@@ -36,7 +36,7 @@ function getDb() {
 // Exact accepted top-level keys (student-entered intake fields only).
 const ALLOWED_BODY_KEYS = [
   'school_email',                 // binding key (used to resolve the student; not overwritten)
-  'first_name', 'last_name', 'personal_email', 'phone',
+  'first_name', 'last_name', 'preferred_first_name', 'personal_email', 'phone',
   'date_of_birth', 'ssn_last4', 'gender',
   'cs_affiliation', 'cs_department', 'cs_role',
   'prior_healthcare_experience',
@@ -164,6 +164,8 @@ export default async function handler(req, res) {
     first_name: firstName,
     last_name: lastName,
     name: `${firstName} ${lastName}`,
+    // STUDENT-PREFERRED-FIRST-NAME-1A: optional; blank → null. Does NOT affect the composed `name`.
+    preferred_first_name: str(body.preferred_first_name) || null,
     personal_email: normalizeEmailForLookup(body.personal_email), // store normalized going forward
     phone: str(body.phone),
     date_of_birth: str(body.date_of_birth) || null,

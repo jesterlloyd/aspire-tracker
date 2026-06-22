@@ -31,6 +31,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { logActivity } from '../lib/logActivity'
 import ConflictDialog from './ConflictDialog'
 import { generateBadgePNGs, calculateBadgeDates } from '../lib/badgeGenerator'
+import { getStudentLegalDisplayName } from '../lib/studentNameFormatters'
 import { usePreceptors } from '../hooks/usePreceptors'
 import { resolvePreceptor } from '../lib/preceptor'
 import PreceptorAssignmentModal from './PreceptorAssignmentModal'
@@ -981,9 +982,9 @@ export default function StudentSidePanel({
                     <StudentAvatar student={data} size={96}
                       style={{ border:'4px solid var(--pearl)', boxShadow:'0 4px 18px rgba(29,37,103,0.16)', fontSize:'34px' }} />
                   </div>
-                  {/* Name */}
+                  {/* Name — legal display, surfacing the preferred first name as First “Preferred” Last. */}
                   <div style={{ fontSize:22, fontWeight:700, color:'var(--nightfall)', marginBottom:4, lineHeight:1.2 }}>
-                    {student.first_name} {student.last_name}
+                    {getStudentLegalDisplayName(data)}
                   </div>
                   {/* School · Program */}
                   <div style={{ fontSize:13, color:'#6b7280', marginBottom:8 }}>
@@ -1205,6 +1206,12 @@ export default function StudentSidePanel({
               </Field>
               <Field label="Last Name" fieldKey="last_name">
                 <input className="sp-input" value={data.last_name||''} onChange={e => handleNameField('last_name', e.target.value)} />
+              </Field>
+              {/* STUDENT-PREFERRED-FIRST-NAME-1A: optional preferred FIRST name. Uses the generic
+                  text-save path (NOT handleNameField) — it is independent of the composed legal name. */}
+              <Field label={<>Preferred First Name <SourceTag label={studentSourceLabel} tone={studentSourceTone} /></>} fieldKey="preferred_first_name">
+                <input className="sp-input" value={data.preferred_first_name||''} placeholder="Optional (e.g. Emi)"
+                  onChange={e => handleText('preferred_first_name', e.target.value)} />
               </Field>
               <Field label="Date of Birth" fieldKey="date_of_birth">
                 <input className="sp-input" type="date" value={data.date_of_birth||''} onChange={e => handleText('date_of_birth', e.target.value)} />

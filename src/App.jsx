@@ -449,7 +449,7 @@ function MainApp({ onLogout }) {
   const updateStudent = useCallback(async (id, updates, _loadedUpdatedAt) => {
     const DOMAINS = [
       { keys: ['personal_email', 'phone'], helper: updateContact },
-      { keys: ['first_name', 'last_name', 'date_of_birth', 'gender', 'cumulative_gpa', 'program_type', 'shift_availability', 'prior_healthcare_experience', 'cs_affiliation', 'cs_department', 'cs_role', 'interest_statement', 'resume_url', 'headshot_url'], helper: updateProfile },
+      { keys: ['first_name', 'last_name', 'preferred_first_name', 'date_of_birth', 'gender', 'cumulative_gpa', 'program_type', 'shift_availability', 'prior_healthcare_experience', 'cs_affiliation', 'cs_department', 'cs_role', 'interest_statement', 'resume_url', 'headshot_url'], helper: updateProfile },
       { keys: ['hours_required'], helper: updateRequirements },
       { keys: ['cs_cedars_status', 'cs_stage1_action', 'cs_stage1_submitted', 'cs_stage1_submitted_date', 'cs_stage1_complete', 'cs_stage1_complete_date', 'cs_link_requested', 'cs_link_requested_date', 'cs_link_complete', 'cs_link_complete_date', 'cs_access_notes'], helper: updateCslink },
       { keys: ['ngrp_cohort_target', 'ngrp_outcome'], helper: updateNgrp },
