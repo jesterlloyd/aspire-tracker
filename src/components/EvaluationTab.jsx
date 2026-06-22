@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { ChevronRight, ChevronDown } from 'lucide-react'
+import { ChevronRight, ChevronDown, Lock } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { CS_COLORS } from '../lib/brand'
 import { useLastSynced } from '../hooks/useLastSynced'
@@ -291,7 +291,11 @@ function ExpandedRow({ assignment: a, response }) {
 
 export default function EvaluationTab({ cohortId }) {
   const { markSynced, display: syncDisplay } = useLastSynced()
-  const { isOwner, isAdmin } = useAuth()
+  const { isOwner, isAdmin, isInterviewer } = useAuth()
+  // EVALUATION-INTERVIEWER-ACCESS-UX: interviewers may open the tab but must NOT see evaluation
+  // data (survey responses, readiness scores, preceptor/student feedback, comments). Roles are
+  // mutually exclusive, so isInterviewer is true only for interviewers (never owner/admin).
+  const evaluationRestricted = isInterviewer && !isOwner && !isAdmin
 
   const [activeSubTab,    setActiveSubTab]    = useState('cohort')
   const [assignments,     setAssignments]     = useState([])
@@ -356,7 +360,8 @@ export default function EvaluationTab({ cohortId }) {
     }
   }, [cohortId])
 
-  useEffect(() => { fetchAssignments() }, [fetchAssignments])
+  // Skip the (sensitive) evaluation fetch entirely for restricted interviewers.
+  useEffect(() => { if (!evaluationRestricted) fetchAssignments() }, [fetchAssignments, evaluationRestricted])
 
   // ── Derived values ────────────────────────────────────────────────────────
 
@@ -512,6 +517,32 @@ export default function EvaluationTab({ cohortId }) {
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
+
+  // EVALUATION-INTERVIEWER-ACCESS-UX: restricted-access message for interviewers — no KPIs,
+  // tables, charts, filters, exports, or response detail. Mirrors the Rotation restricted card.
+  // (Placed after all hooks so hook order is stable; the data fetch above is also skipped.)
+  if (evaluationRestricted) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 420, padding: '40px 20px', fontFamily: F }}>
+        <div style={{ maxWidth: 520, background: '#ffffff', border: '1px solid #E5E7EB', borderRadius: 12, padding: 32, textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.08)' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#EDEEF4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Lock size={20} color="#1D2567" />
+            </div>
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 600, color: '#1D2567', marginBottom: 12 }}>
+            Evaluation results are restricted
+          </div>
+          <div style={{ fontSize: 14, lineHeight: 1.7, color: '#374151' }}>
+            Evaluation summary, survey responses, and feedback are reviewed by ASPIRE program leads and administrative staff. To protect student feedback and response details, this dashboard is available to program leads only.
+          </div>
+          <div style={{ fontSize: 14, lineHeight: 1.7, color: '#6b7280', marginTop: 12 }}>
+            If you need access to evaluation information, please contact the ASPIRE program lead.
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ fontFamily: F, display: 'flex', flexDirection: 'column' }}>
