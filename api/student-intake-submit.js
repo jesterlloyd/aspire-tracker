@@ -25,6 +25,7 @@ import { createClient } from '@supabase/supabase-js'
 import { toLocalDateStr } from '../shared/dateUtils.js'
 import { normalizeEmailForLookup, escapeLikePattern } from '../src/lib/emailUtils.js'
 import { sanitizeWeekdays, sanitizeIsoDates, coerceBoolOrNull } from '../src/lib/availability.js'
+import { STUDENT_FORM_ACK_VERSION } from '../src/lib/studentFormAck.js'
 
 function getDb() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -47,6 +48,8 @@ const ALLOWED_BODY_KEYS = [
   'unavailable_weekdays', 'unavailable_weekdays_reason', 'personal_blackout_dates',
   'weekends_available', 'nights_available', 'preferred_days', 'availability_notes',
   'availability_ack',
+  // STUDENT-FORM-INFORMATION-ACKNOWLEDGMENT: client sends checkbox + typed name only.
+  'privacy_ack', 'privacy_ack_name',
 ]
 
 // Statuses for which public intake submission is permitted. Beyond these, the
@@ -104,6 +107,13 @@ export default async function handler(req, res) {
   // AVAILABILITY-CANON-1B: the availability acknowledgment is REQUIRED to submit.
   if (body.availability_ack !== true) {
     return res.status(400).json({ error: 'invalid_request', field: 'availability_ack', message: 'Please acknowledge the availability statement to submit.' })
+  }
+
+  // STUDENT-FORM-INFORMATION-ACKNOWLEDGMENT: checkbox required; typed name trim-non-empty (1–120),
+  // NO exact-name match. Version + timestamp are SERVER-set below (never trusted from the client).
+  const privacyAckName = str(body.privacy_ack_name)
+  if (body.privacy_ack !== true || privacyAckName.length < 1 || privacyAckName.length > 120) {
+    return res.status(400).json({ error: 'invalid_request', field: 'privacy_ack', message: 'Please complete the Student Information Use Acknowledgment before submitting.' })
   }
 
   const db = getDb()
@@ -191,6 +201,10 @@ export default async function handler(req, res) {
     preferred_days:              sanitizeWeekdays(body.preferred_days),
     availability_notes:          str(body.availability_notes).slice(0, 1000),
     availability_ack:            true,
+    // STUDENT-FORM-INFORMATION-ACKNOWLEDGMENT: store the typed name; server owns version + timestamp.
+    student_form_privacy_ack_name:    privacyAckName,
+    student_form_privacy_ack_version: STUDENT_FORM_ACK_VERSION,
+    student_form_privacy_ack_at:      new Date().toISOString(),
     submitted_via: 'student_form',
     status: 'Form Received',
   }

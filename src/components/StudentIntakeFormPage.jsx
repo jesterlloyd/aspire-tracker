@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { groupUnitNamesByDivision, getUnit, DIVISION_ORDER } from '../lib/unitCatalog'
 import { WEEKDAYS, toggleWeekday, isValidIsoDate } from '../lib/availability'
+import {
+  STUDENT_FORM_ACK_TITLE, STUDENT_FORM_ACK_BODY, STUDENT_FORM_ACK_CHECKBOX_LABEL,
+  STUDENT_FORM_ACK_TYPED_NAME_TEXT, STUDENT_FORM_ACK_FIELD_LABEL, STUDENT_FORM_ACK_HELPER_TEXT,
+} from '../lib/studentFormAck'
 // WS1e-A0: public intake submission now goes through the dedicated
 // /api/student-intake-submit endpoint (was: proxyUpdateStudent + setAspireStatus
 // + logEvent against the staff student-update path).
@@ -70,6 +74,9 @@ const initForm = () => ({
   preferred_days: [],
   availability_notes: '',
   availability_ack: false,
+  // STUDENT-FORM-INFORMATION-ACKNOWLEDGMENT: checkbox + typed name. Client never sends version/timestamp.
+  privacy_ack: false,
+  privacy_ack_name: '',
 })
 
 const AVAILABILITY_ACK_TEXT =
@@ -157,6 +164,13 @@ export default function StudentIntakeFormPage() {
     }
     if (!form.availability_ack) {
       setError('Please acknowledge the availability statement before submitting.'); return
+    }
+    // STUDENT-FORM-INFORMATION-ACKNOWLEDGMENT: checkbox required; typed name trim-non-empty only (no match).
+    if (!form.privacy_ack) {
+      setError('Please complete the Student Information Use Acknowledgment before submitting.'); return
+    }
+    if (!form.privacy_ack_name.trim()) {
+      setError('Please type your full name in the Student Information Use Acknowledgment.'); return
     }
 
     setSubmitting(true)
@@ -273,6 +287,8 @@ export default function StudentIntakeFormPage() {
       preferred_days:              form.preferred_days,
       availability_notes:          form.availability_notes.trim(),
       availability_ack:            form.availability_ack,
+      privacy_ack:                 form.privacy_ack,
+      privacy_ack_name:            form.privacy_ack_name.trim(),
       ...(resume_url   && { resume_url }),
       ...(headshot_url && { headshot_url }),
     }
@@ -780,6 +796,28 @@ export default function StudentIntakeFormPage() {
               <p style={{ fontSize: 12, color: form.interest_statement.length >= 50 ? '#16a34a' : 'var(--text-secondary)', marginTop: 4 }}>
                 {form.interest_statement.length} / 50 minimum
               </p>
+            </div>
+          </div>
+
+          {/* ── Student Information Use Acknowledgment (information notice; not consent/FERPA) ── */}
+          <div className="uf-section">
+            <div className="sf-section-title">{STUDENT_FORM_ACK_TITLE}</div>
+            {STUDENT_FORM_ACK_BODY.map((para, i) => (
+              <p key={i} style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text-secondary)', margin: '0 0 10px' }}>{para}</p>
+            ))}
+            <div className="uf-field">
+              <label className="uf-check-label" style={{ alignItems: 'flex-start', gap: 10 }}>
+                <input type="checkbox" checked={form.privacy_ack}
+                  onChange={e => set('privacy_ack', e.target.checked)} style={{ marginTop: 3 }} />
+                <span style={{ fontSize: 13, lineHeight: 1.55 }}>{STUDENT_FORM_ACK_CHECKBOX_LABEL} <span style={{ color: '#ef4444' }}>*</span></span>
+              </label>
+            </div>
+            <p style={{ fontSize: 13, lineHeight: 1.55, color: 'var(--text-secondary)', margin: '4px 0 8px' }}>{STUDENT_FORM_ACK_TYPED_NAME_TEXT}</p>
+            <div className="uf-field">
+              <label className="uf-label">{STUDENT_FORM_ACK_FIELD_LABEL} *</label>
+              <input className="uf-input" value={form.privacy_ack_name}
+                onChange={e => set('privacy_ack_name', e.target.value)} placeholder="Your full name" />
+              <div style={{ fontSize: 12, color: '#6b7280', marginTop: 5, lineHeight: 1.4 }}>{STUDENT_FORM_ACK_HELPER_TEXT}</div>
             </div>
           </div>
 

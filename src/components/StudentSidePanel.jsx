@@ -1274,6 +1274,28 @@ export default function StudentSidePanel({
             </div>
           </div>
 
+          {/* Information Acknowledgment (read-only) — STUDENT-FORM-INFORMATION-ACKNOWLEDGMENT.
+              Captured at /student-form submit; server-set version + timestamp. Display only. */}
+          <div className="sp-section sp-card sp-zone-contact">
+            <SectionHeader title="Information Acknowledgment" icon={<CheckCircle2 size={13} />} />
+            {data.student_form_privacy_ack_at ? (
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {[
+                  ['Acknowledged on', new Date(data.student_form_privacy_ack_at).toLocaleString('en-US', { dateStyle:'medium', timeStyle:'short' })],
+                  ['Typed name', data.student_form_privacy_ack_name || '—'],
+                  ['Version', data.student_form_privacy_ack_version || '—'],
+                ].map(([k, v]) => (
+                  <div key={k} style={{ display:'flex', gap:10, fontSize:13 }}>
+                    <span style={{ color:'var(--text-muted,#9ca3af)', minWidth:120, flexShrink:0 }}>{k}</span>
+                    <span style={{ color:'var(--text-primary,#191919)' }}>{v}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize:13, color:'var(--text-muted,#9ca3af)', fontStyle:'italic' }}>Not on file</div>
+            )}
+          </div>
+
           {/* 3. Program Details */}
           <div className="sp-section sp-card sp-zone-program">
             <SectionHeader title="Program Details" icon={<GraduationCap size={13} />} />
