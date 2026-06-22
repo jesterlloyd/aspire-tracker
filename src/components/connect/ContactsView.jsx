@@ -7,6 +7,8 @@ import { ToastContainer } from '../Toast'
 const LAST_CONTACT_KEY = 'aspire.connect.contacts.lastContactId'
 import { supabase } from '../../lib/supabase'
 import Tooltip from '../ui/Tooltip'
+import { isValidEmail } from '../../lib/notifications/studentRecipient'
+import { normalizeEmailForLookup } from '../../lib/emailUtils'
 
 const F    = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -1868,6 +1870,40 @@ export default function ContactsView({ refreshKey = 0 }) {
     sortedFiltered.forEach(c => listItems.push({ type: 'row', contact: c }))
   }
 
+  // ── Copy visible emails (COPY-FILTERED-EMAILS) ────────────────────────────
+  // Copies the valid, deduped emails of exactly the currently-visible filtered contacts
+  // (sortedFiltered → respects search + category + show-inactive + sort order), as a
+  // comma-separated list with no spaces. Read-only: no send, no mutation, no backend.
+  const handleCopyVisibleEmails = async () => {
+    if (sortedFiltered.length === 0) {
+      toast.info('No contacts found.', 'There are no visible contacts to copy.')
+      return
+    }
+    const emails = []
+    const seen = new Set()
+    let skipped = 0
+    for (const c of sortedFiltered) {
+      if (!isValidEmail(c.email)) { skipped++; continue }
+      const norm = normalizeEmailForLookup(c.email)
+      if (seen.has(norm)) continue   // dedupe (not counted as skipped)
+      seen.add(norm)
+      emails.push(c.email.trim())
+    }
+    if (emails.length === 0) {
+      toast.info('No valid emails in visible results.', 'None of the visible contacts have a valid email on file.')
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(emails.join(','))
+      const n = emails.length
+      const base = `Copied ${n} email${n === 1 ? '' : 's'}.`
+      const tail = skipped > 0 ? ` Skipped ${skipped} without valid email.` : ''
+      toast.success(base + tail, 'Paste into the To/CC field of your email.')
+    } catch {
+      toast.error('Copy failed', 'Your browser blocked clipboard access.')
+    }
+  }
+
   // ── Three-zone CRM layout ─────────────────────────────────────────────────
   return (
     <>
@@ -1998,9 +2034,29 @@ export default function ContactsView({ refreshKey = 0 }) {
           </div>
         )}
 
-        {/* Contact count */}
-        <div style={{ padding: '0 14px 6px', fontSize: 10.5, color: '#9ca3af', fontFamily: F, flexShrink: 0 }}>
-          {loading ? 'Loading…' : error ? 'Failed to load' : `${filtered.length} of ${showInactive ? contacts.length : activeCount}`}
+        {/* Contact count + copy-visible-emails action */}
+        <div style={{ padding: '0 14px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexShrink: 0 }}>
+          <span style={{ fontSize: 10.5, color: '#9ca3af', fontFamily: F }}>
+            {loading ? 'Loading…' : error ? 'Failed to load' : `${filtered.length} of ${showInactive ? contacts.length : activeCount}`}
+          </span>
+          {!loading && !error && filtered.length > 0 && (
+            <button
+              type="button"
+              onClick={handleCopyVisibleEmails}
+              title="Copy the emails of the visible contacts (comma-separated)"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                padding: '3px 8px', borderRadius: 6,
+                border: `1px solid ${NAVY}`, background: '#fff', color: NAVY,
+                fontSize: 10, fontWeight: 600, fontFamily: F,
+                cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background 0.15s, color 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = NAVY; e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = NAVY }}
+            >
+              Copy visible emails
+            </button>
+          )}
         </div>
 
         {/* Contact list (scrollable) */}
