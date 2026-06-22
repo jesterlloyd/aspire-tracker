@@ -10,6 +10,7 @@ import { getUnit, UNIT_CATALOG, DIVISION_ORDER } from '../lib/unitCatalog'
 import StudentAvatar from './StudentAvatar'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
+import UnitResponseDrawer from './UnitResponseDrawer'
 import StudentCard from './StudentCard'
 import { selectActiveWindowRows, mergeOnCampusNow } from '../lib/onCampusNow'
 import { shiftTypeOf, shiftBadge, isOpenShift, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../lib/shiftStatus'
@@ -330,7 +331,7 @@ const DIVISIONS = ['Surgical', 'Medical', 'Critical Care', 'Specialty']
 
 // ── Placement Capacity panel — division-grouped, filterable ──────────────────
 
-function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showToast }) {
+function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showToast, onView }) {
   const [expanded, setExpanded] = useState(false)
   const status    = response.response_status
   const isHosting = status === 'submitted_hosting'
@@ -338,6 +339,16 @@ function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showTo
   const isPending = status === 'pending'
   const desc      = getUnit(response.unit_name)?.description
   const lead      = primaryLeadMap[response.unit_name]
+
+  // UNIT-FORM-RESPONSE-VISIBILITY: lightweight submitter provenance line.
+  const submitterLabel = (response.submitted_by_name || '').trim()
+    || (response.submitted_by_email || '').trim()
+    || (isPending ? null : 'Submitted')
+  const tsIso   = response.last_updated_at || response.submitted_at
+  const tsLabel = tsIso ? new Date(tsIso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null
+  const provenance = isPending
+    ? 'Awaiting response'
+    : [submitterLabel ? `Submitted by ${submitterLabel}` : null, tsLabel].filter(Boolean).join(' · ')
 
   const filledCount = (() => {
     const unitRow = units.find(u => u.id === response.unit_id)
@@ -355,6 +366,11 @@ function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showTo
           {desc && (
             <div style={{ fontSize:11, color:'#9ca3af', marginTop:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
               {desc}
+            </div>
+          )}
+          {provenance && (
+            <div style={{ fontSize:10.5, color:'#b0b9c6', marginTop:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+              {provenance}
             </div>
           )}
         </div>
@@ -388,6 +404,13 @@ function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showTo
               Remind
             </button>
           )}
+          {!isPending && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onView?.(response) }}
+              style={{ background:'none', border:'1px solid #d1d5db', borderRadius:6, padding:'2px 8px', fontSize:10.5, fontWeight:600, color:'var(--nightfall,#1D2567)', cursor:'pointer', whiteSpace:'nowrap' }}>
+              View response
+            </button>
+          )}
         </div>
       </div>
       {isDecline && expanded && response.reason_for_zero && (
@@ -401,7 +424,7 @@ function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showTo
 
 function PlacementCapacityPanel({
   unitResponses, filledByUnit, units, unitGroupsOpen, toggleUnitGroup,
-  primaryLeadMap, showToast, statusFilter,
+  primaryLeadMap, showToast, statusFilter, onView,
 }) {
   const showAll = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('showAll')
 
@@ -483,7 +506,7 @@ function PlacementCapacityPanel({
               <div className="ov-group-items">
                 {divRows.map(r => (
                   <UnitResponseRow key={r.id} response={r} filledByUnit={filledByUnit}
-                    units={units} primaryLeadMap={primaryLeadMap} showToast={showToast} />
+                    units={units} primaryLeadMap={primaryLeadMap} showToast={showToast} onView={onView} />
                 ))}
                 {uninvited > 0 && (
                   <div style={{ padding:'5px 10px 2px', fontSize:11, color:'#b0b9c6', fontStyle:'italic' }}>
@@ -531,6 +554,8 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [unitGroupsOpen,   setUnitGroupsOpen]   = useState({})
   const [schoolGroupsOpen, setSchoolGroupsOpen] = useState({})
   const [unitStatusFilter, setUnitStatusFilter] = useState('all')
+  // UNIT-FORM-RESPONSE-VISIBILITY: the unit_cohort_responses row open in the read-only detail drawer.
+  const [selectedUnitResponse, setSelectedUnitResponse] = useState(null)
   const [localToast,       setLocalToast]       = useState(null)
   const [campusOpen,       setCampusOpen]       = useState(false)
 
@@ -868,6 +893,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                   primaryLeadMap={primaryLeadMap}
                   showToast={showToast}
                   statusFilter={unitStatusFilter}
+                  onView={setSelectedUnitResponse}
                 />
               : <div className="ov-groups">
                   {/* Fallback to legacy view if no unit_cohort_responses rows yet */}
@@ -1111,6 +1137,13 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         )}
 
       </div>
+
+      {/* UNIT-FORM-RESPONSE-VISIBILITY: read-only unit-form response detail (no fetch/edit). */}
+      <UnitResponseDrawer
+        open={!!selectedUnitResponse}
+        response={selectedUnitResponse}
+        onClose={() => setSelectedUnitResponse(null)}
+      />
     </div>
   )
 }
