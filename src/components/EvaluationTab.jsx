@@ -361,8 +361,10 @@ export default function EvaluationTab({ cohortId }) {
     }
   }, [cohortId])
 
-  // Skip the (sensitive) evaluation fetch entirely for restricted interviewers.
-  useEffect(() => { if (!evaluationRestricted) fetchAssignments() }, [fetchAssignments, evaluationRestricted])
+  // RESTRICTED-ACCESS-OVERLAY-UNIFORMITY-FIX: interviewers DO load the dashboard so the real (not
+  // fake) Evaluation page renders, blurred, behind the restricted overlay — matching Rotation. The
+  // overlay blocks all interaction, so individual response details/modals/exports stay inaccessible.
+  useEffect(() => { fetchAssignments() }, [fetchAssignments])
 
   // ── Derived values ────────────────────────────────────────────────────────
 
@@ -519,46 +521,20 @@ export default function EvaluationTab({ cohortId }) {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  // EVALUATION-INTERVIEWER-ACCESS-UX + RESTRICTED-ACCESS-OVERLAY-UNIFORMITY: restricted-access
-  // overlay for interviewers — same centered card + blurred backdrop as the Rotation tab. The
-  // backdrop is a NON-SENSITIVE decorative skeleton (no data, no fetch); the sensitive evaluation
-  // fetch above is skipped, so interviewers never load KPIs/tables/charts/responses.
-  // (Placed after all hooks so hook order is stable.)
-  if (evaluationRestricted) {
-    const skelCard = { background: '#fff', border: '1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius: 12, height: 84 }
-    const skelBar  = (w) => ({ height: 12, width: w, borderRadius: 6, background: '#EDEEF4' })
-    return (
-      <div style={{ position: 'relative', minHeight: 520, fontFamily: F }}>
-        {/* Non-sensitive placeholder backdrop — purely decorative gray shapes (no evaluation data). */}
-        <div aria-hidden="true" style={{ padding: 16, userSelect: 'none', pointerEvents: 'none' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10, marginBottom: 16 }}>
-            {[0,1,2,3,4,5].map(i => <div key={i} style={skelCard} />)}
-          </div>
-          <div style={{ ...skelCard, height: 'auto', padding: 16 }}>
-            {[0,1,2,3,4].map(i => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 4px', borderBottom: i < 4 ? '1px solid #f3f4f6' : 'none' }}>
-                <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#EDEEF4', flexShrink: 0 }} />
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
-                  <div style={skelBar('45%')} />
-                  <div style={skelBar('28%')} />
-                </div>
-                <div style={skelBar('64px')} />
-              </div>
-            ))}
-          </div>
-        </div>
+  return (
+    <div style={{ fontFamily: F, display: 'flex', flexDirection: 'column', position: 'relative' }}>
 
+      {/* EVALUATION-INTERVIEWER-ACCESS-UX + RESTRICTED-ACCESS-OVERLAY-UNIFORMITY-FIX: for interviewers,
+          overlay the REAL Evaluation dashboard (blurred, non-interactive) — identical pattern to the
+          Rotation tab (MatchingTab). The overlay covers the tab and captures all pointer events, so
+          response detail modals, exports, tokens, and row clicks stay inaccessible. */}
+      {evaluationRestricted && (
         <RestrictedAccessOverlay
           title="Evaluation results are restricted"
           body="Evaluation summary, survey responses, and feedback are reviewed by ASPIRE program leads and administrative staff. To protect student feedback and response details, this dashboard is available to program leads only."
           contact="If you need access to evaluation information, please contact the ASPIRE program lead."
         />
-      </div>
-    )
-  }
-
-  return (
-    <div style={{ fontFamily: F, display: 'flex', flexDirection: 'column' }}>
+      )}
 
       {/* Sub-tab picker — mirrors RotationTab.jsx structure and styling */}
       <div style={{ padding: '0 20px 12px', flexShrink: 0 }}>
