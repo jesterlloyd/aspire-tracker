@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useLayoutEffect } from 'react'
+import { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { buildUnitLeaderEmail } from '../lib/emailUtils'
@@ -24,17 +24,76 @@ const PRIORITY_CONFIG = {
   fyi:     { label: 'FYI',     color: '#6b7280', bg: '#f9fafb' },
 }
 
-// Priority-ordered stack definitions
-const STACK_ORDER = [
-  { key: 'urgent',        label: 'Urgent',        color: '#dc2626', filter: i => i.priority === 'urgent' && i.category !== 'disposition' },
-  { key: 'disposition',   label: 'Disposition',   color: '#9d174d', filter: i => i.category === 'disposition' },
-  { key: 'interview',     label: 'Interviews',     color: '#d97706', filter: i => i.category === 'interview' },
-  { key: 'placement',     label: 'Placement',      color: '#1D2567', filter: i => i.category === 'placement' },
-  { key: 'cslink',        label: 'CS-Link',        color: '#5b21b6', filter: i => i.category === 'cslink' },
-  { key: 'badge',         label: 'Badge',          color: '#0e7490', filter: i => i.category === 'badge' },
-  { key: 'hours',         label: 'Hours',          color: '#92400e', filter: i => i.category === 'hours' },
-  { key: 'communication', label: 'Communications', color: '#374151', filter: i => i.category === 'communication' },
+// Honor the OS reduced-motion preference for the open/scrim transitions.
+const REDUCED_MOTION = typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+  ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  : false
+
+// ── Triage taxonomy (presentation grouping only — NOT task triggers) ─────────
+// Existing tasks keep their predicates/priority/actionType; we just regroup them
+// into three reader-friendly sections plus a session-derived "Recently completed".
+const PRIORITY_RANK = { urgent: 0, high: 1, routine: 2, fyi: 3 }
+
+// Time-bound milestones that read as "coming due" rather than persistent gaps.
+const DUE_SOON_TYPES = new Set([
+  'interview_reminder_overdue', // reminder inside the 48h interview window
+  'hours_completed',            // hours met → certificate now due
+  'midpoint_checkin', 'midpoint_eval', 'end_eval', 'post_survey',
+])
+
+// Map one action item to its triage section. Pure function of existing fields.
+function sectionFor(item) {
+  if (item.priority === 'urgent' || item.category === 'disposition') return 'urgent'
+  if (item.isOrientation || DUE_SOON_TYPES.has(item.actionType)) return 'due_soon'
+  return 'needs_followup'
+}
+
+const SECTION_ORDER = [
+  { key: 'urgent',         label: 'Urgent',          color: '#dc2626', hint: 'Needs a decision or compliance action' },
+  { key: 'due_soon',       label: 'Due soon',        color: '#d97706', hint: 'Time-bound — coming due' },
+  { key: 'needs_followup', label: 'Needs follow-up', color: '#1D2567', hint: 'Outstanding outreach and setup' },
 ]
+
+// Liquid-glass shell styles. backdrop-filter where supported; @supports fallback
+// to a near-opaque panel so text stays AA-readable on browsers without blur.
+const AC_GLASS_STYLES = `
+.ac-scrim {
+  position: fixed; inset: 0; z-index: 499;
+  background: rgba(20,26,48,0.16);
+}
+.ac-panel {
+  background: rgba(255,255,255,0.80);
+  border: 1px solid rgba(255,255,255,0.6);
+  box-shadow: 0 14px 50px rgba(15,20,40,0.22), 0 2px 10px rgba(15,20,40,0.08);
+}
+.ac-caret {
+  background: rgba(255,255,255,0.80);
+  border-left: 1px solid rgba(255,255,255,0.6);
+  border-top: 1px solid rgba(255,255,255,0.6);
+}
+@supports ((backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px))) {
+  .ac-scrim { -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); background: rgba(20,26,48,0.12); }
+  .ac-panel, .ac-caret { -webkit-backdrop-filter: blur(14px) saturate(150%); backdrop-filter: blur(14px) saturate(150%); }
+}
+@supports not ((backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px))) {
+  .ac-panel { background: rgba(251,251,253,0.985); }
+  .ac-caret { background: rgba(251,251,253,0.985); }
+}
+@keyframes acPanelIn { from { opacity: 0; transform: translateY(-6px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes acScrimIn { from { opacity: 0; } to { opacity: 1; } }
+.ac-anim-panel { animation: acPanelIn 0.16s ease-out; }
+.ac-anim-scrim { animation: acScrimIn 0.16s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .ac-anim-panel, .ac-anim-scrim { animation: none; }
+}
+[data-theme="dark"] .ac-scrim { background: rgba(0,0,0,0.34); }
+[data-theme="dark"] .ac-panel { background: rgba(28,33,58,0.82); border-color: rgba(255,255,255,0.10); }
+[data-theme="dark"] .ac-caret { background: rgba(28,33,58,0.82); border-color: rgba(255,255,255,0.10); }
+@supports not ((backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px))) {
+  [data-theme="dark"] .ac-panel { background: rgba(24,29,52,0.985); }
+  [data-theme="dark"] .ac-caret { background: rgba(24,29,52,0.985); }
+}
+`
 
 function getActionLabel(item) {
   if (item.isOrientation) return null
@@ -295,7 +354,7 @@ function ItemCard({
   // Special orientation card
   if (item.isOrientation) {
     return (
-      <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(29,37,103,0.05)', background: '#fff' }}>
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(29,37,103,0.05)', background: 'transparent' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
           <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
             color: pCfg.color, background: pCfg.bg, padding: '2px 7px', borderRadius: 20, flexShrink: 0, marginTop: 1 }}>
@@ -352,7 +411,7 @@ function ItemCard({
 
   // Standard item card
   return (
-    <div style={{ padding: '11px 16px', borderBottom: '1px solid rgba(29,37,103,0.05)', background: '#fff' }}>
+    <div style={{ padding: '11px 16px', borderBottom: '1px solid rgba(29,37,103,0.05)', background: 'transparent' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
           color: pCfg.color, background: pCfg.bg, padding: '2px 7px', borderRadius: 20, flexShrink: 0, marginTop: 1 }}>
@@ -419,6 +478,15 @@ export default function ActionCenter({
   const [expandedStacks, setExpandedStacks] = useState({})
   const [confirmingId,   setConfirmingId]   = useState(null)
   const [actioning,      setActioning]      = useState(null)
+  const [showCompleted,  setShowCompleted]  = useState(false)
+  // "Recently completed": only tasks the user actually resolved in THIS session.
+  // No durable store — derived from real actions taken, never invented.
+  const [completedLog,   setCompletedLog]   = useState([])
+  const logCompleted = (entry) => setCompletedLog(prev => {
+    if (!entry?.title) return prev
+    const next = [{ ...entry }, ...prev.filter(e => e.id !== entry.id)]
+    return next.slice(0, 6)
+  })
 
   // Shift log data (lazy-loaded on first open)
   const [shiftLogs,          setShiftLogs]          = useState([])
@@ -440,7 +508,7 @@ export default function ActionCenter({
       .finally(() => setShiftLogsLoading(false))
   }, [isOpen, cohortId, shiftLogsLoaded, shiftLogsRetry])
 
-  useEffect(() => { setShiftLogs([]); setShiftLogsLoaded(false); setShiftLogsError(null) }, [cohortId])
+  useEffect(() => { setShiftLogs([]); setShiftLogsLoaded(false); setShiftLogsError(null); setCompletedLog([]) }, [cohortId])
 
   // Disposition followups — reload fresh on every open so completion state stays current
   const [dispositionFollowups,        setDispositionFollowups]        = useState([])
@@ -473,17 +541,29 @@ export default function ActionCenter({
       setExpandedStacks({})
       setConfirmingId(null)
       setOriExpanded(false)
+      setShowCompleted(false)
     }
   }, [isOpen])
 
   // Popover positioning: anchored below bell button, right-aligned to it
-  const [pos, setPos] = useState({ top: 68, right: 12, width: 464 })
+  const [pos, setPos] = useState({ top: 68, right: 12, width: 464, narrow: false, caretRight: 22 })
   useLayoutEffect(() => {
     if (!anchorEl || !isOpen) return
     const rect = anchorEl.getBoundingClientRect()
-    const w = Math.min(464, window.innerWidth - 16)
-    const right = Math.max(8, window.innerWidth - rect.right)
-    setPos({ top: rect.bottom + 8, right, width: w })
+    const vw = window.innerWidth
+    const narrow = vw < 480
+    if (narrow) {
+      // Near-full-width sheet; caret math gets awkward, so drop it.
+      const w = vw - 16
+      setPos({ top: rect.bottom + 8, right: 8, width: w, narrow: true, caretRight: null })
+      return
+    }
+    const w = Math.min(464, vw - 16)
+    const right = Math.max(8, vw - rect.right)
+    // Caret points up at the bell: distance from panel's right edge to the bell center.
+    const bellCenterFromRight = vw - (rect.left + rect.width / 2)
+    const caretRight = Math.min(Math.max(bellCenterFromRight - right, 14), w - 26)
+    setPos({ top: rect.bottom + 10, right, width: w, narrow: false, caretRight })
   }, [anchorEl, isOpen])
 
   // Escape key
@@ -549,6 +629,7 @@ export default function ActionCenter({
       })
       if (type === 'unit_notification') toast?.success('Notified', 'Unit leader email marked as sent.')
       if (type === 'certificate')       toast?.success('Certificate', 'Email marked as sent. Attach the PDF before sending.')
+      logCompleted({ id: item.id, title: item.title, studentName: item.studentName })
       setActioning(null)
     }
   }
@@ -562,6 +643,7 @@ export default function ActionCenter({
     setConfirmingId(null)
     if (!err) {
       toast?.success('Completed', `${item.studentName} — task marked complete.`)
+      logCompleted({ id: item.id, title: item.title, studentName: item.studentName })
     } else {
       toast?.error('Error', err.message || 'Could not complete.')
     }
@@ -642,6 +724,7 @@ ${KR_SIG}`
       await logComm({ type: 'orientation_email', student: s, sentToEmail: s.personal_email||s.school_email, sentToName: `${s.last_name}, ${s.first_name}` })
     }
     setOriDone(true)
+    logCompleted({ id: 'orientation', title: 'Orientation Email', studentName: `${placedStudents.length} placed student${placedStudents.length !== 1 ? 's' : ''}` })
   }
 
   // ── Error / retry helpers ──────────────────────────────────
@@ -784,50 +867,69 @@ ${KR_SIG}`
 
   const totalCount = actionItems.length
 
-  // Filter pills — only show categories with items
-  const categoryCounts = {}
-  for (const item of actionItems) {
-    const key = item.category === 'disposition' ? 'disposition'
-              : item.priority === 'urgent'      ? 'urgent'
-              : item.category
-    categoryCounts[key] = (categoryCounts[key] || 0) + 1
-  }
-  const pills = [
-    { key: null,            label: 'All',          count: totalCount },
-    { key: 'urgent',        label: 'Urgent',       count: categoryCounts.urgent        || 0 },
-    { key: 'disposition',   label: 'Disposition',  count: categoryCounts.disposition   || 0 },
-    { key: 'interview',     label: 'Interviews',   count: categoryCounts.interview     || 0 },
-    { key: 'placement',     label: 'Placement',    count: categoryCounts.placement     || 0 },
-    { key: 'cslink',        label: 'CS-Link',      count: categoryCounts.cslink        || 0 },
-    { key: 'badge',         label: 'Badge',        count: categoryCounts.badge         || 0 },
-    { key: 'hours',         label: 'Hours',        count: categoryCounts.hours         || 0 },
-    { key: 'communication', label: 'Comms',        count: categoryCounts.communication || 0 },
-  ].filter(p => p.key === null || p.count > 0)
+  // Group into the three triage sections (presentation only — predicates untouched),
+  // each ordered by priority. Cheap derivation over <=20 items, memoized for clarity.
+  const grouped = useMemo(() => {
+    const g = { urgent: [], due_soon: [], needs_followup: [] }
+    for (const item of actionItems) g[sectionFor(item)].push(item)
+    for (const k of Object.keys(g)) {
+      g[k].sort((a, b) => (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9))
+    }
+    return g
+  }, [actionItems])
 
-  const filteredItems = activeFilter
-    ? actionItems.filter(i =>
-        activeFilter === 'urgent' ? (i.priority === 'urgent' && i.category !== 'disposition')
-        : i.category === activeFilter
-      )
-    : actionItems
+  // Section filter pills — All plus only the sections that currently have items.
+  const pills = [
+    { key: null, label: 'All', count: totalCount },
+    ...SECTION_ORDER
+      .map(s => ({ key: s.key, label: s.label, count: grouped[s.key].length }))
+      .filter(p => p.count > 0),
+  ]
+  const visibleSections = SECTION_ORDER.filter(s => !activeFilter || activeFilter === s.key)
 
   if (!isOpen) return null
 
   return (
-    <div
+    <>
+      <style>{AC_GLASS_STYLES}</style>
+
+      {/* Soft light scrim — content stays faintly visible behind the glass */}
+      <div
+        className={`ac-scrim${REDUCED_MOTION ? '' : ' ac-anim-scrim'}`}
+        aria-hidden="true"
+        onMouseDown={onClose}
+      />
+
+      {/* Caret pointing from the panel toward the bell (desktop only) */}
+      {!pos.narrow && pos.caretRight != null && (
+        <div
+          className="ac-caret"
+          aria-hidden="true"
+          style={{
+            position: 'fixed',
+            top: pos.top - 6,
+            right: pos.right + pos.caretRight,
+            width: 13,
+            height: 13,
+            transform: 'rotate(45deg)',
+            borderTopLeftRadius: 3,
+            zIndex: 501,
+          }}
+        />
+      )}
+
+      <div
       ref={popoverRef}
       role="dialog"
       aria-label="Action Center"
+      className={`ac-panel${REDUCED_MOTION ? '' : ' ac-anim-panel'}`}
       style={{
         position: 'fixed',
         top: pos.top,
         right: pos.right,
         width: pos.width,
         maxHeight: 'min(640px, calc(100vh - 80px))',
-        background: 'var(--bg-card,#fff)',
-        borderRadius: 14,
-        boxShadow: '0 8px 40px rgba(0,0,0,0.16), 0 2px 8px rgba(0,0,0,0.06)',
-        border: '1px solid var(--border-card,rgba(29,37,103,0.10))',
+        borderRadius: 16,
         display: 'flex',
         flexDirection: 'column',
         zIndex: 500,
@@ -909,38 +1011,42 @@ ${KR_SIG}`
         </div>
       )}
 
-      {/* Stacks body */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '6px 0 20px' }}>
+      {/* Triage sections body */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '6px 0 16px' }}>
         {totalCount === 0 && !hasFetchError && (shiftLogsLoading || dispositionFollowupsLoading) ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 24px' }}>
-            <span style={{ fontSize: 13, color: '#9ca3af', fontFamily: 'DM Sans, sans-serif' }}>Loading action items…</span>
+            <span style={{ fontSize: 13, color: '#6b7280', fontFamily: 'DM Sans, sans-serif' }}>Loading action items…</span>
           </div>
         ) : totalCount === 0 && !hasFetchError ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 24px', gap: 10 }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#C8D5C0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '44px 24px', gap: 10 }}>
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#7BA86B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
               <polyline points="22 4 12 14.01 9 11.01"/>
             </svg>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>All caught up.</div>
-            <div style={{ fontSize: 12, color: '#9ca3af' }}>No open actions right now.</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#1D2567' }}>You're all caught up</div>
+            <div style={{ fontSize: 12, color: '#6b7280' }}>No open actions need attention right now.</div>
           </div>
         ) : (
-          STACK_ORDER.map(stack => {
-            const items = filteredItems.filter(stack.filter)
-            if (items.length === 0) return null
-            const isExpanded   = !!expandedStacks[stack.key]
-            const visibleItems = isExpanded ? items : items.slice(0, 2)
-            const hiddenCount  = items.length - 2
+          visibleSections.map(section => {
+            const items = grouped[section.key]
+            if (!items.length) return null
+            const isExpanded   = !!expandedStacks[section.key]
+            const visibleItems = isExpanded ? items : items.slice(0, 3)
+            const hiddenCount  = items.length - 3
 
             return (
-              <div key={stack.key} style={{ marginBottom: 2 }}>
-                {/* Stack header */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px 5px', background: 'var(--pearl,#FAFAF7)', borderBottom: '1px solid rgba(29,37,103,0.04)' }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: stack.color }}>
-                    {stack.label}
+              <div key={section.key} style={{ marginBottom: 4 }}>
+                {/* Section header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px 6px' }}>
+                  <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: 999, background: section.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: section.color }}>
+                    {section.label}
                   </span>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: stack.color, background: `${stack.color}18`, padding: '1px 7px', borderRadius: 20 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: section.color, background: `${section.color}1A`, padding: '1px 7px', borderRadius: 20 }}>
                     {items.length}
+                  </span>
+                  <span style={{ fontSize: 10.5, color: '#8a93a3', marginLeft: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {section.hint}
                   </span>
                 </div>
 
@@ -968,14 +1074,14 @@ ${KR_SIG}`
 
                 {/* Expand / collapse */}
                 {hiddenCount > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 16px', borderBottom: '1px solid rgba(29,37,103,0.04)', background: '#fff' }}>
-                    <span style={{ fontSize: 11, color: '#9ca3af' }}>
-                      +{hiddenCount} more {stack.label.toLowerCase()} action{hiddenCount !== 1 ? 's' : ''}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 16px' }}>
+                    <span style={{ fontSize: 11, color: '#8a93a3' }}>
+                      +{hiddenCount} more {section.label.toLowerCase()} item{hiddenCount !== 1 ? 's' : ''}
                     </span>
                     <button
-                      onClick={() => setExpandedStacks(p => ({ ...p, [stack.key]: !p[stack.key] }))}
-                      style={{ fontSize: 11, fontWeight: 600, color: '#1D2567', background: 'rgba(29,37,103,0.07)', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
-                      {isExpanded ? 'Collapse ▴' : 'Expand ▾'}
+                      onClick={() => setExpandedStacks(p => ({ ...p, [section.key]: !p[section.key] }))}
+                      style={{ fontSize: 11, fontWeight: 600, color: '#1D2567', background: 'rgba(29,37,103,0.08)', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}>
+                      {isExpanded ? 'Show less ▴' : 'Show all ▾'}
                     </button>
                   </div>
                 )}
@@ -983,7 +1089,38 @@ ${KR_SIG}`
             )
           })
         )}
+
+        {/* Recently completed — only tasks resolved in this session; collapsed; omitted when empty */}
+        {completedLog.length > 0 && (
+          <div style={{ marginTop: 6, borderTop: '1px solid rgba(29,37,103,0.07)' }}>
+            <button
+              onClick={() => setShowCompleted(s => !s)}
+              aria-expanded={showCompleted}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 16px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', textAlign: 'left' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7BA86B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+              <span style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#4b5563' }}>
+                Recently completed
+              </span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#4b5563', background: 'rgba(75,85,99,0.12)', padding: '1px 7px', borderRadius: 20 }}>
+                {completedLog.length}
+              </span>
+              <span style={{ marginLeft: 'auto', fontSize: 11, color: '#8a93a3' }}>{showCompleted ? '▴' : '▾'}</span>
+            </button>
+            {showCompleted && completedLog.map(e => (
+              <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 16px 7px 37px' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, color: '#4b5563', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.studentName}</div>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 600, color: '#166534', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '2px 7px', borderRadius: 20, flexShrink: 0 }}>Done</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
+    </>
   )
 }
