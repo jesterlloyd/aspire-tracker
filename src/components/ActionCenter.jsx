@@ -475,7 +475,7 @@ function ItemCard({
 export default function ActionCenter({
   isOpen, onClose, anchorEl,
   students, units, matches, cohortId, activeCohort,
-  communications, onLogCommunication, onStudentUpdate,
+  communications, onLogCommunication, onStudentUpdate, onMatchUpdate,
   onNavigateToProfiles, toast,
 }) {
   const { canEdit } = useAuth()
@@ -652,7 +652,16 @@ export default function ActionCenter({
         sentToEmail: item.student?.school_email || item.student?.personal_email || item.student?.preceptor_email || '',
         sentToName: item.studentName,
       })
-      if (type === 'unit_notification') toast?.success('Notified', 'Unit leader email marked as sent.')
+      // Unit Leader Placement Notification self-clears on matches.notification_sent (the
+      // predicate source, written by the Rotations unit card) — not on the comm log. Set
+      // it here too, with the same fields/pattern, so the task clears and the two surfaces
+      // stay consistent.
+      if (type === 'unit_notification') {
+        if (item.matchId && onMatchUpdate) {
+          await onMatchUpdate(item.matchId, item.studentId, { notification_sent: true, notified_at: new Date().toISOString() })
+        }
+        toast?.success('Notified', 'Unit leader email marked as sent.')
+      }
       if (type === 'certificate')       toast?.success('Certificate', 'Email marked as sent. Attach the PDF before sending.')
       logCompleted({ id: item.id, title: item.title, studentName: item.studentName })
       setActioning(null)
