@@ -55,67 +55,56 @@ const SECTION_ORDER = [
   { key: 'needs_followup', label: 'Needs follow-up', color: '#1D2567', hint: 'Outstanding outreach and setup' },
 ]
 
-// Liquid-glass side-sheet styles. backdrop-filter where supported; @supports
-// fallback to a near-opaque panel so text stays AA-readable without blur.
+// Action Center shell styles. Native ASPIRE look: a mostly-solid, high-contrast
+// panel and a very light scrim — NO app-wide backdrop blur (which previously washed
+// out the header/bell). Crisp cards and pills consistent with other app panels.
 const AC_GLASS_STYLES = `
 .ac-scrim {
   position: fixed; inset: 0; z-index: 499;
-  background: rgba(15,23,42,0.14);
+  background: rgba(15,23,42,0.06);
 }
 .ac-panel {
-  background: rgba(255,255,255,0.62);
-  border: 1px solid rgba(255,255,255,0.42);
-  box-shadow: 0 24px 80px rgba(15,23,42,0.24), inset 0 1px 0 rgba(255,255,255,0.50);
+  background: rgba(255,255,255,0.97);
+  border: 1px solid rgba(29,37,103,0.12);
+  box-shadow: 0 12px 40px rgba(15,23,42,0.18), 0 2px 8px rgba(15,23,42,0.06);
 }
-/* Glass tiles for each task — translucent over the already-frosted panel (no nested blur). */
+/* Clean task cards — solid, crisp, lightweight. */
 .ac-card {
-  margin: 0 16px 9px;
-  border-radius: 17px;
-  background: rgba(255,255,255,0.50);
-  border: 1px solid rgba(255,255,255,0.35);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45);
-  transition: background 0.14s ease, box-shadow 0.14s ease;
+  margin: 0 14px 7px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(29,37,103,0.09);
+  box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+  transition: background 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
 }
-.ac-card:hover { background: rgba(255,255,255,0.62); box-shadow: inset 0 1px 0 rgba(255,255,255,0.55), 0 4px 14px rgba(15,23,42,0.07); }
+.ac-card:hover { background: #fbfbfd; border-color: rgba(29,37,103,0.16); box-shadow: 0 2px 8px rgba(15,23,42,0.07); }
 .ac-pill {
-  flex-shrink: 0; padding: 5px 13px; border-radius: 18px; cursor: pointer;
+  flex-shrink: 0; padding: 5px 12px; border-radius: 16px; cursor: pointer;
   font-family: 'DM Sans, sans-serif'; font-size: 11.5px; font-weight: 600;
-  transition: all 0.14s ease; white-space: nowrap;
-  background: rgba(255,255,255,0.42); border: 1px solid rgba(255,255,255,0.50); color: #3a4256;
+  transition: all 0.12s ease; white-space: nowrap;
+  background: rgba(29,37,103,0.06); border: 1px solid transparent; color: #475467;
 }
-.ac-pill:hover { background: rgba(255,255,255,0.60); }
-.ac-pill.on { background: rgba(29,37,103,0.92); border-color: rgba(29,37,103,0.92); color: #fff; }
+.ac-pill:hover { background: rgba(29,37,103,0.11); }
+.ac-pill.on { background: #1D2567; border-color: #1D2567; color: #fff; }
 .ac-close {
   background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.22); color: #fff;
-  font-size: 18px; line-height: 1; cursor: pointer; width: 30px; height: 30px; border-radius: 9px;
+  font-size: 18px; line-height: 1; cursor: pointer; width: 30px; height: 30px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center; transition: background 0.14s ease;
 }
 .ac-close:hover { background: rgba(255,255,255,0.28); }
-@supports ((backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px))) {
-  .ac-scrim { -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); background: rgba(15,23,42,0.12); }
-  .ac-panel { -webkit-backdrop-filter: blur(22px) saturate(170%); backdrop-filter: blur(22px) saturate(170%); }
-}
-@supports not ((backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px))) {
-  .ac-panel { background: rgba(252,253,255,0.96); }
-  .ac-card { background: rgba(255,255,255,0.92); }
-}
-@keyframes acPanelIn { from { opacity: 0; transform: translate(14px, -6px); } to { opacity: 1; transform: none; } }
+@keyframes acPanelIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 @keyframes acScrimIn { from { opacity: 0; } to { opacity: 1; } }
-.ac-anim-panel { animation: acPanelIn 0.16s cubic-bezier(0.22,0.61,0.36,1); }
-.ac-anim-scrim { animation: acScrimIn 0.16s ease-out; }
+.ac-anim-panel { animation: acPanelIn 0.15s cubic-bezier(0.22,0.61,0.36,1); }
+.ac-anim-scrim { animation: acScrimIn 0.15s ease-out; }
 @media (prefers-reduced-motion: reduce) {
   .ac-anim-panel, .ac-anim-scrim { animation: none; }
 }
-[data-theme="dark"] .ac-scrim { background: rgba(0,0,0,0.30); }
-[data-theme="dark"] .ac-panel { background: rgba(18,22,42,0.70); border-color: rgba(255,255,255,0.12); box-shadow: 0 24px 80px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.10); }
-[data-theme="dark"] .ac-card { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.08); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06); }
-[data-theme="dark"] .ac-card:hover { background: rgba(255,255,255,0.11); }
-[data-theme="dark"] .ac-pill { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.12); color: #cdd3e6; }
-[data-theme="dark"] .ac-pill.on { background: rgba(99,110,210,0.85); border-color: rgba(99,110,210,0.85); color: #fff; }
-@supports not ((backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px))) {
-  [data-theme="dark"] .ac-panel { background: rgba(18,22,42,0.96); }
-  [data-theme="dark"] .ac-card { background: rgba(40,46,72,0.96); }
-}
+[data-theme="dark"] .ac-scrim { background: rgba(0,0,0,0.22); }
+[data-theme="dark"] .ac-panel { background: rgba(22,27,46,0.985); border-color: rgba(255,255,255,0.10); box-shadow: 0 12px 40px rgba(0,0,0,0.42), 0 2px 8px rgba(0,0,0,0.30); }
+[data-theme="dark"] .ac-card { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.08); box-shadow: none; }
+[data-theme="dark"] .ac-card:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.14); }
+[data-theme="dark"] .ac-pill { background: rgba(255,255,255,0.07); color: #cdd3e6; }
+[data-theme="dark"] .ac-pill.on { background: rgba(99,110,210,0.92); border-color: rgba(99,110,210,0.92); color: #fff; }
 `
 
 function getActionLabel(item) {
@@ -377,7 +366,7 @@ function ItemCard({
   // Special orientation card
   if (item.isOrientation) {
     return (
-      <div className="ac-card" style={{ padding: '14px 18px', boxSizing: 'border-box' }}>
+      <div className="ac-card" style={{ padding: '12px 14px', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
           <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
             color: pCfg.color, background: pCfg.bg, padding: '2px 7px', borderRadius: 20, flexShrink: 0, marginTop: 1 }}>
@@ -434,7 +423,7 @@ function ItemCard({
 
   // Standard item card
   return (
-    <div className="ac-card" style={{ padding: '14px 18px', minHeight: 76, boxSizing: 'border-box', display: 'flex', alignItems: 'center' }}>
+    <div className="ac-card" style={{ padding: '11px 14px', minHeight: 60, boxSizing: 'border-box', display: 'flex', alignItems: 'center' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%' }}>
         <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
           color: pCfg.color, background: pCfg.bg, padding: '2px 7px', borderRadius: 20, flexShrink: 0, marginTop: 1 }}>
@@ -598,8 +587,8 @@ export default function ActionCenter({
       setPos({ top, right: 10, width: vw - 20, mobile: true })
       return
     }
-    const width = Math.min(460, vw - 48) // max-width: calc(100vw - 48px)
-    setPos({ top, right: 20, width, mobile: false })
+    const width = Math.min(432, vw - 48) // compact, aligned with the header icon area
+    setPos({ top, right: 18, width, mobile: false })
   }, [anchorEl, isOpen])
 
   // Escape key
@@ -964,8 +953,8 @@ ${KR_SIG}`
         // Stop well above the Keith AI launcher (fixed bottom:24px, 60px tall) so the
         // sheet never collides with it; cap the column height too so it stays compact on
         // tall screens. The body scrolls internally past either limit.
-        maxHeight: `min(620px, calc(100vh - ${pos.top + 116}px))`,
-        borderRadius: pos.mobile ? 20 : 24,
+        maxHeight: `min(600px, calc(100vh - ${pos.top + 116}px))`,
+        borderRadius: pos.mobile ? 16 : 16,
         display: 'flex',
         flexDirection: 'column',
         zIndex: 500,
@@ -973,34 +962,34 @@ ${KR_SIG}`
         overflow: 'hidden',
       }}
     >
-      {/* Header — translucent layered band integrated into the glass sheet */}
+      {/* Header — solid Nightfall/Raven navy band, crisp against the panel */}
       <div style={{
-        background: 'linear-gradient(135deg, rgba(25,31,92,0.82), rgba(28,36,98,0.60))',
-        padding: '18px 22px 14px', flexShrink: 0,
-        borderBottom: '1px solid rgba(255,255,255,0.10)',
+        background: 'linear-gradient(135deg, #1D2567, #232C72)',
+        padding: '15px 18px 13px', flexShrink: 0,
+        borderBottom: '1px solid rgba(0,0,0,0.06)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
               <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
-            <span style={{ fontSize: 17, fontWeight: 700, color: '#fff', letterSpacing: '-0.01em' }}>Action Center</span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: '#fff', letterSpacing: '-0.01em' }}>Action Center</span>
           </div>
           <button onClick={onClose} aria-label="Close" className="ac-close">×</button>
         </div>
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.62)', marginBottom: 5 }}>
+        <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.60)', marginBottom: 4 }}>
           Prioritized actions requiring attention
         </div>
-        <div style={{ fontSize: 13.5, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>
           {totalCount} open action{totalCount !== 1 ? 's' : ''}
         </div>
       </div>
 
-      {/* Filter pills — glass chips */}
+      {/* Filter pills */}
       {totalCount > 0 && (
         <div style={{
-          display: 'flex', gap: 7, padding: '12px 18px 4px',
+          display: 'flex', gap: 7, padding: '11px 16px 4px',
           flexShrink: 0, overflowX: 'auto', scrollbarWidth: 'none',
         }}>
           {pills.map(pill => (
@@ -1065,9 +1054,9 @@ ${KR_SIG}`
             const hiddenCount  = items.length - 3
 
             return (
-              <div key={section.key} style={{ marginBottom: 14 }}>
+              <div key={section.key} style={{ marginBottom: 11 }}>
                 {/* Section header */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 20px 9px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 8px' }}>
                   <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 999, background: section.color, flexShrink: 0 }} />
                   <span style={{ fontSize: 11.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: section.color }}>
                     {section.label}
@@ -1104,7 +1093,7 @@ ${KR_SIG}`
 
                 {/* Expand / collapse */}
                 {hiddenCount > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 20px 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 16px 0' }}>
                     <span style={{ fontSize: 11, color: '#8a93a3' }}>
                       +{hiddenCount} more {section.label.toLowerCase()} item{hiddenCount !== 1 ? 's' : ''}
                     </span>
@@ -1127,7 +1116,7 @@ ${KR_SIG}`
             <button
               onClick={() => setShowCompleted(s => !s)}
               aria-expanded={showCompleted}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '11px 20px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', textAlign: 'left' }}>
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '11px 16px', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', textAlign: 'left' }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7BA86B" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
               </svg>
@@ -1140,7 +1129,7 @@ ${KR_SIG}`
               <span style={{ marginLeft: 'auto', fontSize: 11, color: '#8a93a3' }}>{showCompleted ? '▴' : '▾'}</span>
             </button>
             {showCompleted && completedLog.map(e => (
-              <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 20px 8px 40px' }}>
+              <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 16px 8px 36px' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12, color: '#4b5563', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</div>
                   <div style={{ fontSize: 11, color: '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.studentName}</div>

@@ -42,11 +42,11 @@ export default function HeaderActions({
           <MessagesSquare size={15} strokeWidth={1.9} />
           {activeTab === 'connect' && (
             <span style={{
-              position: 'absolute', bottom: -6, left: '50%', transform: 'translateX(-50%)',
+              position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
               width: 0, height: 0,
-              borderLeft: '4px solid transparent',
-              borderRight: '4px solid transparent',
-              borderTop: '5px solid rgba(255,255,255,0.65)',
+              borderLeft: '5px solid transparent',
+              borderRight: '5px solid transparent',
+              borderTop: '6px solid rgba(255,255,255,0.92)',
               display: 'block',
             }} />
           )}
@@ -76,11 +76,11 @@ export default function HeaderActions({
           <Library size={15} strokeWidth={1.9} />
           {activeTab === 'catalog' && (
             <span style={{
-              position: 'absolute', bottom: -6, left: '50%', transform: 'translateX(-50%)',
+              position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
               width: 0, height: 0,
-              borderLeft: '4px solid transparent',
-              borderRight: '4px solid transparent',
-              borderTop: '5px solid rgba(255,255,255,0.65)',
+              borderLeft: '5px solid transparent',
+              borderRight: '5px solid transparent',
+              borderTop: '6px solid rgba(255,255,255,0.92)',
               display: 'block',
             }} />
           )}
@@ -113,11 +113,11 @@ export default function HeaderActions({
           {/* Active/open marker — identical to ASPIRE Connect / Catalog (downward triangle under the icon) */}
           {showActionCenter && (
             <span style={{
-              position: 'absolute', bottom: -6, left: '50%', transform: 'translateX(-50%)',
+              position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
               width: 0, height: 0,
-              borderLeft: '4px solid transparent',
-              borderRight: '4px solid transparent',
-              borderTop: '5px solid rgba(255,255,255,0.65)',
+              borderLeft: '5px solid transparent',
+              borderRight: '5px solid transparent',
+              borderTop: '6px solid rgba(255,255,255,0.92)',
               display: 'block',
             }} />
           )}
