@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './lib/supabase'
 import { updatePreceptorAssignment, updateContact, updateProfile, updateRequirements, updateCslink, updateNgrp, updateBadge, updateNotes, updateStatus, updateInterviewOutcome } from './lib/studentProxy'
-import { displayName } from './lib/utils'
+import { displayName, getCsLinkStatus } from './lib/utils'
 import OverviewTab from './components/OverviewTab'
 import StudentProfilesTab from './components/StudentProfilesTab'
 import InterviewRubricTab from './components/InterviewRubricTab'
@@ -163,6 +163,9 @@ function MainApp({ onLogout }) {
   const [ivSlots,       setIvSlots]       = useState([])
   const [communications,setCommunications]= useState([])
   const [showActionCenter, setShowActionCenter] = useState(false)
+  // Live count reported by the open Action Center panel (includes lazy-loaded tasks).
+  // null when the panel is closed → badge falls back to the eager count below.
+  const [panelActionCount, setPanelActionCount] = useState(null)
   const [tourRunning,      setTourRunning]      = useState(false)
   const [loading,   setLoading]   = useState(true)
   const [dbError,   setDbError]   = useState(null)
@@ -787,33 +790,45 @@ function MainApp({ onLogout }) {
     else if (item.type === 'catalog') { navigate(`/catalog?resource=${encodeURIComponent(item.data.slug)}`) }
   }
 
-  const actionBadgeCount = (() => {
+  // Eager bell-badge count — mirrors the Action Center panel's EAGER task predicates
+  // (src/components/ActionCenter.jsx `actionItems`). Keep the two in sync.
+  // Excludes the 5 survey/completion/eval tasks removed in ACTION-CENTER-SCOPE-CLEANUP.
+  // The 3 lazy-loaded tasks (Disposition Follow-up, Shift Log Needs Review, Student Not
+  // Logged Recently) need data fetched only when the panel opens, so they are not counted
+  // here — used only as the fallback BEFORE the panel reports its exact live count.
+  const eagerActionBadgeCount = (() => {
     if (!students.length) return 0
     const hasSent = (sid, type) => communications.some(c => c.student_id === sid && c.type === type)
     const now = new Date()
     const td  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
     const in48 = new Date(now.getTime() + 48*3600*1000)
     const t48 = `${in48.getFullYear()}-${String(in48.getMonth()+1).padStart(2,'0')}-${String(in48.getDate()).padStart(2,'0')}`
-    return (
-      students.filter(s => s.status==='Pending Outreach').length +
-      students.filter(s => s.status==='Form Received' && !s.interview_scheduled_date).length +
-      students.filter(s => s.interview_scheduled_date >= td && s.interview_scheduled_date <= t48 && !hasSent(s.id,'interview_reminder')).length +
-      matches.filter(m => { const s=students.find(st=>st.id===m.student_id); return s?.status==='Placed'&&!m.notification_sent }).length +
-      students.filter(s => s.status==='Placed'&&s.matched_preceptor&&!hasSent(s.id,'preceptor_welcome')).length +
-      students.filter(s => ['Form Received','Interview Scheduled','Interviewed','Placed','Active Rotation'].includes(s.status)&&(!s.cs_cedars_status||!s.cs_stage1_submitted)).length +
-      (activeCohort&&!activeCohort.orientation_sent_at&&students.some(s=>s.status==='Placed')?1:0) +
-      students.filter(s => s.status==='Active Rotation'&&!hasSent(s.id,'midpoint_checkin')).length +
-      students.filter(s => s.status==='Active Rotation'&&!hasSent(s.id,'midpoint_eval')).length +
-      students.filter(s => s.status==='Completed'&&!hasSent(s.id,'post_survey')).length +
-      // Certificate: Completed (any) OR Active Rotation with hours met — unified, no double-count
-      students.filter(s => !hasSent(s.id,'certificate')&&(s.status==='Completed'||(s.status==='Active Rotation'&&parseFloat(s.approved_hours||0)>=parseFloat(s.hours_required||0)&&parseFloat(s.hours_required||0)>0))).length +
-      students.filter(s => s.status==='Completed'&&!hasSent(s.id,'end_eval')).length +
-      // Act 16: badge not created
-      students.filter(s => s.status==='Placed'&&!s.badge_created).length +
-      // Act 17: placed/active rotation with no preceptor linked
-      students.filter(s => ['Placed','Active Rotation'].includes(s.status)&&!s.preceptor_id&&(!s.matched_preceptor||!s.matched_preceptor.trim())).length
-    )
+    const orientationComplete = !!activeCohort?.orientation_sent_at || communications.some(c => c.type === 'orientation_email')
+
+    // Always visible (not canEdit-gated in the panel)
+    let n =
+      students.filter(s => s.status==='Form Received' && !s.interview_scheduled_date).length +                                  // Send Interview Scheduling Link (act2)
+      students.filter(s => s.interview_scheduled_date >= td && s.interview_scheduled_date <= t48 && !hasSent(s.id,'interview_reminder')).length + // Send Interview Reminder (act3)
+      students.filter(s => s.status==='Placed' && s.matched_preceptor && !hasSent(s.id,'preceptor_welcome')).length              // Preceptor Welcome Email (act5)
+
+    // canEdit-gated tasks (match the panel's canEdit wrapping)
+    if (canEdit) {
+      n +=
+        (activeCohort && !orientationComplete && students.some(s => s.status==='Placed') ? 1 : 0) +                              // Orientation Email
+        students.filter(s => s.status==='Pending Outreach').length +                                                            // Send Student Form (act1)
+        students.filter(s => { if (s.status!=='Placed' || !s.matched_unit_id) return false; const m = matches.find(m => m.student_id===s.id); return m && !m.notification_sent }).length + // Unit Leader Placement Notification (act4)
+        students.filter(s => ['Form Received','Interview Scheduled','Interviewed','Placed','Active Rotation'].includes(s.status) && getCsLinkStatus(s)==='not_started').length + // CS-Link Access Not Started (act6, canonical)
+        students.filter(s => s.status==='Placed' && !s.badge_created).length +                                                  // Badge Not Created (act16)
+        students.filter(s => ['Placed','Active Rotation'].includes(s.status) && !s.preceptor_id && (!s.matched_preceptor || !s.matched_preceptor.trim())).length + // No Preceptor Assigned (act17)
+        students.filter(s => s.interview_outcome==='Do Not Recommend' && s.status==='Interviewed').length                       // Selection Decision Needed (act18)
+    }
+    return n
   })()
+
+  // While the panel is open it reports its exact visible-task count (including lazy
+  // Disposition / Shift Log / Not Logged tasks); the badge uses that. When the panel is
+  // closed it resets to null and we fall back to the eager approximation above.
+  const actionBadgeCount = panelActionCount != null ? panelActionCount : eagerActionBadgeCount
 
   return (
     <div className="app">
@@ -977,6 +992,7 @@ function MainApp({ onLogout }) {
           onLogCommunication={logCommunication}
           onMatchUpdate={updateMatch}
           onStudentUpdate={updateStudent}
+          onActionCountChange={setPanelActionCount}
           onNavigateToProfiles={id => { setFocusStudentId(id); switchTab('profiles'); setShowActionCenter(false) }}
           toast={toast}
         />

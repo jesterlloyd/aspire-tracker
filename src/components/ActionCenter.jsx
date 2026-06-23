@@ -365,7 +365,7 @@ export default function ActionCenter({
   isOpen, onClose, anchorEl,
   students, units, matches, cohortId, activeCohort,
   communications, onLogCommunication, onStudentUpdate, onMatchUpdate,
-  onNavigateToProfiles, toast,
+  onNavigateToProfiles, onActionCountChange, toast,
 }) {
   const { canEdit } = useAuth()
   const popoverRef = useRef(null)
@@ -777,6 +777,15 @@ ${KR_SIG}`
   ]
 
   const totalCount = actionItems.length
+
+  // Report the live visible-task count up so the bell badge matches the panel exactly,
+  // including the lazy-loaded tasks (Disposition / Shift Log / Not Logged). On unmount
+  // (panel closed) report null so the badge falls back to App's eager count and never
+  // retains a stale panel/cohort count. Recently completed is NOT part of totalCount.
+  useEffect(() => {
+    onActionCountChange?.(totalCount)
+    return () => onActionCountChange?.(null)
+  }, [totalCount, onActionCountChange])
 
   // Group into the three triage sections (presentation only — predicates untouched),
   // each ordered by priority. Cheap derivation over <=20 items, memoized for clarity.
