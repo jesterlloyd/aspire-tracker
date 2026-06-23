@@ -416,6 +416,7 @@ export default function ActionCenter({
   const [activeDispositionIds,        setActiveDispositionIds]        = useState([])
   const [dispositionFollowupsError,   setDispositionFollowupsError]   = useState(null)
   const [dispositionFollowupsLoading, setDispositionFollowupsLoading] = useState(false)
+  const [dispositionFollowupsLoaded,  setDispositionFollowupsLoaded]  = useState(false)
   const [dispositionRetry,            setDispositionRetry]            = useState(0)
 
   useEffect(() => {
@@ -424,6 +425,7 @@ export default function ActionCenter({
     setDispositionFollowupsError(null)
     setDispositionFollowups([])
     setActiveDispositionIds([])
+    setDispositionFollowupsLoaded(false)
     // Fetch pending follow-ups AND the set of currently-active dispositions. Clearing a
     // disposition (clear_student_disposition RPC) inactivates it WITHOUT deleting its
     // follow-ups or changing their 'pending' status, so a pending row can outlive its
@@ -446,6 +448,7 @@ export default function ActionCenter({
         if (aRes.error) { setDispositionFollowupsError(aRes.error.message || 'Failed to load active dispositions'); return }
         setDispositionFollowups(fRes.data || [])
         setActiveDispositionIds((aRes.data || []).map(d => d.id))
+        setDispositionFollowupsLoaded(true)
       })
       .finally(() => setDispositionFollowupsLoading(false))
   }, [isOpen, cohortId, dispositionRetry, canEdit])
@@ -694,11 +697,13 @@ ${KR_SIG}`
   const showOrientation = canEdit && activeCohort && !orientationComplete && placedStudents.length > 0 && !oriDone
 
   const sevenDaysAgo = new Date(Date.now() - 7*24*3600*1000).toISOString()
-  const act13 = shiftLogs
+  // Shift-log tasks stay empty until the lazy fetch completes, so the panel/badge never
+  // briefly over-count (e.g. "Not Logged Recently" flags everyone before logs arrive).
+  const act13 = !shiftLogsLoaded ? [] : shiftLogs
     .filter(l => l.status === 'Pending Review' && !l.reviewed_at)
     .map(l => ({ ...l, student: students.find(s => s.id === l.student_id) }))
     .filter(l => l.student)
-  const act15 = students
+  const act15 = !shiftLogsLoaded ? [] : students
     .filter(s => {
       if (s.status !== 'Active Rotation') return false
       return !shiftLogs.find(l => l.student_id === s.id && l.submitted_at >= sevenDaysAgo)
@@ -727,7 +732,7 @@ ${KR_SIG}`
 
   // act19: Disposition Follow-up Required — grouped by student from lazy-fetched followup data
   const act19 = (() => {
-    if (!canEdit) return []
+    if (!canEdit || !dispositionFollowupsLoaded) return []
     const activeIds = new Set(activeDispositionIds)
     const grouped = new Map()
     for (const f of dispositionFollowups) {
@@ -778,12 +783,19 @@ ${KR_SIG}`
 
   const totalCount = actionItems.length
 
+  // The lazy task data must be loaded before totalCount reflects the true visible set
+  // (shift logs for act13/act15, disposition data for act19). Until then, totalCount is
+  // eager-only and would be wrong, so we hold off reporting.
+  const lazyReady = shiftLogsLoaded && (!canEdit || dispositionFollowupsLoaded)
+
   // Report the live visible-task count up so the bell badge matches the panel exactly,
-  // including the lazy-loaded tasks (Disposition / Shift Log / Not Logged).
-  // Recently completed is NOT part of totalCount.
+  // including the lazy-loaded tasks (Disposition / Shift Log / Not Logged). Gated on
+  // lazyReady so the badge keeps App's stable closed count until the exact count is known
+  // — no transient inflated flash on open. Recently completed is NOT part of totalCount.
   useEffect(() => {
+    if (!lazyReady) return
     onActionCountChange?.(totalCount)
-  }, [totalCount, onActionCountChange])
+  }, [totalCount, lazyReady, onActionCountChange])
   // Separate unmount-only signal: report null when the panel closes so the badge falls
   // back to App's (freshly refetched) count and never keeps a stale panel/cohort count.
   // Kept apart from the count effect so it does NOT fire on every in-panel count change.
