@@ -38,8 +38,6 @@ const PRIORITY_RANK = { urgent: 0, high: 1, routine: 2, fyi: 3 }
 // Time-bound milestones that read as "coming due" rather than persistent gaps.
 const DUE_SOON_TYPES = new Set([
   'interview_reminder_overdue', // reminder inside the 48h interview window
-  'hours_completed',            // hours met → certificate now due
-  'midpoint_checkin', 'midpoint_eval', 'end_eval', 'post_survey',
 ])
 
 // Map one action item to its triage section. Pure function of existing fields.
@@ -119,11 +117,6 @@ function getActionLabel(item) {
     case 'interview_reminder_overdue': return 'Send Reminder'
     case 'unit_notification_needed':
       return item.title === 'Preceptor Welcome Email' ? 'Open in Outlook' : 'Notify Unit Leader'
-    case 'midpoint_checkin':           return 'Send Check-In'
-    case 'midpoint_eval':              return 'Open in Outlook'
-    case 'end_eval':                   return 'Open in Outlook'
-    case 'post_survey':                return 'Send Survey'
-    case 'hours_completed':            return 'Send Certificate'
     default:                           return item.emailHref ? 'Send Email' : null
   }
 }
@@ -207,110 +200,6 @@ Please make sure you are in a quiet, professional setting with a stable internet
 We look forward to speaking with you!
 
 ${SIG}`)
-}
-
-function buildMidpointCheckinEmail(s) {
-  const to = s.personal_email || s.school_email
-  return mailto(to, 'Checking In on Your ASPIRE Rotation',
-`Dear ${s.first_name},
-
-We hope your rotation at Cedars-Sinai is going well! We wanted to take a moment to check in and see how things are going on the unit.
-
-A few things to reflect on:
-
-- How are you feeling about your clinical experience so far?
-- Are you getting the hands-on learning opportunities you were hoping for?
-- Is there anything you need from the ASPIRE team to support you?
-
-Feel free to reply to this email with anything on your mind. We are here to support you throughout your rotation and want to make sure you are thriving.
-
-If you have not already done so, please remember to reach out regularly to your preceptor and communicate openly about your learning goals and schedule.
-
-Keep up the great work. We are proud of the commitment and dedication you are showing.
-
-${SIG}`)
-}
-
-function buildMidpointEvalEmail(s) {
-  const prec = s.matched_preceptor || 'Preceptor'
-  const precFirst = prec.split(' ')[0]
-  return outlookCompose(s.preceptor_email, `ASPIRE Midpoint Evaluation – ${s.last_name}, ${s.first_name}`,
-`Dear ${precFirst},
-
-Thank you for mentoring ${s.first_name} through their senior rotation at Cedars-Sinai. We hope the experience has been rewarding for both of you.
-
-We are reaching out to request your midpoint feedback on ${s.first_name}'s clinical performance. This evaluation helps us provide coaching and support to the student during the remaining weeks of their rotation.
-
-Please complete the brief ASPIRE Preceptor Feedback Questionnaire using the link below. When prompted, please select "Midpoint" as the Feedback Period:
-
-https://forms.cloud.microsoft/r/brGDMzFXgy
-
-This should take approximately 5 to 10 minutes. Your responses are confidential and will not be shared with the student.
-
-Thank you again for your dedication to clinical nursing education. Your guidance makes a meaningful difference in ${s.first_name}'s journey toward professional practice.
-
-${KR_SIG}`)
-}
-
-function buildPostSurveyEmail(s) {
-  return mailto(s.personal_email||s.school_email, 'Complete Your ASPIRE Post-Program Survey',
-`Dear ${s.first_name},
-
-Congratulations on completing your ASPIRE rotation at Cedars-Sinai! We are so proud of everything you have accomplished.
-
-As part of program completion, we ask that you take 10 to 15 minutes to complete the ASPIRE Clinical Readiness Survey. Your feedback helps us evaluate and improve the program for future students:
-
-https://forms.cloud.microsoft/r/GWAdKLuM8J
-
-Please complete this survey as soon as possible. Your certificate of completion will follow shortly.
-
-Thank you for being part of ASPIRE. We wish you continued success as you prepare for licensure and your nursing career.
-
-${SIG}`)
-}
-
-function buildCertificateEmail(s) {
-  return mailto(s.personal_email||s.school_email, 'Congratulations on Completing the ASPIRE Program!',
-`Dear ${s.first_name},
-
-Congratulations on successfully completing your ASPIRE Program rotation at Cedars-Sinai Medical Center! This is a tremendous milestone in your nursing journey, and we are incredibly proud of your dedication, commitment, and growth throughout this experience.
-
-Please find your Certificate of Completion attached to this email. You are welcome to print or save a copy for your records.
-
-Before we close out your rotation, we have two quick requests:
-
-1. Post-Program Survey (for you): Please take 10 to 15 minutes to complete the ASPIRE Clinical Readiness Survey. Your feedback helps us improve the program:
-https://forms.cloud.microsoft/r/GWAdKLuM8J
-
-2. Preceptor Evaluation (for your preceptor): Please share this link with ${s.matched_preceptor || 'your preceptor'} and kindly ask them to complete the ASPIRE Preceptor Feedback Questionnaire:
-https://forms.cloud.microsoft/r/brGDMzFXgy
-
-We are honored to have been part of your nursing journey. Many ASPIRE graduates go on to become strong candidates for our New Graduate RN Residency Program, and we look forward to seeing where your career takes you.
-
-Please remember to attach the Certificate of Completion PDF before sending.
-
-${KR_SIG}`)
-}
-
-function buildEndEvalEmail(s) {
-  const prec = s.matched_preceptor || 'Preceptor'
-  const precFirst = prec.split(' ')[0]
-  return outlookCompose(s.preceptor_email, `ASPIRE End-of-Rotation Evaluation – ${s.last_name}, ${s.first_name}`,
-`Dear ${precFirst},
-
-Thank you so much for serving as a preceptor for ${s.first_name} this rotation cycle. Your mentorship has made a lasting impact on their development as a future nurse.
-
-Now that ${s.first_name}'s rotation has concluded, we kindly ask that you complete the final ASPIRE Preceptor Feedback Questionnaire. Please select "End" as the Feedback Period when completing the form:
-
-https://forms.cloud.microsoft/r/brGDMzFXgy
-
-This evaluation takes approximately 5 to 10 minutes and helps us assess student readiness for professional practice and continuously improve the ASPIRE Program.
-
-Your responses are confidential and will not be shared with the student.
-
-Thank you again for everything you have contributed to ASPIRE and to the future of nursing at Cedars-Sinai.
-
-${KR_SIG}`)
 }
 
 function buildPreceptorWelcomeEmail(s, unitContactEmail) {
@@ -662,7 +551,6 @@ export default function ActionCenter({
         }
         toast?.success('Notified', 'Unit leader email marked as sent.')
       }
-      if (type === 'certificate')       toast?.success('Certificate', 'Email marked as sent. Attach the PDF before sending.')
       logCompleted({ id: item.id, title: item.title, studentName: item.studentName })
       setActioning(null)
     }
@@ -805,27 +693,6 @@ ${KR_SIG}`
     communications.some(c => c.type === 'orientation_email')
   const showOrientation = canEdit && activeCohort && !orientationComplete && placedStudents.length > 0 && !oriDone
 
-  // Midpoint is reached at ≥50% of approved/reviewed hours — the SAME rule the
-  // midpoint-checkin cron uses (api/cron/midpoint-checkin.js). Active Rotation alone is
-  // not enough. Missing/zero required hours → not eligible (no task), never a false alert.
-  const midpointReached = s => {
-    const required  = parseFloat(s.hours_required || 0)
-    const completed = parseFloat(s.approved_hours || 0)
-    return required > 0 && completed >= required * 0.5
-  }
-  const act8  = students.filter(s => s.status === 'Active Rotation' && midpointReached(s) && !hasSent(s.id, 'midpoint_checkin'))
-  const act9  = students.filter(s => s.status === 'Active Rotation' && midpointReached(s) && !hasSent(s.id, 'midpoint_eval'))
-  const act10 = students.filter(s => s.status === 'Completed' && !hasSent(s.id, 'post_survey'))
-  const act11 = students.filter(s =>
-    !hasSent(s.id, 'certificate') && (
-      s.status === 'Completed' ||
-      (s.status === 'Active Rotation' &&
-        parseFloat(s.approved_hours||0) >= parseFloat(s.hours_required||0) &&
-        parseFloat(s.hours_required||0) > 0)
-    )
-  )
-  const act12 = students.filter(s => s.status === 'Completed' && !hasSent(s.id, 'end_eval'))
-
   const sevenDaysAgo = new Date(Date.now() - 7*24*3600*1000).toISOString()
   const act13 = shiftLogs
     .filter(l => l.status === 'Pending Review' && !l.reviewed_at)
@@ -897,21 +764,16 @@ ${KR_SIG}`
       const unit = units.find(u => u.id === s.matched_unit_id)
       return { id:`${s.id}-pw`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:'routine', title:'Preceptor Welcome Email', description:s.preceptor_email?`Preceptor: ${s.matched_preceptor}. Welcome email not sent.`:'Preceptor email missing — add it in the student profile.', actionType:'unit_notification_needed', canMarkDone:!!s.preceptor_email, markDoneType:'log_communication', markDonePayload:{type:'preceptor_welcome'}, emailHref:s.preceptor_email?buildPreceptorWelcomeEmail(s,unit?.contact_email):null, warning:!s.preceptor_email?'Missing preceptor email':null }
     }),
-    ...(canEdit ? act17.map(s => ({ id:`${s.id}-prec`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:'high', title:'No Preceptor Assigned', description:`${s.status} — no preceptor linked yet.`, actionType:'preceptor_needed', canMarkDone:false, markDoneType:null, navigateToProfile:true })) : []),
+    ...(canEdit ? act17.map(s => ({ id:`${s.id}-prec`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:(s.status === 'Active Rotation' ? 'urgent' : 'high'), title:'No Preceptor Assigned', description:`${s.status} — no preceptor linked yet.`, actionType:'preceptor_needed', canMarkDone:false, markDoneType:null, navigateToProfile:true })) : []),
     // CS-Link
     ...(canEdit ? act6.map(s => ({ id:`${s.id}-cs`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'cslink', priority:'routine', title:'CS-Link Access Not Started', description:'Service Center Step 2 not yet submitted.', actionType:'cslink_incomplete', canMarkDone:false, markDoneType:null, navigateToProfile:true })) : []),
     // Badge
-    ...act11.map(s => ({ id:`${s.id}-cert`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'badge', priority:'fyi', title:'Certificate of Completion', description:'Hours met. Certificate not yet sent.', actionType:'hours_completed', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'certificate'}, emailHref:buildCertificateEmail(s) })),
     ...(canEdit ? act16.map(s => ({ id:`${s.id}-badge`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'badge', priority:'routine', title:'Badge Not Created', description:'Student placed. CS badge not yet created.', actionType:'badge_needed', canMarkDone:true, markDoneType:'update_field', markDonePayload:{fields:{badge_created:true}}, navigateToProfile:false })) : []),
     // Hours
     ...act13.map(item => ({ id:`${item.id}-sr`, studentId:item.student_id, studentName:item.student?`${item.student.last_name}, ${item.student.first_name}`:'—', cohortId, student:item.student, category:'hours', priority:'routine', title:'Shift Log Needs Review', description:`${item.shift_date} · ${item.total_hours}h`, actionType:'shift_log_submitted', canMarkDone:false, markDoneType:null, navigateToProfile:true })),
     ...act15.map(s => ({ id:`${s.id}-nl`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'hours', priority:'routine', title:'Student Not Logged Recently', description:s.daysSince===null?'No shifts logged yet.':`${s.daysSince} days since last log.`, actionType:'shift_log_submitted', canMarkDone:false, navigateToProfile:true })),
     // Communications
     ...(canEdit ? act1.map(s => ({ id:`${s.id}-sf`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'communication', priority:'routine', title:'Send Student Form', description:'Pending outreach — form not yet sent.', actionType:'student_form', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'student_form'}, emailHref:buildStudentFormEmail(s) })) : []),
-    ...act8.map(s => ({ id:`${s.id}-mc`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'communication', priority:'routine', title:'Midpoint Student Check-In', description:'Active Rotation. Check-in email not sent.', actionType:'midpoint_checkin', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'midpoint_checkin'}, emailHref:buildMidpointCheckinEmail(s) })),
-    ...act9.map(s => ({ id:`${s.id}-me`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'communication', priority:'routine', title:'Midpoint Preceptor Evaluation', description:s.preceptor_email?'Request midpoint eval from preceptor.':'Preceptor email missing.', actionType:'midpoint_eval', canMarkDone:!!s.preceptor_email, markDoneType:'log_communication', markDonePayload:{type:'midpoint_eval'}, emailHref:s.preceptor_email?buildMidpointEvalEmail(s):null, warning:!s.preceptor_email?'Missing preceptor email':null })),
-    ...act10.map(s => ({ id:`${s.id}-ps`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'communication', priority:'fyi', title:'Post-Program Student Survey', description:'Program completed. Post-survey not sent.', actionType:'post_survey', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'post_survey'}, emailHref:buildPostSurveyEmail(s) })),
-    ...act12.map(s => ({ id:`${s.id}-ee`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'communication', priority:'routine', title:'End Preceptor Evaluation', description:s.preceptor_email?'Request final evaluation from preceptor.':'Preceptor email missing.', actionType:'end_eval', canMarkDone:!!s.preceptor_email, markDoneType:'log_communication', markDonePayload:{type:'end_eval'}, emailHref:s.preceptor_email?buildEndEvalEmail(s):null, warning:!s.preceptor_email?'Missing preceptor email':null })),
   ]
 
   const totalCount = actionItems.length
