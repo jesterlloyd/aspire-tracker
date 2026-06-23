@@ -337,6 +337,8 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   const draftTimerRef       = useRef(null)
   const draftStatusTimerRef = useRef(null)
   const draftHydratedRef    = useRef(false)
+  const lastRecipientRef    = useRef(null)   // detects an actual recipient change vs. identity load
+  const latestDraftRef      = useRef(null)   // latest values for the flush-on-hide/unmount writes
   const flashDraftStatus = useCallback((s) => {
     setDraftStatus(s)
     if (draftStatusTimerRef.current) clearTimeout(draftStatusTimerRef.current)
@@ -471,22 +473,8 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     setSingleSendMsg(null)
   }, [selectedStudentId, instrument, timepoint])
 
-  // ── Direct Message draft: restore on recipient change ─────────────────────
-  // Re-hydrates the composer for the active recipient. The persist effect (defined
-  // lower, where recipient display fields are available) is gated on draftHydratedRef
-  // so it never clobbers a stored draft before this restore runs.
-  useEffect(() => {
-    draftHydratedRef.current = false
-    if (!DRAFT_KEY) { draftHydratedRef.current = true; return }
-    const d = readDirectDraft(DRAFT_KEY)
-    if (d && !directDraftIsEmpty(d)) {
-      setMsgSubject(d.subject || '')
-      setMsgBody(d.body || '')
-      if (typeof d.includeSignature === 'boolean') setIncludeSignature(d.includeSignature)
-      flashDraftStatus('restored')
-    }
-    draftHydratedRef.current = true
-  }, [DRAFT_KEY]) // eslint-disable-line react-hooks/exhaustive-deps
+  // (Direct Message draft restore is handled by the merged recipient-change effect below,
+  // so a separate reset effect can never clobber the restored content.)
 
   // ── Bulk: fetch active assignments for the selected timepoint ─────────────
   // Feeds the existing-assignment indicator in the student picker.
@@ -635,15 +623,28 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
       .then(({ data }) => { if (data) setFetchedContact(data) })
   }, [contactId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Clear compose when the active recipient changes ────────────────────────
-  // Prevents showing a previous recipient's draft or status in the new context.
-  // The draft-restore effect re-populates from localStorage for the new recipient.
+  // ── Restore-or-clear the composer when recipient / identity changes ──────────
+  // SINGLE effect so the restore is never clobbered by a separate reset (the prior bug:
+  // a reset cleared msgSubject/msgBody AFTER the restore set them). Restores this
+  // recipient's saved draft if present; otherwise clears — but ONLY when the recipient
+  // actually changed, so in-progress typing during auth (userKey) hydration is preserved.
   useEffect(() => {
-    setMsgSubject('')
-    setMsgBody('')
-    setDmSendStatus(null)
-    setDmConfirmOpen(false)
-  }, [draftRecipientId]) // eslint-disable-line react-hooks/exhaustive-deps
+    const recipientChanged = lastRecipientRef.current !== draftRecipientId
+    lastRecipientRef.current = draftRecipientId
+    if (recipientChanged) { setDmSendStatus(null); setDmConfirmOpen(false) }
+    draftHydratedRef.current = false
+    const d = DRAFT_KEY ? readDirectDraft(DRAFT_KEY) : null
+    if (d && !directDraftIsEmpty(d)) {
+      setMsgSubject(d.subject || '')
+      setMsgBody(d.body || '')
+      if (typeof d.includeSignature === 'boolean') setIncludeSignature(d.includeSignature)
+      flashDraftStatus('restored')
+    } else if (recipientChanged) {
+      setMsgSubject('')
+      setMsgBody('')
+    }
+    draftHydratedRef.current = true
+  }, [DRAFT_KEY, draftRecipientId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Derived values ────────────────────────────────────────────────────────
   // effectiveStudent and studentHasDisplayInfo are declared earlier (before effects) to avoid TDZ.
@@ -1289,39 +1290,64 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     return s
   }, [ccList, resolvedToEmail])
 
-  // ── Direct Message draft: debounced persist (CONNECT-DRAFT-AUTOSAVE-1) ─────
-  // Stores ONLY { subject, body, includeSignature } — never tokens, surveyResult, or
-  // surveyUrl. Gated on draftHydratedRef so the mount/restore pass can't be clobbered.
-  // Also writes a cohort-scoped pointer to the most recent non-empty draft so the user
-  // can resume it when returning with no recipient selected.
+  // ── Direct Message draft: autosave (CONNECT-DRAFT-AUTOSAVE) ────────────────
+  // Mirrors the Interview Rubric localStorage pattern: a ref holds the latest values, a
+  // single persist function reads from it (so flush handlers always write the newest
+  // content), and we flush on tab-hide / beforeunload / unmount in addition to the
+  // debounced write. Stores ONLY { subject, body, includeSignature } — never tokens or
+  // preview HTML. Pointer tracks the most recent non-empty draft for the Resume link.
   useEffect(() => {
-    if (!DRAFT_KEY || !draftRecipientId) return
+    latestDraftRef.current = {
+      DRAFT_KEY, ptrKey: lastDraftPointerKey(userKey, cohortId),
+      recipId: recipientType === 'student' ? studentId : contactId,
+      kind: recipientType === 'student' ? 'student' : 'contact',
+      subject: msgSubject, body: msgBody, includeSignature,
+      name: dmRecipientName, email: resolvedToEmail || '', school: dmRecipientSchool || null,
+    }
+  }, [DRAFT_KEY, userKey, cohortId, recipientType, studentId, contactId, msgSubject, msgBody, includeSignature, dmRecipientName, resolvedToEmail, dmRecipientSchool])
+  const persistDraftNow = useCallback(() => {
     if (!draftHydratedRef.current) return
+    const l = latestDraftRef.current
+    if (!l || !l.DRAFT_KEY) return
+    const payload = { v: DRAFT_VERSION, savedAt: Date.now(), subject: l.subject, body: l.body, includeSignature: l.includeSignature }
+    try {
+      if (directDraftIsEmpty(payload)) {
+        localStorage.removeItem(l.DRAFT_KEY)
+        const ptr = readDraftPointer(userKey, cohortId)
+        if (ptr && ptr.id === l.recipId && l.ptrKey) localStorage.removeItem(l.ptrKey)
+      } else {
+        localStorage.setItem(l.DRAFT_KEY, JSON.stringify(payload))
+        if (l.ptrKey) localStorage.setItem(l.ptrKey, JSON.stringify({
+          v: DRAFT_VERSION, savedAt: payload.savedAt, kind: l.kind,
+          id: l.recipId, name: l.name, email: l.email, school: l.school,
+        }))
+      }
+    } catch { /* ignore quota / serialization errors */ }
+  }, [userKey, cohortId])
+
+  // Debounced write + "Draft saved" indicator. The debounce coalesces the mount/restore
+  // pass so it never clobbers a freshly-restored draft.
+  useEffect(() => {
+    if (!DRAFT_KEY || !draftHydratedRef.current) return
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
-    const payload = { v: DRAFT_VERSION, savedAt: Date.now(), subject: msgSubject, body: msgBody, includeSignature }
-    const empty = directDraftIsEmpty(payload)
-    const ptrKey = lastDraftPointerKey(userKey, cohortId)
-    const recipId = recipientType === 'student' ? studentId : contactId
-    draftTimerRef.current = setTimeout(() => {
-      try {
-        if (empty) {
-          localStorage.removeItem(DRAFT_KEY)
-          // Only retract the pointer if it referenced THIS recipient.
-          const ptr = readDraftPointer(userKey, cohortId)
-          if (ptr && ptr.id === recipId && ptrKey) localStorage.removeItem(ptrKey)
-        } else {
-          localStorage.setItem(DRAFT_KEY, JSON.stringify(payload))
-          if (ptrKey) localStorage.setItem(ptrKey, JSON.stringify({
-            v: DRAFT_VERSION, savedAt: payload.savedAt,
-            kind: recipientType === 'student' ? 'student' : 'contact',
-            id: recipId, name: dmRecipientName, email: resolvedToEmail || '', school: dmRecipientSchool || null,
-          }))
-          flashDraftStatus('saved')
-        }
-      } catch { /* ignore quota / serialization errors */ }
-    }, DRAFT_DEBOUNCE_MS)
+    const nonEmpty = !directDraftIsEmpty({ subject: msgSubject, body: msgBody })
+    draftTimerRef.current = setTimeout(() => { persistDraftNow(); if (nonEmpty) flashDraftStatus('saved') }, DRAFT_DEBOUNCE_MS)
     return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current) }
-  }, [msgSubject, msgBody, includeSignature, DRAFT_KEY, draftRecipientId, recipientType, studentId, contactId, cohortId, userKey, dmRecipientName, dmRecipientSchool, resolvedToEmail, flashDraftStatus])
+  }, [msgSubject, msgBody, includeSignature, DRAFT_KEY, persistDraftNow, flashDraftStatus])
+
+  // Flush immediately on tab-hide, browser close/refresh, AND SPA unmount (navigating away
+  // from Connect) so a draft typed within the debounce window is never lost.
+  useEffect(() => {
+    const onHide   = () => { if (document.visibilityState === 'hidden') persistDraftNow() }
+    const onUnload = () => persistDraftNow()
+    document.addEventListener('visibilitychange', onHide)
+    window.addEventListener('beforeunload', onUnload)
+    return () => {
+      document.removeEventListener('visibilitychange', onHide)
+      window.removeEventListener('beforeunload', onUnload)
+      persistDraftNow()
+    }
+  }, [persistDraftNow])
 
   // Resume affordance: when the single-recipient composer is open with NO recipient,
   // surface the most recent saved draft (if still valid) as a non-blocking link.
@@ -1699,7 +1725,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                   <div>Send a direct ASPIRE email to this recipient.</div>
                   {DRAFT_KEY && (
                     <div style={{ color: '#9ca3af', marginTop: 4 }}>
-                      Draft is saved locally for this contact.
+                      Drafts autosave locally for this contact.
                     </div>
                   )}
                 </div>
@@ -2127,14 +2153,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                                     : ''
                 return (
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
-                    <Tooltip label="Draft persistence coming soon" placement="top">
-                      <button disabled style={{
-                        padding: '8px 16px', background: '#e5e7eb',
-                        border: 'none', borderRadius: 8,
-                        fontSize: 12, fontWeight: 600, fontFamily: F,
-                        color: '#9ca3af', cursor: 'not-allowed',
-                      }}>Save Draft</button>
-                    </Tooltip>
+                    {/* Drafts autosave automatically — no manual save button. */}
                     {canSend ? (
                       <button
                         onClick={() => { setDmBodyExpanded(false); setDmConfirmOpen(true) }}
