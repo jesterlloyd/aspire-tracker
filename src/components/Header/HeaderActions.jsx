@@ -13,6 +13,11 @@ export default function HeaderActions({
 }) {
   const { isOwner, isAdmin, isInterviewer } = useAuth()
   const canViewCatalog = isOwner || isAdmin || isInterviewer
+  // While Action Center is open the bell is the active surface — suppress the route-based
+  // Connect/Catalog active treatment so only one nav marker shows at a time. Routing and
+  // the current page are unchanged; this is purely the active-marker visual state.
+  const connectActive = activeTab === 'connect' && !showActionCenter
+  const catalogActive = activeTab === 'catalog' && !showActionCenter
   return (
     <>
       {cohorts.length > 0 && (
@@ -28,19 +33,19 @@ export default function HeaderActions({
           style={{
             position: 'relative', flexShrink: 0,
             width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: activeTab === 'connect' ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)',
-            border: `1px solid ${activeTab === 'connect' ? 'rgba(255,255,255,0.50)' : 'rgba(255,255,255,0.10)'}`,
+            background: connectActive ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)',
+            border: `1px solid ${connectActive ? 'rgba(255,255,255,0.50)' : 'rgba(255,255,255,0.10)'}`,
             borderRadius: 8,
-            color: activeTab === 'connect' ? '#fff' : 'rgba(255,255,255,0.75)',
+            color: connectActive ? '#fff' : 'rgba(255,255,255,0.75)',
             cursor: 'pointer',
             transition: 'background 0.15s, border-color 0.15s',
             overflow: 'visible',
           }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.14)'}
-          onMouseLeave={e => e.currentTarget.style.background = activeTab === 'connect' ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)'}
+          onMouseLeave={e => e.currentTarget.style.background = connectActive ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)'}
         >
           <MessagesSquare size={15} strokeWidth={1.9} />
-          {activeTab === 'connect' && (
+          {connectActive && (
             <span style={{
               position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
               width: 0, height: 0,
@@ -62,19 +67,19 @@ export default function HeaderActions({
           style={{
             position: 'relative', flexShrink: 0,
             width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: activeTab === 'catalog' ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)',
-            border: `1px solid ${activeTab === 'catalog' ? 'rgba(255,255,255,0.50)' : 'rgba(255,255,255,0.10)'}`,
+            background: catalogActive ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)',
+            border: `1px solid ${catalogActive ? 'rgba(255,255,255,0.50)' : 'rgba(255,255,255,0.10)'}`,
             borderRadius: 8,
-            color: activeTab === 'catalog' ? '#fff' : 'rgba(255,255,255,0.75)',
+            color: catalogActive ? '#fff' : 'rgba(255,255,255,0.75)',
             cursor: 'pointer',
             transition: 'background 0.15s, border-color 0.15s',
             overflow: 'visible',
           }}
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.14)'}
-          onMouseLeave={e => e.currentTarget.style.background = activeTab === 'catalog' ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)'}
+          onMouseLeave={e => e.currentTarget.style.background = catalogActive ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)'}
         >
           <Library size={15} strokeWidth={1.9} />
-          {activeTab === 'catalog' && (
+          {catalogActive && (
             <span style={{
               position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
               width: 0, height: 0,
