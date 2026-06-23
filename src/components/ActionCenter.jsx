@@ -6,6 +6,7 @@ import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 export { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { useAuth } from '../contexts/AuthContext'
 import { DISPOSITION_TYPES, FOLLOWUP_TYPES } from '../lib/dispositions'
+import { getCsLinkStatus } from '../lib/utils'
 
 function fmtLocalDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
@@ -534,6 +535,7 @@ export default function ActionCenter({
 
   // Disposition followups — reload fresh on every open so completion state stays current
   const [dispositionFollowups,        setDispositionFollowups]        = useState([])
+  const [activeDispositionIds,        setActiveDispositionIds]        = useState([])
   const [dispositionFollowupsError,   setDispositionFollowupsError]   = useState(null)
   const [dispositionFollowupsLoading, setDispositionFollowupsLoading] = useState(false)
   const [dispositionRetry,            setDispositionRetry]            = useState(0)
@@ -543,15 +545,29 @@ export default function ActionCenter({
     setDispositionFollowupsLoading(true)
     setDispositionFollowupsError(null)
     setDispositionFollowups([])
-    supabase
-      .from('student_disposition_followups')
-      .select('id, student_id, followup_type, created_at')
-      .eq('cohort_id', cohortId)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: true })
-      .then(({ data, error }) => {
-        if (error) { setDispositionFollowupsError(error.message || 'Failed to load disposition follow-ups') }
-        else { setDispositionFollowups(data || []) }
+    setActiveDispositionIds([])
+    // Fetch pending follow-ups AND the set of currently-active dispositions. Clearing a
+    // disposition (clear_student_disposition RPC) inactivates it WITHOUT deleting its
+    // follow-ups or changing their 'pending' status, so a pending row can outlive its
+    // disposition. We keep a follow-up only when its disposition_id is still active —
+    // both queries run fresh on open, so the task self-clears after a clear/refresh.
+    Promise.all([
+      supabase
+        .from('student_disposition_followups')
+        .select('id, student_id, disposition_id, followup_type, created_at')
+        .eq('cohort_id', cohortId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('student_active_disposition')
+        .select('id, student_id')
+        .eq('cohort_id', cohortId),
+    ])
+      .then(([fRes, aRes]) => {
+        if (fRes.error) { setDispositionFollowupsError(fRes.error.message || 'Failed to load disposition follow-ups'); return }
+        if (aRes.error) { setDispositionFollowupsError(aRes.error.message || 'Failed to load active dispositions'); return }
+        setDispositionFollowups(fRes.data || [])
+        setActiveDispositionIds((aRes.data || []).map(d => d.id))
       })
       .finally(() => setDispositionFollowupsLoading(false))
   }, [isOpen, cohortId, dispositionRetry, canEdit])
@@ -574,10 +590,11 @@ export default function ActionCenter({
     const vw = window.innerWidth
     const mobile = vw < 640
     // Sit just below the header (clamped 56–76px), near where the bell lives.
-    const bellBottom = anchorEl ? anchorEl.getBoundingClientRect().bottom + 8 : 64
+    const rect = anchorEl ? anchorEl.getBoundingClientRect() : null
+    const bellBottom = rect ? rect.bottom + 8 : 64
     const top = Math.min(Math.max(bellBottom, 56), 76)
     if (mobile) {
-      // Near-full-width sheet with comfortable side margins; no pointer.
+      // Near-full-width sheet with comfortable side margins.
       setPos({ top, right: 10, width: vw - 20, mobile: true })
       return
     }
@@ -778,16 +795,28 @@ ${KR_SIG}`
     return m && !m.notification_sent
   })
   const act5 = students.filter(s => s.status === 'Placed' && s.matched_preceptor && !hasSent(s.id, 'preceptor_welcome'))
+  // CS-Link "not started": use the canonical per-student derivation (utils.getCsLinkStatus,
+  // the same source as Student Profiles → CS-Link Access). The old (!cs_cedars_status ||
+  // !cs_stage1_submitted) test mis-flagged employee/complete/cslink_pending students.
+  // The status whitelist already excludes Not Proceeding / withdrawn students.
   const act6 = students.filter(s =>
     ['Form Received','Interview Scheduled','Interviewed','Placed','Active Rotation'].includes(s.status) &&
-    (!s.cs_cedars_status || !s.cs_stage1_submitted)
+    getCsLinkStatus(s) === 'not_started'
   )
   const orientationComplete = !!activeCohort?.orientation_sent_at ||
     communications.some(c => c.type === 'orientation_email')
   const showOrientation = canEdit && activeCohort && !orientationComplete && placedStudents.length > 0 && !oriDone
 
-  const act8  = students.filter(s => s.status === 'Active Rotation' && !hasSent(s.id, 'midpoint_checkin'))
-  const act9  = students.filter(s => s.status === 'Active Rotation' && !hasSent(s.id, 'midpoint_eval'))
+  // Midpoint is reached at ≥50% of approved/reviewed hours — the SAME rule the
+  // midpoint-checkin cron uses (api/cron/midpoint-checkin.js). Active Rotation alone is
+  // not enough. Missing/zero required hours → not eligible (no task), never a false alert.
+  const midpointReached = s => {
+    const required  = parseFloat(s.hours_required || 0)
+    const completed = parseFloat(s.approved_hours || 0)
+    return required > 0 && completed >= required * 0.5
+  }
+  const act8  = students.filter(s => s.status === 'Active Rotation' && midpointReached(s) && !hasSent(s.id, 'midpoint_checkin'))
+  const act9  = students.filter(s => s.status === 'Active Rotation' && midpointReached(s) && !hasSent(s.id, 'midpoint_eval'))
   const act10 = students.filter(s => s.status === 'Completed' && !hasSent(s.id, 'post_survey'))
   const act11 = students.filter(s =>
     !hasSent(s.id, 'certificate') && (
@@ -834,8 +863,11 @@ ${KR_SIG}`
   // act19: Disposition Follow-up Required — grouped by student from lazy-fetched followup data
   const act19 = (() => {
     if (!canEdit) return []
+    const activeIds = new Set(activeDispositionIds)
     const grouped = new Map()
     for (const f of dispositionFollowups) {
+      // Skip follow-ups orphaned by a cleared/replaced disposition.
+      if (!activeIds.has(f.disposition_id)) continue
       const s = students.find(st => st.id === f.student_id)
       if (!s) continue
       if (!grouped.has(f.student_id)) grouped.set(f.student_id, { student: s, followups: [] })
@@ -929,7 +961,10 @@ ${KR_SIG}`
         top: pos.top,
         right: pos.right,
         width: pos.width,
-        maxHeight: 'calc(100vh - 80px)',
+        // Stop well above the Keith AI launcher (fixed bottom:24px, 60px tall) so the
+        // sheet never collides with it; cap the column height too so it stays compact on
+        // tall screens. The body scrolls internally past either limit.
+        maxHeight: `min(620px, calc(100vh - ${pos.top + 116}px))`,
         borderRadius: pos.mobile ? 20 : 24,
         display: 'flex',
         flexDirection: 'column',
