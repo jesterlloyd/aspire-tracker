@@ -164,8 +164,16 @@ function MainApp({ onLogout }) {
   const [communications,setCommunications]= useState([])
   const [showActionCenter, setShowActionCenter] = useState(false)
   // Live count reported by the open Action Center panel (includes lazy-loaded tasks).
-  // null when the panel is closed → badge falls back to the eager count below.
+  // null when the panel is closed → badge falls back to the eager + lazy count below.
   const [panelActionCount, setPanelActionCount] = useState(null)
+  // Minimal raw data for the 3 lazy Action Center tasks, so the CLOSED bell badge can
+  // count them too (Shift Log Needs Review, Student Not Logged Recently, Disposition
+  // Follow-up). Lightweight count-only fetch; derived count is filtered by current
+  // students so stale cross-cohort rows never bleed.
+  const [acShiftLogs,        setAcShiftLogs]        = useState([])
+  const [acRecentLogIds,     setAcRecentLogIds]     = useState([])
+  const [acPendingFollowups, setAcPendingFollowups] = useState([])
+  const [acActiveDispoIds,   setAcActiveDispoIds]   = useState([])
   const [tourRunning,      setTourRunning]      = useState(false)
   const [loading,   setLoading]   = useState(true)
   const [dbError,   setDbError]   = useState(null)
@@ -254,6 +262,32 @@ function MainApp({ onLogout }) {
     setActiveCohortId(restored ? restored.id : (cohorts.find(c => c.status === 'Active') || cohorts[0]).id)
   }, [cohorts]) // eslint-disable-line
 
+  // Lightweight fetch of the lazy Action Center task data (count-only fields) so the
+  // CLOSED bell badge can include Shift Log Needs Review / Student Not Logged Recently /
+  // Disposition Follow-up. Declared before the cohort-load effect that calls it.
+  // Disposition data is owner/admin-gated.
+  const fetchLazyActionData = async (id) => {
+    if (!id) return
+    const reads = [
+      supabase.from('student_shift_logs').select('student_id, status, reviewed_at, submitted_at').eq('cohort_id', id),
+      canEdit
+        ? supabase.from('student_disposition_followups').select('student_id, disposition_id').eq('cohort_id', id).eq('status', 'pending')
+        : Promise.resolve({ data: [] }),
+      canEdit
+        ? supabase.from('student_active_disposition').select('id').eq('cohort_id', id)
+        : Promise.resolve({ data: [] }),
+    ]
+    const [logsRes, fuRes, adRes] = await Promise.all(reads)
+    const logs = logsRes.data || []
+    // Precompute the "logged within 7 days" student set here (async, not render) so the
+    // badge derivation stays free of impure Date calls during render.
+    const cutoff = new Date(new Date().getTime() - 7*24*3600*1000).toISOString()
+    setAcShiftLogs(logs)
+    setAcRecentLogIds([...new Set(logs.filter(l => l.submitted_at >= cutoff).map(l => l.student_id))])
+    setAcPendingFollowups(fuRes.data || [])
+    setAcActiveDispoIds((adRes.data || []).map(d => d.id))
+  }
+
   useEffect(() => {
     if (!activeCohortId) return
     // Clear stale data from previous cohort immediately so no cross-cohort bleed
@@ -263,7 +297,7 @@ function MainApp({ onLogout }) {
       fetchStudents(activeCohortId), fetchUnits(activeCohortId),
       fetchMatches(activeCohortId),  fetchInterviews(activeCohortId),
       fetchIvSessions(activeCohortId), fetchIvSlots(activeCohortId),
-      fetchCommunications(activeCohortId),
+      fetchCommunications(activeCohortId), fetchLazyActionData(activeCohortId),
     ]).finally(() => setLoading(false))
   }, [activeCohortId])
 
@@ -322,7 +356,16 @@ function MainApp({ onLogout }) {
     fetchMatches(activeCohortId);  fetchInterviews(activeCohortId)
     fetchIvSessions(activeCohortId); fetchIvSlots(activeCohortId)
     fetchCommunications(activeCohortId)
+    fetchLazyActionData(activeCohortId)
   }
+
+  // Stable handler for the Action Center's count report. When the panel reports null
+  // (it closed), refetch the lazy data so the CLOSED badge is fresh — preventing both the
+  // open→close bounce to stale data and lingering counts after in-session resolution.
+  const handleActionCount = useCallback((n) => {
+    setPanelActionCount(n)
+    if (n === null && activeCohortId) fetchLazyActionData(activeCohortId)
+  }, [activeCohortId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Cohort CRUD ──────────────────────────────────────────────
   const createCohort = async d => {
@@ -410,6 +453,10 @@ function MainApp({ onLogout }) {
     // AUTH-UX-1: persist under THIS user's scoped key so it cannot leak to another account.
     if (user?.id) localStorage.setItem(lastTabKey(user.id), tab)
     navigate(TAB_TO_PATH[tab] || '/aggregate')
+    // Refresh the lazy Action Center count on navigation so the closed bell badge updates
+    // after a Disposition / Shift Log task is resolved on another surface (event handler,
+    // not an effect).
+    if (activeCohortId) fetchLazyActionData(activeCohortId)
   }
 
   // WS2.3/WS2.4: single source of truth for the tour-restart behavior. WS2.4 removed the
@@ -825,10 +872,33 @@ function MainApp({ onLogout }) {
     return n
   })()
 
-  // While the panel is open it reports its exact visible-task count (including lazy
-  // Disposition / Shift Log / Not Logged tasks); the badge uses that. When the panel is
-  // closed it resets to null and we fall back to the eager approximation above.
-  const actionBadgeCount = panelActionCount != null ? panelActionCount : eagerActionBadgeCount
+  // Closed-panel count for the 3 lazy tasks, mirroring ActionCenter act13/act15/act19.
+  // Filtered by current students so stale cross-cohort rows are ignored. No double-count:
+  // the eager count contains none of these.
+  const lazyActionBadgeCount = (() => {
+    if (!students.length) return 0
+    const ids = new Set(students.map(s => s.id))
+    const recent = new Set(acRecentLogIds)
+    // Shift Log Needs Review (act13): pending-review logs with a matching student
+    const shiftReview = acShiftLogs.filter(l => l.status === 'Pending Review' && !l.reviewed_at && ids.has(l.student_id)).length
+    // Student Not Logged Recently (act15): Active Rotation students with no log in the last 7 days
+    const notLogged = students.filter(s => s.status === 'Active Rotation' && !recent.has(s.id)).length
+    // Disposition Follow-up (act19, owner/admin only): distinct students with an active pending follow-up
+    let dispo = 0
+    if (canEdit) {
+      const active = new Set(acActiveDispoIds)
+      const studs = new Set()
+      for (const f of acPendingFollowups) {
+        if (active.has(f.disposition_id) && ids.has(f.student_id)) studs.add(f.student_id)
+      }
+      dispo = studs.size
+    }
+    return shiftReview + notLogged + dispo
+  })()
+
+  // While the panel is open it reports its exact visible-task count; the badge uses that.
+  // When closed, fall back to eager + lazy so all 13 task types are reflected.
+  const actionBadgeCount = panelActionCount != null ? panelActionCount : (eagerActionBadgeCount + lazyActionBadgeCount)
 
   return (
     <div className="app">
@@ -906,7 +976,7 @@ function MainApp({ onLogout }) {
                 students={students}
                 units={units} cohortId={activeCohortId}
                 onUpdate={updateStudent} onDelete={deleteStudent}
-                onRefresh={() => fetchStudents(activeCohortId)}
+                onRefresh={() => { fetchStudents(activeCohortId); fetchLazyActionData(activeCohortId) }}
                 onSwitchToAccess={switchToAccess}
                 view={profilesView} onViewChange={setProfilesView}
                 accessFocusId={accessFocusId}
@@ -992,7 +1062,7 @@ function MainApp({ onLogout }) {
           onLogCommunication={logCommunication}
           onMatchUpdate={updateMatch}
           onStudentUpdate={updateStudent}
-          onActionCountChange={setPanelActionCount}
+          onActionCountChange={handleActionCount}
           onNavigateToProfiles={id => { setFocusStudentId(id); switchTab('profiles'); setShowActionCenter(false) }}
           toast={toast}
         />
