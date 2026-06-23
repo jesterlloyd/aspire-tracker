@@ -9,6 +9,7 @@ import SentHistory from './SentHistory'
 import ContactAutocomplete from './ContactAutocomplete'
 import { isValidEmail } from '../../lib/notifications/studentRecipient'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
+import { useAuth } from '../../contexts/AuthContext'
 
 const F = 'DM Sans, sans-serif'
 
@@ -33,6 +34,48 @@ const BULK_CASEY_FINK_TIMEPOINTS = [
 
 const LAST_MODE_KEY    = 'aspire.connect.outreach.lastMode'  // inner message type key ('message'|'survey')
 const RECIPIENT_MODE_KEY = 'aspire.connect.outreach.mode'   // top-level mode key ('single'|'bulk')
+
+// CONNECT-DRAFT-AUTOSAVE-1: versioned, TTL'd Direct Message draft autosave (browser-local).
+// Per-recipient key preserves drafts across navigation; a cohort-scoped pointer lets the
+// user resume the most recent draft when returning with no recipient selected.
+const DRAFT_VERSION    = 1
+const DRAFT_TTL_MS     = 7 * 24 * 60 * 60 * 1000 // 7 days
+const DRAFT_DEBOUNCE_MS = 600
+// All keys are scoped by the logged-in user so one account cannot see another's draft on a
+// shared browser. token = `student:ID` | `contact:ID`. Returns null when userKey is absent
+// (autosave disabled — no read/write).
+const directDraftKey = (userKey, cohortId, token) =>
+  (userKey && token) ? `aspire.connect.outreach.directDraft.v${DRAFT_VERSION}.${userKey}.${cohortId || 'none'}.${token}` : null
+const lastDraftPointerKey = (userKey, cohortId) =>
+  userKey ? `aspire.connect.outreach.lastDraftPointer.v${DRAFT_VERSION}.${userKey}.${cohortId || 'none'}` : null
+
+// Read a stored draft (strictly versioned; no legacy migration — old unscoped drafts are
+// never resurrected). Drops stale (>TTL) or invalid payloads. NOTE: uses Date.now — call
+// only from effects/handlers, never during render.
+function readDirectDraft(key) {
+  if (!key || typeof localStorage === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return null
+    const d = JSON.parse(raw)
+    if (!d || d.v !== DRAFT_VERSION) { localStorage.removeItem(key); return null }
+    if (typeof d.savedAt === 'number' && Date.now() - d.savedAt > DRAFT_TTL_MS) { localStorage.removeItem(key); return null }
+    return d
+  } catch { try { localStorage.removeItem(key) } catch { /* ignore */ } return null }
+}
+function directDraftIsEmpty(d) {
+  return !d || (!String(d.subject || '').trim() && !String(d.body || '').trim())
+}
+function readDraftPointer(userKey, cohortId) {
+  const key = lastDraftPointerKey(userKey, cohortId)
+  if (!key || typeof localStorage === 'undefined') return null
+  try {
+    const d = JSON.parse(localStorage.getItem(key) || 'null')
+    if (!d || d.v !== DRAFT_VERSION || !d.id || !d.kind) return null
+    if (typeof d.savedAt === 'number' && Date.now() - d.savedAt > DRAFT_TTL_MS) return null
+    return d
+  } catch { return null }
+}
 
 // Bulk survey send chunk size. The send endpoint caps items per request
 // (a defensive guard against the Vercel function timeout), so the UI splits the
@@ -274,17 +317,31 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   const [ccInputError,      setCcInputError]       = useState(null)
   const [ccAutoSuggested,   setCcAutoSuggested]    = useState(false)
 
-  // ── Direct Message draft — typed key prevents contact/student UUID collisions ──
-  // Stores ONLY { subject, body }. Tokens and URLs are NEVER stored.
+  // ── Direct Message draft — keys scoped by logged-in user + cohort + recipient ──
+  // userKey: auth user id → normalized email → null. When null, autosave is DISABLED
+  // (DRAFT_KEY is null), so no draft is read or written. Stores ONLY { subject, body,
+  // includeSignature }. Tokens and URLs are NEVER stored.
+  const { user } = useAuth()
+  const userKey = user?.id || (user?.email ? normalizeEmailForLookup(user.email) : '') || null
   const draftRecipientId = studentId ? `student:${studentId}`
                          : contactId ? `contact:${contactId}`
                          : null
-  const DRAFT_KEY = draftRecipientId
-    ? `aspire.connect.outreach.directDraft.${draftRecipientId}`
-    : null
+  const DRAFT_KEY = directDraftKey(userKey, cohortId, draftRecipientId)
 
   const [msgSubject, setMsgSubject] = useState('')
   const [msgBody,    setMsgBody]    = useState('')
+  // Draft autosave UX state. draftStatus drives the small inline indicator;
+  // resumeInfo backs the non-blocking "Resume draft" link when no recipient is selected.
+  const [draftStatus, setDraftStatus] = useState(null) // 'saved' | 'restored' | 'discarded' | null
+  const [resumeInfo,  setResumeInfo]  = useState(null)  // { kind, id, name, email, school } | null
+  const draftTimerRef       = useRef(null)
+  const draftStatusTimerRef = useRef(null)
+  const draftHydratedRef    = useRef(false)
+  const flashDraftStatus = useCallback((s) => {
+    setDraftStatus(s)
+    if (draftStatusTimerRef.current) clearTimeout(draftStatusTimerRef.current)
+    draftStatusTimerRef.current = setTimeout(() => setDraftStatus(null), 2200)
+  }, [])
 
   // ── Survey Invitation form state ──────────────────────────────────────────
   const [students,          setStudents]          = useState([])
@@ -414,22 +471,22 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     setSingleSendMsg(null)
   }, [selectedStudentId, instrument, timepoint])
 
-  // ── Direct Message draft: restore on mount ────────────────────────────────
+  // ── Direct Message draft: restore on recipient change ─────────────────────
+  // Re-hydrates the composer for the active recipient. The persist effect (defined
+  // lower, where recipient display fields are available) is gated on draftHydratedRef
+  // so it never clobbers a stored draft before this restore runs.
   useEffect(() => {
-    if (!DRAFT_KEY) return
-    try {
-      const saved = JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}')
-      if (typeof saved.subject === 'string') setMsgSubject(saved.subject)
-      if (typeof saved.body    === 'string') setMsgBody(saved.body)
-    } catch { /* ignore malformed draft */ }
+    draftHydratedRef.current = false
+    if (!DRAFT_KEY) { draftHydratedRef.current = true; return }
+    const d = readDirectDraft(DRAFT_KEY)
+    if (d && !directDraftIsEmpty(d)) {
+      setMsgSubject(d.subject || '')
+      setMsgBody(d.body || '')
+      if (typeof d.includeSignature === 'boolean') setIncludeSignature(d.includeSignature)
+      flashDraftStatus('restored')
+    }
+    draftHydratedRef.current = true
   }, [DRAFT_KEY]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Direct Message draft: persist on change ───────────────────────────────
-  // Stores ONLY { subject, body } — never surveyResult, surveyUrl, or tokens
-  useEffect(() => {
-    if (!DRAFT_KEY) return
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ subject: msgSubject, body: msgBody }))
-  }, [msgSubject, msgBody, DRAFT_KEY])
 
   // ── Bulk: fetch active assignments for the selected timepoint ─────────────
   // Feeds the existing-assignment indicator in the student picker.
@@ -623,6 +680,15 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     'Selected student'
   const surveyRecipientSchool =
     selectedStudent?.school || fetchedStudent?.school || effectiveStudent?.school || null
+
+  // Display fields for the Direct Message recipient — used to label the saved-draft
+  // pointer so "Resume draft for {name}" can be shown when no recipient is selected.
+  const dmRecipientName = recipientType === 'contact'
+    ? String(fromContact?.name || fetchedContact?.name || '').trim()
+    : String(effectiveStudent?.name || (fetchedStudent ? `${fetchedStudent.first_name || ''} ${fetchedStudent.last_name || ''}`.trim() : '')).trim()
+  const dmRecipientSchool = recipientType === 'student'
+    ? (fromStudent?.school || fetchedStudent?.school || effectiveStudent?.school || null)
+    : null
 
   // ── Generate Link handler ─────────────────────────────────────────────────
   const handleGenerateLink = useCallback(async () => {
@@ -1076,8 +1142,14 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
         setCcInput('')
         setCcInputError(null)
         setDmBodyExpanded(false)
-        // Clear saved draft — sent content should not restore on next visit
+        // Clear saved draft + resume pointer — sent content should not restore on next visit
         if (DRAFT_KEY) localStorage.removeItem(DRAFT_KEY)
+        try {
+          const sentRecipId = recipientType === 'student' ? studentId : contactId
+          const ptr = readDraftPointer(userKey, cohortId)
+          const ptrKey = lastDraftPointerKey(userKey, cohortId)
+          if (ptr && ptr.id === sentRecipId && ptrKey) localStorage.removeItem(ptrKey)
+        } catch { /* ignore */ }
         const recipientDisplayName = recipientType === 'contact' ? fromContact?.name
           : (effectiveStudent?.name || `${fetchedStudent?.first_name || ''} ${fetchedStudent?.last_name || ''}`.trim())
         const successMsg = payload.message || `Email sent to ${recipientDisplayName || 'recipient'}.`
@@ -1216,6 +1288,89 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     if (resolvedToEmail) s.add(normalizeEmailForLookup(resolvedToEmail))
     return s
   }, [ccList, resolvedToEmail])
+
+  // ── Direct Message draft: debounced persist (CONNECT-DRAFT-AUTOSAVE-1) ─────
+  // Stores ONLY { subject, body, includeSignature } — never tokens, surveyResult, or
+  // surveyUrl. Gated on draftHydratedRef so the mount/restore pass can't be clobbered.
+  // Also writes a cohort-scoped pointer to the most recent non-empty draft so the user
+  // can resume it when returning with no recipient selected.
+  useEffect(() => {
+    if (!DRAFT_KEY || !draftRecipientId) return
+    if (!draftHydratedRef.current) return
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
+    const payload = { v: DRAFT_VERSION, savedAt: Date.now(), subject: msgSubject, body: msgBody, includeSignature }
+    const empty = directDraftIsEmpty(payload)
+    const ptrKey = lastDraftPointerKey(userKey, cohortId)
+    const recipId = recipientType === 'student' ? studentId : contactId
+    draftTimerRef.current = setTimeout(() => {
+      try {
+        if (empty) {
+          localStorage.removeItem(DRAFT_KEY)
+          // Only retract the pointer if it referenced THIS recipient.
+          const ptr = readDraftPointer(userKey, cohortId)
+          if (ptr && ptr.id === recipId && ptrKey) localStorage.removeItem(ptrKey)
+        } else {
+          localStorage.setItem(DRAFT_KEY, JSON.stringify(payload))
+          if (ptrKey) localStorage.setItem(ptrKey, JSON.stringify({
+            v: DRAFT_VERSION, savedAt: payload.savedAt,
+            kind: recipientType === 'student' ? 'student' : 'contact',
+            id: recipId, name: dmRecipientName, email: resolvedToEmail || '', school: dmRecipientSchool || null,
+          }))
+          flashDraftStatus('saved')
+        }
+      } catch { /* ignore quota / serialization errors */ }
+    }, DRAFT_DEBOUNCE_MS)
+    return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current) }
+  }, [msgSubject, msgBody, includeSignature, DRAFT_KEY, draftRecipientId, recipientType, studentId, contactId, cohortId, userKey, dmRecipientName, dmRecipientSchool, resolvedToEmail, flashDraftStatus])
+
+  // Resume affordance: when the single-recipient composer is open with NO recipient,
+  // surface the most recent saved draft (if still valid) as a non-blocking link.
+  useEffect(() => {
+    let next = null
+    if (userKey && recipientMode === 'single' && !hasExplicitRecipient && !selectedStudentId) {
+      const ptr = readDraftPointer(userKey, cohortId)
+      if (ptr) {
+        const draft = readDirectDraft(directDraftKey(userKey, cohortId, `${ptr.kind}:${ptr.id}`))
+        if (draft && !directDraftIsEmpty(draft)) next = ptr
+      }
+    }
+    setResumeInfo(next) // eslint-disable-line react-hooks/set-state-in-effect
+  }, [recipientMode, hasExplicitRecipient, selectedStudentId, cohortId, userKey, DRAFT_KEY])
+
+  // One-time cleanup: purge legacy UNSCOPED Connect draft/pointer keys (pre user-scoping).
+  // They are never migrated — resurrecting them could expose another user's draft on a
+  // shared browser. Keys for the current version (".v1.") are left untouched.
+  useEffect(() => {
+    try {
+      const prefixes = ['aspire.connect.outreach.directDraft.', 'aspire.connect.outreach.lastDraftPointer.']
+      const stale = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)
+        if (k && prefixes.some(p => k.startsWith(p)) && !k.includes(`.v${DRAFT_VERSION}.`)) stale.push(k)
+      }
+      stale.forEach(k => localStorage.removeItem(k))
+    } catch { /* ignore */ }
+  }, [])
+
+  // Explicit discard: clear the composer and the stored draft + pointer. Distinct from
+  // navigating away (which preserves the draft).
+  const handleDiscardDraft = useCallback(() => {
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
+    setMsgSubject('')
+    setMsgBody('')
+    setIncludeSignature(true)
+    setCcList([])
+    setCcInput('')
+    setCcInputError(null)
+    try {
+      if (DRAFT_KEY) localStorage.removeItem(DRAFT_KEY)
+      const recipId = recipientType === 'student' ? studentId : contactId
+      const ptr = readDraftPointer(userKey, cohortId)
+      const ptrKey = lastDraftPointerKey(userKey, cohortId)
+      if (ptr && ptr.id === recipId && ptrKey) localStorage.removeItem(ptrKey)
+    } catch { /* ignore */ }
+    flashDraftStatus('discarded')
+  }, [DRAFT_KEY, recipientType, studentId, contactId, cohortId, userKey, flashDraftStatus])
 
   // CONNECT-COMMS-1B: recipient source chip styling (school/personal-fallback/override/contact/missing).
   const dmSourceChip = (type) => ({
@@ -1418,12 +1573,29 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
             const showPicker   = pickerOpen || !anyRecipient
             if (showPicker) {
               return (
-                <RecipientPicker
-                  students={students}
-                  onSelect={handlePickerSelect}
-                  onCancel={handlePickerCancel}
-                  canCancel={anyRecipient}
-                />
+                <>
+                  {resumeInfo && (
+                    <button
+                      type="button"
+                      onClick={() => { handlePickerSelect({ kind: resumeInfo.kind, id: resumeInfo.id, name: resumeInfo.name, email: resumeInfo.email, school: resumeInfo.school }); setResumeInfo(null) }}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+                        marginBottom: 10, padding: '9px 11px', borderRadius: 8, cursor: 'pointer',
+                        background: '#f1efe9', border: '1px solid #e0ddd3', fontFamily: F,
+                      }}>
+                      <span aria-hidden="true" style={{ fontSize: 13 }}>↩</span>
+                      <span style={{ fontSize: 12, color: '#374151', lineHeight: 1.4 }}>
+                        Resume saved draft for <strong style={{ color: '#1D2567' }}>{resumeInfo.name || 'recipient'}</strong>
+                      </span>
+                    </button>
+                  )}
+                  <RecipientPicker
+                    students={students}
+                    onSelect={handlePickerSelect}
+                    onCancel={handlePickerCancel}
+                    canCancel={anyRecipient}
+                  />
+                </>
               )
             }
             return (
@@ -1843,6 +2015,26 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                   style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, minHeight: 160 }}
                   disabled={!dmHasAnyRecipient}
                 />
+                {/* CONNECT-DRAFT-AUTOSAVE-1: unobtrusive autosave status + explicit discard */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, minHeight: 18 }}>
+                  <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, transition: 'opacity 0.2s' }}>
+                    {draftStatus === 'saved' ? 'Draft saved'
+                      : draftStatus === 'restored' ? 'Draft restored'
+                      : draftStatus === 'discarded' ? 'Draft discarded'
+                      : ''}
+                  </span>
+                  {dmHasAnyRecipient && (String(msgSubject).trim() || String(msgBody).trim()) && (
+                    <button
+                      type="button"
+                      onClick={handleDiscardDraft}
+                      style={{
+                        marginLeft: 'auto', background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                        fontFamily: F, fontSize: 11, fontWeight: 600, color: '#9ca3af',
+                      }}>
+                      Discard draft
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* CC field (CONNECT-COMMS-1D) — Direct Message only. Chips + free entry; the clinical
