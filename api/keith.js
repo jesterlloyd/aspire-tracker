@@ -215,7 +215,7 @@ async function verifyCaller(req) {
     const admin = makeServiceRoleClient();
     const { data: profile, error: pErr } = await admin
       .from('user_profiles')
-      .select('id, role, is_owner')
+      .select('id, role, is_owner, full_name, connect_signature')
       .eq('auth_user_id', user.id)
       .maybeSingle();
     if (pErr) {
@@ -224,7 +224,7 @@ async function verifyCaller(req) {
     if (!profile) {
       return { authenticated: false, status: 403, error: 'forbidden', message: 'Profile not found. Contact the ASPIRE team.', reason: 'no_profile' };
     }
-    return { authenticated: true, userId: user.id, role: profile.role || '', isOwner: profile.is_owner === true };
+    return { authenticated: true, userId: user.id, role: profile.role || '', isOwner: profile.is_owner === true, fullName: profile.full_name || '', connectSignature: profile.connect_signature || null };
   } catch {
     return { authenticated: false, status: 401, error: 'unauthorized', message: 'Authentication required', reason: 'profile_threw' };
   }
@@ -309,6 +309,7 @@ The user has asked you to draft or revise a communication. In drafting mode, pri
 4. Do NOT enumerate student names, cohort groups, or live roster details while drafting unless the user explicitly asks you to list or target specific students or groups. A generic message uses general salutations (for example "Hi everyone" or "Dear student"), not named recipients or a roster.
 5. Only build a recipient list, target specific students or groups, or personalize per student when the user explicitly asks you to send, target, build a recipient list, or personalize by student or group.
 6. Honor the requested tone exactly (for example supportive and not inquisitive). The placement-specific verification block applies only to drafts about a specific identified student or placement, per the grounding rules above; it does not apply to a generic group message.
+7. SIGNATURE. The email body is sent by the logged-in user, not by you. Sign the draft with the user's signature provided in your user context (EMAIL DRAFT SIGNATURE); if none is available use their name, or the placeholder "[Your name]". NEVER sign an email draft as Keith, ASPIRE Intelligence, ASPIRE AI, or "the assistant." You may say "I drafted this for you" in chat, but never inside the email body.
 `.trim();
 
 // ── Tool definitions ─────────────────────────────────────────────────────────
@@ -1219,7 +1220,14 @@ CRITICAL DATA ACCESS RULES:
 
   // Build the system prompt from a SERVER-VERIFIED profile so the in-prompt role
   // reflects the true role (client-supplied role/is_owner are ignored for this).
-  const verifiedProfile = { ...(userProfile || {}), role: auth.role, is_owner: auth.isOwner };
+  const verifiedProfile = {
+    ...(userProfile || {}),
+    role: auth.role,
+    is_owner: auth.isOwner,
+    // Server-verified identity for outbound-email signatures (overrides client-supplied).
+    full_name: auth.fullName || userProfile?.full_name || '',
+    connect_signature: auth.connectSignature ?? userProfile?.connect_signature ?? null,
+  };
   let baseSystemPrompt = buildSystemPrompt({ userProfile: verifiedProfile, context, cohortName, liveDataStr });
 
   // KT-4: retrieve governed (Active) Knowledge Center entries for this question and

@@ -960,6 +960,28 @@ The sections below are legacy static background knowledge. Treat them as FALLBAC
 // is the single, explicit slot for governed (Active Knowledge Center) content.
 export const GOVERNED_KNOWLEDGE_MARKER = '[[GOVERNED_KNOWLEDGE]]';
 
+// Resolve the logged-in user's outbound-email signature for Keith's drafts. Mirrors the
+// ASPIRE Connect signature shape (user_profiles.connect_signature) with the same intent:
+// configured signature → display name → neutral placeholder. Keith NEVER signs drafts as
+// itself; the email body is sent by the logged-in user.
+export function formatUserSignature(userProfile) {
+  const cs = userProfile?.connect_signature;
+  const fullName = String(userProfile?.full_name || '').trim();
+  const email = String(userProfile?.email || '').trim();
+  if (cs && typeof cs === 'object' && cs.signature_enabled !== false && String(cs.display_name || '').trim()) {
+    const lines = [String(cs.display_name).trim()];
+    const credTitle = [cs.credentials, cs.title].map(x => String(x || '').trim()).filter(Boolean).join(', ');
+    if (credTitle) lines.push(credTitle);
+    const dept = String(cs.department || '').trim();
+    if (dept) lines.push(dept);
+    const contact = [email, String(cs.phone || '').trim()].filter(Boolean).join(' | ');
+    if (contact) lines.push(contact);
+    return lines.join('\n');
+  }
+  if (fullName) return fullName;
+  return '[Your name]';
+}
+
 export function buildSystemPrompt({ userProfile, context, cohortName, liveDataStr } = {}) {
   const cohort = cohortName || 'the current cohort';
 
@@ -967,10 +989,13 @@ export function buildSystemPrompt({ userProfile, context, cohortName, liveDataSt
   const firstName = userProfile?.full_name?.split(' ')[0] || null;
   const role      = userProfile?.role || 'user';
   const isPrivileged = userProfile?.is_owner === true || role === 'admin';
+  const userSignature = formatUserSignature(userProfile);
 
   const userContext = userProfile ? `
 The user currently logged in is ${userProfile.full_name} (role: ${role}, email: ${userProfile.email}).
 Greet them by their first name (${firstName}) when it feels natural, especially at the start of a conversation.
+EMAIL DRAFT SIGNATURE: when you draft an email for this user to send, the email body is sent by them, not by you. Sign the draft with their signature exactly as written here, and NEVER as Keith, ASPIRE Intelligence, ASPIRE AI, or the assistant:
+${userSignature}
 ${isPrivileged
     ? 'They have full access including strategic, operational, and user management details. Provide complete answers.'
     : role === 'co-lead'
