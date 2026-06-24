@@ -3,10 +3,10 @@ import { useNavigate, useLocation } from 'react-router-dom'
 
 const CONNECT_LAST_TAB_KEY = 'aspire.connect.lastTab'
 const VALID_TABS = new Set(['contacts', 'outreach', 'broadcasts'])
-import { Users, Send, Megaphone } from 'lucide-react'
+import { Users, Send, Activity } from 'lucide-react'
 import ContactsView from '../components/connect/ContactsView'
 import OutreachView from '../components/connect/OutreachView'
-import BroadcastsView from '../components/connect/BroadcastsView'
+import AutomationView from '../components/connect/AutomationView'
 import { useToast } from '../hooks/useToast'
 import { ToastContainer } from '../components/Toast'
 import { RefreshHint } from '../components/UnifiedNav'
@@ -110,8 +110,8 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
               Outreach
             </button>
             <button onClick={() => navigate('/connect/broadcasts')} style={btnStyle('broadcasts')}>
-              <Megaphone size={13} />
-              Broadcasts
+              <Activity size={13} />
+              Automation
             </button>
           </div>
         </div>
@@ -127,7 +127,7 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
           <OutreachView cohortId={cohortId} onNavigateToStudent={onNavigateToStudent} toast={toast} refreshKey={refreshKey} />
         </div>
         <div style={{ display: activeSubTab === 'broadcasts' ? 'block' : 'none' }}>
-          <BroadcastsView />
+          <AutomationView active={activeSubTab === 'broadcasts'} onNavigateToStudent={onNavigateToStudent} refreshKey={refreshKey} />
         </div>
       </div>
 
