@@ -103,7 +103,7 @@ function ActiveRotationHours({ student }) {
   )
 }
 
-function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef }) {
+function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef, highlighted }) {
   const { s, req, apv, pct, lastLog, daysSince, noRecentLog, missingPreceptor, onCampus,
           precName, unitName, complete, nearComplete, shift, school, range } = card
   const name = getStudentPreferredFullName(s)
@@ -117,8 +117,14 @@ function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef }) {
 
   return (
     <div ref={innerRef} style={{
-      padding: '13px 16px', marginBottom: 8, background: '#fff',
-      border: '1px solid #e8e4dc', borderRadius: 12, fontFamily: F, scrollMarginTop: 12,
+      padding: '13px 16px', marginBottom: 8,
+      background: highlighted ? '#f7f9ff' : '#fff',
+      border: `1px solid ${highlighted ? '#1D2567' : '#e8e4dc'}`,
+      boxShadow: highlighted ? '0 0 0 2px rgba(29,37,103,0.25)' : 'none',
+      borderRadius: 12, fontFamily: F,
+      // Clear the sticky top nav + Rotation tab header if scrollIntoView nudges the window.
+      scrollMarginTop: 88,
+      transition: 'box-shadow 0.4s ease, border-color 0.4s ease, background 0.4s ease',
     }}>
      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14 }}>
       {/* Identity + meta */}
@@ -181,22 +187,44 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
   const { canEdit } = useAuth()
   const [expandedId, setExpandedId] = useState(null)
   const [sortMode, setSortMode] = useState('attention')
-  const cardRefs = useRef({}) // { [studentId]: card element } — for scroll-into-view
+  const [highlightId, setHighlightId] = useState(null)
+  const cardRefs = useRef({})   // { [studentId]: card element } — for scroll-into-view
+  const focusTimers = useRef([]) // pending scroll/highlight cancelers — cleared on new focus / unmount
 
   // Focus handoff from Aggregate > On Campus Now (or any caller): expand + scroll the matching
   // Active Rotation Progress card, then clear the pending target. Fallback: if the student is
   // not in active rotation, clear the target safely with no expansion.
+  // The scroll is deferred past the route/subtab (display:none→block) AND the expanded-card
+  // layout pass — a short timeout + double rAF — so it lands on the card's final position.
+  // The effect itself returns NO cleanup (onFocusConsumed clears the target synchronously for
+  // repeat clicks, but the scheduled scroll must still run). Pending handles are tracked in a
+  // ref so a NEW focus cancels the previous, and an unmount effect clears any that are pending.
   useEffect(() => {
     if (!focusStudentId) return
-    const inActive = students.some(s => s.id === focusStudentId && s.status === 'Active Rotation')
+    const id = focusStudentId
+    const inActive = students.some(s => s.id === id && s.status === 'Active Rotation')
     if (inActive) {
-      setExpandedId(focusStudentId) // eslint-disable-line react-hooks/set-state-in-effect
-      requestAnimationFrame(() => {
-        cardRefs.current[focusStudentId]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      })
+      focusTimers.current.forEach(fn => fn()); focusTimers.current = [] // cancel any prior focus
+      setExpandedId(id) // eslint-disable-line react-hooks/set-state-in-effect
+      const t = setTimeout(() => {
+        const r1 = requestAnimationFrame(() => {
+          const r2 = requestAnimationFrame(() => {
+            cardRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            setHighlightId(id)
+            const h = setTimeout(() => setHighlightId(prev => (prev === id ? null : prev)), 1800)
+            focusTimers.current.push(() => clearTimeout(h))
+          })
+          focusTimers.current.push(() => cancelAnimationFrame(r2))
+        })
+        focusTimers.current.push(() => cancelAnimationFrame(r1))
+      }, 80)
+      focusTimers.current.push(() => clearTimeout(t))
     }
     onFocusConsumed?.()
   }, [focusStudentId, students, onFocusConsumed])
+
+  // Clear any pending scroll/highlight timers if the component unmounts mid-sequence.
+  useEffect(() => () => { focusTimers.current.forEach(fn => fn()); focusTimers.current = [] }, [])
 
   // Full open-shift population (in_progress) for the cohort — read-only SELECT, unchanged.
   const { data: openLogs = [] } = useQuery({
@@ -326,6 +354,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
             key={card.s.id}
             card={card}
             innerRef={el => { if (el) cardRefs.current[card.s.id] = el; else delete cardRefs.current[card.s.id] }}
+            highlighted={highlightId === card.s.id}
             expanded={expandedId === card.s.id}
             onToggle={() => setExpandedId(prev => (prev === card.s.id ? null : card.s.id))}
             onOpen={onNavigateToStudent}
