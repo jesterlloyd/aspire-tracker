@@ -16,6 +16,20 @@ import { resolvePreceptor } from '../lib/preceptor'
 const F = 'DM Sans, sans-serif'
 const SEVEN_DAYS_MS = 7 * 24 * 3600 * 1000
 const NEARING_PCT = 85 // matches priorities.js "nearing completion" (>= 85% of required hours)
+// "Shifts completed" counts only approved/auto-accepted logs (the ones that count toward
+// approved hours). Status is normalized (trim + lowercase) before comparison to avoid
+// capitalization/format drift; Pending Review / Rejected / Edited / blank / non-submitted
+// are NOT counted.
+const COMPLETED_SHIFT_STATUSES = new Set(['approved', 'auto-accepted'])
+const normShiftStatus = (status) => String(status || '').trim().toLowerCase()
+
+const SORT_OPTIONS = [
+  { key: 'attention', label: 'Needs attention' },
+  { key: 'hours',     label: 'Hours completed' },
+  { key: 'shifts',    label: 'Shifts completed' },
+  { key: 'name',      label: 'Name A–Z' },
+  { key: 'school',    label: 'School A–Z' },
+]
 
 function SectionHeader({ title, subtitle }) {
   return (
@@ -23,6 +37,23 @@ function SectionHeader({ title, subtitle }) {
       <div style={{ fontSize: 14, fontWeight: 700, color: '#191919', fontFamily: F }}>{title}</div>
       {subtitle && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2, fontFamily: F }}>{subtitle}</div>}
     </div>
+  )
+}
+
+function SortControl({ value, onChange }) {
+  return (
+    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6b7280', fontFamily: F, whiteSpace: 'nowrap' }}>
+      Sort by
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        style={{
+          fontFamily: F, fontSize: 13, padding: '6px 9px', borderRadius: 8,
+          border: '1px solid #e0ddd3', background: '#fff', color: '#191919', cursor: 'pointer',
+        }}>
+        {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+      </select>
+    </label>
   )
 }
 
@@ -155,6 +186,7 @@ function ProgressRowCard({ card, expanded, onToggle, onOpen }) {
 export default function RotationActivity({ students = [], units = [], cohortId, onNavigateToStudent }) {
   const { canEdit } = useAuth()
   const [expandedId, setExpandedId] = useState(null)
+  const [sortMode, setSortMode] = useState('attention')
 
   // Full open-shift population (in_progress) for the cohort — read-only SELECT, unchanged.
   const { data: openLogs = [] } = useQuery({
@@ -181,22 +213,27 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
     queryFn: async () => {
       const { data, error } = await supabase
         .from('student_shift_logs')
-        .select('student_id, submitted_at')
+        .select('student_id, submitted_at, status')
         .eq('cohort_id', cohortId)
       if (error) throw error
       const now = Date.now()
       const latest = {}
+      const completed = {}
       for (const l of (data || [])) {
-        if (!l.submitted_at) continue
-        const t = new Date(l.submitted_at).getTime()
-        if (!latest[l.student_id] || t > latest[l.student_id].t) latest[l.student_id] = { t, iso: l.submitted_at }
+        if (l.submitted_at) {
+          const t = new Date(l.submitted_at).getTime()
+          if (!latest[l.student_id] || t > latest[l.student_id].t) latest[l.student_id] = { t, iso: l.submitted_at }
+        }
+        if (COMPLETED_SHIFT_STATUSES.has(normShiftStatus(l.status))) completed[l.student_id] = (completed[l.student_id] || 0) + 1
       }
       const summary = {}
-      for (const [sid, v] of Object.entries(latest)) {
+      for (const sid of new Set([...Object.keys(latest), ...Object.keys(completed)])) {
+        const v = latest[sid]
         summary[sid] = {
-          lastLog: v.iso,
-          daysSince: Math.floor((now - v.t) / (24 * 3600 * 1000)),
-          noRecentLog: (now - v.t) > SEVEN_DAYS_MS,
+          lastLog: v?.iso || null,
+          daysSince: v ? Math.floor((now - v.t) / (24 * 3600 * 1000)) : null,
+          noRecentLog: !v || (now - v.t) > SEVEN_DAYS_MS,
+          completedShifts: completed[sid] || 0,
         }
       }
       return summary
@@ -232,17 +269,28 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
         range: (s.term_dates || '').trim(),
         complete: pct >= 100,
         nearComplete: pct >= NEARING_PCT && pct < 100,
+        completedShifts: log?.completedShifts || 0,
       }
     })
-    // Risk-first: missing preceptor / no recent log → lowest progress → name. (On-campus is a
-    // badge, never an exclusion or de-prioritization.)
-    .sort((a, b) => {
+
+  // Sort only the Active Rotation Progress list (never On Campus Now). Expansion is keyed by
+  // student id, so re-sorting preserves the expanded card. "Needs attention" is the default.
+  const byName = (a, b) => getStudentPreferredFullName(a.s).localeCompare(getStudentPreferredFullName(b.s))
+  const comparators = {
+    // missing preceptor / no recent log → lowest progress → name (on-campus is a badge only)
+    attention: (a, b) => {
       const ar = (a.missingPreceptor || a.noRecentLog) ? 0 : 1
       const br = (b.missingPreceptor || b.noRecentLog) ? 0 : 1
       if (ar !== br) return ar - br
       if (a.pct !== b.pct) return a.pct - b.pct
-      return getStudentPreferredFullName(a.s).localeCompare(getStudentPreferredFullName(b.s))
-    })
+      return byName(a, b)
+    },
+    hours:  (a, b) => (b.apv - a.apv) || byName(a, b),
+    shifts: (a, b) => (b.completedShifts - a.completedShifts) || byName(a, b),
+    name:   byName,
+    school: (a, b) => (a.school || '').localeCompare(b.school || '') || byName(a, b),
+  }
+  const sortedCards = [...cards].sort(comparators[sortMode] || comparators.attention)
 
   return (
     <div style={{ padding: '4px 20px 24px', fontFamily: F }}>
@@ -255,14 +303,21 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
       )}
 
       {/* ── Section 2: Active Rotation Progress (new) ── */}
-      <SectionHeader
-        title="Active Rotation Progress"
-        subtitle="All students currently in active rotation, including those not on campus today."
-      />
-      {cards.length === 0 ? (
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <SectionHeader
+          title="Active Rotation Progress"
+          subtitle="All students currently in active rotation, including those not on campus today."
+        />
+        {cards.length > 0 && (
+          <div style={{ margin: '0 2px 8px' }}>
+            <SortControl value={sortMode} onChange={setSortMode} />
+          </div>
+        )}
+      </div>
+      {sortedCards.length === 0 ? (
         <EmptyCard>No students are in active rotation right now.</EmptyCard>
       ) : (
-        cards.map(card => (
+        sortedCards.map(card => (
           <ProgressRowCard
             key={card.s.id}
             card={card}
