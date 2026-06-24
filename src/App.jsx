@@ -1014,6 +1014,7 @@ function MainApp({ onLogout }) {
                 onRefreshUnits={() => fetchUnits(activeCohortId)}
                 onDeleteUnit={deleteUnit}
                 highlightUnitId={highlightUnitId}
+                onNavigateToStudent={id => { setFocusStudentId(id); switchTab('profiles') }}
                 toast={toast}
               />
             </div>

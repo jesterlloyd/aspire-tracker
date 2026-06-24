@@ -66,6 +66,7 @@ export default function RotationTab(props) {
             students={props.students}
             units={props.units}
             cohortId={props.cohortId || props.activeCohort?.id}
+            onNavigateToStudent={props.onNavigateToStudent}
           />
         </div>
       )}
