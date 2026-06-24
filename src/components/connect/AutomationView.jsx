@@ -362,7 +362,9 @@ export default function AutomationView({ active = true, onNavigateToStudent, ref
             margin: '4px 0', padding: '24px 20px', textAlign: 'center', background: '#fff',
             border: '1px solid #e8e4dc', borderRadius: 14, color: '#6b7280', fontSize: 13.5,
           }}>
-            No recent communication activity.
+            {data?.warning === 'recent_activity_unavailable'
+              ? 'Recent activity is temporarily unavailable.'
+              : 'No recent communication activity.'}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

@@ -44,6 +44,9 @@ export default async function handler(req, res) {
   if (!isOwnerAdmin) return res.status(403).json({ error: 'Forbidden' });
 
   // ── Read-only data ──────────────────────────────────────────────────────────
+  // Two independent queries. Automation Health REQUIRES cron_runs (hard-fail if it errors);
+  // Recent Activity degrades gracefully (return runs + empty activity if notification_log errors).
+  // PostgREST returns {data,error} rather than throwing, so a failure in one does not kill the other.
   try {
     const [runsRes, activityRes] = await Promise.all([
       supabaseAdmin
@@ -53,22 +56,37 @@ export default async function handler(req, res) {
         .limit(150),
       supabaseAdmin
         .from('notification_log')
-        // Whitelisted safe columns only — NEVER metadata, tokens, or URLs.
-        .select('id, notification_type, recipient_name, recipient_email, recipient_role, recipient_type, status, subject, sent_at, delivered_at, opened_at, error_message, student_id, contact_id, instrument_id')
+        // Whitelisted, production-confirmed columns only — NEVER metadata, tokens, or URLs.
+        // NOTE: instrument_id is NOT a column here — it lives inside the metadata jsonb — so it is
+        // intentionally excluded (selecting it 42703-fails the whole query; that was the 500 cause).
+        .select('id, notification_type, recipient_name, recipient_email, recipient_role, recipient_type, status, subject, sent_at, delivered_at, opened_at, error_message, student_id, contact_id')
         .order('sent_at', { ascending: false })
         .limit(100),
     ]);
 
-    if (runsRes.error) throw runsRes.error;
-    if (activityRes.error) throw activityRes.error;
+    // cron_runs powers Automation Health — fail clearly (safe JSON) if it errored.
+    if (runsRes.error) {
+      console.error('[automation-runs] cron_runs query failed:', runsRes.error.message);
+      return res.status(500).json({ error: 'Automation monitor failed to load' });
+    }
+
+    // notification_log is best-effort — degrade to an empty feed rather than failing the whole page.
+    let activity = activityRes.data || [];
+    let warning;
+    if (activityRes.error) {
+      console.error('[automation-runs] notification_log query failed (returning empty activity):', activityRes.error.message);
+      activity = [];
+      warning = 'recent_activity_unavailable';
+    }
 
     return res.status(200).json({
       now: new Date().toISOString(), // server clock — UI derives "stale running" without an impure render-time Date
       runs: runsRes.data || [],
-      activity: activityRes.data || [],
+      activity,
+      ...(warning ? { warning } : {}),
     });
   } catch (e) {
-    console.error('[automation-runs] read failed:', e?.message);
-    return res.status(500).json({ error: 'Failed to load automation data' });
+    console.error('[automation-runs] unexpected failure:', e?.message);
+    return res.status(500).json({ error: 'Automation monitor failed to load' });
   }
 }
