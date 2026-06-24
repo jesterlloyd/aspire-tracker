@@ -4,7 +4,7 @@
 //      Progress              campus today, with rotation progress + follow-up indicators.
 // Read-only. Owner/Admin-only (canEdit). No writes/email/cron/RPC. Progress math mirrors the
 // Student Profile (approved_hours / hours_required); no-recent-log mirrors Action Center act15.
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -12,6 +12,19 @@ import OpenShiftReview from './OpenShiftReview'
 import ClinicalHoursPanel from './ClinicalHoursPanel'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { resolvePreceptor } from '../lib/preceptor'
+import { canonicalRotationWindow } from '../lib/rotationWindow'
+
+// Compact canonical rotation range for a card: "Mon D – Mon D" from the linked
+// cohort_school_rotations row, else legacy students.term_dates, else '' (omit).
+const fmtRangeDate = (ymd) => {
+  const [y, m, d] = String(ymd).split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+function resolveRotationRange(student, rotationRow) {
+  const win = canonicalRotationWindow(rotationRow)
+  if (win) return `${fmtRangeDate(win.start)} – ${fmtRangeDate(win.end)}`
+  return (student.term_dates || '').trim()
+}
 
 const F = 'DM Sans, sans-serif'
 const SEVEN_DAYS_MS = 7 * 24 * 3600 * 1000
@@ -191,37 +204,39 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
   const cardRefs = useRef({})   // { [studentId]: card element } — for scroll-into-view
   const focusTimers = useRef([]) // pending scroll/highlight cancelers — cleared on new focus / unmount
 
-  // Focus handoff from Aggregate > On Campus Now (or any caller): expand + scroll the matching
-  // Active Rotation Progress card, then clear the pending target. Fallback: if the student is
-  // not in active rotation, clear the target safely with no expansion.
-  // The scroll is deferred past the route/subtab (display:none→block) AND the expanded-card
-  // layout pass — a short timeout + double rAF — so it lands on the card's final position.
-  // The effect itself returns NO cleanup (onFocusConsumed clears the target synchronously for
-  // repeat clicks, but the scheduled scroll must still run). Pending handles are tracked in a
-  // ref so a NEW focus cancels the previous, and an unmount effect clears any that are pending.
+  // Expand + scroll + highlight the matching Active Rotation Progress card. Shared by the
+  // Aggregate handoff (focusStudentId prop) AND the in-page On Campus Now row click. No-op if
+  // the student is not in active rotation. The scroll is deferred past the route/subtab
+  // (display:none→block) AND the expanded-card layout pass — a short timeout + double rAF — so
+  // it lands on the card's final position. Pending handles are tracked in a ref so a NEW focus
+  // cancels the previous, and the unmount effect clears any pending.
+  const focusOnStudent = useCallback((id) => {
+    if (!id) return
+    const inActive = students.some(s => s.id === id && s.status === 'Active Rotation')
+    if (!inActive) return // safe no-op fallback
+    focusTimers.current.forEach(fn => fn()); focusTimers.current = []
+    setExpandedId(id)
+    const t = setTimeout(() => {
+      const r1 = requestAnimationFrame(() => {
+        const r2 = requestAnimationFrame(() => {
+          cardRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          setHighlightId(id)
+          const h = setTimeout(() => setHighlightId(prev => (prev === id ? null : prev)), 1800)
+          focusTimers.current.push(() => clearTimeout(h))
+        })
+        focusTimers.current.push(() => cancelAnimationFrame(r2))
+      })
+      focusTimers.current.push(() => cancelAnimationFrame(r1))
+    }, 80)
+    focusTimers.current.push(() => clearTimeout(t))
+  }, [students])
+
+  // Aggregate > On Campus Now handoff: consume the one-time target.
   useEffect(() => {
     if (!focusStudentId) return
-    const id = focusStudentId
-    const inActive = students.some(s => s.id === id && s.status === 'Active Rotation')
-    if (inActive) {
-      focusTimers.current.forEach(fn => fn()); focusTimers.current = [] // cancel any prior focus
-      setExpandedId(id) // eslint-disable-line react-hooks/set-state-in-effect
-      const t = setTimeout(() => {
-        const r1 = requestAnimationFrame(() => {
-          const r2 = requestAnimationFrame(() => {
-            cardRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            setHighlightId(id)
-            const h = setTimeout(() => setHighlightId(prev => (prev === id ? null : prev)), 1800)
-            focusTimers.current.push(() => clearTimeout(h))
-          })
-          focusTimers.current.push(() => cancelAnimationFrame(r2))
-        })
-        focusTimers.current.push(() => cancelAnimationFrame(r1))
-      }, 80)
-      focusTimers.current.push(() => clearTimeout(t))
-    }
+    focusOnStudent(focusStudentId) // eslint-disable-line react-hooks/set-state-in-effect
     onFocusConsumed?.()
-  }, [focusStudentId, students, onFocusConsumed])
+  }, [focusStudentId, focusOnStudent, onFocusConsumed])
 
   // Clear any pending scroll/highlight timers if the component unmounts mid-sequence.
   useEffect(() => () => { focusTimers.current.forEach(fn => fn()); focusTimers.current = [] }, [])
@@ -275,6 +290,23 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
     refetchInterval: 60 * 1000,
   })
 
+  // Canonical rotation date windows (coordinator-owned cohort_school_rotations) for the cohort,
+  // mapped by row id. Students link via students.cohort_school_rotation_id. Read-only SELECT on
+  // the same table other surfaces already query client-side. Rotation dates change rarely.
+  const { data: rotationById = {} } = useQuery({
+    queryKey: ['rotation_ranges', cohortId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cohort_school_rotations')
+        .select('id, rotation_start_date, rotation_end_date')
+        .eq('cohort_id', cohortId)
+      if (error) throw error
+      return Object.fromEntries((data || []).map(r => [r.id, r]))
+    },
+    enabled: !!cohortId && canEdit,
+    staleTime: 5 * 60_000,
+  })
+
   if (!canEdit) return null // Owner/Admin-only, carried over from CLOCKOUT-DETECT-1.
 
   const onCampusIds = new Set(openLogs.map(l => l.student_id))
@@ -299,7 +331,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
         unitName: unit?.unit_name || '',
         shift: s.shift_assigned || '',
         school: s.school || '',
-        range: (s.term_dates || '').trim(),
+        range: resolveRotationRange(s, rotationById[s.cohort_school_rotation_id]),
         complete: pct >= 100,
         nearComplete: pct >= NEARING_PCT && pct < 100,
       }
@@ -331,7 +363,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
       {openLogs.length === 0 ? (
         <EmptyCard>No open shifts right now.</EmptyCard>
       ) : (
-        <OpenShiftReview openLogs={openLogs} students={students} units={units} defaultOpen />
+        <OpenShiftReview openLogs={openLogs} students={students} units={units} defaultOpen onSelectStudent={focusOnStudent} />
       )}
 
       {/* ── Section 2: Active Rotation Progress (new) ── */}
