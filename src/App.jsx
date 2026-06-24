@@ -1153,6 +1153,8 @@ export default function App() {
       {/* Legacy URL redirects */}
       <Route path="/interview-room"        element={<Navigate to="/interviews" replace />} />
       <Route path="/embed"                 element={<Navigate to="/rotation/matrix" replace />} />
+      {/* Retired: Rotation > Check-Ins. Midpoint auto-send now lives in Connect > Automation. */}
+      <Route path="/rotation/checkins"     element={<Navigate to="/connect/broadcasts" replace />} />
       {/* Dev harness routes — excluded from production build */}
       {import.meta.env.DEV && <Route path="/dev/disposition-modal" element={<DevDispositionModal />} />}
       {/* Authenticated app — handles /, /aggregate, /students, /interviews, /rotation/*, /evaluation */}

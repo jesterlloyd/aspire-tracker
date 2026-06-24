@@ -4,10 +4,9 @@
 // workflows — NOT another message log. Message-level delivery history lives in Outreach > Sent
 // History, linked from here.
 //
-//   • Section 1 "Automation Controls" — Midpoint Check-In auto-send toggle. Reads/writes the SAME
-//     cohort setting (cohorts.midpoint_checkin_automation_enabled) as Rotation > Check-ins, so the
-//     two stay in sync through the shared persisted field. Client-side update (RLS already allows
-//     it); no backend, no schema.
+//   • Section 1 "Automation Controls" — Midpoint Check-In auto-send toggle. Canonical home for the
+//     cohorts.midpoint_checkin_automation_enabled setting (the Rotation > Check-Ins tab was retired
+//     in favor of this control). Client-side update (RLS already allows it); no backend, no schema.
 //   • Section 2 "Automation Health" — one card per scheduled cron, from cron_runs (counts only,
 //     via the Owner/Admin /api/automation-runs endpoint because cron_runs is RLS-locked).
 //
@@ -177,7 +176,8 @@ function HealthCard({ job, run, nowIso }) {
   )
 }
 
-// ── Automation Controls: Midpoint Check-In auto-send. Same cohort setting as Rotation > Check-ins. ──
+// ── Automation Controls: Midpoint Check-In auto-send. This is now the canonical home for the
+//    cohorts.midpoint_checkin_automation_enabled setting (the Rotation > Check-Ins tab was retired). ──
 function MidpointControlCard({ cohortId, toast }) {
   const [enabled, setEnabled] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -246,11 +246,11 @@ function MidpointControlCard({ cohortId, toast }) {
         <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 10 }}>Select an active cohort to manage this setting.</div>
       ) : loaded && enabled ? (
         <div style={{ fontSize: 11.5, color: '#2F7D5C', marginTop: 10 }}>
-          Active — eligible students are emailed automatically each morning. This is the same setting as Rotation › Check-Ins.
+          Active — eligible students are emailed automatically each morning.
         </div>
       ) : (
         <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 10 }}>
-          Off — no automatic midpoint emails are sent. This is the same setting as Rotation › Check-Ins.
+          Off — no automatic midpoint emails are sent.
         </div>
       )}
     </div>
@@ -317,6 +317,11 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
         </div>
       </div>
       <MidpointControlCard cohortId={cohortId} toast={toast} />
+
+      <div style={{ margin: '10px 2px 0', fontSize: 11.5, color: '#9ca3af', lineHeight: 1.5 }}>
+        Only automations with saved settings appear as controls. Other scheduled jobs are monitored
+        below and can be added to Controls after a settings model is approved.
+      </div>
 
       {/* Section 2 — Automation Health */}
       <div style={{ margin: '26px 2px 12px' }}>

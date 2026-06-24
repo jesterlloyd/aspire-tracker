@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext'
 import MatchingTab from './MatchingTab'
 import PreceptorsTable from './PreceptorsTable'
 import StudentCoverage from './StudentCoverage'
-import MidpointCheckInsTab from './MidpointCheckInsTab'
 import RotationActivity from './RotationActivity'
 
 export default function RotationTab(props) {
@@ -18,9 +17,7 @@ export default function RotationTab(props) {
     ? 'preceptors'
     : location.pathname === '/rotation/activity'
       ? 'activity'
-      : location.pathname === '/rotation/checkins'
-        ? 'checkins'
-        : 'matrix'
+      : 'matrix'
 
   const btnStyle = (key) => ({
     height: 32, padding: '0 13px', display: 'flex', alignItems: 'center',
@@ -44,11 +41,6 @@ export default function RotationTab(props) {
           {canEdit && (
             <button onClick={() => navigate('/rotation/activity')} style={btnStyle('activity')}>
               Activity
-            </button>
-          )}
-          {canEdit && (
-            <button onClick={() => navigate('/rotation/checkins')} style={btnStyle('checkins')}>
-              Check-Ins
             </button>
           )}
         </div>
@@ -94,15 +86,6 @@ export default function RotationTab(props) {
             onNavigateToStudent={props.onNavigateToStudent}
             focusStudentId={props.focusActivityStudentId}
             onFocusConsumed={props.onFocusActivityConsumed}
-          />
-        </div>
-      )}
-      {canEdit && (
-        <div style={{ display: activeSubTab === 'checkins' ? 'block' : 'none', flex: 1, minHeight: 0, overflowY: 'auto' }}>
-          <MidpointCheckInsTab
-            cohortId={props.cohortId || props.activeCohort?.id}
-            students={props.students}
-            toast={props.toast}
           />
         </div>
       )}
