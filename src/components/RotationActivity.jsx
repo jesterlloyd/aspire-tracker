@@ -4,7 +4,7 @@
 //      Progress              campus today, with rotation progress + follow-up indicators.
 // Read-only. Owner/Admin-only (canEdit). No writes/email/cron/RPC. Progress math mirrors the
 // Student Profile (approved_hours / hours_required); no-recent-log mirrors Action Center act15.
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -16,19 +16,13 @@ import { resolvePreceptor } from '../lib/preceptor'
 const F = 'DM Sans, sans-serif'
 const SEVEN_DAYS_MS = 7 * 24 * 3600 * 1000
 const NEARING_PCT = 85 // matches priorities.js "nearing completion" (>= 85% of required hours)
-// "Shifts completed" counts only approved/auto-accepted logs (the ones that count toward
-// approved hours). Status is normalized (trim + lowercase) before comparison to avoid
-// capitalization/format drift; Pending Review / Rejected / Edited / blank / non-submitted
-// are NOT counted.
-const COMPLETED_SHIFT_STATUSES = new Set(['approved', 'auto-accepted'])
-const normShiftStatus = (status) => String(status || '').trim().toLowerCase()
 
 const SORT_OPTIONS = [
-  { key: 'attention', label: 'Needs attention' },
-  { key: 'hours',     label: 'Hours completed' },
-  { key: 'shifts',    label: 'Shifts completed' },
-  { key: 'name',      label: 'Name A–Z' },
-  { key: 'school',    label: 'School A–Z' },
+  { key: 'attention',  label: 'Needs attention' },
+  { key: 'hours_desc', label: 'Most hours completed' },
+  { key: 'hours_asc',  label: 'Least hours completed' },
+  { key: 'name',       label: 'Name A–Z' },
+  { key: 'school',     label: 'School A–Z' },
 ]
 
 function SectionHeader({ title, subtitle }) {
@@ -109,7 +103,7 @@ function ActiveRotationHours({ student }) {
   )
 }
 
-function ProgressRowCard({ card, expanded, onToggle, onOpen }) {
+function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef }) {
   const { s, req, apv, pct, lastLog, daysSince, noRecentLog, missingPreceptor, onCampus,
           precName, unitName, complete, nearComplete, shift, school, range } = card
   const name = getStudentPreferredFullName(s)
@@ -122,9 +116,9 @@ function ProgressRowCard({ card, expanded, onToggle, onOpen }) {
   const metaLine = [school, unitName, shift].filter(Boolean).join(' · ') || '—'
 
   return (
-    <div style={{
+    <div ref={innerRef} style={{
       padding: '13px 16px', marginBottom: 8, background: '#fff',
-      border: '1px solid #e8e4dc', borderRadius: 12, fontFamily: F,
+      border: '1px solid #e8e4dc', borderRadius: 12, fontFamily: F, scrollMarginTop: 12,
     }}>
      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14 }}>
       {/* Identity + meta */}
@@ -183,10 +177,26 @@ function ProgressRowCard({ card, expanded, onToggle, onOpen }) {
   )
 }
 
-export default function RotationActivity({ students = [], units = [], cohortId, onNavigateToStudent }) {
+export default function RotationActivity({ students = [], units = [], cohortId, onNavigateToStudent, focusStudentId, onFocusConsumed }) {
   const { canEdit } = useAuth()
   const [expandedId, setExpandedId] = useState(null)
   const [sortMode, setSortMode] = useState('attention')
+  const cardRefs = useRef({}) // { [studentId]: card element } — for scroll-into-view
+
+  // Focus handoff from Aggregate > On Campus Now (or any caller): expand + scroll the matching
+  // Active Rotation Progress card, then clear the pending target. Fallback: if the student is
+  // not in active rotation, clear the target safely with no expansion.
+  useEffect(() => {
+    if (!focusStudentId) return
+    const inActive = students.some(s => s.id === focusStudentId && s.status === 'Active Rotation')
+    if (inActive) {
+      setExpandedId(focusStudentId) // eslint-disable-line react-hooks/set-state-in-effect
+      requestAnimationFrame(() => {
+        cardRefs.current[focusStudentId]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      })
+    }
+    onFocusConsumed?.()
+  }, [focusStudentId, students, onFocusConsumed])
 
   // Full open-shift population (in_progress) for the cohort — read-only SELECT, unchanged.
   const { data: openLogs = [] } = useQuery({
@@ -213,27 +223,22 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
     queryFn: async () => {
       const { data, error } = await supabase
         .from('student_shift_logs')
-        .select('student_id, submitted_at, status')
+        .select('student_id, submitted_at')
         .eq('cohort_id', cohortId)
       if (error) throw error
       const now = Date.now()
       const latest = {}
-      const completed = {}
       for (const l of (data || [])) {
-        if (l.submitted_at) {
-          const t = new Date(l.submitted_at).getTime()
-          if (!latest[l.student_id] || t > latest[l.student_id].t) latest[l.student_id] = { t, iso: l.submitted_at }
-        }
-        if (COMPLETED_SHIFT_STATUSES.has(normShiftStatus(l.status))) completed[l.student_id] = (completed[l.student_id] || 0) + 1
+        if (!l.submitted_at) continue
+        const t = new Date(l.submitted_at).getTime()
+        if (!latest[l.student_id] || t > latest[l.student_id].t) latest[l.student_id] = { t, iso: l.submitted_at }
       }
       const summary = {}
-      for (const sid of new Set([...Object.keys(latest), ...Object.keys(completed)])) {
-        const v = latest[sid]
+      for (const [sid, v] of Object.entries(latest)) {
         summary[sid] = {
-          lastLog: v?.iso || null,
-          daysSince: v ? Math.floor((now - v.t) / (24 * 3600 * 1000)) : null,
-          noRecentLog: !v || (now - v.t) > SEVEN_DAYS_MS,
-          completedShifts: completed[sid] || 0,
+          lastLog: v.iso,
+          daysSince: Math.floor((now - v.t) / (24 * 3600 * 1000)),
+          noRecentLog: (now - v.t) > SEVEN_DAYS_MS,
         }
       }
       return summary
@@ -269,7 +274,6 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
         range: (s.term_dates || '').trim(),
         complete: pct >= 100,
         nearComplete: pct >= NEARING_PCT && pct < 100,
-        completedShifts: log?.completedShifts || 0,
       }
     })
 
@@ -285,10 +289,10 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
       if (a.pct !== b.pct) return a.pct - b.pct
       return byName(a, b)
     },
-    hours:  (a, b) => (b.apv - a.apv) || byName(a, b),
-    shifts: (a, b) => (b.completedShifts - a.completedShifts) || byName(a, b),
-    name:   byName,
-    school: (a, b) => (a.school || '').localeCompare(b.school || '') || byName(a, b),
+    hours_desc: (a, b) => (b.apv - a.apv) || byName(a, b),
+    hours_asc:  (a, b) => (a.apv - b.apv) || byName(a, b),
+    name:       byName,
+    school:     (a, b) => (a.school || '').localeCompare(b.school || '') || byName(a, b),
   }
   const sortedCards = [...cards].sort(comparators[sortMode] || comparators.attention)
 
@@ -321,6 +325,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
           <ProgressRowCard
             key={card.s.id}
             card={card}
+            innerRef={el => { if (el) cardRefs.current[card.s.id] = el; else delete cardRefs.current[card.s.id] }}
             expanded={expandedId === card.s.id}
             onToggle={() => setExpandedId(prev => (prev === card.s.id ? null : card.s.id))}
             onOpen={onNavigateToStudent}

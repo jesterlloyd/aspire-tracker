@@ -246,6 +246,9 @@ function MainApp({ onLogout }) {
   const [showAddModal,       setShowAddModal]       = useState(false)
   const [showInterviewersModal, setShowInterviewersModal] = useState(false)
   const [focusStudentId,     setFocusStudentId]     = useState(null)
+  // ROTATION-ACTIVITY-NAV: pending student to focus (expand + scroll) in Rotation > Activity,
+  // set when an On Campus Now student is clicked in Aggregate.
+  const [focusActivityStudentId, setFocusActivityStudentId] = useState(null)
   // Ref for Connect soft-refresh — ConnectPage registers its handleRefresh here so the
   // toolbar RefreshHint can call it without a full page reload.
   const connectRefreshRef = useRef(null)
@@ -458,6 +461,10 @@ function MainApp({ onLogout }) {
     // not an effect).
     if (activeCohortId) fetchLazyActionData(activeCohortId)
   }
+
+  // ROTATION-ACTIVITY-NAV: from Aggregate > On Campus Now, route to Rotation > Activity and
+  // flag the student so RotationActivity expands + scrolls their Active Rotation Progress card.
+  const goToActivityStudent = id => { setFocusActivityStudentId(id); navigate('/rotation/activity') }
 
   // WS2.3/WS2.4: single source of truth for the tour-restart behavior. WS2.4 removed the
   // UserMenu duplicate, so the Settings → Tours & Help panel is now the sole consumer.
@@ -968,7 +975,7 @@ function MainApp({ onLogout }) {
           <>
             <div style={{ display: activeTab === 'overview' ? 'block' : 'none' }}>
               <OverviewTab students={students} units={units} onStudentUpdate={updateStudent} cohortId={activeCohortId} cohort={activeCohort} toast={toast}
-                onSelectStudent={id => { setFocusStudentId(id); switchTab('profiles') }} />
+                onSelectStudent={goToActivityStudent} />
             </div>
 
             <div style={{ display: activeTab === 'profiles' ? 'block' : 'none' }}>
@@ -1015,6 +1022,8 @@ function MainApp({ onLogout }) {
                 onDeleteUnit={deleteUnit}
                 highlightUnitId={highlightUnitId}
                 onNavigateToStudent={id => { setFocusStudentId(id); switchTab('profiles') }}
+                focusActivityStudentId={focusActivityStudentId}
+                onFocusActivityConsumed={() => setFocusActivityStudentId(null)}
                 toast={toast}
               />
             </div>
