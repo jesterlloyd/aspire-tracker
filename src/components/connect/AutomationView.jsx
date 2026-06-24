@@ -1,15 +1,23 @@
-// CONNECT-AUTOMATION-MONITOR-V1 — read-only "Automation" monitor (Connect > Automation subtab).
+// CONNECT-AUTOMATION — Automation control + health surface (Connect > Automation subtab).
 //
-// Surfaces existing observability with NO new schema, crons, or toggles:
-//   • Section 1 "Automation Health"  — one card per scheduled cron, from cron_runs (counts-only).
-//   • Section 2 "Recent Communication Activity" — latest notification_log rows (whitelisted, PII).
+// Purpose (post message-history pruning): controls and health for scheduled communication
+// workflows — NOT another message log. Message-level delivery history lives in Outreach > Sent
+// History, linked from here.
 //
-// Both come from /api/automation-runs (Owner/Admin gated, service-role read) because cron_runs is
-// RLS-locked to clients. The whole monitor is Owner/Admin only — notification_log carries recipient
-// PII. Strictly read-only; no actions beyond opening a student profile.
+//   • Section 1 "Automation Controls" — Midpoint Check-In auto-send toggle. Reads/writes the SAME
+//     cohort setting (cohorts.midpoint_checkin_automation_enabled) as Rotation > Check-ins, so the
+//     two stay in sync through the shared persisted field. Client-side update (RLS already allows
+//     it); no backend, no schema.
+//   • Section 2 "Automation Health" — one card per scheduled cron, from cron_runs (counts only,
+//     via the Owner/Admin /api/automation-runs endpoint because cron_runs is RLS-locked).
+//
+// Owner/Admin only. Read-only except the one cohort-setting toggle.
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
+import Toggle from '../ui/Toggle'
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -45,28 +53,8 @@ const COUNT_LABELS = {
   cohort_count: 'Cohorts', overdue_count: 'Overdue', open_checked: 'Open shifts',
   would_send_count: 'Would send',
 }
-// Keys that signal a problem when > 0 (rendered red).
 const ALARM_KEYS = new Set(['failed_count', 'error_count'])
-// Keys that represent "messages actually sent" (used for the calm "nothing to send" caption).
 const SENT_KEYS = ['sent_count', 'fired_count']
-
-const MESSAGE_TYPE_LABELS = {
-  direct_message_sent:              'Direct Message',
-  evaluation_invitation_sent:       'Survey Invitation',
-  evaluation_invitation_test:       'Survey Invitation (Test)',
-  coordinator_weekly_digest:        'Weekly Digest',
-  coordinator_weekly_digest_test:   'Weekly Digest (Test)',
-  interview_reminder:               'Interview Reminder',
-  midpoint_checkin:                 'Midpoint Check-In',
-  form_received:                    'Form Received',
-  unit_form_received:               'Unit Form Received',
-  teams_invite_reminder:            'Teams Invite Reminder',
-  teams_invite_reminder_escalation: 'Teams Invite Escalation',
-}
-const messageTypeLabel = (t) => MESSAGE_TYPE_LABELS[t] || t || '—'
-
-const FAILED_STATUSES  = new Set(['failed', 'bounced', 'complained'])
-const POSITIVE_STATUSES = new Set(['sent', 'delivered', 'opened', 'clicked'])
 
 function fmtDateTime(iso) {
   if (!iso) return '—'
@@ -116,7 +104,7 @@ function chipsFromDetails(details) {
 }
 
 const HEALTH_TONES = {
-  success: { dot: '#2F7D5C', bg: '#eef6ee', color: '#2F7D5C', border: '#cfe6d6', text: 'Healthy' },
+  success: { dot: '#2F7D5C', bg: '#eef6ee', color: '#2F7D5C', border: '#cfe6d6' },
   error:   { dot: '#b91c1c', bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
   running: { dot: '#b45309', bg: '#fff7ed', color: '#b45309', border: '#fed7aa' },
   neutral: { dot: '#9ca3af', bg: '#f3f4f6', color: '#6b7280', border: '#e5e7eb' },
@@ -155,9 +143,7 @@ function HealthCard({ job, run, nowIso }) {
         <span>Last run: <strong style={{ color: '#374151', fontWeight: 600 }}>{run ? fmtDateTime(run.started_at) : '—'}</strong></span>
         {duration && <span>Duration: <strong style={{ color: '#374151', fontWeight: 600 }}>{duration}</strong></span>}
         {dryRun !== null && (
-          <span style={{
-            fontWeight: 700, color: dryRun ? '#b45309' : '#2F7D5C',
-          }}>{dryRun ? 'Dry run' : 'Live'}</span>
+          <span style={{ fontWeight: 700, color: dryRun ? '#b45309' : '#2F7D5C' }}>{dryRun ? 'Dry run' : 'Live'}</span>
         )}
       </div>
 
@@ -191,65 +177,82 @@ function HealthCard({ job, run, nowIso }) {
   )
 }
 
-function statusPill(status) {
-  const s = String(status || '').toLowerCase()
-  if (FAILED_STATUSES.has(s))  return { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' }
-  if (POSITIVE_STATUSES.has(s)) return { bg: '#eef6ee', color: '#2F7D5C', border: '#cfe6d6' }
-  return { bg: '#f3f4f6', color: '#6b7280', border: '#e5e7eb' }
-}
+// ── Automation Controls: Midpoint Check-In auto-send. Same cohort setting as Rotation > Check-ins. ──
+function MidpointControlCard({ cohortId, toast }) {
+  const [enabled, setEnabled] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
 
-function ActivityRow({ row, onNavigateToStudent }) {
-  const failed = FAILED_STATUSES.has(String(row.status || '').toLowerCase())
-  const pill = statusPill(row.status)
-  const canOpen = !!row.student_id && typeof onNavigateToStudent === 'function'
-  const recipient = row.recipient_name || row.recipient_email || '—'
-  const meta = [row.recipient_role || row.recipient_type, fmtDateTime(row.sent_at)].filter(Boolean).join(' · ')
-  const engagement = [
-    row.delivered_at && 'Delivered',
-    row.opened_at && 'Opened',
-  ].filter(Boolean).join(' · ')
+  useEffect(() => {
+    if (!cohortId) { setLoaded(false); return } // eslint-disable-line react-hooks/set-state-in-effect
+    let cancelled = false
+    setLoaded(false)
+    supabase
+      .from('cohorts')
+      .select('midpoint_checkin_automation_enabled')
+      .eq('id', cohortId)
+      .single()
+      .then(({ data }) => {
+        if (cancelled) return
+        setEnabled(!!data?.midpoint_checkin_automation_enabled)
+        setLoaded(true)
+      })
+    return () => { cancelled = true }
+  }, [cohortId])
+
+  const handleToggle = async (val) => {
+    if (saving || !cohortId) return
+    setSaving(true)
+    const { error } = await supabase
+      .from('cohorts')
+      .update({ midpoint_checkin_automation_enabled: val })
+      .eq('id', cohortId)
+    if (error) {
+      toast?.('Failed to update automation setting', 'error')
+    } else {
+      setEnabled(val)
+      toast?.(val ? 'Midpoint auto-send enabled' : 'Midpoint auto-send paused', 'success')
+    }
+    setSaving(false)
+  }
 
   return (
-    <div style={{
-      display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12,
-      padding: '11px 14px', background: failed ? '#fffafa' : '#fff',
-      border: `1px solid ${failed ? '#f3c9c9' : '#eee9e0'}`, borderRadius: 11, fontFamily: F,
-    }}>
-      <div style={{ flex: '1 1 240px', minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {canOpen ? (
-            <button onClick={() => onNavigateToStudent(row.student_id)} style={{
-              fontSize: 13.5, fontWeight: 700, color: NAVY, background: 'none', border: 'none',
-              padding: 0, cursor: 'pointer', fontFamily: F, textAlign: 'left',
-            }}>{recipient}</button>
-          ) : (
-            <span style={{ fontSize: 13.5, fontWeight: 700, color: '#191919' }}>{recipient}</span>
-          )}
-          <span style={{
-            fontSize: 10.5, fontWeight: 700, padding: '1px 7px', borderRadius: 6,
-            background: '#EEF2FB', color: NAVY, border: '1px solid #c3cdf0',
-          }}>{messageTypeLabel(row.notification_type)}</span>
-        </div>
-        {row.recipient_name && row.recipient_email && (
-          <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 2, wordBreak: 'break-word' }}>{row.recipient_email}</div>
-        )}
-        <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 2 }}>{meta || '—'}</div>
-        {row.subject && (
-          <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 2, wordBreak: 'break-word' }}>
-            <span style={{ color: '#9ca3af' }}>Subject:</span> {row.subject}
+    <div style={{ background: '#fff', border: '1px solid #e8e4dc', borderRadius: 14, padding: '16px 18px', fontFamily: F }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Midpoint Check-In Auto-send</div>
+          <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4, lineHeight: 1.45 }}>
+            Sends check-in emails to Active Rotation students once they reach 50% of required hours.
           </div>
-        )}
-        {failed && row.error_message && (
-          <div style={{ fontSize: 11, color: '#b91c1c', marginTop: 3, wordBreak: 'break-word' }}>{row.error_message}</div>
-        )}
+          <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: '2px 10px' }}>
+            <span>Schedule: <strong style={{ color: '#6b7280', fontWeight: 600 }}>Daily</strong></span>
+            <span>Scope: <strong style={{ color: '#6b7280', fontWeight: 600 }}>Active cohort only</strong></span>
+          </div>
+        </div>
+        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+          <Toggle
+            checked={enabled}
+            onChange={handleToggle}
+            disabled={saving || !cohortId || !loaded}
+            size="md"
+            ariaLabel="Midpoint check-in auto-send"
+          />
+          <span style={{ fontSize: 11, color: saving ? '#b45309' : enabled ? '#2F7D5C' : '#9ca3af', fontWeight: 600, minHeight: 14 }}>
+            {!cohortId ? '' : saving ? 'Saving…' : !loaded ? 'Loading…' : enabled ? 'On' : 'Off'}
+          </span>
+        </div>
       </div>
-      <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-        <span style={{
-          fontSize: 10.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20, textTransform: 'capitalize',
-          background: pill.bg, color: pill.color, border: `1px solid ${pill.border}`,
-        }}>{row.status || '—'}</span>
-        {engagement && <span style={{ fontSize: 10.5, color: '#9ca3af' }}>{engagement}</span>}
-      </div>
+      {!cohortId ? (
+        <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 10 }}>Select an active cohort to manage this setting.</div>
+      ) : loaded && enabled ? (
+        <div style={{ fontSize: 11.5, color: '#2F7D5C', marginTop: 10 }}>
+          Active — eligible students are emailed automatically each morning. This is the same setting as Rotation › Check-Ins.
+        </div>
+      ) : (
+        <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 10 }}>
+          Off — no automatic midpoint emails are sent. This is the same setting as Rotation › Check-Ins.
+        </div>
+      )}
     </div>
   )
 }
@@ -262,16 +265,16 @@ function LockedCard() {
     }}>
       <div style={{ fontSize: 15, fontWeight: 700, color: NAVY, marginBottom: 8 }}>Restricted</div>
       <div style={{ fontSize: 13, color: '#6b7280', maxWidth: 420, margin: '0 auto', lineHeight: 1.6 }}>
-        Automation monitoring includes recipient communication records and is available to program
-        owners and administrators only.
+        Automation controls and health are available to program owners and administrators only.
       </div>
     </div>
   )
 }
 
-export default function AutomationView({ active = true, onNavigateToStudent, refreshKey }) {
+export default function AutomationView({ active = true, cohortId, toast, refreshKey }) {
   const { isOwner, isAdmin } = useAuth()
   const ownerAdmin = isOwner || isAdmin
+  const navigate = useNavigate()
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['automation-monitor', refreshKey],
@@ -292,35 +295,31 @@ export default function AutomationView({ active = true, onNavigateToStudent, ref
 
   const nowIso = data?.now
   const runs = data?.runs || []
-  const activity = data?.activity || []
   // Latest run per cron_name (runs arrive newest-first).
   const latestByName = {}
   for (const r of runs) if (!latestByName[r.cron_name]) latestByName[r.cron_name] = r
 
   return (
     <div style={{ padding: '4px 20px 28px', fontFamily: F }}>
-      {/* Title + scope note — this version is monitoring-only; controls arrive in a follow-up phase
-          (so it's clear this has NOT replaced Rotation > Check-ins / the midpoint auto-send toggle). */}
-      <div style={{ margin: '6px 2px 12px' }}>
+      {/* Title */}
+      <div style={{ margin: '6px 2px 14px' }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: '#191919' }}>Automation</div>
         <div style={{ fontSize: 12.5, color: '#6b7280', marginTop: 3 }}>
-          Monitor scheduled communication jobs and recent system-sent messages.
+          Manage and monitor scheduled communication workflows.
         </div>
       </div>
-      <div style={{
-        margin: '0 2px 16px', padding: '9px 12px', display: 'flex', alignItems: 'flex-start', gap: 8,
-        background: '#f6f8fc', border: '1px solid #d9e1f3', borderRadius: 10,
-        fontSize: 11.5, color: '#475569', lineHeight: 1.5,
-      }}>
-        <span style={{ flexShrink: 0, color: NAVY, fontWeight: 700 }}>Monitoring only</span>
-        <span>
-          Controls for automation settings, including midpoint check-in auto-send, will be added in a
-          follow-up phase.
-        </span>
-      </div>
 
-      {/* Section 1 — Automation Health */}
+      {/* Section 1 — Automation Controls */}
       <div style={{ margin: '6px 2px 12px' }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#191919' }}>Automation Controls</div>
+        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+          Automation controls apply to the active cohort. Additional automation controls will be added in future phases.
+        </div>
+      </div>
+      <MidpointControlCard cohortId={cohortId} toast={toast} />
+
+      {/* Section 2 — Automation Health */}
+      <div style={{ margin: '26px 2px 12px' }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: '#191919' }}>Automation Health</div>
         <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
           Status of each scheduled communication job, from the most recent run.
@@ -348,32 +347,21 @@ export default function AutomationView({ active = true, onNavigateToStudent, ref
         </div>
       )}
 
-      {/* Section 2 — Recent Communication Activity */}
-      <div style={{ margin: '26px 2px 12px' }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#191919' }}>Recent Communication Activity</div>
-        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
-          Latest system-sent messages and their delivery status.
-        </div>
+      {/* Sent History pointer — message-level logs live in Outreach > Sent History (real deep link). */}
+      <div style={{
+        margin: '16px 2px 0', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 8,
+        flexWrap: 'wrap', background: '#f6f8fc', border: '1px solid #d9e1f3', borderRadius: 10,
+        fontSize: 12, color: '#475569',
+      }}>
+        <span>For message-level delivery history, use</span>
+        <button
+          onClick={() => navigate('/connect/outreach?tab=sent_history')}
+          style={{
+            background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: F,
+            fontSize: 12, fontWeight: 700, color: NAVY, textDecoration: 'underline',
+          }}
+        >Outreach › Sent History</button>
       </div>
-
-      {!isLoading && !isError && (
-        activity.length === 0 ? (
-          <div style={{
-            margin: '4px 0', padding: '24px 20px', textAlign: 'center', background: '#fff',
-            border: '1px solid #e8e4dc', borderRadius: 14, color: '#6b7280', fontSize: 13.5,
-          }}>
-            {data?.warning === 'recent_activity_unavailable'
-              ? 'Recent activity is temporarily unavailable.'
-              : 'No recent communication activity.'}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {activity.map(row => (
-              <ActivityRow key={row.id} row={row} onNavigateToStudent={onNavigateToStudent} />
-            ))}
-          </div>
-        )
-      )}
     </div>
   )
 }

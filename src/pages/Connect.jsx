@@ -127,7 +127,7 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
           <OutreachView cohortId={cohortId} onNavigateToStudent={onNavigateToStudent} toast={toast} refreshKey={refreshKey} />
         </div>
         <div style={{ display: activeSubTab === 'broadcasts' ? 'block' : 'none' }}>
-          <AutomationView active={activeSubTab === 'broadcasts'} onNavigateToStudent={onNavigateToStudent} refreshKey={refreshKey} />
+          <AutomationView active={activeSubTab === 'broadcasts'} cohortId={cohortId} toast={toast} refreshKey={refreshKey} />
         </div>
       </div>
 
