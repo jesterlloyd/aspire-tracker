@@ -4,10 +4,12 @@
 //      Progress              campus today, with rotation progress + follow-up indicators.
 // Read-only. Owner/Admin-only (canEdit). No writes/email/cron/RPC. Progress math mirrors the
 // Student Profile (approved_hours / hours_required); no-recent-log mirrors Action Center act15.
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import OpenShiftReview from './OpenShiftReview'
+import ClinicalHoursPanel from './ClinicalHoursPanel'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { resolvePreceptor } from '../lib/preceptor'
 
@@ -49,7 +51,34 @@ function Badge({ label, tone }) {
   )
 }
 
-function ProgressRowCard({ card, onOpen }) {
+// Expanded clinical-hours detail for one student. Fetches the SAME per-student shift-log
+// query as the Student Profile (shared React Query cache key) and renders the shared
+// ClinicalHoursPanel — same totals, table, and Shift Details modal.
+function ActiveRotationHours({ student }) {
+  const { data: shiftLogs = [], isLoading } = useQuery({
+    queryKey: ['student_shift_logs', student.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('student_shift_logs')
+        .select('*').eq('student_id', student.id)
+        .order('shift_date', { ascending: false })
+      if (error) throw error
+      return data || []
+    },
+    enabled: !!student.id,
+  })
+  return (
+    <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #eee' }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10, fontFamily: F }}>
+        Clinical Hours
+      </div>
+      {isLoading
+        ? <div style={{ fontSize: 12.5, color: '#9ca3af', fontFamily: F }}>Loading hours…</div>
+        : <ClinicalHoursPanel student={student} shiftLogs={shiftLogs} />}
+    </div>
+  )
+}
+
+function ProgressRowCard({ card, expanded, onToggle, onOpen }) {
   const { s, req, apv, pct, lastLog, daysSince, noRecentLog, missingPreceptor, onCampus,
           precName, unitName, complete, nearComplete, shift, school, range } = card
   const name = getStudentPreferredFullName(s)
@@ -63,10 +92,10 @@ function ProgressRowCard({ card, onOpen }) {
 
   return (
     <div style={{
-      display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14,
       padding: '13px 16px', marginBottom: 8, background: '#fff',
       border: '1px solid #e8e4dc', borderRadius: 12, fontFamily: F,
     }}>
+     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14 }}>
       {/* Identity + meta */}
       <div style={{ flex: '1 1 240px', minWidth: 200 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -95,24 +124,37 @@ function ProgressRowCard({ card, onOpen }) {
         <div style={{ fontSize: 11, color: noRecentLog ? '#92400e' : '#9ca3af', marginTop: 4 }}>{lastLogText}</div>
       </div>
 
-      {/* Action */}
-      <div style={{ flex: '0 0 auto' }}>
+      {/* Actions: View Hours (primary, inline expand) + secondary Profile link */}
+      <div style={{ flex: '0 0 auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
         <button
-          onClick={() => onOpen?.(s.id)}
+          onClick={onToggle}
+          aria-expanded={expanded}
           style={{
             fontSize: 12, fontWeight: 600, color: '#1D2567', background: 'rgba(29,37,103,0.07)',
             border: '1px solid rgba(29,37,103,0.15)', borderRadius: 8, padding: '7px 12px',
             cursor: 'pointer', fontFamily: F, whiteSpace: 'nowrap',
           }}>
-          Open Profile
+          {expanded ? 'Hide Hours ▴' : 'View Hours ▾'}
         </button>
+        {onOpen && (
+          <button
+            onClick={() => onOpen(s.id)}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: F, fontSize: 11, fontWeight: 600, color: '#9ca3af' }}>
+            Profile →
+          </button>
+        )}
       </div>
+     </div>
+
+      {/* Expanded clinical-hours detail (shared ClinicalHoursPanel) */}
+      {expanded && <ActiveRotationHours student={s} />}
     </div>
   )
 }
 
 export default function RotationActivity({ students = [], units = [], cohortId, onNavigateToStudent }) {
   const { canEdit } = useAuth()
+  const [expandedId, setExpandedId] = useState(null)
 
   // Full open-shift population (in_progress) for the cohort — read-only SELECT, unchanged.
   const { data: openLogs = [] } = useQuery({
@@ -221,7 +263,13 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
         <EmptyCard>No students are in active rotation right now.</EmptyCard>
       ) : (
         cards.map(card => (
-          <ProgressRowCard key={card.s.id} card={card} onOpen={onNavigateToStudent} />
+          <ProgressRowCard
+            key={card.s.id}
+            card={card}
+            expanded={expandedId === card.s.id}
+            onToggle={() => setExpandedId(prev => (prev === card.s.id ? null : card.s.id))}
+            onOpen={onNavigateToStudent}
+          />
         ))
       )}
     </div>
