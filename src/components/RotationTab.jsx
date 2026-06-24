@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import MatchingTab from './MatchingTab'
 import PreceptorsTable from './PreceptorsTable'
+import StudentCoverage from './StudentCoverage'
 import MidpointCheckInsTab from './MidpointCheckInsTab'
 import RotationActivity from './RotationActivity'
 
@@ -9,6 +11,8 @@ export default function RotationTab(props) {
   const navigate     = useNavigate()
   const location     = useLocation()
   const { canEdit }  = useAuth()
+  // Inner view of the Preceptors subtab: the unchanged Preceptor Directory, or Student Coverage.
+  const [precView, setPrecView] = useState('directory') // 'directory' | 'coverage'
 
   const activeSubTab = location.pathname === '/rotation/preceptors'
     ? 'preceptors'
@@ -54,11 +58,32 @@ export default function RotationTab(props) {
         <MatchingTab {...props} />
       </div>
       <div style={{ display: activeSubTab === 'preceptors' ? 'flex' : 'none', flex: 1, minHeight: 0, flexDirection: 'column' }}>
-        <PreceptorsTable
-          students={props.students}
-          cohortId={props.cohortId || props.activeCohort?.id}
-          toast={props.toast}
-        />
+        {/* Inner toggle: Preceptor Directory (unchanged) vs. Student Coverage */}
+        <div style={{ padding: '0 20px 10px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', borderRadius: 7, border: '1px solid var(--border-input,rgba(29,37,103,0.10))', overflow: 'hidden', width: 'fit-content' }}>
+            <button onClick={() => setPrecView('directory')} style={btnStyle(precView === 'directory' ? 'preceptors' : '_x')}>
+              Preceptor Directory
+            </button>
+            <button onClick={() => setPrecView('coverage')} style={btnStyle(precView === 'coverage' ? 'preceptors' : '_x')}>
+              Student Coverage
+            </button>
+          </div>
+        </div>
+        <div style={{ display: precView === 'directory' ? 'flex' : 'none', flex: 1, minHeight: 0, flexDirection: 'column' }}>
+          <PreceptorsTable
+            students={props.students}
+            cohortId={props.cohortId || props.activeCohort?.id}
+            toast={props.toast}
+          />
+        </div>
+        <div style={{ display: precView === 'coverage' ? 'block' : 'none', flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <StudentCoverage
+            students={props.students}
+            units={props.units}
+            cohortId={props.cohortId || props.activeCohort?.id}
+            onNavigateToStudent={props.onNavigateToStudent}
+          />
+        </div>
       </div>
       {canEdit && (
         <div style={{ display: activeSubTab === 'activity' ? 'block' : 'none', flex: 1, minHeight: 0, overflowY: 'auto' }}>
