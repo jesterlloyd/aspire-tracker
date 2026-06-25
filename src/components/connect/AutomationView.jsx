@@ -13,7 +13,7 @@
 // Owner/Admin only. Read-only except the one cohort-setting toggle.
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import Toggle from '../ui/Toggle'
@@ -235,10 +235,10 @@ function MidpointControlCard({ cohortId, toast }) {
       .update({ midpoint_checkin_automation_enabled: val })
       .eq('id', cohortId)
     if (error) {
-      toast?.('Failed to update automation setting', 'error')
+      toast?.error?.('Failed to update automation setting')
     } else {
       setEnabled(val)
-      toast?.(val ? 'Midpoint auto-send enabled' : 'Midpoint auto-send paused', 'success')
+      toast?.success?.(val ? 'Midpoint auto-send enabled' : 'Midpoint auto-send paused')
     }
     setSaving(false)
   }
@@ -348,6 +348,7 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
   const { isOwner, isAdmin } = useAuth()
   const ownerAdmin = isOwner || isAdmin
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['automation-monitor', refreshKey],
@@ -396,10 +397,26 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
         body: JSON.stringify({ automation_key: automationKey, enabled: val }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      toast?.(val ? 'Automation enabled' : 'Automation paused', 'success')
-      await refetchSettings()
+      const body = await res.json()
+      const updated = body?.setting
+      // Apply the server's returned setting to the cache immediately so the toggle, card footer, and
+      // the matching Health card flip right away — no full refresh needed.
+      if (updated?.automation_key) {
+        queryClient.setQueryData(['automation-settings', refreshKey], (old) => {
+          const list = old?.settings || []
+          const has = list.some(s => s.automation_key === updated.automation_key)
+          const settings = has
+            ? list.map(s => (s.automation_key === updated.automation_key ? updated : s))
+            : [...list, updated]
+          return { ...(old || {}), settings }
+        })
+      }
+      // toast from useToast() is an OBJECT ({ success, error, ... }), not a callable.
+      toast?.success?.(val ? 'Automation enabled' : 'Automation paused')
+      // Confirm server truth in the background — NOT awaited, so it can't clobber the toast or UI.
+      refetchSettings()
     } catch {
-      toast?.('Failed to update automation setting', 'error')
+      toast?.error?.('Update failed', 'Could not change the automation setting. Please try again.')
     } finally {
       setSavingKey(null)
     }
