@@ -34,6 +34,7 @@ export default async function handler(req, res) {
   const { status, body } = await runClockoutReminders(supabase, {
     mode: 'live',
     cronName: 'clockout-reminders-scheduled',
+    automationKey: 'clockout_reminders', // opt in to the automation gate (scheduled live only)
   });
   return res.status(status).json(body);
 }

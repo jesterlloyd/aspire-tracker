@@ -28,6 +28,7 @@ import {
 import { sendNotification } from '../../src/lib/notifications/index.js';
 import { CLOCKOUT_REMINDER_SUBJECT, clockoutReminderText } from '../../src/lib/notifications/templates/clockoutReminder.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from './cronRuns.js';
+import { isAutomationEnabled } from './automationSettings.js';
 import { getStudentPreferredGreetingName } from '../../src/lib/studentNameFormatters.js';
 
 // notification_type written by the live send (via sendNotification) and read for dedup. This is a
@@ -58,9 +59,10 @@ function rowSummary(log, stu, nowMs) {
 //   supabase : a service-role client (created by the calling endpoint)
 //   mode     : 'dry-run' | 'preview' | 'live'
 //   cronName : cron_runs heartbeat name ('clockout-reminders' manual, 'clockout-reminders-scheduled' hourly)
-export async function runClockoutReminders(supabase, { mode = 'dry-run', cronName = 'clockout-reminders' } = {}) {
+export async function runClockoutReminders(supabase, { mode = 'dry-run', cronName = 'clockout-reminders', automationKey = null } = {}) {
   const isLive    = mode === 'live';
   const isPreview = mode === 'preview';
+  let settingsWarning = null; // set only if the automation settings read fails open (observability)
 
   const now = new Date();
   const nowMs = now.getTime();
@@ -68,6 +70,23 @@ export async function runClockoutReminders(supabase, { mode = 'dry-run', cronNam
   const runId = await startCronRun(supabase, cronName);
 
   try {
+    // Automation gate — scheduled LIVE auto-send ONLY (opt-in via automationKey). Manual dry-run,
+    // preview, and confirmed manual-live pass no automationKey and are NEVER gated. Default-ON /
+    // fail-open: a missing row or a read failure keeps sending as today. Disabled => paused
+    // heartbeat (success) + skipped response; no query, no sends, no notification_log writes.
+    if (isLive && automationKey) {
+      const gate = await isAutomationEnabled({ supabaseAdmin: supabase, automationKey });
+      if (!gate.enabled) {
+        await finishCronRunSuccess(supabase, runId, {
+          skipped_disabled: true,
+          automation_key: automationKey,
+          enabled: false,
+        });
+        return { status: 200, body: { skipped: true, reason: 'automation_disabled' } };
+      }
+      if (gate.source === 'fail_open') settingsWarning = gate.warning;
+    }
+
     // ── 1. Open shifts (program-wide): lifecycle_state in_progress = clock-in present, clock-out null
     const { data: openLogs, error: logsErr } = await supabase
       .from('student_shift_logs')
@@ -214,6 +233,8 @@ export async function runClockoutReminders(supabase, { mode = 'dry-run', cronNam
       skipped_recently_reminded_count: skippedRecent.length,
       failed_count: failedCount,
       error_count: 0,
+      // Observability only — present solely when the settings read failed open (ran as today).
+      ...(settingsWarning ? { settings_warning: settingsWarning } : {}),
     };
     await finishCronRunSuccess(supabase, runId, counts);
 
