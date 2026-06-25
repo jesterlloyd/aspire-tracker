@@ -8,6 +8,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { sendNotification } from '../../src/lib/notifications/index.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
+import { isAutomationEnabled } from '../lib/automationSettings.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
@@ -31,6 +32,18 @@ export default async function handler(req, res) {
   const runId = await startCronRun(supabase, 'teams-invite-reminders');
 
   try {
+    // Automation gate — scheduled auto-send only. Default-ON / fail-open: a missing row or a read
+    // failure keeps sending as today. Disabled => paused heartbeat (success) + 200, no query/send.
+    const gate = await isAutomationEnabled({ supabaseAdmin: supabase, automationKey: 'teams_invite_reminders' });
+    if (!gate.enabled) {
+      await finishCronRunSuccess(supabase, runId, {
+        skipped_disabled: true,
+        automation_key: 'teams_invite_reminders',
+        enabled: false,
+      });
+      return res.status(200).json({ skipped: true, reason: 'automation_disabled' });
+    }
+
     const { data: sessions, error } = await supabase
       .from('interview_sessions')
       .select(`
@@ -73,6 +86,8 @@ export default async function handler(req, res) {
       checked_count: candidates.length,
       fired_count: fired.length,
       skipped_count: skipped.length,
+      // Observability only — present solely when the settings read failed open (ran as today).
+      ...(gate.source === 'fail_open' ? { settings_warning: gate.warning } : {}),
     });
     return res.status(200).json({
       success: true,
