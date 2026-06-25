@@ -1,30 +1,30 @@
-import { useMemo } from 'react'
+import { RefreshCw } from 'lucide-react'
 import { useUnreadStudents } from '../hooks/useUnreadStudents'
 import Tooltip from './ui/Tooltip'
 
-export function RefreshHint({ onClick, tooltipLabel }) {
-  const shortcut = useMemo(() => {
-    if (typeof navigator === 'undefined') return '⌘R'
-    const p = navigator.platform || '', ua = navigator.userAgent || ''
-    return /Mac|iPhone|iPad|iPod/.test(p) || /Mac OS/.test(ua) ? '⌘R' : 'Ctrl+R'
-  }, [])
-
+// A real "Refresh" button (no longer a "Missing data?" warning; no visible keyboard shortcut).
+// `loading` spins the icon, disables the button, and swaps the label to "Refreshing…". The refresh
+// behavior is the caller's: Connect passes a soft-refetch handler + its `refreshing` flag; with no
+// onClick it falls back to a hard browser reload (main nav, unchanged).
+export function RefreshHint({ onClick, tooltipLabel, loading = false, disabled = false }) {
   const handleClick = onClick ?? (() => window.location.reload())
-  const tipLabel = tooltipLabel ?? `Refresh app (${shortcut})`
+  const isDisabled = disabled || loading
+  const tipLabel = tooltipLabel ?? 'Refresh app'
 
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:'#98A2B3', fontFamily:'DM Sans, sans-serif', lineHeight:1, marginLeft:'auto', paddingRight:4, flexShrink:0, alignSelf:'center' }}>
-      <span style={{ whiteSpace:'nowrap' }}>Missing data? Refresh</span>
+    <div style={{ display:'flex', alignItems:'center', marginLeft:'auto', paddingRight:4, flexShrink:0, alignSelf:'center', fontFamily:'DM Sans, sans-serif' }}>
       <Tooltip label={tipLabel} placement="bottom">
       <button
         onClick={handleClick}
-        aria-label="Refresh app"
-        style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'4px 8px', background:'rgba(29,37,103,0.04)', border:'1px solid rgba(29,37,103,0.10)', borderRadius:6, color:'#475467', fontSize:11, fontWeight:500, fontFamily:'DM Sans, sans-serif', cursor:'pointer', transition:'all 0.15s ease' }}
-        onMouseEnter={e => { e.currentTarget.style.background='rgba(29,37,103,0.08)'; e.currentTarget.style.color='#1D2567' }}
-        onMouseLeave={e => { e.currentTarget.style.background='rgba(29,37,103,0.04)'; e.currentTarget.style.color='#475467' }}
+        disabled={isDisabled}
+        aria-label="Refresh"
+        aria-busy={loading}
+        style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'5px 12px', background:'rgba(29,37,103,0.04)', border:'1px solid rgba(29,37,103,0.12)', borderRadius:7, color: loading ? '#1D2567' : '#475467', fontSize:12, fontWeight:600, fontFamily:'DM Sans, sans-serif', cursor: isDisabled ? 'default' : 'pointer', opacity: disabled && !loading ? 0.6 : 1, transition:'all 0.15s ease' }}
+        onMouseEnter={e => { if (!isDisabled) { e.currentTarget.style.background='rgba(29,37,103,0.08)'; e.currentTarget.style.color='#1D2567' } }}
+        onMouseLeave={e => { if (!isDisabled) { e.currentTarget.style.background='rgba(29,37,103,0.04)'; e.currentTarget.style.color='#475467' } }}
       >
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
-        <span>{shortcut}</span>
+        <RefreshCw size={13} strokeWidth={2.25} aria-hidden="true" style={{ animation: loading ? 'spin 0.8s linear infinite' : undefined }} />
+        <span>{loading ? 'Refreshing…' : 'Refresh'}</span>
       </button>
       </Tooltip>
     </div>

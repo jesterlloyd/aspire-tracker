@@ -77,7 +77,7 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
         {/* Return control (left) + refresh (right) — on the page background, no utility bar. */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
           <WorkspaceBackLink path={backPath} label={backLabel} />
-          <RefreshHint onClick={handleRefresh} tooltipLabel="Refresh Connect data" />
+          <RefreshHint onClick={handleRefresh} tooltipLabel="Refresh Connect data" loading={refreshing} />
         </div>
         <div style={{ marginBottom: 12 }}>
           <h1 style={{
