@@ -27,6 +27,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { buildCoordinatorWeeklyDigestEmail, formatDateRange } from '../../src/lib/notifications/templates/coordinatorWeeklyDigest.js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
+import { isAutomationEnabled } from '../lib/automationSettings.js';
 
 const FROM     = 'ASPIRE Intelligence <noreply@aspire-program.com>';
 const REPLY_TO = 'JesterLloyd.Bautista@cshs.org';
@@ -94,6 +95,23 @@ export default async function handler(req, res) {
         window:    { start: windowStart.toISOString(), end: windowEnd.toISOString() },
         note:      'No emails will be sent. No notification_log rows will be written. No contacts will be updated.',
       });
+    }
+
+    // Automation gate — LIVE scheduled send ONLY. Dry-run (logged above) bypasses entirely so
+    // preview keeps working even when paused. Default-ON / fail-open: a missing row or a read
+    // failure keeps sending as today. Disabled live => paused heartbeat (success) + 200, with no
+    // events query, no sends, no notification_log rows, and no contact digest-marker updates.
+    // The manual admin resend endpoint is intentionally NOT gated.
+    if (!isDryRun) {
+      const gate = await isAutomationEnabled({ supabaseAdmin: db, automationKey: 'coordinator_weekly_digest' });
+      if (!gate.enabled) {
+        await finishCronRunSuccess(hbDb, runId, {
+          skipped_disabled: true,
+          automation_key: 'coordinator_weekly_digest',
+          enabled: false,
+        });
+        return res.status(200).json({ skipped: true, reason: 'automation_disabled' });
+      }
     }
 
     // ── 1. Fetch qualifying events ────────────────────────────────────────────
