@@ -41,6 +41,29 @@ const JOBS = [
     schedule: 'Hourly' },
 ]
 
+// Global automations with a real automation_settings toggle (NOT midpoint, which is cohort-scoped
+// on cohorts.midpoint_checkin_automation_enabled and has its own card). Maps Health cron_name <->
+// settings automation_key so a disabled setting can mark the matching Health card as Paused.
+const AUTOMATION_KEY_BY_CRON_NAME = {
+  'teams-invite-reminders': 'teams_invite_reminders',
+  'interview-reminders': 'interview_reminders',
+  'coordinator-weekly-digest': 'coordinator_weekly_digest',
+  'clockout-reminders-scheduled': 'clockout_reminders',
+}
+const AUTOMATION_CONTROLS = [
+  { automation_key: 'teams_invite_reminders',    cron_name: 'teams-invite-reminders',        title: 'Teams Invite Reminders',    schedule: 'Weekdays · 8:00 AM PT', scope: 'Global' },
+  { automation_key: 'interview_reminders',       cron_name: 'interview-reminders',           title: 'Interview Reminders',       schedule: 'Daily · 10:00 AM PT',   scope: 'Global' },
+  { automation_key: 'coordinator_weekly_digest', cron_name: 'coordinator-weekly-digest',     title: 'Coordinator Weekly Digest', schedule: 'Fridays · 9:00 AM PT',  scope: 'Global' },
+  { automation_key: 'clockout_reminders',        cron_name: 'clockout-reminders-scheduled',  title: 'Clock-Out Reminders',       schedule: 'Hourly',                scope: 'Global' },
+]
+// Safe fallback descriptions if the settings endpoint omits one.
+const CONTROL_FALLBACK_DESC = {
+  teams_invite_reminders:    'Reminds interviewers and candidates to accept the Microsoft Teams interview invite.',
+  interview_reminders:       'Sends candidates a reminder ahead of their scheduled interview.',
+  coordinator_weekly_digest: 'Weekly student-activity summary emailed to school coordinators.',
+  clockout_reminders:        'Hourly nudge for students with an open shift that may be overdue to clock out.',
+}
+
 // Friendly labels for the numeric counts crons record in cron_runs.details (counts only — no PII).
 const COUNT_LABELS = {
   sent_count: 'Sent', fired_count: 'Sent',
@@ -74,7 +97,10 @@ function fmtDuration(startIso, endIso) {
 
 // ── Resolve one job's latest run into a display state. `nowIso` is the server clock (avoids an
 // impure render-time Date and keeps "stale running" honest across client clock skew). ──
-function resolveHealth(run, nowIso) {
+function resolveHealth(run, nowIso, paused) {
+  // Paused is authoritative (setting disabled, or fallback skipped_disabled evidence) and wins over
+  // run-derived status — a paused automation must never read as failed or stale.
+  if (paused) return { tone: 'paused', label: 'Paused', caption: 'Automatic sends are paused.' }
   if (!run) return { tone: 'neutral', label: 'Never run', caption: 'No recorded runs yet.' }
   const { status, started_at, details } = run
   if (status === 'running') {
@@ -107,10 +133,11 @@ const HEALTH_TONES = {
   error:   { dot: '#b91c1c', bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
   running: { dot: '#b45309', bg: '#fff7ed', color: '#b45309', border: '#fed7aa' },
   neutral: { dot: '#9ca3af', bg: '#f3f4f6', color: '#6b7280', border: '#e5e7eb' },
+  paused:  { dot: '#94a3b8', bg: '#f1f5f9', color: '#475569', border: '#cbd5e1' },
 }
 
-function HealthCard({ job, run, nowIso }) {
-  const health = resolveHealth(run, nowIso)
+function HealthCard({ job, run, nowIso, paused }) {
+  const health = resolveHealth(run, nowIso, paused)
   const tone = HEALTH_TONES[health.tone] || HEALTH_TONES.neutral
   const chips = chipsFromDetails(run?.details)
   const duration = run && fmtDuration(run.started_at, run.finished_at)
@@ -217,9 +244,9 @@ function MidpointControlCard({ cohortId, toast }) {
   }
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #e8e4dc', borderRadius: 14, padding: '16px 18px', fontFamily: F }}>
+    <div style={{ flex: '1 1 280px', minWidth: 0, maxWidth: 460, background: '#fff', border: '1px solid #e8e4dc', borderRadius: 14, padding: '16px 18px', fontFamily: F }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+        <div style={{ flex: '1 1 220px', minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Midpoint Check-In Auto-send</div>
           <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4, lineHeight: 1.45 }}>
             Sends check-in emails to Active Rotation students once they reach 50% of required hours.
@@ -253,6 +280,52 @@ function MidpointControlCard({ cohortId, toast }) {
           Off — no automatic midpoint emails are sent.
         </div>
       )}
+    </div>
+  )
+}
+
+// ── A global automation toggle card, driven by /api/automation-settings. Pessimistic: the toggle
+//    is disabled while a PATCH is pending; the parent refetches settings on success. ──
+function AutomationControlCard({ control, setting, saving, onToggle }) {
+  const loaded = !!setting
+  const enabled = setting ? setting.enabled === true : false
+  const description = setting?.description || CONTROL_FALLBACK_DESC[control.automation_key] || 'Scheduled automated communication.'
+  const showUpdated = setting?.source === 'row' && !!setting?.updated_at
+
+  return (
+    <div style={{ flex: '1 1 280px', minWidth: 0, maxWidth: 460, background: '#fff', border: '1px solid #e8e4dc', borderRadius: 14, padding: '16px 18px', fontFamily: F }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{control.title}</div>
+          <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4, lineHeight: 1.45 }}>{description}</div>
+          <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: '2px 10px' }}>
+            <span>Schedule: <strong style={{ color: '#6b7280', fontWeight: 600 }}>{control.schedule}</strong></span>
+            <span>Scope: <strong style={{ color: '#6b7280', fontWeight: 600 }}>{control.scope}</strong></span>
+          </div>
+          {showUpdated && (
+            <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+              Updated {new Date(setting.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </div>
+          )}
+        </div>
+        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+          <Toggle
+            checked={enabled}
+            onChange={(v) => onToggle(control.automation_key, v)}
+            disabled={saving || !loaded}
+            size="md"
+            ariaLabel={control.title}
+          />
+          <span style={{ fontSize: 11, color: saving ? '#b45309' : enabled ? '#2F7D5C' : '#9ca3af', fontWeight: 600, minHeight: 14 }}>
+            {saving ? 'Saving…' : !loaded ? 'Loading…' : enabled ? 'On' : 'Off'}
+          </span>
+        </div>
+      </div>
+      <div style={{ fontSize: 11.5, color: enabled ? '#2F7D5C' : '#475569', marginTop: 10 }}>
+        {enabled
+          ? 'Active: scheduled automatic sends are enabled.'
+          : 'Paused: no automatic sends. Manual and preview sends still work.'}
+      </div>
     </div>
   )
 }
@@ -291,6 +364,47 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
     refetchOnWindowFocus: false,
   })
 
+  // Controls source — separate query so a toggle refetches settings only (not all cron_runs), and
+  // a settings outage never blocks Automation Health (its own query above).
+  const { data: settingsData, isLoading: settingsLoading, isError: settingsError, refetch: refetchSettings } = useQuery({
+    queryKey: ['automation-settings', refreshKey],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token) throw new Error('No session')
+      const res = await fetch('/api/automation-settings', { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return res.json()
+    },
+    enabled: active && ownerAdmin,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  })
+
+  // Pessimistic toggle: disable the control while its PATCH is pending, refetch settings on success.
+  const [savingKey, setSavingKey] = useState(null)
+  const handleToggleControl = async (automationKey, val) => {
+    if (savingKey) return
+    setSavingKey(automationKey)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token) throw new Error('No session')
+      const res = await fetch('/api/automation-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ automation_key: automationKey, enabled: val }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      toast?.(val ? 'Automation enabled' : 'Automation paused', 'success')
+      await refetchSettings()
+    } catch {
+      toast?.('Failed to update automation setting', 'error')
+    } finally {
+      setSavingKey(null)
+    }
+  }
+
   if (!ownerAdmin) return <LockedCard />
 
   const nowIso = data?.now
@@ -298,6 +412,21 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
   // Latest run per cron_name (runs arrive newest-first).
   const latestByName = {}
   for (const r of runs) if (!latestByName[r.cron_name]) latestByName[r.cron_name] = r
+
+  // Settings, keyed by automation_key.
+  const settingsList = settingsData?.settings || []
+  const settingByKey = {}
+  for (const s of settingsList) settingByKey[s.automation_key] = s
+
+  // Paused for a Health card: setting-disabled is authoritative; if settings are unavailable, fall
+  // back to the latest run's skipped_disabled heartbeat. enabled=true never shows Paused.
+  const isJobPaused = (job) => {
+    const key = AUTOMATION_KEY_BY_CRON_NAME[job.key]
+    if (!key) return false // e.g. midpoint — not wired to automation_settings this phase
+    const s = settingByKey[key]
+    if (s) return s.enabled === false
+    return latestByName[job.key]?.details?.skipped_disabled === true
+  }
 
   return (
     <div style={{ padding: '4px 20px 28px', fontFamily: F }}>
@@ -312,15 +441,47 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
       {/* Section 1 — Automation Controls */}
       <div style={{ margin: '6px 2px 12px' }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: '#191919' }}>Automation Controls</div>
-        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
-          Automation controls apply to the active cohort. Additional automation controls will be added in future phases.
+        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2, lineHeight: 1.5 }}>
+          Control scheduled automation sends. Pausing a control stops only the scheduled automatic send. Manual sends, previews, and dry-runs are never affected.
         </div>
       </div>
-      <MidpointControlCard cohortId={cohortId} toast={toast} />
 
-      <div style={{ margin: '10px 2px 0', fontSize: 11.5, color: '#9ca3af', lineHeight: 1.5 }}>
-        Only automations with saved settings appear as controls. Other scheduled jobs are monitored
-        below and can be added to Controls after a settings model is approved.
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+        {/* Midpoint stays first — cohort-scoped, sourced from cohorts (independent of the settings query). */}
+        <MidpointControlCard cohortId={cohortId} toast={toast} />
+
+        {settingsError ? (
+          <div style={{
+            flex: '1 1 280px', minWidth: 0, padding: '16px 18px', background: '#fff',
+            border: '1px solid #f3c9c9', borderRadius: 14, color: '#b91c1c', fontSize: 13, fontFamily: F,
+          }}>
+            Could not load automation controls.{' '}
+            <button onClick={() => refetchSettings()} style={{
+              background: 'none', border: 'none', color: NAVY, fontWeight: 700, cursor: 'pointer',
+              fontFamily: F, fontSize: 13, padding: 0, textDecoration: 'underline',
+            }}>Retry</button>
+            <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 6 }}>
+              Automation Health below is unaffected.
+            </div>
+          </div>
+        ) : settingsLoading ? (
+          <div style={{
+            flex: '1 1 280px', minWidth: 0, padding: '24px 18px', background: '#fff',
+            border: '1px solid #e8e4dc', borderRadius: 14, color: '#9ca3af', fontSize: 13, fontFamily: F,
+          }}>
+            Loading controls…
+          </div>
+        ) : (
+          AUTOMATION_CONTROLS.map(control => (
+            <AutomationControlCard
+              key={control.automation_key}
+              control={control}
+              setting={settingByKey[control.automation_key]}
+              saving={savingKey === control.automation_key}
+              onToggle={handleToggleControl}
+            />
+          ))
+        )}
       </div>
 
       {/* Section 2 — Automation Health */}
@@ -347,7 +508,7 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
       ) : (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
           {JOBS.map(job => (
-            <HealthCard key={job.key} job={job} run={latestByName[job.key]} nowIso={nowIso} />
+            <HealthCard key={job.key} job={job} run={latestByName[job.key]} nowIso={nowIso} paused={isJobPaused(job)} />
           ))}
         </div>
       )}
