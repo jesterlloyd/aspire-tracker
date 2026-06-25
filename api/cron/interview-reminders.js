@@ -21,6 +21,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
+import { isAutomationEnabled } from '../lib/automationSettings.js';
 import { sendNotification } from '../../src/lib/notifications/index.js';
 
 const supabase = createClient(
@@ -42,6 +43,19 @@ export default async function handler(req, res) {
   const runId = await startCronRun(supabase, 'interview-reminders');
 
   try {
+    // Automation gate — scheduled auto-send only. Default-ON / fail-open: a missing row or a read
+    // failure keeps sending as today. Disabled => paused heartbeat (success) + 200, no query/send.
+    // The manual admin resend endpoint is intentionally NOT gated.
+    const gate = await isAutomationEnabled({ supabaseAdmin: supabase, automationKey: 'interview_reminders' });
+    if (!gate.enabled) {
+      await finishCronRunSuccess(supabase, runId, {
+        skipped_disabled: true,
+        automation_key: 'interview_reminders',
+        enabled: false,
+      });
+      return res.status(200).json({ skipped: true, reason: 'automation_disabled' });
+    }
+
     // Fetch all upcoming sessions with student + slot data
     const { data: sessions, error: sessionsErr } = await supabase
       .from('interview_sessions')
@@ -170,6 +184,8 @@ export default async function handler(req, res) {
       fired_count: fired.length,
       skipped_count: skipped.length,
       skip_reasons: skipReasons,
+      // Observability only — present solely when the settings read failed open (ran as today).
+      ...(gate.source === 'fail_open' ? { settings_warning: gate.warning } : {}),
     });
     return res.status(200).json({
       success:         true,
