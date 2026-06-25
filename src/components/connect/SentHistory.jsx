@@ -254,7 +254,7 @@ function MessageDrawer({ detail, onClose, onRetry }) {
               <div style={{ marginTop: 14, borderTop: '1px solid #f1efe9', paddingTop: 14 }}>
                 {preview?.available && preview.format === 'html' && preview.html ? (
                   <>
-                    {preview.source === 'reconstructed' && (
+                    {preview.notice && (
                       <div style={{ fontSize: 11.5, color: '#475569', background: '#f6f8fc', border: '1px solid #d9e1f3', borderRadius: 8, padding: '8px 10px', marginBottom: 10, lineHeight: 1.5 }}>
                         {preview.notice}
                       </div>

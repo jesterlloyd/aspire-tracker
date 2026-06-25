@@ -44,6 +44,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { buildDirectMessageEmail } from '../lib/server/connect/emailTemplates.js';
+import { archiveManualMessage } from '../lib/messageArchive.js';
 import { resolveStudentCorrespondenceRecipient, isValidEmail } from '../src/lib/notifications/studentRecipient.js';
 import { normalizeEmailForLookup } from '../src/lib/emailUtils.js';
 import { JESTER_SIGNATURE, KRYSTAL_SIGNATURE } from '../src/lib/notifications/templates/signatures.js';
@@ -535,6 +536,21 @@ async function _handler(req, res, startMs) {
     console.warn('[connect-send-direct] last_contact_update_skipped: notification_log write failed for', recipientId);
   }
 
+  // ── 9. Best-effort message archive (Phase 2B) — store a REDACTED copy of the just-sent body so
+  //      Sent History can preview this manual message later. NEVER fails the send: Resend already
+  //      delivered and notification_log is written. Only runs once the notification_log id exists. ──
+  let archiveStatus = 'skipped';
+  if (notificationLogId) {
+    const archiveResult = await archiveManualMessage({
+      db:                supabaseAdmin,
+      notificationLogId,
+      html,
+      bodyFormat:        resolvedBodyFormat,
+      createdBy:         ownerUserProfileId || null,
+    });
+    archiveStatus = archiveResult.status;
+  }
+
   const durationMs = Date.now() - startMs;
   console.log('[connect-send-direct] complete:', {
     recipient_type: recipientType,
@@ -549,6 +565,7 @@ async function _handler(req, res, startMs) {
     resend_message_id:   resendMessageId,
     notification_log_id: notificationLogId,
     audit_logged:        auditLogged,
+    archive_status:      archiveStatus,
     sent_at:             sentAt,
   });
 }

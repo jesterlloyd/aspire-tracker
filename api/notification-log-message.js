@@ -16,6 +16,7 @@
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { templates } from '../src/lib/notifications/templates/index.js';
+import { redactArchiveHtml } from '../lib/messageArchive.js';
 
 // Template-backed types renderable from stored context. All verified to contain only static program
 // links (logo, program domain, mailto/tel) — no context-derived/tokenized URLs.
@@ -33,6 +34,7 @@ const MANUAL_TYPES = new Set(['direct_message_sent']);
 
 const NOTICE = {
   reconstructed: 'Reconstructed preview. Secure links and attachments are removed.',
+  archived_redacted: 'Archived preview. Secure links and sensitive content may be removed.',
   manual_body_not_stored: 'Full message preview is not available for this historical manual email because the body was not stored.',
   reconstruction_unsupported: 'A safe preview could not be reconstructed for this message type.',
   reconstruction_failed: 'A safe preview could not be reconstructed for this message.',
@@ -40,16 +42,6 @@ const NOTICE = {
 
 function isUuid(v) {
   return typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
-}
-
-// Defense-in-depth: strip <script> and neutralize any href|src that carries a query string or a
-// token/magic marker. Static program links (no query, no token) are preserved so layout survives.
-function redactHtml(html) {
-  if (typeof html !== 'string') return '';
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/\s(href|src)\s*=\s*"([^"]*)"/gi, (m, attr, url) =>
-      (/[?]|token|magic/i.test(url) ? ` ${attr}="#"` : m));
 }
 
 function unavailable(reason) {
@@ -109,7 +101,25 @@ export default async function handler(req, res) {
   const type = row.notification_type;
   let preview;
   if (MANUAL_TYPES.has(type)) {
+    // Phase 2B: manual/direct emails may have a REDACTED archived body (forward-only). If present,
+    // serve it; otherwise keep the historical unavailable state (legacy rows were never stored).
     preview = unavailable('manual_body_not_stored');
+    try {
+      const { data: archive } = await supabaseAdmin
+        .from('message_archive')
+        .select('html_redacted, text_redacted')
+        .eq('notification_log_id', row.id)
+        .limit(1)
+        .maybeSingle();
+      if (archive && typeof archive.html_redacted === 'string' && archive.html_redacted.trim() !== '') {
+        preview = { available: true, source: 'archived_redacted', format: 'html', html: redactArchiveHtml(archive.html_redacted), text: null, reason: null, notice: NOTICE.archived_redacted };
+      } else if (archive && typeof archive.text_redacted === 'string' && archive.text_redacted.trim() !== '') {
+        preview = { available: true, source: 'archived_redacted', format: 'text', html: null, text: archive.text_redacted, reason: null, notice: NOTICE.archived_redacted };
+      }
+    } catch (e) {
+      console.error('[notification-log-message] archive lookup failed:', e?.message);
+      // leave the unavailable state — graceful fallback
+    }
   } else if (RECONSTRUCTABLE.has(type) && templates[type]) {
     try {
       const ctx = (row.metadata && row.metadata.context) || {};
@@ -118,7 +128,7 @@ export default async function handler(req, res) {
       const out = typeof tpl === 'function'
         ? tpl(ctx, { email: row.recipient_email, name: row.recipient_name, audience: row.audience, role: row.recipient_role })
         : null;
-      const html = out && typeof out.html === 'string' ? redactHtml(out.html) : null;
+      const html = out && typeof out.html === 'string' ? redactArchiveHtml(out.html) : null;
       preview = html
         ? { available: true, source: 'reconstructed', format: 'html', html, text: null, reason: null, notice: NOTICE.reconstructed }
         : unavailable('reconstruction_failed');
