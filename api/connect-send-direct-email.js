@@ -44,7 +44,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { buildDirectMessageEmail } from '../lib/server/connect/emailTemplates.js';
-import { archiveManualMessage } from '../lib/messageArchive.js';
+import { archiveManualMessage } from './lib/messageArchive.js';
 import { resolveStudentCorrespondenceRecipient, isValidEmail } from '../src/lib/notifications/studentRecipient.js';
 import { normalizeEmailForLookup } from '../src/lib/emailUtils.js';
 import { JESTER_SIGNATURE, KRYSTAL_SIGNATURE } from '../src/lib/notifications/templates/signatures.js';

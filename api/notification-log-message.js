@@ -16,7 +16,7 @@
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { templates } from '../src/lib/notifications/templates/index.js';
-import { redactArchiveHtml } from '../lib/messageArchive.js';
+import { redactArchiveHtml } from './lib/messageArchive.js';
 
 // Template-backed types renderable from stored context. All verified to contain only static program
 // links (logo, program domain, mailto/tel) — no context-derived/tokenized URLs.
