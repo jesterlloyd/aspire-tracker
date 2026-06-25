@@ -43,7 +43,7 @@ function wrap(content, preheader) {
 
 <!-- Footer -->
 <tr><td style="padding:16px 28px 28px;font-size:12px;color:#9ca3af;line-height:1.5;border-top:1px solid #f0ede8;">
-  This is an automated check-in from the ASPIRE Program. Replies go directly to Jester.
+  This is an automated check-in from the ASPIRE Program. Questions or concerns? Email Jester Lloyd Bautista at <a href="mailto:JesterLloyd.Bautista@cshs.org" style="color:#6b7280;">JesterLloyd.Bautista@cshs.org</a>.
 </td></tr>
 </table>
 </td></tr>
@@ -74,13 +74,13 @@ ${hoursLine}
   <li style="margin-bottom:0;">Is there anything you need from me — an introduction, a clarification with the unit, or just a conversation?</li>
 </ul>
 
-<p style="margin:0 0 16px;">Just hit reply — even a few sentences is helpful. Your feedback directly shapes how we support future ASPIRE students, and it helps me advocate for you if anything needs to be addressed before your rotation ends.</p>
+<p style="margin:0 0 16px;">To share a few sentences, email me directly at <a href="mailto:JesterLloyd.Bautista@cshs.org" style="color:${NAVY};">JesterLloyd.Bautista@cshs.org</a>. Even a short note is helpful. Your feedback directly shapes how we support future ASPIRE students, and it helps the ASPIRE team identify anything that may need attention before your rotation ends.</p>
 
 <!-- Patient confidentiality reminder -->
 <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;background:#FFF8F0;border-left:3px solid #d97706;border-radius:0 6px 6px 0;margin:0 0 24px;">
 <tr><td style="padding:14px 16px;">
   <div style="font-size:11px;color:#92400e;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Reminder: Patient Confidentiality</div>
-  <div style="font-size:13px;color:#78350f;line-height:1.5;">Please do not share any patient information, case details, or unit-specific protected health information in your reply. General observations about the rotation environment and your experience are always welcome.</div>
+  <div style="font-size:13px;color:#78350f;line-height:1.5;">Please do not share any patient information, case details, or unit-specific protected health information in your email. General observations about the rotation environment and your experience are always welcome.</div>
 </td></tr>
 </table>
 

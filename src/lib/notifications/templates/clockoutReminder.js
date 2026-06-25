@@ -24,7 +24,10 @@ export function clockoutReminderText(firstName) {
     'If you are still on shift, no action is needed at this time.',
     '',
     'Thank you,',
-    'Jester',
+    'Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN',
+    'Nursing Professional Development Practitioner',
+    'Geri & Richard Brawerman Nursing Institute',
+    'JesterLloyd.Bautista@cshs.org | Office: 310-248-8964',
   ].join('\n');
 }
 
@@ -77,7 +80,12 @@ export function buildClockoutReminderEmail({ firstName } = {}) {
     <p style="margin:0 0 16px;">Your ASPIRE shift still appears open in the tracker. If your shift has ended, please clock out as soon as possible.</p>
     <p style="margin:0 0 20px;">If you are still on shift, no action is needed at this time.</p>
     <p style="margin:0 0 4px;">Thank you,</p>
-    <p style="margin:0;">Jester</p>`;
+    <p style="margin:0;line-height:1.5;">
+      Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN<br/>
+      <span style="color:#475467;font-size:13px;">Nursing Professional Development Practitioner</span><br/>
+      <span style="color:#475467;font-size:13px;">Geri &amp; Richard Brawerman Nursing Institute</span><br/>
+      <span style="color:#475467;font-size:13px;">JesterLloyd.Bautista@cshs.org | Office: 310-248-8964</span>
+    </p>`;
   return { subject: CLOCKOUT_REMINDER_SUBJECT, html: wrap(body, preheader) };
 }
 
