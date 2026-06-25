@@ -9,7 +9,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Clock, Check, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Inbox, AlertCircle, Repeat } from 'lucide-react'
+import { Clock, Check, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Inbox, AlertCircle, Repeat, Eye } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 
 const F = 'DM Sans, sans-serif'
@@ -201,6 +201,90 @@ function RowMetadata({ row }) {
   )
 }
 
+// ── Right-side "View message" drawer. Fetches one message's preview on demand (lightweight list
+//    endpoint is untouched). HTML renders in a sandboxed iframe (no scripts); reconstructed automated
+//    previews carry a "secure links removed" banner; manual/legacy rows show a graceful empty state. ──
+function MessageDrawer({ detail, onClose, onRetry }) {
+  const { loading, error, message } = detail
+  const preview = message?.preview
+  const isManual = message?.notification_type === 'direct_message_sent'
+  const d = message?.delivery
+
+  const field = (label, value) => value ? (
+    <div style={{ display: 'flex', gap: 8, fontSize: 12.5, marginBottom: 6 }}>
+      <span style={{ color: '#9ca3af', minWidth: 110, flexShrink: 0 }}>{label}</span>
+      <span style={{ color: '#374151', wordBreak: 'break-word' }}>{value}</span>
+    </div>
+  ) : null
+
+  return (
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 700, background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'flex-end' }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: 'min(560px, 100%)', height: '100%', background: '#fff', display: 'flex', flexDirection: 'column', boxShadow: '-8px 0 24px rgba(0,0,0,0.12)', fontFamily: F }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid #eee', flexShrink: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Message</div>
+          <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', lineHeight: 1, padding: 2 }}><X size={18} /></button>
+        </div>
+
+        <div style={{ flex: 1, overflow: 'auto', padding: '16px 18px' }}>
+          {loading ? (
+            <div style={{ padding: '40px 0', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Loading message…</div>
+          ) : error ? (
+            <div style={{ padding: '24px 0', textAlign: 'center', color: '#b91c1c', fontSize: 13 }}>
+              Could not load this message.{' '}
+              <button onClick={onRetry} style={{ background: 'none', border: 'none', color: NAVY, fontWeight: 700, cursor: 'pointer', fontFamily: F, fontSize: 13, padding: 0, textDecoration: 'underline' }}>Retry</button>
+            </div>
+          ) : message ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: isManual ? '#EDE9FE' : '#f3f4f6', color: isManual ? '#5B21B6' : '#6b7280', border: `1px solid ${isManual ? '#C4B5FD' : '#e5e7eb'}`, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  {isManual ? 'Manual' : 'System'}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: NAVY }}>{messageTypeLabel(message.notification_type)}</span>
+              </div>
+
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#191919', marginBottom: 10, lineHeight: 1.3 }}>{message.subject || '(No subject)'}</div>
+
+              {field('To', message.recipient_name && message.recipient_email ? `${message.recipient_name} · ${message.recipient_email}` : (message.recipient_name || message.recipient_email))}
+              {field('Status', d ? `${d.status}${d.opened_at ? ' · opened' : d.delivered_at ? ' · delivered' : ''}` : message.status)}
+              {field('Sent', formatSentAt(message.sent_at))}
+              {field('Resend ID', message.resend_email_id)}
+              {d?.error_message && field('Error', d.error_message)}
+
+              {/* Body */}
+              <div style={{ marginTop: 14, borderTop: '1px solid #f1efe9', paddingTop: 14 }}>
+                {preview?.available && preview.format === 'html' && preview.html ? (
+                  <>
+                    {preview.source === 'reconstructed' && (
+                      <div style={{ fontSize: 11.5, color: '#475569', background: '#f6f8fc', border: '1px solid #d9e1f3', borderRadius: 8, padding: '8px 10px', marginBottom: 10, lineHeight: 1.5 }}>
+                        {preview.notice}
+                      </div>
+                    )}
+                    <iframe
+                      srcDoc={preview.html}
+                      sandbox=""
+                      referrerPolicy="no-referrer"
+                      title="Message preview"
+                      style={{ width: '100%', minHeight: 460, border: '1px solid #eee', borderRadius: 8, background: '#fff' }}
+                    />
+                  </>
+                ) : preview?.available && preview.text ? (
+                  <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12.5, color: '#374151', fontFamily: F, margin: 0 }}>{preview.text}</pre>
+                ) : (
+                  <div style={{ padding: '20px 16px', textAlign: 'center', background: '#fcfcfb', border: '1px solid #eee', borderRadius: 8, color: '#6b7280', fontSize: 12.5, lineHeight: 1.6 }}>
+                    {preview?.notice || 'Message preview is not available for this item.'}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div style={{ padding: '40px 0', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>No message to show.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SentHistory() {
   const [rows, setRows]       = useState([])
   const [loading, setLoading] = useState(true)
@@ -209,6 +293,32 @@ export default function SentHistory() {
   const [total, setTotal]     = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [expandedRowIds, setExpandedRowIds] = useState(() => new Set())
+
+  // "View message" drawer — fetches one message's preview on demand. Independent of the list query,
+  // so opening/closing never refetches Sent History or disturbs pagination/filters.
+  const [viewId, setViewId]   = useState(null)
+  const [detail, setDetail]   = useState({ loading: false, error: false, message: null })
+  const openMessage = useCallback(async (id) => {
+    setViewId(id)
+    setDetail({ loading: true, error: false, message: null })
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token) throw new Error('No session')
+      const res = await fetch(`/api/notification-log-message?id=${encodeURIComponent(id)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const json = await res.json()
+      setDetail({ loading: false, error: false, message: json.message || null })
+    } catch {
+      setDetail({ loading: false, error: true, message: null })
+    }
+  }, [])
+  const closeMessage = useCallback(() => {
+    setViewId(null)
+    setDetail({ loading: false, error: false, message: null })
+  }, [])
 
   // Recipient constraint (Phase D.1 contact, D.2 student) — URL-based, ephemeral
   // (NOT persisted to localStorage). student_id takes precedence over contact_id
@@ -473,6 +583,16 @@ export default function SentHistory() {
                     </div>
                   </div>
 
+                  {/* View message */}
+                  <button
+                    onClick={() => openMessage(row.id)}
+                    aria-label="View message"
+                    title="View message"
+                    style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2, marginTop: 1 }}
+                  >
+                    <Eye size={16} />
+                  </button>
+
                   {/* Expand chevron */}
                   <button
                     onClick={() => toggleExpand(row.id)}
@@ -526,6 +646,8 @@ export default function SentHistory() {
 
       {FilterBar}
       {body}
+
+      {viewId && <MessageDrawer detail={detail} onClose={closeMessage} onRetry={() => openMessage(viewId)} />}
     </div>
   )
 }
