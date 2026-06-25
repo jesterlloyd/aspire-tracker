@@ -14,6 +14,7 @@ import { formatRotationRange, canonicalRotationWindow } from '../src/lib/rotatio
 import { displayName } from '../src/lib/utils.js';
 import { classifyIntent, INTENTS, isExplicitEmailDrafting } from '../lib/server/keith/queryIntent.js';
 import { answerPersonContactQuery, CONTACTS_ROLE_DENIED } from '../lib/server/keith/contactsLookup.js';
+import { schoolMatches } from './lib/schoolAliases.js';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 
@@ -285,9 +286,12 @@ UNSUPPORTED CLAIMS — do NOT state any of the following unless verified via a l
 - that an assignment is confirmed
 - that a school or program is associated with a specific student
 - that a rotation date or required-hours value is correct for a specific student
+- that any reminder, message, email, or notification was previously sent (never write "we sent reminders", "we've reached out before", or similar unless you verified it via a live tool or notification log). If you only know a time gap such as "12 days since last logged shifts", state exactly that and nothing more.
 For attachments, distinguish: attached to this request / available in a verified record / recommended for the user to attach / unavailable.
 
 MISSING DATA — mark the field "Unavailable", do not invent it, do not imply it exists elsewhere, and do not claim a draft is "ready to send" when required recipient information is missing.
+
+SCHOOL & ROSTER SEARCH. School abbreviations are initialisms, not substrings of the full name (e.g. "APU" = Azusa Pacific University; "CSULB" = California State University, Long Beach; "CSULA" = California State University, Los Angeles; "WCU" = West Coast University). For ANY school-specific question, count, or action, call search_students with the school term (it resolves these abbreviations and variants automatically) BEFORE concluding that no such students exist. Never answer "there are no <school> students" — or list the cohort's schools as if complete — from a cohort summary or school-distribution alone; confirm with a roster search first. If a summary implies zero but a roster search finds matches, the roster search wins.
 
 The background program knowledge that follows is GENERAL GUIDANCE ONLY, subordinate to live data per the precedence above.
 `.trim();
@@ -310,6 +314,8 @@ The user has asked you to draft or revise a communication. In drafting mode, pri
 5. Only build a recipient list, target specific students or groups, or personalize per student when the user explicitly asks you to send, target, build a recipient list, or personalize by student or group.
 6. Honor the requested tone exactly (for example supportive and not inquisitive). The placement-specific verification block applies only to drafts about a specific identified student or placement, per the grounding rules above; it does not apply to a generic group message.
 7. SIGNATURE. The email body is sent by the logged-in user, not by you. Sign the draft with the user's signature provided in your user context (EMAIL DRAFT SIGNATURE); if none is available use their name, or the placeholder "[Your name]". NEVER sign an email draft as Keith, ASPIRE Intelligence, ASPIRE AI, or "the assistant." You may say "I drafted this for you" in chat, but never inside the email body.
+8. RECIPIENT EMAIL ADDRESS is NOT required to draft. If the user names a recipient (for example "Susan Hunter of APU") but the email address is unknown, still write the full draft now and address the body to the named person (for example "Dear Susan,"). Do NOT ask for, or block on, the recipient's email address — after the draft, note once that the recipient's email can be selected in ASPIRE Connect > Outreach. A named recipient whose email is unknown is never a reason to withhold the draft or to reply with only a question.
+9. SIGNATURE FORMAT. When you produce a formal signature, put the credentials on the SAME line as the name, separated by commas — for example "Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN" — then the title on the NEXT line, then the affiliation, then "email | phone". Do not place credentials on their own line, and do not merge the title onto the name line.
 `.trim();
 
 // ── Tool definitions ─────────────────────────────────────────────────────────
@@ -322,7 +328,7 @@ const KEITH_TOOLS = [
       type: 'object',
       properties: {
         status:       { type: 'string',  description: 'Filter by ASPIRE pipeline status (e.g. "Interviewed", "Placed", "Form Received")' },
-        school:       { type: 'string',  description: 'Filter by school name or abbreviation (case-insensitive match)' },
+        school:       { type: 'string',  description: 'Filter by school name OR abbreviation. Abbreviations and variants resolve automatically (e.g. "APU" matches Azusa Pacific University; "CSULB", "CSULA", "WCU" also resolve). Pass exactly what the user typed.' },
         program_type: { type: 'string',  description: 'Filter by program type (e.g. "Accelerated BSN", "MECN")' },
         min_gpa:      { type: 'number',  description: 'Minimum cumulative GPA' },
         limit:        { type: 'integer', description: 'Max results (default 20, max 50)' },
@@ -385,15 +391,19 @@ async function executeToolCall(toolName, input, userRole, supabase, activeCohort
           .from('students')
           .select('id, first_name, last_name, school, program_type, status, cumulative_gpa, unit_preference_1, unit_preference_2, unit_preference_3, headshot_url, avg_composite_score, auto_recommendation')
           .eq('cohort_id', activeCohortId)
-          .order('last_name', { ascending: true })
-          .limit(limit);
+          .order('last_name', { ascending: true });
         if (input.status)       query = query.eq('status', input.status);
-        if (input.school)       query = query.ilike('school', `%${input.school}%`);
         if (input.program_type) query = query.ilike('program_type', `%${input.program_type}%`);
         if (input.min_gpa)      query = query.gte('cumulative_gpa', input.min_gpa);
+        // School filtering is ALIAS-AWARE and applied in JS (not a DB ilike): abbreviations like
+        // "APU" are initialisms, not substrings of "Azusa Pacific University", so a substring ilike
+        // misses them. Fetch the cohort roster (capped) then filter via schoolMatches.
+        query = query.limit(input.school ? 500 : limit);
         const { data, error } = await query;
         if (error) return { error: `Search failed: ${error.message}` };
-        return { students: (data || []).map(stripSensitive), count: (data || []).length };
+        let rows = data || [];
+        if (input.school) rows = rows.filter(s => schoolMatches(s.school, input.school)).slice(0, limit);
+        return { students: rows.map(stripSensitive), count: rows.length };
       }
 
       case 'get_student_detail': {
