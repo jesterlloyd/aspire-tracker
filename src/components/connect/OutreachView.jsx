@@ -12,6 +12,7 @@ import { isValidEmail } from '../../lib/notifications/studentRecipient'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { useAuth } from '../../contexts/AuthContext'
 import { buildPreceptorAssignmentDraft, buildCoordinatorAcceptanceDraft } from '../../lib/outreachTemplates'
+import { EMAIL_ROUTE_FILTERS, matchesEmailRouteFilter } from '../../lib/studentBulkEmail'
 
 const F = 'DM Sans, sans-serif'
 
@@ -281,7 +282,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   const [bulkSearch,             setBulkSearch]             = useState('')
   const [bulkFilterSchool,       setBulkFilterSchool]       = useState('')
   const [bulkFilterStatus,       setBulkFilterStatus]       = useState('')
-  const [bulkFilterEmail,        setBulkFilterEmail]        = useState('hide_missing')
+  const [bulkFilterEmail,        setBulkFilterEmail]        = useState('has_routable')
   const [bulkFilterAssignment,   setBulkFilterAssignment]   = useState('all')
   // Generation state — surveyUrls live in bulkResults ONLY, never in storage
   const [bulkGenerating,         setBulkGenerating]         = useState(false)
@@ -890,14 +891,12 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   const bulkFilteredStudents = students.filter(s => {
     if (bulkSearch) {
       const q = bulkSearch.toLowerCase()
-      const email = (s.personal_email || s.school_email || '').toLowerCase()
-      if (!`${s.first_name} ${s.last_name}`.toLowerCase().includes(q) && !email.includes(q)) return false
+      const hay = `${s.first_name || ''} ${s.last_name || ''} ${s.personal_email || ''} ${s.school_email || ''} ${s.school || ''}`.toLowerCase()
+      if (!hay.includes(q)) return false
     }
     if (bulkFilterSchool && s.school !== bulkFilterSchool) return false
     if (bulkFilterStatus && s.status !== bulkFilterStatus) return false
-    const hasEmail = !!(s.personal_email || s.school_email)
-    if (bulkFilterEmail === 'only_missing'  && hasEmail)  return false
-    if (bulkFilterEmail === 'hide_missing'  && !hasEmail) return false
+    if (!matchesEmailRouteFilter(s, bulkFilterEmail)) return false
     const hasAssignment = !!bulkActiveAssignments[s.id]
     if (bulkFilterAssignment === 'only_existing' && !hasAssignment) return false
     if (bulkFilterAssignment === 'hide_existing' && hasAssignment)  return false
@@ -2646,7 +2645,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
               {/* Search */}
               <input
                 value={bulkSearch} onChange={e => setBulkSearch(e.target.value)}
-                placeholder="Search name or email…"
+                placeholder="Search name, personal/school email, or school…"
                 style={{ ...inputBase, fontSize: 12, padding: '7px 10px', marginBottom: 6 }}
               />
               {/* School filter */}
@@ -2664,19 +2663,17 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                 {bulkStatusValues.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               <div style={{ display: 'flex', gap: 6 }}>
-                {/* Email filter */}
+                {/* Email routing filter (shared language with manual templates) */}
                 <select value={bulkFilterEmail} onChange={e => setBulkFilterEmail(e.target.value)}
                   style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
-                  <option value="all">Email: all</option>
-                  <option value="hide_missing">Hide missing email</option>
-                  <option value="only_missing">Only missing email</option>
+                  {EMAIL_ROUTE_FILTERS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
-                {/* Assignment filter */}
+                {/* Survey-specific assignment filter — clearly labeled (not a placement assignment) */}
                 <select value={bulkFilterAssignment} onChange={e => setBulkFilterAssignment(e.target.value)}
                   style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
-                  <option value="all">Assignment: all</option>
-                  <option value="hide_existing">Hide existing</option>
-                  <option value="only_existing">Only existing</option>
+                  <option value="all">Survey assignment: all</option>
+                  <option value="hide_existing">No survey assignment</option>
+                  <option value="only_existing">Has survey assignment</option>
                 </select>
               </div>
             </div>

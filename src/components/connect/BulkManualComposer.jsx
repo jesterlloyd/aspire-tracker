@@ -19,6 +19,9 @@ import {
 } from '../../lib/recipientParse'
 import { buildBulkTemplate } from '../../lib/outreachTemplates'
 import { getContactCategories } from '../../lib/contactCategories'
+import {
+  getStudentBulkEmailRoute, emailTypeLabel, EMAIL_ROUTE_FILTERS, matchesEmailRouteFilter,
+} from '../../lib/studentBulkEmail'
 import ContactAutocomplete from './ContactAutocomplete'
 
 const F = 'DM Sans, sans-serif'
@@ -80,16 +83,18 @@ function withStaticLinks(key, body) {
   return String(body || '').split(sub.token).join(`${APP_ORIGIN}${sub.path}`)
 }
 
-// students use the same practical email preference as the rest of Outreach: personal first, then school.
+// students use the shared bulk email-routing rule (school during Active Rotation, personal after,
+// with fallback). The routed email + type define the intended Phase 2B recipient.
 function studentToRecipient(s) {
   if (!s) return null
-  const email = s.personal_email || s.school_email || ''
-  if (!isValidEmail(email)) return null
+  const route = getStudentBulkEmailRoute(s)
+  if (route.emailType === 'missing' || !isValidEmail(route.email)) return null
   const name = `${s.first_name || ''} ${s.last_name || ''}`.trim()
   return {
-    email: email.trim(), normEmail: normalizeEmailForLookup(email), name,
+    email: route.email, normEmail: normalizeEmailForLookup(route.email), name,
     firstName: s.first_name || '', school: s.school || null,
     source: 'student', studentId: s.id, contactId: null,
+    emailType: route.emailType, emailReason: route.reason,
   }
 }
 function contactToRecipient(c) {
@@ -118,8 +123,9 @@ export default function BulkManualComposer({
   // deferred until a true placement indicator is available in this view.
   const [studentSearch, setStudentSearch]   = useState('')
   const [studentSchool, setStudentSchool]   = useState('')
-  const [studentEmailF, setStudentEmailF]   = useState('all')   // all | has_any | missing | has_personal | has_school
-  const [studentSort, setStudentSort]       = useState('name')  // name | school | status
+  const [studentStatus, setStudentStatus]   = useState('')
+  const [studentEmailF, setStudentEmailF]   = useState('all')   // shared EMAIL_ROUTE_FILTERS value
+  const [studentSort, setStudentSort]       = useState('name')  // name | school | status | email
   const [studentSel, setStudentSel]         = useState(() => new Set()) // student ids
 
   // Contacts source — `contacts` is null until the first load (drives derived loading state).
@@ -129,10 +135,10 @@ export default function BulkManualComposer({
   const [showInactive, setShowInactive]   = useState(false)
   const [contactSel, setContactSel]       = useState(() => new Set()) // contact ids
 
-  // Paste / Type source
-  const [pasteText, setPasteText]         = useState('')
+  // Paste / Type source — ONE unified recipient control (typeahead + paste).
   const [acInput, setAcInput]             = useState('')
-  const [picked, setPicked]               = useState([])  // normalized recipients from the typeahead
+  const [picked, setPicked]               = useState([])  // normalized recipients (chips)
+  const [manualInvalids, setManualInvalids] = useState([]) // raw tokens that failed validation
 
   // Draft state
   const [subject, setSubject]             = useState('')
@@ -179,9 +185,13 @@ export default function BulkManualComposer({
     return () => window.removeEventListener('keydown', onKey)
   }, [reviewOpen])
 
-  // Distinct schools for the school filter dropdown.
+  // Distinct schools / statuses for the filter dropdowns.
   const studentSchools = useMemo(
     () => [...new Set(students.map(s => s.school).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [students],
+  )
+  const studentStatuses = useMemo(
+    () => [...new Set(students.map(s => s.status).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
     [students],
   )
 
@@ -194,22 +204,18 @@ export default function BulkManualComposer({
         if (!hay.includes(q)) return false
       }
       if (studentSchool && s.school !== studentSchool) return false
-      const hasPersonal = isValidEmail(s.personal_email)
-      const hasSchool   = isValidEmail(s.school_email)
-      const hasAny      = hasPersonal || hasSchool
-      if (studentEmailF === 'has_any'      && !hasAny)      return false
-      if (studentEmailF === 'missing'      && hasAny)       return false
-      if (studentEmailF === 'has_personal' && !hasPersonal) return false
-      if (studentEmailF === 'has_school'   && !hasSchool)   return false
+      if (studentStatus && s.status !== studentStatus) return false
+      if (!matchesEmailRouteFilter(s, studentEmailF)) return false
       return true
     })
     const cmp = {
       name:   (a, b) => `${a.last_name || ''} ${a.first_name || ''}`.localeCompare(`${b.last_name || ''} ${b.first_name || ''}`),
       school: (a, b) => String(a.school || '').localeCompare(String(b.school || '')),
       status: (a, b) => String(a.status || '').localeCompare(String(b.status || '')),
+      email:  (a, b) => getStudentBulkEmailRoute(a).emailType.localeCompare(getStudentBulkEmailRoute(b).emailType),
     }[studentSort] || null
     return cmp ? [...out].sort(cmp) : out
-  }, [students, studentSearch, studentSchool, studentEmailF, studentSort])
+  }, [students, studentSearch, studentSchool, studentStatus, studentEmailF, studentSort])
 
   // ── Derived: filtered contacts ──────────────────────────────────────────────
   const filteredContacts = useMemo(() => {
@@ -223,19 +229,17 @@ export default function BulkManualComposer({
     })
   }, [contacts, contactSearch, contactCat, showInactive])
 
-  // ── Derived: paste parse + combined deduped recipients ──────────────────────
-  const pasteParsed = useMemo(() => parseRecipientText(pasteText), [pasteText])
-
+  // ── Derived: combined deduped recipients ────────────────────────────────────
   const combined = useMemo(() => {
     const fromStudents = [...studentSel].map(id => studentToRecipient(students.find(s => s.id === id))).filter(Boolean)
     const fromContacts = [...contactSel].map(id => contactToRecipient((contacts || []).find(c => c.id === id))).filter(Boolean)
-    // Order matters for the dedupe rule: Students → Contacts → Paste(typeahead picks + raw paste).
-    return dedupeRecipients([...fromStudents, ...fromContacts, ...picked, ...pasteParsed.valid])
-  }, [studentSel, contactSel, picked, pasteParsed, students, contacts])
+    // Order matters for the dedupe rule: Students → Contacts → Paste · Type (chips).
+    return dedupeRecipients([...fromStudents, ...fromContacts, ...picked])
+  }, [studentSel, contactSel, picked, students, contacts])
 
   const recipients     = combined.recipients
   const dupCount       = combined.duplicateCount
-  const invalidEntries = pasteParsed.invalid
+  const invalidEntries = manualInvalids
 
   // Set of all chosen normalized emails — hides already-added rows from the typeahead.
   const excludeEmails = useMemo(() => new Set(recipients.map(r => r.normEmail)), [recipients])
@@ -256,7 +260,7 @@ export default function BulkManualComposer({
   const selectAllStudents = useCallback(() => {
     setStudentSel(prev => {
       const n = new Set(prev)
-      filteredStudents.forEach(s => { if (isValidEmail(s.personal_email || s.school_email || '')) n.add(s.id) })
+      filteredStudents.forEach(s => { if (getStudentBulkEmailRoute(s).emailType !== 'missing') n.add(s.id) })
       return n
     })
   }, [filteredStudents])
@@ -268,7 +272,7 @@ export default function BulkManualComposer({
     })
   }, [filteredContacts])
   const clearAll = useCallback(() => {
-    setStudentSel(new Set()); setContactSel(new Set()); setPicked([]); setPasteText('')
+    setStudentSel(new Set()); setContactSel(new Set()); setPicked([]); setManualInvalids([]); setAcInput('')
   }, [])
 
   const onTypeaheadSelect = useCallback((r) => {
@@ -286,19 +290,34 @@ export default function BulkManualComposer({
     setAcInput('')
   }, [])
 
-  const onTypeaheadCommit = useCallback((text) => {
-    const { valid } = parseRecipientText(text)
+  // Add parsed recipients (and surface invalids) from typed-and-committed or pasted text.
+  const ingestText = useCallback((text) => {
+    const { valid, invalid } = parseRecipientText(text)
     if (valid.length) setPicked(prev => {
       const seen = new Set(prev.map(p => p.normEmail))
       const add = valid.filter(v => !seen.has(v.normEmail))
       return add.length ? [...prev, ...add] : prev
     })
+    if (invalid.length) setManualInvalids(prev => [...new Set([...prev, ...invalid])])
     setAcInput('')
   }, [])
+
+  const onTypeaheadCommit = useCallback((text) => { if (text && text.trim()) ingestText(text) }, [ingestText])
+
+  // Unified control: pasting a multi-recipient blob is parsed directly (newlines preserved here,
+  // unlike a single-line input's onChange), so one field handles both typing and paste.
+  const onRecipientPaste = useCallback((e) => {
+    const text = e.clipboardData?.getData('text') || ''
+    if (/[,;\n]/.test(text) || text.trim().split(/\s+/).length > 1) {
+      e.preventDefault()
+      ingestText(text)
+    }
+  }, [ingestText])
 
   const removePicked = useCallback((normEmail) => {
     setPicked(prev => prev.filter(p => p.normEmail !== normEmail))
   }, [])
+  const clearInvalids = useCallback(() => setManualInvalids([]), [])
 
   // ── Sample preview (client-rendered; first name + school only) ───────────────
   const previewSubject = previewRecipient ? applyMergeFields(subject, previewRecipient) : subject
@@ -324,9 +343,9 @@ export default function BulkManualComposer({
       {/* ── Zone 1: Audience ─────────────────────────────────────────────── */}
       <div style={{ ...panelCard, flex: '0 0 340px', minWidth: 280, maxHeight: 'calc(100dvh - 280px)', overflowY: 'auto' }}>
         <div style={panelTitle}>Audience</div>
-        <div style={panelSubtitle}>Build one recipient list from any source — combined and deduped.</div>
+        <div style={panelSubtitle}>Build one recipient list from any source.</div>
 
-        {/* Combined count */}
+        {/* Combined count — simple "N selected" language (dedup happens silently). */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '8px 11px', marginBottom: 12,
@@ -335,7 +354,7 @@ export default function BulkManualComposer({
         }}>
           <span style={{ fontSize: 12, fontFamily: F, color: '#374151' }}>
             <span style={{ fontWeight: 700, fontSize: 16, color: NAVY }}>{recipients.length}</span>
-            <span style={{ marginLeft: 5, color: '#6b7280' }}>recipients (deduped)</span>
+            <span style={{ marginLeft: 5, color: '#6b7280' }}>selected</span>
           </span>
           <div style={{ display: 'flex', gap: 5 }}>
             {recipients.length > 0 && (
@@ -344,7 +363,7 @@ export default function BulkManualComposer({
                 border: `1px solid ${NAVY}`, background: '#fff', color: NAVY, fontFamily: F, cursor: 'pointer',
               }}>Review</button>
             )}
-            {(studentSel.size || contactSel.size || picked.length || pasteText) ? (
+            {(studentSel.size || contactSel.size || picked.length || manualInvalids.length) ? (
               <button onClick={clearAll} style={{
                 padding: '3px 8px', borderRadius: 5, fontSize: 10, fontWeight: 600,
                 border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280', fontFamily: F, cursor: 'pointer',
@@ -370,7 +389,7 @@ export default function BulkManualComposer({
         {source === 'students' && (
           <div>
             <input value={studentSearch} onChange={e => setStudentSearch(e.target.value)}
-              placeholder="Search name, email, or school…"
+              placeholder="Search name, personal/school email, or school…"
               style={{ ...inputBase, fontSize: 12, padding: '7px 10px', marginBottom: 6 }} />
             {studentSchools.length > 1 && (
               <select value={studentSchool} onChange={e => setStudentSchool(e.target.value)}
@@ -379,20 +398,24 @@ export default function BulkManualComposer({
                 {studentSchools.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             )}
+            {studentStatuses.length > 1 && (
+              <select value={studentStatus} onChange={e => setStudentStatus(e.target.value)}
+                style={{ ...inputBase, fontSize: 11, padding: '5px 8px', marginBottom: 6 }}>
+                <option value="">All statuses</option>
+                {studentStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            )}
             <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
               <select value={studentEmailF} onChange={e => setStudentEmailF(e.target.value)}
                 style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
-                <option value="all">Email: all</option>
-                <option value="has_any">Has any email</option>
-                <option value="missing">Missing email</option>
-                <option value="has_personal">Has personal email</option>
-                <option value="has_school">Has school email</option>
+                {EMAIL_ROUTE_FILTERS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
               <select value={studentSort} onChange={e => setStudentSort(e.target.value)}
                 style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
                 <option value="name">Sort: Name</option>
                 <option value="school">Sort: School</option>
                 <option value="status">Sort: Status</option>
+                <option value="email">Sort: Email route</option>
               </select>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -407,9 +430,13 @@ export default function BulkManualComposer({
             ) : filteredStudents.length === 0 ? (
               <div style={{ padding: '16px 0', textAlign: 'center', fontSize: 12, color: '#9ca3af', fontFamily: F }}>No students match.</div>
             ) : filteredStudents.map(s => {
-              const email = s.personal_email || s.school_email || null
-              const eligible = isValidEmail(email || '')
+              const route = getStudentBulkEmailRoute(s)
+              const eligible = route.emailType !== 'missing'
               const sel = studentSel.has(s.id)
+              const altEmail = route.emailType === 'school' ? s.personal_email
+                : route.emailType === 'personal' ? s.school_email : null
+              const routeColor = route.emailType === 'school' ? '#0e4e6e' : route.emailType === 'personal' ? '#1D2567' : '#dc2626'
+              const routeBg    = route.emailType === 'school' ? '#E1F3FB' : route.emailType === 'personal' ? '#EEF2FB' : '#fef2f2'
               return (
                 <div key={s.id} onClick={() => eligible && toggleStudent(s.id)} style={{
                   display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 6px', borderRadius: 6, marginBottom: 3,
@@ -420,10 +447,12 @@ export default function BulkManualComposer({
                     <div style={{ fontSize: 12, fontWeight: 600, color: '#191919', fontFamily: F, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {s.last_name}, {s.first_name}
                     </div>
-                    <div style={{ fontSize: 10, color: '#6b7280', fontFamily: F, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {email || <span style={{ color: '#dc2626' }}>No email on file</span>}
+                    <div title={isValidEmail(altEmail) ? `Alternate: ${altEmail}` : undefined}
+                      style={{ fontSize: 10, color: eligible ? '#6b7280' : '#dc2626', fontFamily: F, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {eligible ? route.email : 'No email on file'}
                     </div>
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 3, alignItems: 'center' }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: routeBg, color: routeColor, fontFamily: F }}>{emailTypeLabel(route.emailType)}</span>
                       {s.school && <span style={{ fontSize: 9, color: '#9ca3af', fontFamily: F }}>{s.school}</span>}
                       {s.status && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: '#f3f4f6', color: '#6b7280', fontFamily: F }}>{s.status}</span>}
                     </div>
@@ -491,10 +520,10 @@ export default function BulkManualComposer({
           </div>
         )}
 
-        {/* ── Paste / Type source ── */}
+        {/* ── Paste · Type source — ONE unified recipient control ── */}
         {source === 'paste' && (
           <div>
-            <label style={{ ...labelStyle, fontSize: 11 }}>Type a name to find a contact, student, or preceptor</label>
+            <label style={{ ...labelStyle, fontSize: 11 }}>Search or paste recipients</label>
             <ContactAutocomplete
               value={acInput}
               onChange={setAcInput}
@@ -503,7 +532,11 @@ export default function BulkManualComposer({
               excludeEmails={excludeEmails}
               onSelect={onTypeaheadSelect}
               onCommitManual={onTypeaheadCommit}
+              onPaste={onRecipientPaste}
             />
+            <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 4, lineHeight: 1.5 }}>
+              Type a name or email, or paste multiple recipients separated by commas, semicolons, or new lines. Supports <code>First Last &lt;email@example.com&gt;</code>.
+            </div>
             {picked.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, margin: '8px 0' }}>
                 {picked.map(p => {
@@ -520,18 +553,14 @@ export default function BulkManualComposer({
                 })}
               </div>
             )}
-            <label style={{ ...labelStyle, fontSize: 11, marginTop: 10 }}>Or paste emails (commas, semicolons, or new lines)</label>
-            <textarea value={pasteText} onChange={e => setPasteText(e.target.value)}
-              placeholder={'a@example.com, b@example.com\nFirst Last <c@example.com>'}
-              rows={4} style={{ ...inputBase, resize: 'vertical', lineHeight: 1.5, minHeight: 80, fontSize: 12 }} />
             {invalidEntries.length > 0 && (
-              <div style={{ marginTop: 6, fontSize: 10, color: '#dc2626', fontFamily: F, lineHeight: 1.5 }}>
-                Not added (invalid): {invalidEntries.slice(0, 6).join(', ')}{invalidEntries.length > 6 ? ` +${invalidEntries.length - 6} more` : ''}
+              <div style={{ marginTop: 8, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{ fontSize: 10, color: '#dc2626', fontFamily: F, lineHeight: 1.5, flex: 1 }}>
+                  Not added (invalid): {invalidEntries.slice(0, 6).join(', ')}{invalidEntries.length > 6 ? ` +${invalidEntries.length - 6} more` : ''}
+                </div>
+                <button onClick={clearInvalids} style={{ border: 'none', background: 'transparent', color: '#9ca3af', cursor: 'pointer', fontSize: 10, fontFamily: F, flexShrink: 0 }}>Dismiss</button>
               </div>
             )}
-            <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 6, lineHeight: 1.5 }}>
-              Supports <code>email@example.com</code> and <code>First Last &lt;email@example.com&gt;</code>. Deduped by email across all sources.
-            </div>
           </div>
         )}
       </div>
@@ -588,6 +617,14 @@ export default function BulkManualComposer({
             </div>
           ) : (
             <div>
+              {previewRecipient && (
+                <div style={{ fontSize: 10, color: '#6b7280', fontFamily: F, marginBottom: 8, lineHeight: 1.5 }}>
+                  To: <strong>{previewRecipient.email}</strong>
+                  {previewRecipient.source === 'student' && previewRecipient.emailType && (
+                    <span> · {emailTypeLabel(previewRecipient.emailType)}</span>
+                  )}
+                </div>
+              )}
               <div style={{ fontSize: 12, fontWeight: 700, color: '#191919', fontFamily: F, marginBottom: 6 }}>{previewSubject}</div>
               <div style={{ fontSize: 12, color: '#374151', fontFamily: F, lineHeight: 1.6, whiteSpace: 'pre-wrap', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 12px', maxHeight: 320, overflowY: 'auto' }}>
                 {previewBody}

@@ -69,6 +69,7 @@ export default function ContactAutocomplete({
   onSelect,
   onCommitManual,
   onBackspaceEmpty,
+  onPaste,
 }) {
   const [debounced, setDebounced] = useState('')
   // `remote` carries the query it was fetched for (`key`) so `loading` can be derived and stale
@@ -227,6 +228,7 @@ export default function ContactAutocomplete({
         value={value}
         onChange={e => { onChange?.(e.target.value); setActiveIdx(0); setOpen(true) }}
         onKeyDown={handleKey}
+        onPaste={onPaste}
         onFocus={() => setOpen(true)}
         // Delay so a row's onClick registers before blur commits the typed text.
         onBlur={() => { setTimeout(() => setOpen(false), 120); if (value) onCommitManual?.(value) }}
