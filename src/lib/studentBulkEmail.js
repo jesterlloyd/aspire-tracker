@@ -38,30 +38,25 @@ export function emailTypeLabel(emailType) {
     : 'Missing email'
 }
 
-// Shared Email-routing filter options (one consistent language across Send-to-Many).
-export const EMAIL_ROUTE_FILTERS = [
-  { value: 'all',           label: 'Email: all' },
-  { value: 'has_routable',  label: 'Has routable email' },
-  { value: 'missing',       label: 'Missing routable email' },
-  { value: 'route_school',  label: 'Will use school email' },
-  { value: 'route_personal', label: 'Will use personal email' },
-  { value: 'has_school',    label: 'Has school email' },
-  { value: 'has_personal',  label: 'Has personal email' },
+// Simple email-availability filter options (plain language, one consistent set across Send-to-Many).
+// This filters by which email a student HAS — the routing helper above still decides which email
+// is actually used for Phase 2B and drives the row badge.
+export const EMAIL_AVAILABILITY_FILTERS = [
+  { value: 'all',      label: 'Email: all' },
+  { value: 'personal', label: 'Personal email' },
+  { value: 'school',   label: 'School email' },
+  { value: 'missing',  label: 'Missing email' },
 ]
 
-// Predicate for the Email-routing filter. Returns true when the student matches `value`.
-export function matchesEmailRouteFilter(student, value) {
+// Predicate for the email-availability filter. Returns true when the student matches `value`.
+export function matchesEmailAvailabilityFilter(student, value) {
   if (!value || value === 'all') return true
-  const route = getStudentBulkEmailRoute(student)
   const hasSchool   = isValidEmail(student?.school_email)
   const hasPersonal = isValidEmail(student?.personal_email)
   switch (value) {
-    case 'has_routable':   return route.emailType !== 'missing'
-    case 'missing':        return route.emailType === 'missing'
-    case 'route_school':   return route.emailType === 'school'
-    case 'route_personal': return route.emailType === 'personal'
-    case 'has_school':     return hasSchool
-    case 'has_personal':   return hasPersonal
-    default:               return true
+    case 'personal': return hasPersonal
+    case 'school':   return hasSchool
+    case 'missing':  return !hasPersonal && !hasSchool
+    default:         return true
   }
 }

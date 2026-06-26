@@ -12,7 +12,7 @@ import { isValidEmail } from '../../lib/notifications/studentRecipient'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { useAuth } from '../../contexts/AuthContext'
 import { buildPreceptorAssignmentDraft, buildCoordinatorAcceptanceDraft } from '../../lib/outreachTemplates'
-import { EMAIL_ROUTE_FILTERS, matchesEmailRouteFilter } from '../../lib/studentBulkEmail'
+import { EMAIL_AVAILABILITY_FILTERS, matchesEmailAvailabilityFilter } from '../../lib/studentBulkEmail'
 
 const F = 'DM Sans, sans-serif'
 
@@ -282,7 +282,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   const [bulkSearch,             setBulkSearch]             = useState('')
   const [bulkFilterSchool,       setBulkFilterSchool]       = useState('')
   const [bulkFilterStatus,       setBulkFilterStatus]       = useState('')
-  const [bulkFilterEmail,        setBulkFilterEmail]        = useState('has_routable')
+  const [bulkFilterEmail,        setBulkFilterEmail]        = useState('all')
   const [bulkFilterAssignment,   setBulkFilterAssignment]   = useState('all')
   // Generation state — surveyUrls live in bulkResults ONLY, never in storage
   const [bulkGenerating,         setBulkGenerating]         = useState(false)
@@ -896,7 +896,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     }
     if (bulkFilterSchool && s.school !== bulkFilterSchool) return false
     if (bulkFilterStatus && s.status !== bulkFilterStatus) return false
-    if (!matchesEmailRouteFilter(s, bulkFilterEmail)) return false
+    if (!matchesEmailAvailabilityFilter(s, bulkFilterEmail)) return false
     const hasAssignment = !!bulkActiveAssignments[s.id]
     if (bulkFilterAssignment === 'only_existing' && !hasAssignment) return false
     if (bulkFilterAssignment === 'hide_existing' && hasAssignment)  return false
@@ -2663,10 +2663,10 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                 {bulkStatusValues.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               <div style={{ display: 'flex', gap: 6 }}>
-                {/* Email routing filter (shared language with manual templates) */}
+                {/* Email availability filter (shared language with manual templates) */}
                 <select value={bulkFilterEmail} onChange={e => setBulkFilterEmail(e.target.value)}
                   style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
-                  {EMAIL_ROUTE_FILTERS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  {EMAIL_AVAILABILITY_FILTERS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
                 {/* Survey-specific assignment filter — clearly labeled (not a placement assignment) */}
                 <select value={bulkFilterAssignment} onChange={e => setBulkFilterAssignment(e.target.value)}

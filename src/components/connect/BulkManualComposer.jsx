@@ -20,7 +20,7 @@ import {
 import { buildBulkTemplate } from '../../lib/outreachTemplates'
 import { getContactCategories } from '../../lib/contactCategories'
 import {
-  getStudentBulkEmailRoute, emailTypeLabel, EMAIL_ROUTE_FILTERS, matchesEmailRouteFilter,
+  getStudentBulkEmailRoute, emailTypeLabel, EMAIL_AVAILABILITY_FILTERS, matchesEmailAvailabilityFilter,
 } from '../../lib/studentBulkEmail'
 import ContactAutocomplete from './ContactAutocomplete'
 
@@ -124,7 +124,7 @@ export default function BulkManualComposer({
   const [studentSearch, setStudentSearch]   = useState('')
   const [studentSchool, setStudentSchool]   = useState('')
   const [studentStatus, setStudentStatus]   = useState('')
-  const [studentEmailF, setStudentEmailF]   = useState('all')   // shared EMAIL_ROUTE_FILTERS value
+  const [studentEmailF, setStudentEmailF]   = useState('all')   // shared EMAIL_AVAILABILITY_FILTERS value
   const [studentSort, setStudentSort]       = useState('name')  // name | school | status | email
   const [studentSel, setStudentSel]         = useState(() => new Set()) // student ids
 
@@ -205,14 +205,13 @@ export default function BulkManualComposer({
       }
       if (studentSchool && s.school !== studentSchool) return false
       if (studentStatus && s.status !== studentStatus) return false
-      if (!matchesEmailRouteFilter(s, studentEmailF)) return false
+      if (!matchesEmailAvailabilityFilter(s, studentEmailF)) return false
       return true
     })
     const cmp = {
       name:   (a, b) => `${a.last_name || ''} ${a.first_name || ''}`.localeCompare(`${b.last_name || ''} ${b.first_name || ''}`),
       school: (a, b) => String(a.school || '').localeCompare(String(b.school || '')),
       status: (a, b) => String(a.status || '').localeCompare(String(b.status || '')),
-      email:  (a, b) => getStudentBulkEmailRoute(a).emailType.localeCompare(getStudentBulkEmailRoute(b).emailType),
     }[studentSort] || null
     return cmp ? [...out].sort(cmp) : out
   }, [students, studentSearch, studentSchool, studentStatus, studentEmailF, studentSort])
@@ -341,14 +340,23 @@ export default function BulkManualComposer({
     <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start', width: '100%' }}>
 
       {/* ── Zone 1: Audience ─────────────────────────────────────────────── */}
-      <div style={{ ...panelCard, flex: '0 0 340px', minWidth: 280, maxHeight: 'calc(100dvh - 280px)', overflowY: 'auto' }}>
+      {/* overflow stays auto for the long Students/Contacts lists, but is visible for Paste · Type
+          so the typeahead suggestion dropdown is never clipped by the card. */}
+      <div style={{ ...panelCard, flex: '0 0 340px', minWidth: 280, maxHeight: 'calc(100dvh - 280px)', overflowY: source === 'paste' ? 'visible' : 'auto' }}>
         <div style={panelTitle}>Audience</div>
         <div style={panelSubtitle}>Build one recipient list from any source.</div>
 
-        {/* Combined count — simple "N selected" language (dedup happens silently). */}
+        {/* Audience Source selector */}
+        <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6', marginBottom: 10 }}>
+          {sourceTab('students', 'Students')}
+          {sourceTab('contacts', 'Contacts')}
+          {sourceTab('paste', 'Paste · Type')}
+        </div>
+
+        {/* Combined count BELOW the source selector — consistent with Survey Invitation. */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '8px 11px', marginBottom: 12,
+          padding: '8px 11px', marginBottom: 8,
           background: recipients.length ? '#EEF2FB' : '#f9fafb',
           border: `1px solid ${recipients.length ? '#c3cdf0' : '#e5e7eb'}`, borderRadius: 8,
         }}>
@@ -378,13 +386,6 @@ export default function BulkManualComposer({
           </div>
         )}
 
-        {/* Audience Source selector */}
-        <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6', marginBottom: 12 }}>
-          {sourceTab('students', 'Students')}
-          {sourceTab('contacts', 'Contacts')}
-          {sourceTab('paste', 'Paste · Type')}
-        </div>
-
         {/* ── Students source ── */}
         {source === 'students' && (
           <div>
@@ -408,14 +409,13 @@ export default function BulkManualComposer({
             <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
               <select value={studentEmailF} onChange={e => setStudentEmailF(e.target.value)}
                 style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
-                {EMAIL_ROUTE_FILTERS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {EMAIL_AVAILABILITY_FILTERS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
               <select value={studentSort} onChange={e => setStudentSort(e.target.value)}
                 style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
                 <option value="name">Sort: Name</option>
                 <option value="school">Sort: School</option>
                 <option value="status">Sort: Status</option>
-                <option value="email">Sort: Email route</option>
               </select>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -520,39 +520,43 @@ export default function BulkManualComposer({
           </div>
         )}
 
-        {/* ── Paste · Type source — ONE unified recipient control ── */}
+        {/* ── Paste · Type source — ONE unified recipient control (chips + typeahead + paste) ── */}
         {source === 'paste' && (
           <div>
             <label style={{ ...labelStyle, fontSize: 11 }}>Search or paste recipients</label>
-            <ContactAutocomplete
-              value={acInput}
-              onChange={setAcInput}
-              placeholder="Type a name or email…"
-              students={students}
-              excludeEmails={excludeEmails}
-              onSelect={onTypeaheadSelect}
-              onCommitManual={onTypeaheadCommit}
-              onPaste={onRecipientPaste}
-            />
+            {/* position:relative anchors the suggestion dropdown; the bordered box gives the input a
+                defined surface and holds the chips inline — same pattern as Send to One's CC field. */}
+            <div style={{
+              position: 'relative', display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center',
+              padding: '6px 8px', border: '1.5px solid #e5e7eb', borderRadius: 8, background: '#fff', minHeight: 38,
+            }}>
+              {picked.map(p => {
+                const b = SOURCE_BADGE[p.source] || SOURCE_BADGE.manual
+                return (
+                  <span key={p.normEmail} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 6px 3px 9px', borderRadius: 14,
+                    background: b.bg, border: `1px solid ${b.border}`, color: b.color, fontSize: 11.5, fontFamily: F,
+                  }}>
+                    {p.name ? `${p.name} · ` : ''}{p.email}
+                    <button onClick={() => removePicked(p.normEmail)} aria-label={`Remove ${p.email}`} style={{ border: 'none', background: 'transparent', color: b.color, cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0 }}>×</button>
+                  </span>
+                )
+              })}
+              <ContactAutocomplete
+                value={acInput}
+                onChange={setAcInput}
+                placeholder={picked.length ? 'Add another…' : 'Type a name or email…'}
+                students={students}
+                excludeEmails={excludeEmails}
+                onSelect={onTypeaheadSelect}
+                onCommitManual={onTypeaheadCommit}
+                onPaste={onRecipientPaste}
+                onBackspaceEmpty={() => setPicked(prev => prev.slice(0, -1))}
+              />
+            </div>
             <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 4, lineHeight: 1.5 }}>
               Type a name or email, or paste multiple recipients separated by commas, semicolons, or new lines. Supports <code>First Last &lt;email@example.com&gt;</code>.
             </div>
-            {picked.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, margin: '8px 0' }}>
-                {picked.map(p => {
-                  const b = SOURCE_BADGE[p.source] || SOURCE_BADGE.manual
-                  return (
-                    <span key={p.normEmail} style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 999,
-                      background: b.bg, border: `1px solid ${b.border}`, color: b.color, fontSize: 10, fontFamily: F,
-                    }}>
-                      {p.name ? `${p.name} · ` : ''}{p.email}
-                      <button onClick={() => removePicked(p.normEmail)} style={{ border: 'none', background: 'transparent', color: b.color, cursor: 'pointer', fontSize: 12, lineHeight: 1, padding: 0 }}>×</button>
-                    </span>
-                  )
-                })}
-              </div>
-            )}
             {invalidEntries.length > 0 && (
               <div style={{ marginTop: 8, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                 <div style={{ fontSize: 10, color: '#dc2626', fontFamily: F, lineHeight: 1.5, flex: 1 }}>
