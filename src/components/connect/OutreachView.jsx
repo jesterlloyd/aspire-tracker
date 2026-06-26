@@ -699,8 +699,9 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   // 'mode'    → composer radio (Direct Message / Survey Invitation), unchanged behavior.
   // 'hydrate' → pre-fill the editable Direct Message composer (ASPIRE Outreach send), fully editable
   //             and never auto-sent. If the composer already has content, a branded confirm modal
-  //             (replaceTemplate state) asks before replacing. Signature lives in the template body,
-  //             so the app-appended signature is turned off to avoid a double signature.
+  //             (replaceTemplate state) asks before replacing. Template bodies carry NO signature;
+  //             the app's signature (Include my email signature) supplies the closing + sender block,
+  //             so we turn it ON when hydrating.
   const firstNameOf = (full) => {
     const TITLES = new Set(['dr', 'dr.', 'mr', 'mr.', 'ms', 'ms.', 'mrs', 'mrs.', 'prof', 'prof.', 'professor'])
     const parts = String(full || '').trim().split(/\s+/).filter(Boolean)
@@ -725,7 +726,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     setOutreachMode('message')
     setMsgSubject(subject)
     setMsgBody(body)
-    setIncludeSignature(false) // signature is in the template body — avoid a double signature
+    setIncludeSignature(true)  // template body has no signature — app appends the closing + sender block
     setActiveTemplateId(key)   // sidebar selected-state: mark which template loaded the draft
   }, [buildTemplateDraft])
 

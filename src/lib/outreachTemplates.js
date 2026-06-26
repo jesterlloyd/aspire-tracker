@@ -4,12 +4,11 @@
 // Both hydrate the editable in-app Direct Message composer (ASPIRE Outreach send) and are ALWAYS
 // editable before sending. Copy is safe-draft with clear [placeholders] and fallbacks; the owner
 // customizes the final wording. No tokens, secure links, or documents are embedded.
-
-// Formal signature (per approved spec).
-const SIGNATURE = `Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN
-ASPIRE Program Lead
-Brawerman Nursing Institute, Cedars-Sinai
-JesterLloyd.Bautista@cshs.org | Office: 310-248-8964`
+//
+// NO closing or signature lives in these bodies. The app's "Include my email signature" behavior
+// (server-side, see lib/server/connect/emailTemplates.js) appends the closing "Warm regards," and
+// the resolved sender signature, so templates end at body content to avoid a duplicate closing.
+// Callers hydrate these with includeSignature=true.
 
 // fallback: trimmed value if present, else the placeholder.
 const fb = (v, placeholder) => (v && String(v).trim()) ? String(v).trim() : placeholder
@@ -42,17 +41,9 @@ A few quick reminders:
 • Floating: Students may float with you if you are comfortable and if it is appropriate for safety and learning.
 • Scope of practice: The ASPIRE brochure and Pre-Licensure Student General Guidelines can be added before sending or shared separately for your reference.
 
-Again, we truly appreciate your time, effort, and heart in mentoring our students. Many ASPIRE students go on to become strong candidates for our New Graduate RN Residency Program, and your guidance plays a meaningful role in helping them build confidence, competence, and readiness for practice.
+Again, we truly appreciate your time, effort, and heart in mentoring our students. Many ASPIRE students go on to become strong candidates for our New-Graduate RN Residency Program, and your guidance plays a meaningful role in helping them build confidence, competence, and readiness for practice.
 
-Please don't hesitate to reach out if you have any questions.
-
-Kind regards,
-
-Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN
-Nursing Professional Development Practitioner
-Geri & Richard Brawerman Nursing Institute
-Cedars-Sinai
-JesterLloyd.Bautista@cshs.org | 310-248-8964`
+Please don't hesitate to reach out if you have any questions.`
   return { subject, body }
 }
 
@@ -94,9 +85,6 @@ Lastly, to help ensure that you receive ASPIRE Program communications, including
 
 ASPIRE Intelligence: noreply@aspire-program.com
 
-Thank you for your continued partnership in supporting clinical nursing education.
-
-Kind regards,
-${SIGNATURE}`
+Thank you for your continued partnership in supporting clinical nursing education.`
   return { subject, body }
 }
