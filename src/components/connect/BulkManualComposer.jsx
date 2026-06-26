@@ -20,7 +20,7 @@ import {
 import { buildBulkTemplate } from '../../lib/outreachTemplates'
 import { getContactCategories } from '../../lib/contactCategories'
 import {
-  getStudentBulkEmailRoute, emailTypeLabel, EMAIL_AVAILABILITY_FILTERS, matchesEmailAvailabilityFilter,
+  emailTypeLabel, EMAIL_SOURCE_OPTIONS, studentEmailForSource, studentHasEmailSource,
 } from '../../lib/studentBulkEmail'
 import ContactAutocomplete from './ContactAutocomplete'
 
@@ -83,18 +83,18 @@ function withStaticLinks(key, body) {
   return String(body || '').split(sub.token).join(`${APP_ORIGIN}${sub.path}`)
 }
 
-// students use the shared bulk email-routing rule (school during Active Rotation, personal after,
-// with fallback). The routed email + type define the intended Phase 2B recipient.
-function studentToRecipient(s) {
+// The explicit Email-source dropdown ('school' | 'personal') decides the recipient email — NOT the
+// routing helper. A student without an email for that source is excluded.
+function studentToRecipient(s, source) {
   if (!s) return null
-  const route = getStudentBulkEmailRoute(s)
-  if (route.emailType === 'missing' || !isValidEmail(route.email)) return null
+  const email = studentEmailForSource(s, source)
+  if (!email) return null
   const name = `${s.first_name || ''} ${s.last_name || ''}`.trim()
   return {
-    email: route.email, normEmail: normalizeEmailForLookup(route.email), name,
+    email, normEmail: normalizeEmailForLookup(email), name,
     firstName: s.first_name || '', school: s.school || null,
     source: 'student', studentId: s.id, contactId: null,
-    emailType: route.emailType, emailReason: route.reason,
+    emailType: source,
   }
 }
 function contactToRecipient(c) {
@@ -123,9 +123,8 @@ export default function BulkManualComposer({
   // deferred until a true placement indicator is available in this view.
   const [studentSearch, setStudentSearch]   = useState('')
   const [studentSchool, setStudentSchool]   = useState('')
-  const [studentStatus, setStudentStatus]   = useState('')
-  const [studentEmailF, setStudentEmailF]   = useState('all')   // shared EMAIL_AVAILABILITY_FILTERS value
-  const [studentSort, setStudentSort]       = useState('name')  // name | school | status | email
+  const [studentEmailSrc, setStudentEmailSrc] = useState('school') // explicit recipient email source
+  const [studentSort, setStudentSort]       = useState('name')     // name | status
   const [studentSel, setStudentSel]         = useState(() => new Set()) // student ids
 
   // Contacts source — `contacts` is null until the first load (drives derived loading state).
@@ -185,17 +184,14 @@ export default function BulkManualComposer({
     return () => window.removeEventListener('keydown', onKey)
   }, [reviewOpen])
 
-  // Distinct schools / statuses for the filter dropdowns.
+  // Distinct schools for the school filter dropdown.
   const studentSchools = useMemo(
     () => [...new Set(students.map(s => s.school).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
     [students],
   )
-  const studentStatuses = useMemo(
-    () => [...new Set(students.map(s => s.status).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
-    [students],
-  )
 
   // ── Derived: filtered + sorted students ─────────────────────────────────────
+  // The Email-source filter shows only students that have an email for the chosen source.
   const filteredStudents = useMemo(() => {
     const q = studentSearch.trim().toLowerCase()
     const out = students.filter(s => {
@@ -204,17 +200,15 @@ export default function BulkManualComposer({
         if (!hay.includes(q)) return false
       }
       if (studentSchool && s.school !== studentSchool) return false
-      if (studentStatus && s.status !== studentStatus) return false
-      if (!matchesEmailAvailabilityFilter(s, studentEmailF)) return false
+      if (!studentHasEmailSource(s, studentEmailSrc)) return false
       return true
     })
     const cmp = {
       name:   (a, b) => `${a.last_name || ''} ${a.first_name || ''}`.localeCompare(`${b.last_name || ''} ${b.first_name || ''}`),
-      school: (a, b) => String(a.school || '').localeCompare(String(b.school || '')),
       status: (a, b) => String(a.status || '').localeCompare(String(b.status || '')),
     }[studentSort] || null
     return cmp ? [...out].sort(cmp) : out
-  }, [students, studentSearch, studentSchool, studentStatus, studentEmailF, studentSort])
+  }, [students, studentSearch, studentSchool, studentEmailSrc, studentSort])
 
   // ── Derived: filtered contacts ──────────────────────────────────────────────
   const filteredContacts = useMemo(() => {
@@ -230,11 +224,11 @@ export default function BulkManualComposer({
 
   // ── Derived: combined deduped recipients ────────────────────────────────────
   const combined = useMemo(() => {
-    const fromStudents = [...studentSel].map(id => studentToRecipient(students.find(s => s.id === id))).filter(Boolean)
+    const fromStudents = [...studentSel].map(id => studentToRecipient(students.find(s => s.id === id), studentEmailSrc)).filter(Boolean)
     const fromContacts = [...contactSel].map(id => contactToRecipient((contacts || []).find(c => c.id === id))).filter(Boolean)
     // Order matters for the dedupe rule: Students → Contacts → Paste · Type (chips).
     return dedupeRecipients([...fromStudents, ...fromContacts, ...picked])
-  }, [studentSel, contactSel, picked, students, contacts])
+  }, [studentSel, contactSel, picked, students, contacts, studentEmailSrc])
 
   const recipients     = combined.recipients
   const dupCount       = combined.duplicateCount
@@ -257,9 +251,10 @@ export default function BulkManualComposer({
     setContactSel(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   }, [])
   const selectAllStudents = useCallback(() => {
+    // Every filtered student already has an email for the chosen source.
     setStudentSel(prev => {
       const n = new Set(prev)
-      filteredStudents.forEach(s => { if (getStudentBulkEmailRoute(s).emailType !== 'missing') n.add(s.id) })
+      filteredStudents.forEach(s => n.add(s.id))
       return n
     })
   }, [filteredStudents])
@@ -392,30 +387,22 @@ export default function BulkManualComposer({
             <input value={studentSearch} onChange={e => setStudentSearch(e.target.value)}
               placeholder="Search name, personal/school email, or school…"
               style={{ ...inputBase, fontSize: 12, padding: '7px 10px', marginBottom: 6 }} />
-            {studentSchools.length > 1 && (
-              <select value={studentSchool} onChange={e => setStudentSchool(e.target.value)}
-                style={{ ...inputBase, fontSize: 11, padding: '5px 8px', marginBottom: 6 }}>
-                <option value="">All schools</option>
-                {studentSchools.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            )}
-            {studentStatuses.length > 1 && (
-              <select value={studentStatus} onChange={e => setStudentStatus(e.target.value)}
-                style={{ ...inputBase, fontSize: 11, padding: '5px 8px', marginBottom: 6 }}>
-                <option value="">All statuses</option>
-                {studentStatuses.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            )}
             <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-              <select value={studentEmailF} onChange={e => setStudentEmailF(e.target.value)}
+              {studentSchools.length > 1 && (
+                <select value={studentSchool} onChange={e => setStudentSchool(e.target.value)}
+                  style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
+                  <option value="">All schools</option>
+                  {studentSchools.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              )}
+              <select value={studentEmailSrc} onChange={e => setStudentEmailSrc(e.target.value)}
                 style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
-                {EMAIL_AVAILABILITY_FILTERS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {EMAIL_SOURCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
               <select value={studentSort} onChange={e => setStudentSort(e.target.value)}
                 style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
-                <option value="name">Sort: Name</option>
-                <option value="school">Sort: School</option>
-                <option value="status">Sort: Status</option>
+                <option value="name">Alphabetically</option>
+                <option value="status">By Status</option>
               </select>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -423,36 +410,34 @@ export default function BulkManualComposer({
                 padding: '3px 8px', borderRadius: 5, fontSize: 10, fontWeight: 600,
                 border: `1px solid ${NAVY}`, background: '#fff', color: NAVY, fontFamily: F, cursor: 'pointer',
               }}>Select all shown</button>
-              <span style={{ fontSize: 10, color: '#9ca3af', fontFamily: F }}>{filteredStudents.length} shown</span>
+              <span style={{ fontSize: 10, color: '#9ca3af', fontFamily: F }}>{filteredStudents.length} shown · {emailTypeLabel(studentEmailSrc).toLowerCase()}</span>
             </div>
             {loadingStudents ? (
               <div style={{ padding: '16px 0', textAlign: 'center', fontSize: 12, color: '#9ca3af', fontFamily: F }}>Loading students…</div>
             ) : filteredStudents.length === 0 ? (
-              <div style={{ padding: '16px 0', textAlign: 'center', fontSize: 12, color: '#9ca3af', fontFamily: F }}>No students match.</div>
+              <div style={{ padding: '16px 0', textAlign: 'center', fontSize: 12, color: '#9ca3af', fontFamily: F }}>No students with a {emailTypeLabel(studentEmailSrc).toLowerCase()}.</div>
             ) : filteredStudents.map(s => {
-              const route = getStudentBulkEmailRoute(s)
-              const eligible = route.emailType !== 'missing'
+              const email = studentEmailForSource(s, studentEmailSrc)
               const sel = studentSel.has(s.id)
-              const altEmail = route.emailType === 'school' ? s.personal_email
-                : route.emailType === 'personal' ? s.school_email : null
-              const routeColor = route.emailType === 'school' ? '#0e4e6e' : route.emailType === 'personal' ? '#1D2567' : '#dc2626'
-              const routeBg    = route.emailType === 'school' ? '#E1F3FB' : route.emailType === 'personal' ? '#EEF2FB' : '#fef2f2'
+              const altEmail = studentEmailSrc === 'school' ? s.personal_email : s.school_email
+              const badgeColor = studentEmailSrc === 'school' ? '#0e4e6e' : '#1D2567'
+              const badgeBg    = studentEmailSrc === 'school' ? '#E1F3FB' : '#EEF2FB'
               return (
-                <div key={s.id} onClick={() => eligible && toggleStudent(s.id)} style={{
+                <div key={s.id} onClick={() => toggleStudent(s.id)} style={{
                   display: 'flex', alignItems: 'flex-start', gap: 8, padding: '7px 6px', borderRadius: 6, marginBottom: 3,
-                  background: sel ? '#EEF2FB' : 'transparent', cursor: eligible ? 'pointer' : 'default', opacity: eligible ? 1 : 0.55,
+                  background: sel ? '#EEF2FB' : 'transparent', cursor: 'pointer',
                 }}>
-                  <input type="checkbox" checked={sel} readOnly disabled={!eligible} style={{ marginTop: 2, flexShrink: 0, accentColor: NAVY }} />
+                  <input type="checkbox" checked={sel} readOnly style={{ marginTop: 2, flexShrink: 0, accentColor: NAVY }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: '#191919', fontFamily: F, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {s.last_name}, {s.first_name}
                     </div>
                     <div title={isValidEmail(altEmail) ? `Alternate: ${altEmail}` : undefined}
-                      style={{ fontSize: 10, color: eligible ? '#6b7280' : '#dc2626', fontFamily: F, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {eligible ? route.email : 'No email on file'}
+                      style={{ fontSize: 10, color: '#6b7280', fontFamily: F, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {email}
                     </div>
                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 3, alignItems: 'center' }}>
-                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: routeBg, color: routeColor, fontFamily: F }}>{emailTypeLabel(route.emailType)}</span>
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: badgeBg, color: badgeColor, fontFamily: F }}>{emailTypeLabel(studentEmailSrc)}</span>
                       {s.school && <span style={{ fontSize: 9, color: '#9ca3af', fontFamily: F }}>{s.school}</span>}
                       {s.status && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: '#f3f4f6', color: '#6b7280', fontFamily: F }}>{s.status}</span>}
                     </div>

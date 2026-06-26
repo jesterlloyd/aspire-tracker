@@ -38,25 +38,20 @@ export function emailTypeLabel(emailType) {
     : 'Missing email'
 }
 
-// Simple email-availability filter options (plain language, one consistent set across Send-to-Many).
-// This filters by which email a student HAS — the routing helper above still decides which email
-// is actually used for Phase 2B and drives the row badge.
-export const EMAIL_AVAILABILITY_FILTERS = [
-  { value: 'all',      label: 'Email: all' },
-  { value: 'personal', label: 'Personal email' },
+// Explicit recipient email-SOURCE options for the Students audience. The owner-chosen source
+// (not the routing helper) decides which email is displayed AND selected for Phase 2B.
+export const EMAIL_SOURCE_OPTIONS = [
   { value: 'school',   label: 'School email' },
-  { value: 'missing',  label: 'Missing email' },
+  { value: 'personal', label: 'Personal email' },
 ]
 
-// Predicate for the email-availability filter. Returns true when the student matches `value`.
-export function matchesEmailAvailabilityFilter(student, value) {
-  if (!value || value === 'all') return true
-  const hasSchool   = isValidEmail(student?.school_email)
-  const hasPersonal = isValidEmail(student?.personal_email)
-  switch (value) {
-    case 'personal': return hasPersonal
-    case 'school':   return hasSchool
-    case 'missing':  return !hasPersonal && !hasSchool
-    default:         return true
-  }
+// The student's email for the explicitly-chosen source ('school' | 'personal'), or '' if invalid/absent.
+export function studentEmailForSource(student, source) {
+  const v = source === 'personal' ? student?.personal_email : student?.school_email
+  return isValidEmail(v) ? String(v).trim() : ''
+}
+
+// True when the student has a valid email for the chosen source.
+export function studentHasEmailSource(student, source) {
+  return !!studentEmailForSource(student, source)
 }

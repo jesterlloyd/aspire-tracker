@@ -12,7 +12,7 @@ import { isValidEmail } from '../../lib/notifications/studentRecipient'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { useAuth } from '../../contexts/AuthContext'
 import { buildPreceptorAssignmentDraft, buildCoordinatorAcceptanceDraft } from '../../lib/outreachTemplates'
-import { EMAIL_AVAILABILITY_FILTERS, matchesEmailAvailabilityFilter } from '../../lib/studentBulkEmail'
+import { EMAIL_SOURCE_OPTIONS, studentHasEmailSource, studentEmailForSource, emailTypeLabel } from '../../lib/studentBulkEmail'
 
 const F = 'DM Sans, sans-serif'
 
@@ -278,12 +278,11 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   const [bulkLoadingAssignments, setBulkLoadingAssignments] = useState(false)
   // Selection: plain array stored in state, converted to Set for membership checks
   const [bulkSelectedIds,        setBulkSelectedIds]        = useState([])
-  // Filters
+  // Filters — simplified to School / Email source / Sort (shared with manual templates).
   const [bulkSearch,             setBulkSearch]             = useState('')
   const [bulkFilterSchool,       setBulkFilterSchool]       = useState('')
-  const [bulkFilterStatus,       setBulkFilterStatus]       = useState('')
-  const [bulkFilterEmail,        setBulkFilterEmail]        = useState('all')
-  const [bulkFilterAssignment,   setBulkFilterAssignment]   = useState('all')
+  const [bulkFilterEmail,        setBulkFilterEmail]        = useState('school') // explicit email source
+  const [bulkSort,               setBulkSort]               = useState('name')   // name | status
   // Generation state — surveyUrls live in bulkResults ONLY, never in storage
   const [bulkGenerating,         setBulkGenerating]         = useState(false)
   const [bulkResults,            setBulkResults]            = useState(null)
@@ -886,22 +885,23 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   const bulkSelectedSet    = new Set(bulkSelectedIds)
   const bulkEligible       = BULK_ELIGIBILITY[bulkTimepoint] || ['Placed', 'Active Rotation']
   const bulkSchools        = [...new Set(students.map(s => s.school).filter(Boolean))].sort()
-  const bulkStatusValues   = [...new Set(students.map(s => s.status).filter(Boolean))].sort()
 
-  const bulkFilteredStudents = students.filter(s => {
-    if (bulkSearch) {
-      const q = bulkSearch.toLowerCase()
-      const hay = `${s.first_name || ''} ${s.last_name || ''} ${s.personal_email || ''} ${s.school_email || ''} ${s.school || ''}`.toLowerCase()
-      if (!hay.includes(q)) return false
-    }
-    if (bulkFilterSchool && s.school !== bulkFilterSchool) return false
-    if (bulkFilterStatus && s.status !== bulkFilterStatus) return false
-    if (!matchesEmailAvailabilityFilter(s, bulkFilterEmail)) return false
-    const hasAssignment = !!bulkActiveAssignments[s.id]
-    if (bulkFilterAssignment === 'only_existing' && !hasAssignment) return false
-    if (bulkFilterAssignment === 'hide_existing' && hasAssignment)  return false
-    return true
-  })
+  const bulkFilteredStudents = (() => {
+    const out = students.filter(s => {
+      if (bulkSearch) {
+        const q = bulkSearch.toLowerCase()
+        const hay = `${s.first_name || ''} ${s.last_name || ''} ${s.personal_email || ''} ${s.school_email || ''} ${s.school || ''}`.toLowerCase()
+        if (!hay.includes(q)) return false
+      }
+      if (bulkFilterSchool && s.school !== bulkFilterSchool) return false
+      if (!studentHasEmailSource(s, bulkFilterEmail)) return false
+      return true
+    })
+    const cmp = bulkSort === 'status'
+      ? (a, b) => String(a.status || '').localeCompare(String(b.status || ''))
+      : (a, b) => `${a.last_name || ''} ${a.first_name || ''}`.localeCompare(`${b.last_name || ''} ${b.first_name || ''}`)
+    return [...out].sort(cmp)
+  })()
 
   // A student is checkbox-eligible if they have email AND no active assignment
   const isBulkCheckboxEligible = s =>
@@ -1082,9 +1082,8 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     setBulkSelectedIds([])
     setBulkSearch('')
     setBulkFilterSchool('')
-    setBulkFilterStatus('')
-    setBulkFilterEmail('hide_missing')
-    setBulkFilterAssignment('all')
+    setBulkFilterEmail('school')
+    setBulkSort('name')
     setBulkNotes('')
     setBulkExpiresAt(defaultExpiresAt())
   }, [])
@@ -2648,32 +2647,23 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                 placeholder="Search name, personal/school email, or school…"
                 style={{ ...inputBase, fontSize: 12, padding: '7px 10px', marginBottom: 6 }}
               />
-              {/* School filter */}
-              {bulkSchools.length > 1 && (
-                <select value={bulkFilterSchool} onChange={e => setBulkFilterSchool(e.target.value)}
-                  style={{ ...inputBase, fontSize: 11, padding: '5px 8px', marginBottom: 6 }}>
-                  <option value="">All schools</option>
-                  {bulkSchools.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              )}
-              {/* Status filter */}
-              <select value={bulkFilterStatus} onChange={e => setBulkFilterStatus(e.target.value)}
-                style={{ ...inputBase, fontSize: 11, padding: '5px 8px', marginBottom: 6 }}>
-                <option value="">All statuses</option>
-                {bulkStatusValues.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
+              {/* School / Email source / Sort — shared layout with manual templates */}
               <div style={{ display: 'flex', gap: 6 }}>
-                {/* Email availability filter (shared language with manual templates) */}
+                {bulkSchools.length > 1 && (
+                  <select value={bulkFilterSchool} onChange={e => setBulkFilterSchool(e.target.value)}
+                    style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
+                    <option value="">All schools</option>
+                    {bulkSchools.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                )}
                 <select value={bulkFilterEmail} onChange={e => setBulkFilterEmail(e.target.value)}
                   style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
-                  {EMAIL_AVAILABILITY_FILTERS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  {EMAIL_SOURCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
-                {/* Survey-specific assignment filter — clearly labeled (not a placement assignment) */}
-                <select value={bulkFilterAssignment} onChange={e => setBulkFilterAssignment(e.target.value)}
+                <select value={bulkSort} onChange={e => setBulkSort(e.target.value)}
                   style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
-                  <option value="all">Survey assignment: all</option>
-                  <option value="hide_existing">No survey assignment</option>
-                  <option value="only_existing">Has survey assignment</option>
+                  <option value="name">Alphabetically</option>
+                  <option value="status">By Status</option>
                 </select>
               </div>
             </div>
@@ -2696,11 +2686,13 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
             ) : (
               <div>
                 {bulkFilteredStudents.map(s => {
-                  const email       = s.personal_email || s.school_email || null
-                  const hasEmail    = !!email
+                  const email       = studentEmailForSource(s, bulkFilterEmail)
+                  const altEmail    = bulkFilterEmail === 'school' ? s.personal_email : s.school_email
                   const hasAssign   = !!bulkActiveAssignments[s.id]
-                  const eligible    = hasEmail && !hasAssign
+                  const eligible    = !!email && !hasAssign
                   const isSelected  = bulkSelectedSet.has(s.id)
+                  const badgeColor  = bulkFilterEmail === 'school' ? '#0e4e6e' : '#1D2567'
+                  const badgeBg     = bulkFilterEmail === 'school' ? '#E1F3FB' : '#EEF2FB'
                   return (
                     <div key={s.id} onClick={() => eligible && handleBulkToggleStudent(s.id)} style={{
                       display: 'flex', alignItems: 'flex-start', gap: 8,
@@ -2719,20 +2711,18 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {s.last_name}, {s.first_name}
                         </div>
-                        <div style={{ fontSize: 10, color: '#6b7280', fontFamily: F, marginTop: 1,
+                        <div title={isValidEmail(altEmail) ? `Alternate: ${altEmail}` : undefined}
+                          style={{ fontSize: 10, color: '#6b7280', fontFamily: F, marginTop: 1,
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {email || <span style={{ color: '#dc2626' }}>No email on file</span>}
+                          {email}
                         </div>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 3 }}>
+                          <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: badgeBg, color: badgeColor, fontFamily: F }}>{emailTypeLabel(bulkFilterEmail)}</span>
                           {s.school && <span style={{ fontSize: 9, color: '#9ca3af', fontFamily: F }}>{s.school}</span>}
                           <span style={{
                             fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
                             background: '#f3f4f6', color: '#6b7280', fontFamily: F,
                           }}>{s.status}</span>
-                          {!hasEmail && <span style={{
-                            fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
-                            background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', fontFamily: F,
-                          }}>No email</span>}
                           {hasAssign && <span style={{
                             fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
                             background: '#FBF5E8', color: '#8B5E1A', border: '1px solid #f0c9b0', fontFamily: F,
