@@ -142,10 +142,10 @@ export default async function handler(req, res) {
   const cleanEmail = normalizeEmailForLookup(schoolEmail)
   const likeEmail = escapeLikePattern(cleanEmail)
   const { data: bySchool, error: e1 } = await db
-    .from('students').select('id, cohort_id, status')
+    .from('students').select('id, cohort_id, status, cs_cedars_status')
     .eq('cohort_id', cohortId).ilike('school_email', likeEmail)
   const { data: byPersonal, error: e2 } = await db
-    .from('students').select('id, cohort_id, status')
+    .from('students').select('id, cohort_id, status, cs_cedars_status')
     .eq('cohort_id', cohortId).ilike('personal_email', likeEmail)
   if (e1 || e2) return res.status(500).json({ error: 'internal_error' })
 
@@ -210,6 +210,34 @@ export default async function handler(req, res) {
   }
   if (str(body.resume_url))   updates.resume_url   = str(body.resume_url)
   if (str(body.headshot_url)) updates.headshot_url = str(body.headshot_url)
+
+  // ── STUDENT-FORM-CEDARS-STATUS-AUTO-MAP (forward fix) ───────────────────────────
+  // Derive the CS-Link "Cedars-Sinai Status" (cs_cedars_status) from the student's affiliation.
+  // This is SERVER-DERIVED from the already-validated cs_affiliation — cs_cedars_status is NOT a
+  // student-controlled field (it is absent from ALLOWED_BODY_KEYS and is never read from the body).
+  // Applied ONLY when the record has no cs_cedars_status yet: never overwrite a staff-set value and
+  // never auto-clear one. "No prior affiliation" is intentionally unmapped (no write). The Stage-1
+  // side-effects MIRROR StudentSidePanel's manual Step-1 onChange exactly — no new side-effects.
+  const CS_AFFILIATION_TO_CEDARS_STATUS = {
+    'Current Employee': 'employee',
+    'Volunteer':        'employee',
+    'Former Employee':  'former',
+  }
+  const derivedCedarsStatus = CS_AFFILIATION_TO_CEDARS_STATUS[updates.cs_affiliation]
+  if (derivedCedarsStatus && !str(student.cs_cedars_status)) {
+    updates.cs_cedars_status = derivedCedarsStatus
+    if (derivedCedarsStatus === 'employee') {
+      // Mirrors StudentSidePanel: employees already have a worker record → Stage 1 not required.
+      updates.cs_stage1_action    = 'not_applicable'
+      updates.cs_stage1_submitted = true
+      updates.cs_stage1_complete  = true
+    } else {
+      // 'former' → mirrors StudentSidePanel's reset branch (Stage 1 pending, no action chosen yet).
+      updates.cs_stage1_action    = ''
+      updates.cs_stage1_submitted = false
+      updates.cs_stage1_complete  = false
+    }
+  }
 
   // Field write + status transition in a single update (no separate status write).
   const { error: updateErr } = await db.from('students').update(updates).eq('id', student.id)
