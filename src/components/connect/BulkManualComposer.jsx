@@ -147,6 +147,9 @@ export default function BulkManualComposer({
   // Preview / Review
   const [previewNorm, setPreviewNorm]     = useState(null)
   const [reviewOpen, setReviewOpen]       = useState(false)
+  // Branded "Preview as sent" — { html, loading, error } from the existing DM preview endpoint
+  // (preview:true → no send, no log, no archive). Only for id-bearing sample recipients.
+  const [preview, setPreview]             = useState({ html: '', loading: false, error: null })
 
   // ── Hydrate draft + default source when the template changes ────────────────
   // React's endorsed "adjust state while rendering" pattern (no effect, no extra commit):
@@ -313,9 +316,44 @@ export default function BulkManualComposer({
   }, [])
   const clearInvalids = useCallback(() => setManualInvalids([]), [])
 
-  // ── Sample preview (client-rendered; first name + school only) ───────────────
+  // ── Preview as sent ─────────────────────────────────────────────────────────
+  // Merge fields (first name + school) for the selected sample recipient, then render the EXACT
+  // branded email via the existing DM preview endpoint (preview:true → no send/log/archive).
   const previewSubject = previewRecipient ? applyMergeFields(subject, previewRecipient) : subject
   const previewBody    = previewRecipient ? applyMergeFields(body, previewRecipient) : body
+  const previewRid     = previewRecipient?.studentId || previewRecipient?.contactId || null
+
+  useEffect(() => {
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      // Branded preview is only available for id-bearing (student/contact) recipients; the endpoint
+      // resolves the recipient server-side by UUID and never accepts a raw email.
+      if (!previewRid || !previewBody.trim()) { if (!cancelled) setPreview({ html: '', loading: false, error: null }); return }
+      setPreview(p => ({ ...p, loading: true, error: null }))
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) { if (!cancelled) setPreview({ html: '', loading: false, error: 'Session expired — refresh to preview.' }); return }
+        const res = await fetch('/api/connect-send-direct-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify({
+            preview:           true,
+            recipient_type:    previewRecipient.studentId ? 'student' : 'contact',
+            recipient_id:      previewRid,
+            subject:           previewSubject,
+            body:              previewBody,
+            body_format:       'text',
+            include_signature: includeSignature,
+          }),
+        })
+        const data = await res.json().catch(() => null)
+        if (cancelled) return
+        if (res.ok && data?.success) setPreview({ html: data.html || '', loading: false, error: null })
+        else setPreview({ html: '', loading: false, error: data?.error || 'Preview unavailable.' })
+      } catch { if (!cancelled) setPreview({ html: '', loading: false, error: 'Preview unavailable.' }) }
+    }, 450)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [previewRid, previewRecipient, previewSubject, previewBody, includeSignature])
 
   // ── Render helpers ──────────────────────────────────────────────────────────
   const sourceTab = (key, label) => (
@@ -589,10 +627,10 @@ export default function BulkManualComposer({
           </div>
         </div>
 
-        {/* Sample preview */}
+        {/* Preview as sent */}
         <div style={{ ...panelCard, marginTop: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#191919', fontFamily: F }}>Sample preview</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#191919', fontFamily: F }}>Preview as sent</div>
             {recipients.length > 0 && (
               <select value={previewRecipient?.normEmail || ''} onChange={e => setPreviewNorm(e.target.value)}
                 style={{ ...inputBase, width: 'auto', maxWidth: 200, fontSize: 11, padding: '5px 8px' }}>
@@ -602,7 +640,7 @@ export default function BulkManualComposer({
           </div>
           {recipients.length === 0 ? (
             <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: F, padding: '12px 0', textAlign: 'center' }}>
-              Add recipients to preview a merged sample.
+              Add recipients to preview the branded email.
             </div>
           ) : (
             <div>
@@ -614,12 +652,40 @@ export default function BulkManualComposer({
                   )}
                 </div>
               )}
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#191919', fontFamily: F, marginBottom: 6 }}>{previewSubject}</div>
-              <div style={{ fontSize: 12, color: '#374151', fontFamily: F, lineHeight: 1.6, whiteSpace: 'pre-wrap', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 12px', maxHeight: 320, overflowY: 'auto' }}>
-                {previewBody}
-              </div>
+              {previewRid ? (
+                <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+                  {preview.loading ? (
+                    <div style={{ padding: '24px 14px', fontSize: 12, color: '#9ca3af', fontFamily: F, textAlign: 'center' }}>Rendering preview…</div>
+                  ) : preview.error ? (
+                    <div style={{ padding: '16px 14px', fontSize: 12, color: '#dc2626', fontFamily: F }}>{preview.error}</div>
+                  ) : preview.html ? (
+                    <iframe
+                      title="Preview as sent"
+                      srcDoc={preview.html}
+                      sandbox="allow-same-origin"
+                      style={{ width: '100%', height: 520, border: 'none', background: '#fff', display: 'block' }}
+                    />
+                  ) : (
+                    <div style={{ padding: '24px 14px', fontSize: 13, color: '#d1d5db', fontStyle: 'italic', fontFamily: F, textAlign: 'center' }}>
+                      Add subject and message content to see the branded email…
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Raw pasted recipients have no student/contact ID, so the branded preview endpoint
+                // (which resolves by UUID) can't render them. Show the merged text as a fallback.
+                <div>
+                  <div style={{ fontSize: 11, color: '#8B5E1A', fontFamily: F, background: '#FBF5E8', border: '1px solid #f0c9b0', borderRadius: 8, padding: '8px 10px', marginBottom: 8, lineHeight: 1.5 }}>
+                    Branded preview is available for student and contact recipients. This recipient was added manually — showing the merged text below.
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#191919', fontFamily: F, marginBottom: 6 }}>{previewSubject}</div>
+                  <div style={{ fontSize: 12, color: '#374151', fontFamily: F, lineHeight: 1.6, whiteSpace: 'pre-wrap', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 12px', maxHeight: 320, overflowY: 'auto' }}>
+                    {previewBody}
+                  </div>
+                </div>
+              )}
               <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 6, lineHeight: 1.5 }}>
-                Client-rendered preview (first name + school only). Server-rendered preview and the email signature are applied at send in Phase 2B. This does not send or log anything.
+                Sample preview for one recipient (first name + school merged). This does not send, log, or archive anything.
               </div>
             </div>
           )}

@@ -22,6 +22,7 @@ import { supabase } from '../../lib/supabase'
 import StudentAvatar from '../StudentAvatar'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { isValidEmail } from '../../lib/notifications/studentRecipient'
+import { getPrimaryCategory } from '../../lib/contactCategories'
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -148,10 +149,10 @@ export default function ContactAutocomplete({
           email: coordinator.email, secondary: coordinator.email })
       }
     }
-    // 2. Contacts
+    // 2. Contacts — carry the resolved primary category so the badge shows it (not generic "Contact")
     for (const c of r.contacts) {
       push({ source: 'contact', key: `contact:${c.id}`, name: c.full_name || c.preferred_name || c.email,
-        email: c.email, avatarUrl: c.avatar_url || null,
+        email: c.email, avatarUrl: c.avatar_url || null, category: getPrimaryCategory(c) || '',
         secondary: [c.role || c.category, c.school_name || c.organization, c.email].filter(Boolean).join(' · ') })
     }
     // 3. Preceptors
@@ -317,7 +318,7 @@ export default function ContactAutocomplete({
                   textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: F,
                   background: badge.bg, color: badge.color, border: `1px solid ${badge.border}`,
                 }}>
-                  {badge.label}{r.source === 'student' && r.emailKind ? ` · ${r.emailKind}` : ''}
+                  {(r.source === 'contact' && r.category) ? r.category : badge.label}{r.source === 'student' && r.emailKind ? ` · ${r.emailKind}` : ''}
                 </span>
               </div>
             )
