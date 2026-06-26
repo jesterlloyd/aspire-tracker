@@ -10,6 +10,8 @@ import ContactAutocomplete from './ContactAutocomplete'
 import { isValidEmail } from '../../lib/notifications/studentRecipient'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { useAuth } from '../../contexts/AuthContext'
+import { openOutlookCompose } from '../../lib/outlookCompose'
+import { buildPreceptorAssignmentDraft, buildCoordinatorAcceptanceDraft } from '../../lib/outreachTemplates'
 
 const F = 'DM Sans, sans-serif'
 
@@ -89,16 +91,14 @@ function chunkArray(arr, size) {
   return out
 }
 
-// Message type roster for Single Recipient mode
+// Message type roster for Single Recipient mode.
+// kind: 'mode' = drives the composer (outreachMode radio); 'hydrate' = pre-fills the Direct Message
+// composer (editable, ASPIRE Outreach send); 'outlook' = opens Outlook Web compose (internal Cedars).
 const MSG_TYPES = [
-  { key: 'message', label: 'Direct Message',            active: true  },
-  { key: 'survey',  label: 'Survey Invitation',          active: true  },
-  { key: null,      label: 'Announcement / Broadcast',   active: false },
-  { key: null,      label: 'Check-In',                   active: false },
-  { key: null,      label: 'Reminder',                   active: false },
-  { key: null,      label: 'Coordinator Update',         active: false },
-  { key: null,      label: 'NGRP Update',               active: false },
-  { key: null,      label: 'Preceptor Communication',    active: false },
+  { key: 'message',                label: 'Direct Message',                active: true, kind: 'mode'    },
+  { key: 'survey',                 label: 'Survey Invitation',             active: true, kind: 'mode'    },
+  { key: 'preceptor_assignment',   label: 'Preceptor Assignment',          active: true, kind: 'outlook' },
+  { key: 'coordinator_acceptance', label: 'Coordinator Acceptance Update', active: true, kind: 'hydrate' },
 ]
 
 const FUTURE_AUDIENCES = [
@@ -690,6 +690,41 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   const dmRecipientSchool = recipientType === 'student'
     ? (fromStudent?.school || fetchedStudent?.school || effectiveStudent?.school || null)
     : null
+
+  // ── Single-recipient template selection (MANUAL-OUTREACH-TEMPLATE-LIBRARY Phase 1) ──
+  // 'mode'    → composer radio (Direct Message / Survey Invitation), unchanged behavior.
+  // 'hydrate' → pre-fill the editable Direct Message composer (ASPIRE Outreach send). Guards an
+  //             existing typed draft before replacing it. Signature lives in the template body, so
+  //             the app-appended signature is turned off to avoid a double signature.
+  // 'outlook' → open Outlook Web compose (internal Cedars communication); editable in Outlook.
+  const handleSelectSingleTemplate = useCallback((t) => {
+    if (t.kind === 'mode') { setOutreachMode(t.key); return }
+    if (t.kind === 'hydrate') {
+      if ((msgSubject.trim() || msgBody.trim()) &&
+          !window.confirm('Replace the current message draft with the Coordinator Acceptance Update template?')) return
+      const { subject, body } = buildCoordinatorAcceptanceDraft({
+        coordinatorName: recipientType === 'contact' ? dmRecipientName : '',
+        studentName:     recipientType === 'student' ? dmRecipientName : '',
+        school:          dmRecipientSchool || '',
+      })
+      setOutreachMode('message')
+      setMsgSubject(subject)
+      setMsgBody(body)
+      setIncludeSignature(false)
+      return
+    }
+    if (t.kind === 'outlook') {
+      const toEmail = recipientType === 'contact'
+        ? (fromContact?.email || fetchedContact?.email || '')
+        : (effectiveStudent?.email || '')
+      const { subject, body } = buildPreceptorAssignmentDraft({
+        studentName: recipientType === 'student' ? dmRecipientName : '',
+        school:      dmRecipientSchool || '',
+        unit:        '',
+      })
+      openOutlookCompose({ to: toEmail, subject, body })
+    }
+  }, [recipientType, dmRecipientName, dmRecipientSchool, msgSubject, msgBody, fromContact, fetchedContact, effectiveStudent])
 
   // ── Generate Link handler ─────────────────────────────────────────────────
   const handleGenerateLink = useCallback(async () => {
@@ -1540,7 +1575,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
               transition: 'background 0.12s, color 0.12s',
             }}
           >
-            Send to one recipient
+            Send to one
           </button>
           <button
             onClick={() => setRecipientMode('bulk')}
@@ -1659,37 +1694,37 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
 
           {/* Type selector */}
           <div style={{ marginBottom: 16 }}>
-            {MSG_TYPES.map(({ key, label, active }) =>
-              active ? (
+            {MSG_TYPES.map((t) =>
+              t.active ? (
                 <button
-                  key={label}
-                  onClick={() => setOutreachMode(key)}
+                  key={t.label}
+                  onClick={() => handleSelectSingleTemplate(t)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8,
                     width: '100%', padding: '7px 10px',
-                    border: outreachMode === key
+                    border: outreachMode === t.key
                       ? '1.5px solid #1D2567'
                       : '1.5px solid #e5e7eb',
                     borderRadius: 7,
-                    background: outreachMode === key ? '#EEF2FB' : '#fff',
+                    background: outreachMode === t.key ? '#EEF2FB' : '#fff',
                     cursor: 'pointer', marginBottom: 4,
                     fontSize: 12,
-                    fontWeight: outreachMode === key ? 700 : 500,
-                    color: outreachMode === key ? '#1D2567' : '#374151',
+                    fontWeight: outreachMode === t.key ? 700 : 500,
+                    color: outreachMode === t.key ? '#1D2567' : '#374151',
                     fontFamily: F, textAlign: 'left',
                     transition: 'all 0.1s',
                   }}
                 >
                   <span style={{
                     width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
-                    background: outreachMode === key ? '#1D2567' : 'transparent',
-                    border: outreachMode === key ? '2px solid #1D2567' : '2px solid #d1d5db',
+                    background: outreachMode === t.key ? '#1D2567' : 'transparent',
+                    border: outreachMode === t.key ? '2px solid #1D2567' : '2px solid #d1d5db',
                     transition: 'all 0.1s',
                   }} />
-                  {label}
+                  {t.label}
                 </button>
               ) : (
-                <Tooltip key={label} label="Coming in a future release" placement="right">
+                <Tooltip key={t.label} label="Coming in a future release" placement="right">
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: 8,
                     width: '100%', padding: '6px 10px',
@@ -1702,7 +1737,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                       background: 'transparent', border: '2px solid #d1d5db',
                     }} />
                     <span style={{ fontSize: 12, fontWeight: 500, color: '#9ca3af', fontFamily: F }}>
-                      {label}
+                      {t.label}
                     </span>
                     <span style={{ ...futureBadge, marginLeft: 'auto' }}>Future</span>
                   </div>
@@ -2637,12 +2672,10 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
             <div style={{ marginBottom: 16 }}>
               {[
                 { key: 'survey_invitation', label: 'Survey Invitation' },
+                { key: null, label: 'School Request' },
+                { key: null, label: 'Student Intake' },
+                { key: null, label: 'Interview Scheduling' },
                 { key: null, label: 'Announcement / Broadcast' },
-                { key: null, label: 'Coordinator Update' },
-                { key: null, label: 'Reminder' },
-                { key: null, label: 'NGRP Update' },
-                { key: null, label: 'Preceptor Communication' },
-                { key: null, label: 'Check-In' },
               ].map(({ key, label }) =>
                 key ? (
                   <button key={label} onClick={() => setBulkMsgType(key)} style={{
