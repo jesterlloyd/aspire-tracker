@@ -251,6 +251,9 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   })
   // Pending template key awaiting the branded "Replace draft?" confirmation (null = modal closed).
   const [replaceTemplateKey, setReplaceTemplateKey] = useState(null)
+  // Which hydrate template produced the current editable draft (sidebar selected-state only;
+  // the composer/send path stays outreachMode='message'). null = a plain Direct Message draft.
+  const [activeTemplateId, setActiveTemplateId] = useState(null)
 
   // ── Bulk Operation state ──────────────────────────────────────────────────
   const [bulkMsgType,            setBulkMsgType]            = useState('survey_invitation')
@@ -632,7 +635,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   useEffect(() => {
     const recipientChanged = lastRecipientRef.current !== draftRecipientId
     lastRecipientRef.current = draftRecipientId
-    if (recipientChanged) { setDmSendStatus(null); setDmConfirmOpen(false) }
+    if (recipientChanged) { setDmSendStatus(null); setDmConfirmOpen(false); setActiveTemplateId(null) }
     draftHydratedRef.current = false
     const d = DRAFT_KEY ? readDirectDraft(DRAFT_KEY) : null
     if (d && !directDraftIsEmpty(d)) {
@@ -705,17 +708,17 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   }
   const buildTemplateDraft = useCallback((key) => {
     if (key === 'preceptor_assignment') {
+      // Recipient is the preceptor — use their first name (contact) for the salutation.
+      // Assignment fields stay bracketed placeholders (student is not the recipient here).
       return buildPreceptorAssignmentDraft({
-        studentName: recipientType === 'student' ? dmRecipientName : '',
-        school:      dmRecipientSchool || '',
-        unit:        '',
+        firstName: recipientType === 'contact' ? firstNameOf(dmRecipientName) : '',
       })
     }
     // coordinator_acceptance
     return buildCoordinatorAcceptanceDraft({
       firstName: recipientType === 'contact' ? firstNameOf(dmRecipientName) : '',
     })
-  }, [recipientType, dmRecipientName, dmRecipientSchool])
+  }, [recipientType, dmRecipientName])
 
   const applyTemplate = useCallback((key) => {
     const { subject, body } = buildTemplateDraft(key)
@@ -723,10 +726,12 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     setMsgSubject(subject)
     setMsgBody(body)
     setIncludeSignature(false) // signature is in the template body — avoid a double signature
+    setActiveTemplateId(key)   // sidebar selected-state: mark which template loaded the draft
   }, [buildTemplateDraft])
 
   const handleSelectSingleTemplate = useCallback((t) => {
-    if (t.kind === 'mode') { setOutreachMode(t.key); return }
+    // Picking a composer mode (Direct Message / Survey Invitation) clears the template indicator.
+    if (t.kind === 'mode') { setActiveTemplateId(null); setOutreachMode(t.key); return }
     // 'hydrate' templates (Preceptor Assignment, Coordinator Acceptance Update)
     if (msgSubject.trim() || msgBody.trim()) {
       setReplaceTemplateKey(t.key) // existing draft → confirm via branded modal
@@ -734,6 +739,14 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     }
     applyTemplate(t.key)
   }, [msgSubject, msgBody, applyTemplate])
+
+  // Sidebar selected-state. A hydrate template is "selected" while it owns the current draft;
+  // Direct Message is selected only for a plain message draft (no active template).
+  const isTypeSelected = (t) => {
+    if (t.kind === 'hydrate') return activeTemplateId === t.key
+    if (t.key === 'message')  return outreachMode === 'message' && !activeTemplateId
+    return outreachMode === t.key // survey
+  }
 
   // Escape closes the branded "Replace draft?" confirm modal.
   useEffect(() => {
@@ -1190,6 +1203,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
       if (res.ok && payload?.success) {
         setMsgSubject('')
         setMsgBody('')
+        setActiveTemplateId(null)
         setIncludeSignature(true)
         setCcList([])
         setCcInput('')
@@ -1436,6 +1450,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
     setMsgSubject('')
     setMsgBody('')
+    setActiveTemplateId(null)
     setIncludeSignature(true)
     setCcList([])
     setCcInput('')
@@ -1719,23 +1734,23 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8,
                     width: '100%', padding: '7px 10px',
-                    border: outreachMode === t.key
+                    border: isTypeSelected(t)
                       ? '1.5px solid #1D2567'
                       : '1.5px solid #e5e7eb',
                     borderRadius: 7,
-                    background: outreachMode === t.key ? '#EEF2FB' : '#fff',
+                    background: isTypeSelected(t) ? '#EEF2FB' : '#fff',
                     cursor: 'pointer', marginBottom: 4,
                     fontSize: 12,
-                    fontWeight: outreachMode === t.key ? 700 : 500,
-                    color: outreachMode === t.key ? '#1D2567' : '#374151',
+                    fontWeight: isTypeSelected(t) ? 700 : 500,
+                    color: isTypeSelected(t) ? '#1D2567' : '#374151',
                     fontFamily: F, textAlign: 'left',
                     transition: 'all 0.1s',
                   }}
                 >
                   <span style={{
                     width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
-                    background: outreachMode === t.key ? '#1D2567' : 'transparent',
-                    border: outreachMode === t.key ? '2px solid #1D2567' : '2px solid #d1d5db',
+                    background: isTypeSelected(t) ? '#1D2567' : 'transparent',
+                    border: isTypeSelected(t) ? '2px solid #1D2567' : '2px solid #d1d5db',
                     transition: 'all 0.1s',
                   }} />
                   {t.label}

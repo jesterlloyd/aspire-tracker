@@ -15,60 +15,88 @@ JesterLloyd.Bautista@cshs.org | Office: 310-248-8964`
 const fb = (v, placeholder) => (v && String(v).trim()) ? String(v).trim() : placeholder
 
 // Preceptor Assignment — internal Cedars email, sent through the in-app Direct Message flow.
-export function buildPreceptorAssignmentDraft({ studentName, school, unit } = {}) {
-  const subject = `ASPIRE Preceptor Assignment: ${fb(studentName, '[Student Name]')}`
-  const body = `Dear Preceptor,
+// Salutation uses the recipient's (preceptor's) first name when available, else "Preceptor".
+// All assignment fields stay bracketed editable placeholders (the student is not reliably the
+// current recipient, so we do not auto-fill them). No attachments are claimed as included.
+export function buildPreceptorAssignmentDraft({ firstName } = {}) {
+  const subject = 'Thank You for Precepting an ASPIRE Student Nurse'
+  const body = `Dear ${fb(firstName, 'Preceptor')},
 
-Thank you so much for agreeing to precept one of our senior nursing students through the ASPIRE Program at Cedars-Sinai. Your willingness to teach, mentor, and support our students makes a meaningful difference in shaping the next generation of nurses.
+Thank you for agreeing to precept one of our senior nursing students through the ASPIRE Program, Affiliate Students' Pathway from Internship to Residency Experience. Your willingness to teach, mentor, and support our students makes such a meaningful difference in their professional growth and transition into practice.
 
-Student: ${fb(studentName, '[Student Name]')}
-School: ${fb(school, '[School]')}
-Unit / Assignment: ${fb(unit, '[Unit / Assignment]')}
-Rotation Schedule: [Rotation Dates / Schedule]
+Below is a summary of your student assignment:
 
-The student is expected to follow the ASPIRE guidelines for senior nursing students, Cedars-Sinai policies, and patient confidentiality expectations at all times, and to log their shifts accurately throughout the rotation.
+Student: [Student Name]
+School: [School]
+Unit / Assignment: [Unit / Assignment]
+Rotation Dates / Schedule: [Rotation Dates / Schedule]
+Required Hours: [Required Hours, if applicable]
+Additional Notes: [Insert any relevant notes, if applicable]
 
-The student will reach out to introduce themselves and coordinate scheduling. Program details, guidelines, and the ASPIRE brochure can be added before sending if needed.
+The student is encouraged to reach out to you directly by email to introduce themselves, coordinate scheduling, and share their individual learning objectives to help guide the experience.
 
-Warm regards,
-${SIGNATURE}`
+A few quick reminders:
+
+• Preceptor pay: If eligible, please feel free to reach out to Dr. Krystal Rodriguez with any questions.
+• Coverage: If possible, please avoid being in charge while precepting so you can focus on teaching and supporting the student.
+• Floating: Students may float with you if you are comfortable and if it is appropriate for safety and learning.
+• Scope of practice: The ASPIRE brochure and Pre-Licensure Student General Guidelines can be added before sending or shared separately for your reference.
+
+Again, we truly appreciate your time, effort, and heart in mentoring our students. Many ASPIRE students go on to become strong candidates for our New Graduate RN Residency Program, and your guidance plays a meaningful role in helping them build confidence, competence, and readiness for practice.
+
+Please don't hesitate to reach out if you have any questions.
+
+Kind regards,
+
+Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN
+Nursing Professional Development Practitioner
+Geri & Richard Brawerman Nursing Institute
+Cedars-Sinai
+JesterLloyd.Bautista@cshs.org | 310-248-8964`
   return { subject, body }
 }
 
 // Coordinator Acceptance Update — external coordinator/academic-partner email (ASPIRE Outreach).
 // Salutation uses the recipient's first name when available, else "Colleague".
 export function buildCoordinatorAcceptanceDraft({ firstName } = {}) {
-  const subject = 'ASPIRE Program: Student Acceptance and Orientation Next Steps'
+  const subject = 'ASPIRE Program: Accepted Students and Orientation Next Steps'
   const body = `Dear ${fb(firstName, 'Colleague')},
 
-I'm reaching out with an update on your students' participation in the ASPIRE Program at Cedars-Sinai.
+I'm reaching out with an update regarding your students' participation in the ASPIRE Program at Cedars-Sinai.
+
+The following student(s) have been accepted to move forward:
 
 [Insert accepted student names and relevant details here.]
 
-A few items for your awareness:
-
-Students are expected to log their shifts accurately and follow the ASPIRE guidelines for senior nursing students. They are also expected to follow Cedars-Sinai policies, maintain patient confidentiality at all times, attend the required in-person orientation before beginning their shifts, and notify the ASPIRE team if they will not be moving forward for any reason.
+As part of the ASPIRE Program, students are expected to:
+• Attend the required in-person orientation before beginning their shifts
+• Accurately log all completed shifts through the ASPIRE shift log process
+• Follow ASPIRE Program expectations for senior nursing students
+• Follow Cedars-Sinai policies and unit expectations
+• Maintain patient confidentiality at all times
+• Notify the ASPIRE team if they will no longer be moving forward for any reason
 
 In-Person Orientation Invitation
 
-We would like to invite you and your students to attend an in-person, on-campus orientation on [day], [date], at [time] at Cedars-Sinai Medical Center. This session will cover:
+We would like to invite you and your students to attend an in-person, on-campus orientation on [day], [date], at [time] at Cedars-Sinai Medical Center.
 
-- ASPIRE Program overview and expectations
-- Shift log process and badge use
-- Unit expectations and preceptor introductions
-- New Graduate RN Residency Program pathways
+This session will include:
+• ASPIRE Program overview and expectations
+• Shift log process and badge use
+• Unit expectations and preceptor introductions
+• New Graduate RN Residency Program pathways
 
-Please confirm your availability for this date and time. If [day], [date], at [time] does not work for your group, please let us know right away.
+Please confirm whether this date and time will work for your group. If the schedule does not work, please let us know as soon as possible so we can discuss next steps.
 
-We will send additional logistical details, including meeting location, parking, and what to bring, once we receive your confirmation.
+Once we receive your confirmation, we will send your students a separate email with logistical details, including the meeting location, parking instructions, and what to bring.
 
-To make sure you receive program communications without them being blocked by your school's email filters, including weekly updates on your students' progress, please add the following email address to your contact list or safe senders:
+Lastly, to help ensure that you receive ASPIRE Program communications, including automated updates regarding student progress, please add the following email address to your contact list or safe senders:
 
 ASPIRE Intelligence: noreply@aspire-program.com
 
-Please let me know if there is any documentation or coordination needed on your end. Thank you for your continued partnership in supporting clinical nursing education.
+Thank you for your continued partnership in supporting clinical nursing education.
 
-Warm regards,
+Kind regards,
 ${SIGNATURE}`
   return { subject, body }
 }
