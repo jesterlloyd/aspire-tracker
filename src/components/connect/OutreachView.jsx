@@ -2591,6 +2591,21 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
               {loadingStudents ? 'Loading students…' : `${students.length} students in cohort`}
             </div>
 
+            {/* Unified Audience Source tabs — Survey Invitation requires student recipients, so
+                Students is active/required and Contacts / Paste · Type are disabled with a note. */}
+            <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6', marginBottom: 8 }}>
+              <div style={{ flex: 1, padding: '7px 6px', fontSize: 11, fontWeight: 700, fontFamily: F, textAlign: 'center', color: '#1D2567', borderBottom: '2px solid #1D2567' }}>Students</div>
+              <Tooltip label="Survey Invitation requires student recipients" placement="top">
+                <div style={{ flex: 1, padding: '7px 6px', fontSize: 11, fontWeight: 600, fontFamily: F, textAlign: 'center', color: '#cbd5e1', borderBottom: '2px solid transparent', cursor: 'not-allowed' }}>Contacts</div>
+              </Tooltip>
+              <Tooltip label="Survey Invitation requires student recipients" placement="top">
+                <div style={{ flex: 1, padding: '7px 6px', fontSize: 11, fontWeight: 600, fontFamily: F, textAlign: 'center', color: '#cbd5e1', borderBottom: '2px solid transparent', cursor: 'not-allowed' }}>Paste · Type</div>
+              </Tooltip>
+            </div>
+            <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginBottom: 12, lineHeight: 1.5 }}>
+              Each survey link is tied to a specific student, so Survey Invitation sends to <strong>Students</strong> only.
+            </div>
+
             {/* Selection summary */}
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',

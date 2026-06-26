@@ -45,7 +45,7 @@ const CONTACT_CATEGORIES = ['All', 'Academic Partners', 'Unit Leadership', 'Prec
 // Default audience source per manual template (owner-approved mapping).
 const DEFAULT_SOURCE = {
   academic_partner_placement:   'contacts',
-  student_profile_invitation:   'paste',
+  student_profile_invitation:   'students',
   student_interview_scheduling: 'students',
   announcement_broadcast:       'students',
 }
@@ -111,9 +111,16 @@ export default function BulkManualComposer({
   // ── Audience state ────────────────────────────────────────────────────────
   const [source, setSource]               = useState(DEFAULT_SOURCE[bulkMsgType] || 'students')
 
-  // Students source
-  const [studentSearch, setStudentSearch] = useState('')
-  const [studentSel, setStudentSel]       = useState(() => new Set()) // student ids
+  // Students source — search + filters + sort. NOTE: an assignment-status filter is intentionally
+  // NOT offered here. The only assignment data wired into Outreach (bulkActiveAssignments) reflects
+  // survey/evaluation assignments for the selected survey timepoint — not a real placement/rotation
+  // assignment — so exposing it on manual templates would imply more than the data supports. It is
+  // deferred until a true placement indicator is available in this view.
+  const [studentSearch, setStudentSearch]   = useState('')
+  const [studentSchool, setStudentSchool]   = useState('')
+  const [studentEmailF, setStudentEmailF]   = useState('all')   // all | has_any | missing | has_personal | has_school
+  const [studentSort, setStudentSort]       = useState('name')  // name | school | status
+  const [studentSel, setStudentSel]         = useState(() => new Set()) // student ids
 
   // Contacts source — `contacts` is null until the first load (drives derived loading state).
   const [contacts, setContacts]           = useState(null)
@@ -172,15 +179,37 @@ export default function BulkManualComposer({
     return () => window.removeEventListener('keydown', onKey)
   }, [reviewOpen])
 
-  // ── Derived: filtered students ──────────────────────────────────────────────
+  // Distinct schools for the school filter dropdown.
+  const studentSchools = useMemo(
+    () => [...new Set(students.map(s => s.school).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [students],
+  )
+
+  // ── Derived: filtered + sorted students ─────────────────────────────────────
   const filteredStudents = useMemo(() => {
     const q = studentSearch.trim().toLowerCase()
-    return students.filter(s => {
-      if (!q) return true
-      const hay = `${s.first_name || ''} ${s.last_name || ''} ${s.personal_email || ''} ${s.school_email || ''} ${s.school || ''}`.toLowerCase()
-      return hay.includes(q)
+    const out = students.filter(s => {
+      if (q) {
+        const hay = `${s.first_name || ''} ${s.last_name || ''} ${s.personal_email || ''} ${s.school_email || ''} ${s.school || ''}`.toLowerCase()
+        if (!hay.includes(q)) return false
+      }
+      if (studentSchool && s.school !== studentSchool) return false
+      const hasPersonal = isValidEmail(s.personal_email)
+      const hasSchool   = isValidEmail(s.school_email)
+      const hasAny      = hasPersonal || hasSchool
+      if (studentEmailF === 'has_any'      && !hasAny)      return false
+      if (studentEmailF === 'missing'      && hasAny)       return false
+      if (studentEmailF === 'has_personal' && !hasPersonal) return false
+      if (studentEmailF === 'has_school'   && !hasSchool)   return false
+      return true
     })
-  }, [students, studentSearch])
+    const cmp = {
+      name:   (a, b) => `${a.last_name || ''} ${a.first_name || ''}`.localeCompare(`${b.last_name || ''} ${b.first_name || ''}`),
+      school: (a, b) => String(a.school || '').localeCompare(String(b.school || '')),
+      status: (a, b) => String(a.status || '').localeCompare(String(b.status || '')),
+    }[studentSort] || null
+    return cmp ? [...out].sort(cmp) : out
+  }, [students, studentSearch, studentSchool, studentEmailF, studentSort])
 
   // ── Derived: filtered contacts ──────────────────────────────────────────────
   const filteredContacts = useMemo(() => {
@@ -342,7 +371,30 @@ export default function BulkManualComposer({
           <div>
             <input value={studentSearch} onChange={e => setStudentSearch(e.target.value)}
               placeholder="Search name, email, or school…"
-              style={{ ...inputBase, fontSize: 12, padding: '7px 10px', marginBottom: 8 }} />
+              style={{ ...inputBase, fontSize: 12, padding: '7px 10px', marginBottom: 6 }} />
+            {studentSchools.length > 1 && (
+              <select value={studentSchool} onChange={e => setStudentSchool(e.target.value)}
+                style={{ ...inputBase, fontSize: 11, padding: '5px 8px', marginBottom: 6 }}>
+                <option value="">All schools</option>
+                {studentSchools.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            )}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+              <select value={studentEmailF} onChange={e => setStudentEmailF(e.target.value)}
+                style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
+                <option value="all">Email: all</option>
+                <option value="has_any">Has any email</option>
+                <option value="missing">Missing email</option>
+                <option value="has_personal">Has personal email</option>
+                <option value="has_school">Has school email</option>
+              </select>
+              <select value={studentSort} onChange={e => setStudentSort(e.target.value)}
+                style={{ ...inputBase, flex: 1, fontSize: 10, padding: '4px 6px' }}>
+                <option value="name">Sort: Name</option>
+                <option value="school">Sort: School</option>
+                <option value="status">Sort: Status</option>
+              </select>
+            </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
               <button onClick={selectAllStudents} style={{
                 padding: '3px 8px', borderRadius: 5, fontSize: 10, fontWeight: 600,
@@ -371,7 +423,10 @@ export default function BulkManualComposer({
                     <div style={{ fontSize: 10, color: '#6b7280', fontFamily: F, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {email || <span style={{ color: '#dc2626' }}>No email on file</span>}
                     </div>
-                    {s.school && <div style={{ fontSize: 9, color: '#9ca3af', fontFamily: F, marginTop: 2 }}>{s.school}</div>}
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 3, alignItems: 'center' }}>
+                      {s.school && <span style={{ fontSize: 9, color: '#9ca3af', fontFamily: F }}>{s.school}</span>}
+                      {s.status && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3, background: '#f3f4f6', color: '#6b7280', fontFamily: F }}>{s.status}</span>}
+                    </div>
                   </div>
                 </div>
               )
