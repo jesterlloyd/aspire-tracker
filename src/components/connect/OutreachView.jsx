@@ -10,7 +10,6 @@ import ContactAutocomplete from './ContactAutocomplete'
 import { isValidEmail } from '../../lib/notifications/studentRecipient'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { useAuth } from '../../contexts/AuthContext'
-import { openOutlookCompose } from '../../lib/outlookCompose'
 import { buildPreceptorAssignmentDraft, buildCoordinatorAcceptanceDraft } from '../../lib/outreachTemplates'
 
 const F = 'DM Sans, sans-serif'
@@ -97,7 +96,7 @@ function chunkArray(arr, size) {
 const MSG_TYPES = [
   { key: 'message',                label: 'Direct Message',                active: true, kind: 'mode'    },
   { key: 'survey',                 label: 'Survey Invitation',             active: true, kind: 'mode'    },
-  { key: 'preceptor_assignment',   label: 'Preceptor Assignment',          active: true, kind: 'outlook' },
+  { key: 'preceptor_assignment',   label: 'Preceptor Assignment',          active: true, kind: 'hydrate' },
   { key: 'coordinator_acceptance', label: 'Coordinator Acceptance Update', active: true, kind: 'hydrate' },
 ]
 
@@ -250,6 +249,8 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     const saved = localStorage.getItem(LAST_MODE_KEY)
     return (saved === 'survey' || saved === 'message') ? saved : 'survey'
   })
+  // Pending template key awaiting the branded "Replace draft?" confirmation (null = modal closed).
+  const [replaceTemplateKey, setReplaceTemplateKey] = useState(null)
 
   // ── Bulk Operation state ──────────────────────────────────────────────────
   const [bulkMsgType,            setBulkMsgType]            = useState('survey_invitation')
@@ -691,40 +692,56 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     ? (fromStudent?.school || fetchedStudent?.school || effectiveStudent?.school || null)
     : null
 
-  // ── Single-recipient template selection (MANUAL-OUTREACH-TEMPLATE-LIBRARY Phase 1) ──
+  // ── Single-recipient template selection (MANUAL-OUTREACH-TEMPLATE-LIBRARY) ──
   // 'mode'    → composer radio (Direct Message / Survey Invitation), unchanged behavior.
-  // 'hydrate' → pre-fill the editable Direct Message composer (ASPIRE Outreach send). Guards an
-  //             existing typed draft before replacing it. Signature lives in the template body, so
-  //             the app-appended signature is turned off to avoid a double signature.
-  // 'outlook' → open Outlook Web compose (internal Cedars communication); editable in Outlook.
-  const handleSelectSingleTemplate = useCallback((t) => {
-    if (t.kind === 'mode') { setOutreachMode(t.key); return }
-    if (t.kind === 'hydrate') {
-      if ((msgSubject.trim() || msgBody.trim()) &&
-          !window.confirm('Replace the current message draft with the Coordinator Acceptance Update template?')) return
-      const { subject, body } = buildCoordinatorAcceptanceDraft({
-        coordinatorName: recipientType === 'contact' ? dmRecipientName : '',
-        studentName:     recipientType === 'student' ? dmRecipientName : '',
-        school:          dmRecipientSchool || '',
-      })
-      setOutreachMode('message')
-      setMsgSubject(subject)
-      setMsgBody(body)
-      setIncludeSignature(false)
-      return
-    }
-    if (t.kind === 'outlook') {
-      const toEmail = recipientType === 'contact'
-        ? (fromContact?.email || fetchedContact?.email || '')
-        : (effectiveStudent?.email || '')
-      const { subject, body } = buildPreceptorAssignmentDraft({
+  // 'hydrate' → pre-fill the editable Direct Message composer (ASPIRE Outreach send), fully editable
+  //             and never auto-sent. If the composer already has content, a branded confirm modal
+  //             (replaceTemplate state) asks before replacing. Signature lives in the template body,
+  //             so the app-appended signature is turned off to avoid a double signature.
+  const firstNameOf = (full) => {
+    const TITLES = new Set(['dr', 'dr.', 'mr', 'mr.', 'ms', 'ms.', 'mrs', 'mrs.', 'prof', 'prof.', 'professor'])
+    const parts = String(full || '').trim().split(/\s+/).filter(Boolean)
+    return parts.find(p => !TITLES.has(p.toLowerCase())) || ''
+  }
+  const buildTemplateDraft = useCallback((key) => {
+    if (key === 'preceptor_assignment') {
+      return buildPreceptorAssignmentDraft({
         studentName: recipientType === 'student' ? dmRecipientName : '',
         school:      dmRecipientSchool || '',
         unit:        '',
       })
-      openOutlookCompose({ to: toEmail, subject, body })
     }
-  }, [recipientType, dmRecipientName, dmRecipientSchool, msgSubject, msgBody, fromContact, fetchedContact, effectiveStudent])
+    // coordinator_acceptance
+    return buildCoordinatorAcceptanceDraft({
+      firstName: recipientType === 'contact' ? firstNameOf(dmRecipientName) : '',
+    })
+  }, [recipientType, dmRecipientName, dmRecipientSchool])
+
+  const applyTemplate = useCallback((key) => {
+    const { subject, body } = buildTemplateDraft(key)
+    setOutreachMode('message')
+    setMsgSubject(subject)
+    setMsgBody(body)
+    setIncludeSignature(false) // signature is in the template body — avoid a double signature
+  }, [buildTemplateDraft])
+
+  const handleSelectSingleTemplate = useCallback((t) => {
+    if (t.kind === 'mode') { setOutreachMode(t.key); return }
+    // 'hydrate' templates (Preceptor Assignment, Coordinator Acceptance Update)
+    if (msgSubject.trim() || msgBody.trim()) {
+      setReplaceTemplateKey(t.key) // existing draft → confirm via branded modal
+      return
+    }
+    applyTemplate(t.key)
+  }, [msgSubject, msgBody, applyTemplate])
+
+  // Escape closes the branded "Replace draft?" confirm modal.
+  useEffect(() => {
+    if (!replaceTemplateKey) return
+    const onKey = (e) => { if (e.key === 'Escape') setReplaceTemplateKey(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [replaceTemplateKey])
 
   // ── Generate Link handler ─────────────────────────────────────────────────
   const handleGenerateLink = useCallback(async () => {
@@ -3326,6 +3343,37 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
       )}
 
       {/* ── Direct Message confirmation modal ─────────────────────────────── */}
+      {/* Branded "Replace draft?" confirm — replaces the native window.confirm for template hydration. */}
+      {replaceTemplateKey && (
+        <div onClick={() => setReplaceTemplateKey(null)} style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Replace current draft" style={{
+            background: '#fff', borderRadius: 12, padding: '24px 28px', maxWidth: 440, width: '90vw',
+            boxShadow: '0 8px 40px rgba(0,0,0,0.18)', fontFamily: F, boxSizing: 'border-box',
+          }}>
+            <h2 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#1D2567', fontFamily: F }}>
+              Replace current draft?
+            </h2>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: '#475467', lineHeight: 1.55, fontFamily: F }}>
+              This will replace the subject and message you are currently editing with the selected template. You can still customize the draft before sending.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button autoFocus onClick={() => setReplaceTemplateKey(null)} style={{
+                padding: '8px 16px', borderRadius: 8, border: '1px solid #d1d5db', background: '#fff',
+                color: '#374151', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer',
+              }}>Cancel</button>
+              <button onClick={() => { const k = replaceTemplateKey; setReplaceTemplateKey(null); applyTemplate(k) }} style={{
+                padding: '8px 16px', borderRadius: 8, border: '1px solid #1D2567', background: '#1D2567',
+                color: '#fff', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer',
+              }}>Replace draft</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {dmConfirmOpen && (
         <div onClick={() => { if (!dmSendInFlight) setDmConfirmOpen(false) }} style={{
           position: 'fixed', inset: 0, zIndex: 1000,
