@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { buildOutlookComposeUrl } from '../lib/outlookCompose'
 import Tooltip from './ui/Tooltip'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
@@ -72,7 +73,7 @@ const ROW_BORDER = {
   'Not Scheduled': '#d1d5db',
 }
 
-function buildSchedulingMailto(student) {
+function buildSchedulingComposeUrl(student) {
   const to = student.school_email || ''
   const subject = 'Schedule Your ASPIRE Interview'
   const body = `Dear ${student.first_name || 'ASPIRE Student'},
@@ -93,7 +94,7 @@ Warm regards,
 Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN
 Brawerman Nursing Institute | Cedars-Sinai Medical Center
 JesterLloyd.Bautista@cshs.org | 310-248-8964`
-  return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  return buildOutlookComposeUrl({ to, subject, body })
 }
 
 // ── Worklist helpers ──────────────────────────────────────────────────────────
@@ -547,9 +548,7 @@ export default function InterviewRubricTab({
               const handleAction = (e) => {
                 e.stopPropagation()
                 if (rowAction.type === 'schedule') {
-                  const a = document.createElement('a')
-                  a.href = buildSchedulingMailto(s)
-                  a.click()
+                  window.open(buildSchedulingComposeUrl(s), '_blank', 'noopener,noreferrer')
                 } else {
                   setSelectedStudentId(s.id)
                 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { openOutlookCompose } from '../lib/outlookCompose'
 import Tooltip from './ui/Tooltip'
 import { useQuery } from '@tanstack/react-query'
 import { useUpdatedLabel, KPICell } from './KPIBand'
@@ -544,10 +545,7 @@ Brawerman Nursing Institute | Cedars-Sinai Medical Center`
 
 // All external navigation must use openLink helpers (src/lib/openLink.js)
 function openMailto(bcc, body) {
-  window.open(
-    `mailto:?bcc=${encodeURIComponent(bcc)}&subject=${encodeURIComponent(FORM_SUBJECT)}&body=${encodeURIComponent(body)}`,
-    '_blank'
-  )
+  openOutlookCompose({ bcc, subject: FORM_SUBJECT, body })
 }
 
 export default function OverviewTab({ students, units, onStudentUpdate, cohortId, cohort, toast, onSelectStudent }) {

@@ -1,7 +1,7 @@
 // All external navigation must use openLink helpers (src/lib/openLink.js)
 import { useState } from 'react';
 import { MessageCircle } from 'lucide-react';
-import { openMailtoLink } from '../lib/openLink';
+import { openOutlookCompose } from '../lib/outlookCompose';
 
 export default function FeedbackPanel({ activeTab, cohortName, isAuthenticated }) {
   const [isOpen,      setIsOpen]      = useState(false);
@@ -18,15 +18,10 @@ export default function FeedbackPanel({ activeTab, cohortName, isAuthenticated }
       ? activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace(/-/g, ' ')
       : 'Unknown tab';
 
-    const subject = encodeURIComponent(
-      `[${category}] ASPIRE Intelligence – ${tabLabel}`
-    );
+    const subject = `[${category}] ASPIRE Intelligence – ${tabLabel}`;
+    const body = `Category: ${category}\nReported from: ${tabLabel} · ${cohortName || 'Unknown cohort'}\n\n${message}\n\n---\nSent via ASPIRE Intelligence feedback panel`;
 
-    const body = encodeURIComponent(
-      `Category: ${category}\nReported from: ${tabLabel} · ${cohortName || 'Unknown cohort'}\n\n${message}\n\n---\nSent via ASPIRE Intelligence feedback panel`
-    );
-
-    openMailtoLink(`mailto:JesterLloyd.Bautista@cshs.org?subject=${subject}&body=${body}`);
+    openOutlookCompose({ to: 'JesterLloyd.Bautista@cshs.org', subject, body });
 
     setMessage('');
     setCategory('');

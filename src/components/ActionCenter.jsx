@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { buildUnitLeaderEmail } from '../lib/emailUtils'
+import { buildOutlookComposeUrl } from '../lib/outlookCompose'
 import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 export { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { useAuth } from '../contexts/AuthContext'
@@ -134,12 +135,10 @@ Nursing Professional Development Practitioner
 Geri and Richard Brawerman Nursing Institute
 JesterLloyd.Bautista@cshs.org | 310-248-8964`
 
-function mailto(to, subject, body, cc='') {
-  return `mailto:${encodeURIComponent(to)}${cc?`?cc=${encodeURIComponent(cc)}&`:'?'}subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-}
-
-// Opens Outlook Web compose (office.com) instead of the OS default mailto handler.
-// Used for all preceptor-bound emails so they open under the Cedars-Sinai O365 account.
+// Opens Outlook Web compose (office.com) instead of the OS default mailto handler, so in-app staff
+// email actions open under the Cedars-Sinai O365 account (not the OS default, e.g. IONOS).
+// (Local builder kept for parity; the shared src/lib/outlookCompose.js helper is used for the
+// bcc-bearing orientation action below and could fully replace this in a later consolidation.)
 function outlookCompose(to, subject, body, cc = '') {
   const base = 'https://outlook.office.com/mail/deeplink/compose'
   let url = `${base}?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
@@ -148,7 +147,7 @@ function outlookCompose(to, subject, body, cc = '') {
 }
 
 function buildStudentFormEmail(s) {
-  return mailto(s.school_email, 'ASPIRE Program Student Form – Action Required',
+  return outlookCompose(s.school_email, 'ASPIRE Program Student Form – Action Required',
 `Dear ${s.first_name},
 
 You have been identified as a potential candidate for the ASPIRE Program (Affiliate Students' Pathway from Internship to Residency Experience) at Cedars-Sinai Medical Center.
@@ -165,7 +164,7 @@ ${SIG}`)
 }
 
 function buildSchedulingLinkEmail(s) {
-  return mailto(s.school_email, 'Schedule Your ASPIRE Interview',
+  return outlookCompose(s.school_email, 'Schedule Your ASPIRE Interview',
 `Dear ${s.first_name},
 
 Thank you for completing your ASPIRE Student Profile. The next step is to schedule your interview with our Nursing Professional Development team.
@@ -185,7 +184,7 @@ ${SIG}`)
 
 function buildInterviewReminderEmail(s) {
   const to = s.personal_email || s.school_email
-  return mailto(to, 'Reminder: Your ASPIRE Interview is Coming Up',
+  return outlookCompose(to, 'Reminder: Your ASPIRE Interview is Coming Up',
 `Dear ${s.first_name},
 
 This is a friendly reminder that your ASPIRE interview is scheduled for:
@@ -636,7 +635,7 @@ ${KR_SIG}`
 
   const handleOpenOrientationMailto = () => {
     const bccs = placedStudents.map(s => s.personal_email||s.school_email).filter(Boolean).join(',')
-    openHref(`mailto:?bcc=${encodeURIComponent(bccs)}&subject=${encodeURIComponent('Welcome to the ASPIRE Program – Orientation Details Inside')}`)
+    openHref(buildOutlookComposeUrl({ bcc: bccs, subject: 'Welcome to the ASPIRE Program – Orientation Details Inside' }))
   }
 
   const handleMarkOrientationSent = async () => {

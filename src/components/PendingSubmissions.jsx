@@ -1,3 +1,5 @@
+import { buildOutlookComposeUrl } from '../lib/outlookCompose'
+
 const fmt = ts => {
   try {
     return new Date(ts).toLocaleDateString('en-US', {
@@ -28,7 +30,7 @@ export default function PendingSubmissions({ submissions, onApprove, onReject })
             <div className="ps-contact">
               <span>{sub.contact_person}</span>
               <span className="ps-dot">·</span>
-              <a href={`mailto:${sub.contact_email}`} target="_blank" rel="noopener noreferrer">{sub.contact_email}</a>
+              <a href={buildOutlookComposeUrl({ to: sub.contact_email })} target="_blank" rel="noopener noreferrer">{sub.contact_email}</a>
             </div>
 
             <div className="ps-details">

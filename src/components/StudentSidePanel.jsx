@@ -24,7 +24,7 @@ import { generateStudentSummary } from '../lib/generateSummary'
 import { Copy, Check, Mail, User, GraduationCap, Briefcase, MapPin, FileText, MessageSquare, CheckCircle2, Award, ClipboardList, CalendarDays, Flag } from 'lucide-react'
 import ClinicalHoursPanel from './ClinicalHoursPanel'
 // All external navigation must use openLink helpers (src/lib/openLink.js)
-import { openMailtoLink } from '../lib/openLink'
+import { openOutlookCompose } from '../lib/outlookCompose'
 import SyncIndicator from './SyncIndicator'
 import { useLastSynced } from '../hooks/useLastSynced'
 import { useAuth } from '../contexts/AuthContext'
@@ -1203,7 +1203,7 @@ export default function StudentSidePanel({
                   onClick={() => {
                     const subject = 'Schedule Your ASPIRE Interview'
                     const body = `Dear ${data.first_name || 'ASPIRE Student'},\n\nThank you for completing your ASPIRE Student Profile. The next step in the process is to schedule your interview with the Nursing Professional Development team.\n\nPlease use the link below to view available times and select one that works for your schedule:\n\nhttps://aspire-tracker.vercel.app/interview-schedule\n\nWhen prompted, enter your school email address to access your scheduling page.\n\nYour interview will be conducted via Microsoft Teams. The meeting link will be sent to you separately after you book your slot.\n\nIf you have any questions, please don't hesitate to reach out.\n\nWarm regards,\nJester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN\nBrawerman Nursing Institute | Cedars-Sinai Medical Center\nJesterLloyd.Bautista@cshs.org | 310-248-8964`
-                    openMailtoLink(`mailto:${encodeURIComponent(data.school_email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`)
+                    openOutlookCompose({ to: data.school_email, subject, body })
                   }}>
                   ✉ Send Scheduling Link
                 </button>
@@ -1709,7 +1709,7 @@ export default function StudentSidePanel({
                   <input className="sp-input" type="email" value={data.preceptor_email||''} onChange={e => handleText('preceptor_email', e.target.value)} placeholder="preceptor@cshs.org" />
                   {data.preceptor_email && (
                     <Tooltip label="Email preceptor" placement="top"><button className="sp-copy-btn" aria-label="Email preceptor"
-                      onClick={() => { openMailtoLink(`mailto:${data.preceptor_email}`) }}>✉</button></Tooltip>
+                      onClick={() => { openOutlookCompose({ to: data.preceptor_email }) }}>✉</button></Tooltip>
                   )}
                 </div>
               </Field>
@@ -1943,7 +1943,7 @@ export default function StudentSidePanel({
                     </div>
                     {resolved.email && (
                       <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'#6b7280' }}>
-                        <Tooltip label="Email preceptor" placement="top"><button className="sp-copy-btn" aria-label="Email preceptor" onClick={() => openMailtoLink(`mailto:${resolved.email}`)}>✉</button></Tooltip>
+                        <Tooltip label="Email preceptor" placement="top"><button className="sp-copy-btn" aria-label="Email preceptor" onClick={() => openOutlookCompose({ to: resolved.email })}>✉</button></Tooltip>
                         {resolved.email}
                       </div>
                     )}
@@ -1962,7 +1962,7 @@ export default function StudentSidePanel({
                     <input className="sp-input" value={data.matched_preceptor||''} onChange={e => handleText('matched_preceptor', e.target.value)} placeholder="Preceptor name…" />
                     <div style={{ display:'flex', gap:6, alignItems:'center' }}>
                       <input className="sp-input" type="email" value={data.preceptor_email||''} onChange={e => handleText('preceptor_email', e.target.value)} placeholder="preceptor@cshs.org" />
-                      {data.preceptor_email && <Tooltip label="Email preceptor" placement="top"><button className="sp-copy-btn" aria-label="Email preceptor" onClick={() => openMailtoLink(`mailto:${data.preceptor_email}`)}>✉</button></Tooltip>}
+                      {data.preceptor_email && <Tooltip label="Email preceptor" placement="top"><button className="sp-copy-btn" aria-label="Email preceptor" onClick={() => openOutlookCompose({ to: data.preceptor_email })}>✉</button></Tooltip>}
                     </div>
                     {canEdit && (
                       <button onClick={() => setAssignModalOpen(true)}
