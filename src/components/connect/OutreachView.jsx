@@ -7,6 +7,7 @@ import RecipientProfileCard from './RecipientProfileCard'
 import RecipientPicker from './RecipientPicker'
 import SentHistory from './SentHistory'
 import ContactAutocomplete from './ContactAutocomplete'
+import BulkManualComposer from './BulkManualComposer'
 import { isValidEmail } from '../../lib/notifications/studentRecipient'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { useAuth } from '../../contexts/AuthContext'
@@ -116,6 +117,16 @@ const BULK_ELIGIBILITY = {
   midpoint:               ['Active Rotation'],
   post_rotation:          ['Active Rotation', 'Completed'],
 }
+
+// Send-to-Many message types. Survey Invitation keeps its existing student-only flow; the four
+// manual templates (Phase 2A) open the multi-source BulkManualComposer (compose/review only — no send).
+const BULK_MSG_TYPES = [
+  { key: 'survey_invitation',            label: 'Survey Invitation' },
+  { key: 'academic_partner_placement',   label: 'Academic Partner Placement Request' },
+  { key: 'student_profile_invitation',   label: 'Student Profile Form Invitation' },
+  { key: 'student_interview_scheduling', label: 'Student Interview Scheduling Invitation' },
+  { key: 'announcement_broadcast',       label: 'Announcement / Broadcast' },
+]
 
 function localDateString(d) {
   // Use local year/month/day to avoid UTC midnight rollback in Pacific timezone
@@ -748,6 +759,32 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     if (t.key === 'message')  return outreachMode === 'message' && !activeTemplateId
     return outreachMode === t.key // survey
   }
+
+  // Shared Send-to-Many Message Type selector — rendered identically by the Survey zone and the
+  // manual BulkManualComposer so the two paths never visually drift.
+  const renderBulkTypeSelector = () => (
+    <div style={{ marginBottom: 16 }}>
+      {BULK_MSG_TYPES.map(({ key, label }) => (
+        <button key={key} onClick={() => setBulkMsgType(key)} style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          width: '100%', padding: '7px 10px',
+          border: bulkMsgType === key ? '1.5px solid #1D2567' : '1.5px solid #e5e7eb',
+          borderRadius: 7, background: bulkMsgType === key ? '#EEF2FB' : '#fff',
+          cursor: 'pointer', marginBottom: 4,
+          fontSize: 12, fontWeight: bulkMsgType === key ? 700 : 500,
+          color: bulkMsgType === key ? '#1D2567' : '#374151',
+          fontFamily: F, textAlign: 'left', transition: 'all 0.1s', lineHeight: 1.35,
+        }}>
+          <span style={{
+            width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+            background: bulkMsgType === key ? '#1D2567' : 'transparent',
+            border: bulkMsgType === key ? '2px solid #1D2567' : '2px solid #d1d5db',
+          }} />
+          {label}
+        </button>
+      ))}
+    </div>
+  )
 
   // Escape closes the branded "Replace draft?" confirm modal.
   useEffect(() => {
@@ -2535,7 +2572,16 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
           Calls /api/evaluation-bulk-invitations for generate_only.
           No email. No Resend. Generated surveyUrls live in React state only.
       ═══════════════════════════════════════════════════════════════════ */}
-      {recipientMode === 'bulk' && (
+      {recipientMode === 'bulk' && bulkMsgType !== 'survey_invitation' && (
+        <BulkManualComposer
+          bulkMsgType={bulkMsgType}
+          students={students}
+          loadingStudents={loadingStudents}
+          renderTypeSelector={renderBulkTypeSelector}
+        />
+      )}
+
+      {recipientMode === 'bulk' && bulkMsgType === 'survey_invitation' && (
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
           {/* ── Bulk Zone 1: Student Audience Picker ─────────────────── */}
@@ -2701,50 +2747,8 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
             <div style={panelTitle}>Message Type</div>
             <div style={panelSubtitle}>Bulk workflow</div>
 
-            {/* Bulk message type selector */}
-            <div style={{ marginBottom: 16 }}>
-              {[
-                { key: 'survey_invitation', label: 'Survey Invitation' },
-                { key: null, label: 'School Request' },
-                { key: null, label: 'Student Intake' },
-                { key: null, label: 'Interview Scheduling' },
-                { key: null, label: 'Announcement / Broadcast' },
-              ].map(({ key, label }) =>
-                key ? (
-                  <button key={label} onClick={() => setBulkMsgType(key)} style={{
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    width: '100%', padding: '7px 10px',
-                    border: bulkMsgType === key ? '1.5px solid #1D2567' : '1.5px solid #e5e7eb',
-                    borderRadius: 7, background: bulkMsgType === key ? '#EEF2FB' : '#fff',
-                    cursor: 'pointer', marginBottom: 4,
-                    fontSize: 12, fontWeight: bulkMsgType === key ? 700 : 500,
-                    color: bulkMsgType === key ? '#1D2567' : '#374151',
-                    fontFamily: F, textAlign: 'left', transition: 'all 0.1s',
-                  }}>
-                    <span style={{
-                      width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
-                      background: bulkMsgType === key ? '#1D2567' : 'transparent',
-                      border: bulkMsgType === key ? '2px solid #1D2567' : '2px solid #d1d5db',
-                    }} />
-                    {label}
-                  </button>
-                ) : (
-                  <Tooltip key={label} label="Coming in a future release" placement="right">
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: 8,
-                      width: '100%', padding: '6px 10px',
-                      border: '1.5px solid #f3f4f6', borderRadius: 7,
-                      background: '#fafafa', cursor: 'not-allowed',
-                      marginBottom: 4, opacity: 0.5,
-                    }}>
-                      <span style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, background: 'transparent', border: '2px solid #d1d5db' }} />
-                      <span style={{ fontSize: 12, fontWeight: 500, color: '#9ca3af', fontFamily: F }}>{label}</span>
-                      <span style={{ ...futureBadge, marginLeft: 'auto' }}>Future</span>
-                    </div>
-                  </Tooltip>
-                )
-              )}
-            </div>
+            {/* Bulk message type selector (shared with the manual composer) */}
+            {renderBulkTypeSelector()}
 
             {/* Survey Invitation workflow settings */}
             {bulkMsgType === 'survey_invitation' && (

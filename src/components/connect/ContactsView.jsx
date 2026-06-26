@@ -9,6 +9,10 @@ import { supabase } from '../../lib/supabase'
 import Tooltip from '../ui/Tooltip'
 import { isValidEmail } from '../../lib/notifications/studentRecipient'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
+import {
+  PRECEPTOR_ROLES,
+  getPrimaryCategory, getContactCategories,
+} from '../../lib/contactCategories'
 
 const F    = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -16,84 +20,9 @@ const NAVY = '#1D2567'
 // ── Category mapping ──────────────────────────────────────────────────────────
 
 // ── Multi-category contact model ───────────────────────────────────────────────
-// A contact may belong to more than one category.
-// getContactCategories() returns all categories a contact belongs to.
-// getPrimaryCategory() returns the single category used for grouping in All view.
-
-const ACADEMIC_ROLES = new Set([
-  'School Coordinator', 'Clinical Placement Coordinator', 'Clinical Placement Coordinators',
-  'Program Assistant', 'Program Assistants',
-  'Manager', 'Manager, Clinical Operations', 'Manager, Clinical Faculty',
-  'Manager Clinical Faculty',
-  'Clinical Faculty', 'Associate Professor', 'Professor & Assistant Director',
-  'Program Coordinator',
-])
-
-const UNIT_LEADERSHIP_ROLES = new Set([
-  'Associate Director', 'Assistant Nurse Manager',
-  'Unit NPD-P', 'Unit NPD Practitioner',
-])
-
-const PRECEPTOR_ROLES = new Set([
-  'Preceptor', 'Clinical Preceptor',
-])
-
-const BNI_TEAM_ROLES = new Set([
-  'NPD Practitioner', 'BNI Administration', 'BNI Team',
-])
-
-const NURSING_EXEC_ROLES = new Set([
-  'Nursing Leadership', 'Nursing Executive', 'Executive Director',
-  'Chief Nursing Officer',
-])
-
-// Returns the inferred primary category from role only (no stored category consulted).
-// Priority: Nursing Executives > BNI Team > Unit Leadership > Preceptors > Academic Partners
-// Returns null if no role Set matches.
-function inferPrimaryCategory(contact) {
-  const role = contact.role || ''
-  if (NURSING_EXEC_ROLES.has(role))    return 'Nursing Executives'
-  if (BNI_TEAM_ROLES.has(role))        return 'BNI Team'
-  if (UNIT_LEADERSHIP_ROLES.has(role)) return 'Unit Leadership'
-  if (PRECEPTOR_ROLES.has(role))       return 'Preceptors'
-  if (ACADEMIC_ROLES.has(role))        return 'Academic Partners'
-  return null
-}
-
-// Returns the primary category for a contact.
-// contacts.category (stored) takes precedence — Phase C.2.
-// Falls back to role inference for contacts with NULL category (future-resilient).
-function getPrimaryCategory(contact) {
-  if (contact.category) return contact.category
-  return inferPrimaryCategory(contact)
-}
-
-// Returns all categories a contact belongs to (may be more than one).
-// Primary: stored contacts.category if set; otherwise inferred from role Sets.
-// Secondary rules are additive (computed at read-time, not stored in contacts.category):
-//   - NPD Practitioner with unit_name also appears in Unit Leadership
-//   - Nursing Exec role in Brawerman/BNI organization also appears in BNI Team
-function getContactCategories(contact) {
-  const cats = new Set()
-
-  const primary = getPrimaryCategory(contact)
-  if (primary) cats.add(primary)
-
-  // NPD Practitioner assigned to a unit → also Unit Leadership
-  if ((contact.role || '') === 'NPD Practitioner' && contact.unit_name) {
-    cats.add('Unit Leadership')
-  }
-
-  // Nursing exec roles in Brawerman/BNI organizations → also BNI Team
-  if (NURSING_EXEC_ROLES.has(contact.role || '')) {
-    const org = (contact.organization || '').toLowerCase().trim()
-    if (org.includes('brawerman') || org === 'bni' || org.includes(' bni ') || org.endsWith(' bni') || org.startsWith('bni ')) {
-      cats.add('BNI Team')
-    }
-  }
-
-  return cats.size > 0 ? [...cats] : ['Other']
-}
+// The role Sets + inferPrimaryCategory / getPrimaryCategory / getContactCategories now live in
+// the shared src/lib/contactCategories.js module (imported above) so the Contacts page and the
+// Send-to-Many Contacts source share one source of truth. Behavior is unchanged.
 
 // Role rank within Unit Leadership for sorting
 const UNIT_ROLE_RANK = {
