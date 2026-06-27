@@ -206,7 +206,7 @@ const sectionLabel = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function OutreachView({ cohortId, onNavigateToStudent, toast, refreshKey = 0 }) {
+export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   const location       = useLocation()
   const navigate       = useNavigate()
   const [searchParams] = useSearchParams()
@@ -698,13 +698,6 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   //   • no recipient      → preserve the standalone student dropdown (fallback)
   const recipientIsStudent = !!studentId
   const recipientIsContact = !!contactId
-  const surveyRecipientName =
-    (selectedStudent ? `${selectedStudent.first_name || ''} ${selectedStudent.last_name || ''}`.trim() : '') ||
-    effectiveStudent?.name ||
-    (fetchedStudent ? `${fetchedStudent.first_name || ''} ${fetchedStudent.last_name || ''}`.trim() : '') ||
-    'Selected student'
-  const surveyRecipientSchool =
-    selectedStudent?.school || fetchedStudent?.school || effectiveStudent?.school || null
 
   // Display fields for the Direct Message recipient — used to label the saved-draft
   // pointer so "Resume draft for {name}" can be shown when no recipient is selected.
@@ -1877,28 +1870,10 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                 (State 1 student recipient → summary; State 3 no recipient → dropdown) */}
             {outreachMode === 'survey' && !recipientIsContact && (
               <div>
-                {/* Field 1 — Recipient */}
-                {recipientIsStudent ? (
-                  /* State 1 — student recipient: summary in place of the dropdown */
-                  <div style={fieldWrap}>
-                    <label style={labelStyle}>Survey recipient</label>
-                    <div style={{
-                      padding: '10px 13px',
-                      background: '#EEF2FB', border: '1px solid #c3cdf0',
-                      borderRadius: 8, fontFamily: F,
-                    }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1D2567', lineHeight: 1.3 }}>
-                        {surveyRecipientName}
-                      </div>
-                      {surveyRecipientSchool && (
-                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
-                          {surveyRecipientSchool}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  /* State 3 — no recipient: standalone student dropdown (preserved) */
+                {/* Recipient identity + delivery email now live in the Recipient panel only.
+                    Message Type keeps just the survey workflow choices. When NO recipient is yet
+                    selected, the standalone student picker stays here as the selection entry point. */}
+                {!recipientIsStudent && (
                   <div style={fieldWrap}>
                     <label style={labelStyle}>
                       Recipient <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
@@ -1920,46 +1895,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                   </div>
                 )}
 
-                {/* Field 2 — Delivery email */}
-                {selectedStudent && (
-                  <div style={fieldWrap}>
-                    <label style={labelStyle}>Delivery email</label>
-                    {resolvedEmail ? (
-                      <div style={{
-                        padding: '10px 13px',
-                        background: '#f9fafb', border: '1.5px solid #e5e7eb',
-                        borderRadius: 8, fontSize: 13, color: '#374151', fontFamily: F,
-                      }}>
-                        {resolvedEmail}
-                      </div>
-                    ) : (
-                      <div style={{
-                        padding: '10px 13px', background: '#fef2f2',
-                        border: '1.5px solid #fecaca', borderRadius: 8,
-                        fontSize: 12, color: '#dc2626', fontFamily: F, lineHeight: 1.5,
-                      }}>
-                        No email address on file for this student.{' '}
-                        {onNavigateToStudent ? (
-                          <button
-                            onClick={() => onNavigateToStudent(selectedStudentId)}
-                            style={{
-                              background: 'none', border: 'none', cursor: 'pointer',
-                              fontSize: 12, color: '#dc2626', fontFamily: F,
-                              fontWeight: 600, padding: 0,
-                              textDecoration: 'underline', textUnderlineOffset: 2,
-                            }}
-                          >
-                            Update student profile →
-                          </button>
-                        ) : (
-                          'Update the student profile before sending.'
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Field 3 — Instrument */}
+                {/* Field — Instrument */}
                 <div style={fieldWrap}>
                   <label style={labelStyle}>
                     Instrument <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
