@@ -41,6 +41,7 @@ import {
   buildStudentInvitationTestEmail,
   TIMEPOINT_LABELS,
   formatExpiresAt,
+  validateDraftOverrides,
 } from '../lib/server/evaluation/emailTemplates.js';
 
 // Sender: use the confirmed working domain pattern.
@@ -151,7 +152,11 @@ async function _handler(req, res, startMs) {
     });
   }
 
-  const { assignment_id, survey_url, student_name, timepoint, expires_at } = body;
+  const { assignment_id, survey_url, student_name, timepoint, expires_at, subject_override, body_override } = body;
+
+  // Optional editable-draft overrides (Send-to-One). Absent → fixed template (unchanged behavior).
+  const draftCheck = validateDraftOverrides({ subject_override, body_override });
+  if (!draftCheck.ok) return res.status(400).json({ success: false, error: draftCheck.error });
 
   if (!assignment_id) return res.status(400).json({ success: false, error: 'assignment_id is required' });
   if (!isUuid(assignment_id)) return res.status(400).json({ success: false, error: 'assignment_id must be a valid UUID' });
@@ -209,6 +214,8 @@ async function _handler(req, res, startMs) {
     timepointLabel,
     expiresAtHuman,
     surveyUrl: survey_url,
+    subjectOverride: subject_override,
+    bodyOverride:    body_override,
   });
 
   // ── 6. Send via Resend ─────────────────────────────────────────────────────

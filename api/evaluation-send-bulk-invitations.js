@@ -38,6 +38,7 @@ import {
   buildStudentInvitationEmail,
   TIMEPOINT_LABELS,
   formatExpiresAt,
+  validateDraftOverrides,
 } from '../lib/server/evaluation/emailTemplates.js';
 import { getStudentPreferredGreetingName } from '../src/lib/studentNameFormatters.js';
 
@@ -137,7 +138,12 @@ async function _handler(req, res, startMs) {
   }
 
   // ── 4. Validate request-level fields ──────────────────────────────────────────
-  const { items, instrument_slug, timepoint, expires_at } = body;
+  const { items, instrument_slug, timepoint, expires_at, subject_override, body_override } = body;
+
+  // Optional editable-draft overrides (Send-to-One). Send-to-Many does not pass these, so the
+  // builder falls back to the fixed template — Send-to-Many behavior is unchanged.
+  const draftCheck = validateDraftOverrides({ subject_override, body_override });
+  if (!draftCheck.ok) return res.status(400).json({ success: false, error: draftCheck.error });
 
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ success: false, error: 'items must be a non-empty array' });
@@ -283,6 +289,8 @@ async function _handler(req, res, startMs) {
         timepointLabel,
         expiresAtHuman,
         surveyUrl: survey_url,
+        subjectOverride: subject_override,
+        bodyOverride:    body_override,
       });
 
       // 5e. Send via Resend

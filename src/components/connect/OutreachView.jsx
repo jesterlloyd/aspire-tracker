@@ -19,6 +19,11 @@ import { buildStudentInvitationEmail, formatExpiresAt, TIMEPOINT_LABELS } from '
 
 const F = 'DM Sans, sans-serif'
 
+// Canonical default body for the editable Survey Invitation draft (Send-to-One).
+// Mirrors the fixed intro paragraph the server template falls back to when no
+// body_override is supplied (DEFAULT_INTRO in lib/server/evaluation/emailTemplates.js).
+const SURVEY_DRAFT_DEFAULT_BODY = 'As part of the ASPIRE Program at Cedars-Sinai, please complete the Casey-Fink Readiness for Practice Survey. This short survey helps us understand your readiness as you prepare for your clinical rotation.'
+
 const INSTRUMENTS = [
   { slug: 'casey_fink_readiness_2024', label: 'Casey-Fink Readiness for Practice Survey' },
 ]
@@ -364,6 +369,18 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   const [timepoint,         setTimepoint]         = useState('baseline')
   const [expiresAt,         setExpiresAt]         = useState(defaultExpiresAt)
   const [notes,             setNotes]             = useState('')
+  // ── Editable Survey Invitation draft (single source of truth for preview + test + student send) ──
+  // Initialized from the canonical Casey-Fink copy; the greeting, survey details, link, CTA, expiry,
+  // and signature are added automatically and are NOT editable here.
+  const [surveyDraftSubject, setSurveyDraftSubject] = useState(() => `ASPIRE: Casey-Fink Readiness Survey — ${TIMEPOINT_LABELS['baseline']}`)
+  const [surveyDraftBody,    setSurveyDraftBody]    = useState(SURVEY_DRAFT_DEFAULT_BODY)
+  const [surveyDraftEdited,  setSurveyDraftEdited]  = useState(false)
+  const [surveyDraftTpKey,   setSurveyDraftTpKey]   = useState('baseline')
+  // Keep the default subject in sync with the timepoint until the user edits the draft.
+  if (surveyDraftTpKey !== timepoint) {
+    setSurveyDraftTpKey(timepoint)
+    if (!surveyDraftEdited) setSurveyDraftSubject(`ASPIRE: Casey-Fink Readiness Survey — ${TIMEPOINT_LABELS[timepoint] || timepoint}`)
+  }
   // SURVEY-REISSUE-1: prior-invitation classification (UX assist only — server is source of truth).
   // null | 'completed' (block) | 'active' (block) | 'reissuable' (expired/revoked, incomplete → allowed)
   const [priorInvitation,   setPriorInvitation]   = useState(null)
@@ -673,7 +690,6 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // Survey preview greeting honors the student's preferred first name (display only; the survey
   // send path already resolves the preferred greeting server-side).
   const firstName        = (selectedStudent ? getStudentPreferredFirstName(selectedStudent) : '') || null
-  const instrumentLabel  = INSTRUMENTS.find(i => i.slug === instrument)?.label || ''
   const expiresFormatted = fmtDate(expiresAt)
   // Branded "Email Preview" HTML — the EXACT Casey-Fink invitation template the send uses, rendered
   // client-side from the generated survey link (no send, no endpoint call).
@@ -685,9 +701,11 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         timepointLabel:   TIMEPOINT_LABELS[surveyResult.timepoint] || surveyResult.timepoint,
         expiresAtHuman:   formatExpiresAt(surveyResult.expiresAt),
         surveyUrl:        surveyResult.surveyUrl,
+        subjectOverride:  surveyDraftSubject,
+        bodyOverride:     surveyDraftBody,
       }).html
     } catch { return '' }
-  }, [surveyResult, selectedStudent])
+  }, [surveyResult, selectedStudent, surveyDraftSubject, surveyDraftBody])
   const formValid        = !!(selectedStudentId && instrument && timepoint)
 
   // ── Survey Invitation recipient clarity (Phase 1.2) ───────────────────────
@@ -1111,6 +1129,8 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           student_name:  `${surveyResult.student.firstName} ${surveyResult.student.lastName}`.trim(),
           timepoint:     surveyResult.timepoint,
           expires_at:    surveyResult.expiresAt,
+          subject_override: surveyDraftSubject,
+          body_override:    surveyDraftBody,
         }),
       })
       let payload = null
@@ -1132,7 +1152,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       setSingleTestSendMsg(netMsg)
       toast?.error('Test email not sent', netMsg)
     }
-  }, [singleTestSendState, surveyResult])
+  }, [singleTestSendState, surveyResult, surveyDraftSubject, surveyDraftBody])
 
   // ── Single-recipient survey: real send to student via Resend ──────────────
   // Reuses existing bulk send endpoint with a one-item payload.
@@ -1162,6 +1182,8 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           instrument_slug: 'casey_fink_readiness_2024',
           timepoint:       surveyResult.timepoint,
           expires_at:      surveyResult.expiresAt,
+          subject_override: surveyDraftSubject,
+          body_override:    surveyDraftBody,
         }),
       })
       let payload = null
@@ -1199,7 +1221,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     } finally {
       setSingleSendInFlight(false)
     }
-  }, [singleSendInFlight, surveyResult])
+  }, [singleSendInFlight, surveyResult, surveyDraftSubject, surveyDraftBody])
 
   // ── Direct Message send handler ───────────────────────────────────────────
   const handleDmSend = useCallback(async () => {
@@ -2305,33 +2327,51 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
               {/* Survey subject/message preview — Draft panel (lavender) */}
               <ConnectPanel tone="draft" title="Draft"
                 style={surveyResult ? { border: '1px solid rgba(29,37,103,0.16)' } : undefined}>
-                {/* Subject line */}
+                {/* Subject line — editable; this exact value is used by the preview and the actual send */}
                 <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid #f3f4f6' }}>
                   <span style={sectionLabel}>Subject</span>
-                  <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.5 }}>
-                    ASPIRE: Casey-Fink Readiness Survey — Baseline
-                  </div>
+                  <input
+                    type="text"
+                    value={surveyDraftSubject}
+                    onChange={e => { setSurveyDraftSubject(e.target.value); setSurveyDraftEdited(true) }}
+                    maxLength={200}
+                    placeholder="ASPIRE: Casey-Fink Readiness Survey — Baseline"
+                    style={{
+                      width: '100%', boxSizing: 'border-box', marginTop: 4,
+                      padding: '8px 10px', borderRadius: 7, border: '1px solid #e5e7eb',
+                      fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.5,
+                      background: '#fff', outline: 'none',
+                    }}
+                  />
                 </div>
 
-                {/* Body preview */}
+                {/* Body — editable intro/message; greeting, link, expiry, and signature are added automatically */}
                 <div>
-                  <span style={sectionLabel}>Message preview</span>
+                  <span style={sectionLabel}>Message</span>
                   <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.8 }}>
-                    <p style={{ margin: '0 0 12px' }}>
-                      Dear{' '}
+                    {/* Greeting is system-controlled (not editable) */}
+                    <p style={{ margin: '0 0 8px' }}>
+                      Hi{' '}
                       {firstName
                         ? <strong>{firstName}</strong>
                         : <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>[Student first name]</span>
                       },
                     </p>
-                    <p style={{ margin: '0 0 12px' }}>
-                      You are invited to complete the <em>{instrumentLabel}</em> as part of your participation in the ASPIRE Program.
-                    </p>
-                    {notes.trim() && (
-                      <p style={{ margin: '0 0 12px' }}>{notes.trim()}</p>
-                    )}
-                    <p style={{ margin: '0 0 12px' }}>
-                      Click the link below to begin. This survey expires on <strong>{expiresFormatted}</strong>.
+                    <textarea
+                      value={surveyDraftBody}
+                      onChange={e => { setSurveyDraftBody(e.target.value); setSurveyDraftEdited(true) }}
+                      maxLength={4000}
+                      rows={5}
+                      placeholder={SURVEY_DRAFT_DEFAULT_BODY}
+                      style={{
+                        width: '100%', boxSizing: 'border-box', margin: '0 0 12px',
+                        padding: '10px 11px', borderRadius: 8, border: '1px solid #e5e7eb',
+                        fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.7,
+                        background: '#fff', outline: 'none', resize: 'vertical',
+                      }}
+                    />
+                    <p style={{ margin: '0 0 12px', fontSize: 12, color: '#9ca3af', fontStyle: 'italic' }}>
+                      A “Complete Survey” button and the secure link are added automatically. This survey expires on <strong style={{ fontStyle: 'normal', color: '#6b7280' }}>{expiresFormatted}</strong>.
                     </p>
 
                     {/* Survey link — placeholder before generation, real URL shown once after.
