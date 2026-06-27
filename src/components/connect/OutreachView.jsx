@@ -2107,6 +2107,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
 
           {/* Direct Message: subject + body editor + live preview + actions */}
           {outreachMode === 'message' && (
+            <>
             <ConnectPanel tone="draft" title="Draft">
 
               {/* Subject input */}
@@ -2291,11 +2292,11 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                   {dmSendStatus.msg}
                 </div>
               )}
+            </ConnectPanel>
 
-              {/* CONNECT-COMMS-1B: true "Preview as sent" — exact branded HTML from the same server
-                  renderer/endpoint used to send, plus the server-resolved (school-first) recipient. */}
-              <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 16 }}>
-                <span style={sectionLabel}>Preview as sent</span>
+            {/* CONNECT-COMMS-1B: branded "Email Preview" — exact server-rendered HTML from the same
+                renderer/endpoint used to send, plus the server-resolved (school-first) recipient. */}
+            <ConnectPanel tone="preview" title="Email Preview" style={{ marginTop: 14 }}>
 
                 {/* Resolved recipient + source */}
                 {dmPreview.recipient && (() => {
@@ -2352,8 +2353,8 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                     </div>
                   )}
                 </div>
-              </div>
             </ConnectPanel>
+            </>
           )}
 
           {/* Survey Invitation: email preview + generated link card
@@ -2361,13 +2362,9 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
           {outreachMode === 'survey' && !recipientIsContact && (
             <div>
 
-              {/* Survey email preview */}
-              <div style={{
-                ...panelCard,
-                border: surveyResult
-                  ? '1px solid rgba(29,37,103,0.16)'
-                  : '1px solid rgba(29,37,103,0.10)',
-              }}>
+              {/* Survey subject/message preview — Draft panel (lavender) */}
+              <ConnectPanel tone="draft" title="Draft"
+                style={surveyResult ? { border: '1px solid rgba(29,37,103,0.16)' } : undefined}>
                 {/* Subject line */}
                 <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid #f3f4f6' }}>
                   <span style={sectionLabel}>Subject</span>
@@ -2427,7 +2424,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                     </p>
                   </div>
                 </div>
-              </div>
+              </ConnectPanel>
 
               {/* Generated link card — shown after successful Generate Link */}
               {surveyResult && (
