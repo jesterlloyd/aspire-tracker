@@ -279,17 +279,26 @@ export default function BulkManualComposer({
   // The Audience picker is the single source of truth — no second recipient control in the preview.
   const previewRecipient = recipients[0] || null
 
-  // ── Reset a COMPLETED batch the moment the draft or audience changes ─────────
-  // "Adjust state while rendering" (React-endorsed): once a batch has completed, editing the
-  // subject/body or the recipient set clearly invalidates the result — clear it and the typed
-  // confirmation so the next send starts a fresh review with a fresh batch_id. (No re-send from a
-  // stale completed state.)
-  const draftSig = `${subject} ${body} ${recipients.map(r => r.normEmail).join('|')}`
-  if (sendResult && sentSnapshotRef.current !== null && draftSig !== sentSnapshotRef.current) {
-    sentSnapshotRef.current = null
-    setSendResult(null)
-    setConfirmText('')
-  }
+  // Order-independent signature of the current draft + audience (emails sorted) so harmless
+  // recipient re-ordering from a refreshed `students` prop is not mistaken for an edit.
+  const draftSig = `${subject} ${body} ${recipients.map(r => r.normEmail).sort().join('|')}`
+
+  // ── Reset a COMPLETED batch once the draft or audience genuinely changes ─────
+  // Runs in an effect (refs are safe here): on the first commit after a successful send it captures
+  // the live signature; a later real edit to subject/body/audience clears the result + typed
+  // confirmation so the next send is a fresh, intentional review with a fresh batch_id. (No re-send
+  // from a stale completed state.) Using the LIVE post-commit signature avoids the stale-closure
+  // mismatch that previously wiped the results panel immediately after a successful send.
+  useEffect(() => {
+    if (!sendResult) return
+    if (sentSnapshotRef.current === null) {
+      sentSnapshotRef.current = draftSig            // capture the signature the batch was sent for
+    } else if (draftSig !== sentSnapshotRef.current) {
+      sentSnapshotRef.current = null
+      setSendResult(null)
+      setConfirmText('')
+    }
+  }, [draftSig, sendResult])
 
   // ── Send gates (UI = second safety layer; server remains the floor) ──────────
   const overLimit       = recipients.length > MAX_RECIPIENTS
@@ -431,8 +440,7 @@ export default function BulkManualComposer({
       })
       const data = await res.json().catch(() => null)
       if (res.ok && data?.success) {
-        // Record the snapshot the batch was sent for, so any later edit clears the completed state.
-        sentSnapshotRef.current = `${subject} ${body} ${recipients.map(r => r.normEmail).join('|')}`
+        // The reset effect captures the sent-signature on the next commit; a later edit clears it.
         setSendResult(data)
       } else {
         setSendError(data?.error || `Send failed (HTTP ${res.status}).`)
