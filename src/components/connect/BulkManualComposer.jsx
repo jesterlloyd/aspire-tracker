@@ -1,14 +1,19 @@
 // src/components/connect/BulkManualComposer.jsx
 //
-// MANUAL-OUTREACH-TEMPLATE-LIBRARY Phase 2A — multi-source bulk audience composer (UI ONLY).
-// Renders the three-panel Send-to-Many layout for manual bulk templates:
+// MANUAL-OUTREACH-TEMPLATE-LIBRARY — multi-source bulk audience composer for Send-to-Many manual
+// templates. Three-panel layout:
 //   1. Audience  — source selector (Students / Contacts / Paste · Type), all deduped into one set
 //   2. Message Type — shared selector rendered by the parent (renderTypeSelector)
-//   3. Draft / Preview / Review
+//   3. Draft / Preview / Review & send
 //
-// HARD SCOPE: no sending, no endpoint, no notification_log, no message_archive. The "Send" button
-// is disabled and labeled as arriving in Phase 2B. Survey Invitation is untouched (handled by the
-// parent's own zones). Contacts are read with the table's existing RLS (no new endpoint/schema).
+// Phase 2B-3 (send wiring): the "Review & send" panel posts the selected recipients to the proven
+// send endpoint (/api/connect-send-bulk-message, commit 9113dce) behind a typed-confirmation gate.
+// The UI is the SECOND safety layer; the server is the floor (owner/admin auth + exact
+// 'SEND MESSAGES' confirmation + UUID batch_id + 1–75 ceiling + per-recipient isolation +
+// within-batch idempotency + one notification_log row per send). This component writes NO database
+// rows itself, never touches message_archive, and never imports/calls the student routing resolver
+// (the chosen email source is preserved). Survey Invitation is untouched (parent's own zones).
+// Contacts are read with the table's existing RLS (no new endpoint/schema).
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
@@ -58,6 +63,29 @@ const SOURCE_BADGE = {
   student: { label: 'Student', color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
   contact: { label: 'Contact', color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
   manual:  { label: 'Manual',  color: '#3f3f46', bg: '#f4f4f5', border: '#e4e4e7' },
+}
+
+// ── Phase 2B-3 send wiring ──────────────────────────────────────────────────────
+// The server (/api/connect-send-bulk-message, commit 9113dce) is the safety floor:
+// owner/admin auth + exact 'SEND MESSAGES' confirmation + UUID batch_id + 1–75 ceiling.
+// This UI is the SECOND safety layer (typed confirmation + gated/locked button).
+const SEND_ENDPOINT  = '/api/connect-send-bulk-message'
+const CONFIRM_PHRASE = 'SEND MESSAGES'
+const MAX_RECIPIENTS = 75
+
+// Audit-only template label sent in the payload metadata.
+const TEMPLATE_LABEL = {
+  academic_partner_placement:   'Academic Partner Placement Request',
+  student_profile_invitation:   'Student Profile Form Invitation',
+  student_interview_scheduling: 'Student Interview Scheduling Invitation',
+  announcement_broadcast:       'Announcement / Broadcast',
+}
+
+// Recipient-facing label for the chosen email source (shown in review before send).
+function recipientSourceLabel(r) {
+  if (r?.source === 'student') return emailTypeLabel(r.emailType)  // 'School email' | 'Personal email'
+  if (r?.source === 'contact') return 'Contact'
+  return 'Manual'
 }
 
 // App origin for static public links (browser origin, with a safe production fallback).
@@ -150,6 +178,14 @@ export default function BulkManualComposer({
   // (preview:true → no send, no log, no archive). Only for id-bearing sample recipients.
   const [preview, setPreview]             = useState({ html: '', loading: false, error: null })
 
+  // ── Phase 2B-3 live send state ──────────────────────────────────────────────
+  const [confirmText, setConfirmText]     = useState('')      // must equal CONFIRM_PHRASE exactly
+  const [sending, setSending]             = useState(false)   // request in flight
+  const [sendResult, setSendResult]       = useState(null)    // completed batch { batch_id, summary, sent, skipped, failed }
+  const [sendError, setSendError]         = useState(null)    // request-level error (auth/confirmation/network)
+  const sendInFlightRef = useRef(false)                       // synchronous double-click guard
+  const sentSnapshotRef = useRef(null)                        // signature of the draft/audience that was sent
+
   // ── Hydrate draft + default source when the template changes ────────────────
   // React's endorsed "adjust state while rendering" pattern (no effect, no extra commit):
   // when bulkMsgType differs from the last hydrated key, reset the draft/source to that
@@ -178,13 +214,13 @@ export default function BulkManualComposer({
   }, [source])
   const loadingContacts = source === 'contacts' && contacts === null
 
-  // ── Escape closes the review modal ──────────────────────────────────────────
+  // ── Escape closes the review modal (never while a send is in flight) ─────────
   useEffect(() => {
     if (!reviewOpen) return
-    const onKey = (e) => { if (e.key === 'Escape') setReviewOpen(false) }
+    const onKey = (e) => { if (e.key === 'Escape' && !sending) setReviewOpen(false) }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [reviewOpen])
+  }, [reviewOpen, sending])
 
   // Distinct schools for the school filter dropdown.
   const studentSchools = useMemo(
@@ -242,6 +278,33 @@ export default function BulkManualComposer({
   // The preview always renders the FIRST selected recipient (merge fields differ per recipient).
   // The Audience picker is the single source of truth — no second recipient control in the preview.
   const previewRecipient = recipients[0] || null
+
+  // ── Reset a COMPLETED batch the moment the draft or audience changes ─────────
+  // "Adjust state while rendering" (React-endorsed): once a batch has completed, editing the
+  // subject/body or the recipient set clearly invalidates the result — clear it and the typed
+  // confirmation so the next send starts a fresh review with a fresh batch_id. (No re-send from a
+  // stale completed state.)
+  const draftSig = `${subject} ${body} ${recipients.map(r => r.normEmail).join('|')}`
+  if (sendResult && sentSnapshotRef.current !== null && draftSig !== sentSnapshotRef.current) {
+    sentSnapshotRef.current = null
+    setSendResult(null)
+    setConfirmText('')
+  }
+
+  // ── Send gates (UI = second safety layer; server remains the floor) ──────────
+  const overLimit       = recipients.length > MAX_RECIPIENTS
+  const batchCompleted  = sendResult !== null
+  const confirmOk       = confirmText === CONFIRM_PHRASE
+  const canSend = (
+    recipients.length > 0 &&
+    !overLimit &&
+    subject.trim().length > 0 &&
+    body.trim().length > 0 &&
+    reviewOpen &&            // final review must be open
+    confirmOk &&             // typed confirmation exact
+    !sending &&              // not already sending
+    !batchCompleted          // completed batch cannot be re-sent
+  )
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   const toggleStudent = useCallback((id) => {
@@ -316,6 +379,71 @@ export default function BulkManualComposer({
     setPicked(prev => prev.filter(p => p.normEmail !== normEmail))
   }, [])
   const clearInvalids = useCallback(() => setManualInvalids([]), [])
+
+  // ── Live bulk send (Phase 2B-3) ──────────────────────────────────────────────
+  // Posts the CLIENT-SELECTED recipients (chosen email source preserved via emailType) to the
+  // proven send endpoint. The endpoint performs canonical merge + all safety checks server-side.
+  // resolveStudentCorrespondenceRecipient is NEVER imported or called — the chosen email is honored.
+  const handleBulkSend = useCallback(async () => {
+    // Synchronous double-click guard — set BEFORE any await so a rapid second click can't start a 2nd batch.
+    if (sendInFlightRef.current) return
+    // Re-validate every gate at click time (defense in depth; the button is also disabled).
+    if (sendResult) return
+    if (recipients.length === 0 || recipients.length > MAX_RECIPIENTS) return
+    if (!subject.trim() || !body.trim()) return
+    if (confirmText !== CONFIRM_PHRASE) return
+
+    sendInFlightRef.current = true
+    setSending(true)
+    setSendError(null)
+
+    const batch_id = crypto.randomUUID()
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        setSendError('Session expired — refresh and try again.')
+        return
+      }
+      // Preserve the chosen email source: emailType is included ONLY for students.
+      const payloadRecipients = recipients.map(r => ({
+        source:    r.source,
+        email:     r.email,
+        name:      r.name,
+        firstName: r.firstName,
+        school:    r.school,
+        studentId: r.studentId,
+        contactId: r.contactId,
+        ...(r.source === 'student' ? { emailType: r.emailType } : {}),
+      }))
+      const res = await fetch(SEND_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          confirmation:      CONFIRM_PHRASE,
+          batch_id,
+          template_key:      bulkMsgType,
+          template_label:    TEMPLATE_LABEL[bulkMsgType] || bulkMsgType,
+          subject,
+          body,
+          include_signature: includeSignature,
+          recipients:        payloadRecipients,
+        }),
+      })
+      const data = await res.json().catch(() => null)
+      if (res.ok && data?.success) {
+        // Record the snapshot the batch was sent for, so any later edit clears the completed state.
+        sentSnapshotRef.current = `${subject} ${body} ${recipients.map(r => r.normEmail).join('|')}`
+        setSendResult(data)
+      } else {
+        setSendError(data?.error || `Send failed (HTTP ${res.status}).`)
+      }
+    } catch {
+      setSendError('Network error. Check your connection and try again.')
+    } finally {
+      setSending(false)
+      sendInFlightRef.current = false
+    }
+  }, [recipients, subject, body, confirmText, sendResult, includeSignature, bulkMsgType])
 
   // ── Preview as sent ─────────────────────────────────────────────────────────
   // Merge fields (first name + school) for the selected sample recipient, then render the EXACT
@@ -617,7 +745,7 @@ export default function BulkManualComposer({
       <ConnectPanel tone="message" title="Message Type" helper="Bulk workflow" style={{ flex: '0 0 270px', minWidth: 220 }}>
         {renderTypeSelector?.()}
         <div style={{ marginTop: 12, padding: '8px 10px', background: '#FBF5E8', border: '1px solid #f0c9b0', borderRadius: 8, fontSize: 10, color: '#8B5E1A', fontFamily: F, lineHeight: 1.5 }}>
-          Manual bulk templates compose and review here. Sending arrives in Phase 2B — no email is sent from this screen.
+          Compose your audience and draft here, then open <strong>Review &amp; send</strong>. A typed confirmation is required before any email is sent.
         </div>
       </ConnectPanel>
 
@@ -699,70 +827,171 @@ export default function BulkManualComposer({
                 </div>
               )}
               <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 8, lineHeight: 1.5 }}>
-                Preview reflects one selected recipient. Bulk send remains disabled.
+                Preview reflects one selected recipient. First name and school merge per recipient at send.
               </div>
             </div>
           )}
         </ConnectPanel>
 
-        {/* Action row — no send in Phase 2A */}
+        {/* Action row — Review & send opens the final review panel (the only path to a live send) */}
         <div style={{ ...panelCard, marginTop: 14, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button onClick={() => setReviewOpen(true)} disabled={recipients.length === 0} style={{
-            padding: '9px 18px', borderRadius: 8, border: `1px solid ${NAVY}`,
-            background: recipients.length ? '#fff' : '#f3f4f6', color: recipients.length ? NAVY : '#9ca3af',
-            fontSize: 13, fontWeight: 600, fontFamily: F, cursor: recipients.length ? 'pointer' : 'not-allowed',
-          }}>Review recipients ({recipients.length})</button>
-          <button disabled title="Sending arrives in Phase 2B" style={{
-            padding: '9px 18px', borderRadius: 8, border: 'none', background: '#e5e7eb',
-            color: '#9ca3af', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'not-allowed',
-          }}>Send (Phase 2B)</button>
+          {(() => {
+            const reviewReady = recipients.length > 0 && subject.trim() && body.trim()
+            return (
+              <button onClick={() => setReviewOpen(true)} disabled={!reviewReady} style={{
+                padding: '9px 18px', borderRadius: 8, border: 'none',
+                background: reviewReady ? NAVY : '#e5e7eb', color: reviewReady ? '#fff' : '#9ca3af',
+                fontSize: 13, fontWeight: 600, fontFamily: F, cursor: reviewReady ? 'pointer' : 'not-allowed',
+              }}>Review &amp; send ({recipients.length})</button>
+            )
+          })()}
+          <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F }}>
+            {recipients.length === 0 ? 'Add recipients to continue.'
+              : !subject.trim() ? 'Add a subject to continue.'
+              : !body.trim() ? 'Add a message to continue.'
+              : 'A typed confirmation is required in the next step.'}
+          </span>
         </div>
       </div>
 
-      {/* ── Review Recipients modal ──────────────────────────────────────── */}
+      {/* ── Final Review & Send panel (the only path to a live send) ─────────── */}
       {reviewOpen && (
-        <div onClick={() => setReviewOpen(false)} style={{
+        <div onClick={() => { if (!sending) setReviewOpen(false) }} style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex',
           alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20,
         }}>
           <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" style={{
-            background: '#fff', borderRadius: 12, width: '100%', maxWidth: 560, maxHeight: '80vh',
+            background: '#fff', borderRadius: 12, width: '100%', maxWidth: 560, maxHeight: '85vh',
             display: 'flex', flexDirection: 'column', boxShadow: '0 8px 40px rgba(0,0,0,0.18)', fontFamily: F,
           }}>
+            {/* Header */}
             <div style={{ padding: '18px 22px', borderBottom: '1px solid #f3f4f6' }}>
-              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: NAVY, fontFamily: F }}>Review recipients</h2>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: NAVY, fontFamily: F }}>
+                {sendResult ? 'Send results' : 'Review & send'}
+              </h2>
               <div style={{ fontSize: 12, color: '#6b7280', fontFamily: F, marginTop: 4 }}>
                 {recipients.length} recipient{recipients.length === 1 ? '' : 's'} (deduped)
                 {dupCount > 0 && ` · ${dupCount} duplicate${dupCount === 1 ? '' : 's'} removed`}
                 {invalidEntries.length > 0 && ` · ${invalidEntries.length} invalid ignored`}
               </div>
             </div>
+
+            {/* Body */}
             <div style={{ padding: '12px 22px', overflowY: 'auto', flex: 1 }}>
-              {recipients.map(r => {
-                const b = SOURCE_BADGE[r.source] || SOURCE_BADGE.manual
-                return (
-                  <div key={r.normEmail} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid #f9fafb' }}>
-                    <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: b.bg, color: b.color, border: `1px solid ${b.border}`, textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0 }}>{b.label}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#191919', fontFamily: F }}>{r.name || <span style={{ color: '#9ca3af', fontWeight: 400 }}>—</span>}</div>
-                      <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F }}>{r.email}</div>
+              {sendResult ? (
+                // ── RESULTS ── partial success must be visually unmistakable
+                (() => {
+                  const s = sendResult.summary || { total: 0, sent: 0, skipped: 0, failed: 0 }
+                  const banner = s.failed > 0
+                    ? { bg: '#fef2f2', border: '#fecaca', color: '#b91c1c', text: `${s.failed} failed · ${s.skipped} skipped · ${s.sent} sent` }
+                    : s.skipped > 0
+                      ? { bg: '#FBF5E8', border: '#f0c9b0', color: '#8B5E1A', text: `${s.skipped} skipped · ${s.sent} sent` }
+                      : { bg: '#EEF7F0', border: '#c6d9a8', color: '#2F7D5C', text: `All ${s.sent} sent` }
+                  const bucket = (title, rows, tone) => rows.length === 0 ? null : (
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: tone.color, fontFamily: F, marginBottom: 4 }}>{title} ({rows.length})</div>
+                      {rows.map((row, i) => (
+                        <div key={`${row.email || 'r'}-${i}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '5px 8px', borderRadius: 6, background: tone.bg, border: `1px solid ${tone.border}`, marginBottom: 3 }}>
+                          <span style={{ fontSize: 11, color: '#374151', fontFamily: F, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.email || '—'}</span>
+                          {row.reason && <span style={{ fontSize: 10, fontWeight: 700, color: tone.color, fontFamily: F, flexShrink: 0 }}>{String(row.reason).replace(/_/g, ' ')}</span>}
+                        </div>
+                      ))}
                     </div>
+                  )
+                  return (
+                    <div>
+                      <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+                        {[['Total', s.total, '#6b7280', '#f3f4f6'], ['Sent', s.sent, '#2F7D5C', '#EEF7F0'], ['Skipped', s.skipped, '#8B5E1A', '#FBF5E8'], ['Failed', s.failed, '#b91c1c', '#fef2f2']].map(([lbl, n, col, bg]) => (
+                          <span key={lbl} style={{ fontSize: 11, fontWeight: 700, color: col, background: bg, padding: '4px 10px', borderRadius: 999, fontFamily: F }}>{lbl}: {n}</span>
+                        ))}
+                      </div>
+                      <div style={{ padding: '10px 12px', borderRadius: 8, background: banner.bg, border: `1px solid ${banner.border}`, color: banner.color, fontSize: 12, fontWeight: 700, fontFamily: F, marginBottom: 14 }}>
+                        {banner.text}
+                      </div>
+                      {bucket('Sent',    sendResult.sent    || [], { color: '#2F7D5C', bg: '#F4FAF6', border: '#dcefe2' })}
+                      {bucket('Skipped', sendResult.skipped || [], { color: '#8B5E1A', bg: '#FDF8EE', border: '#f0e2c6' })}
+                      {bucket('Failed',  sendResult.failed  || [], { color: '#b91c1c', bg: '#fef2f2', border: '#fecaca' })}
+                      <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 4, wordBreak: 'break-all' }}>Batch ID: {sendResult.batch_id}</div>
+                    </div>
+                  )
+                })()
+              ) : (
+                // ── PRE-SEND REVIEW ──
+                <div>
+                  {overLimit && (
+                    <div style={{ marginBottom: 12, padding: '10px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 11.5, color: '#b91c1c', fontFamily: F, lineHeight: 1.5 }}>
+                      Selected <strong>{recipients.length}</strong> exceeds the <strong>{MAX_RECIPIENTS}</strong>-recipient limit for a single send. Remove {recipients.length - MAX_RECIPIENTS} to continue.
+                    </div>
+                  )}
+                  <div style={{ marginBottom: 12, padding: '10px 12px', background: '#f9fafb', border: '1px solid #eef0f4', borderRadius: 8 }}>
+                    <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F }}>Subject</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: '#191919', fontFamily: F, marginBottom: 8 }}>{subject || <span style={{ color: '#9ca3af', fontWeight: 400 }}>—</span>}</div>
+                    <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F }}>Message</div>
+                    <div style={{ fontSize: 12, color: '#374151', fontFamily: F, lineHeight: 1.55, whiteSpace: 'pre-wrap', maxHeight: 120, overflowY: 'auto', marginTop: 2 }}>{body}</div>
+                    <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 6 }}>First name and school merge per recipient at send.</div>
                   </div>
-                )
-              })}
-              {invalidEntries.length > 0 && (
-                <div style={{ marginTop: 12, padding: '10px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', fontFamily: F, marginBottom: 4 }}>Invalid entries (not included)</div>
-                  <div style={{ fontSize: 11, color: '#b91c1c', fontFamily: F, lineHeight: 1.5, wordBreak: 'break-all' }}>{invalidEntries.join(', ')}</div>
+                  {recipients.map(r => {
+                    const b = SOURCE_BADGE[r.source] || SOURCE_BADGE.manual
+                    return (
+                      <div key={r.normEmail} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid #f9fafb' }}>
+                        <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: b.bg, color: b.color, border: `1px solid ${b.border}`, textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0 }}>{b.label}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: '#191919', fontFamily: F }}>{r.name || <span style={{ color: '#9ca3af', fontWeight: 400 }}>—</span>}</div>
+                          <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.email}</div>
+                        </div>
+                        <span style={{ fontSize: 10, color: '#6b7280', fontFamily: F, flexShrink: 0 }}>{recipientSourceLabel(r)}</span>
+                      </div>
+                    )
+                  })}
+                  {invalidEntries.length > 0 && (
+                    <div style={{ marginTop: 12, padding: '10px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', fontFamily: F, marginBottom: 4 }}>Invalid entries (not included)</div>
+                      <div style={{ fontSize: 11, color: '#b91c1c', fontFamily: F, lineHeight: 1.5, wordBreak: 'break-all' }}>{invalidEntries.join(', ')}</div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-            <div style={{ padding: '14px 22px', borderTop: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 11, color: '#8B5E1A', fontFamily: F }}>No email is sent from this screen — sending arrives in Phase 2B.</span>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => setReviewOpen(false)} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #d1d5db', background: '#fff', color: '#374151', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}>Close</button>
-                <button disabled title="Sending arrives in Phase 2B" style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#e5e7eb', color: '#9ca3af', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'not-allowed' }}>Send (Phase 2B)</button>
-              </div>
+
+            {/* Footer */}
+            <div style={{ padding: '14px 22px', borderTop: '1px solid #f3f4f6' }}>
+              {sendResult ? (
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button onClick={() => setReviewOpen(false)} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: NAVY, color: '#fff', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}>Done</button>
+                </div>
+              ) : (
+                <div>
+                  <label style={{ display: 'block', fontSize: 11.5, color: '#374151', fontFamily: F, marginBottom: 5 }}>
+                    Type <strong style={{ color: NAVY, letterSpacing: '0.03em' }}>{CONFIRM_PHRASE}</strong> to enable sending
+                  </label>
+                  <input
+                    value={confirmText}
+                    onChange={e => setConfirmText(e.target.value)}
+                    disabled={sending}
+                    placeholder={CONFIRM_PHRASE}
+                    autoComplete="off"
+                    style={{ ...inputBase, marginBottom: 10, borderColor: confirmOk ? '#2F7D5C' : '#e5e7eb' }}
+                  />
+                  {sendError && (
+                    <div style={{ marginBottom: 10, padding: '8px 11px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 11.5, color: '#b91c1c', fontFamily: F }}>{sendError}</div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                    <button onClick={() => { if (!sending) setReviewOpen(false) }} disabled={sending} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #d1d5db', background: '#fff', color: '#374151', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: sending ? 'not-allowed' : 'pointer' }}>Cancel</button>
+                    <button
+                      onClick={handleBulkSend}
+                      disabled={!canSend}
+                      title={overLimit ? `Over the ${MAX_RECIPIENTS}-recipient limit` : !confirmOk ? `Type ${CONFIRM_PHRASE} to enable` : undefined}
+                      style={{
+                        padding: '8px 18px', borderRadius: 8, border: 'none',
+                        background: canSend ? '#B42318' : '#e5e7eb', color: canSend ? '#fff' : '#9ca3af',
+                        fontSize: 13, fontWeight: 700, fontFamily: F, cursor: canSend ? 'pointer' : 'not-allowed',
+                      }}
+                    >
+                      {sending ? `Sending ${recipients.length}…` : `Send to ${recipients.length}`}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
