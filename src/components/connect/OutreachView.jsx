@@ -1690,6 +1690,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                 student chosen via the existing dropdown (so the picker does not
                 shadow the survey selection). The picker shows when explicitly
                 reopened ("Change recipient") or when no recipient is resolved. */}
+          <ConnectPanel tone="audience" icon="userSearch" title="Recipient">
           {(() => {
             const urlRecipient = !!(contactId || studentId)
             const anyRecipient = urlRecipient || !!selectedStudentId
@@ -1748,6 +1749,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
               </>
             )
           })()}
+          </ConnectPanel>
 
           {/* ── Message Type picker (moved into left column below profile card) ── */}
           <ConnectPanel tone="message" title="Message Type" helper="Workflow">
@@ -2785,10 +2787,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
 
             {/* Pre-generation summary */}
             {!bulkResults && (
-              <div style={panelCard}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#191919', fontFamily: F, marginBottom: 6 }}>
-                  Bulk Survey Invitation
-                </div>
+              <ConnectPanel tone="draft" icon="clipboardCheck" title="Bulk Survey Invitation">
                 <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, lineHeight: 1.6, marginBottom: 16 }}>
                   {INSTRUMENTS.find(i => i.slug === bulkInstrument)?.label}<br />
                   {TIMEPOINTS.find(t => t.value === bulkTimepoint)?.label} · Expires {fmtDate(bulkExpiresAt)}
@@ -2867,7 +2866,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                     )
                   })()}
                 </div>
-              </div>
+              </ConnectPanel>
             )}
 
             {/* Results */}
