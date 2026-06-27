@@ -8,6 +8,7 @@ import RecipientPicker from './RecipientPicker'
 import SentHistory from './SentHistory'
 import ContactAutocomplete from './ContactAutocomplete'
 import BulkManualComposer from './BulkManualComposer'
+import ConnectPanel from './ConnectPanel'
 import { isValidEmail } from '../../lib/notifications/studentRecipient'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { useAuth } from '../../contexts/AuthContext'
@@ -182,14 +183,7 @@ const panelCard = {
   fontFamily: F,
 }
 
-const panelTitle = {
-  fontSize: 12, fontWeight: 700, color: 'var(--color-accent-primary,#1D2567)',
-  letterSpacing: '-0.01em', marginBottom: 2, fontFamily: F,
-}
-
-const panelSubtitle = {
-  fontSize: 10, color: '#9ca3af', fontFamily: F, marginBottom: 14,
-}
+// panelTitle / panelSubtitle now live in <ConnectPanel>'s header (panels migrated to ConnectPanel).
 
 const panelBody = {
   fontSize: 11, color: '#9ca3af', lineHeight: 1.65,
@@ -1756,9 +1750,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
           })()}
 
           {/* ── Message Type picker (moved into left column below profile card) ── */}
-          <div style={{ ...panelCard }}>
-          <div style={panelTitle}>Message Type</div>
-          <div style={panelSubtitle}>Workflow</div>
+          <ConnectPanel tone="message" title="Message Type" helper="Workflow">
 
           {/* Type selector */}
           <div style={{ marginBottom: 16 }}>
@@ -2101,7 +2093,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
             )}
 
           </div>
-        </div>{/* end message type picker panel */}
+        </ConnectPanel>{/* end message type picker panel */}
         </div>{/* end left column */}
 
         {/* ═══════════════════════════════════════════════════════════════
@@ -2113,7 +2105,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
 
           {/* Direct Message: subject + body editor + live preview + actions */}
           {outreachMode === 'message' && (
-            <div style={panelCard}>
+            <ConnectPanel tone="draft" title="Draft">
 
               {/* Subject input */}
               {/* Subject input — enabled for any loaded recipient (contact or student) */}
@@ -2359,7 +2351,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                   )}
                 </div>
               </div>
-            </div>
+            </ConnectPanel>
           )}
 
           {/* Survey Invitation: email preview + generated link card
@@ -2583,11 +2575,9 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
           {/* ── Bulk Zone 1: Student Audience Picker ─────────────────── */}
-          <div style={{ ...panelCard, flex: '0 0 340px', minWidth: 280, maxHeight: 'calc(100dvh - 280px)', overflowY: 'auto' }}>
-            <div style={panelTitle}>Audience</div>
-            <div style={panelSubtitle}>
-              {loadingStudents ? 'Loading students…' : `${students.length} students in cohort`}
-            </div>
+          <ConnectPanel tone="audience" title="Audience"
+            helper={loadingStudents ? 'Loading students…' : `${students.length} students in cohort`}
+            style={{ flex: '0 0 340px', minWidth: 280, maxHeight: 'calc(100dvh - 280px)', overflowY: 'auto' }}>
 
             {/* Unified Audience Source tabs — Survey Invitation requires student recipients, so
                 Students is active/required and Contacts / Paste · Type are disabled with a note. */}
@@ -2742,12 +2732,10 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                 </div>
               </div>
             )}
-          </div>
+          </ConnectPanel>
 
           {/* ── Bulk Zone 2: Message Type + Workflow ──────────────────── */}
-          <div style={{ ...panelCard, flex: '0 0 270px', minWidth: 220 }}>
-            <div style={panelTitle}>Message Type</div>
-            <div style={panelSubtitle}>Bulk workflow</div>
+          <ConnectPanel tone="message" title="Message Type" helper="Bulk workflow" style={{ flex: '0 0 270px', minWidth: 220 }}>
 
             {/* Bulk message type selector (shared with the manual composer) */}
             {renderBulkTypeSelector()}
@@ -2790,7 +2778,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                 </div>
               </div>
             )}
-          </div>
+          </ConnectPanel>
 
           {/* ── Bulk Zone 3: Preview / Action / Results ───────────────── */}
           <div style={{ flex: '1 1 300px', minWidth: 260 }}>

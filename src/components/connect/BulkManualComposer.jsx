@@ -23,25 +23,16 @@ import {
   emailTypeLabel, EMAIL_SOURCE_OPTIONS, studentEmailForSource, studentHasEmailSource,
 } from '../../lib/studentBulkEmail'
 import ContactAutocomplete from './ContactAutocomplete'
+import ConnectPanel from './ConnectPanel'
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
 
 // ── Local style tokens (mirror OutreachView's design language) ──────────────────
+// Panel frame/header now come from <ConnectPanel>; panelCard remains for the white action bar.
 const panelCard = {
   background: '#ffffff', border: '1px solid rgba(29,37,103,0.10)', borderRadius: 12,
   padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', fontFamily: F,
-}
-const panelTitle = {
-  fontSize: 12, fontWeight: 700, color: 'var(--color-accent-primary,#1D2567)',
-  letterSpacing: '-0.01em', marginBottom: 2, fontFamily: F,
-}
-const panelSubtitle = { fontSize: 10, color: '#9ca3af', fontFamily: F, marginBottom: 14 }
-// Canonical uppercase section label — matches Send to One's "Preview as sent" label.
-const sectionLabel = {
-  fontSize: 10, fontWeight: 700, color: '#9ca3af',
-  letterSpacing: '0.13em', textTransform: 'uppercase',
-  marginBottom: 6, fontFamily: F, display: 'block',
 }
 const inputBase = {
   width: '100%', padding: '10px 13px', border: '1.5px solid #e5e7eb', borderRadius: 8,
@@ -378,9 +369,8 @@ export default function BulkManualComposer({
       {/* ── Zone 1: Audience ─────────────────────────────────────────────── */}
       {/* overflow stays auto for the long Students/Contacts lists, but is visible for Paste · Type
           so the typeahead suggestion dropdown is never clipped by the card. */}
-      <div style={{ ...panelCard, flex: '0 0 340px', minWidth: 280, maxHeight: 'calc(100dvh - 280px)', overflowY: source === 'paste' ? 'visible' : 'auto' }}>
-        <div style={panelTitle}>Audience</div>
-        <div style={panelSubtitle}>Build one recipient list from any source.</div>
+      <ConnectPanel tone="audience" title="Audience" helper="Build one recipient list from any source."
+        style={{ flex: '0 0 340px', minWidth: 280, maxHeight: 'calc(100dvh - 280px)', overflowY: source === 'paste' ? 'visible' : 'auto' }}>
 
         {/* Audience Source selector */}
         <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6', marginBottom: 10 }}>
@@ -593,24 +583,19 @@ export default function BulkManualComposer({
             )}
           </div>
         )}
-      </div>
+      </ConnectPanel>
 
       {/* ── Zone 2: Message Type (shared selector from parent) ───────────── */}
-      <div style={{ ...panelCard, flex: '0 0 270px', minWidth: 220 }}>
-        <div style={panelTitle}>Message Type</div>
-        <div style={panelSubtitle}>Bulk workflow</div>
+      <ConnectPanel tone="message" title="Message Type" helper="Bulk workflow" style={{ flex: '0 0 270px', minWidth: 220 }}>
         {renderTypeSelector?.()}
         <div style={{ marginTop: 12, padding: '8px 10px', background: '#FBF5E8', border: '1px solid #f0c9b0', borderRadius: 8, fontSize: 10, color: '#8B5E1A', fontFamily: F, lineHeight: 1.5 }}>
           Manual bulk templates compose and review here. Sending arrives in Phase 2B — no email is sent from this screen.
         </div>
-      </div>
+      </ConnectPanel>
 
       {/* ── Zone 3: Draft / Preview / Review ─────────────────────────────── */}
       <div style={{ flex: '1 1 320px', minWidth: 280 }}>
-        <div style={panelCard}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#191919', fontFamily: F, marginBottom: 10 }}>
-            Draft
-          </div>
+        <ConnectPanel tone="draft" title="Draft">
 
           <div style={{ marginBottom: 12 }}>
             <label style={labelStyle}>Subject</label>
@@ -628,11 +613,10 @@ export default function BulkManualComposer({
           <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, lineHeight: 1.5 }}>
             First name and school merge per recipient at send. All other [placeholders] (links, deadlines, dates, unit, preceptor) are edited once here and sent as-is.
           </div>
-        </div>
+        </ConnectPanel>
 
-        {/* Preview as sent — matches the Send to One preview layout */}
-        <div style={{ ...panelCard, marginTop: 14 }}>
-          <span style={sectionLabel}>Preview as sent</span>
+        {/* Email Preview — tint on the shell; the branded email card inside stays white */}
+        <ConnectPanel tone="preview" title="Email Preview" padding={24} style={{ marginTop: 14 }}>
 
           {recipients.length === 0 ? (
             <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: F, padding: '12px 0', textAlign: 'center' }}>
@@ -693,7 +677,7 @@ export default function BulkManualComposer({
               </div>
             </div>
           )}
-        </div>
+        </ConnectPanel>
 
         {/* Action row — no send in Phase 2A */}
         <div style={{ ...panelCard, marginTop: 14, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

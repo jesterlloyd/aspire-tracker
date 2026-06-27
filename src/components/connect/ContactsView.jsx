@@ -13,6 +13,8 @@ import {
   PRECEPTOR_ROLES, CATEGORY_CHIP_STYLES,
   getPrimaryCategory, getContactCategories,
 } from '../../lib/contactCategories'
+import { toneGradient } from '../../lib/connectTones'
+import ConnectPanel, { ConnectPanelIcon } from './ConnectPanel'
 
 const F    = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -604,14 +606,10 @@ function ContactProfile({ contact, navigate, onEdit, onDeactivate }) {
 
 function ContactContext({ contact, navigate, commHistory, loadingComm, linkedStudents, loadingStudents }) {
   return (
-    <div style={{ padding: '20px 18px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-      {/* ── Communication history ── */}
-      <div style={{
-        background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
-        padding: '14px 16px', marginBottom: 14,
-      }}>
-        <SectionHeading>Recent Communications</SectionHeading>
+      {/* ── Recent Communications (communications tone / blush) ── */}
+      <ConnectPanel tone="communications" title="Recent Communications" icon="mail">
         {loadingComm ? (
           <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', fontFamily: F }}>Loading…</p>
         ) : commHistory.length === 0 ? (
@@ -646,14 +644,10 @@ function ContactContext({ contact, navigate, commHistory, loadingComm, linkedStu
             View all communications for this contact →
           </button>
         )}
-      </div>
+      </ConnectPanel>
 
-      {/* ── Linked students ── */}
-      <div style={{
-        background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
-        padding: '14px 16px',
-      }}>
-        <SectionHeading>Linked Students</SectionHeading>
+      {/* ── Linked Students (linkedStudents tone / sage) ── */}
+      <ConnectPanel tone="linkedStudents" title="Linked Students" icon="users">
         {(() => {
           const isPreceptor = PRECEPTOR_ROLES.has(contact.role)
           const hasSource   = isPreceptor ? !!contact.email : !!contact.school_name
@@ -701,7 +695,7 @@ function ContactContext({ contact, navigate, commHistory, loadingComm, linkedStu
             </div>
           )
         })()}
-      </div>
+      </ConnectPanel>
 
     </div>
   )
@@ -1837,13 +1831,14 @@ export default function ContactsView({ refreshKey = 0 }) {
     }}>
 
       {/* ── Zone 1: Directory (left) ──────────────────────────────────── */}
+      {/* Tinted shell only (butter); inner list/search/rows keep their own surfaces. */}
       <div style={{
         flex: '0 0 320px', flexShrink: 0,
         borderRadius: 12,
         border: '1px solid rgba(29,37,103,0.10)',
         boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
         display: 'flex', flexDirection: 'column',
-        background: '#fff',
+        background: toneGradient('contacts'),
         overflow: 'hidden',
       }}>
 
@@ -1854,8 +1849,11 @@ export default function ContactsView({ refreshKey = 0 }) {
           borderBottom: '1px solid rgba(29,37,103,0.06)',
           flexShrink: 0,
         }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#374151', fontFamily: F, letterSpacing: '-0.01em' }}>
-            Contacts
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ConnectPanelIcon name="addressBook" />
+            <span style={{ fontSize: 12, fontWeight: 700, color: NAVY, fontFamily: F, letterSpacing: '-0.01em' }}>
+              Contacts
+            </span>
           </span>
           <button
             onClick={handleOpenAdd}
@@ -2052,13 +2050,10 @@ export default function ContactsView({ refreshKey = 0 }) {
       </div>
 
       {/* ── Zone 3: Context — history + linked students (right) ───────── */}
+      {/* No white outer shell — each card is its own standalone tinted ConnectPanel. */}
       <div style={{
-        flex: '0 0 280px', minWidth: 0,
+        flex: '0 0 300px', minWidth: 0,
         overflowY: 'auto',
-        background: '#fff',
-        borderRadius: 12,
-        border: '1px solid rgba(29,37,103,0.10)',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
       }}>
         {selected ? (
           <ContactContext
