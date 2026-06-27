@@ -22,7 +22,7 @@ import { supabase } from '../../lib/supabase'
 import StudentAvatar from '../StudentAvatar'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { isValidEmail } from '../../lib/notifications/studentRecipient'
-import { getPrimaryCategory } from '../../lib/contactCategories'
+import { getPrimaryCategory, categoryChipColors } from '../../lib/contactCategories'
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -269,7 +269,10 @@ export default function ContactAutocomplete({
           )}
           {results.map((r, i) => {
             const isActive = i === safeActive
-            const badge = SOURCE_BADGE[r.source] || SOURCE_BADGE.contact
+            // Contacts use the canonical per-category palette; other sources keep their source badge.
+            const badge = (r.source === 'contact' && r.category)
+              ? categoryChipColors(r.category)
+              : (SOURCE_BADGE[r.source] || SOURCE_BADGE.contact)
             return (
               <div
                 key={r.key}

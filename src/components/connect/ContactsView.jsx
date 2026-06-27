@@ -10,7 +10,7 @@ import Tooltip from '../ui/Tooltip'
 import { isValidEmail } from '../../lib/notifications/studentRecipient'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import {
-  PRECEPTOR_ROLES,
+  PRECEPTOR_ROLES, CATEGORY_CHIP_STYLES,
   getPrimaryCategory, getContactCategories,
 } from '../../lib/contactCategories'
 
@@ -78,14 +78,7 @@ const ROLE_COLORS = {
 // Category-level chip fallback — used when the contact's role string isn't in ROLE_COLORS.
 // Ensures contacts with non-standard role titles (e.g., "Professor & Assistant Director")
 // still receive the correct category color rather than the generic gray default.
-const CATEGORY_CHIP_STYLES = {
-  'Academic Partners':  { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
-  'Unit Leadership':    { color: '#0d7a8a', bg: '#E0F7FA', border: '#9dd6f2' },
-  'Preceptors':         { color: '#0e4e6e', bg: '#E1F3FB', border: '#89CEEA' },
-  'BNI Team':           { color: '#5B21B6', bg: '#EDE9FE', border: '#C4B5FD' },
-  'Nursing Executives': { color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
-  'Other':              { color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb' },
-}
+// CATEGORY_CHIP_STYLES is the shared canonical palette (imported from lib/contactCategories).
 
 function roleChip(role, category) {
   const cfg = ROLE_COLORS[role] || CATEGORY_CHIP_STYLES[category] || CATEGORY_CHIP_STYLES['Other']

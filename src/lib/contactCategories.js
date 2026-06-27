@@ -45,6 +45,22 @@ export const CONTACT_CATEGORY_ORDER = [
   'Other',
 ]
 
+// Canonical category chip colors (color/bg/border) — the single source for category pills across
+// the Contacts page, Send to One, and Send to Many so the palettes never drift.
+export const CATEGORY_CHIP_STYLES = {
+  'Academic Partners':  { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
+  'Unit Leadership':    { color: '#0d7a8a', bg: '#E0F7FA', border: '#9dd6f2' },
+  'Preceptors':         { color: '#0e4e6e', bg: '#E1F3FB', border: '#89CEEA' },
+  'BNI Team':           { color: '#5B21B6', bg: '#EDE9FE', border: '#C4B5FD' },
+  'Nursing Executives': { color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
+  'Other':              { color: '#6b7280', bg: '#f3f4f6', border: '#e5e7eb' },
+}
+
+// Returns the canonical chip colors for a category (falls back to 'Other').
+export function categoryChipColors(category) {
+  return CATEGORY_CHIP_STYLES[category] || CATEGORY_CHIP_STYLES['Other']
+}
+
 // Returns the inferred primary category from role only (no stored category consulted).
 // Priority: Nursing Executives > BNI Team > Unit Leadership > Preceptors > Academic Partners
 // Returns null if no role Set matches.

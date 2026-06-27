@@ -37,6 +37,12 @@ const panelTitle = {
   letterSpacing: '-0.01em', marginBottom: 2, fontFamily: F,
 }
 const panelSubtitle = { fontSize: 10, color: '#9ca3af', fontFamily: F, marginBottom: 14 }
+// Canonical uppercase section label — matches Send to One's "Preview as sent" label.
+const sectionLabel = {
+  fontSize: 10, fontWeight: 700, color: '#9ca3af',
+  letterSpacing: '0.13em', textTransform: 'uppercase',
+  marginBottom: 6, fontFamily: F, display: 'block',
+}
 const inputBase = {
   width: '100%', padding: '10px 13px', border: '1.5px solid #e5e7eb', borderRadius: 8,
   fontSize: 13, fontFamily: F, color: '#191919', background: '#fff', outline: 'none', boxSizing: 'border-box',
@@ -145,7 +151,6 @@ export default function BulkManualComposer({
   const [includeSignature, setIncludeSig] = useState(true)
 
   // Preview / Review
-  const [previewNorm, setPreviewNorm]     = useState(null)
   const [reviewOpen, setReviewOpen]       = useState(false)
   // Branded "Preview as sent" — { html, loading, error } from the existing DM preview endpoint
   // (preview:true → no send, no log, no archive). Only for id-bearing sample recipients.
@@ -240,11 +245,9 @@ export default function BulkManualComposer({
   // Set of all chosen normalized emails — hides already-added rows from the typeahead.
   const excludeEmails = useMemo(() => new Set(recipients.map(r => r.normEmail)), [recipients])
 
-  // Keep the preview pointer valid.
-  const previewRecipient = useMemo(() => {
-    if (!recipients.length) return null
-    return recipients.find(r => r.normEmail === previewNorm) || recipients[0]
-  }, [recipients, previewNorm])
+  // The preview always renders the FIRST selected recipient (merge fields differ per recipient).
+  // The Audience picker is the single source of truth — no second recipient control in the preview.
+  const previewRecipient = recipients[0] || null
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   const toggleStudent = useCallback((id) => {
@@ -627,31 +630,30 @@ export default function BulkManualComposer({
           </div>
         </div>
 
-        {/* Preview as sent */}
+        {/* Preview as sent — matches the Send to One preview layout */}
         <div style={{ ...panelCard, marginTop: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#191919', fontFamily: F }}>Preview as sent</div>
-            {recipients.length > 0 && (
-              <select value={previewRecipient?.normEmail || ''} onChange={e => setPreviewNorm(e.target.value)}
-                style={{ ...inputBase, width: 'auto', maxWidth: 200, fontSize: 11, padding: '5px 8px' }}>
-                {recipients.map(r => <option key={r.normEmail} value={r.normEmail}>{r.name ? `${r.name} — ` : ''}{r.email}</option>)}
-              </select>
-            )}
-          </div>
+          <span style={sectionLabel}>Preview as sent</span>
+
           {recipients.length === 0 ? (
             <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: F, padding: '12px 0', textAlign: 'center' }}>
               Add recipients to preview the branded email.
             </div>
           ) : (
             <div>
-              {previewRecipient && (
-                <div style={{ fontSize: 10, color: '#6b7280', fontFamily: F, marginBottom: 8, lineHeight: 1.5 }}>
-                  To: <strong>{previewRecipient.email}</strong>
-                  {previewRecipient.source === 'student' && previewRecipient.emailType && (
-                    <span> · {emailTypeLabel(previewRecipient.emailType)}</span>
+              {/* Audience summary — the Audience picker is the only recipient control. */}
+              {recipients.length === 1 ? (
+                <div style={{ fontSize: 12, color: '#374151', fontFamily: F, margin: '2px 0 10px' }}>
+                  To: <strong>{previewRecipient?.email}</strong>
+                  {previewRecipient?.source === 'student' && previewRecipient?.emailType && (
+                    <span style={{ color: '#6b7280' }}> · {emailTypeLabel(previewRecipient.emailType)}</span>
                   )}
                 </div>
+              ) : (
+                <div style={{ fontSize: 12, color: '#374151', fontFamily: F, margin: '2px 0 10px' }}>
+                  Recipients: <strong>{recipients.length} selected</strong>
+                </div>
               )}
+
               {previewRid ? (
                 <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
                   {preview.loading ? (
@@ -674,18 +676,20 @@ export default function BulkManualComposer({
               ) : (
                 // Raw pasted recipients have no student/contact ID, so the branded preview endpoint
                 // (which resolves by UUID) can't render them. Show the merged text as a fallback.
-                <div>
-                  <div style={{ fontSize: 11, color: '#8B5E1A', fontFamily: F, background: '#FBF5E8', border: '1px solid #f0c9b0', borderRadius: 8, padding: '8px 10px', marginBottom: 8, lineHeight: 1.5 }}>
-                    Branded preview is available for student and contact recipients. This recipient was added manually — showing the merged text below.
+                <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+                  <div style={{ fontSize: 11, color: '#8B5E1A', fontFamily: F, background: '#FBF5E8', borderBottom: '1px solid #f0c9b0', padding: '8px 12px', lineHeight: 1.5 }}>
+                    Branded preview is available for student and contact recipients. This one was added manually — showing the merged text.
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#191919', fontFamily: F, marginBottom: 6 }}>{previewSubject}</div>
-                  <div style={{ fontSize: 12, color: '#374151', fontFamily: F, lineHeight: 1.6, whiteSpace: 'pre-wrap', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 12px', maxHeight: 320, overflowY: 'auto' }}>
-                    {previewBody}
+                  <div style={{ padding: '12px 14px' }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#191919', fontFamily: F, marginBottom: 6 }}>{previewSubject}</div>
+                    <div style={{ fontSize: 12, color: '#374151', fontFamily: F, lineHeight: 1.6, whiteSpace: 'pre-wrap', maxHeight: 320, overflowY: 'auto' }}>
+                      {previewBody}
+                    </div>
                   </div>
                 </div>
               )}
-              <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 6, lineHeight: 1.5 }}>
-                Sample preview for one recipient (first name + school merged). This does not send, log, or archive anything.
+              <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 8, lineHeight: 1.5 }}>
+                Preview reflects one selected recipient. Bulk send remains disabled.
               </div>
             </div>
           )}
