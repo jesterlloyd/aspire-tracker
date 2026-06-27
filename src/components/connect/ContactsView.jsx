@@ -1849,9 +1849,9 @@ export default function ContactsView({ refreshKey = 0 }) {
           borderBottom: '1px solid rgba(29,37,103,0.06)',
           flexShrink: 0,
         }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <ConnectPanelIcon name="addressBook" />
-            <span style={{ fontSize: 12, fontWeight: 700, color: NAVY, fontFamily: F, letterSpacing: '-0.01em' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <ConnectPanelIcon name="addressBook" tone="contacts" />
+            <span style={{ fontSize: 13.5, fontWeight: 700, color: NAVY, fontFamily: F, letterSpacing: '-0.01em' }}>
               Contacts
             </span>
           </span>

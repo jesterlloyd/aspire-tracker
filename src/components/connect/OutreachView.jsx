@@ -14,6 +14,7 @@ import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { useAuth } from '../../contexts/AuthContext'
 import { buildPreceptorAssignmentDraft, buildCoordinatorAcceptanceDraft } from '../../lib/outreachTemplates'
 import { EMAIL_SOURCE_OPTIONS, studentHasEmailSource, studentEmailForSource, emailTypeLabel } from '../../lib/studentBulkEmail'
+import { getStudentPreferredFirstName } from '../../lib/studentNameFormatters'
 
 const F = 'DM Sans, sans-serif'
 
@@ -426,7 +427,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     setLoadingStudents(true)
     supabase
       .from('students')
-      .select('id, first_name, last_name, school, school_email, personal_email, status, school_coordinator_email, school_coordinator_name')
+      .select('id, first_name, last_name, preferred_first_name, school, school_email, personal_email, status, school_coordinator_email, school_coordinator_name')
       .eq('cohort_id', cohortId)
       .order('last_name')
       .order('first_name')
@@ -609,7 +610,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
     setStudentFetchFailed(false)
     supabase
       .from('students')
-      .select('id, first_name, last_name, personal_email, school_email, school, headshot_url, school_coordinator_email, school_coordinator_name')
+      .select('id, first_name, last_name, preferred_first_name, personal_email, school_email, school, headshot_url, school_coordinator_email, school_coordinator_name')
       .eq('id', studentId)
       .single()
       .then(({ data }) => {
@@ -670,7 +671,9 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
         ? 'personal email'
         : selectedStudent.school_email ? 'school email' : null)
     : null
-  const firstName        = selectedStudent?.first_name || null
+  // Survey preview greeting honors the student's preferred first name (display only; the survey
+  // send path already resolves the preferred greeting server-side).
+  const firstName        = (selectedStudent ? getStudentPreferredFirstName(selectedStudent) : '') || null
   const instrumentLabel  = INSTRUMENTS.find(i => i.slug === instrument)?.label || ''
   const expiresFormatted = fmtDate(expiresAt)
   const formValid        = !!(selectedStudentId && instrument && timepoint)

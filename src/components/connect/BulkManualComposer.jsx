@@ -13,6 +13,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { isValidEmail } from '../../lib/notifications/studentRecipient'
+import { getStudentPreferredFirstName } from '../../lib/studentNameFormatters'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import {
   parseRecipientText, dedupeRecipients, applyMergeFields, firstNameFromName,
@@ -86,10 +87,12 @@ function studentToRecipient(s, source) {
   if (!s) return null
   const email = studentEmailForSource(s, source)
   if (!email) return null
-  const name = `${s.first_name || ''} ${s.last_name || ''}`.trim()
+  // Greeting/merge + recipient-facing display honor the student's preferred first name.
+  const preferredFirst = getStudentPreferredFirstName(s)
+  const name = `${preferredFirst} ${s.last_name || ''}`.trim()
   return {
     email, normEmail: normalizeEmailForLookup(email), name,
-    firstName: s.first_name || '', school: s.school || null,
+    firstName: preferredFirst, school: s.school || null,
     source: 'student', studentId: s.id, contactId: null,
     emailType: source,
   }
@@ -272,9 +275,13 @@ export default function BulkManualComposer({
     const contactId = typeof r.key === 'string' && r.key.startsWith('contact:') ? r.key.slice('contact:'.length) : null
     const studentId = r.source === 'student' ? (r.raw?.id || null) : null
     const sourceKind = studentId ? 'student' : contactId ? 'contact' : 'manual'
+    // For a student typeahead pick, honor the preferred first name from the full student record.
+    const firstName = (sourceKind === 'student' && r.raw)
+      ? getStudentPreferredFirstName(r.raw)
+      : firstNameFromName(r.name)
     const rec = {
       email: r.email.trim(), normEmail, name: r.name || '',
-      firstName: firstNameFromName(r.name), school: r.raw?.school || null,
+      firstName, school: r.raw?.school || null,
       source: sourceKind, studentId, contactId,
     }
     setPicked(prev => prev.some(p => p.normEmail === normEmail) ? prev : [...prev, rec])

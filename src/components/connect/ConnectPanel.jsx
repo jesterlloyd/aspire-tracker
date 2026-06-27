@@ -5,7 +5,7 @@
 // The body (children) is fully free; the component dictates nothing about inner content, and all
 // inner surfaces stay white — the tint is the shell only. No behavior, state, or handlers.
 
-import { toneGradient } from '../../lib/connectTones'
+import { toneGradient, toneChip } from '../../lib/connectTones'
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -61,10 +61,10 @@ export default function ConnectPanel({ tone = 'audience', title, helper, icon, p
     }}>
       {(title || helper) && (
         <div style={{ marginBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <ConnectPanelIcon name={icon || tone} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <ConnectPanelIcon name={icon || tone} tone={tone} />
             {title && (
-              <span style={{ fontSize: 12, fontWeight: 700, color: NAVY, letterSpacing: '-0.01em', fontFamily: F }}>{title}</span>
+              <span style={{ fontSize: 13.5, fontWeight: 700, color: NAVY, letterSpacing: '-0.01em', fontFamily: F }}>{title}</span>
             )}
           </div>
           {helper && <div style={{ fontSize: 10, color: '#6b7280', fontFamily: F, marginTop: 4 }}>{helper}</div>}
@@ -75,15 +75,23 @@ export default function ConnectPanel({ tone = 'audience', title, helper, icon, p
   )
 }
 
-// Reusable navy panel icon — same navy/size/stroke as the ConnectPanel header, so panels that own
-// their own header markup (e.g. the Contacts directory header) stay visually consistent.
-export function ConnectPanelIcon({ name, size = 15 }) {
+// Reusable navy panel icon inside a subtle tone-harmonized circular chip — identical chip size,
+// icon size, and stroke across all ConnectPanel usage (incl. panels that own their own header
+// markup, e.g. the Contacts directory header). The icon itself stays navy.
+export function ConnectPanelIcon({ name, tone, size = 14 }) {
   const paths = ICON_PATHS[name] || null
   if (!paths) return null
+  const chip = toneChip(tone)
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={NAVY} strokeWidth="2"
-      strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }} aria-hidden="true">
-      {paths}
-    </svg>
+    <span style={{
+      width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      background: chip.bg, border: `1px solid ${chip.border}`,
+    }}>
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={NAVY} strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        {paths}
+      </svg>
+    </span>
   )
 }
