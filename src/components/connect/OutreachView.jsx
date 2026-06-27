@@ -2397,18 +2397,42 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                       Click the link below to begin. This survey expires on <strong>{expiresFormatted}</strong>.
                     </p>
 
-                    {/* Survey link — placeholder before generation, real URL shown once after */}
+                    {/* Survey link — placeholder before generation, real URL shown once after.
+                        The generated row carries an icon-only Copy control at the far right. */}
                     <p style={{ margin: '0 0 12px' }}>
                       {surveyResult ? (
                         <span style={{
-                          display: 'block', padding: '6px 10px',
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          padding: '5px 6px 5px 10px',
                           background: '#EEF7F0', border: '1px solid #c6d9a8', borderRadius: 6,
                           fontSize: 11, color: '#166534',
-                          fontFamily: 'ui-monospace, monospace',
-                          wordBreak: 'break-all', lineHeight: 1.6,
-                          userSelect: 'text',
+                          fontFamily: 'ui-monospace, monospace', lineHeight: 1.5,
                         }}>
-                          {surveyResult.surveyUrl}
+                          <span style={{ flex: 1, minWidth: 0, wordBreak: 'break-all', userSelect: 'text' }}>
+                            {surveyResult.surveyUrl}
+                          </span>
+                          <button
+                            onClick={handleCopy}
+                            title="Copy survey link"
+                            aria-label="Copy survey link"
+                            style={{
+                              flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              width: 26, height: 26, borderRadius: 6, cursor: 'pointer',
+                              background: copied ? '#DCEFE2' : '#fff', border: '1px solid #c6d9a8',
+                              color: copied ? '#2F7D5C' : '#166534', transition: 'background 0.15s',
+                            }}
+                          >
+                            {copied ? (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            ) : (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                              </svg>
+                            )}
+                          </button>
                         </span>
                       ) : (
                         <span style={{
@@ -2429,124 +2453,104 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                 </div>
               </ConnectPanel>
 
-              {/* Generated link card — shown after successful Generate Link */}
+              {/* Generated link — inline action-required (warning) panel, shown after Generate Link */}
               {surveyResult && (
                 <div style={{
-                  marginTop: 10,
-                  background: '#fff', borderRadius: 12,
-                  border: '1px solid rgba(29,37,103,0.10)',
+                  marginTop: 14,
+                  background: 'linear-gradient(160deg, #FDECEC 0%, #FEF6F6 55%, #ffffff 100%)',
+                  border: '1px solid #F3C9C9',
+                  borderRadius: 12,
                   boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
-                  overflow: 'hidden',
+                  padding: 16,
+                  fontFamily: F,
                 }}>
-                  {/* Success header */}
-                  <div style={{
-                    background: '#EEF7F0', borderBottom: '1px solid #c6d9a8',
-                    padding: '10px 16px',
-                    display: 'flex', alignItems: 'center', gap: 8,
-                  }}>
-                    <span style={{ fontSize: 12, color: '#2F7D5C', fontWeight: 600, fontFamily: F }}>
-                      ✓ Link generated
-                    </span>
+                  {/* Warning header — circular warning icon + "Warning" */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 4 }}>
                     <span style={{
-                      fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 5,
-                      background: '#c6d9a8', color: '#166534', fontFamily: F,
+                      width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      background: '#FBDDDD', border: '1px solid #F3C9C9',
                     }}>
-                      {surveyResult.student?.firstName} {surveyResult.student?.lastName}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B42318" strokeWidth="2"
+                        strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                    </span>
+                    <span style={{ fontSize: 13.5, fontWeight: 700, color: '#B42318', letterSpacing: '-0.01em', fontFamily: F }}>
+                      Warning
                     </span>
                   </div>
+                  <div style={{ fontSize: 11.5, color: '#9A2A22', fontFamily: F, lineHeight: 1.6, marginBottom: 12 }}>
+                    ✓ Link is generated for <strong>{`${surveyResult.student?.firstName || ''} ${surveyResult.student?.lastName || ''}`.trim() || 'this student'}</strong>. This link will only be shown once. Copy it now before you leave this screen or send the form to {surveyResult.student?.firstName || 'the student'}.
+                  </div>
 
-                  <div style={{ padding: '14px 16px' }}>
-                    {/* One-time warning */}
-                    <div style={{
-                      padding: '9px 12px', marginBottom: 12,
-                      background: '#FBF5E8', border: '1px solid #f0c9b0',
-                      borderRadius: 8, fontSize: 11, color: '#8B5E1A',
-                      fontFamily: F, lineHeight: 1.6,
-                    }}>
-                      This link is shown once. Copy it now before closing or changing the form.
-                    </div>
-
-                    {/* Action row: Copy + Send test to me + Send to student */}
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                  {/* Two next-step actions */}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                    <Tooltip label="Send a test survey email to your own inbox" placement="top">
                       <button
-                        onClick={handleCopy}
+                        onClick={handleSingleTestSend}
+                        disabled={singleTestSendState === 'sending'}
                         style={{
-                          padding: '7px 14px',
-                          background: copied ? '#EEF7F0' : 'var(--color-accent-primary,#1D2567)',
-                          border: `1px solid ${copied ? '#c6d9a8' : 'transparent'}`,
-                          borderRadius: 8, fontSize: 11, fontWeight: 600, fontFamily: F,
-                          color: copied ? '#2F7D5C' : '#fff', cursor: 'pointer',
-                          transition: 'background 0.15s',
+                          padding: '7px 13px', borderRadius: 8,
+                          border: '1px solid #e5e7eb', fontFamily: F, fontSize: 11, fontWeight: 600,
+                          background: singleTestSendState === 'sent' ? '#EEF2FB' : singleTestSendState === 'error' ? '#fef2f2' : '#fff',
+                          color: singleTestSendState === 'sent' ? '#1D2567' : singleTestSendState === 'error' ? '#dc2626' : '#374151',
+                          cursor: singleTestSendState === 'sending' ? 'not-allowed' : 'pointer',
+                          transition: 'background 0.12s',
                         }}
                       >
-                        {copied ? '✓ Copied' : 'Copy Link'}
+                        {singleTestSendState === 'sending' ? '↑ Sending…'
+                         : singleTestSendState === 'sent'   ? '✓ Test sent to me'
+                         : singleTestSendState === 'error'  ? '✗ Test failed'
+                         : '↑ Send test to me'}
                       </button>
+                    </Tooltip>
 
-                      <Tooltip label="Send a test survey email to your own inbox" placement="top">
-                        <button
-                          onClick={handleSingleTestSend}
-                          disabled={singleTestSendState === 'sending'}
-                          style={{
-                            padding: '7px 13px', borderRadius: 8,
-                            border: '1px solid #e5e7eb', fontFamily: F, fontSize: 11, fontWeight: 600,
-                            background: singleTestSendState === 'sent' ? '#EEF2FB' : singleTestSendState === 'error' ? '#fef2f2' : '#fff',
-                            color: singleTestSendState === 'sent' ? '#1D2567' : singleTestSendState === 'error' ? '#dc2626' : '#374151',
-                            cursor: singleTestSendState === 'sending' ? 'not-allowed' : 'pointer',
-                            transition: 'background 0.12s',
-                          }}
-                        >
-                          {singleTestSendState === 'sending' ? '↑ Sending…'
-                           : singleTestSendState === 'sent'   ? '✓ Test sent to me'
-                           : singleTestSendState === 'error'  ? '✗ Test failed'
-                           : '↑ Send test to me'}
-                        </button>
-                      </Tooltip>
+                    {singleSendState === 'sent' ? (
+                      <button disabled style={{ padding: '7px 13px', borderRadius: 8, border: '1px solid #c6d9a8', background: '#EEF7F0', fontSize: 11, fontWeight: 600, fontFamily: F, color: '#2F7D5C', cursor: 'not-allowed' }}>
+                        ✓ Sent to student
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => { setSingleSendConfirmOpen(true); setSingleSendPhrase('') }}
+                        disabled={singleSendInFlight}
+                        style={{
+                          padding: '7px 13px', borderRadius: 8, border: 'none',
+                          background: singleSendInFlight ? '#e5e7eb' : '#1D2567',
+                          fontSize: 11, fontWeight: 600, fontFamily: F,
+                          color: singleSendInFlight ? '#9ca3af' : '#fff',
+                          cursor: singleSendInFlight ? 'not-allowed' : 'pointer',
+                          transition: 'opacity 0.12s',
+                        }}
+                        onMouseEnter={e => { if (!singleSendInFlight) e.currentTarget.style.opacity = '0.85' }}
+                        onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+                      >
+                        {singleSendInFlight ? 'Sending…' : 'Send to student'}
+                      </button>
+                    )}
+                  </div>
 
-                      {singleSendState === 'sent' ? (
-                        <button disabled style={{ padding: '7px 13px', borderRadius: 8, border: '1px solid #c6d9a8', background: '#EEF7F0', fontSize: 11, fontWeight: 600, fontFamily: F, color: '#2F7D5C', cursor: 'not-allowed' }}>
-                          ✓ Sent to student
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => { setSingleSendConfirmOpen(true); setSingleSendPhrase('') }}
-                          disabled={singleSendInFlight}
-                          style={{
-                            padding: '7px 13px', borderRadius: 8, border: 'none',
-                            background: singleSendInFlight ? '#e5e7eb' : '#1D2567',
-                            fontSize: 11, fontWeight: 600, fontFamily: F,
-                            color: singleSendInFlight ? '#9ca3af' : '#fff',
-                            cursor: singleSendInFlight ? 'not-allowed' : 'pointer',
-                            transition: 'opacity 0.12s',
-                          }}
-                          onMouseEnter={e => { if (!singleSendInFlight) e.currentTarget.style.opacity = '0.85' }}
-                          onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
-                        >
-                          {singleSendInFlight ? 'Sending…' : 'Send to student via Resend'}
-                        </button>
-                      )}
+                  {/* Assignment details */}
+                  <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, lineHeight: 1.7 }}>
+                    <div>
+                      <strong style={{ color: '#6b7280' }}>Assignment ID:</strong>{' '}
+                      {surveyResult.assignmentId}
                     </div>
-
-                    {/* Assignment details */}
-                    <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, lineHeight: 1.7 }}>
-                      <div>
-                        <strong style={{ color: '#6b7280' }}>Assignment ID:</strong>{' '}
-                        {surveyResult.assignmentId}
-                      </div>
-                      <div>
-                        <strong style={{ color: '#6b7280' }}>Expires:</strong>{' '}
-                        {fmtDate(surveyResult.expiresAt?.split('T')[0])}
-                      </div>
-                      <div>
-                        <strong style={{ color: '#6b7280' }}>Timepoint:</strong>{' '}
-                        {TIMEPOINTS.find(t => t.value === surveyResult.timepoint)?.label || surveyResult.timepoint}
-                      </div>
-                      {surveyResult.student?.email && (
-                        <div>
-                          <strong style={{ color: '#6b7280' }}>Delivery email:</strong>{' '}
-                          {surveyResult.student.email}
-                        </div>
-                      )}
+                    <div>
+                      <strong style={{ color: '#6b7280' }}>Expires:</strong>{' '}
+                      {fmtDate(surveyResult.expiresAt?.split('T')[0])}
                     </div>
+                    <div>
+                      <strong style={{ color: '#6b7280' }}>Timepoint:</strong>{' '}
+                      {TIMEPOINTS.find(t => t.value === surveyResult.timepoint)?.label || surveyResult.timepoint}
+                    </div>
+                    {surveyResult.student?.email && (
+                      <div>
+                        <strong style={{ color: '#6b7280' }}>Delivery email:</strong>{' '}
+                        {surveyResult.student.email}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
