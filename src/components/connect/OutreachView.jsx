@@ -714,7 +714,6 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   //   • student recipient → hide the dropdown, show a recipient summary
   //   • contact recipient → hide the form, show a guard message
   //   • no recipient      → preserve the standalone student dropdown (fallback)
-  const recipientIsStudent = !!studentId
   const recipientIsContact = !!contactId
 
   // Display fields for the Direct Message recipient — used to label the saved-draft
@@ -1724,6 +1723,34 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           {(() => {
             const urlRecipient = !!(contactId || studentId)
             const anyRecipient = urlRecipient || !!selectedStudentId
+            const isSurvey     = outreachMode === 'survey'
+            // Survey mode: the student recipient is chosen HERE (relocated out of the
+            // Message Type panel). When none is chosen yet and there is no deep-linked
+            // recipient, show the required student selector. Selecting a student sets
+            // selectedStudentId exactly as before, which drives the survey invitation.
+            if (isSurvey && !urlRecipient && !selectedStudentId) {
+              return (
+                <div style={fieldWrap}>
+                  <label style={labelStyle}>
+                    Survey recipient <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
+                  </label>
+                  <select
+                    value={selectedStudentId}
+                    onChange={e => setSelectedStudentId(e.target.value)}
+                    style={inputBase}
+                  >
+                    <option value="">
+                      {loadingStudents ? 'Loading students…' : 'Select a student'}
+                    </option>
+                    {students.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.first_name} {s.last_name}{s.school ? ` — ${s.school}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )
+            }
             const showPicker   = pickerOpen || !anyRecipient
             if (showPicker) {
               return (
@@ -1754,10 +1781,10 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
             }
             return (
               <>
-                {urlRecipient && (
+                {(urlRecipient || (isSurvey && !!selectedStudentId)) && (
                   <button
                     type="button"
-                    onClick={() => setPickerOpen(true)}
+                    onClick={() => { if (urlRecipient) setPickerOpen(true); else setSelectedStudentId('') }}
                     style={{
                       alignSelf: 'flex-start', background: 'none', border: 'none',
                       cursor: 'pointer', padding: 0, fontFamily: F,
@@ -1892,31 +1919,9 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 (State 1 student recipient → summary; State 3 no recipient → dropdown) */}
             {outreachMode === 'survey' && !recipientIsContact && (
               <div>
-                {/* Recipient identity + delivery email now live in the Recipient panel only.
-                    Message Type keeps just the survey workflow choices. When NO recipient is yet
-                    selected, the standalone student picker stays here as the selection entry point. */}
-                {!recipientIsStudent && (
-                  <div style={fieldWrap}>
-                    <label style={labelStyle}>
-                      Recipient <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
-                    </label>
-                    <select
-                      value={selectedStudentId}
-                      onChange={e => setSelectedStudentId(e.target.value)}
-                      style={inputBase}
-                    >
-                      <option value="">
-                        {loadingStudents ? 'Loading students…' : 'Select a student'}
-                      </option>
-                      {students.map(s => (
-                        <option key={s.id} value={s.id}>
-                          {s.first_name} {s.last_name}{s.school ? ` — ${s.school}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
+                {/* Recipient is chosen in the Recipient panel above (student selector when
+                    none is selected; recipient card + delivery email once selected). The
+                    Message Type panel holds only message-workflow + survey settings. */}
                 {/* Field — Instrument */}
                 <div style={fieldWrap}>
                   <label style={labelStyle}>
