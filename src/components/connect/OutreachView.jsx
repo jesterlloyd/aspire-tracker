@@ -9,12 +9,13 @@ import SentHistory from './SentHistory'
 import ContactAutocomplete from './ContactAutocomplete'
 import BulkManualComposer from './BulkManualComposer'
 import ConnectPanel from './ConnectPanel'
-import { isValidEmail } from '../../lib/notifications/studentRecipient'
+import { isValidEmail, resolveStudentCorrespondenceRecipient } from '../../lib/notifications/studentRecipient'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { useAuth } from '../../contexts/AuthContext'
 import { buildPreceptorAssignmentDraft, buildCoordinatorAcceptanceDraft } from '../../lib/outreachTemplates'
 import { EMAIL_SOURCE_OPTIONS, studentHasEmailSource, studentEmailForSource, emailTypeLabel } from '../../lib/studentBulkEmail'
-import { getStudentPreferredFirstName } from '../../lib/studentNameFormatters'
+import { getStudentPreferredFirstName, getStudentPreferredGreetingName } from '../../lib/studentNameFormatters'
+import { buildStudentInvitationEmail, formatExpiresAt, TIMEPOINT_LABELS } from '../../../lib/server/evaluation/emailTemplates'
 
 const F = 'DM Sans, sans-serif'
 
@@ -663,19 +664,30 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
   const dmHasAnyRecipient = !!(contactId || studentId)
 
   const selectedStudent  = students.find(s => s.id === selectedStudentId) || null
+  // Delivery email mirrors the canonical server resolver used by the survey send
+  // (resolveStudentCorrespondenceRecipient = school-first), so the displayed address always matches
+  // the address the send will actually use. No email-type pill is shown.
   const resolvedEmail    = selectedStudent
-    ? (selectedStudent.personal_email || selectedStudent.school_email || null)
-    : null
-  const emailSource      = selectedStudent
-    ? (selectedStudent.personal_email
-        ? 'personal email'
-        : selectedStudent.school_email ? 'school email' : null)
+    ? (resolveStudentCorrespondenceRecipient(selectedStudent)?.email || null)
     : null
   // Survey preview greeting honors the student's preferred first name (display only; the survey
   // send path already resolves the preferred greeting server-side).
   const firstName        = (selectedStudent ? getStudentPreferredFirstName(selectedStudent) : '') || null
   const instrumentLabel  = INSTRUMENTS.find(i => i.slug === instrument)?.label || ''
   const expiresFormatted = fmtDate(expiresAt)
+  // Branded "Email Preview" HTML — the EXACT Casey-Fink invitation template the send uses, rendered
+  // client-side from the generated survey link (no send, no endpoint call).
+  const surveyPreviewHtml = useMemo(() => {
+    if (!surveyResult?.surveyUrl) return ''
+    try {
+      return buildStudentInvitationEmail({
+        studentFirstName: getStudentPreferredGreetingName(selectedStudent) || surveyResult.student?.firstName || 'there',
+        timepointLabel:   TIMEPOINT_LABELS[surveyResult.timepoint] || surveyResult.timepoint,
+        expiresAtHuman:   formatExpiresAt(surveyResult.expiresAt),
+        surveyUrl:        surveyResult.surveyUrl,
+      }).html
+    } catch { return '' }
+  }, [surveyResult, selectedStudent])
   const formValid        = !!(selectedStudentId && instrument && timepoint)
 
   // ── Survey Invitation recipient clarity (Phase 1.2) ───────────────────────
@@ -1913,23 +1925,12 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                   <div style={fieldWrap}>
                     <label style={labelStyle}>Delivery email</label>
                     {resolvedEmail ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <div style={{
-                          flex: 1, padding: '10px 13px',
-                          background: '#f9fafb', border: '1.5px solid #e5e7eb',
-                          borderRadius: 8, fontSize: 13, color: '#374151', fontFamily: F,
-                        }}>
-                          {resolvedEmail}
-                        </div>
-                        {emailSource && (
-                          <span style={{
-                            fontSize: 10, fontWeight: 600, padding: '2px 7px',
-                            borderRadius: 5, background: '#f3f4f6', color: '#6b7280',
-                            border: '1px solid #e5e7eb', whiteSpace: 'nowrap', fontFamily: F,
-                          }}>
-                            {emailSource}
-                          </span>
-                        )}
+                      <div style={{
+                        padding: '10px 13px',
+                        background: '#f9fafb', border: '1.5px solid #e5e7eb',
+                        borderRadius: 8, fontSize: 13, color: '#374151', fontFamily: F,
+                      }}>
+                        {resolvedEmail}
                       </div>
                     ) : (
                       <div style={{
@@ -2458,7 +2459,7 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                 <div style={{
                   marginTop: 14,
                   background: 'linear-gradient(160deg, #FDECEC 0%, #FEF6F6 55%, #ffffff 100%)',
-                  border: '1px solid #F3C9C9',
+                  border: '1px solid rgba(29,37,103,0.10)',
                   borderRadius: 12,
                   boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
                   padding: 16,
@@ -2553,6 +2554,27 @@ export default function OutreachView({ cohortId, onNavigateToStudent, toast, ref
                     )}
                   </div>
                 </div>
+              )}
+
+              {/* Email Preview — the branded final survey email (below the Warning panel) */}
+              {surveyResult && (
+                <ConnectPanel tone="preview" title="Email Preview" style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 12, color: '#374151', fontFamily: F, margin: '2px 0 10px' }}>
+                    To: <strong>{resolvedEmail || '—'}</strong>
+                  </div>
+                  <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+                    {surveyPreviewHtml ? (
+                      <iframe
+                        title="Email Preview"
+                        srcDoc={surveyPreviewHtml}
+                        sandbox="allow-same-origin"
+                        style={{ width: '100%', height: 520, border: 'none', background: '#fff', display: 'block' }}
+                      />
+                    ) : (
+                      <div style={{ padding: '24px 14px', fontSize: 12, color: '#9ca3af', fontFamily: F, textAlign: 'center' }}>Preview unavailable.</div>
+                    )}
+                  </div>
+                </ConnectPanel>
               )}
 
             </div>

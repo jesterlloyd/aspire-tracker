@@ -316,19 +316,6 @@ export default function RecipientProfileCard({
           ? <InfoRow label="Email" value={sEmail} />
           : <InfoRow label="Email" error="No email on file" />
         }
-        {sEmail && sEmailSource && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -4, marginBottom: 6 }}>
-            <span style={{
-              fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 10,
-              textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: F,
-              background: sEmailSource.warn ? '#fdf6ec' : '#eef5ef',
-              color:      sEmailSource.warn ? '#92400e' : '#2F7D5C',
-              border:     `1px solid ${sEmailSource.warn ? '#f0c9b0' : '#cfe6d6'}`,
-            }}>
-              {sEmailSource.label}
-            </span>
-          </div>
-        )}
         {sEmailSource?.warn && (
           <div style={{ fontSize: 10.5, color: '#92400e', fontFamily: F, lineHeight: 1.4, margin: '0 0 6px' }}>
             School email missing — using personal email.
