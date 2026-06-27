@@ -316,29 +316,50 @@ export default function BulkManualComposer({
   const previewSubject = previewRecipient ? applyMergeFields(subject, previewRecipient) : subject
   const previewBody    = previewRecipient ? applyMergeFields(body, previewRecipient) : body
   const previewRid     = previewRecipient?.studentId || previewRecipient?.contactId || null
+  // Manual/raw pasted recipients have no UUID, so the direct-email preview can't render them. They
+  // use the Phase 2B-1 preview-only endpoint (/api/connect-send-bulk-message) — preview only, no send.
+  const isManualPreview = previewRecipient?.source === 'manual' && isValidEmail(previewRecipient?.email || '')
 
   useEffect(() => {
     let cancelled = false
     const timer = setTimeout(async () => {
-      // Branded preview is only available for id-bearing (student/contact) recipients; the endpoint
-      // resolves the recipient server-side by UUID and never accepts a raw email.
-      if (!previewRid || !previewBody.trim()) { if (!cancelled) setPreview({ html: '', loading: false, error: null }); return }
+      // id-bearing (student/contact) → direct-email preview; manual/raw → bulk-message preview endpoint.
+      if ((!previewRid && !isManualPreview) || !body.trim()) { if (!cancelled) setPreview({ html: '', loading: false, error: null }); return }
       setPreview(p => ({ ...p, loading: true, error: null }))
       try {
         const { data: { session } } = await supabase.auth.getSession()
         if (!session?.access_token) { if (!cancelled) setPreview({ html: '', loading: false, error: 'Session expired — refresh to preview.' }); return }
-        const res = await fetch('/api/connect-send-direct-email', {
+        const url = previewRid ? '/api/connect-send-direct-email' : '/api/connect-send-bulk-message'
+        // Direct-email renders the body as-given, so it gets the client-merged body. The bulk endpoint
+        // performs its own canonical merge (with fallback), so it gets the RAW body + recipient.
+        const payload = previewRid
+          ? {
+              preview:           true,
+              recipient_type:    previewRecipient.studentId ? 'student' : 'contact',
+              recipient_id:      previewRid,
+              subject:           previewSubject,
+              body:              previewBody,
+              body_format:       'text',
+              include_signature: includeSignature,
+            }
+          : {
+              preview:           true,
+              template_key:      bulkMsgType,
+              subject,
+              body,
+              include_signature: includeSignature,
+              recipient: {
+                email:     previewRecipient.email,
+                name:      previewRecipient.name,
+                firstName: previewRecipient.firstName,
+                school:    previewRecipient.school,
+                source:    'manual',
+              },
+            }
+        const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-          body: JSON.stringify({
-            preview:           true,
-            recipient_type:    previewRecipient.studentId ? 'student' : 'contact',
-            recipient_id:      previewRid,
-            subject:           previewSubject,
-            body:              previewBody,
-            body_format:       'text',
-            include_signature: includeSignature,
-          }),
+          body: JSON.stringify(payload),
         })
         const data = await res.json().catch(() => null)
         if (cancelled) return
@@ -347,7 +368,7 @@ export default function BulkManualComposer({
       } catch { if (!cancelled) setPreview({ html: '', loading: false, error: 'Preview unavailable.' }) }
     }, 450)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [previewRid, previewRecipient, previewSubject, previewBody, includeSignature])
+  }, [previewRid, isManualPreview, previewRecipient, previewSubject, previewBody, subject, body, includeSignature, bulkMsgType])
 
   // ── Render helpers ──────────────────────────────────────────────────────────
   const sourceTab = (key, label) => (
@@ -638,7 +659,9 @@ export default function BulkManualComposer({
                 </div>
               )}
 
-              {previewRid ? (
+              {(previewRid || isManualPreview) ? (
+                // Branded "Email Preview" — student/contact via the direct-email preview endpoint,
+                // manual/raw via the Phase 2B-1 bulk-message preview endpoint. Preview only — no send.
                 <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
                   {preview.loading ? (
                     <div style={{ padding: '24px 14px', fontSize: 12, color: '#9ca3af', fontFamily: F, textAlign: 'center' }}>Rendering preview…</div>
@@ -646,7 +669,7 @@ export default function BulkManualComposer({
                     <div style={{ padding: '16px 14px', fontSize: 12, color: '#dc2626', fontFamily: F }}>{preview.error}</div>
                   ) : preview.html ? (
                     <iframe
-                      title="Preview as sent"
+                      title="Email Preview"
                       srcDoc={preview.html}
                       sandbox="allow-same-origin"
                       style={{ width: '100%', height: 520, border: 'none', background: '#fff', display: 'block' }}
@@ -658,12 +681,8 @@ export default function BulkManualComposer({
                   )}
                 </div>
               ) : (
-                // Raw pasted recipients have no student/contact ID, so the branded preview endpoint
-                // (which resolves by UUID) can't render them. Show the merged text as a fallback.
+                // Fallback (e.g. a recipient without a usable email) — merged text only.
                 <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-                  <div style={{ fontSize: 11, color: '#8B5E1A', fontFamily: F, background: '#FBF5E8', borderBottom: '1px solid #f0c9b0', padding: '8px 12px', lineHeight: 1.5 }}>
-                    Branded preview is available for student and contact recipients. This one was added manually — showing the merged text.
-                  </div>
                   <div style={{ padding: '12px 14px' }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: '#191919', fontFamily: F, marginBottom: 6 }}>{previewSubject}</div>
                     <div style={{ fontSize: 12, color: '#374151', fontFamily: F, lineHeight: 1.6, whiteSpace: 'pre-wrap', maxHeight: 320, overflowY: 'auto' }}>
