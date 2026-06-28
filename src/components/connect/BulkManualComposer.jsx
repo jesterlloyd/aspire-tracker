@@ -1000,7 +1000,8 @@ export default function BulkManualComposer({
                     <iframe
                       title="Email Preview"
                       srcDoc={preview.html}
-                      sandbox="allow-same-origin"
+                      sandbox=""
+                      referrerPolicy="no-referrer"
                       style={{ width: '100%', height: 520, border: 'none', background: '#fff', display: 'block' }}
                     />
                   ) : (

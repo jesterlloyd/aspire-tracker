@@ -2336,7 +2336,8 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     <iframe
                       title="Preview as sent"
                       srcDoc={dmPreview.html}
-                      sandbox="allow-same-origin"
+                      sandbox=""
+                      referrerPolicy="no-referrer"
                       style={{ width: '100%', height: 520, border: 'none', background: '#fff', display: 'block' }}
                     />
                   ) : (
@@ -2573,7 +2574,8 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                       <iframe
                         title="Email Preview"
                         srcDoc={surveyPreviewHtml}
-                        sandbox="allow-same-origin"
+                        sandbox=""
+                        referrerPolicy="no-referrer"
                         style={{ width: '100%', height: 520, border: 'none', background: '#fff', display: 'block' }}
                       />
                     ) : (
@@ -3505,7 +3507,8 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                   <iframe
                     title="Preview as sent"
                     srcDoc={dmPreview.html}
-                    sandbox="allow-same-origin"
+                    sandbox=""
+                    referrerPolicy="no-referrer"
                     style={{ width: '100%', height: 360, border: 'none', background: '#fff', display: 'block' }}
                   />
                 ) : (
