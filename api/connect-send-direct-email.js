@@ -181,7 +181,7 @@ async function _handler(req, res, startMs) {
   const { data: profile } = await supabaseAdmin
     .from('user_profiles')
     // CONNECT-COMMS-1D: include full_name + connect_signature to resolve the manual sender's signature.
-    .select('id, role, email, full_name, connect_signature')
+    .select('id, role, email, full_name, connect_signature, is_owner')
     .eq('auth_user_id', user.id)
     .single();
 
@@ -255,17 +255,18 @@ async function _handler(req, res, startMs) {
     if (!subjStr.trim()) return res.status(400).json({ success: false, error: 'subject is required and must be non-empty' });
     if (!bodyStr.trim()) return res.status(400).json({ success: false, error: 'body is required and must be non-empty' });
   }
-  if (subjStr.trim().length > 200)   return res.status(400).json({ success: false, error: 'subject must not exceed 200 characters' });
-  if (bodyStr.trim().length > 10000) return res.status(400).json({ success: false, error: 'body must not exceed 10000 characters' });
+  if (subjStr.trim().length > 200) return res.status(400).json({ success: false, error: 'subject must not exceed 200 characters' });
 
-  // body_format — text only
+  // body_format — 'text' always; 'html' (RICH-COMPOSE-1) ONLY for the Owner (authoritative server
+  // gate; the client feature flag is UX-only). Any other value is rejected. The builder sanitizes
+  // html before it reaches the shell, so raw HTML can never be delivered.
   const resolvedBodyFormat = body_format ?? 'text';
-  if (resolvedBodyFormat !== 'text') {
-    return res.status(400).json({
-      success: false,
-      error: 'Only text email body format is supported in this release.',
-    });
+  const callerIsOwner = profile?.is_owner === true || profile?.role === 'owner';
+  if (resolvedBodyFormat !== 'text' && !(resolvedBodyFormat === 'html' && callerIsOwner)) {
+    return res.status(400).json({ success: false, error: 'Only text email body format is supported for this account.' });
   }
+  const maxBody = resolvedBodyFormat === 'html' ? 40000 : 10000;
+  if (bodyStr.trim().length > maxBody) return res.status(400).json({ success: false, error: `body must not exceed ${maxBody} characters` });
 
   // include_signature
   if (include_signature !== undefined && typeof include_signature !== 'boolean') {

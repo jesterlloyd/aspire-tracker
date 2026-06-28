@@ -34,6 +34,7 @@ import { buildDirectMessageEmail } from '../lib/server/connect/emailTemplates.js
 import { isValidEmail } from '../src/lib/notifications/studentRecipient.js';
 import { normalizeEmailForLookup } from '../src/lib/emailUtils.js';
 import { applyMergeFields } from '../src/lib/recipientParse.js';
+import { escapeHtml } from '../src/lib/htmlEscape.js';
 import { JESTER_SIGNATURE, KRYSTAL_SIGNATURE } from '../src/lib/notifications/templates/signatures.js';
 
 // Seeded fallback signatures for the two known leads (mirrors api/connect-send-direct-email.js).
@@ -51,6 +52,7 @@ const SEND_DELAY_MS   = 300;               // gentle pacing between Resend calls
 const RATE_RETRY_MS   = 1000;              // backoff before a single 429 retry
 const SUBJECT_MAX     = 200;
 const BODY_MAX        = 10000;
+const BODY_MAX_HTML   = 40000;  // RICH-COMPOSE-1: HTML bodies are more verbose than plain text.
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isUuid(v) { return typeof v === 'string' && UUID_PATTERN.test(v); }
@@ -178,7 +180,7 @@ async function _handler(req, res) {
   // ── 2. Role check + resolve sender identity/signature ──
   const { data: profile } = await supabaseAdmin
     .from('user_profiles')
-    .select('id, role, email, full_name, connect_signature')
+    .select('id, role, email, full_name, connect_signature, is_owner')
     .eq('auth_user_id', user.id)
     .single();
 
@@ -186,6 +188,9 @@ async function _handler(req, res) {
     return res.status(403).json({ success: false, error: 'Forbidden' });
   }
   const senderSig = resolveSenderSignature(profile);
+  // RICH-COMPOSE-1: 'html' bodies are accepted ONLY from the Owner (authoritative server gate; the
+  // client feature flag is UX-only). Non-owners and any other value remain text-only.
+  const callerIsOwner = profile?.is_owner === true || profile?.role === 'owner';
 
   // ── 3. Parse body ──
   let body;
@@ -198,6 +203,13 @@ async function _handler(req, res) {
   if (!body || typeof body !== 'object') {
     return res.status(400).json({ success: false, error: 'Invalid request body' });
   }
+
+  // body_format gate (shared by preview + send): 'text' always; 'html' only for the Owner; reject else.
+  const reqBodyFormat = body?.body_format ?? 'text';
+  if (reqBodyFormat !== 'text' && !(reqBodyFormat === 'html' && callerIsOwner)) {
+    return res.status(400).json({ success: false, error: 'Only text email body format is supported for this account.' });
+  }
+  const resolvedBodyFormat = reqBodyFormat;
 
   // ── 4. Mode branch ──
   // PREVIEW path is byte-unchanged from Phase 2B-1. SEND path is purely additive.
@@ -229,13 +241,17 @@ async function _handler(req, res) {
       firstName: effectiveFirstName(recipient),
       school:    String(recipient.school || '').trim(),
     };
-    const mergedBody    = applyMergeFields(messageBody, mergeCtx);
+    // In html mode, merge VALUES are HTML-escaped before insertion so a recipient name can never
+    // inject markup; the body is then re-sanitized by the builder. Subject stays raw plain text.
+    const esc = resolvedBodyFormat === 'html' ? escapeHtml : (v => v);
+    const bodyMergeCtx  = { firstName: esc(mergeCtx.firstName), school: esc(mergeCtx.school) };
+    const mergedBody    = applyMergeFields(messageBody, bodyMergeCtx);
     const mergedSubject = applyMergeFields(subject, mergeCtx);
 
     // ── 7. Render branded HTML (same renderer + server-resolved signature as Direct Message) ──
     const { html } = buildDirectMessageEmail({
       body:             mergedBody,
-      bodyFormat:       'text',
+      bodyFormat:       resolvedBodyFormat,
       includeSignature,
       signature:        senderSig.signature,
     });
@@ -287,7 +303,8 @@ async function runSendMode(res, body, senderSig, profile) {
   if (!subjectRaw.trim()) return res.status(400).json({ success: false, error: 'subject is required and must be non-empty' });
   if (!bodyRaw.trim())    return res.status(400).json({ success: false, error: 'body is required and must be non-empty' });
   if (subjectRaw.trim().length > SUBJECT_MAX) return res.status(400).json({ success: false, error: `subject must not exceed ${SUBJECT_MAX} characters` });
-  if (bodyRaw.trim().length > BODY_MAX)       return res.status(400).json({ success: false, error: `body must not exceed ${BODY_MAX} characters` });
+  const maxBody = resolvedBodyFormat === 'html' ? BODY_MAX_HTML : BODY_MAX;
+  if (bodyRaw.trim().length > maxBody)        return res.status(400).json({ success: false, error: `body must not exceed ${maxBody} characters` });
   const includeSignature = body.include_signature !== false; // default true
 
   // ── S5. Recipients array + safety ceiling (reject over-limit; never partial-send). ──
@@ -389,13 +406,16 @@ async function runSendMode(res, body, senderSig, profile) {
 
       // S6e. Merge (first name + school with graceful fallback; all other placeholders left literal).
       const mergeCtx = { firstName: sendFirstName(source, r.firstName), school: sendSchool(r.school) };
+      // html mode: escape merge values before insertion (builder re-sanitizes); subject stays raw text.
+      const esc = resolvedBodyFormat === 'html' ? escapeHtml : (v => v);
+      const bodyMergeCtx  = { firstName: esc(mergeCtx.firstName), school: esc(mergeCtx.school) };
       const mergedSubject = applyMergeFields(subjectRaw.trim(), mergeCtx);
-      const mergedBody    = applyMergeFields(bodyRaw.trim(), mergeCtx);
+      const mergedBody    = applyMergeFields(bodyRaw.trim(), bodyMergeCtx);
 
       // S6f. Render branded HTML (same renderer + server-resolved signature as Direct Message).
       const { html } = buildDirectMessageEmail({
         body:             mergedBody,
-        bodyFormat:       'text',
+        bodyFormat:       resolvedBodyFormat,
         includeSignature,
         signature:        senderSig.signature,
       });

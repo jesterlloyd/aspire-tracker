@@ -30,6 +30,8 @@ import {
 } from '../../lib/studentBulkEmail'
 import ContactAutocomplete from './ContactAutocomplete'
 import ConnectPanel from './ConnectPanel'
+import RichTextEditor from './RichTextEditor'
+import { plainTextToHtml, htmlToPlainText } from '../../lib/connect/richCompose'
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -70,18 +72,25 @@ function readBulkDraft(key) {
 // The bulk composer is never blank — it starts from a message-type TEMPLATE. "Pristine" (the unedited
 // template default) is the bulk analog of Send-to-one's "empty": no draft is persisted and the
 // Discard control stays hidden until the user actually edits.
-function bulkDraftIsPristine(type, subject, body) {
+// The unedited template body for a type, in the shape the active composer holds: HTML in rich mode
+// (RICH-COMPOSE-1), plain text otherwise. Pristine detection compares against this.
+function bulkTemplateBody(type, rich) {
+  const tpl = buildBulkTemplate(type)
+  const plain = tpl ? withStaticLinks(type, tpl.body) : ''
+  return rich ? plainTextToHtml(plain) : plain
+}
+function bulkDraftIsPristine(type, subject, body, rich) {
   const tpl = buildBulkTemplate(type)
   if (!tpl) return !String(subject || '').trim() && !String(body || '').trim()
-  return subject === tpl.subject && body === withStaticLinks(type, tpl.body)
+  return subject === tpl.subject && body === bulkTemplateBody(type, rich)
 }
 
 // A persisted draft is worth restoring if the CONTENT was edited OR an audience was selected
 // (selected students/contacts or pasted/typed chips). Tolerates legacy payloads (audience arrays
 // absent) — those restore content only. Pure read of the parsed payload; no lookups.
-function bulkDraftHasContent(type, d) {
+function bulkDraftHasContent(type, d, rich) {
   if (!d) return false
-  const contentEdited = !bulkDraftIsPristine(type, d.subject || '', d.body || '')
+  const contentEdited = !bulkDraftIsPristine(type, d.subject || '', d.body || '', rich)
   const audiencePicked =
     (Array.isArray(d.studentSel) && d.studentSel.length > 0) ||
     (Array.isArray(d.contactSel) && d.contactSel.length > 0) ||
@@ -185,6 +194,7 @@ export default function BulkManualComposer({
   renderTypeSelector,
   userKey = null,
   cohortId = null,
+  richEnabled = false,
 }) {
   // ── Audience state ────────────────────────────────────────────────────────
   const [source, setSource]               = useState(DEFAULT_SOURCE[bulkMsgType] || 'students')
@@ -252,7 +262,7 @@ export default function BulkManualComposer({
   if (hydratedType !== bulkMsgType) {
     setHydratedType(bulkMsgType)
     const tpl = buildBulkTemplate(bulkMsgType)
-    if (tpl) { setSubject(tpl.subject); setBody(withStaticLinks(bulkMsgType, tpl.body)) }
+    if (tpl) { setSubject(tpl.subject); setBody(bulkTemplateBody(bulkMsgType, richEnabled)) }
     setIncludeSig(true)
     setSource(DEFAULT_SOURCE[bulkMsgType] || 'students')
     setContactCat(DEFAULT_CONTACT_CATEGORY[bulkMsgType] || 'All')
@@ -272,10 +282,18 @@ export default function BulkManualComposer({
   useEffect(() => {
     bulkHydratedRef.current = false
     const d = readBulkDraft(BULK_DRAFT_KEY)
-    if (bulkDraftHasContent(bulkMsgType, d)) {
+    if (bulkDraftHasContent(bulkMsgType, d, richEnabled)) {
       /* eslint-disable react-hooks/set-state-in-effect -- intentional synchronous restore, mirrors the Send-to-one hydrate */
       setSubject(d.subject || '')
-      setBody(d.body || '')
+      // Restore body honoring draft bodyFormat vs the current flag (legacy/missing ⇒ text), converting
+      // between text/html so the active composer (editor vs textarea) always gets the right shape.
+      {
+        const rawBody = d.body || ''
+        const isHtmlDraft = d.bodyFormat === 'html'
+        setBody(richEnabled
+          ? (isHtmlDraft ? rawBody : plainTextToHtml(rawBody))
+          : (isHtmlDraft ? htmlToPlainText(rawBody) : rawBody))
+      }
       if (typeof d.includeSignature === 'boolean') setIncludeSig(d.includeSignature)
       // Audience selection (added in the audience-persistence hotfix). Legacy payloads omit these,
       // so each setter is guarded; stale ids are inert — the recipient derivation drops any id not
@@ -300,7 +318,7 @@ export default function BulkManualComposer({
     // A draft is meaningful (worth persisting) if the content was edited OR an audience was chosen.
     // Selecting recipients counts; merely switching source/filters with no selection does not.
     const audienceEmpty = studentSel.size === 0 && contactSel.size === 0 && picked.length === 0
-    const pristine = bulkDraftIsPristine(bulkMsgType, subject, body) && audienceEmpty
+    const pristine = bulkDraftIsPristine(bulkMsgType, subject, body, richEnabled) && audienceEmpty
     draftTimerRef.current = setTimeout(() => {
       try {
         if (pristine) {
@@ -309,6 +327,7 @@ export default function BulkManualComposer({
           localStorage.setItem(BULK_DRAFT_KEY, JSON.stringify({
             v: BULK_DRAFT_VERSION, savedAt: Date.now(),
             subject, body, includeSignature,
+            bodyFormat: richEnabled ? 'html' : 'text',
             source, studentEmailSrc,
             studentSel: [...studentSel],
             contactSel: [...contactSel],
@@ -319,14 +338,14 @@ export default function BulkManualComposer({
       } catch { /* ignore quota / serialization errors */ }
     }, BULK_DRAFT_DEBOUNCE_MS)
     return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current) }
-  }, [subject, body, includeSignature, source, studentEmailSrc, studentSel, contactSel, picked, BULK_DRAFT_KEY, bulkMsgType, flashDraftStatus])
+  }, [subject, body, includeSignature, source, studentEmailSrc, studentSel, contactSel, picked, BULK_DRAFT_KEY, bulkMsgType, richEnabled, flashDraftStatus])
 
   // Explicit discard: reset this message-type to its template default and clear the saved bulk draft
   // (this key only — Send-to-one drafts live under a different namespace and are untouched).
   const handleDiscardBulkDraft = useCallback(() => {
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
     const tpl = buildBulkTemplate(bulkMsgType)
-    if (tpl) { setSubject(tpl.subject); setBody(withStaticLinks(bulkMsgType, tpl.body)) }
+    if (tpl) { setSubject(tpl.subject); setBody(bulkTemplateBody(bulkMsgType, richEnabled)) }
     else { setSubject(''); setBody('') }
     setIncludeSig(true)
     // Reset the audience/recipient selection back to the empty default for this type.
@@ -338,7 +357,7 @@ export default function BulkManualComposer({
     setManualInvalids([])
     try { if (BULK_DRAFT_KEY) localStorage.removeItem(BULK_DRAFT_KEY) } catch { /* ignore */ }
     flashDraftStatus('discarded')
-  }, [bulkMsgType, BULK_DRAFT_KEY, flashDraftStatus])
+  }, [bulkMsgType, BULK_DRAFT_KEY, richEnabled, flashDraftStatus])
 
   // ── Load contacts once the Contacts source is first opened ──────────────────
   // All setState lives in the async resolution (the endorsed effect pattern); loading is derived.
@@ -574,6 +593,7 @@ export default function BulkManualComposer({
           template_label:    TEMPLATE_LABEL[bulkMsgType] || bulkMsgType,
           subject,
           body,
+          body_format:       richEnabled ? 'html' : 'text',
           include_signature: includeSignature,
           recipients:        payloadRecipients,
         }),
@@ -591,7 +611,7 @@ export default function BulkManualComposer({
       setSending(false)
       sendInFlightRef.current = false
     }
-  }, [recipients, subject, body, confirmText, sendResult, includeSignature, bulkMsgType])
+  }, [recipients, subject, body, confirmText, sendResult, includeSignature, bulkMsgType, richEnabled])
 
   // ── Preview as sent ─────────────────────────────────────────────────────────
   // Merge fields (first name + school) for the selected sample recipient, then render the EXACT
@@ -622,7 +642,7 @@ export default function BulkManualComposer({
               recipient_id:      previewRid,
               subject:           previewSubject,
               body:              previewBody,
-              body_format:       'text',
+              body_format:       richEnabled ? 'html' : 'text',
               include_signature: includeSignature,
             }
           : {
@@ -630,6 +650,7 @@ export default function BulkManualComposer({
               template_key:      bulkMsgType,
               subject,
               body,
+              body_format:       richEnabled ? 'html' : 'text',
               include_signature: includeSignature,
               recipient: {
                 email:     previewRecipient.email,
@@ -651,7 +672,7 @@ export default function BulkManualComposer({
       } catch { if (!cancelled) setPreview({ html: '', loading: false, error: 'Preview unavailable.' }) }
     }, 450)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [previewRid, isManualPreview, previewRecipient, previewSubject, previewBody, subject, body, includeSignature, bulkMsgType])
+  }, [previewRid, isManualPreview, previewRecipient, previewSubject, previewBody, subject, body, includeSignature, bulkMsgType, richEnabled])
 
   // ── Render helpers ──────────────────────────────────────────────────────────
   const sourceTab = (key, label) => (
@@ -907,8 +928,12 @@ export default function BulkManualComposer({
           </div>
           <div style={{ marginBottom: 12 }}>
             <label style={labelStyle}>Message</label>
-            <textarea value={body} onChange={e => setBody(e.target.value)} rows={14}
-              style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, minHeight: 240, fontSize: 13 }} />
+            {richEnabled ? (
+              <RichTextEditor html={body} onChange={setBody} ariaLabel="Message" minHeight={240} />
+            ) : (
+              <textarea value={body} onChange={e => setBody(e.target.value)} rows={14}
+                style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, minHeight: 240, fontSize: 13 }} />
+            )}
             {/* CONNECT-DRAFT-AUTOSAVE-1 parity: unobtrusive autosave status (bottom-left) + explicit
                 discard (bottom-right) — mirrors the Send-to-one composer. */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, minHeight: 18 }}>
@@ -918,7 +943,7 @@ export default function BulkManualComposer({
                   : draftStatus === 'discarded' ? 'Draft discarded'
                   : ''}
               </span>
-              {(!bulkDraftIsPristine(bulkMsgType, subject, body) || studentSel.size > 0 || contactSel.size > 0 || picked.length > 0) && (
+              {(!bulkDraftIsPristine(bulkMsgType, subject, body, richEnabled) || studentSel.size > 0 || contactSel.size > 0 || picked.length > 0) && (
                 <button
                   type="button"
                   onClick={handleDiscardBulkDraft}

@@ -8,6 +8,8 @@ import RecipientPicker from './RecipientPicker'
 import SentHistory from './SentHistory'
 import ContactAutocomplete from './ContactAutocomplete'
 import BulkManualComposer from './BulkManualComposer'
+import RichTextEditor from './RichTextEditor'
+import { isRichComposeEnabled, plainTextToHtml, htmlToPlainText } from '../../lib/connect/richCompose'
 import ConnectPanel from './ConnectPanel'
 import { isValidEmail, resolveStudentCorrespondenceRecipient } from '../../lib/notifications/studentRecipient'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
@@ -337,7 +339,10 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // userKey: auth user id → normalized email → null. When null, autosave is DISABLED
   // (DRAFT_KEY is null), so no draft is read or written. Stores ONLY { subject, body,
   // includeSignature }. Tokens and URLs are NEVER stored.
-  const { user } = useAuth()
+  const { user, isOwner } = useAuth()
+  // RICH-COMPOSE-1: rich editor only when the Owner has opted in (default OFF). Non-flagged users keep
+  // the plain-text textarea and body_format:'text' exactly as before.
+  const richEnabled = isRichComposeEnabled(isOwner)
   const userKey = user?.id || (user?.email ? normalizeEmailForLookup(user.email) : '') || null
   const draftRecipientId = studentId ? `student:${studentId}`
                          : contactId ? `contact:${contactId}`
@@ -664,7 +669,15 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     const d = DRAFT_KEY ? readDirectDraft(DRAFT_KEY) : null
     if (d && !directDraftIsEmpty(d)) {
       setMsgSubject(d.subject || '')
-      setMsgBody(d.body || '')
+      // Restore body honoring the draft's bodyFormat vs the current flag (backward compatible:
+      // missing bodyFormat ⇒ legacy plain text). Convert between text/html as needed so the body
+      // is always in the shape the active composer (editor vs textarea) expects.
+      const rawBody = d.body || ''
+      const isHtmlDraft = d.bodyFormat === 'html'
+      const restoredBody = richEnabled
+        ? (isHtmlDraft ? rawBody : plainTextToHtml(rawBody))
+        : (isHtmlDraft ? htmlToPlainText(rawBody) : rawBody)
+      setMsgBody(restoredBody)
       if (typeof d.includeSignature === 'boolean') setIncludeSignature(d.includeSignature)
       flashDraftStatus('restored')
     } else if (recipientChanged) {
@@ -755,10 +768,12 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     const { subject, body } = buildTemplateDraft(key)
     setOutreachMode('message')
     setMsgSubject(subject)
-    setMsgBody(body)
+    // Manual templates are plain text; in rich mode convert to safe HTML paragraphs so line breaks
+    // survive in the editor. Placeholders/links are preserved verbatim as text.
+    setMsgBody(richEnabled ? plainTextToHtml(body) : body)
     setIncludeSignature(true)  // template body has no signature — app appends the closing + sender block
     setActiveTemplateId(key)   // sidebar selected-state: mark which template loaded the draft
-  }, [buildTemplateDraft])
+  }, [buildTemplateDraft, richEnabled])
 
   const handleSelectSingleTemplate = useCallback((t) => {
     // Picking a composer mode (Direct Message / Survey Invitation) clears the template indicator.
@@ -1250,7 +1265,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           recipient_id:      recipientType === 'contact' ? contactId : studentId,
           subject:           msgSubject.trim(),
           body:              msgBody.trim(),
-          body_format:       'text',
+          body_format:       richEnabled ? 'html' : 'text',
           include_signature: includeSignature,
           cc:                ccToSend,
           cc_auto_suggested: ccAutoSuggested,
@@ -1294,7 +1309,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     } finally {
       setDmSendInFlight(false)
     }
-  }, [dmConfirmReady, dmSendInFlight, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, ccList, ccInput, ccAutoSuggested, fromContact, fromStudent])
+  }, [dmConfirmReady, dmSendInFlight, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, ccList, ccInput, ccAutoSuggested, fromContact, fromStudent, richEnabled])
 
   // ── CONNECT-COMMS-1B: debounced true-preview fetch ────────────────────────
   // Calls the send endpoint in preview:true mode (no send, no log) so the inline preview and the
@@ -1328,7 +1343,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
             recipient_id:      rid,
             subject:           msgSubject,
             body:              msgBody,
-            body_format:       'text',
+            body_format:       richEnabled ? 'html' : 'text',
             include_signature: includeSignature,
             cc:                ccList,
             cc_auto_suggested: ccAutoSuggested,
@@ -1346,7 +1361,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       }
     }, 450)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [outreachMode, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, ccList])
+  }, [outreachMode, recipientType, contactId, studentId, msgSubject, msgBody, includeSignature, ccList, richEnabled])
 
   // ── CONNECT-COMMS-1D: coordinator CC suggestion (removable, never forced) ──
   // The clinical coordinator's email is sourced from fetchedStudent (the navigation state in
@@ -1434,7 +1449,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     if (!draftHydratedRef.current) return
     const l = latestDraftRef.current
     if (!l || !l.DRAFT_KEY) return
-    const payload = { v: DRAFT_VERSION, savedAt: Date.now(), subject: l.subject, body: l.body, includeSignature: l.includeSignature }
+    const payload = { v: DRAFT_VERSION, savedAt: Date.now(), subject: l.subject, body: l.body, includeSignature: l.includeSignature, bodyFormat: richEnabled ? 'html' : 'text' }
     try {
       if (directDraftIsEmpty(payload)) {
         localStorage.removeItem(l.DRAFT_KEY)
@@ -1448,7 +1463,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         }))
       }
     } catch { /* ignore quota / serialization errors */ }
-  }, [userKey, cohortId])
+  }, [userKey, cohortId, richEnabled])
 
   // Debounced write + "Draft saved" indicator. The debounce coalesces the mount/restore
   // pass so it never clobbers a freshly-restored draft.
@@ -2091,21 +2106,31 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 />
               </div>
 
-              {/* Body textarea */}
+              {/* Body — rich editor when the Owner has opted in (flag), else the plain-text textarea. */}
               <div style={fieldWrap}>
                 <label style={labelStyle}>Message</label>
-                <textarea
-                  value={msgBody}
-                  onChange={e => setMsgBody(e.target.value)}
-                  placeholder={
-                    dmHasAnyRecipient
-                      ? 'Compose your message…'
-                      : 'Return to Contacts or Student Profiles and click Email to compose a direct message.'
-                  }
-                  rows={8}
-                  style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, minHeight: 160 }}
-                  disabled={!dmHasAnyRecipient}
-                />
+                {richEnabled ? (
+                  <RichTextEditor
+                    html={msgBody}
+                    onChange={setMsgBody}
+                    disabled={!dmHasAnyRecipient}
+                    ariaLabel="Message"
+                    minHeight={160}
+                  />
+                ) : (
+                  <textarea
+                    value={msgBody}
+                    onChange={e => setMsgBody(e.target.value)}
+                    placeholder={
+                      dmHasAnyRecipient
+                        ? 'Compose your message…'
+                        : 'Return to Contacts or Student Profiles and click Email to compose a direct message.'
+                    }
+                    rows={8}
+                    style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, minHeight: 160 }}
+                    disabled={!dmHasAnyRecipient}
+                  />
+                )}
                 {/* CONNECT-DRAFT-AUTOSAVE-1: unobtrusive autosave status + explicit discard */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, minHeight: 18 }}>
                   <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, transition: 'opacity 0.2s' }}>
@@ -2579,6 +2604,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           renderTypeSelector={renderBulkTypeSelector}
           userKey={userKey}
           cohortId={cohortId}
+          richEnabled={richEnabled}
         />
       )}
 
