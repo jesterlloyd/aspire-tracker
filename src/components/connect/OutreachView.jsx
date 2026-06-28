@@ -22,7 +22,7 @@ const F = 'DM Sans, sans-serif'
 // Canonical default body for the editable Survey Invitation draft (Send-to-One).
 // Mirrors the fixed intro paragraph the server template falls back to when no
 // body_override is supplied (DEFAULT_INTRO in lib/server/evaluation/emailTemplates.js).
-const SURVEY_DRAFT_DEFAULT_BODY = 'As part of the ASPIRE Program at Cedars-Sinai, please complete the Casey-Fink Readiness for Practice Survey. This short survey helps us understand your readiness as you prepare for your clinical rotation.'
+const SURVEY_DRAFT_DEFAULT_BODY = 'As part of ASPIRE at Cedars-Sinai, please complete the Casey-Fink Readiness for Practice Survey. This short survey helps us understand your readiness as you prepare for your clinical rotation.'
 
 const INSTRUMENTS = [
   { slug: 'casey_fink_readiness_2024', label: 'Casey-Fink Readiness for Practice Survey' },
@@ -372,14 +372,14 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // ── Editable Survey Invitation draft (single source of truth for preview + test + student send) ──
   // Initialized from the canonical Casey-Fink copy; the greeting, survey details, link, CTA, expiry,
   // and signature are added automatically and are NOT editable here.
-  const [surveyDraftSubject, setSurveyDraftSubject] = useState(() => `ASPIRE: Casey-Fink Readiness Survey — ${TIMEPOINT_LABELS['baseline']}`)
+  const [surveyDraftSubject, setSurveyDraftSubject] = useState(() => `ASPIRE: Casey-Fink Readiness Survey, ${TIMEPOINT_LABELS['baseline']}`)
   const [surveyDraftBody,    setSurveyDraftBody]    = useState(SURVEY_DRAFT_DEFAULT_BODY)
   const [surveyDraftEdited,  setSurveyDraftEdited]  = useState(false)
   const [surveyDraftTpKey,   setSurveyDraftTpKey]   = useState('baseline')
   // Keep the default subject in sync with the timepoint until the user edits the draft.
   if (surveyDraftTpKey !== timepoint) {
     setSurveyDraftTpKey(timepoint)
-    if (!surveyDraftEdited) setSurveyDraftSubject(`ASPIRE: Casey-Fink Readiness Survey — ${TIMEPOINT_LABELS[timepoint] || timepoint}`)
+    if (!surveyDraftEdited) setSurveyDraftSubject(`ASPIRE: Casey-Fink Readiness Survey, ${TIMEPOINT_LABELS[timepoint] || timepoint}`)
   }
   // SURVEY-REISSUE-1: prior-invitation classification (UX assist only — server is source of truth).
   // null | 'completed' (block) | 'active' (block) | 'reissuable' (expired/revoked, incomplete → allowed)
@@ -2340,7 +2340,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     value={surveyDraftSubject}
                     onChange={e => { setSurveyDraftSubject(e.target.value); setSurveyDraftEdited(true) }}
                     maxLength={200}
-                    placeholder="ASPIRE: Casey-Fink Readiness Survey — Baseline"
+                    placeholder="ASPIRE: Casey-Fink Readiness Survey, Baseline"
                     style={{
                       width: '100%', boxSizing: 'border-box', marginTop: 4,
                       padding: '8px 10px', borderRadius: 7, border: '1px solid #e5e7eb',
@@ -2429,7 +2429,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
 
                     <p style={{ margin: 0, fontSize: 12, color: '#9ca3af', lineHeight: 1.6 }}>
                       Brawerman Nursing Institute · Cedars-Sinai<br />
-                      ASPIRE Program
+                      ASPIRE
                     </p>
                   </div>
                 </div>

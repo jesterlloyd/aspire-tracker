@@ -21,7 +21,7 @@ export function buildPreceptorAssignmentDraft({ firstName } = {}) {
   const subject = 'Thank You for Precepting an ASPIRE Student Nurse'
   const body = `Dear ${fb(firstName, 'Preceptor')},
 
-Thank you for agreeing to precept one of our senior nursing students through the ASPIRE Program, Affiliate Students' Pathway from Internship to Residency Experience. Your willingness to teach, mentor, and support our students makes such a meaningful difference in their professional growth and transition into practice.
+Thank you for agreeing to precept one of our senior nursing students through ASPIRE, Affiliate Students' Pathway from Internship to Residency Experience. Your willingness to teach, mentor, and support our students makes such a meaningful difference in their professional growth and transition into practice.
 
 Below is a summary of your student assignment:
 
@@ -50,19 +50,19 @@ Please don't hesitate to reach out if you have any questions.`
 // Coordinator Acceptance Update — external coordinator/academic-partner email (ASPIRE Outreach).
 // Salutation uses the recipient's first name when available, else "Colleague".
 export function buildCoordinatorAcceptanceDraft({ firstName } = {}) {
-  const subject = 'ASPIRE Program: Accepted Students and Orientation Next Steps'
+  const subject = 'ASPIRE: Accepted Students and Orientation Next Steps'
   const body = `Dear ${fb(firstName, 'Colleague')},
 
-I'm reaching out with an update regarding your students' participation in the ASPIRE Program at Cedars-Sinai.
+I'm reaching out with an update regarding your students' participation in ASPIRE at Cedars-Sinai.
 
 The following student(s) have been accepted to move forward:
 
 [Insert accepted student names and relevant details here.]
 
-As part of the ASPIRE Program, students are expected to:
+As part of ASPIRE, students are expected to:
 • Attend the required in-person orientation before beginning their shifts
 • Accurately log all completed shifts through the ASPIRE shift log process
-• Follow ASPIRE Program expectations for senior nursing students
+• Follow ASPIRE expectations for senior nursing students
 • Follow Cedars-Sinai policies and unit expectations
 • Maintain patient confidentiality at all times
 • Notify the ASPIRE team if they will no longer be moving forward for any reason
@@ -72,7 +72,7 @@ In-Person Orientation Invitation
 We would like to invite you and your students to attend an in-person, on-campus orientation on [day], [date], at [time] at Cedars-Sinai Medical Center.
 
 This session will include:
-• ASPIRE Program overview and expectations
+• ASPIRE overview and expectations
 • Shift log process and badge use
 • Unit expectations and preceptor introductions
 • New Graduate RN Residency Program pathways
@@ -81,7 +81,7 @@ Please confirm whether this date and time will work for your group. If the sched
 
 Once we receive your confirmation, we will send your students a separate email with logistical details, including the meeting location, parking instructions, and what to bring.
 
-Lastly, to help ensure that you receive ASPIRE Program communications, including automated updates regarding student progress, please add the following email address to your contact list or safe senders:
+Lastly, to help ensure that you receive ASPIRE communications, including automated updates regarding student progress, please add the following email address to your contact list or safe senders:
 
 ASPIRE at Cedars-Sinai <noreply@aspire-program.com>
 
@@ -98,12 +98,12 @@ Thank you for your continued partnership in supporting clinical nursing educatio
 // placeholders in this UI-only phase.
 
 const BULK_ACADEMIC_PARTNER = {
-  subject: 'ASPIRE Program: Student Placement Request Form for [Cohort Name]',
+  subject: 'ASPIRE: Student Placement Request Form for [Cohort Name]',
   body: `Dear [Clinical Coordinator First Name],
 
 I hope you are doing well.
 
-We are preparing for the upcoming ASPIRE Program cohort at Cedars-Sinai and would like to invite your school to submit student placement requests for consideration.
+We are preparing for the upcoming ASPIRE cohort at Cedars-Sinai and would like to invite your school to submit student placement requests for consideration.
 
 Please complete the ASPIRE School Placement Request Form using the link below:
 
@@ -115,7 +115,7 @@ Please submit the form by [Insert Deadline], if possible, so we can review all r
 
 As a reminder, submission of a request does not guarantee placement. Placement decisions are based on unit capacity, preceptor availability, student eligibility, and program alignment.
 
-To help ensure that you receive ASPIRE Program communications, including future updates regarding student progress, please add the following email address to your contact list or safe senders:
+To help ensure that you receive ASPIRE communications, including future updates regarding student progress, please add the following email address to your contact list or safe senders:
 
 ASPIRE at Cedars-Sinai <noreply@aspire-program.com>
 
@@ -123,10 +123,10 @@ Thank you for your continued partnership in supporting clinical nursing educatio
 }
 
 const BULK_STUDENT_PROFILE = {
-  subject: 'ASPIRE Program: Complete Your Student Profile',
+  subject: 'ASPIRE: Complete Your Student Profile',
   body: `Dear [Student First Name],
 
-Thank you for your interest in participating in the ASPIRE Program, Affiliate Students' Pathway from Internship to Residency Experience, at Cedars-Sinai.
+Thank you for your interest in participating in ASPIRE, Affiliate Students' Pathway from Internship to Residency Experience, at Cedars-Sinai.
 
 To help us review your information and prepare for the next steps, please complete your ASPIRE Student Profile Form using the link below:
 
@@ -144,12 +144,12 @@ Thank you, and we look forward to learning more about you.`,
 }
 
 const BULK_INTERVIEW_SCHEDULING = {
-  subject: 'ASPIRE Program: Schedule Your Interview',
+  subject: 'ASPIRE: Schedule Your Interview',
   body: `Dear [Student First Name],
 
-Thank you for completing the ASPIRE Program student profile process.
+Thank you for completing the ASPIRE student profile process.
 
-We are now inviting you to schedule your ASPIRE Program interview. Please use the link below to select an available interview time:
+We are now inviting you to schedule your ASPIRE interview. Please use the link below to select an available interview time:
 
 [Insert Interview Schedule Link]
 
@@ -157,7 +157,7 @@ Interview appointments are based on the availability of our ASPIRE interviewers 
 
 Before your interview, please be prepared to discuss:
 
-• Your interest in the ASPIRE Program
+• Your interest in ASPIRE
 • Your clinical goals and learning objectives
 • Your preferred areas of nursing practice
 • Your readiness to participate in a senior nursing student rotation at Cedars-Sinai
@@ -171,14 +171,14 @@ Thank you, and we look forward to meeting with you.`,
 }
 
 const BULK_ANNOUNCEMENT = {
-  subject: 'ASPIRE Program: Acceptance and Orientation Next Steps',
+  subject: 'ASPIRE: Acceptance and Orientation Next Steps',
   body: `Dear [Student First Name],
 
-Congratulations. We are pleased to inform you that you have been accepted to participate in the ASPIRE Program, Affiliate Students' Pathway from Internship to Residency Experience, at Cedars-Sinai.
+Congratulations. We are pleased to inform you that you have been accepted to participate in ASPIRE, Affiliate Students' Pathway from Internship to Residency Experience, at Cedars-Sinai.
 
 We are excited to welcome you to this next step in your senior nursing student experience.
 
-Your ASPIRE Program details are listed below:
+Your ASPIRE details are listed below:
 
 School: [School]
 Assigned Unit: [Unit / Assignment]
@@ -199,7 +199,7 @@ What to Bring: [Insert Details]
 
 The orientation will include:
 
-• ASPIRE Program overview and expectations
+• ASPIRE overview and expectations
 • Shift log process and badge use
 • Unit expectations and preceptor communication
 • Patient confidentiality and professional expectations
@@ -208,7 +208,7 @@ The orientation will include:
 A few important reminders:
 
 • You must attend orientation before beginning your ASPIRE shifts.
-• You are expected to follow ASPIRE Program expectations for senior nursing students.
+• You are expected to follow ASPIRE expectations for senior nursing students.
 • You are expected to follow Cedars-Sinai policies and unit expectations at all times.
 • You must maintain patient confidentiality at all times.
 • You are expected to log your shifts accurately throughout the rotation.
@@ -218,7 +218,7 @@ New Graduate RN Residency Program Pathway
 
 As part of ASPIRE, you may receive information about Cedars-Sinai's New Graduate RN Residency Program and related transition-to-practice opportunities. We encourage you to pay close attention to application timelines, eligibility requirements, and communications from the ASPIRE and NGRP teams.
 
-To help ensure that you receive ASPIRE Program communications, please add the following email address to your contact list or safe senders:
+To help ensure that you receive ASPIRE communications, please add the following email address to your contact list or safe senders:
 
 ASPIRE at Cedars-Sinai <noreply@aspire-program.com>
 
