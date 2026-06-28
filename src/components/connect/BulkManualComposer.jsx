@@ -76,6 +76,19 @@ function bulkDraftIsPristine(type, subject, body) {
   return subject === tpl.subject && body === withStaticLinks(type, tpl.body)
 }
 
+// A persisted draft is worth restoring if the CONTENT was edited OR an audience was selected
+// (selected students/contacts or pasted/typed chips). Tolerates legacy payloads (audience arrays
+// absent) — those restore content only. Pure read of the parsed payload; no lookups.
+function bulkDraftHasContent(type, d) {
+  if (!d) return false
+  const contentEdited = !bulkDraftIsPristine(type, d.subject || '', d.body || '')
+  const audiencePicked =
+    (Array.isArray(d.studentSel) && d.studentSel.length > 0) ||
+    (Array.isArray(d.contactSel) && d.contactSel.length > 0) ||
+    (Array.isArray(d.picked)     && d.picked.length     > 0)
+  return contentEdited || audiencePicked
+}
+
 const CONTACT_CATEGORIES = ['All', 'Academic Partners', 'Unit Leadership', 'Preceptors', 'BNI Team', 'Nursing Executives', 'Other']
 
 // Default audience source per manual template (owner-approved mapping).
@@ -243,6 +256,13 @@ export default function BulkManualComposer({
     setIncludeSig(true)
     setSource(DEFAULT_SOURCE[bulkMsgType] || 'students')
     setContactCat(DEFAULT_CONTACT_CATEGORY[bulkMsgType] || 'All')
+    // Per-type isolation: clear the audience selection on a type switch so one type's recipients
+    // never bleed into another. The hydrate effect below restores THIS type's saved audience (if any).
+    setStudentSel(new Set())
+    setContactSel(new Set())
+    setPicked([])
+    setAcInput('')
+    setManualInvalids([])
   }
 
   // ── Draft hydrate (mirrors Send-to-one) ─────────────────────────────────────
@@ -252,11 +272,19 @@ export default function BulkManualComposer({
   useEffect(() => {
     bulkHydratedRef.current = false
     const d = readBulkDraft(BULK_DRAFT_KEY)
-    if (d && !bulkDraftIsPristine(bulkMsgType, d.subject || '', d.body || '')) {
+    if (bulkDraftHasContent(bulkMsgType, d)) {
       /* eslint-disable react-hooks/set-state-in-effect -- intentional synchronous restore, mirrors the Send-to-one hydrate */
       setSubject(d.subject || '')
       setBody(d.body || '')
       if (typeof d.includeSignature === 'boolean') setIncludeSig(d.includeSignature)
+      // Audience selection (added in the audience-persistence hotfix). Legacy payloads omit these,
+      // so each setter is guarded; stale ids are inert — the recipient derivation drops any id not
+      // found in the current students/contacts data (studentToRecipient/contactToRecipient -> null).
+      if (typeof d.source === 'string') setSource(d.source)
+      if (typeof d.studentEmailSrc === 'string') setStudentEmailSrc(d.studentEmailSrc)
+      if (Array.isArray(d.studentSel)) setStudentSel(new Set(d.studentSel))
+      if (Array.isArray(d.contactSel)) setContactSel(new Set(d.contactSel))
+      if (Array.isArray(d.picked))     setPicked(d.picked)
       flashDraftStatus('restored')
       /* eslint-enable react-hooks/set-state-in-effect */
     }
@@ -269,21 +297,29 @@ export default function BulkManualComposer({
   useEffect(() => {
     if (!BULK_DRAFT_KEY || !bulkHydratedRef.current) return
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
-    const pristine = bulkDraftIsPristine(bulkMsgType, subject, body)
+    // A draft is meaningful (worth persisting) if the content was edited OR an audience was chosen.
+    // Selecting recipients counts; merely switching source/filters with no selection does not.
+    const audienceEmpty = studentSel.size === 0 && contactSel.size === 0 && picked.length === 0
+    const pristine = bulkDraftIsPristine(bulkMsgType, subject, body) && audienceEmpty
     draftTimerRef.current = setTimeout(() => {
       try {
         if (pristine) {
           localStorage.removeItem(BULK_DRAFT_KEY)
         } else {
           localStorage.setItem(BULK_DRAFT_KEY, JSON.stringify({
-            v: BULK_DRAFT_VERSION, savedAt: Date.now(), subject, body, includeSignature,
+            v: BULK_DRAFT_VERSION, savedAt: Date.now(),
+            subject, body, includeSignature,
+            source, studentEmailSrc,
+            studentSel: [...studentSel],
+            contactSel: [...contactSel],
+            picked,
           }))
           flashDraftStatus('saved')
         }
       } catch { /* ignore quota / serialization errors */ }
     }, BULK_DRAFT_DEBOUNCE_MS)
     return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current) }
-  }, [subject, body, includeSignature, BULK_DRAFT_KEY, bulkMsgType, flashDraftStatus])
+  }, [subject, body, includeSignature, source, studentEmailSrc, studentSel, contactSel, picked, BULK_DRAFT_KEY, bulkMsgType, flashDraftStatus])
 
   // Explicit discard: reset this message-type to its template default and clear the saved bulk draft
   // (this key only — Send-to-one drafts live under a different namespace and are untouched).
@@ -293,6 +329,13 @@ export default function BulkManualComposer({
     if (tpl) { setSubject(tpl.subject); setBody(withStaticLinks(bulkMsgType, tpl.body)) }
     else { setSubject(''); setBody('') }
     setIncludeSig(true)
+    // Reset the audience/recipient selection back to the empty default for this type.
+    setSource(DEFAULT_SOURCE[bulkMsgType] || 'students')
+    setStudentSel(new Set())
+    setContactSel(new Set())
+    setPicked([])
+    setAcInput('')
+    setManualInvalids([])
     try { if (BULK_DRAFT_KEY) localStorage.removeItem(BULK_DRAFT_KEY) } catch { /* ignore */ }
     flashDraftStatus('discarded')
   }, [bulkMsgType, BULK_DRAFT_KEY, flashDraftStatus])
@@ -875,7 +918,7 @@ export default function BulkManualComposer({
                   : draftStatus === 'discarded' ? 'Draft discarded'
                   : ''}
               </span>
-              {!bulkDraftIsPristine(bulkMsgType, subject, body) && (
+              {(!bulkDraftIsPristine(bulkMsgType, subject, body) || studentSel.size > 0 || contactSel.size > 0 || picked.length > 0) && (
                 <button
                   type="button"
                   onClick={handleDiscardBulkDraft}
