@@ -1,65 +1,19 @@
 // src/lib/notifications/templates/unitFormReceived.js
 // Two audience variants:
-//   submitter     → confirmation to unit leader who submitted the form
-//   internal_team → alert to Jester + Krystal with full response summary
+//   submitter     -> confirmation to the unit leader who submitted the form
+//   internal_team -> alert to Jester + Krystal with the full response summary
+// EMAIL-BRAND-REFRESH Phase 2B-2: migrated onto the shared ASPIRE system shell
+// (lib/server/email/aspireShell.js) — Nightfall header (ASPIRE wordmark + meaning), white card,
+// Nightfall footer with the no-reply line. Typed system signature only (no handwritten image).
 
-import { JESTER_SIGNATURE } from './signatures.js';
 import { getGreetingName } from '../greetings.js';
+import { aspireEmailShell, aspireSystemSignature } from '../../../../lib/server/email/aspireShell.js';
 
-const NAVY     = '#1D2567';   // Nightfall — ASPIRE Intelligence primary brand color
+const NAVY     = '#1d2567';
 const SAND     = '#F4F1EC';
 const RAVEN    = '#191919';
 const SAGE_BG  = '#C8D5C0';
 const SAGE_TXT = '#2D4A2B';
-
-function wrap(content, preheader) {
-  return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ASPIRE Program</title></head>
-<body style="margin:0;padding:0;background:${SAND};font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:${RAVEN};">
-<div style="display:none;max-height:0;overflow:hidden;">${preheader}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${SAND};padding:32px 16px;">
-<tr><td align="center">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0"
-  style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
-
-<!-- Nightfall header with reversed CS logo — canonical ASPIRE shell -->
-<tr><td style="background:${NAVY};padding:12px 28px;">
-  <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
-    <td style="vertical-align:middle;">
-      <img src="https://aspire-tracker.vercel.app/cs-logo-large.png"
-           alt="Cedars-Sinai"
-           width="160" height="auto"
-           style="display:block;height:auto;max-height:46px;width:auto;max-width:160px;border:0;" />
-    </td>
-    <td style="text-align:right;vertical-align:middle;">
-      <div style="color:#ffffff;font-size:11px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;line-height:1.4;">ASPIRE Program</div>
-      <div style="color:rgba(255,255,255,0.75);font-size:10px;letter-spacing:0.3px;margin-top:3px;line-height:1.4;">Brawerman Nursing Institute</div>
-    </td>
-  </tr></table>
-</td></tr>
-
-<!-- Body -->
-<tr><td style="padding:32px 28px;font-size:15px;line-height:1.6;color:${RAVEN};">${content}</td></tr>
-
-<!-- Footer -->
-<tr><td style="padding:16px 28px 28px;font-size:12px;color:#9ca3af;line-height:1.5;border-top:1px solid #f0ede8;">
-This is an automated notification from the ASPIRE Program tracking system. Replies go directly to Jester.
-</td></tr>
-</table>
-</td></tr>
-</table>
-</body></html>`;
-}
-
-function signatureHtml() {
-  return `
-<p style="margin-top:24px;">
-  ${JESTER_SIGNATURE.fullName}<br>
-  <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.title}</span><br>
-  <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.affiliation}</span>
-</p>`;
-}
 
 export function buildResponseSummaryHtml(ctx) {
   const lines = [];
@@ -117,14 +71,13 @@ function buildConfirmationHtml(ctx) {
 <p style="margin:0 0 16px;">Thank you for confirming ${unitName}'s availability to host ASPIRE students for the <strong>${cohortName}</strong> cohort. We've recorded your response.</p>
 ${summaryBox}
 <p style="margin:0 0 16px;">If anything changes before the submission deadline, you're welcome to return to the form and update your response. We'll work with the most recent submission.</p>
-<p style="margin:0 0 16px;">Thank you for being part of the ASPIRE pipeline. Your preceptors and unit play a meaningful role in shaping the next generation of Cedars-Sinai nurses.</p>`
+<p style="margin:0;">Thank you for hosting ASPIRE students. Your unit and preceptors make a real difference for these students.</p>`
     : `${greeting}
-<p style="margin:0 0 16px;">Thank you for taking the time to respond on behalf of ${unitName} for the <strong>${cohortName}</strong> cohort. We've recorded that the unit is unable to host this round, and we appreciate the honest response so we can plan accordingly.</p>
-<p style="margin:0 0 16px;">"No" is a valid and respected answer. Unit capacity, staffing realities, and preceptor availability ebb and flow, and forcing placements when a unit isn't positioned to support students well doesn't serve anyone.</p>
-<p style="margin:0 0 16px;">If circumstances change before the submission deadline, you can return to the form and update your response.</p>
-<p style="margin:0 0 16px;">Thank you for the partnership.</p>`;
+<p style="margin:0 0 16px;">Thank you for completing the ASPIRE unit availability form for the <strong>${cohortName}</strong> cohort. We've recorded that ${unitName} is unable to host this round.</p>
+<p style="margin:0 0 16px;">A "no" is a valid and respected answer. Unit capacity, staffing, and preceptor availability change over time, and we would rather place students where a unit can fully support them.</p>
+<p style="margin:0;">If circumstances change before the submission deadline, you can return to the form and update your response.</p>`;
 
-  return body + signatureHtml();
+  return body + aspireSystemSignature('Kind regards,');
 }
 
 function buildInternalAlertHtml(ctx) {
@@ -157,15 +110,15 @@ export const unitFormReceived = {
     const preheader = isHosting
       ? `We've recorded ${ctx.slotsOffered} slot${ctx.slotsOffered === 1 ? '' : 's'} for ${ctx.unitName}.`
       : `We've received your response from ${ctx.unitName}. Your input matters.`;
-    return { subject, html: wrap(buildConfirmationHtml({ ...ctx, isHosting }), preheader) };
+    return { subject, html: aspireEmailShell({ body: buildConfirmationHtml({ ...ctx, isHosting }), preheader }) };
   },
 
   internal_team: (ctx) => {
     const isHosting = (ctx.slotsOffered || 0) > 0;
     const subject = isHosting
-      ? `Unit response: ${ctx.unitName} → ${ctx.slotsOffered} slot${ctx.slotsOffered === 1 ? '' : 's'} (${ctx.cohortName})`
-      : `Unit response: ${ctx.unitName} → not hosting (${ctx.cohortName})`;
+      ? `Unit response: ${ctx.unitName}, ${ctx.slotsOffered} slot${ctx.slotsOffered === 1 ? '' : 's'} (${ctx.cohortName})`
+      : `Unit response: ${ctx.unitName}, not hosting (${ctx.cohortName})`;
     const preheader = `${ctx.submitterName || ctx.submitterEmail} submitted on behalf of ${ctx.unitName}`;
-    return { subject, html: wrap(buildInternalAlertHtml({ ...ctx, isHosting }), preheader) };
+    return { subject, html: aspireEmailShell({ body: buildInternalAlertHtml({ ...ctx, isHosting }), preheader }) };
   },
 };
