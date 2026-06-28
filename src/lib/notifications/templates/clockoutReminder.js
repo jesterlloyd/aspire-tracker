@@ -1,19 +1,18 @@
 // src/lib/notifications/templates/clockoutReminder.js
 // CLOCKOUT-NUDGE-LIVE-1 — student "your shift still appears open" reminder.
 // Supportive/operational, never disciplinary: "clock out" (not "logout"); "still appears open"
-// (not "you forgot"). Approved subject/body, unchanged.
-// CLOCKOUT-EMAIL-BRAND-1 — uses the shared Nightfall/Cedars branded shell (same header markup as the
-// coordinator digest: navy header, reversed CS logo, ASPIRE Program / Brawerman Nursing Institute).
+// (not "you forgot"). Approved subject/body.
+// EMAIL-BRAND-REFRESH Phase 2B pilot: migrated onto the shared ASPIRE shell
+// (lib/server/email/aspireShell.js) — Nightfall header (ASPIRE wordmark + meaning), white card,
+// Nightfall footer with the no-reply line. Typed system signature (no handwritten image).
 
 import { escapeHtml } from '../../htmlEscape.js';
-
-const NAVY  = '#1D2567';   // Nightfall — ASPIRE Intelligence primary brand color
-const SAND  = '#F4F1EC';   // Sand — ASPIRE app background
-const RAVEN = '#191919';   // Near-black body text
+import { aspireEmailShell, aspireSystemSignature } from '../../../../lib/server/email/aspireShell.js';
 
 export const CLOCKOUT_REMINDER_SUBJECT = 'ASPIRE Shift Clock-Out Reminder';
 
-// Exact approved plaintext body. Used for the preview mode and as the email content source.
+// Exact approved plaintext body — used for the cron admin preview and as the plaintext source.
+// Mirrors the sent HTML so preview equals sent.
 export function clockoutReminderText(firstName) {
   const name = (firstName && String(firstName).trim()) || 'there';
   return [
@@ -23,53 +22,12 @@ export function clockoutReminderText(firstName) {
     '',
     'If you are still on shift, no action is needed at this time.',
     '',
-    'Thank you,',
+    'Kind regards,',
     'Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN',
     'Nursing Professional Development Practitioner',
     'Geri & Richard Brawerman Nursing Institute',
-    'JesterLloyd.Bautista@cshs.org | Office: 310-248-8964',
+    'jesterlloyd.bautista@cshs.org | Office: 310-248-8964',
   ].join('\n');
-}
-
-function wrap(content, preheader) {
-  return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ASPIRE Program</title></head>
-<body style="margin:0;padding:0;background:${SAND};font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:${RAVEN};">
-<div style="display:none;max-height:0;overflow:hidden;">${preheader}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${SAND};padding:32px 16px;">
-<tr><td align="center">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0"
-  style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
-
-<!-- Nightfall header with reversed CS logo — matches other ASPIRE emails (coordinator digest shell) -->
-<tr><td style="background:${NAVY};padding:12px 28px;">
-  <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
-    <td style="vertical-align:middle;">
-      <img src="https://aspire-tracker.vercel.app/cs-logo-large.png"
-           alt="Cedars-Sinai"
-           width="160" height="auto"
-           style="display:block;height:auto;max-height:46px;width:auto;max-width:160px;border:0;" />
-    </td>
-    <td style="text-align:right;vertical-align:middle;">
-      <div style="color:#ffffff;font-size:11px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;line-height:1.4;">ASPIRE Program</div>
-      <div style="color:rgba(255,255,255,0.75);font-size:10px;letter-spacing:0.3px;margin-top:3px;line-height:1.4;">Brawerman Nursing Institute</div>
-    </td>
-  </tr></table>
-</td></tr>
-
-<!-- Body -->
-<tr><td style="padding:32px 28px;font-size:15px;line-height:1.6;color:${RAVEN};">${content}</td></tr>
-
-<!-- Footer -->
-<tr><td style="padding:16px 28px 28px;font-size:12px;color:#9ca3af;line-height:1.5;border-top:1px solid #f0ede8;">
-  This is an automated reminder from the ASPIRE Program.
-</td></tr>
-
-</table>
-</td></tr>
-</table>
-</body></html>`;
 }
 
 export function buildClockoutReminderEmail({ firstName } = {}) {
@@ -78,15 +36,9 @@ export function buildClockoutReminderEmail({ firstName } = {}) {
   const body = `
     <p style="margin:0 0 16px;">Hi ${escapeHtml(name)},</p>
     <p style="margin:0 0 16px;">Your ASPIRE shift still appears open in the tracker. If your shift has ended, please clock out as soon as possible.</p>
-    <p style="margin:0 0 20px;">If you are still on shift, no action is needed at this time.</p>
-    <p style="margin:0 0 4px;">Thank you,</p>
-    <p style="margin:0;line-height:1.5;">
-      Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN<br/>
-      <span style="color:#475467;font-size:13px;">Nursing Professional Development Practitioner</span><br/>
-      <span style="color:#475467;font-size:13px;">Geri &amp; Richard Brawerman Nursing Institute</span><br/>
-      <span style="color:#475467;font-size:13px;">JesterLloyd.Bautista@cshs.org | Office: 310-248-8964</span>
-    </p>`;
-  return { subject: CLOCKOUT_REMINDER_SUBJECT, html: wrap(body, preheader) };
+    <p style="margin:0;">If you are still on shift, no action is needed at this time.</p>
+    ${aspireSystemSignature('Kind regards,')}`;
+  return { subject: CLOCKOUT_REMINDER_SUBJECT, html: aspireEmailShell({ body, preheader }) };
 }
 
 // Registry-shaped export (audience -> builder), matching the other notification templates.
