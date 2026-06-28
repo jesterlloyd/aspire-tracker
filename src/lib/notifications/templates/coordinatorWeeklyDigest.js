@@ -1,15 +1,16 @@
 // src/lib/notifications/templates/coordinatorWeeklyDigest.js
 // Weekly digest email sent to school placement coordinators every Friday.
 // Summarises the past 7 days of student activity for their school.
+// EMAIL-BRAND-REFRESH Phase 2B-6: migrated onto the shared ASPIRE system shell
+// (lib/server/email/aspireShell.js) — Nightfall header (ASPIRE wordmark + meaning), white card,
+// Nightfall footer with the no-reply line. Typed system signature only (no handwritten image).
 
-import { JESTER_SIGNATURE } from './signatures.js';
+import { aspireEmailShell, aspireSystemSignature } from '../../../../lib/server/email/aspireShell.js';
 
-const NAVY  = '#1D2567';   // Nightfall — ASPIRE Intelligence primary brand color
-const SAND  = '#F4F1EC';   // Sand — ASPIRE app background
+const NAVY  = '#1d2567';   // Nightfall — ASPIRE primary brand color
 const RAVEN = '#191919';   // Near-black body text
 
 // ── Category metadata ─────────────────────────────────────────────────────────
-// accent colors are no longer used in section backgrounds.
 // All sections use a unified navy left-border treatment for a restrained,
 // coordinated appearance.
 
@@ -21,59 +22,22 @@ const CATEGORIES = [
   { key: 'rotation',         label: 'Began Active Rotation' },
 ];
 
-// ── HTML wrapper ─────────────────────────────────────────────────────────────
-
-function wrap(content, preheader) {
-  return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ASPIRE Program</title></head>
-<body style="margin:0;padding:0;background:${SAND};font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:${RAVEN};">
-<div style="display:none;max-height:0;overflow:hidden;">${preheader}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${SAND};padding:32px 16px;">
-<tr><td align="center">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0"
-  style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
-
-<!-- Nightfall header with reversed CS logo — compact -->
-<tr><td style="background:${NAVY};padding:12px 28px;">
-  <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
-    <td style="vertical-align:middle;">
-      <img src="https://aspire-tracker.vercel.app/cs-logo-large.png"
-           alt="Cedars-Sinai"
-           width="160" height="auto"
-           style="display:block;height:auto;max-height:46px;width:auto;max-width:160px;border:0;" />
-    </td>
-    <td style="text-align:right;vertical-align:middle;">
-      <div style="color:#ffffff;font-size:11px;font-weight:700;letter-spacing:1.1px;text-transform:uppercase;line-height:1.4;">ASPIRE Program</div>
-      <div style="color:rgba(255,255,255,0.75);font-size:10px;letter-spacing:0.3px;margin-top:3px;line-height:1.4;">Brawerman Nursing Institute</div>
-    </td>
-  </tr></table>
-</td></tr>
-
-<!-- Body -->
-<tr><td style="padding:32px 28px;font-size:15px;line-height:1.6;color:${RAVEN};">${content}</td></tr>
-
-<!-- Footer -->
-<tr><td style="padding:16px 28px 28px;font-size:12px;color:#9ca3af;line-height:1.5;border-top:1px solid #f0ede8;">
-  This is an ASPIRE Program communication. Replies go directly to Jester.
-</td></tr>
-
-</table>
-</td></tr>
-</table>
-</body></html>`;
+// Defensive display sanitizer: line items are built upstream (cron); strip any em/en dash used as
+// punctuation to a comma so the rendered digest stays dash-free regardless of the upstream format.
+function cleanLine(line) {
+  return String(line == null ? '' : line).replace(/\s*[—–]\s*/g, ', ');
 }
 
 // ── Section renderer ──────────────────────────────────────────────────────────
-// Professional, restrained treatment: light neutral header with a navy left
-// border, white content area. Consistent across all four section types.
+// Restrained treatment: light neutral header with a navy left border, white content area.
+// Consistent across all section types. Grouping/labels/counts preserved.
 
 function renderSection(category, items) {
   if (!items || items.length === 0) return '';
   const rows = items.map(item => `
     <tr>
       <td style="padding:7px 0;font-size:14px;color:${RAVEN};border-bottom:1px solid #f3f4f6;">
-        <span style="color:${NAVY};font-weight:700;margin-right:7px;">›</span>${item.line}
+        <span style="color:${NAVY};font-weight:700;margin-right:7px;">&rsaquo;</span>${cleanLine(item.line)}
       </td>
     </tr>`).join('');
 
@@ -104,33 +68,27 @@ export function buildCoordinatorWeeklyDigestEmail({
   const totalCount = CATEGORIES.reduce((sum, cat) =>
     sum + (transitions[cat.key]?.length || 0), 0);
 
-  const subject   = `ASPIRE Program Update: Student Interview and Placement Status — ${schoolDisplayName}`;
-  const preheader = `${totalCount} ASPIRE Program update${totalCount === 1 ? '' : 's'} for ${schoolDisplayName}.`;
+  const subject   = `ASPIRE update: interview and placement status for ${schoolDisplayName}`;
+  const preheader = `${totalCount} ASPIRE update${totalCount === 1 ? '' : 's'} for ${schoolDisplayName} (${dateRange}).`;
 
   const sections = CATEGORIES
     .map(cat => renderSection(cat, transitions[cat.key]))
     .join('');
 
   const body = `
-<p style="margin:0 0 20px;">Good morning. I hope you are doing well. I am sharing an ASPIRE Program update regarding your students&rsquo; recent interview and placement activity.</p>
+<p style="margin:0 0 20px;">Good morning. I hope you are doing well. Here is this week&rsquo;s ASPIRE update on your students&rsquo; interview and placement activity.</p>
 
 ${sections}
 
 <p style="margin:0 0 16px;">
   That&rsquo;s ${totalCount} update${totalCount === 1 ? '' : 's'} from ${schoolDisplayName}.
-  If you have questions about any of these students or want to follow up on anything, just reply to this email.
+  If you have questions about any of these students, email Jester at <a href="mailto:jesterlloyd.bautista@cshs.org" style="color:${NAVY};">jesterlloyd.bautista@cshs.org</a>.
 </p>
 
-<p style="margin:0 0 20px;">Thanks for the partnership.</p>
+<p style="margin:0;">Thank you.</p>
+${aspireSystemSignature('Kind regards,')}`;
 
-<p style="margin:0;">
-  ${JESTER_SIGNATURE.fullName}<br/>
-  <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.title}</span><br/>
-  <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.affiliation}</span><br/>
-  <span style="color:#475467;font-size:13px;">${JESTER_SIGNATURE.email} | Office: 310-248-8964</span>
-</p>`;
-
-  return { subject, html: wrap(body, preheader) };
+  return { subject, html: aspireEmailShell({ body, preheader }) };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -139,5 +97,5 @@ export function formatDateRange(start, end) {
   const fmt = d => new Date(d).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', timeZone: 'America/Los_Angeles',
   });
-  return `${fmt(start)}–${fmt(end)}`;
+  return `${fmt(start)} to ${fmt(end)}`;
 }
