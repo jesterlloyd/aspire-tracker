@@ -43,7 +43,7 @@ const SIGNATURE_SEED = {
 };
 
 // ── Send-mode constants ──
-const FROM            = 'ASPIRE Program <noreply@aspire-program.com>';
+const FROM            = 'ASPIRE <noreply@aspire-program.com>';
 const REPLY_TO        = 'JesterLloyd.Bautista@cshs.org';
 const CONFIRMATION    = 'SEND MESSAGES';   // exact server-enforced phrase
 const MAX_RECIPIENTS  = 75;                // Phase 2B-2 safety ceiling (reject, never partial-send)

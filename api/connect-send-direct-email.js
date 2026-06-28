@@ -127,7 +127,7 @@ function resolveCcList(rawCc, toEmail) {
 // From-address: noreply@aspire-program.com is the confirmed working sender
 // used in all production Resend integrations. aspire@aspire-program.com is
 // not confirmed as a verified sender.
-const FROM     = 'ASPIRE Program <noreply@aspire-program.com>';
+const FROM     = 'ASPIRE <noreply@aspire-program.com>';
 const REPLY_TO = 'JesterLloyd.Bautista@cshs.org';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
