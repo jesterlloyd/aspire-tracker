@@ -2577,6 +2577,8 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           students={students}
           loadingStudents={loadingStudents}
           renderTypeSelector={renderBulkTypeSelector}
+          userKey={userKey}
+          cohortId={cohortId}
         />
       )}
 

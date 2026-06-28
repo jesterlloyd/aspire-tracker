@@ -46,6 +46,36 @@ const inputBase = {
 }
 const labelStyle = { display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6, fontFamily: F }
 
+// ── Bulk draft autosave (CONNECT-DRAFT-AUTOSAVE-1 parity with Send-to-one) ─────────────────────────
+// Mirrors the Send-to-one direct-draft pattern (OutreachView.jsx) so Send-to-many shows the same
+// "Draft restored" / "Draft saved" status and an explicit "Discard draft" control. Persists ONLY
+// { subject, body, includeSignature } to a SEPARATE, user-scoped key per message-type, so discarding
+// a bulk draft never touches a Send-to-one draft (different key namespace). No tokens/preview HTML.
+const BULK_DRAFT_VERSION    = 1
+const BULK_DRAFT_DEBOUNCE_MS = 600
+const bulkDraftKey = (userKey, cohortId, type) =>
+  (userKey && type) ? `aspire.connect.outreach.bulkDraft.v${BULK_DRAFT_VERSION}.${userKey}.${cohortId || 'none'}.${type}` : null
+
+function readBulkDraft(key) {
+  if (!key) return null
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return null
+    const d = JSON.parse(raw)
+    if (!d || d.v !== BULK_DRAFT_VERSION) { localStorage.removeItem(key); return null }
+    return d
+  } catch { return null }
+}
+
+// The bulk composer is never blank — it starts from a message-type TEMPLATE. "Pristine" (the unedited
+// template default) is the bulk analog of Send-to-one's "empty": no draft is persisted and the
+// Discard control stays hidden until the user actually edits.
+function bulkDraftIsPristine(type, subject, body) {
+  const tpl = buildBulkTemplate(type)
+  if (!tpl) return !String(subject || '').trim() && !String(body || '').trim()
+  return subject === tpl.subject && body === withStaticLinks(type, tpl.body)
+}
+
 const CONTACT_CATEGORIES = ['All', 'Academic Partners', 'Unit Leadership', 'Preceptors', 'BNI Team', 'Nursing Executives', 'Other']
 
 // Default audience source per manual template (owner-approved mapping).
@@ -140,6 +170,8 @@ export default function BulkManualComposer({
   students = [],
   loadingStudents = false,
   renderTypeSelector,
+  userKey = null,
+  cohortId = null,
 }) {
   // ── Audience state ────────────────────────────────────────────────────────
   const [source, setSource]               = useState(DEFAULT_SOURCE[bulkMsgType] || 'students')
@@ -172,6 +204,19 @@ export default function BulkManualComposer({
   const [body, setBody]                   = useState('')
   const [includeSignature, setIncludeSig] = useState(true)
 
+  // Draft autosave UX (mirrors Send-to-one): draftStatus drives the small inline indicator
+  // ('saved' | 'restored' | 'discarded' | null). Scoped per user + cohort + message-type.
+  const BULK_DRAFT_KEY = bulkDraftKey(userKey, cohortId, bulkMsgType)
+  const [draftStatus, setDraftStatus] = useState(null)
+  const draftTimerRef       = useRef(null)
+  const draftStatusTimerRef = useRef(null)
+  const bulkHydratedRef     = useRef(false)
+  const flashDraftStatus = useCallback((s) => {
+    setDraftStatus(s)
+    if (draftStatusTimerRef.current) clearTimeout(draftStatusTimerRef.current)
+    draftStatusTimerRef.current = setTimeout(() => setDraftStatus(null), 2200)
+  }, [])
+
   // Preview / Review
   const [reviewOpen, setReviewOpen]       = useState(false)
   // Branded "Preview as sent" — { html, loading, error } from the existing DM preview endpoint
@@ -199,6 +244,58 @@ export default function BulkManualComposer({
     setSource(DEFAULT_SOURCE[bulkMsgType] || 'students')
     setContactCat(DEFAULT_CONTACT_CATEGORY[bulkMsgType] || 'All')
   }
+
+  // ── Draft hydrate (mirrors Send-to-one) ─────────────────────────────────────
+  // After the render-phase block has set this type's template defaults, restore a saved bulk draft
+  // for the same key (if present and genuinely edited) and flash "Draft restored". Defined BEFORE the
+  // autosave effect so it runs first in the commit, and gates autosave via bulkHydratedRef until done.
+  useEffect(() => {
+    bulkHydratedRef.current = false
+    const d = readBulkDraft(BULK_DRAFT_KEY)
+    if (d && !bulkDraftIsPristine(bulkMsgType, d.subject || '', d.body || '')) {
+      /* eslint-disable react-hooks/set-state-in-effect -- intentional synchronous restore, mirrors the Send-to-one hydrate */
+      setSubject(d.subject || '')
+      setBody(d.body || '')
+      if (typeof d.includeSignature === 'boolean') setIncludeSig(d.includeSignature)
+      flashDraftStatus('restored')
+      /* eslint-enable react-hooks/set-state-in-effect */
+    }
+    bulkHydratedRef.current = true
+  }, [BULK_DRAFT_KEY]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Debounced write + "Draft saved" indicator. Persists only a genuinely edited (non-pristine) draft;
+  // a pristine (unedited template) state removes any stale key and shows nothing — mirroring the
+  // Send-to-one debounce so a freshly-restored draft transitions "restored" -> "saved".
+  useEffect(() => {
+    if (!BULK_DRAFT_KEY || !bulkHydratedRef.current) return
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
+    const pristine = bulkDraftIsPristine(bulkMsgType, subject, body)
+    draftTimerRef.current = setTimeout(() => {
+      try {
+        if (pristine) {
+          localStorage.removeItem(BULK_DRAFT_KEY)
+        } else {
+          localStorage.setItem(BULK_DRAFT_KEY, JSON.stringify({
+            v: BULK_DRAFT_VERSION, savedAt: Date.now(), subject, body, includeSignature,
+          }))
+          flashDraftStatus('saved')
+        }
+      } catch { /* ignore quota / serialization errors */ }
+    }, BULK_DRAFT_DEBOUNCE_MS)
+    return () => { if (draftTimerRef.current) clearTimeout(draftTimerRef.current) }
+  }, [subject, body, includeSignature, BULK_DRAFT_KEY, bulkMsgType, flashDraftStatus])
+
+  // Explicit discard: reset this message-type to its template default and clear the saved bulk draft
+  // (this key only — Send-to-one drafts live under a different namespace and are untouched).
+  const handleDiscardBulkDraft = useCallback(() => {
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
+    const tpl = buildBulkTemplate(bulkMsgType)
+    if (tpl) { setSubject(tpl.subject); setBody(withStaticLinks(bulkMsgType, tpl.body)) }
+    else { setSubject(''); setBody('') }
+    setIncludeSig(true)
+    try { if (BULK_DRAFT_KEY) localStorage.removeItem(BULK_DRAFT_KEY) } catch { /* ignore */ }
+    flashDraftStatus('discarded')
+  }, [bulkMsgType, BULK_DRAFT_KEY, flashDraftStatus])
 
   // ── Load contacts once the Contacts source is first opened ──────────────────
   // All setState lives in the async resolution (the endorsed effect pattern); loading is derived.
@@ -769,6 +866,27 @@ export default function BulkManualComposer({
             <label style={labelStyle}>Message</label>
             <textarea value={body} onChange={e => setBody(e.target.value)} rows={14}
               style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, minHeight: 240, fontSize: 13 }} />
+            {/* CONNECT-DRAFT-AUTOSAVE-1 parity: unobtrusive autosave status (bottom-left) + explicit
+                discard (bottom-right) — mirrors the Send-to-one composer. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, minHeight: 18 }}>
+              <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, transition: 'opacity 0.2s' }}>
+                {draftStatus === 'saved' ? 'Draft saved'
+                  : draftStatus === 'restored' ? 'Draft restored'
+                  : draftStatus === 'discarded' ? 'Draft discarded'
+                  : ''}
+              </span>
+              {!bulkDraftIsPristine(bulkMsgType, subject, body) && (
+                <button
+                  type="button"
+                  onClick={handleDiscardBulkDraft}
+                  style={{
+                    marginLeft: 'auto', background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                    fontFamily: F, fontSize: 11, fontWeight: 600, color: '#9ca3af',
+                  }}>
+                  Discard draft
+                </button>
+              )}
+            </div>
           </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#374151', fontFamily: F, cursor: 'pointer', marginBottom: 6 }}>
             <input type="checkbox" checked={includeSignature} onChange={e => setIncludeSig(e.target.checked)} style={{ accentColor: NAVY }} />
