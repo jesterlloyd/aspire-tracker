@@ -111,7 +111,7 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
             </button>
             <button onClick={() => navigate('/connect/broadcasts')} style={btnStyle('broadcasts')}>
               <Activity size={13} />
-              Automation
+              Automations
             </button>
           </div>
         </div>

@@ -12,9 +12,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Eye } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import Toggle from '../ui/Toggle'
+import AutomationEmailPreviewDrawer from './AutomationEmailPreviewDrawer'
+import { getPreviewFixture } from '../../lib/notifications/previewFixtures'
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -162,7 +165,7 @@ function useMidpointSetting(cohortId, toast) {
 }
 
 // ── One unified card: control (toggle + On/Off/Saving) AND health (badge + last run + chips). ──
-function AutomationCard({ card, run, health, ctrl }) {
+function AutomationCard({ card, run, health, ctrl, onPreview }) {
   const tone = HEALTH_TONES[health.tone] || HEALTH_TONES.neutral
   const chips = chipsFromDetails(run?.details)
   const duration = run && fmtDuration(run.started_at, run.finished_at)
@@ -178,14 +181,29 @@ function AutomationCard({ card, run, health, ctrl }) {
           <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>{card.title}</div>
           <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 2 }}>{card.schedule} · {card.scope}</div>
         </div>
-        <span style={{
-          flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11,
-          fontWeight: 700, padding: '3px 9px', borderRadius: 20,
-          background: tone.bg, color: tone.color, border: `1px solid ${tone.border}`,
-        }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: tone.dot }} />
-          {health.label}
-        </span>
+        {/* Right cluster: Preview eye + health badge (badge stays the rightmost status anchor). */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          <button
+            onClick={onPreview}
+            title="Preview email"
+            aria-label="Preview email"
+            style={{
+              width: 44, height: 44, flexShrink: 0, display: 'inline-flex', alignItems: 'center',
+              justifyContent: 'center', background: 'none', border: 'none', borderRadius: 8,
+              cursor: 'pointer', color: '#9ca3af', padding: 0,
+            }}
+          >
+            <Eye size={16} />
+          </button>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11,
+            fontWeight: 700, padding: '3px 9px', borderRadius: 20,
+            background: tone.bg, color: tone.color, border: `1px solid ${tone.border}`,
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: tone.dot }} />
+            {health.label}
+          </span>
+        </div>
       </div>
 
       <div style={{ fontSize: 12, color: '#6b7280', marginTop: 8, lineHeight: 1.45 }}>{description}</div>
@@ -312,6 +330,8 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
   // Pessimistic global toggle: disable while PATCH pending, apply returned setting to cache
   // immediately, then background-refetch to confirm server truth.
   const [savingKey, setSavingKey] = useState(null)
+  // Email preview drawer: the card whose synthetic email preview is open (null = closed).
+  const [previewCard, setPreviewCard] = useState(null)
   const handleToggleControl = async (automationKey, val) => {
     if (savingKey) return
     setSavingKey(automationKey)
@@ -418,7 +438,7 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
     <div style={{ padding: '4px 20px 28px', fontFamily: F }}>
       {/* Title */}
       <div style={{ margin: '6px 2px 14px' }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: '#191919' }}>Automation</div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#191919' }}>Automations</div>
       </div>
 
       {/* Single unified section */}
@@ -453,6 +473,7 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
             run={latestByName[card.cron_name]}
             health={healthFor(card)}
             ctrl={ctrlFor(card)}
+            onPreview={() => setPreviewCard(card)}
           />
         ))}
       </div>
@@ -472,6 +493,15 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
           }}
         >Outreach › Sent History</button>
       </div>
+
+      {/* Email preview drawer — synthetic data, client-side render, sandboxed iframe. */}
+      {previewCard && (
+        <AutomationEmailPreviewDrawer
+          title={previewCard.title}
+          entry={getPreviewFixture(previewCard.id)}
+          onClose={() => setPreviewCard(null)}
+        />
+      )}
     </div>
   )
 }
