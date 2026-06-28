@@ -83,7 +83,7 @@ Once we receive your confirmation, we will send your students a separate email w
 
 Lastly, to help ensure that you receive ASPIRE Program communications, including automated updates regarding student progress, please add the following email address to your contact list or safe senders:
 
-ASPIRE Intelligence: noreply@aspire-program.com
+ASPIRE at Cedars-Sinai <noreply@aspire-program.com>
 
 Thank you for your continued partnership in supporting clinical nursing education.`
   return { subject, body }
@@ -117,7 +117,7 @@ As a reminder, submission of a request does not guarantee placement. Placement d
 
 To help ensure that you receive ASPIRE Program communications, including future updates regarding student progress, please add the following email address to your contact list or safe senders:
 
-ASPIRE Intelligence: noreply@aspire-program.com
+ASPIRE at Cedars-Sinai <noreply@aspire-program.com>
 
 Thank you for your continued partnership in supporting clinical nursing education.`,
 }
@@ -220,7 +220,7 @@ As part of ASPIRE, you may receive information about Cedars-Sinai's New Graduate
 
 To help ensure that you receive ASPIRE Program communications, please add the following email address to your contact list or safe senders:
 
-ASPIRE Intelligence: noreply@aspire-program.com
+ASPIRE at Cedars-Sinai <noreply@aspire-program.com>
 
 We are excited to support your growth, learning, and transition into professional nursing practice.`,
 }

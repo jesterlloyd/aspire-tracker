@@ -3163,7 +3163,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 <div><strong>Expires:</strong> {fmtDate(bulkExpiresAt)}</div>
                 <div><strong>Recipients:</strong> {eligible.length} student{eligible.length !== 1 ? 's' : ''}</div>
                 {bulkSentIds.size > 0 && <div style={{ color: '#9ca3af' }}>({bulkSentIds.size} already sent this session, skipped)</div>}
-                <div><strong>From:</strong> ASPIRE Program &lt;noreply@aspire-program.com&gt;</div>
+                <div><strong>From:</strong> ASPIRE at Cedars-Sinai &lt;noreply@aspire-program.com&gt;</div>
                 <div><strong>Reply-To:</strong> JesterLloyd.Bautista@cshs.org</div>
               </div>
               <div style={{ marginBottom: 16 }}>
@@ -3232,7 +3232,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
               <div><strong>Email:</strong> {surveyResult.student.email}</div>
               <div><strong>Timepoint:</strong> {BULK_CASEY_FINK_TIMEPOINTS.find(t => t.value === surveyResult.timepoint)?.label || surveyResult.timepoint}</div>
               <div><strong>Expires:</strong> {fmtDate(surveyResult.expiresAt?.split('T')[0])}</div>
-              <div><strong>From:</strong> ASPIRE Program &lt;noreply@aspire-program.com&gt;</div>
+              <div><strong>From:</strong> ASPIRE at Cedars-Sinai &lt;noreply@aspire-program.com&gt;</div>
             </div>
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', fontFamily: F, marginBottom: 6 }}>

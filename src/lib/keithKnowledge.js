@@ -860,7 +860,7 @@ Direct Message (one-to-one email via Resend):
 - A contact can be emailed from Contacts: select a contact and click Email. Outreach opens in Direct Message mode with the contact prefilled.
 - A student can be emailed from Student Profiles: select a student and click Email. Outreach opens in Direct Message mode with the student prefilled.
 - Direct email supports both contact recipients and student recipients.
-- Direct email sends one email per send action via Resend through the ASPIRE Program sender (noreply@aspire-program.com).
+- Direct email sends one email per send action via Resend through the ASPIRE at Cedars-Sinai sender (noreply@aspire-program.com).
 - Direct email does NOT create evaluation assignments, tokens, or survey links.
 - Direct email is logged in notification_log as type "direct_message_sent" with recipient_type = "contact" or "student".
 - Contact last-contact fields are updated after a successful direct email send.
