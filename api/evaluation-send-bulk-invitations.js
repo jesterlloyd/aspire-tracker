@@ -42,7 +42,7 @@ import {
 } from '../lib/server/evaluation/emailTemplates.js';
 import { getStudentPreferredGreetingName } from '../src/lib/studentNameFormatters.js';
 
-const FROM          = 'ASPIRE Program <noreply@aspire-program.com>';
+const FROM          = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>';
 const REPLY_TO      = 'JesterLloyd.Bautista@cshs.org';
 const MAX_BATCH     = 5;   // conservative limit for 10s default Vercel timeout
 const CONFIRMATION  = 'SEND SURVEYS';

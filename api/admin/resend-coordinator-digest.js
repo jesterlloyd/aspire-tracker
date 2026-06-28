@@ -27,7 +27,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { buildCoordinatorWeeklyDigestEmail, formatDateRange } from '../../src/lib/notifications/templates/coordinatorWeeklyDigest.js';
 
-const FROM     = 'ASPIRE Intelligence <noreply@aspire-program.com>';
+const FROM     = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>';
 const REPLY_TO = 'JesterLloyd.Bautista@cshs.org';
 // Must match api/cron/coordinator-weekly-digest.js so manual resends render the same digest.
 // rotation_start + status_change_active_rotation collapse into one 'rotation' category below.

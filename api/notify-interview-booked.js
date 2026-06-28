@@ -80,7 +80,7 @@ export default async function handler(req, res) {
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'ASPIRE Intelligence <noreply@aspire-program.com>',
+      from: 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>',
       reply_to: 'JesterLloyd.Bautista@cshs.org',
       to: recipients,
       subject: `New ASPIRE interview: ${studentName}, ${interviewDate} at ${interviewTime}`,

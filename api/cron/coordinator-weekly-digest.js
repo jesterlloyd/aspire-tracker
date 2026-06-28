@@ -29,7 +29,7 @@ import { buildCoordinatorWeeklyDigestEmail, formatDateRange } from '../../src/li
 import { startCronRun, finishCronRunSuccess, finishCronRunError } from '../lib/cronRuns.js';
 import { isAutomationEnabled } from '../lib/automationSettings.js';
 
-const FROM     = 'ASPIRE Intelligence <noreply@aspire-program.com>';
+const FROM     = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>';
 const REPLY_TO = 'JesterLloyd.Bautista@cshs.org';
 
 // Event types to include; maps to digest section keys. rotation_start and

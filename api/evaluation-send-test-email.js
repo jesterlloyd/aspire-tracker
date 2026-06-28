@@ -49,7 +49,7 @@ import {
 // project. The existing from-address noreply@aspire-program.com is used in all
 // production Resend integrations (coordinator digest, interview reminders) and is
 // the safe fallback. Name is changed to 'ASPIRE Program' for student-facing context.
-const FROM      = 'ASPIRE Program <noreply@aspire-program.com>';
+const FROM      = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>';
 const REPLY_TO  = 'JesterLloyd.Bautista@cshs.org';
 
 const VALID_TIMEPOINTS = new Set([

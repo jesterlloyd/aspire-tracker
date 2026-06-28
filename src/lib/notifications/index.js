@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import { templates } from './templates/index.js';
 import { resolveRecipients } from './recipients.js';
 
-const FROM     = 'ASPIRE Intelligence <noreply@aspire-program.com>';
+const FROM     = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>';
 const REPLY_TO = 'JesterLloyd.Bautista@cshs.org';
 
 function getResend() {

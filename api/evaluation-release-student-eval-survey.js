@@ -30,7 +30,7 @@ import { getStudentPreferredFirstName } from '../src/lib/studentNameFormatters.j
 
 const INSTRUMENT_SLUG  = 'student_preceptor_eval';
 const TIMEPOINT        = 'post_rotation';
-const FROM             = 'ASPIRE Program <noreply@aspire-program.com>';
+const FROM             = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>';
 const REPLY_TO         = 'JesterLloyd.Bautista@cshs.org';
 const WINDOW_DAYS      = 28;
 const TOKEN_GRACE_DAYS = 2;
