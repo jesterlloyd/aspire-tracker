@@ -15,7 +15,10 @@ import { isValidEmail, resolveStudentCorrespondenceRecipient } from '../../lib/n
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { useAuth } from '../../contexts/AuthContext'
 import { buildPreceptorAssignmentDraft, buildCoordinatorAcceptanceDraft } from '../../lib/outreachTemplates'
-import { SEND_TO_ONE_TEMPLATES, SEND_TO_MANY_TEMPLATES } from '../../lib/connect/templateRegistry'
+import {
+  SEND_TO_ONE_TEMPLATES, SEND_TO_MANY_TEMPLATES,
+  splitTemplatesForAudience, getPrimarySectionTitle, audienceForContact, AUDIENCES,
+} from '../../lib/connect/templateRegistry'
 import { EMAIL_SOURCE_OPTIONS, studentHasEmailSource, studentEmailForSource, emailTypeLabel } from '../../lib/studentBulkEmail'
 import { getStudentPreferredFirstName, getStudentPreferredGreetingName } from '../../lib/studentNameFormatters'
 import { buildStudentInvitationEmail, formatExpiresAt, TIMEPOINT_LABELS } from '../../../lib/server/evaluation/emailTemplates'
@@ -131,6 +134,55 @@ const BULK_ELIGIBILITY = {
 // (CONNECT-TEMPLATE-REGISTRY-1). Survey Invitation keeps its existing student-only flow; the four
 // manual templates open the multi-source BulkManualComposer. Labels/behavior unchanged in Phase 1.
 const BULK_MSG_TYPES = SEND_TO_MANY_TEMPLATES
+
+// CONNECT-TEMPLATE-AUDIENCE-UX-2: keep the SELECTED template visible in the primary list even when it
+// does not match the inferred audience (the active choice must never be hidden inside "Other"). The
+// rest of the non-matching templates stay under the disclosure. Survey templates that the split
+// already dropped (respondent mismatch) are never re-added.
+function liftSelectedIntoPrimary({ primary, other }, selectedKey) {
+  if (!selectedKey) return { primary, other }
+  const idx = other.findIndex(t => t.key === selectedKey)
+  if (idx === -1) return { primary, other }
+  return { primary: [...primary, other[idx]], other: other.filter((_, i) => i !== idx) }
+}
+
+// CONNECT-TEMPLATE-AUDIENCE-UX-2: shared chrome for an audience-aware template selector — a primary
+// section (audience heading + helper) plus a collapsible "Other templates" escape hatch. Each surface
+// supplies its own button markup via renderItem(template) so existing visuals are untouched. When the
+// audience is null (no inference yet) the caller passes the full list as `primary` with empty `other`,
+// so this renders a flat list with no heading — preserving the pre-filtering look.
+function TemplateGroup({ audience, helperText, primary, other, otherOpen, onToggleOther, renderItem }) {
+  const title = audience ? getPrimarySectionTitle(audience) : null
+  return (
+    <div style={{ marginBottom: 16 }}>
+      {title && (
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 3, fontFamily: F }}>{title}</div>
+      )}
+      {title && helperText && (
+        <div style={{ fontSize: 10.5, color: '#9ca3af', marginBottom: 9, fontFamily: F, lineHeight: 1.5 }}>{helperText}</div>
+      )}
+      {primary.map(renderItem)}
+      {other.length > 0 && (
+        <div style={{ marginTop: 6 }}>
+          <button
+            type="button"
+            onClick={onToggleOther}
+            aria-expanded={otherOpen}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '6px 4px',
+              background: 'none', border: 'none', cursor: 'pointer', fontFamily: F,
+              fontSize: 11, fontWeight: 600, color: '#6b7280', textAlign: 'left',
+            }}
+          >
+            <span style={{ fontSize: 9, lineHeight: 1 }} aria-hidden="true">{otherOpen ? '▼' : '▶'}</span>
+            Other templates ({other.length})
+          </button>
+          {otherOpen && <div style={{ marginTop: 2 }}>{other.map(renderItem)}</div>}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function localDateString(d) {
   // Use local year/month/day to avoid UTC midnight rollback in Pacific timezone
@@ -409,6 +461,11 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // in render). Selecting a recipient navigates exactly like a deep link, so the
   // existing recipient/enrichment/draft pipeline is reused unchanged.
   const [pickerOpen, setPickerOpen] = useState(false)
+
+  // CONNECT-TEMPLATE-AUDIENCE-UX-2: "Other templates" disclosure toggles (UI-only; never touch drafts
+  // or send state). One for Send-to-one, one for Send-to-many.
+  const [singleOtherOpen, setSingleOtherOpen] = useState(false)
+  const [bulkOtherOpen,   setBulkOtherOpen]   = useState(false)
 
   const handlePickerSelect = useCallback((r) => {
     if (!r) return
@@ -794,31 +851,57 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     return outreachMode === t.key // survey
   }
 
+  // CONNECT-TEMPLATE-AUDIENCE-UX-2: inferred Send-to-one audience for template grouping.
+  //   • student recipient  → 'student'
+  //   • contact recipient  → category-derived audience (null while the contact row is still loading,
+  //                           so we never flash a wrong filter before the category is known)
+  //   • no recipient yet   → null → the selector shows the full flat list (pre-filtering look)
+  const singleAudience = useMemo(() => {
+    if (recipientType === 'student') return AUDIENCES.STUDENT
+    if (recipientType === 'contact') return fetchedContact ? audienceForContact(fetchedContact) : null
+    return null
+  }, [recipientType, fetchedContact])
+
   // Shared Send-to-Many Message Type selector — rendered identically by the Survey zone and the
-  // manual BulkManualComposer so the two paths never visually drift.
-  const renderBulkTypeSelector = () => (
-    <div style={{ marginBottom: 16 }}>
-      {BULK_MSG_TYPES.map(({ key, label }) => (
-        <button key={key} onClick={() => setBulkMsgType(key)} style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          width: '100%', padding: '7px 10px',
-          border: bulkMsgType === key ? '1.5px solid #1D2567' : '1.5px solid #e5e7eb',
-          borderRadius: 7, background: bulkMsgType === key ? '#EEF2FB' : '#fff',
-          cursor: 'pointer', marginBottom: 4,
-          fontSize: 12, fontWeight: bulkMsgType === key ? 700 : 500,
-          color: bulkMsgType === key ? '#1D2567' : '#374151',
-          fontFamily: F, textAlign: 'left', transition: 'all 0.1s', lineHeight: 1.35,
-        }}>
-          <span style={{
-            width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
-            background: bulkMsgType === key ? '#1D2567' : 'transparent',
-            border: bulkMsgType === key ? '2px solid #1D2567' : '2px solid #d1d5db',
-          }} />
-          {label}
-        </button>
-      ))}
-    </div>
-  )
+  // manual BulkManualComposer so the two paths never visually drift. Now audience-aware: the caller
+  // passes the inferred audience (Survey zone → always 'student'; manual composer → from its source/
+  // category). Splitting + the selected-lift keep the active choice visible; the rest go to "Other".
+  const renderBulkTypeSelector = (audience = null) => {
+    const split = liftSelectedIntoPrimary(
+      splitTemplatesForAudience(BULK_MSG_TYPES, audience, {}),
+      bulkMsgType,
+    )
+    const renderItem = ({ key, label }) => (
+      <button key={key} onClick={() => setBulkMsgType(key)} style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        width: '100%', padding: '7px 10px',
+        border: bulkMsgType === key ? '1.5px solid #1D2567' : '1.5px solid #e5e7eb',
+        borderRadius: 7, background: bulkMsgType === key ? '#EEF2FB' : '#fff',
+        cursor: 'pointer', marginBottom: 4,
+        fontSize: 12, fontWeight: bulkMsgType === key ? 700 : 500,
+        color: bulkMsgType === key ? '#1D2567' : '#374151',
+        fontFamily: F, textAlign: 'left', transition: 'all 0.1s', lineHeight: 1.35,
+      }}>
+        <span style={{
+          width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+          background: bulkMsgType === key ? '#1D2567' : 'transparent',
+          border: bulkMsgType === key ? '2px solid #1D2567' : '2px solid #d1d5db',
+        }} />
+        {label}
+      </button>
+    )
+    return (
+      <TemplateGroup
+        audience={audience}
+        helperText="Showing templates based on the selected audience."
+        primary={split.primary}
+        other={split.other}
+        otherOpen={bulkOtherOpen}
+        onToggleOther={() => setBulkOtherOpen(o => !o)}
+        renderItem={renderItem}
+      />
+    )
+  }
 
   // Escape closes the branded "Replace draft?" confirm modal.
   useEffect(() => {
@@ -1830,9 +1913,12 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           {/* ── Message Type picker (moved into left column below profile card) ── */}
           <ConnectPanel tone="message" title="Message Type" helper="Workflow">
 
-          {/* Type selector */}
-          <div style={{ marginBottom: 16 }}>
-            {MSG_TYPES.map((t) =>
+          {/* Type selector — audience-aware (CONNECT-TEMPLATE-AUDIENCE-UX-2). Grouping/behavior of
+              each item is unchanged; templates are split into a primary list for the inferred
+              recipient audience plus an "Other templates" escape hatch. Custom Message is pinned to
+              primary; the selected template is always lifted into primary so it stays visible. */}
+          {(() => {
+            const renderItem = (t) => (
               t.active ? (
                 <button
                   key={t.label}
@@ -1881,8 +1967,23 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                   </div>
                 </Tooltip>
               )
-            )}
-          </div>
+            )
+            const split = liftSelectedIntoPrimary(
+              splitTemplatesForAudience(MSG_TYPES, singleAudience, { alwaysPrimaryKeys: ['message'] }),
+              MSG_TYPES.find(isTypeSelected)?.key,
+            )
+            return (
+              <TemplateGroup
+                audience={singleAudience}
+                helperText="Showing templates based on the selected recipient."
+                primary={split.primary}
+                other={split.other}
+                otherOpen={singleOtherOpen}
+                onToggleOther={() => setSingleOtherOpen(o => !o)}
+                renderItem={renderItem}
+              />
+            )
+          })()}
 
           {/* Workflow settings for selected type */}
           <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 14 }}>
@@ -2781,8 +2882,9 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           {/* ── Bulk Zone 2: Message Type + Workflow ──────────────────── */}
           <ConnectPanel tone="message" title="Message Type" helper="Bulk workflow" style={{ flex: '0 0 270px', minWidth: 220 }}>
 
-            {/* Bulk message type selector (shared with the manual composer) */}
-            {renderBulkTypeSelector()}
+            {/* Bulk message type selector (shared with the manual composer). This zone is the survey
+                workflow, which is student-only, so the audience is always 'student'. */}
+            {renderBulkTypeSelector(AUDIENCES.STUDENT)}
 
             {/* Survey Invitation workflow settings */}
             {bulkMsgType === 'survey_invitation' && (

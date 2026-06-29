@@ -29,6 +29,7 @@ import {
   BULK_DEFAULT_SOURCE as DEFAULT_SOURCE,
   BULK_DEFAULT_CONTACT_CATEGORY as DEFAULT_CONTACT_CATEGORY,
   BULK_TEMPLATE_LABEL as TEMPLATE_LABEL,
+  audienceForBulkSelection,
 } from '../../lib/connect/templateRegistry'
 import {
   emailTypeLabel, EMAIL_SOURCE_OPTIONS, studentEmailForSource, studentHasEmailSource,
@@ -910,8 +911,10 @@ export default function BulkManualComposer({
       </ConnectPanel>
 
       {/* ── Zone 2: Message Type (shared selector from parent) ───────────── */}
+      {/* CONNECT-TEMPLATE-AUDIENCE-UX-2: pass the audience inferred from THIS composer's live source +
+          contact-category selection so the parent selector groups templates accordingly. */}
       <ConnectPanel tone="message" title="Message Type" helper="Bulk workflow" style={{ flex: '0 0 270px', minWidth: 220 }}>
-        {renderTypeSelector?.()}
+        {renderTypeSelector?.(audienceForBulkSelection({ source, contactCategory: contactCat }))}
         <div style={{ marginTop: 12, padding: '8px 10px', background: '#FBF5E8', border: '1px solid #f0c9b0', borderRadius: 8, fontSize: 10, color: '#8B5E1A', fontFamily: F, lineHeight: 1.5 }}>
           Compose your audience and draft here, then open <strong>Review &amp; send</strong>. A typed confirmation is required before any email is sent.
         </div>

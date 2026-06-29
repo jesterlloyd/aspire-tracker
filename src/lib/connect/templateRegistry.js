@@ -66,6 +66,75 @@ export function audienceForRecipient({ recipientType, contact } = {}) {
   return audienceForContact(contact)
 }
 
+// Infer the audience for a Send-to-many bulk selection (source + optional contact category).
+//   students source          → student
+//   contacts source + category → mapped audience ('All'/none → generic)
+//   paste / manual / mixed   → generic
+export function audienceForBulkSelection({ source, contactCategory } = {}) {
+  if (source === 'students') return AUDIENCES.STUDENT
+  if (source === 'contacts') {
+    if (!contactCategory || contactCategory === 'All') return AUDIENCES.GENERIC
+    return audienceFromCategory(contactCategory)
+  }
+  return AUDIENCES.GENERIC
+}
+
+// ── Audience-aware template filtering (CONNECT-TEMPLATE-AUDIENCE-UX-2) ────────────────────────────
+
+// Human label for a primary section. 'generic' (and unknown) → null so the heading falls back to
+// the plain "Templates".
+export const AUDIENCE_LABELS = {
+  [AUDIENCES.STUDENT]:          'Students',
+  [AUDIENCES.PRECEPTOR]:        'Preceptors',
+  [AUDIENCES.UNIT_LEADER]:      'Unit Leaders',
+  [AUDIENCES.ACADEMIC_PARTNER]: 'Academic Partners',
+  [AUDIENCES.INTERVIEWER]:      'Interviewers',
+  [AUDIENCES.GENERIC]:          null,
+}
+export function getAudienceLabel(audience) {
+  return AUDIENCE_LABELS[audience] ?? null
+}
+export function getPrimarySectionTitle(audience) {
+  const label = getAudienceLabel(audience)
+  return label ? `Templates for ${label}` : 'Templates'
+}
+
+// Does a MANUAL template belong in the primary list for this audience? A template matches when its
+// audiences include the inferred audience OR it is 'generic' (cross-audience, e.g. Custom Message /
+// Announcement). A null audience (no inference yet) matches everything. Survey templates are handled
+// separately in splitTemplatesForAudience (respondent-locked).
+export function templateMatchesAudience(template, audience) {
+  if (!template) return false
+  if (!audience) return true
+  const auds = template.audiences || []
+  return auds.includes(audience) || auds.includes(AUDIENCES.GENERIC)
+}
+
+// Split a template list into { primary, other } for an inferred audience.
+//   • audience == null            → no inference yet; show the whole list as primary (preserves the
+//                                   pre-filtering UX, e.g. Send-to-one before a recipient is chosen).
+//   • templateKind === 'survey'   → respondent-locked: appears in PRIMARY only when its declared
+//                                   audiences include the inferred audience; otherwise fully hidden
+//                                   (never relegated to "Other" — a survey must not look cross-audience).
+//   • manual templates            → primary when they match the audience (or are listed in
+//                                   alwaysPrimaryKeys, e.g. Custom Message); otherwise → other.
+export function splitTemplatesForAudience(templates, audience, options = {}) {
+  const { alwaysPrimaryKeys = [] } = options
+  const list = Array.isArray(templates) ? templates : []
+  if (!audience) return { primary: [...list], other: [] }
+  const primary = []
+  const other = []
+  for (const t of list) {
+    if (t.templateKind === 'survey') {
+      if ((t.audiences || []).includes(audience)) primary.push(t)
+      continue
+    }
+    if (alwaysPrimaryKeys.includes(t.key) || templateMatchesAudience(t, audience)) primary.push(t)
+    else other.push(t)
+  }
+  return { primary, other }
+}
+
 // ── Send-to-one templates (drop-in for the former MSG_TYPES) ─────────────────────────────────────
 // Reads-compatible with OutreachView: each entry has key/label/active/kind. Extra metadata
 // (surface/templateKind/audiences/builderKey/composerMode) is additive and currently advisory.
