@@ -234,6 +234,8 @@ export default function BulkManualComposer({
   const draftTimerRef       = useRef(null)
   const draftStatusTimerRef = useRef(null)
   const bulkHydratedRef     = useRef(false)
+  // RICH-COMPOSE-2A-0: additive richDoc (TipTap JSON); preserved across flag toggles, never destroyed.
+  const bulkRichDocRef      = useRef(null)
   const flashDraftStatus = useCallback((s) => {
     setDraftStatus(s)
     if (draftStatusTimerRef.current) clearTimeout(draftStatusTimerRef.current)
@@ -281,9 +283,11 @@ export default function BulkManualComposer({
   // autosave effect so it runs first in the commit, and gates autosave via bulkHydratedRef until done.
   useEffect(() => {
     bulkHydratedRef.current = false
+    bulkRichDocRef.current = null   // reset on type/key change; restored from the draft below if saved
     const d = readBulkDraft(BULK_DRAFT_KEY)
     if (bulkDraftHasContent(bulkMsgType, d, richEnabled)) {
       /* eslint-disable react-hooks/set-state-in-effect -- intentional synchronous restore, mirrors the Send-to-one hydrate */
+      bulkRichDocRef.current = d.richDoc || null   // additive; preserved untouched while flag OFF
       setSubject(d.subject || '')
       // Restore body honoring draft bodyFormat vs the current flag (legacy/missing ⇒ text), converting
       // between text/html so the active composer (editor vs textarea) always gets the right shape.
@@ -328,6 +332,7 @@ export default function BulkManualComposer({
             v: BULK_DRAFT_VERSION, savedAt: Date.now(),
             subject, body, includeSignature,
             bodyFormat: richEnabled ? 'html' : 'text',
+            ...(bulkRichDocRef.current ? { richDoc: bulkRichDocRef.current } : {}),
             source, studentEmailSrc,
             studentSel: [...studentSel],
             contactSel: [...contactSel],
@@ -347,6 +352,7 @@ export default function BulkManualComposer({
     const tpl = buildBulkTemplate(bulkMsgType)
     if (tpl) { setSubject(tpl.subject); setBody(bulkTemplateBody(bulkMsgType, richEnabled)) }
     else { setSubject(''); setBody('') }
+    bulkRichDocRef.current = null
     setIncludeSig(true)
     // Reset the audience/recipient selection back to the empty default for this type.
     setSource(DEFAULT_SOURCE[bulkMsgType] || 'students')
@@ -929,7 +935,7 @@ export default function BulkManualComposer({
           <div style={{ marginBottom: 12 }}>
             <label style={labelStyle}>Message</label>
             {richEnabled ? (
-              <RichTextEditor html={body} onChange={setBody} ariaLabel="Message" minHeight={240} />
+              <RichTextEditor html={body} onChange={(html, json) => { setBody(html); bulkRichDocRef.current = json || null }} ariaLabel="Message" minHeight={240} />
             ) : (
               <textarea value={body} onChange={e => setBody(e.target.value)} rows={14}
                 style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, minHeight: 240, fontSize: 13 }} />

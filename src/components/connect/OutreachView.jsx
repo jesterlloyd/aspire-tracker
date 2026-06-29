@@ -360,6 +360,9 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   const draftHydratedRef    = useRef(false)
   const lastRecipientRef    = useRef(null)   // detects an actual recipient change vs. identity load
   const latestDraftRef      = useRef(null)   // latest values for the flush-on-hide/unmount writes
+  // RICH-COMPOSE-2A-0: additive richDoc (TipTap JSON). When rich ON the editor updates it on edit;
+  // when OFF it carries the restored draft's richDoc forward so toggling the flag never destroys it.
+  const richDocRef          = useRef(null)
   const flashDraftStatus = useCallback((s) => {
     setDraftStatus(s)
     if (draftStatusTimerRef.current) clearTimeout(draftStatusTimerRef.current)
@@ -669,6 +672,9 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     const d = DRAFT_KEY ? readDirectDraft(DRAFT_KEY) : null
     if (d && !directDraftIsEmpty(d)) {
       setMsgSubject(d.subject || '')
+      // Carry the stored richDoc forward (additive; preserved untouched while the flag is OFF). The
+      // Divider rehydrates faithfully from the body markers below via the editor's parseHTML.
+      richDocRef.current = d.richDoc || null
       // Restore body honoring the draft's bodyFormat vs the current flag (backward compatible:
       // missing bodyFormat ⇒ legacy plain text). Convert between text/html as needed so the body
       // is always in the shape the active composer (editor vs textarea) expects.
@@ -683,6 +689,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     } else if (recipientChanged) {
       setMsgSubject('')
       setMsgBody('')
+      richDocRef.current = null
     }
     draftHydratedRef.current = true
   }, [DRAFT_KEY, draftRecipientId]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1441,7 +1448,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       DRAFT_KEY, ptrKey: lastDraftPointerKey(userKey, cohortId),
       recipId: recipientType === 'student' ? studentId : contactId,
       kind: recipientType === 'student' ? 'student' : 'contact',
-      subject: msgSubject, body: msgBody, includeSignature,
+      subject: msgSubject, body: msgBody, includeSignature, richDoc: richDocRef.current,
       name: dmRecipientName, email: resolvedToEmail || '', school: dmRecipientSchool || null,
     }
   }, [DRAFT_KEY, userKey, cohortId, recipientType, studentId, contactId, msgSubject, msgBody, includeSignature, dmRecipientName, resolvedToEmail, dmRecipientSchool])
@@ -1449,7 +1456,10 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     if (!draftHydratedRef.current) return
     const l = latestDraftRef.current
     if (!l || !l.DRAFT_KEY) return
+    // richDoc is additive: persisted only when present (omitted for legacy/text-only drafts), and the
+    // OFF path carries the restored richDoc forward (richDocRef holds it) so it is never destroyed.
     const payload = { v: DRAFT_VERSION, savedAt: Date.now(), subject: l.subject, body: l.body, includeSignature: l.includeSignature, bodyFormat: richEnabled ? 'html' : 'text' }
+    if (l.richDoc) payload.richDoc = l.richDoc
     try {
       if (directDraftIsEmpty(payload)) {
         localStorage.removeItem(l.DRAFT_KEY)
@@ -1524,6 +1534,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
     setMsgSubject('')
     setMsgBody('')
+    richDocRef.current = null
     setActiveTemplateId(null)
     setIncludeSignature(true)
     setCcList([])
@@ -2112,7 +2123,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 {richEnabled ? (
                   <RichTextEditor
                     html={msgBody}
-                    onChange={setMsgBody}
+                    onChange={(html, json) => { setMsgBody(html); richDocRef.current = json || null }}
                     disabled={!dmHasAnyRecipient}
                     ariaLabel="Message"
                     minHeight={160}
