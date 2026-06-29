@@ -8,6 +8,7 @@
 // Nightfall footer with the no-reply line. Typed system signature only (no handwritten image).
 
 import { aspireEmailShell, aspireSystemSignature } from '../../../../lib/server/email/aspireShell.js';
+import { renderEmailNote, renderEmailButton } from '../../../../lib/server/email/emailPrimitives.js';
 
 export const teamsInviteReminder = {
   interviewer: (ctx) => ({
@@ -15,9 +16,7 @@ export const teamsInviteReminder = {
     html: aspireEmailShell({
       preheader: `Teams invite still needs to be sent for ${ctx.studentName}.`,
       body: `
-        <div style="background:#FBF5E8;border-left:3px solid #C08A2A;padding:12px 16px;margin-bottom:20px;border-radius:4px;">
-          <strong style="color:#8B5E1A;">Action needed:</strong> Your ASPIRE interview with ${ctx.studentName} is in about ${ctx.hoursUntilInterview} hours, and the Microsoft Teams invitation hasn't been sent yet.
-        </div>
+        ${renderEmailNote({ title: 'Action needed', body: `Your ASPIRE interview with ${ctx.studentName} is in about ${ctx.hoursUntilInterview} hours, and the Microsoft Teams invitation hasn't been sent yet.`, tone: 'warning' })}
 
         <p>Hi ${ctx.interviewerName?.split(' ')[0] || 'there'},</p>
         <p>You're scheduled to interview <strong>${ctx.studentName}</strong> from ${ctx.studentSchool || 'an affiliated school'} on:</p>
@@ -36,9 +35,7 @@ export const teamsInviteReminder = {
           <li>Open ASPIRE Intelligence, go to Interview Room, then Day Manager, and click "Mark Teams invite sent" on this booking.</li>
         </ol>
 
-        <p style="margin-top:20px;">
-          <a href="https://aspire-tracker.vercel.app" style="display:inline-block;padding:10px 18px;background:#1D2567;color:#fff;text-decoration:none;border-radius:8px;font-weight:500;font-size:13px;">Open ASPIRE Intelligence</a>
-        </p>
+        ${renderEmailButton({ label: 'Open ASPIRE Intelligence', url: 'https://aspire-tracker.vercel.app', variant: 'navy' })}
 
         <p style="margin-top:24px;">Thank you for supporting these students. If you're unable to conduct this interview, email Jester at <a href="mailto:jesterlloyd.bautista@cshs.org" style="color:#1D2567;">jesterlloyd.bautista@cshs.org</a> so we can reassign or reschedule.</p>
         ${aspireSystemSignature('Kind regards,')}`,
@@ -73,9 +70,7 @@ export const teamsInviteReminderEscalation = {
 
         <p>Please send the Teams invitation today. If you're unable to conduct this interview, email Jester at <a href="mailto:jesterlloyd.bautista@cshs.org" style="color:#1D2567;">jesterlloyd.bautista@cshs.org</a> so we can reassign or reschedule. The student has been waiting.</p>
 
-        <p style="margin-top:20px;">
-          <a href="https://aspire-tracker.vercel.app" style="display:inline-block;padding:10px 18px;background:#1D2567;color:#fff;text-decoration:none;border-radius:8px;font-weight:500;font-size:13px;">Open ASPIRE Intelligence</a>
-        </p>
+        ${renderEmailButton({ label: 'Open ASPIRE Intelligence', url: 'https://aspire-tracker.vercel.app', variant: 'navy' })}
         ${aspireSystemSignature('Kind regards,')}`,
     }),
   }),

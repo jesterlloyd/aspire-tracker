@@ -6,9 +6,9 @@
 
 import { escapeHtml } from '../../htmlEscape.js';
 import { aspireEmailShell, aspireSystemSignature } from '../../../../lib/server/email/aspireShell.js';
+import { renderEmailDetailsCard } from '../../../../lib/server/email/emailPrimitives.js';
 
 const NAVY  = '#1d2567';
-const SAND  = '#F4F1EC';
 const RAVEN = '#191919';
 
 export function buildInterviewReminderEmail({ firstName, interviewDate, interviewTime, cohortName }) {
@@ -22,26 +22,13 @@ export function buildInterviewReminderEmail({ firstName, interviewDate, intervie
 
 <p style="margin:0 0 20px;">A few things before tomorrow:</p>
 
-<!-- Interview details block -->
-<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;background:${SAND};border-radius:8px;margin:0 0 24px;">
-<tr><td style="padding:18px 20px;">
-  <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;font-weight:600;">Your Interview</div>
-  <table cellpadding="0" cellspacing="0">
-    <tr>
-      <td style="padding:4px 20px 4px 0;color:#666;font-size:14px;white-space:nowrap;"><strong>Date</strong></td>
-      <td style="padding:4px 0;font-size:14px;">${interviewDate}</td>
-    </tr>
-    <tr>
-      <td style="padding:4px 20px 4px 0;color:#666;font-size:14px;white-space:nowrap;"><strong>Time</strong></td>
-      <td style="padding:4px 0;font-size:14px;">${interviewTime} Pacific</td>
-    </tr>
-    <tr>
-      <td style="padding:4px 20px 4px 0;color:#666;font-size:14px;white-space:nowrap;"><strong>Format</strong></td>
-      <td style="padding:4px 0;font-size:14px;">Microsoft Teams (check your calendar invite for the link)</td>
-    </tr>
-  </table>
-</td></tr>
-</table>
+<!-- Interview details block — EMAIL-NOTIF-MODERNIZE-2A: shared details-card primitive (same Date/Time/
+     Format data; consistent ASPIRE card styling). -->
+${renderEmailDetailsCard({ title: 'Your Interview', rows: [
+  { label: 'Date',   value: interviewDate },
+  { label: 'Time',   value: `${interviewTime} Pacific` },
+  { label: 'Format', value: 'Microsoft Teams (check your calendar invite for the link)' },
+] })}
 
 <p style="margin:0 0 6px;font-weight:700;font-size:15px;">What to expect</p>
 <p style="margin:0 0 16px;">The interview is a conversation, not an evaluation in the traditional sense. We want to learn about you: your clinical interests, the patients you connect with, and what you hope to take from your ASPIRE rotation. It usually runs about 30 minutes. Your interviewer will leave time for your questions too.</p>
