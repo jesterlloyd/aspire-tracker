@@ -13,8 +13,10 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
-import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Link as LinkIcon, Unlink, RemoveFormatting, Minus, Plus } from 'lucide-react'
+import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Link as LinkIcon, Unlink, RemoveFormatting, Minus, Plus, MousePointerClick } from 'lucide-react'
 import { DividerBlock } from './blocks/DividerBlock'
+import { ButtonBlock } from './blocks/ButtonBlock'
+import ButtonModal from './blocks/ButtonModal'
 import { isValidRichDoc } from '../../lib/connect/richCompose'
 
 const F = 'DM Sans, sans-serif'
@@ -57,6 +59,8 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
   const [linkUrl, setLinkUrl] = useState('')
   const [linkError, setLinkError] = useState('')
   const [insertOpen, setInsertOpen] = useState(false)
+  // Button block modal (shared for insert + edit). pos is the node position when editing.
+  const [buttonModal, setButtonModal] = useState({ open: false, mode: 'insert', pos: null, label: '', url: '' })
 
   const editor = useEditor({
     immediatelyRender: true,
@@ -71,6 +75,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
         horizontalRule: false, strike: false, link: false, underline: false,
       }),
       DividerBlock,
+      ButtonBlock,
       Underline,
       Link.configure({
         openOnClick: false,
@@ -87,6 +92,14 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
     // Emit '' for a truly empty doc (TipTap returns '<p></p>') so draft "emptiness" checks and the
     // pristine/discard logic in the composers behave the same as the plain-text textarea.
     onUpdate: ({ editor }) => { onChange?.(editor.isEmpty ? '' : editor.getHTML(), editor.getJSON()) },
+    // Bridge (set once at creation, not in render/effect) so a Button NodeView's "edit" opens the
+    // shared modal. setButtonModal is a stable state setter.
+    onCreate: ({ editor }) => {
+      if (editor.storage.aspireButton) {
+        editor.storage.aspireButton.requestEdit = (pos, attrs) =>
+          setButtonModal({ open: true, mode: 'edit', pos, label: attrs.label || '', url: attrs.url || '' })
+      }
+    },
     editorProps: {
       attributes: { 'aria-label': ariaLabel, role: 'textbox', 'aria-multiline': 'true', class: 'rte-content' },
     },
@@ -114,6 +127,16 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
   useEffect(() => {
     if (editor) editor.setEditable(!disabled)
   }, [disabled, editor])
+
+  const handleButtonSave = useCallback(({ label, url }) => {
+    if (!editor) return
+    if (buttonModal.mode === 'edit' && buttonModal.pos != null) {
+      editor.chain().focus().command(({ tr }) => { tr.setNodeMarkup(buttonModal.pos, undefined, { label, url }); return true }).run()
+    } else {
+      editor.chain().focus().insertAspireButton({ label, url }).run()
+    }
+    setButtonModal(m => ({ ...m, open: false }))
+  }, [editor, buttonModal.mode, buttonModal.pos])
 
   const applyLink = useCallback(() => {
     const safe = normalizeUrl(linkUrl)
@@ -196,10 +219,27 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
                 onClick={() => { editor.chain().focus().insertAspireDivider().run(); setInsertOpen(false) }}
                 style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', minHeight: 36, padding: '0 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: F, fontSize: 12.5, fontWeight: 600, color: '#374151', textAlign: 'left' }}
               ><Minus size={15} /> Divider</button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => { setInsertOpen(false); setButtonModal({ open: true, mode: 'insert', pos: null, label: '', url: '' }) }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', minHeight: 36, padding: '0 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: F, fontSize: 12.5, fontWeight: 600, color: '#374151', textAlign: 'left' }}
+              ><MousePointerClick size={15} /> Button</button>
             </div>
           )}
         </div>
       </div>
+
+      {/* Shared Button insert/edit modal — keyed so it remounts (fresh form) on each open. */}
+      <ButtonModal
+        key={buttonModal.open ? `${buttonModal.mode}:${buttonModal.pos ?? 'new'}` : 'closed'}
+        open={buttonModal.open}
+        mode={buttonModal.mode}
+        initialLabel={buttonModal.label}
+        initialUrl={buttonModal.url}
+        onSave={handleButtonSave}
+        onCancel={() => setButtonModal(m => ({ ...m, open: false }))}
+      />
 
       {/* Link input row (inline, iPad-friendly — no window.prompt) */}
       {linkOpen && (
