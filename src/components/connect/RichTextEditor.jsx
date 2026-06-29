@@ -13,10 +13,12 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
-import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Link as LinkIcon, Unlink, RemoveFormatting, Minus, Plus, MousePointerClick } from 'lucide-react'
+import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Link as LinkIcon, Unlink, RemoveFormatting, Minus, Plus, MousePointerClick, StickyNote } from 'lucide-react'
 import { DividerBlock } from './blocks/DividerBlock'
 import { ButtonBlock } from './blocks/ButtonBlock'
 import ButtonModal from './blocks/ButtonModal'
+import { NoteBlock } from './blocks/NoteBlock'
+import NoteModal from './blocks/NoteModal'
 import { isValidRichDoc } from '../../lib/connect/richCompose'
 
 const F = 'DM Sans, sans-serif'
@@ -61,6 +63,8 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
   const [insertOpen, setInsertOpen] = useState(false)
   // Button block modal (shared for insert + edit). pos is the node position when editing.
   const [buttonModal, setButtonModal] = useState({ open: false, mode: 'insert', pos: null, label: '', url: '' })
+  // Note block modal (shared for insert + edit).
+  const [noteModal, setNoteModal] = useState({ open: false, mode: 'insert', pos: null, title: '', body: '' })
 
   const editor = useEditor({
     immediatelyRender: true,
@@ -76,6 +80,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
       }),
       DividerBlock,
       ButtonBlock,
+      NoteBlock,
       Underline,
       Link.configure({
         openOnClick: false,
@@ -98,6 +103,10 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
       if (editor.storage.aspireButton) {
         editor.storage.aspireButton.requestEdit = (pos, attrs) =>
           setButtonModal({ open: true, mode: 'edit', pos, label: attrs.label || '', url: attrs.url || '' })
+      }
+      if (editor.storage.aspireNote) {
+        editor.storage.aspireNote.requestEdit = (pos, attrs) =>
+          setNoteModal({ open: true, mode: 'edit', pos, title: attrs.title || '', body: attrs.body || '' })
       }
     },
     editorProps: {
@@ -137,6 +146,16 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
     }
     setButtonModal(m => ({ ...m, open: false }))
   }, [editor, buttonModal.mode, buttonModal.pos])
+
+  const handleNoteSave = useCallback(({ title, body }) => {
+    if (!editor) return
+    if (noteModal.mode === 'edit' && noteModal.pos != null) {
+      editor.chain().focus().command(({ tr }) => { tr.setNodeMarkup(noteModal.pos, undefined, { title, body }); return true }).run()
+    } else {
+      editor.chain().focus().insertAspireNote({ title, body }).run()
+    }
+    setNoteModal(m => ({ ...m, open: false }))
+  }, [editor, noteModal.mode, noteModal.pos])
 
   const applyLink = useCallback(() => {
     const safe = normalizeUrl(linkUrl)
@@ -225,6 +244,12 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
                 onClick={() => { setInsertOpen(false); setButtonModal({ open: true, mode: 'insert', pos: null, label: '', url: '' }) }}
                 style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', minHeight: 36, padding: '0 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: F, fontSize: 12.5, fontWeight: 600, color: '#374151', textAlign: 'left' }}
               ><MousePointerClick size={15} /> Button</button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => { setInsertOpen(false); setNoteModal({ open: true, mode: 'insert', pos: null, title: '', body: '' }) }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', minHeight: 36, padding: '0 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: F, fontSize: 12.5, fontWeight: 600, color: '#374151', textAlign: 'left' }}
+              ><StickyNote size={15} /> Note</button>
             </div>
           )}
         </div>
@@ -239,6 +264,17 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
         initialUrl={buttonModal.url}
         onSave={handleButtonSave}
         onCancel={() => setButtonModal(m => ({ ...m, open: false }))}
+      />
+
+      {/* Shared Note insert/edit modal — keyed so it remounts (fresh form) on each open. */}
+      <NoteModal
+        key={noteModal.open ? `note:${noteModal.pos ?? 'new'}` : 'note-closed'}
+        open={noteModal.open}
+        mode={noteModal.mode}
+        initialTitle={noteModal.title}
+        initialBody={noteModal.body}
+        onSave={handleNoteSave}
+        onCancel={() => setNoteModal(m => ({ ...m, open: false }))}
       />
 
       {/* Link input row (inline, iPad-friendly — no window.prompt) */}
