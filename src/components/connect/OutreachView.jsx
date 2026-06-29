@@ -2022,8 +2022,8 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
                   <span style={{ fontSize: 15, lineHeight: 1.2, flexShrink: 0 }} aria-hidden="true">ⓘ</span>
                   <div style={{ fontSize: 12.5, color: '#8B5E1A', lineHeight: 1.6 }}>
-                    Survey invitations are available for student recipients only.
-                    Change recipient to a student to send a survey invitation.
+                    The Student Casey-Fink Survey is available for student recipients only.
+                    Change recipient to a student to send it.
                   </div>
                 </div>
                 <button
@@ -2734,15 +2734,15 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 Students is active/required and Contacts / Paste · Type are disabled with a note. */}
             <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6', marginBottom: 8 }}>
               <div style={{ flex: 1, padding: '7px 6px', fontSize: 11, fontWeight: 700, fontFamily: F, textAlign: 'center', color: '#1D2567', borderBottom: '2px solid #1D2567' }}>Students</div>
-              <Tooltip label="Survey Invitation requires student recipients" placement="top">
+              <Tooltip label="The Student Casey-Fink Survey requires student recipients" placement="top">
                 <div style={{ flex: 1, padding: '7px 6px', fontSize: 11, fontWeight: 600, fontFamily: F, textAlign: 'center', color: '#cbd5e1', borderBottom: '2px solid transparent', cursor: 'not-allowed' }}>Contacts</div>
               </Tooltip>
-              <Tooltip label="Survey Invitation requires student recipients" placement="top">
+              <Tooltip label="The Student Casey-Fink Survey requires student recipients" placement="top">
                 <div style={{ flex: 1, padding: '7px 6px', fontSize: 11, fontWeight: 600, fontFamily: F, textAlign: 'center', color: '#cbd5e1', borderBottom: '2px solid transparent', cursor: 'not-allowed' }}>Paste · Type</div>
               </Tooltip>
             </div>
             <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginBottom: 12, lineHeight: 1.5 }}>
-              Each survey link is tied to a specific student, so Survey Invitation sends to <strong>Students</strong> only.
+              Each survey link is unique to a student, so the Student Casey-Fink Survey sends to <strong>Students</strong> only.
             </div>
 
             {/* Selection summary */}
@@ -2937,7 +2937,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
 
             {/* Pre-generation summary */}
             {!bulkResults && (
-              <ConnectPanel tone="draft" icon="clipboardCheck" title="Bulk Survey Invitation">
+              <ConnectPanel tone="draft" icon="clipboardCheck" title="Bulk Student Casey-Fink Survey">
                 <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, lineHeight: 1.6, marginBottom: 16 }}>
                   {INSTRUMENTS.find(i => i.slug === bulkInstrument)?.label}<br />
                   {TIMEPOINTS.find(t => t.value === bulkTimepoint)?.label} · Expires {fmtDate(bulkExpiresAt)}
@@ -3292,7 +3292,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
               fontFamily: F, boxSizing: 'border-box',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#dc2626', fontFamily: F }}>Send Survey Invitations</h2>
+                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#dc2626', fontFamily: F }}>Send Student Casey-Fink Surveys</h2>
                 <button onClick={() => { if (!bulkSendInFlight) { setBulkSendConfirmOpen(false); setBulkSendPhrase('') } }}
                   disabled={bulkSendInFlight}
                   style={{ background: 'none', border: 'none', cursor: bulkSendInFlight ? 'not-allowed' : 'pointer', fontSize: 20, color: '#9ca3af', lineHeight: 1, padding: '2px 6px' }}>×</button>
@@ -3362,7 +3362,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
             boxShadow: '0 8px 40px rgba(0,0,0,0.22)', fontFamily: F, boxSizing: 'border-box',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#dc2626', fontFamily: F }}>Send Survey Invitation</h2>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#dc2626', fontFamily: F }}>Send Student Casey-Fink Survey</h2>
               <button onClick={() => { if (!singleSendInFlight) { setSingleSendConfirmOpen(false); setSingleSendPhrase('') } }}
                 disabled={singleSendInFlight}
                 style={{ background: 'none', border: 'none', cursor: singleSendInFlight ? 'not-allowed' : 'pointer', fontSize: 20, color: '#9ca3af', lineHeight: 1, padding: '2px 6px' }}>×</button>

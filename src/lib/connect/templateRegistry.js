@@ -144,7 +144,9 @@ export const SEND_TO_ONE_TEMPLATES = [
     surface: 'one', templateKind: 'manual', composerMode: 'message', audiences: ALL_AUDIENCES,
   },
   {
-    key: 'survey', label: 'Survey Invitation', active: true, kind: 'mode',
+    // CONNECT-SURVEY-RELABEL-4: visible label clarifies the student-only tokenized Casey-Fink workflow.
+    // KEY preserved as 'survey' (composer mode / route / draft assumptions unchanged).
+    key: 'survey', label: 'Student Casey-Fink Survey', active: true, kind: 'mode',
     surface: 'one', templateKind: 'survey', composerMode: 'survey', audiences: [AUDIENCES.STUDENT],
   },
   {
@@ -177,7 +179,9 @@ export const SEND_TO_ONE_TEMPLATES = [
 // local maps; deriving those maps below keeps a single source of truth.
 export const SEND_TO_MANY_TEMPLATES = [
   {
-    key: 'survey_invitation', label: 'Survey Invitation',
+    // CONNECT-SURVEY-RELABEL-4: visible label clarifies the student-only bulk Casey-Fink workflow.
+    // KEY preserved as 'survey_invitation' (composer mode / route / draft assumptions unchanged).
+    key: 'survey_invitation', label: 'Student Casey-Fink Survey Invitation',
     surface: 'many', templateKind: 'survey', composerMode: 'survey', audiences: [AUDIENCES.STUDENT],
   },
   {

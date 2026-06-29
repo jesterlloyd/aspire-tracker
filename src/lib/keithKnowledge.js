@@ -854,11 +854,11 @@ ASPIRE Intelligence has a universal search bar (top navigation) that searches ac
 OUTREACH:
 Outreach is the direct communication workflow inside ASPIRE Connect. It supports two modes: Send to one recipient and Send to many.
 
-In Send to one recipient mode, a rich recipient profile card appears on the left side. The card shows the recipient's name, role, category, organization, contact details, and photo (contact avatar if available, student headshot if available, initials if no photo is on file). Below the profile card is the Message Type picker (Direct Message or Survey Invitation). The compose panel is on the right with subject, body, signature, preview, and send controls. Inactive contacts are not surfaced in outreach recipient selection.
+In Send to one recipient mode, a rich recipient profile card appears on the left side. The card shows the recipient's name, role, category, organization, contact details, and photo (contact avatar if available, student headshot if available, initials if no photo is on file). Below the profile card is the Message Type picker (Custom Message or Student Casey-Fink Survey, plus audience-specific manual templates). The compose panel is on the right with subject, body, signature, preview, and send controls. Inactive contacts are not surfaced in outreach recipient selection.
 
-Direct Message (one-to-one email via Resend):
-- A contact can be emailed from Contacts: select a contact and click Email. Outreach opens in Direct Message mode with the contact prefilled.
-- A student can be emailed from Student Profiles: select a student and click Email. Outreach opens in Direct Message mode with the student prefilled.
+Custom Message (one-to-one email via Resend):
+- A contact can be emailed from Contacts: select a contact and click Email. Outreach opens in Custom Message mode with the contact prefilled.
+- A student can be emailed from Student Profiles: select a student and click Email. Outreach opens in Custom Message mode with the student prefilled.
 - Direct email supports both contact recipients and student recipients.
 - Direct email sends one email per send action via Resend through the ASPIRE at Cedars-Sinai sender (noreply@aspire-program.com).
 - Direct email does NOT create evaluation assignments, tokens, or survey links.
@@ -870,7 +870,7 @@ Direct Message (one-to-one email via Resend):
 - Explicit Email navigation always loads the selected recipient, overriding remembered last-activity state.
 - Remembered state (last opened contact or draft) is only restored when there is no explicit recipient in the route.
 
-Bulk Survey Invitation (Send to many):
+Student Casey-Fink Survey Invitation (Send to many):
 - Owner can select students, configure Casey-Fink instrument, timepoint, expiration, and notes.
 - Generate Links creates one unique secure survey link per selected student via the evaluation endpoint.
 - Survey links are shown once in the results panel (React state only) and are NOT persisted to localStorage or any database field.
@@ -915,7 +915,7 @@ WHAT IS LIVE IN ASPIRE CONNECT (as of June 2026):
 - Contact deactivate and reactivate: inactive contacts are hidden from active lists, outreach, and universal search by default; revealed via the Show inactive toggle.
 - Universal search bar (top navigation) includes active contacts alongside students and units.
 - Preceptors imported into Contacts from Rotation > Preceptors.
-- Direct Message one-to-one email via Resend to contacts and students.
+- Custom Message one-to-one email via Resend to contacts and students.
 - Rich recipient profile card in Send to one recipient mode: name, role, category, organization, photo (avatar or headshot), contact details.
 - Bulk Casey-Fink survey invitations: generate links and send via Resend with typed SEND SURVEYS confirmation, sequential sends, maximum batch size of 5, and idempotency checks.
 - Owner test email for survey link verification before bulk send.
