@@ -15,6 +15,7 @@ import { isValidEmail, resolveStudentCorrespondenceRecipient } from '../../lib/n
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { useAuth } from '../../contexts/AuthContext'
 import { buildPreceptorAssignmentDraft, buildCoordinatorAcceptanceDraft } from '../../lib/outreachTemplates'
+import { SEND_TO_ONE_TEMPLATES, SEND_TO_MANY_TEMPLATES } from '../../lib/connect/templateRegistry'
 import { EMAIL_SOURCE_OPTIONS, studentHasEmailSource, studentEmailForSource, emailTypeLabel } from '../../lib/studentBulkEmail'
 import { getStudentPreferredFirstName, getStudentPreferredGreetingName } from '../../lib/studentNameFormatters'
 import { buildStudentInvitationEmail, formatExpiresAt, TIMEPOINT_LABELS } from '../../../lib/server/evaluation/emailTemplates'
@@ -102,15 +103,12 @@ function chunkArray(arr, size) {
   return out
 }
 
-// Message type roster for Single Recipient mode.
-// kind: 'mode' = drives the composer (outreachMode radio); 'hydrate' = pre-fills the Direct Message
-// composer (editable, ASPIRE Outreach send); 'outlook' = opens Outlook Web compose (internal Cedars).
-const MSG_TYPES = [
-  { key: 'message',                label: 'Direct Message',                active: true, kind: 'mode'    },
-  { key: 'survey',                 label: 'Survey Invitation',             active: true, kind: 'mode'    },
-  { key: 'preceptor_assignment',   label: 'Preceptor Assignment',          active: true, kind: 'hydrate' },
-  { key: 'coordinator_acceptance', label: 'Coordinator Acceptance Update', active: true, kind: 'hydrate' },
-]
+// Message type roster for Single Recipient mode — now sourced from the shared template registry
+// (CONNECT-TEMPLATE-REGISTRY-1). Each entry keeps the legacy fields this view switches on:
+//   kind: 'mode' = drives the composer (outreachMode radio); 'hydrate' = pre-fills the Custom Message
+//   composer (editable, ASPIRE Outreach send). The registry adds audience metadata (deferred use).
+// Phase-1 label change: "Direct Message" → "Custom Message" (same key 'message', same behavior).
+const MSG_TYPES = SEND_TO_ONE_TEMPLATES
 
 const FUTURE_AUDIENCES = [
   'Contact categories',
@@ -129,15 +127,10 @@ const BULK_ELIGIBILITY = {
   post_rotation:          ['Active Rotation', 'Completed'],
 }
 
-// Send-to-Many message types. Survey Invitation keeps its existing student-only flow; the four
-// manual templates (Phase 2A) open the multi-source BulkManualComposer (compose/review only — no send).
-const BULK_MSG_TYPES = [
-  { key: 'survey_invitation',            label: 'Survey Invitation' },
-  { key: 'academic_partner_placement',   label: 'Academic Partner Placement Request' },
-  { key: 'student_profile_invitation',   label: 'Student Profile Form Invitation' },
-  { key: 'student_interview_scheduling', label: 'Student Interview Scheduling Invitation' },
-  { key: 'announcement_broadcast',       label: 'Announcement / Broadcast' },
-]
+// Send-to-Many message types — sourced from the shared template registry
+// (CONNECT-TEMPLATE-REGISTRY-1). Survey Invitation keeps its existing student-only flow; the four
+// manual templates open the multi-source BulkManualComposer. Labels/behavior unchanged in Phase 1.
+const BULK_MSG_TYPES = SEND_TO_MANY_TEMPLATES
 
 function localDateString(d) {
   // Use local year/month/day to avoid UTC midnight rollback in Pacific timezone

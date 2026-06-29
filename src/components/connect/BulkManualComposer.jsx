@@ -26,6 +26,11 @@ import {
 import { buildBulkTemplate } from '../../lib/outreachTemplates'
 import { getContactCategories } from '../../lib/contactCategories'
 import {
+  BULK_DEFAULT_SOURCE as DEFAULT_SOURCE,
+  BULK_DEFAULT_CONTACT_CATEGORY as DEFAULT_CONTACT_CATEGORY,
+  BULK_TEMPLATE_LABEL as TEMPLATE_LABEL,
+} from '../../lib/connect/templateRegistry'
+import {
   emailTypeLabel, EMAIL_SOURCE_OPTIONS, studentEmailForSource, studentHasEmailSource,
 } from '../../lib/studentBulkEmail'
 import ContactAutocomplete from './ContactAutocomplete'
@@ -100,16 +105,9 @@ function bulkDraftHasContent(type, d, rich) {
 
 const CONTACT_CATEGORIES = ['All', 'Academic Partners', 'Unit Leadership', 'Preceptors', 'BNI Team', 'Nursing Executives', 'Other']
 
-// Default audience source per manual template (owner-approved mapping).
-const DEFAULT_SOURCE = {
-  academic_partner_placement:   'contacts',
-  student_profile_invitation:   'students',
-  student_interview_scheduling: 'students',
-  announcement_broadcast:       'students',
-}
-const DEFAULT_CONTACT_CATEGORY = {
-  academic_partner_placement: 'Academic Partners',
-}
+// DEFAULT_SOURCE (per-template audience source) and DEFAULT_CONTACT_CATEGORY (per-template default
+// category filter) now come from the shared template registry (CONNECT-TEMPLATE-REGISTRY-1) so the
+// owner-approved mapping lives in one place. Imported above; values are unchanged.
 
 const SOURCE_BADGE = {
   student: { label: 'Student', color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
@@ -125,13 +123,8 @@ const SEND_ENDPOINT  = '/api/connect-send-bulk-message'
 const CONFIRM_PHRASE = 'SEND MESSAGES'
 const MAX_RECIPIENTS = 75
 
-// Audit-only template label sent in the payload metadata.
-const TEMPLATE_LABEL = {
-  academic_partner_placement:   'Academic Partner Placement Request',
-  student_profile_invitation:   'Student Profile Form Invitation',
-  student_interview_scheduling: 'Student Interview Scheduling Invitation',
-  announcement_broadcast:       'Announcement / Broadcast',
-}
+// TEMPLATE_LABEL (audit-only label sent in the payload metadata) now comes from the shared template
+// registry (imported above as BULK_TEMPLATE_LABEL); values are unchanged.
 
 // Recipient-facing label for the chosen email source (shown in review before send).
 function recipientSourceLabel(r) {
