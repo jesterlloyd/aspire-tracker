@@ -2123,6 +2123,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 {richEnabled ? (
                   <RichTextEditor
                     html={msgBody}
+                    richDocRef={richDocRef}
                     onChange={(html, json) => { setMsgBody(html); richDocRef.current = json || null }}
                     disabled={!dmHasAnyRecipient}
                     ariaLabel="Message"

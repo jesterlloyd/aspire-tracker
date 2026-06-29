@@ -15,6 +15,7 @@ import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
 import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Link as LinkIcon, Unlink, RemoveFormatting, Minus, Plus } from 'lucide-react'
 import { DividerBlock } from './blocks/DividerBlock'
+import { isValidRichDoc } from '../../lib/connect/richCompose'
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -51,7 +52,7 @@ function normalizeUrl(raw) {
   return SAFE_LINK.test(httpsy) ? httpsy : null
 }
 
-export default function RichTextEditor({ html = '', onChange, disabled = false, ariaLabel = 'Message', minHeight = 160 }) {
+export default function RichTextEditor({ html = '', richDocRef = null, onChange, disabled = false, ariaLabel = 'Message', minHeight = 160 }) {
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [linkError, setLinkError] = useState('')
@@ -79,6 +80,8 @@ export default function RichTextEditor({ html = '', onChange, disabled = false, 
         validate: (href) => SAFE_LINK.test(href),
       }),
     ],
+    // Initial content is the body HTML; richDoc-preferred hydration happens in the sync effect below
+    // (the ref's .current is read there — an effect — not during render).
     content: html || '',
     // Emit the body HTML AND the TipTap JSON (richDoc) so composers can persist richDoc additively.
     // Emit '' for a truly empty doc (TipTap returns '<p></p>') so draft "emptiness" checks and the
@@ -90,13 +93,23 @@ export default function RichTextEditor({ html = '', onChange, disabled = false, 
   })
 
   // Keep editor in sync when the body changes EXTERNALLY (template load, draft restore, discard).
-  // Guarded by an equality check so typing (which already emits onChange) never loops.
+  // The HTML string-compare stays the loop-safe TRIGGER (typing echoes the same html → no reload).
+  // When an external change fires, prefer a valid richDoc (RICH-COMPOSE-2A-1: faithful structured
+  // rehydration of blocks/headings) over the body HTML; fall back to html if richDoc is absent/invalid
+  // or setContent throws. The richDoc is read from the parent's REF here (inside the effect, never
+  // during render) and is not a trigger — typing emits a fresh richDoc each keystroke but the html
+  // string-compare guards against re-hydration loops.
   useEffect(() => {
     if (!editor) return
     const current = editor.getHTML()
     const next = html || ''
-    if (next !== current) editor.commands.setContent(next, { emitUpdate: false })
-  }, [html, editor])
+    if (next === current) return
+    const richDoc = richDocRef && richDocRef.current
+    if (isValidRichDoc(richDoc)) {
+      try { editor.commands.setContent(richDoc, { emitUpdate: false }); return } catch { /* fall back to html */ }
+    }
+    editor.commands.setContent(next, { emitUpdate: false })
+  }, [html, editor, richDocRef])   // richDocRef is a stable ref object — listed to satisfy the linter; never re-triggers
 
   useEffect(() => {
     if (editor) editor.setEditable(!disabled)

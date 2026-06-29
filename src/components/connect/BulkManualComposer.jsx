@@ -935,7 +935,7 @@ export default function BulkManualComposer({
           <div style={{ marginBottom: 12 }}>
             <label style={labelStyle}>Message</label>
             {richEnabled ? (
-              <RichTextEditor html={body} onChange={(html, json) => { setBody(html); bulkRichDocRef.current = json || null }} ariaLabel="Message" minHeight={240} />
+              <RichTextEditor html={body} richDocRef={bulkRichDocRef} onChange={(html, json) => { setBody(html); bulkRichDocRef.current = json || null }} ariaLabel="Message" minHeight={240} />
             ) : (
               <textarea value={body} onChange={e => setBody(e.target.value)} rows={14}
                 style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, minHeight: 240, fontSize: 13 }} />

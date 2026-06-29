@@ -17,6 +17,14 @@
 
 export const RICH_COMPOSE_FLAG_KEY = 'aspire.connect.richCompose';
 
+// RICH-COMPOSE-2A-1 — shallow validity check for a persisted TipTap document (richDoc) before it is
+// used to hydrate the editor. A valid ProseMirror doc is { type: 'doc', content: [...] }. This is a
+// cheap guard, NOT a schema validation: TipTap setContent is still wrapped in try/catch by the editor,
+// and the composer falls back to the body HTML if richDoc is missing or invalid. Never throws.
+export function isValidRichDoc(doc) {
+  return !!doc && typeof doc === 'object' && doc.type === 'doc' && Array.isArray(doc.content);
+}
+
 export function isRichComposeEnabled(isOwner) {
   if (!isOwner) return false;
   try {
