@@ -152,8 +152,22 @@ export const SEND_TO_ONE_TEMPLATES = [
     surface: 'one', templateKind: 'manual', builderKey: 'preceptor_assignment', audiences: [AUDIENCES.PRECEPTOR],
   },
   {
-    key: 'coordinator_acceptance', label: 'Coordinator Acceptance Update', active: true, kind: 'hydrate',
+    key: 'preceptor_details_request', label: 'Preceptor Details Request', active: true, kind: 'hydrate',
+    surface: 'one', templateKind: 'manual', builderKey: 'preceptor_details_request', audiences: [AUDIENCES.PRECEPTOR],
+  },
+  {
+    // CONNECT-MANUAL-TEMPLATES-3: relabeled "Coordinator Acceptance Update" → "Academic Partner Update".
+    // KEY preserved ('coordinator_acceptance') for draft/routing compatibility; builder copy repurposed.
+    key: 'coordinator_acceptance', label: 'Academic Partner Update', active: true, kind: 'hydrate',
     surface: 'one', templateKind: 'manual', builderKey: 'coordinator_acceptance', audiences: [AUDIENCES.ACADEMIC_PARTNER],
+  },
+  {
+    key: 'unit_leader_support_request', label: 'Unit Leader Support Request', active: true, kind: 'hydrate',
+    surface: 'one', templateKind: 'manual', builderKey: 'unit_leader_support_request', audiences: [AUDIENCES.UNIT_LEADER],
+  },
+  {
+    key: 'interviewer_availability_request', label: 'Interviewer Availability Request', active: true, kind: 'hydrate',
+    surface: 'one', templateKind: 'manual', builderKey: 'interviewer_availability_request', audiences: [AUDIENCES.INTERVIEWER],
   },
 ]
 
@@ -172,6 +186,11 @@ export const SEND_TO_MANY_TEMPLATES = [
     defaultSource: 'contacts', defaultContactCategory: 'Academic Partners', audiences: [AUDIENCES.ACADEMIC_PARTNER],
   },
   {
+    key: 'academic_partner_acceptance_orientation', label: 'Academic Partner Acceptance / Orientation Update',
+    surface: 'many', templateKind: 'manual', builderKey: 'academic_partner_acceptance_orientation',
+    defaultSource: 'contacts', defaultContactCategory: 'Academic Partners', audiences: [AUDIENCES.ACADEMIC_PARTNER],
+  },
+  {
     key: 'student_profile_invitation', label: 'Student Profile Form Invitation',
     surface: 'many', templateKind: 'manual', builderKey: 'student_profile_invitation',
     defaultSource: 'students', audiences: [AUDIENCES.STUDENT],
@@ -180,6 +199,11 @@ export const SEND_TO_MANY_TEMPLATES = [
     key: 'student_interview_scheduling', label: 'Student Interview Scheduling Invitation',
     surface: 'many', templateKind: 'manual', builderKey: 'student_interview_scheduling',
     defaultSource: 'students', audiences: [AUDIENCES.STUDENT],
+  },
+  {
+    key: 'interviewer_availability_bulk', label: 'Interviewer Availability / App Access Request',
+    surface: 'many', templateKind: 'manual', builderKey: 'interviewer_availability_bulk',
+    defaultSource: 'contacts', defaultContactCategory: 'BNI Team', audiences: [AUDIENCES.INTERVIEWER],
   },
   {
     key: 'announcement_broadcast', label: 'Announcement / Broadcast',

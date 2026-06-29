@@ -47,45 +47,90 @@ Please don't hesitate to reach out if you have any questions.`
   return { subject, body }
 }
 
-// Coordinator Acceptance Update — external coordinator/academic-partner email (ASPIRE Outreach).
+// Academic Partner Update — external academic-partner/coordinator email (ASPIRE Outreach).
+// CONNECT-MANUAL-TEMPLATES-3: repurposed from the former "Coordinator Acceptance Update" — the
+// registry KEY is preserved as 'coordinator_acceptance' for draft/routing compatibility; only the
+// visible label and this copy changed (confirm acceptance + invite to orientation, concise).
 // Salutation uses the recipient's first name when available, else "Colleague".
-export function buildCoordinatorAcceptanceDraft({ firstName } = {}) {
-  const subject = 'ASPIRE: Accepted Students and Orientation Next Steps'
+export function buildAcademicPartnerUpdateDraft({ firstName } = {}) {
+  const subject = 'ASPIRE: Student placement update and orientation next steps'
   const body = `Dear ${fb(firstName, 'Colleague')},
 
-I'm reaching out with an update regarding your students' participation in ASPIRE at Cedars-Sinai.
+I'm writing with an update on your students' participation in ASPIRE at Cedars-Sinai.
 
-The following student(s) have been accepted to move forward:
+The following student(s) have been accepted and are moving forward in the ASPIRE process:
 
 [Insert accepted student names and relevant details here.]
 
-As part of ASPIRE, students are expected to:
-• Attend the required in-person orientation before beginning their shifts
-• Accurately log all completed shifts through the ASPIRE shift log process
-• Follow ASPIRE expectations for senior nursing students
-• Follow Cedars-Sinai policies and unit expectations
-• Maintain patient confidentiality at all times
-• Notify the ASPIRE team if they will no longer be moving forward for any reason
+As a next step, students will be invited to the required in-person orientation before they begin their shifts. We will send each student the orientation date, location, parking, and arrival details directly.
 
-In-Person Orientation Invitation
-
-We would like to invite you and your students to attend an in-person, on-campus orientation on [day], [date], at [time] at Cedars-Sinai Medical Center.
-
-This session will include:
-• ASPIRE overview and expectations
-• Shift log process and badge use
-• Unit expectations and preceptor introductions
-• New Graduate RN Residency Program pathways
-
-Please confirm whether this date and time will work for your group. If the schedule does not work, please let us know as soon as possible so we can discuss next steps.
-
-Once we receive your confirmation, we will send your students a separate email with logistical details, including the meeting location, parking instructions, and what to bring.
-
-Lastly, to help ensure that you receive ASPIRE communications, including automated updates regarding student progress, please add the following email address to your contact list or safe senders:
-
-ASPIRE at Cedars-Sinai <noreply@aspire-program.com>
+You are warmly invited to attend the orientation or to stay looped in as appropriate for your program. If you would like to join, please let me know and I will share the details.
 
 Thank you for your continued partnership in supporting clinical nursing education.`
+  return { subject, body }
+}
+
+// Preceptor Details Request — internal Cedars email asking the preceptor for the information needed
+// to introduce them to the student. Salutation uses the preceptor's first name when available.
+// The photo is explicitly optional. No tokens, secure links, or attachments.
+export function buildPreceptorDetailsRequestDraft({ firstName } = {}) {
+  const subject = 'ASPIRE: Preceptor details for student introduction'
+  const body = `Dear ${fb(firstName, 'Preceptor')},
+
+Thank you again for supporting ASPIRE and for agreeing to precept one of our senior nursing students. I'm getting ready to introduce you to [Student Name] and want to make that introduction as smooth as possible.
+
+When you have a moment, could you please send me the following:
+
+• Your preferred name and title (how you'd like to be introduced)
+• The best contact information for the student to reach you
+• Your preferred schedule or upcoming shifts
+• Your preferred method of communication (email, phone, or in person)
+• A photo we can share with the student, if you're comfortable — this is completely optional
+• Any specific expectations or instructions for the student's first day
+
+The photo is entirely optional, so please only share one if you'd like to. Once I have these details, I'll introduce you and [Student Name] so you can connect before the rotation begins.
+
+Thank you so much for your time and for helping our students get off to a great start.`
+  return { subject, body }
+}
+
+// Unit Leader Support Request — internal Cedars email asking the unit leader for a preceptor name
+// after a student has been matched to their unit. Appreciative, collaborative tone.
+export function buildUnitLeaderSupportRequestDraft({ firstName } = {}) {
+  const subject = 'ASPIRE: Preceptor support requested for student placement'
+  const body = `Dear ${fb(firstName, 'Colleague')},
+
+I'm reaching out because a senior nursing student has been matched to your unit, [Unit], through ASPIRE at Cedars-Sinai. Thank you for supporting this placement.
+
+The next step is identifying a preceptor for the student. When you have a moment, could you please help me by providing:
+
+• Preceptor name
+• Preceptor email
+• Shift or schedule, if known
+• Whether the preceptor is comfortable being introduced to the student
+
+Once the preceptor is confirmed, I'll connect [Student Name] and the preceptor so they can coordinate scheduling and the student's learning objectives.
+
+Thank you for your partnership in supporting our students and unit.`
+  return { subject, body }
+}
+
+// Interviewer Availability Request — internal Cedars/BNI email asking an interviewer colleague to
+// access ASPIRE Intelligence and enter their interview availability. Brief and collegial. The
+// "[ASPIRE Intelligence link]" stays a literal placeholder — never a generated or secure link.
+export function buildInterviewerAvailabilityRequestDraft({ firstName } = {}) {
+  const subject = 'ASPIRE: Interview availability requested'
+  const body = `Dear ${fb(firstName, 'Colleague')},
+
+We're beginning to plan ASPIRE student interviews and would appreciate your help.
+
+When you have a moment, please log in to ASPIRE Intelligence and enter or update your interview availability:
+
+[ASPIRE Intelligence link]
+
+Your availability helps us coordinate the interview schedule and assign students to interviewers. If anything changes, you can update your availability at any time.
+
+Thank you for being part of the ASPIRE interview team.`
   return { subject, body }
 }
 
@@ -225,12 +270,56 @@ ASPIRE at Cedars-Sinai <noreply@aspire-program.com>
 We are excited to support your growth, learning, and transition into professional nursing practice.`,
 }
 
+// Academic Partner Acceptance / Orientation Update (bulk) — CONNECT-MANUAL-TEMPLATES-3. Bulk version
+// of the Send-to-one Academic Partner Update: confirm acceptance + orientation next steps. First name
+// merges via [Clinical Coordinator First Name]; every other placeholder stays literal and editable.
+const BULK_ACADEMIC_PARTNER_ACCEPTANCE = {
+  subject: 'ASPIRE: Student placement update and orientation next steps',
+  body: `Dear [Clinical Coordinator First Name],
+
+I'm writing with an update on your students' participation in ASPIRE at Cedars-Sinai.
+
+The following student(s) have been accepted and are moving forward in the ASPIRE process:
+
+[Insert accepted student names and relevant details here.]
+
+As a next step, students will be invited to the required in-person orientation before they begin their shifts. We will send each student the orientation date, location, parking, and arrival details directly.
+
+You are warmly invited to attend the orientation or to stay looped in as appropriate for your program. If you would like to join, please let us know.
+
+To help ensure that you receive ASPIRE communications, including future updates regarding student progress, please add the following email address to your contact list or safe senders:
+
+ASPIRE at Cedars-Sinai <noreply@aspire-program.com>
+
+Thank you for your continued partnership in supporting clinical nursing education.`,
+}
+
+// Interviewer Availability / App Access Request (bulk) — CONNECT-MANUAL-TEMPLATES-3. Asks BNI /
+// interviewer colleagues to access ASPIRE Intelligence and enter availability. First name merges via
+// [First Name]; "[ASPIRE Intelligence link]" stays a literal placeholder (never a generated link).
+const BULK_INTERVIEWER_AVAILABILITY = {
+  subject: 'ASPIRE: Interview availability requested',
+  body: `Dear [First Name],
+
+We are beginning to plan ASPIRE student interviews and would appreciate your help.
+
+Please log in to ASPIRE Intelligence and enter or update your interview availability:
+
+[ASPIRE Intelligence link]
+
+Your availability will be used to coordinate the interview schedule and assign students to interviewers. If anything changes, you can update your availability at any time.
+
+Thank you for being part of the ASPIRE interview team.`,
+}
+
 // Keyed registry for the Send-to-Many message-type selector.
 const BULK_TEMPLATES = {
-  academic_partner_placement:   BULK_ACADEMIC_PARTNER,
-  student_profile_invitation:   BULK_STUDENT_PROFILE,
-  student_interview_scheduling: BULK_INTERVIEW_SCHEDULING,
-  announcement_broadcast:       BULK_ANNOUNCEMENT,
+  academic_partner_placement:           BULK_ACADEMIC_PARTNER,
+  academic_partner_acceptance_orientation: BULK_ACADEMIC_PARTNER_ACCEPTANCE,
+  student_profile_invitation:           BULK_STUDENT_PROFILE,
+  student_interview_scheduling:         BULK_INTERVIEW_SCHEDULING,
+  interviewer_availability_bulk:        BULK_INTERVIEWER_AVAILABILITY,
+  announcement_broadcast:               BULK_ANNOUNCEMENT,
 }
 
 // Returns a fresh { subject, body } for a bulk template key, or null for an unknown key.

@@ -14,7 +14,11 @@ import ConnectPanel from './ConnectPanel'
 import { isValidEmail, resolveStudentCorrespondenceRecipient } from '../../lib/notifications/studentRecipient'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { useAuth } from '../../contexts/AuthContext'
-import { buildPreceptorAssignmentDraft, buildCoordinatorAcceptanceDraft } from '../../lib/outreachTemplates'
+import {
+  buildPreceptorAssignmentDraft, buildAcademicPartnerUpdateDraft,
+  buildPreceptorDetailsRequestDraft, buildUnitLeaderSupportRequestDraft,
+  buildInterviewerAvailabilityRequestDraft,
+} from '../../lib/outreachTemplates'
 import {
   SEND_TO_ONE_TEMPLATES, SEND_TO_MANY_TEMPLATES,
   splitTemplatesForAudience, getPrimarySectionTitle, audienceForContact, AUDIENCES,
@@ -808,17 +812,19 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     return parts.find(p => !TITLES.has(p.toLowerCase())) || ''
   }
   const buildTemplateDraft = useCallback((key) => {
-    if (key === 'preceptor_assignment') {
-      // Recipient is the preceptor — use their first name (contact) for the salutation.
-      // Assignment fields stay bracketed placeholders (student is not the recipient here).
-      return buildPreceptorAssignmentDraft({
-        firstName: recipientType === 'contact' ? firstNameOf(dmRecipientName) : '',
-      })
+    // Salutation first name comes from the contact recipient (the recipient IS the preceptor / unit
+    // leader / academic partner / interviewer for these templates); blank for student/no recipient so
+    // the builder's fallback ("Preceptor"/"Colleague") is used. Student/unit/preceptor body fields
+    // stay bracketed placeholders. Each hydrate key maps to its own builder (CONNECT-MANUAL-TEMPLATES-3).
+    const firstName = recipientType === 'contact' ? firstNameOf(dmRecipientName) : ''
+    switch (key) {
+      case 'preceptor_assignment':         return buildPreceptorAssignmentDraft({ firstName })
+      case 'preceptor_details_request':    return buildPreceptorDetailsRequestDraft({ firstName })
+      case 'unit_leader_support_request':  return buildUnitLeaderSupportRequestDraft({ firstName })
+      case 'interviewer_availability_request': return buildInterviewerAvailabilityRequestDraft({ firstName })
+      case 'coordinator_acceptance':       return buildAcademicPartnerUpdateDraft({ firstName })
+      default:                             return buildAcademicPartnerUpdateDraft({ firstName })
     }
-    // coordinator_acceptance
-    return buildCoordinatorAcceptanceDraft({
-      firstName: recipientType === 'contact' ? firstNameOf(dmRecipientName) : '',
-    })
   }, [recipientType, dmRecipientName])
 
   const applyTemplate = useCallback((key) => {
