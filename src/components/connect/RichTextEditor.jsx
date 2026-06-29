@@ -13,12 +13,14 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
-import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Link as LinkIcon, Unlink, RemoveFormatting, Minus, Plus, MousePointerClick, StickyNote } from 'lucide-react'
+import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Link as LinkIcon, Unlink, RemoveFormatting, Minus, Plus, MousePointerClick, StickyNote, CalendarDays } from 'lucide-react'
 import { DividerBlock } from './blocks/DividerBlock'
 import { ButtonBlock } from './blocks/ButtonBlock'
 import ButtonModal from './blocks/ButtonModal'
 import { NoteBlock } from './blocks/NoteBlock'
 import NoteModal from './blocks/NoteModal'
+import { EventBlock } from './blocks/EventBlock'
+import EventModal from './blocks/EventModal'
 import { isValidRichDoc } from '../../lib/connect/richCompose'
 
 const F = 'DM Sans, sans-serif'
@@ -65,6 +67,8 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
   const [buttonModal, setButtonModal] = useState({ open: false, mode: 'insert', pos: null, label: '', url: '' })
   // Note block modal (shared for insert + edit).
   const [noteModal, setNoteModal] = useState({ open: false, mode: 'insert', pos: null, title: '', body: '' })
+  // Event Details block modal (shared for insert + edit).
+  const [eventModal, setEventModal] = useState({ open: false, mode: 'insert', pos: null, title: '', dateTime: '', location: '', format: '', respondBy: '' })
 
   const editor = useEditor({
     immediatelyRender: true,
@@ -81,6 +85,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
       DividerBlock,
       ButtonBlock,
       NoteBlock,
+      EventBlock,
       Underline,
       Link.configure({
         openOnClick: false,
@@ -107,6 +112,10 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
       if (editor.storage.aspireNote) {
         editor.storage.aspireNote.requestEdit = (pos, attrs) =>
           setNoteModal({ open: true, mode: 'edit', pos, title: attrs.title || '', body: attrs.body || '' })
+      }
+      if (editor.storage.aspireEvent) {
+        editor.storage.aspireEvent.requestEdit = (pos, attrs) =>
+          setEventModal({ open: true, mode: 'edit', pos, title: attrs.title || '', dateTime: attrs.dateTime || '', location: attrs.location || '', format: attrs.format || '', respondBy: attrs.respondBy || '' })
       }
     },
     editorProps: {
@@ -156,6 +165,16 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
     }
     setNoteModal(m => ({ ...m, open: false }))
   }, [editor, noteModal.mode, noteModal.pos])
+
+  const handleEventSave = useCallback((attrs) => {
+    if (!editor) return
+    if (eventModal.mode === 'edit' && eventModal.pos != null) {
+      editor.chain().focus().command(({ tr }) => { tr.setNodeMarkup(eventModal.pos, undefined, attrs); return true }).run()
+    } else {
+      editor.chain().focus().insertAspireEvent(attrs).run()
+    }
+    setEventModal(m => ({ ...m, open: false }))
+  }, [editor, eventModal.mode, eventModal.pos])
 
   const applyLink = useCallback(() => {
     const safe = normalizeUrl(linkUrl)
@@ -227,7 +246,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
         {sep}
         <TBtn on={false} disabled={disabled} onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()} label="Clear formatting"><RemoveFormatting size={15} /></TBtn>
         {sep}
-        {/* Insert block: a small dropdown (extensible — Divider in 2A-0; Button/Note/Event later). */}
+        {/* Insert block: a small dropdown (Divider 2A-0, Button 2A-2, Note 2A-3, Event details 2B). */}
         <div style={{ position: 'relative' }}>
           <TBtn on={insertOpen} disabled={disabled} onClick={() => setInsertOpen(o => !o)} label="Insert block"><Plus size={15} /></TBtn>
           {insertOpen && (
@@ -250,6 +269,12 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
                 onClick={() => { setInsertOpen(false); setNoteModal({ open: true, mode: 'insert', pos: null, title: '', body: '' }) }}
                 style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', minHeight: 36, padding: '0 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: F, fontSize: 12.5, fontWeight: 600, color: '#374151', textAlign: 'left' }}
               ><StickyNote size={15} /> Note</button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => { setInsertOpen(false); setEventModal({ open: true, mode: 'insert', pos: null, title: '', dateTime: '', location: '', format: '', respondBy: '' }) }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', minHeight: 36, padding: '0 10px', background: 'none', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: F, fontSize: 12.5, fontWeight: 600, color: '#374151', textAlign: 'left' }}
+              ><CalendarDays size={15} /> Event details</button>
             </div>
           )}
         </div>
@@ -275,6 +300,16 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
         initialBody={noteModal.body}
         onSave={handleNoteSave}
         onCancel={() => setNoteModal(m => ({ ...m, open: false }))}
+      />
+
+      {/* Shared Event Details insert/edit modal — keyed so it remounts (fresh form) on each open. */}
+      <EventModal
+        key={eventModal.open ? `event:${eventModal.pos ?? 'new'}` : 'event-closed'}
+        open={eventModal.open}
+        mode={eventModal.mode}
+        initial={{ title: eventModal.title, dateTime: eventModal.dateTime, location: eventModal.location, format: eventModal.format, respondBy: eventModal.respondBy }}
+        onSave={handleEventSave}
+        onCancel={() => setEventModal(m => ({ ...m, open: false }))}
       />
 
       {/* Link input row (inline, iPad-friendly — no window.prompt) */}
