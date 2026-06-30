@@ -5,6 +5,7 @@
 // Nightfall footer with the no-reply line. Typed system signature only (no handwritten image).
 import { escapeHtml } from '../../htmlEscape.js';
 import { aspireEmailShell, aspireSystemSignature } from '../../../../lib/server/email/aspireShell.js';
+import { renderEmailButton, renderEmailDetailsCard } from '../../../../lib/server/email/emailPrimitives.js';
 
 const NAVY = '#1d2567';
 
@@ -47,9 +48,7 @@ export const formReceived = {
           <tr><td style="padding:6px 16px 6px 0;color:#475467;"><strong>Submitted:</strong></td><td>${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PT</td></tr>
         </table>
 
-        <p style="margin-top:20px;">
-          <a href="https://aspire-tracker.vercel.app" style="display:inline-block;padding:10px 18px;background:${NAVY};color:#fff;text-decoration:none;border-radius:8px;font-weight:500;font-size:13px;">Open in ASPIRE Intelligence</a>
-        </p>`,
+        ${renderEmailButton({ label: 'Open in ASPIRE Intelligence', url: 'https://aspire-tracker.vercel.app', variant: 'navy' })}`,
     }),
   }),
 
@@ -63,10 +62,10 @@ export const formReceived = {
           <p style="margin:0 0 16px;">Hi ${coordFirst},</p>
           <p style="margin:0 0 16px;">This is a heads-up that <strong>${ctx.studentName}</strong> from ${ctx.school} has just submitted their ASPIRE application at Cedars-Sinai.</p>
 
-          <table style="border-collapse:collapse;margin:16px 0;font-size:14px;">
-            <tr><td style="padding:6px 16px 6px 0;color:#475467;"><strong>Program:</strong></td><td>${ctx.programType || 'Not specified'}</td></tr>
-            <tr><td style="padding:6px 16px 6px 0;color:#475467;"><strong>Submitted:</strong></td><td>${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PT</td></tr>
-          </table>
+          ${renderEmailDetailsCard({ rows: [
+            { label: 'Program',   value: ctx.programType || 'Not specified' },
+            { label: 'Submitted', value: `${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PT` },
+          ] })}
 
           <p style="margin:0 0 16px;">Our team will be in touch with ${ctx.studentFirstName || 'them'} directly to schedule a brief interview and discuss next steps. If anything looks off or you have context to share, email Jester at <a href="mailto:jesterlloyd.bautista@cshs.org" style="color:${NAVY};">jesterlloyd.bautista@cshs.org</a>.</p>
 
