@@ -828,12 +828,20 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   }, [recipientType, dmRecipientName])
 
   const applyTemplate = useCallback((key) => {
-    const { subject, body } = buildTemplateDraft(key)
+    const { subject, body, richBody } = buildTemplateDraft(key)
     setOutreachMode('message')
     setMsgSubject(subject)
-    // Manual templates are plain text; in rich mode convert to safe HTML paragraphs so line breaks
-    // survive in the editor. Placeholders/links are preserved verbatim as text.
-    setMsgBody(richEnabled ? plainTextToHtml(body) : body)
+    // EMAIL-MANUAL-TEMPLATE-BLOCKS-1: when rich compose is ON and this template ships a block layout
+    // (richBody = HTML with Content Block markers), hydrate the editor from it — clearing richDocRef
+    // first so the editor parses the markers into blocks fresh (RICH-COMPOSE-2A-1) rather than reusing
+    // a stale richDoc. Otherwise the prior behavior: plain-text → safe HTML paragraphs (rich), or the
+    // raw plain text (flag OFF). Placeholders are preserved verbatim either way.
+    if (richEnabled && richBody) {
+      richDocRef.current = null
+      setMsgBody(richBody)
+    } else {
+      setMsgBody(richEnabled ? plainTextToHtml(body) : body)
+    }
     setIncludeSignature(true)  // template body has no signature — app appends the closing + sender block
     setActiveTemplateId(key)   // sidebar selected-state: mark which template loaded the draft
   }, [buildTemplateDraft, richEnabled])

@@ -13,6 +13,23 @@
 // fallback: trimmed value if present, else the placeholder.
 const fb = (v, placeholder) => (v && String(v).trim()) ? String(v).trim() : placeholder
 
+// ── EMAIL-MANUAL-TEMPLATE-BLOCKS-1: rich Content Block builders ──────────────────
+// Some manual templates also ship a `richBody`: HTML containing the SAME ASPIRE Content Block markers
+// the rich composer produces (data-aspire-block="…"). When rich compose is ON the composer hydrates
+// the editor from this HTML (the markers parse into Heading/Note/Divider/Event blocks via the proven
+// RICH-COMPOSE-2A-1 path), and the server's renderConnectBody renders the identical email for preview
+// and send. When rich compose is OFF, the plain-text `body` is used unchanged. Placeholders ([Student
+// Name], [Unit], [Date]…) stay literal and editable. No tokens, secure links, or buttons are added.
+const escTxt  = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+const escAttr = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+const bH2   = (t) => `<h2>${escTxt(t)}</h2>`
+const bP    = (t) => `<p>${escTxt(t)}</p>`
+const bUL   = (items) => `<ul>${items.map(i => `<li>${escTxt(i)}</li>`).join('')}</ul>`
+const bDivider = '<hr data-aspire-block="divider">'
+const bNote = ({ title = '', body }) =>
+  `<div data-aspire-block="note" data-title="${escAttr(title)}" data-body="${escAttr(body)}"></div>`
+// (bEvent available for future date/time templates; unused here since none carry fixed event details.)
+
 // Preceptor Assignment — internal Cedars email, sent through the in-app Direct Message flow.
 // Salutation uses the recipient's (preceptor's) first name when available, else "Preceptor".
 // All assignment fields stay bracketed editable placeholders (the student is not reliably the
@@ -67,7 +84,13 @@ As a next step, students will be invited to the required in-person orientation b
 You are warmly invited to attend the orientation or to stay looped in as appropriate for your program. If you would like to join, please let me know and I will share the details.
 
 Thank you for your continued partnership in supporting clinical nursing education.`
-  return { subject, body }
+  const richBody =
+    bH2('ASPIRE Student Update')
+    + bP(`Dear ${fb(firstName, 'Colleague')}, I'm writing with an update on your students' participation in ASPIRE at Cedars-Sinai. The following student(s) have been accepted and are moving forward in the ASPIRE process:`)
+    + bP('[Insert accepted student names and relevant details here.]')
+    + bNote({ title: 'Next step: orientation', body: 'Students will be invited to the required in-person orientation before they begin their shifts. We will send each student the orientation date, location, parking, and arrival details directly.' })
+    + bP('You are warmly invited to attend the orientation or to stay looped in as appropriate for your program. If you would like to join, please let me know and I will share the details. Thank you for your continued partnership in supporting clinical nursing education.')
+  return { subject, body, richBody }
 }
 
 // Preceptor Details Request — internal Cedars email asking the preceptor for the information needed
@@ -91,7 +114,13 @@ When you have a moment, could you please send me the following:
 The photo is entirely optional, so please only share one if you'd like to. Once I have these details, I'll introduce you and [Student Name] so you can connect before the rotation begins.
 
 Thank you so much for your time and for helping our students get off to a great start.`
-  return { subject, body }
+  const richBody =
+    bH2('Preceptor Details Request')
+    + bP(`Dear ${fb(firstName, 'Preceptor')}, thank you again for supporting ASPIRE and for agreeing to precept one of our senior nursing students. I'm getting ready to introduce you to [Student Name] and want to make that introduction as smooth as possible.`)
+    + bNote({ title: 'A few details, when you have a moment', body: "Please share your preferred name and title, the best contact information for the student, your preferred schedule, your preferred communication method, and any instructions for the first day. A photo to share with the student is welcome but completely optional." })
+    + bUL(['Preferred name and title', 'Best contact email (and phone, if appropriate)', 'Typical schedule or upcoming shifts', 'Unit and shift confirmation', 'Optional photo to share with the student'])
+    + bP("Once I have these details, I'll introduce you and [Student Name] so you can connect before the rotation begins. Thank you so much for your time and for helping our students get off to a great start.")
+  return { subject, body, richBody }
 }
 
 // Unit Leader Support Request — internal Cedars email asking the unit leader for a preceptor name
@@ -112,7 +141,14 @@ The next step is identifying a preceptor for the student. When you have a moment
 Once the preceptor is confirmed, I'll connect [Student Name] and the preceptor so they can coordinate scheduling and the student's learning objectives.
 
 Thank you for your partnership in supporting our students and unit.`
-  return { subject, body }
+  const richBody =
+    bH2('Unit Leader Support Request')
+    + bP(`Dear ${fb(firstName, 'Colleague')}, a senior nursing student has been matched to your unit, [Unit], through ASPIRE at Cedars-Sinai. Thank you for supporting this placement.`)
+    + bNote({ title: 'Support needed: a preceptor', body: 'The next step is identifying a preceptor for the student. Could you please share the details below? Once the preceptor is confirmed, I will connect them with [Student Name].' })
+    + bDivider
+    + bUL(['Preceptor name', 'Preceptor email', 'Shift or schedule, if known', 'Comfortable being introduced to the student? (yes / no)'])
+    + bP("Once the preceptor is confirmed, I'll connect [Student Name] and the preceptor so they can coordinate scheduling and the student's learning objectives. Thank you for your partnership in supporting our students and unit.")
+  return { subject, body, richBody }
 }
 
 // Interviewer Availability Request — internal Cedars/BNI email asking an interviewer colleague to
@@ -131,7 +167,13 @@ When you have a moment, please log in to ASPIRE Intelligence and enter or update
 Your availability helps us coordinate the interview schedule and assign students to interviewers. If anything changes, you can update your availability at any time.
 
 Thank you for being part of the ASPIRE interview team.`
-  return { subject, body }
+  const richBody =
+    bH2('Interviewer Availability Request')
+    + bP(`Dear ${fb(firstName, 'Colleague')}, we're beginning to plan ASPIRE student interviews and would appreciate your help.`)
+    + bNote({ title: 'Action needed', body: 'Please log in to ASPIRE Intelligence and enter or update your interview availability. Your availability helps us coordinate the interview schedule and assign students to interviewers.' })
+    + bP('Open ASPIRE Intelligence: [ASPIRE Intelligence link]')
+    + bP('If anything changes, you can update your availability at any time. Thank you for being part of the ASPIRE interview team.')
+  return { subject, body, richBody }
 }
 
 // ── Send-to-Many manual bulk templates (Phase 2A) ───────────────────────────────
