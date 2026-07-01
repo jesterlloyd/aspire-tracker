@@ -32,7 +32,7 @@ const NEARING_PCT = 85 // matches priorities.js "nearing completion" (>= 85% of 
 
 const SORT_OPTIONS = [
   { key: 'attention',  label: 'Needs attention' },
-  { key: 'hours_desc', label: 'Most hours completed' },
+  { key: 'hours_desc', label: 'Closest to completion' },
   { key: 'hours_asc',  label: 'Least hours completed' },
   { key: 'name',       label: 'Name A–Z' },
   { key: 'school',     label: 'School A–Z' },
@@ -349,7 +349,11 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
       if (a.pct !== b.pct) return a.pct - b.pct
       return byName(a, b)
     },
-    hours_desc: (a, b) => (b.apv - a.apv) || byName(a, b),
+    // ROTATION-PROGRESS-SORT-1: rank by percentage of required hours completed (matches the
+    // displayed progress bar / % label), not raw approved hours — so students closest to finishing
+    // rank highest even with different required-hour totals. pct already guards req<=0 → 0 and caps
+    // at 100. Tie-breakers: completion % desc → approved hours desc → preferred name asc.
+    hours_desc: (a, b) => (b.pct - a.pct) || (b.apv - a.apv) || byName(a, b),
     hours_asc:  (a, b) => (a.apv - b.apv) || byName(a, b),
     name:       byName,
     school:     (a, b) => (a.school || '').localeCompare(b.school || '') || byName(a, b),
