@@ -213,6 +213,13 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
         .rte-content:empty:before{content:attr(data-placeholder);color:#9ca3af;}
       `}</style>
 
+      {/* RICH-COMPOSE-STICKY-TOOLBAR-1: the formatting / Content-Block toolbar (and the inline link
+          input row) stay pinned to the top of the compose card while the user scrolls a long draft.
+          position:sticky sticks within the editor's own bounds — no overflow-clipping ancestor between
+          here and the page scroll — so it remains visible while editing the body and scrolls away once
+          past the editor. top:0 sits at the viewport top after the (position:relative) app header has
+          scrolled off, so it never covers the header or the recipient/template sidebar. */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 5, boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
       {/* Compact toolbar */}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, padding: 6, border: '1.5px solid #e5e7eb', borderBottom: 'none', borderRadius: '8px 8px 0 0', background: '#faf9f7' }}>
         {/* Style dropdown: Body / Heading / Subheading (locked styles applied server-side at render) */}
@@ -280,7 +287,27 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
         </div>
       </div>
 
-      {/* Shared Button insert/edit modal — keyed so it remounts (fresh form) on each open. */}
+      {/* Link input row (inline, iPad-friendly — no window.prompt). Inside the sticky region (above)
+          so it appears pinned with the toolbar even when the user is scrolled down a long draft. */}
+      {linkOpen && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, padding: '6px 8px', border: '1.5px solid #e5e7eb', borderBottom: 'none', background: '#fff' }}>
+          <input
+            autoFocus
+            value={linkUrl}
+            onChange={e => { setLinkUrl(e.target.value); setLinkError('') }}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); applyLink() } if (e.key === 'Escape') { setLinkOpen(false); setLinkError('') } }}
+            placeholder="https://example.com or name@example.com"
+            style={{ flex: 1, minWidth: 180, height: 34, padding: '0 10px', fontSize: 12, fontFamily: F, border: '1.5px solid #e5e7eb', borderRadius: 7, color: '#191919', outline: 'none' }}
+          />
+          <button type="button" onClick={applyLink} style={{ height: 34, padding: '0 12px', fontSize: 12, fontWeight: 600, fontFamily: F, background: NAVY, color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer' }}>Apply</button>
+          <button type="button" onClick={() => { setLinkOpen(false); setLinkError('') }} style={{ height: 34, padding: '0 10px', fontSize: 12, fontWeight: 600, fontFamily: F, background: '#fff', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: 7, cursor: 'pointer' }}>Cancel</button>
+          {linkError && <span style={{ width: '100%', fontSize: 11, color: '#b91c1c', fontFamily: F }}>{linkError}</span>}
+        </div>
+      )}
+      </div>{/* end RICH-COMPOSE-STICKY-TOOLBAR-1 sticky region (toolbar + link input row) */}
+
+      {/* Shared Button insert/edit modal — keyed so it remounts (fresh form) on each open. Rendered
+          outside the sticky region (position:fixed overlay / null when closed). */}
       <ButtonModal
         key={buttonModal.open ? `${buttonModal.mode}:${buttonModal.pos ?? 'new'}` : 'closed'}
         open={buttonModal.open}
@@ -311,23 +338,6 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
         onSave={handleEventSave}
         onCancel={() => setEventModal(m => ({ ...m, open: false }))}
       />
-
-      {/* Link input row (inline, iPad-friendly — no window.prompt) */}
-      {linkOpen && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, padding: '6px 8px', border: '1.5px solid #e5e7eb', borderBottom: 'none', background: '#fff' }}>
-          <input
-            autoFocus
-            value={linkUrl}
-            onChange={e => { setLinkUrl(e.target.value); setLinkError('') }}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); applyLink() } if (e.key === 'Escape') { setLinkOpen(false); setLinkError('') } }}
-            placeholder="https://example.com or name@example.com"
-            style={{ flex: 1, minWidth: 180, height: 34, padding: '0 10px', fontSize: 12, fontFamily: F, border: '1.5px solid #e5e7eb', borderRadius: 7, color: '#191919', outline: 'none' }}
-          />
-          <button type="button" onClick={applyLink} style={{ height: 34, padding: '0 12px', fontSize: 12, fontWeight: 600, fontFamily: F, background: NAVY, color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer' }}>Apply</button>
-          <button type="button" onClick={() => { setLinkOpen(false); setLinkError('') }} style={{ height: 34, padding: '0 10px', fontSize: 12, fontWeight: 600, fontFamily: F, background: '#fff', color: '#6b7280', border: '1px solid #e5e7eb', borderRadius: 7, cursor: 'pointer' }}>Cancel</button>
-          {linkError && <span style={{ width: '100%', fontSize: 11, color: '#b91c1c', fontFamily: F }}>{linkError}</span>}
-        </div>
-      )}
 
       {/* Editable surface */}
       <div style={{ border: '1.5px solid #e5e7eb', borderRadius: '0 0 8px 8px', background: '#fff' }}>
