@@ -7,8 +7,9 @@
 // (lib/server/email/aspireShell.js) — Nightfall header (ASPIRE wordmark + meaning), white card,
 // Nightfall footer with the no-reply line. Typed system signature only (no handwritten image).
 
-import { aspireEmailShell, aspireSystemSignature } from '../../../../lib/server/email/aspireShell.js';
+import { aspireEmailShell } from '../../../../lib/server/email/aspireShell.js';
 import { renderEmailNote, renderEmailButton } from '../../../../lib/server/email/emailPrimitives.js';
+import { aspireHandwrittenSignature } from '../handwrittenSignature.js';
 
 export const teamsInviteReminder = {
   interviewer: (ctx) => ({
@@ -38,7 +39,7 @@ export const teamsInviteReminder = {
         ${renderEmailButton({ label: 'Open ASPIRE Intelligence', url: 'https://aspire-tracker.vercel.app', variant: 'navy' })}
 
         <p style="margin-top:24px;">Thank you for supporting these students. If you're unable to conduct this interview, email Jester at <a href="mailto:jesterlloyd.bautista@cshs.org" style="color:#1D2567;">jesterlloyd.bautista@cshs.org</a> so we can reassign or reschedule.</p>
-        ${aspireSystemSignature('Kind regards,')}`,
+        ${aspireHandwrittenSignature('Kind regards,')}`,
     }),
   }),
 
@@ -71,7 +72,7 @@ export const teamsInviteReminderEscalation = {
         <p>Please send the Teams invitation today. If you're unable to conduct this interview, email Jester at <a href="mailto:jesterlloyd.bautista@cshs.org" style="color:#1D2567;">jesterlloyd.bautista@cshs.org</a> so we can reassign or reschedule. The student has been waiting.</p>
 
         ${renderEmailButton({ label: 'Open ASPIRE Intelligence', url: 'https://aspire-tracker.vercel.app', variant: 'navy' })}
-        ${aspireSystemSignature('Kind regards,')}`,
+        ${aspireHandwrittenSignature('Kind regards,')}`,
     }),
   }),
 

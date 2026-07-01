@@ -7,7 +7,8 @@
 // Nightfall footer with the no-reply line. Typed system signature (no handwritten image).
 
 import { escapeHtml } from '../../htmlEscape.js';
-import { aspireEmailShell, aspireSystemSignature } from '../../../../lib/server/email/aspireShell.js';
+import { aspireEmailShell } from '../../../../lib/server/email/aspireShell.js';
+import { aspireHandwrittenSignature } from '../handwrittenSignature.js';
 
 export const CLOCKOUT_REMINDER_SUBJECT = 'ASPIRE Shift Clock-Out Reminder';
 
@@ -37,7 +38,7 @@ export function buildClockoutReminderEmail({ firstName } = {}) {
     <p style="margin:0 0 16px;">Hi ${escapeHtml(name)},</p>
     <p style="margin:0 0 16px;">Your ASPIRE shift still appears open in the tracker. If your shift has ended, please clock out as soon as possible.</p>
     <p style="margin:0;">If you are still on shift, no action is needed at this time.</p>
-    ${aspireSystemSignature('Kind regards,')}`;
+    ${aspireHandwrittenSignature('Kind regards,')}`;
   return { subject: CLOCKOUT_REMINDER_SUBJECT, html: aspireEmailShell({ body, preheader }) };
 }
 

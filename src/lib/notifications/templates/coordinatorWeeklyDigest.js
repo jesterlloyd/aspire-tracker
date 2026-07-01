@@ -5,7 +5,8 @@
 // (lib/server/email/aspireShell.js) — Nightfall header (ASPIRE wordmark + meaning), white card,
 // Nightfall footer with the no-reply line. Typed system signature only (no handwritten image).
 
-import { aspireEmailShell, aspireSystemSignature } from '../../../../lib/server/email/aspireShell.js';
+import { aspireEmailShell } from '../../../../lib/server/email/aspireShell.js';
+import { aspireHandwrittenSignature } from '../handwrittenSignature.js';
 
 const NAVY  = '#1d2567';   // Nightfall — ASPIRE primary brand color
 const RAVEN = '#191919';   // Near-black body text
@@ -86,7 +87,7 @@ ${sections}
 </p>
 
 <p style="margin:0;">Thank you.</p>
-${aspireSystemSignature('Kind regards,')}`;
+${aspireHandwrittenSignature('Kind regards,')}`;
 
   return { subject, html: aspireEmailShell({ body, preheader }) };
 }

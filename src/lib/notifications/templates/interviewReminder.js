@@ -5,8 +5,9 @@
 // Nightfall footer with the no-reply line. Typed system signature only (no handwritten image).
 
 import { escapeHtml } from '../../htmlEscape.js';
-import { aspireEmailShell, aspireSystemSignature } from '../../../../lib/server/email/aspireShell.js';
+import { aspireEmailShell } from '../../../../lib/server/email/aspireShell.js';
 import { renderEmailDetailsCard } from '../../../../lib/server/email/emailPrimitives.js';
+import { aspireHandwrittenSignature } from '../handwrittenSignature.js';
 
 const NAVY  = '#1d2567';
 const RAVEN = '#191919';
@@ -46,7 +47,7 @@ ${renderEmailDetailsCard({ title: 'Your Interview', rows: [
 <p style="margin:0 0 20px;">If you need to reschedule or have a last-minute question, email me directly at <a href="mailto:jesterlloyd.bautista@cshs.org" style="color:${NAVY};">jesterlloyd.bautista@cshs.org</a> or call <a href="tel:+13102488964" style="color:${NAVY};">310-248-8964</a>. We'll do our best to work it out.</p>
 
 <p style="margin:0 0 4px;">You've got this.</p>
-${aspireSystemSignature('Kind regards,')}`;
+${aspireHandwrittenSignature('Kind regards,')}`;
 
   return { subject, html: aspireEmailShell({ body, preheader }) };
 }
