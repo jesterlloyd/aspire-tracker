@@ -107,9 +107,10 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Ag
           })}
         </SurfaceCard>
 
-        {/* Active panel. Knowledge Center is wider (table); existing panels keep
-            their established max width and render unchanged. */}
-        <div style={{ flex: '1 1 360px', minWidth: 0, maxWidth: ['knowledge', 'preceptorParity'].includes(currentKey) ? 1040 : 720 }}>
+        {/* Active panel. Knowledge Center is wider (table); Accounts & Access uses the FULL workspace
+            width (ACCOUNTS-ACCESS-REDESIGN-1A — no cap, bounded only by the .app-main 1580px shell);
+            all other panels keep their established max width and render unchanged. */}
+        <div style={{ flex: '1 1 360px', minWidth: 0, maxWidth: currentKey === 'accounts' ? 'none' : ['knowledge', 'preceptorParity'].includes(currentKey) ? 1040 : 720 }}>
           {currentKey === 'general'    && <GeneralPanel />}
           {currentKey === 'appearance' && <AppearancePanel />}
           {currentKey === 'signature'  && <SignaturePanel />}

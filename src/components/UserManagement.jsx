@@ -678,7 +678,9 @@ export function UserManagementContent({ onRequestClose }) {
                         {group.label}
                       </div>
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {/* ACCOUNTS-ACCESS-REDESIGN-1A: responsive grid so the full-width pane fills
+                          gracefully — 1 column on narrow, 2–3 on wide/presentation screens. */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: '10px', alignItems: 'start' }}>
                         {group.users.map(u => {
                           const isCurrentUser = u.id === userProfile?.id
                           const lastLog       = lastActionByName[u.full_name]

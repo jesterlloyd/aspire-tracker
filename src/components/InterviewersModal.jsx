@@ -241,7 +241,7 @@ export function InterviewersContent({ onRequestClose }) {
 
         {/* Directory cards — read-only (edit/delete via actions) */}
         {interviewers.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 10, alignItems: 'start' }}>
             {interviewers.map(interviewer => (
               <div key={interviewer.id} style={{
                 display: 'flex', alignItems: 'center', gap: 12,

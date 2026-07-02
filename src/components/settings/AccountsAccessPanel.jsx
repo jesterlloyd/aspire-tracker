@@ -41,11 +41,12 @@ export default function AccountsAccessPanel() {
         directory record, and their color settings are independent.
       </p>
 
-      {/* Segmented control */}
+      {/* Nested tab selector — matches the Rotation (Matrix / Preceptors / Activity) segmented group:
+          flush buttons sharing one outer border, active tab filled Nightfall. Same `view`/`setView`
+          state and switching behavior (ACCOUNTS-ACCESS-REDESIGN-1A). */}
       <div role="group" aria-label="Accounts &amp; Access views" style={{
-        display: 'inline-flex', gap: 4, padding: 3, borderRadius: 10,
-        background: 'var(--color-bg-elevated, #f3f4f6)',
-        border: '1px solid var(--color-border-default, #e5e7eb)',
+        display: 'flex', borderRadius: 7, overflow: 'hidden', width: 'fit-content',
+        border: '1px solid var(--border-input, rgba(29,37,103,0.10))',
       }}>
         {VIEWS.map(v => {
           const active = view === v.key
@@ -55,12 +56,12 @@ export default function AccountsAccessPanel() {
               aria-pressed={active}
               onClick={() => setView(v.key)}
               style={{
-                padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                fontFamily: 'DM Sans, sans-serif', fontSize: 13, fontWeight: active ? 600 : 500,
-                background: active ? 'var(--color-bg-surface, #ffffff)' : 'transparent',
-                color: active ? 'var(--color-accent-primary, #1D2567)' : 'var(--color-text-secondary, #6b7280)',
-                boxShadow: active ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                transition: 'background 0.15s, color 0.15s',
+                height: 32, padding: '0 13px', display: 'flex', alignItems: 'center',
+                border: 'none', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap',
+                fontFamily: 'DM Sans, sans-serif', fontWeight: 500,
+                background: active ? 'var(--color-accent-primary, #1D2567)' : 'var(--bg-input, #fff)',
+                color: active ? '#fff' : 'var(--text-secondary, #4A5560)',
+                transition: 'all 0.12s',
               }}
             >
               {v.label}
