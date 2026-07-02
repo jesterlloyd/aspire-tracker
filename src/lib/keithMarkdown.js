@@ -60,6 +60,31 @@ const BULLET_RE  = /^\s*[-*•]\s+(.*)$/;
 const NUM_RE     = /^\s*\d+[.)]\s+(.*)$/;
 const HEADING_RE = /^\s*#{1,6}\s+(.*)$/;
 
+// KEITH-MARKDOWN-LISTS-1: collect a contiguous run of list items of ONE type (matcher). Tolerates
+// blank lines BETWEEN items (Markdown "loose" lists) so adjacent items stay in a single <ul>/<ol>
+// instead of splitting into one-item lists (which made every ordered item restart at "1."). A blank
+// line followed by a non-list line (or a list line of the other type) ends the run. Returns the raw
+// item texts and the index of the first line after the list.
+function gatherListItems(lines, start, matcher) {
+  const contents = [];
+  let i = start;
+  while (i < lines.length) {
+    if (matcher.test(lines[i])) {
+      contents.push(lines[i].match(matcher)[1]);
+      i++;
+      continue;
+    }
+    if (!lines[i].trim()) {
+      // Peek past blank line(s): continue the list only if the next non-blank line is the same type.
+      let j = i;
+      while (j < lines.length && !lines[j].trim()) j++;
+      if (j < lines.length && matcher.test(lines[j])) { i = j; continue; }
+    }
+    break;
+  }
+  return { contents, next: i };
+}
+
 export function renderMarkdownLite(text) {
   const lines = String(text == null ? '' : text).replace(/\r\n/g, '\n').split('\n');
   const blocks = [];
@@ -70,24 +95,24 @@ export function renderMarkdownLite(text) {
     if (!line.trim()) { i++; continue; }      // blank line → paragraph separator
 
     if (BULLET_RE.test(line)) {
-      const items = [];
-      while (i < lines.length && BULLET_RE.test(lines[i])) {
-        items.push(React.createElement('li', { key: `li${k}-${items.length}`, style: { marginBottom: '2px' } },
-          renderInline(lines[i].match(BULLET_RE)[1], `bi${k}-${items.length}`)));
-        i++;
-      }
-      blocks.push(React.createElement('ul', { key: `b${k++}`, style: { margin: '4px 0', paddingLeft: '20px' } }, items));
+      const { contents, next } = gatherListItems(lines, i, BULLET_RE);
+      const items = contents.map((c, idx) => React.createElement('li',
+        { key: `li${k}-${idx}`, style: { marginBottom: '2px' } }, renderInline(c, `bi${k}-${idx}`)));
+      blocks.push(React.createElement('ul',
+        { key: `b${k++}`, style: { margin: '4px 0', paddingLeft: '20px', listStyleType: 'disc' } }, items));
+      i = next;
       continue;
     }
 
     if (NUM_RE.test(line)) {
-      const items = [];
-      while (i < lines.length && NUM_RE.test(lines[i])) {
-        items.push(React.createElement('li', { key: `li${k}-${items.length}`, style: { marginBottom: '2px' } },
-          renderInline(lines[i].match(NUM_RE)[1], `ni${k}-${items.length}`)));
-        i++;
-      }
-      blocks.push(React.createElement('ol', { key: `b${k++}`, style: { margin: '4px 0', paddingLeft: '20px' } }, items));
+      const { contents, next } = gatherListItems(lines, i, NUM_RE);
+      // The browser numbers the <ol>; we never rely on the source digit, so "1. / 1. / 1." and
+      // "1. / 2. / 3." both render as an incrementing list.
+      const items = contents.map((c, idx) => React.createElement('li',
+        { key: `li${k}-${idx}`, style: { marginBottom: '2px' } }, renderInline(c, `ni${k}-${idx}`)));
+      blocks.push(React.createElement('ol',
+        { key: `b${k++}`, style: { margin: '4px 0', paddingLeft: '20px', listStyleType: 'decimal' } }, items));
+      i = next;
       continue;
     }
 
