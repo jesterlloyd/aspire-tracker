@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { SUGGESTED_PROMPTS } from '../lib/keithKnowledge';
 import { useAuth } from '../contexts/AuthContext';
 import { announceFloatingPanelOpen, onFloatingPanelOpen } from '../lib/floatingPanels';
+import { renderMarkdownLite } from '../lib/keithMarkdown';
 
 const KEITH_CLIENT_TIMEOUT_MS   = 28000;
 const KEITH_PREFETCH_CEILING_MS = 5000;
@@ -20,17 +21,37 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   const [toolExpanded, setToolExpanded] = useState({});
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const listRef = useRef(null);            // KEITH-CHAT-UX-1: scroll container, for near-bottom detection
+  const nearBottomRef = useRef(true);      // KEITH-CHAT-UX-1: true while the user is near the latest message
 
   if (!isAuthenticated) return null;
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToBottom = (behavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
-  useEffect(() => { scrollToBottom(); }, [messages]);
+  // KEITH-CHAT-UX-1: track whether the user is near the bottom so new Keith replies stick to the
+  // latest message, but we never yank the user down while they scroll up to read earlier messages.
+  const handleListScroll = () => {
+    const el = listRef.current;
+    if (!el) return;
+    nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
 
+  // New messages: scroll to bottom when the user just sent one, or when they were already near the
+  // bottom. Reading older content (scrolled up) is left undisturbed. When the panel is closed the
+  // end ref is unmounted, so scrollToBottom is a harmless no-op.
   useEffect(() => {
-    if (isOpen && inputRef.current) inputRef.current.focus();
+    const last = messages[messages.length - 1];
+    if (last && (last.role === 'user' || nearBottomRef.current)) scrollToBottom('smooth');
+  }, [messages]);
+
+  // On open: focus the input and jump straight to the latest message (no animation).
+  useEffect(() => {
+    if (!isOpen) return;
+    if (inputRef.current) inputRef.current.focus();
+    nearBottomRef.current = true;
+    requestAnimationFrame(() => scrollToBottom('auto'));
   }, [isOpen]);
 
   // UI-0.5: mutual dismiss — close this panel when another floating panel
@@ -383,7 +404,12 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
             bottom: '96px',
             right: '24px',
             width: '400px',
-            maxHeight: '600px',
+            // KEITH-CHAT-UX-1: taller, responsive height. Caps at 720px on large screens and shrinks
+            // with the viewport, always leaving ~160px of vertical clearance (bottom offset + top gap)
+            // so the panel never covers the app header. minHeight is itself capped to the same
+            // available space so it can never force overflow on short screens.
+            height: 'min(720px, calc(100vh - 160px))',
+            minHeight: 'min(360px, calc(100vh - 160px))',
             background: '#ffffff',
             borderRadius: '16px',
             boxShadow: '0 8px 32px rgba(29,37,103,0.18)',
@@ -446,7 +472,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
             </div>
 
             {/* Messages */}
-            <div style={{
+            <div ref={listRef} onScroll={handleListScroll} style={{
               flex: 1, overflowY: 'auto',
               padding: '16px',
               display: 'flex', flexDirection: 'column', gap: '12px',
@@ -461,7 +487,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                 maxWidth: '90%',
               }}>
                 <div style={{ fontFamily: 'DM Sans', fontSize: '13px', color: '#374151', lineHeight: 1.6 }}>
-                  {formatText(welcomeMessage.text)}
+                  {renderMarkdownLite(welcomeMessage.text)}
                 </div>
               </div>
 
@@ -524,7 +550,9 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                       color: msg.role === 'user' ? '#ffffff' : '#374151',
                       whiteSpace: 'pre-wrap',
                     }}>
-                      {formatText(msg.text)}
+                      {/* KEITH-CHAT-UX-1: Keith replies render as safe Markdown (React elements only);
+                          user messages stay plain text. */}
+                      {msg.role === 'keith' ? renderMarkdownLite(msg.text) : formatText(msg.text)}
                     </div>
                     {msg.role === 'keith' && (
                       <div style={{
