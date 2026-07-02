@@ -4,10 +4,13 @@
 //   internal_team -> alert to Jester + Krystal with the full response summary
 // EMAIL-BRAND-REFRESH Phase 2B-2: migrated onto the shared ASPIRE system shell
 // (lib/server/email/aspireShell.js) — Nightfall header (ASPIRE wordmark + meaning), white card,
-// Nightfall footer with the no-reply line. Typed system signature only (no handwritten image).
+// Nightfall footer with the no-reply line. SYSTEM-DEFAULT-SIGNATURE-GIF-1: the submitter
+// confirmation now uses Jester's handwritten GIF signature (system-default policy); the
+// internal_team alert has no signature block and is unchanged.
 
 import { getGreetingName } from '../greetings.js';
-import { aspireEmailShell, aspireSystemSignature } from '../../../../lib/server/email/aspireShell.js';
+import { aspireEmailShell } from '../../../../lib/server/email/aspireShell.js';
+import { aspireHandwrittenSignature } from '../handwrittenSignature.js';
 
 const NAVY     = '#1d2567';
 const SAND     = '#F4F1EC';
@@ -77,7 +80,7 @@ ${summaryBox}
 <p style="margin:0 0 16px;">A "no" is a valid and respected answer. Unit capacity, staffing, and preceptor availability change over time, and we would rather place students where a unit can fully support them.</p>
 <p style="margin:0;">If circumstances change before the submission deadline, you can return to the form and update your response.</p>`;
 
-  return body + aspireSystemSignature('Kind regards,');
+  return body + aspireHandwrittenSignature('Kind regards,');
 }
 
 function buildInternalAlertHtml(ctx) {

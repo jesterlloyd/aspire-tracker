@@ -2,10 +2,13 @@
 // Three audience variants for the 'form_received' notification type.
 // EMAIL-BRAND-REFRESH Phase 2B-1: migrated onto the shared ASPIRE system shell
 // (lib/server/email/aspireShell.js) — Nightfall header (ASPIRE wordmark + meaning), white card,
-// Nightfall footer with the no-reply line. Typed system signature only (no handwritten image).
+// Nightfall footer with the no-reply line. SYSTEM-DEFAULT-SIGNATURE-GIF-1: the student and
+// school_coordinator variants now use Jester's handwritten GIF signature (system-default policy);
+// the internal_team variant has no signature block (ends with the app button) and is unchanged.
 import { escapeHtml } from '../../htmlEscape.js';
-import { aspireEmailShell, aspireSystemSignature } from '../../../../lib/server/email/aspireShell.js';
+import { aspireEmailShell } from '../../../../lib/server/email/aspireShell.js';
 import { renderEmailButton, renderEmailDetailsCard } from '../../../../lib/server/email/emailPrimitives.js';
+import { aspireHandwrittenSignature } from '../handwrittenSignature.js';
 
 const NAVY = '#1d2567';
 
@@ -28,7 +31,7 @@ export const formReceived = {
         <p style="margin-top:24px;">If you have questions in the meantime, you can reach me directly at <a href="mailto:jesterlloyd.bautista@cshs.org" style="color:${NAVY};">jesterlloyd.bautista@cshs.org</a>.</p>
 
         <p style="margin-top:16px;">We&rsquo;re glad you&rsquo;re considering Cedars-Sinai for your next step in nursing.</p>
-        ${aspireSystemSignature('Kind regards,')}`,
+        ${aspireHandwrittenSignature('Kind regards,')}`,
     }),
   }),
 
@@ -70,7 +73,7 @@ export const formReceived = {
           <p style="margin:0 0 16px;">Our team will be in touch with ${ctx.studentFirstName || 'them'} directly to schedule a brief interview and discuss next steps. If anything looks off or you have context to share, email Jester at <a href="mailto:jesterlloyd.bautista@cshs.org" style="color:${NAVY};">jesterlloyd.bautista@cshs.org</a>.</p>
 
           <p style="margin:0;">Thank you for supporting these students.</p>
-          ${aspireSystemSignature('Kind regards,')}`,
+          ${aspireHandwrittenSignature('Kind regards,')}`,
       }),
     };
   },
