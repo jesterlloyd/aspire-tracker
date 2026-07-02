@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { usePresence } from '../contexts/PresenceContext';
 import { supabase } from '../lib/supabase';
 import { X, UserPlus, Mail, MoreVertical, RefreshCw } from 'lucide-react';
+import DetailDrawer from './ui/DetailDrawer';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -384,6 +385,11 @@ export function UserManagementContent({ onRequestClose }) {
 
   const isFiltersActive = chipFilter !== 'all'
 
+  // Manage Access drawer target — the currently-expanded user + its edit draft (same state as before).
+  const manageUser = users.find(u => u.id === expandedUserId) || null
+  const manageDraft = manageUser ? editDrafts[manageUser.id] : null
+  const manageIsOwner = !!manageUser?.is_owner
+
   return (
     <>
       {/* Toast */}
@@ -417,28 +423,121 @@ export function UserManagementContent({ onRequestClose }) {
         </div>
       )}
 
+      {/* Manage Access — shared DetailDrawer (ACCOUNTS-ACCESS-REDESIGN-1: replaced the inline expand
+          panel). Same editDrafts / updateDraft / saveDraft handlers and payloads; only the surface
+          changed from an in-card panel to the governance drawer. */}
+      <DetailDrawer
+        open={!!manageUser && !!manageDraft}
+        title={manageUser ? `Manage access · ${manageUser.full_name}` : 'Manage access'}
+        onClose={() => setExpandedUserId(null)}
+        width={480}
+        footer={manageUser && manageDraft ? (
+          <>
+            <button onClick={() => setExpandedUserId(null)}
+              style={{ padding: '8px 16px', border: '1px solid #e5e7eb', borderRadius: '8px', background: '#f9fafb', fontFamily: 'DM Sans', fontSize: '13px', cursor: 'pointer' }}>
+              Cancel
+            </button>
+            <button onClick={() => saveDraft(manageUser)} disabled={saving}
+              style={{ padding: '8px 20px', border: 'none', borderRadius: '8px', background: saving ? '#e5e7eb' : '#1D2567', color: '#fff', fontFamily: 'DM Sans', fontWeight: 700, fontSize: '13px', cursor: saving ? 'default' : 'pointer' }}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
+          </>
+        ) : null}
+      >
+        {manageUser && manageDraft && (
+          <>
+            {/* Identity summary */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+              <UserInitials user={manageUser} size={36} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 14, color: '#191919' }}>{manageUser.full_name}</div>
+                <div style={{ fontSize: 12, color: '#9ca3af' }}>{manageUser.email}</div>
+              </div>
+            </div>
+
+            {/* App Role — disabled for Owner */}
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#374151', marginBottom: '6px' }}>
+                App Role {manageIsOwner && <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 400 }}>(Owner role cannot be changed)</span>}
+              </label>
+              <select value={manageDraft.role} disabled={manageIsOwner}
+                onChange={e => updateDraft(manageUser.id, 'role', e.target.value)}
+                style={{ ...controlStyle, width: '100%', opacity: manageIsOwner ? 0.5 : 1, cursor: manageIsOwner ? 'not-allowed' : 'pointer' }}>
+                {manageIsOwner
+                  ? <option value="owner">Owner</option>
+                  : ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label} — {r.description}</option>)
+                }
+              </select>
+            </div>
+
+            {/* Can Conduct Interviews toggle */}
+            {manageDraft.role !== 'viewer' && (
+              <div style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#374151' }}>Can Conduct Interviews</div>
+                  <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#9ca3af' }}>Appears in scheduling dropdowns</div>
+                </div>
+                {manageDraft.role === 'interviewer' ? (
+                  <span style={{ fontSize: '11px', color: '#9ca3af', fontStyle: 'italic' }}>Always on for Interviewers</span>
+                ) : (
+                  <button onClick={() => updateDraft(manageUser.id, 'can_conduct_interviews', !manageDraft.can_conduct_interviews)}
+                    style={{ width: '40px', height: '22px', borderRadius: '11px', border: 'none', background: manageDraft.can_conduct_interviews ? '#1D2567' : '#e5e7eb', position: 'relative', cursor: 'pointer', transition: 'background 0.2s ease', flexShrink: 0 }}>
+                    <div style={{ position: 'absolute', top: '3px', left: manageDraft.can_conduct_interviews ? '21px' : '3px', width: '16px', height: '16px', borderRadius: '50%', background: '#ffffff', transition: 'left 0.2s ease', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Interview Calendar Color */}
+            {(manageDraft.can_conduct_interviews || manageDraft.role === 'interviewer') && (
+              <div style={{ marginBottom: '4px' }}>
+                <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#374151', marginBottom: '4px' }}>Interview Calendar Color</div>
+                <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#9ca3af', marginBottom: '10px' }}>
+                  Used for availability blocks, interviewer legend, and calendar items.
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {INTERVIEWER_COLORS.map(c => {
+                    const selected = (manageDraft.interviewer_color || '#1D2567') === c.hex
+                    return (
+                      <div key={c.hex} onClick={() => updateDraft(manageUser.id, 'interviewer_color', c.hex)}
+                        style={{ width: '56px', cursor: 'pointer', border: selected ? '2px solid #1D2567' : '1px solid #E5E7EB', borderRadius: '8px', padding: '6px 4px', textAlign: 'center', background: '#fff', transition: 'border 0.15s ease' }}>
+                        <div style={{ width: '24px', height: '24px', background: c.hex, borderRadius: '4px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {selected && <span style={{ color: '#fff', fontSize: '13px', fontWeight: 700 }}>✓</span>}
+                        </div>
+                        <div style={{ fontFamily: 'DM Sans', fontWeight: 500, fontSize: '10px', color: '#6b7280', marginTop: '4px', lineHeight: 1.2 }}>{c.name}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </DetailDrawer>
+
       {/* WS2.2: content column. Modal positioning/backdrop live in the UserManagement
           wrapper below; inline (Settings) renders this column directly. */}
       <div style={{ width: '100%', height: '100%', background: '#ffffff', display: 'flex', flexDirection: 'column', fontFamily: 'DM Sans, sans-serif' }}>
 
-        {/* Header */}
-        <div style={{ background: 'linear-gradient(180deg, #1c2452 0%, #141928 100%)', padding: '20px 24px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
+        {/* Header — light surface bar (ACCOUNTS-ACCESS-REDESIGN-1: replaced the dark gradient block
+            with the unified white-surface header; refresh + modal-close preserved). */}
+        <div style={{ background: '#ffffff', padding: '18px 24px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0, borderBottom: '1px solid #eef0f2' }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: '18px', color: '#ffffff', fontFamily: 'DM Sans' }}>People & Access</div>
-            <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', marginTop: '3px', fontFamily: 'DM Sans' }}>
+            <div style={{ fontWeight: 700, fontSize: '17px', color: '#191919', fontFamily: 'DM Sans' }}>People &amp; Access</div>
+            <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '3px', fontFamily: 'DM Sans' }}>
               Manage app users, roles, interviewer access, and activity.
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {/* Manual refresh button */}
             <button onClick={refetch} disabled={loading} title="Refresh user list"
-              style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: loading ? 'default' : 'pointer', color: '#ffffff', opacity: loading ? 0.5 : 1, transition: 'all 0.15s ease' }}
-              onMouseEnter={e => { if (!loading) e.currentTarget.style.background = 'rgba(255,255,255,0.18)' }}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}>
+              style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: loading ? 'default' : 'pointer', color: '#6b7280', opacity: loading ? 0.5 : 1, transition: 'all 0.15s ease' }}
+              onMouseEnter={e => { if (!loading) e.currentTarget.style.background = '#f9fafb' }}
+              onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}>
               <RefreshCw size={14} style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }} />
             </button>
             {onRequestClose && (
-            <button onClick={onRequestClose} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ffffff', flexShrink: 0 }}>
+            <button onClick={onRequestClose} aria-label="Close" style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280', flexShrink: 0 }}>
               <X size={16} />
             </button>
             )}
@@ -582,13 +681,11 @@ export function UserManagementContent({ onRequestClose }) {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {group.users.map(u => {
                           const isCurrentUser = u.id === userProfile?.id
-                          const isExpanded    = expandedUserId === u.id
-                          const draft         = editDrafts[u.id]
                           const lastLog       = lastActionByName[u.full_name]
                           const isOwnerUser   = !!u.is_owner
 
                           return (
-                            <div key={u.id} style={{ border: '1px solid #E5E7EB', borderRadius: '12px', background: u.is_active === false ? '#fafafa' : '#ffffff', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+                            <div key={u.id} style={{ border: '1px solid #e8e4dc', borderRadius: '14px', background: u.is_active === false ? '#fafafa' : '#ffffff', boxShadow: '0 1px 3px rgba(25,25,25,0.06)', overflow: 'hidden' }}>
 
                               {/* Card body */}
                               <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
@@ -696,7 +793,7 @@ export function UserManagementContent({ onRequestClose }) {
                                 {((!isOwnerUser && !isCurrentUser) || isCurrentUser) && (
                                   <button onClick={() => openManageAccess(u)}
                                     style={{ padding: '7px 14px', border: '1px solid #1D2567', borderRadius: '8px', background: 'none', fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#1D2567', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                    Manage Access {isExpanded ? '▲' : '▾'}
+                                    Manage Access
                                   </button>
                                 )}
                                 <button
@@ -706,80 +803,6 @@ export function UserManagementContent({ onRequestClose }) {
                                 </button>
                               </div>
 
-                              {/* Expandable Manage Access panel */}
-                              {isExpanded && draft && (
-                                <div style={{ borderTop: '1px solid #F3F4F6', background: '#FAFBFF', padding: '16px' }}>
-
-                                  {/* App Role — disabled for Owner */}
-                                  <div style={{ marginBottom: '14px' }}>
-                                    <label style={{ display: 'block', fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#374151', marginBottom: '6px' }}>
-                                      App Role {isOwnerUser && <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 400 }}>(Owner role cannot be changed)</span>}
-                                    </label>
-                                    <select value={draft.role} disabled={isOwnerUser}
-                                      onChange={e => updateDraft(u.id, 'role', e.target.value)}
-                                      style={{ ...controlStyle, width: '100%', opacity: isOwnerUser ? 0.5 : 1, cursor: isOwnerUser ? 'not-allowed' : 'pointer' }}>
-                                      {isOwnerUser
-                                        ? <option value="owner">Owner</option>
-                                        : ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label} — {r.description}</option>)
-                                      }
-                                    </select>
-                                  </div>
-
-                                  {/* Can Conduct Interviews toggle */}
-                                  {draft.role !== 'viewer' && (
-                                    <div style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                      <div>
-                                        <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#374151' }}>Can Conduct Interviews</div>
-                                        <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#9ca3af' }}>Appears in scheduling dropdowns</div>
-                                      </div>
-                                      {draft.role === 'interviewer' ? (
-                                        <span style={{ fontSize: '11px', color: '#9ca3af', fontStyle: 'italic' }}>Always on for Interviewers</span>
-                                      ) : (
-                                        <button onClick={() => updateDraft(u.id, 'can_conduct_interviews', !draft.can_conduct_interviews)}
-                                          style={{ width: '40px', height: '22px', borderRadius: '11px', border: 'none', background: draft.can_conduct_interviews ? '#1D2567' : '#e5e7eb', position: 'relative', cursor: 'pointer', transition: 'background 0.2s ease', flexShrink: 0 }}>
-                                          <div style={{ position: 'absolute', top: '3px', left: draft.can_conduct_interviews ? '21px' : '3px', width: '16px', height: '16px', borderRadius: '50%', background: '#ffffff', transition: 'left 0.2s ease', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
-                                        </button>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  {/* Interview Calendar Color */}
-                                  {(draft.can_conduct_interviews || draft.role === 'interviewer') && (
-                                    <div style={{ marginBottom: '16px' }}>
-                                      <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#374151', marginBottom: '4px' }}>Interview Calendar Color</div>
-                                      <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#9ca3af', marginBottom: '10px' }}>
-                                        Used for availability blocks, interviewer legend, and calendar items.
-                                      </div>
-                                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                        {INTERVIEWER_COLORS.map(c => {
-                                          const selected = (draft.interviewer_color || '#1D2567') === c.hex
-                                          return (
-                                            <div key={c.hex} onClick={() => updateDraft(u.id, 'interviewer_color', c.hex)}
-                                              style={{ width: '56px', cursor: 'pointer', border: selected ? '2px solid #1D2567' : '1px solid #E5E7EB', borderRadius: '8px', padding: '6px 4px', textAlign: 'center', background: '#fff', transition: 'border 0.15s ease' }}>
-                                              <div style={{ width: '24px', height: '24px', background: c.hex, borderRadius: '4px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                {selected && <span style={{ color: '#fff', fontSize: '13px', fontWeight: 700 }}>✓</span>}
-                                              </div>
-                                              <div style={{ fontFamily: 'DM Sans', fontWeight: 500, fontSize: '10px', color: '#6b7280', marginTop: '4px', lineHeight: 1.2 }}>{c.name}</div>
-                                            </div>
-                                          )
-                                        })}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* Save / Cancel */}
-                                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                    <button onClick={() => setExpandedUserId(null)}
-                                      style={{ padding: '8px 16px', border: '1px solid #e5e7eb', borderRadius: '8px', background: '#f9fafb', fontFamily: 'DM Sans', fontSize: '13px', cursor: 'pointer' }}>
-                                      Cancel
-                                    </button>
-                                    <button onClick={() => saveDraft(u)} disabled={saving}
-                                      style={{ padding: '8px 20px', border: 'none', borderRadius: '8px', background: saving ? '#e5e7eb' : '#1D2567', color: '#fff', fontFamily: 'DM Sans', fontWeight: 700, fontSize: '13px', cursor: saving ? 'default' : 'pointer' }}>
-                                      {saving ? 'Saving…' : 'Save'}
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
                             </div>
                           )
                         })}
