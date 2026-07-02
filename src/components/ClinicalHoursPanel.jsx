@@ -87,12 +87,22 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [] }) {
                       )
                     })()}
                   </td>
-                  <td style={{ padding: '6px 8px' }}>
+                  <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
+                    {/* SUPPORT-NEEDED-VISIBILITY-1: amber dot flags a shift whose support-needed note
+                        is non-empty, so the specific entry is easy to find; the full text stays in the
+                        Details modal (ShiftDetailsModal "Support requested" callout). */}
+                    {(log.support_needed || '').trim() && (
+                      <span
+                        aria-label="Support needed"
+                        title="This shift has a support-needed note — open Details"
+                        style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 999, background: '#d97706', marginRight: 6, verticalAlign: 'middle' }}
+                      />
+                    )}
                     <button
                       onClick={() => setSelectedShift(log)}
                       aria-label="View shift details"
                       title="View shift details"
-                      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2 }}
+                      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 2, verticalAlign: 'middle' }}
                     >
                       <Info size={16} />
                     </button>

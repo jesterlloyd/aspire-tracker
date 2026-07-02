@@ -118,7 +118,7 @@ function ActiveRotationHours({ student }) {
 
 function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef, highlighted }) {
   const { s, req, apv, pct, lastLog, daysSince, noRecentLog, missingPreceptor, onCampus,
-          precName, unitName, complete, nearComplete, shift, school, range } = card
+          precName, unitName, complete, nearComplete, shift, school, range, supportNeeded } = card
   const name = getStudentPreferredFullName(s)
   const barColor = pct >= 80 ? '#166534' : '#1D2567'
   const lastLogText = lastLog
@@ -149,6 +149,25 @@ function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef, highlight
           {noRecentLog && <Badge label="No recent log" tone="amber" />}
           {complete ? <Badge label="Complete" tone="green" />
             : nearComplete ? <Badge label="Near complete" tone="amber" /> : null}
+          {/* SUPPORT-NEEDED-VISIBILITY-1: clickable badge when this student has ≥1 shift log with a
+              non-empty support-needed note. Clicking opens View Hours (details) so the ASPIRE team can
+              read the request without hunting through every shift. Support amber matches the
+              "Support requested" callout in the shift-details modal. */}
+          {supportNeeded > 0 && (
+            <button
+              type="button"
+              onClick={() => { if (!expanded) onToggle() }}
+              title="View the support request in View Hours"
+              aria-label={`Support needed${supportNeeded > 1 ? ` (${supportNeeded} entries)` : ''}. Open View Hours.`}
+              style={{
+                fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 20, whiteSpace: 'nowrap',
+                background: '#FBF5E8', color: '#8B5E1A', border: '1px solid #f0c9b0', fontFamily: F,
+                cursor: 'pointer',
+              }}
+            >
+              {supportNeeded > 1 ? `Support needed · ${supportNeeded}` : 'Support needed'}
+            </button>
+          )}
         </div>
         <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3 }}>{metaLine}</div>
         <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 2 }}>
@@ -264,24 +283,32 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
   const { data: logSummary = {} } = useQuery({
     queryKey: ['rotation_log_summary', cohortId],
     queryFn: async () => {
+      // SUPPORT-NEEDED-VISIBILITY-1: also read support_needed (same table/rows, no schema/RLS change)
+      // so a per-student "Support needed" badge can render on the card without opening View Hours.
       const { data, error } = await supabase
         .from('student_shift_logs')
-        .select('student_id, submitted_at')
+        .select('student_id, submitted_at, support_needed')
         .eq('cohort_id', cohortId)
       if (error) throw error
       const now = Date.now()
       const latest = {}
+      const supportCount = {}
       for (const l of (data || [])) {
+        // A support entry exists when the textbox is non-empty after trimming (null/blank = none).
+        if ((l.support_needed || '').trim()) supportCount[l.student_id] = (supportCount[l.student_id] || 0) + 1
         if (!l.submitted_at) continue
         const t = new Date(l.submitted_at).getTime()
         if (!latest[l.student_id] || t > latest[l.student_id].t) latest[l.student_id] = { t, iso: l.submitted_at }
       }
       const summary = {}
-      for (const [sid, v] of Object.entries(latest)) {
+      const ids = new Set([...Object.keys(latest), ...Object.keys(supportCount)])
+      for (const sid of ids) {
+        const v = latest[sid]
         summary[sid] = {
-          lastLog: v.iso,
-          daysSince: Math.floor((now - v.t) / (24 * 3600 * 1000)),
-          noRecentLog: (now - v.t) > SEVEN_DAYS_MS,
+          lastLog: v ? v.iso : null,
+          daysSince: v ? Math.floor((now - v.t) / (24 * 3600 * 1000)) : null,
+          noRecentLog: v ? (now - v.t) > SEVEN_DAYS_MS : true,
+          supportNeeded: supportCount[sid] || 0,
         }
       }
       return summary
@@ -334,6 +361,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
         range: resolveRotationRange(s, rotationById[s.cohort_school_rotation_id]),
         complete: pct >= 100,
         nearComplete: pct >= NEARING_PCT && pct < 100,
+        supportNeeded: log?.supportNeeded || 0,
       }
     })
 
