@@ -33,12 +33,12 @@ export default function AccountsAccessPanel() {
         Accounts &amp; Access
       </h2>
       <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--color-text-secondary, #6b7280)', lineHeight: 1.55, maxWidth: 640 }}>
-        ASPIRE has two separate people systems. <strong>Login Accounts</strong> are app users
-        (Supabase Auth — roles, activation, and interview permission). The{' '}
-        <strong>Interviewer Directory</strong> is a separate roster of people who conduct
-        interviews (used by scheduling and rubrics). A directory interviewer is <em>not</em>
-        automatically a login account, a login account is <em>not</em> automatically a
-        directory record, and their color settings are independent.
+        ASPIRE manages app access and interview participation from this workspace.{' '}
+        <strong>Login Accounts</strong> are people who can sign in. Users with interview permission
+        can participate in interview workflows. The <strong>Interviewer Directory</strong> currently
+        supports scheduling and rubric dropdowns while account and interviewer records remain
+        technically separate. In practice, every interviewer should also have a login account, but
+        not every login account is an interviewer.
       </p>
 
       {/* Nested tab selector — matches the Rotation (Matrix / Preceptors / Activity) segmented group:

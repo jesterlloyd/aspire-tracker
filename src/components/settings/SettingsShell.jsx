@@ -48,6 +48,15 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Ag
 
   return (
     <div style={{ padding: '20px 32px 40px', fontFamily: 'DM Sans, sans-serif' }}>
+      {/* ACCOUNTS-ACCESS-REDESIGN-1B: keep the Settings nav rail visible during long panel scrolling
+          (e.g. Accounts & Access → Activity Log). Sticky within the layout, offset ~120px to clear the
+          global sticky .top-section (header ~64 + cohort bar ~48). max-height + overflow so a tall rail
+          scrolls internally. Disabled at ≤768px, where the rail stacks above content (no page lock,
+          no nested-scroll friction — the panel itself keeps page-scrolling). */}
+      <style>{`
+        .settings-nav-rail { position: sticky; top: 120px; align-self: flex-start; max-height: calc(100vh - 140px); overflow-y: auto; }
+        @media (max-width: 768px) { .settings-nav-rail { position: static; max-height: none; overflow: visible; } }
+      `}</style>
       {/* Back-to-workspace affordance — shared component (reuses MainApp's prior-workspace path) */}
       <WorkspaceBackLink path={backPath} label={backLabel} />
 
@@ -66,6 +75,7 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Ag
             Sections come from the registry (role-filtered); no placeholders.
             UI-1: the rail surface is the shared SurfaceCard primitive (same pixels). */}
         <SurfaceCard as="nav" aria-label="Settings sections" radius={14} padding={10}
+          className="settings-nav-rail"
           style={{ flex: '0 0 236px', minWidth: 212 }}>
           {sections.map((s, i) => {
             const Icon = SECTION_ICONS[s.key]
