@@ -1,4 +1,5 @@
 import React from 'react'
+import { Eye } from 'lucide-react'
 
 // SURVEY-UX-3 — Presentational-only COMPACT SUMMARY CARD for a Survey Automation workflow.
 // It is a selection control: clicking it selects this workflow, whose detail then renders in
@@ -40,36 +41,68 @@ function buildStatusLine(counts = {}) {
   return parts.join(' · ')
 }
 
-export default function SurveyAutomationCard({ title, recipientLabel, counts = {}, selected, onSelect, workspaceId }) {
+export default function SurveyAutomationCard({ title, recipientLabel, counts = {}, selected, onSelect, onPreview, workspaceId }) {
   const statusLine = buildStatusLine(counts)
 
+  // EVALUATION-RELEASE-PREVIEW-1: the card is a keyboard-operable selection control (div + role,
+  // not a <button>) so it can safely contain the eye-icon preview button without nesting buttons.
+  const activate = () => onSelect?.()
+  const onKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate() }
+  }
+
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       className="survey-summary-card"
       aria-expanded={!!selected}
       aria-controls={workspaceId}
-      onClick={onSelect}
+      onClick={activate}
+      onKeyDown={onKeyDown}
       style={{
+        // EVALUATION-RELEASE-PREVIEW-1: match ASPIRE Connect > Automations cards — clean white card,
+        // subtle border + shadow, no heavy dark outline. Selected state is soft: a faint tint plus a
+        // subtle inset navy accent bar (no layout shift, no thick ring). Text ("Viewing details ▾")
+        // also conveys selection, so state is never color-only.
         display: 'flex', flexDirection: 'column', gap: 10, width: '100%',
         padding: '16px 18px', textAlign: 'left', cursor: 'pointer', fontFamily: F,
-        background: selected ? '#fbfaf8' : '#fff',
-        border: `1px solid ${selected ? NAVY : '#e8e4dc'}`, borderRadius: 14,
-        boxShadow: selected ? `0 0 0 2px rgba(29,37,103,0.35)` : '0 1px 3px rgba(25,25,25,0.06)',
+        background: selected ? '#f7f9ff' : '#fff',
+        border: '1px solid #e8e4dc', borderRadius: 14,
+        boxShadow: selected
+          ? '0 1px 3px rgba(25,25,25,0.06), inset 3px 0 0 0 #1D2567'
+          : '0 1px 3px rgba(25,25,25,0.06)',
       }}
     >
       {/* Focus ring for keyboard users. */}
       <style>{`.survey-summary-card:focus-visible{outline:3px solid #93c5fd;outline-offset:2px;}`}</style>
 
-      {/* Title + recipient badge */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: '#191919' }}>{title}</span>
-        <span style={{
-          fontSize: 11, fontWeight: 700, color: '#1D2567', background: '#EEF1FB',
-          border: '1px solid #d7ddf5', borderRadius: 999, padding: '2px 9px', whiteSpace: 'nowrap',
-        }}>
-          Recipient: {recipientLabel}
-        </span>
+      {/* Title + recipient badge, with the eye-icon preview affordance on the right (matches Automations). */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0, flex: 1 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: '#191919' }}>{title}</span>
+          <span style={{
+            fontSize: 11, fontWeight: 700, color: '#1D2567', background: '#EEF1FB',
+            border: '1px solid #d7ddf5', borderRadius: 999, padding: '2px 9px', whiteSpace: 'nowrap',
+          }}>
+            Recipient: {recipientLabel}
+          </span>
+        </div>
+        {onPreview && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onPreview() }}
+            title="Preview email"
+            aria-label="Preview email"
+            style={{
+              width: 36, height: 36, flexShrink: 0, display: 'inline-flex', alignItems: 'center',
+              justifyContent: 'center', background: 'none', border: 'none', borderRadius: 8,
+              cursor: 'pointer', color: '#9ca3af', padding: 0,
+            }}
+          >
+            <Eye size={16} />
+          </button>
+        )}
       </div>
 
       {/* One-line status summary */}
@@ -91,6 +124,6 @@ export default function SurveyAutomationCard({ title, recipientLabel, counts = {
       <div style={{ fontSize: 12, fontWeight: 700, color: NAVY, marginTop: 2 }}>
         {selected ? 'Viewing details below ▾' : 'View details →'}
       </div>
-    </button>
+    </div>
   )
 }

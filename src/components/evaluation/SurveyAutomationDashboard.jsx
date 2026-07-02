@@ -2,6 +2,8 @@ import React, { useState, useCallback, useMemo } from 'react'
 import PreceptorAutomationPanel from './PreceptorAutomationPanel'
 import StudentEvalAutomationPanel from './StudentEvalAutomationPanel'
 import SurveyAutomationCard from './SurveyAutomationCard'
+import AutomationEmailPreviewDrawer from '../connect/AutomationEmailPreviewDrawer'
+import { getEvaluationPreviewFixture } from '../../lib/evaluation/evaluationPreviewFixtures'
 
 // SURVEY-UX-3 — Presentational shell for the two Survey Automation workflows.
 //
@@ -25,6 +27,8 @@ export default function SurveyAutomationDashboard({ cohortId }) {
   const [counts, setCounts] = useState({})
   // Explicit user selection; null means "use the sensible default" (first actionable, else preceptor).
   const [selected, setSelected] = useState(null)
+  // EVALUATION-RELEASE-PREVIEW-1: which workflow's email preview drawer is open (null = closed).
+  const [previewKey, setPreviewKey] = useState(null)
 
   // Bail when the reported summary is the same (memoized) object, so reporting never loops.
   const report = useCallback((key, summary) => {
@@ -98,10 +102,21 @@ export default function SurveyAutomationDashboard({ cohortId }) {
             counts={counts[w.key]}
             selected={effective === w.key}
             onSelect={() => setSelected(w.key)}
+            onPreview={() => setPreviewKey(w.key)}
             workspaceId={WORKSPACE_ID}
           />
         ))}
       </div>
+
+      {/* EVALUATION-RELEASE-PREVIEW-1: read-only email preview (safe synthetic data, no send/token/DB),
+          rendered with the shared AutomationEmailPreviewDrawer used by ASPIRE Connect > Automations. */}
+      {previewKey && (
+        <AutomationEmailPreviewDrawer
+          title={WORKFLOWS.find(w => w.key === previewKey)?.title}
+          entry={getEvaluationPreviewFixture(previewKey)}
+          onClose={() => setPreviewKey(null)}
+        />
+      )}
 
       {/* Shared full-width detail workspace — renders only the selected workflow. Both panels
           stay mounted so detection runs and counts keep flowing; the inactive one renders null. */}
