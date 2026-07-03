@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { usePresence } from '../contexts/PresenceContext';
 import { supabase } from '../lib/supabase';
-import { X, UserPlus, Mail, MoreVertical, RefreshCw } from 'lucide-react';
+import { X, UserPlus, Mail, MoreVertical } from 'lucide-react';
 import DetailDrawer from './ui/DetailDrawer';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -566,83 +566,79 @@ export function UserManagementContent({ onRequestClose }) {
           wrapper below; inline (Settings) renders this column directly. */}
       <div style={{ width: '100%', height: '100%', background: '#ffffff', display: 'flex', flexDirection: 'column', fontFamily: 'DM Sans, sans-serif' }}>
 
-        {/* Header — light surface bar (ACCOUNTS-ACCESS-REDESIGN-1: replaced the dark gradient block
-            with the unified white-surface header; refresh + modal-close preserved). */}
-        <div style={{ background: '#ffffff', padding: '18px 24px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0, borderBottom: '1px solid #eef0f2' }}>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: '17px', color: '#191919', fontFamily: 'DM Sans' }}>Login Accounts</div>
-            <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '3px', fontFamily: 'DM Sans' }}>
-              Manage users, roles, interview access, and activity.
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* Manual refresh button */}
-            <button onClick={refetch} disabled={loading} title="Refresh user list"
-              style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: loading ? 'default' : 'pointer', color: '#6b7280', opacity: loading ? 0.5 : 1, transition: 'all 0.15s ease' }}
-              onMouseEnter={e => { if (!loading) e.currentTarget.style.background = '#f9fafb' }}
-              onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}>
-              <RefreshCw size={14} style={{ animation: loading ? 'spin 0.8s linear infinite' : 'none' }} />
-            </button>
-            {onRequestClose && (
-            <button onClick={onRequestClose} aria-label="Close" style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280', flexShrink: 0 }}>
+        {/* ACCOUNTS-ACCESS-PEOPLE-MODEL-2A2: the redundant internal card header (title/subtitle) and the
+            refresh button were removed — the Accounts & Access page title/copy sits directly above this
+            card. The only chrome kept is an optional close button when opened as a drawer (the legacy
+            modal wrapper); Settings renders inline with no header. refetch() is retained (used by the
+            error-state Retry and after invite/toggle). */}
+        {onRequestClose && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 16px 0', flexShrink: 0 }}>
+            <button onClick={onRequestClose} aria-label="Close"
+              style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280' }}>
               <X size={16} />
             </button>
-            )}
           </div>
-        </div>
-
-        {/* Tabs — count hidden while loading to prevent flicker */}
-        <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6', padding: '0 24px', flexShrink: 0 }}>
-          {[
-            { id: 'users',    label: loading ? 'Users…' : `Users (${totalUsers})` },
-            { id: 'activity', label: 'Activity Log' },
-          ].map(tab => (
-            <button key={tab.id} onClick={() => { setActiveView(tab.id); if (tab.id !== 'activity') setActivityFilter(null) }}
-              style={{ padding: '12px 16px', background: 'none', border: 'none', borderBottom: `2px solid ${activeView === tab.id ? '#1D2567' : 'transparent'}`, fontFamily: 'DM Sans', fontWeight: activeView === tab.id ? 700 : 400, fontSize: '13px', color: activeView === tab.id ? '#1D2567' : '#6b7280', cursor: 'pointer', marginBottom: '-1px' }}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Summary strip */}
-        <div style={{ background: '#F4F1EC', padding: '0 24px', height: '36px', display: 'flex', alignItems: 'center', gap: '4px', fontFamily: 'DM Sans', fontSize: '13px', color: '#6b7280', flexShrink: 0, borderBottom: '1px solid #e5e7eb' }}>
-          {loading ? (
-            <span style={{ fontStyle: 'italic' }}>Loading users…</span>
-          ) : error ? (
-            <span style={{ color: '#dc2626' }}>⚠ Failed to load</span>
-          ) : (
-            <>
-              <span>{totalUsers} users</span>
-              <span style={{ margin: '0 4px' }}>·</span>
-              <span>{activeCount} active</span>
-              <span style={{ margin: '0 4px' }}>·</span>
-              <span>{interviewerCount} interviewer{interviewerCount !== 1 ? 's' : ''}</span>
-              <span style={{ margin: '0 4px' }}>·</span>
-              <span>{ownerCount} owner{ownerCount !== 1 ? 's' : ''}</span>
-              {onlineCount > 0 && (
-                <>
-                  <span style={{ margin: '0 4px' }}>·</span>
-                  <span style={{ color: '#065F46', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: '#10B981' }} />
-                    {onlineCount} online
-                  </span>
-                </>
-              )}
-            </>
-          )}
-        </div>
+        )}
         <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
         {/* Content */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
 
+          {/* Users / Activity Log — Rotation-style flush segmented group (active tab Nightfall-filled). */}
+          <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', width: 'fit-content', border: '1px solid rgba(29,37,103,0.10)', marginBottom: 14 }}>
+            {[
+              { id: 'users',    label: loading ? 'Users' : `Users (${totalUsers})` },
+              { id: 'activity', label: 'Activity Log' },
+            ].map(tab => {
+              const on = activeView === tab.id
+              return (
+                <button key={tab.id} aria-pressed={on}
+                  onClick={() => { setActiveView(tab.id); if (tab.id !== 'activity') setActivityFilter(null) }}
+                  style={{ height: 32, padding: '0 13px', display: 'flex', alignItems: 'center', border: 'none', cursor: 'pointer', fontSize: 12, fontFamily: 'DM Sans, sans-serif', fontWeight: 500, whiteSpace: 'nowrap', background: on ? '#1D2567' : '#fff', color: on ? '#fff' : '#4A5560', transition: 'all 0.12s' }}>
+                  {tab.label}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Summary — small static badge/pill indicators (not clickable filters). */}
+          {!error && (
+            <div role="group" aria-label="Account summary" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+              {loading ? (
+                <span style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic' }}>Loading users…</span>
+              ) : (
+                <>
+                  {[
+                    `${totalUsers} user${totalUsers === 1 ? '' : 's'}`,
+                    `${activeCount} active`,
+                    `${interviewerCount} interviewer${interviewerCount === 1 ? '' : 's'}`,
+                    `${ownerCount} owner${ownerCount === 1 ? '' : 's'}`,
+                  ].map(label => (
+                    <span key={label} aria-label={label}
+                      style={{ fontSize: 11.5, fontWeight: 600, color: '#4A5560', background: '#f4f5f9', border: '1px solid #e8e4dc', borderRadius: 999, padding: '2px 10px', whiteSpace: 'nowrap' }}>
+                      {label}
+                    </span>
+                  ))}
+                  {onlineCount > 0 && (
+                    <span aria-label={`${onlineCount} online`}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 600, color: '#166534', background: '#EDF7F0', border: '1px solid #c6e7d0', borderRadius: 999, padding: '2px 10px', whiteSpace: 'nowrap' }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10B981' }} />
+                      {onlineCount} online
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {/* ── USERS VIEW ── */}
           {activeView === 'users' && (
             <>
-              {/* Invite button / form */}
+              {/* Invite button / form — ACCOUNTS-ACCESS-PEOPLE-MODEL-2A2: compact primary action
+                  (auto width, like Knowledge Center's "+ New Entry"); same invite behavior. */}
               {!inviteMode ? (
                 <button onClick={() => setInviteMode(true)}
-                  style={{ width: '100%', padding: '10px', background: '#1D2567', border: 'none', borderRadius: '10px', fontFamily: 'DM Sans', fontWeight: 700, fontSize: '13px', color: '#ffffff', cursor: 'pointer', marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '8px 14px', background: '#1D2567', border: 'none', borderRadius: '8px', fontFamily: 'DM Sans', fontWeight: 600, fontSize: '13px', color: '#ffffff', cursor: 'pointer', marginBottom: '16px', whiteSpace: 'nowrap' }}>
                   <UserPlus size={15} /> Invite New User
                 </button>
               ) : (
