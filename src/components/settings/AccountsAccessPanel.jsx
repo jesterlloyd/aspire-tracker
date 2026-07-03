@@ -35,8 +35,8 @@ export default function AccountsAccessPanel() {
           </h2>
           <p style={{ margin: 0, fontSize: 13.5, color: 'var(--color-text-secondary, #6b7280)', lineHeight: 1.55, maxWidth: 1040 }}>
             Manage sign-in access, roles, and interview permissions. Everyone who conducts interviews
-            should have a login account. To make someone an interviewer, open a profile and turn on
-            <strong> Can Interview</strong>.
+            should have a login account. To make someone an interviewer, open a profile and enable
+            <strong> interviewer access</strong>.
           </p>
         </div>
         <button

@@ -1,7 +1,7 @@
 // ACCOUNTS-ACCESS-PROFILE-BOARD-2B: centered Account Profile modal (NOT a DetailDrawer — heroes are
 // reserved for people records). One profile-style modal with sections (no internal tabs):
-//   A. Hero — avatar, name, email, role/status/Can-Interview badges, online dot, last login/action.
-//   B. Account Access — Role, Can Interview toggle, circular calendar-color swatches, edited in a
+//   A. Hero — avatar, name, email, role/status/interviewer-access badges, online dot, last login/action.
+//   B. Account Access — Role, Interviewer access toggle, circular calendar-color swatches, edited in a
 //      local draft with a DIRTY-ONLY save bar (Discard / Save changes). Save calls the SAME handlers
 //      + payloads as the old Manage Access (onSaveAccess → /api/admin-users update_role /
 //      toggle_interviewer / update_interviewer_color). Owner-protected + self-mutation guards preserved
@@ -118,9 +118,9 @@ export default function AccountProfileModal({ user, isCurrentUser, online, onSav
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', marginTop: 12 }}>
               <span style={{ background: rb.bg, color: rb.text, fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>{displayRole(user)}</span>
               <span style={{ background: isInactive ? '#F3F4F6' : '#EDF7F0', color: isInactive ? '#6B7280' : '#166534', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>{isInactive ? 'Inactive' : 'Active'}</span>
-              {user.can_conduct_interviews && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#E0E7FF', color: '#3730A3', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>
-                  Can Interview <span style={{ width: 8, height: 8, borderRadius: '50%', background: user.interviewer_color || DEFAULT_COLOR }} />
+              {user.can_conduct_interviews && displayRole(user) !== 'Interviewer' && (
+                <span title="Interviewer access" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#E0E7FF', color: '#3730A3', fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 }}>
+                  Interviewer <span style={{ width: 8, height: 8, borderRadius: '50%', background: user.interviewer_color || DEFAULT_COLOR }} />
                 </span>
               )}
             </div>
@@ -150,13 +150,13 @@ export default function AccountProfileModal({ user, isCurrentUser, online, onSav
               {draft.role !== 'viewer' && (
                 <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                   <div>
-                    <div style={{ fontFamily: F, fontWeight: 600, fontSize: 12, color: '#374151' }}>Can Interview</div>
+                    <div style={{ fontFamily: F, fontWeight: 600, fontSize: 12, color: '#374151' }}>Interviewer access</div>
                     <div style={{ fontFamily: F, fontSize: 11, color: '#9ca3af' }}>Appears in scheduling and rubric dropdowns</div>
                   </div>
                   {draft.role === 'interviewer' ? (
                     <span style={{ fontSize: 11, color: '#9ca3af', fontStyle: 'italic' }}>Always on for Interviewers</span>
                   ) : (
-                    <button type="button" aria-pressed={draft.can_conduct_interviews} aria-label="Can Interview"
+                    <button type="button" aria-pressed={draft.can_conduct_interviews} aria-label="Interviewer access"
                       onClick={() => set('can_conduct_interviews', !draft.can_conduct_interviews)}
                       style={{ width: 40, height: 22, borderRadius: 11, border: 'none', background: draft.can_conduct_interviews ? NAVY : '#e5e7eb', position: 'relative', cursor: 'pointer', transition: 'background 0.2s ease', flexShrink: 0 }}>
                       <span style={{ position: 'absolute', top: 3, left: draft.can_conduct_interviews ? 21 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 0.2s ease', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />

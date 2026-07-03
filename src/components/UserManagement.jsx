@@ -1,7 +1,7 @@
 // ACCOUNTS-ACCESS-PROFILE-BOARD-2B: Settings → Accounts & Access is now a visual PEOPLE BOARD.
 // The board renders login accounts as cozy, hover-lift profile cards grouped by role; the whole card
 // is the entry point — clicking (or Enter/Space) opens the centered AccountProfileModal, which holds
-// the access controls (Role / Can Interview / calendar color, dirty-save), per-user recent activity,
+// the access controls (Role / Interviewer access / calendar color, dirty-save), per-user recent activity,
 // and supported account actions. The old inline invite form, Users/Activity tabs, summary pills,
 // filter chips, per-card Manage Access / View Activity / three-dot menu, and the Manage Access drawer
 // are removed. Invite lives in the page header (AccountsAccessPanel → InviteUserModal). All real
@@ -14,7 +14,7 @@ import { usePresence } from '../contexts/PresenceContext';
 import { supabase } from '../lib/supabase';
 import { X } from 'lucide-react';
 import { CARD } from '../lib/designTokens';
-import { ROLE_BADGE, displayRole, formatLoginDate, sortUsers, groupUsers, UserInitials, CARD_AVATAR_RING } from './settings/accountsShared';
+import { ROLE_BADGE, displayRole, formatLoginDate, columnizeUsers, UserInitials, CARD_AVATAR_RING } from './settings/accountsShared';
 import AccountProfileModal from './settings/AccountProfileModal';
 
 const F = 'DM Sans, sans-serif'
@@ -66,9 +66,11 @@ function ProfileCard({ user, online, onOpen }) {
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{ background: rb.bg, color: rb.text, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20 }}>{displayRole(user)}</span>
         {isInactive && <span style={{ background: '#F3F4F6', color: '#6B7280', fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 20 }}>Inactive</span>}
-        {user.can_conduct_interviews && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#E0E7FF', color: '#3730A3', fontSize: 10, fontWeight: 500, padding: '2px 8px', borderRadius: 20 }}>
-            Can Interview <span style={{ width: 7, height: 7, borderRadius: '50%', background: user.interviewer_color || DEFAULT_COLOR }} />
+        {/* Interviewer-access badge — shown only when it ADDS meaning (not when the role badge already
+            reads "Interviewer"), so there's never a duplicate Interviewer badge. */}
+        {user.can_conduct_interviews && displayRole(user) !== 'Interviewer' && (
+          <span title="Interviewer access" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#E0E7FF', color: '#3730A3', fontSize: 10, fontWeight: 500, padding: '2px 8px', borderRadius: 20 }}>
+            Interviewer <span style={{ width: 7, height: 7, borderRadius: '50%', background: user.interviewer_color || DEFAULT_COLOR }} />
           </span>
         )}
       </div>
@@ -158,7 +160,7 @@ export function UserManagementContent({ onRequestClose }) {
 
   if (!canEdit) return null // server authorization is still the real gate
 
-  const groupedUsers = groupUsers(sortUsers(users))
+  const columns = columnizeUsers(users)
   const openProfile = (u, el) => { triggerElRef.current = el || null; setSelectedUser(u) }
   const closeProfile = () => { setSelectedUser(null); if (triggerElRef.current?.focus) triggerElRef.current.focus() }
   // Keep the open modal in sync with fresh data after a refetch.
@@ -205,19 +207,25 @@ export function UserManagementContent({ onRequestClose }) {
         <div style={{ textAlign: 'center', padding: '40px 24px', color: '#9ca3af', fontSize: 13 }}>No users found.</div>
       )}
 
-      {/* People board — grouped grids of cozy profile cards */}
-      {!loading && !error && groupedUsers.map(group => (
-        <div key={group.key}>
-          <div style={{ fontFamily: F, fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#6B7280', marginTop: 22, marginBottom: 10 }}>
-            {group.label}
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
-            {group.users.map(u => (
-              <ProfileCard key={u.id} user={u} online={onlineUserIds.has(u.auth_user_id)} onOpen={openProfile} />
-            ))}
-          </div>
+      {/* People board — vertical classification columns (OWNER / ADMINS / INTERVIEWERS / GUESTS),
+          side-by-side on wide screens, stacking on narrow. Empty columns are dropped. */}
+      {!loading && !error && users.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16, alignItems: 'start' }}>
+          {columns.map(col => (
+            <div key={col.key}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: F, fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6B7280', marginBottom: 10 }}>
+                {col.label}
+                <span style={{ fontWeight: 600, fontSize: 10.5, color: '#9ca3af' }}>{col.users.length}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {col.users.map(u => (
+                  <ProfileCard key={u.id} user={u} online={onlineUserIds.has(u.auth_user_id)} onOpen={openProfile} />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
 
       {/* Account Profile modal */}
       {selectedFresh && (

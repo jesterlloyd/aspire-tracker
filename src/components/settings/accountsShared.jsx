@@ -119,7 +119,30 @@ export function UserInitials({ user, size = 40, ring = null }) {
   )
 }
 
-// Nightfall outline for board-card avatars (white gap + navy ring + soft lift).
-export const CARD_AVATAR_RING = { border: '2px solid #ffffff', boxShadow: '0 0 0 2px #1D2567, 0 1px 4px rgba(29,37,103,0.18)' }
+// ACCOUNTS-ACCESS-PROFILE-BOARD-2B2: Nightfall outline that wraps the photo/initials CLEANLY (no white
+// gap/halo), matching the Student Profiles list avatar — a navy ring directly on the avatar + soft lift.
+export const CARD_AVATAR_RING = { border: '2.5px solid #1D2567', boxShadow: '0 1px 5px rgba(29,37,103,0.16)' }
 // Airy white ring for the profile-modal hero avatar (matches the Student Profile hero).
 export const HERO_AVATAR_RING = { border: '4px solid #ffffff', boxShadow: '0 4px 18px rgba(29,37,103,0.16)' }
+
+// ACCOUNTS-ACCESS-PROFILE-BOARD-2B2: group accounts into the board's vertical columns
+// (OWNER / ADMINS / INTERVIEWERS / GUESTS). Layout/nomenclature only — role values are unchanged.
+// Inactive users fall into their role column (the card carries the Inactive badge). Empty columns are
+// dropped so the board never shows big blank columns.
+export function columnizeUsers(users) {
+  const sorted = sortUsers(users) // active-first, then role, then name
+  const cols = [
+    { key: 'owner',        label: 'OWNER',        users: [] },
+    { key: 'admins',       label: 'ADMINS',       users: [] },
+    { key: 'interviewers', label: 'INTERVIEWERS', users: [] },
+    { key: 'guests',       label: 'GUESTS',       users: [] },
+  ]
+  sorted.forEach(u => {
+    if (u.is_owner) { cols[0].users.push(u); return }
+    const r = u.role || 'viewer'
+    if (r === 'admin' || r === 'co-lead' || r === 'co_lead') { cols[1].users.push(u); return }
+    if (r === 'interviewer') { cols[2].users.push(u); return }
+    cols[3].users.push(u)
+  })
+  return cols.filter(c => c.users.length > 0)
+}
