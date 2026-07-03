@@ -16,7 +16,7 @@ import { X } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import {
   ROLE_OPTIONS, ROLE_BADGE, INTERVIEWER_COLORS,
-  displayRole, formatLoginDate, formatRelativeTime, UserInitials,
+  displayRole, formatLoginDate, formatRelativeTime, UserInitials, HERO_AVATAR_RING,
 } from './accountsShared'
 
 const F = 'DM Sans, sans-serif'
@@ -107,11 +107,11 @@ export default function AccountProfileModal({ user, isCurrentUser, online, onSav
 
         {/* Single scroll body */}
         <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-          {/* A. Hero */}
-          <div style={{ background: 'linear-gradient(160deg, #eef1fb 0%, #f6f8fd 55%, #ffffff 100%)', padding: '30px 24px 22px', textAlign: 'center' }}>
+          {/* A. Hero — soft pastel-blue treatment aligned with the Student Profile / Contacts heroes. */}
+          <div style={{ background: 'linear-gradient(160deg, #dceff8 0%, #f0f6fb 50%, #ffffff 100%)', padding: '32px 24px 22px', textAlign: 'center' }}>
             <div style={{ position: 'relative', display: 'inline-block' }}>
-              <UserInitials user={user} size={84} />
-              {online && <span title="Online now" style={{ position: 'absolute', bottom: 4, right: 4, width: 16, height: 16, borderRadius: '50%', background: '#10B981', border: '3px solid #fff' }} />}
+              <UserInitials user={user} size={84} ring={HERO_AVATAR_RING} />
+              {online && <span title="Online now" style={{ position: 'absolute', bottom: 5, right: 5, width: 16, height: 16, borderRadius: '50%', background: '#10B981', border: '3px solid #fff' }} />}
             </div>
             <div style={{ fontSize: 20, fontWeight: 700, color: NAVY, marginTop: 12 }}>{user.full_name}{isCurrentUser && <span style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic', fontWeight: 400 }}> (you)</span>}</div>
             <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{user.email}</div>

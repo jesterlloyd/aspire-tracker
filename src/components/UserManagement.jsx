@@ -14,7 +14,7 @@ import { usePresence } from '../contexts/PresenceContext';
 import { supabase } from '../lib/supabase';
 import { X } from 'lucide-react';
 import { CARD } from '../lib/designTokens';
-import { ROLE_BADGE, displayRole, formatLoginDate, sortUsers, groupUsers, UserInitials } from './settings/accountsShared';
+import { ROLE_BADGE, displayRole, formatLoginDate, sortUsers, groupUsers, UserInitials, CARD_AVATAR_RING } from './settings/accountsShared';
 import AccountProfileModal from './settings/AccountProfileModal';
 
 const F = 'DM Sans, sans-serif'
@@ -55,8 +55,8 @@ function ProfileCard({ user, online, onOpen }) {
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ position: 'relative', flexShrink: 0 }}>
-          <UserInitials user={user} size={48} />
-          {online && <span title="Online now" style={{ position: 'absolute', bottom: -1, right: -1, width: 13, height: 13, borderRadius: '50%', background: '#10B981', border: '2px solid #fff' }} />}
+          <UserInitials user={user} size={48} ring={CARD_AVATAR_RING} />
+          {online && <span title="Online now" style={{ position: 'absolute', bottom: 0, right: 0, width: 13, height: 13, borderRadius: '50%', background: '#10B981', border: '2px solid #fff', boxShadow: '0 0 0 1px rgba(29,37,103,0.15)' }} />}
         </div>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: 14, color: '#1D2567', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.full_name}</div>
@@ -80,9 +80,6 @@ function ProfileCard({ user, online, onOpen }) {
 // WS2.2: reusable inline content. Rendered by AccountsAccessPanel (Settings → Accounts & Access) and
 // by the legacy UserManagement modal wrapper below (kept for rollback; no live importer).
 export function UserManagementContent({ onRequestClose }) {
-  const buildSha = import.meta.env.VITE_BUILD_SHA;
-  const buildEnv = import.meta.env.VITE_BUILD_ENV;
-
   const { canEdit, userProfile } = useAuth()
   const { onlineUserIds } = usePresence()
   const queryClient = useQueryClient()
@@ -221,11 +218,6 @@ export function UserManagementContent({ onRequestClose }) {
           </div>
         </div>
       ))}
-
-      {/* Build identifier — Owner/Admin-only (panel is already gated) */}
-      <div style={{ paddingTop: 22, fontFamily: F, fontSize: 11, color: '#9ca3af' }}>
-        Build: {buildSha} · {buildEnv}
-      </div>
 
       {/* Account Profile modal */}
       {selectedFresh && (

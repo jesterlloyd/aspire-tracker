@@ -95,14 +95,18 @@ export function groupUsers(users) {
   return groups.filter(g => g.users.length > 0)
 }
 
-export function UserInitials({ user, size = 40 }) {
+// ACCOUNTS-ACCESS-PROFILE-BOARD-2B1: optional `ring` style (merged into the avatar) gives real photos
+// AND initials a polished outline — a Nightfall ring on the board cards and a soft white hero ring in
+// the profile modal, mirroring the Student Profiles avatar treatment. Image source/fallback unchanged.
+export function UserInitials({ user, size = 40, ring = null }) {
   const [err, setErr] = useState(false)
   const initials = (user.full_name || '?').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+  const ringStyle = ring || {}
   if (user.avatar_url && !err) {
     return (
       <img src={user.avatar_url} alt={user.full_name}
         onError={() => setErr(true)}
-        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, ...ringStyle }} />
     )
   }
   return (
@@ -110,7 +114,12 @@ export function UserInitials({ user, size = 40 }) {
       width: size, height: size, borderRadius: '50%', background: '#1D2567',
       flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontFamily: 'DM Sans, sans-serif', fontWeight: 700,
-      fontSize: Math.round(size * 0.35) + 'px', color: '#ffffff',
+      fontSize: Math.round(size * 0.35) + 'px', color: '#ffffff', ...ringStyle,
     }}>{initials}</div>
   )
 }
+
+// Nightfall outline for board-card avatars (white gap + navy ring + soft lift).
+export const CARD_AVATAR_RING = { border: '2px solid #ffffff', boxShadow: '0 0 0 2px #1D2567, 0 1px 4px rgba(29,37,103,0.18)' }
+// Airy white ring for the profile-modal hero avatar (matches the Student Profile hero).
+export const HERO_AVATAR_RING = { border: '4px solid #ffffff', boxShadow: '0 4px 18px rgba(29,37,103,0.16)' }
