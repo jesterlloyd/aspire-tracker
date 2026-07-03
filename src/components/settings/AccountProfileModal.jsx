@@ -12,7 +12,7 @@
 //      Password reset / resend invite are NOT built (no backend exists).
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { X } from 'lucide-react'
+import { X, Camera } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import {
   ROLE_OPTIONS, ROLE_BADGE, INTERVIEWER_COLORS,
@@ -23,7 +23,10 @@ const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
 const DEFAULT_COLOR = '#1D2567'
 
-export default function AccountProfileModal({ user, isCurrentUser, online, onSaveAccess, onToggleActive, onClose }) {
+const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const PHOTO_MAX_BYTES = 2 * 1024 * 1024
+
+export default function AccountProfileModal({ user, isCurrentUser, online, onSaveAccess, onToggleActive, onUploadPhoto, onClose }) {
   const isOwner = !!user.is_owner
   const isInactive = user.is_active === false
 
@@ -40,6 +43,50 @@ export default function AccountProfileModal({ user, isCurrentUser, online, onSav
   const [confirmDeactivate, setConfirmDeactivate] = useState(false)
   const [visibleActivity, setVisibleActivity] = useState(5)
   const closeBtnRef = useRef(null)
+
+  // ADMIN-AVATAR-UPLOAD-1: photo change is a discrete server action, kept OUT of the access
+  // dirty-save bar. Owner / self / inactive targets have no affordance (server enforces the same).
+  const canChangePhoto = !!onUploadPhoto && !isOwner && !isCurrentUser && !isInactive
+  const photoInputRef = useRef(null)
+  const [photoFile, setPhotoFile] = useState(null)
+  const [photoPreview, setPhotoPreview] = useState('')
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const [photoError, setPhotoError] = useState('')
+
+  // Revoke the object URL when the preview changes or the modal unmounts (no leaks).
+  useEffect(() => () => { if (photoPreview) URL.revokeObjectURL(photoPreview) }, [photoPreview])
+
+  const handlePhotoPick = (e) => {
+    const file = e.target.files?.[0]
+    if (e.target) e.target.value = '' // allow re-selecting the same file later
+    if (!file) return
+    setPhotoError('')
+    if (!PHOTO_TYPES.includes(file.type)) { setPhotoError('Please choose a JPG, PNG, or WebP image.'); return }
+    if (file.size > PHOTO_MAX_BYTES)      { setPhotoError('Image must be under 2MB.'); return }
+    if (photoPreview) URL.revokeObjectURL(photoPreview)
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
+
+  const cancelPhoto = () => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview)
+    setPhotoFile(null); setPhotoPreview(''); setPhotoError('')
+  }
+
+  const handlePhotoUpload = async () => {
+    if (!photoFile || photoUploading) return
+    setPhotoUploading(true); setPhotoError('')
+    try {
+      const result = await onUploadPhoto?.(user, photoFile)
+      if (result?.ok) {
+        cancelPhoto() // refetched avatar_url now drives the hero/card; drop the local preview
+      } else {
+        setPhotoError(result?.error || 'Could not update the photo.')
+      }
+    } finally {
+      setPhotoUploading(false)
+    }
+  }
 
   const dirty =
     draft.role !== original.role ||
@@ -110,9 +157,38 @@ export default function AccountProfileModal({ user, isCurrentUser, online, onSav
           {/* A. Hero — soft pastel-blue treatment aligned with the Student Profile / Contacts heroes. */}
           <div style={{ background: 'linear-gradient(160deg, #dceff8 0%, #f0f6fb 50%, #ffffff 100%)', padding: '32px 24px 22px', textAlign: 'center' }}>
             <div style={{ position: 'relative', display: 'inline-block' }}>
-              <UserInitials user={user} size={84} ring={HERO_AVATAR_RING} />
-              {online && <span title="Online now" style={{ position: 'absolute', bottom: 5, right: 5, width: 16, height: 16, borderRadius: '50%', background: '#10B981', border: '3px solid #fff' }} />}
+              {photoPreview ? (
+                <img src={photoPreview} alt="New profile photo preview"
+                  style={{ width: 84, height: 84, borderRadius: '50%', objectFit: 'cover', ...HERO_AVATAR_RING }} />
+              ) : (
+                <UserInitials user={user} size={84} ring={HERO_AVATAR_RING} />
+              )}
+              {online && !photoPreview && <span title="Online now" style={{ position: 'absolute', bottom: 5, right: 5, width: 16, height: 16, borderRadius: '50%', background: '#10B981', border: '3px solid #fff' }} />}
+              {canChangePhoto && !photoPreview && (
+                <button type="button" onClick={() => photoInputRef.current?.click()}
+                  title="Change photo" aria-label="Change photo"
+                  style={{ position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, borderRadius: '50%', background: NAVY, border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', padding: 0, boxShadow: '0 1px 4px rgba(29,37,103,0.3)' }}>
+                  <Camera size={14} />
+                </button>
+              )}
             </div>
+            {canChangePhoto && (
+              <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp"
+                onChange={handlePhotoPick} style={{ display: 'none' }} />
+            )}
+            {canChangePhoto && (photoPreview || photoError) && (
+              <div style={{ marginTop: 12 }}>
+                {photoPreview && (
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                    <button type="button" onClick={cancelPhoto} disabled={photoUploading}
+                      style={{ padding: '7px 16px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff', fontFamily: F, fontSize: 12.5, fontWeight: 600, color: '#374151', cursor: photoUploading ? 'default' : 'pointer' }}>Cancel</button>
+                    <button type="button" onClick={handlePhotoUpload} disabled={photoUploading}
+                      style={{ padding: '7px 18px', border: 'none', borderRadius: 8, background: photoUploading ? '#e5e7eb' : NAVY, color: '#fff', fontFamily: F, fontSize: 12.5, fontWeight: 700, cursor: photoUploading ? 'default' : 'pointer' }}>{photoUploading ? 'Uploading…' : 'Save photo'}</button>
+                  </div>
+                )}
+                {photoError && <div style={{ marginTop: 8, fontSize: 12, color: '#b91c1c' }}>{photoError}</div>}
+              </div>
+            )}
             <div style={{ fontSize: 20, fontWeight: 700, color: NAVY, marginTop: 12 }}>{user.full_name}{isCurrentUser && <span style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic', fontWeight: 400 }}> (you)</span>}</div>
             <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>{user.email}</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', marginTop: 12 }}>

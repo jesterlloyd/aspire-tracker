@@ -158,6 +158,38 @@ export function UserManagementContent({ onRequestClose }) {
     refetch()
   }
 
+  // ADMIN-AVATAR-UPLOAD-1: owner/admin sets another user's photo via the gated server endpoint.
+  // Separate from the role/interviewer/color dirty-save flow. The file is sent as base64 JSON; the
+  // server validates + uploads with the service role (the client never touches Storage cross-user).
+  const uploadPhoto = async (u, file) => {
+    const toBase64 = (f) => new Promise((resolve, reject) => {
+      const r = new FileReader()
+      r.onload = () => resolve(String(r.result).split(',')[1] || '')
+      r.onerror = () => reject(new Error('read_failed'))
+      r.readAsDataURL(f)
+    })
+    try {
+      const data_base64 = await toBase64(file)
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      const res = await fetch('/api/admin-avatar-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ user_id: u.id, content_type: file.type, data_base64 }),
+      })
+      const bodyJson = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        console.error('admin-avatar-upload error:', bodyJson.error || bodyJson.message)
+        return { ok: false, error: bodyJson.message || 'Could not update the photo.' }
+      }
+      showToast('Profile photo updated.')
+      queryClient.invalidateQueries({ queryKey: ['people_access_users'] })
+      return { ok: true, avatar_url: bodyJson.avatar_url }
+    } catch {
+      return { ok: false, error: 'Could not update the photo.' }
+    }
+  }
+
   if (!canEdit) return null // server authorization is still the real gate
 
   const columns = columnizeUsers(users)
@@ -235,6 +267,7 @@ export function UserManagementContent({ onRequestClose }) {
           online={onlineUserIds.has(selectedFresh.auth_user_id)}
           onSaveAccess={saveAccess}
           onToggleActive={handleToggleActive}
+          onUploadPhoto={uploadPhoto}
           onClose={closeProfile}
         />
       )}
