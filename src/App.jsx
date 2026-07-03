@@ -17,6 +17,7 @@ import NewCohortModal from './components/NewCohortModal'
 import ManageCohortModal from './components/ManageCohortModal'
 import { useAuth } from './contexts/AuthContext'
 import LoginNew from './pages/Login'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import DevDispositionModal from './pages/DevDispositionModal'
 import EvaluationPage from './pages/EvaluationPage'
 import PreceptorEvaluationPage from './pages/PreceptorEvaluationPage'
@@ -1150,6 +1151,9 @@ export default function App() {
       <Route path="/evaluation/readiness/*" element={<div data-theme-lock="light"><EvaluationPage /></div>} />
       <Route path="/evaluation/feedback/*"  element={<div data-theme-lock="light"><PreceptorEvaluationPage /></div>} />
       <Route path="/evaluation/experience/*" element={<div data-theme-lock="light"><StudentEvaluationPage /></div>} />
+      {/* RECOVERY-PASSWORD-SCREEN-1: public password-recovery landing (Supabase reset link target).
+          Must precede the /* wildcard so it renders outside AuthedShell even with a recovery session. */}
+      <Route path="/auth/reset-password"   element={<div data-theme-lock="light"><ResetPasswordPage /></div>} />
       {/* Legacy URL redirects */}
       <Route path="/interview-room"        element={<Navigate to="/interviews" replace />} />
       <Route path="/embed"                 element={<Navigate to="/rotation/matrix" replace />} />
