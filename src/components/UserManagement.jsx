@@ -133,7 +133,7 @@ function UserInitials({ user, size = 40 }) {
 // WS2.2: reusable inline content (no modal chrome). Rendered by AccountsAccessPanel
 // (Settings → Accounts & Access) and by the legacy UserManagement modal wrapper below.
 // Pass onRequestClose to show a close button (modal mode); omit it for inline (Settings).
-export function UserManagementContent({ onRequestClose, interviewersView = false }) {
+export function UserManagementContent({ onRequestClose }) {
   const buildSha = import.meta.env.VITE_BUILD_SHA;
   const buildEnv = import.meta.env.VITE_BUILD_ENV;
 
@@ -179,10 +179,11 @@ export function UserManagementContent({ onRequestClose, interviewersView = false
     enabled: !!canEdit,  // same fix: isOpen is redundant with conditional render
   })
 
-  // ACCOUNTS-ACCESS-PEOPLE-MODEL-2A: READ-ONLY audit of the legacy interviewers directory so the
-  // Interviewers view can warn about directory names that have no matching login account. No writes,
-  // no schema change; new query key (not one of the protected keys). Only fetched in the Interviewers
-  // view. (We never auto-create accounts — this is a safe count/warning only.)
+  // ACCOUNTS-ACCESS-PEOPLE-MODEL-2A/2A1: READ-ONLY audit of the legacy interviewers directory so the
+  // Interviewers filter can warn about directory names that have no matching login account. No writes,
+  // no schema change; new query key (not a protected key). Only fetched while the Interviewers chip is
+  // selected. (We never auto-create accounts — this is a safe count/warning only.)
+  const [chipFilter, setChipFilter] = useState('all')
   const { data: directoryRows = [] } = useQuery({
     queryKey: ['interviewers_directory_audit'],
     queryFn: async () => {
@@ -190,7 +191,7 @@ export function UserManagementContent({ onRequestClose, interviewersView = false
       if (dErr) throw dErr
       return data || []
     },
-    enabled: !!canEdit && interviewersView,
+    enabled: !!canEdit && chipFilter === 'interviewers',
     staleTime: 5 * 60 * 1000,
   })
 
@@ -203,8 +204,8 @@ export function UserManagementContent({ onRequestClose, interviewersView = false
   const [inviteLoading, setInviteLoading] = useState(false)
   const [inviteResult,  setInviteResult]  = useState(null)
 
-  // ── Filter chip (replaces search + 3 dropdowns) ─────────────────────────────
-  const [chipFilter, setChipFilter] = useState('all')
+  // ── Filter chip (replaces search + 3 dropdowns) — chipFilter state is declared above,
+  //    next to the directory-audit query that depends on it. ───────────────────────────
 
   // ── Card UX ──────────────────────────────────────────────────────────────────
   const [expandedUserId,    setExpandedUserId]    = useState(null)
@@ -317,24 +318,21 @@ export function UserManagementContent({ onRequestClose, interviewersView = false
   // ── Sort + filter (chip operates on sorted list, never mutates source) ────────
   const sortedUsers = useMemo(() => sortUsers(users), [users])
 
-  // The Interviewers view is a fixed filtered view (accounts with can_conduct_interviews); elsewhere
-  // the chip filter drives it.
-  const effectiveFilter = interviewersView ? 'interviewers' : chipFilter
-
   const filteredUsers = useMemo(() => {
-    switch (effectiveFilter) {
+    switch (chipFilter) {
       case 'active':        return sortedUsers.filter(u => u.is_active !== false)
       case 'interviewers':  return sortedUsers.filter(u => u.can_conduct_interviews)
       case 'inactive':      return sortedUsers.filter(u => u.is_active === false)
       case 'owners_admins': return sortedUsers.filter(u => u.is_owner || u.role === 'admin')
       default:              return sortedUsers
     }
-  }, [sortedUsers, effectiveFilter])
+  }, [sortedUsers, chipFilter])
 
-  // Legacy directory names with NO matching login account (by name, case-insensitive). These still
-  // appear in scheduling/rubric dropdowns but are not managed here — surfaced as a safe warning only.
+  // Legacy directory names with NO matching login account (by name, case-insensitive). Surfaced as a
+  // safe warning only while the Interviewers chip is selected — they still appear in scheduling/rubric
+  // dropdowns but are not managed here.
   const directoryOrphans = useMemo(() => {
-    if (!interviewersView) return []
+    if (chipFilter !== 'interviewers') return []
     const accountNames = new Set(users.map(u => (u.full_name || '').trim().toLowerCase()).filter(Boolean))
     const seen = new Set()
     const orphans = []
@@ -346,7 +344,7 @@ export function UserManagementContent({ onRequestClose, interviewersView = false
       if (!accountNames.has(key)) orphans.push(nm)
     }
     return orphans
-  }, [interviewersView, users, directoryRows])
+  }, [chipFilter, users, directoryRows])
 
   const groupedUsers = useMemo(() => groupUsers(filteredUsers), [filteredUsers])
 
@@ -510,8 +508,8 @@ export function UserManagementContent({ onRequestClose, interviewersView = false
             {manageDraft.role !== 'viewer' && (
               <div style={{ marginBottom: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#374151' }}>Can Conduct Interviews</div>
-                  <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#9ca3af' }}>Appears in scheduling dropdowns</div>
+                  <div style={{ fontFamily: 'DM Sans', fontWeight: 600, fontSize: '12px', color: '#374151' }}>Can Interview</div>
+                  <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#9ca3af' }}>Appears in scheduling and rubric dropdowns</div>
                 </div>
                 {manageDraft.role === 'interviewer' ? (
                   <span style={{ fontSize: '11px', color: '#9ca3af', fontStyle: 'italic' }}>Always on for Interviewers</span>
@@ -531,17 +529,30 @@ export function UserManagementContent({ onRequestClose, interviewersView = false
                 <div style={{ fontFamily: 'DM Sans', fontSize: '11px', color: '#9ca3af', marginBottom: '10px' }}>
                   Used for availability blocks, interviewer legend, and calendar items.
                 </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {/* ACCOUNTS-ACCESS-PEOPLE-MODEL-2A1: clean circular swatches, no text labels; selected
+                    = navy ring + checkmark. Same fixed palette + same update_interviewer_color payload;
+                    color names remain available to assistive tech via title/aria-label. */}
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                   {INTERVIEWER_COLORS.map(c => {
                     const selected = (manageDraft.interviewer_color || '#1D2567') === c.hex
                     return (
-                      <div key={c.hex} onClick={() => updateDraft(manageUser.id, 'interviewer_color', c.hex)}
-                        style={{ width: '56px', cursor: 'pointer', border: selected ? '2px solid #1D2567' : '1px solid #E5E7EB', borderRadius: '8px', padding: '6px 4px', textAlign: 'center', background: '#fff', transition: 'border 0.15s ease' }}>
-                        <div style={{ width: '24px', height: '24px', background: c.hex, borderRadius: '4px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {selected && <span style={{ color: '#fff', fontSize: '13px', fontWeight: 700 }}>✓</span>}
-                        </div>
-                        <div style={{ fontFamily: 'DM Sans', fontWeight: 500, fontSize: '10px', color: '#6b7280', marginTop: '4px', lineHeight: 1.2 }}>{c.name}</div>
-                      </div>
+                      <button
+                        type="button"
+                        key={c.hex}
+                        onClick={() => updateDraft(manageUser.id, 'interviewer_color', c.hex)}
+                        title={c.name}
+                        aria-label={`Interviewer color: ${c.name}`}
+                        aria-pressed={selected}
+                        style={{
+                          width: '30px', height: '30px', borderRadius: '50%', background: c.hex, cursor: 'pointer', padding: 0,
+                          border: '2px solid #ffffff',
+                          boxShadow: selected ? '0 0 0 2px #1D2567' : '0 0 0 1px #e5e7eb',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'box-shadow 0.15s ease',
+                        }}
+                      >
+                        {selected && <span style={{ color: '#ffffff', fontSize: '13px', fontWeight: 700, lineHeight: 1 }}>✓</span>}
+                      </button>
                     )
                   })}
                 </div>
@@ -559,9 +570,9 @@ export function UserManagementContent({ onRequestClose, interviewersView = false
             with the unified white-surface header; refresh + modal-close preserved). */}
         <div style={{ background: '#ffffff', padding: '18px 24px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0, borderBottom: '1px solid #eef0f2' }}>
           <div>
-            <div style={{ fontWeight: 700, fontSize: '17px', color: '#191919', fontFamily: 'DM Sans' }}>People &amp; Access</div>
+            <div style={{ fontWeight: 700, fontSize: '17px', color: '#191919', fontFamily: 'DM Sans' }}>Login Accounts</div>
             <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '3px', fontFamily: 'DM Sans' }}>
-              Manage app users, roles, interviewer access, and activity.
+              Manage users, roles, interview access, and activity.
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -663,26 +674,8 @@ export function UserManagementContent({ onRequestClose, interviewersView = false
                 </div>
               )}
 
-              {/* ACCOUNTS-ACCESS-PEOPLE-MODEL-2A: Interviewers-view helper + legacy-directory warning. */}
-              {interviewersView && (
-                <div style={{ background: '#f0f4ff', border: '1px solid #d7ddf5', borderRadius: '10px', padding: '10px 14px', marginBottom: '12px', fontSize: '12.5px', color: '#374151', lineHeight: 1.5 }}>
-                  Interviewers are login accounts with <strong>Can Conduct Interviews</strong> enabled.
-                  To add an interviewer, invite the person as a login account, then turn on Can Conduct
-                  Interviews in <strong>Manage Access</strong> (their calendar color is set there too).
-                </div>
-              )}
-              {interviewersView && directoryOrphans.length > 0 && (
-                <div style={{ background: '#FBF5E8', border: '1px solid #f0c9b0', borderRadius: '10px', padding: '10px 14px', marginBottom: '16px', fontSize: '12.5px', color: '#8B5E1A', lineHeight: 1.5 }}>
-                  <strong>{directoryOrphans.length} interviewer{directoryOrphans.length === 1 ? '' : 's'}</strong> in the legacy
-                  directory {directoryOrphans.length === 1 ? 'has' : 'have'} no matching login account
-                  ({directoryOrphans.slice(0, 5).join(', ')}{directoryOrphans.length > 5 ? '…' : ''}). They still
-                  appear in scheduling and rubric dropdowns but are not managed here. Invite them as login
-                  accounts and enable Can Conduct Interviews to bring them into this workspace.
-                </div>
-              )}
-
-              {/* Filter chips — hidden in the fixed Interviewers view */}
-              {!interviewersView && (
+              {/* Filter chips — always visible; "Interviewers" is the account-level filter for
+                  Can Interview users (ACCOUNTS-ACCESS-PEOPLE-MODEL-2A1). */}
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '16px' }}>
                 {CHIP_FILTERS.map(chip => {
                   const isActive = chipFilter === chip.key
@@ -694,6 +687,23 @@ export function UserManagementContent({ onRequestClose, interviewersView = false
                   )
                 })}
               </div>
+
+              {/* Interviewers-filter helper + legacy-directory warning (only when that chip is on). */}
+              {chipFilter === 'interviewers' && (
+                <div style={{ background: '#f0f4ff', border: '1px solid #d7ddf5', borderRadius: '10px', padding: '10px 14px', marginBottom: '12px', fontSize: '12.5px', color: '#374151', lineHeight: 1.5 }}>
+                  Interviewers are login accounts with <strong>Can Interview</strong> enabled. To add an
+                  interviewer, invite the person, then open <strong>Manage Access</strong> and turn on Can
+                  Interview.
+                </div>
+              )}
+              {chipFilter === 'interviewers' && directoryOrphans.length > 0 && (
+                <div style={{ background: '#FBF5E8', border: '1px solid #f0c9b0', borderRadius: '10px', padding: '10px 14px', marginBottom: '16px', fontSize: '12.5px', color: '#8B5E1A', lineHeight: 1.5 }}>
+                  <strong>{directoryOrphans.length} interviewer{directoryOrphans.length === 1 ? '' : 's'}</strong> in the legacy
+                  directory {directoryOrphans.length === 1 ? 'has' : 'have'} no matching login account
+                  ({directoryOrphans.slice(0, 5).join(', ')}{directoryOrphans.length > 5 ? '…' : ''}). They still
+                  appear in scheduling and rubric dropdowns but are not managed here. Invite them and enable
+                  Can Interview to bring them into this workspace.
+                </div>
               )}
 
               {/* ── Loading state ── */}
@@ -720,16 +730,16 @@ export function UserManagementContent({ onRequestClose, interviewersView = false
               {!loading && !error && users.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '40px 24px', color: '#9ca3af', fontSize: '13px' }}>No users found.</div>
               )}
-              {!loading && !error && users.length > 0 && filteredUsers.length === 0 && isFiltersActive && !interviewersView && (
+              {!loading && !error && users.length > 0 && filteredUsers.length === 0 && isFiltersActive && chipFilter !== 'interviewers' && (
                 <div style={{ textAlign: 'center', padding: '40px 24px', color: '#9ca3af', fontSize: '13px' }}>No users match the current filter.</div>
               )}
-              {/* Interviewers-view empty state */}
-              {!loading && !error && users.length > 0 && filteredUsers.length === 0 && interviewersView && (
+              {/* Interviewers-filter empty state */}
+              {!loading && !error && users.length > 0 && filteredUsers.length === 0 && chipFilter === 'interviewers' && (
                 <div style={{ textAlign: 'center', padding: '36px 24px', border: '1px dashed #e8e4dc', borderRadius: 14, background: '#fcfcfb' }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: '#374151', marginBottom: 6 }}>No interviewers yet</div>
                   <div style={{ fontSize: 12.5, color: '#9ca3af', lineHeight: 1.5, maxWidth: 420, margin: '0 auto' }}>
-                    No login accounts have Can Conduct Interviews enabled. Invite a person as a login
-                    account, then turn on Can Conduct Interviews in Manage Access to add them here.
+                    No login accounts have Can Interview enabled. Invite a person, then open Manage Access
+                    and turn on Can Interview to add them here.
                   </div>
                 </div>
               )}
