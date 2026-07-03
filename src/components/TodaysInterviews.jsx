@@ -40,9 +40,20 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
     },
     staleTime: 5 * 60 * 1000,
   })
-  const colorByName = Object.fromEntries(
-    interviewerCatalog.map(i => [i.name, i.color]).filter(([n]) => !!n)
-  )
+  // ACCOUNTS-ACCESS-PEOPLE-MODEL-2A: account interviewer colors (user_profiles.interviewer_color —
+  // the single source of truth), keyed by full name. New (non-protected) query key.
+  const { data: activeInterviewerAccounts = [] } = useQuery({
+    queryKey: ['active_interviewer_colors'],
+    queryFn: async () => {
+      const { data } = await supabase.rpc('get_active_interviewers')
+      return data || []
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+  // Prefer the account color; fall back to the legacy directory color for names without an account.
+  const colorByName = {}
+  for (const i of interviewerCatalog) { if (i.name) colorByName[i.name] = i.color }
+  for (const p of activeInterviewerAccounts) { if (p.full_name) colorByName[p.full_name] = p.interviewer_color || '#1D2567' }
 
   // Real-time: refresh when any slot in this cohort changes
   useEffect(() => {

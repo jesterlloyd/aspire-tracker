@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { X, Plus, Trash2, Pencil, Loader } from 'lucide-react'
@@ -371,17 +372,40 @@ export function InterviewersContent({ onRequestClose }) {
   )
 }
 
-// WS2.2: legacy modal wrapper — preserves the existing fixed right-drawer presentation
-// for callers that open it directly (e.g. WeekCalendar's "Manage Interviewers"). The
-// reusable content lives in InterviewersContent above.
+// ACCOUNTS-ACCESS-PEOPLE-MODEL-2A: the legacy editable "Manage Interviewers" modal is RETIRED as a
+// user-facing directory editor. Interviewers are now managed account-first in Settings → Accounts &
+// Access (enable Can Conduct Interviews on a person's login account; color is set there too). This
+// entry point (WeekCalendar's "Manage Interviewers" button) now shows guidance + a shortcut to
+// Settings instead of the account-less directory editor. The editable InterviewersContent above is
+// intentionally KEPT (not deleted) for reference/rollback, but is no longer reachable from the app UI.
+// No table, endpoint, scheduling, or name-storage behavior is changed.
 export default function InterviewersModal({ isOpen, onClose }) {
+  const navigate = useNavigate()
   if (!isOpen) return null
+  const F = 'DM Sans, sans-serif'
   return (
-    <>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1998 }} />
-      <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '460px', zIndex: 1999, boxShadow: '-8px 0 32px rgba(29,37,103,0.18)' }}>
-        <InterviewersContent onRequestClose={onClose} />
+    <div
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Manage interviewers"
+      style={{ position: 'fixed', inset: 0, zIndex: 1999, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: F }}
+    >
+      <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: '26px 24px', maxWidth: 460, width: '90%', boxShadow: '0 16px 48px rgba(0,0,0,0.2)' }}>
+        <div style={{ fontWeight: 700, fontSize: 16, color: '#1D2567', marginBottom: 10 }}>Interviewers are managed in Accounts &amp; Access</div>
+        <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, marginBottom: 20 }}>
+          Interviewers are now login accounts with <strong>Can Conduct Interviews</strong> enabled — managed
+          in <strong>Settings › Accounts &amp; Access › People / Interviewers</strong>. To add an interviewer,
+          invite the person as a login account, then turn on Can Conduct Interviews (their calendar color is
+          set there too). This separate interviewer list is no longer edited here.
+        </div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button type="button" onClick={onClose}
+            style={{ padding: '9px 16px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#f9fafb', fontFamily: F, fontSize: 13, cursor: 'pointer' }}>Close</button>
+          <button type="button" onClick={() => { onClose?.(); navigate('/settings/accounts') }}
+            style={{ padding: '9px 18px', border: 'none', borderRadius: 8, background: '#1D2567', color: '#fff', fontFamily: F, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Go to Accounts &amp; Access</button>
+        </div>
       </div>
-    </>
+    </div>
   )
 }

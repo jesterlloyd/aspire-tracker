@@ -133,7 +133,7 @@ function UserInitials({ user, size = 40 }) {
 // WS2.2: reusable inline content (no modal chrome). Rendered by AccountsAccessPanel
 // (Settings → Accounts & Access) and by the legacy UserManagement modal wrapper below.
 // Pass onRequestClose to show a close button (modal mode); omit it for inline (Settings).
-export function UserManagementContent({ onRequestClose }) {
+export function UserManagementContent({ onRequestClose, interviewersView = false }) {
   const buildSha = import.meta.env.VITE_BUILD_SHA;
   const buildEnv = import.meta.env.VITE_BUILD_ENV;
 
@@ -177,6 +177,21 @@ export function UserManagementContent({ onRequestClose }) {
       return data || []
     },
     enabled: !!canEdit,  // same fix: isOpen is redundant with conditional render
+  })
+
+  // ACCOUNTS-ACCESS-PEOPLE-MODEL-2A: READ-ONLY audit of the legacy interviewers directory so the
+  // Interviewers view can warn about directory names that have no matching login account. No writes,
+  // no schema change; new query key (not one of the protected keys). Only fetched in the Interviewers
+  // view. (We never auto-create accounts — this is a safe count/warning only.)
+  const { data: directoryRows = [] } = useQuery({
+    queryKey: ['interviewers_directory_audit'],
+    queryFn: async () => {
+      const { data, error: dErr } = await supabase.from('interviewers').select('name')
+      if (dErr) throw dErr
+      return data || []
+    },
+    enabled: !!canEdit && interviewersView,
+    staleTime: 5 * 60 * 1000,
   })
 
   const [activeView,     setActiveView]     = useState('users')
@@ -302,15 +317,36 @@ export function UserManagementContent({ onRequestClose }) {
   // ── Sort + filter (chip operates on sorted list, never mutates source) ────────
   const sortedUsers = useMemo(() => sortUsers(users), [users])
 
+  // The Interviewers view is a fixed filtered view (accounts with can_conduct_interviews); elsewhere
+  // the chip filter drives it.
+  const effectiveFilter = interviewersView ? 'interviewers' : chipFilter
+
   const filteredUsers = useMemo(() => {
-    switch (chipFilter) {
+    switch (effectiveFilter) {
       case 'active':        return sortedUsers.filter(u => u.is_active !== false)
       case 'interviewers':  return sortedUsers.filter(u => u.can_conduct_interviews)
       case 'inactive':      return sortedUsers.filter(u => u.is_active === false)
       case 'owners_admins': return sortedUsers.filter(u => u.is_owner || u.role === 'admin')
       default:              return sortedUsers
     }
-  }, [sortedUsers, chipFilter])
+  }, [sortedUsers, effectiveFilter])
+
+  // Legacy directory names with NO matching login account (by name, case-insensitive). These still
+  // appear in scheduling/rubric dropdowns but are not managed here — surfaced as a safe warning only.
+  const directoryOrphans = useMemo(() => {
+    if (!interviewersView) return []
+    const accountNames = new Set(users.map(u => (u.full_name || '').trim().toLowerCase()).filter(Boolean))
+    const seen = new Set()
+    const orphans = []
+    for (const row of directoryRows) {
+      const nm = (row.name || '').trim()
+      const key = nm.toLowerCase()
+      if (!nm || seen.has(key)) continue
+      seen.add(key)
+      if (!accountNames.has(key)) orphans.push(nm)
+    }
+    return orphans
+  }, [interviewersView, users, directoryRows])
 
   const groupedUsers = useMemo(() => groupUsers(filteredUsers), [filteredUsers])
 
@@ -627,7 +663,26 @@ export function UserManagementContent({ onRequestClose }) {
                 </div>
               )}
 
-              {/* Filter chips */}
+              {/* ACCOUNTS-ACCESS-PEOPLE-MODEL-2A: Interviewers-view helper + legacy-directory warning. */}
+              {interviewersView && (
+                <div style={{ background: '#f0f4ff', border: '1px solid #d7ddf5', borderRadius: '10px', padding: '10px 14px', marginBottom: '12px', fontSize: '12.5px', color: '#374151', lineHeight: 1.5 }}>
+                  Interviewers are login accounts with <strong>Can Conduct Interviews</strong> enabled.
+                  To add an interviewer, invite the person as a login account, then turn on Can Conduct
+                  Interviews in <strong>Manage Access</strong> (their calendar color is set there too).
+                </div>
+              )}
+              {interviewersView && directoryOrphans.length > 0 && (
+                <div style={{ background: '#FBF5E8', border: '1px solid #f0c9b0', borderRadius: '10px', padding: '10px 14px', marginBottom: '16px', fontSize: '12.5px', color: '#8B5E1A', lineHeight: 1.5 }}>
+                  <strong>{directoryOrphans.length} interviewer{directoryOrphans.length === 1 ? '' : 's'}</strong> in the legacy
+                  directory {directoryOrphans.length === 1 ? 'has' : 'have'} no matching login account
+                  ({directoryOrphans.slice(0, 5).join(', ')}{directoryOrphans.length > 5 ? '…' : ''}). They still
+                  appear in scheduling and rubric dropdowns but are not managed here. Invite them as login
+                  accounts and enable Can Conduct Interviews to bring them into this workspace.
+                </div>
+              )}
+
+              {/* Filter chips — hidden in the fixed Interviewers view */}
+              {!interviewersView && (
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '16px' }}>
                 {CHIP_FILTERS.map(chip => {
                   const isActive = chipFilter === chip.key
@@ -639,6 +694,7 @@ export function UserManagementContent({ onRequestClose }) {
                   )
                 })}
               </div>
+              )}
 
               {/* ── Loading state ── */}
               {loading && (
@@ -664,8 +720,18 @@ export function UserManagementContent({ onRequestClose }) {
               {!loading && !error && users.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '40px 24px', color: '#9ca3af', fontSize: '13px' }}>No users found.</div>
               )}
-              {!loading && !error && users.length > 0 && filteredUsers.length === 0 && isFiltersActive && (
+              {!loading && !error && users.length > 0 && filteredUsers.length === 0 && isFiltersActive && !interviewersView && (
                 <div style={{ textAlign: 'center', padding: '40px 24px', color: '#9ca3af', fontSize: '13px' }}>No users match the current filter.</div>
+              )}
+              {/* Interviewers-view empty state */}
+              {!loading && !error && users.length > 0 && filteredUsers.length === 0 && interviewersView && (
+                <div style={{ textAlign: 'center', padding: '36px 24px', border: '1px dashed #e8e4dc', borderRadius: 14, background: '#fcfcfb' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#374151', marginBottom: 6 }}>No interviewers yet</div>
+                  <div style={{ fontSize: 12.5, color: '#9ca3af', lineHeight: 1.5, maxWidth: 420, margin: '0 auto' }}>
+                    No login accounts have Can Conduct Interviews enabled. Invite a person as a login
+                    account, then turn on Can Conduct Interviews in Manage Access to add them here.
+                  </div>
+                </div>
               )}
 
               {/* ── User list with group headers ── */}

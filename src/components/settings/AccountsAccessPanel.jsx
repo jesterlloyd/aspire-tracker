@@ -1,21 +1,21 @@
-// WS2.2: Settings → Accounts & Access. Frames TWO separate people systems and renders
-// the reusable inline content of each. This component owns NO data/API logic — it only
-// provides the heading, the separate-system explanation, and the segmented control;
-// each view's behavior lives in its reusable content component (server authorization
-// for every mutation is unchanged and remains the real gate).
+// WS2.2 / ACCOUNTS-ACCESS-PEOPLE-MODEL-2A: Settings → Accounts & Access, now account-centered.
+// One primary People list (login accounts). The second tab, "Interviewers", is simply a filtered
+// view of that same account list where Can Conduct Interviews is enabled — NOT a separate editable
+// directory. Both tabs render the reusable UserManagementContent; interviewer participation + color
+// are managed once per account via Manage Access. The legacy interviewers directory table is
+// untouched (still read by scheduling/rubrics); it is just no longer maintained from Settings.
 import { useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { UserManagementContent } from '../UserManagement'
-import { InterviewersContent } from '../InterviewersModal'
 
 const VIEWS = [
-  { key: 'accounts',  label: 'Login Accounts' },
-  { key: 'directory', label: 'Interviewer Directory' },
+  { key: 'people',       label: 'People' },
+  { key: 'interviewers', label: 'Interviewers' },
 ]
 
 export default function AccountsAccessPanel() {
   const { isAdmin } = useAuth() // owner/admin; the section is registry-hidden otherwise
-  const [view, setView] = useState('accounts') // default: Login Accounts
+  const [view, setView] = useState('people') // default: primary People list
 
   // Defensive: client visibility is not authorization; the registry already hides this
   // section from non-admins, and every endpoint authorizes server-side regardless.
@@ -32,18 +32,17 @@ export default function AccountsAccessPanel() {
       <h2 id="settings-accounts-heading" style={{ margin: '0 0 4px', fontSize: 17, fontWeight: 700, color: 'var(--color-text-primary, #191919)' }}>
         Accounts &amp; Access
       </h2>
-      <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--color-text-secondary, #6b7280)', lineHeight: 1.55, maxWidth: 640 }}>
-        ASPIRE manages app access and interview participation from this workspace.{' '}
-        <strong>Login Accounts</strong> are people who can sign in. Users with interview permission
-        can participate in interview workflows. The <strong>Interviewer Directory</strong> currently
-        supports scheduling and rubric dropdowns while account and interviewer records remain
-        technically separate. In practice, every interviewer should also have a login account, but
-        not every login account is an interviewer.
+      <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--color-text-secondary, #6b7280)', lineHeight: 1.55, maxWidth: 660 }}>
+        ASPIRE manages people and access from one place. <strong>Login accounts</strong> are the
+        people who can sign in. Turn on <strong>Can Conduct Interviews</strong> for anyone who runs
+        interviews — they’ll appear in interview scheduling, rubrics, and availability, with their own
+        calendar color set once from their account. The <strong>Interviewers</strong> tab is simply
+        the accounts that can conduct interviews. To add an interviewer, invite them as a login
+        account, then enable Can Conduct Interviews.
       </p>
 
-      {/* Nested tab selector — matches the Rotation (Matrix / Preceptors / Activity) segmented group:
-          flush buttons sharing one outer border, active tab filled Nightfall. Same `view`/`setView`
-          state and switching behavior (ACCOUNTS-ACCESS-REDESIGN-1A). */}
+      {/* Nested tab selector — Rotation-style flush segmented group, active tab filled Nightfall
+          (ACCOUNTS-ACCESS-REDESIGN-1A). Same view/setView switching behavior. */}
       <div role="group" aria-label="Accounts &amp; Access views" style={{
         display: 'flex', borderRadius: 7, overflow: 'hidden', width: 'fit-content',
         border: '1px solid var(--border-input, rgba(29,37,103,0.10))',
@@ -70,13 +69,14 @@ export default function AccountsAccessPanel() {
         })}
       </div>
 
-      {/* Active view — reusable inline content (no modal chrome) */}
+      {/* Active view — both tabs render the SAME account list; the Interviewers tab is a filtered
+          view (can_conduct_interviews). key={view} remounts so the filtered layout applies cleanly. */}
       <div style={{
         marginTop: 16, borderRadius: 12, overflow: 'hidden',
         border: '1px solid var(--color-border-default, #e5e7eb)',
         background: 'var(--color-bg-surface, #ffffff)',
       }}>
-        {view === 'accounts' ? <UserManagementContent /> : <InterviewersContent />}
+        <UserManagementContent key={view} interviewersView={view === 'interviewers'} />
       </div>
     </section>
   )

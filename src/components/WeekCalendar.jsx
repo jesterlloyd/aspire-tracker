@@ -313,11 +313,18 @@ export default function WeekCalendar({
         .select('id, block_date, start_time, end_time, duration_minutes, interviewer_name, is_active')
         .eq('cohort_id', cohortId).eq('is_active', true),
       supabase.from('interviewers').select('id, name, color'),
-    ]).then(([blocksRes, intRes]) => {
+      supabase.rpc('get_active_interviewers'),
+    ]).then(([blocksRes, intRes, acctRes]) => {
       if (!blocksRes.error) setBlocks(blocksRes.data || [])
-      if (!intRes.error) setInterviewerColors(
-        Object.fromEntries((intRes.data || []).map(i => [i.name, i.color || '#1D2567']))
-      )
+      // ACCOUNTS-ACCESS-PEOPLE-MODEL-2A: prefer the account interviewer color
+      // (user_profiles.interviewer_color — the single source of truth), keyed by full name; fall back
+      // to the legacy directory color for names without an account, then the default navy.
+      if (!intRes.error) {
+        const merged = {}
+        for (const i of (intRes.data || [])) { if (i.name) merged[i.name] = i.color || '#1D2567' }
+        for (const p of (acctRes?.data || [])) { if (p.full_name) merged[p.full_name] = p.interviewer_color || '#1D2567' }
+        setInterviewerColors(merged)
+      }
     })
   }, [cohortId])
 
