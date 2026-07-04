@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin    from '@fullcalendar/daygrid'
 import timeGridPlugin   from '@fullcalendar/timegrid'
@@ -9,7 +9,37 @@ import { useAuth } from '../contexts/AuthContext'
 import { X, Trash2, CheckCircle, Clock } from 'lucide-react'
 import CalendarSidebar from './CalendarSidebar'
 import InterviewDayDrawer from './InterviewDayDrawer'
+import AspireEventModal from './AspireEventModal'
 import { toLocalDateStr } from '../lib/designTokens'
+import { eventOnDate, eventColor, eventTypeLabel } from '../lib/aspireEvents'
+
+// ASPIRE-EVENTS-CALENDAR-2B: local 'YYYY-MM-DD' for a Date (calendar range bounds).
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+// Distinct ASPIRE-event chip — filled left-accent bar + type color (never looks like an interview
+// slot's pastel capacity card). Clicking opens the event modal (edit for owner/admin, else read-only).
+function AspireEventChip({ ev, compact = false, onClick }) {
+  const color = eventColor(ev)
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onClick(ev) }}
+      title={`${ev.title} — ${eventTypeLabel(ev.event_type)}`}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 4, width: '100%', textAlign: 'left',
+        background: hexToRgba(color, 0.12), borderLeft: `3px solid ${color}`,
+        borderTop: 'none', borderRight: 'none', borderBottom: 'none',
+        borderRadius: 4, padding: compact ? '1px 5px' : '3px 7px', cursor: 'pointer',
+        overflow: 'hidden', fontFamily: 'DM Sans, sans-serif',
+      }}
+    >
+      {ev.is_milestone && <span style={{ color, fontSize: compact ? 8 : 10, flexShrink: 0 }}>★</span>}
+      <span style={{ fontSize: compact ? 9 : 11, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {ev.title}
+      </span>
+    </button>
+  )
+}
 
 const hexToRgba = (hex, alpha) => {
   if (!hex || !hex.startsWith('#')) return `rgba(29,37,103,${alpha})`
@@ -516,7 +546,7 @@ function slotBg(status) {
   return                           { bg:'#DBEAFE', bdr:'#BFDBFE', txt:'#1E3A8A' }
 }
 
-function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, onDayClick, onAddAvailability }) {
+function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, onDayClick, onAddAvailability, events = [], onEventClick }) {
   const [hoveredDate, setHoveredDate] = useState(null)
   const year = displayDate.getFullYear()
   const month = displayDate.getMonth()
@@ -561,6 +591,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
           }
 
           const daySlots   = (slots||[]).filter(s => s.slot_date === dateStr)
+          const dayEvents  = (events||[]).filter(ev => eventOnDate(ev, dateStr))
           const scheduled  = daySlots.filter(s => getSlotStatus(s) === 'booked')
           const available  = daySlots.filter(s => getSlotStatus(s) === 'available')
           const blocked    = daySlots.filter(s => getSlotStatus(s) === 'blocked')
@@ -616,6 +647,18 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                 fontFamily:'DM Sans', fontWeight:600, fontSize:12,
                 color: isToday || isSel ? '#fff' : '#374151', flexShrink:0,
               }}>{day}</div>
+
+              {/* ASPIRE events — distinct filled-accent chips, above the interview capacity card */}
+              {dayEvents.length > 0 && (
+                <div style={{ display:'flex', flexDirection:'column', gap:2, flexShrink:0 }}>
+                  {dayEvents.slice(0, 2).map(ev => (
+                    <AspireEventChip key={ev.id} ev={ev} compact onClick={onEventClick} />
+                  ))}
+                  {dayEvents.length > 2 && (
+                    <span style={{ fontSize:8, fontWeight:600, color:'#6B7280', paddingLeft:2 }}>+{dayEvents.length - 2} more</span>
+                  )}
+                </div>
+              )}
 
               {/* Mini capacity card */}
               {hasActivity && (
@@ -820,7 +863,7 @@ function WeekPill({ item, top, height, colW, left, ivColor, onSlotClick, ds }) {
   )
 }
 
-function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick }) {
+function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick, events = [], onEventClick }) {
   // Expanded row height so pills have room for 4 lines of content.
   // Outer container (maxHeight:500) is unchanged; users scroll more within it.
   const HOUR_HEIGHT = 140
@@ -855,6 +898,24 @@ function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick }) {
           )
         })}
       </div>
+
+      {/* ASPIRE events row — all-day/point program events, kept out of the timed hour grid so they
+          never read as interview slots. */}
+      {events.length > 0 && (
+        <div style={{ display:'grid', gridTemplateColumns:'52px repeat(7, 1fr)', background:'#fff', borderBottom:'1px solid #E5E7EB', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'flex-end', paddingRight:5, fontSize:8, fontWeight:700, letterSpacing:0.4, color:'#9CA3AF', textTransform:'uppercase' }}>Events</div>
+          {days.map(day => {
+            const ds = day.toLocaleDateString('en-CA')
+            const dayEvents = (events||[]).filter(ev => eventOnDate(ev, ds))
+            return (
+              <div key={ds} style={{ borderLeft:'1px solid #E5E7EB', padding:4, display:'flex', flexDirection:'column', gap:3, minHeight:26 }}>
+                {dayEvents.slice(0, 3).map(ev => <AspireEventChip key={ev.id} ev={ev} onClick={onEventClick} />)}
+                {dayEvents.length > 3 && <span style={{ fontSize:9, fontWeight:600, color:'#6B7280' }}>+{dayEvents.length - 3}</span>}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Scrollable body — outer maxHeight unchanged; inner rows taller */}
       <div style={{ overflowY:'auto', maxHeight:500 }}>
@@ -934,6 +995,7 @@ function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick }) {
 export default function InterviewCalendar({ cohortId, activeCohort, onDataChanged, onInterviewersLoaded, scheduleScope }) {
   const { userProfile, isAdmin } = useAuth()
   const calendarRef = useRef(null)
+  const queryClient = useQueryClient()
 
   const [createPopover, setCreatePopover] = useState(null)
   const [blockPopover,  setBlockPopover]  = useState(null)
@@ -945,6 +1007,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const [weekStart,         setWeekStart]         = useState(() => getWeekStart(new Date()))
   const [dayDrawerDate,     setDayDrawerDate]     = useState(null)
   const [highlightedSlotId, setHighlightedSlotId] = useState(null)
+  const [eventModal,        setEventModal]        = useState(null) // ASPIRE event create/edit/detail
 
   const myName = userProfile?.full_name
 
@@ -984,6 +1047,36 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const slots              = calData?.slots    || []
   const interviewerProfiles = calData?.profiles || []
   const colorMap           = calData?.colorMap || {}
+
+  // ─── ASPIRE custom events — separate query keyed by the visible range (never touches the
+  // interview_calendar query). Active events only; writes go through the gated endpoint. ─────────
+  const eventsRange = useMemo(() => {
+    if (currentView === 'timeGridWeek') {
+      return { from: ymd(weekStart), to: ymd(addDays(weekStart, 6)) }
+    }
+    const first = new Date(displayDate.getFullYear(), displayDate.getMonth(), 1)
+    const gridStart = addDays(first, -first.getDay())
+    return { from: ymd(gridStart), to: ymd(addDays(gridStart, 41)) }
+  }, [currentView, weekStart, displayDate])
+
+  const { data: aspireEventsData } = useQuery({
+    queryKey: ['aspire_events', eventsRange.from, eventsRange.to],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      const res = await fetch('/api/aspire-events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ action: 'list', from: eventsRange.from, to: eventsRange.to }),
+      })
+      if (!res.ok) return []
+      const json = await res.json().catch(() => ({}))
+      return json.events || []
+    },
+    enabled: !!eventsRange.from,
+  })
+  const aspireEvents = aspireEventsData || []
+  const openEvent = (ev) => setEventModal({ event: ev })
 
   // Notify parent when profiles load (for the legend row in InterviewRubricTab)
   useEffect(() => {
@@ -1337,8 +1430,20 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
               )}
             </div>
 
-            {/* Right: Add Availability + Month/Week toggle */}
+            {/* Right: Add Event (owner/admin) + Add Availability + Month/Week toggle */}
             <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+              {isAdmin && (
+                <button
+                  onClick={() => setEventModal({ event: null, defaultDate: selectedDate })}
+                  title="Add a custom ASPIRE event"
+                  style={{ height:'32px', padding:'0 14px', background:'#ffffff', border:'1px solid #d1d5db', borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#374151', display:'flex', alignItems:'center', gap:'6px', transition:'all 0.15s ease' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#9ca3af' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#d1d5db' }}
+                >
+                  <span style={{ width:9, height:9, borderRadius:2, background:'#7C3AED', flexShrink:0 }} />
+                  Add Event
+                </button>
+              )}
               <button
                 onClick={handleAddAvailabilityClick}
                 style={{ height:'32px', padding:'0 14px', background:'#1D2567', border:'none', borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#ffffff', display:'flex', alignItems:'center', gap:'6px', transition:'background 0.15s ease' }}
@@ -1466,6 +1571,8 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
               onAddAvailability={(dateStr) => {
                 setCreatePopover({ date: dateStr, position: { x: window.innerWidth / 2 - 140, y: 200 } })
               }}
+              events={aspireEvents}
+              onEventClick={openEvent}
             />
           )}
 
@@ -1483,6 +1590,8 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
               onEmptyClick={(dateStr, startTime, endTime) => {
                 setCreatePopover({ date: dateStr, startTime, endTime, position: { x: window.innerWidth / 2 - 140, y: 200 } })
               }}
+              events={aspireEvents}
+              onEventClick={openEvent}
             />
           )}
 
@@ -1547,6 +1656,16 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
             setDayDrawerDate(null)
             setCreatePopover({ date, position: { x: window.innerWidth - 460, y: 140 } })
           }}
+        />
+      )}
+
+      {eventModal && (
+        <AspireEventModal
+          event={eventModal.event}
+          canManage={isAdmin}
+          defaultDate={eventModal.defaultDate}
+          onClose={() => setEventModal(null)}
+          onSaved={() => { setEventModal(null); queryClient.invalidateQueries({ queryKey: ['aspire_events'] }) }}
         />
       )}
     </div>
