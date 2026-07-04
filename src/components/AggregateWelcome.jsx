@@ -97,28 +97,29 @@ export default function AggregateWelcome() {
       background: 'linear-gradient(160deg, #dceff8 0%, #f0f6fb 48%, #ffffff 100%)',
       border: '1px solid rgba(29,37,103,0.08)', borderRadius: 14,
       padding: '16px 20px', marginBottom: 14, fontFamily: F,
+      position: 'relative', overflow: 'hidden', // sky strip is clipped to the band; positioning context
     }}>
-      {/* Greeting row — greeting/date on the left; weather scene + View Calendar right-aligned in the
-          "sky" area. The weather cluster is compact and wraps below on narrow screens (no extra height,
-          no overlap with text/button). */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+      {/* Greeting row — greeting/date left, View Calendar far top-right (NOT paired with weather). */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 19, fontWeight: 700, color: NAVY, lineHeight: 1.2 }}>{greetingWord()}, {firstName}</div>
           <div style={{ fontSize: 12.5, color: '#6b7280', marginTop: 2 }}>{dateLabel}</div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <WeatherScene />
-          <button
-            type="button"
-            onClick={() => navigate('/interviews')}
-            style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 7, height: 32, padding: '0 14px', background: NAVY, border: 'none', borderRadius: 9, fontFamily: F, fontWeight: 600, fontSize: 13, color: '#fff', cursor: 'pointer' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#141928'}
-            onMouseLeave={e => e.currentTarget.style.background = NAVY}
-          >
-            View Calendar
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => navigate('/interviews')}
+          style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 7, height: 32, padding: '0 14px', background: NAVY, border: 'none', borderRadius: 9, fontFamily: F, fontWeight: 600, fontSize: 13, color: '#fff', cursor: 'pointer' }}
+          onMouseEnter={e => e.currentTarget.style.background = '#141928'}
+          onMouseLeave={e => e.currentTarget.style.background = NAVY}
+        >
+          View Calendar
+        </button>
       </div>
+
+      {/* Signature weather "sky moment" — large animated scene in the open center-left sky area,
+          between the greeting/View-Calendar header and the columns below. Self-contained: renders
+          nothing (no added height) on fetch failure. */}
+      <WeatherScene />
 
       {/* Two-column body — Today in ASPIRE | Upcoming Milestones. Stacks on narrow. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginTop: 14 }}>
