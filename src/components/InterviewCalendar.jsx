@@ -11,7 +11,7 @@ import CalendarSidebar from './CalendarSidebar'
 import InterviewDayDrawer from './InterviewDayDrawer'
 import AspireEventModal from './AspireEventModal'
 import { toLocalDateStr } from '../lib/designTokens'
-import { eventOnDate, eventColor, eventTypeLabel } from '../lib/aspireEvents'
+import { eventOnDate, eventColor, eventTypeLabel, formatEventWhen } from '../lib/aspireEvents'
 
 // ASPIRE-EVENTS-CALENDAR-2B: local 'YYYY-MM-DD' for a Date (calendar range bounds).
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -38,6 +38,56 @@ function AspireEventChip({ ev, compact = false, onClick }) {
         {ev.title}
       </span>
     </button>
+  )
+}
+
+// ASPIRE-EVENTS-CALENDAR-2B1: day-detail modal for a date's ASPIRE events (opened by clicking blank
+// space on a day that has events). Read-only list; clicking an event opens the edit/read-only modal.
+// If the day also has interviews, a link opens the existing InterviewDayDrawer (drawer untouched).
+function AspireDayDetail({ date, events, isAdmin, hasSlots, onEventClick, onOpenInterviews, onAddEvent, onClose }) {
+  const heading = new Date(`${date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>{heading}</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#374151' }}>ASPIRE Events</div>
+          {events.map(ev => {
+            const color = eventColor(ev)
+            return (
+              <button key={ev.id} type="button" onClick={() => onEventClick(ev)}
+                style={{ textAlign: 'left', border: '1px solid #eef0f2', borderLeft: `3px solid ${color}`, borderRadius: 8, padding: '10px 12px', background: '#fff', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {ev.is_milestone && <span style={{ color, fontSize: 11 }}>★</span>}
+                  <span style={{ fontWeight: 700, fontSize: 13, color: '#1D2567' }}>{ev.title}</span>
+                </div>
+                <div style={{ fontSize: 11.5, color: '#6b7280' }}>{eventTypeLabel(ev.event_type)} · {formatEventWhen(ev)}</div>
+                {ev.location && <div style={{ fontSize: 11.5, color: '#6b7280' }}>📍 {ev.location}</div>}
+                {ev.url && <div style={{ fontSize: 11.5, color: '#0E7490', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.url}</div>}
+                {ev.description && <div style={{ fontSize: 11.5, color: '#6b7280', lineHeight: 1.4 }}>{ev.description}</div>}
+                {(ev.is_milestone || ev.show_on_welcome) && (
+                  <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                    {ev.is_milestone && <span style={{ fontSize: 10, fontWeight: 600, color: '#7C3AED', background: '#F3EEFE', padding: '1px 7px', borderRadius: 20 }}>Milestone</span>}
+                    {ev.show_on_welcome && <span style={{ fontSize: 10, fontWeight: 600, color: '#3730A3', background: '#E0E7FF', padding: '1px 7px', borderRadius: 20 }}>On welcome</span>}
+                  </div>
+                )}
+                <div style={{ fontSize: 10.5, color: '#9ca3af', marginTop: 2 }}>{isAdmin ? 'Click to edit' : 'Click to view'}</div>
+              </button>
+            )
+          })}
+        </div>
+        <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
+          <div>{hasSlots && <button className="btn btn-outline-modal" onClick={onOpenInterviews}>View interview schedule</button>}</div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {isAdmin && <button className="btn btn-outline-modal" onClick={onAddEvent}>Add event</button>}
+            <button className="btn btn-primary" onClick={onClose}>Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -546,7 +596,7 @@ function slotBg(status) {
   return                           { bg:'#DBEAFE', bdr:'#BFDBFE', txt:'#1E3A8A' }
 }
 
-function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, onDayClick, onAddAvailability, events = [], onEventClick }) {
+function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, onDayClick, onAddAvailability, events = [], onEventClick, isAdmin = false, onAddEvent }) {
   const [hoveredDate, setHoveredDate] = useState(null)
   const year = displayDate.getFullYear()
   const month = displayDate.getMonth()
@@ -624,7 +674,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
           return (
             <div
               key={dateStr}
-              onClick={() => onDayClick(dateStr, hasActivity)}
+              onClick={() => onDayClick(dateStr, hasActivity, dayEvents.length > 0)}
               onMouseEnter={() => setHoveredDate(dateStr)}
               onMouseLeave={() => setHoveredDate(null)}
               style={{
@@ -709,23 +759,26 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                 </div>
               )}
 
-              {/* Hover pill — only on empty cells; active cells use Day Manager's own footer action */}
+              {/* Hover quick-add — only on empty cells; active cells use Day Manager's own footer.
+                  Owner/admin also get Add Event (prefilled to this date). */}
               {isHovered && daySlots.length === 0 && (
-                <button
-                  onClick={e => { e.stopPropagation(); onAddAvailability(dateStr) }}
-                  style={{
-                    position:'absolute', bottom:4, right:4,
-                    background:'rgba(29,37,103,0.92)',
-                    color:'#fff', border:'none', borderRadius:999,
-                    padding:'3px 8px', fontSize:10, fontWeight:600,
-                    fontFamily:'DM Sans, sans-serif', cursor:'pointer',
-                    boxShadow:'0 2px 6px rgba(0,0,0,0.12)',
-                    display:'flex', alignItems:'center', gap:3,
-                    lineHeight:1.4,
-                  }}
-                >
-                  + Add Availability
-                </button>
+                <div style={{ position:'absolute', bottom:4, right:4, display:'flex', gap:4, alignItems:'center' }}>
+                  <button
+                    onClick={e => { e.stopPropagation(); onAddAvailability(dateStr) }}
+                    style={{ background:'rgba(29,37,103,0.92)', color:'#fff', border:'none', borderRadius:999, padding:'3px 8px', fontSize:10, fontWeight:600, fontFamily:'DM Sans, sans-serif', cursor:'pointer', boxShadow:'0 2px 6px rgba(0,0,0,0.12)', lineHeight:1.4 }}
+                  >
+                    + Availability
+                  </button>
+                  {isAdmin && onAddEvent && (
+                    <button
+                      onClick={e => { e.stopPropagation(); onAddEvent(dateStr) }}
+                      title="Add ASPIRE event"
+                      style={{ background:'#7C3AED', color:'#fff', border:'none', borderRadius:999, padding:'3px 8px', fontSize:10, fontWeight:600, fontFamily:'DM Sans, sans-serif', cursor:'pointer', boxShadow:'0 2px 6px rgba(0,0,0,0.12)', lineHeight:1.4 }}
+                    >
+                      + Event
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )
@@ -1008,6 +1061,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const [dayDrawerDate,     setDayDrawerDate]     = useState(null)
   const [highlightedSlotId, setHighlightedSlotId] = useState(null)
   const [eventModal,        setEventModal]        = useState(null) // ASPIRE event create/edit/detail
+  const [eventDayDetail,    setEventDayDetail]    = useState(null) // date string → ASPIRE day-detail modal
 
   const myName = userProfile?.full_name
 
@@ -1436,11 +1490,11 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
                 <button
                   onClick={() => setEventModal({ event: null, defaultDate: selectedDate })}
                   title="Add a custom ASPIRE event"
-                  style={{ height:'32px', padding:'0 14px', background:'#ffffff', border:'1px solid #d1d5db', borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#374151', display:'flex', alignItems:'center', gap:'6px', transition:'all 0.15s ease' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#9ca3af' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#d1d5db' }}
+                  style={{ height:'32px', padding:'0 14px', background:'#1D2567', border:'none', borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#ffffff', display:'flex', alignItems:'center', gap:'6px', transition:'background 0.15s ease' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#141928'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#1D2567'}
                 >
-                  <span style={{ width:9, height:9, borderRadius:2, background:'#7C3AED', flexShrink:0 }} />
+                  <span style={{ width:9, height:9, borderRadius:2, background:'#A78BFA', boxShadow:'0 0 0 1.5px rgba(255,255,255,0.45)', flexShrink:0 }} />
                   Add Event
                 </button>
               )}
@@ -1559,11 +1613,14 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
               slots={slots}
               colorMap={colorMap}
               selectedDate={selectedDate}
-              onDayClick={(dateStr, hasActivity) => {
+              onDayClick={(dateStr, hasActivity, hasEvents) => {
                 setSelectedDate(dateStr)
                 setHighlightedSlotId(null)
-                if (hasActivity) {
-                  setDayDrawerDate(dateStr)
+                if (hasEvents) {
+                  // Date has ASPIRE events → open the ASPIRE day detail (links to interviews if present).
+                  setEventDayDetail(dateStr)
+                } else if (hasActivity) {
+                  setDayDrawerDate(dateStr) // interviews only — existing behavior unchanged
                 } else {
                   setCreatePopover({ date: dateStr, position: { x: window.innerWidth / 2 - 140, y: 200 } })
                 }
@@ -1573,6 +1630,8 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
               }}
               events={aspireEvents}
               onEventClick={openEvent}
+              isAdmin={isAdmin}
+              onAddEvent={(dateStr) => { setSelectedDate(dateStr); setEventModal({ event: null, defaultDate: dateStr }) }}
             />
           )}
 
@@ -1656,6 +1715,19 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
             setDayDrawerDate(null)
             setCreatePopover({ date, position: { x: window.innerWidth - 460, y: 140 } })
           }}
+        />
+      )}
+
+      {eventDayDetail && (
+        <AspireDayDetail
+          date={eventDayDetail}
+          events={(aspireEvents || []).filter(ev => eventOnDate(ev, eventDayDetail))}
+          isAdmin={isAdmin}
+          hasSlots={(slots || []).some(s => s.slot_date === eventDayDetail)}
+          onEventClick={(ev) => { setEventDayDetail(null); openEvent(ev) }}
+          onOpenInterviews={() => { const d = eventDayDetail; setEventDayDetail(null); setDayDrawerDate(d) }}
+          onAddEvent={() => { const d = eventDayDetail; setEventDayDetail(null); setEventModal({ event: null, defaultDate: d }) }}
+          onClose={() => setEventDayDetail(null)}
         />
       )}
 
