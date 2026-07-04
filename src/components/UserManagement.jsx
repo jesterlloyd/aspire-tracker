@@ -158,6 +158,25 @@ export function UserManagementContent({ onRequestClose }) {
     refetch()
   }
 
+  // ADMIN-PASSWORD-RESET-1: dispatch a reset email to another user via the gated admin action.
+  // Server resolves the target's stored email and reuses the proven self-service reset flow.
+  const sendPasswordReset = async (u) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+    const res = await fetch('/api/admin-users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ action: 'send_password_reset', user_id: u.id }),
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      console.error('admin-users send_password_reset error:', body.error || body.message)
+      return { ok: false, error: body.message || 'Could not send password reset. Please try again.' }
+    }
+    showToast('Password reset email sent.')
+    return { ok: true }
+  }
+
   // ADMIN-AVATAR-UPLOAD-1: owner/admin sets another user's photo via the gated server endpoint.
   // Separate from the role/interviewer/color dirty-save flow. The file is sent as base64 JSON; the
   // server validates + uploads with the service role (the client never touches Storage cross-user).
@@ -197,6 +216,15 @@ export function UserManagementContent({ onRequestClose }) {
   const closeProfile = () => { setSelectedUser(null); if (triggerElRef.current?.focus) triggerElRef.current.focus() }
   // Keep the open modal in sync with fresh data after a refetch.
   const selectedFresh = selectedUser ? (users.find(u => u.id === selectedUser.id) || selectedUser) : null
+
+  // Reset eligibility mirrors the server gate exactly (not owner, not self, active; admin callers
+  // limited to interviewer/viewer targets) so the UX only offers what the endpoint will allow.
+  const callerIsOwner = userProfile?.is_owner === true
+  const canSendPasswordReset = !!selectedFresh
+    && !selectedFresh.is_owner
+    && selectedFresh.id !== userProfile?.id
+    && selectedFresh.is_active !== false
+    && (callerIsOwner || ['interviewer', 'viewer'].includes(selectedFresh.role))
 
   return (
     <div style={{ background: '#ffffff', padding: '20px 24px', fontFamily: F }}>
@@ -268,6 +296,8 @@ export function UserManagementContent({ onRequestClose }) {
           onSaveAccess={saveAccess}
           onToggleActive={handleToggleActive}
           onUploadPhoto={uploadPhoto}
+          canSendPasswordReset={canSendPasswordReset}
+          onSendPasswordReset={sendPasswordReset}
           onClose={closeProfile}
         />
       )}

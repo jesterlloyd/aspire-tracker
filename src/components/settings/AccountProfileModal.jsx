@@ -26,7 +26,7 @@ const DEFAULT_COLOR = '#1D2567'
 const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const PHOTO_MAX_BYTES = 2 * 1024 * 1024
 
-export default function AccountProfileModal({ user, isCurrentUser, online, onSaveAccess, onToggleActive, onUploadPhoto, onClose }) {
+export default function AccountProfileModal({ user, isCurrentUser, online, onSaveAccess, onToggleActive, onUploadPhoto, canSendPasswordReset, onSendPasswordReset, onClose }) {
   const isOwner = !!user.is_owner
   const isInactive = user.is_active === false
 
@@ -41,6 +41,9 @@ export default function AccountProfileModal({ user, isCurrentUser, online, onSav
   const [draft, setDraft] = useState(original)
   const [saving, setSaving] = useState(false)
   const [confirmDeactivate, setConfirmDeactivate] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
+  const [resetSending, setResetSending] = useState(false)
+  const [resetError, setResetError] = useState('')
   const [visibleActivity, setVisibleActivity] = useState(5)
   const closeBtnRef = useRef(null)
 
@@ -128,6 +131,18 @@ export default function AccountProfileModal({ user, isCurrentUser, online, onSav
       if (ok !== false) onClose?.()
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleSendReset = async () => {
+    if (resetSending) return
+    setResetSending(true); setResetError('')
+    try {
+      const result = await onSendPasswordReset?.(user)
+      if (result?.ok) setConfirmReset(false)          // parent toast confirms success
+      else setResetError(result?.error || 'Could not send password reset. Please try again.')
+    } finally {
+      setResetSending(false)
     }
   }
 
@@ -303,10 +318,18 @@ export default function AccountProfileModal({ user, isCurrentUser, online, onSav
                   Reactivate account
                 </button>
               ) : (
-                <button type="button" onClick={() => setConfirmDeactivate(true)}
-                  style={{ padding: '8px 16px', border: '1px solid #fecaca', borderRadius: 8, background: '#fff5f5', color: '#dc2626', fontFamily: F, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
-                  Deactivate account
-                </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-start' }}>
+                  {canSendPasswordReset && onSendPasswordReset && (
+                    <button type="button" onClick={() => { setResetError(''); setConfirmReset(true) }}
+                      style={{ padding: '8px 16px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#f9fafb', color: '#374151', fontFamily: F, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                      Send password reset
+                    </button>
+                  )}
+                  <button type="button" onClick={() => setConfirmDeactivate(true)}
+                    style={{ padding: '8px 16px', border: '1px solid #fecaca', borderRadius: 8, background: '#fff5f5', color: '#dc2626', fontFamily: F, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                    Deactivate account
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -325,6 +348,27 @@ export default function AccountProfileModal({ user, isCurrentUser, online, onSav
           </div>
         )}
       </div>
+
+      {/* Send password reset confirm (nested, centered) */}
+      {confirmReset && (
+        <div onClick={e => { if (!resetSending) { e.stopPropagation(); setConfirmReset(false) } }}
+          style={{ position: 'fixed', inset: 0, zIndex: 2400, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: '26px 24px', maxWidth: 380, width: '100%', boxShadow: '0 16px 48px rgba(0,0,0,0.2)' }}>
+            <div style={{ fontWeight: 700, fontSize: 16, color: NAVY, marginBottom: 10 }}>Send a password reset email to this user?</div>
+            <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, marginBottom: resetError ? 12 : 20 }}>
+              {user.full_name} <span style={{ color: '#9ca3af' }}>({user.email})</span> will receive an email with a link to set a new password.
+            </div>
+            {resetError && (
+              <div style={{ fontSize: 12.5, color: '#991b1b', background: '#fff1f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '8px 12px', marginBottom: 16 }}>{resetError}</div>
+            )}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button type="button" disabled={resetSending} onClick={() => setConfirmReset(false)} style={{ padding: '9px 18px', border: '1px solid #e5e7eb', borderRadius: 8, background: '#f9fafb', fontFamily: F, fontSize: 13, cursor: resetSending ? 'default' : 'pointer' }}>Cancel</button>
+              <button type="button" disabled={resetSending} onClick={handleSendReset}
+                style={{ padding: '9px 18px', border: 'none', borderRadius: 8, background: resetSending ? '#e5e7eb' : NAVY, color: '#fff', fontFamily: F, fontWeight: 700, fontSize: 13, cursor: resetSending ? 'default' : 'pointer' }}>{resetSending ? 'Sending…' : 'Send reset email'}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Deactivate confirm (nested, centered) */}
       {confirmDeactivate && (

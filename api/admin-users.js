@@ -26,7 +26,7 @@ import { randomUUID } from 'crypto';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PERMITTED_ROLES_FOR_UPDATE = ['admin', 'interviewer', 'viewer'];
-const ALLOWED_OPERATIONS = ['update_role', 'toggle_active', 'toggle_interviewer', 'update_interviewer_color', 'update_avatar'];
+const ALLOWED_OPERATIONS = ['update_role', 'toggle_active', 'toggle_interviewer', 'update_interviewer_color', 'update_avatar', 'send_password_reset'];
 
 // ── Server-verified caller identity (WS1/WS1b pattern, replicated) ────────────
 async function verifyCaller(req) {
@@ -55,14 +55,35 @@ async function verifyCaller(req) {
     const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data: profile, error: pErr } = await admin
       .from('user_profiles')
-      .select('id, role, is_owner')
+      .select('id, role, is_owner, full_name')
       .eq('auth_user_id', user.id)
       .maybeSingle();
     if (pErr) return { authenticated: false, status: 401, reason: 'profile_lookup_failed' };
     if (!profile) return { authenticated: false, status: 403, reason: 'no_profile' };
-    return { authenticated: true, userId: user.id, role: profile.role || '', isOwner: profile.is_owner === true };
+    return { authenticated: true, userId: user.id, profileId: profile.id, userName: profile.full_name || '', role: profile.role || '', isOwner: profile.is_owner === true };
   } catch {
     return { authenticated: false, status: 401, reason: 'profile_threw' };
+  }
+}
+
+// Best-effort audit (house pattern from templates-admin.js: warn + continue on failure). Actor is
+// the CALLER's user_profiles.id, never auth.users.id.
+async function emitAudit(db, auth, { actionType, targetProfileId, targetAuthUserId, targetName, description, requestId }) {
+  try {
+    const { error } = await db.from('activity_logs').insert({
+      user_id: auth.profileId,
+      user_name: auth.userName,
+      user_role: auth.role,
+      action_type: actionType,
+      entity_type: 'user_profile',
+      entity_id: String(targetProfileId || ''),
+      cohort_id: null,
+      description: description || `${actionType} for ${targetName || 'a user'}`,
+      metadata: { target_profile_id: targetProfileId, target_auth_user_id: targetAuthUserId },
+    });
+    if (error) console.warn('[admin-users] audit insert error', { request_id: requestId, actionType, errorCode: error.code });
+  } catch {
+    console.warn('[admin-users] audit insert threw', { request_id: requestId, actionType });
   }
 }
 
@@ -158,7 +179,7 @@ export default async function handler(req, res) {
   const db = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: target, error: targetError } = await db
     .from('user_profiles')
-    .select('id, auth_user_id, role, is_owner, is_active, can_conduct_interviews, interviewer_color')
+    .select('id, auth_user_id, role, is_owner, is_active, can_conduct_interviews, interviewer_color, email, full_name')
     .eq('id', targetIdentifier)
     .maybeSingle();
 
@@ -193,6 +214,36 @@ export default async function handler(req, res) {
       console.log('[admin-users] admin target not permitted', { callerRole: auth.role, operation, targetRole: target.role, request_id: requestId });
       return res.status(403).json({ error: 'forbidden', message: 'This operation is not permitted on this account.' });
     }
+  }
+
+  // ── send_password_reset: no mutation — dispatch the recovery email via the SAME proven
+  // self-service flow (implicit resetPasswordForEmail → /auth/reset-password). Inactive accounts
+  // cannot sign in, so they cannot receive a reset. Owner/self/admin-to-admin already blocked above.
+  if (operation === 'send_password_reset') {
+    if (target.is_active === false) {
+      console.log('[admin-users] reset on inactive target blocked', { callerRole: auth.role, targetProfileId: target.id, request_id: requestId });
+      return res.status(403).json({ error: 'forbidden', message: 'This operation is not permitted on this account.' });
+    }
+    if (!target.email) {
+      return res.status(409).json({ error: 'conflict', message: 'This account has no email on file.' });
+    }
+    const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+    const authClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { error: resetError } = await authClient.auth.resetPasswordForEmail(target.email, {
+      redirectTo: 'https://aspire-tracker.vercel.app/auth/reset-password',
+    });
+    if (resetError) {
+      console.log('[admin-users] password reset dispatch failed', { callerRole: auth.role, targetProfileId: target.id, request_id: requestId, message: resetError.message });
+      return res.status(502).json({ error: 'reset_failed', message: 'Could not send password reset. Please try again.' });
+    }
+    await emitAudit(db, auth, {
+      actionType: 'admin_password_reset_sent',
+      targetProfileId: target.id, targetAuthUserId: target.auth_user_id, targetName: target.full_name,
+      description: `Sent a password reset email to ${target.full_name || 'a user'}`,
+      requestId,
+    });
+    console.log('[admin-users] password reset sent', { callerRole: auth.role, callerIsOwner: auth.isOwner, targetProfileId: target.id, request_id: requestId });
+    return res.status(200).json({ success: true });
   }
 
   // ── Gate 9: idempotency short-circuit ───────────────────────────────────────
