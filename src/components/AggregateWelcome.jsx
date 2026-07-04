@@ -89,24 +89,24 @@ export default function AggregateWelcome() {
     return `In ${d} days`
   }
 
-  const sectionTitle = { fontFamily: F, fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6B7280', marginBottom: 10 }
+  const sectionTitle = { fontFamily: F, fontWeight: 700, fontSize: 11.5, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6B7280', marginBottom: 8 }
 
   return (
     <div style={{
       background: 'linear-gradient(160deg, #dceff8 0%, #f0f6fb 48%, #ffffff 100%)',
-      border: '1px solid rgba(29,37,103,0.08)', borderRadius: 16,
-      padding: '22px 24px', marginBottom: 18, fontFamily: F,
+      border: '1px solid rgba(29,37,103,0.08)', borderRadius: 14,
+      padding: '16px 20px', marginBottom: 14, fontFamily: F,
     }}>
       {/* Greeting row */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 21, fontWeight: 700, color: NAVY, lineHeight: 1.2 }}>{greetingWord()}, {firstName}</div>
-          <div style={{ fontSize: 13, color: '#6b7280', marginTop: 3 }}>{dateLabel}</div>
+          <div style={{ fontSize: 19, fontWeight: 700, color: NAVY, lineHeight: 1.2 }}>{greetingWord()}, {firstName}</div>
+          <div style={{ fontSize: 12.5, color: '#6b7280', marginTop: 2 }}>{dateLabel}</div>
         </div>
         <button
           type="button"
           onClick={() => navigate('/interviews')}
-          style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 7, height: 34, padding: '0 15px', background: NAVY, border: 'none', borderRadius: 9, fontFamily: F, fontWeight: 600, fontSize: 13, color: '#fff', cursor: 'pointer' }}
+          style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 7, height: 32, padding: '0 14px', background: NAVY, border: 'none', borderRadius: 9, fontFamily: F, fontWeight: 600, fontSize: 13, color: '#fff', cursor: 'pointer' }}
           onMouseEnter={e => e.currentTarget.style.background = '#141928'}
           onMouseLeave={e => e.currentTarget.style.background = NAVY}
         >
@@ -115,7 +115,7 @@ export default function AggregateWelcome() {
       </div>
 
       {/* Two-column body — Today in ASPIRE | Upcoming Milestones. Stacks on narrow. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18, marginTop: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginTop: 14 }}>
 
         {/* Today in ASPIRE */}
         <div>
@@ -125,11 +125,11 @@ export default function AggregateWelcome() {
           ) : todayEvents.length === 0 ? (
             <div style={{ fontSize: 13, color: '#9ca3af', fontStyle: 'italic' }}>No events today.</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {todayEvents.map(ev => {
                 const color = eventColor(ev)
                 return (
-                  <div key={ev.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: '#fff', border: '1px solid rgba(29,37,103,0.06)', borderLeft: `3px solid ${color}`, borderRadius: 8, padding: '9px 12px' }}>
+                  <div key={ev.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: '#fff', border: '1px solid rgba(29,37,103,0.06)', borderLeft: `3px solid ${color}`, borderRadius: 8, padding: '7px 11px' }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 600, color: NAVY, display: 'flex', alignItems: 'center', gap: 6 }}>
                         {ev.is_milestone && <span style={{ color, fontSize: 11 }}>★</span>}
@@ -154,7 +154,7 @@ export default function AggregateWelcome() {
           ) : upcoming.length === 0 ? (
             <div style={{ fontSize: 13, color: '#9ca3af', fontStyle: 'italic' }}>No upcoming milestones.</div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
               {upcoming.map((ev, i) => {
                 const color = eventColor(ev)
                 const startDay = localDateStr(ev.start_at)
@@ -162,7 +162,7 @@ export default function AggregateWelcome() {
                 return (
                   <div key={ev.id} style={{
                     background: '#fff', border: `1px solid ${isNext ? color : 'rgba(29,37,103,0.08)'}`,
-                    borderRadius: 10, padding: '11px 12px', display: 'flex', flexDirection: 'column', gap: 4,
+                    borderRadius: 10, padding: '9px 11px', display: 'flex', flexDirection: 'column', gap: 3,
                     boxShadow: isNext ? `0 2px 10px ${color}22` : '0 1px 3px rgba(0,0,0,0.04)',
                   }}>
                     {isNext && <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color }}>Next up</span>}

@@ -766,8 +766,12 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         }}>{localToast}</div>
       )}
 
-      {/* ASPIRE-WELCOME-AGGREGATE-3: program-time welcome band above the KPI dashboard (additive). */}
-      <AggregateWelcome />
+      {/* ASPIRE-WELCOME-AGGREGATE-3 / 3A: program-time welcome band above the KPI dashboard. Scrolls
+          with the page (the tab is the scroll container); 0 20px inset matches the sticky header +
+          panels width so the band aligns with the rest of the Aggregate content. */}
+      <div style={{ padding: '0 20px' }}>
+        <AggregateWelcome />
+      </div>
 
       {/* ════════ STICKY HEADER ════════ */}
       <div className="aggregate-sticky-header">

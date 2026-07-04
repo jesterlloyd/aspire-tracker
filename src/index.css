@@ -1129,10 +1129,14 @@ a.doc-file-link:hover { text-decoration: underline; }
 .overview-tab {
   display: flex; flex-direction: column;
   height: calc(100vh - 138px);  /* header 64px + tab strip ~54px + app-main padding-top 20px */
-  overflow: hidden;
+  /* ASPIRE-WELCOME-AGGREGATE-3A: the tab is now the single natural scroll container so the whole
+     Aggregate page (welcome band → KPIs → panels) scrolls as one, with the header pinned via
+     position:sticky (below) instead of a frozen flex row. */
+  overflow-y: auto; overflow-x: hidden;
 }
 .aggregate-sticky-header {
   flex-shrink: 0;
+  position: sticky; top: 0;   /* pins the KPI + Placement panel headers as the page scrolls */
   background: var(--sand);
   z-index: 10;
   border-bottom: 1px solid #e5e7eb;
@@ -1150,7 +1154,8 @@ a.doc-file-link:hover { text-decoration: underline; }
   padding: 14px 18px; gap: 12px;
 }
 .aggregate-scrollable-content {
-  flex: 1; overflow-y: auto; min-height: 0;
+  /* Normal flow inside the scrolling .overview-tab (was flex:1/overflow-y:auto in the old two-region
+     model). The panel bodies now scroll with the page beneath the sticky header. */
   padding: 0 20px 80px;
 }
 .ov-panels-body {
