@@ -13,6 +13,7 @@ import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
 import UnitResponseDrawer from './UnitResponseDrawer'
 import StudentCard from './StudentCard'
+import AggregateWelcome from './AggregateWelcome'
 import { selectActiveWindowRows, mergeOnCampusNow } from '../lib/onCampusNow'
 import { shiftTypeOf, shiftBadge, isOpenShift, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../lib/shiftStatus'
 import { Clock, GraduationCap, MapPin, Users, Copy } from 'lucide-react'
@@ -764,6 +765,9 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
           borderRadius:6, boxShadow:'0 4px 16px rgba(0,0,0,0.25)', maxWidth:360,
         }}>{localToast}</div>
       )}
+
+      {/* ASPIRE-WELCOME-AGGREGATE-3: program-time welcome band above the KPI dashboard (additive). */}
+      <AggregateWelcome />
 
       {/* ════════ STICKY HEADER ════════ */}
       <div className="aggregate-sticky-header">
