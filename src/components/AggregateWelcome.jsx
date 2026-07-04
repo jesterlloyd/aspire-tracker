@@ -11,6 +11,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { toLocalDateStr } from '../lib/designTokens'
 import { eventOnDate, eventColor, eventTypeLabel, formatEventWhen, localDateStr } from '../lib/aspireEvents'
+import WeatherScene from './WeatherScene'
 
 const NAVY = '#1D2567'
 const F = 'DM Sans, sans-serif'
@@ -97,21 +98,26 @@ export default function AggregateWelcome() {
       border: '1px solid rgba(29,37,103,0.08)', borderRadius: 14,
       padding: '16px 20px', marginBottom: 14, fontFamily: F,
     }}>
-      {/* Greeting row */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+      {/* Greeting row — greeting/date on the left; weather scene + View Calendar right-aligned in the
+          "sky" area. The weather cluster is compact and wraps below on narrow screens (no extra height,
+          no overlap with text/button). */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 19, fontWeight: 700, color: NAVY, lineHeight: 1.2 }}>{greetingWord()}, {firstName}</div>
           <div style={{ fontSize: 12.5, color: '#6b7280', marginTop: 2 }}>{dateLabel}</div>
         </div>
-        <button
-          type="button"
-          onClick={() => navigate('/interviews')}
-          style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 7, height: 32, padding: '0 14px', background: NAVY, border: 'none', borderRadius: 9, fontFamily: F, fontWeight: 600, fontSize: 13, color: '#fff', cursor: 'pointer' }}
-          onMouseEnter={e => e.currentTarget.style.background = '#141928'}
-          onMouseLeave={e => e.currentTarget.style.background = NAVY}
-        >
-          View Calendar
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <WeatherScene />
+          <button
+            type="button"
+            onClick={() => navigate('/interviews')}
+            style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 7, height: 32, padding: '0 14px', background: NAVY, border: 'none', borderRadius: 9, fontFamily: F, fontWeight: 600, fontSize: 13, color: '#fff', cursor: 'pointer' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#141928'}
+            onMouseLeave={e => e.currentTarget.style.background = NAVY}
+          >
+            View Calendar
+          </button>
+        </div>
       </div>
 
       {/* Two-column body — Today in ASPIRE | Upcoming Milestones. Stacks on narrow. */}
