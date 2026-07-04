@@ -43,9 +43,9 @@ const KEYFRAMES = `
 @keyframes wx-fog { 0%{transform:translateX(-7px)} 50%{transform:translateX(7px)} 100%{transform:translateX(-7px)} }
 @keyframes wx-wind { 0%{transform:translateX(-12px);opacity:.2} 50%{opacity:.85} 100%{transform:translateX(16px);opacity:.2} }
 @keyframes wx-twinkle { 0%,100%{opacity:.25} 50%{opacity:1} }
-.wx-svg{ width:150px; height:auto; flex-shrink:0 }
-@media (max-width:640px){ .wx-svg{ width:112px } .wx-strip{ min-height:78px } .wx-group{ left:3% } }
-@media (max-width:460px){ .wx-svg{ width:92px } .wx-strip{ min-height:66px } }
+.wx-svg{ width:128px; height:auto; flex-shrink:0 }
+@media (max-width:760px){ .wx-svg{ width:104px } }
+@media (max-width:460px){ .wx-svg{ width:84px } }
 @media (prefers-reduced-motion: reduce){ .wx-a{ animation:none !important } }
 `
 
@@ -163,19 +163,18 @@ export default function WeatherScene() {
   const scene = mapScene(data.code, data.wind, data.isDay)
   const label = LABELS[scene]
   return (
-    // Full-width transparent sky strip between the header and the columns. The band's gradient shows
-    // through as sky. pointer-events:none so it never blocks clicks (View Calendar stays clickable).
-    <div className="wx-strip" style={{ position: 'relative', minHeight: 96, margin: '2px 0 0', pointerEvents: 'none', fontFamily: F }}>
+    // Compact inline unit — text LEFT, large graphic RIGHT — placed in the band's center sky by the
+    // parent (no separate vertical strip; adds no standalone height). pointer-events:none so it never
+    // blocks clicks (View Calendar stays clickable). The band gradient shows through as sky.
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, pointerEvents: 'none', fontFamily: F }} title="Los Angeles weather">
       <style>{KEYFRAMES}</style>
-      <div className="wx-group" style={{ position: 'absolute', left: '5%', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', gap: 16 }}>
-        <SceneSvg scene={scene} />
-        <div style={{ lineHeight: 1.3 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: NAVY }}>{data.temp}°{label ? ` · ${label}` : ''}</div>
-          <div style={{ fontSize: 12, color: '#6b7280' }}>
-            Los Angeles{data.hi != null && data.lo != null ? ` · H ${data.hi}° L ${data.lo}°` : ''}
-          </div>
+      <div style={{ lineHeight: 1.3, textAlign: 'left' }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: NAVY, whiteSpace: 'nowrap' }}>{data.temp}°{label ? ` · ${label}` : ''}</div>
+        <div style={{ fontSize: 11.5, color: '#6b7280', whiteSpace: 'nowrap' }}>
+          Los Angeles{data.hi != null && data.lo != null ? ` · H ${data.hi}° L ${data.lo}°` : ''}
         </div>
       </div>
+      <SceneSvg scene={scene} />
     </div>
   )
 }

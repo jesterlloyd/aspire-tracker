@@ -99,11 +99,16 @@ export default function AggregateWelcome() {
       padding: '16px 20px', marginBottom: 14, fontFamily: F,
       position: 'relative', overflow: 'hidden', // sky strip is clipped to the band; positioning context
     }}>
-      {/* Greeting row — greeting/date left, View Calendar far top-right (NOT paired with weather). */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
+      {/* Header row — greeting/date left, the large weather scene floating in the CENTER sky, and
+          View Calendar far right. The weather is inline (no separate strip → band stays near-compact);
+          on fetch failure the center is simply empty. Wraps cleanly on narrow. */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 19, fontWeight: 700, color: NAVY, lineHeight: 1.2 }}>{greetingWord()}, {firstName}</div>
           <div style={{ fontSize: 12.5, color: '#6b7280', marginTop: 2 }}>{dateLabel}</div>
+        </div>
+        <div style={{ flex: '1 1 0', display: 'flex', justifyContent: 'center', minWidth: 200 }}>
+          <WeatherScene />
         </div>
         <button
           type="button"
@@ -115,11 +120,6 @@ export default function AggregateWelcome() {
           View Calendar
         </button>
       </div>
-
-      {/* Signature weather "sky moment" — large animated scene in the open center-left sky area,
-          between the greeting/View-Calendar header and the columns below. Self-contained: renders
-          nothing (no added height) on fetch failure. */}
-      <WeatherScene />
 
       {/* Two-column body — Today in ASPIRE | Upcoming Milestones. Stacks on narrow. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginTop: 14 }}>
