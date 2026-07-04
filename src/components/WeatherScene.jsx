@@ -9,7 +9,9 @@
 // never says "night". Optional + non-blocking: returns null on any failure (silent hide, never throws,
 // never blocks the welcome band). Pure CSS keyframes (prefixed, scoped inline <style>), auto-frozen
 // under prefers-reduced-motion; a scoped media query shrinks the graphic on narrow screens.
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { sceneAssets } from '../lib/weatherAssetMap'
 
 const LAT = 34.076
 const LON = -118.380
@@ -47,6 +49,12 @@ const KEYFRAMES = `
 @keyframes wx-fog { 0%{transform:translateX(-7px)} 50%{transform:translateX(7px)} 100%{transform:translateX(-7px)} }
 @keyframes wx-wind { 0%{transform:translateX(-12px);opacity:.2} 50%{opacity:.85} 100%{transform:translateX(16px);opacity:.2} }
 @keyframes wx-twinkle { 0%,100%{opacity:.25} 50%{opacity:1} }
+@keyframes wx-fall { 0%{transform:translateY(0);opacity:0} 15%{opacity:.9} 85%{opacity:.9} 100%{transform:translateY(360%);opacity:0} }
+@keyframes wx-blow { 0%{transform:translateX(0) rotate(0deg);opacity:0} 12%{opacity:.95} 82%{opacity:.95} 100%{transform:translateX(1100%) rotate(300deg);opacity:0} }
+/* Licensed-asset hero box — same responsive footprint as .wx-svg, fixed 19:12 aspect; layers are
+   absolutely positioned % children. overflow:hidden crops the tall sun/moon source renders. */
+.wx-assetbox{ position:relative; aspect-ratio: 19 / 12; overflow:hidden }
+.wx-assetbox img{ position:absolute; display:block; user-select:none }
 /* Weather HERO layer: the large graphic floats in the open center sky (between the narrow Today
    cards on the left and the Upcoming card on the right). Overlays without adding band height. On
    narrow it drops to static flow (stacked) so nothing overlaps. */
@@ -151,6 +159,44 @@ function SceneSvg({ scene }) {
   return <svg {...svg}><g className="wx-a" style={anim('wx-drift', '9s')}><Cloud x={95} y={60} s={1.3} /></g></svg>
 }
 
+// ASPIRE-WEATHER-ASSETS-1: licensed-asset scene renderer. Renders the manifest's image layers from
+// public/weather/aspire-licensed/ inside the same hero footprint as the SVG scene. Every animated
+// layer carries wx-a (frozen under prefers-reduced-motion; layers stay visible statically). If ANY
+// image fails to load, onBroken() flips WeatherScene back to the built-in SVG scene — no broken
+// image is ever shown. Stars stay CSS dots (the package has no star asset).
+function AssetScene({ manifest, onBroken }) {
+  return (
+    <div className="wx-svg wx-assetbox" aria-hidden>
+      {manifest.stars && [[14, 14, 3], [78, 10, 4], [88, 34, 3], [8, 46, 3], [64, 6, 3]].map((s, i) => (
+        <span key={`s${i}`} className="wx-a" style={{
+          position: 'absolute', left: `${s[0]}%`, top: `${s[1]}%`, width: s[2], height: s[2],
+          borderRadius: '50%', background: '#fff',
+          animation: `wx-twinkle ${2.4 + i * 0.5}s ease-in-out infinite`, animationDelay: `${i * 0.4}s`,
+        }} />
+      ))}
+      {manifest.layers.map((l, i) => (
+        <img
+          key={i}
+          className="wx-a"
+          src={l.src}
+          alt=""
+          draggable={false}
+          onError={onBroken}
+          style={{
+            left: l.left, top: l.top, width: l.width,
+            opacity: l.opacity ?? 1, zIndex: l.z ?? 0,
+            mixBlendMode: l.blend,
+            WebkitMaskImage: l.mask, maskImage: l.mask,
+            animationName: l.anim, animationDuration: l.dur,
+            animationDelay: l.delay, animationIterationCount: 'infinite',
+            animationTimingFunction: l.anim === 'wx-fall' || l.anim === 'wx-blow' ? 'linear' : 'ease-in-out',
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 // Shared query — the band background (day/night theming) and this scene both read it. React Query
 // dedupes by key, so it's a single fetch. Same Open-Meteo source/params/mapping as before.
 export function useWelcomeWeather() {
@@ -180,11 +226,15 @@ export function useWelcomeWeather() {
 
 export default function WeatherScene() {
   const { data } = useWelcomeWeather()
+  // Licensed-asset renderer is preferred; any image load failure flips to the built-in SVG scene
+  // for the rest of the session (no broken images, no retry loops).
+  const [assetsBroken, setAssetsBroken] = useState(false)
   if (!data) return null // silent, non-blocking: hidden until data arrives, and hidden on failure
 
   const scene = mapScene(data.code, data.wind, data.isDay)
   const label = LABELS[scene]
   const night = data.isDay === 0
+  const manifest = assetsBroken ? null : sceneAssets(scene, night)
   // Caption IN FRONT of the graphic — light over the dark night sky, dark over the light day sky,
   // each with a soft shadow so it reads over clouds/moon/sun. Restrained sizes.
   const cTemp = night ? '#ffffff' : NAVY
@@ -197,7 +247,11 @@ export default function WeatherScene() {
     <div className="wx-layer" style={{ pointerEvents: 'none', fontFamily: F }} title="Los Angeles weather">
       <style>{KEYFRAMES}</style>
       <div style={{ position: 'relative' }}>
-        <div style={{ position: 'relative', zIndex: 0 }}><SceneSvg scene={scene} /></div>
+        <div style={{ position: 'relative', zIndex: 0 }}>
+          {manifest
+            ? <AssetScene manifest={manifest} onBroken={() => setAssetsBroken(true)} />
+            : <SceneSvg scene={scene} />}
+        </div>
         <div className="wx-caption" style={{ textAlign: 'left', lineHeight: 1.15, whiteSpace: 'nowrap', textShadow: shadow }}>
           <div style={{ fontSize: 26, fontWeight: 700, color: cTemp, letterSpacing: '-0.01em' }}>{data.temp}°</div>
           {label && <div style={{ fontSize: 14, fontWeight: 600, color: cCond, marginTop: 1 }}>{label}</div>}
