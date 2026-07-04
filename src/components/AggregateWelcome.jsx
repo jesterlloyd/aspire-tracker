@@ -11,6 +11,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { toLocalDateStr } from '../lib/designTokens'
 import { eventOnDate, eventColor, eventTypeLabel, formatEventWhen, localDateStr } from '../lib/aspireEvents'
+import { getUsHolidaysForRange } from '../lib/usHolidays'
 import WeatherScene, { useWelcomeWeather } from './WeatherScene'
 
 const NAVY = '#1D2567'
@@ -69,6 +70,9 @@ export default function AggregateWelcome() {
     }),
     [events, today],
   )
+
+  // US holiday(s) today — read-only, client-computed (never persisted / never via /api/aspire-events).
+  const todayHolidays = useMemo(() => getUsHolidaysForRange(today, today), [today])
 
   // Upcoming milestones — important events starting today-or-later, soonest first (tie-break: on-welcome).
   const upcoming = useMemo(() => {
@@ -157,10 +161,22 @@ export default function AggregateWelcome() {
           <div style={sectionTitle}>Today in ASPIRE</div>
           {isLoading ? (
             <div style={{ fontSize: 13, color: T.muted }}>Loading today’s events…</div>
-          ) : todayEvents.length === 0 ? (
+          ) : todayEvents.length === 0 && todayHolidays.length === 0 ? (
             <div style={{ fontSize: 13, color: T.muted, fontStyle: 'italic' }}>No events today.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {/* Holiday(s) first — amber glass card, read-only, distinct from ASPIRE events. */}
+              {todayHolidays.map(h => (
+                <div key={h.name} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, maxWidth: 360, background: T.cardBg, backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: `1px solid ${T.cardBorder}`, borderLeft: '3px solid #D97706', borderRadius: 8, padding: '7px 11px', boxShadow: night ? '0 2px 10px rgba(0,0,0,0.18)' : '0 1px 4px rgba(29,37,103,0.06)' }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: T.cardText, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#D97706', flexShrink: 0 }} />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</span>
+                    </div>
+                    <div style={{ fontSize: 11.5, color: T.cardSub, marginTop: 2 }}>US Holiday</div>
+                  </div>
+                </div>
+              ))}
               {todayEvents.map(ev => {
                 const color = eventColor(ev)
                 return (
@@ -190,10 +206,9 @@ export default function AggregateWelcome() {
             <div style={{ fontSize: 13, color: T.muted, fontStyle: 'italic' }}>No upcoming milestones.</div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 200px))', gap: 8, justifyContent: 'start' }}>
-              {upcoming.map((ev, i) => {
+              {upcoming.map((ev) => {
                 const color = eventColor(ev)
                 const startDay = localDateStr(ev.start_at)
-                const isNext = i === 0
                 return (
                   <div key={ev.id} style={{
                     background: T.cardBg, backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
@@ -201,7 +216,6 @@ export default function AggregateWelcome() {
                     borderRadius: 10, padding: '9px 11px', display: 'flex', flexDirection: 'column', gap: 3,
                     boxShadow: night ? '0 2px 10px rgba(0,0,0,0.18)' : '0 1px 4px rgba(29,37,103,0.06)',
                   }}>
-                    {isNext && <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color }}>Next up</span>}
                     <span style={{ fontSize: 15, fontWeight: 700, color: T.cardText, lineHeight: 1.1 }}>{countdownLabel(startDay)}</span>
                     <span style={{ fontSize: 12.5, fontWeight: 600, color: T.cardText, display: 'flex', alignItems: 'center', gap: 5, lineHeight: 1.25 }}>
                       {ev.is_milestone && <span style={{ color, fontSize: 10, flexShrink: 0 }}>★</span>}

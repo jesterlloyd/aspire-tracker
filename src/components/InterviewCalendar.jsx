@@ -12,6 +12,7 @@ import InterviewDayDrawer from './InterviewDayDrawer'
 import AspireEventModal from './AspireEventModal'
 import { toLocalDateStr } from '../lib/designTokens'
 import { eventOnDate, eventColor, eventTypeLabel, formatEventWhen } from '../lib/aspireEvents'
+import { getUsHolidaysForRange } from '../lib/usHolidays'
 
 // ASPIRE-EVENTS-CALENDAR-2B: local 'YYYY-MM-DD' for a Date (calendar range bounds).
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -596,7 +597,7 @@ function slotBg(status) {
   return                           { bg:'#DBEAFE', bdr:'#BFDBFE', txt:'#1E3A8A' }
 }
 
-function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, onDayClick, onAddAvailability, events = [], onEventClick, isAdmin = false, onAddEvent }) {
+function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, onDayClick, onAddAvailability, events = [], onEventClick, isAdmin = false, onAddEvent, holidays = [] }) {
   const [hoveredDate, setHoveredDate] = useState(null)
   const year = displayDate.getFullYear()
   const month = displayDate.getMonth()
@@ -642,6 +643,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
 
           const daySlots   = (slots||[]).filter(s => s.slot_date === dateStr)
           const dayEvents  = (events||[]).filter(ev => eventOnDate(ev, dateStr))
+          const dayHolidays = (holidays||[]).filter(h => h.date === dateStr)
           const scheduled  = daySlots.filter(s => getSlotStatus(s) === 'booked')
           const available  = daySlots.filter(s => getSlotStatus(s) === 'available')
           const blocked    = daySlots.filter(s => getSlotStatus(s) === 'blocked')
@@ -697,6 +699,20 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                 fontFamily:'DM Sans', fontWeight:600, fontSize:12,
                 color: isToday || isSel ? '#fff' : '#374151', flexShrink:0,
               }}>{day}</div>
+
+              {/* US holidays — subtle amber read-only chips (non-interactive; never open the ASPIRE
+                  event modal; distinct from ASPIRE events and interview cards). */}
+              {dayHolidays.length > 0 && (
+                <div style={{ display:'flex', flexDirection:'column', gap:2, flexShrink:0 }}>
+                  {dayHolidays.slice(0, 1).map(h => (
+                    <div key={h.name} title={h.name} onClick={e => e.stopPropagation()}
+                      style={{ display:'flex', alignItems:'center', gap:3, background:'#FEF3C7', border:'1px solid #FDE68A', borderRadius:4, padding:'1px 5px', cursor:'default' }}>
+                      <span style={{ width:5, height:5, borderRadius:'50%', background:'#D97706', flexShrink:0 }} />
+                      <span style={{ fontSize:9, fontWeight:600, color:'#92400E', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{h.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* ASPIRE events — distinct filled-accent chips, above the interview capacity card */}
               {dayEvents.length > 0 && (
@@ -1132,6 +1148,9 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const aspireEvents = aspireEventsData || []
   const openEvent = (ev) => setEventModal({ event: ev })
 
+  // US holidays for the visible range — computed client-side, read-only, never persisted.
+  const holidays = useMemo(() => getUsHolidaysForRange(eventsRange.from, eventsRange.to), [eventsRange.from, eventsRange.to])
+
   // Notify parent when profiles load (for the legend row in InterviewRubricTab)
   useEffect(() => {
     if (interviewerProfiles.length > 0) onInterviewersLoaded?.(interviewerProfiles)
@@ -1494,7 +1513,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
                   onMouseEnter={e => e.currentTarget.style.background = '#141928'}
                   onMouseLeave={e => e.currentTarget.style.background = '#1D2567'}
                 >
-                  <span style={{ width:9, height:9, borderRadius:2, background:'#A78BFA', boxShadow:'0 0 0 1.5px rgba(255,255,255,0.45)', flexShrink:0 }} />
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   Add Event
                 </button>
               )}
@@ -1632,6 +1651,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
               onEventClick={openEvent}
               isAdmin={isAdmin}
               onAddEvent={(dateStr) => { setSelectedDate(dateStr); setEventModal({ event: null, defaultDate: dateStr }) }}
+              holidays={holidays}
             />
           )}
 

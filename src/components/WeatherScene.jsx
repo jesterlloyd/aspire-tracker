@@ -12,9 +12,8 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { sceneAssets } from '../lib/weatherAssetMap'
+import { useWeatherLocation } from '../lib/weatherLocation'
 
-const LAT = 34.076
-const LON = -118.380
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
 
@@ -197,13 +196,16 @@ function AssetScene({ manifest, onBroken }) {
   )
 }
 
-// Shared query — the band background (day/night theming) and this scene both read it. React Query
-// dedupes by key, so it's a single fetch. Same Open-Meteo source/params/mapping as before.
+// Shared query — the band background (day/night theming) and this scene both read it. Both call this
+// hook, which shares one geolocation resolution (module singleton) → same coords → same query key →
+// React Query dedupes to a single fetch. Same Open-Meteo source/params/mapping as before; only the
+// latitude/longitude (and the label) now come from the browser location when granted, else LA/Cedars.
 export function useWelcomeWeather() {
-  return useQuery({
-    queryKey: ['welcome_weather', 'los_angeles'],
+  const location = useWeatherLocation()
+  const q = useQuery({
+    queryKey: ['welcome_weather', location.geo ? `geo:${location.lat},${location.lon}` : 'los_angeles'],
     queryFn: async () => {
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,weather_code,wind_speed_10m,is_day&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&wind_speed_unit=kmh&timezone=America%2FLos_Angeles&forecast_days=1`
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lon}&current=temperature_2m,weather_code,wind_speed_10m,is_day&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&wind_speed_unit=kmh&timezone=auto&forecast_days=1`
       const res = await fetch(url)
       if (!res.ok) return null
       const j = await res.json().catch(() => null)
@@ -222,10 +224,11 @@ export function useWelcomeWeather() {
     retry: 1,
     refetchOnWindowFocus: false,
   })
+  return { ...q, location }
 }
 
 export default function WeatherScene() {
-  const { data } = useWelcomeWeather()
+  const { data, location } = useWelcomeWeather()
   // Licensed-asset renderer is preferred; any image load failure flips to the built-in SVG scene
   // for the rest of the session (no broken images, no retry loops).
   const [assetsBroken, setAssetsBroken] = useState(false)
@@ -244,7 +247,7 @@ export default function WeatherScene() {
   return (
     // Absolute hero layer in the open center sky (parent band is position:relative). Large graphic
     // behind; caption in front (higher z-index). pointer-events:none so View Calendar stays clickable.
-    <div className="wx-layer" style={{ pointerEvents: 'none', fontFamily: F }} title="Los Angeles weather">
+    <div className="wx-layer" style={{ pointerEvents: 'none', fontFamily: F }} title={`${location.label} weather`}>
       <style>{KEYFRAMES}</style>
       <div style={{ position: 'relative' }}>
         <div style={{ position: 'relative', zIndex: 0 }}>
@@ -256,7 +259,7 @@ export default function WeatherScene() {
           <div style={{ fontSize: 26, fontWeight: 700, color: cTemp, letterSpacing: '-0.01em' }}>{data.temp}°</div>
           {label && <div style={{ fontSize: 14, fontWeight: 600, color: cCond, marginTop: 1 }}>{label}</div>}
           <div style={{ fontSize: 11.5, color: cLoc, marginTop: 2 }}>
-            Los Angeles{data.hi != null && data.lo != null ? ` · H ${data.hi}° L ${data.lo}°` : ''}
+            {location.label}{data.hi != null && data.lo != null ? ` · H ${data.hi}° L ${data.lo}°` : ''}
           </div>
         </div>
       </div>
