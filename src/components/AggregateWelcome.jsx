@@ -11,7 +11,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { toLocalDateStr } from '../lib/designTokens'
 import { eventOnDate, eventColor, eventTypeLabel, formatEventWhen, localDateStr } from '../lib/aspireEvents'
-import WeatherScene from './WeatherScene'
+import WeatherScene, { useWelcomeWeather } from './WeatherScene'
 
 const NAVY = '#1D2567'
 const F = 'DM Sans, sans-serif'
@@ -90,59 +90,87 @@ export default function AggregateWelcome() {
     return `In ${d} days`
   }
 
-  const sectionTitle = { fontFamily: F, fontWeight: 700, fontSize: 11.5, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6B7280', marginBottom: 8 }
+  // Day/night theming — the band background + text/cards shift to an atmospheric night sky (deep blue
+   // + CSS star speckles) after sunset, and a richer day sky otherwise. Driven by the SAME weather
+   // query (shared cache). Defaults to DAY while loading / on failure (safe, light look).
+  const { data: wx } = useWelcomeWeather()
+  const night = wx?.isDay === 0
+  const T = night ? {
+    bg: 'radial-gradient(2px 2px at 15% 22%, rgba(255,255,255,.85), transparent 60%),'
+      + 'radial-gradient(1.5px 1.5px at 68% 16%, rgba(255,255,255,.6), transparent 60%),'
+      + 'radial-gradient(1.5px 1.5px at 88% 30%, rgba(255,255,255,.6), transparent 60%),'
+      + 'radial-gradient(1px 1px at 40% 42%, rgba(255,255,255,.5), transparent 60%),'
+      + 'radial-gradient(1px 1px at 24% 66%, rgba(255,255,255,.45), transparent 60%),'
+      + 'radial-gradient(1.5px 1.5px at 78% 60%, rgba(255,255,255,.5), transparent 60%),'
+      + 'radial-gradient(1100px 260px at 84% 128%, rgba(255,206,150,.20), transparent 70%),'
+      + 'radial-gradient(560px 320px at 44% 30%, rgba(170,200,255,.16), transparent 70%),'
+      + 'linear-gradient(160deg, #0e1c40 0%, #17284e 46%, #24365d 100%)',
+    border: '1px solid rgba(255,255,255,0.10)',
+    text: '#F3F6FC', sub: 'rgba(255,255,255,0.72)', label: 'rgba(255,255,255,0.6)', muted: 'rgba(255,255,255,0.55)',
+    cardBg: 'rgba(255,255,255,0.13)', cardBorder: 'rgba(255,255,255,0.24)', cardText: '#F3F6FC', cardSub: 'rgba(255,255,255,0.72)',
+    vcalBg: 'rgba(255,255,255,0.16)', vcalBorder: '1px solid rgba(255,255,255,0.30)', vcalHover: 'rgba(255,255,255,0.26)', vcalText: '#fff',
+  } : {
+    bg: 'radial-gradient(900px 280px at 84% 122%, rgba(255,236,200,.28), transparent 70%),'
+      + 'linear-gradient(160deg, #c7e1f6 0%, #d8ebf8 46%, #eef5fb 100%)',
+    border: '1px solid rgba(29,37,103,0.08)',
+    text: NAVY, sub: '#6b7280', label: '#6B7280', muted: '#9ca3af',
+    cardBg: 'rgba(255,255,255,0.55)', cardBorder: 'rgba(255,255,255,0.6)', cardText: NAVY, cardSub: '#6b7280',
+    vcalBg: NAVY, vcalBorder: 'none', vcalHover: '#141928', vcalText: '#fff',
+  }
+
+  const sectionTitle = { fontFamily: F, fontWeight: 700, fontSize: 11.5, textTransform: 'uppercase', letterSpacing: '0.06em', color: T.label, marginBottom: 8 }
 
   return (
     <div style={{
-      background: 'linear-gradient(160deg, #dceff8 0%, #f0f6fb 48%, #ffffff 100%)',
-      border: '1px solid rgba(29,37,103,0.08)', borderRadius: 14,
+      background: T.bg,
+      border: T.border, borderRadius: 14,
       padding: '16px 20px', marginBottom: 14, fontFamily: F,
-      position: 'relative', overflow: 'hidden', // sky strip is clipped to the band; positioning context
+      position: 'relative', overflow: 'hidden', // hero weather layer is clipped to the band; positioning context
     }}>
-      {/* Header row — greeting/date left, the large weather scene floating in the CENTER sky, and
-          View Calendar far right. The weather is inline (no separate strip → band stays near-compact);
-          on fetch failure the center is simply empty. Wraps cleanly on narrow. */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
+      {/* Header row — greeting/date left, View Calendar far right (compact, ~3A height). */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 19, fontWeight: 700, color: NAVY, lineHeight: 1.2 }}>{greetingWord()}, {firstName}</div>
-          <div style={{ fontSize: 12.5, color: '#6b7280', marginTop: 2 }}>{dateLabel}</div>
-        </div>
-        <div style={{ flex: '1 1 0', display: 'flex', justifyContent: 'center', minWidth: 200 }}>
-          <WeatherScene />
+          <div style={{ fontSize: 19, fontWeight: 700, color: T.text, lineHeight: 1.2 }}>{greetingWord()}, {firstName}</div>
+          <div style={{ fontSize: 12.5, color: T.sub, marginTop: 2 }}>{dateLabel}</div>
         </div>
         <button
           type="button"
           onClick={() => navigate('/interviews')}
-          style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 7, height: 32, padding: '0 14px', background: NAVY, border: 'none', borderRadius: 9, fontFamily: F, fontWeight: 600, fontSize: 13, color: '#fff', cursor: 'pointer' }}
-          onMouseEnter={e => e.currentTarget.style.background = '#141928'}
-          onMouseLeave={e => e.currentTarget.style.background = NAVY}
+          style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 7, height: 32, padding: '0 14px', background: T.vcalBg, border: T.vcalBorder, borderRadius: 9, fontFamily: F, fontWeight: 600, fontSize: 13, color: T.vcalText, cursor: 'pointer', backdropFilter: night ? 'blur(8px)' : undefined, WebkitBackdropFilter: night ? 'blur(8px)' : undefined }}
+          onMouseEnter={e => e.currentTarget.style.background = T.vcalHover}
+          onMouseLeave={e => e.currentTarget.style.background = T.vcalBg}
         >
           View Calendar
         </button>
       </div>
 
+      {/* Weather — absolutely positioned sky layer floating in the empty area right of the greeting,
+          left of Upcoming Milestones (overlays without adding band height; drops to static flow on
+          narrow). Rendered before the columns so it layers behind them (z-index). */}
+      <WeatherScene />
+
       {/* Two-column body — Today in ASPIRE | Upcoming Milestones. Stacks on narrow. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginTop: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginTop: 14, position: 'relative', zIndex: 1 }}>
 
         {/* Today in ASPIRE */}
         <div>
           <div style={sectionTitle}>Today in ASPIRE</div>
           {isLoading ? (
-            <div style={{ fontSize: 13, color: '#9ca3af' }}>Loading today’s events…</div>
+            <div style={{ fontSize: 13, color: T.muted }}>Loading today’s events…</div>
           ) : todayEvents.length === 0 ? (
-            <div style={{ fontSize: 13, color: '#9ca3af', fontStyle: 'italic' }}>No events today.</div>
+            <div style={{ fontSize: 13, color: T.muted, fontStyle: 'italic' }}>No events today.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {todayEvents.map(ev => {
                 const color = eventColor(ev)
                 return (
-                  <div key={ev.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: '#fff', border: '1px solid rgba(29,37,103,0.06)', borderLeft: `3px solid ${color}`, borderRadius: 8, padding: '7px 11px' }}>
+                  <div key={ev.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, maxWidth: 360, background: T.cardBg, backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: `1px solid ${T.cardBorder}`, borderLeft: `3px solid ${color}`, borderRadius: 8, padding: '7px 11px', boxShadow: night ? '0 2px 10px rgba(0,0,0,0.18)' : '0 1px 4px rgba(29,37,103,0.06)' }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 600, color: NAVY, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: T.cardText, display: 'flex', alignItems: 'center', gap: 6 }}>
                         {ev.is_milestone && <span style={{ color, fontSize: 11 }}>★</span>}
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</span>
                       </div>
-                      <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 2 }}>
+                      <div style={{ fontSize: 11.5, color: T.cardSub, marginTop: 2 }}>
                         {eventTypeLabel(ev.event_type)} · {formatEventWhen(ev)}{ev.location ? ` · ${ev.location}` : ''}
                       </div>
                     </div>
@@ -157,28 +185,29 @@ export default function AggregateWelcome() {
         <div>
           <div style={sectionTitle}>Upcoming Milestones</div>
           {isLoading ? (
-            <div style={{ fontSize: 13, color: '#9ca3af' }}>Loading upcoming dates…</div>
+            <div style={{ fontSize: 13, color: T.muted }}>Loading upcoming dates…</div>
           ) : upcoming.length === 0 ? (
-            <div style={{ fontSize: 13, color: '#9ca3af', fontStyle: 'italic' }}>No upcoming milestones.</div>
+            <div style={{ fontSize: 13, color: T.muted, fontStyle: 'italic' }}>No upcoming milestones.</div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 200px))', gap: 8, justifyContent: 'start' }}>
               {upcoming.map((ev, i) => {
                 const color = eventColor(ev)
                 const startDay = localDateStr(ev.start_at)
                 const isNext = i === 0
                 return (
                   <div key={ev.id} style={{
-                    background: '#fff', border: `1px solid ${isNext ? color : 'rgba(29,37,103,0.08)'}`,
+                    background: T.cardBg, backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+                    border: `1px solid ${T.cardBorder}`, borderLeft: `3px solid ${color}`,   // subtle left accent, no full colored outline
                     borderRadius: 10, padding: '9px 11px', display: 'flex', flexDirection: 'column', gap: 3,
-                    boxShadow: isNext ? `0 2px 10px ${color}22` : '0 1px 3px rgba(0,0,0,0.04)',
+                    boxShadow: night ? '0 2px 10px rgba(0,0,0,0.18)' : '0 1px 4px rgba(29,37,103,0.06)',
                   }}>
                     {isNext && <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color }}>Next up</span>}
-                    <span style={{ fontSize: 15, fontWeight: 700, color: NAVY, lineHeight: 1.1 }}>{countdownLabel(startDay)}</span>
-                    <span style={{ fontSize: 12.5, fontWeight: 600, color: '#374151', display: 'flex', alignItems: 'center', gap: 5, lineHeight: 1.25 }}>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: T.cardText, lineHeight: 1.1 }}>{countdownLabel(startDay)}</span>
+                    <span style={{ fontSize: 12.5, fontWeight: 600, color: T.cardText, display: 'flex', alignItems: 'center', gap: 5, lineHeight: 1.25 }}>
                       {ev.is_milestone && <span style={{ color, fontSize: 10, flexShrink: 0 }}>★</span>}
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{ev.title}</span>
                     </span>
-                    <span style={{ fontSize: 10.5, color: '#9ca3af' }}>
+                    <span style={{ fontSize: 10.5, color: T.cardSub }}>
                       {eventTypeLabel(ev.event_type)} · {new Date(`${startDay}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </span>
                   </div>
@@ -191,7 +220,7 @@ export default function AggregateWelcome() {
 
       {/* Quiet failure: sections already fall back to empty states; surface a subtle note only. */}
       {isError && (
-        <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 14 }}>ASPIRE dates are unavailable right now.</div>
+        <div style={{ fontSize: 11.5, color: T.muted, marginTop: 14, position: 'relative', zIndex: 1 }}>ASPIRE dates are unavailable right now.</div>
       )}
     </div>
   )

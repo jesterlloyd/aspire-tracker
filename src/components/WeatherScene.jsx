@@ -1,3 +1,7 @@
+/* eslint-disable react-refresh/only-export-components */
+// (Intentionally exports the WeatherScene component alongside the useWelcomeWeather hook so the band
+//  background and the scene share ONE weather query. The disabled rule is a dev-only Fast-Refresh
+//  hint with no runtime/production impact.)
 // ASPIRE-WEATHER-4 / 4A: a LARGE, original HTML/SVG animated weather scene for the Aggregate welcome
 // band — a signature "sky moment" living in its own center-left sky strip (not a status chip beside
 // View Calendar). Fixed Cedars-Sinai / Los Angeles via Open-Meteo (NO key, NO geolocation, NO env
@@ -43,9 +47,22 @@ const KEYFRAMES = `
 @keyframes wx-fog { 0%{transform:translateX(-7px)} 50%{transform:translateX(7px)} 100%{transform:translateX(-7px)} }
 @keyframes wx-wind { 0%{transform:translateX(-12px);opacity:.2} 50%{opacity:.85} 100%{transform:translateX(16px);opacity:.2} }
 @keyframes wx-twinkle { 0%,100%{opacity:.25} 50%{opacity:1} }
-.wx-svg{ width:128px; height:auto; flex-shrink:0 }
-@media (max-width:760px){ .wx-svg{ width:104px } }
-@media (max-width:460px){ .wx-svg{ width:84px } }
+/* Weather HERO layer: the large graphic floats in the open center sky (between the narrow Today
+   cards on the left and the Upcoming card on the right). Overlays without adding band height. On
+   narrow it drops to static flow (stacked) so nothing overlaps. */
+.wx-layer{ position:absolute; left:30%; top:2px; z-index:0 }
+.wx-svg{ width:244px; height:auto; display:block }
+/* Caption sits IN FRONT of the graphic (higher z-index), lower-left, with a text-shadow so it stays
+   readable over clouds/moon. Anchored to the graphic's lower-left corner. */
+.wx-caption{ position:absolute; left:6px; bottom:6px; z-index:2 }
+@media (max-width:1100px){ .wx-layer{ left:26% } .wx-svg{ width:210px } }
+@media (max-width:900px){ .wx-layer{ left:22% } .wx-svg{ width:176px } }
+@media (max-width:760px){
+  .wx-layer{ position:static; left:auto; top:auto; margin-top:8px }
+  .wx-svg{ width:150px }
+  .wx-caption{ position:static; left:auto; bottom:auto; margin-top:4px }   /* stacks normally on narrow */
+}
+@media (max-width:460px){ .wx-svg{ width:120px } }
 @media (prefers-reduced-motion: reduce){ .wx-a{ animation:none !important } }
 `
 
@@ -134,8 +151,10 @@ function SceneSvg({ scene }) {
   return <svg {...svg}><g className="wx-a" style={anim('wx-drift', '9s')}><Cloud x={95} y={60} s={1.3} /></g></svg>
 }
 
-export default function WeatherScene() {
-  const { data } = useQuery({
+// Shared query — the band background (day/night theming) and this scene both read it. React Query
+// dedupes by key, so it's a single fetch. Same Open-Meteo source/params/mapping as before.
+export function useWelcomeWeather() {
+  return useQuery({
     queryKey: ['welcome_weather', 'los_angeles'],
     queryFn: async () => {
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,weather_code,wind_speed_10m,is_day&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&wind_speed_unit=kmh&timezone=America%2FLos_Angeles&forecast_days=1`
@@ -157,24 +176,36 @@ export default function WeatherScene() {
     retry: 1,
     refetchOnWindowFocus: false,
   })
+}
 
+export default function WeatherScene() {
+  const { data } = useWelcomeWeather()
   if (!data) return null // silent, non-blocking: hidden until data arrives, and hidden on failure
 
   const scene = mapScene(data.code, data.wind, data.isDay)
   const label = LABELS[scene]
+  const night = data.isDay === 0
+  // Caption IN FRONT of the graphic — light over the dark night sky, dark over the light day sky,
+  // each with a soft shadow so it reads over clouds/moon/sun. Restrained sizes.
+  const cTemp = night ? '#ffffff' : NAVY
+  const cCond = night ? 'rgba(255,255,255,0.92)' : '#334155'
+  const cLoc = night ? 'rgba(255,255,255,0.72)' : '#6b7280'
+  const shadow = night ? '0 1px 8px rgba(0,0,0,0.5)' : '0 1px 4px rgba(255,255,255,0.7)'
   return (
-    // Compact inline unit — text LEFT, large graphic RIGHT — placed in the band's center sky by the
-    // parent (no separate vertical strip; adds no standalone height). pointer-events:none so it never
-    // blocks clicks (View Calendar stays clickable). The band gradient shows through as sky.
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, pointerEvents: 'none', fontFamily: F }} title="Los Angeles weather">
+    // Absolute hero layer in the open center sky (parent band is position:relative). Large graphic
+    // behind; caption in front (higher z-index). pointer-events:none so View Calendar stays clickable.
+    <div className="wx-layer" style={{ pointerEvents: 'none', fontFamily: F }} title="Los Angeles weather">
       <style>{KEYFRAMES}</style>
-      <div style={{ lineHeight: 1.3, textAlign: 'left' }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: NAVY, whiteSpace: 'nowrap' }}>{data.temp}°{label ? ` · ${label}` : ''}</div>
-        <div style={{ fontSize: 11.5, color: '#6b7280', whiteSpace: 'nowrap' }}>
-          Los Angeles{data.hi != null && data.lo != null ? ` · H ${data.hi}° L ${data.lo}°` : ''}
+      <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', zIndex: 0 }}><SceneSvg scene={scene} /></div>
+        <div className="wx-caption" style={{ textAlign: 'left', lineHeight: 1.15, whiteSpace: 'nowrap', textShadow: shadow }}>
+          <div style={{ fontSize: 26, fontWeight: 700, color: cTemp, letterSpacing: '-0.01em' }}>{data.temp}°</div>
+          {label && <div style={{ fontSize: 14, fontWeight: 600, color: cCond, marginTop: 1 }}>{label}</div>}
+          <div style={{ fontSize: 11.5, color: cLoc, marginTop: 2 }}>
+            Los Angeles{data.hi != null && data.lo != null ? ` · H ${data.hi}° L ${data.lo}°` : ''}
+          </div>
         </div>
       </div>
-      <SceneSvg scene={scene} />
     </div>
   )
 }
