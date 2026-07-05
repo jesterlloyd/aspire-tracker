@@ -1,19 +1,23 @@
 // src/lib/connect/richCompose.js
 //
-// RICH-COMPOSE-1 Phase 1 — minimal, owner-gated feature flag for the ASPIRE Connect rich-text
-// manual composer. There is no general feature-flag system in this app, so this is a deliberately
-// tiny local flag:
+// RICH-COMPOSE-1 — minimal, owner-gated feature flag for the ASPIRE Connect rich-text manual
+// composer. There is no general feature-flag system in this app, so this is a deliberately tiny
+// local flag:
 //
-//   ON  ⇔  the user is the Owner  AND  localStorage['aspire.connect.richCompose'] === 'on'
+//   ON  ⇔  the user is the Owner  AND  localStorage['aspire.connect.richCompose'] !== 'off'
 //
-// Default OFF (no localStorage key → off). Non-owners can NEVER enable it (UX gate), and the SEND
-// endpoints independently require an Owner to accept body_format:'html' (authoritative server gate),
-// so a non-owner can never produce a rich send even by forging a request.
+// ASPIRE-DOMAIN-FEATURE-DEFAULTS-1: default is now ON for the Owner (no localStorage key → ON). The
+// original default was OFF and required a manual per-origin opt-in, which meant the feature silently
+// "disappeared" on the new aspireintelligence.app origin (a fresh origin has no localStorage). The flag
+// now defaults ON and localStorage acts as an explicit per-browser opt-OUT instead. Non-owners can
+// NEVER enable it (UX gate), and the SEND endpoints independently require an Owner to accept
+// body_format:'html' (authoritative server gate), so a non-owner can never produce a rich send even by
+// forging a request — flipping the default only affects what the single Owner account sees.
 //
-// To enable (Owner, this browser):   localStorage.setItem('aspire.connect.richCompose', 'on')
-// To roll back instantly:            localStorage.removeItem('aspire.connect.richCompose')
-//                                    (or set it to anything other than 'on')
-// Rolling back never touches saved drafts; an html draft simply degrades to plain text (below).
+// To opt OUT (Owner, this browser):  localStorage.setItem('aspire.connect.richCompose', 'off')
+// To re-enable / clear the opt-out:  localStorage.removeItem('aspire.connect.richCompose')
+//                                    (or set it to anything other than 'off')
+// Opting out never touches saved drafts; an html draft simply degrades to plain text (below).
 
 export const RICH_COMPOSE_FLAG_KEY = 'aspire.connect.richCompose';
 
@@ -28,9 +32,12 @@ export function isValidRichDoc(doc) {
 export function isRichComposeEnabled(isOwner) {
   if (!isOwner) return false;
   try {
-    return localStorage.getItem(RICH_COMPOSE_FLAG_KEY) === 'on';
+    // Default ON for Owners; localStorage is an explicit per-browser opt-OUT ('off').
+    return localStorage.getItem(RICH_COMPOSE_FLAG_KEY) !== 'off';
   } catch {
-    return false;
+    // Storage unavailable → keep the intended default (ON) for the Owner. The editor still
+    // falls back to the plain textarea on load failure, and the server gate is unchanged.
+    return true;
   }
 }
 
