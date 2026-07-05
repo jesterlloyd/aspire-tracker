@@ -11,6 +11,11 @@ import { aspireHandwrittenSignature } from '../handwrittenSignature.js';
 const NAVY  = '#1d2567';   // Nightfall - ASPIRE primary brand color
 const RAVEN = '#191919';   // Near-black body text
 
+// Minimal HTML escape for dynamic values (coordinator first name, school name) interpolated into the
+// HTML body, so a stray angle bracket in a record never breaks the markup. Subject/preheader are plain
+// text and are not escaped. No behavior change: values, counts, and detection logic are untouched.
+const escHtml = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
 // ── Category metadata ─────────────────────────────────────────────────────────
 // All sections use a unified navy left-border treatment for a restrained,
 // coordinated appearance.
@@ -69,24 +74,29 @@ export function buildCoordinatorWeeklyDigestEmail({
   const totalCount = CATEGORIES.reduce((sum, cat) =>
     sum + (transitions[cat.key]?.length || 0), 0);
 
-  const subject   = `ASPIRE update: interview and placement status for ${schoolDisplayName}`;
+  const subject   = `ASPIRE Weekly Update: ${schoolDisplayName}`;
   const preheader = `${totalCount} ASPIRE update${totalCount === 1 ? '' : 's'} for ${schoolDisplayName} (${dateRange}).`;
+
+  // Personalized greeting: use the coordinator's first name when present; fall back to a plain
+  // "Good morning," when it is missing (never render a literal placeholder or "undefined"/"null").
+  const firstName = String(coordinatorFirstName || '').trim();
+  const greeting  = firstName ? `Good morning ${escHtml(firstName)},` : 'Good morning,';
 
   const sections = CATEGORIES
     .map(cat => renderSection(cat, transitions[cat.key]))
     .join('');
 
   const body = `
-<p style="margin:0 0 20px;">Good morning. I hope you are doing well. Here is this week&rsquo;s ASPIRE update on your students&rsquo; interview and placement activity.</p>
+<p style="margin:0 0 6px;">${greeting}</p>
+<p style="margin:0 0 20px;">I hope you are doing well. Please see this week&rsquo;s ASPIRE update for your students&rsquo; interview and placement activity.</p>
 
 ${sections}
 
-<p style="margin:0 0 16px;">
-  That&rsquo;s ${totalCount} update${totalCount === 1 ? '' : 's'} from ${schoolDisplayName}.
-  If you have questions about any of these students, email Jester at <a href="mailto:jesterlloyd.bautista@cshs.org" style="color:${NAVY};">jesterlloyd.bautista@cshs.org</a>.
-</p>
+<p style="margin:0 0 16px;">This reflects ${totalCount} total update${totalCount === 1 ? '' : 's'} for ${escHtml(schoolDisplayName)} this week.</p>
 
-<p style="margin:0;">Thank you.</p>
+<p style="margin:0 0 16px;">For any questions about these students or their ASPIRE placement activity, please email Jester directly at <a href="mailto:jesterlloyd.bautista@cshs.org" style="color:${NAVY};">jesterlloyd.bautista@cshs.org</a>.</p>
+
+<p style="margin:0;">Thank you for your continued partnership.</p>
 ${aspireHandwrittenSignature('Kind regards,')}`;
 
   return { subject, html: aspireEmailShell({ body, preheader }) };
