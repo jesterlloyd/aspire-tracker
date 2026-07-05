@@ -5,9 +5,12 @@
 // Open-Meteo request + React Query key (in memory), never logged, never persisted, never shown in the
 // UI (the label is "Current location", not raw coords). No API key, no server, no IP geolocation.
 //
-// Open-Meteo has no reverse-geocoding endpoint, so a granted location shows the neutral label
-// "Current location" rather than a city name (adding a third-party reverse geocoder needs approval).
+// ASPIRE-POLISH-6A: a granted location is labeled with its nearest Southern California city (e.g.
+// "Palmdale") via a bundled, fully-offline centroid lookup (findNearestSocalCity) — NO third-party
+// reverse geocoder, NO server, NO extra network request. If the location is outside the SoCal table's
+// range (nearest city beyond the threshold), the neutral "Current location" label is kept.
 import { useEffect, useState } from 'react'
+import { findNearestSocalCity } from './socalCities'
 
 // Fixed Cedars-Sinai / Los Angeles fallback (unchanged from prior weather work).
 export const LA_FALLBACK = { lat: 34.076, lon: -118.380, label: 'Los Angeles', geo: false }
@@ -27,7 +30,15 @@ function resolveLocation() {
     const timer = setTimeout(() => done(LA_FALLBACK), 6000)
     try {
       navigator.geolocation.getCurrentPosition(
-        (pos) => { clearTimeout(timer); done({ lat: round2(pos.coords.latitude), lon: round2(pos.coords.longitude), label: 'Current location', geo: true }) },
+        (pos) => {
+          clearTimeout(timer)
+          const lat = round2(pos.coords.latitude)
+          const lon = round2(pos.coords.longitude)
+          // Nearest bundled SoCal city (offline lookup on the already-rounded coords); neutral label
+          // if the user is outside the region. Coordinates are never persisted, logged, or shown.
+          const city = findNearestSocalCity(lat, lon)
+          done({ lat, lon, label: city || 'Current location', geo: true })
+        },
         () => { clearTimeout(timer); done(LA_FALLBACK) },
         { timeout: 6000, maximumAge: 30 * 60 * 1000, enableHighAccuracy: false },
       )
