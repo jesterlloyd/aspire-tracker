@@ -1,9 +1,24 @@
 import React, { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { toLocalDateStr } from '../lib/designTokens'
+import { getUsHolidaysForRange } from '../lib/usHolidays'
+import { eventOnDate } from '../lib/aspireEvents'
+
+// ASPIRE-POLISH-6B: mini-calendar day indicators. Subtle 3px dots, priority-ordered, max 3 per day.
+// Colors: holiday = amber (matches the holiday chip); interview/booked = navy accent; ASPIRE event =
+// a consistent violet (never the per-type event color, so an event never reads like the navy
+// interview dot); availability = teal (distinct from navy so the two never blur together).
+const MINI_DOT = {
+  holiday:      { color: '#D97706', label: 'Holiday' },
+  interview:    { color: '#1D2567', label: 'Interview' },
+  aspireEvent:  { color: '#7C3AED', label: 'ASPIRE event' },
+  availability: { color: '#0D9488', label: 'Availability' },
+}
+// Priority order when a day has more than three indicators (show the first three).
+const MINI_DOT_ORDER = ['holiday', 'interview', 'aspireEvent', 'availability']
 
 // ─── Mini Calendar ────────────────────────────────────────────────────────────
-function MiniCalendar({ blocks, slots, selectedDate, onSelectDate }) {
+function MiniCalendar({ blocks, slots, aspireEvents, selectedDate, onSelectDate }) {
   const [viewMonth, setViewMonth] = useState(() => {
     const d = new Date()
     return { year: d.getFullYear(), month: d.getMonth() }
@@ -12,12 +27,34 @@ function MiniCalendar({ blocks, slots, selectedDate, onSelectDate }) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const activeDays = useMemo(() => {
+  // Booked interviews (status 'booked', or legacy is_booked) → interview dot.
+  const interviewDays = useMemo(() => {
+    const days = new Set()
+    ;(slots || []).forEach(s => {
+      const status = s.status || (s.is_booked ? 'booked' : 'available')
+      if (s.slot_date && status === 'booked') days.add(s.slot_date)
+    })
+    return days
+  }, [slots])
+
+  // Availability blocks → availability dot.
+  const availabilityDays = useMemo(() => {
     const days = new Set()
     ;(blocks || []).forEach(b => { if (b.block_date) days.add(b.block_date) })
-    ;(slots  || []).filter(s => s.is_booked).forEach(s => { if (s.slot_date) days.add(s.slot_date) })
     return days
-  }, [blocks, slots])
+  }, [blocks])
+
+  // US holidays for the mini-calendar's VISIBLE month (computed locally so holiday dots stay correct
+  // even when the mini navigates to a month the main grid isn't showing). Pure client-side, no query.
+  const holidayDays = useMemo(() => {
+    const mm = String(viewMonth.month + 1).padStart(2, '0')
+    const last = new Date(viewMonth.year, viewMonth.month + 1, 0).getDate()
+    const from = `${viewMonth.year}-${mm}-01`
+    const to = `${viewMonth.year}-${mm}-${String(last).padStart(2, '0')}`
+    const days = new Set()
+    getUsHolidaysForRange(from, to).forEach(h => days.add(h.date))
+    return days
+  }, [viewMonth])
 
   const daysInMonth    = new Date(viewMonth.year, viewMonth.month + 1, 0).getDate()
   const firstDayOfWeek = new Date(viewMonth.year, viewMonth.month, 1).getDay()
@@ -66,11 +103,26 @@ function MiniCalendar({ blocks, slots, selectedDate, onSelectDate }) {
           cellD.setHours(0, 0, 0, 0)
           const isToday    = cellD.getTime() === today.getTime()
           const isSelected = dateStr === selectedDate
-          const hasEvents  = activeDays.has(dateStr)
+          // Which indicators this day has, evaluated in priority order and capped at 3.
+          const present = {
+            holiday:      holidayDays.has(dateStr),
+            interview:    interviewDays.has(dateStr),
+            aspireEvent:  (aspireEvents || []).some(ev => eventOnDate(ev, dateStr)),
+            availability: availabilityDays.has(dateStr),
+          }
+          const activeKeys = MINI_DOT_ORDER.filter(k => present[k])
+          const shownKeys  = activeKeys.slice(0, 3)
+          // Accessibility: summarize indicators on the cell (e.g. "July 4: Holiday, ASPIRE event").
+          const dayLabel = new Date(viewMonth.year, viewMonth.month, day)
+            .toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+          const cellTitle = activeKeys.length
+            ? `${dayLabel}: ${activeKeys.map(k => MINI_DOT[k].label).join(', ')}`
+            : undefined
           return (
             <div
               key={dateStr}
               onClick={() => onSelectDate(dateStr)}
+              title={cellTitle}
               style={{
                 display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
                 height:'28px', borderRadius:'6px', cursor:'pointer',
@@ -83,8 +135,17 @@ function MiniCalendar({ blocks, slots, selectedDate, onSelectDate }) {
               <span style={{ fontFamily:'DM Sans', fontWeight: isToday||isSelected ? 700 : 400, fontSize:'11px', color: isSelected ? '#ffffff' : isToday ? '#1D2567' : '#374151', lineHeight:1 }}>
                 {day}
               </span>
-              {hasEvents && (
-                <div style={{ width:'3px', height:'3px', borderRadius:'50%', marginTop:'2px', background: isSelected ? 'rgba(255,255,255,0.6)' : '#1D2567' }} />
+              {shownKeys.length > 0 && (
+                <div style={{ display:'flex', gap:'2px', marginTop:'2px', height:'3px', alignItems:'center' }}>
+                  {shownKeys.map(k => (
+                    <div key={k} style={{
+                      width:'3px', height:'3px', borderRadius:'50%',
+                      // On the selected (navy) cell the category colors lose contrast, so render white
+                      // dots there; the count is preserved and the cell title still names each type.
+                      background: isSelected ? 'rgba(255,255,255,0.85)' : MINI_DOT[k].color,
+                    }} />
+                  ))}
+                </div>
               )}
             </div>
           )
@@ -204,10 +265,10 @@ function TodaySnapshot({ slots }) {
 }
 
 // ─── Main Sidebar Export ──────────────────────────────────────────────────────
-export default function CalendarSidebar({ blocks, slots, selectedDate, onSelectDate }) {
+export default function CalendarSidebar({ blocks, slots, aspireEvents, selectedDate, onSelectDate }) {
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
-      <MiniCalendar blocks={blocks} slots={slots} selectedDate={selectedDate} onSelectDate={onSelectDate} />
+      <MiniCalendar blocks={blocks} slots={slots} aspireEvents={aspireEvents} selectedDate={selectedDate} onSelectDate={onSelectDate} />
       <TodaySnapshot slots={slots} />
     </div>
   )

@@ -1450,6 +1450,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
           <CalendarSidebar
             blocks={blocks}
             slots={slots}
+            aspireEvents={aspireEvents}
             selectedDate={selectedDate}
             onSelectDate={handleMiniCalendarSelect}
           />
