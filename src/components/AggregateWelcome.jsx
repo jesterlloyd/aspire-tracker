@@ -167,7 +167,7 @@ export default function AggregateWelcome() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {/* Holiday(s) first - amber glass card, read-only, distinct from ASPIRE events. */}
               {todayHolidays.map(h => (
-                <div key={h.name} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, maxWidth: 360, background: T.cardBg, backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: `1px solid ${T.cardBorder}`, borderLeft: '3px solid #D97706', borderRadius: 8, padding: '7px 11px', boxShadow: night ? '0 2px 10px rgba(0,0,0,0.18)' : '0 1px 4px rgba(29,37,103,0.06)' }}>
+                <div key={h.name} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, maxWidth: 360, background: T.cardBg, backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: `1px solid ${T.cardBorder}`, borderRadius: 8, padding: '7px 11px', boxShadow: night ? '0 2px 10px rgba(0,0,0,0.18)' : '0 1px 4px rgba(29,37,103,0.06)' }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, color: T.cardText, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#D97706', flexShrink: 0 }} />
@@ -180,7 +180,7 @@ export default function AggregateWelcome() {
               {todayEvents.map(ev => {
                 const color = eventColor(ev)
                 return (
-                  <div key={ev.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, maxWidth: 360, background: T.cardBg, backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: `1px solid ${T.cardBorder}`, borderLeft: `3px solid ${color}`, borderRadius: 8, padding: '7px 11px', boxShadow: night ? '0 2px 10px rgba(0,0,0,0.18)' : '0 1px 4px rgba(29,37,103,0.06)' }}>
+                  <div key={ev.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, maxWidth: 360, background: T.cardBg, backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: `1px solid ${T.cardBorder}`, borderRadius: 8, padding: '7px 11px', boxShadow: night ? '0 2px 10px rgba(0,0,0,0.18)' : '0 1px 4px rgba(29,37,103,0.06)' }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 600, color: T.cardText, display: 'flex', alignItems: 'center', gap: 6 }}>
                         {ev.is_milestone && <span style={{ color, fontSize: 11 }}>★</span>}
@@ -212,7 +212,7 @@ export default function AggregateWelcome() {
                 return (
                   <div key={ev.id} style={{
                     background: T.cardBg, backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
-                    border: `1px solid ${T.cardBorder}`, borderLeft: `3px solid ${color}`,   // subtle left accent, no full colored outline
+                    border: `1px solid ${T.cardBorder}`,
                     borderRadius: 10, padding: '9px 11px', display: 'flex', flexDirection: 'column', gap: 3,
                     boxShadow: night ? '0 2px 10px rgba(0,0,0,0.18)' : '0 1px 4px rgba(29,37,103,0.06)',
                   }}>
