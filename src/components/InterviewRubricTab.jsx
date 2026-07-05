@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { buildOutlookComposeUrl } from '../lib/outlookCompose'
+import { appUrl } from '../lib/appUrl'
 import Tooltip from './ui/Tooltip'
 import { supabase } from '../lib/supabase'
 import { displayName } from '../lib/utils'
@@ -82,7 +83,7 @@ Thank you for completing your ASPIRE Student Profile. The next step in the proce
 
 Please use the link below to view available times and select one that works for your schedule:
 
-https://aspire-tracker.vercel.app/interview-schedule
+${appUrl('/interview-schedule')}
 
 When prompted, enter your school email address to access your scheduling page.
 

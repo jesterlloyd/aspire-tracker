@@ -14,6 +14,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { normalizeEmailForLookup } from '../src/lib/emailUtils.js'
+import { emailBaseUrl } from '../lib/server/appUrl.js'
 import { sanitizeWeekdays, sanitizeIsoDates, coerceBoolOrNull, coerceMinDaysOrNull } from '../src/lib/availability.js'
 
 function getDb() {
@@ -218,8 +219,10 @@ export default async function handler(req, res) {
     if (evLogErr) console.warn('[school-form-submit] program_events log error:', evLogErr.message)
   }
 
-  // Fire-and-forget: form_received notifications for each new student
-  const baseUrl = process.env.VITE_APP_URL || 'https://aspire-tracker.vercel.app'
+  // Fire-and-forget: form_received notifications for each new student. Internal
+  // same-deployment call — canonical origin in Production, forwarded host on
+  // Preview so it hits the right deployment's endpoint. See lib/server/appUrl.js.
+  const baseUrl = emailBaseUrl(req)
   for (const s of added) {
     fetch(`${baseUrl}/api/form-received-notification`, {
       method: 'POST',

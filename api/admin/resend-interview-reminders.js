@@ -6,7 +6,7 @@
 // Authentication: same ADMIN_NOTIFICATION_TOKEN used by send-notification.js
 //
 // Usage (POST):
-//   curl -X POST https://aspire-tracker.vercel.app/api/admin/resend-interview-reminders \
+//   curl -X POST https://aspireintelligence.app/api/admin/resend-interview-reminders \
 //     -H "x-admin-token: $ADMIN_NOTIFICATION_TOKEN" \
 //     -H "Content-Type: application/json" \
 //     -d '{"slot_date":"2026-05-21"}'

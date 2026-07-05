@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { openOutlookCompose } from '../lib/outlookCompose'
+import { appUrl } from '../lib/appUrl'
 import Tooltip from './ui/Tooltip'
 import { useQuery } from '@tanstack/react-query'
 import { useUpdatedLabel, KPICell } from './KPIBand'
@@ -532,7 +533,7 @@ Welcome to the ASPIRE Program at Cedars-Sinai. Your final semester is here, and 
 
 Please complete your ASPIRE Intake Form using the link below. This form helps us learn your goals and unit interests and is the first step in matching you with the right clinical environment and preceptor.
 
-Complete your form here: https://aspire-tracker.vercel.app/student-form
+Complete your form here: ${appUrl('/student-form')}
 
 What happens next: After you submit, our team will invite you to a brief interview with Nursing Professional Development. From there, we will collaborate with unit leaders to match you with a unit and preceptor, then schedule you for orientation.
 

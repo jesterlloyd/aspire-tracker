@@ -6,6 +6,7 @@
 
 import { buildSystemPrompt, GOVERNED_KNOWLEDGE_MARKER, getRecentCommunications, getUnitResponseStats, getUnitResponses, getUnitLeadersForKeith } from '../src/lib/keithKnowledge.js';
 import { retrieveGovernedKnowledge } from '../lib/server/keith/knowledgeRetrieval.js';
+import { appUrl } from '../lib/server/appUrl.js';
 import { computeStatusCounts, STATUS_DEFINITIONS } from '../src/lib/derivations/cohortStatus.js';
 import { summarizeCsLink } from '../src/lib/derivations/csLink.js';
 import { selectActiveWindowRows, mergeOnCampusNow, openShiftUnit, openShiftPreceptor } from '../src/lib/onCampusNow.js';
@@ -154,7 +155,7 @@ JesterLloyd.Bautista@cshs.org | 310-248-8964
 STUDENT FORM EMAIL when asked:
 Subject: ASPIRE Program Student Form - Action Required
 Dear [First Name],
-You have been identified as a potential ASPIRE candidate. Please complete your profile at: https://aspire-tracker.vercel.app/student-form
+You have been identified as a potential ASPIRE candidate. Please complete your profile at: ${appUrl('/student-form')}
 Kind regards,
 Jester Lloyd Bautista PhD MSN RN NPD-BC CCRN SCRN
 JesterLloyd.Bautista@cshs.org | 310-248-8964
@@ -162,7 +163,7 @@ JesterLloyd.Bautista@cshs.org | 310-248-8964
 SCHEDULING LINK EMAIL when asked:
 Subject: Schedule Your ASPIRE Interview
 Dear [First Name],
-Thank you for completing your ASPIRE Student Profile. Please schedule your interview at: https://aspire-tracker.vercel.app/interview-schedule
+Thank you for completing your ASPIRE Student Profile. Please schedule your interview at: ${appUrl('/interview-schedule')}
 Kind regards,
 Jester Lloyd Bautista PhD MSN RN NPD-BC CCRN SCRN
 JesterLloyd.Bautista@cshs.org | 310-248-8964
@@ -171,11 +172,11 @@ KEY EXTERNAL LINKS:
 Post-program student survey: https://forms.cloud.microsoft/r/GWAdKLuM8J
 Preceptor evaluation: https://forms.cloud.microsoft/r/brGDMzFXgy
 Pre-program student survey: https://forms.cloud.microsoft/r/6TX6sV76ga
-Student form: https://aspire-tracker.vercel.app/student-form
-School form: https://aspire-tracker.vercel.app/school-form
-Unit form: https://aspire-tracker.vercel.app/unit-form
-Interview schedule: https://aspire-tracker.vercel.app/interview-schedule
-Shift log: https://aspire-tracker.vercel.app/shift-log
+Student form: ${appUrl('/student-form')}
+School form: ${appUrl('/school-form')}
+Unit form: ${appUrl('/unit-form')}
+Interview schedule: ${appUrl('/interview-schedule')}
+Shift log: ${appUrl('/shift-log')}
 
 PRIVACY RULES: Never include DOB, last 4 SSN, or sensitive identifiers. Never fabricate student data. Draft emails only, never send automatically.
 

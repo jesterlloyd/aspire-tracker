@@ -39,6 +39,7 @@
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { generateToken } from '../lib/server/evaluation/tokens.js';
+import { emailBaseUrl } from '../lib/server/appUrl.js';
 
 // ── Reissue classifier (INLINED) ────────────────────────────────────────────────────────────────
 // SURVEY-REISSUE-1 HOTFIX-4: inlined from the former api/lib/server/evaluation/assignment_reissue.js
@@ -426,15 +427,11 @@ async function _handler(req, res) {
   // /evaluation/readiness page reads it via window.location.hash and strips it
   // from the address bar immediately.
   //
-  // Base URL: derived from Vercel's forwarded headers so Preview deployments
-  // produce Preview links and Production produces Production links. A Preview
-  // token cannot validate against Production's database — using the correct
-  // host eliminates that mismatch.
-  const proto   = req.headers['x-forwarded-proto'] || 'https';
-  const host    = req.headers['x-forwarded-host'] || req.headers['host'];
-  const baseUrl = host
-    ? `${proto}://${host}`
-    : (process.env.VITE_APP_URL || 'https://aspire-tracker.vercel.app');
+  // Base URL for the survey link: the canonical domain (aspireintelligence.app)
+  // in production; on Preview deployments the forwarded host so a Preview token
+  // validates against the Preview database (a Preview token cannot validate
+  // against Production). See lib/server/appUrl.js.
+  const baseUrl = emailBaseUrl(req);
   const surveyUrl = `${baseUrl}/evaluation/readiness#t=${rawToken}`;
 
   const resolvedEmail = student.personal_email || student.school_email || null;

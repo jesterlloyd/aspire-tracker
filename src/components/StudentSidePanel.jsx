@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { displayName, getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../lib/utils'
+import { appUrl } from '../lib/appUrl'
 import StudentAvatar from './StudentAvatar'
 import {
   ASPIRE_STATUSES, ASPIRE_STATUS_CONFIG, NGRP_OUTCOMES, INTERVIEW_OUTCOMES,
@@ -1202,7 +1203,7 @@ export default function StudentSidePanel({
                 <button className="btn btn-outline-modal" style={{ fontSize:12, padding:'5px 12px' }}
                   onClick={() => {
                     const subject = 'Schedule Your ASPIRE Interview'
-                    const body = `Dear ${data.first_name || 'ASPIRE Student'},\n\nThank you for completing your ASPIRE Student Profile. The next step in the process is to schedule your interview with the Nursing Professional Development team.\n\nPlease use the link below to view available times and select one that works for your schedule:\n\nhttps://aspire-tracker.vercel.app/interview-schedule\n\nWhen prompted, enter your school email address to access your scheduling page.\n\nYour interview will be conducted via Microsoft Teams. The meeting link will be sent to you separately after you book your slot.\n\nIf you have any questions, please don't hesitate to reach out.\n\nWarm regards,\nJester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN\nBrawerman Nursing Institute | Cedars-Sinai Medical Center\nJesterLloyd.Bautista@cshs.org | 310-248-8964`
+                    const body = `Dear ${data.first_name || 'ASPIRE Student'},\n\nThank you for completing your ASPIRE Student Profile. The next step in the process is to schedule your interview with the Nursing Professional Development team.\n\nPlease use the link below to view available times and select one that works for your schedule:\n\n${appUrl('/interview-schedule')}\n\nWhen prompted, enter your school email address to access your scheduling page.\n\nYour interview will be conducted via Microsoft Teams. The meeting link will be sent to you separately after you book your slot.\n\nIf you have any questions, please don't hesitate to reach out.\n\nWarm regards,\nJester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN\nBrawerman Nursing Institute | Cedars-Sinai Medical Center\nJesterLloyd.Bautista@cshs.org | 310-248-8964`
                     openOutlookCompose({ to: data.school_email, subject, body })
                   }}>
                   ✉ Send Scheduling Link

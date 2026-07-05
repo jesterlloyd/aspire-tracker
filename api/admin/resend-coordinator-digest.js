@@ -9,7 +9,7 @@
 //
 // Usage:
 //   # Default: last 7 days (same window the Friday cron would use right now)
-//   curl -X POST https://aspire-tracker.vercel.app/api/admin/resend-coordinator-digest \
+//   curl -X POST https://aspireintelligence.app/api/admin/resend-coordinator-digest \
 //     -H "x-admin-token: $ADMIN_NOTIFICATION_TOKEN" \
 //     -H "Content-Type: application/json" \
 //     -d '{}'

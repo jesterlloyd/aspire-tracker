@@ -10,10 +10,12 @@
 //
 // Asset is NOT created or edited here; it is referenced by its existing public URL.
 
+import { appUrl } from '../appUrl.js';
+
 const NAVY   = '#1d2567';
 const RAVEN  = '#191919';
 const CS_RED = '#dc1e34';
-const JESTER_SIGNATURE_GIF = 'https://aspire-tracker.vercel.app/signature-jester.gif';
+const JESTER_SIGNATURE_GIF = appUrl('/signature-jester.gif');
 
 // Returns: closing line + handwritten GIF + typed name/credentials/role/institute/contact block.
 // The typed block mirrors aspireSystemSignature; only the GIF insertion is unique to these templates.

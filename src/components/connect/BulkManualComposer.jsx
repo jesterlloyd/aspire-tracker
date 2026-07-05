@@ -17,6 +17,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
+import { CANONICAL_APP_URL } from '../../lib/appUrl'
 import { isValidEmail } from '../../lib/notifications/studentRecipient'
 import { getStudentPreferredFirstName } from '../../lib/studentNameFormatters'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
@@ -134,10 +135,10 @@ function recipientSourceLabel(r) {
   return 'Manual'
 }
 
-// App origin for static public links (browser origin, with a safe production fallback).
+// App origin for static public links (browser origin, with the canonical domain as fallback).
 const APP_ORIGIN = (typeof window !== 'undefined' && window.location && window.location.origin)
   ? window.location.origin
-  : 'https://aspire-tracker.vercel.app'
+  : CANONICAL_APP_URL
 
 // Static public-link substitutions per template. These are public, tokenless routes — never
 // tokenized/secure links. Deadlines and other [placeholders] stay editable. Announcement keeps

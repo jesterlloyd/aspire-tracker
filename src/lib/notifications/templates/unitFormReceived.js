@@ -11,6 +11,7 @@
 import { getGreetingName } from '../greetings.js';
 import { aspireEmailShell } from '../../../../lib/server/email/aspireShell.js';
 import { aspireHandwrittenSignature } from '../handwrittenSignature.js';
+import { appUrl } from '../../appUrl.js';
 
 const NAVY     = '#1d2567';
 const SAND     = '#F4F1EC';
@@ -100,7 +101,7 @@ function buildInternalAlertHtml(ctx) {
 ${responseSummary}
 </td></tr>
 </table>
-<p style="margin:0 0 12px;font-size:13px;color:#666;">View in app: <a href="https://aspire-tracker.vercel.app" style="color:${NAVY};">ASPIRE Intelligence</a></p>`;
+<p style="margin:0 0 12px;font-size:13px;color:#666;">View in app: <a href="${appUrl()}" style="color:${NAVY};">ASPIRE Intelligence</a></p>`;
 }
 
 export const unitFormReceived = {

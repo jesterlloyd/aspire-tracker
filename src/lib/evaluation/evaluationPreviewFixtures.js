@@ -15,10 +15,11 @@
 
 import { buildPreceptorInvitationEmail, formatExpiresAt } from '../../../lib/server/evaluation/preceptorEmailTemplates.js';
 import { buildStudentEvalInvitationEmail } from '../../../lib/server/evaluation/studentEvalEmailTemplates.js';
+import { appUrl } from '../appUrl.js';
 
 // Obvious, non-live preview URLs. `#t=preview-token` makes clear this is not a real tokenized link.
-const PRECEPTOR_PREVIEW_URL = 'https://aspire-tracker.vercel.app/evaluation/feedback#t=preview-token';
-const STUDENT_PREVIEW_URL   = 'https://aspire-tracker.vercel.app/evaluation/preceptor-unit#t=preview-token';
+const PRECEPTOR_PREVIEW_URL = `${appUrl('/evaluation/feedback')}#t=preview-token`;
+const STUDENT_PREVIEW_URL   = `${appUrl('/evaluation/preceptor-unit')}#t=preview-token`;
 
 // Reasonable future expiry (~2 weeks out), formatted with the builders' own helper.
 function previewExpiresAtHuman() {

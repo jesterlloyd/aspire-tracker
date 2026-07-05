@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { buildUnitLeaderEmail } from '../lib/emailUtils'
 import { buildOutlookComposeUrl } from '../lib/outlookCompose'
+import { appUrl } from '../lib/appUrl'
 import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 export { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { useAuth } from '../contexts/AuthContext'
@@ -154,7 +155,7 @@ You have been identified as a potential candidate for the ASPIRE Program (Affili
 
 To begin the process, please complete your ASPIRE Student Profile using the link below:
 
-https://aspire-tracker.vercel.app/student-form
+${appUrl('/student-form')}
 
 This form collects your personal information, clinical interests, and unit preferences. It should take approximately 10 to 15 minutes to complete.
 
@@ -171,7 +172,7 @@ Thank you for completing your ASPIRE Student Profile. The next step is to schedu
 
 Please use the link below to view available times and select one that works for your schedule:
 
-https://aspire-tracker.vercel.app/interview-schedule
+${appUrl('/interview-schedule')}
 
 When prompted, enter your school email address to access the scheduling page.
 

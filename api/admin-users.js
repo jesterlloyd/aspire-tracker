@@ -23,6 +23,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
+import { appUrl } from '../lib/server/appUrl.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PERMITTED_ROLES_FOR_UPDATE = ['admin', 'interviewer', 'viewer'];
@@ -229,8 +230,12 @@ export default async function handler(req, res) {
     }
     const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
     const authClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    // ASPIRE-DOMAIN-CANONICAL-1: canonical reset redirect. aspireintelligence.app
+    // is in the Supabase Auth URL allow-list (Site URL + Redirect URLs configured),
+    // so this redirectTo is accepted. The legacy vercel.app domain remains allow-listed
+    // as a fallback.
     const { error: resetError } = await authClient.auth.resetPasswordForEmail(target.email, {
-      redirectTo: 'https://aspire-tracker.vercel.app/auth/reset-password',
+      redirectTo: appUrl('/auth/reset-password'),
     });
     if (resetError) {
       console.log('[admin-users] password reset dispatch failed', { callerRole: auth.role, targetProfileId: target.id, request_id: requestId, message: resetError.message });

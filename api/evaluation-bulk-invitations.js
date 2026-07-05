@@ -36,6 +36,7 @@
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { generateToken } from '../lib/server/evaluation/tokens.js';
+import { emailBaseUrl } from '../lib/server/appUrl.js';
 
 // ── Reissue classifier (INLINED) ────────────────────────────────────────────────────────────────
 // SURVEY-REISSUE-1 HOTFIX-4: inlined from the former api/lib/server/evaluation/assignment_reissue.js
@@ -237,12 +238,9 @@ async function _handler(req, res) {
   }
 
   // Derive URL base from Vercel forwarded headers (same logic as single endpoint).
-  // Preview deployments produce Preview links; Production produces Production links.
-  const proto   = req.headers['x-forwarded-proto'] || 'https';
-  const host    = req.headers['x-forwarded-host'] || req.headers['host'];
-  const baseUrl = host
-    ? `${proto}://${host}`
-    : (process.env.VITE_APP_URL || 'https://aspire-tracker.vercel.app');
+  // Production produces canonical (aspireintelligence.app) links; Preview uses the
+  // forwarded host so Preview-token links validate against Preview. See lib/server/appUrl.js.
+  const baseUrl = emailBaseUrl(req);
 
   const now = new Date();
   const tokenExpiresAt = new Date(expiresAt.getTime() + TOKEN_GRACE_DAYS * 24 * 60 * 60 * 1000);

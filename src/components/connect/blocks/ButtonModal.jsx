@@ -53,7 +53,7 @@ export default function ButtonModal({ open, mode = 'insert', initialLabel = '', 
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', margin: '14px 0 6px' }}>Button URL</label>
           <input value={url} onChange={e => { setUrl(e.target.value); setError('') }}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submit() } }}
-            placeholder="https://aspire-tracker.vercel.app/... or name@example.edu" style={field} />
+            placeholder="https://aspireintelligence.app/... or name@example.edu" style={field} />
           <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 6, lineHeight: 1.5 }}>Only https and email links are allowed. A link without a protocol becomes https.</div>
           {error && <div style={{ fontSize: 12, color: '#b91c1c', marginTop: 10 }}>{error}</div>}
         </div>

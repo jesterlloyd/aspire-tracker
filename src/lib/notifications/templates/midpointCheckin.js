@@ -10,6 +10,7 @@
 import { escapeHtml } from '../../htmlEscape.js';
 import { aspireEmailShell } from '../../../../lib/server/email/aspireShell.js';
 import { renderEmailNote } from '../../../../lib/server/email/emailPrimitives.js';
+import { appUrl } from '../../appUrl.js';
 
 const NAVY   = '#1d2567';
 const RAVEN  = '#191919';
@@ -17,7 +18,7 @@ const CS_RED = '#dc1e34';
 
 // Handwritten-signature GIF — the SAME existing public asset used by ASPIRE Connect manual Outreach.
 // Midpoint-only exception; no other automated email receives it. Asset is not created or edited here.
-const JESTER_SIGNATURE_GIF = 'https://aspire-tracker.vercel.app/signature-jester.gif';
+const JESTER_SIGNATURE_GIF = appUrl('/signature-jester.gif');
 
 export function buildMidpointCheckinEmail({ firstName, approvedHours, hoursRequired, unitName }) {
   const subject   = 'ASPIRE Mid-Rotation Check-In';

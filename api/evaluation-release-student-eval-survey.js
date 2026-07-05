@@ -25,6 +25,7 @@ import { Resend } from 'resend';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { generateToken } from '../lib/server/evaluation/tokens.js';
 import { buildStudentEvalInvitationEmail, formatExpiresAt } from '../lib/server/evaluation/studentEvalEmailTemplates.js';
+import { emailBaseUrl } from '../lib/server/appUrl.js';
 import { classifyStudentEvalCohort } from '../src/lib/evaluation/studentEvalDueDetection.js';
 import { getStudentPreferredFirstName } from '../src/lib/studentNameFormatters.js';
 
@@ -274,9 +275,8 @@ async function _handler(req, res) {
   }
 
   // ── 10. Build survey URL — raw token only in the email, never stored/logged. ─────
-  const proto   = req.headers['x-forwarded-proto'] || 'https';
-  const host    = req.headers['x-forwarded-host'] || req.headers['host'];
-  const baseUrl = host ? `${proto}://${host}` : (process.env.VITE_APP_URL || 'https://aspire-tracker.vercel.app');
+  // Canonical domain in Production; forwarded host on Preview. See lib/server/appUrl.js.
+  const baseUrl = emailBaseUrl(req);
   const surveyUrl = `${baseUrl}/evaluation/experience#t=${rawToken}`;
   const expiresAtHuman = formatExpiresAt(expiresAt.toISOString());
   const studentFirstName = getStudentPreferredFirstName(student);  // preferred → legal; '' keeps 'Hello,' fallback

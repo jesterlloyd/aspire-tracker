@@ -22,6 +22,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
+import { appUrl } from '../lib/server/appUrl.js';
 
 const PERMITTED_INVITE_ROLES = ['admin', 'interviewer', 'viewer'];
 
@@ -146,9 +147,12 @@ export default async function handler(req, res) {
   const supabaseAdmin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
   try {
+    // ASPIRE-DOMAIN-CANONICAL-1: canonical invite redirect. aspireintelligence.app
+    // is in the Supabase Auth URL allow-list, so this redirectTo is accepted; the
+    // legacy vercel.app domain remains allow-listed as a fallback.
     const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       data: { full_name: fullName, role: requestedRole },
-      redirectTo: 'https://aspire-tracker.vercel.app',
+      redirectTo: appUrl(),
     });
 
     if (error) {

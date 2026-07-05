@@ -24,6 +24,7 @@ import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 import { formatExpiresAt } from '../lib/server/evaluation/preceptorEmailTemplates.js';
 import { processPreceptorSend } from '../lib/server/evaluation/preceptorSend.js';
+import { emailBaseUrl } from '../lib/server/appUrl.js';
 import { PERIOD_TO_TIMEPOINT, PERIOD_LABELS } from '../lib/server/evaluation/preceptor_progress_validation.js';
 import { classifyCohort, AUTO_PERIODS } from '../src/lib/evaluation/preceptorDueDetection.js';
 
@@ -230,9 +231,8 @@ async function _handler(req, res) {
   const expiresAtHuman = formatExpiresAt(expiresAt.toISOString());
   const periodLabel = PERIOD_LABELS[period];
 
-  const proto   = req.headers['x-forwarded-proto'] || 'https';
-  const host    = req.headers['x-forwarded-host'] || req.headers['host'];
-  const baseUrl = host ? `${proto}://${host}` : (process.env.VITE_APP_URL || 'https://aspire-tracker.vercel.app');
+  // Canonical domain in Production; forwarded host on Preview. See lib/server/appUrl.js.
+  const baseUrl = emailBaseUrl(req);
 
   const result = await processPreceptorSend({
     instrument,

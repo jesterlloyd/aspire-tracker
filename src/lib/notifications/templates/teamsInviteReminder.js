@@ -10,6 +10,7 @@
 import { aspireEmailShell } from '../../../../lib/server/email/aspireShell.js';
 import { renderEmailNote, renderEmailButton } from '../../../../lib/server/email/emailPrimitives.js';
 import { aspireHandwrittenSignature } from '../handwrittenSignature.js';
+import { appUrl } from '../../appUrl.js';
 
 export const teamsInviteReminder = {
   interviewer: (ctx) => ({
@@ -36,7 +37,7 @@ export const teamsInviteReminder = {
           <li>Open ASPIRE Intelligence, go to Interview Room, then Day Manager, and click "Mark Teams invite sent" on this booking.</li>
         </ol>
 
-        ${renderEmailButton({ label: 'Open ASPIRE Intelligence', url: 'https://aspire-tracker.vercel.app', variant: 'navy' })}
+        ${renderEmailButton({ label: 'Open ASPIRE Intelligence', url: appUrl(), variant: 'navy' })}
 
         <p style="margin-top:24px;">Thank you for supporting these students. If you're unable to conduct this interview, email Jester at <a href="mailto:jesterlloyd.bautista@cshs.org" style="color:#1D2567;">jesterlloyd.bautista@cshs.org</a> so we can reassign or reschedule.</p>
         ${aspireHandwrittenSignature('Kind regards,')}`,
@@ -71,7 +72,7 @@ export const teamsInviteReminderEscalation = {
 
         <p>Please send the Teams invitation today. If you're unable to conduct this interview, email Jester at <a href="mailto:jesterlloyd.bautista@cshs.org" style="color:#1D2567;">jesterlloyd.bautista@cshs.org</a> so we can reassign or reschedule. The student has been waiting.</p>
 
-        ${renderEmailButton({ label: 'Open ASPIRE Intelligence', url: 'https://aspire-tracker.vercel.app', variant: 'navy' })}
+        ${renderEmailButton({ label: 'Open ASPIRE Intelligence', url: appUrl(), variant: 'navy' })}
         ${aspireHandwrittenSignature('Kind regards,')}`,
     }),
   }),

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { appUrl } from '../lib/appUrl';
 
 export default function Login() {
   const [email, setEmail]           = useState('');
@@ -21,8 +22,11 @@ export default function Login() {
   const handleReset = async (e) => {
     e.preventDefault();
     setLoading(true);
+    // ASPIRE-DOMAIN-CANONICAL-1: canonical self-service reset redirect.
+    // aspireintelligence.app is in the Supabase Auth URL allow-list, so this
+    // redirectTo is accepted; the legacy vercel.app domain remains allow-listed.
     await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://aspire-tracker.vercel.app/auth/reset-password',
+      redirectTo: appUrl('/auth/reset-password'),
     });
     setResetSent(true);
     setLoading(false);

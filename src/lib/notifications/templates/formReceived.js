@@ -9,6 +9,7 @@ import { escapeHtml } from '../../htmlEscape.js';
 import { aspireEmailShell } from '../../../../lib/server/email/aspireShell.js';
 import { renderEmailButton, renderEmailDetailsCard } from '../../../../lib/server/email/emailPrimitives.js';
 import { aspireHandwrittenSignature } from '../handwrittenSignature.js';
+import { appUrl } from '../../appUrl.js';
 
 const NAVY = '#1d2567';
 
@@ -51,7 +52,7 @@ export const formReceived = {
           <tr><td style="padding:6px 16px 6px 0;color:#475467;"><strong>Submitted:</strong></td><td>${new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })} PT</td></tr>
         </table>
 
-        ${renderEmailButton({ label: 'Open in ASPIRE Intelligence', url: 'https://aspire-tracker.vercel.app', variant: 'navy' })}`,
+        ${renderEmailButton({ label: 'Open in ASPIRE Intelligence', url: appUrl(), variant: 'navy' })}`,
     }),
   }),
 
