@@ -1,4 +1,4 @@
-// KT-3a-2a → KT-3a-2b: Knowledge Center entry drawer — view / create / edit modes
+// KT-3a-2a → KT-3a-2b: Knowledge Center entry drawer - view / create / edit modes
 // inside the shared DetailDrawer. Owner/Admin only (rendered solely from the gated
 // KC panel; the backend authorizes every call regardless). Content authoring talks
 // to create_entry_draft / update_entry_draft. KT-3a-2b adds, in view mode:
@@ -9,12 +9,12 @@
 // Lifecycle is separate from content editing; only Draft entries are content-editable.
 // Revision workflow and version restore are deferred to KT-3a-2c.
 //
-// Field mapping is faithful to the KT-1 schema — title, category, body,
+// Field mapping is faithful to the KT-1 schema - title, category, body,
 // source_attribution, precedence_rank, effective_date, expires_at. There are no
 // dedicated "summary / tags / applies-to / timing / Keith guidance" columns, so
 // that structured sub-content is authored inside Body (no invented schema). New
 // entries are always created in 'draft' state (server-forced); only draft entries
-// are editable in this phase — non-draft entries are read-only with a note.
+// are editable in this phase - non-draft entries are read-only with a note.
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import DetailDrawer from '../ui/DetailDrawer'
@@ -136,10 +136,10 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, isOwner = fals
     // accepted, and an omitted field preserves the current value). So in edit mode,
     // block a blank-out of a date that previously had a value rather than silently
     // preserving the old date. (source_attribution and precedence_rank can be
-    // cleared/reset — see handleSave.)
+    // cleared/reset - see handleSave.)
     if (mode === 'edit') {
-      if (!form.effective_date && entry?.effective_date) fe.effective_date = 'Clearing a date isn’t supported in this phase — enter a valid date or keep the current one.'
-      if (!form.expires_at && entry?.expires_at) fe.expires_at = 'Clearing a date isn’t supported in this phase — enter a valid date or keep the current one.'
+      if (!form.effective_date && entry?.effective_date) fe.effective_date = 'Clearing a date isn’t supported in this phase, enter a valid date or keep the current one.'
+      if (!form.expires_at && entry?.expires_at) fe.expires_at = 'Clearing a date isn’t supported in this phase, enter a valid date or keep the current one.'
     }
     setFieldErr(fe)
     return Object.keys(fe).length === 0
@@ -225,7 +225,7 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, isOwner = fals
       const res = await postAdmin(payload)
       const json = await res.json().catch(() => null)
       if (!res.ok || !json?.success) {
-        // 409/404 mean the entry moved underneath us — offer a refresh, not a retry,
+        // 409/404 mean the entry moved underneath us - offer a refresh, not a retry,
         // and never surface the raw backend message.
         if (res.status === 409) { setLcConflict(true); setLcError('This entry changed since you opened it, so that action can’t be applied. Refresh to load the latest state.') }
         else if (res.status === 404) { setLcConflict(true); setLcError('This entry no longer exists. Refresh to update the list.') }
@@ -355,12 +355,12 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, isOwner = fals
             </div>
           )}
 
-          {/* Revision workflow — Active entries only (Owner/Admin; the panel self-gates
+          {/* Revision workflow - Active entries only (Owner/Admin; the panel self-gates
               by role and authorship). On apply, the parent re-fetches the entry so the
               new content + version history refresh in place. */}
           <KnowledgeRevisionPanel entry={entry} onApplied={() => onSaved?.(entry?.id)} />
 
-          {/* Lifecycle controls — Owner only; never rendered in table rows or for
+          {/* Lifecycle controls - Owner only; never rendered in table rows or for
               invalid transitions; archived shows a terminal notice. */}
           {isOwner && (
             <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid var(--color-border-subtle, #f3f4f6)' }}>
@@ -423,7 +423,7 @@ export default function KnowledgeEntryDrawer({ open, mode, entry, isOwner = fals
             </div>
           )}
 
-          {/* Read-only version history — Owner + Admin. reloadToken bumps on every
+          {/* Read-only version history - Owner + Admin. reloadToken bumps on every
               lifecycle change so v1 appears right after activation. */}
           {entry?.id && (
             <KnowledgeVersionHistory

@@ -3,13 +3,13 @@
 -- ============================================================
 --
 -- Adds the Student Information Use Acknowledgment fields captured on /student-form.
--- This is a product-level information notice — NOT FERPA consent, NOT a release of records.
+-- This is a product-level information notice - NOT FERPA consent, NOT a release of records.
 --
 -- Additive + nullable. Timestamp presence (student_form_privacy_ack_at) is the acknowledgment
 -- signal (no boolean column). Existing students remain NULL ("Not on file"). No backfill.
 --
 -- DEPLOYMENT SEQUENCING (important): apply this in the Supabase SQL Editor and VERIFY (3 rows)
--- BEFORE pushing the code — the endpoint writes these columns and the profile selects them, and
+-- BEFORE pushing the code - the endpoint writes these columns and the profile selects them, and
 -- PostgREST errors on an unknown column.
 --
 -- HOW TO RUN: paste into the Supabase SQL Editor and execute.

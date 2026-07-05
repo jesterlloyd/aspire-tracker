@@ -1,6 +1,6 @@
 // src/lib/studentBulkEmail.js
 //
-// MANUAL-OUTREACH-TEMPLATE-LIBRARY Phase 2A — frontend-only student email routing for the
+// MANUAL-OUTREACH-TEMPLATE-LIBRARY Phase 2A - frontend-only student email routing for the
 // Send-to-Many Students audience. Defines the INTENDED recipient email for Phase 2B; it does NOT
 // send anything yet. Pure (no network/React/DOM): safe to unit-test in node.
 //
@@ -21,8 +21,8 @@ export function getStudentBulkEmailRoute(student) {
   const activeRotation = (student?.status || '') === 'Active Rotation'
 
   if (activeRotation) {
-    if (hasSchool)   return { email: school.trim(),   emailType: 'school',   reason: 'Active Rotation — school email preferred' }
-    if (hasPersonal) return { email: personal.trim(), emailType: 'personal', reason: 'Active Rotation — no school email, using personal' }
+    if (hasSchool)   return { email: school.trim(),   emailType: 'school',   reason: 'Active Rotation, school email preferred' }
+    if (hasPersonal) return { email: personal.trim(), emailType: 'personal', reason: 'Active Rotation, no school email, using personal' }
     return { email: '', emailType: 'missing', reason: 'No email on file' }
   }
   // Not in Active Rotation (Placed / Completed / other) → personal email first.

@@ -1,11 +1,11 @@
-// ASPIRE-WEATHER-ASSETS-1: maps the existing weather scene keys (from WeatherScene's mapScene —
+// ASPIRE-WEATHER-ASSETS-1: maps the existing weather scene keys (from WeatherScene's mapScene -
 // WMO code + is_day + wind, unchanged) to the licensed image layers under
-// public/weather/aspire-licensed/. Pure config — no fetch, no JSX, no data-mechanism changes.
+// public/weather/aspire-licensed/. Pure config - no fetch, no JSX, no data-mechanism changes.
 //
 // Layers render inside a fixed-aspect hero box (same footprint as the SVG scene). Positions/sizes
 // are PERCENTAGES of that box. `anim` names map to the wx-* keyframes in WeatherScene.jsx and all
 // carry the wx-a class, so prefers-reduced-motion freezes them. Assets live in public/ and load by
-// path — only the ACTIVE scene's images are requested by the browser; nothing is bundled into JS.
+// path - only the ACTIVE scene's images are requested by the browser; nothing is bundled into JS.
 //
 // Returning null for a scene (e.g. 'unknown') tells WeatherScene to use its built-in SVG fallback.
 
@@ -21,12 +21,12 @@ const LEAF = (n) => `${BASE}/windy/leaf-${n}.png`
 
 // The sun/moon source renders are tall (2:3) with the celestial body in the top portion; the hero
 // box (19:12, overflow hidden) naturally crops the empty lower area. The sun render's glow fades to
-// WHITE (not alpha), so it multiplies onto the light day band — the white halo disappears and the
+// WHITE (not alpha), so it multiplies onto the light day band - the white halo disappears and the
 // disc/rays tint naturally into the sky. The moon render has clean alpha and needs no blend.
 const sunLayer  = {
   src: SUN, left: '14%', top: '-10%', width: '68%', anim: 'wx-pulse', dur: '5s', z: 0,
   blend: 'multiply',
-  // Feathered radial mask centered on the sun disc — removes the residual rectangular edge left by
+  // Feathered radial mask centered on the sun disc - removes the residual rectangular edge left by
   // the not-quite-pure-white glow fade.
   mask: 'radial-gradient(closest-side at 50% 26%, #000 48%, transparent 74%)',
 }

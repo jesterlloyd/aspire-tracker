@@ -5,13 +5,13 @@ import SurveyAutomationCard from './SurveyAutomationCard'
 import AutomationEmailPreviewDrawer from '../connect/AutomationEmailPreviewDrawer'
 import { getEvaluationPreviewFixture } from '../../lib/evaluation/evaluationPreviewFixtures'
 
-// SURVEY-UX-3 — Presentational shell for the two Survey Automation workflows.
+// SURVEY-UX-3 - Presentational shell for the two Survey Automation workflows.
 //
 // Two-layer layout: (1) a status band + compact summary cards on top for awareness, and
 // (2) ONE shared full-width detail workspace below that renders the SELECTED workflow's
 // dense tables and release controls. Dense content no longer renders inside half-width
 // cards. This component runs NO detection, release, or send logic and lifts no detection
-// state — each panel still owns its own detection and reports its counts up via onCounts.
+// state - each panel still owns its own detection and reports its counts up via onCounts.
 
 const F = 'DM Sans, sans-serif'
 const WORKSPACE_ID = 'survey-automation-workspace'
@@ -58,14 +58,14 @@ export default function SurveyAutomationDashboard({ cohortId }) {
   const attention = totals.ready > 0 || totals.needs > 0
   const bandTitle = attention
     ? `${totals.ready} release${totals.ready === 1 ? '' : 's'} ready · ${totals.needs} needs attention`
-    : 'All clear — no survey releases need attention'
+    : 'All clear, no survey releases need attention'
   const bandSub = attention
     ? `across ${WORKFLOWS.length} survey workflows`
     : `${totals.ready} ready to release · ${totals.needs} needs attention across ${WORKFLOWS.length} survey workflows`
 
   return (
     <div style={{ padding: '4px 20px 28px', maxWidth: 1200, fontFamily: F }}>
-      {/* Status band — rolls up the same counts shown in the cards below. */}
+      {/* Status band - rolls up the same counts shown in the cards below. */}
       <div
         role="status"
         style={{
@@ -118,7 +118,7 @@ export default function SurveyAutomationDashboard({ cohortId }) {
         />
       )}
 
-      {/* Shared full-width detail workspace — renders only the selected workflow. Both panels
+      {/* Shared full-width detail workspace - renders only the selected workflow. Both panels
           stay mounted so detection runs and counts keep flowing; the inactive one renders null. */}
       <section
         id={WORKSPACE_ID}

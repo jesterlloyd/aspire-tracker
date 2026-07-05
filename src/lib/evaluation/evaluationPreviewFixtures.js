@@ -1,12 +1,12 @@
 // src/lib/evaluation/evaluationPreviewFixtures.js
 //
-// EVALUATION-RELEASE-PREVIEW-1 — SAFE SYNTHETIC preview fixtures for the two Evaluation > Review &
+// EVALUATION-RELEASE-PREVIEW-1 - SAFE SYNTHETIC preview fixtures for the two Evaluation > Review &
 // Release survey workflows, mirroring the ASPIRE Connect > Automations preview pattern
 // (src/lib/notifications/previewFixtures.js). Each fixture matches the shape consumed by the shared
 // AutomationEmailPreviewDrawer: { recipientType, variants?, render(variantKey) => { subject, html } }.
 //
 // Client-side render ONLY. It calls the SAME server email builders the release flow sends, with mock
-// data — no network, no DB, no tokens. The builders are pure string templates (their shell/primitives
+// data - no network, no DB, no tokens. The builders are pure string templates (their shell/primitives
 // already run client-side via the Automations preview), so importing them here changes nothing about
 // the shipped templates and keeps a single source of truth.
 //

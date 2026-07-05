@@ -1,6 +1,6 @@
 // src/lib/notifications/recipients.js
 // Resolves who receives each notification type.
-// Server-side only — imported by API routes and the notification library.
+// Server-side only - imported by API routes and the notification library.
 //
 // NOTE: Keith Hoshal (human advisor) is intentionally NOT in INTERNAL_TEAM_EMAILS.
 // Strategic program awareness for advisors flows through Keith (AI) reading notification_log,
@@ -301,12 +301,12 @@ function resolveFormReceived(context) {
     });
   }
 
-  // 2. Internal team (owner + co-lead) — operational awareness
+  // 2. Internal team (owner + co-lead) - operational awareness
   for (const [role, email] of Object.entries(INTERNAL_TEAM_EMAILS)) {
     recipients.push({ email, role, audience: 'internal_team' });
   }
 
-  // 3. School coordinator — pipeline visibility, with program-aware routing and CC support
+  // 3. School coordinator - pipeline visibility, with program-aware routing and CC support
   if (context.school) {
     const { primary, cc, schoolKey } = getCoordinatorsForSchool(context.school, context.programType);
 

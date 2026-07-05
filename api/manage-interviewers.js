@@ -3,7 +3,7 @@
 // WS1d-A: secure interviewer-directory administration.
 //
 // Operates on the `interviewers` roster table (id, name, email, color, is_active)
-// — a directory for interview attribution. It has NO role/is_owner/auth linkage
+// - a directory for interview attribution. It has NO role/is_owner/auth linkage
 // and is NOT a login-account table, so:
 //   - `add` does NOT create an auth user or user_profiles row (no WS1b overlap).
 //   - There is no "Owner account" in this table → Owner-immutability does NOT

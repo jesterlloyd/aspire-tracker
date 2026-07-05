@@ -1,9 +1,9 @@
-// ClinicalHoursPanel — shared, read-only clinical-hours summary + shift-log table extracted
+// ClinicalHoursPanel - shared, read-only clinical-hours summary + shift-log table extracted
 // verbatim from StudentSidePanel so Student Profiles and Rotation > Activity render the SAME
 // totals, table, and Shift Details modal (no duplicated math, no second modal).
 //
 // Totals (Required / Approved / Pending / Remaining) come from the student record fields
-// (hours_required / approved_hours / pending_hours) — the canonical source the profile uses.
+// (hours_required / approved_hours / pending_hours) - the canonical source the profile uses.
 // The caller supplies `shiftLogs` (cached per student via React Query, queryKey
 // ['student_shift_logs', student.id]) so each surface controls its own fetch + side effects.
 import { useState } from 'react'
@@ -56,11 +56,11 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [] }) {
               {shiftLogs.map(log => (
                 <tr key={log.id} style={{ borderBottom: '1px solid var(--border-lt)' }}>
                   <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
-                    {log.shift_date ? new Date(log.shift_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}
+                    {log.shift_date ? new Date(log.shift_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '-'}
                   </td>
                   <td style={{ padding: '6px 8px', fontWeight: 600, color: 'var(--nightfall)' }}>{log.total_hours}</td>
-                  <td style={{ padding: '6px 8px', color: '#6b7280', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.unit_name || '—'}</td>
-                  <td style={{ padding: '6px 8px', color: '#6b7280', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.preceptor_name || '—'}</td>
+                  <td style={{ padding: '6px 8px', color: '#6b7280', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.unit_name || '-'}</td>
+                  <td style={{ padding: '6px 8px', color: '#6b7280', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{log.preceptor_name || '-'}</td>
                   <td style={{ padding: '6px 8px' }}>
                     <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 10,
                       background: log.shift_type === 'Night' ? '#1d2567' : '#eff6ff',
@@ -79,7 +79,7 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [] }) {
                         'needs_review':   { bg: '#FEF3C7', text: '#78350F', label: 'Pending Review' },
                         'rejected':       { bg: '#FEE2E2', text: '#7F1D1D', label: 'Rejected' },
                       }
-                      const s = STATUS_STYLES[log.status] || { bg: '#F3F4F6', text: '#6B7280', label: log.status || '—' }
+                      const s = STATUS_STYLES[log.status] || { bg: '#F3F4F6', text: '#6B7280', label: log.status || '-' }
                       return (
                         <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 999, background: s.bg, color: s.text, fontWeight: 600, fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' }}>
                           {s.label}
@@ -94,7 +94,7 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [] }) {
                     {(log.support_needed || '').trim() && (
                       <span
                         aria-label="Support needed"
-                        title="This shift has a support-needed note — open Details"
+                        title="This shift has a support-needed note, open Details"
                         style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 999, background: '#d97706', marginRight: 6, verticalAlign: 'middle' }}
                       />
                     )}
@@ -108,7 +108,7 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [] }) {
                     </button>
                   </td>
                   <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
-                    {/* WS1e-A4: per-shift approve/adjust/reject controls disabled — approved
+                    {/* WS1e-A4: per-shift approve/adjust/reject controls disabled - approved
                         and pending hours are calculated from submitted shift logs and cannot
                         be edited directly. Read-only status only. */}
                     {['Pending Review', 'needs_review'].includes(log.status) && (

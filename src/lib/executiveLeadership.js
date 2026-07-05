@@ -75,7 +75,7 @@ export const NURSING_EXECUTIVE_LEADERSHIP = [
     role: 'Executive Director, Geri and Richard Brawerman Nursing Institute',
     additional_title: 'Nursing Education, Nursing Research, and Nursing Innovation',
     credentials: 'PhD, ACNP-BC, NEA-BC, FAHA, FAAN',
-    scope: 'BNI: Nursing Education, Nursing Research, Nursing Innovation (includes the ASPIRE Program)',
+    scope: 'BNI: Nursing Education, Nursing Research, Nursing Innovation (includes ASPIRE)',
     related_units: [],
   },
 ];

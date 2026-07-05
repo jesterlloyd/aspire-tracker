@@ -18,7 +18,7 @@
 --     also serves the primary open-shift lookup
 --     (WHERE student_id = ? AND lifecycle_state = 'in_progress')
 
--- 1. lifecycle_state — nullable, DEFAULT 'completed'.
+-- 1. lifecycle_state - nullable, DEFAULT 'completed'.
 --    New inserts from the current form get 'completed' automatically; existing
 --    rows are backfilled in step 4.
 ALTER TABLE student_shift_logs
@@ -51,7 +51,7 @@ UPDATE student_shift_logs
    SET lifecycle_state = 'completed'
  WHERE lifecycle_state IS NULL;
 
--- 5. Partial UNIQUE index — enforces ONE open shift per student and also serves
+-- 5. Partial UNIQUE index - enforces ONE open shift per student and also serves
 --    the open-shift lookup (WHERE student_id = ? AND lifecycle_state = 'in_progress').
 --    Only 'in_progress' rows are indexed; unlimited 'completed' rows per student
 --    are unaffected. A single index covers both the constraint and the query

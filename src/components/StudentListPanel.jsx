@@ -1,4 +1,4 @@
-// StudentListPanel — renders either a 4-column row list or a photo tile grid.
+// StudentListPanel - renders either a 4-column row list or a photo tile grid.
 // Controls (search, sort, import, etc.) live in the parent StudentProfilesTab.
 
 import { useState } from 'react'
@@ -55,7 +55,7 @@ const SCHOOL_SHORT = {
   'Azusa Pacific University': 'APU',
 }
 function shortSchool(school) {
-  if (!school) return '—'
+  if (!school) return '-'
   return SCHOOL_SHORT[school] || (school.length > 18 ? school.slice(0,16) + '…' : school)
 }
 
@@ -169,8 +169,8 @@ export default function StudentListPanel({
     )
   }
 
-  // ── List View — 3 columns (identity / preferences / sub-status) ───────────
-  // Eye icon removed (clicking the row opens the drawer — redundant affordance).
+  // ── List View - 3 columns (identity / preferences / sub-status) ───────────
+  // Eye icon removed (clicking the row opens the drawer - redundant affordance).
   // Personal email removed (full contact info lives in the drawer).
   // ASPIRE status pill moved from chips column into Identity column.
   return (
@@ -180,7 +180,7 @@ export default function StudentListPanel({
           // STUDENT-PREFERRED-FIRST-NAME-1B: surface preferred first name (e.g. "Shin, Brian").
           // Sort order is unchanged (still legal last_name). Last name stays legal.
           const firstShown = getStudentPreferredFirstName(s)
-          const name     = `${s.last_name||''}${s.last_name&&firstShown?', ':''}${firstShown||''}` || s.name || '—'
+          const name     = `${s.last_name||''}${s.last_name&&firstShown?', ':''}${firstShown||''}` || s.name || '-'
           const csKey    = getCsLinkStatus(s)
           const acc      = CS_LINK_STATUS_CONFIG[csKey]
           const sel      = s.id === selectedStudentId
@@ -191,7 +191,7 @@ export default function StudentListPanel({
           const gpaBg    = gpaOk && gpaVal >= 3.5 ? '#dcfce7' : gpaOk && gpaVal >= 3.0 ? '#fef3c7' : 'var(--color-bg-elevated,#f3f4f6)'
           const gpaColor = gpaOk && gpaVal >= 3.5 ? '#166534' : gpaOk && gpaVal >= 3.0 ? '#92400e' : 'var(--text-muted,#6b7280)'
 
-          // ASPIRE status — now lives in the Identity column
+          // ASPIRE status - now lives in the Identity column
           const dispType = s.status === 'Not Proceeding' ? s.active_disposition?.disposition_type : null
           const sChip = s.status ? (ASPIRE_STATUS_CONFIG[s.status] || ASPIRE_STATUS_CONFIG['Pending Outreach']) : null
 
@@ -213,7 +213,7 @@ export default function StudentListPanel({
                         : '#6b7280'
 
           // Always show the saved preference value; never substitute a catalog label.
-          // Null/empty preferences are omitted — no fallback "Other unit" label.
+          // Null/empty preferences are omitted - no fallback "Other unit" label.
           const prefs = [s.unit_preference_1, s.unit_preference_2, s.unit_preference_3]
             .filter(p => p && p.trim() !== '')
 
@@ -225,7 +225,7 @@ export default function StudentListPanel({
               style={{ alignItems:'flex-start', padding:'11px 14px', display:'grid', gridTemplateColumns:'40% 28% 32%', gap:6 }}
               onClick={() => onSelect(s.id)}>
 
-              {/* COL 1: Identity — Avatar / Full Name / School·Program / ASPIRE pill */}
+              {/* COL 1: Identity - Avatar / Full Name / School·Program / ASPIRE pill */}
               <div style={{ display:'flex', gap:9, minWidth:0, alignItems:'flex-start' }}>
                 <StudentAvatar student={s} size={48} style={{ flexShrink:0, marginTop:1 }} />
                 <div style={{ minWidth:0, flex:1 }}>
@@ -283,7 +283,7 @@ export default function StudentListPanel({
                 )}
               </div>
 
-              {/* COL 3: Sub-status chips — GPA + CS-Link only (ASPIRE pill moved to Identity) */}
+              {/* COL 3: Sub-status chips - GPA + CS-Link only (ASPIRE pill moved to Identity) */}
               <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', gap:3, paddingTop:3, minWidth:0 }}>
                 {gpaOk && <Chip label={`GPA ${gpaVal.toFixed(2)}`} bg={gpaBg} color={gpaColor} />}
                 <Chip label={acc.label} bg={acc.bg} color={acc.text} />

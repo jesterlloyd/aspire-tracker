@@ -1,4 +1,4 @@
-// WS2.1: Settings shell — an application-level utility view rendered inside MainApp's
+// WS2.1: Settings shell - an application-level utility view rendered inside MainApp's
 // <main> when the pathname is under /settings (mirrors the ASPIRE Connect pattern).
 // It is NOT in UnifiedNav and is NOT a cohort tab. Stays mounted across panel
 // navigation; selects the active panel by sub-path; normalizes /settings and unknown
@@ -52,26 +52,26 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Ag
           (e.g. Accounts & Access → Activity Log). Sticky within the layout, offset ~120px to clear the
           global sticky .top-section (header ~64 + cohort bar ~48). max-height + overflow so a tall rail
           scrolls internally. Disabled at ≤768px, where the rail stacks above content (no page lock,
-          no nested-scroll friction — the panel itself keeps page-scrolling). */}
+          no nested-scroll friction, the panel itself keeps page-scrolling). */}
       <style>{`
         .settings-nav-rail { position: sticky; top: 120px; align-self: flex-start; max-height: calc(100vh - 140px); overflow-y: auto; }
         @media (max-width: 768px) { .settings-nav-rail { position: static; max-height: none; overflow: visible; } }
       `}</style>
-      {/* Back-to-workspace affordance — shared component (reuses MainApp's prior-workspace path) */}
+      {/* Back-to-workspace affordance - shared component (reuses MainApp's prior-workspace path) */}
       <WorkspaceBackLink path={backPath} label={backLabel} />
 
-      {/* Header — title + subtitle for a clearer, more polished page hierarchy. */}
+      {/* Header - title + subtitle for a clearer, more polished page hierarchy. */}
       <div style={{ margin: '10px 0 24px' }}>
         <h1 style={{ margin: 0, fontSize: 25, fontWeight: 700, color: 'var(--color-text-primary, #191919)', letterSpacing: '-0.01em' }}>
           Settings
         </h1>
         <p style={{ margin: '5px 0 0', fontSize: 14, color: 'var(--color-text-secondary, #6b7280)', lineHeight: 1.5 }}>
-          Manage your ASPIRE Intelligence workspace — preferences, access, and resources.
+          Manage your ASPIRE Intelligence workspace, preferences, access, and resources.
         </p>
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 28, alignItems: 'flex-start' }}>
-        {/* Navigation rail — workspace-grade: icons, grouping, active/hover states.
+        {/* Navigation rail - workspace-grade: icons, grouping, active/hover states.
             Sections come from the registry (role-filtered); no placeholders.
             UI-1: the rail surface is the shared SurfaceCard primitive (same pixels). */}
         <SurfaceCard as="nav" aria-label="Settings sections" radius={14} padding={10}
@@ -118,7 +118,7 @@ export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Ag
         </SurfaceCard>
 
         {/* Active panel. Knowledge Center is wider (table); Accounts & Access uses the FULL workspace
-            width (ACCOUNTS-ACCESS-REDESIGN-1A — no cap, bounded only by the .app-main 1580px shell);
+            width (ACCOUNTS-ACCESS-REDESIGN-1A, no cap, bounded only by the .app-main 1580px shell);
             all other panels keep their established max width and render unchanged. */}
         <div style={{ flex: '1 1 360px', minWidth: 0, maxWidth: currentKey === 'accounts' ? 'none' : ['knowledge', 'preceptorParity'].includes(currentKey) ? 1040 : 720 }}>
           {currentKey === 'general'    && <GeneralPanel />}

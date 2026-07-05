@@ -8,16 +8,16 @@
 -- defaults (existing crons default ON; the future interviewer packet reminder defaults OFF), and
 -- the first toggle UPSERTs a row. An empty table therefore disables nothing.
 --
--- Midpoint is intentionally NOT modeled here yet — it keeps using
+-- Midpoint is intentionally NOT modeled here yet - it keeps using
 -- cohorts.midpoint_checkin_automation_enabled. This table covers the other crons (and future ones).
 --
 -- ADDITIVE and ISOLATED: one new table, one unique index, RLS enabled with NO policies. It
 -- instruments NO cron, adds NO UI, sends NO email, and changes nothing existing. All reads/writes
 -- happen later via the SERVICE-ROLE Owner/Admin endpoint (service role bypasses RLS); nothing
 -- client-side can read or write this table. automation_key is intentionally NOT constrained to a
--- value list, so adding a future automation needs NO schema change — the server owns the key list.
+-- value list, so adding a future automation needs NO schema change - the server owns the key list.
 --
--- HOW TO RUN: paste into the Supabase SQL Editor and execute. Claude Code applies nothing — the
+-- HOW TO RUN: paste into the Supabase SQL Editor and execute. Claude Code applies nothing - the
 -- Owner applies this manually, runs the verification block below (confirming the table is empty),
 -- THEN authorizes the next phase. Idempotent: CREATE TABLE / CREATE INDEX use IF NOT EXISTS.
 -- =============================================================================
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS automation_settings (
 CREATE UNIQUE INDEX IF NOT EXISTS uq_automation_settings_key_scope
   ON automation_settings (automation_key, scope_type, COALESCE(scope_ref, ''));
 
--- ── 3. Row Level Security — ENABLED, NO POLICIES ────────────────────────────────
+-- ── 3. Row Level Security - ENABLED, NO POLICIES ────────────────────────────────
 -- Mirrors cron_runs: service-role endpoints bypass RLS; with no policies, no client (anon/
 -- authenticated) can read or write. Owner/Admin access is enforced server-side at the endpoint.
 ALTER TABLE automation_settings ENABLE ROW LEVEL SECURITY;
@@ -61,7 +61,7 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- =============================================================================
--- VERIFICATION (Owner runs after applying — not part of the migration)
+-- VERIFICATION (Owner runs after applying - not part of the migration)
 -- =============================================================================
 --
 -- (a) table exists
@@ -96,7 +96,7 @@ NOTIFY pgrst, 'reload schema';
 -- (g) no accidental rows
 --   SELECT count(*) FROM automation_settings;                                     -- expect: 0
 --
--- OPTIONAL constraint smoke test (always rolls back — leaves the table empty):
+-- OPTIONAL constraint smoke test (always rolls back - leaves the table empty):
 --   BEGIN;
 --     -- these SHOULD fail if run alone:
 --     --   INSERT INTO automation_settings (automation_key, scope_type, scope_ref) VALUES ('x','global','abc');  -- FAILS chk_automation_scope_ref
@@ -110,7 +110,7 @@ NOTIFY pgrst, 'reload schema';
 --   SELECT count(*) FROM automation_settings;     -- expect: 0
 --
 -- =============================================================================
--- ROLLBACK (safe — table is new, additive, nothing references it yet)
+-- ROLLBACK (safe - table is new, additive, nothing references it yet)
 -- =============================================================================
 --   DROP TABLE IF EXISTS automation_settings;   -- also drops its indexes + CHECK constraints
 --   NOTIFY pgrst, 'reload schema';

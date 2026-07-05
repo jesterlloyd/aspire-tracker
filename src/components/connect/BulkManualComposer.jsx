@@ -1,9 +1,9 @@
 // src/components/connect/BulkManualComposer.jsx
 //
-// MANUAL-OUTREACH-TEMPLATE-LIBRARY — multi-source bulk audience composer for Send-to-Many manual
+// MANUAL-OUTREACH-TEMPLATE-LIBRARY - multi-source bulk audience composer for Send-to-Many manual
 // templates. Three-panel layout:
-//   1. Audience  — source selector (Students / Contacts / Paste · Type), all deduped into one set
-//   2. Message Type — shared selector rendered by the parent (renderTypeSelector)
+//   1. Audience  - source selector (Students / Contacts / Paste · Type), all deduped into one set
+//   2. Message Type - shared selector rendered by the parent (renderTypeSelector)
 //   3. Draft / Preview / Review & send
 //
 // Phase 2B-3 (send wiring): the "Review & send" panel posts the selected recipients to the proven
@@ -76,7 +76,7 @@ function readBulkDraft(key) {
   } catch { return null }
 }
 
-// The bulk composer is never blank — it starts from a message-type TEMPLATE. "Pristine" (the unedited
+// The bulk composer is never blank - it starts from a message-type TEMPLATE. "Pristine" (the unedited
 // template default) is the bulk analog of Send-to-one's "empty": no draft is persisted and the
 // Discard control stays hidden until the user actually edits.
 // The unedited template body for a type, in the shape the active composer holds: HTML in rich mode
@@ -94,7 +94,7 @@ function bulkDraftIsPristine(type, subject, body, rich) {
 
 // A persisted draft is worth restoring if the CONTENT was edited OR an audience was selected
 // (selected students/contacts or pasted/typed chips). Tolerates legacy payloads (audience arrays
-// absent) — those restore content only. Pure read of the parsed payload; no lookups.
+// absent) - those restore content only. Pure read of the parsed payload; no lookups.
 function bulkDraftHasContent(type, d, rich) {
   if (!d) return false
   const contentEdited = !bulkDraftIsPristine(type, d.subject || '', d.body || '', rich)
@@ -140,7 +140,7 @@ const APP_ORIGIN = (typeof window !== 'undefined' && window.location && window.l
   ? window.location.origin
   : CANONICAL_APP_URL
 
-// Static public-link substitutions per template. These are public, tokenless routes — never
+// Static public-link substitutions per template. These are public, tokenless routes - never
 // tokenized/secure links. Deadlines and other [placeholders] stay editable. Announcement keeps
 // all of its placeholders (its unit/orientation details are intentionally hand-edited).
 const STATIC_LINK_SUBS = {
@@ -156,7 +156,7 @@ function withStaticLinks(key, body) {
   return String(body || '').split(sub.token).join(`${APP_ORIGIN}${sub.path}`)
 }
 
-// The explicit Email-source dropdown ('school' | 'personal') decides the recipient email — NOT the
+// The explicit Email-source dropdown ('school' | 'personal') decides the recipient email - NOT the
 // routing helper. A student without an email for that source is excluded.
 function studentToRecipient(s, source) {
   if (!s) return null
@@ -194,10 +194,10 @@ export default function BulkManualComposer({
   // ── Audience state ────────────────────────────────────────────────────────
   const [source, setSource]               = useState(DEFAULT_SOURCE[bulkMsgType] || 'students')
 
-  // Students source — search + filters + sort. NOTE: an assignment-status filter is intentionally
+  // Students source - search + filters + sort. NOTE: an assignment-status filter is intentionally
   // NOT offered here. The only assignment data wired into Outreach (bulkActiveAssignments) reflects
-  // survey/evaluation assignments for the selected survey timepoint — not a real placement/rotation
-  // assignment — so exposing it on manual templates would imply more than the data supports. It is
+  // survey/evaluation assignments for the selected survey timepoint - not a real placement/rotation
+  // assignment - so exposing it on manual templates would imply more than the data supports. It is
   // deferred until a true placement indicator is available in this view.
   const [studentSearch, setStudentSearch]   = useState('')
   const [studentSchool, setStudentSchool]   = useState('')
@@ -205,14 +205,14 @@ export default function BulkManualComposer({
   const [studentSort, setStudentSort]       = useState('name')     // name | status
   const [studentSel, setStudentSel]         = useState(() => new Set()) // student ids
 
-  // Contacts source — `contacts` is null until the first load (drives derived loading state).
+  // Contacts source - `contacts` is null until the first load (drives derived loading state).
   const [contacts, setContacts]           = useState(null)
   const [contactSearch, setContactSearch] = useState('')
   const [contactCat, setContactCat]       = useState(DEFAULT_CONTACT_CATEGORY[bulkMsgType] || 'All')
   const [showInactive, setShowInactive]   = useState(false)
   const [contactSel, setContactSel]       = useState(() => new Set()) // contact ids
 
-  // Paste / Type source — ONE unified recipient control (typeahead + paste).
+  // Paste / Type source - ONE unified recipient control (typeahead + paste).
   const [acInput, setAcInput]             = useState('')
   const [picked, setPicked]               = useState([])  // normalized recipients (chips)
   const [manualInvalids, setManualInvalids] = useState([]) // raw tokens that failed validation
@@ -239,7 +239,7 @@ export default function BulkManualComposer({
 
   // Preview / Review
   const [reviewOpen, setReviewOpen]       = useState(false)
-  // Branded "Preview as sent" — { html, loading, error } from the existing DM preview endpoint
+  // Branded "Preview as sent" - { html, loading, error } from the existing DM preview endpoint
   // (preview:true → no send, no log, no archive). Only for id-bearing sample recipients.
   const [preview, setPreview]             = useState({ html: '', loading: false, error: null })
 
@@ -295,7 +295,7 @@ export default function BulkManualComposer({
       }
       if (typeof d.includeSignature === 'boolean') setIncludeSig(d.includeSignature)
       // Audience selection (added in the audience-persistence hotfix). Legacy payloads omit these,
-      // so each setter is guarded; stale ids are inert — the recipient derivation drops any id not
+      // so each setter is guarded; stale ids are inert - the recipient derivation drops any id not
       // found in the current students/contacts data (studentToRecipient/contactToRecipient -> null).
       if (typeof d.source === 'string') setSource(d.source)
       if (typeof d.studentEmailSrc === 'string') setStudentEmailSrc(d.studentEmailSrc)
@@ -309,7 +309,7 @@ export default function BulkManualComposer({
   }, [BULK_DRAFT_KEY]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounced write + "Draft saved" indicator. Persists only a genuinely edited (non-pristine) draft;
-  // a pristine (unedited template) state removes any stale key and shows nothing — mirroring the
+  // a pristine (unedited template) state removes any stale key and shows nothing - mirroring the
   // Send-to-one debounce so a freshly-restored draft transitions "restored" -> "saved".
   useEffect(() => {
     if (!BULK_DRAFT_KEY || !bulkHydratedRef.current) return
@@ -341,7 +341,7 @@ export default function BulkManualComposer({
   }, [subject, body, includeSignature, source, studentEmailSrc, studentSel, contactSel, picked, BULK_DRAFT_KEY, bulkMsgType, richEnabled, flashDraftStatus])
 
   // Explicit discard: reset this message-type to its template default and clear the saved bulk draft
-  // (this key only — Send-to-one drafts live under a different namespace and are untouched).
+  // (this key only - Send-to-one drafts live under a different namespace and are untouched).
   const handleDiscardBulkDraft = useCallback(() => {
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current)
     const tpl = buildBulkTemplate(bulkMsgType)
@@ -432,11 +432,11 @@ export default function BulkManualComposer({
   const dupCount       = combined.duplicateCount
   const invalidEntries = manualInvalids
 
-  // Set of all chosen normalized emails — hides already-added rows from the typeahead.
+  // Set of all chosen normalized emails - hides already-added rows from the typeahead.
   const excludeEmails = useMemo(() => new Set(recipients.map(r => r.normEmail)), [recipients])
 
   // The preview always renders the FIRST selected recipient (merge fields differ per recipient).
-  // The Audience picker is the single source of truth — no second recipient control in the preview.
+  // The Audience picker is the single source of truth - no second recipient control in the preview.
   const previewRecipient = recipients[0] || null
 
   // Order-independent signature of the current draft + audience (emails sorted) so harmless
@@ -552,9 +552,9 @@ export default function BulkManualComposer({
   // ── Live bulk send (Phase 2B-3) ──────────────────────────────────────────────
   // Posts the CLIENT-SELECTED recipients (chosen email source preserved via emailType) to the
   // proven send endpoint. The endpoint performs canonical merge + all safety checks server-side.
-  // resolveStudentCorrespondenceRecipient is NEVER imported or called — the chosen email is honored.
+  // resolveStudentCorrespondenceRecipient is NEVER imported or called - the chosen email is honored.
   const handleBulkSend = useCallback(async () => {
-    // Synchronous double-click guard — set BEFORE any await so a rapid second click can't start a 2nd batch.
+    // Synchronous double-click guard - set BEFORE any await so a rapid second click can't start a 2nd batch.
     if (sendInFlightRef.current) return
     // Re-validate every gate at click time (defense in depth; the button is also disabled).
     if (sendResult) return
@@ -570,7 +570,7 @@ export default function BulkManualComposer({
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) {
-        setSendError('Session expired — refresh and try again.')
+        setSendError('Session expired, refresh and try again.')
         return
       }
       // Preserve the chosen email source: emailType is included ONLY for students.
@@ -621,7 +621,7 @@ export default function BulkManualComposer({
   const previewBody    = previewRecipient ? applyMergeFields(body, previewRecipient) : body
   const previewRid     = previewRecipient?.studentId || previewRecipient?.contactId || null
   // Manual/raw pasted recipients have no UUID, so the direct-email preview can't render them. They
-  // use the Phase 2B-1 preview-only endpoint (/api/connect-send-bulk-message) — preview only, no send.
+  // use the Phase 2B-1 preview-only endpoint (/api/connect-send-bulk-message) - preview only, no send.
   const isManualPreview = previewRecipient?.source === 'manual' && isValidEmail(previewRecipient?.email || '')
 
   useEffect(() => {
@@ -632,7 +632,7 @@ export default function BulkManualComposer({
       setPreview(p => ({ ...p, loading: true, error: null }))
       try {
         const { data: { session } } = await supabase.auth.getSession()
-        if (!session?.access_token) { if (!cancelled) setPreview({ html: '', loading: false, error: 'Session expired — refresh to preview.' }); return }
+        if (!session?.access_token) { if (!cancelled) setPreview({ html: '', loading: false, error: 'Session expired, refresh to preview.' }); return }
         const url = previewRid ? '/api/connect-send-direct-email' : '/api/connect-send-bulk-message'
         // Direct-email renders the body as-given, so it gets the client-merged body. The bulk endpoint
         // performs its own canonical merge (with fallback), so it gets the RAW body + recipient.
@@ -705,7 +705,7 @@ export default function BulkManualComposer({
           {sourceTab('paste', 'Paste · Type')}
         </div>
 
-        {/* Combined count BELOW the source selector — consistent with Survey Invitation. */}
+        {/* Combined count BELOW the source selector - consistent with Survey Invitation. */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '8px 11px', marginBottom: 8,
@@ -862,12 +862,12 @@ export default function BulkManualComposer({
           </div>
         )}
 
-        {/* ── Paste · Type source — ONE unified recipient control (chips + typeahead + paste) ── */}
+        {/* ── Paste · Type source - ONE unified recipient control (chips + typeahead + paste) ── */}
         {source === 'paste' && (
           <div>
             <label style={{ ...labelStyle, fontSize: 11 }}>Search or paste recipients</label>
             {/* position:relative anchors the suggestion dropdown; the bordered box gives the input a
-                defined surface and holds the chips inline — same pattern as Send to One's CC field. */}
+                defined surface and holds the chips inline, same pattern as Send to One's CC field. */}
             <div style={{
               position: 'relative', display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center',
               padding: '6px 8px', border: '1.5px solid #e5e7eb', borderRadius: 8, background: '#fff', minHeight: 38,
@@ -938,7 +938,7 @@ export default function BulkManualComposer({
                 style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, minHeight: 240, fontSize: 13 }} />
             )}
             {/* CONNECT-DRAFT-AUTOSAVE-1 parity: unobtrusive autosave status (bottom-left) + explicit
-                discard (bottom-right) — mirrors the Send-to-one composer. */}
+                discard (bottom-right), mirrors the Send-to-one composer. */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, minHeight: 18 }}>
               <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F, transition: 'opacity 0.2s' }}>
                 {draftStatus === 'saved' ? 'Draft saved'
@@ -968,7 +968,7 @@ export default function BulkManualComposer({
           </div>
         </ConnectPanel>
 
-        {/* Email Preview — tint on the shell; the branded email card inside stays white */}
+        {/* Email Preview - tint on the shell; the branded email card inside stays white */}
         <ConnectPanel tone="preview" title="Email Preview" padding={24} style={{ marginTop: 14 }}>
 
           {recipients.length === 0 ? (
@@ -977,7 +977,7 @@ export default function BulkManualComposer({
             </div>
           ) : (
             <div>
-              {/* Audience summary — the Audience picker is the only recipient control. */}
+              {/* Audience summary - the Audience picker is the only recipient control. */}
               {recipients.length === 1 ? (
                 <div style={{ fontSize: 12, color: '#374151', fontFamily: F, margin: '2px 0 10px' }}>
                   To: <strong>{previewRecipient?.email}</strong>
@@ -992,8 +992,8 @@ export default function BulkManualComposer({
               )}
 
               {(previewRid || isManualPreview) ? (
-                // Branded "Email Preview" — student/contact via the direct-email preview endpoint,
-                // manual/raw via the Phase 2B-1 bulk-message preview endpoint. Preview only — no send.
+                // Branded "Email Preview" - student/contact via the direct-email preview endpoint,
+                // manual/raw via the Phase 2B-1 bulk-message preview endpoint. Preview only - no send.
                 <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
                   {preview.loading ? (
                     <div style={{ padding: '24px 14px', fontSize: 12, color: '#9ca3af', fontFamily: F, textAlign: 'center' }}>Rendering preview…</div>
@@ -1014,7 +1014,7 @@ export default function BulkManualComposer({
                   )}
                 </div>
               ) : (
-                // Fallback (e.g. a recipient without a usable email) — merged text only.
+                // Fallback (e.g. a recipient without a usable email) - merged text only.
                 <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
                   <div style={{ padding: '12px 14px' }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: '#191919', fontFamily: F, marginBottom: 6 }}>{previewSubject}</div>
@@ -1031,7 +1031,7 @@ export default function BulkManualComposer({
           )}
         </ConnectPanel>
 
-        {/* Action row — Review & send opens the final review panel (the only path to a live send) */}
+        {/* Action row - Review & send opens the final review panel (the only path to a live send) */}
         <div style={{ ...panelCard, marginTop: 14, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {(() => {
             const reviewReady = recipients.length > 0 && subject.trim() && body.trim()
@@ -1090,7 +1090,7 @@ export default function BulkManualComposer({
                       <div style={{ fontSize: 11, fontWeight: 700, color: tone.color, fontFamily: F, marginBottom: 4 }}>{title} ({rows.length})</div>
                       {rows.map((row, i) => (
                         <div key={`${row.email || 'r'}-${i}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '5px 8px', borderRadius: 6, background: tone.bg, border: `1px solid ${tone.border}`, marginBottom: 3 }}>
-                          <span style={{ fontSize: 11, color: '#374151', fontFamily: F, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.email || '—'}</span>
+                          <span style={{ fontSize: 11, color: '#374151', fontFamily: F, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.email || '-'}</span>
                           {row.reason && <span style={{ fontSize: 10, fontWeight: 700, color: tone.color, fontFamily: F, flexShrink: 0 }}>{String(row.reason).replace(/_/g, ' ')}</span>}
                         </div>
                       ))}
@@ -1123,7 +1123,7 @@ export default function BulkManualComposer({
                   )}
                   <div style={{ marginBottom: 12, padding: '10px 12px', background: '#f9fafb', border: '1px solid #eef0f4', borderRadius: 8 }}>
                     <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F }}>Subject</div>
-                    <div style={{ fontSize: 12.5, fontWeight: 600, color: '#191919', fontFamily: F, marginBottom: 8 }}>{subject || <span style={{ color: '#9ca3af', fontWeight: 400 }}>—</span>}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: '#191919', fontFamily: F, marginBottom: 8 }}>{subject || <span style={{ color: '#9ca3af', fontWeight: 400 }}>-</span>}</div>
                     <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F }}>Message</div>
                     <div style={{ fontSize: 12, color: '#374151', fontFamily: F, lineHeight: 1.55, whiteSpace: 'pre-wrap', maxHeight: 120, overflowY: 'auto', marginTop: 2 }}>{body}</div>
                     <div style={{ fontSize: 10, color: '#9ca3af', fontFamily: F, marginTop: 6 }}>First name and school merge per recipient at send.</div>
@@ -1134,7 +1134,7 @@ export default function BulkManualComposer({
                       <div key={r.normEmail} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0', borderBottom: '1px solid #f9fafb' }}>
                         <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 4, background: b.bg, color: b.color, border: `1px solid ${b.border}`, textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0 }}>{b.label}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: '#191919', fontFamily: F }}>{r.name || <span style={{ color: '#9ca3af', fontWeight: 400 }}>—</span>}</div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: '#191919', fontFamily: F }}>{r.name || <span style={{ color: '#9ca3af', fontWeight: 400 }}>-</span>}</div>
                           <div style={{ fontSize: 11, color: '#6b7280', fontFamily: F, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.email}</div>
                         </div>
                         <span style={{ fontSize: 10, color: '#6b7280', fontFamily: F, flexShrink: 0 }}>{recipientSourceLabel(r)}</span>

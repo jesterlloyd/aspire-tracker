@@ -20,25 +20,25 @@
 // Authorization: Bearer <session-token>
 //
 // Unified body shape (Phase 3B.2A.1):
-//   recipient_type — 'contact' | 'student'
-//   recipient_id   — required UUID
-//   subject        — required non-empty string, max 200 chars
-//   body           — required non-empty string, max 10000 chars
-//   body_format?   — optional, only 'text' supported
-//   include_signature? — optional boolean, defaults to true
+//   recipient_type - 'contact' | 'student'
+//   recipient_id   - required UUID
+//   subject        - required non-empty string, max 200 chars
+//   body           - required non-empty string, max 10000 chars
+//   body_format?   - optional, only 'text' supported
+//   include_signature? - optional boolean, defaults to true
 //
 // Legacy contact shape (backward compatible):
-//   contact_id — normalized internally as recipient_type='contact', recipient_id=contact_id
+//   contact_id - normalized internally as recipient_type='contact', recipient_id=contact_id
 //
 // Success (200):
 //   { success: true, message, resend_message_id, notification_log_id, audit_logged, sent_at }
 //
 // Errors:
-//   400 — validation failure or recipient override attempt
-//   401 — missing or invalid session
-//   403 — not owner/admin, or contact is inactive
-//   404 — recipient not found or has no email
-//   500 — Resend failure or server error
+//   400 - validation failure or recipient override attempt
+//   401 - missing or invalid session
+//   403 - not owner/admin, or contact is inactive
+//   404 - recipient not found or has no email
+//   500 - Resend failure or server error
 
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
@@ -93,10 +93,10 @@ function resolveSenderSignature(profile) {
     return {
       source: 'fallback',
       displayName,
-      signature: { displayName, credentials: '', title: profile?.role ? String(profile.role) : '', affiliation: 'ASPIRE Program · Brawerman Nursing Institute, Cedars-Sinai', email, phone: '' },
+      signature: { displayName, credentials: '', title: profile?.role ? String(profile.role) : '', affiliation: 'ASPIRE · Brawerman Nursing Institute, Cedars-Sinai', email, phone: '' },
     };
   }
-  // 4. Final compatibility fallback — renderer uses the static Jester block.
+  // 4. Final compatibility fallback - renderer uses the static Jester block.
   return { source: 'static', displayName: JESTER_SIGNATURE.fullName, signature: null };
 }
 
@@ -191,7 +191,7 @@ async function _handler(req, res, startMs) {
 
   const ownerUserProfileId = profile.id;
   const ownerEmail         = profile.email;
-  // Resolve sender signature server-side (re-fetched here every request — preview AND send — so a
+  // Resolve sender signature server-side (re-fetched here every request - preview AND send - so a
   // client can never inject a signature and preview always matches what will actually be sent).
   const senderSig = resolveSenderSignature(profile);
 
@@ -246,7 +246,7 @@ async function _handler(req, res, startMs) {
   if (!recipientId) return res.status(400).json({ success: false, error: 'recipient_id is required' });
   if (!isUuid(recipientId)) return res.status(400).json({ success: false, error: 'recipient_id must be a valid UUID' });
 
-  // subject/body — required for SEND; for PREVIEW they may be empty/partial (user still typing).
+  // subject/body - required for SEND; for PREVIEW they may be empty/partial (user still typing).
   // Length caps apply in both modes; values are coerced to safe strings either way.
   const { subject, body: msgBody, body_format, include_signature } = body;
   const subjStr = typeof subject === 'string' ? subject : '';
@@ -257,7 +257,7 @@ async function _handler(req, res, startMs) {
   }
   if (subjStr.trim().length > 200) return res.status(400).json({ success: false, error: 'subject must not exceed 200 characters' });
 
-  // body_format — 'text' always; 'html' (RICH-COMPOSE-1) ONLY for the Owner (authoritative server
+  // body_format - 'text' always; 'html' (RICH-COMPOSE-1) ONLY for the Owner (authoritative server
   // gate; the client feature flag is UX-only). Any other value is rejected. The builder sanitizes
   // html before it reaches the shell, so raw HTML can never be delivered.
   const resolvedBodyFormat = body_format ?? 'text';
@@ -288,7 +288,7 @@ async function _handler(req, res, startMs) {
   let recipientSource      = recipientType; // 'contact' | 'school' | 'personal' | 'override' | 'missing'
   let recipientReason      = null;
   let recipientWarning     = null;
-  let hardError            = null;          // { status, error } — enforced in SEND mode only
+  let hardError            = null;          // { status, error } - enforced in SEND mode only
 
   if (recipientType === 'contact') {
     const { data: contact, error: contactErr } = await supabaseAdmin
@@ -320,7 +320,7 @@ async function _handler(req, res, startMs) {
     }
 
   } else {
-    // recipient_type === 'student' — SCHOOL-FIRST canon resolver
+    // recipient_type === 'student' - SCHOOL-FIRST canon resolver
     const { data: student, error: studentErr } = await supabaseAdmin
       .from('students')
       .select('id, first_name, last_name, personal_email, school_email, school, status, cohort_school_rotation_id, school_coordinator_email, school_coordinator_name')
@@ -387,7 +387,7 @@ async function _handler(req, res, startMs) {
         source:       senderSig.source,
         display_name: senderSig.displayName,
         warning:      resolvedIncludeSignature && senderSig.source !== 'user'
-          ? 'Using a fallback signature — configure yours in Settings → Email Signature.'
+          ? 'Using a fallback signature, configure yours in Settings → Email Signature.'
           : null,
       },
     });
@@ -449,7 +449,7 @@ async function _handler(req, res, startMs) {
 
   // CONNECT-COMMS-1B: record which email source was used (school/personal/contact/override) so the
   // school-first routing is auditable without a schema migration (stored in the metadata jsonb).
-  // CONNECT-COMMS-1D: sender/signature/CC audit (jsonb metadata — no migration). Body NOT stored.
+  // CONNECT-COMMS-1D: sender/signature/CC audit (jsonb metadata - no migration). Body NOT stored.
   const sharedMeta = {
     recipient_source:      recipientSource,
     sent_by_user_id:       ownerUserProfileId,
@@ -537,7 +537,7 @@ async function _handler(req, res, startMs) {
     console.warn('[connect-send-direct] last_contact_update_skipped: notification_log write failed for', recipientId);
   }
 
-  // ── 9. Best-effort message archive (Phase 2B) — store a REDACTED copy of the just-sent body so
+  // ── 9. Best-effort message archive (Phase 2B) - store a REDACTED copy of the just-sent body so
   //      Sent History can preview this manual message later. NEVER fails the send: Resend already
   //      delivered and notification_log is written. Only runs once the notification_log id exists. ──
   let archiveStatus = 'skipped';

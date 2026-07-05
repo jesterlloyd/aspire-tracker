@@ -65,7 +65,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid request body' });
     }
 
-    // Rate limit — fail closed.
+    // Rate limit - fail closed.
     const ip = extractClientIp(req);
     const key = bucketKey('student_eval_submit', ip);
     const { data: allowed, error: rlError } = await supabaseAdmin.rpc(
@@ -101,7 +101,7 @@ export default async function handler(req, res) {
       return res.status(422).json({ error: 'This survey link is not supported by the current application version.' });
     }
 
-    // Canonicalize evaluated_target SERVER-SIDE — never trust the client-provided value.
+    // Canonicalize evaluated_target SERVER-SIDE - never trust the client-provided value.
     // Same source of truth as the token-validate endpoint: the student's own record
     // (students.preceptor_id → preceptors, free-text fallback). This is stored only inside
     // the response JSON; it is never written to respondent_preceptor_id.
@@ -119,7 +119,7 @@ export default async function handler(req, res) {
       .maybeSingle();
 
     // An actual query error must NOT silently submit an empty evaluated_target. (A simple
-    // no-rows / null preceptor result is fine — that legitimately yields blank context.)
+    // no-rows / null preceptor result is fine - that legitimately yields blank context.)
     if (ctxError) {
       return res.status(500).json({ error: 'Internal error' });
     }
@@ -150,7 +150,7 @@ export default async function handler(req, res) {
       return res.status(422).json({ error: 'Invalid response payload.' });
     }
 
-    // State-changing RPC — student survey only. Never submit_evaluation_response or
+    // State-changing RPC - student survey only. Never submit_evaluation_response or
     // submit_preceptor_evaluation_response. Submits the canonical (server-trusted) payload.
     const { data: submitResult, error: submitError } = await supabaseAdmin.rpc(
       'submit_student_preceptor_evaluation_response',

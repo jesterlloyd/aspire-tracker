@@ -1,6 +1,6 @@
 // src/components/connect/blocks/EventNodeView.jsx
 //
-// RICH-COMPOSE-2B — in-editor preview for the Event Details atom. Shows a branded card approximation
+// RICH-COMPOSE-2B - in-editor preview for the Event Details atom. Shows a branded card approximation
 // (CS-Red top accent, Nightfall title, only populated label/value rows) plus an Edit affordance.
 // Click/tap or Enter opens the shared edit modal (via editor.storage.aspireEvent.requestEdit);
 // Backspace/Delete removes the block. The server render is authoritative.
@@ -49,7 +49,7 @@ export function EventNodeView({ node, editor, getPos, deleteNode, selected }) {
         {rows.map(([label, value], i) => (
           <div key={label} style={{ padding: '6px 0', borderTop: i > 0 ? '1px solid #e8e4dc' : 'none' }}>
             <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: '#6b7280', marginBottom: 1 }}>{label}</div>
-            <div style={{ fontSize: 13, color: RAVEN, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{value || '—'}</div>
+            <div style={{ fontSize: 13, color: RAVEN, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{value || '-'}</div>
           </div>
         ))}
         <span aria-hidden="true" style={{ position: 'absolute', top: 10, right: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, border: '1px solid rgba(29,37,103,0.14)', borderRadius: 6, background: '#fff', color: '#6b7280' }}>

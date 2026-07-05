@@ -1,6 +1,6 @@
 // api/notification-log-message.js
 //
-// CONNECT-SENT-HISTORY message preview (Phase 1 — NO SQL). Owner/Admin, read-only detail for ONE
+// CONNECT-SENT-HISTORY message preview (Phase 1 - NO SQL). Owner/Admin, read-only detail for ONE
 // notification_log row, for the Sent History "View message" drawer.
 //
 // Phase 1 stores NO new message bodies. Automated/system emails are RECONSTRUCTED on demand by
@@ -10,7 +10,7 @@
 // rendered HTML is additionally redacted (any tokenized/query-bearing href|src is neutralized).
 //
 // Manual/direct Outreach emails were intentionally never stored (body not persisted), so they return
-// preview.available=false with a clear reason — the row's metadata still shows.
+// preview.available=false with a clear reason - the row's metadata still shows.
 //
 // Never returns raw tokens, secure links, candidate documents, or raw Supabase/Resend errors.
 import { createClient } from '@supabase/supabase-js';
@@ -19,7 +19,7 @@ import { templates } from '../src/lib/notifications/templates/index.js';
 import { redactArchiveHtml } from './lib/messageArchive.js';
 
 // Template-backed types renderable from stored context. All verified to contain only static program
-// links (logo, program domain, mailto/tel) — no context-derived/tokenized URLs.
+// links (logo, program domain, mailto/tel) - no context-derived/tokenized URLs.
 const RECONSTRUCTABLE = new Set([
   'form_received',
   'unit_form_received',
@@ -118,7 +118,7 @@ export default async function handler(req, res) {
       }
     } catch (e) {
       console.error('[notification-log-message] archive lookup failed:', e?.message);
-      // leave the unavailable state — graceful fallback
+      // leave the unavailable state - graceful fallback
     }
   } else if (RECONSTRUCTABLE.has(type) && templates[type]) {
     try {

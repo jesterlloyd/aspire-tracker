@@ -5,7 +5,7 @@
 // This extracts the public intake write path off the staff-oriented
 // api/student-update.js (which WS1e-A will later lock to authenticated staff).
 //
-// Security model (public, NO staff auth — mirrors the existing public-intake
+// Security model (public, NO staff auth - mirrors the existing public-intake
 // pattern, e.g. school-form-submit.js):
 //   - Eligibility/binding = the submitter's school_email (fallback personal_email)
 //     matching a pre-registered student row WITHIN the single cohort whose
@@ -213,11 +213,11 @@ export default async function handler(req, res) {
 
   // ── STUDENT-FORM-CEDARS-STATUS-AUTO-MAP (forward fix) ───────────────────────────
   // Derive the CS-Link "Cedars-Sinai Status" (cs_cedars_status) from the student's affiliation.
-  // This is SERVER-DERIVED from the already-validated cs_affiliation — cs_cedars_status is NOT a
+  // This is SERVER-DERIVED from the already-validated cs_affiliation - cs_cedars_status is NOT a
   // student-controlled field (it is absent from ALLOWED_BODY_KEYS and is never read from the body).
   // Applied ONLY when the record has no cs_cedars_status yet: never overwrite a staff-set value and
   // never auto-clear one. "No prior affiliation" is intentionally unmapped (no write). The Stage-1
-  // side-effects MIRROR StudentSidePanel's manual Step-1 onChange exactly — no new side-effects.
+  // side-effects MIRROR StudentSidePanel's manual Step-1 onChange exactly - no new side-effects.
   const CS_AFFILIATION_TO_CEDARS_STATUS = {
     'Current Employee': 'employee',
     'Volunteer':        'employee',
@@ -246,7 +246,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'internal_error' })
   }
 
-  // form_received event — server-derived context; created_by is a server label.
+  // form_received event - server-derived context; created_by is a server label.
   // Best-effort + deduplicated (non-transactional with the update above; the
   // student write is preserved even if event logging fails).
   try {

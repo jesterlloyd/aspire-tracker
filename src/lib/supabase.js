@@ -21,7 +21,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
     storageKey: 'aspire-intelligence-auth',
     storage: window?.localStorage,
-    // Bypass Web Locks API entirely — prevents lock conflict errors
+    // Bypass Web Locks API entirely - prevents lock conflict errors
     lock: async (_name, _acquireTimeout, fn) => fn(),
   },
   realtime: {
@@ -82,7 +82,7 @@ if (typeof window !== 'undefined') {
 
   // Periodic health check: catches silent disconnects that don't trigger any browser event
   // (e.g. WebSocket dies while the tab is visible and the network appears online).
-  // Runs every 30s to match heartbeatIntervalMs — if the heartbeat detects a dead
+  // Runs every 30s to match heartbeatIntervalMs - if the heartbeat detects a dead
   // connection, this will catch and recover it within the same window.
   setInterval(() => {
     if (document.visibilityState === 'visible') reconnectIfNeeded()

@@ -31,7 +31,7 @@ export function AuthProvider({ children }) {
 
       if (data && data.length > 0) {
         setUserProfile(data[0]);
-        // last_login_at is handled by the get_my_profile RPC — no separate update needed
+        // last_login_at is handled by the get_my_profile RPC - no separate update needed
       }
     } catch (err) {
       console.error('Profile load exception:', err.message);
@@ -76,7 +76,7 @@ export function AuthProvider({ children }) {
         if (event === 'SIGNED_IN' && session?.user) {
           setUser(session.user);
           // Defer profile load so the callback returns synchronously before making
-          // further Supabase calls — prevents the auth-lock deadlock documented at
+          // further Supabase calls - prevents the auth-lock deadlock documented at
           // https://supabase.com/docs/guides/troubleshooting/why-is-my-supabase-api-call-not-returning-PGzXw0
           setTimeout(() => { void loadUserProfile() }, 0)
         } else if (event === 'SIGNED_OUT') {

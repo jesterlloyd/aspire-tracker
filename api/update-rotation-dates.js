@@ -5,7 +5,7 @@
 // Admin override: update rotation_start_date / rotation_end_date on a
 // cohort_school_rotations row (Owner/Admin only). Authorization is
 // SERVER-VERIFIED (WS1/WS1b/WS1c/WS1d pattern). The previous "internal-only,
-// no token check" comment was incorrect — the route is publicly reachable, so
+// no token check" comment was incorrect - the route is publicly reachable, so
 // a verified Bearer token + role check is now required. Exact-schema enforced:
 // only { rotation_id, rotation_start_date, rotation_end_date } are accepted.
 //

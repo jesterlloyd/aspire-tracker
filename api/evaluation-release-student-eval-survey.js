@@ -1,12 +1,12 @@
 // api/evaluation-release-student-eval-survey.js
 //
-// SR-2b-2 — Owner/Admin per-student RELEASE for the Student Evaluation of Preceptor/Unit
+// SR-2b-2 - Owner/Admin per-student RELEASE for the Student Evaluation of Preceptor/Unit
 // Experience survey (slug: student_preceptor_eval). Parallel to the preceptor release
 // endpoint (evaluation-release-preceptor-survey.js), which is NOT modified.
 //
 // The queue is live-computed from the SR-2b-1 detector. This endpoint re-runs that detector
 // for ONE student at release time and proceeds ONLY if still due_sendable. The recipient is
-// the STUDENT (personal_email first, school_email fallback) — there is no recipient override.
+// the STUDENT (personal_email first, school_email fallback) - there is no recipient override.
 // The preceptor/unit is the evaluated_target (context only); it is resolved for display by
 // the SR-2a token-validate endpoint from the student's record and is NEVER written to
 // respondent_preceptor_id (which stays NULL for student surveys).
@@ -38,7 +38,7 @@ const TOKEN_GRACE_DAYS = 2;
 const NOTIF_TYPE       = 'student_preceptor_eval_request_sent';
 const SOURCE           = 'student_preceptor_eval_queue_release';
 
-// Broadened "already sent" status set — mirrors the midpoint-checkin fix so the Resend
+// Broadened "already sent" status set - mirrors the midpoint-checkin fix so the Resend
 // webhook advancing status (sent → delivered → opened → …) never defeats dedup.
 const ALREADY_SENT_STATUSES = ['sent', 'delivered', 'opened', 'clicked', 'delayed', 'bounced', 'complained'];
 
@@ -111,7 +111,7 @@ async function _handler(req, res) {
     return res.status(400).json({ success: false, error: 'Invalid request body' });
   }
 
-  // Strict allowlist — the body may contain ONLY student_id. No recipient/email/override.
+  // Strict allowlist - the body may contain ONLY student_id. No recipient/email/override.
   const extraKeys = Object.keys(body).filter(k => k !== 'student_id');
   if (extraKeys.length > 0) {
     return res.status(400).json({ success: false, error: `Unexpected field(s): ${extraKeys.join(', ')}. Allowed: student_id.` });
@@ -270,11 +270,11 @@ async function _handler(req, res) {
   if (tokenErr) {
     const { error: rbErr } = await supabaseAdmin
       .from('evaluation_assignments').delete().eq('id', assignment.id);
-    if (rbErr) console.error('[student-eval-release] ROLLBACK FAILED — orphaned assignment:', assignment.id, rbErr.message);
+    if (rbErr) console.error('[student-eval-release] ROLLBACK FAILED, orphaned assignment:', assignment.id, rbErr.message);
     return res.status(500).json({ success: false, error: 'Failed to issue survey token' });
   }
 
-  // ── 10. Build survey URL — raw token only in the email, never stored/logged. ─────
+  // ── 10. Build survey URL - raw token only in the email, never stored/logged. ─────
   // Canonical domain in Production; forwarded host on Preview. See lib/server/appUrl.js.
   const baseUrl = emailBaseUrl(req);
   const surveyUrl = `${baseUrl}/evaluation/experience#t=${rawToken}`;
@@ -317,7 +317,7 @@ async function _handler(req, res) {
     return res.status(200).json({ success: true, released: false, classification: 'send_failed', reason: 'Email failed to send' });
   }
 
-  // ── 12. Audit log — survey_url and token are NOT included. ───────────────────────
+  // ── 12. Audit log - survey_url and token are NOT included. ───────────────────────
   const sentAtIso = new Date().toISOString();
   try {
     await supabaseAdmin.from('notification_log').insert({
@@ -340,7 +340,7 @@ async function _handler(req, res) {
         source:          SOURCE,
         sent_by_user_id: senderUserId,
         sent_by_email:   senderEmail,
-        // survey_url / token intentionally omitted — must not be persisted.
+        // survey_url / token intentionally omitted - must not be persisted.
       },
     });
   } catch (logWriteErr) {

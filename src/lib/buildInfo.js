@@ -1,6 +1,6 @@
 // src/lib/buildInfo.js
 //
-// ASPIRE-GENERAL-SETTINGS-1 — safe, already-public app/build metadata for the
+// ASPIRE-GENERAL-SETTINGS-1 - safe, already-public app/build metadata for the
 // Settings → General → About sub-section. Reads ONLY build-time public vars
 // (the VITE_BUILD_* values are inlined by vite.config.js at build time and are
 // NOT secret) plus the canonical URL constant. It intentionally exposes NO
@@ -13,7 +13,7 @@ import { CANONICAL_APP_URL } from './appUrl.js';
 export const APP_NAME = 'ASPIRE Intelligence';
 
 export const APP_DESCRIPTION =
-  'Workspace for managing the ASPIRE Program — cohorts, student profiles, interviews, rotations, and outreach.';
+  'Workspace for managing ASPIRE: cohorts, student profiles, interviews, rotations, and outreach.';
 
 // Canonical public URL of the app (single source of truth: src/lib/appUrl.js).
 export const CANONICAL_URL = CANONICAL_APP_URL;

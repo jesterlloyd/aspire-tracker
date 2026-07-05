@@ -87,7 +87,7 @@ const CS_AFFILIATIONS = ['Current Employee','Former Employee','Volunteer','No pr
 const CS_WITH_DEPT    = ['Current Employee','Former Employee','Volunteer']
 const GENDER_OPTIONS  = ['Male','Female','Non-binary','Prefer not to say','Other']
 
-// Field-level save indicator context — populated by the drawer when a save succeeds
+// Field-level save indicator context - populated by the drawer when a save succeeds
 const FieldSavedCtx = createContext(null)
 
 // Tiny "✓ Saved" badge that appears next to the field label after a successful save
@@ -115,11 +115,11 @@ const COMM_TYPE_LABELS = {
   teams_invite_reminder:            'Teams Invite Reminder',
   teams_invite_reminder_escalation: 'Teams Invite Escalation',
 }
-function commTypeLabel(t) { return COMM_TYPE_LABELS[t] || t || '—' }
+function commTypeLabel(t) { return COMM_TYPE_LABELS[t] || t || '-' }
 function fmtCommDate(iso) {
-  if (!iso) return '—'
+  if (!iso) return '-'
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return '-'
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
@@ -139,7 +139,7 @@ function SectionHeader({ title, icon, children }) {
 // data owner of each major profile section obvious (student form / coordinator school form /
 // ASPIRE-admin) without labeling every field or adding heavy UI.
 // STUDENT-PROFILE-UX-1B: softer, calmer tones (lower-contrast text + gentler backgrounds) while
-// keeping each owner's color cue legible. Same tone keys, same meaning — provenance preserved.
+// keeping each owner's color cue legible. Same tone keys, same meaning - provenance preserved.
 const SOURCE_TAG_TONES = {
   student:     { bg:'#f3f5fc', color:'#4750a0', border:'#e4e8f6' },
   coordinator: { bg:'#f4f7fb', color:'#3a4673', border:'#e1e8f1' },
@@ -158,7 +158,7 @@ function SourceTag({ label, tone = 'muted' }) {
   )
 }
 
-// Pastel section card — wraps each profile section with icon + uppercase header + subtle bg
+// Pastel section card - wraps each profile section with icon + uppercase header + subtle bg
 function SectionCard({ icon: Icon, title, bg, iconColor, children, headerExtra }) {
   return (
     <div style={{
@@ -188,7 +188,7 @@ function CsLinkDateField({ value, onChange }) {
         value={dateInputValue(value)} onChange={onChange} />
       {legacy && (
         <span style={{ fontSize: 11, color: '#92400e', fontFamily: 'DM Sans, sans-serif' }}>
-          Existing value: {value} — re-enter to update.
+          Existing value: {value}, re-enter to update.
         </span>
       )}
     </span>
@@ -334,7 +334,7 @@ export default function StudentSidePanel({
   // coordinator rotation row, or the linked row still holds the 1900-01-01 sentinel.
   const rotationPending = !rotationRow || isSentinel
 
-  // STUDENT-PROFILE-CANON-1F: student-form provenance/completion signal. Conservative — a
+  // STUDENT-PROFILE-CANON-1F: student-form provenance/completion signal. Conservative - a
   // received student form is signalled by submitted_via === 'student_form' (no new DB field).
   const studentFormReceived = (data.submitted_via || student.submitted_via) === 'student_form'
   const studentSourceTone   = studentFormReceived ? 'student' : 'pending'
@@ -388,7 +388,7 @@ export default function StudentSidePanel({
   // ── Real-time subscription: student row ──────────────────────────────────
   // When another user (or another tab) saves this student's record, show a
   // non-intrusive banner.  We never auto-apply the remote change over an
-  // active edit — the user decides when to reload.
+  // active edit - the user decides when to reload.
   useEffect(() => {
     if (!student.id) return
     const channel = supabase
@@ -398,11 +398,11 @@ export default function StudentSidePanel({
         { event: 'UPDATE', schema: 'public', table: 'students', filter: `id=eq.${student.id}` },
         (payload) => {
           if (saveStatus === 'idle') {
-            // No pending edit — silently absorb the remote data
+            // No pending edit - silently absorb the remote data
             setData(d => ({ ...d, ...payload.new }))
             setLoadedUpdatedAt(payload.new.updated_at || null)
           } else {
-            // User is mid-edit — show a gentle banner
+            // User is mid-edit - show a gentle banner
             setRemoteUpdateBanner(true)
           }
         }
@@ -412,7 +412,7 @@ export default function StudentSidePanel({
   }, [student.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCopySummary = async () => {
-    const unitNameForSummary = matchedUnitName !== '—' ? matchedUnitName : null
+    const unitNameForSummary = matchedUnitName !== '-' ? matchedUnitName : null
     const summary = generateStudentSummary(student, unitNameForSummary, student.aspire_cohort)
     await navigator.clipboard.writeText(summary)
     setSummaryCopied(true)
@@ -427,7 +427,7 @@ export default function StudentSidePanel({
 
   const { markSynced: markHoursSynced, display: hoursSyncDisplay } = useLastSynced()
 
-  // Shift logs — cached per student
+  // Shift logs - cached per student
   const { data: shiftLogs = [] } = useQuery({
     queryKey: ['student_shift_logs', student.id],
     queryFn: async () => {
@@ -445,11 +445,11 @@ export default function StudentSidePanel({
   // WS1e-A4: earned-hour aggregate mutation is prohibited (approved/pending hours are
   // derived from submitted shift logs). The per-shift approve/reject/adjust controls
   // are disabled in the UI; these handlers are retained but no longer mutate aggregates.
-  const handleApproveShift = async (_log) => { /* disabled — see WS1e-A4 */ }
-  const handleRejectShift = async (_log) => { /* disabled — see WS1e-A4 */ }
-  const handleAdjustShift = async (_log) => { /* disabled — see WS1e-A4 */ }
+  const handleApproveShift = async (_log) => { /* disabled, see WS1e-A4 */ }
+  const handleRejectShift = async (_log) => { /* disabled, see WS1e-A4 */ }
+  const handleAdjustShift = async (_log) => { /* disabled, see WS1e-A4 */ }
 
-  // Communications — cached per student
+  // Communications - cached per student
   const { data: studentComms = [] } = useQuery({
     queryKey: ['student_communications', student.id],
     queryFn: async () => {
@@ -462,7 +462,7 @@ export default function StudentSidePanel({
     enabled: !!student.id,
   })
 
-  // Recent communications (Phase D.2) — notification_log, ALL-TIME, latest 5.
+  // Recent communications (Phase D.2) - notification_log, ALL-TIME, latest 5.
   // Reads notification_log (the Sent History source) by top-level student_id, so
   // it stays consistent with Outreach → Sent History. Not date-limited, so older
   // communications are never hidden.
@@ -481,7 +481,7 @@ export default function StudentSidePanel({
     enabled: !!student.id,
   })
 
-  // Program events — cached per student
+  // Program events - cached per student
   const { data: studentEvents = [] } = useQuery({
     queryKey: ['student_program_events', student.id],
     queryFn: async () => {
@@ -494,7 +494,7 @@ export default function StudentSidePanel({
     enabled: !!student.id,
   })
 
-  // Active disposition — reads from student_active_disposition view (Pattern A RLS: all authenticated)
+  // Active disposition - reads from student_active_disposition view (Pattern A RLS: all authenticated)
   const { data: activeDisposition, refetch: refetchDisposition } = useQuery({
     queryKey: ['student_active_disposition', student.id],
     queryFn: async () => {
@@ -509,7 +509,7 @@ export default function StudentSidePanel({
     enabled: !!student.id,
   })
 
-  // Follow-ups for the active disposition — only fetched when a disposition exists
+  // Follow-ups for the active disposition - only fetched when a disposition exists
   const { data: dispositionFollowups = [], refetch: refetchFollowups } = useQuery({
     queryKey: ['student_disposition_followups', activeDisposition?.id],
     queryFn: async () => {
@@ -525,7 +525,7 @@ export default function StudentSidePanel({
   })
 
   // Private internal note for the active disposition (Phase 2B.2f).
-  // student_disposition_private_notes is Owner/Admin RLS — unauthorized users get
+  // student_disposition_private_notes is Owner/Admin RLS - unauthorized users get
   // null, so the Internal Note section simply does not render for them.
   const { data: privateNote, refetch: refetchPrivateNote } = useQuery({
     queryKey: ['disposition_private_note', activeDisposition?.id],
@@ -552,7 +552,7 @@ export default function StudentSidePanel({
   }
 
   // STUDENT-PROFILE-CANON-1E: clear (inactivate) the active disposition without hard delete.
-  // Clearing NEVER changes student.status / interview_outcome / ngrp_outcome — if the admin
+  // Clearing NEVER changes student.status / interview_outcome / ngrp_outcome - if the admin
   // wants to change status they do it separately. History is preserved; an audit event is logged.
   const [showClearModal, setShowClearModal] = useState(false)
   const [clearReason,    setClearReason]    = useState('')
@@ -654,7 +654,7 @@ export default function StudentSidePanel({
   const prevStudent  = currentIndex > 0 ? sortedStudents[currentIndex - 1] : null
   const nextStudent  = currentIndex < sortedStudents.length - 1 ? sortedStudents[currentIndex + 1] : null
 
-  // doSave — OCC-protected field save.
+  // doSave - OCC-protected field save.
   // Passes loadedUpdatedAt so the API can detect concurrent edits.
   // On HTTP 409 (conflict): shows ConflictDialog instead of silently overwriting.
   const doSave = useCallback(async (field, value) => {
@@ -862,7 +862,7 @@ export default function StudentSidePanel({
 
   const participatingUnits = units.filter(u => u.is_participating).map(u => u.unit_name)
   const matchedUnitName    = data.matched_unit_id && units.length > 0
-    ? (units.find(u => u.id === data.matched_unit_id)?.unit_name || '—') : '—'
+    ? (units.find(u => u.id === data.matched_unit_id)?.unit_name || '-') : '-'
 
   const csStatus    = getCsLinkStatus(data)
   const csStatusCfg = CS_LINK_STATUS_CONFIG[csStatus]
@@ -916,7 +916,7 @@ export default function StudentSidePanel({
 
   return (
     <>
-      {/* OCC conflict dialog — rendered above everything else */}
+      {/* OCC conflict dialog - rendered above everything else */}
       {conflict && (
         <ConflictDialog
           studentName={`${data.first_name || ''} ${data.last_name || ''}`.trim()}
@@ -932,7 +932,7 @@ export default function StudentSidePanel({
         <FieldSavedCtx.Provider value={fieldSaved}>
         <div className="sp-content">
 
-          {/* Remote-update banner — shown when another user saved while this user is editing */}
+          {/* Remote-update banner - shown when another user saved while this user is editing */}
           {remoteUpdateBanner && (
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -992,7 +992,7 @@ export default function StudentSidePanel({
 
             return (
               <>
-                {/* ── Hero — fills the top of the drawer card; gradient flows into rounded corners ── */}
+                {/* ── Hero - fills the top of the drawer card; gradient flows into rounded corners ── */}
                 <div style={{
                   margin:0, borderRadius:'16px 16px 0 0',
                   background:'linear-gradient(160deg, #dceff8 0%, #f0f6fb 50%, #ffffff 100%)',
@@ -1003,7 +1003,7 @@ export default function StudentSidePanel({
                     <StudentAvatar student={data} size={96}
                       style={{ border:'4px solid var(--pearl)', boxShadow:'0 4px 18px rgba(29,37,103,0.16)', fontSize:'34px' }} />
                   </div>
-                  {/* Name — legal display, surfacing the preferred first name as First “Preferred” Last. */}
+                  {/* Name - legal display, surfacing the preferred first name as First “Preferred” Last. */}
                   <div style={{ fontSize:22, fontWeight:700, color:'var(--nightfall)', marginBottom:4, lineHeight:1.2 }}>
                     {getStudentLegalDisplayName(data)}
                   </div>
@@ -1011,7 +1011,7 @@ export default function StudentSidePanel({
                   <div style={{ fontSize:13, color:'#6b7280', marginBottom:8 }}>
                     {student.school}{student.program_type ? ` · ${student.program_type}` : ''}
                   </div>
-                  {/* ASPIRE status pill — precise disposition for Not Proceeding */}
+                  {/* ASPIRE status pill - precise disposition for Not Proceeding */}
                   {data.status && (() => {
                     const heroPillDispType = data.status === 'Not Proceeding' ? activeDisposition?.disposition_type : null
                     if (heroPillDispType) {
@@ -1085,7 +1085,7 @@ export default function StudentSidePanel({
                   </button>}
                 </div>
 
-                {/* ── Status snapshot — 5 chips (no ASPIRE status; hero pill carries it) ── */}
+                {/* ── Status snapshot - 5 chips (no ASPIRE status; hero pill carries it) ── */}
                 <div style={{ margin:'22px 18px 0', display:'flex', flexWrap:'wrap', gap:6 }}>
                   {(() => {
                     const gpaVal = parseFloat(data.cumulative_gpa)
@@ -1192,7 +1192,7 @@ export default function StudentSidePanel({
             <SectionHeader title="Contact Information" icon={<Mail size={13} />} />
             <Field label="School Email">
               <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                <div className="sp-readonly">{data.school_email || '—'}</div>
+                <div className="sp-readonly">{data.school_email || '-'}</div>
                 {data.school_email && (
                   <Tooltip label="Copy email" placement="top"><button className="sp-copy-btn" aria-label="Copy email" onClick={() => navigator.clipboard?.writeText(data.school_email)}>⎘</button></Tooltip>
                 )}
@@ -1229,7 +1229,7 @@ export default function StudentSidePanel({
                 <input className="sp-input" value={data.last_name||''} onChange={e => handleNameField('last_name', e.target.value)} />
               </Field>
               {/* STUDENT-PREFERRED-FIRST-NAME-1A: optional preferred FIRST name. Uses the generic
-                  text-save path (NOT handleNameField) — it is independent of the composed legal name. */}
+                  text-save path (NOT handleNameField), it is independent of the composed legal name. */}
               <Field label={<>Preferred First Name <SourceTag label={studentSourceLabel} tone={studentSourceTone} /></>} fieldKey="preferred_first_name">
                 <input className="sp-input" value={data.preferred_first_name||''} placeholder="Optional (e.g. Emi)"
                   onChange={e => handleText('preferred_first_name', e.target.value)} />
@@ -1241,7 +1241,7 @@ export default function StudentSidePanel({
                 <div style={{ display:'flex', gap:6 }}>
                   {/* WS1e-A4: ssn_last4 is read-only (no longer staff-editable; set at intake). */}
                   <input className="sp-input" type={showSSN ? 'text' : 'password'} maxLength={4}
-                    value={data.ssn_last4||''} readOnly title="Read-only — set during student intake." />
+                    value={data.ssn_last4||''} readOnly title="Read-only, set during student intake." />
                   <button className="btn-clear" style={{ fontSize:11, padding:'4px 8px' }} onClick={() => setShowSSN(p => !p)}>
                     {showSSN ? 'Hide' : 'Show'}
                   </button>
@@ -1274,7 +1274,7 @@ export default function StudentSidePanel({
             </div>
           </div>
 
-          {/* Information Acknowledgment (read-only) — STUDENT-FORM-INFORMATION-ACKNOWLEDGMENT.
+          {/* Information Acknowledgment (read-only) - STUDENT-FORM-INFORMATION-ACKNOWLEDGMENT.
               Captured at /student-form submit; server-set version + timestamp. Display only. */}
           <div className="sp-section sp-card sp-zone-contact">
             <SectionHeader title="Information Acknowledgment" icon={<CheckCircle2 size={13} />} />
@@ -1282,8 +1282,8 @@ export default function StudentSidePanel({
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                 {[
                   ['Acknowledged on', new Date(data.student_form_privacy_ack_at).toLocaleString('en-US', { dateStyle:'medium', timeStyle:'short' })],
-                  ['Typed name', data.student_form_privacy_ack_name || '—'],
-                  ['Version', data.student_form_privacy_ack_version || '—'],
+                  ['Typed name', data.student_form_privacy_ack_name || '-'],
+                  ['Version', data.student_form_privacy_ack_version || '-'],
                 ].map(([k, v]) => (
                   <div key={k} style={{ display:'flex', gap:10, fontSize:13 }}>
                     <span style={{ color:'var(--text-muted,#9ca3af)', minWidth:120, flexShrink:0 }}>{k}</span>
@@ -1300,7 +1300,7 @@ export default function StudentSidePanel({
           <div className="sp-section sp-card sp-zone-program">
             <SectionHeader title="Program Details" icon={<GraduationCap size={13} />} />
             <div className="sp-grid-2">
-              <Field label="School"><div className="sp-readonly">{data.school||'—'}</div></Field>
+              <Field label="School"><div className="sp-readonly">{data.school||'-'}</div></Field>
               <Field label="Program Type" fieldKey="program_type">
                 <select className="sp-select" value={data.program_type||''} onChange={e => handleSelect('program_type', e.target.value)}>
                   <option value="">Select…</option>
@@ -1311,18 +1311,18 @@ export default function StudentSidePanel({
                 </select>
               </Field>
               {/* STUDENT-PROFILE-CANON-1B: legacy students.term_dates is intentionally NOT shown in the
-                  profile — the canonical placement window is the coordinator-owned "Rotation Dates"
+                  profile, the canonical placement window is the coordinator-owned "Rotation Dates"
                   section below (cohort_school_rotations). The term_dates column is left untouched in
                   the database (Phase 1C will address shift-log/Keith paths that still read it). */}
               <Field label="Hours Required" fieldKey="hours_required">
                 <input className="sp-input" type="text" inputMode="numeric" pattern="[0-9]*"
                   value={data.hours_required??''} onChange={e => handleText('hours_required', e.target.value)} />
               </Field>
-              <Field label="Est. Graduation"><div className="sp-readonly">{data.estimated_graduation||'—'}</div></Field>
+              <Field label="Est. Graduation"><div className="sp-readonly">{data.estimated_graduation||'-'}</div></Field>
             </div>
           </div>
 
-          {/* 3b. Rotation Dates — STUDENT-PROFILE-CANON-1B: the single canonical placement-window
+          {/* 3b. Rotation Dates - STUDENT-PROFILE-CANON-1B: the single canonical placement-window
               block, sourced from the coordinator-owned cohort_school_rotations row. Always rendered
               (shows "pending review" when no linked/valid row) so it is the one date source of truth. */}
           <div className="sp-section sp-card sp-zone-program">
@@ -1375,7 +1375,7 @@ export default function StudentSidePanel({
                       </div>
                     )}
                   </div>
-                  {/* Coordinator provenance — this date window is coordinator-owned (school form). */}
+                  {/* Coordinator provenance - this date window is coordinator-owned (school form). */}
                   <div style={{ marginTop:8, fontSize:11, color:'var(--text-caption,#6b7280)',
                     fontFamily:'DM Sans', fontStyle:'italic' }}>
                     {rotationRow?.coordinator_name
@@ -1457,7 +1457,7 @@ export default function StudentSidePanel({
               )}
             </div>
 
-          {/* 3c. Availability & Scheduling (AVAILABILITY-CANON-1C) — display only, two
+          {/* 3c. Availability & Scheduling (AVAILABILITY-CANON-1C) - display only, two
               provenance-labeled sub-blocks: coordinator program constraints (cohort_school_rotations)
               and student availability (students). Null-safe; no risk logic in this phase. */}
           <div className="sp-section sp-card sp-zone-program">
@@ -1588,7 +1588,7 @@ export default function StudentSidePanel({
                 {data.headshot_url ? (
                   <div className="doc-existing-file">
                     <img src={data.headshot_url} alt="Headshot" className="doc-headshot-preview" />
-                    {/* Download Badge — owner/admin/interviewer only; replaces the old raw-photo download */}
+                    {/* Download Badge - owner/admin/interviewer only; replaces the old raw-photo download */}
                     {canInterview && (
                       <Tooltip label={badgeDisabledReason || 'Download badge'} placement="top">
                       <button
@@ -1649,7 +1649,7 @@ export default function StudentSidePanel({
             )}
           </div>
 
-          {/* 9. Placement and Outcomes — appears after CS-Link per spec order */}
+          {/* 9. Placement and Outcomes - appears after CS-Link per spec order */}
           {false && <div className="sp-section sp-card" style={{ background:'rgba(200,213,192,0.22)', borderRadius:12, marginBottom:10 }}>
             <SectionHeader title="Placement and Outcomes [MOVED]" icon={<Award size={13} />} />
             <div className="sp-grid-2">
@@ -1723,7 +1723,7 @@ export default function StudentSidePanel({
                 </select>
               </Field>
             </div>
-            {/* Badge Created — bottom of Placement section */}
+            {/* Badge Created - bottom of Placement section */}
             <label style={{ display:'flex', alignItems:'center', gap:8, marginTop:10, cursor:'pointer', fontSize:13, color:'var(--raven)' }}>
               <input type="checkbox" checked={!!data.badge_created}
                 onChange={e => { handleSelect('badge_created', e.target.checked); if (e.target.checked) { toast?.success('Badge issued', `Badge marked as created for ${student.first_name}.`); logActivity({ userProfile, actionType:'badge_issued', entityType:'student', entityId:student.id, cohortId:student.cohort_id, description:`${userProfile?.full_name} marked badge as created for ${student.first_name} ${student.last_name}` }) } }}
@@ -1733,7 +1733,7 @@ export default function StudentSidePanel({
             </label>
           </div>}
 
-          {/* 8. CS-Link Access Workflow — editors only */}
+          {/* 8. CS-Link Access Workflow - editors only */}
           {canEdit && <div className="sp-section sp-card sp-zone-admin">
             <SectionHeader title="CS-Link Access" icon={<CheckCircle2 size={13} />}>
               <SourceTag label="Source: ASPIRE/admin" tone="admin" />
@@ -1931,7 +1931,7 @@ export default function StudentSidePanel({
                 </div>
               </Field>
               <Field label="Matched Unit"><div className="sp-readonly">{matchedUnitName}</div></Field>
-              {/* Preceptor — shows normalized record when linked, free-text fields otherwise */}
+              {/* Preceptor - shows normalized record when linked, free-text fields otherwise */}
               <div className="sp-field" style={{ gridColumn: '1 / -1' }}>
                 <label className="sp-field-lbl">Preceptor</label>
                 {resolved.source === 'normalized' ? (
@@ -2027,14 +2027,14 @@ export default function StudentSidePanel({
                   <div className="sp-readonly">
                     {activeDisposition.effective_date
                       ? (() => { const [y,m,d] = activeDisposition.effective_date.split('-'); return new Date(+y,+m-1,+d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) })()
-                      : '—'}
+                      : '-'}
                   </div>
                 </Field>
                 <Field label="Decision Origin">
                   <div className="sp-readonly">{DECISION_ORIGINS[activeDisposition.decision_origin] || activeDisposition.decision_origin}</div>
                 </Field>
                 <Field label="Recorded By">
-                  <div className="sp-readonly">{activeDisposition.recorded_by_name || activeDisposition.decided_by_name || '—'}</div>
+                  <div className="sp-readonly">{activeDisposition.recorded_by_name || activeDisposition.decided_by_name || '-'}</div>
                 </Field>
                 {canEdit && dispositionFollowups.length > 0 && (
                   <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid var(--border-lt,#e5e7eb)' }}>
@@ -2087,7 +2087,7 @@ export default function StudentSidePanel({
                             {f.status === 'cancelled'     && <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)' }}>Cancelled</span>}
                             {f.status === 'not_applicable'&& <span style={{ fontSize:11, color:'var(--text-secondary,#6b7280)' }}>N/A</span>}
                           </div>
-                          {/* Type-specific completion form — explicit 4-branch routing */}
+                          {/* Type-specific completion form - explicit 4-branch routing */}
                           {completingFollowupId === f.id && (
                             <div style={{ marginTop:6, marginLeft:23, background:'#f9fafb', borderRadius:8, padding:'10px 12px', border:'1px solid #e5e7eb' }}>
                               {['notify_student','notify_school_coordinator','notify_unit_leader'].includes(f.followup_type) ? (
@@ -2218,7 +2218,7 @@ export default function StudentSidePanel({
                                     </button>
                                   </div>
                                 </>
-                              ) : null /* safety — button guard blocks unsupported types from reaching this */}
+                              ) : null /* safety, button guard blocks unsupported types from reaching this */}
                             </div>
                           )}
                           {/* Completion note display (for completed followups with notes) */}
@@ -2238,7 +2238,7 @@ export default function StudentSidePanel({
                     )}
                   </div>
                 )}
-                {/* Internal note (Owner/Admin only — RLS-gated) — Phase 2B.2f */}
+                {/* Internal note (Owner/Admin only - RLS-gated) - Phase 2B.2f */}
                 {canEdit && privateNote?.internal_note && (
                   <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid var(--border-lt,#e5e7eb)' }}>
                     <div style={{ fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em', color:'var(--text-secondary,#6b7280)', marginBottom:8 }}>
@@ -2248,7 +2248,7 @@ export default function StudentSidePanel({
                       {privateNote.internal_note}
                     </div>
                     <div style={{ fontSize:11, color:'var(--text-secondary,#6b7280)', marginTop:6 }}>
-                      Recorded by {privateNote.created_by_name || '—'} on {new Date(privateNote.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+                      Recorded by {privateNote.created_by_name || '-'} on {new Date(privateNote.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
                       {privateNote.updated_at && privateNote.updated_at !== privateNote.created_at && (
                         <> · Updated {new Date(privateNote.updated_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</>
                       )}
@@ -2293,9 +2293,9 @@ export default function StudentSidePanel({
             )}
           </div>
 
-          {/* (Old Documents section below — hidden since moved above) */}
+          {/* (Old Documents section below - hidden since moved above) */}
           {false && <div className="sp-section sp-card" style={{ background:'rgba(244,220,176,0.12)', borderRadius:12, marginBottom:10 }}>
-            <SectionHeader title="Documents (duplicate — hidden)" icon={<FileText size={13} />} />
+            <SectionHeader title="Documents (duplicate, hidden)" icon={<FileText size={13} />} />
             <div className="doc-section">
               <div className="doc-upload-area">
                 <div className="doc-area-label">Resume</div>
@@ -2376,7 +2376,7 @@ export default function StudentSidePanel({
             </Field>
           </div>
 
-          {/* Program Timeline — data collection in program_events continues; UI not rendered */}
+          {/* Program Timeline - data collection in program_events continues; UI not rendered */}
           {false && <div className="sp-section">
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
               <div style={{ fontSize:12, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em' }}>
@@ -2452,7 +2452,7 @@ export default function StudentSidePanel({
             )}
           </div>}
 
-          {/* Communication History (Phase D.2) — recent notification_log sends, all-time, latest 5 */}
+          {/* Communication History (Phase D.2) - recent notification_log sends, all-time, latest 5 */}
           {/* STUDENT-PROFILE-UX-1B: wrapped as a records-zone card to match Notes (styling only). */}
           <div className="sp-section sp-card sp-zone-records">
             <SectionHeader title="Recent Communications" icon={<MessageSquare size={13} />} />
@@ -2484,7 +2484,7 @@ export default function StudentSidePanel({
 
           </div>{/* end unified section container */}
 
-          {/* Delete — STUDENT-PROFILE-UX-1B: intentional, labeled danger zone, visually separated
+          {/* Delete - STUDENT-PROFILE-UX-1B: intentional, labeled danger zone, visually separated
               from the Prev/Next footer. Button behavior + confirm modal unchanged. */}
           <div className="sp-danger-zone">
             <div className="sp-danger-zone-label">Danger Zone</div>

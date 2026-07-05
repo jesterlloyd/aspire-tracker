@@ -6,20 +6,20 @@
 -- Forward-only storage of REDACTED rendered bodies for MANUAL/DIRECT Outreach emails, so Sent
 -- History can preview future manual messages (automated/system messages are reconstructed on the
 -- fly in Phase 1 and are NOT stored here). One row per notification_log row, keyed + FK'd by
--- notification_log_id (ON DELETE CASCADE — the archive never outlives its audit row).
+-- notification_log_id (ON DELETE CASCADE - the archive never outlives its audit row).
 --
 -- Stores ONLY redacted content: NO secure tokens, NO survey/magic links, NO candidate documents
 -- (resume/LOI/headshot/interview-question/packet content). Redaction is performed by the (later)
 -- storage code before insert; redaction_version records which redaction ruleset produced the row.
 --
 -- ADDITIVE and ISOLATED: one new table, RLS enabled with NO policies. It modifies nothing existing
--- (notification_log is untouched — no rendered_html column), instruments no send, and changes no
+-- (notification_log is untouched - no rendered_html column), instruments no send, and changes no
 -- behavior. Writes happen later via SERVICE-ROLE code only (service role bypasses RLS); nothing
--- client-side can read or write this table — Sent History reaches it through an Owner/Admin endpoint.
+-- client-side can read or write this table - Sent History reaches it through an Owner/Admin endpoint.
 --
 -- NO BACKFILL: historical manual emails had no body stored and stay preview-unavailable.
 --
--- HOW TO RUN: paste into the Supabase SQL Editor and execute. Claude Code applies nothing — the
+-- HOW TO RUN: paste into the Supabase SQL Editor and execute. Claude Code applies nothing - the
 -- Owner applies this manually, runs the verification block below (confirming the table is empty),
 -- THEN authorizes Phase 2B storage code. Idempotent: CREATE TABLE uses IF NOT EXISTS.
 -- =============================================================================
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS public.message_archive (
 -- The PRIMARY KEY on notification_log_id covers the only access pattern (detail fetch by id).
 -- No additional index added (no justified secondary access pattern in this phase).
 
--- ── 3. Row Level Security — ENABLED, NO POLICIES ────────────────────────────────
+-- ── 3. Row Level Security - ENABLED, NO POLICIES ────────────────────────────────
 -- Mirrors cron_runs / automation_settings: service-role code bypasses RLS; with no policies, no
 -- client (anon/authenticated) can read or write. Owner/Admin access is enforced server-side at the
 -- (later) endpoint.
@@ -64,7 +64,7 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- =============================================================================
--- VERIFICATION (Owner runs after applying — not part of the migration)
+-- VERIFICATION (Owner runs after applying - not part of the migration)
 -- =============================================================================
 --
 -- (a) table exists
@@ -85,7 +85,7 @@ NOTIFY pgrst, 'reload schema';
 --    ORDER BY indexname;
 --   -- expect: message_archive_pkey (on notification_log_id)
 --
--- (d) constraints — PK, FK (cascade), and the four CHECKs
+-- (d) constraints - PK, FK (cascade), and the four CHECKs
 --   SELECT conname, pg_get_constraintdef(oid) AS constraint_def
 --     FROM pg_constraint
 --    WHERE conrelid = 'public.message_archive'::regclass
@@ -105,7 +105,7 @@ NOTIFY pgrst, 'reload schema';
 -- (g) no accidental rows
 --   SELECT COUNT(*) AS row_count FROM public.message_archive;                      -- expect: 0
 --
--- OPTIONAL constraint smoke test (always rolls back — leaves the table empty). Requires a real
+-- OPTIONAL constraint smoke test (always rolls back - leaves the table empty). Requires a real
 -- notification_log id; substitute one for <LOG_ID>:
 --   BEGIN;
 --     -- empty body must fail chk_message_archive_has_body:
@@ -121,7 +121,7 @@ NOTIFY pgrst, 'reload schema';
 --   SELECT COUNT(*) FROM message_archive;     -- expect: 0
 --
 -- =============================================================================
--- ROLLBACK (safe — table is new, additive, nothing references it yet)
+-- ROLLBACK (safe - table is new, additive, nothing references it yet)
 -- =============================================================================
 --   DROP TABLE IF EXISTS message_archive;   -- also drops its PK/FK/CHECK constraints
 --   NOTIFY pgrst, 'reload schema';

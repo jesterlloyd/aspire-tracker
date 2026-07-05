@@ -70,7 +70,7 @@ export default async function handler(req, res) {
       .select('first_name, last_name, school, program_type, school_email')
       .eq('id', studentId).single()
 
-    // 5. Log to program_events — non-fatal; schema uses notes text, no event_data column
+    // 5. Log to program_events - non-fatal; schema uses notes text, no event_data column
     const bookingNote = `Interview self-scheduled for ${slot.slot_date} at ${slot.slot_time} with ${slot.interviewer_name || 'TBD'} (${slot.duration_minutes} min). Slot: ${slotId}.`
     const { error: eventError } = await db.from('program_events').insert({
       student_id: studentId,
@@ -92,7 +92,7 @@ export default async function handler(req, res) {
       interviewerEmail = iv?.email?.trim() || null
     }
 
-    // 7. Delegate notification email to /api/notify-interview-booked — single send path
+    // 7. Delegate notification email to /api/notify-interview-booked - single send path
     try {
       const protocol = req.headers['x-forwarded-proto'] || 'https'
       const host = req.headers.host

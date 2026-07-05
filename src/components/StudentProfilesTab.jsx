@@ -75,7 +75,7 @@ export default function StudentProfilesTab({
     markAsRead()
   }, [selectedStudentId, userProfile?.id, cohortId]) // eslint-disable-line
 
-  // Pipeline counts — always computed against FULL cohort, not filtered.
+  // Pipeline counts - always computed against FULL cohort, not filtered.
   // KLD-1: derivation moved verbatim into the shared canonical module so Keith and this
   // KPI strip share exactly one source of truth.
   const pipelineCounts = useMemo(() => computeStatusCounts(students), [students])
@@ -117,14 +117,14 @@ export default function StudentProfilesTab({
     if (displayedStudents.length === 0) { setSelectedStudentId(null); return }
     const valid = displayedStudents.some(s => s.id === selectedStudentId)
     if (!valid) setSelectedStudentId(displayedStudents[0].id)
-  }, [displayedStudents]) // eslint-disable-line — reads selectedStudentId as closure
+  }, [displayedStudents]) // eslint-disable-line - reads selectedStudentId as closure
 
   // Default to first student on initial load
   useEffect(() => {
     if (!selectedStudentId && displayedStudents.length > 0) {
       setSelectedStudentId(displayedStudents[0].id)
     }
-  }, []) // eslint-disable-line — run once on mount
+  }, []) // eslint-disable-line - run once on mount
 
   const selectedStudent = selectedStudentId ? students.find(s => s.id === selectedStudentId) : null
   const selectedName = selectedStudent ? `${selectedStudent.first_name} ${selectedStudent.last_name}`.trim() : null
@@ -154,7 +154,7 @@ export default function StudentProfilesTab({
         {/* ── Unified toolbar: Profiles/CS-Link toggle + all controls in one row ── */}
         <div style={{ display:'flex', alignItems:'center', gap:12, padding:'8px 12px', background:'var(--bg-card,#fff)', border:'1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius:10, marginBottom:10, flexWrap:'wrap' }}>
 
-          {/* Profiles / CS-Link Access — segmented, matches List/Grid style */}
+          {/* Profiles / CS-Link Access - segmented, matches List/Grid style */}
           <div style={{ display:'flex', borderRadius:7, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', overflow:'hidden', flexShrink:0 }}>
             <button onClick={() => onViewChange('records')}
               style={{ height:32, padding:'0 13px', display:'flex', alignItems:'center', border:'none', cursor:'pointer', fontSize:12, fontFamily:'DM Sans,sans-serif', fontWeight:500,
@@ -173,7 +173,7 @@ export default function StudentProfilesTab({
           {/* Status legend popover */}
           <StatusLegendPopover position="bottom-left" />
 
-          {/* Filter input — capped at 380px */}
+          {/* Filter input - capped at 380px */}
           <div style={{ position:'relative', maxWidth:380, flexShrink:1, minWidth:120, width:'100%' }}>
             <Search size={13} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--text-muted,#9ca3af)' }} />
             <input
@@ -215,7 +215,7 @@ export default function StudentProfilesTab({
             </button>
           )}
 
-          {/* List / Grid view toggle — only visible in Profiles mode */}
+          {/* List / Grid view toggle - only visible in Profiles mode */}
           {view === 'records' && (
             <div style={{ display:'flex', borderRadius:7, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', overflow:'hidden', flexShrink:0 }}>
               <button onClick={() => setViewMode('list')}

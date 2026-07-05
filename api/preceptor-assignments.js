@@ -3,17 +3,17 @@
 // PRECEPTOR-MODEL-3 (Part B): Owner/Admin server-verified write path for ADDITIONAL (secondary /
 // coverage) preceptor assignments in student_preceptor_assignments. The table has NO client write
 // policy (Owner/Admin SELECT RLS only), so all writes go through this service-role endpoint AFTER a
-// server-side Owner/Admin check — req.body never influences authorization.
+// server-side Owner/Admin check - req.body never influences authorization.
 //
 // STRICT GUARDRAILS:
-//   • Creates ONLY role='secondary' or 'coverage'. NEVER 'primary' — the primary relationship stays
+//   • Creates ONLY role='secondary' or 'coverage'. NEVER 'primary' - the primary relationship stays
 //     owned by students.preceptor_id and its existing workflow. Primary rows are not writable here.
 //   • Relationship-level dedup is enforced by the DB (Part A index
 //     uq_spa_one_active_relationship_per_student_cohort_preceptor): a second ACTIVE row for the same
-//     (student, cohort, preceptor) — any role — is rejected (23505) and surfaced as a clear 409.
+//     (student, cohort, preceptor) - any role - is rejected (23505) and surfaced as a clear 409.
 //   • End/remove is a soft status change (active -> ended|removed); rows are never hard-deleted. The
 //     endpoint refuses to modify role='primary' rows.
-//   • PLANNED/STANDING coverage only. Single-shift substitution is a future shift-log concern — not here.
+//   • PLANNED/STANDING coverage only. Single-shift substitution is a future shift-log concern - not here.
 //
 // POST   { studentId, preceptorId, role:'secondary'|'coverage', startDate?, endDate?, notes? }
 // PATCH  { assignmentId, status:'ended'|'removed' }
@@ -61,7 +61,7 @@ async function verifyCaller(req) {
     const { data: profile, error: pErr } = await admin
       .from('user_profiles').select('id, role, is_owner').eq('auth_user_id', user.id).maybeSingle()
     if (pErr || !profile) return { ok: false, status: 403, error: 'Forbidden' }
-    // Effective Owner/Admin rule — honors is_owner, matching the canonical app convention
+    // Effective Owner/Admin rule - honors is_owner, matching the canonical app convention
     // (api/student-update.js: auth.isOwner || role === 'admin'); union with explicit roles here.
     const role = profile.role || ''
     const isOwnerAdmin = profile.is_owner === true || ['owner', 'admin'].includes(role)
@@ -106,7 +106,7 @@ export default async function handler(req, res) {
       if (exErr) return res.status(500).json({ error: 'Failed to load assignment' })
       if (!existing) return res.status(404).json({ error: 'Assignment not found' })
       if (existing.role === 'primary') {
-        // Primary is owned by students.preceptor_id and its workflow — never mutated here.
+        // Primary is owned by students.preceptor_id and its workflow - never mutated here.
         return res.status(403).json({ error: 'Primary assignments are managed through the primary preceptor workflow.' })
       }
 

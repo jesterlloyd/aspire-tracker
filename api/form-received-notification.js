@@ -1,6 +1,6 @@
 // api/form-received-notification.js
 // Called fire-and-forget from SchoolFormPage.jsx after student insert.
-// No auth token required — the school form is already password-protected at
+// No auth token required - the school form is already password-protected at
 // the cohort level, so this endpoint is only reachable in that context.
 
 import { sendNotification } from '../src/lib/notifications/index.js';

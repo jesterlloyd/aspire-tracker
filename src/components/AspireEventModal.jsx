@@ -1,7 +1,7 @@
 // ASPIRE-EVENTS-CALENDAR-2B: create / edit / read-only detail for a custom ASPIRE event. All writes
-// go through the gated /api/aspire-events endpoint (client cannot write aspire_events directly — RLS
+// go through the gated /api/aspire-events endpoint (client cannot write aspire_events directly - RLS
 // blocks it). Owner/admin get create+edit+archive; everyone else gets a read-only detail view.
-// Cohort scoping is DEFERRED in Phase 2 (no cohort picker here) — reported deferred.
+// Cohort scoping is DEFERRED in Phase 2 (no cohort picker here) - reported deferred.
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { ASPIRE_EVENT_TYPES, AUDIENCE_OPTIONS, eventColor, eventTypeLabel, formatEventWhen } from '../lib/aspireEvents'
@@ -236,7 +236,7 @@ export default function AspireEventModal({ event, canManage, defaultDate, onClos
           </div>
 
           <div className="form-field">
-            <label className="form-label">Color <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional — defaults to the event type)</span></label>
+            <label className="form-label">Color <span style={{ color: '#9ca3af', fontWeight: 400 }}>(optional, defaults to the event type)</span></label>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <button type="button" onClick={() => set('color', '')}
                 style={{ height: 26, padding: '0 10px', borderRadius: 6, border: form.color === '' ? '2px solid #1D2567' : '1px solid #e5e7eb', background: '#fff', fontSize: 12, fontWeight: 600, color: '#374151', cursor: 'pointer' }}>

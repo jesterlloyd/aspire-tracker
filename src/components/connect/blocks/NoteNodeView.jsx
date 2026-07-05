@@ -1,6 +1,6 @@
 // src/components/connect/blocks/NoteNodeView.jsx
 //
-// RICH-COMPOSE-2A-3 — in-editor preview for the Note atom. Shows a branded callout approximation
+// RICH-COMPOSE-2A-3 - in-editor preview for the Note atom. Shows a branded callout approximation
 // (Nightfall left accent + title, soft tint, body) plus an Edit affordance. Click/tap or Enter opens
 // the shared edit modal (via editor.storage.aspireNote.requestEdit); Backspace/Delete removes the
 // block. The server render is authoritative; this is a lightweight approximation.

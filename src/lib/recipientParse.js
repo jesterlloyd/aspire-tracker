@@ -1,6 +1,6 @@
 // src/lib/recipientParse.js
 //
-// MANUAL-OUTREACH-TEMPLATE-LIBRARY Phase 2A — pure helpers for the multi-source bulk audience.
+// MANUAL-OUTREACH-TEMPLATE-LIBRARY Phase 2A - pure helpers for the multi-source bulk audience.
 // No network, no React, no DOM: safe to unit-test in node. Reuses the app's canonical email
 // primitives (isValidEmail + normalizeEmailForLookup) so dedupe matches the rest of Outreach.
 
@@ -66,7 +66,7 @@ export function parseRecipientText(text) {
 // Collision rule (documented): an ID-bearing record (student/contact) always wins over a
 // pasted/manual record with the same email; among ID-bearing records the FIRST in input order
 // wins (callers pass Students → Contacts → Paste, so a student record is kept over a contact
-// sharing the same email — both already carry a name). Returns { recipients, duplicateCount }.
+// sharing the same email - both already carry a name). Returns { recipients, duplicateCount }.
 export function dedupeRecipients(list) {
   const byEmail = new Map()
   let duplicateCount = 0

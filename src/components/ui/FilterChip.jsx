@@ -1,4 +1,4 @@
-// UI-1: filter chip — extracted pixel-for-pixel from the shipped Knowledge
+// UI-1: filter chip - extracted pixel-for-pixel from the shipped Knowledge
 // Center state-filter chips (KT-3a-1). A small toggleable pill; active = solid
 // accent, inactive = surface with default border. `count` (optional) renders a
 // muted numeric suffix when provided.

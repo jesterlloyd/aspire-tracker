@@ -12,12 +12,12 @@
 //     -d '{"slot_date":"2026-05-21"}'
 //
 // Body params (all optional):
-//   slot_date   — YYYY-MM-DD: send to all booked students on this date who
+//   slot_date   - YYYY-MM-DD: send to all booked students on this date who
 //                 have NOT already received a reminder.  Defaults to tomorrow
 //                 in Pacific time if omitted.
-//   student_ids — array of UUIDs: if provided, only send to these students
+//   student_ids - array of UUIDs: if provided, only send to these students
 //                 (still skips already-sent).
-//   force       — boolean: if true, bypass the already-sent check and resend
+//   force       - boolean: if true, bypass the already-sent check and resend
 //                 regardless.  Use with caution.
 //
 // Returns a full summary of what was sent, skipped, and failed.

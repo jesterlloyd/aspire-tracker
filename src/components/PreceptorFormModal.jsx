@@ -27,7 +27,7 @@ async function ensurePreceptorContact(preceptor) {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
       body: JSON.stringify(body),
     })
-    if (res.status === 409) return { status: 'exists' }  // already in Contacts — safe skip
+    if (res.status === 409) return { status: 'exists' }  // already in Contacts - safe skip
     if (!res.ok)            return { status: 'error' }
     return { status: 'created' }
   } catch {
@@ -143,11 +143,11 @@ export default function PreceptorFormModal({ isOpen, onClose, onSaved, initialDa
 
       // ── Auto-sync preceptor to ASPIRE Connect Contacts ────────────────────────
       // Non-blocking: preceptor is already saved. 409 = already in Contacts (fine).
-      // Any other failure shows a brief warning and auto-closes — never blocks the save.
+      // Any other failure shows a brief warning and auto-closes - never blocks the save.
       if (result.data?.email) {
         const sync = await ensurePreceptorContact(result.data)
         if (sync.status === 'error') {
-          setSyncNote('Preceptor saved. Contact sync did not complete — use Sync Preceptors in Contacts if needed.')
+          setSyncNote('Preceptor saved. Contact sync did not complete, use Sync Preceptors in Contacts if needed.')
           queryClient.invalidateQueries({ queryKey: ['preceptors'] })
           onSaved?.(result.data)
           setSaving(false)

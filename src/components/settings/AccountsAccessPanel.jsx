@@ -1,4 +1,4 @@
-// WS2.2 / ACCOUNTS-ACCESS-PROFILE-BOARD-2B: Settings → Accounts & Access — a single account-centered
+// WS2.2 / ACCOUNTS-ACCESS-PROFILE-BOARD-2B: Settings → Accounts & Access - a single account-centered
 // people board. The header carries the title/copy on the left and a compact "Invite New User" button
 // on the right (opens the InviteUserModal). The board itself (UserManagementContent) renders login
 // accounts as cozy profile cards; clicking a card opens the Account Profile modal. There is no
@@ -27,7 +27,7 @@ export default function AccountsAccessPanel() {
 
   return (
     <section aria-labelledby="settings-accounts-heading">
-      {/* Header — title/copy left, compact Invite New User right; wraps on narrow screens. */}
+      {/* Header - title/copy left, compact Invite New User right; wraps on narrow screens. */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
         <div style={{ minWidth: 0, flex: '1 1 420px' }}>
           <h2 id="settings-accounts-heading" style={{ margin: '0 0 4px', fontSize: 17, fontWeight: 700, color: 'var(--color-text-primary, #191919)' }}>

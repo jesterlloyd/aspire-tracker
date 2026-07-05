@@ -1,9 +1,9 @@
-// SHIFT-VIS-1 — Read-only helpers for shift indicators + open-shift duration + a HEDGED
+// SHIFT-VIS-1 - Read-only helpers for shift indicators + open-shift duration + a HEDGED
 // "clock-out may be overdue" heuristic on the Aggregate "On Campus Now" cards.
 //
 // This is the single source of truth for the overdue thresholds so later phases
 // (CLOCKOUT-DETECT-1 / CLOCKOUT-NUDGE-1) can reuse or review them. NOTHING here writes data,
-// touches hours/approved_hours, or changes shift-logging behavior — it only derives display
+// touches hours/approved_hours, or changes shift-logging behavior - it only derives display
 // values from already-loaded student_shift_logs rows.
 
 // Conservative thresholds: hours an OPEN shift may run before the UI hedges that clock-out

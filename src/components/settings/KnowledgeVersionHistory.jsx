@@ -3,7 +3,7 @@
 // shows a full read-only snapshot of a selected version via get_entry_version. Both
 // Owner and Admin can read versions (this is rendered only from the gated KC drawer;
 // the backend authorizes every call regardless). No restore, no diff, and no
-// revision workflow here — those are deferred to KT-3a-2c.
+// revision workflow here - those are deferred to KT-3a-2c.
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { CATEGORY_LABELS, fmtDate } from './knowledgeCategories'
@@ -21,7 +21,7 @@ async function postAdmin(payload) {
 // The endpoint exposes the editor only as a user_profiles id (no name). Show a short,
 // stable form with the full id available on hover.
 function shortId(id) {
-  return typeof id === 'string' && id.length > 8 ? id.slice(0, 8) : (id || '—')
+  return typeof id === 'string' && id.length > 8 ? id.slice(0, 8) : (id || '-')
 }
 
 const sectionLabel = { fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--color-text-secondary, #9ca3af)', marginBottom: 8 }

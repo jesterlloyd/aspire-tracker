@@ -3,7 +3,7 @@
 //   submitter     -> confirmation to the unit leader who submitted the form
 //   internal_team -> alert to Jester + Krystal with the full response summary
 // EMAIL-BRAND-REFRESH Phase 2B-2: migrated onto the shared ASPIRE system shell
-// (lib/server/email/aspireShell.js) — Nightfall header (ASPIRE wordmark + meaning), white card,
+// (lib/server/email/aspireShell.js) - Nightfall header (ASPIRE wordmark + meaning), white card,
 // Nightfall footer with the no-reply line. SYSTEM-DEFAULT-SIGNATURE-GIF-1: the submitter
 // confirmation now uses Jester's handwritten GIF signature (system-default policy); the
 // internal_team alert has no signature block and is unchanged.

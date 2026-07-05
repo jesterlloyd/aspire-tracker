@@ -18,21 +18,21 @@
 // Authorization: Bearer <session-token>
 //
 // Body (JSON):
-//   assignment_id  — required UUID of the evaluation_assignment
-//   survey_url     — required raw survey URL (contains #t= token in hash fragment)
-//   student_name   — required student name for the greeting
-//   timepoint      — required timepoint key
-//   expires_at     — required ISO datetime
+//   assignment_id  - required UUID of the evaluation_assignment
+//   survey_url     - required raw survey URL (contains #t= token in hash fragment)
+//   student_name   - required student name for the greeting
+//   timepoint      - required timepoint key
+//   expires_at     - required ISO datetime
 //
 // Success (200):
 //   { success: true, message, resend_message_id, notification_log_id }
 //
 // Errors:
-//   400 — validation failure
-//   401 — missing or invalid session
-//   403 — authenticated but not owner or admin
-//   404 — assignment not found
-//   500 — server error, Resend failure, or Owner email not configured
+//   400 - validation failure
+//   401 - missing or invalid session
+//   403 - authenticated but not owner or admin
+//   404 - assignment not found
+//   500 - server error, Resend failure, or Owner email not configured
 
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
@@ -48,7 +48,7 @@ import {
 // aspire@aspire-program.com is not confirmed as a verified Resend sender in this
 // project. The existing from-address noreply@aspire-program.com is used in all
 // production Resend integrations (coordinator digest, interview reminders) and is
-// the safe fallback. Name is changed to 'ASPIRE Program' for student-facing context.
+// the safe fallback. Name is changed to 'ASPIRE' for student-facing context.
 const FROM      = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>';
 const REPLY_TO  = 'JesterLloyd.Bautista@cshs.org';
 
@@ -143,7 +143,7 @@ async function _handler(req, res, startMs) {
     return res.status(400).json({ success: false, error: 'Invalid request body' });
   }
 
-  // Reject any attempt to override the recipient — this endpoint sends only to the Owner.
+  // Reject any attempt to override the recipient - this endpoint sends only to the Owner.
   // The presence of 'recipient', 'recipientEmail', or 'to' in the body is a protocol error.
   if ('recipient' in body || 'recipientEmail' in body || 'to' in body) {
     return res.status(400).json({
@@ -189,7 +189,7 @@ async function _handler(req, res, startMs) {
     return res.status(400).json({ success: false, error: 'expires_at is not a valid datetime' });
   }
 
-  // ── 4. Confirm assignment exists (read-only — no mutation) ────────────────
+  // ── 4. Confirm assignment exists (read-only - no mutation) ────────────────
   const { data: assignment, error: assignErr } = await supabaseAdmin
     .from('evaluation_assignments')
     .select('id, student_id, cohort_id')
@@ -268,7 +268,7 @@ async function _handler(req, res, startMs) {
   // notification_type 'evaluation_invitation_test' is distinct from the future
   // production 'evaluation_invitation_sent' type to be added in Phase 3B.2.
   //
-  // survey_url is NOT stored in metadata per the project safety policy —
+  // survey_url is NOT stored in metadata per the project safety policy -
   // URLs containing raw tokens should not be persisted in database records.
   // The assignment_id and student_id are sufficient for audit traceability.
   let notificationLogId = null;

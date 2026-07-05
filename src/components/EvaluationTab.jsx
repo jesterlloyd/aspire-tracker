@@ -33,7 +33,7 @@ const TIMEPOINT_LABELS = {
   post_rotation:           'Post-Rotation',
 }
 
-// ── Status badge config — colors from brand.js CS_COLORS ─────────────────────
+// ── Status badge config - colors from brand.js CS_COLORS ─────────────────────
 const STATUS_CONFIG = {
   completed:    { bg: CS_COLORS.sage,    text: '#166534', border: '#c6d9a8', label: 'Completed'    },
   opened:       { bg: CS_COLORS.marina,  text: '#1D2567', border: '#9dd6f2', label: 'Opened'       },
@@ -48,7 +48,7 @@ const STATUS_CONFIG = {
 // ── KPI card definitions ──────────────────────────────────────────────────────
 // restBg: pastel tint (Phase 4 ACCENT_PALETTE tints from designTokens.js / KPIBand.jsx)
 // restNum: per-category dark color for resting-state number
-// activeBg: solid category color — mirrors per-accent p.solid in FilterKPICard (KPIBand.jsx)
+// activeBg: solid category color - mirrors per-accent p.solid in FilterKPICard (KPIBand.jsx)
 //   nightfall #1D2567 = colors.ink2, marina #275E63, sage #2F7D5C, dawn solid #8B5E1A (deepened),
 //   hickory #583733 = CS_COLORS.hickory (revoked), #4A5560 for neutral sent
 const KPI_CARD_DEFS = [
@@ -70,7 +70,7 @@ const HALO = '0 0 0 4px rgba(29,37,103,0.06)'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Render-time effective status projection — does NOT mutate stored data.
+// Render-time effective status projection - does NOT mutate stored data.
 // Applied consistently: badge rendering, KPI counts, and table filter.
 function effectiveStatus(assignment) {
   if (
@@ -84,12 +84,12 @@ function effectiveStatus(assignment) {
 }
 
 function fmtDate(iso) {
-  if (!iso) return '—'
+  if (!iso) return '-'
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function fmtDateTime(iso) {
-  if (!iso) return '—'
+  if (!iso) return '-'
   return new Date(iso).toLocaleString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
     hour: 'numeric', minute: '2-digit',
@@ -106,7 +106,7 @@ function extractResponse(assignment) {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-// Interactive KPI filter card — visual pattern mirrors FilterKPICard from KPIBand.jsx.
+// Interactive KPI filter card - visual pattern mirrors FilterKPICard from KPIBand.jsx.
 // Each card uses its own solid category color (activeBg) as the active fill, matching
 // the per-accent p.solid treatment in Student Profiles.
 function EvalKPICard({ value, label, sub, restBg, restNum, activeBg, isActive, onClick, tooltipLabel }) {
@@ -170,7 +170,7 @@ function EvalKPICard({ value, label, sub, restBg, restNum, activeBg, isActive, o
 }
 
 // Read-only informational card for Section I averages.
-// No onClick, no hover lift — absence of hover affordance is the informational cue.
+// No onClick, no hover lift - absence of hover affordance is the informational cue.
 function EvalInfoCard({ label, sub, children }) {
   return (
     <div style={{
@@ -279,14 +279,14 @@ function ExpandedRow({ assignment: a, response }) {
           <LabelVal label="Submitted at"            value={fmtDateTime(response?.submitted_at)} />
           <LabelVal label="Expires at"              value={fmtDateTime(a.expires_at)} />
           {a.revoked_at && <LabelVal label="Revoked at" value={fmtDateTime(a.revoked_at)} />}
-          <LabelVal label="Hours at invitation"     value={a.approved_hours_at_invitation != null ? String(a.approved_hours_at_invitation) : '—'} />
-          <LabelVal label="Hours at completion"     value={a.approved_hours_at_completion != null ? String(a.approved_hours_at_completion) : '—'} />
+          <LabelVal label="Hours at invitation"     value={a.approved_hours_at_invitation != null ? String(a.approved_hours_at_invitation) : '-'} />
+          <LabelVal label="Hours at completion"     value={a.approved_hours_at_completion != null ? String(a.approved_hours_at_completion) : '-'} />
         </div>
         <div>
           <SectionLabel>SECTION I SCORES</SectionLabel>
-          <LabelVal label="Clinical Problem-Solving" value={cps != null ? Number(cps).toFixed(2) : '—'} />
-          <LabelVal label="Learning Activities"      value={la  != null ? Number(la).toFixed(2)  : '—'} />
-          <LabelVal label="Practice Readiness"       value={pr  != null ? Number(pr).toFixed(2)  : '—'} />
+          <LabelVal label="Clinical Problem-Solving" value={cps != null ? Number(cps).toFixed(2) : '-'} />
+          <LabelVal label="Learning Activities"      value={la  != null ? Number(la).toFixed(2)  : '-'} />
+          <LabelVal label="Practice Readiness"       value={pr  != null ? Number(pr).toFixed(2)  : '-'} />
           {a.notes && (
             <>
               <SectionLabel>NOTES</SectionLabel>
@@ -324,7 +324,7 @@ export default function EvaluationTab({ cohortId }) {
   const [error,           setError]           = useState(null)
   const [expandedIds,     setExpandedIds]     = useState(new Set())
 
-  // Sort state — default: most recent sent_at first
+  // Sort state - default: most recent sent_at first
   const [sortKey, setSortKey] = useState('sent_at')
   const [sortDir, setSortDir] = useState('desc')
 
@@ -373,7 +373,7 @@ export default function EvaluationTab({ cohortId }) {
   }, [cohortId])
 
   // RESTRICTED-ACCESS-OVERLAY-UNIFORMITY-FIX: interviewers DO load the dashboard so the real (not
-  // fake) Evaluation page renders, blurred, behind the restricted overlay — matching Rotation. The
+  // fake) Evaluation page renders, blurred, behind the restricted overlay - matching Rotation. The
   // overlay blocks all interaction, so individual response details/modals/exports stay inaccessible.
   useEffect(() => { fetchAssignments() }, [fetchAssignments])
 
@@ -393,7 +393,7 @@ export default function EvaluationTab({ cohortId }) {
     assignments.map(a => a.timepoint).filter(Boolean)
   )]
 
-  // Instrument + timepoint filter only (no status filter) — basis for KPI card counts.
+  // Instrument + timepoint filter only (no status filter) - basis for KPI card counts.
   // Per A.4: card counts are independent of the status filter so the full distribution
   // is always visible regardless of which card is active.
   const instrumentTimeFiltered = assignments.filter(a => {
@@ -402,7 +402,7 @@ export default function EvaluationTab({ cohortId }) {
     return true
   })
 
-  // KPI card counts — use effectiveStatus, based on instrumentTimeFiltered
+  // KPI card counts - use effectiveStatus, based on instrumentTimeFiltered
   const kpiCounts = {
     total:     instrumentTimeFiltered.length,
     sent:      instrumentTimeFiltered.filter(a => effectiveStatus(a) === 'sent').length,
@@ -412,21 +412,21 @@ export default function EvaluationTab({ cohortId }) {
     revoked:   instrumentTimeFiltered.filter(a => effectiveStatus(a) === 'revoked').length,
   }
 
-  // Full filtered set — adds active KPI status filter on top of instrument/timepoint.
+  // Full filtered set - adds active KPI status filter on top of instrument/timepoint.
   // Used for the table and Section I averages.
   const filtered = instrumentTimeFiltered.filter(a => {
     if (activeKpiFilter !== null && effectiveStatus(a) !== activeKpiFilter) return false
     return true
   })
 
-  // Client-side sort — all columns sortable (rows already loaded; safe for cohort scale).
+  // Client-side sort - all columns sortable (rows already loaded; safe for cohort scale).
   const sorted = [...filtered].sort((a, b) => {
     const dir = sortDir === 'asc' ? 1 : -1
     // Canonical-index columns (numeric order)
     if (sortKey === 'instrument') return dir * (instrumentSortIndex(a.evaluation_instruments?.slug) - instrumentSortIndex(b.evaluation_instruments?.slug))
     if (sortKey === 'timepoint')  return dir * (timepointSortIndex(a.timepoint) - timepointSortIndex(b.timepoint))
     if (sortKey === 'status')     return dir * (statusSortIndex(effectiveStatus(a)) - statusSortIndex(effectiveStatus(b)))
-    // Numeric Section I composite — nulls always last regardless of direction
+    // Numeric Section I composite - nulls always last regardless of direction
     if (sortKey === 'section_i') {
       const ma = sectionIMean(a), mb = sectionIMean(b)
       if (ma == null && mb == null) return 0
@@ -455,7 +455,7 @@ export default function EvaluationTab({ cohortId }) {
 
   // Instrument cards: per-instrument completed/assigned within the current timepoint filter (NOT
   // instrument-filtered, so every instrument is always visible). Only the canonical instruments that
-  // actually appear in this cohort are shown — Program Experience is never shown.
+  // actually appear in this cohort are shown - Program Experience is never shown.
   const timepointScoped = assignments.filter(a => filterTimepoint === 'All' || a.timepoint === filterTimepoint)
   const instrumentCards = INSTRUMENT_ORDER.map(slug => {
     const rows = timepointScoped.filter(a => a.evaluation_instruments?.slug === slug)
@@ -465,7 +465,7 @@ export default function EvaluationTab({ cohortId }) {
     return { slug, displayName, label: instrumentCompactLabel(slug, displayName), assigned: rows.length, completed }
   }).filter(Boolean)
 
-  // Section I averages — instrument and timepoint filters only; independent of the
+  // Section I averages - instrument and timepoint filters only; independent of the
   // active status KPI card. Completed responses are always shown regardless of which
   // status card the user has clicked.
   const completedFiltered = instrumentTimeFiltered.filter(a => effectiveStatus(a) === 'completed')
@@ -549,7 +549,7 @@ export default function EvaluationTab({ cohortId }) {
 
   // ── Styles ────────────────────────────────────────────────────────────────
 
-  // Sub-tab button style — mirrors RotationTab.jsx btnStyle pattern
+  // Sub-tab button style - mirrors RotationTab.jsx btnStyle pattern
   const btnStyle = (key) => ({
     height: 32, padding: '0 13px', display: 'flex', alignItems: 'center',
     border: 'none', cursor: 'pointer', fontSize: 12,
@@ -571,18 +571,18 @@ export default function EvaluationTab({ cohortId }) {
     <div style={{ fontFamily: F, display: 'flex', flexDirection: 'column', position: 'relative' }}>
 
       {/* EVALUATION-INTERVIEWER-ACCESS-UX + RESTRICTED-ACCESS-OVERLAY-UNIFORMITY-FIX: for interviewers,
-          overlay the REAL Evaluation dashboard (blurred, non-interactive) — identical pattern to the
+          overlay the REAL Evaluation dashboard (blurred, non-interactive), identical pattern to the
           Rotation tab (MatchingTab). The overlay covers the tab and captures all pointer events, so
           response detail modals, exports, tokens, and row clicks stay inaccessible. */}
       {evaluationRestricted && (
         <RestrictedAccessOverlay
           title="Evaluation results are restricted"
-          body="Evaluation summary, survey responses, and feedback are reviewed by ASPIRE program leads and administrative staff. To protect student feedback and response details, this dashboard is available to program leads only."
-          contact="If you need access to evaluation information, please contact the ASPIRE program lead."
+          body="Evaluation summary, survey responses, and feedback are reviewed by ASPIRE leads and administrative staff. To protect student feedback and response details, this dashboard is available to program leads only."
+          contact="If you need access to evaluation information, please contact the ASPIRE lead."
         />
       )}
 
-      {/* Sub-tab picker — mirrors RotationTab.jsx structure and styling */}
+      {/* Sub-tab picker - mirrors RotationTab.jsx structure and styling */}
       <div style={{ padding: '0 20px 12px', flexShrink: 0 }}>
         <div style={{
           display: 'flex',
@@ -628,7 +628,7 @@ export default function EvaluationTab({ cohortId }) {
         <PreceptorFeedbackPanel cohortId={cohortId} />
       )}
 
-      {/* ── Survey Automation — read-only due detection (Owner/Admin only) ── */}
+      {/* ── Survey Automation - read-only due detection (Owner/Admin only) ── */}
       {activeSubTab === 'automation' && (isOwner || isAdmin) && (
         <SurveyAutomationDashboard cohortId={cohortId} />
       )}
@@ -637,7 +637,7 @@ export default function EvaluationTab({ cohortId }) {
       {activeSubTab === 'cohort' && (
         <div style={{ padding: '4px 20px 24px', maxWidth: 1400 }}>
 
-          {/* Header — title, subtitle, and freshness cue right-aligned (mirrors OverviewTab) */}
+          {/* Header - title, subtitle, and freshness cue right-aligned (mirrors OverviewTab) */}
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
             <div>
               <h2 style={{ fontSize: 18, fontWeight: 700, color: '#191919', margin: '0 0 4px', fontFamily: F }}>
@@ -671,7 +671,7 @@ export default function EvaluationTab({ cohortId }) {
           {/* KPI cards + content */}
           {!loading && !error && (
             <>
-              {/* Instrument cards — primary grouping. Clickable to set the instrument filter
+              {/* Instrument cards - primary grouping. Clickable to set the instrument filter
                   (toggles off when the active one is clicked again). Shows completed/assigned +
                   a thin completion bar. Compact labels; Program Experience never shown. */}
               {instrumentCards.length > 0 && (
@@ -706,7 +706,7 @@ export default function EvaluationTab({ cohortId }) {
                 </div>
               )}
 
-              {/* Status KPI band (secondary) — 7-column grid matching StudentProfilesTab pattern */}
+              {/* Status KPI band (secondary) - 7-column grid matching StudentProfilesTab pattern */}
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(7, 1fr)',
@@ -728,7 +728,7 @@ export default function EvaluationTab({ cohortId }) {
                   />
                 ))}
 
-                {/* Section I Averages — informational, non-interactive.
+                {/* Section I Averages - informational, non-interactive.
                     Scoped to instrument + timepoint only; independent of active status card.
                     Scale: S1 items are 1–4 integers; bar fill = (mean - 1) / 3. */}
                 <EvalInfoCard label="SECTION I AVERAGES" sub="From completed responses">
@@ -737,7 +737,7 @@ export default function EvaluationTab({ cohortId }) {
                       fontSize: 32, fontWeight: 700, lineHeight: 1,
                       letterSpacing: '-0.025em', color: '#D0D5DD', fontFamily: F,
                     }}>
-                      —
+                      -
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
@@ -750,7 +750,7 @@ export default function EvaluationTab({ cohortId }) {
                             fontSize: 14, fontWeight: 700, color: '#0E1428', width: 34, flexShrink: 0,
                             fontFamily: F, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.025em',
                           }}>
-                            {val != null ? val.toFixed(2) : '—'}
+                            {val != null ? val.toFixed(2) : '-'}
                           </span>
                           {val != null && (
                             <div style={{ flex: 1, height: 3, background: 'rgba(29,37,103,0.08)', borderRadius: 2, overflow: 'hidden', minWidth: 0 }}>
@@ -769,7 +769,7 @@ export default function EvaluationTab({ cohortId }) {
                 </EvalInfoCard>
               </div>
 
-              {/* Filter strip — instrument and timepoint dropdowns only */}
+              {/* Filter strip - instrument and timepoint dropdowns only */}
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 20 }}>
                 <select value={filterInstrument} onChange={e => setFilterInstrument(e.target.value)} style={sel}>
                   {instruments.map(i => (
@@ -871,7 +871,7 @@ export default function EvaluationTab({ cohortId }) {
                                 <span style={{ fontSize: 11, color: '#374151', fontVariantNumeric: 'tabular-nums' }}>
                                   {scoresReady
                                     ? `CPS ${Number(cps).toFixed(2)} · LA ${Number(la).toFixed(2)} · PR ${Number(pr).toFixed(2)}`
-                                    : '—'
+                                    : '-'
                                   }
                                 </span>
                               </Td>
@@ -912,7 +912,7 @@ export default function EvaluationTab({ cohortId }) {
         </div>
       )}
 
-      {/* Response detail modal — mounted at EvaluationTab level, one at a time. Each
+      {/* Response detail modal - mounted at EvaluationTab level, one at a time. Each
           survey type renders in its own isolated, Owner/Admin-only detail (section-keyed):
           preceptor_progress → PreceptorResponseDetail, student_preceptor_eval →
           StudentEvalResponseDetail; Casey-Fink/student keeps the existing detail view. */}

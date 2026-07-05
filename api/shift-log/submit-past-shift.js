@@ -4,7 +4,7 @@
 // "Log a Past Shift" form (ShiftLogPage). Extracts that public flow off the
 // staff-oriented api/student-update.js.
 //
-// Source-of-truth model (Option 1 — direct completed insert + server recompute):
+// Source-of-truth model (Option 1 - direct completed insert + server recompute):
 //   1. resolve the student by normalized school_email (non-Archived cohort),
 //      requiring exactly one match (ambiguous → 409, none → 404)
 //   2. validate the exact past-shift schema (reject unexpected/staff fields)
@@ -12,10 +12,10 @@
 //   4. insert ONE completed student_shift_logs row (id = caller submission_id,
 //      for request-level idempotency; PK conflict → idempotent success)
 //   5. recompute approved_hours / pending_hours from ALL authoritative completed
-//      shift rows (formula DUPLICATED from the shift_log_check_out RPC — must stay
+//      shift rows (formula DUPLICATED from the shift_log_check_out RPC - must stay
 //      synchronized until a shared recompute RPC is approved)
 //   6. server-controlled status promotion (Placed → Active Rotation on first
-//      auto-accepted shift) — never client-supplied
+//      auto-accepted shift) - never client-supplied
 //   7. return the created shift + recomputed totals
 //
 // NOT transactional: the insert and the recompute/update are separate statements
@@ -64,7 +64,7 @@ function parseLocalDate(s) {
   return new Date(y, m - 1, d)
 }
 
-// Exception classification — duplicated from ShiftLogPage.buildExceptionFlags /
+// Exception classification - duplicated from ShiftLogPage.buildExceptionFlags /
 // the check-out endpoint. Must stay synchronized with that logic.
 async function buildExceptionFlags(db, ctx) {
   const { totalHours, preceptorName, unitName, isAssignedUnit, shiftDate, student } = ctx
@@ -105,7 +105,7 @@ async function buildExceptionFlags(db, ctx) {
   return flags
 }
 
-// Recompute formula — DUPLICATED from shift_log_check_out RPC (must stay in sync).
+// Recompute formula - DUPLICATED from shift_log_check_out RPC (must stay in sync).
 async function recomputeTotals(db, studentId) {
   const { data: approvedRows } = await db
     .from('student_shift_logs').select('total_hours')
@@ -218,7 +218,7 @@ export default async function handler(req, res) {
   // ── Payload-consistency check for a reused submission_id ────────────────────
   // Compares ONLY client-provided fields (normalized). Server-derived fields
   // (status, exception_flags, review_reason, submitted_at, lifecycle_state) are
-  // intentionally excluded — they don't appear in the request.
+  // intentionally excluded - they don't appear in the request.
   const COMPARE_SELECT = 'id, student_id, cohort_id, school_email, shift_date, total_hours, shift_type, unit_name, preceptor_name, is_assigned_unit, unit_override_reason, is_assigned_preceptor, preceptor_override_note, attestation, learning_highlight, support_needed, status, review_reason'
   const nstr = (v) => (v == null ? '' : String(v).trim())
   const samePayload = (row) =>

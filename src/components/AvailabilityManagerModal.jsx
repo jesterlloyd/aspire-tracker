@@ -231,7 +231,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
             </div>
             {previewSlots.length > 0 && (
               <div style={{ fontSize:12, color:'var(--text-secondary)', marginBottom:10 }}>
-                Preview: <strong>{previewSlots.length} slot{previewSlots.length !== 1 ? 's' : ''}</strong> will be generated —{' '}
+                Preview: <strong>{previewSlots.length} slot{previewSlots.length !== 1 ? 's' : ''}</strong> will be generated -{' '}
                 {previewSlots.map(fmtTime).join(', ')}
               </div>
             )}
@@ -260,7 +260,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
             </button>
           </div>
 
-          {/* Existing blocks — admins see all, interviewers see only their own */}
+          {/* Existing blocks - admins see all, interviewers see only their own */}
           {(() => {
             const visibleBlocks = isAdmin
               ? blocks

@@ -47,7 +47,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required booking fields' })
   }
 
-  // slot_id is a UUID — invariant to payload formatting differences
+  // slot_id is a UUID - invariant to payload formatting differences
   const dedupeKey = slotId || `${studentEmail || 'unknown'}-${interviewDate}-${interviewTime}`
   if (shouldSkipDuplicate(dedupeKey)) {
     console.log('[notify-interview-booked] duplicate within 60s window, skipping:', dedupeKey)

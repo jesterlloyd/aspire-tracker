@@ -28,7 +28,7 @@ const GA_QUESTIONS = [
   'Tell me what type of unit or preceptor helps you learn best, and why.',
   'How do you see this ASPIRE experience preparing you for your first nursing job?',
   'What drew you to Cedars-Sinai for your senior preceptorship, and how do you see this experience supporting your growth as a nurse?',
-  'What personal strengths or qualities do you bring that make you a good fit for the ASPIRE Program?',
+  'What personal strengths or qualities do you bring that make you a good fit for ASPIRE?',
 ]
 
 const DOMAIN_REF = {
@@ -43,8 +43,8 @@ const DOMAIN_REF = {
     listen: "Self-reflection, receptiveness to feedback, professionalism under stress, communication style, accountability.",
   },
   ga: {
-    description: "Alignment of the student's learning goals, career intentions, and values with the ASPIRE Program's mission and Cedars-Sinai's culture.",
-    basis: "Alignment with Cedars-Sinai's Nursing Professional Practice Model and the ASPIRE Program's mission.",
+    description: "Alignment of the student's learning goals, career intentions, and values with ASPIRE's mission and Cedars-Sinai's culture.",
+    basis: "Alignment with Cedars-Sinai's Nursing Professional Practice Model and ASPIRE's mission.",
     listen: "Clarity of purpose, motivation specific to ASPIRE, articulation of learning goals, cultural fit, post-graduation plans.",
   },
 }
@@ -323,7 +323,7 @@ export default function InterviewSession({ student, cohortId, onBack, onStudentU
               <div className="iv-field">
                 <label className="iv-label">Date of Interview</label>
                 {locked
-                  ? <div className="iv-readonly">{form.interview_date || '—'}</div>
+                  ? <div className="iv-readonly">{form.interview_date || '-'}</div>
                   : <input className="iv-input" type="date" value={form.interview_date}
                       onChange={e => saveImmediate('interview_date', e.target.value)} />
                 }
@@ -331,7 +331,7 @@ export default function InterviewSession({ student, cohortId, onBack, onStudentU
               <div className="iv-field">
                 <label className="iv-label">Interviewer Name</label>
                 {locked
-                  ? <div className="iv-readonly">{form.interviewer_name || '—'}</div>
+                  ? <div className="iv-readonly">{form.interviewer_name || '-'}</div>
                   : <select className="iv-input" value={form.interviewer_name}
                       onChange={e => saveImmediate('interviewer_name', e.target.value)}>
                       <option value="">Select interviewer…</option>
@@ -355,7 +355,7 @@ export default function InterviewSession({ student, cohortId, onBack, onStudentU
                 <div className="iv-field" key={field}>
                   <label className="iv-label">{['1st Choice','2nd Choice','3rd Choice'][i]}</label>
                   {locked
-                    ? <div className="iv-readonly">{prefs[field] || '—'}</div>
+                    ? <div className="iv-readonly">{prefs[field] || '-'}</div>
                     : <select className="iv-input" value={prefs[field]}
                         onChange={e => savePreference(field, e.target.value)}>
                         <option value="">Not specified</option>
@@ -368,7 +368,7 @@ export default function InterviewSession({ student, cohortId, onBack, onStudentU
             <div className="iv-field">
               <label className="iv-label">Unit Preferences, Rationale, and Introduction Notes</label>
               {locked
-                ? <div className="iv-readonly iv-readonly-tall">{form.unit_preferences_rationale || '—'}</div>
+                ? <div className="iv-readonly iv-readonly-tall">{form.unit_preferences_rationale || '-'}</div>
                 : <textarea className="iv-textarea iv-notes-textarea" rows={4}
                     value={form.unit_preferences_rationale}
                     onChange={e => saveText('unit_preferences_rationale', e.target.value)}
@@ -447,7 +447,7 @@ export default function InterviewSession({ student, cohortId, onBack, onStudentU
             <div className="iv-section-title">Section 6: Student Questions</div>
             <p className="iv-prompt">"Before we wrap up, what questions do you have for us?"</p>
             {locked
-              ? <div className="iv-readonly iv-readonly-tall">{form.student_questions || '—'}</div>
+              ? <div className="iv-readonly iv-readonly-tall">{form.student_questions || '-'}</div>
               : <textarea className="iv-textarea iv-notes-textarea" rows={3}
                   value={form.student_questions}
                   onChange={e => saveText('student_questions', e.target.value)}
@@ -489,7 +489,7 @@ export default function InterviewSession({ student, cohortId, onBack, onStudentU
             <div className="iv-field" style={{ marginTop: 20 }}>
               <label className="iv-label">Suggested Unit (Interviewer's Recommendation)</label>
               {locked
-                ? <div className="iv-readonly">{form.suggested_unit || '—'}</div>
+                ? <div className="iv-readonly">{form.suggested_unit || '-'}</div>
                 : <>
                     <input className="iv-input" value={form.suggested_unit}
                       onChange={e => saveText('suggested_unit', e.target.value)}
@@ -503,7 +503,7 @@ export default function InterviewSession({ student, cohortId, onBack, onStudentU
             <div className="iv-field" style={{ marginTop: 16 }}>
               <label className="iv-label">Summary Comments</label>
               {locked
-                ? <div className="iv-readonly iv-readonly-tall">{form.summary_comments || '—'}</div>
+                ? <div className="iv-readonly iv-readonly-tall">{form.summary_comments || '-'}</div>
                 : <textarea className="iv-textarea iv-notes-textarea" rows={4}
                     value={form.summary_comments}
                     onChange={e => saveText('summary_comments', e.target.value)}
@@ -670,7 +670,7 @@ function DomainSection({ domainKey, sectionNum, questions, refData, open, onTogg
       <div className="iv-field" style={{ marginTop: 20 }}>
         <label className="iv-label">Notes and Response Summary</label>
         {locked
-          ? <div className="iv-readonly iv-readonly-tall">{notes || '—'}</div>
+          ? <div className="iv-readonly iv-readonly-tall">{notes || '-'}</div>
           : <textarea className="iv-textarea iv-notes-textarea" rows={4} value={notes}
               onChange={e => onNotes(e.target.value)}
               placeholder="Capture key points from the student's response…" />

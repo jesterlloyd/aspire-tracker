@@ -1,6 +1,6 @@
 // src/components/connect/blocks/EventBlock.js
 //
-// RICH-COMPOSE-2B — TipTap atom node for the ASPIRE Content Block "Event Details" (info card).
+// RICH-COMPOSE-2B - TipTap atom node for the ASPIRE Content Block "Event Details" (info card).
 // Scalar plain-text attributes only (title, dateTime, location, format, respondBy). Serializes to
 //   <div data-aspire-block="event" data-title data-datetime data-location data-format data-respondby></div>
 // which the server (renderContentBlocks.js) extracts, VALIDATES + ESCAPES, and replaces with a branded,

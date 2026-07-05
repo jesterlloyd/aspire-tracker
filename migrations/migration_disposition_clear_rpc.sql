@@ -1,5 +1,5 @@
 -- ============================================================
--- ASPIRE Intelligence — STUDENT-PROFILE-CANON-1E: Clear Disposition
+-- ASPIRE Intelligence - STUDENT-PROFILE-CANON-1E: Clear Disposition
 -- ============================================================
 --
 -- Adds a SECURITY DEFINER RPC to CLEAR (inactivate) a student's active
@@ -30,7 +30,7 @@ BEGIN;
 
 
 -- ────────────────────────────────────────────────────────────────────────────
--- PART A: additive columns — cleared provenance on the historical row
+-- PART A: additive columns - cleared provenance on the historical row
 -- ────────────────────────────────────────────────────────────────────────────
 -- A cleared row is identified by cleared_at IS NOT NULL. This is distinct from a
 -- SUPERSEDED row (superseded_by_id IS NOT NULL, set by record_student_disposition).
@@ -42,7 +42,7 @@ ALTER TABLE student_dispositions
 
 
 -- ────────────────────────────────────────────────────────────────────────────
--- PART B: clear_student_disposition() — atomic SECURITY DEFINER function
+-- PART B: clear_student_disposition() - atomic SECURITY DEFINER function
 -- ────────────────────────────────────────────────────────────────────────────
 -- Clears (inactivates) the currently-active disposition(s) for a student. There
 -- is normally exactly one (enforced by uq_student_active_disposition), but the

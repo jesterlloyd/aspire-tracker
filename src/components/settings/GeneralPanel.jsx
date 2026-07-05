@@ -1,19 +1,19 @@
 // ASPIRE-GENERAL-SETTINGS-1: Settings → General is the primary Settings section (unchanged rail
 // item / route key `general`, Apple-iOS-style). It now hosts internal sub-sections:
 //
-//   • About  — real, already-safe app/deployment metadata (implemented).
-//   • Storage — DEFERRED: honest Supabase storage usage needs a new admin/service-role endpoint
-//               (none exists) — out of scope here, so it is NOT rendered.
-//   • Usage  — DEFERRED: no app-accessible source for Claude console spend/usage exists, and adding
-//               billing/API-key access is out of scope — so it is NOT rendered.
+//   • About  - real, already-safe app/deployment metadata (implemented).
+//   • Storage - DEFERRED: honest Supabase storage usage needs a new admin/service-role endpoint
+//               (none exists) - out of scope here, so it is NOT rendered.
+//   • Usage  - DEFERRED: no app-accessible source for Claude console spend/usage exists, and adding
+//               billing/API-key access is out of scope - so it is NOT rendered.
 //
 // This codebase deliberately avoids "coming soon"/placeholder sections (see settingsSections.js), so
 // Storage/Usage are SCAFFOLDED in the registry below (implemented:false) but not shown. The Apple-like
 // segmented sub-nav renders only when ≥2 sub-sections are implemented; with About alone it renders
-// About directly — no lonely single-tab control, no empty/broken sections. Flipping Storage/Usage to
+// About directly - no lonely single-tab control, no empty/broken sections. Flipping Storage/Usage to
 // implemented:true (once a real, safe data source exists) makes the sub-nav appear automatically.
 //
-// About reads ONLY build-time public vars via src/lib/buildInfo.js (VITE_BUILD_* — inlined at build,
+// About reads ONLY build-time public vars via src/lib/buildInfo.js (VITE_BUILD_* - inlined at build,
 // never secret) + the canonical URL. No new API, endpoint, secret, or private env is introduced.
 import { useState } from 'react'
 import { Copy, Check, ExternalLink } from 'lucide-react'
@@ -23,7 +23,7 @@ import {
 } from '../../lib/buildInfo'
 
 // General sub-sections. Only `about` is implemented today; `storage` and `usage` are scaffolded
-// (implemented:false) so they can be enabled later without restructuring — no placeholder is rendered.
+// (implemented:false) so they can be enabled later without restructuring - no placeholder is rendered.
 const GENERAL_SUBSECTIONS = [
   { key: 'about',   label: 'About',   implemented: true },
   { key: 'storage', label: 'Storage', implemented: false },
@@ -48,7 +48,7 @@ function AboutSection() {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      /* clipboard unavailable (e.g. insecure context) — no-op, the value is still visible */
+      /* clipboard unavailable (e.g. insecure context) - no-op, the value is still visible */
     }
   }
 
@@ -135,7 +135,7 @@ export default function GeneralPanel() {
         About ASPIRE Intelligence and this deployment.
       </p>
 
-      {/* Apple-style segmented sub-nav — rendered only when ≥2 sub-sections are implemented (avoids a
+      {/* Apple-style segmented sub-nav - rendered only when ≥2 sub-sections are implemented (avoids a
           lonely single tab and any "coming soon" placeholder). Scaffolded for Storage/Usage. */}
       {implemented.length > 1 && (
         <div role="tablist" aria-label="General sub-sections" style={{

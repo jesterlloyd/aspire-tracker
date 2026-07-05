@@ -1,9 +1,9 @@
 // api/aspire-events.js
 //
-// ASPIRE-EVENTS-CALENDAR-2B: gated CRUD for public.aspire_events (custom ASPIRE program events).
+// ASPIRE-EVENTS-CALENDAR-2B: gated CRUD for public.aspire_events (custom ASPIRE events).
 //
 // Authorization is SERVER-VERIFIED and mirrors api/admin-users.js. Reads/writes use the service-role
-// client, which BYPASSES RLS — so this endpoint (not RLS) is the real gate:
+// client, which BYPASSES RLS - so this endpoint (not RLS) is the real gate:
 //   • list    → any ACTIVE internal user (has a user_profiles row, not deactivated)
 //   • create/update/archive → owner/admin only
 // Client-side direct writes are blocked by RLS (no client write policy); all writes come through here.
@@ -215,7 +215,7 @@ export default async function handler(req, res) {
     const toEnd     = new Date(`${to}T23:59:59.999`).toISOString();
     // Active events overlapping [fromStart, toEnd]: start on/before the window end AND
     // (start on/after the window start OR end on/after it). For point events (end_at NULL) the
-    // NULL end comparison is false, so start_at.gte alone decides — which is correct.
+    // NULL end comparison is false, so start_at.gte alone decides - which is correct.
     const { data, error } = await db
       .from('aspire_events')
       .select('*')

@@ -1,7 +1,7 @@
 // WS2.3: Settings → Tours & Help panel. Visible to all authenticated users.
 //
 // Welcome Tour: reuses the EXISTING restart behavior (onRestartTour, threaded from
-// App.jsx — the same closure the UserMenu entry uses: switch to the Aggregate/overview
+// App.jsx - the same closure the UserMenu entry uses: switch to the Aggregate/overview
 // workspace, then start CustomOnboardingTour). This panel adds NO new tour
 // persistence/completion/version/role/target logic.
 //
@@ -69,7 +69,7 @@ export default function ToursHelpPanel({ onRestartTour }) {
           <Sparkles size={16} strokeWidth={2} color="var(--color-accent-primary, #1D2567)" style={{ flexShrink: 0, marginTop: 1 }} />
           <div style={{ fontSize: 12.5, color: 'var(--color-text-secondary, #6b7280)', lineHeight: 1.45 }}>
             <span style={{ fontWeight: 600, color: 'var(--color-text-primary, #191919)' }}>Ask Keith.</span>{' '}
-            Your AI assistant floats in the bottom-right corner of every screen — open it for help with workflows, features, or who handles what.
+            Your AI assistant floats in the bottom-right corner of every screen, open it for help with workflows, features, or who handles what.
           </div>
         </div>
 

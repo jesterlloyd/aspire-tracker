@@ -1,6 +1,6 @@
 // api/unit-form-notification.js
 // Called fire-and-forget from UnitFormPage.jsx after upsert succeeds.
-// No auth token required — the unit form is publicly accessible.
+// No auth token required - the unit form is publicly accessible.
 
 import { sendNotification } from '../src/lib/notifications/index.js';
 

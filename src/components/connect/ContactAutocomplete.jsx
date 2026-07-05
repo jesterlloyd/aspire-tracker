@@ -1,13 +1,13 @@
 // src/components/connect/ContactAutocomplete.jsx
 // CONNECT-COMMS-1F: reusable contact typeahead for the Direct Message CC field.
 //
-// Searchable sources (all client-direct, against each table's EXISTING RLS — no new endpoint,
+// Searchable sources (all client-direct, against each table's EXISTING RLS - no new endpoint,
 // no schema, no migration):
-//   • contacts   — server-side .or(ilike) (mirrors App.jsx UNIVERSAL-SEARCH-1), is_active only
-//   • preceptors — server-side .or(ilike) (global roster, authenticated read)
-//   • students   — filtered client-side from the already-loaded `students` prop (no extra fetch);
+//   • contacts   - server-side .or(ilike) (mirrors App.jsx UNIVERSAL-SEARCH-1), is_active only
+//   • preceptors - server-side .or(ilike) (global roster, authenticated read)
+//   • students   - filtered client-side from the already-loaded `students` prop (no extra fetch);
 //                  school + personal shown as SEPARATE clearly-labeled rows, school-first
-//   • coordinator — the current student's denormalized clinical coordinator, when valid + matched
+//   • coordinator - the current student's denormalized clinical coordinator, when valid + matched
 //
 // This component NEVER resolves the primary To and never sends. It only surfaces suggestions and
 // emits the chosen email up to the parent, which remains responsible for chip add/validation. The
@@ -49,14 +49,14 @@ function sanitizeTerm(s) {
  * @param {string}   value           controlled input text
  * @param {Function} onChange        (text) => void
  * @param {boolean}  [disabled]
- * @param {boolean}  [maxReached]    true once the CC cap (5) is hit — input is disabled with a hint
+ * @param {boolean}  [maxReached]    true once the CC cap (5) is hit - input is disabled with a hint
  * @param {string}   [placeholder]
  * @param {Array}    [students]      already-loaded cohort students (filtered client-side)
  * @param {object}   [coordinator]   { email, name } for the current student, or null
  * @param {Set}      [excludeEmails] normalized emails to hide (already-added CC + resolved To)
- * @param {Function} onSelect        (result) => void — a suggestion was chosen; result.email is added
- * @param {Function} onCommitManual  (text) => void — Enter/blur on free text with no active suggestion
- * @param {Function} onBackspaceEmpty () => void — Backspace on an empty input (remove last chip)
+ * @param {Function} onSelect        (result) => void - a suggestion was chosen; result.email is added
+ * @param {Function} onCommitManual  (text) => void - Enter/blur on free text with no active suggestion
+ * @param {Function} onBackspaceEmpty () => void - Backspace on an empty input (remove last chip)
  */
 export default function ContactAutocomplete({
   value,
@@ -141,7 +141,7 @@ export default function ContactAutocomplete({
       out.push({ ...row, norm })
     }
 
-    // 1. Coordinator (highest priority — most relevant to the current recipient)
+    // 1. Coordinator (highest priority - most relevant to the current recipient)
     if (coordinator?.email && isValidEmail(coordinator.email)) {
       const hay = [coordinator.name, coordinator.email].filter(Boolean).join(' ').toLowerCase()
       if (hay.includes(ql)) {
@@ -149,7 +149,7 @@ export default function ContactAutocomplete({
           email: coordinator.email, secondary: coordinator.email })
       }
     }
-    // 2. Contacts — carry the resolved primary category so the badge shows it (not generic "Contact")
+    // 2. Contacts - carry the resolved primary category so the badge shows it (not generic "Contact")
     for (const c of r.contacts) {
       push({ source: 'contact', key: `contact:${c.id}`, name: c.full_name || c.preferred_name || c.email,
         email: c.email, avatarUrl: c.avatar_url || null, category: getPrimaryCategory(c) || '',
@@ -160,7 +160,7 @@ export default function ContactAutocomplete({
       push({ source: 'preceptor', key: `preceptor:${p.id}`, name: p.full_name || p.email,
         email: p.email, secondary: [p.unit_name, p.shift_type, p.email].filter(Boolean).join(' · ') })
     }
-    // 4. Students — school-first; personal as a separate, clearly-labeled row (never silent)
+    // 4. Students - school-first; personal as a separate, clearly-labeled row (never silent)
     let stuCount = 0
     for (const s of students) {
       if (stuCount >= 6) break
@@ -182,10 +182,10 @@ export default function ContactAutocomplete({
     return out.slice(0, 12)
   }, [debounced, remote, students, coordinator, exclude])
 
-  // Derived clamp for the highlighted row — no effect needed (avoids set-state-in-effect).
+  // Derived clamp for the highlighted row - no effect needed (avoids set-state-in-effect).
   const safeActive = results.length ? Math.min(activeIdx, results.length - 1) : 0
 
-  // Keep the highlighted row in view. DOM side effect only — no setState.
+  // Keep the highlighted row in view. DOM side effect only - no setState.
   useEffect(() => {
     listRef.current?.querySelector(`[data-idx="${safeActive}"]`)?.scrollIntoView({ block: 'nearest' })
   }, [safeActive])
@@ -212,7 +212,7 @@ export default function ContactAutocomplete({
     } else if (e.key === 'Backspace' && !value) {
       onBackspaceEmpty?.()
     }
-    // Tab is intentionally NOT trapped — it moves focus and lets blur commit.
+    // Tab is intentionally NOT trapped - it moves focus and lets blur commit.
   }, [open, results, safeActive, value, choose, onCommitManual, onBackspaceEmpty])
 
   const term         = sanitizeTerm(value)

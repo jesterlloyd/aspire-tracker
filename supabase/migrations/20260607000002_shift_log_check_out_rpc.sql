@@ -63,15 +63,15 @@
 --   }
 --
 -- Custom exception taxonomy:
---   - P0001 'shift_not_in_progress'          — guarded UPDATE affected 0 rows
---   - P0002 'student_not_found'              — student row lock found no row
---   - P0003 'invalid_total_hours'            — p_total_hours NULL or out of [1, 13]
---   - P0004 'invalid_shift_type'             — p_shift_type not in ('Day','Night','Mid')
---   - P0005 'attestation_required'           — p_attestation not TRUE
---   - P0006 'invalid_status'                 — p_status not in ('Auto-Accepted','Pending Review')
---   - P0007 'invalid_exception_flags'        — p_exception_flags NULL or not a jsonb array
---   - P0008 'inconsistent_review_outcome'    — status/flags/review_reason internally inconsistent
---   - P0009 'assignment_indicators_required' — is_assigned_unit or is_assigned_preceptor NULL
+--   - P0001 'shift_not_in_progress'          - guarded UPDATE affected 0 rows
+--   - P0002 'student_not_found'              - student row lock found no row
+--   - P0003 'invalid_total_hours'            - p_total_hours NULL or out of [1, 13]
+--   - P0004 'invalid_shift_type'             - p_shift_type not in ('Day','Night','Mid')
+--   - P0005 'attestation_required'           - p_attestation not TRUE
+--   - P0006 'invalid_status'                 - p_status not in ('Auto-Accepted','Pending Review')
+--   - P0007 'invalid_exception_flags'        - p_exception_flags NULL or not a jsonb array
+--   - P0008 'inconsistent_review_outcome'    - status/flags/review_reason internally inconsistent
+--   - P0009 'assignment_indicators_required' - is_assigned_unit or is_assigned_preceptor NULL
 --
 -- This migration is:
 --   - additive only (CREATE OR REPLACE; no DROP statements)

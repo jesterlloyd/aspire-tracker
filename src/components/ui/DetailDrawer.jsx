@@ -1,4 +1,4 @@
-// KT-3a-2a / UI: governance detail drawer — a right-side panel + backdrop in the
+// KT-3a-2a / UI: governance detail drawer - a right-side panel + backdrop in the
 // Settings/KC governance language: white surface, plain header (title + close),
 // scrollable body, optional sticky footer. No gradient hero (heroes are reserved
 // for people records). Reusable for KT-3a-2b / KT-3b. z-index matches the existing

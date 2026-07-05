@@ -1,7 +1,7 @@
 // KLD-1: canonical cohort-status derivation. Extracted verbatim from the Student
 // Profiles KPI strip (StudentProfilesTab `pipelineCounts`) so Keith and the UI share
 // exactly ONE source of truth for status bucketing. Pure: no React, no fetch, no
-// browser APIs — safe to import in the serverless Keith handler.
+// browser APIs - safe to import in the serverless Keith handler.
 //
 // Buckets are kept distinct on purpose. In particular, Placed and Active Rotation are
 // SEPARATE: Placed means matched/assigned to a unit (not necessarily started), while

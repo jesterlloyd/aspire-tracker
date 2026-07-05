@@ -21,7 +21,7 @@ const EVENT_MAP = {
   'email.delivery_delayed': { status: 'delayed' },  // no dedicated column; status only
 };
 
-// Status precedence — never downgrade. Higher rank = more authoritative.
+// Status precedence - never downgrade. Higher rank = more authoritative.
 const STATUS_RANK = {
   queued:    0,
   sent:      1,
@@ -84,7 +84,7 @@ export default async function handler(req, res) {
   const { type, data } = event;
   const eventConfig = EVENT_MAP[type];
 
-  // Acknowledge unknown event types — Resend may add new types over time
+  // Acknowledge unknown event types - Resend may add new types over time
   if (!eventConfig) {
     console.log(`[resend-webhook] unhandled event type: ${type}`);
     return res.status(200).json({ success: true, handled: false });
@@ -111,11 +111,11 @@ export default async function handler(req, res) {
 
     if (!logRow) {
       // Email sent before webhooks were wired up, or a manual Resend dashboard send
-      console.log(`[resend-webhook] no log row for resend_email_id ${resendEmailId} (${type}) — acknowledged`);
+      console.log(`[resend-webhook] no log row for resend_email_id ${resendEmailId} (${type}), acknowledged`);
       return res.status(200).json({ success: true, handled: false, reason: 'not_found' });
     }
 
-    // Build update payload — always set the timestamp, update status only if higher rank
+    // Build update payload - always set the timestamp, update status only if higher rank
     const updatePayload = {};
 
     if (eventConfig.timestampCol) {

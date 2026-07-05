@@ -11,7 +11,7 @@ import {
   DEFAULT_FOLLOWUPS_BY_TYPE,
 } from '../lib/dispositions'
 
-// Phase 2B.2a — standalone modal for recording pre-placement dispositions.
+// Phase 2B.2a - standalone modal for recording pre-placement dispositions.
 // Not yet wired into StudentSidePanel (Phase 2B.2b).
 // Only renders for owner/admin; RPC enforces authorization server-side as well.
 
@@ -52,7 +52,7 @@ export default function DispositionModal({
     if (initialValues) {
       // Edit mode: pre-populate from the existing (active) disposition.
       // Set type directly (NOT handleTypeChange) so default follow-ups are NOT
-      // applied — each supersession records fresh follow-up tasks by design.
+      // applied - each supersession records fresh follow-up tasks by design.
       setSelectedType(initialValues.disposition_type || '')
       setSelectedReason(initialValues.reason_category || '')
       setEffectiveDate(initialValues.effective_date || toLocalDateStr(new Date()))
@@ -156,7 +156,7 @@ export default function DispositionModal({
 
         <div className="modal-body">
 
-          {/* ── Supersession notice (edit mode only) — Phase 2B.2f ────────── */}
+          {/* ── Supersession notice (edit mode only) - Phase 2B.2f ────────── */}
           {initialValues && (
             <div style={{
               background: 'rgba(244,220,176,0.18)',

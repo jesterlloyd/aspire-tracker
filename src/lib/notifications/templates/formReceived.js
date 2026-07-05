@@ -1,7 +1,7 @@
 // src/lib/notifications/templates/formReceived.js
 // Three audience variants for the 'form_received' notification type.
 // EMAIL-BRAND-REFRESH Phase 2B-1: migrated onto the shared ASPIRE system shell
-// (lib/server/email/aspireShell.js) — Nightfall header (ASPIRE wordmark + meaning), white card,
+// (lib/server/email/aspireShell.js) - Nightfall header (ASPIRE wordmark + meaning), white card,
 // Nightfall footer with the no-reply line. SYSTEM-DEFAULT-SIGNATURE-GIF-1: the student and
 // school_coordinator variants now use Jester's handwritten GIF signature (system-default policy);
 // the internal_team variant has no signature block (ends with the app button) and is unchanged.

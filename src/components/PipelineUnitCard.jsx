@@ -117,7 +117,7 @@ function FilledDot({ student, onUnmatch }) {
       <div
         className={`pz-dot pz-dot-filled${hovered ? ' pz-dot-hovered' : ''}`}
         onClick={hovered ? onUnmatch : undefined}
-        title={`${displayName(student)} — hover and click to unmatch`}>
+        title={`${displayName(student)}, hover and click to unmatch`}>
         {hovered && <span className="pz-dot-x">×</span>}
       </div>
       <span className="pz-dot-name">{first}</span>

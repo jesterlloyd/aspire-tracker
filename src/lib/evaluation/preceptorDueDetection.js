@@ -2,7 +2,7 @@
 //
 // This module performs NO I/O. It takes already-loaded rows (students, preceptors,
 // preceptor_progress assignments) and classifies each student/period. It never writes,
-// sends, mints tokens, schedules, or proposes an action button — PS-3a is evidence only.
+// sends, mints tokens, schedules, or proposes an action button - PS-3a is evidence only.
 //
 // Hours sources are READ verbatim from students.approved_hours and students.hours_required
 // (the canonical accepted-hours columns maintained by the shift-log check-out / submit-past
@@ -69,8 +69,8 @@ const STATE_PRECEDENCE = { completed: 4, active: 3, expired: 2, revoked: 1, unkn
 const STATE_REASON = {
   completed: 'Feedback already completed for this period',
   active:    'An active request is already in flight for this period',
-  expired:   'An expired request exists — Owner resend decision required',
-  revoked:   'A revoked request exists — does not auto re-arm; manual resend decision required',
+  expired:   'An expired request exists, Owner resend decision required',
+  revoked:   'A revoked request exists, does not auto re-arm; manual resend decision required',
   unknown:   'An existing request blocks auto-proposal for this period',
 };
 
@@ -104,13 +104,13 @@ function resolveRecipient(student, preceptorsById) {
 // Classify a single cohort.
 //
 // Inputs (all already loaded; this function does no I/O):
-//   students    — [{ id, first_name, last_name, approved_hours, hours_required,
+//   students    - [{ id, first_name, last_name, approved_hours, hours_required,
 //                    preceptor_id, preceptor_email, matched_preceptor }]
-//   preceptors  — [{ id, full_name, email, unit_name, is_active }]
-//   assignments — preceptor_progress assignments for the cohort:
+//   preceptors  - [{ id, full_name, email, unit_name, is_active }]
+//   assignments - preceptor_progress assignments for the cohort:
 //                 [{ id, student_id, timepoint, status, revoked_at, completed_at,
 //                    expires_at, notes, sent_at, created_at }]
-//   nowMs       — current epoch ms (injected for testability)
+//   nowMs       - current epoch ms (injected for testability)
 //
 // Returns { rows, summary } where each row is one (student, period) evaluation
 // (ineligible_hours emits a single period-less row per student).
@@ -152,7 +152,7 @@ export function classifyCohort({ students = [], preceptors = [], assignments = [
         studentId: s.id, studentName, approvedHours: approved, hoursRequired: required,
         midpointThreshold: null, endThreshold: null,
         period: null, classification: 'ineligible_hours',
-        reason: 'hours_required is 0 or less — cannot evaluate thresholds',
+        reason: 'hours_required is 0 or less, cannot evaluate thresholds',
         preceptorName: '', preceptorEmail: '', suppressing: null,
       });
       summary.ineligible_hours += 1;
@@ -183,7 +183,7 @@ export function classifyCohort({ students = [], preceptors = [], assignments = [
         // Rule 3: an end-of-rotation assignment suppresses a midpoint proposal.
         const endA = periodMap.get('end_of_rotation');
         classification = 'suppressed_existing';
-        reason = 'End-of-rotation assignment exists — midpoint not proposed';
+        reason = 'End-of-rotation assignment exists, midpoint not proposed';
         suppressing = {
           assignmentId: endA.id, status: endA.status, state: assignmentState(endA, nowMs),
           timepoint: endA.timepoint, notes: endA.notes || null,
@@ -193,7 +193,7 @@ export function classifyCohort({ students = [], preceptors = [], assignments = [
         // assignment exists yet, so a single student is never proposed for both periods
         // at once. Conservative non-sendable classification (no assignment to reference).
         classification = 'suppressed_existing';
-        reason = 'End threshold reached — midpoint no longer proposed';
+        reason = 'End threshold reached, midpoint no longer proposed';
       } else if (!due) {
         const thr = period === 'midpoint' ? midpointThreshold : endThreshold;
         classification = 'not_due';

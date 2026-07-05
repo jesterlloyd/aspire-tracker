@@ -1,4 +1,4 @@
-// CONNECT-COMMS-1B — shared, pure resolver for student correspondence recipient routing.
+// CONNECT-COMMS-1B - shared, pure resolver for student correspondence recipient routing.
 //
 // Communication canon for ACTIVE/CURRENT ASPIRE student correspondence (e.g. ASPIRE Connect
 // direct messages): default to the SCHOOL email. personal_email is used ONLY when school_email
@@ -19,7 +19,7 @@ export function isValidEmail(v) {
  * Resolve the recipient for ASPIRE Connect direct student correspondence.
  * @param {object} student  - student row ({ school_email, personal_email, status, ... })
  * @param {object|null} rotation - linked cohort_school_rotations row (accepted for future
- *        post-rotation policy; NOT used to switch routing in this phase — school-first stays).
+ *        post-rotation policy; NOT used to switch routing in this phase - school-first stays).
  * @param {object} [options] - { overrideEmail?: string }
  * @returns {{ email: string|null, type: 'school'|'personal'|'override'|'missing', reason: string, warning: string|null }}
  */
@@ -34,13 +34,13 @@ export function resolveStudentCorrespondenceRecipient(student, rotation, options
       email: override,
       type: 'override',
       reason: 'Manual override recipient was provided.',
-      warning: isValidEmail(override) ? null : 'Override email may be invalid — verify before sending.',
+      warning: isValidEmail(override) ? null : 'Override email may be invalid, verify before sending.',
     }
   }
 
   // 2. School-first: the canonical default for active/current ASPIRE student correspondence.
   //    Note: rotation/lifecycle (completed, rotation_end_date passed, sentinel 1900-01-01) does
-  //    NOT switch routing in this phase — post-school-access/alumni routing is a future workflow.
+  //    NOT switch routing in this phase - post-school-access/alumni routing is a future workflow.
   if (isValidEmail(school)) {
     return {
       email: school,
@@ -50,21 +50,21 @@ export function resolveStudentCorrespondenceRecipient(student, rotation, options
     }
   }
 
-  // 3. Personal fallback ONLY when school is missing/invalid — always with a visible warning.
+  // 3. Personal fallback ONLY when school is missing/invalid - always with a visible warning.
   if (isValidEmail(personal)) {
     return {
       email: personal,
       type: 'personal',
       reason: 'School email is missing or invalid.',
-      warning: 'School email missing — using personal email.',
+      warning: 'School email missing, using personal email.',
     }
   }
 
-  // 4. Nothing usable — block send.
+  // 4. Nothing usable - block send.
   return {
     email: null,
     type: 'missing',
     reason: 'No valid email on file for this student.',
-    warning: 'No email on file — cannot send.',
+    warning: 'No email on file, cannot send.',
   }
 }

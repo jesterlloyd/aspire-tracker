@@ -1,10 +1,10 @@
-// CONNECT-AUTOMATION — read-only data for the ASPIRE Connect > Automation health cards.
+// CONNECT-AUTOMATION - read-only data for the ASPIRE Connect > Automation health cards.
 //
 // Owner/Admin only. Serves cron_runs, which is RLS-enabled with NO policies, so authenticated
 // clients CANNOT read it directly; this service-role endpoint is the only safe read path. Counts-
 // only by design (no PII/tokens).
 //
-// Message-level history is intentionally NOT served here — it already lives in Outreach > Sent
+// Message-level history is intentionally NOT served here - it already lives in Outreach > Sent
 // History (notification_log). The midpoint auto-send setting is read/written client-side directly
 // against the cohorts row (same path as Rotation > Check-ins), so it is not part of this endpoint.
 //
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
     }
 
     return res.status(200).json({
-      now: new Date().toISOString(), // server clock — UI derives "stale running" without an impure render-time Date
+      now: new Date().toISOString(), // server clock - UI derives "stale running" without an impure render-time Date
       runs: runsRes.data || [],
     });
   } catch (e) {

@@ -1,11 +1,11 @@
 // src/lib/notifications/templates/midpointCheckin.js
 // Midpoint check-in email sent to Active Rotation students at ~50% hours completion.
 // EMAIL-BRAND-REFRESH Phase 2B-4: migrated onto the shared ASPIRE system shell
-// (lib/server/email/aspireShell.js) — Nightfall header (ASPIRE wordmark + meaning), white card,
+// (lib/server/email/aspireShell.js) - Nightfall header (ASPIRE wordmark + meaning), white card,
 // Nightfall footer with the no-reply line.
 // MIDPOINT-CHECKIN-COPY-1: refreshed subject + body copy; adds Jester's handwritten GIF signature as
 // an EXPLICIT midpoint-only exception (the shared aspireSystemSignature stays typed-only for every
-// other automated/system email — this template no longer imports it).
+// other automated/system email - this template no longer imports it).
 
 import { escapeHtml } from '../../htmlEscape.js';
 import { aspireEmailShell } from '../../../../lib/server/email/aspireShell.js';
@@ -16,7 +16,7 @@ const NAVY   = '#1d2567';
 const RAVEN  = '#191919';
 const CS_RED = '#dc1e34';
 
-// Handwritten-signature GIF — the SAME existing public asset used by ASPIRE Connect manual Outreach.
+// Handwritten-signature GIF - the SAME existing public asset used by ASPIRE Connect manual Outreach.
 // Midpoint-only exception; no other automated email receives it. Asset is not created or edited here.
 const JESTER_SIGNATURE_GIF = appUrl('/signature-jester.gif');
 

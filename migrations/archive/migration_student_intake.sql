@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS student_intake_submissions (
 -- Enable Row Level Security
 ALTER TABLE student_intake_submissions ENABLE ROW LEVEL SECURITY;
 
--- Allow anyone (anon) to insert — required for the unauthenticated public form
+-- Allow anyone (anon) to insert - required for the unauthenticated public form
 CREATE POLICY "Allow anon insert on student_intake_submissions"
   ON student_intake_submissions
   FOR INSERT

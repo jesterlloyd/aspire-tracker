@@ -1,5 +1,5 @@
 /**
- * StudentCard — unified card primitive for three display contexts.
+ * StudentCard - unified card primitive for three display contexts.
  *
  * PURPOSE
  * Renders a student as a clickable photo/avatar card with variant-specific
@@ -35,18 +35,18 @@
  *
  * HOVER BEHAVIOR
  * On mouse-enter: smooth translateY lift of CARD.hoverLiftPx + shadow expansion.
- * Duration: CARD.hoverDuration. No instructional copy needed — the float IS the
+ * Duration: CARD.hoverDuration. No instructional copy needed - the float IS the
  * affordance. Defined once here; identical across all three variants.
  *
  * KEYBOARD ACCESSIBILITY
  * tabIndex={0}, Enter/Space → onClick, visible focus ring via onFocus/onBlur state.
  *
  * PROPS
- * @param {Object}   student       — required; full student record from DB
- * @param {string}   variant       — required; 'profile' | 'on-campus' | 'interview'
- * @param {Function} onClick       — required; called on click or Enter/Space keypress
- * @param {Object}   [variantProps]— variant-specific data (see above)
- * @param {boolean}  [isSelected]  — optional; draws accent border (profile variant only)
+ * @param {Object}   student       - required; full student record from DB
+ * @param {string}   variant       - required; 'profile' | 'on-campus' | 'interview'
+ * @param {Function} onClick       - required; called on click or Enter/Space keypress
+ * @param {Object}   [variantProps]- variant-specific data (see above)
+ * @param {boolean}  [isSelected]  - optional; draws accent border (profile variant only)
  */
 
 import { useState } from 'react'
@@ -95,10 +95,10 @@ function getInitials(name) {
 // ON-CAMPUS-NOW-UX-2B: tone for the accumulated-hours avatar ring + badge. Low progress is
 // branded indigo (NOT grey) so a just-started student still reads as on-track, not inactive.
 function hoursBadgeColor(pct) {
-  if (pct >= 100) return '#15803d'   // strong green — required hours met/exceeded
-  if (pct >= 80)  return '#16a34a'   // green — near completion
-  if (pct >= 40)  return '#f59e0b'   // amber — moderate progress
-  return '#4f46e5'                    // indigo (branded) — low / just starting
+  if (pct >= 100) return '#15803d'   // strong green - required hours met/exceeded
+  if (pct >= 80)  return '#16a34a'   // green - near completion
+  if (pct >= 40)  return '#f59e0b'   // amber - moderate progress
+  return '#4f46e5'                    // indigo (branded) - low / just starting
 }
 
 /** Abbreviate school names to fit the compact card width. */
@@ -111,7 +111,7 @@ const SCHOOL_SHORT = {
   'West Coast University North Hollywood':'WCU NoHo',
 }
 function shortSchool(school) {
-  if (!school) return '—'
+  if (!school) return '-'
   if (SCHOOL_SHORT[school]) return SCHOOL_SHORT[school]
   return school.length > 18 ? school.slice(0, 16) + '…' : school
 }
@@ -175,7 +175,7 @@ function ProfileStrip({ student }) {
   )
 }
 
-// ON-CAMPUS-NOW-UX-2: compact strip — accumulated hours moved to the avatar badge and the
+// ON-CAMPUS-NOW-UX-2: compact strip - accumulated hours moved to the avatar badge and the
 // horizontal progress bar removed, so the card is shorter/squarer. Shift type + unit share one
 // centered row; open duration + overdue warning are preserved.
 function OnCampusStrip({ shiftType, openShift, openDur, overdue, unit }) {
@@ -184,7 +184,7 @@ function OnCampusStrip({ shiftType, openShift, openDur, overdue, unit }) {
   const badgeTone = SHIFT_BADGE_TONES[tone] || SHIFT_BADGE_TONES.unspecified
   return (
     <div style={{ padding: '2px 10px 8px' }}>
-      {/* Shift badge + current unit — one centered row to keep the card compact. */}
+      {/* Shift badge + current unit - one centered row to keep the card compact. */}
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
         <span style={{
           fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
@@ -201,7 +201,7 @@ function OnCampusStrip({ shiftType, openShift, openDur, overdue, unit }) {
           </span>
         )}
       </div>
-      {/* Open-shift duration + hedged overdue — true open (in_progress) rows only */}
+      {/* Open-shift duration + hedged overdue - true open (in_progress) rows only */}
       {openShift && (
         <div style={{ textAlign: 'center', marginTop: 4 }}>
           <div style={{ fontSize: 10.5, fontWeight: 600, color: '#475467', ...F }}>Open {openDur}</div>
@@ -216,7 +216,7 @@ function OnCampusStrip({ shiftType, openShift, openDur, overdue, unit }) {
   )
 }
 
-/** "Krystal Rodriguez" → "Krystal R." — matches student short name format */
+/** "Krystal Rodriguez" → "Krystal R." - matches student short name format */
 function shortInterviewerName(name) {
   if (!name) return ''
   const parts = name.trim().split(/\s+/)
@@ -228,7 +228,7 @@ function InterviewStrip({ interviewTime, interviewerName, interviewerColor }) {
   const chipBg    = hexToRgba(interviewerColor || '#1D2567', 0.14)
   const chipColor = interviewerColor || '#1D2567'
   return (
-    // Strip background is always neutral — color lives only in the pill,
+    // Strip background is always neutral - color lives only in the pill,
     // consistent with profile (status pill) and on-campus (progress bar) variants.
     <div style={{ padding: '8px 10px 10px', textAlign: 'center' }}>
       <div style={{
@@ -258,20 +258,20 @@ export default function StudentCard({ student, variant, onClick, variantProps = 
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
 
-  // Completion badge — profile variant only
+  // Completion badge - profile variant only
   const showBadge = variant === 'profile'
   const completion = showBadge ? calculateProfileCompletion(student) : null
   const pct        = completion?.percentage ?? 0
   const badgeBg    = pct >= 100 ? '#16a34a' : pct >= 67 ? '#f59e0b' : '#E2569C'
 
-  // Short display name — STUDENT-PREFERRED-FIRST-NAME-1B: preferred first name + last initial.
+  // Short display name - STUDENT-PREFERRED-FIRST-NAME-1B: preferred first name + last initial.
   const shortName = `${getStudentPreferredFirstName(student)} ${(student.last_name || '')[0] || ''}.`.trim()
 
   const handleKey = (e) => {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.() }
   }
 
-  // Card shell — dimensions, hover float, and selection ring all from tokens
+  // Card shell - dimensions, hover float, and selection ring all from tokens
   const boxShadow = focused
     ? CARD.focusRing
     : isSelected
@@ -315,7 +315,7 @@ export default function StudentCard({ student, variant, onClick, variantProps = 
     >
       {/* Avatar with optional badge. ON-CAMPUS-NOW-UX-2B: on-campus cards wrap the avatar in a
           conic-gradient HOURS PROGRESS RING (branded-indigo base at 0% → green when complete) and
-          show a compact hours pill at the lower-right corner — mirroring the Student Profiles grid
+          show a compact hours pill at the lower-right corner, mirroring the Student Profiles grid
           completion badge. Profile/interview variants are unchanged. */}
       <div style={{ position: 'relative', marginBottom: 8 }}>
         {variant === 'on-campus' ? (() => {
@@ -327,7 +327,7 @@ export default function StudentCard({ student, variant, onClick, variantProps = 
             <div style={{
               width: CARD.avatarSize + RING * 2, height: CARD.avatarSize + RING * 2,
               borderRadius: '50%', padding: RING, boxSizing: 'border-box',
-              // ON-CAMPUS-NOW-UX-2C: standard circular-progress convention — the fill starts at
+              // ON-CAMPUS-NOW-UX-2C: standard circular-progress convention - the fill starts at
               // 12 o'clock (conic-gradient default) and wraps CLOCKWISE toward 100% (50% = halfway).
               // Avatar and hours pill are NOT rotated. Track (remainder) is a faint branded navy,
               // visible as a subtle base ring at 0%.
@@ -370,7 +370,7 @@ export default function StudentCard({ student, variant, onClick, variantProps = 
           const hp   = req > 0 ? Math.min(100, (done / req) * 100) : 0
           const fmt  = (n) => Number.isInteger(n) ? String(n) : String(Math.round(n * 10) / 10)
           return (
-            // Lower-right corner, partly outside the ring — mirrors the grid completion badge.
+            // Lower-right corner, partly outside the ring - mirrors the grid completion badge.
             <span style={{
               position: 'absolute', bottom: -3, right: -6,
               background: hoursBadgeColor(hp), color: '#fff',
@@ -396,7 +396,7 @@ export default function StudentCard({ student, variant, onClick, variantProps = 
         {shortName}
       </div>
 
-      {/* School · Program — constant across all variants */}
+      {/* School · Program - constant across all variants */}
       {(() => {
         const schoolProg = formatSchoolProgram(student.school, student.program_type)
         return schoolProg ? (
@@ -412,7 +412,7 @@ export default function StudentCard({ student, variant, onClick, variantProps = 
         ) : null
       })()}
 
-      {/* Metadata strip — the only part that varies by variant */}
+      {/* Metadata strip - the only part that varies by variant */}
       <div style={{ width: '100%', marginTop: 2 }}>
         {variant === 'profile' && <ProfileStrip student={student} />}
         {variant === 'on-campus' && (

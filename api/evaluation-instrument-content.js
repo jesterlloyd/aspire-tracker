@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Auth: bearer session token — session-only, no token-shaped credential accepted
+  // Auth: bearer session token - session-only, no token-shaped credential accepted
   const authHeader = req.headers['authorization'] || '';
   const bearerToken = authHeader.replace(/^Bearer\s+/i, '').trim();
   if (!bearerToken) {
@@ -55,7 +55,7 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  // Slug validation — same allowlist as evaluation-token-validate.js
+  // Slug validation - same allowlist as evaluation-token-validate.js
   const { slug } = req.query;
   if (typeof slug !== 'string' || !slug.trim()) {
     return res.status(404).json({ error: 'Not found' });
@@ -64,7 +64,7 @@ export default async function handler(req, res) {
     return res.status(404).json({ error: 'Not found' });
   }
 
-  // Storage fetch via admin client — mirrors token-validate Storage download pattern
+  // Storage fetch via admin client - mirrors token-validate Storage download pattern
   const { data: contentBlob, error: storageError } = await supabaseAdmin.storage
     .from('evaluation-instrument-content')
     .download(`${slug}.json`);

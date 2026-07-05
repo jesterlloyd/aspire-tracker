@@ -32,7 +32,7 @@ export default async function handler(req, res) {
       .select('id, name').eq('accepting_submissions', true).limit(1).maybeSingle()
     if (!cohort) return res.status(400).json({ error: 'Scheduling is not currently open. Please contact the ASPIRE team.' })
 
-    // 2. Student by school_email — forgiving match (case/whitespace/zero-width),
+    // 2. Student by school_email - forgiving match (case/whitespace/zero-width),
     //    escaped ilike (no % / _ wildcard broadening), JS normalized-equality confirm.
     const cleanEmail = normalizeEmailForLookup(email)
     const { data: candidates } = await db.from('students')

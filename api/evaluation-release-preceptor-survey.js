@@ -1,12 +1,12 @@
 // api/evaluation-release-preceptor-survey.js
 //
-// PS-3b — Owner/Admin per-item RELEASE for an automated preceptor survey.
+// PS-3b - Owner/Admin per-item RELEASE for an automated preceptor survey.
 //
 // The "queue" is live-computed from PS-3a detection; there is NO queue table. This
 // endpoint re-runs PS-3a detection (classifyCohort) for ONE student + period at release
 // time and proceeds ONLY if that item is still due_sendable. It then sends through the
 // SAME shared core as the PS-2b manual send (processPreceptorSend), so behavior is
-// identical — the only differences are the source/notes markers identifying a queue
+// identical - the only differences are the source/notes markers identifying a queue
 // release. The durable record of a release is the evaluation_assignment + notification_log
 // (which then makes PS-3a classify the item as suppressed_existing on refresh).
 //
@@ -101,12 +101,12 @@ async function _handler(req, res) {
     return res.status(400).json({ success: false, error: 'Invalid request body' });
   }
 
-  // Strict allowlist — the body may contain ONLY these keys. Any other field (recipient
+  // Strict allowlist - the body may contain ONLY these keys. Any other field (recipient
   // overrides, force/override flags, confirmation_phrase, items, metadata, etc.) is rejected
   // with 400 and nothing is sent or written.
   //
   // expected_preceptor_email is a mismatch-CHECK value only: it is the recipient the Owner
-  // saw in the confirmation view. It is NEVER used as the send recipient — the recipient is
+  // saw in the confirmation view. It is NEVER used as the send recipient - the recipient is
   // always resolved server-side from the student. It exists solely so the server can refuse
   // if the resolved preceptor changed between the Owner's view and the release click.
   const ALLOWED = new Set(['student_id', 'period', 'expected_preceptor_email']);
@@ -211,7 +211,7 @@ async function _handler(req, res) {
   // ── 5b. "Same resolved preceptor" guard. If the Owner's confirmation view referenced a
   //       specific resolved preceptor, refuse when the current server-resolved recipient
   //       differs (e.g., the student's preceptor changed between render and release). The
-  //       send recipient is still resolved server-side — expectedPreceptorEmail is compared,
+  //       send recipient is still resolved server-side - expectedPreceptorEmail is compared,
   //       never used as the recipient.
   if (expectedPreceptorEmail) {
     const currentEmail = (row.preceptorEmail || '').trim();
@@ -259,7 +259,7 @@ async function _handler(req, res) {
   }
 
   // skipped/failed (e.g., a race created an assignment between detection and insert,
-  // or the email failed) — nothing lingering; surface the reason.
+  // or the email failed) - nothing lingering; surface the reason.
   return res.status(200).json({
     success: true, released: false,
     classification: result.status === 'skipped' ? 'suppressed_existing' : 'send_failed',

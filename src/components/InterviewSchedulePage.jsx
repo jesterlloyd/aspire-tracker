@@ -43,7 +43,7 @@ function getMonthGrid(year, month) {
 
 const JESTER_EMAIL = 'JesterLloyd.Bautista@cshs.org'
 
-// Student-friendly mailto — addressed to JESTER_EMAIL, composed as if from the student
+// Student-friendly mailto - addressed to JESTER_EMAIL, composed as if from the student
 function buildStudentMailtoUrl(student, slot) {
   const name = `${student.first_name} ${student.last_name}`
   const subject = `ASPIRE Interview Booked: ${name} on ${slot.slot_date} at ${fmtTime(slot.slot_time)}`
@@ -66,7 +66,7 @@ ${student.first_name}`
   return `mailto:${JESTER_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }
 
-// .ics calendar file generator — pure client-side, no backend needed
+// .ics calendar file generator - pure client-side, no backend needed
 function buildIcsDataUri(student, slot) {
   const { slot_date, slot_time, duration_minutes } = slot
   const [h, m] = slot_time.split(':').map(Number)
@@ -89,10 +89,10 @@ function buildIcsDataUri(student, slot) {
     `DTSTAMP:${stamp}`,
     `DTSTART;TZID=America/Los_Angeles:${dtStart}`,
     `DTEND;TZID=America/Los_Angeles:${dtEnd}`,
-    'SUMMARY:ASPIRE Program Interview',
-    `DESCRIPTION:Your ASPIRE Program interview with Cedars-Sinai Brawerman Nursing Institute.\\n\\nMicrosoft Teams meeting link will be sent to ${studentEmail} within 24 hours.\\n\\nTo reschedule\\, email ${JESTER_EMAIL} at least 24 hours before your interview.`,
+    'SUMMARY:ASPIRE Interview',
+    `DESCRIPTION:Your ASPIRE interview with Cedars-Sinai Brawerman Nursing Institute.\\n\\nMicrosoft Teams meeting link will be sent to ${studentEmail} within 24 hours.\\n\\nTo reschedule\\, email ${JESTER_EMAIL} at least 24 hours before your interview.`,
     'LOCATION:Microsoft Teams (link to follow)',
-    `ORGANIZER;CN=ASPIRE Program:MAILTO:${JESTER_EMAIL}`,
+    `ORGANIZER;CN=ASPIRE:MAILTO:${JESTER_EMAIL}`,
     'STATUS:CONFIRMED',
     'BEGIN:VALARM',
     'ACTION:DISPLAY',
@@ -207,10 +207,10 @@ export default function InterviewSchedulePage() {
     Object.entries(byTime).sort(([a],[b]) => a.localeCompare(b)).forEach(([time, sls]) => {
       const durations = [...new Set(sls.map(s => s.duration_minutes))]
       if (durations.length === 1) {
-        // All same duration — one card with count
+        // All same duration - one card with count
         cards.push({ time, duration: durations[0], slots: sls, count: sls.length })
       } else {
-        // Mixed durations — one card per duration
+        // Mixed durations - one card per duration
         durations.sort((a,b) => a-b).forEach(dur => {
           const matching = sls.filter(s => s.duration_minutes === dur)
           cards.push({ time, duration: dur, slots: matching, count: matching.length })
@@ -239,7 +239,7 @@ export default function InterviewSchedulePage() {
       setBookedSlot(data.slot)
       setScreen('confirmed')
 
-      // Build student-friendly mailto (opt-in only — no auto-trigger)
+      // Build student-friendly mailto (opt-in only - no auto-trigger)
       setMailtoUrl(buildStudentMailtoUrl(student, data.slot))
 
       // Server-side notification is handled by /api/interview-book → /api/notify-interview-booked

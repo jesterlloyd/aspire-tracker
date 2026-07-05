@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 
-// CATALOG-2B — Owner/Admin upload of a NEW internal_file resource (first write phase).
+// CATALOG-2B - Owner/Admin upload of a NEW internal_file resource (first write phase).
 //
 // ADDITIVE-ONLY. Two server-gated phases over a signed-upload-URL transport:
 //   phase 'sign'   → validate everything, refuse on slug/key collision, mint a ONE-TIME,
@@ -14,7 +14,7 @@ import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 //
 // Security: caller is verified + Owner/Admin on BOTH phases. The client never receives a broad
 // Storage credential and never writes catalog_resources (the row insert is service-role only).
-// Storage keys are server-derived from (category, slug) — never a client-supplied path. No
+// Storage keys are server-derived from (category, slug) - never a client-supplied path. No
 // overwrite of existing objects/rows; no modification/rename/delete of existing resources.
 
 const BUCKET = 'aspire-catalog';
@@ -195,13 +195,13 @@ export default async function handler(req, res) {
       return res.status(413).json({ error: 'File exceeds the 10 MB limit' });
     }
 
-    // Slug uniqueness (DB) — the unique constraint is the backstop.
+    // Slug uniqueness (DB) - the unique constraint is the backstop.
     const { data: existingRow, error: rowErr } = await supabaseAdmin
       .from('catalog_resources').select('id').eq('slug', v.slug).maybeSingle();
     if (rowErr) return res.status(500).json({ error: 'Lookup failed' });
     if (existingRow) return res.status(409).json({ error: 'A resource with this title already exists' });
 
-    // Storage key collision — never overwrite an existing object.
+    // Storage key collision - never overwrite an existing object.
     const obj = await findObject(v.key);
     if (obj.error) return res.status(500).json({ error: 'Storage check failed' });
     if (obj.exists) return res.status(409).json({ error: 'A file with this name already exists' });
@@ -231,7 +231,7 @@ export default async function handler(req, res) {
     .from('catalog_resources').select('id').eq('slug', v.slug).maybeSingle();
   if (dupe) {
     // Another row claimed this slug after sign. Remove our upload ONLY if no row references the
-    // key — if that racing row points at this same key, the file belongs to it and must be kept.
+    // key - if that racing row points at this same key, the file belongs to it and must be kept.
     await safeRemoveOrphan(v.key);
     return res.status(409).json({ error: 'A resource with this title already exists' });
   }
@@ -260,7 +260,7 @@ export default async function handler(req, res) {
     .single();
 
   if (insErr || !created) {
-    // Row insert failed — never leave a visible row pointing at a file. Remove the file we just
+    // Row insert failed - never leave a visible row pointing at a file. Remove the file we just
     // uploaded, but ONLY if no catalog_resources row references it (a racing valid row must be
     // preserved). If cleanup is skipped/fails, surface the path for the Owner.
     const cleanup = await safeRemoveOrphan(v.key);
@@ -276,6 +276,6 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Could not save resource (no file was left behind)' });
   }
 
-  // Created metadata only — no storage_path, no URL.
+  // Created metadata only - no storage_path, no URL.
   return res.status(200).json({ resource: created });
 }

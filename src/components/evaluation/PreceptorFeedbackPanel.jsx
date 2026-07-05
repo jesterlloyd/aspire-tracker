@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { resolvePreceptor } from '../../lib/preceptor'
 
 // Owner/Admin-only manual send flow for the ASPIRE Preceptor Student Progress &
-// Readiness Feedback survey. Evaluation-specific — NOT the Connect/Outreach bulk path.
+// Readiness Feedback survey. Evaluation-specific - NOT the Connect/Outreach bulk path.
 // Select up to 5 students, pick a feedback period, review each resolved preceptor, and
 // send. The endpoint resolves recipients server-side and enforces idempotency.
 
@@ -212,7 +212,7 @@ export default function PreceptorFeedbackPanel({ cohortId }) {
                       {student.first_name} {student.last_name}
                     </td>
                     <td style={{ padding: '10px 14px', fontSize: 13, color: '#374151' }}>
-                      {resolved.name || <span style={{ color: '#9ca3af' }}>—</span>}
+                      {resolved.name || <span style={{ color: '#9ca3af' }}>-</span>}
                       {resolved.unit_name && <span style={{ color: '#9ca3af', fontSize: 12 }}> · {resolved.unit_name}</span>}
                     </td>
                     <td style={{ padding: '10px 14px' }}>

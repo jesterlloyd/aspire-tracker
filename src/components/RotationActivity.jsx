@@ -1,6 +1,6 @@
-// ROTATION-ACTIVITY-OVERSIGHT — Rotation > Activity is a two-section oversight board:
-//   1. On Campus Now      — live presence (the EXISTING read-only OpenShiftReview, unchanged).
-//   2. Active Rotation     — every student with status 'Active Rotation', incl. those not on
+// ROTATION-ACTIVITY-OVERSIGHT - Rotation > Activity is a two-section oversight board:
+//   1. On Campus Now      - live presence (the EXISTING read-only OpenShiftReview, unchanged).
+//   2. Active Rotation     - every student with status 'Active Rotation', incl. those not on
 //      Progress              campus today, with rotation progress + follow-up indicators.
 // Read-only. Owner/Admin-only (canEdit). No writes/email/cron/RPC. Progress math mirrors the
 // Student Profile (approved_hours / hours_required); no-recent-log mirrors Action Center act15.
@@ -91,7 +91,7 @@ function Badge({ label, tone }) {
 
 // Expanded clinical-hours detail for one student. Fetches the SAME per-student shift-log
 // query as the Student Profile (shared React Query cache key) and renders the shared
-// ClinicalHoursPanel — same totals, table, and Shift Details modal.
+// ClinicalHoursPanel - same totals, table, and Shift Details modal.
 function ActiveRotationHours({ student }) {
   const { data: shiftLogs = [], isLoading } = useQuery({
     queryKey: ['student_shift_logs', student.id],
@@ -126,7 +126,7 @@ function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef, highlight
       (daysSince != null ? ` · ${daysSince === 0 ? 'today' : `${daysSince}d ago`}` : '')
     : 'No shifts logged yet'
 
-  const metaLine = [school, unitName, shift].filter(Boolean).join(' · ') || '—'
+  const metaLine = [school, unitName, shift].filter(Boolean).join(' · ') || '-'
 
   return (
     <div ref={innerRef} style={{
@@ -171,14 +171,14 @@ function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef, highlight
         </div>
         <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3 }}>{metaLine}</div>
         <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 2 }}>
-          Preceptor: {precName || '—'}{range ? ` · ${range}` : ''}
+          Preceptor: {precName || '-'}{range ? ` · ${range}` : ''}
         </div>
       </div>
 
       {/* Progress */}
       <div style={{ flex: '1 1 200px', minWidth: 180, maxWidth: 280 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: '#374151', marginBottom: 4 }}>
-          <span style={{ fontVariantNumeric: 'tabular-nums' }}>{apv} / {req || '—'} hrs</span>
+          <span style={{ fontVariantNumeric: 'tabular-nums' }}>{apv} / {req || '-'} hrs</span>
           <span style={{ fontWeight: 700, color: barColor }}>{Math.round(pct)}%</span>
         </div>
         <div style={{ height: 8, borderRadius: 12, background: '#f3f4f6', overflow: 'hidden' }}>
@@ -220,13 +220,13 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
   const [expandedId, setExpandedId] = useState(null)
   const [sortMode, setSortMode] = useState('attention')
   const [highlightId, setHighlightId] = useState(null)
-  const cardRefs = useRef({})   // { [studentId]: card element } — for scroll-into-view
-  const focusTimers = useRef([]) // pending scroll/highlight cancelers — cleared on new focus / unmount
+  const cardRefs = useRef({})   // { [studentId]: card element } - for scroll-into-view
+  const focusTimers = useRef([]) // pending scroll/highlight cancelers - cleared on new focus / unmount
 
   // Expand + scroll + highlight the matching Active Rotation Progress card. Shared by the
   // Aggregate handoff (focusStudentId prop) AND the in-page On Campus Now row click. No-op if
   // the student is not in active rotation. The scroll is deferred past the route/subtab
-  // (display:none→block) AND the expanded-card layout pass — a short timeout + double rAF — so
+  // (display:none→block) AND the expanded-card layout pass - a short timeout + double rAF - so
   // it lands on the card's final position. Pending handles are tracked in a ref so a NEW focus
   // cancels the previous, and the unmount effect clears any pending.
   const focusOnStudent = useCallback((id) => {
@@ -260,7 +260,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
   // Clear any pending scroll/highlight timers if the component unmounts mid-sequence.
   useEffect(() => () => { focusTimers.current.forEach(fn => fn()); focusTimers.current = [] }, [])
 
-  // Full open-shift population (in_progress) for the cohort — read-only SELECT, unchanged.
+  // Full open-shift population (in_progress) for the cohort - read-only SELECT, unchanged.
   const { data: openLogs = [] } = useQuery({
     queryKey: ['rotation_open_shifts', cohortId],
     queryFn: async () => {
@@ -378,7 +378,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
       return byName(a, b)
     },
     // ROTATION-PROGRESS-SORT-1: rank by percentage of required hours completed (matches the
-    // displayed progress bar / % label), not raw approved hours — so students closest to finishing
+    // displayed progress bar / % label), not raw approved hours - so students closest to finishing
     // rank highest even with different required-hour totals. pct already guards req<=0 → 0 and caps
     // at 100. Tie-breakers: completion % desc → approved hours desc → preferred name asc.
     hours_desc: (a, b) => (b.pct - a.pct) || (b.apv - a.apv) || byName(a, b),

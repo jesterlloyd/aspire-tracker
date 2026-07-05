@@ -1,4 +1,4 @@
-// AVAILABILITY-CANON-1B — shared, pure helpers for rotation-availability capture.
+// AVAILABILITY-CANON-1B - shared, pure helpers for rotation-availability capture.
 //
 // Used by BOTH the public form endpoints (api/school-form-submit.js,
 // api/student-intake-submit.js) and the forms themselves, so weekday/date encoding
@@ -124,7 +124,7 @@ export function formatMinDays(value) {
 
 // ── AVAILABILITY-CANON-1D: Rotation > Matrix availability READINESS ───────────
 // PURE + null-safe. Returns a coarse readiness signal for the matching pool from the
-// data that EXISTS today — STUDENT availability + COORDINATOR program constraints only.
+// data that EXISTS today - STUDENT availability + COORDINATOR program constraints only.
 // It is NOT preceptor compatibility (no preceptor weekly schedule exists) and makes no
 // "match" claim. `facts` are PRIVACY-SAFE structural values only (no free-text reasons/notes).
 
@@ -164,7 +164,7 @@ export function getAvailabilityReadiness({ student, rotation } = {}) {
   if (preferred.length) facts.splice(1, 0, `Preferred: ${preferred.join(', ')}`)
   if (rotation) facts.push(`Program min days/week: ${formatMinDays(rotation?.min_days_per_week)}`)
 
-  // RESTRICTED — a clear, strong restriction (surfaced regardless of acknowledgment).
+  // RESTRICTED - a clear, strong restriction (surfaced regardless of acknowledgment).
   const restricted =
     (minDays != null && availCount < minDays) ||  // below program minimum
     combined.size >= 4 ||                          // many unavailable weekdays

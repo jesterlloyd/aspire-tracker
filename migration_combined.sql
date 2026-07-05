@@ -1,4 +1,4 @@
--- ASPIRE Program Tracker — Combined Migration
+-- ASPIRE Tracker - Combined Migration
 -- Run in Supabase SQL Editor before deploying.
 
 -- Add patient_population to units

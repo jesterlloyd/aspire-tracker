@@ -1,10 +1,10 @@
 // src/lib/connect/buttonUrl.js
 //
-// RICH-COMPOSE-2A-2 — pure URL validator for the ASPIRE Connect Linked Button block. No DOM/browser
+// RICH-COMPOSE-2A-2 - pure URL validator for the ASPIRE Connect Linked Button block. No DOM/browser
 // deps, so it is shared by BOTH the client modal (UX) and the server renderer (authority). The server
 // is the trust boundary; the client check is only for immediate feedback.
 //
-// POLICY (stricter than prose links — Button URLs reject explicit http:):
+// POLICY (stricter than prose links - Button URLs reject explicit http:):
 //   allow   https:  and  mailto:
 //   normalize protocol-less ("example.com", "name@org.edu") -> https:// / mailto:
 //   reject  http:  javascript:  data:  vbscript:  file:  protocol-relative (//x)  empty  malformed
@@ -24,7 +24,7 @@ export function validateButtonUrl(raw) {
   if (/^\/\//.test(v)) return { ok: false };           // protocol-relative
   if (SAFE.test(v)) return { ok: true, url: v };       // already https:/mailto:
   if (HAS_SCHEME.test(v)) return { ok: false };        // any OTHER explicit scheme (http:, javascript:, ...)
-  if (v.includes(':')) return { ok: false };           // a stray colon without a safe scheme — ambiguous, reject
+  if (v.includes(':')) return { ok: false };           // a stray colon without a safe scheme - ambiguous, reject
   if (EMAILish.test(v)) return { ok: true, url: `mailto:${v}` };
   const httpsy = `https://${v.replace(/^\/+/, '')}`;
   return SAFE.test(httpsy) ? { ok: true, url: httpsy } : { ok: false };

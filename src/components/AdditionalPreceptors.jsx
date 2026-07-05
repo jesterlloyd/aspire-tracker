@@ -1,10 +1,10 @@
 // PRECEPTOR-MODEL-3 (Part B): Additional (secondary / coverage) preceptors for a student.
 //
 // Read-only-by-default display of a student's ACTIVE secondary/coverage assignments from
-// student_preceptor_assignments (read via the table's Owner/Admin SELECT RLS — non-admins get an
+// student_preceptor_assignments (read via the table's Owner/Admin SELECT RLS - non-admins get an
 // empty set and see nothing here), plus an Owner/Admin "assign additional preceptor" flow that POSTs
 // to the server-verified /api/preceptor-assignments endpoint. The PRIMARY preceptor is rendered
-// separately by StudentSidePanel from students.preceptor_id (authoritative, unchanged) — this
+// separately by StudentSidePanel from students.preceptor_id (authoritative, unchanged) - this
 // component never touches primary, never writes the table directly, and never changes survey routing.
 //
 // PLANNED/STANDING coverage only. Single-shift substitution is a future shift-log concern.
@@ -33,7 +33,7 @@ export default function AdditionalPreceptors({ student, preceptors = [], canEdit
 
   const load = useCallback(async () => {
     // The assignment invariant is cohort-scoped (student_id + cohort_id + preceptor_id), so scope the
-    // read to this student AND cohort — avoids cross-cohort display confusion if the same student/
+    // read to this student AND cohort - avoids cross-cohort display confusion if the same student/
     // preceptor relationship recurs in a later cohort.
     if (!studentId || !cohortId) { setRows([]); setLoading(false); return }
     setLoading(true)
@@ -164,7 +164,7 @@ export default function AdditionalPreceptors({ student, preceptors = [], canEdit
             <option value="">Select preceptor…</option>
             {[...preceptors]
               .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
-              .map(p => <option key={p.id} value={p.id}>{p.full_name}{p.unit_name ? ` — ${p.unit_name}` : ''}</option>)}
+              .map(p => <option key={p.id} value={p.id}>{p.full_name}{p.unit_name ? `, ${p.unit_name}` : ''}</option>)}
           </select>
           <select value={role} onChange={e => setRole(e.target.value)} style={input}>
             {ROLE_OPTIONS.map(rk => <option key={rk} value={rk}>{ROLE_LABELS[rk]}</option>)}

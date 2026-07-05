@@ -1,12 +1,12 @@
 // api/connect-send-bulk-message.js
 //
-// CONNECT-BULK-MESSAGE — bulk manual message endpoint.
+// CONNECT-BULK-MESSAGE - bulk manual message endpoint.
 //
-//   • PREVIEW MODE (Phase 2B-1) — body.preview === true. Renders the branded ASPIRE email shell for
+//   • PREVIEW MODE (Phase 2B-1) - body.preview === true. Renders the branded ASPIRE email shell for
 //     ONE sample recipient. STRUCTURALLY INCAPABLE OF SENDING in this path: no Resend call, no
 //     notification_log write, no message_archive write. BEHAVIOR UNCHANGED from Phase 2B-1.
 //
-//   • SEND MODE (Phase 2B-2) — body.preview !== true. Sends real email in bulk for the four MANUAL
+//   • SEND MODE (Phase 2B-2) - body.preview !== true. Sends real email in bulk for the four MANUAL
 //     Send-to-Many templates. Tested ONLY via direct controlled API calls in this phase; NOT wired
 //     to the Send-to-Many UI (that is Phase 2B-3). Because this can send real email, the server-side
 //     safeguards are the ONLY protection in this phase and are airtight:
@@ -102,7 +102,7 @@ function resolveSenderSignature(profile) {
     return {
       source: 'fallback',
       displayName,
-      signature: { displayName, credentials: '', title: profile?.role ? String(profile.role) : '', affiliation: 'ASPIRE Program · Brawerman Nursing Institute, Cedars-Sinai', email, phone: '' },
+      signature: { displayName, credentials: '', title: profile?.role ? String(profile.role) : '', affiliation: 'ASPIRE · Brawerman Nursing Institute, Cedars-Sinai', email, phone: '' },
     };
   }
   return { source: 'static', displayName: JESTER_SIGNATURE.fullName, signature: null };
@@ -214,7 +214,7 @@ async function _handler(req, res) {
   // ── 4. Mode branch ──
   // PREVIEW path is byte-unchanged from Phase 2B-1. SEND path is purely additive.
   if (body.preview === true) {
-    // ===================== PREVIEW MODE (Phase 2B-1) — BEHAVIOR UNCHANGED =====================
+    // ===================== PREVIEW MODE (Phase 2B-1) - BEHAVIOR UNCHANGED =====================
 
     // ── 5. Validate inputs ──
     const recipient = body.recipient;
@@ -256,7 +256,7 @@ async function _handler(req, res) {
       signature:        senderSig.signature,
     });
 
-    // ── 8. Return preview — NO send, NO notification_log, NO message_archive ──
+    // ── 8. Return preview - NO send, NO notification_log, NO message_archive ──
     return res.status(200).json({
       success: true,
       html,
@@ -355,7 +355,7 @@ async function runSendMode(res, body, senderSig, profile) {
       if (seenNorm.has(normEmail)) { skipped.push({ ...label, reason: 'duplicate' }); continue; }
       seenNorm.add(normEmail);
 
-      // S6c. Ownership verification — send to the CHOSEN email, verified to belong to the recipient.
+      // S6c. Ownership verification - send to the CHOSEN email, verified to belong to the recipient.
       //      NO school-vs-personal routing override is ever invoked.
       let emailSource = null;     // students only: 'school' | 'personal'
       let recipientId = null;
@@ -394,7 +394,7 @@ async function runSendMode(res, body, senderSig, profile) {
       }
       // source === 'manual': no id, no ownership row; email already validated.
 
-      // S6d. Within-batch idempotency — skip a recipient already logged sent under this batch_id.
+      // S6d. Within-batch idempotency - skip a recipient already logged sent under this batch_id.
       const { data: dup } = await supabaseAdmin
         .from('notification_log')
         .select('id')
@@ -459,7 +459,7 @@ async function runSendMode(res, body, senderSig, profile) {
         continue;
       }
 
-      // S6h. Audit log — ONE row per successful recipient. Body content is NOT stored.
+      // S6h. Audit log - ONE row per successful recipient. Body content is NOT stored.
       const sentAt = new Date().toISOString();
       const metadata = {
         batch_id:             batchId,
@@ -495,7 +495,7 @@ async function runSendMode(res, body, senderSig, profile) {
           metadata,
         });
       } catch (logErr) {
-        // Non-fatal — the email already sent. Record the audit-log failure for diagnostics.
+        // Non-fatal - the email already sent. Record the audit-log failure for diagnostics.
         console.error('[connect-send-bulk-message] log_write_failed:', { batch_id: batchId, index: i, error: logErr?.message });
       }
 

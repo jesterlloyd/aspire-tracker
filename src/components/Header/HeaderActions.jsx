@@ -1,4 +1,4 @@
-// WS2.0: extracted verbatim from App.jsx header (Zone 3 — Connect + Action Center + user
+// WS2.0: extracted verbatim from App.jsx header (Zone 3 - Connect + Action Center + user
 // menu). No behavior change. State/handlers/refs remain owned by App.jsx and arrive as
 // props. Navigation mechanism preserved exactly (Connect uses the passed react-router
 // `navigate`). UserMenu and the floating Keith assistant are unchanged (Keith stays
@@ -13,7 +13,7 @@ export default function HeaderActions({
 }) {
   const { isOwner, isAdmin, isInterviewer } = useAuth()
   const canViewCatalog = isOwner || isAdmin || isInterviewer
-  // While Action Center is open the bell is the active surface — suppress the route-based
+  // While Action Center is open the bell is the active surface - suppress the route-based
   // Connect/Catalog active treatment so only one nav marker shows at a time. Routing and
   // the current page are unchanged; this is purely the active-marker visual state.
   const connectActive = activeTab === 'connect' && !showActionCenter
@@ -115,7 +115,7 @@ export default function HeaderActions({
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
           </svg>
-          {/* Active/open marker — identical to ASPIRE Connect / Catalog (downward triangle under the icon) */}
+          {/* Active/open marker - identical to ASPIRE Connect / Catalog (downward triangle under the icon) */}
           {showActionCenter && (
             <span style={{
               position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
@@ -139,7 +139,7 @@ export default function HeaderActions({
           Settings remains reachable via the UserMenu dropdown (→ /settings/general),
           which is the settings/control center. The Settings routes/shell are unchanged.
           (The gear's data-tour="settings" was not referenced by any tour step.)
-          ASPIRE Catalog is intentionally NOT rendered yet (Approach B — added later
+          ASPIRE Catalog is intentionally NOT rendered yet (Approach B, added later
           when it has an approved scope, data model, and real destination). */}
 
       <UserMenu />

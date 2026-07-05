@@ -1,5 +1,5 @@
 // src/components/connect/RecipientPicker.jsx
-// Phase 1 — Outreach "Send to one recipient" picker.
+// Phase 1 - Outreach "Send to one recipient" picker.
 //
 // Single-recipient only. Searches ACTIVE contacts and the current cohort's
 // students (students with at least one usable email), and emits a normalized
@@ -7,7 +7,7 @@
 // deep link, so the existing recipient/enrichment pipeline is reused unchanged.
 //
 // Scope guards baked in here:
-//   • Contacts are fetched with `is_active = true` (query-time) — inactive never appears.
+//   • Contacts are fetched with `is_active = true` (query-time) - inactive never appears.
 //   • Students come from the parent's already-loaded array (no extra student fetch);
 //     only those with a usable email are offered.
 //   • No multi-select, no group/category selection, no saved audiences.
@@ -20,7 +20,7 @@ import { ASPIRE_STATUS_CONFIG } from '../../lib/constants'
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
 
-// Category chip colors — mirrors ContactsView's CATEGORY_CHIP_STYLES for visual
+// Category chip colors - mirrors ContactsView's CATEGORY_CHIP_STYLES for visual
 // parity. Kept local (not imported) so ContactsView stays untouched in Phase 1.
 const CATEGORY_CHIP_STYLES = {
   'Academic Partners':  { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
@@ -63,8 +63,8 @@ function studentEmail(s) {
  * RecipientPicker
  * @param {object}   props
  * @param {Array}    props.students   already-loaded cohort students from the parent
- * @param {Function} props.onSelect   (recipient) => void — normalized recipient on pick
- * @param {Function} [props.onCancel] () => void — Esc / dismiss without a selection
+ * @param {Function} props.onSelect   (recipient) => void - normalized recipient on pick
+ * @param {Function} [props.onCancel] () => void - Esc / dismiss without a selection
  * @param {boolean}  [props.canCancel] whether dismiss is allowed (false on fresh empty entry)
  * @param {string}   [props.placeholder]
  */
@@ -328,7 +328,7 @@ export default function RecipientPicker({
         </div>
       )}
 
-      {/* Cancel affordance — only when there is a previous recipient to fall back to */}
+      {/* Cancel affordance - only when there is a previous recipient to fall back to */}
       {canCancel && (
         <button
           type="button"

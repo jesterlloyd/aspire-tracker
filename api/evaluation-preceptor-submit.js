@@ -63,7 +63,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid request body' });
     }
 
-    // Rate limit — fail closed.
+    // Rate limit - fail closed.
     const ip = extractClientIp(req);
     const key = bucketKey('preceptor_eval_submit', ip);
     const { data: allowed, error: rlError } = await supabaseAdmin.rpc(
@@ -99,13 +99,13 @@ export default async function handler(req, res) {
       return res.status(422).json({ error: 'This feedback link is not supported by the current application version.' });
     }
 
-    // Payload validation — errors are never logged or returned to the client.
+    // Payload validation - errors are never logged or returned to the client.
     const { valid } = validateResponses(responses);
     if (!valid) {
       return res.status(422).json({ error: 'Invalid response payload.' });
     }
 
-    // State-changing RPC — preceptor-only. Never submit_evaluation_response.
+    // State-changing RPC - preceptor-only. Never submit_evaluation_response.
     const { data: submitResult, error: submitError } = await supabaseAdmin.rpc(
       'submit_preceptor_evaluation_response',
       { p_token_hash: tokenHash, p_responses: responses }

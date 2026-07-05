@@ -1,6 +1,6 @@
 // src/components/connect/RichTextEditor.jsx
 //
-// RICH-COMPOSE-1 Phase 1 — compact, iPad-friendly rich-text editor for ASPIRE Connect manual emails.
+// RICH-COMPOSE-1 Phase 1 - compact, iPad-friendly rich-text editor for ASPIRE Connect manual emails.
 // TipTap (ProseMirror) constrained to the Phase 1 subset: bold, italic, underline, bulleted list,
 // numbered list, safe links, and clear-formatting. NO tables/images/fonts/colors (later phases).
 //
@@ -75,7 +75,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
     editable: !disabled,
     extensions: [
       StarterKit.configure({
-        // Phase 2A: Heading restricted to h2 (Heading) and h3 (Subheading) only — no h1/h4-6, no
+        // Phase 2A: Heading restricted to h2 (Heading) and h3 (Subheading) only - no h1/h4-6, no
         // font-size/color pickers. Everything else outside the subset stays disabled; standalone
         // Underline/Link below; DividerBlock atom for the Content Block divider.
         heading: { levels: [2, 3] },
@@ -96,7 +96,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
       }),
     ],
     // Initial content is the body HTML; richDoc-preferred hydration happens in the sync effect below
-    // (the ref's .current is read there — an effect — not during render).
+    // (the ref's .current is read there - an effect - not during render).
     content: html || '',
     // Emit the body HTML AND the TipTap JSON (richDoc) so composers can persist richDoc additively.
     // Emit '' for a truly empty doc (TipTap returns '<p></p>') so draft "emptiness" checks and the
@@ -128,7 +128,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
   // When an external change fires, prefer a valid richDoc (RICH-COMPOSE-2A-1: faithful structured
   // rehydration of blocks/headings) over the body HTML; fall back to html if richDoc is absent/invalid
   // or setContent throws. The richDoc is read from the parent's REF here (inside the effect, never
-  // during render) and is not a trigger — typing emits a fresh richDoc each keystroke but the html
+  // during render) and is not a trigger - typing emits a fresh richDoc each keystroke but the html
   // string-compare guards against re-hydration loops.
   useEffect(() => {
     if (!editor) return
@@ -140,7 +140,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
       try { editor.commands.setContent(richDoc, { emitUpdate: false }); return } catch { /* fall back to html */ }
     }
     editor.commands.setContent(next, { emitUpdate: false })
-  }, [html, editor, richDocRef])   // richDocRef is a stable ref object — listed to satisfy the linter; never re-triggers
+  }, [html, editor, richDocRef])   // richDocRef is a stable ref object - listed to satisfy the linter; never re-triggers
 
   useEffect(() => {
     if (editor) editor.setEditable(!disabled)
@@ -215,8 +215,8 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
 
       {/* RICH-COMPOSE-STICKY-TOOLBAR-1: the formatting / Content-Block toolbar (and the inline link
           input row) stay pinned to the top of the compose card while the user scrolls a long draft.
-          position:sticky sticks within the editor's own bounds — no overflow-clipping ancestor between
-          here and the page scroll — so it remains visible while editing the body and scrolls away once
+          position:sticky sticks within the editor's own bounds, no overflow-clipping ancestor between
+          here and the page scroll, so it remains visible while editing the body and scrolls away once
           past the editor. top:0 sits at the viewport top after the (position:relative) app header has
           scrolled off, so it never covers the header or the recipient/template sidebar. */}
       <div style={{ position: 'sticky', top: 0, zIndex: 5, boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
@@ -287,7 +287,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
         </div>
       </div>
 
-      {/* Link input row (inline, iPad-friendly — no window.prompt). Inside the sticky region (above)
+      {/* Link input row (inline, iPad-friendly - no window.prompt). Inside the sticky region (above)
           so it appears pinned with the toolbar even when the user is scrolled down a long draft. */}
       {linkOpen && (
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, padding: '6px 8px', border: '1.5px solid #e5e7eb', borderBottom: 'none', background: '#fff' }}>
@@ -306,7 +306,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
       )}
       </div>{/* end RICH-COMPOSE-STICKY-TOOLBAR-1 sticky region (toolbar + link input row) */}
 
-      {/* Shared Button insert/edit modal — keyed so it remounts (fresh form) on each open. Rendered
+      {/* Shared Button insert/edit modal - keyed so it remounts (fresh form) on each open. Rendered
           outside the sticky region (position:fixed overlay / null when closed). */}
       <ButtonModal
         key={buttonModal.open ? `${buttonModal.mode}:${buttonModal.pos ?? 'new'}` : 'closed'}
@@ -318,7 +318,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
         onCancel={() => setButtonModal(m => ({ ...m, open: false }))}
       />
 
-      {/* Shared Note insert/edit modal — keyed so it remounts (fresh form) on each open. */}
+      {/* Shared Note insert/edit modal - keyed so it remounts (fresh form) on each open. */}
       <NoteModal
         key={noteModal.open ? `note:${noteModal.pos ?? 'new'}` : 'note-closed'}
         open={noteModal.open}
@@ -329,7 +329,7 @@ export default function RichTextEditor({ html = '', richDocRef = null, onChange,
         onCancel={() => setNoteModal(m => ({ ...m, open: false }))}
       />
 
-      {/* Shared Event Details insert/edit modal — keyed so it remounts (fresh form) on each open. */}
+      {/* Shared Event Details insert/edit modal - keyed so it remounts (fresh form) on each open. */}
       <EventModal
         key={eventModal.open ? `event:${eventModal.pos ?? 'new'}` : 'event-closed'}
         open={eventModal.open}

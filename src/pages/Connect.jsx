@@ -19,7 +19,7 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
   const location = useLocation()
   const { toasts, removeToast, toast } = useToast()
 
-  // ── Refresh key — increment to trigger re-fetch in active sub-tab ──────────
+  // ── Refresh key - increment to trigger re-fetch in active sub-tab ──────────
   // Does NOT clear drafts, recipients, generated results, filters, or session state.
   const [refreshKey, setRefreshKey]   = useState(0)
   const [refreshing,  setRefreshing]  = useState(false)
@@ -36,7 +36,7 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
     if (refreshRef) refreshRef.current = handleRefresh
   }, [refreshRef, handleRefresh])
 
-  // URL-routed sub-tab — declared first so useEffects below can safely reference it
+  // URL-routed sub-tab - declared first so useEffects below can safely reference it
   const activeSubTab = location.pathname.startsWith('/connect/contacts')
     ? 'contacts'
     : location.pathname.startsWith('/connect/broadcasts')
@@ -74,7 +74,7 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
 
       {/* Page header */}
       <div style={{ padding: '12px 28px 0', flexShrink: 0 }}>
-        {/* Return control (left) + refresh (right) — on the page background, no utility bar. */}
+        {/* Return control (left) + refresh (right) - on the page background, no utility bar. */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
           <WorkspaceBackLink path={backPath} label={backLabel} />
           <RefreshHint onClick={handleRefresh} tooltipLabel="Refresh Connect data" loading={refreshing} />
@@ -117,7 +117,7 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
         </div>
       </div>
 
-      {/* Sub-tab content — all three mounted; inactive hidden to preserve form state */}
+      {/* Sub-tab content - all three mounted; inactive hidden to preserve form state */}
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {/* Contacts uses flex+height:100% so its three columns scroll independently */}
         <div style={{ display: activeSubTab === 'contacts' ? 'flex' : 'none', flexDirection: 'column', height: '100%', minHeight: 0 }}>

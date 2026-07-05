@@ -4,7 +4,7 @@
 // Parallel to preceptorDueDetection.js (PS-3a), which is NOT modified. Key differences:
 //   - Single post-rotation trigger: approved_hours >= hours_required (no midpoint).
 //   - The recipient is the STUDENT's own email (personal_email first, school_email fallback).
-//     due_unsendable therefore means a missing STUDENT email — never a missing preceptor.
+//     due_unsendable therefore means a missing STUDENT email - never a missing preceptor.
 //   - The preceptor/unit is the evaluated_target (context only); a missing target never
 //     blocks classification.
 //   - Suppression is scoped to student_preceptor_eval assignments only (the caller must pass
@@ -37,8 +37,8 @@ const STATE_PRECEDENCE = { completed: 4, active: 3, expired: 2, revoked: 1, unkn
 const STATE_REASON = {
   completed: 'Survey already completed',
   active:    'A survey request is already in flight',
-  expired:   'An expired survey request exists — Owner decision required',
-  revoked:   'A revoked survey request exists — does not auto re-arm',
+  expired:   'An expired survey request exists, Owner decision required',
+  revoked:   'A revoked survey request exists, does not auto re-arm',
   unknown:   'An existing survey request blocks auto-proposal',
 };
 
@@ -74,12 +74,12 @@ function resolveEvaluatedTarget(student, preceptorsById) {
 // Classify a single cohort for the student survey.
 //
 // Inputs (all already loaded; this function does no I/O):
-//   students    — [{ id, first_name, last_name, school, program_type, approved_hours,
+//   students    - [{ id, first_name, last_name, school, program_type, approved_hours,
 //                    hours_required, personal_email, school_email, preceptor_id, matched_preceptor }]
-//   preceptors  — [{ id, full_name, unit_name }]
-//   assignments — student_preceptor_eval assignments for the cohort ONLY:
+//   preceptors  - [{ id, full_name, unit_name }]
+//   assignments - student_preceptor_eval assignments for the cohort ONLY:
 //                 [{ id, student_id, status, revoked_at, completed_at, expires_at, sent_at, created_at }]
-//   nowMs       — current epoch ms (injected for testability)
+//   nowMs       - current epoch ms (injected for testability)
 //
 // Returns { rows, summary }; one row per student.
 export function classifyStudentEvalCohort({ students = [], preceptors = [], assignments = [], nowMs = 0 }) {
@@ -115,10 +115,10 @@ export function classifyStudentEvalCohort({ students = [], preceptors = [], assi
 
     if (required <= 0) {
       classification = 'ineligible_hours';
-      reason = 'hours_required is 0 or less — cannot evaluate the post-rotation threshold';
+      reason = 'hours_required is 0 or less, cannot evaluate the post-rotation threshold';
     } else if (existing) {
       // Any existing student_preceptor_eval assignment (revoked/expired/active/completed)
-      // suppresses re-proposal (instrument-scoped — no collision with preceptor/Casey).
+      // suppresses re-proposal (instrument-scoped - no collision with preceptor/Casey).
       const state = assignmentState(existing, nowMs);
       classification = 'suppressed_existing';
       reason = STATE_REASON[state] || STATE_REASON.unknown;

@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { classifyStudentEvalCohort } from '../../lib/evaluation/studentEvalDueDetection'
 
-// SR-2b-1 — READ-ONLY due-detection queue for the Student Evaluation of Preceptor/Unit
+// SR-2b-1 - READ-ONLY due-detection queue for the Student Evaluation of Preceptor/Unit
 // Experience survey (slug: student_preceptor_eval). Recipient is the STUDENT.
 //
 // Detection is live-computed by the pure studentEvalDueDetection module (students,
@@ -23,7 +23,7 @@ const GROUPS = [
 ]
 
 function fmtHours(n) {
-  if (n == null) return '—'
+  if (n == null) return '-'
   return Number.isInteger(n) ? String(n) : Number(n).toFixed(2)
 }
 
@@ -93,7 +93,7 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
     [students, preceptors, assignments, detectedAtMs]
   )
 
-  // SR-2b-2: release one due_sendable item. Sends only { student_id } — the server
+  // SR-2b-2: release one due_sendable item. Sends only { student_id } - the server
   // re-validates (SR-2b-1 detector) and resolves the student recipient. No recipient override.
   const doRelease = useCallback(async (row) => {
     setReleasing(true); setReleaseMsg(null)
@@ -110,7 +110,7 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
       })
       const body = await res.json().catch(() => ({}))
       if (res.ok && body.released) {
-        setReleaseMsg({ tone: 'ok', text: `Released — survey sent to ${body.student_email || 'the student'} for ${row.studentName}.` })
+        setReleaseMsg({ tone: 'ok', text: `Released, survey sent to ${body.student_email || 'the student'} for ${row.studentName}.` })
       } else {
         setReleaseMsg({ tone: 'err', text: `Release refused for ${row.studentName}: ${body.reason || body.error || 'no longer sendable'}` })
       }
@@ -119,7 +119,7 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
     } finally {
       setReleasing(false)
       setConfirm(null)
-      await load() // refresh detection — a released item moves to suppressed_existing
+      await load() // refresh detection - a released item moves to suppressed_existing
     }
   }, [load])
 
@@ -130,12 +130,12 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
     return g
   }, [rows])
 
-  // SURVEY-UX-2 — report this survey's already-computed counts up to the dashboard status
+  // SURVEY-UX-2 - report this survey's already-computed counts up to the dashboard status
   // band (presentational rollup only; no detection change). summary is memoized, so this
   // fires only when detection actually changes.
   useEffect(() => { onCounts?.(summary) }, [onCounts, summary])
 
-  // SURVEY-UX-3 — render the full-width detail body only when this is the selected workflow.
+  // SURVEY-UX-3 - render the full-width detail body only when this is the selected workflow.
   // Detection + count reporting hooks above still run regardless, so the summary card and
   // status band stay live even while this workflow's detail is not shown.
   if (!active) return null
@@ -151,7 +151,7 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
   return (
     <>
       <div style={{ fontFamily: F }}>
-      {/* Workspace header — restates the selected workflow + recipient. */}
+      {/* Workspace header - restates the selected workflow + recipient. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
         <h2 style={{ fontSize: 17, fontWeight: 700, color: '#191919', margin: 0 }}>Student Feedback: Preceptor & Unit</h2>
         <span style={{
@@ -167,14 +167,14 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
         the student; the preceptor/unit is the evaluated target (context only).
       </p>
 
-      {/* Banner — human-approved per-student release; no auto-send/cron/bulk */}
+      {/* Banner - human-approved per-student release; no auto-send/cron/bulk */}
       <div style={{
         fontSize: 12.5, color: '#1D2567', background: '#EEF1FB', border: '1px solid #d7ddf5',
         borderRadius: 8, padding: '10px 14px', marginBottom: 18, lineHeight: 1.55,
       }}>
         <strong>Human-approved sends only.</strong> Releasing re-checks eligibility on the
         server and emails the student the survey. The recipient is resolved server-side from
-        the student record — there is no recipient field, no auto-send, and no bulk release.
+        the student record, there is no recipient field, no auto-send, and no bulk release.
       </div>
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
@@ -248,12 +248,12 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
                               {fmtHours(r.approvedHours)} / {fmtHours(r.hoursRequired)}
                             </td>
                             <td style={{ padding: '9px 13px', fontSize: 12.5, color: '#374151' }}>
-                              {r.studentEmail || <span style={{ color: '#991b1b' }}>— none on file</span>}
+                              {r.studentEmail || <span style={{ color: '#991b1b' }}>- none on file</span>}
                             </td>
                             <td style={{ padding: '9px 13px', fontSize: 12.5, color: '#374151' }}>
                               {r.evaluatedTarget?.available ? (
                                 <>
-                                  {r.evaluatedTarget.preceptor_name || '—'}
+                                  {r.evaluatedTarget.preceptor_name || '-'}
                                   {r.evaluatedTarget.unit && <span style={{ color: '#9ca3af', fontSize: 12 }}> · {r.evaluatedTarget.unit}</span>}
                                 </>
                               ) : (
@@ -302,7 +302,7 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
       )}
       </div>
 
-      {/* Release confirmation — shows the server-resolved STUDENT recipient; no editable field. */}
+      {/* Release confirmation - shows the server-resolved STUDENT recipient; no editable field. */}
       {confirm && (
         <div className="modal-overlay" onMouseDown={() => !releasing && setConfirm(null)}>
           <div
@@ -320,7 +320,7 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
             <div style={{ padding: '16px 20px', fontSize: 13.5, color: '#374151', lineHeight: 1.6 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '6px 12px', marginBottom: 14 }}>
                 <span style={{ color: '#9ca3af', fontWeight: 600 }}>Student</span><span style={{ fontWeight: 600, color: '#191919' }}>{confirm.studentName}</span>
-                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Recipient email</span><span>{confirm.studentEmail || '—'}</span>
+                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Recipient email</span><span>{confirm.studentEmail || '-'}</span>
                 <span style={{ color: '#9ca3af', fontWeight: 600 }}>Hours</span><span>{fmtHours(confirm.approvedHours)} / {fmtHours(confirm.hoursRequired)}</span>
                 <span style={{ color: '#9ca3af', fontWeight: 600 }}>Evaluated target</span>
                 <span>{confirm.evaluatedTarget?.available

@@ -35,7 +35,7 @@ function getStudentIvStatus(student, rubrics) {
   return 'Not Scheduled'
 }
 
-// Teams invite lifecycle status — drives the repurposed "Interview Status" column
+// Teams invite lifecycle status - drives the repurposed "Interview Status" column
 function getTeamsInviteStatus(student, sessions) {
   const session = (sessions || [])
     .filter(s => s.student_id === student.id)
@@ -135,7 +135,7 @@ function getFlagInfo(s, studentRubs) {
 }
 
 // Returns the single distinct action for a row, or null when the default
-// row-click behavior (open rubric) is sufficient — avoids a redundant button.
+// row-click behavior (open rubric) is sufficient - avoids a redundant button.
 function getRowAction(s, studentRubs, sessions) {
   if (s.flagged_for_second_interview) return { label:'Review Flag', type:'flag' }
   if (!s.interview_scheduled_date)    return { label:'Schedule',    type:'schedule' }
@@ -202,7 +202,7 @@ export default function InterviewRubricTab({
         { event: '*', schema: 'public', table: 'interview_rubrics', filter: `cohort_id=eq.${cohortId}` },
         () => {
           // While an interviewer is filling out a rubric, suppress realtime-driven
-          // refreshes for this table — persist() already calls onRubricsChange()
+          // refreshes for this table - persist() already calls onRubricsChange()
           // after each successful save, so the list stays up to date when the user
           // navigates back.
           if (editingRubricRef.current) return
@@ -384,7 +384,7 @@ export default function InterviewRubricTab({
             )}
           </button>
 
-          {/* Interviewer legend pill — same height, scrollable if many names */}
+          {/* Interviewer legend pill - same height, scrollable if many names */}
           {!calendarCollapsed && calendarInterviewers.length > 0 && (
             <div style={{
               height: '34px', flex: 1, display: 'inline-flex', alignItems: 'center', gap: '14px',
@@ -399,7 +399,7 @@ export default function InterviewRubricTab({
                 const parts = (p.full_name || '').trim().split(' ')
                 const shortName = parts.length >= 2
                   ? `${parts[0]} ${parts[parts.length - 1][0]}.`
-                  : parts[0] || '—'
+                  : parts[0] || '-'
                 return (
                   <span key={p.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: p.interviewer_color || '#1D2567', display: 'inline-block', flexShrink: 0 }} />
@@ -455,7 +455,7 @@ export default function InterviewRubricTab({
         </span>
       </div>
 
-      {/* 6 filter cards — color story: Nightfall=anchor, Marina=in motion, Sage=positive, Dawn=needs action, Chroma=alert */}
+      {/* 6 filter cards - color story: Nightfall=anchor, Marina=in motion, Sage=positive, Dawn=needs action, Chroma=alert */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:10, padding:'10px 16px 12px' }}>
         <FilterKPICard value={total}        label="Total"         accent="nightfall"  active={activeFilter === null}            onClick={() => setActiveFilter(null)} />
         <FilterKPICard value={scheduled}    label="Scheduled"     accent="marina"     active={activeFilter === 'scheduled'}    onClick={() => handleCardClick('scheduled')} />
@@ -558,7 +558,7 @@ export default function InterviewRubricTab({
               return (
                 <div key={s.id} className="ir-wl-row" onClick={() => setSelectedStudentId(s.id)}>
 
-                  {/* Flag strip — colored left-edge indicator */}
+                  {/* Flag strip - colored left-edge indicator */}
                   <Tooltip label={flagInfo?.reason || 'Flagged score'} placement="top" disabled={!flagInfo}>
                   <div
                     className="ir-wl-flag-strip"
@@ -608,7 +608,7 @@ export default function InterviewRubricTab({
                     )}
                   </div>
 
-                  {/* 3. Workflow Status — align-items:flex-start prevents pills from stretching */}
+                  {/* 3. Workflow Status - align-items:flex-start prevents pills from stretching */}
                   <div className="ir-wl-cell ir-wl-col-workflow" style={{ alignItems:'flex-start' }}>
                     {s.status && (irDispType ? (
                       (() => {
@@ -653,7 +653,7 @@ export default function InterviewRubricTab({
                     ) : null}
                   </div>
 
-                  {/* 5. Action — only shown for distinct actions; row click handles the default case */}
+                  {/* 5. Action - only shown for distinct actions; row click handles the default case */}
                   <div className="ir-wl-cell ir-wl-col-action" style={{ justifyContent:'center' }} onClick={e => e.stopPropagation()}>
                     {rowAction && (
                       <button

@@ -1,6 +1,6 @@
 // src/components/connect/blocks/NoteModal.jsx
 //
-// RICH-COMPOSE-2A-3 — shared modal form for inserting/editing a Note callout. Owned by RichTextEditor;
+// RICH-COMPOSE-2A-3 - shared modal form for inserting/editing a Note callout. Owned by RichTextEditor;
 // reused for insert + edit. Plain-text title + body (one default style). Client-side validation is for
 // UX only; the server (renderContentBlocks) re-validates, escapes, and caps on render.
 // The parent gives this component a remount `key` per open, so useState initializes fresh.

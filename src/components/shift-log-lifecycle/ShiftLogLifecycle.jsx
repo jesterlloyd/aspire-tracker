@@ -1,4 +1,4 @@
-// ShiftLogLifecycle.jsx — top-level container for the /shift-log lifecycle.
+// ShiftLogLifecycle.jsx - top-level container for the /shift-log lifecycle.
 // Routes Check In / Check Out / Log a Past Shift based on the B1 lookup result.
 // Every visit starts at email entry (no localStorage/cookies; identity is the
 // school email entered each time). No new auth.

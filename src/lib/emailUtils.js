@@ -41,8 +41,8 @@ export function buildUnitLeaderEmail({
     .join(',')
 
   const subject = isMultiStudent
-    ? `ASPIRE Program Student Placements – ${unitName}`
-    : `ASPIRE Program Student Placement – ${students[0].lastName}, ${students[0].firstName} | ${unitName}`
+    ? `ASPIRE Student Placements – ${unitName}`
+    : `ASPIRE Student Placement – ${students[0].lastName}, ${students[0].firstName} | ${unitName}`
 
   const studentBlock = students.map(s => `
 Student: ${s.lastName}, ${s.firstName}
@@ -60,7 +60,7 @@ ${s.preceptorAssigned ? `Assigned Preceptor: ${s.preceptorAssigned}` : 'Precepto
 
   const body = `${greeting}
 
-Thank you for your continued support of the ASPIRE Program (Affiliate Students' Pathway from Internship to Residency Experience) at Cedars-Sinai. We are grateful for your unit's commitment to hosting senior nursing students this cycle.
+Thank you for your continued support of ASPIRE (Affiliate Students' Pathway from Internship to Residency Experience) at Cedars-Sinai. We are grateful for your unit's commitment to hosting senior nursing students this cycle.
 
 We are pleased to share the following placement${students.length > 1 ? 's' : ''} for your unit:
 

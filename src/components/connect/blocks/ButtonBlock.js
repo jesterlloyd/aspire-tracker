@@ -1,6 +1,6 @@
 // src/components/connect/blocks/ButtonBlock.js
 //
-// RICH-COMPOSE-2A-2 — TipTap atom node for the ASPIRE Content Block "Linked Button".
+// RICH-COMPOSE-2A-2 - TipTap atom node for the ASPIRE Content Block "Linked Button".
 // Scalar attributes (label, url) only. Serializes to the canonical marker
 //   <div data-aspire-block="button" data-label="..." data-url="..."></div>
 // which the server (renderContentBlocks.js) extracts, VALIDATES, and replaces with a branded,

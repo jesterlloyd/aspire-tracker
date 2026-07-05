@@ -1,5 +1,5 @@
 // src/lib/unitCatalog.js
-// Canonical unit catalog — 28 units with descriptive subtitles, division, and ASPIRE eligibility.
+// Canonical unit catalog - 28 units with descriptive subtitles, division, and ASPIRE eligibility.
 // This is the code-level source of truth for unit dropdowns and labeling across the app.
 // Per-cohort instance data (slot counts, is_participating, etc.) lives in the `units` DB table.
 // Static metadata (canonical name, description, division) lives here.
@@ -93,7 +93,7 @@ export function groupUnitNamesByDivision(unitNames) {
 export function formatUnitLabel(name) {
   const unit = getUnit(name);
   if (!unit) return name;
-  return `${unit.name} — ${unit.description}`;
+  return `${unit.name}, ${unit.description}`;
 }
 
 export function getCanonicalUnitNames() {

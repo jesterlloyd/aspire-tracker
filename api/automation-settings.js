@@ -1,11 +1,11 @@
-// CONNECT-AUTOMATION-SETTINGS — Owner/Admin-gated read/write for Automation Controls toggles.
+// CONNECT-AUTOMATION-SETTINGS - Owner/Admin-gated read/write for Automation Controls toggles.
 //
 // Backs the four currently-monitor-only crons with real on/off settings in automation_settings.
 // Service-role only (the table is RLS-locked with no client policies); auth mirrors automation-runs.
 //
-//   GET   — normalized list of the four known automations. Absent row => enabled per code default
+//   GET   - normalized list of the four known automations. Absent row => enabled per code default
 //           (all four default ON this phase) with source="default". An empty table never disables.
-//   PATCH — upsert ONE global setting. Global scope only this phase (cohort/school/contact rejected).
+//   PATCH - upsert ONE global setting. Global scope only this phase (cohort/school/contact rejected).
 //
 // Scope this phase is GLOBAL only. Midpoint is NOT here (it stays on cohorts.midpoint_checkin_
 // automation_enabled). The interviewer packet reminder is NOT here (added later, default OFF).
@@ -54,7 +54,7 @@ function normalize(meta, row) {
   }
   return {
     ...base,
-    enabled:    meta.defaultEnabled, // default-ON when no row exists — an empty table disables nothing
+    enabled:    meta.defaultEnabled, // default-ON when no row exists - an empty table disables nothing
     source:     'default',
     updated_at: null,
     updated_by: null,
@@ -93,7 +93,7 @@ export default async function handler(req, res) {
 
   const isOwnerAdmin = !!profile && (profile.is_owner === true || ['owner', 'admin'].includes(profile.role));
   if (!isOwnerAdmin) return res.status(403).json({ error: 'Forbidden' });
-  const actorId = profile.id; // user_profiles.id — recorded as created_by / updated_by
+  const actorId = profile.id; // user_profiles.id - recorded as created_by / updated_by
 
   // ── GET: normalized list of the four known automations ──────────────────────────
   if (req.method === 'GET') {
@@ -132,7 +132,7 @@ export default async function handler(req, res) {
   if (typeof enabled !== 'boolean') {
     return res.status(400).json({ error: 'enabled must be a boolean' });
   }
-  // Global scope only this phase — reject cohort/school/contact until UI + cron support it.
+  // Global scope only this phase - reject cohort/school/contact until UI + cron support it.
   if (scope_type !== undefined && scope_type !== 'global') {
     return res.status(400).json({ error: 'Only global scope is supported in this phase' });
   }

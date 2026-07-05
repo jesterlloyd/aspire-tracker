@@ -1,6 +1,6 @@
 // src/lib/notifications/previewFixtures.js
 //
-// AUTOMATIONS-EMAIL-PREVIEW-1 — synthetic fixtures for the in-app "Preview email" drawer on the
+// AUTOMATIONS-EMAIL-PREVIEW-1 - synthetic fixtures for the in-app "Preview email" drawer on the
 // ASPIRE Connect > Automations cards. Pure + client-safe: imports ONLY the existing template
 // builders (each pure, shell-based) and renders them with FAKE data. No DB, no API, no tokens,
 // no real recipient/cohort/coordinator data. This is the single source of truth for what each

@@ -1,16 +1,16 @@
 // src/components/connect/ConnectPanel.jsx
 //
-// CONNECT-OUTREACH-CONTACTS-PANEL-POLISH — presentation-only panel shell.
+// CONNECT-OUTREACH-CONTACTS-PANEL-POLISH - presentation-only panel shell.
 // Standardizes ONLY the tinted-gradient frame + header (icon + sentence-case title + muted helper).
 // The body (children) is fully free; the component dictates nothing about inner content, and all
-// inner surfaces stay white — the tint is the shell only. No behavior, state, or handlers.
+// inner surfaces stay white - the tint is the shell only. No behavior, state, or handlers.
 
 import { toneGradient, toneChip } from '../../lib/connectTones'
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
 
-// Navy line icons — identical navy + size/weight across ALL panels (the unifying constant).
+// Navy line icons - identical navy + size/weight across ALL panels (the unifying constant).
 // Lucide-style 24x24 stroke paths; keyed by tone (override with the `icon` prop if needed).
 const ICON_PATHS = {
   audience: (<>
@@ -75,7 +75,7 @@ export default function ConnectPanel({ tone = 'audience', title, helper, icon, p
   )
 }
 
-// Reusable navy panel icon inside a subtle tone-harmonized circular chip — identical chip size,
+// Reusable navy panel icon inside a subtle tone-harmonized circular chip - identical chip size,
 // icon size, and stroke across all ConnectPanel usage (incl. panels that own their own header
 // markup, e.g. the Contacts directory header). The icon itself stays navy.
 export function ConnectPanelIcon({ name, tone, size = 14 }) {

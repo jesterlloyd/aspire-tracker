@@ -8,7 +8,7 @@ This document describes how preceptor data is stored, related, and maintained in
 
 Before Phase B.1, preceptor data existed only as free-text scattered across seven tables. A `preceptors` table was created in `migration_phase1_analytics.sql` but never populated or used by any frontend code.
 
-Phase B.1 (`migration_preceptor_schema_v2.sql`) establishes the normalized structure. **No automated backfill** — preceptor records will be entered manually through the Phase B.3 admin UI. Two prior migration files (`migration_preceptor_normalization.sql`, `migration_preceptor_backfill.sql`) failed to execute against the database (wrong table name `shift_logs` instead of `student_shift_logs`, no transaction wrapping) and have been renamed `.deprecated`. The v2 migration is a single atomic `BEGIN/COMMIT` transaction.
+Phase B.1 (`migration_preceptor_schema_v2.sql`) establishes the normalized structure. **No automated backfill** - preceptor records will be entered manually through the Phase B.3 admin UI. Two prior migration files (`migration_preceptor_normalization.sql`, `migration_preceptor_backfill.sql`) failed to execute against the database (wrong table name `shift_logs` instead of `student_shift_logs`, no transaction wrapping) and have been renamed `.deprecated`. The v2 migration is a single atomic `BEGIN/COMMIT` transaction.
 
 The free-text fallback fields are **preserved** during Phase B.1; Phase B.2 will wire the frontend to write normalized FKs and Phase B.3 will build the Preceptors sub-tab UI.
 
@@ -30,10 +30,10 @@ The canonical preceptor registry. One row per unique preceptor, identified by em
 | `phone` | TEXT | Optional contact |
 | `shift_type` | TEXT | `'Day'`, `'Night'`, `'Mid'`, or `'Variable'` (default) |
 | `is_active` | BOOLEAN | Whether the preceptor is available this cycle |
-| `cohorts_participated` | INTEGER | Denormalized count — kept in sync by trigger (see Triggers) |
-| `total_students_precepted` | INTEGER | Denormalized count — kept in sync by trigger (Phase B.2) |
-| `last_active_cohort` | TEXT | Cohort name of most recent participation — trigger-synced |
-| `last_active_date` | DATE | Date of most recent participation — trigger-synced |
+| `cohorts_participated` | INTEGER | Denormalized count - kept in sync by trigger (see Triggers) |
+| `total_students_precepted` | INTEGER | Denormalized count - kept in sync by trigger (Phase B.2) |
+| `last_active_cohort` | TEXT | Cohort name of most recent participation - trigger-synced |
+| `last_active_date` | DATE | Date of most recent participation - trigger-synced |
 | `notes` | TEXT | Free-form notes |
 | `created_at` | TIMESTAMPTZ | |
 | `updated_at` | TIMESTAMPTZ | Auto-updated on every write via trigger |
@@ -70,7 +70,7 @@ This is the **source of truth** for cohort history. The `cohorts_participated`, 
 | `created_at` | TIMESTAMPTZ | |
 | `updated_at` | TIMESTAMPTZ | |
 
-`UNIQUE (preceptor_id, cohort_id)` — one participation record per preceptor per cohort.
+`UNIQUE (preceptor_id, cohort_id)` - one participation record per preceptor per cohort.
 
 ---
 
@@ -86,9 +86,9 @@ A preceptor is linked to a unit via `preceptors.unit_id` (FK to `units.id`). Thi
 
 Three layers, from most authoritative to least:
 
-1. **`students.preceptor_id`** (UUID FK → `preceptors.id`) — normalized reference; written by Phase B.2 frontend
-2. **`students.matched_preceptor`** (TEXT) — free-text name; written by coordinators manually today
-3. **`students.preceptor_email`** (TEXT) — free-text email; drives Action Center communications
+1. **`students.preceptor_id`** (UUID FK → `preceptors.id`) - normalized reference; written by Phase B.2 frontend
+2. **`students.matched_preceptor`** (TEXT) - free-text name; written by coordinators manually today
+3. **`students.preceptor_email`** (TEXT) - free-text email; drives Action Center communications
 
 `matches.preceptor_id` mirrors the student's assignment at the match level (one row per student-unit pair). `matches.preceptor_assigned` (TEXT) is the free-text fallback.
 
@@ -124,7 +124,7 @@ Since denormalized values are computed fresh from the junction table on every ch
 
 ### `sync_preceptor_student_count()`
 
-Function defined in Phase B.1. Trigger **not yet attached** — will be created in Phase B.2 when `students.preceptor_id` starts being written by the frontend.
+Function defined in Phase B.1. Trigger **not yet attached** - will be created in Phase B.2 when `students.preceptor_id` starts being written by the frontend.
 
 When attached, fires `AFTER INSERT OR UPDATE OF preceptor_id OR DELETE` on `students` and recomputes `preceptors.total_students_precepted`.
 
@@ -145,11 +145,11 @@ CREATE TRIGGER sync_preceptor_student_count_after_change
 
 | Policy | Role | Operation |
 |---|---|---|
-| `authenticated_read_preceptors` | authenticated | SELECT — anyone logged in can read |
-| `owners_insert_preceptors` | authenticated | INSERT — only `is_owner = true` |
-| `owners_update_preceptors` | authenticated | UPDATE — only `is_owner = true` |
-| `owners_delete_preceptors` | authenticated | DELETE — only `is_owner = true` |
-| `service_role_full_preceptors` | service_role | ALL — for API/edge functions |
+| `authenticated_read_preceptors` | authenticated | SELECT - anyone logged in can read |
+| `owners_insert_preceptors` | authenticated | INSERT - only `is_owner = true` |
+| `owners_update_preceptors` | authenticated | UPDATE - only `is_owner = true` |
+| `owners_delete_preceptors` | authenticated | DELETE - only `is_owner = true` |
+| `service_role_full_preceptors` | service_role | ALL - for API/edge functions |
 
 Ownership is checked via:
 ```sql
@@ -173,9 +173,9 @@ A non-materialized view defined in `migration_preceptor_backfill.sql`. Returns e
 
 | Status | Meaning |
 |---|---|
-| `resolved` | `students.preceptor_id` was set — preceptor is in the normalized table |
-| `needs_email` | Preceptor name exists but no email — can't auto-match; coordinator must add email |
-| `unresolved` | Email present but no matching preceptors row — investigate why |
+| `resolved` | `students.preceptor_id` was set - preceptor is in the normalized table |
+| `needs_email` | Preceptor name exists but no email - can't auto-match; coordinator must add email |
+| `unresolved` | Email present but no matching preceptors row - investigate why |
 
 Query:
 ```sql
@@ -200,7 +200,7 @@ Use this view in Phase B.3 admin UI to surface and resolve outstanding preceptor
 7. Adds `preceptor_id` FK to `student_shift_logs`
 8. Creates `sync_preceptor_denormalized_fields()` function and trigger
 9. Creates `preceptor_review_queue` view
-10. COMMITs — or rolls back the entire transaction if any step fails
+10. COMMITs - or rolls back the entire transaction if any step fails
 
 **Rollback:** The transaction is atomic. If any statement fails, nothing is applied. If the migration commits successfully and you need to undo it, run:
 ```sql

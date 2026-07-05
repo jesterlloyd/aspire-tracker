@@ -94,7 +94,7 @@ export default function UnifiedNav({
             onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = 'var(--text-caption,#374151)' }}
             onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = 'var(--text-muted,#6B7280)' }}
           >
-            {/* ASPIRE mnemonic chip — quiet, always muted grey */}
+            {/* ASPIRE mnemonic chip - quiet, always muted grey */}
             <span style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               height: 20, minWidth: chip.length > 1 ? 26 : 20,

@@ -8,7 +8,7 @@
 // Reuses the B1 lookup helper (lookupStudentByEmail) for student matching +
 // eligibility, without modifying its contract.
 //
-// Phase S.2.B2: DORMANT — no frontend caller. Testable via direct HTTP (curl).
+// Phase S.2.B2: DORMANT - no frontend caller. Testable via direct HTTP (curl).
 //
 // Idempotency / one-open-shift:
 //   - Layer 1: if the lookup already reports an open shift, return it (200).
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'invalid_request', field: 'school_email', message: 'school_email is required', request_id: requestId })
   }
 
-  // ── Optional: expected_hours — STRICT JSON number, 1..24 (no string coercion) ─
+  // ── Optional: expected_hours - STRICT JSON number, 1..24 (no string coercion) ─
   let validatedExpectedHours = null
   if (body.expected_hours !== undefined && body.expected_hours !== null) {
     if (
@@ -149,7 +149,7 @@ export default async function handler(req, res) {
   const checkedInAt = now.toISOString()        // UTC instant for timestamptz
   const shiftDate = pacificDateString(now)     // Pacific YYYY-MM-DD
 
-  // Truthful in_progress row — explicit NULLs override column defaults.
+  // Truthful in_progress row - explicit NULLs override column defaults.
   const insertPayload = {
     student_id:   student.id,
     cohort_id:    student.cohort_id,
@@ -165,7 +165,7 @@ export default async function handler(req, res) {
     planned_preceptor_name: validatedPlannedPreceptorName,
     planned_shift_type:     validatedPlannedShiftType,
 
-    // Final completed-shift fields — explicit NULL (no inherited defaults)
+    // Final completed-shift fields - explicit NULL (no inherited defaults)
     total_hours:    null,
     status:         null,   // overrides default 'approved'
     unit_name:      null,   // overrides default ''
@@ -173,7 +173,7 @@ export default async function handler(req, res) {
     shift_type:     null,   // overrides default 'Day'
     attestation:    false,  // no attestation at check-in
 
-    // Assignment indicators are UNKNOWN at check-in — NULL, not false.
+    // Assignment indicators are UNKNOWN at check-in - NULL, not false.
     is_assigned_unit:        null,
     is_assigned_preceptor:   null,
     unit_override_reason:    null,
@@ -182,7 +182,7 @@ export default async function handler(req, res) {
     // Never name-match a preceptor.
     preceptor_id: null,
 
-    // Reflection/review fields — filled at check-out or by a reviewer.
+    // Reflection/review fields - filled at check-out or by a reviewer.
     learning_highlight: null,
     support_needed:     null,
     admin_notes:        null,

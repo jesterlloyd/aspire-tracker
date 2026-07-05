@@ -1,8 +1,8 @@
 // KLD-1: canonical CS-Link summary for Keith. The per-student derivation
 // (getCsLinkStatus) and the five-category labels (CS_LINK_STATUS_CONFIG) already live
 // in src/lib/utils.js and drive the Student Profiles → CS-Link Access table (see
-// AccessTab.jsx). This module REUSES them verbatim — the single source stays utils.js,
-// so the UI needs no change — and only adds a cohort-level aggregator for Keith.
+// AccessTab.jsx). This module REUSES them verbatim - the single source stays utils.js,
+// so the UI needs no change - and only adds a cohort-level aggregator for Keith.
 // Pure: no React, no fetch, no browser APIs (utils.js has no top-level browser refs).
 import { getCsLinkStatus, CS_LINK_STATUS_CONFIG } from '../utils.js';
 

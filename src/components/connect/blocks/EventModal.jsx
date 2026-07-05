@@ -1,6 +1,6 @@
 // src/components/connect/blocks/EventModal.jsx
 //
-// RICH-COMPOSE-2B — shared modal form for inserting/editing an Event Details card. Owned by
+// RICH-COMPOSE-2B - shared modal form for inserting/editing an Event Details card. Owned by
 // RichTextEditor; reused for insert + edit. Plain-text fields; Date/Time required. Client-side
 // validation is for UX only; the server (renderContentBlocks) re-validates, escapes, and caps on
 // render. The parent gives a remount `key` per open so useState initializes fresh.

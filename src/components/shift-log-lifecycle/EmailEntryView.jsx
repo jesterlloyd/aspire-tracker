@@ -1,4 +1,4 @@
-// EmailEntryView.jsx — initial school-email entry for the shift-log lifecycle.
+// EmailEntryView.jsx - initial school-email entry for the shift-log lifecycle.
 import { useState } from 'react'
 
 const F = 'DM Sans, sans-serif'

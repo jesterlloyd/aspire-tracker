@@ -1,13 +1,13 @@
 import { AlertTriangle } from 'lucide-react'
 
-// ConflictDialog — shown when an optimistic concurrency check fails.
+// ConflictDialog - shown when an optimistic concurrency check fails.
 // The student row's updated_at changed between load time and save time,
 // meaning another user (or another tab) saved while this user was editing.
 //
 // Three resolution paths:
-//   Discard  — reload fresh data from DB, lose pending edit
-//   Force    — save anyway (overwrites), logged to program_events for audit
-//   Continue — dismiss dialog, keep unsaved edit in form; user decides later
+//   Discard  - reload fresh data from DB, lose pending edit
+//   Force    - save anyway (overwrites), logged to program_events for audit
+//   Continue - dismiss dialog, keep unsaved edit in form; user decides later
 
 export default function ConflictDialog({ studentName, fieldName, onDiscard, onForce, onContinue }) {
   return (
@@ -61,7 +61,7 @@ export default function ConflictDialog({ studentName, fieldName, onDiscard, onFo
                 ↺ Discard my changes and reload
               </div>
               <div style={{ fontWeight: 400, fontSize: 11.5, color: 'rgba(255,255,255,0.6)', marginTop: 3 }}>
-                Recommended — see what changed and re-apply if needed
+                Recommended, see what changed and re-apply if needed
               </div>
             </button>
 
@@ -78,7 +78,7 @@ export default function ConflictDialog({ studentName, fieldName, onDiscard, onFo
                 ⚠ Force save my changes
               </div>
               <div style={{ fontWeight: 400, fontSize: 11.5, color: '#b45309', marginTop: 3 }}>
-                Overwrites the other person's edit — this action is logged for audit
+                Overwrites the other person's edit, this action is logged for audit
               </div>
             </button>
 

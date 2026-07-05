@@ -1,4 +1,4 @@
-// Shared KPI band primitives — used by Aggregate (Program at a Glance),
+// Shared KPI band primitives - used by Aggregate (Program at a Glance),
 // Embed (Matching at a Glance), and clickable filter cards on Student Profiles / Interview Room.
 // Tokens: src/lib/designTokens.js
 import { useState, useEffect } from 'react'
@@ -20,7 +20,7 @@ export function useUpdatedLabel(cohortId) {
         q.state.dataUpdatedAt
       )
       const ts = relevant.length ? Math.max(...relevant.map(q => q.state.dataUpdatedAt)) : 0
-      if (!ts) return setLabel('—')
+      if (!ts) return setLabel('-')
       const s = Math.floor((Date.now() - ts) / 1000)
       if (s < 10) setLabel('just now')
       else if (s < 60) setLabel(`${s}s ago`)

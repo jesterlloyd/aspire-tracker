@@ -1,4 +1,4 @@
-// WS2.0: extracted verbatim from App.jsx header (Zone 1 — Brand). No behavior change.
+// WS2.0: extracted verbatim from App.jsx header (Zone 1 - Brand). No behavior change.
 import Tooltip from '../ui/Tooltip'
 
 export default function HeaderBrand() {

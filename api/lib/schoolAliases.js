@@ -4,7 +4,7 @@
 // not substrings of the full name (e.g. "APU" = Azusa Pacific University), so a naive
 // ilike('%APU%') misses them. Used by Keith's search_students to resolve school-level queries.
 //
-// Matching is case- and punctuation-insensitive. Add new schools/aliases here only — do not scatter
+// Matching is case- and punctuation-insensitive. Add new schools/aliases here only - do not scatter
 // hardcoded school checks elsewhere.
 
 function norm(s) {

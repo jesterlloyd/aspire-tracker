@@ -6,7 +6,7 @@
 // UI (the label is "Current location", not raw coords). No API key, no server, no IP geolocation.
 //
 // ASPIRE-POLISH-6A: a granted location is labeled with its nearest Southern California city (e.g.
-// "Palmdale") via a bundled, fully-offline centroid lookup (findNearestSocalCity) — NO third-party
+// "Palmdale") via a bundled, fully-offline centroid lookup (findNearestSocalCity) - NO third-party
 // reverse geocoder, NO server, NO extra network request. If the location is outside the SoCal table's
 // range (nearest city beyond the threshold), the neutral "Current location" label is kept.
 import { useEffect, useState } from 'react'

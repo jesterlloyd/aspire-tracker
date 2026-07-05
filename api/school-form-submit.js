@@ -220,7 +220,7 @@ export default async function handler(req, res) {
   }
 
   // Fire-and-forget: form_received notifications for each new student. Internal
-  // same-deployment call — canonical origin in Production, forwarded host on
+  // same-deployment call - canonical origin in Production, forwarded host on
   // Preview so it hits the right deployment's endpoint. See lib/server/appUrl.js.
   const baseUrl = emailBaseUrl(req)
   for (const s of added) {

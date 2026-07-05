@@ -1,4 +1,4 @@
-// MainContentShell — shared content wrapper applied to all main tabs.
+// MainContentShell - shared content wrapper applied to all main tabs.
 // Provides consistent max-width, centering, and safe-area bottom padding.
 // CSS lives in .main-content-shell (index.css); values mirror .app-main.
 

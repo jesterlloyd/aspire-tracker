@@ -1,5 +1,5 @@
 -- =====================================================================
--- ASPIRE Placement Tracker — Matching Feature Migration
+-- ASPIRE Placement Tracker - Matching Feature Migration
 -- Run this entire file in your Supabase SQL Editor
 -- =====================================================================
 
@@ -41,7 +41,7 @@ DROP POLICY IF EXISTS "anon_all" ON matches;
 CREATE POLICY "anon_all" ON matches FOR ALL TO anon USING (true) WITH CHECK (true);
 
 -- ─────────────────────────────────────────────────────────────────────
--- 3. Alter students table — add matching columns
+-- 3. Alter students table - add matching columns
 -- ─────────────────────────────────────────────────────────────────────
 ALTER TABLE students ADD COLUMN IF NOT EXISTS interview_outcome TEXT DEFAULT 'Pending Interview';
 ALTER TABLE students ADD COLUMN IF NOT EXISTS unit_preference_1 TEXT DEFAULT '';

@@ -1,7 +1,7 @@
 // src/lib/evaluationLabels.js
 //
 // EVALUATION-DASHBOARD-INTELLIGENCE-POLISH: DISPLAY-ONLY compact labels + canonical sort orders for
-// the Evaluation dashboard. The instrument SLUGS are functional keys (survey-naming canon) — never
+// the Evaluation dashboard. The instrument SLUGS are functional keys (survey-naming canon) - never
 // rename them, and never change the DB display_name here. These maps are purely for presentation.
 
 // Slug → compact label shown in the table, filter, and instrument cards.
@@ -11,13 +11,13 @@ export const INSTRUMENT_COMPACT_LABELS = {
   student_preceptor_eval:    'Preceptor & Unit Feedback',
 }
 
-// Compact label for a slug, falling back to the provided display_name, then '—'.
+// Compact label for a slug, falling back to the provided display_name, then '-'.
 export function instrumentCompactLabel(slug, fallbackDisplayName) {
-  return INSTRUMENT_COMPACT_LABELS[slug] || fallbackDisplayName || '—'
+  return INSTRUMENT_COMPACT_LABELS[slug] || fallbackDisplayName || '-'
 }
 
 // Canonical instrument order (for sorting + the instrument-card row). Program Experience is NOT
-// included — that instrument does not exist yet.
+// included - that instrument does not exist yet.
 export const INSTRUMENT_ORDER = ['casey_fink_readiness_2024', 'preceptor_progress', 'student_preceptor_eval']
 export function instrumentSortIndex(slug) {
   const i = INSTRUMENT_ORDER.indexOf(slug)
@@ -45,5 +45,5 @@ export function completedByLabel(respondentType, respondentName) {
     const n = (respondentName || '').trim()
     return n || 'Preceptor'
   }
-  return '—'
+  return '-'
 }

@@ -1,7 +1,7 @@
 // CONNECT-COMMS-1D: per-user ASPIRE Connect email signature settings.
 //
 // Applies ONLY to manual ASPIRE Connect direct messages. Saves via the self-scoped
-// update_my_connect_signature RPC (updates only the caller's own user_profiles row) — never a
+// update_my_connect_signature RPC (updates only the caller's own user_profiles row) - never a
 // raw client update. Email is read-only (from the authenticated profile, not user-editable).
 import { useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
@@ -76,7 +76,7 @@ export default function SignaturePanel() {
           </div>
           <div>
             <label style={labelStyle}>Title</label>
-            <input style={inputStyle} value={form.title} onChange={e => set('title', e.target.value)} placeholder="e.g. ASPIRE Program Co-Lead" maxLength={120} />
+            <input style={inputStyle} value={form.title} onChange={e => set('title', e.target.value)} placeholder="e.g. ASPIRE Co-Lead" maxLength={120} />
           </div>
           <div>
             <label style={labelStyle}>Department</label>
@@ -105,7 +105,7 @@ export default function SignaturePanel() {
             {form.signature_enabled ? (
               <>
                 <div style={{ marginBottom: 6 }}>Warm regards,</div>
-                <div><strong>{form.display_name || '—'}{form.credentials ? `, ${form.credentials}` : ''}</strong></div>
+                <div><strong>{form.display_name || '-'}{form.credentials ? `, ${form.credentials}` : ''}</strong></div>
                 {form.title && <div>{form.title}</div>}
                 <div>{affiliation}</div>
                 {email && (
@@ -113,7 +113,7 @@ export default function SignaturePanel() {
                 )}
               </>
             ) : (
-              <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Signature disabled — manual Connect emails will use a fallback signature.</span>
+              <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>Signature disabled, manual Connect emails will use a fallback signature.</span>
             )}
           </div>
         </div>

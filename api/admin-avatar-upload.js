@@ -1,7 +1,7 @@
 // api/admin-avatar-upload.js
 //
 // ADMIN-AVATAR-UPLOAD-1: owner/admin sets ANOTHER user's profile picture from the Account
-// Profile modal. Server-gated upload — the browser NEVER touches Storage for another user and
+// Profile modal. Server-gated upload - the browser NEVER touches Storage for another user and
 // never receives the service-role key.
 //
 // Authorization is SERVER-VERIFIED and mirrors api/admin-users.js exactly: caller identity and
@@ -38,7 +38,7 @@ const TYPE_EXT = {
   'image/webp': 'webp',
 };
 
-// Magic-byte sniff — the decoded bytes must actually be the declared image type (defence in depth
+// Magic-byte sniff - the decoded bytes must actually be the declared image type (defence in depth
 // against a mislabelled/renamed payload).
 function sniffType(buf) {
   if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg';
@@ -215,7 +215,7 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: 'forbidden', message: 'This operation is not permitted on this account.' });
   }
 
-  // ── All gates passed — upload with the service role, then write avatar_url ───
+  // ── All gates passed - upload with the service role, then write avatar_url ───
   const path = `${target.auth_user_id}/avatar.${ext}`;
   const { error: uploadError } = await db.storage
     .from(BUCKET)

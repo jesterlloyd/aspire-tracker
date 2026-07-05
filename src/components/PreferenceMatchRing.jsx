@@ -1,5 +1,5 @@
-// PreferenceMatchRing — full-circle donut chart showing preference match quality.
-// Static display visualization — no hover interactions.
+// PreferenceMatchRing - full-circle donut chart showing preference match quality.
+// Static display visualization - no hover interactions.
 
 import { useEffect, useMemo, useState } from 'react'
 
@@ -86,7 +86,7 @@ export default function PreferenceMatchRing({ students = [], units = [], cohort 
     }).filter(s => s.rawLen > SEG_GAP)
   }, [counts, total])
 
-  const centerBig   = isEmpty ? '—' : `${topPct}%`
+  const centerBig   = isEmpty ? '-' : `${topPct}%`
   const centerSub   = isEmpty ? 'no students yet' : 'got top choice'
   const centerColor = isEmpty ? 'var(--text-muted,#98A2B3)' : 'var(--color-status-success,#2D4A2B)'
   const cohortName  = cohort?.name || 'Cohort'
@@ -175,7 +175,7 @@ export default function PreferenceMatchRing({ students = [], units = [], cohort 
           </text>
         </svg>
 
-        {/* Legend row — static, no interaction */}
+        {/* Legend row - static, no interaction */}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 4 }}>
           {SEGMENTS.map(seg => (
             <div key={seg.key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: 'var(--text-caption,#6b7280)', fontFamily: 'DM Sans, sans-serif' }}>

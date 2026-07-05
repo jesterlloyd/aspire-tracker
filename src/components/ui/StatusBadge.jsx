@@ -1,4 +1,4 @@
-// UI-1: generic status badge pill — mechanics extracted from the shipped
+// UI-1: generic status badge pill - mechanics extracted from the shipped
 // Knowledge Center StateBadge (KT-3a-1) pixel-for-pixel. Domain-agnostic: the
 // caller supplies a colorMap ({ [value]: { label, bg, color, dot } }); domain
 // color maps live near their domain code (e.g. settings/StateBadge for the

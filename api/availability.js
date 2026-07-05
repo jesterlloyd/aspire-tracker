@@ -233,7 +233,7 @@ export default async function handler(req, res) {
       }
 
       // Resolve the slot authoritatively: the affected student is the slot's
-      // booked student — NEVER req.body.student_id (which is only validated to
+      // booked student - NEVER req.body.student_id (which is only validated to
       // match, for backward compatibility).
       const { data: slot, error: slotFetchError } = await db
         .from('interview_slots')

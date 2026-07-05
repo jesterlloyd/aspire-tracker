@@ -97,7 +97,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 2. Batch-resolve coordinators (attribute-based, not role-based — matches the cron).
+    // 2. Batch-resolve coordinators (attribute-based, not role-based - matches the cron).
     // Eligibility = is_active AND school_name matches an event school; role is display-only.
     // The contact_ids override NARROWS the active-contact query (it never drops is_active);
     // the resolver still enforces school_name/program_type matching, so a selected contact
@@ -146,7 +146,7 @@ export default async function handler(req, res) {
             const timePart  = timeMatch?.[2];
             const intName   = timeMatch?.[3]?.trim();
             const when      = [datePart && formatShortDate(datePart), timePart && formatTime(timePart)].filter(Boolean).join(' at ');
-            bucket.interview_booked.push({ line: `${studentName}${when ? ' — ' + when : ''}${intName ? ' with ' + intName : ''}` });
+            bucket.interview_booked.push({ line: `${studentName}${when ? ', ' + when : ''}${intName ? ' with ' + intName : ''}` });
             break;
           }
           case 'interview': {
@@ -156,7 +156,7 @@ export default async function handler(req, res) {
           }
           case 'placement': {
             const unitMatch = event.notes?.match(/Placed in (.+)$/);
-            bucket.placement.push({ line: `${studentName}${unitMatch?.[1] ? ` — ${unitMatch[1].trim()}` : ''}` });
+            bucket.placement.push({ line: `${studentName}${unitMatch?.[1] ? `, ${unitMatch[1].trim()}` : ''}` });
             break;
           }
           // rotation_start + status_change_active_rotation collapse into one rotation line;
@@ -193,7 +193,7 @@ export default async function handler(req, res) {
       if (entries.length === 0) {
         return res.status(200).json({
           testMode: true,
-          message:     'No coordinators resolved — nothing to simulate',
+          message:     'No coordinators resolved, nothing to simulate',
           windowStart: windowStart.toISOString(),
           windowEnd:   windowEnd.toISOString(),
         });
@@ -224,7 +224,7 @@ export default async function handler(req, res) {
       const { data: testEmailData, error: testEmailErr } = await resend.emails.send({
         from:     FROM,
         reply_to: REPLY_TO,
-        to:       [testRecipientEmail],   // Owner's address — never coordinator's
+        to:       [testRecipientEmail],   // Owner's address - never coordinator's
         subject:  simSubject,             // exact subject, no [TEST] prefix, for accurate review
         html:     simHtml,
         tags: [
@@ -240,7 +240,7 @@ export default async function handler(req, res) {
 
       // Log with a distinct notification_type so the real dedup query
       // (eq('notification_type', 'coordinator_weekly_digest')) cannot match this row.
-      // contact_id intentionally null — this is not a real send to the coordinator.
+      // contact_id intentionally null - this is not a real send to the coordinator.
       try {
         await db.from('notification_log').insert({
           notification_type: 'coordinator_weekly_digest_test',

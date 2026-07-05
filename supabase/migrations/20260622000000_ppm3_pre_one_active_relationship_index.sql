@@ -21,16 +21,16 @@
 -- written. students.preceptor_id stays authoritative for primary; survey routing, evaluation_assignments,
 -- responses, and all current workflows are untouched.
 --
--- HOW TO RUN: paste into the Supabase SQL Editor and execute. Claude Code applies NOTHING — the Owner
+-- HOW TO RUN: paste into the Supabase SQL Editor and execute. Claude Code applies NOTHING - the Owner
 -- runs the PRE-APPLY NO-CONFLICT check (must return 0 rows), applies, runs VERIFICATION, confirms, THEN
 -- authorizes the Part B app-code commit.
 -- Idempotent: CREATE UNIQUE INDEX IF NOT EXISTS.
 -- =============================================================================
 
--- ── PRE-APPLY NO-CONFLICT CHECK (Owner runs FIRST — must return ZERO rows) ───────
+-- ── PRE-APPLY NO-CONFLICT CHECK (Owner runs FIRST - must return ZERO rows) ───────
 -- Confirms no student/cohort/preceptor already has more than one ACTIVE row, so the new unique index
 -- can be built without conflict. Post-Phase-1 each student has exactly one active (primary) row, so
--- this is expected to be empty. If it returns ANY row, STOP and report — do not apply.
+-- this is expected to be empty. If it returns ANY row, STOP and report - do not apply.
 --   SELECT student_id, cohort_id, preceptor_id, count(*) AS active_rows
 --   FROM student_preceptor_assignments
 --   WHERE status = 'active'
@@ -47,7 +47,7 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- =============================================================================
--- VERIFICATION (Owner runs after applying — NOT part of the migration)
+-- VERIFICATION (Owner runs after applying - NOT part of the migration)
 -- =============================================================================
 --   -- 1. Both partial unique indexes exist (Phase-1 primary + this relationship index):
 --   SELECT indexname, indexdef FROM pg_indexes
@@ -63,10 +63,10 @@ NOTIFY pgrst, 'reload schema';
 --   FROM student_preceptor_assignments WHERE status='active'
 --   GROUP BY 1,2,3 HAVING count(*) > 1;                                   -- expect 0 rows
 --
---   -- 3. RELATIONSHIP DEDUP rejection — a SECOND active row for an existing (student, cohort,
+--   -- 3. RELATIONSHIP DEDUP rejection - a SECOND active row for an existing (student, cohort,
 --   --    preceptor), ANY role, must be rejected. Run inside a transaction and ROLL BACK. (This
 --   --    reuses an existing active row's identity, e.g. a backfilled primary, and tries to add it
---   --    again as 'coverage' — exactly the "re-add the primary as coverage" case.)
+--   --    again as 'coverage' - exactly the "re-add the primary as coverage" case.)
 --   BEGIN;
 --     INSERT INTO student_preceptor_assignments (student_id, preceptor_id, cohort_id, role, status)
 --     SELECT student_id, preceptor_id, cohort_id, 'coverage', 'active'

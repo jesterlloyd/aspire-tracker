@@ -1,11 +1,11 @@
 // api/cron/clockout-reminders-resend.js
 //
-// CLOCKOUT-CORRECTION-SEND-1 — a TIGHTLY SCOPED, OWNER-CONFIRMED, SCHOOL-EMAIL-ONLY correction resend
+// CLOCKOUT-CORRECTION-SEND-1 - a TIGHTLY SCOPED, OWNER-CONFIRMED, SCHOOL-EMAIL-ONLY correction resend
 // for exactly two overdue open shift logs that were reminded BEFORE the school-email routing fix
 // (SHIFT-EMAIL-ROUTING-1) and are now permanently blocked by the normal 14-day recent-reminder dedup.
 //
 // This is NOT a general resend feature and NOT a dedup bypass for the normal cron:
-//   • It processes ONLY the two hardcoded APPROVED_SHIFT_LOG_IDS below — no shiftLogId can be passed
+//   • It processes ONLY the two hardcoded APPROVED_SHIFT_LOG_IDS below - no shiftLogId can be passed
 //     in; anything else is structurally impossible to target.
 //   • It does NOT read, change, or weaken the normal cron's recent-reminder dedup or the 14-day
 //     window, and it NEVER mutates existing notification_log rows. It writes a NEW, audited
@@ -16,7 +16,7 @@
 //     overdue (shiftStatus.js threshold). A closed/not-overdue shift is skipped and reported.
 //   • It reuses the corrected branded clock-out template (CLOCKOUT-EMAIL-BRAND-1) + the established
 //     sendNotification send→log path. No detection/threshold/clock-out/normal-cron behavior changes.
-//   • No Vercel schedule — manual, Owner-invoked only.
+//   • No Vercel schedule - manual, Owner-invoked only.
 //
 // MODES (CRON_SECRET required for all via the 401 gate):
 //   • default / anything else                      → DRY-RUN: detect + resolve + checks. No send/log.
@@ -39,8 +39,8 @@ const supabase = createClient(
 
 // The ONLY shifts this endpoint may ever touch. No request input can add to or change this set.
 const APPROVED_SHIFT_LOG_IDS = Object.freeze([
-  'c1e62c3a-1c11-4932-924b-971003b9beb4', // Kimberly (Kim) Romero — West Coast University North Hollywood
-  '78c9fd5b-ac3b-4605-a455-cbfe5ff6b335', // Michael Angelo Gonzales — Cal State LA
+  'c1e62c3a-1c11-4932-924b-971003b9beb4', // Kimberly (Kim) Romero - West Coast University North Hollywood
+  '78c9fd5b-ac3b-4605-a455-cbfe5ff6b335', // Michael Angelo Gonzales - Cal State LA
 ]);
 
 const CONFIRM_TOKEN     = 'clockout_school_correction';
@@ -71,7 +71,7 @@ export default async function handler(req, res) {
 
   const now = new Date();
   const nowMs = now.getTime();
-  console.log(`[clockout-reminders-resend] ${mode.toUpperCase()} at ${now.toISOString()} — scoped to ${APPROVED_SHIFT_LOG_IDS.length} approved shift(s)`);
+  console.log(`[clockout-reminders-resend] ${mode.toUpperCase()} at ${now.toISOString()}, scoped to ${APPROVED_SHIFT_LOG_IDS.length} approved shift(s)`);
   const runId = await startCronRun(supabase, 'clockout-reminders-resend');
 
   try {
@@ -124,7 +124,7 @@ export default async function handler(req, res) {
       const stu = studentMap[log.student_id] || null;
       const schoolEmail = (stu?.school_email || '').trim();
       if (!schoolEmail) {
-        // STOP for this shift — no personal-email fallback for the correction.
+        // STOP for this shift - no personal-email fallback for the correction.
         skipped.push({ ...rowSummary(log, stu, nowMs), reason: 'no_school_email' });
         continue;
       }
@@ -148,7 +148,7 @@ export default async function handler(req, res) {
       eligible.push(row);
     }
 
-    // ── 4. LIVE send (school_email only) — audited clockout_reminder row per send. ──
+    // ── 4. LIVE send (school_email only) - audited clockout_reminder row per send. ──
     let sentCount = 0;
     let failedCount = 0;
     if (isLive) {
@@ -177,7 +177,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── 5. cron_runs heartbeat — COUNTS ONLY (no names/emails/links). ──
+    // ── 5. cron_runs heartbeat - COUNTS ONLY (no names/emails/links). ──
     const counts = {
       dry_run: !isLive,
       approved_targets: APPROVED_SHIFT_LOG_IDS.length,
@@ -199,7 +199,7 @@ export default async function handler(req, res) {
       live: isLive,
       sent: sentCount,
       failed: failedCount,
-      scope: 'school-email correction resend — approved shiftLogIds only; school_email only; no personal fallback; no dedup bypass for the normal cron',
+      scope: 'school-email correction resend, approved shiftLogIds only; school_email only; no personal fallback; no dedup bypass for the normal cron',
       note: isLive
         ? 'LIVE: corrected reminders sent to school_email; audited clockout_reminder rows written via sendNotification.'
         : (isPreview

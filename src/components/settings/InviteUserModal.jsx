@@ -90,7 +90,7 @@ export default function InviteUserModal({ onClose, onInvited }) {
             <select id="invite-role" value={data.role}
               onChange={e => setData(p => ({ ...p, role: e.target.value }))}
               style={{ ...field, cursor: 'pointer' }}>
-              {ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label} — {r.description}</option>)}
+              {ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}, {r.description}</option>)}
             </select>
           </div>
 

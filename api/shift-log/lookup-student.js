@@ -8,7 +8,7 @@
 // 'Active Rotation'), and returns safe student fields plus any open in_progress
 // shift. Read-only.
 //
-// Phase S.2.B1: DORMANT — no frontend caller. Testable via direct HTTP (curl).
+// Phase S.2.B1: DORMANT - no frontend caller. Testable via direct HTTP (curl).
 // Logging never includes the plain email or student name.
 
 import { randomUUID } from 'crypto'

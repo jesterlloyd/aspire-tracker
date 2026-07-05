@@ -1,9 +1,9 @@
 -- ============================================================
--- ASPIRE Intelligence — Phase 2B.1 Disposition Foundation
+-- ASPIRE Intelligence - Phase 2B.1 Disposition Foundation
 -- ============================================================
 --
 -- Creates the database schema for the student disposition workflow.
--- Schema only — no UI changes in this migration.
+-- Schema only - no UI changes in this migration.
 --
 -- SAFETY:
 --   Safe to run on production with zero current 'Declined' rows.
@@ -12,7 +12,7 @@
 --   preserved as-is. Phase 2B.2 will deprecate it.
 --
 -- DEPENDS ON:
---   update_updated_at_column() — installed by migration_concurrency_protections.sql
+--   update_updated_at_column() - installed by migration_concurrency_protections.sql
 --   user_profiles table with auth_user_id, role, is_owner columns
 --   students, cohorts tables
 --
@@ -276,19 +276,19 @@ CREATE TRIGGER set_updated_at_followups
 -- PART E: RLS policies
 -- ────────────────────────────────────────────────────────────────────────────
 
--- student_dispositions — Pattern A (broad authenticated access, matches app convention)
+-- student_dispositions - Pattern A (broad authenticated access, matches app convention)
 ALTER TABLE student_dispositions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "authenticated_all_student_dispositions" ON student_dispositions;
 CREATE POLICY "authenticated_all_student_dispositions" ON student_dispositions
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
--- student_disposition_followups — Pattern A (broad authenticated access)
+-- student_disposition_followups - Pattern A (broad authenticated access)
 ALTER TABLE student_disposition_followups ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "authenticated_all_disposition_followups" ON student_disposition_followups;
 CREATE POLICY "authenticated_all_disposition_followups" ON student_disposition_followups
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
--- student_disposition_private_notes — Pattern B (owner/admin only, mirrors preceptor_cohort_participation)
+-- student_disposition_private_notes - Pattern B (owner/admin only, mirrors preceptor_cohort_participation)
 ALTER TABLE student_disposition_private_notes ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "owners_read_disposition_notes" ON student_disposition_private_notes;
@@ -363,7 +363,7 @@ WHERE is_active = TRUE;
 
 
 -- ────────────────────────────────────────────────────────────────────────────
--- PART G: record_student_disposition() — atomic SECURITY DEFINER function
+-- PART G: record_student_disposition() - atomic SECURITY DEFINER function
 -- ────────────────────────────────────────────────────────────────────────────
 -- Atomically records a disposition, supersedes any existing active disposition,
 -- updates students.status to 'Not Proceeding', creates requested follow-ups,

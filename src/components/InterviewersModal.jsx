@@ -25,7 +25,7 @@ const initialsOf = (name) => (name || '?').split(' ').map(n => n[0]).join('').sl
 // Pass onRequestClose to show a close button (modal mode); omit it for inline (Settings).
 //
 // Phase-1 UI redesign: read-only directory cards + an Add/Edit DetailDrawer replace the old dark
-// header and always-on inline email inputs. All data behavior is preserved — same /api/manage-
+// header and always-on inline email inputs. All data behavior is preserved - same /api/manage-
 // interviewers actions (add / update_email / update_color) with the same payloads, the same
 // aspire_interviewers_v1 cache key, the same rubric_support_data invalidations, and the same delete
 // call. NOTE: delete still uses the existing direct-Supabase path; its authorization inconsistency
@@ -125,7 +125,7 @@ export function InterviewersContent({ onRequestClose }) {
     setEditColor(interviewer.color || '#1D2567')
   }
 
-  // Save from the Edit drawer — SAME payloads as the previous inline controls:
+  // Save from the Edit drawer - SAME payloads as the previous inline controls:
   // update_email and update_color via /api/manage-interviewers. Name is not editable.
   const handleEditSave = async () => {
     if (!editing) return
@@ -188,7 +188,7 @@ export function InterviewersContent({ onRequestClose }) {
 
   return (
     <div style={{ width: '100%', height: '100%', background: '#ffffff', display: 'flex', flexDirection: 'column', fontFamily: F }}>
-      {/* Header — light surface bar (replaced the dark gradient block). Primary action lives here. */}
+      {/* Header - light surface bar (replaced the dark gradient block). Primary action lives here. */}
       <div style={{ padding: '18px 24px', flexShrink: 0, borderBottom: '1px solid #eef0f2', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: '17px', color: '#191919' }}>Interviewer Directory</div>
@@ -240,7 +240,7 @@ export function InterviewersContent({ onRequestClose }) {
           </div>
         )}
 
-        {/* Directory cards — read-only (edit/delete via actions) */}
+        {/* Directory cards - read-only (edit/delete via actions) */}
         {interviewers.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 10, alignItems: 'start' }}>
             {interviewers.map(interviewer => (
@@ -307,7 +307,7 @@ export function InterviewersContent({ onRequestClose }) {
         {directoryNote}
       </DetailDrawer>
 
-      {/* Edit Interviewer drawer — name read-only (Phase 1); email + color editable */}
+      {/* Edit Interviewer drawer - name read-only (Phase 1); email + color editable */}
       <DetailDrawer
         open={!!editing}
         title={editing ? `Edit · ${editing.name}` : 'Edit interviewer'}
@@ -394,7 +394,7 @@ export default function InterviewersModal({ isOpen, onClose }) {
       <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: '26px 24px', maxWidth: 460, width: '90%', boxShadow: '0 16px 48px rgba(0,0,0,0.2)' }}>
         <div style={{ fontWeight: 700, fontSize: 16, color: '#1D2567', marginBottom: 10 }}>Interviewers are managed in Accounts &amp; Access</div>
         <div style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, marginBottom: 20 }}>
-          Interviewers are now login accounts with <strong>Can Conduct Interviews</strong> enabled — managed
+          Interviewers are now login accounts with <strong>Can Conduct Interviews</strong> enabled, managed
           in <strong>Settings › Accounts &amp; Access › People / Interviewers</strong>. To add an interviewer,
           invite the person as a login account, then turn on Can Conduct Interviews (their calendar color is
           set there too). This separate interviewer list is no longer edited here.

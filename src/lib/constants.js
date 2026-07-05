@@ -42,7 +42,7 @@ export const SCHOOL_DEFAULTS = {
   'UCLA': {},
 }
 
-// ── Canonical unit list — single source of truth for all unit names ────────
+// ── Canonical unit list - single source of truth for all unit names ────────
 export const UNITS_BY_DIVISION = {
   'Surgical': [
     '7 NE / 7 NW',
@@ -89,7 +89,7 @@ export const ALL_UNIT_NAMES = Object.values(UNITS_BY_DIVISION).flat()
 // Backward-compat alias so existing imports of UNIT_ROSTER keep working
 export const UNIT_ROSTER = UNITS_BY_DIVISION
 
-// Patient population descriptions — single source of truth.
+// Patient population descriptions - single source of truth.
 // Empty string '' = no description shown (display unit name only).
 // Also acts as Layer-2 fallback when the DB patient_population column is empty.
 export const PATIENT_POPULATION_MAP = {
@@ -239,7 +239,7 @@ export const INTERVIEW_OUTCOMES = [
 
 export const SHIFT_OPTIONS = ['Day Shift Preferred', 'Night Shift Preferred', 'No Preference']
 
-// Backward-compat alias — use ALL_UNIT_NAMES going forward
+// Backward-compat alias - use ALL_UNIT_NAMES going forward
 export const UNIT_NAMES = ALL_UNIT_NAMES
 
 export const COHORT_STATUSES = ['Planning', 'Active', 'Completed', 'Archived']

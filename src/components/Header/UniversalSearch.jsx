@@ -1,4 +1,4 @@
-// WS2.0: extracted verbatim from App.jsx header (Zone 3 — universal search). No behavior
+// WS2.0: extracted verbatim from App.jsx header (Zone 3 - universal search). No behavior
 // change. State/handlers/refs remain owned by App.jsx and arrive as props. Header-only
 // helpers (search icon, contact category colors) moved here with the JSX.
 import StudentAvatar from '../StudentAvatar'
@@ -118,7 +118,7 @@ export default function UniversalSearch({
                         onMouseEnter={() => setSearchActiveIdx(fi)} onMouseLeave={() => setSearchActiveIdx(-1)}>
                         <span style={{ color:'#6b7280', fontSize:14, flexShrink:0 }}>🔗</span>
                         <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)' }}>{displayName(s)} → {u?.unit_name||'—'}</div>
+                          <div style={{ fontSize:13, fontWeight:600, color:'var(--raven)' }}>{displayName(s)} → {u?.unit_name||'-'}</div>
                           <div style={{ fontSize:12, color:'#6b7280' }}>{s.status === 'Completed' ? 'Completed' : 'Active Placement'}</div>
                         </div>
                       </div>

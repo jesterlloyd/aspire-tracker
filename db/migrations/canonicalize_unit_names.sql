@@ -108,7 +108,7 @@ UPDATE student_shift_logs SET unit_name = 'ACU/CDU' WHERE unit_name = 'Alternate
 -- CANONICALIZE: units.unit_name
 -- ============================================
 -- SAFETY CHECK: run this SELECT first. If it returns rows, STOP and report to Jester
--- before running the UPDATEs below — it means both a legacy and canonical name exist
+-- before running the UPDATEs below - it means both a legacy and canonical name exist
 -- in the same cohort and a straight rename would create a duplicate.
 
 SELECT cohort_id, COUNT(DISTINCT unit_name) AS variants, ARRAY_AGG(DISTINCT unit_name) AS names

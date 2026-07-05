@@ -4,7 +4,7 @@ import { PROGRAM_TYPES, SCHOOLS } from '../lib/constants'
 import { toLocalDateStr } from '../lib/designTokens'
 import { WEEKDAYS, toggleWeekday, isValidIsoDate } from '../lib/availability'
 
-const PAGE_TITLE = 'ASPIRE Program Student Placement Request Form'
+const PAGE_TITLE = 'ASPIRE Student Placement Request Form'
 const JESTER_EMAIL = 'JesterLloyd.Bautista@cshs.org'
 
 // Per-student row factory; term_dates removed, estimated_graduation_date is now a date picker
@@ -218,7 +218,7 @@ export default function SchoolFormPage() {
         </p>
         <p style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 400, fontSize: 15,
           color: '#6b7280', lineHeight: 1.6 }}>
-          If you believe this is an error, please contact the ASPIRE Program team at{' '}
+          If you believe this is an error, please contact the ASPIRE team at{' '}
           <a href={`mailto:${JESTER_EMAIL}`} target="_blank" rel="noopener noreferrer"
             style={{ color: 'var(--nightfall)', textDecoration: 'underline' }}>{JESTER_EMAIL}</a>.
         </p>
@@ -235,7 +235,7 @@ export default function SchoolFormPage() {
           color: 'var(--nightfall)', margin: '0 0 10px' }}>School Coordinator Access</h2>
         <p style={{ fontFamily: 'DM Sans, sans-serif', fontWeight: 400, fontSize: 14,
           color: '#6b7280', lineHeight: 1.6, marginBottom: 24 }}>
-          Please enter the cohort password provided by the ASPIRE Program team.
+          Please enter the cohort password provided by the ASPIRE team.
         </p>
         <form onSubmit={async e => {
           e.preventDefault()
@@ -250,7 +250,7 @@ export default function SchoolFormPage() {
               })
             if (rpcErr) throw rpcErr
             if (ok) { setPageState('verified') }
-            else { setPwdError('Incorrect password. Please check with the ASPIRE Program team.'); setPwdInput('') }
+            else { setPwdError('Incorrect password. Please check with the ASPIRE team.'); setPwdInput('') }
           } catch {
             setPwdError('Unable to verify at this time. Please try again.')
           }
@@ -289,7 +289,7 @@ export default function SchoolFormPage() {
         {result.added.length > 0 && (
           <p className="uf-confirm-msg">
             <strong>{result.added.length} student{result.added.length !== 1 ? 's' : ''} added</strong>
-            {' '}to the ASPIRE Program for {cohortName}.
+            {' '}to ASPIRE for {cohortName}.
           </p>
         )}
         {result.updated?.length > 0 && (

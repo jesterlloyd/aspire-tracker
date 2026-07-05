@@ -6,23 +6,23 @@
 // Authorization: Bearer <session_access_token>
 //
 // Body (JSON):
-//   id            — optional UUID; if present → UPDATE, if absent → INSERT
-//   full_name     — required, non-empty string
+//   id            - optional UUID; if present → UPDATE, if absent → INSERT
+//   full_name     - required, non-empty string
 //   preferred_name, email, phone, organization, role, role_qualifier,
 //   school_name, program_type, unit_name, related_units, is_active,
 //   notification_preferences, notes, linkedin_url,
-//   preferred_contact_method, avatar_url, category  — all optional
+//   preferred_contact_method, avatar_url, category  - all optional
 //
 // Success response:
 //   200 { contact: { id, full_name, email, ... } }
 //
 // Errors:
-//   400 — validation failure
-//   401 — missing or invalid session
-//   403 — authenticated but not owner or admin
-//   405 — wrong HTTP method
-//   409 — duplicate email
-//   500 — database error
+//   400 - validation failure
+//   401 - missing or invalid session
+//   403 - authenticated but not owner or admin
+//   405 - wrong HTTP method
+//   409 - duplicate email
+//   500 - database error
 
 import { createClient } from '@supabase/supabase-js';
 

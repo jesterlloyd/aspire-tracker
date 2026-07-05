@@ -1,5 +1,5 @@
 -- ============================================================
--- ASPIRE Intelligence — CONNECT-COMMS-1D: per-user ASPIRE Connect signature
+-- ASPIRE Intelligence - CONNECT-COMMS-1D: per-user ASPIRE Connect signature
 -- ============================================================
 --
 -- Adds a per-user signature used ONLY for MANUAL ASPIRE Connect direct messages
@@ -7,7 +7,7 @@
 --
 -- Storage: a single jsonb column `user_profiles.connect_signature`:
 --   { display_name, credentials, title, department, phone, signature_enabled, updated_at }
--- (email is NOT stored here — it always comes from the authenticated profile.)
+-- (email is NOT stored here - it always comes from the authenticated profile.)
 --
 -- Security: user_profiles currently has a broad authenticated RLS policy, so writes are NOT
 -- routed through a raw client update. This self-scoped SECURITY DEFINER RPC updates ONLY the

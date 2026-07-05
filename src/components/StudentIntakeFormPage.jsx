@@ -10,7 +10,7 @@ import {
 // /api/student-intake-submit endpoint (was: proxyUpdateStudent + setAspireStatus
 // + logEvent against the staff student-update path).
 
-const PAGE_TITLE = 'ASPIRE Program: Student Information Form'
+const PAGE_TITLE = 'ASPIRE: Student Information Form'
 
 // Unit preference dropdown grouped by division with descriptive option labels.
 // Stored value is always the canonical name (e.g., '5 SCCT'); description is display-only.
@@ -33,7 +33,7 @@ function UnitPreferenceSelect({ label, value, onChange, availableUnits, excludeV
               const entry = getUnit(unitName)
               return (
                 <option key={unitName} value={unitName}>
-                  {entry ? `${unitName} — ${entry.description}` : unitName}
+                  {entry ? `${unitName}, ${entry.description}` : unitName}
                 </option>
               )
             })}
@@ -370,7 +370,7 @@ export default function StudentIntakeFormPage() {
             <div className="uf-field">
               <label className="uf-label">School or University Email Address *</label>
               <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                Enter the email address your school coordinator used to register you with the ASPIRE Program.
+                Enter the email address your school coordinator used to register you with ASPIRE.
               </p>
               <input className="uf-input" type="email" value={form.school_email}
                 onChange={e => set('school_email', e.target.value)}

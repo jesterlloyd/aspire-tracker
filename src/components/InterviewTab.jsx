@@ -150,7 +150,7 @@ export default function InterviewTab({ students, interviews, cohortId, onStudent
               return (
                 <tr key={s.id} className="iv-row" onClick={() => setSelectedStudentId(s.id)}>
                   <td className="iv-td iv-td-name">{displayName(s)}</td>
-                  <td className="iv-td iv-td-school">{s.school || '—'}</td>
+                  <td className="iv-td iv-td-school">{s.school || '-'}</td>
                   <td className="iv-td">
                     {s.status && <span className={`badge ${STATUS_CLASS[s.status] || 'badge-gray'}`}>{s.status}</span>}
                   </td>
@@ -160,7 +160,7 @@ export default function InterviewTab({ students, interviews, cohortId, onStudent
                     </span>
                   </td>
                   <td className="iv-td iv-td-score">
-                    {iv?.composite_score > 0 ? `${iv.composite_score}/15` : '—'}
+                    {iv?.composite_score > 0 ? `${iv.composite_score}/15` : '-'}
                   </td>
                   <td className="iv-td">
                     {recStyle && rec && (
@@ -170,10 +170,10 @@ export default function InterviewTab({ students, interviews, cohortId, onStudent
                     )}
                   </td>
                   <td className="iv-td" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                    {iv?.interviewer_name || '—'}
+                    {iv?.interviewer_name || '-'}
                   </td>
                   <td className="iv-td" style={{ fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                    {iv?.interview_date || '—'}
+                    {iv?.interview_date || '-'}
                   </td>
                 </tr>
               )

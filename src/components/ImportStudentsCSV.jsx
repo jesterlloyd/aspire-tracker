@@ -13,7 +13,7 @@ const TEMPLATE_HEADERS = [
 
 function validateRow(row, idx) {
   const warnings = []
-  if (!row.name?.trim()) warnings.push(`Row ${idx + 2}: Missing name — will be skipped`)
+  if (!row.name?.trim()) warnings.push(`Row ${idx + 2}: Missing name, will be skipped`)
   if (row.school && !SCHOOLS.includes(row.school))
     warnings.push(`Row ${idx + 2}: Unrecognized school "${row.school}"`)
   if (row.interview_outcome && !INTERVIEW_OUTCOMES.includes(row.interview_outcome))

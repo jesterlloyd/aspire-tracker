@@ -9,7 +9,7 @@
 // public.shift_log_check_out RPC (S.2.B3.A) for the atomic transition + totals
 // recomputation, and returns a normalized response.
 //
-// Phase S.2.B3: DORMANT — no frontend caller. Testable via direct HTTP (curl).
+// Phase S.2.B3: DORMANT - no frontend caller. Testable via direct HTTP (curl).
 // Logging never includes school_email, names, or free-text reflection fields.
 //
 // Response shapes (normalized across all three 200 paths):
@@ -115,7 +115,7 @@ export default async function handler(req, res) {
     unitOverrideReason = body.unit_override_reason.trim()
   }
 
-  // preceptor_override_note optional (never required — matches live form)
+  // preceptor_override_note optional (never required - matches live form)
   let preceptorOverrideNote = null
   if (typeof body.preceptor_override_note === 'string' && body.preceptor_override_note.trim() !== '') {
     preceptorOverrideNote = body.preceptor_override_note.trim()
@@ -202,7 +202,7 @@ export default async function handler(req, res) {
   }
   const sameDayApprovedHours = sameDayShifts.reduce((sum, s) => sum + (parseFloat(s.total_hours) || 0), 0)
 
-  // ── STAGE 6: Exception flags — reproduces live ShiftLogPage.jsx exactly ────
+  // ── STAGE 6: Exception flags - reproduces live ShiftLogPage.jsx exactly ────
   const exceptionFlags = buildExceptionFlags({
     totalHours, preceptorName, unitName, isAssignedUnit,
     shiftDate: shift.shift_date, studentContext, sameDayApprovedHours,
@@ -277,7 +277,7 @@ export default async function handler(req, res) {
   })
 }
 
-// ── Exception flags — faithful reproduction of ShiftLogPage.jsx buildExceptionFlags ──
+// ── Exception flags - faithful reproduction of ShiftLogPage.jsx buildExceptionFlags ──
 // Live order preserved (drives review_reason). At check-out:
 //   - hours_over_13 & missing_preceptor are unreachable (hard-validated upstream)
 //   - pre_placement_log won't fire (eligibility already required 'Active Rotation')
@@ -302,7 +302,7 @@ function buildExceptionFlags(ctx) {
 
   if (!['Placed', 'Active Rotation'].includes(studentContext?.status)) flags.push('pre_placement_log')
 
-  // unit_and_preceptor_mismatch — reproduces the live form's full three-part rule:
+  // unit_and_preceptor_mismatch - reproduces the live form's full three-part rule:
   //   (1) student worked a different unit (is_assigned_unit === false),
   //   (2) the final unit_name actually differs from the assigned unit, AND
   //   (3) the preceptor differs from matched_preceptor.
@@ -377,7 +377,7 @@ async function fetchStudentContext(studentId) {
       .select('unit_name')
       .eq('id', data.matched_unit_id)
       .maybeSingle()
-    // A query failure must NOT be treated as "no assigned unit" — that could
+    // A query failure must NOT be treated as "no assigned unit" - that could
     // wrongly trigger unit_and_preceptor_mismatch. Surface it as a hard error
     // (caller returns a safe 500). Successful query with no row → null (live-form behavior).
     if (unitError) return null

@@ -1,14 +1,14 @@
-// ACCOUNTS-ACCESS-PROFILE-BOARD-2B: centered Account Profile modal (NOT a DetailDrawer — heroes are
+// ACCOUNTS-ACCESS-PROFILE-BOARD-2B: centered Account Profile modal (NOT a DetailDrawer - heroes are
 // reserved for people records). One profile-style modal with sections (no internal tabs):
-//   A. Hero — avatar, name, email, role/status/interviewer-access badges, online dot, last login/action.
-//   B. Account Access — Role, Interviewer access toggle, circular calendar-color swatches, edited in a
+//   A. Hero - avatar, name, email, role/status/interviewer-access badges, online dot, last login/action.
+//   B. Account Access - Role, Interviewer access toggle, circular calendar-color swatches, edited in a
 //      local draft with a DIRTY-ONLY save bar (Discard / Save changes). Save calls the SAME handlers
 //      + payloads as the old Manage Access (onSaveAccess → /api/admin-users update_role /
 //      toggle_interviewer / update_interviewer_color). Owner-protected + self-mutation guards preserved
 //      (client here; server authoritative).
-//   C. Recent Activity — READ-ONLY per-user query (activity_logs, last 30 days by user_name), 5 first +
+//   C. Recent Activity - READ-ONLY per-user query (activity_logs, last 30 days by user_name), 5 first +
 //      Show more. No schema/endpoint change.
-//   D. Account Actions — ONLY the actually-supported actions (Deactivate / Reactivate via onToggleActive).
+//   D. Account Actions - ONLY the actually-supported actions (Deactivate / Reactivate via onToggleActive).
 //      Password reset / resend invite are NOT built (no backend exists).
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -104,7 +104,7 @@ export default function AccountProfileModal({ user, isCurrentUser, online, onSav
     return () => { clearTimeout(t); document.removeEventListener('keydown', onKey) }
   }, [dirty, onClose])
 
-  // Recent activity — READ-ONLY, per-user, last 30 days. New (non-protected) query key.
+  // Recent activity - READ-ONLY, per-user, last 30 days. New (non-protected) query key.
   const { data: activity = [], isLoading: activityLoading } = useQuery({
     queryKey: ['account_activity', user.id],
     queryFn: async () => {
@@ -169,7 +169,7 @@ export default function AccountProfileModal({ user, isCurrentUser, online, onSav
 
         {/* Single scroll body */}
         <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-          {/* A. Hero — soft pastel-blue treatment aligned with the Student Profile / Contacts heroes. */}
+          {/* A. Hero - soft pastel-blue treatment aligned with the Student Profile / Contacts heroes. */}
           <div style={{ background: 'linear-gradient(160deg, #dceff8 0%, #f0f6fb 50%, #ffffff 100%)', padding: '32px 24px 22px', textAlign: 'center' }}>
             <div style={{ position: 'relative', display: 'inline-block' }}>
               {photoPreview ? (
@@ -234,7 +234,7 @@ export default function AccountProfileModal({ user, isCurrentUser, online, onSav
                   style={{ width: '100%', height: 38, padding: '0 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontFamily: F, fontSize: 13, outline: 'none', opacity: isOwner ? 0.5 : 1, cursor: isOwner ? 'not-allowed' : 'pointer', background: '#fff' }}>
                   {isOwner
                     ? <option value="owner">Owner</option>
-                    : ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label} — {r.description}</option>)}
+                    : ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}, {r.description}</option>)}
                 </select>
               </div>
 
@@ -305,7 +305,7 @@ export default function AccountProfileModal({ user, isCurrentUser, online, onSav
               )}
             </div>
 
-            {/* D. Account Actions — only truly-supported actions */}
+            {/* D. Account Actions - only truly-supported actions */}
             <div>
               <div style={sectionTitle}>Account Actions</div>
               {isOwner ? (

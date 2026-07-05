@@ -2,7 +2,7 @@
 //
 // Owner/Admin-only manual send flow for the ASPIRE Preceptor Student Progress &
 // Readiness Feedback survey (slug: preceptor_progress). This is an Evaluation-specific
-// flow — it does NOT use or modify the ASPIRE Connect → Outreach "Send to many" path,
+// flow - it does NOT use or modify the ASPIRE Connect → Outreach "Send to many" path,
 // nor the Casey-Fink/student send endpoints.
 //
 // For each selected student (max 5) this endpoint delegates to the shared send core
@@ -29,8 +29,8 @@
 // CRITICAL SAFETY INVARIANTS:
 //   - Owner/Admin only.
 //   - Requires exact typed confirmation phrase: "SEND FEEDBACK REQUESTS".
-//   - Recipient emails resolved server-side only — no override from request body.
-//   - Sequential sends — no Promise.all around Resend calls.
+//   - Recipient emails resolved server-side only - no override from request body.
+//   - Sequential sends - no Promise.all around Resend calls.
 //   - Per-recipient failure isolation: failures do not abort the batch.
 //   - Raw token and survey URL are NEVER persisted (no DB column, no log, no metadata).
 //
@@ -111,7 +111,7 @@ async function _handler(req, res, startMs) {
   if (!profile || !['owner', 'admin'].includes(profile.role)) {
     return res.status(403).json({ success: false, error: 'Forbidden' });
   }
-  const senderUserId = profile.id;   // user_profiles.id — FK target for assigned_by
+  const senderUserId = profile.id;   // user_profiles.id - FK target for assigned_by
   const senderEmail  = profile.email;
 
   // ── 2. Parse + validate body ───────────────────────────────────────────────────
@@ -126,7 +126,7 @@ async function _handler(req, res, startMs) {
     return res.status(400).json({ success: false, error: 'Invalid request body' });
   }
 
-  // Reject recipient override fields — recipients are resolved server-side only.
+  // Reject recipient override fields - recipients are resolved server-side only.
   for (const f of ['email', 'recipient_email', 'recipient', 'to', 'cc', 'bcc', 'respondent_email']) {
     if (f in body) {
       return res.status(400).json({ success: false, error: `Field '${f}' is not permitted. Recipients are resolved server-side.` });
@@ -187,7 +187,7 @@ async function _handler(req, res, startMs) {
   const skipped = [];
   const failed  = [];
 
-  // ── 4. Sequential per-student loop — delegates to the shared send core. The
+  // ── 4. Sequential per-student loop - delegates to the shared send core. The
   //      source/notes markers identify these as manual PS-2b sends.
   for (const item of items) {
     const r = await processPreceptorSend({

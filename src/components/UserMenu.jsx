@@ -22,7 +22,7 @@ export default function UserMenu() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
 
-  // UI-0.5: mutual dismiss — close this dropdown when another floating panel
+  // UI-0.5: mutual dismiss - close this dropdown when another floating panel
   // (e.g. the Keith panel) announces it is opening.
   useEffect(() => onFloatingPanelOpen(source => {
     if (source !== 'user-menu') setIsOpen(false);
@@ -103,7 +103,7 @@ export default function UserMenu() {
         onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.18)'}
         onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.10)'}
       >
-        {/* Avatar — DiceBear or custom photo */}
+        {/* Avatar - DiceBear or custom photo */}
         <div style={{ width:'26px', height:'26px', borderRadius:'50%', overflow:'hidden', flexShrink:0, border:'1.5px solid rgba(255,255,255,0.3)' }}>
           <img src={getAvatarUrl(userProfile)} alt={userProfile.full_name}
             style={{ width:'100%', height:'100%', objectFit:'cover' }}
@@ -186,7 +186,7 @@ export default function UserMenu() {
               </div>
             </div>
 
-            {/* WS2.1: Settings link (additive — navigates to Settings → General) */}
+            {/* WS2.1: Settings link (additive - navigates to Settings → General) */}
             <button
               onClick={() => { setIsOpen(false); navigate('/settings/general'); }}
               style={{ width: '100%', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', fontFamily: 'DM Sans', fontSize: '13px', color: 'var(--color-text-primary,#374151)', cursor: 'pointer', textAlign: 'left', borderTop: '1px solid var(--color-border-subtle,#f3f4f6)', transition: 'background 0.15s ease' }}

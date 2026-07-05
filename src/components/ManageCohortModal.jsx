@@ -21,7 +21,7 @@ export default function ManageCohortModal({ cohort, onSave, onClose }) {
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
   // STUDENT-PROFILE-CANON-1D-B: the canonical cohort range is DERIVED (read-only) from the
-  // coordinator-owned cohort_school_rotations rows — same source/logic as CohortBar (1D).
+  // coordinator-owned cohort_school_rotations rows - same source/logic as CohortBar (1D).
   // Earliest non-sentinel start → latest non-sentinel end; sentinel 1900-01-01 rows excluded.
   const { data: rotationRows = [], isLoading: rangeLoading } = useQuery({
     queryKey: ['cohort_rotation_range', cohort?.id],
@@ -103,7 +103,7 @@ export default function ManageCohortModal({ cohort, onSave, onClose }) {
               </div>
             </div>
 
-            {/* Legacy/manual cohort dates — NOT the canonical source when coordinator rotation
+            {/* Legacy/manual cohort dates - NOT the canonical source when coordinator rotation
                 dates are available. Relabeled as administrative fallback; date-picker conversion
                 deferred to avoid clobbering existing free-text values (e.g. "May 4, 2026"). */}
             <div className="form-grid form-grid-2">
@@ -159,7 +159,7 @@ export default function ManageCohortModal({ cohort, onSave, onClose }) {
                 <div className="toggle-title">Accepting submissions</div>
                 <div className="toggle-desc">
                   Turn on to accept unit and school coordinator form submissions for this cohort.
-                  Only one cohort can be active at a time — enabling here will disable it on any other cohort.
+                  Only one cohort can be active at a time, enabling here will disable it on any other cohort.
                 </div>
               </div>
             </label>

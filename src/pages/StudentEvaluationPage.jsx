@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 // /api/evaluation-student-eval-submit, which calls submit_student_preceptor_evaluation_response.
 //
 // The student is the subject and respondent. The preceptor/unit is the evaluated_target,
-// shown READ-ONLY and echoed into responses.evaluated_target — never edited by the student.
+// shown READ-ONLY and echoed into responses.evaluated_target - never edited by the student.
 
 const TOKEN_PATTERN = /^#t=([A-Za-z0-9_-]{43})$/
 
@@ -239,13 +239,13 @@ export default function StudentEvaluationPage() {
 
           <form onSubmit={handleSubmit}>
 
-            {/* Evaluated target — read-only context */}
+            {/* Evaluated target - read-only context */}
             <div className="se-card">
               <h2 className="se-section-title">{et?.title || 'Preceptor / Unit'}</h2>
               {et?.instructions && <p className="se-section-instr">{et.instructions}</p>}
               <div className="se-field">
                 <span className="se-label">{et?.fields?.preceptor_name?.label || 'Preceptor'}</span>
-                <div className="se-readonly">{meta.evaluatedTarget?.preceptor_name || '—'}</div>
+                <div className="se-readonly">{meta.evaluatedTarget?.preceptor_name || '-'}</div>
               </div>
               {meta.evaluatedTarget?.unit && (
                 <div className="se-field" style={{ marginBottom: 0 }}>

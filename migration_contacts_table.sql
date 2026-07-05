@@ -1,5 +1,5 @@
 -- ============================================================
--- ASPIRE Intelligence — Contacts Table
+-- ASPIRE Intelligence - Contacts Table
 -- ============================================================
 --
 -- Phase 1: foundation for managing external contact relationships.

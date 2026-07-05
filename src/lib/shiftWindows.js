@@ -7,7 +7,7 @@ export const SHIFT_WINDOWS = {
 
 /**
  * Compute the on-campus window for a logged shift.
- * Uses local time throughout — ASPIRE operates in a single timezone (Pacific).
+ * Uses local time throughout - ASPIRE operates in a single timezone (Pacific).
  * @param {string} shiftDate - YYYY-MM-DD from student_shift_logs.shift_date
  * @param {string} shiftType - 'Day' | 'Night' | 'Mid' | 'Variable'
  * @returns {{ start: Date, end: Date } | null}

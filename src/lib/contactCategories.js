@@ -1,6 +1,6 @@
 // src/lib/contactCategories.js
 //
-// Shared contact categorization logic — the single source of truth for both the Contacts page
+// Shared contact categorization logic - the single source of truth for both the Contacts page
 // (ContactsView) and the Send-to-Many Contacts audience source (BulkManualComposer), so the two
 // never drift. Extracted verbatim from ContactsView; behavior is unchanged.
 //
@@ -45,7 +45,7 @@ export const CONTACT_CATEGORY_ORDER = [
   'Other',
 ]
 
-// Canonical category chip colors (color/bg/border) — the single source for category pills across
+// Canonical category chip colors (color/bg/border) - the single source for category pills across
 // the Contacts page, Send to One, and Send to Many so the palettes never drift.
 export const CATEGORY_CHIP_STYLES = {
   'Academic Partners':  { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
@@ -75,7 +75,7 @@ export function inferPrimaryCategory(contact) {
 }
 
 // Returns the primary category for a contact.
-// contacts.category (stored) takes precedence — Phase C.2.
+// contacts.category (stored) takes precedence - Phase C.2.
 // Falls back to role inference for contacts with NULL category (future-resilient).
 export function getPrimaryCategory(contact) {
   if (contact.category) return contact.category

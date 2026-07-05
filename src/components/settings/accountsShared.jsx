@@ -5,7 +5,7 @@
 // ACCOUNTS-ACCESS-PROFILE-BOARD-2B: shared account constants + helpers used by the people board
 // (UserManagement), the Account Profile modal, and the Invite popup. Extracted verbatim from
 // UserManagement.jsx so the three surfaces stay in lock-step and avoid a circular import. Pure
-// config/helpers — no data/API/behavior.
+// config/helpers - no data/API/behavior.
 import { useState } from 'react'
 
 export const ROLE_OPTIONS = [
@@ -96,7 +96,7 @@ export function groupUsers(users) {
 }
 
 // ACCOUNTS-ACCESS-PROFILE-BOARD-2B1: optional `ring` style (merged into the avatar) gives real photos
-// AND initials a polished outline — a Nightfall ring on the board cards and a soft white hero ring in
+// AND initials a polished outline - a Nightfall ring on the board cards and a soft white hero ring in
 // the profile modal, mirroring the Student Profiles avatar treatment. Image source/fallback unchanged.
 export function UserInitials({ user, size = 40, ring = null }) {
   const [err, setErr] = useState(false)
@@ -120,13 +120,13 @@ export function UserInitials({ user, size = 40, ring = null }) {
 }
 
 // ACCOUNTS-ACCESS-PROFILE-BOARD-2B2: Nightfall outline that wraps the photo/initials CLEANLY (no white
-// gap/halo), matching the Student Profiles list avatar — a navy ring directly on the avatar + soft lift.
+// gap/halo), matching the Student Profiles list avatar - a navy ring directly on the avatar + soft lift.
 export const CARD_AVATAR_RING = { border: '2.5px solid #1D2567', boxShadow: '0 1px 5px rgba(29,37,103,0.16)' }
 // Airy white ring for the profile-modal hero avatar (matches the Student Profile hero).
 export const HERO_AVATAR_RING = { border: '4px solid #ffffff', boxShadow: '0 4px 18px rgba(29,37,103,0.16)' }
 
 // ACCOUNTS-ACCESS-PROFILE-BOARD-2B2: group accounts into the board's vertical columns
-// (OWNER / ADMINS / INTERVIEWERS / GUESTS). Layout/nomenclature only — role values are unchanged.
+// (OWNER / ADMINS / INTERVIEWERS / GUESTS). Layout/nomenclature only - role values are unchanged.
 // Inactive users fall into their role column (the card carries the Inactive badge). Empty columns are
 // dropped so the board never shows big blank columns.
 export function columnizeUsers(users) {

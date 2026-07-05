@@ -1,12 +1,12 @@
-// CLOCKOUT-DETECT-1 — Read-only "Open Shift Review" detector (Owner/Admin only).
+// CLOCKOUT-DETECT-1 - Read-only "Open Shift Review" detector (Owner/Admin only).
 //
 // Lists the FULL population of currently open shifts (lifecycle_state = 'in_progress') for the
 // active cohort and classifies each as: not overdue / clock-out may be overdue + emailable /
 // clock-out may be overdue + no email on file. This previews the decision a future
-// CLOCKOUT-NUDGE-1 cron would make — including the would-skip (no-email) cases — while staying
+// CLOCKOUT-NUDGE-1 cron would make - including the would-skip (no-email) cases - while staying
 // strictly READ-ONLY: no email, no draft, no Resend, no cron, no DB write, no notification_log,
 // no RPC. Thresholds + shift-type sourcing are reused ENTIRELY from shiftStatus.js (single
-// source of truth, identical to SHIFT-VIS-1) — no duplicated or divergent logic here.
+// source of truth, identical to SHIFT-VIS-1) - no duplicated or divergent logic here.
 //
 // Email availability is a read-only classification only: personal_email then school_email
 // (precedence matches SR-2b-2). Nothing is ever sent or drafted.
@@ -19,9 +19,9 @@ const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
 
 function fmtCheckedIn(iso) {
-  if (!iso) return '—'
+  if (!iso) return '-'
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return '-'
   const today = new Date()
   const sameDay = d.toDateString() === today.toDateString()
   const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
@@ -30,7 +30,7 @@ function fmtCheckedIn(iso) {
 
 export default function OpenShiftReview({ openLogs = [], students = [], units = [], onSelectStudent, defaultOpen = false }) {
   // SHIFT-ACTIVITY-1b: callers can default the list expanded (Rotation > Activity). Detection,
-  // classification, thresholds, and wording are unchanged — only the initial open state.
+  // classification, thresholds, and wording are unchanged - only the initial open state.
   const [open, setOpen] = useState(defaultOpen)
 
   const rows = useMemo(() => {
@@ -52,7 +52,7 @@ export default function OpenShiftReview({ openLogs = [], students = [], units = 
 
       return { log, stu, shiftType, overdue, email, klass, unit, loggedPreceptor, assignedPreceptor, ms: openShiftMs(log) ?? 0 }
     })
-    // Longest-open first — the most likely forgotten clock-outs surface at the top.
+    // Longest-open first - the most likely forgotten clock-outs surface at the top.
     return list.sort((a, b) => b.ms - a.ms)
   }, [openLogs, students, units])
 
@@ -98,7 +98,7 @@ export default function OpenShiftReview({ openLogs = [], students = [], units = 
           <div style={{ borderTop: '1px solid #f1efe9' }}>
             <div style={{ padding: '8px 16px 0', fontSize: 11.5, color: '#9ca3af' }}>
               Read-only review of currently open shifts. “May be overdue” is a hedged estimate from
-              conservative thresholds — not a confirmed missed clock-out. No notifications are sent.
+              conservative thresholds, not a confirmed missed clock-out. No notifications are sent.
             </div>
             <div style={{ overflowX: 'auto', padding: '8px 6px 12px' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: F }}>
@@ -111,11 +111,11 @@ export default function OpenShiftReview({ openLogs = [], students = [], units = 
                 </thead>
                 <tbody>
                   {rows.map(({ log, stu, shiftType, overdue, unit, loggedPreceptor, assignedPreceptor, ms }) => {
-                    const name = stu ? `${stu.first_name || ''} ${stu.last_name || ''}`.trim() || '—' : 'Unknown student'
+                    const name = stu ? `${stu.first_name || ''} ${stu.last_name || ''}`.trim() || '-' : 'Unknown student'
                     const schoolProg = stu ? [stu.school, stu.program_type].filter(Boolean).join(' · ') : ''
                     return (
                       <tr key={log.id} style={{ borderBottom: '1px solid #f5f3ee' }}>
-                        {/* Student — name primary, school · program as compact secondary text. */}
+                        {/* Student - name primary, school · program as compact secondary text. */}
                         <td style={{ ...td, color: '#191919' }}>
                           {onSelectStudent && stu ? (
                             <button type="button" onClick={() => onSelectStudent(stu.id)}
@@ -127,13 +127,13 @@ export default function OpenShiftReview({ openLogs = [], students = [], units = 
                             <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{schoolProg}</div>
                           )}
                         </td>
-                        {/* Unit — logged on the open shift, else matched/assigned, else Unavailable. */}
+                        {/* Unit - logged on the open shift, else matched/assigned, else Unavailable. */}
                         <td style={td}>
                           {unit
                             ? <span style={{ color: '#374151' }}>{unit}</span>
                             : <span style={{ color: '#9ca3af' }}>Unavailable</span>}
                         </td>
-                        {/* Logged Preceptor — only the value actually logged; assigned shown only as a labeled fallback. */}
+                        {/* Logged Preceptor - only the value actually logged; assigned shown only as a labeled fallback. */}
                         <td style={td}>
                           {loggedPreceptor
                             ? <span style={{ color: '#374151' }}>{loggedPreceptor}</span>

@@ -1,5 +1,5 @@
 -- ================================================================
--- ASPIRE Program Tracker — Structural Reorganization Migration
+-- ASPIRE Tracker - Structural Reorganization Migration
 -- Run in Supabase SQL Editor BEFORE deploying updated code.
 -- ================================================================
 

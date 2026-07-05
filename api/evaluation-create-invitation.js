@@ -11,24 +11,24 @@
 // Authorization: Bearer <session-token>
 //
 // Body (JSON):
-//   studentId | student_id   — required UUID
-//   cohortId  | cohort_id    — optional; defaults to student.cohort_id
-//   timepoint                — optional; if omitted, auto-derived from approved_hours
-//   expiresAt | expires_at   — optional ISO date; defaults to +28 days from now
-//   notes                    — optional TEXT (stored on assignment row)
+//   studentId | student_id   - required UUID
+//   cohortId  | cohort_id    - optional; defaults to student.cohort_id
+//   timepoint                - optional; if omitted, auto-derived from approved_hours
+//   expiresAt | expires_at   - optional ISO date; defaults to +28 days from now
+//   notes                    - optional TEXT (stored on assignment row)
 //
 // Success response:
 //   { assignmentId, surveyUrl, expiresAt, timepoint, student: { id, firstName, lastName, email } }
 //
 // Errors:
-//   400 — missing/invalid body fields
-//   401 — invalid or missing session
-//   403 — authenticated but not owner or admin
-//   404 — student not found
-//   409 — blocked: either an UNEXPIRED active invitation exists, or a COMPLETED response exists,
+//   400 - missing/invalid body fields
+//   401 - invalid or missing session
+//   403 - authenticated but not owner or admin
+//   404 - student not found
+//   409 - blocked: either an UNEXPIRED active invitation exists, or a COMPLETED response exists,
 //         for this student+instrument+cohort+timepoint (response body carries `reason`)
-//   422 — instrument not found or not authorized
-//   500 — assignment or token insert/update failed (with rollback attempt where applicable)
+//   422 - instrument not found or not authorized
+//   500 - assignment or token insert/update failed (with rollback attempt where applicable)
 //
 // SURVEY-REISSUE-1: when the only existing assignment for the tuple is expired (or revoked) and NOT
 // completed, this endpoint REUSES that row (uq_assignment forbids a second row): it mints a new token
@@ -48,10 +48,10 @@ import { emailBaseUrl } from '../lib/server/appUrl.js';
 // SAME inlined copy so the two never diverge. Follow-up cleanup: re-extract to a shared module once
 // the bundling cause is confirmed/resolved.
 //
-//   { kind: 'completed', row } — block; a completed response already exists.
-//   { kind: 'active',    row } — block; an unexpired usable invitation already exists.
-//   { kind: 'reissue',   row } — reuse this row; it is expired/revoked and not completed.
-//   { kind: 'new' }            — no existing row; insert a fresh assignment.
+//   { kind: 'completed', row } - block; a completed response already exists.
+//   { kind: 'active',    row } - block; an unexpired usable invitation already exists.
+//   { kind: 'reissue',   row } - reuse this row; it is expired/revoked and not completed.
+//   { kind: 'new' }            - no existing row; insert a fresh assignment.
 function isCompletedAssignment(row) {
   return row?.status === 'completed' || !!row?.completed_at;
 }
@@ -78,14 +78,14 @@ const VALID_TIMEPOINTS  = new Set(['baseline', 'early_rotation_baseline', 'midpo
 const DEFAULT_WINDOW_DAYS    = 28;   // assignment response window
 const TOKEN_GRACE_DAYS       = 2;    // token expires this many days after assignment.expires_at
 
-// UUID format guard — prevents malformed IDs from reaching the DB.
+// UUID format guard - prevents malformed IDs from reaching the DB.
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isUuid(v) { return typeof v === 'string' && UUID_PATTERN.test(v); }
 
 // Safe error payload for an Owner/Admin-gated JSON 500. Surfaces the classification plus the
 // Supabase error fields (code/message/details/hint) so the exact failing step is visible in the
 // browser Network → Response without Vercel logs. These are schema-level diagnostics
-// (e.g. "column X does not exist") — NEVER tokens, hashes, keys, secrets, emails, or links.
+// (e.g. "column X does not exist") - NEVER tokens, hashes, keys, secrets, emails, or links.
 function safeDbError(code, err) {
   return {
     code,
@@ -110,7 +110,7 @@ export default async function handler(req, res) {
     return await _handler(req, res);
   } catch (err) {
     // Any runtime throw inside _handler lands here as safe JSON. (A module-LOAD failure crashes the
-    // function before this runs — which is why the reissue import was inlined above.)
+    // function before this runs - which is why the reissue import was inlined above.)
     console.error('[create-invitation] evaluation_create_invitation_unhandled:', err?.message || err);
     return res.status(500).json({
       error:   'Unexpected server error while creating invitation',
@@ -156,7 +156,7 @@ async function _handler(req, res) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  const assignedBy = profile.id;  // user_profiles.id — correct FK target for assigned_by
+  const assignedBy = profile.id;  // user_profiles.id - correct FK target for assigned_by
 
   // ── 3. Parse and validate body ────────────────────────────────────────────
   let body;
@@ -296,7 +296,7 @@ async function _handler(req, res) {
     //
     // The token table holds ONE row per assignment (lookups are by token_hash; revocation and the
     // rollback path key on assignment_id). Inserting a SECOND token row for an existing assignment
-    // violates that uniqueness — the cause of the post-6f11cf8 reissue HTTP 500. So we reissue the
+    // violates that uniqueness - the cause of the post-6f11cf8 reissue HTTP 500. So we reissue the
     // token IN PLACE: update the existing row to the new hash (the old hash is discarded, so the old
     // link stops validating) and clear revoked_at. If no token row exists yet (e.g. an earlier
     // partial state), insert a fresh one.
@@ -314,7 +314,7 @@ async function _handler(req, res) {
       .select('assignment_id');
 
     if (tokenUpdateErr) {
-      // No assignment state changed yet — the row stays expired/revoked. Safe to fail with no cleanup.
+      // No assignment state changed yet - the row stays expired/revoked. Safe to fail with no cleanup.
       console.error('[create-invitation] reissue_token_refresh_failed:',
         { assignment_id: reissueRow.id, code: tokenUpdateErr.code, message: tokenUpdateErr.message, details: tokenUpdateErr.details, hint: tokenUpdateErr.hint });
       return res.status(500).json({ error: 'Failed to issue invitation token', ...safeDbError('reissue_token_refresh_failed', tokenUpdateErr) });
@@ -340,7 +340,7 @@ async function _handler(req, res) {
     // a successful fresh insert writes (status + the three send-state timestamps + approved-hours
     // snapshot + notes), so it cannot reference a column the insert path does not, and it satisfies
     // chk_assignment_send_state the same way. revoked_at is additionally cleared so reissuing a
-    // previously-revoked row is consistent (column confirmed present — read in token-validate). No
+    // previously-revoked row is consistent (column confirmed present - read in token-validate). No
     // updated_at is written (not confirmed present in Production). completed_at is NOT touched
     // (completed rows were blocked at step 8).
     const { data: updated, error: updateErr } = await supabaseAdmin
@@ -392,7 +392,7 @@ async function _handler(req, res) {
       return res.status(500).json({ error: 'Failed to create assignment' });
     }
 
-    // ── 11. Insert token. token_hash is the HMAC-SHA256 hex digest — stored. raw token never stored.
+    // ── 11. Insert token. token_hash is the HMAC-SHA256 hex digest - stored. raw token never stored.
     const { error: tokenErr } = await supabaseAdmin
       .from('evaluation_assignment_tokens')
       .insert({
@@ -404,7 +404,7 @@ async function _handler(req, res) {
 
     if (tokenErr) {
       // Rollback: delete the orphaned assignment row so the constraint stays clean. (Only the
-      // just-inserted NEW row is deleted — never a reused row.)
+      // just-inserted NEW row is deleted - never a reused row.)
       console.error('[create-invitation] token insert error:', tokenErr.message);
       const { error: rollbackErr } = await supabaseAdmin
         .from('evaluation_assignments')
@@ -412,7 +412,7 @@ async function _handler(req, res) {
         .eq('id', assignment.id);
       if (rollbackErr) {
         // Log the orphaned assignment ID so it can be manually cleaned up.
-        console.error('[create-invitation] ROLLBACK FAILED — orphaned assignment:', assignment.id, rollbackErr.message);
+        console.error('[create-invitation] ROLLBACK FAILED, orphaned assignment:', assignment.id, rollbackErr.message);
       } else {
         console.error('[create-invitation] assignment rolled back after token insert failure');
       }
@@ -423,7 +423,7 @@ async function _handler(req, res) {
 
   // ── 12. Build and return survey URL ──────────────────────────────────────
   // The raw token is placed in the URL hash fragment. Hash fragments are never
-  // sent to the server — they exist only in the browser. The student-facing
+  // sent to the server - they exist only in the browser. The student-facing
   // /evaluation/readiness page reads it via window.location.hash and strips it
   // from the address bar immediately.
   //
@@ -436,7 +436,7 @@ async function _handler(req, res) {
 
   const resolvedEmail = student.personal_email || student.school_email || null;
 
-  // Structured log — contains only safe fields. Raw token is excluded.
+  // Structured log - contains only safe fields. Raw token is excluded.
   // base_url is logged so URL-base mismatches (Preview vs Production) are diagnosable.
   console.log('[create-invitation] invitation created:', {
     assignment_id:     assignmentId,

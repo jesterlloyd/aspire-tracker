@@ -16,8 +16,8 @@ const supabase = createClient(
 );
 
 // Reminder cadence:
-//   First reminder  — 24-36h before interview, teams_reminder_count === 0
-//   Second reminder — 24h after first if invite still unsent, teams_reminder_count === 1
+//   First reminder  - 24-36h before interview, teams_reminder_count === 0
+//   Second reminder - 24h after first if invite still unsent, teams_reminder_count === 1
 //   No more than 2 reminders per session
 const MAX_REMINDERS = 2;
 
@@ -32,7 +32,7 @@ export default async function handler(req, res) {
   const runId = await startCronRun(supabase, 'teams-invite-reminders');
 
   try {
-    // Automation gate — scheduled auto-send only. Default-ON / fail-open: a missing row or a read
+    // Automation gate - scheduled auto-send only. Default-ON / fail-open: a missing row or a read
     // failure keeps sending as today. Disabled => paused heartbeat (success) + 200, no query/send.
     const gate = await isAutomationEnabled({ supabaseAdmin: supabase, automationKey: 'teams_invite_reminders' });
     if (!gate.enabled) {
@@ -86,7 +86,7 @@ export default async function handler(req, res) {
       checked_count: candidates.length,
       fired_count: fired.length,
       skipped_count: skipped.length,
-      // Observability only — present solely when the settings read failed open (ran as today).
+      // Observability only - present solely when the settings read failed open (ran as today).
       ...(gate.source === 'fail_open' ? { settings_warning: gate.warning } : {}),
     });
     return res.status(200).json({

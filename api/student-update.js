@@ -80,7 +80,7 @@ const CEDARS_STATUS   = ['new', 'former', 'employee']
 const STAGE1_ACTIONS  = ['add_non_employee', 'assignment_change', 'extend_end_date', 'reactivate', 'not_applicable']
 
 const CONTACT_FIELDS = ['personal_email', 'phone']
-// WS1e-A4 (corr.2): `name` is NOT client-writable — server composes it from
+// WS1e-A4 (corr.2): `name` is NOT client-writable - server composes it from
 // first_name/last_name. Client may submit first_name and/or last_name only.
 const PROFILE_FIELDS = ['first_name', 'last_name', 'preferred_first_name', 'date_of_birth', 'gender', 'cumulative_gpa', 'program_type', 'shift_availability', 'prior_healthcare_experience', 'cs_affiliation', 'cs_department', 'cs_role', 'interest_statement', 'resume_url', 'headshot_url']
 const REQUIREMENT_FIELDS = ['hours_required']
@@ -199,7 +199,7 @@ export default async function handler(req, res) {
 
   try {
 
-    // WS1e-A2: explicit, narrow placement operation — the ONLY student-update path
+    // WS1e-A2: explicit, narrow placement operation - the ONLY student-update path
     // permitted to mutate matched_preceptor / shift_assigned. Owner/Admin only.
     if (action === 'update_preceptor_assignment') {
       if (!isOwnerAdmin) {
@@ -269,7 +269,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true })
     }
 
-    // WS1e-A3a: explicit interview scheduling — the ONLY student-update path for
+    // WS1e-A3a: explicit interview scheduling - the ONLY student-update path for
     // the four scheduling fields. Server-controls status='Interview Scheduled'.
     // Owner/Admin only. Two explicit modes: schedule/reschedule, or clear.
     if (action === 'update_interview_schedule') {
@@ -282,7 +282,7 @@ export default async function handler(req, res) {
       }
       const isClear = req.body?.clear === true
 
-      // ── Clear mode: { action, student_id, clear:true } — no mixed values ──────
+      // ── Clear mode: { action, student_id, clear:true } - no mixed values ──────
       if (isClear) {
         const CLEAR_ALLOWED = ['action', 'student_id', 'clear']
         const unexpected = Object.keys(req.body || {}).filter(k => !CLEAR_ALLOWED.includes(k))
@@ -367,7 +367,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true })
     }
 
-    // WS1e-A3b: unified rubric-outcome persistence — the ONLY student-update path
+    // WS1e-A3b: unified rubric-outcome persistence - the ONLY student-update path
     // for the rubric field set. Owner/Admin/Interviewer (interviewer status only
     // 'Interviewed', enforced by validateRubricField). Partial updates supported.
     if (action === 'save_interview_outcome') {
@@ -414,7 +414,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true })
     }
 
-    // WS1e-A3b: manual single-field interview_outcome override — Owner/Admin only,
+    // WS1e-A3b: manual single-field interview_outcome override - Owner/Admin only,
     // distinct from the full rubric submission. Cannot touch any other field.
     if (action === 'update_interview_outcome') {
       if (!isOwnerAdmin) {
@@ -536,7 +536,7 @@ export default async function handler(req, res) {
       if (decline_reason !== undefined && (typeof decline_reason !== 'string' || decline_reason.length > 2000)) {
         return res.status(400).json({ error: 'invalid_request', field: 'decline_reason' })
       }
-      // WS1e-A4: decline_reason is only meaningful for 'Declined' — reject it with any
+      // WS1e-A4: decline_reason is only meaningful for 'Declined' - reject it with any
       // other status. (Existing reasons on a non-Declined transition are left as-is.)
       if (decline_reason !== undefined && status !== 'Declined') {
         return res.status(400).json({ error: 'invalid_request', field: 'decline_reason', message: 'decline_reason is only valid with status Declined.' })

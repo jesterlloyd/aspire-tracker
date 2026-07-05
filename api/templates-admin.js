@@ -135,7 +135,7 @@ function mapGovernanceRpcError(rpcError, res, requestId, ctx) {
   }
   if (is('P0107', 'governance_invalid_actor')) {
     // The endpoint always passes auth.profileId (resolved by verifyCaller); P0107
-    // means it no longer resolves in-RPC — a data-integrity anomaly, not a normal
+    // means it no longer resolves in-RPC - a data-integrity anomaly, not a normal
     // client error. Loud server log; sanitized 403 (KT-2a no_profile → 403 parity).
     console.error('[templates-admin] governance_invalid_actor: actor profileId did not resolve in user_profiles (data-integrity anomaly)', { ...ctx, request_id: requestId })
     return res.status(403).json({ error: 'forbidden', message: 'Access denied.' })
@@ -317,7 +317,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'invalid_request', field: unexpected[0], message: 'Unexpected request field.' })
   }
 
-  // (5) role authorization — Owner/Admin for every action (denies co-lead/co_lead/
+  // (5) role authorization - Owner/Admin for every action (denies co-lead/co_lead/
   // interviewer/viewer/no-profile). KT-2b lifecycle actions tighten to Owner-only.
   if (!canGovern(auth.role, auth.isOwner)) {
     console.log('[templates-admin] insufficient authority', { action, callerRole: auth.role, callerIsOwner: auth.isOwner, request_id: requestId })

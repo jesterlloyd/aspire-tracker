@@ -1,4 +1,4 @@
-// UI-1: governance data table — extracted pixel-for-pixel from the shipped
+// UI-1: governance data table - extracted pixel-for-pixel from the shipped
 // Knowledge Center entries table (KT-3a-1): SurfaceCard container, uppercase
 // 11px headers, 13px cells, subtle row separators.
 //

@@ -4,7 +4,7 @@ import { safeWrite } from '../lib/safeWrite'
 import { PATIENT_POPULATION_MAP } from '../lib/constants'
 import { getUnitsByDivision, getUnit, DIVISION_ORDER } from '../lib/unitCatalog'
 
-const PAGE_TITLE = 'ASPIRE Program: Unit Availability Form'
+const PAGE_TITLE = 'ASPIRE: Unit Availability Form'
 
 // Computed from unitCatalog at module load; ?showAll=true renders all 27 including ED/OR
 
@@ -241,7 +241,7 @@ export default function UnitFormPage() {
       clearTimeout(uiTimeoutId)
       if (uiResetFired) {
         // UI already showed a timeout error; don't override with success.
-        // The write likely completed anyway — data is safe on the server.
+        // The write likely completed anyway - data is safe on the server.
         console.warn('[UnitForm] submit completed after UI timeout already fired')
         return
       }
@@ -340,7 +340,7 @@ export default function UnitFormPage() {
           <h1 className="uf-title">{PAGE_TITLE}</h1>
           {cohortName && <div className="uf-cohort-badge">{cohortName}</div>}
           <p style={{ fontSize:15, color:'var(--raven)', textAlign:'center', lineHeight:1.65 }}>
-            Thank you for your interest in hosting senior student nurses through the ASPIRE Program.
+            Thank you for your interest in hosting senior student nurses through ASPIRE.
             Please complete this form to indicate your unit's response for the upcoming cohort.
           </p>
         </div>
@@ -362,7 +362,7 @@ export default function UnitFormPage() {
                     <optgroup key={division} label={division}>
                       {grouped[division].map(u => (
                         <option key={u.name} value={u.name}>
-                          {u.name} — {u.description}
+                          {u.name}, {u.description}
                         </option>
                       ))}
                     </optgroup>
@@ -443,7 +443,7 @@ export default function UnitFormPage() {
                   <label className="uf-label">Preferred preceptors (optional)</label>
                   <textarea className="uf-textarea" rows={3} value={form.preferred_preceptors}
                     onChange={e => set('preferred_preceptors', e.target.value)}
-                    placeholder="Optional — you can leave this blank if preceptor assignments aren't finalized yet." />
+                    placeholder="Optional, you can leave this blank if preceptor assignments aren't finalized yet." />
                 </div>
               </>
             )}

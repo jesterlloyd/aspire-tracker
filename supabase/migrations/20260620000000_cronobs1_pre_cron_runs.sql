@@ -5,7 +5,7 @@
 --
 -- Records ONE ROW PER CRON RUN so the system can prove a cron RAN (not just that it sent
 -- something). The later instrumentation (CRON-OBS-1) inserts a 'running' row at run-start and
--- updates the SAME row to 'success'/'error' at run-finish — so a start-without-finish leaves a
+-- updates the SAME row to 'success'/'error' at run-finish - so a start-without-finish leaves a
 -- stale 'running' row, which is itself diagnostic. Everything except identity + start is
 -- NULLABLE so both writes stay minimal and the wrapping can be best-effort / non-fatal.
 --
@@ -18,7 +18,7 @@
 -- ("sent nothing because nothing was due" = success, "sent five", "skipped two") live in the
 -- free-shape `details` JSONB, never in status.
 --
--- HOW TO RUN: paste into the Supabase SQL Editor and execute. Claude Code applies nothing — the
+-- HOW TO RUN: paste into the Supabase SQL Editor and execute. Claude Code applies nothing - the
 -- Owner applies this manually, runs the verification + smoke test below (confirming the table is
 -- empty again afterward), THEN authorizes commit of this file.
 -- Idempotent: CREATE TABLE / CREATE INDEX use IF NOT EXISTS.
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS cron_runs (
   error_text   text,                                 -- set when status = 'error'
   created_at   timestamptz NOT NULL DEFAULT now(),
 
-  -- Run-execution status only — not business outcome. Kept intentionally minimal.
+  -- Run-execution status only - not business outcome. Kept intentionally minimal.
   CONSTRAINT chk_cron_runs_status CHECK (status IN ('running', 'success', 'error'))
 );
 
@@ -47,7 +47,7 @@ CREATE INDEX IF NOT EXISTS idx_cron_runs_name_started ON cron_runs (cron_name, s
 CREATE INDEX IF NOT EXISTS idx_cron_runs_started      ON cron_runs (started_at DESC);
 
 
--- ── 3. Row Level Security — ENABLED, NO POLICIES ────────────────────────────────
+-- ── 3. Row Level Security - ENABLED, NO POLICIES ────────────────────────────────
 -- Service-role cron writers bypass RLS; with no policies, no client (anon/authenticated) can
 -- read or write. This is the least-surface default for a pre-UI observability table.
 
@@ -60,7 +60,7 @@ NOTIFY pgrst, 'reload schema';
 
 
 -- =============================================================================
--- VERIFICATION (Owner runs after applying — not part of the migration)
+-- VERIFICATION (Owner runs after applying - not part of the migration)
 -- =============================================================================
 --   -- 1. Table exists:
 --   SELECT to_regclass('public.cron_runs');                                  -- not null

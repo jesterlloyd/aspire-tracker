@@ -25,7 +25,7 @@ const COMPETENCY_ORDER = [
 ]
 
 function fmtDate(iso) {
-  if (!iso) return '—'
+  if (!iso) return '-'
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
@@ -44,7 +44,7 @@ function Field({ label, value, prewrap }) {
         fontSize: 13, fontWeight: 600, color: '#191919', fontFamily: F,
         whiteSpace: prewrap ? 'pre-wrap' : 'normal', lineHeight: prewrap ? 1.6 : 1.4,
       }}>
-        {value == null || value === '' ? '—' : value}
+        {value == null || value === '' ? '-' : value}
       </div>
     </div>
   )
@@ -96,8 +96,8 @@ export default function PreceptorResponseDetail({ assignment, instrumentContent,
   const ctc = responses.confidential_team_comments || {}
 
   const ratingScale = content?.ratingScale || []
-  const ratingLabel = (n) => (Number.isInteger(n) && n >= 1 && n <= ratingScale.length) ? `${n} · ${ratingScale[n - 1]}` : (n ?? '—')
-  const periodLabel = PERIOD_LABELS[ctx.feedback_period] || ctx.feedback_period || '—'
+  const ratingLabel = (n) => (Number.isInteger(n) && n >= 1 && n <= ratingScale.length) ? `${n} · ${ratingScale[n - 1]}` : (n ?? '-')
+  const periodLabel = PERIOD_LABELS[ctx.feedback_period] || ctx.feedback_period || '-'
 
   const compLabel = (code) => content?.section2?.items?.[code]?.label || code
 
@@ -188,7 +188,7 @@ export default function PreceptorResponseDetail({ assignment, instrumentContent,
                   fontSize: 11, color: '#92400e', background: '#FBF5E8', border: '1px solid #f0e0c0',
                   borderRadius: 6, padding: '6px 10px', marginBottom: 10, fontFamily: F,
                 }}>
-                  Confidential — visible to Owner/Admin only. Not shared with the student.
+                  Confidential, visible to Owner/Admin only. Not shared with the student.
                 </div>
                 <Field label="Confidential comments" value={ctc.confidential_comments} prewrap />
               </SectionBlock>

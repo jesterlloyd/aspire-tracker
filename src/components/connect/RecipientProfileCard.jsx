@@ -169,7 +169,7 @@ export default function RecipientProfileCard({
       )
     }
 
-    const name           = contact?.full_name || fromContact?.name || '—'
+    const name           = contact?.full_name || fromContact?.name || '-'
     const email          = contact?.email || fromContact?.email
     const avatar         = contact?.avatar_url
     const role           = contact?.role
@@ -259,7 +259,7 @@ export default function RecipientProfileCard({
     )
   }
 
-  const sName      = student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim() || '—'
+  const sName      = student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim() || '-'
   // CONNECT-COMMS-1B: student correspondence is SCHOOL-FIRST. Show the school email by default;
   // personal is a clearly-labeled fallback only when school is missing. (Authoritative resolution
   // is server-side; this card mirrors the canon so it never silently implies a personal send.)
@@ -318,7 +318,7 @@ export default function RecipientProfileCard({
         }
         {sEmailSource?.warn && (
           <div style={{ fontSize: 10.5, color: '#92400e', fontFamily: F, lineHeight: 1.4, margin: '0 0 6px' }}>
-            School email missing — using personal email.
+            School email missing, using personal email.
           </div>
         )}
         {sSchool && <InfoRow label="School" value={sSchool} />}

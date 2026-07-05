@@ -1,6 +1,6 @@
 // src/lib/outreachTemplates.js
 //
-// MANUAL-OUTREACH-TEMPLATE-LIBRARY — copy builders for single-recipient manual templates.
+// MANUAL-OUTREACH-TEMPLATE-LIBRARY - copy builders for single-recipient manual templates.
 // Both hydrate the editable in-app Direct Message composer (ASPIRE Outreach send) and are ALWAYS
 // editable before sending. Copy is safe-draft with clear [placeholders] and fallbacks; the owner
 // customizes the final wording. No tokens, secure links, or documents are embedded.
@@ -30,7 +30,7 @@ const bNote = ({ title = '', body }) =>
   `<div data-aspire-block="note" data-title="${escAttr(title)}" data-body="${escAttr(body)}"></div>`
 // (bEvent available for future date/time templates; unused here since none carry fixed event details.)
 
-// Preceptor Assignment — internal Cedars email, sent through the in-app Direct Message flow.
+// Preceptor Assignment - internal Cedars email, sent through the in-app Direct Message flow.
 // Salutation uses the recipient's (preceptor's) first name when available, else "Preceptor".
 // All assignment fields stay bracketed editable placeholders (the student is not reliably the
 // current recipient, so we do not auto-fill them). No attachments are claimed as included.
@@ -64,8 +64,8 @@ Please don't hesitate to reach out if you have any questions.`
   return { subject, body }
 }
 
-// Academic Partner Update — external academic-partner/coordinator email (ASPIRE Outreach).
-// CONNECT-MANUAL-TEMPLATES-3: repurposed from the former "Coordinator Acceptance Update" — the
+// Academic Partner Update - external academic-partner/coordinator email (ASPIRE Outreach).
+// CONNECT-MANUAL-TEMPLATES-3: repurposed from the former "Coordinator Acceptance Update" - the
 // registry KEY is preserved as 'coordinator_acceptance' for draft/routing compatibility; only the
 // visible label and this copy changed (confirm acceptance + invite to orientation, concise).
 // Salutation uses the recipient's first name when available, else "Colleague".
@@ -93,7 +93,7 @@ Thank you for your continued partnership in supporting clinical nursing educatio
   return { subject, body, richBody }
 }
 
-// Preceptor Details Request — internal Cedars email asking the preceptor for the information needed
+// Preceptor Details Request - internal Cedars email asking the preceptor for the information needed
 // to introduce them to the student. Salutation uses the preceptor's first name when available.
 // The photo is explicitly optional. No tokens, secure links, or attachments.
 export function buildPreceptorDetailsRequestDraft({ firstName } = {}) {
@@ -108,7 +108,7 @@ When you have a moment, could you please send me the following:
 • The best contact information for the student to reach you
 • Your preferred schedule or upcoming shifts
 • Your preferred method of communication (email, phone, or in person)
-• A photo we can share with the student, if you're comfortable — this is completely optional
+• A photo we can share with the student, if you're comfortable, this is completely optional
 • Any specific expectations or instructions for the student's first day
 
 The photo is entirely optional, so please only share one if you'd like to. Once I have these details, I'll introduce you and [Student Name] so you can connect before the rotation begins.
@@ -123,7 +123,7 @@ Thank you so much for your time and for helping our students get off to a great 
   return { subject, body, richBody }
 }
 
-// Unit Leader Support Request — internal Cedars email asking the unit leader for a preceptor name
+// Unit Leader Support Request - internal Cedars email asking the unit leader for a preceptor name
 // after a student has been matched to their unit. Appreciative, collaborative tone.
 export function buildUnitLeaderSupportRequestDraft({ firstName } = {}) {
   const subject = 'ASPIRE: Preceptor support requested for student placement'
@@ -151,9 +151,9 @@ Thank you for your partnership in supporting our students and unit.`
   return { subject, body, richBody }
 }
 
-// Interviewer Availability Request — internal Cedars/BNI email asking an interviewer colleague to
+// Interviewer Availability Request - internal Cedars/BNI email asking an interviewer colleague to
 // access ASPIRE Intelligence and enter their interview availability. Brief and collegial. The
-// "[ASPIRE Intelligence link]" stays a literal placeholder — never a generated or secure link.
+// "[ASPIRE Intelligence link]" stays a literal placeholder - never a generated or secure link.
 export function buildInterviewerAvailabilityRequestDraft({ firstName } = {}) {
   const subject = 'ASPIRE: Interview availability requested'
   const body = `Dear ${fb(firstName, 'Colleague')},
@@ -178,7 +178,7 @@ Thank you for being part of the ASPIRE interview team.`
 
 // ── Send-to-Many manual bulk templates (Phase 2A) ───────────────────────────────
 // Shared editable drafts for the multi-source bulk audience composer. Bodies carry NO closing
-// or signature (the app signature supplies the close — see Phase 1C). Per-recipient first name
+// or signature (the app signature supplies the close - see Phase 1C). Per-recipient first name
 // and school are merged at preview/send only; every other [placeholder] (links, deadlines, unit,
 // preceptor, rotation, dates, cohort name) stays literal and is edited once before sending.
 // Static public links (/school-form, /student-form, /interview-schedule) remain editable
@@ -312,7 +312,7 @@ ASPIRE at Cedars-Sinai <noreply@aspire-program.com>
 We are excited to support your growth, learning, and transition into professional nursing practice.`,
 }
 
-// Academic Partner Acceptance / Orientation Update (bulk) — CONNECT-MANUAL-TEMPLATES-3. Bulk version
+// Academic Partner Acceptance / Orientation Update (bulk) - CONNECT-MANUAL-TEMPLATES-3. Bulk version
 // of the Send-to-one Academic Partner Update: confirm acceptance + orientation next steps. First name
 // merges via [Clinical Coordinator First Name]; every other placeholder stays literal and editable.
 const BULK_ACADEMIC_PARTNER_ACCEPTANCE = {
@@ -336,7 +336,7 @@ ASPIRE at Cedars-Sinai <noreply@aspire-program.com>
 Thank you for your continued partnership in supporting clinical nursing education.`,
 }
 
-// Interviewer Availability / App Access Request (bulk) — CONNECT-MANUAL-TEMPLATES-3. Asks BNI /
+// Interviewer Availability / App Access Request (bulk) - CONNECT-MANUAL-TEMPLATES-3. Asks BNI /
 // interviewer colleagues to access ASPIRE Intelligence and enter availability. First name merges via
 // [First Name]; "[ASPIRE Intelligence link]" stays a literal placeholder (never a generated link).
 const BULK_INTERVIEWER_AVAILABILITY = {

@@ -19,8 +19,8 @@
 //   end_date    ISO date     (default: now)
 //   page        integer ≥1   (default: 1)
 //   per_page    integer 1-100 (default: 50)
-//   contact_id  uuid          (optional filter — for future right-rail use)
-//   student_id  uuid          (optional filter — for future right-rail use)
+//   contact_id  uuid          (optional filter - for future right-rail use)
+//   student_id  uuid          (optional filter - for future right-rail use)
 //
 // Response 200:
 //   { results: [...], total, page, per_page, total_pages }
@@ -86,7 +86,7 @@ export default async function handler(req, res) {
     let page = q.page !== undefined ? parseInt(q.page, 10) : 1;
     if (Number.isNaN(page) || page < 1) page = 1;
 
-    // Date range — the END boundary is always EXCLUSIVE (`<`).
+    // Date range - the END boundary is always EXCLUSIVE (`<`).
     // The frontend (SentHistory) sends full ISO instants computed in the user's
     // LOCAL (Pacific) timezone: start = local 00:00 of the first day; end = local
     // 00:00 of the day AFTER the last day. That makes "today"/"last N days"/custom
@@ -110,7 +110,7 @@ export default async function handler(req, res) {
       d.setUTCDate(d.getUTCDate() + 1);   // next-day exclusive → include the full end day
       endInstant = d;
     } else {
-      endInstant = new Date(rawEnd);      // full ISO instant — already next-day-exclusive
+      endInstant = new Date(rawEnd);      // full ISO instant - already next-day-exclusive
     }
 
     if (Number.isNaN(startInstant.getTime()) || Number.isNaN(endInstant.getTime())) {
@@ -187,7 +187,7 @@ export default async function handler(req, res) {
       for (const s of students || []) studentsById[s.id] = s;
     }
 
-    // ── 6. Merge resolved fields. Labels are intentionally NOT derived here —
+    // ── 6. Merge resolved fields. Labels are intentionally NOT derived here -
     //       the frontend maps notification_type to human-readable labels. ──────
     const results = pageRows.map(r => {
       const contact = r.contact_id ? contactsById[r.contact_id] : null;

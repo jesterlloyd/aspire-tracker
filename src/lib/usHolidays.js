@@ -1,8 +1,8 @@
-// ASPIRE-WELCOME-CALENDAR-POLISH-5: US federal holidays, computed CLIENT-SIDE. Pure date math — no
+// ASPIRE-WELCOME-CALENDAR-POLISH-5: US federal holidays, computed CLIENT-SIDE. Pure date math - no
 // fetch, no API, no Supabase, no persistence. Returns read-only descriptors the Calendar + Aggregate
 // render as non-editable chips (they never go through /api/aspire-events).
 //
-// Columbus Day is labeled "Indigenous Peoples' Day" (neutral, increasingly standard) — reported.
+// Columbus Day is labeled "Indigenous Peoples' Day" (neutral, increasingly standard) - reported.
 // Federal observance rule: a fixed-date holiday on Saturday is observed the Friday before; on Sunday,
 // the Monday after. Both the actual date and (when it's a weekend) the observed date are returned.
 
@@ -51,7 +51,7 @@ export function getUsHolidaysForYear(year) {
     if (obs) push(ymd(obs.getFullYear(), obs.getMonth(), obs.getDate()), `${name} (observed)`, true)
   })
 
-  // Floating (nth-weekday) holidays — always a weekday, so no observance shift.
+  // Floating (nth-weekday) holidays - always a weekday, so no observance shift.
   push(ymd(year, 0,  nthWeekday(year, 0,  WD.MON, 3)), 'Martin Luther King Jr. Day')
   push(ymd(year, 1,  nthWeekday(year, 1,  WD.MON, 3)), "Presidents' Day")
   push(ymd(year, 4,  lastWeekday(year, 4, WD.MON)),    'Memorial Day')

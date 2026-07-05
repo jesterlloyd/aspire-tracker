@@ -1,5 +1,5 @@
 -- =============================================
--- ASPIRE Placement Tracker — Supabase Setup
+-- ASPIRE Placement Tracker - Supabase Setup
 -- Run this entire file in the Supabase SQL Editor
 -- =============================================
 
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS students (
 -- 2. Enable Row Level Security
 ALTER TABLE students ENABLE ROW LEVEL SECURITY;
 
--- 3. Permissive policy for anon role (internal tool — single org use)
+-- 3. Permissive policy for anon role (internal tool - single org use)
 DROP POLICY IF EXISTS "anon_all" ON students;
 CREATE POLICY "anon_all" ON students
   FOR ALL TO anon

@@ -2,7 +2,7 @@
 -- Run the diagnostic query first, then the repair, then the verification.
 -- Tell Jester to run this after deploying the application code changes.
 
--- ── Step 1: Diagnostic — see the scope ───────────────────────────────────────
+-- ── Step 1: Diagnostic - see the scope ───────────────────────────────────────
 select
   b.id,
   b.block_date,
@@ -16,7 +16,7 @@ left join user_profiles up on up.id = b.created_by_user_id
 where b.interviewer_name = 'ASPIRE Team' or b.interviewer_name is null
 order by b.block_date, b.start_time;
 
--- ── Step 2: Auto-repair blocks — set interviewer_name from the creator ────────
+-- ── Step 2: Auto-repair blocks - set interviewer_name from the creator ────────
 -- (Only runs where created_by_user_id is known; leaves null-creator rows alone)
 update interview_availability_blocks
 set interviewer_name = (
@@ -37,7 +37,7 @@ set interviewer_name = (
 where interviewer_name = 'ASPIRE Team'
    or interviewer_name is null;
 
--- ── Step 4: Verify — should return zero rows ─────────────────────────────────
+-- ── Step 4: Verify - should return zero rows ─────────────────────────────────
 select id, block_date, start_time, interviewer_name
 from interview_availability_blocks
 where lower(interviewer_name) like '%aspire%'

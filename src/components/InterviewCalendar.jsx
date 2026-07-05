@@ -17,7 +17,7 @@ import { getUsHolidaysForRange } from '../lib/usHolidays'
 // ASPIRE-EVENTS-CALENDAR-2B: local 'YYYY-MM-DD' for a Date (calendar range bounds).
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
-// Distinct ASPIRE-event chip — filled left-accent bar + type color (never looks like an interview
+// Distinct ASPIRE-event chip - filled left-accent bar + type color (never looks like an interview
 // slot's pastel capacity card). Clicking opens the event modal (edit for owner/admin, else read-only).
 function AspireEventChip({ ev, compact = false, onClick }) {
   const color = eventColor(ev)
@@ -25,7 +25,7 @@ function AspireEventChip({ ev, compact = false, onClick }) {
     <button
       type="button"
       onClick={(e) => { e.stopPropagation(); onClick(ev) }}
-      title={`${ev.title} — ${eventTypeLabel(ev.event_type)}`}
+      title={`${ev.title}, ${eventTypeLabel(ev.event_type)}`}
       style={{
         display: 'flex', alignItems: 'center', gap: 4, width: '100%', textAlign: 'left',
         background: hexToRgba(color, 0.12), borderLeft: `3px solid ${color}`,
@@ -247,7 +247,7 @@ function CreatePopover({ date, startTime, endTime, position, interviewerProfiles
             </select>
           ) : (
             <div style={{ ...inputStyle, background: '#f9fafb', color: '#374151', fontWeight: 600 }}>
-              {userProfile?.full_name || '—'}
+              {userProfile?.full_name || '-'}
             </div>
           )}
         </div>
@@ -373,7 +373,7 @@ function BlockPopover({ block, slots, position, canDelete, onDelete, onCancelBoo
                 const name = student ? `${student.first_name} ${student.last_name}` : 'Unknown'
                 const time = slot.slot_time
                   ? new Date(`2000-01-01T${slot.slot_time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-                  : '—'
+                  : '-'
                 return (
                   <div key={slot.id} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -700,7 +700,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                 color: isToday || isSel ? '#fff' : '#374151', flexShrink:0,
               }}>{day}</div>
 
-              {/* US holidays — subtle amber read-only chips (non-interactive; never open the ASPIRE
+              {/* US holidays - subtle amber read-only chips (non-interactive; never open the ASPIRE
                   event modal; distinct from ASPIRE events and interview cards). */}
               {dayHolidays.length > 0 && (
                 <div style={{ display:'flex', flexDirection:'column', gap:2, flexShrink:0 }}>
@@ -714,7 +714,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                 </div>
               )}
 
-              {/* ASPIRE events — distinct filled-accent chips, above the interview capacity card */}
+              {/* ASPIRE events - distinct filled-accent chips, above the interview capacity card */}
               {dayEvents.length > 0 && (
                 <div style={{ display:'flex', flexDirection:'column', gap:2, flexShrink:0 }}>
                   {dayEvents.slice(0, 2).map(ev => (
@@ -775,7 +775,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
                 </div>
               )}
 
-              {/* Hover quick-add — only on empty cells; active cells use Day Manager's own footer.
+              {/* Hover quick-add - only on empty cells; active cells use Day Manager's own footer.
                   Owner/admin also get Add Event (prefilled to this date). */}
               {isHovered && daySlots.length === 0 && (
                 <div style={{ position:'absolute', bottom:4, right:4, display:'flex', gap:4, alignItems:'center' }}>
@@ -805,7 +805,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
 }
 
 // ─── Week View ─────────────────────────────────────────────────────────────────
-// ── WeekPill — rich booking pill with copy-to-clipboard ────────────────────
+// ── WeekPill - rich booking pill with copy-to-clipboard ────────────────────
 function WeekPill({ item, top, height, colW, left, ivColor, onSlotClick, ds }) {
   const [copied, setCopied] = useState(false)
   const s       = slotBg(item._status)
@@ -968,7 +968,7 @@ function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick, event
         })}
       </div>
 
-      {/* ASPIRE events row — all-day/point program events, kept out of the timed hour grid so they
+      {/* ASPIRE events row - all-day/point program events, kept out of the timed hour grid so they
           never read as interview slots. */}
       {events.length > 0 && (
         <div style={{ display:'grid', gridTemplateColumns:'52px repeat(7, 1fr)', background:'#fff', borderBottom:'1px solid #E5E7EB', flexShrink:0 }}>
@@ -986,7 +986,7 @@ function WeekView({ weekStart, slots, colorMap, onSlotClick, onEmptyClick, event
         </div>
       )}
 
-      {/* Scrollable body — outer maxHeight unchanged; inner rows taller */}
+      {/* Scrollable body - outer maxHeight unchanged; inner rows taller */}
       <div style={{ overflowY:'auto', maxHeight:500 }}>
         <div style={{ display:'grid', gridTemplateColumns:'52px repeat(7, 1fr)' }}>
           {/* Hour labels */}
@@ -1081,7 +1081,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
 
   const myName = userProfile?.full_name
 
-  // Calendar data — blocks, slots, and interviewers in one cached query
+  // Calendar data - blocks, slots, and interviewers in one cached query
   const { data: calData, refetch: fetchData } = useQuery({
     queryKey: ['interview_calendar', cohortId, isAdmin ? 'admin' : myName, scheduleScope || 'default'],
     queryFn: async () => {
@@ -1118,7 +1118,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const interviewerProfiles = calData?.profiles || []
   const colorMap           = calData?.colorMap || {}
 
-  // ─── ASPIRE custom events — separate query keyed by the visible range (never touches the
+  // ─── ASPIRE custom events - separate query keyed by the visible range (never touches the
   // interview_calendar query). Active events only; writes go through the gated endpoint. ─────────
   const eventsRange = useMemo(() => {
     if (currentView === 'timeGridWeek') {
@@ -1148,7 +1148,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
   const aspireEvents = aspireEventsData || []
   const openEvent = (ev) => setEventModal({ event: ev })
 
-  // US holidays for the visible range — computed client-side, read-only, never persisted.
+  // US holidays for the visible range - computed client-side, read-only, never persisted.
   const holidays = useMemo(() => getUsHolidaysForRange(eventsRange.from, eventsRange.to), [eventsRange.from, eventsRange.to])
 
   // Notify parent when profiles load (for the legend row in InterviewRubricTab)
@@ -1379,7 +1379,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
       return ((parts[0]?.[0] || '') + (parts.length > 1 ? (parts[parts.length - 1]?.[0] || '') : '')).toUpperCase()
     }
 
-    // Single-line compact pill — 18px, time-first format
+    // Single-line compact pill - 18px, time-first format
     const pill = (bg, border, textColor, label, opacity = 1) => (
       <div style={{
         borderRadius: '4px', padding: '0 5px', margin: '0 2px', cursor: 'pointer',
@@ -1438,7 +1438,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
         boxShadow: '0 2px 12px rgba(29,37,103,0.07)',
         overflow: 'hidden', marginBottom: '12px',
       }}>
-        {/* Left sidebar panel — fixed height so TODAY pills can't push the card taller */}
+        {/* Left sidebar panel - fixed height so TODAY pills can't push the card taller */}
         <div style={{
           width: '260px', flexShrink: 0,
           borderRight: '1px solid #f3f4f6',
@@ -1555,7 +1555,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
           <style>{`
             .fc { font-family: 'DM Sans', sans-serif; }
 
-            /* Fixed cell heights — every row identical */
+            /* Fixed cell heights - every row identical */
             .fc-daygrid-body tbody tr { height: 88px; }
             .fc-daygrid-day { overflow: hidden !important; }
             .fc-daygrid-day-frame { height: 88px !important; overflow: hidden !important; box-sizing: border-box; }
@@ -1640,7 +1640,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
                   // Date has ASPIRE events → open the ASPIRE day detail (links to interviews if present).
                   setEventDayDetail(dateStr)
                 } else if (hasActivity) {
-                  setDayDrawerDate(dateStr) // interviews only — existing behavior unchanged
+                  setDayDrawerDate(dateStr) // interviews only - existing behavior unchanged
                 } else {
                   setCreatePopover({ date: dateStr, position: { x: window.innerWidth / 2 - 140, y: 200 } })
                 }
@@ -1675,7 +1675,7 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
             />
           )}
 
-          {/* FullCalendar — kept hidden; no longer used for rendering */}
+          {/* FullCalendar - kept hidden; no longer used for rendering */}
           <div style={{ display:'none' }}>
             <FullCalendar
               ref={calendarRef}

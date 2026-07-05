@@ -31,7 +31,7 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
     enabled: !!cohortId,
   })
 
-  // Interviewers catalog — one query per session, cached 5 min, provides strip tint colors
+  // Interviewers catalog - one query per session, cached 5 min, provides strip tint colors
   const { data: interviewerCatalog = [] } = useQuery({
     queryKey: ['interviewers_catalog'],
     queryFn: async () => {
@@ -40,7 +40,7 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
     },
     staleTime: 5 * 60 * 1000,
   })
-  // ACCOUNTS-ACCESS-PEOPLE-MODEL-2A: account interviewer colors (user_profiles.interviewer_color —
+  // ACCOUNTS-ACCESS-PEOPLE-MODEL-2A: account interviewer colors (user_profiles.interviewer_color -
   // the single source of truth), keyed by full name. New (non-protected) query key.
   const { data: activeInterviewerAccounts = [] } = useQuery({
     queryKey: ['active_interviewer_colors'],
@@ -69,7 +69,7 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
     return () => { supabase.removeChannel(channel) }
   }, [cohortId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Full collapse — zero interviews today → nothing renders
+  // Full collapse - zero interviews today → nothing renders
   if (loading || sessions.length === 0) return null
 
   const todayShort = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -89,7 +89,7 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
         </span>
       </div>
 
-      {/* Card grid — single row for ≤ 6 interviews at typical content widths */}
+      {/* Card grid - single row for ≤ 6 interviews at typical content widths */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))',
@@ -102,7 +102,7 @@ export default function TodaysInterviews({ cohortId, onStartRubric }) {
           const interviewTime = s.slot_time
             ? new Date(`2000-01-01T${s.slot_time}`)
                 .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-            : '—'
+            : '-'
           const interviewerName  = s.interviewer_name || ''
           const interviewerColor = colorByName[interviewerName] || '#1D2567'
           return (

@@ -42,7 +42,7 @@ export function validateShiftLog({ shiftLog, student, existingLogs, cohort }) {
     flags.push(`Would exceed required hours by ${overage.toFixed(1)}h (required: ${requiredHours}h, completed: ${acceptedHours}h, this shift: ${hours}h)`);
   }
 
-  // 5. Same-date duplicate detection (no start/end times — can only check same day)
+  // 5. Same-date duplicate detection (no start/end times - can only check same day)
   const sameDayLogs = (existingLogs || []).filter(
     l => l.shift_date === shiftLog.shift_date && l.status !== 'Rejected'
   );

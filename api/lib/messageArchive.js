@@ -1,14 +1,14 @@
 // api/lib/messageArchive.js
 //
-// CONNECT-SENT-HISTORY Phase 2B — shared redaction + archive write for MANUAL/DIRECT Outreach emails.
+// CONNECT-SENT-HISTORY Phase 2B - shared redaction + archive write for MANUAL/DIRECT Outreach emails.
 //
 // redactArchiveHtml: conservative, regex-only sanitization (no heavy deps). Operates on markup and
-// attribute VALUES — never on visible text (a visible signature block stays; only a URL/attribute
+// attribute VALUES - never on visible text (a visible signature block stays; only a URL/attribute
 // containing "signature" is neutralized). The primary safety layer at render time is the read-side
 // sandboxed iframe (sandbox="", no scripts); this redaction is defense in depth + keeps tokens/
 // secure links out of storage entirely.
 //
-// archiveManualMessage: best-effort insert into public.message_archive (service-role). Never throws —
+// archiveManualMessage: best-effort insert into public.message_archive (service-role). Never throws -
 // returns a status the caller surfaces as archive_status without ever failing an already-sent email.
 
 const UNSAFE_URL_MARKERS = /\?|token|magic|survey|resume|headshot|packet|signature|expires|access_token|refresh_token|jwt/i;
@@ -29,15 +29,15 @@ export function redactArchiveHtml(html) {
 }
 
 // Best-effort archive write. Returns:
-//   { status: 'archived' }                — row inserted (or already present)
-//   { status: 'skipped',  reason }        — nothing to store (no id / empty redaction)
-//   { status: 'failed',   reason }        — insert errored or threw (sanitized; never exposes raw error)
+//   { status: 'archived' }                - row inserted (or already present)
+//   { status: 'skipped',  reason }        - nothing to store (no id / empty redaction)
+//   { status: 'failed',   reason }        - insert errored or threw (sanitized; never exposes raw error)
 export async function archiveManualMessage({ db, notificationLogId, html, bodyFormat, createdBy }) {
   if (!notificationLogId) return { status: 'skipped', reason: 'no_notification_log_id' };
 
   const redacted = redactArchiveHtml(html);
   if (!redacted || redacted.trim() === '') {
-    // Empty redaction would violate chk_message_archive_has_body — skip rather than insert.
+    // Empty redaction would violate chk_message_archive_has_body - skip rather than insert.
     return { status: 'skipped', reason: 'empty_after_redaction' };
   }
 

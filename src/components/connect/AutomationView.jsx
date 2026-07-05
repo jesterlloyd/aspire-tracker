@@ -1,4 +1,4 @@
-// CONNECT-AUTOMATION — Automation control + health surface (Connect > Automation subtab).
+// CONNECT-AUTOMATION - Automation control + health surface (Connect > Automation subtab).
 //
 // One unified card per scheduled automation answers both questions at once: "is it allowed to run?"
 // (the toggle / control state) and "what happened last time?" (the health badge + last run). A single
@@ -8,7 +8,7 @@
 //   • Midpoint stays cohort-scoped on cohorts.midpoint_checkin_automation_enabled (its own source).
 //   • Health comes from cron_runs via /api/automation-runs (Owner/Admin; the table is RLS-locked).
 //
-// Owner/Admin only. Message-level history is intentionally NOT here — it lives in Outreach > Sent History.
+// Owner/Admin only. Message-level history is intentionally NOT here - it lives in Outreach > Sent History.
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -22,7 +22,7 @@ import { getPreviewFixture } from '../../lib/notifications/previewFixtures'
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
 
-// ── Canonical catalog — the SINGLE source of truth for card order, identity, schedule, scope, and
+// ── Canonical catalog - the SINGLE source of truth for card order, identity, schedule, scope, and
 // description. Order: interview-related reminders together, midpoint (cohort-scoped) in the middle,
 // then the operational digest/clock-out automations. cron_name maps to cron_runs; automation_key
 // maps to automation_settings (null for midpoint, which uses the cohort setting instead). ──
@@ -49,7 +49,7 @@ const AUTOMATION_CARDS = [
     desc: 'Hourly nudge for students with an open shift that may be overdue to clock out.' },
 ]
 
-// Friendly labels for the numeric counts crons record in cron_runs.details (counts only — no PII).
+// Friendly labels for the numeric counts crons record in cron_runs.details (counts only - no PII).
 const COUNT_LABELS = {
   sent_count: 'Sent', fired_count: 'Sent',
   skipped_count: 'Skipped', skipped_no_email_count: 'No email on file',
@@ -64,9 +64,9 @@ const ALARM_KEYS = new Set(['failed_count', 'error_count'])
 const SENT_KEYS = ['sent_count', 'fired_count']
 
 function fmtDateTime(iso) {
-  if (!iso) return '—'
+  if (!iso) return '-'
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return '-'
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 function fmtDuration(startIso, endIso) {
@@ -84,7 +84,7 @@ function fmtDuration(startIso, endIso) {
 // an impure render-time Date and keeps "stale running" honest across client clock skew). ──
 function resolveHealth(run, nowIso, paused) {
   // Paused is authoritative (setting disabled, or fallback skipped_disabled evidence) and wins over
-  // run-derived status — a paused automation must never read as failed or stale.
+  // run-derived status - a paused automation must never read as failed or stale.
   if (paused) return { tone: 'paused', label: 'Paused', caption: 'Automatic sends are paused.' }
   if (!run) return { tone: 'neutral', label: 'Never run', caption: 'No recorded runs yet.' }
   const { status, started_at, details } = run
@@ -122,7 +122,7 @@ const HEALTH_TONES = {
 }
 
 // ── Midpoint cohort setting (cohorts.midpoint_checkin_automation_enabled). Exact same read/write
-// behavior as before — lifted into a hook so the midpoint control + health can share one card. ──
+// behavior as before - lifted into a hook so the midpoint control + health can share one card. ──
 function useMidpointSetting(cohortId, toast) {
   const [enabled, setEnabled] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -229,7 +229,7 @@ function AutomationCard({ card, run, health, ctrl, onPreview }) {
 
       {/* Last run / duration / dry-run / updated */}
       <div style={{ fontSize: 11.5, color: '#6b7280', marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: '2px 10px' }}>
-        <span>Last run: <strong style={strong}>{run ? fmtDateTime(run.started_at) : (health.loading ? '…' : '—')}</strong></span>
+        <span>Last run: <strong style={strong}>{run ? fmtDateTime(run.started_at) : (health.loading ? '…' : '-')}</strong></span>
         {duration && <span>Duration: <strong style={strong}>{duration}</strong></span>}
         {dryRun !== null && <span style={{ fontWeight: 700, color: dryRun ? '#b45309' : '#2F7D5C' }}>{dryRun ? 'Dry run' : 'Live'}</span>}
         {ctrl.updatedAt && <span>Updated: <strong style={strong}>{new Date(ctrl.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</strong></span>}
@@ -294,7 +294,7 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  // Health source — cron_runs.
+  // Health source - cron_runs.
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['automation-monitor', refreshKey],
     queryFn: async () => {
@@ -310,7 +310,7 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
     refetchOnWindowFocus: false,
   })
 
-  // Controls source — separate query so a toggle refetches settings only (not all cron_runs), and a
+  // Controls source - separate query so a toggle refetches settings only (not all cron_runs), and a
   // settings outage never blocks Health (its own query above).
   const { data: settingsData, isError: settingsError, refetch: refetchSettings } = useQuery({
     queryKey: ['automation-settings', refreshKey],
@@ -359,7 +359,7 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
       }
       // toast from useToast() is an OBJECT ({ success, error, ... }), not a callable.
       toast?.success?.(val ? 'Automation enabled' : 'Automation paused')
-      refetchSettings() // NOT awaited — can't clobber the toast or UI
+      refetchSettings() // NOT awaited - can't clobber the toast or UI
     } catch {
       toast?.error?.('Update failed', 'Could not change the automation setting. Please try again.')
     } finally {
@@ -449,7 +449,7 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
         </div>
       </div>
 
-      {/* Non-blocking run-status banner — cards (and controls) still render if cron_runs fails. */}
+      {/* Non-blocking run-status banner - cards (and controls) still render if cron_runs fails. */}
       {isError && (
         <div style={{
           margin: '0 2px 12px', padding: '10px 14px', background: '#fff', border: '1px solid #f3c9c9',
@@ -464,7 +464,7 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
         </div>
       )}
 
-      {/* Unified grid — one card per automation, in canonical order. */}
+      {/* Unified grid - one card per automation, in canonical order. */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
         {AUTOMATION_CARDS.map(card => (
           <AutomationCard
@@ -478,7 +478,7 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
         ))}
       </div>
 
-      {/* Sent History pointer — message-level logs live in Outreach > Sent History (real deep link). */}
+      {/* Sent History pointer - message-level logs live in Outreach > Sent History (real deep link). */}
       <div style={{
         margin: '16px 2px 0', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 8,
         flexWrap: 'wrap', background: '#f6f8fc', border: '1px solid #d9e1f3', borderRadius: 10,
@@ -494,7 +494,7 @@ export default function AutomationView({ active = true, cohortId, toast, refresh
         >Outreach › Sent History</button>
       </div>
 
-      {/* Email preview drawer — synthetic data, client-side render, sandboxed iframe. */}
+      {/* Email preview drawer - synthetic data, client-side render, sandboxed iframe. */}
       {previewCard && (
         <AutomationEmailPreviewDrawer
           title={previewCard.title}

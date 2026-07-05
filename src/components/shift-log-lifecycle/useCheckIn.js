@@ -1,4 +1,4 @@
-// useCheckIn.js — B2 check-in hook for the shift-log lifecycle.
+// useCheckIn.js - B2 check-in hook for the shift-log lifecycle.
 // Calls POST /api/shift-log/check-in. Returns { status, data } or
 // { _networkError: true }. No PII logged.
 

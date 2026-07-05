@@ -1,8 +1,8 @@
-// KEITH-ON-CAMPUS-NOW-1 — single source of truth for the "On Campus Now" derivation.
+// KEITH-ON-CAMPUS-NOW-1 - single source of truth for the "On Campus Now" derivation.
 //
 // Both the Aggregate tab (OverviewTab) and Keith's server-side live context derive the
 // same On Campus Now set from these two pure helpers, so the UI and Keith can never
-// disagree again. NOTHING here fetches or mutates data — callers pass already-fetched
+// disagree again. NOTHING here fetches or mutates data - callers pass already-fetched
 // student_shift_logs rows.
 //
 // The On Campus Now set is a hybrid of two sources, exactly as the Aggregate tab shows it:
@@ -39,7 +39,7 @@ export function mergeOnCampusNow(lifecycleRows, activeWindowRows) {
   return [...(lifecycleRows || []), ...fallbackOnly]
 }
 
-// KEITH-ON-CAMPUS-DETAILS-1 — shared open-shift detail resolvers so the Rotation > Activity
+// KEITH-ON-CAMPUS-DETAILS-1 - shared open-shift detail resolvers so the Rotation > Activity
 // Open Shift Review table and Keith's On Campus Now answer derive unit/preceptor identically.
 //
 // Unit precedence: what the student logged at check-in (planned_unit_name) → the final
@@ -53,7 +53,7 @@ export function openShiftUnit(log, student, units = []) {
 }
 
 // The preceptor the student actually LOGGED on this shift (planned at check-in, or final at
-// check-out). Never substitutes the assigned preceptor as logged — it is returned separately
+// check-out). Never substitutes the assigned preceptor as logged - it is returned separately
 // as a clearly-labeled fallback. Both are trimmed; '' means absent.
 export function openShiftPreceptor(log, student) {
   return {

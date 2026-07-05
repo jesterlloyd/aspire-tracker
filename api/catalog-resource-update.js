@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 
-// CATALOG-2C — Owner/Admin METADATA-ONLY edit of an existing catalog_resources row.
+// CATALOG-2C - Owner/Admin METADATA-ONLY edit of an existing catalog_resources row.
 //
 // This endpoint updates ONLY a strict whitelist of metadata columns. It performs NO Storage
 // operation of any kind (no upload, move, copy, delete, signing) and CANNOT touch storage_path,
@@ -85,7 +85,7 @@ export default async function handler(req, res) {
   if (!id || id.length > 64) return res.status(400).json({ error: 'Missing or invalid id' });
 
   // Reject ANY field outside the metadata whitelist (e.g. storage_path, slug, resource_type,
-  // external_url, file_type_label, created_by) — never silently ignore.
+  // external_url, file_type_label, created_by) - never silently ignore.
   const provided = Object.keys(body).filter(k => k !== 'id');
   const unknown = provided.filter(k => !ALLOWED_FIELDS.includes(k));
   if (unknown.length) {

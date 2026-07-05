@@ -1,6 +1,6 @@
 -- =====================================================================
 -- ASPIRE Preceptor Normalization Migration
--- Phase B.1 — Foundation schema changes for normalized preceptor data
+-- Phase B.1 - Foundation schema changes for normalized preceptor data
 --
 -- Run this file FIRST in your Supabase SQL Editor, then run
 -- migration_preceptor_backfill.sql to populate the new structure.
@@ -236,7 +236,7 @@ CREATE TRIGGER sync_preceptor_denormalized_after_change
 -- 3.2  Function to sync total_students_precepted whenever
 --      students.preceptor_id changes.
 --
---      The trigger is NOT created here — Phase B.2 will add it once
+--      The trigger is NOT created here - Phase B.2 will add it once
 --      the frontend begins writing students.preceptor_id.
 --      Activate in Phase B.2 with:
 --

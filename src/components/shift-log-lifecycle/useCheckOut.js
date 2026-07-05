@@ -1,4 +1,4 @@
-// useCheckOut.js — B3 check-out hook for the shift-log lifecycle.
+// useCheckOut.js - B3 check-out hook for the shift-log lifecycle.
 // Calls POST /api/shift-log/check-out. Returns { status, data } or
 // { _networkError: true }. No PII logged.
 

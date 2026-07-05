@@ -1,5 +1,5 @@
 -- Sets patient_population on all unit rows by unit_name.
--- Covers every cohort — runs against all rows regardless of cohort_id.
+-- Covers every cohort - runs against all rows regardless of cohort_id.
 -- Run in Supabase SQL Editor before deploying.
 
 UPDATE units SET patient_population = 'Orthopedics, Surgical, Trauma'

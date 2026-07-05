@@ -10,12 +10,12 @@
 //   </Tooltip>
 //
 // Props:
-//   label        string   — tooltip text (required)
-//   placement    'top' | 'bottom' | 'left' | 'right'  — default 'bottom'
-//   delay        number   — ms before tooltip appears   — default 300
-//   hideDelay    number   — ms before tooltip hides     — default 100
-//   applyAriaLabel boolean — inject aria-label on DOM children missing it — default true
-//   disabled     boolean  — suppress tooltip entirely   — default false
+//   label        string   - tooltip text (required)
+//   placement    'top' | 'bottom' | 'left' | 'right'  - default 'bottom'
+//   delay        number   - ms before tooltip appears   - default 300
+//   hideDelay    number   - ms before tooltip hides     - default 100
+//   applyAriaLabel boolean - inject aria-label on DOM children missing it - default true
+//   disabled     boolean  - suppress tooltip entirely   - default false
 //   children     React element (required)
 
 import { useState, useRef, useCallback, cloneElement, useEffect, Children } from 'react'
@@ -25,7 +25,7 @@ const REDUCED_MOTION =
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-// Merge two event handler functions — calls both if both exist.
+// Merge two event handler functions - calls both if both exist.
 function mergeHandler(existing, next) {
   if (!existing) return next
   return (e) => { existing(e); next(e) }

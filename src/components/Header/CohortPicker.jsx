@@ -1,4 +1,4 @@
-// WS2.0: extracted verbatim from App.jsx header (Zone 2 — cohort picker). No behavior
+// WS2.0: extracted verbatim from App.jsx header (Zone 2 - cohort picker). No behavior
 // change. State/handlers remain owned by App.jsx and arrive as props. The header-only
 // helpers (status colors, date formatting, chevron) moved here with the JSX.
 import Tooltip from '../ui/Tooltip'

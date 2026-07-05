@@ -1,7 +1,7 @@
 // src/lib/keithMarkdown.js
-// KEITH-CHAT-UX-1 — tiny, dependency-free, safe Markdown-subset renderer for Keith's assistant
+// KEITH-CHAT-UX-1 - tiny, dependency-free, safe Markdown-subset renderer for Keith's assistant
 // messages. Returns an array of React ELEMENTS (never an HTML string, never dangerouslySetInnerHTML),
-// so every text node is escaped by React automatically — there is no HTML/script injection surface.
+// so every text node is escaped by React automatically - there is no HTML/script injection surface.
 //
 // Supported subset (enough to stop Keith's emphasis/lists from showing as raw asterisks):
 //   • paragraphs (blank-line separated, soft line breaks preserved)
@@ -9,7 +9,7 @@
 //   • numbered lists  1. / 1)
 //   • headings        # .. ###### (rendered as a bold line)
 //   • **bold**  *italic*  `code`
-//   • [label](url) — href allowed ONLY for http(s):// and mailto: ; any other scheme renders the
+//   • [label](url) - href allowed ONLY for http(s):// and mailto: ; any other scheme renders the
 //     label as plain text with no href.
 // Anything else (including any raw <tag> such as <u>, <script>, <img onerror=…>) is rendered as
 // literal, escaped text. Underline is intentionally unsupported (Markdown has none; raw <u> is shown

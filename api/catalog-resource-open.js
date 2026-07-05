@@ -1,19 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 
-// CATALOG-1 — Authenticated open/preview endpoint for ASPIRE Catalog INTERNAL files.
+// CATALOG-1 - Authenticated open/preview endpoint for ASPIRE Catalog INTERNAL files.
 //
 // Security model (Owner/Admin/Interviewer read; ACTIVE resources only):
 //   - Verifies the caller's session bearer token AND a Catalog-read role ON THE SERVER
 //     (reuses the WS1 verifyCaller → user_profiles pattern). UI button-hiding is NOT
 //     the gate; a direct call by a non-Owner/Admin is refused here.
-//   - Accepts a resource SLUG only — never a client-supplied storage path.
+//   - Accepts a resource SLUG only - never a client-supplied storage path.
 //   - Looks up storage_path server-side from catalog_resources, confirms is_active and
 //     resource_type='internal_file', then mints a SHORT-LIVED signed URL for THAT ONE
 //     object in the private 'aspire-catalog' bucket.
 //   - The signed URL is per-open and is NEVER persisted (not in the table, not logged,
 //     not returned with extra metadata). No public URLs anywhere.
-// External_link resources are NOT handled here — the client navigates to external_url.
+// External_link resources are NOT handled here - the client navigates to external_url.
 
 const BUCKET = 'aspire-catalog';
 const SIGNED_URL_TTL_SECONDS = 120; // short-lived per-open window (addendum: 60–300s)
@@ -81,14 +81,14 @@ export default async function handler(req, res) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  // 2) Slug only — no client-supplied storage path is ever accepted
+  // 2) Slug only - no client-supplied storage path is ever accepted
   const slug = typeof req.body?.slug === 'string' ? req.body.slug.trim() : '';
   if (!slug) {
     return res.status(400).json({ error: 'Missing slug' });
   }
 
   // mode controls ONLY the signed-URL disposition (inline view vs attachment download).
-  // It never influences object selection — that is always the server-resolved storage_path.
+  // It never influences object selection - that is always the server-resolved storage_path.
   const mode = req.body?.mode === 'download' ? 'download' : 'open';
 
   // 3) Resolve the object server-side from catalog_resources (service role)
@@ -111,7 +111,7 @@ export default async function handler(req, res) {
   // 4) Mint a short-lived signed URL for that one object in the PRIVATE bucket.
   //    For download mode, request attachment disposition (Supabase sets
   //    response-content-disposition: attachment). This only affects how the browser
-  //    handles the same object — never which object is signed.
+  //    handles the same object - never which object is signed.
   const signOptions = mode === 'download' ? { download: true } : undefined;
   const { data: signed, error: signErr } = await supabaseAdmin.storage
     .from(BUCKET)

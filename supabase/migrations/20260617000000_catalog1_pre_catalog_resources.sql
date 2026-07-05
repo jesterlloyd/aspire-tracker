@@ -8,7 +8,7 @@
 -- no existing table, bucket, policy, or function.
 --
 -- Files themselves do NOT live here. Internal files live in a SEPARATE PRIVATE
--- Storage bucket ('aspire-catalog', created manually by the Owner — see the
+-- Storage bucket ('aspire-catalog', created manually by the Owner - see the
 -- CATALOG-1-pre report) and are opened later (CATALOG-1) only via an authenticated
 -- server-side endpoint that returns a short-lived signed URL. This table stores
 -- the catalog metadata plus, per row, EITHER a storage_path (internal_file) OR an
@@ -20,7 +20,7 @@
 -- Broader staff/interviewer/viewer read is a later, deliberate decision.
 --
 -- HOW TO RUN: paste into the Supabase SQL Editor and execute. Claude Code applies
--- nothing — the Owner applies this manually, creates the bucket, seeds rows, and
+-- nothing - the Owner applies this manually, creates the bucket, seeds rows, and
 -- uploads files, THEN authorizes commit of this file.
 -- Idempotent: CREATE TABLE IF NOT EXISTS + DROP POLICY IF EXISTS before CREATE.
 -- =============================================================================

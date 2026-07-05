@@ -14,13 +14,13 @@
 // Authorization: Bearer <session-token>
 //
 // Body (JSON):
-//   cohortId      — required UUID
-//   studentIds    — required non-empty array of UUIDs (max 100, auto-deduplicated)
-//   instrumentSlug — optional; defaults to 'casey_fink_readiness_2024'
-//   timepoint     — required; must be one of: baseline, early_rotation_baseline, midpoint, post_rotation, custom
-//   expiresAt     — optional ISO date; defaults to now + 28 days
-//   notes         — optional text, max 500 chars
-//   mode          — required; must be 'generate_only'
+//   cohortId      - required UUID
+//   studentIds    - required non-empty array of UUIDs (max 100, auto-deduplicated)
+//   instrumentSlug - optional; defaults to 'casey_fink_readiness_2024'
+//   timepoint     - required; must be one of: baseline, early_rotation_baseline, midpoint, post_rotation, custom
+//   expiresAt     - optional ISO date; defaults to now + 28 days
+//   notes         - optional text, max 500 chars
+//   mode          - required; must be 'generate_only'
 //
 // Success response (200):
 //   { success, mode, requestedCount, dedupedCount, createdCount,
@@ -28,10 +28,10 @@
 //     generated, skippedDuplicates, skippedMissingEmails, skippedInvalidStatus, failed }
 //
 // Errors:
-//   400 — missing/invalid body fields
-//   401 — invalid or missing session
-//   403 — authenticated but not owner or admin
-//   422 — instrument not found or not authorized
+//   400 - missing/invalid body fields
+//   401 - invalid or missing session
+//   403 - authenticated but not owner or admin
+//   422 - instrument not found or not authorized
 
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
@@ -132,7 +132,7 @@ async function _handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  // ── 2. Role check — owner/admin only ─────────────────────────────────────
+  // ── 2. Role check - owner/admin only ─────────────────────────────────────
   // assigned_by must store user_profiles.id (not auth.users.id) per FK constraint.
   const { data: profile } = await supabaseAdmin
     .from('user_profiles')
@@ -158,7 +158,7 @@ async function _handler(req, res) {
     return res.status(400).json({ error: 'Invalid request body' });
   }
 
-  // mode — must be 'generate_only' for Phase 3A.1
+  // mode - must be 'generate_only' for Phase 3A.1
   const mode = body.mode;
   if (mode !== 'generate_only') {
     return res.status(400).json({ error: 'Only generate_only mode is supported in this release.' });
@@ -216,7 +216,7 @@ async function _handler(req, res) {
   const rawNotes = typeof body.notes === 'string' ? body.notes.trim().slice(0, 500) : null;
   const notes    = rawNotes || null;
 
-  // instrumentSlug — defaults to the only currently supported instrument
+  // instrumentSlug - defaults to the only currently supported instrument
   const instrumentSlug = (typeof body.instrumentSlug === 'string' && body.instrumentSlug.trim())
     ? body.instrumentSlug.trim()
     : INSTRUMENT_SLUG;
@@ -284,7 +284,7 @@ async function _handler(req, res) {
         continue;
       }
 
-      // Step 2: Email check — required for future delivery
+      // Step 2: Email check - required for future delivery
       const resolvedEmail = student.personal_email || student.school_email || null;
       if (!resolvedEmail) {
         skippedMissingEmails.push({ studentId, studentName, school: student.school || null });
@@ -297,7 +297,7 @@ async function _handler(req, res) {
         continue;
       }
 
-      // Step 4: Classify existing assignment(s) for this tuple — shared with the single endpoint, so
+      // Step 4: Classify existing assignment(s) for this tuple - shared with the single endpoint, so
       // single and bulk never diverge. Fetch lifecycle fields (not just id/status) so an
       // expired-but-still-'sent' row is recognized as reissuable rather than blocking.
       const { data: existingRows, error: dupErr } = await supabaseAdmin
@@ -341,11 +341,11 @@ async function _handler(req, res) {
       let assignmentId;
 
       if (reissueRow) {
-        // Step 6a: REISSUE — reuse the existing row (uq_assignment forbids a second). Token-FIRST so
+        // Step 6a: REISSUE - reuse the existing row (uq_assignment forbids a second). Token-FIRST so
         // the row is never flipped to a fresh active state without a usable new token.
         //
         // One token row per assignment (lookups by token_hash; revocation/rollback key on
-        // assignment_id), so a SECOND insert for an existing assignment violates uniqueness — the
+        // assignment_id), so a SECOND insert for an existing assignment violates uniqueness - the
         // post-6f11cf8 reissue 500. Reissue the token IN PLACE: update the existing row to the new
         // hash (old hash discarded → old link stops validating), clear revoked_at; insert only if no
         // token row exists yet.
@@ -361,7 +361,7 @@ async function _handler(req, res) {
           .select('assignment_id');
 
         if (tokenUpdateErr) {
-          // No assignment state changed — the row stays expired/revoked. Safe to fail with no cleanup.
+          // No assignment state changed - the row stays expired/revoked. Safe to fail with no cleanup.
           console.error('[bulk-invitations] reissue_token_refresh_failed for student', studentId,
             { assignment_id: reissueRow.id, code: tokenUpdateErr.code, message: tokenUpdateErr.message, details: tokenUpdateErr.details, hint: tokenUpdateErr.hint });
           failed.push({ studentId, studentName, reason: 'Token reissue failed' });
@@ -416,7 +416,7 @@ async function _handler(req, res) {
         }
         assignmentId = updated.id;
       } else {
-        // Step 6b: NEW — insert assignment.
+        // Step 6b: NEW - insert assignment.
         // Satisfies chk_assignment_send_state: status='sent' + invited_at + sent_at + expires_at all set.
         const { data: assignment, error: assignmentErr } = await supabaseAdmin
           .from('evaluation_assignments')
@@ -442,7 +442,7 @@ async function _handler(req, res) {
           continue;
         }
 
-        // Step 7: Insert token (hash only — raw token never stored)
+        // Step 7: Insert token (hash only - raw token never stored)
         const { error: tokenErr } = await supabaseAdmin
           .from('evaluation_assignment_tokens')
           .insert({
@@ -460,7 +460,7 @@ async function _handler(req, res) {
             .delete()
             .eq('id', assignment.id);
           if (rollbackErr) {
-            console.error('[bulk-invitations] ROLLBACK FAILED — orphaned assignment:', assignment.id, rollbackErr.message);
+            console.error('[bulk-invitations] ROLLBACK FAILED, orphaned assignment:', assignment.id, rollbackErr.message);
           } else {
             console.error('[bulk-invitations] assignment rolled back after token failure for student', studentId);
           }
@@ -473,7 +473,7 @@ async function _handler(req, res) {
       // Step 8: Build survey URL (raw token in hash fragment, never reaches server)
       const surveyUrl = `${baseUrl}/evaluation/readiness#t=${rawToken}`;
 
-      // Safe log: assignment id and student id only — no raw token, no survey URL
+      // Safe log: assignment id and student id only - no raw token, no survey URL
       console.log('[bulk-invitations] generated:', {
         assignment_id:     assignmentId,
         reissued:          !!reissueRow,
@@ -505,7 +505,7 @@ async function _handler(req, res) {
   const skippedInvalidStatusCount = skippedInvalidStatus.length;
   const failedCount               = failed.length;
 
-  // Summary log — counts only, no raw tokens or URLs
+  // Summary log - counts only, no raw tokens or URLs
   console.log('[bulk-invitations] batch complete:', {
     cohort_id:      cohortId,
     timepoint,

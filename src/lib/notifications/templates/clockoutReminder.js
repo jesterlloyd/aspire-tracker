@@ -1,9 +1,9 @@
 // src/lib/notifications/templates/clockoutReminder.js
-// CLOCKOUT-NUDGE-LIVE-1 — student "your shift still appears open" reminder.
+// CLOCKOUT-NUDGE-LIVE-1 - student "your shift still appears open" reminder.
 // Supportive/operational, never disciplinary: "clock out" (not "logout"); "still appears open"
 // (not "you forgot"). Approved subject/body.
 // EMAIL-BRAND-REFRESH Phase 2B pilot: migrated onto the shared ASPIRE shell
-// (lib/server/email/aspireShell.js) — Nightfall header (ASPIRE wordmark + meaning), white card,
+// (lib/server/email/aspireShell.js) - Nightfall header (ASPIRE wordmark + meaning), white card,
 // Nightfall footer with the no-reply line. Typed system signature (no handwritten image).
 
 import { escapeHtml } from '../../htmlEscape.js';
@@ -12,7 +12,7 @@ import { aspireHandwrittenSignature } from '../handwrittenSignature.js';
 
 export const CLOCKOUT_REMINDER_SUBJECT = 'ASPIRE Shift Clock-Out Reminder';
 
-// Exact approved plaintext body — used for the cron admin preview and as the plaintext source.
+// Exact approved plaintext body - used for the cron admin preview and as the plaintext source.
 // Mirrors the sent HTML so preview equals sent.
 export function clockoutReminderText(firstName) {
   const name = (firstName && String(firstName).trim()) || 'there';

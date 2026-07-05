@@ -1,4 +1,4 @@
-// LifecycleResultView.jsx — confirmations, ineligible states, and errors.
+// LifecycleResultView.jsx - confirmations, ineligible states, and errors.
 // Student-facing copy only: no "exception flags" / "Auto-Accepted" jargon;
 // Pending Review is shown as "submitted for review". The check-in confirmation
 // states the ASPIRE team can see the student is onsite (NOT that the preceptor
@@ -76,7 +76,7 @@ export default function LifecycleResultView({ variant, data = {}, onDone, onTryD
         </Banner>
         {(shift.learning_highlight || shift.support_needed) && (
           <p style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6, margin: '0 0 16px', fontFamily: F }}>
-            Thanks for sharing your reflections — the ASPIRE team will see them.
+            Thanks for sharing your reflections, the ASPIRE team will see them.
           </p>
         )}
         <button style={BTN_PRIMARY} onClick={onDone}>Done</button>
@@ -104,7 +104,7 @@ export default function LifecycleResultView({ variant, data = {}, onDone, onTryD
     body = (
       <>
         <Banner emoji="🔍" bg="#FEF3C7" color="#78350F" heading="We couldn't find that email">
-          Make sure you're using the email your school registered with the ASPIRE Program.
+          Make sure you're using the email your school registered with ASPIRE.
         </Banner>
         <Contact />
         <button style={BTN_PRIMARY} onClick={onTryDifferentEmail}>Try a different email</button>

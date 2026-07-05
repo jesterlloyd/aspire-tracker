@@ -1,7 +1,7 @@
 // src/components/connect/blocks/NoteBlock.js
 //
-// RICH-COMPOSE-2A-3 — TipTap atom node for the ASPIRE Content Block "Note" (branded callout).
-// Scalar attributes (title, body — plain text) only. Serializes to the canonical marker
+// RICH-COMPOSE-2A-3 - TipTap atom node for the ASPIRE Content Block "Note" (branded callout).
+// Scalar attributes (title, body - plain text) only. Serializes to the canonical marker
 //   <div data-aspire-block="note" data-title="..." data-body="..."></div>
 // which the server (renderContentBlocks.js) extracts, VALIDATES + ESCAPES, and replaces with a
 // branded, email-safe callout table. parseHTML round-trips the marker; richDoc (TipTap JSON)

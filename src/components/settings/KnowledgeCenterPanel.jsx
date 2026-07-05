@@ -1,8 +1,8 @@
-// KT-3a-2a: Settings → Knowledge Center — Owner/Admin INPUT enabled.
+// KT-3a-2a: Settings → Knowledge Center - Owner/Admin INPUT enabled.
 // Builds on the KT-3a-1 read-only shell + UI-1 primitives (SurfaceCard, MetricCard,
 // FilterChip, Toolbar, Button, DataTable, StateBadge). This phase makes the panel
 // usable for authoring: the New Entry button opens a create drawer, clicking a row
-// opens a detail drawer (read-only view), and draft entries can be edited — all via
+// opens a detail drawer (read-only view), and draft entries can be edited - all via
 // KnowledgeEntryDrawer, which talks only to the existing api/knowledge-admin.js
 // actions (list_entries, get_entry, create_entry_draft, update_entry_draft). No
 // lifecycle/version-history controls here; non-draft entries remain read-only.
@@ -42,7 +42,7 @@ async function postAdmin(payload) {
   return res
 }
 
-// Entries table columns (DataTable) — identical cells to the KT-3a-1 table.
+// Entries table columns (DataTable) - identical cells to the KT-3a-1 table.
 const ENTRY_COLUMNS = [
   { key: 'title',    label: 'Title',    cellStyle: { fontWeight: 600 }, render: e => e.title || 'Untitled' },
   { key: 'category', label: 'Category', cellStyle: { color: 'var(--color-text-secondary, #6b7280)' }, render: e => CATEGORY_LABELS[e.category] || e.category },
@@ -170,13 +170,13 @@ export default function KnowledgeCenterPanel() {
         />
       </div>
 
-      {/* Summary cards — passive metrics (MetricCard summary register) */}
+      {/* Summary cards - passive metrics (MetricCard summary register) */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
         {STATES.map(s => (
           <MetricCard
             key={s}
             badge={<StateBadge state={s} />}
-            value={loading ? '—' : counts[s]}
+            value={loading ? '-' : counts[s]}
             sub={`${s.charAt(0).toUpperCase() + s.slice(1)} entries`}
           />
         ))}
@@ -251,7 +251,7 @@ export default function KnowledgeCenterPanel() {
           <EmptyState
             icon={<FileText />}
             heading="No knowledge entries yet"
-            subtext="Governed Keith knowledge will live here — program rules, eligibility, rotations, terminology, and FAQs that Keith can cite. Use New Entry to add your first draft."
+            subtext="Governed Keith knowledge will live here, program rules, eligibility, rotations, terminology, and FAQs that Keith can cite. Use New Entry to add your first draft."
           />
         </SurfaceCard>
       ) : (

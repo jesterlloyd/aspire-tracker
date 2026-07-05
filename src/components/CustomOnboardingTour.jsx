@@ -86,7 +86,7 @@ export default function CustomOnboardingTour({ run, onClose }) {
   async function markDismissed(permanent) {
     if (!userProfile?.auth_user_id) return;
     if (permanent) {
-      // WELCOME-TOUR-REFRESH-RESET: stamp the version so "Don't show again" is version-scoped —
+      // WELCOME-TOUR-REFRESH-RESET: stamp the version so "Don't show again" is version-scoped -
       // a user who dismissed v1 still sees v2 once; dismissing v2 suppresses only v2.
       await supabase
         .from('user_profiles')
@@ -162,7 +162,7 @@ export default function CustomOnboardingTour({ run, onClose }) {
 
   return createPortal(
     <>
-      {/* Spotlight overlay — 4 panels + ring */}
+      {/* Spotlight overlay - 4 panels + ring */}
       {targetRect ? (
         <>
           <div style={{ position:'fixed', inset:'0 0 auto 0', height: Math.max(0, targetRect.top - 4),          background: OVERLAY, zIndex: 999990 }} />

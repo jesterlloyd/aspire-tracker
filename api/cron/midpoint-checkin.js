@@ -66,7 +66,7 @@ export default async function handler(req, res) {
 
     // Fetch already-sent check-ins from notification_log (last 6 months to cover all rotations).
     // Match any non-failed/non-queued status so webhook-advanced rows (delivered/opened/...)
-    // still count as already sent — this is the duplicate-send fix.
+    // still count as already sent - this is the duplicate-send fix.
     const cutoff = new Date(now.getTime() - 180 * 24 * 3600 * 1000).toISOString();
     const { data: sentLog } = await supabase
       .from('notification_log')

@@ -82,7 +82,7 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
     timerRef.current = setTimeout(() => doSave(field, value), 600)
   }
 
-  // Handles first_name / last_name — computes + saves all three fields together
+  // Handles first_name / last_name - computes + saves all three fields together
   const handleNameField = (field, value) => {
     setData(prev => {
       const updated = { ...prev, [field]: value }
@@ -173,8 +173,8 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
     : 0
 
   const matchedUnitName = data.matched_unit_id && units.length > 0
-    ? (units.find(u => u.id === data.matched_unit_id)?.unit_name || '—')
-    : (data.matched_unit_id ? '(loading…)' : '—')
+    ? (units.find(u => u.id === data.matched_unit_id)?.unit_name || '-')
+    : (data.matched_unit_id ? '(loading…)' : '-')
 
   const dname = displayName(data)
 
@@ -231,7 +231,7 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
       {expanded && (
         <div className="row-expand" onClick={e => e.stopPropagation()}>
           <div className="expand-topbar">
-            <span className="expand-title">Editing — {dname}</span>
+            <span className="expand-title">Editing, {dname}</span>
             <span className={`save-status save-${saveState}`}>
               {saveState === 'saving' && '· Saving…'}
               {saveState === 'saved'  && '✓ Saved'}
@@ -244,7 +244,7 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
             <div className="section-label">Contact Information</div>
             <div className="form-grid form-grid-3">
               <Field label="School Email">
-                <div className="form-readonly">{data.school_email || '—'}</div>
+                <div className="form-readonly">{data.school_email || '-'}</div>
               </Field>
               <Field label="Personal Email">
                 <input className="form-input" value={data.personal_email || ''} onChange={e => handleText('personal_email', e.target.value)} />
@@ -260,13 +260,13 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
             <div className="section-label">Program Details</div>
             <div className="form-grid form-grid-3">
               <Field label="School">
-                <div className="form-readonly">{data.school || '—'}</div>
+                <div className="form-readonly">{data.school || '-'}</div>
               </Field>
               <Field label="Program Type">
-                <div className="form-readonly">{data.program_type || '—'}</div>
+                <div className="form-readonly">{data.program_type || '-'}</div>
               </Field>
               <Field label="Term Dates">
-                <div className="form-readonly">{data.term_dates || '—'}</div>
+                <div className="form-readonly">{data.term_dates || '-'}</div>
               </Field>
               <Field label="Hours Required">
                 <input className="form-input" type="text" inputMode="numeric" pattern="[0-9]*"
@@ -274,7 +274,7 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
                   onChange={e => handleNum('hours_required', e.target.value)} />
               </Field>
               <Field label="Estimated Graduation">
-                <div className="form-readonly">{data.estimated_graduation || '—'}</div>
+                <div className="form-readonly">{data.estimated_graduation || '-'}</div>
               </Field>
             </div>
           </div>
@@ -296,7 +296,7 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
                 <div style={{ display: 'flex', gap: 6 }}>
                   {/* WS1e-A4: ssn_last4 is read-only (no longer staff-editable; set at intake). */}
                   <input className="form-input" type={showSSN ? 'text' : 'password'}
-                    value={data.ssn_last4 || ''} maxLength={4} readOnly title="Read-only — set during student intake." />
+                    value={data.ssn_last4 || ''} maxLength={4} readOnly title="Read-only, set during student intake." />
                   <button type="button" className="btn-clear"
                     style={{ flexShrink: 0, padding: '4px 8px', fontSize: 11 }}
                     onClick={() => setShowSSN(p => !p)}>
@@ -480,7 +480,7 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
                 <div className="iv-summary-row">
                   <span className="iv-summary-lbl">Avg Composite</span>
                   <span className="iv-summary-val" style={{ fontWeight: 700, color: 'var(--nightfall)' }}>
-                    {data.avg_composite_score > 0 ? `${parseFloat(data.avg_composite_score).toFixed(1)}/15` : '—'}
+                    {data.avg_composite_score > 0 ? `${parseFloat(data.avg_composite_score).toFixed(1)}/15` : '-'}
                   </span>
                 </div>
                 {data.avg_composite_score > 0 && (
@@ -510,14 +510,14 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
                           }}>{data.auto_recommendation}</span>
                           <ScoreFlag message={data.score_flag ? data.score_flag_message : ''} />
                         </>
-                      : '—'}
+                      : '-'}
                   </span>
                 </div>
                 {data.flagged_for_second_interview && (
                   <div className="iv-summary-row">
                     <span className="iv-summary-lbl">Flagged</span>
                     <span className="iv-summary-val" style={{ color:'#991b1b', fontWeight:600 }}>
-                      🚩 Second Interview{data.flag_note ? ` — ${data.flag_note}` : ''}
+                      🚩 Second Interview{data.flag_note ? `, ${data.flag_note}` : ''}
                     </span>
                   </div>
                 )}

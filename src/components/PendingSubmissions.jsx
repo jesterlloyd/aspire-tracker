@@ -51,7 +51,7 @@ export default function PendingSubmissions({ submissions, onApprove, onReject })
               )}
             </div>
 
-            {/* Approve always visible — guard on is_participating is in App.jsx */}
+            {/* Approve always visible - guard on is_participating is in App.jsx */}
             <div className="ps-actions">
               <button className="ps-btn ps-btn-approve" onClick={() => onApprove(sub)}>
                 ✓ {sub.is_participating ? 'Approve & Add Unit' : 'Mark Reviewed'}

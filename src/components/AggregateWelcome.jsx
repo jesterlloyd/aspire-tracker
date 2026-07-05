@@ -1,8 +1,8 @@
 // ASPIRE-WELCOME-AGGREGATE-3: a calm program-time welcome band at the top of Aggregate (OverviewTab).
 // Greeting + today's date, "Today in ASPIRE" (today's events), and "Upcoming Milestones" countdown
-// tiles — a welcome layer, NOT another KPI grid. Reads active ASPIRE events via the SAME gated
+// tiles - a welcome layer, NOT another KPI grid. Reads active ASPIRE events via the SAME gated
 // /api/aspire-events list action used by the calendar (own query key; no direct Supabase writes).
-// All active internal users can view. "Add Event" is deferred (would duplicate the calendar modal) —
+// All active internal users can view. "Add Event" is deferred (would duplicate the calendar modal) -
 // only "View Calendar" is offered, which routes to the Interviews tab where owner/admin author events.
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -62,7 +62,7 @@ export default function AggregateWelcome() {
   const firstName = (userProfile?.full_name || '').trim().split(/\s+/)[0] || 'there'
   const dateLabel = new Date(`${today}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
 
-  // Today in ASPIRE — point / all-day / ranged events overlapping today.
+  // Today in ASPIRE - point / all-day / ranged events overlapping today.
   const todayEvents = useMemo(
     () => (events || []).filter(ev => eventOnDate(ev, today)).sort((a, b) => {
       if (!!a.all_day !== !!b.all_day) return a.all_day ? -1 : 1
@@ -71,10 +71,10 @@ export default function AggregateWelcome() {
     [events, today],
   )
 
-  // US holiday(s) today — read-only, client-computed (never persisted / never via /api/aspire-events).
+  // US holiday(s) today - read-only, client-computed (never persisted / never via /api/aspire-events).
   const todayHolidays = useMemo(() => getUsHolidaysForRange(today, today), [today])
 
-  // Upcoming milestones — important events starting today-or-later, soonest first (tie-break: on-welcome).
+  // Upcoming milestones - important events starting today-or-later, soonest first (tie-break: on-welcome).
   const upcoming = useMemo(() => {
     const isImportant = ev => ev.show_on_welcome || ev.is_milestone || IMPORTANT_TYPES.has(ev.event_type)
     return (events || [])
@@ -94,7 +94,7 @@ export default function AggregateWelcome() {
     return `In ${d} days`
   }
 
-  // Day/night theming — the band background + text/cards shift to an atmospheric night sky (deep blue
+  // Day/night theming - the band background + text/cards shift to an atmospheric night sky (deep blue
    // + CSS star speckles) after sunset, and a richer day sky otherwise. Driven by the SAME weather
    // query (shared cache). Defaults to DAY while loading / on failure (safe, light look).
   const { data: wx } = useWelcomeWeather()
@@ -131,7 +131,7 @@ export default function AggregateWelcome() {
       padding: '16px 20px', marginBottom: 14, fontFamily: F,
       position: 'relative', overflow: 'hidden', // hero weather layer is clipped to the band; positioning context
     }}>
-      {/* Header row — greeting/date left, View Calendar far right (compact, ~3A height). */}
+      {/* Header row - greeting/date left, View Calendar far right (compact, ~3A height). */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', position: 'relative', zIndex: 1 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 19, fontWeight: 700, color: T.text, lineHeight: 1.2 }}>{greetingWord()}, {firstName}</div>
@@ -148,12 +148,12 @@ export default function AggregateWelcome() {
         </button>
       </div>
 
-      {/* Weather — absolutely positioned sky layer floating in the empty area right of the greeting,
+      {/* Weather - absolutely positioned sky layer floating in the empty area right of the greeting,
           left of Upcoming Milestones (overlays without adding band height; drops to static flow on
           narrow). Rendered before the columns so it layers behind them (z-index). */}
       <WeatherScene />
 
-      {/* Two-column body — Today in ASPIRE | Upcoming Milestones. Stacks on narrow. */}
+      {/* Two-column body - Today in ASPIRE | Upcoming Milestones. Stacks on narrow. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginTop: 14, position: 'relative', zIndex: 1 }}>
 
         {/* Today in ASPIRE */}
@@ -165,7 +165,7 @@ export default function AggregateWelcome() {
             <div style={{ fontSize: 13, color: T.muted, fontStyle: 'italic' }}>No events today.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {/* Holiday(s) first — amber glass card, read-only, distinct from ASPIRE events. */}
+              {/* Holiday(s) first - amber glass card, read-only, distinct from ASPIRE events. */}
               {todayHolidays.map(h => (
                 <div key={h.name} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, maxWidth: 360, background: T.cardBg, backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', border: `1px solid ${T.cardBorder}`, borderLeft: '3px solid #D97706', borderRadius: 8, padding: '7px 11px', boxShadow: night ? '0 2px 10px rgba(0,0,0,0.18)' : '0 1px 4px rgba(29,37,103,0.06)' }}>
                   <div style={{ minWidth: 0, flex: 1 }}>

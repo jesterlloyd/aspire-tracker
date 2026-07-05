@@ -382,7 +382,7 @@ export default function EmbedUnitCard({
             {filledCount} of {unit.total_slots} filled{isFull ? ' · Full' : ` · ${emptyCount} open`}
           </div>
 
-          {/* Notify Zone-2 button — only when full and unnotified placements exist */}
+          {/* Notify Zone-2 button - only when full and unnotified placements exist */}
           {isFull && filledCount > 0 && !allNotified && (
             <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
               {notifiedAt ? (

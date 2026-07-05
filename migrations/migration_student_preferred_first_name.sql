@@ -1,5 +1,5 @@
 -- ============================================================
--- ASPIRE Intelligence — STUDENT-PREFERRED-FIRST-NAME-1A
+-- ASPIRE Intelligence - STUDENT-PREFERRED-FIRST-NAME-1A
 -- ============================================================
 --
 -- Adds an OPTIONAL preferred first name to students. This is a preferred FIRST name only

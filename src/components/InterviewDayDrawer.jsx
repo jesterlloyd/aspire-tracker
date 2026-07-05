@@ -383,7 +383,7 @@ export default function InterviewDayDrawer({
                           {fmtTime(slot.slot_time)} – {fmtTime(endTime)} · {slot.duration_minutes} min
                         </div>
                         <div style={{ fontSize: 14, fontWeight: 700, color: '#1D2567' }}>
-                          {student ? `${student.first_name} ${student.last_name}` : '—'}
+                          {student ? `${student.first_name} ${student.last_name}` : '-'}
                         </div>
                         {student?.school && (
                           <div style={{ fontSize: 11, color: '#6B7280', marginTop: 1 }}>

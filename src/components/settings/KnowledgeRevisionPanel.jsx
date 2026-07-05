@@ -95,7 +95,7 @@ export default function KnowledgeRevisionPanel({ entry, onApplied }) {
     loadRevision()
   }, [entryId, isActive, loadRevision])
 
-  // Active entries only, Owner/Admin only — otherwise render nothing.
+  // Active entries only, Owner/Admin only - otherwise render nothing.
   if (!isActive || !entryId || !canGovernKnowledge) return null
 
   const canEditDiscard = isOwner || (revision && revision.author_id === myId)
@@ -156,7 +156,7 @@ export default function KnowledgeRevisionPanel({ entry, onApplied }) {
     if (!validate()) return
     setBusy(true); setActionErr(null); setConflict(false)
     try {
-      // Full snapshot (backend validates 'snapshot' — all content fields required).
+      // Full snapshot (backend validates 'snapshot' - all content fields required).
       const payload = {
         action: editorKind === 'create' ? 'submit_entry_revision' : 'update_entry_revision',
         entry_id: entryId,
@@ -257,7 +257,7 @@ export default function KnowledgeRevisionPanel({ entry, onApplied }) {
         <Field label="Precedence" hint="lower = higher priority" error={fieldErr.precedence_rank}>
           <input style={inputStyle} value={form.precedence_rank} inputMode="numeric" onChange={e => set('precedence_rank', e.target.value)} placeholder="100" />
         </Field>
-        <Field label="Change note" hint="required — shown in version history" error={fieldErr.change_note}>
+        <Field label="Change note" hint="required, shown in version history" error={fieldErr.change_note}>
           <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical', lineHeight: 1.5 }} value={form.change_note} maxLength={CAPS.source} onChange={e => set('change_note', e.target.value)} placeholder="What changed and why?" />
         </Field>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>

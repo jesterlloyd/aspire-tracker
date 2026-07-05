@@ -1,9 +1,9 @@
-// ASPIRE-EVENTS-CALENDAR-2B: shared config/helpers for custom ASPIRE program events (distinct from
-// interview slots/availability). Pure config + pure functions — no data/API/JSX. The gated endpoint
+// ASPIRE-EVENTS-CALENDAR-2B: shared config/helpers for custom ASPIRE events (distinct from
+// interview slots/availability). Pure config + pure functions - no data/API/JSX. The gated endpoint
 // api/aspire-events.js keeps its OWN copies of the allow-lists (api/ imports don't resolve safely at
 // the Vercel runtime), so keep the two in sync if the lists ever change.
 
-// Event types — each carries a distinct, non-interview color so ASPIRE events never read like a
+// Event types - each carries a distinct, non-interview color so ASPIRE events never read like a
 // booked/available/blocked interview slot. Order = the modal's picker order.
 export const ASPIRE_EVENT_TYPES = [
   { value: 'ngrp_open',        label: 'NGRP Application Opens',  color: '#0E7490' },

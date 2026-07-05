@@ -125,7 +125,7 @@ export default function AvailabilitySection({ cohortId }) {
 
   return (
     <div className="avail-section">
-      {/* Header — always visible */}
+      {/* Header - always visible */}
       <div className="avail-section-hdr" onClick={() => setExpanded(p => !p)}>
         <span className="avail-section-title">Interview Availability</span>
         <span className="avail-section-count">{activeCount} block{activeCount !== 1 ? 's' : ''} active</span>
@@ -160,7 +160,7 @@ export default function AvailabilitySection({ cohortId }) {
               <div className="form-field">
                 <label className="form-label" style={{ fontSize:11 }}>Hosted by</label>
                 <div style={{ padding:'8px 12px', border:'1px solid #e5e7eb', borderRadius:6, fontSize:13, color:'#1D2567', background:'#F4F1EC', fontWeight:500 }}>
-                  {userProfile?.full_name || '—'}
+                  {userProfile?.full_name || '-'}
                 </div>
               </div>
               <div style={{ display:'flex', gap:12, padding:'0 0 4px' }}>
@@ -174,7 +174,7 @@ export default function AvailabilitySection({ cohortId }) {
             </div>
             {previewSlots.length > 0 && (
               <div style={{ fontSize:11, color:'var(--text-secondary)', marginBottom:8 }}>
-                Preview: <strong>{previewSlots.length} slot{previewSlots.length !== 1 ? 's' : ''}</strong> — {previewSlots.map(fmtTime).join(', ')}
+                Preview: <strong>{previewSlots.length} slot{previewSlots.length !== 1 ? 's' : ''}</strong>, {previewSlots.map(fmtTime).join(', ')}
               </div>
             )}
             <button className="btn btn-primary" style={{ fontSize:12 }}

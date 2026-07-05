@@ -1,5 +1,5 @@
 // src/lib/notifications/index.js
-// Server-side only — imported by API routes, never by frontend components.
+// Server-side only - imported by API routes, never by frontend components.
 // Requires RESEND_API_KEY and SUPABASE_SERVICE_ROLE_KEY environment variables.
 
 import { Resend } from 'resend';
@@ -108,7 +108,7 @@ export async function sendNotification(type, context = {}) {
         recipient_role:    recipient.role  || null,
         recipient_name:    recipient.name  || null,
         // recipient_type reflects who actually RECEIVES this row, derived from the
-        // per-recipient audience — NOT context.studentId, which here is the subject
+        // per-recipient audience - NOT context.studentId, which here is the subject
         // student and is the same across every recipient of a notification. So
         // internal-team / coordinator / interviewer / submitter rows stay null even
         // when student_id is populated as the subject. (Phase B.2.B, Option B.)

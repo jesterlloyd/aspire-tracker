@@ -1,4 +1,4 @@
-// UI-1: governance toolbar row — search (growing) + inline filters + a
+// UI-1: governance toolbar row - search (growing) + inline filters + a
 // right-aligned primary action. Layout extracted pixel-for-pixel from the
 // shipped Knowledge Center toolbar (KT-3a-1): the search slot grows
 // (flex 1 1 220px, relative for an absolutely-positioned leading icon),

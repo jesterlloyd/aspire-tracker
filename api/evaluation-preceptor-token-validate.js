@@ -67,7 +67,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid request body' });
     }
 
-    // Rate limit — fail closed.
+    // Rate limit - fail closed.
     const ip = extractClientIp(req);
     const key = bucketKey('preceptor_eval_validate', ip);
     const { data: allowed, error: rlError } = await supabaseAdmin.rpc(

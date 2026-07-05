@@ -1,11 +1,11 @@
-// ROTATION-PRECEPTORS-STUDENT-COVERAGE — read-only "Student Coverage" view (sibling of the
+// ROTATION-PRECEPTORS-STUDENT-COVERAGE - read-only "Student Coverage" view (sibling of the
 // Preceptor Directory inside Rotation > Preceptors). Answers the inverse question: which
 // placement-committed students (Active Rotation / Placed) do NOT have preceptor coverage yet.
 //
 // PRIMARY preceptor source = students.preceptor_id, with the canonical free-text fallback
 // students.matched_preceptor (kept in sync with the FK; see lib/preceptor.js). "No primary
 // preceptor" mirrors Action Center act17 / Rotation Activity: !preceptor_id &&
-// !matched_preceptor.trim(). This phase tracks PRIMARY coverage only — secondary/coverage
+// !matched_preceptor.trim(). This phase tracks PRIMARY coverage only - secondary/coverage
 // assignments (student_preceptor_assignments) exist but are intentionally not surfaced here.
 // No writes, no assignment path. Open Profile is the only (existing, safe) navigation.
 import { useQuery } from '@tanstack/react-query'
@@ -42,7 +42,7 @@ function Badge({ label, tone }) {
 
 function CoverageRow({ row, onOpen }) {
   const { s, name, school, status, unitName, shift, range, precName, missing } = row
-  const metaLine = [school, status, unitName, shift].filter(Boolean).join(' · ') || '—'
+  const metaLine = [school, status, unitName, shift].filter(Boolean).join(' · ') || '-'
   return (
     <div style={{
       display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14,
@@ -58,7 +58,7 @@ function CoverageRow({ row, onOpen }) {
         </div>
         <div style={{ fontSize: 12, color: '#6b7280', marginTop: 3 }}>{metaLine}</div>
         <div style={{ fontSize: 11.5, color: '#9ca3af', marginTop: 2 }}>
-          Preceptor: {missing ? '—' : (precName || '—')}{range ? ` · ${range}` : ''}
+          Preceptor: {missing ? '-' : (precName || '-')}{range ? ` · ${range}` : ''}
         </div>
       </div>
       <div style={{ flex: '0 0 auto' }}>
@@ -79,7 +79,7 @@ function CoverageRow({ row, onOpen }) {
 }
 
 export default function StudentCoverage({ students = [], units = [], cohortId, onNavigateToStudent }) {
-  // Canonical rotation windows — shares the React Query cache key with Rotation > Activity.
+  // Canonical rotation windows - shares the React Query cache key with Rotation > Activity.
   const { data: rotationById = {} } = useQuery({
     queryKey: ['rotation_ranges', cohortId],
     queryFn: async () => {
@@ -125,7 +125,7 @@ export default function StudentCoverage({ students = [], units = [], cohortId, o
       <div style={{ margin: '4px 2px 10px' }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: '#191919' }}>Student Coverage</div>
         <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
-          Primary preceptor coverage for students who are placed or actively rotating — students without a primary preceptor first.
+          Primary preceptor coverage for students who are placed or actively rotating, students without a primary preceptor first.
         </div>
       </div>
       {rows.length === 0 ? (

@@ -1,4 +1,4 @@
-// UI-POLISH-2 / 2b — Shared "Back to <workspace>" return control used by the app-level utility
+// UI-POLISH-2 / 2b - Shared "Back to <workspace>" return control used by the app-level utility
 // surfaces (ASPIRE Connect, ASPIRE Catalog, Settings). Consolidates three previously-duplicated
 // copies into one consistent, deliberate pill (not floating gray text).
 //

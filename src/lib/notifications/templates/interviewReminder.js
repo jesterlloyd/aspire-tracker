@@ -1,7 +1,7 @@
 // src/lib/notifications/templates/interviewReminder.js
 // 24-hour interview reminder email sent to students.
 // EMAIL-BRAND-REFRESH Phase 2B-3: migrated onto the shared ASPIRE system shell
-// (lib/server/email/aspireShell.js) — Nightfall header (ASPIRE wordmark + meaning), white card,
+// (lib/server/email/aspireShell.js) - Nightfall header (ASPIRE wordmark + meaning), white card,
 // Nightfall footer with the no-reply line. Typed system signature only (no handwritten image).
 
 import { escapeHtml } from '../../htmlEscape.js';
@@ -23,7 +23,7 @@ export function buildInterviewReminderEmail({ firstName, interviewDate, intervie
 
 <p style="margin:0 0 20px;">A few things before tomorrow:</p>
 
-<!-- Interview details block — EMAIL-NOTIF-MODERNIZE-2A: shared details-card primitive (same Date/Time/
+<!-- Interview details block, EMAIL-NOTIF-MODERNIZE-2A: shared details-card primitive (same Date/Time/
      Format data; consistent ASPIRE card styling). -->
 ${renderEmailDetailsCard({ title: 'Your Interview', rows: [
   { label: 'Date',   value: interviewDate },

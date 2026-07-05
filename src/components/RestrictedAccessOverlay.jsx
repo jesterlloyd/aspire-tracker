@@ -1,11 +1,11 @@
 // src/components/RestrictedAccessOverlay.jsx
 // RESTRICTED-ACCESS-OVERLAY-UNIFORMITY: shared restricted-access overlay used by the Rotation
-// (MatchingTab) and Evaluation (EvaluationTab) tabs so both look identical — a centered white
+// (MatchingTab) and Evaluation (EvaluationTab) tabs so both look identical - a centered white
 // card with a lock icon, floating over a softened/blurred backdrop.
 //
 // Render this INSIDE a `position: relative` container; it absolutely fills that container and
 // blurs whatever is painted behind it (the real dashboard for Rotation; a non-sensitive
-// placeholder backdrop for Evaluation — interviewers never fetch evaluation data).
+// placeholder backdrop for Evaluation - interviewers never fetch evaluation data).
 import { Lock } from 'lucide-react'
 
 const F = 'DM Sans, sans-serif'

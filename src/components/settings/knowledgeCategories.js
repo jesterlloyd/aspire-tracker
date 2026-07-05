@@ -1,4 +1,4 @@
-// KT-3a-2a: shared Knowledge Center domain constants (leaf module — no imports —
+// KT-3a-2a: shared Knowledge Center domain constants (leaf module - no imports -
 // so both KnowledgeCenterPanel and KnowledgeEntryDrawer can use them without an
 // import cycle). Mirrors the KT-1 schema vocabularies and the api/knowledge-admin.js
 // validation caps so client-side validation matches the backend authority.
@@ -18,7 +18,7 @@ export const CATEGORY_LABELS = {
 }
 export const CATEGORY_KEYS = Object.keys(CATEGORY_LABELS)
 
-// Field caps — must match api/knowledge-admin.js.
+// Field caps - must match api/knowledge-admin.js.
 export const CAPS = { title: 200, body: 50000, source: 2000 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -28,8 +28,8 @@ export function isValidDateStr(v) {
 }
 
 export function fmtDate(value) {
-  if (!value) return '—'
+  if (!value) return '-'
   const t = Date.parse(value)
-  if (Number.isNaN(t)) return '—'
+  if (Number.isNaN(t)) return '-'
   return new Date(t).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }

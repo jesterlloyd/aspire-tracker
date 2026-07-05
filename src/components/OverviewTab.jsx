@@ -106,7 +106,7 @@ function CapacityCoverageGauge({ totalDemand, totalCapacity, placed, cohort }) {
   // Center text
   let centerBig = '', centerSub = '', centerColor = '#475467'
   if (noStudents) {
-    centerBig = '—'; centerSub = 'no students yet'; centerColor = '#98A2B3'
+    centerBig = '-'; centerSub = 'no students yet'; centerColor = '#98A2B3'
   } else if (noCapacity) {
     centerBig = String(totalDemand); centerSub = 'students, no capacity'; centerColor = '#930045'
   } else if (unmatched > 0) {
@@ -142,26 +142,26 @@ function CapacityCoverageGauge({ totalDemand, totalCapacity, placed, cohort }) {
         <div style={{ fontSize: 11, color: 'var(--text-muted,#98A2B3)' }}>{cohortName} · live snapshot</div>
       </div>
 
-      {/* Gauge left, legend right — wraps on narrow viewports */}
+      {/* Gauge left, legend right - wraps on narrow viewports */}
       <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: '6px 16px 10px', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ flex: '0 0 auto', width: 200 }}>
           <svg width="100%" viewBox="0 0 220 115" style={{ display: 'block' }}>
             {/* Baseline full arch in light gray */}
             <path d={annularPath(cx, cy, innerR, outerR, 0, 180)} fill={GAUGE_COLORS.baseline} stroke="rgba(25,25,25,0.05)" strokeWidth="0.5" />
 
-            {/* Sage — placed */}
+            {/* Sage - placed */}
             {sageEnd > 0.1 && (
               <path d={annularPath(cx, cy, innerR, outerR, 0, sageEnd)} fill={GAUGE_COLORS.sage} stroke="rgba(25,25,25,0.04)" strokeWidth="0.5">
                 <title>{placed} placed</title>
               </path>
             )}
-            {/* Periwinkle — awaiting */}
+            {/* Periwinkle - awaiting */}
             {periwinkleEnd > sageDeg + 0.1 && (
               <path d={annularPath(cx, cy, innerR, outerR, sageDeg, periwinkleEnd)} fill={GAUGE_COLORS.periwinkle} stroke="rgba(25,25,25,0.04)" strokeWidth="0.5">
                 <title>{awaiting} awaiting placement (within capacity)</title>
               </path>
             )}
-            {/* Chroma — over capacity */}
+            {/* Chroma - over capacity */}
             {chromaEnd > sageDeg + periwinkleDeg + 0.1 && (
               <path d={annularPath(cx, cy, innerR, outerR, sageDeg + periwinkleDeg, chromaEnd)} fill={GAUGE_COLORS.chroma} stroke="rgba(25,25,25,0.04)" strokeWidth="0.5">
                 <title>{unmatched} students over capacity (no slot available)</title>
@@ -189,7 +189,7 @@ function CapacityCoverageGauge({ totalDemand, totalCapacity, placed, cohort }) {
           </svg>
         </div>
 
-        {/* Legend — vertically stacked to the right of the gauge */}
+        {/* Legend - vertically stacked to the right of the gauge */}
         {!noStudents && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: '0 0 auto' }}>
             {legend.map(({ color, value, label }) => (
@@ -206,7 +206,7 @@ function CapacityCoverageGauge({ totalDemand, totalCapacity, placed, cohort }) {
   )
 }
 
-// ── On Campus Today — picture-card layout ────────────────────────────────────
+// ── On Campus Today - picture-card layout ────────────────────────────────────
 
 function CampusStudentCard({ log, student, units, onSelectStudent }) {
   const [imgError, setImgError] = useState(false)
@@ -214,7 +214,7 @@ function CampusStudentCard({ log, student, units, onSelectStudent }) {
 
   const hasPhoto  = !!(student.headshot_url && !imgError)
   const initials  = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`.toUpperCase()
-  const unitName  = log.unit_name || units?.find(u => u.id === student.matched_unit_id)?.unit_name || '—'
+  const unitName  = log.unit_name || units?.find(u => u.id === student.matched_unit_id)?.unit_name || '-'
 
   // SHIFT-VIS-1: badge derives from the shift actually being worked (shift_type for completed
   // rows, planned_shift_type for open rows); unknown → "Shift not specified" (never guessed).
@@ -300,7 +300,7 @@ function CampusStudentCard({ log, student, units, onSelectStudent }) {
 }
 
 // ── Program at a Glance band ──────────────────────────────────────────────────
-// KPICell and useUpdatedLabel are shared — imported from ./KPIBand
+// KPICell and useUpdatedLabel are shared - imported from ./KPIBand
 
 function ProgramAtAGlance({ totalSlots, placedCount, slotsRemaining, studentsRequesting, gap, participatingUnits, activeSchools, cohort, cohortId }) {
   const placedPct = totalSlots > 0 ? Math.round((placedCount / totalSlots) * 100) : 0
@@ -332,7 +332,7 @@ function ProgramAtAGlance({ totalSlots, placedCount, slotsRemaining, studentsReq
 
 const DIVISIONS = ['Surgical', 'Medical', 'Critical Care', 'Specialty']
 
-// ── Placement Capacity panel — division-grouped, filterable ──────────────────
+// ── Placement Capacity panel - division-grouped, filterable ──────────────────
 
 function UnitResponseRow({ response, filledByUnit, units, primaryLeadMap, showToast, onView }) {
   const [expanded, setExpanded] = useState(false)
@@ -529,7 +529,7 @@ const FORM_SUBJECT = 'Complete Your ASPIRE Intake Form | Cedars-Sinai'
 const buildFormBody = (recipientName = 'ASPIRE Student') =>
 `Dear ${recipientName},
 
-Welcome to the ASPIRE Program at Cedars-Sinai. Your final semester is here, and we are excited to support your transition into practice.
+Welcome to ASPIRE at Cedars-Sinai. Your final semester is here, and we are excited to support your transition into practice.
 
 Please complete your ASPIRE Intake Form using the link below. This form helps us learn your goals and unit interests and is the first step in matching you with the right clinical environment and preceptor.
 
@@ -563,7 +563,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const todayStr     = new Date().toLocaleDateString('en-CA')
   const yesterdayStr = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toLocaleDateString('en-CA') })()
 
-  // On Campus Now — fetches today + yesterday logs so night shifts spanning midnight are included,
+  // On Campus Now - fetches today + yesterday logs so night shifts spanning midnight are included,
   // then filters in JS to only logs whose canonical shift window contains the current moment.
   const {
     data:      campusLogs = [],
@@ -588,7 +588,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     refetchInterval: 60 * 1000,
   })
 
-  // On Campus Now — lifecycle source (S.5): students with a live in_progress
+  // On Campus Now - lifecycle source (S.5): students with a live in_progress
   // check-in from the /shift-log lifecycle. Runs on the same 60s cadence as the
   // time-window fallback above. Independent query so a failure here degrades to
   // fallback-only (and vice versa) rather than blanking the panel.
@@ -613,7 +613,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
   // Hybrid merge: lifecycle rows take precedence (live check-ins, checked_in_at
   // DESC), then time-window fallback rows excluding any student already shown via
-  // lifecycle — so a student appears at most once. S.6 will drop the fallback.
+  // lifecycle - so a student appears at most once. S.6 will drop the fallback.
   const mergedCampusLogs = useMemo(
     () => mergeOnCampusNow(campusLifecycleLogs, campusLogs),
     [campusLifecycleLogs, campusLogs]
@@ -624,7 +624,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     if (mergedCampusLogs.length > 0) setCampusOpen(true)
   }, [mergedCampusLogs.length])
 
-  // Unit Response Status — query unit_cohort_responses for current cohort
+  // Unit Response Status - query unit_cohort_responses for current cohort
   const { data: unitResponses = [] } = useQuery({
     queryKey: ['unit_cohort_responses', cohortId],
     queryFn:  async () => {
@@ -640,7 +640,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     staleTime: 30000,
   })
 
-  // Unit leaders — for primary lead contact in reminder affordance
+  // Unit leaders - for primary lead contact in reminder affordance
   const { data: unitLeadersData = [] } = useQuery({
     queryKey: ['unit_leaders_all'],
     queryFn:  async () => {
@@ -757,7 +757,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
   return (
     <div className="overview-tab">
-      {/* Toast — fixed, lives outside scroll containers */}
+      {/* Toast - fixed, lives outside scroll containers */}
       {localToast && (
         <div style={{
           position:'fixed', top:80, right:24, zIndex:9999,
@@ -777,7 +777,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       {/* ════════ STICKY HEADER ════════ */}
       <div className="aggregate-sticky-header">
 
-        {/* Program at a Glance + Capacity Coverage Gauge — two-column, stacks below ~900px */}
+        {/* Program at a Glance + Capacity Coverage Gauge - two-column, stacks below ~900px */}
         <div style={{ display: 'flex', gap: 14, marginBottom: 20, marginTop: 0, alignItems: 'stretch', flexWrap: 'wrap' }}>
           <div style={{ flex: '7 1 0', minWidth: 0 }}>
             <ProgramAtAGlance
@@ -802,7 +802,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
           </div>
         </div>
 
-        {/* Frozen panel headers — two columns matching the panels below */}
+        {/* Frozen panel headers - two columns matching the panels below */}
         <div className="aggregate-panel-headers">
           <div className="aggregate-panel-hdr">
             <div>
@@ -994,7 +994,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
                     {open && (
                       <div className="ov-group-items">
-                        {/* Send Form to School — only when at least one student is Pending Outreach */}
+                        {/* Send Form to School - only when at least one student is Pending Outreach */}
                         {hasPending && (
                           <div className="ov-school-actions">
                             <button className="ov-send-btn"
@@ -1084,7 +1084,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
         </div>
 
-        {/* ── On Campus Now — StudentCard grid, full-collapse when empty ── */}
+        {/* ── On Campus Now - StudentCard grid, full-collapse when empty ── */}
         {!campusLoading && mergedCampusLogs.length > 0 && (
           <div style={{ margin:'20px 0 24px', fontFamily:'DM Sans, sans-serif' }}>
             {/* Section eyebrow */}

@@ -42,7 +42,7 @@ const READINESS_COLORS = [
   },
 ];
 
-// The 8 active lifecycle statuses — excludes Declined (legacy) and Not Proceeding (terminal)
+// The 8 active lifecycle statuses - excludes Declined (legacy) and Not Proceeding (terminal)
 const LIFECYCLE_STATUSES = ASPIRE_STATUSES.filter(
   s => s.value !== 'Declined' && s.value !== 'Not Proceeding'
 );
@@ -108,7 +108,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen]);
 
-  // Close on external scroll only — ignore scroll events inside the popover itself
+  // Close on external scroll only - ignore scroll events inside the popover itself
   useEffect(() => {
     if (!isOpen) return;
     const handleScroll = (e) => {
@@ -121,7 +121,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
 
   return (
     <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
-      {/* Trigger icon — flexShrink:0 prevents the toolbar from squeezing this out of view */}
+      {/* Trigger icon - flexShrink:0 prevents the toolbar from squeezing this out of view */}
       <button
         ref={triggerRef}
         onClick={handleToggle}
@@ -144,7 +144,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
         <Info size={15} strokeWidth={2} />
       </button>
 
-      {/* Hover tooltip — fixed position to escape overflow:hidden parents */}
+      {/* Hover tooltip - fixed position to escape overflow:hidden parents */}
       {showTooltip && !isOpen && (
         <div style={{
           position: 'fixed',
@@ -163,7 +163,7 @@ export default function StatusLegendPopover({ position = 'bottom-left', dark = f
         </div>
       )}
 
-      {/* Popover — portaled to document.body so no ancestor overflow clips it */}
+      {/* Popover - portaled to document.body so no ancestor overflow clips it */}
       {isOpen && createPortal(
         <div
           ref={popoverRef}

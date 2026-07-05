@@ -1,5 +1,5 @@
 -- ============================================================
--- ASPIRE Intelligence — AVAILABILITY-CANON-1B: Availability Capture
+-- ASPIRE Intelligence - AVAILABILITY-CANON-1B: Availability Capture
 -- ============================================================
 --
 -- Adds lightweight, NULLABLE rotation-availability columns to the two canonical
@@ -24,7 +24,7 @@ BEGIN;
 
 
 -- ────────────────────────────────────────────────────────────────────────────
--- PART A: cohort_school_rotations — coordinator-owned availability (/school-form)
+-- PART A: cohort_school_rotations - coordinator-owned availability (/school-form)
 -- ────────────────────────────────────────────────────────────────────────────
 ALTER TABLE cohort_school_rotations
   ADD COLUMN IF NOT EXISTS unavailable_weekdays jsonb,    -- e.g. ["Mon","Tue"]
@@ -36,7 +36,7 @@ ALTER TABLE cohort_school_rotations
 
 
 -- ────────────────────────────────────────────────────────────────────────────
--- PART B: students — student-owned availability (/student-form)
+-- PART B: students - student-owned availability (/student-form)
 -- ────────────────────────────────────────────────────────────────────────────
 -- NOTE: students.shift_availability (day/night preference) is intentionally NOT
 -- changed here; these columns are additive structured availability.

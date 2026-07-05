@@ -12,7 +12,7 @@
 //
 // evaluated_target (the preceptor/unit the STUDENT evaluates) is resolved server-side from
 // the student's own record (students.preceptor_id → preceptors, free-text fallback) for
-// READ-ONLY display. It is context only — it is never the respondent identity.
+// READ-ONLY display. It is context only - it is never the respondent identity.
 //
 // POST /api/evaluation-student-eval-token-validate   Body: { token }
 
@@ -64,7 +64,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid request body' });
     }
 
-    // Rate limit — fail closed.
+    // Rate limit - fail closed.
     const ip = extractClientIp(req);
     const key = bucketKey('student_eval_validate', ip);
     const { data: allowed, error: rlError } = await supabaseAdmin.rpc(
@@ -132,7 +132,7 @@ export default async function handler(req, res) {
 
     // Resolve display context: the student (subject+respondent) and the evaluated_target
     // (their preceptor/unit). evaluated_target comes from the STUDENT's own record
-    // (students.preceptor_id → preceptors, free-text fallback) — NOT from respondent_*.
+    // (students.preceptor_id → preceptors, free-text fallback) - NOT from respondent_*.
     const { data: ctxRow } = await supabaseAdmin
       .from('evaluation_assignment_tokens')
       .select(`
@@ -160,7 +160,7 @@ export default async function handler(req, res) {
       ? `${student.first_name || ''} ${student.last_name || ''}`.trim()
       : (rpcResult.first_name || '');
 
-    // evaluated_target — read-only context, echoed back into the response JSON at submit.
+    // evaluated_target - read-only context, echoed back into the response JSON at submit.
     const evaluatedTarget = {
       preceptor_name: (preceptor?.full_name || student?.matched_preceptor || '').trim(),
       preceptor_id:   preceptor?.id || null,

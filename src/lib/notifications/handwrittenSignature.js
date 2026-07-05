@@ -1,8 +1,8 @@
 // src/lib/notifications/handwrittenSignature.js
 //
-// AUTO-SIGNATURE-GIF-1 — Jester's handwritten GIF signature for the SELECTED automated/cron templates
+// AUTO-SIGNATURE-GIF-1 - Jester's handwritten GIF signature for the SELECTED automated/cron templates
 // only: Teams Invite Reminder (first + escalation), Interview Reminder, Coordinator Weekly Digest,
-// and Clock-Out Reminder. This helper is NARROWLY scoped — only templates that import it receive the
+// and Clock-Out Reminder. This helper is NARROWLY scoped - only templates that import it receive the
 // GIF. The shared aspireSystemSignature (typed-only) is unchanged, so unselected automated/system
 // emails (Form Received, Unit Form Received, …) and the evaluation/survey templates keep their
 // typed-only signature. The output mirrors the midpoint-check-in signature exactly: the same existing

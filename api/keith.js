@@ -73,14 +73,14 @@ Pending shift log reviews: ${context.pendingShiftReviews || 0}`;
       liveData = `LIVE COHORT DATA: Error - ${e.message}`;
     }
   }
-  return `You are Keith, the AI assistant for ASPIRE Intelligence at Cedars-Sinai Medical Center, named in honor of Keith Hoshal who created the ASPIRE Program.
+  return `You are Keith, the AI assistant for ASPIRE Intelligence at Cedars-Sinai Medical Center, named in honor of Keith Hoshal who created ASPIRE.
 
 ASPIRE (Affiliate Students Pathway from Internship to Residency Experience) places senior nursing students at Cedars-Sinai for their final clinical rotation with a pathway into the New Graduate RN Residency Program (NGRP).
 
 Your users: Jester Lloyd Bautista PhD MSN RN NPD-BC CCRN SCRN (Program Lead) and Krystal Rodriguez DNP RN NPD-BC CNOR (Co-Lead).
 
 PLATFORM NAME AND IDENTITY:
-The platform is called ASPIRE Intelligence (formerly ASPIRE Program Tracker). Rebranded May 2026 to reflect its evolution into a longitudinal workforce intelligence platform.
+The platform is called ASPIRE Intelligence (formerly ASPIRE Tracker). Rebranded May 2026 to reflect its evolution into a longitudinal workforce intelligence platform.
 
 ASPIRE STATUS JOURNEY (9 canonical stages):
 Pending Outreach → Form Sent → Form Received → Interview Scheduled → Interviewed → Placed → Active Rotation → Completed → Declined. "Accepted" is retired. Declined can occur at any stage and requires a decline reason. Status automations: Form Received fires on /student-form submit, Interview Scheduled fires on /interview-schedule booking, Interviewed fires on rubric submission, Placed fires on Embed match, Completion fires when status set to Completed.
@@ -127,9 +127,9 @@ FEEDBACK PANEL:
 Floating Chroma burgundy button bottom-left allows users to send bug reports, feature ideas, or questions to Jester via mailto. Separate from Keith.
 
 PRECEPTOR WELCOME EMAIL FORMAT when asked:
-Subject: ASPIRE Program - Student Preceptor Assignment
+Subject: ASPIRE - Student Preceptor Assignment
 Dear [Preceptor First Name],
-Thank you so much for agreeing to precept one of our senior nursing students through the ASPIRE Program. Your willingness to teach, mentor, and support our students truly makes a difference in shaping the next generation of nurses at Cedars-Sinai.
+Thank you so much for agreeing to precept one of our senior nursing students through ASPIRE. Your willingness to teach, mentor, and support our students truly makes a difference in shaping the next generation of nurses at Cedars-Sinai.
 Student: [Name] | School: [School] | Program: [Program] | Rotation Dates: [Dates] | Hours Required: [Hours] | Email: [Email] | Phone: [Phone]
 [Student] will reach out directly to introduce themselves and coordinate schedules.
 Please attach before sending: ASPIRE Brochure and Pre-licensure Student General Guidelines.
@@ -141,9 +141,9 @@ Geri and Richard Brawerman Nursing Institute
 JesterLloyd.Bautista@cshs.org | 310-248-8964
 
 UNIT LEADER EMAIL FORMAT when asked:
-Subject: ASPIRE Program Student Placement - [Student Name] | [Unit Name]
+Subject: ASPIRE Student Placement - [Student Name] | [Unit Name]
 Dear [Unit Leader],
-Thank you for your continued support of the ASPIRE Program at Cedars-Sinai. We are pleased to inform you that we have matched the following student to your unit:
+Thank you for your continued support of ASPIRE at Cedars-Sinai. We are pleased to inform you that we have matched the following student to your unit:
 Student: [Name] | School: [School] | Program: [Program] | Rotation Dates: [Dates] | Hours: [Hours] | Shift: [Shift]
 Please confirm which preceptor will be assigned and reply so we can coordinate next steps.
 Kind regards,
@@ -153,7 +153,7 @@ Geri and Richard Brawerman Nursing Institute
 JesterLloyd.Bautista@cshs.org | 310-248-8964
 
 STUDENT FORM EMAIL when asked:
-Subject: ASPIRE Program Student Form - Action Required
+Subject: ASPIRE Student Form - Action Required
 Dear [First Name],
 You have been identified as a potential ASPIRE candidate. Please complete your profile at: ${appUrl('/student-form')}
 Kind regards,
@@ -236,9 +236,9 @@ async function verifyCaller(req) {
 // Preserves the prior EFFECTIVE access (owner OR admin OR interviewer → all
 // tools; every other role → none) but now derived from server-verified identity
 // and structured per-tool. Default deny: unknown tool or unlisted role → denied.
-// DEFERRED (Owner decision — see pre-commit report): co-lead/co_lead currently
+// DEFERRED (Owner decision - see pre-commit report): co-lead/co_lead currently
 // have NO Keith tool access. Whether to grant it, and which exact role string the
-// live DB uses, is unverified — do NOT add an unverified role string here.
+// live DB uses, is unverified - do NOT add an unverified role string here.
 const TOOL_AUTHORIZATION = {
   search_students:    { allowedRoles: ['admin', 'interviewer'], allowOwner: true },
   get_student_detail: { allowedRoles: ['admin', 'interviewer'], allowOwner: true },
@@ -256,14 +256,14 @@ function isToolAllowed(toolName, role, isOwner) {
 const GROUNDING_GUARDRAILS = `
 === GROUNDING & SOURCE RULES (AUTHORITATIVE) ===
 
-INTERIM SOURCE PRECEDENCE — when sources disagree, trust in this order:
-1. Live operational database (your tools / the LIVE COHORT DATA block) — AUTHORITATIVE for any current student, placement, school, unit, preceptor, dates, hours, status, or contact.
-2. General program guidance (the background knowledge in this prompt) — usable ONLY to explain how the program works in general terms. It is NOT a source of current operational facts and must NEVER override live data.
-3. Your own wording — you compose language; you NEVER invent operational facts.
+INTERIM SOURCE PRECEDENCE, when sources disagree, trust in this order:
+1. Live operational database (your tools / the LIVE COHORT DATA block), AUTHORITATIVE for any current student, placement, school, unit, preceptor, dates, hours, status, or contact.
+2. General program guidance (the background knowledge in this prompt), usable ONLY to explain how the program works in general terms. It is NOT a source of current operational facts and must NEVER override live data.
+3. Your own wording, you compose language; you NEVER invent operational facts.
 
 GROUNDING REQUIREMENTS
 When the request involves a SPECIFIC, individually identified student, placement, unit, preceptor, school, rotation date, or required-hours value you MUST:
-1. Identify the specific live record. If you cannot identify the exact record (e.g. an ambiguous first name matching multiple students), ask the user to clarify before drafting. (This does NOT apply to a generic message addressed to a group with no specific named individual — draft those generically per DRAFTING MODE; recipient scope is confirmed AFTER the draft, never before it.)
+1. Identify the specific live record. If you cannot identify the exact record (e.g. an ambiguous first name matching multiple students), ask the user to clarify before drafting. (This does NOT apply to a generic message addressed to a group with no specific named individual, draft those generically per DRAFTING MODE; recipient scope is confirmed AFTER the draft, never before it.)
 2. Verify the relevant live fields (use your tools if available); do not draft from memory or assumption.
 3. Begin placement-specific communication drafts with a compact verification block:
    Using these assignment details:
@@ -279,7 +279,7 @@ When the request involves a SPECIFIC, individually identified student, placement
 4. If fields conflict across sources, STOP and surface the conflict with the competing values; do not pick a best guess; ask the user to resolve it.
 5. Never silently substitute data from another student, school, unit, preceptor, or placement. If a record's data is missing, say so explicitly.
 
-UNSUPPORTED CLAIMS — do NOT state any of the following unless verified via a live tool or the live data block:
+UNSUPPORTED CLAIMS, do NOT state any of the following unless verified via a live tool or the live data block:
 - that an attachment is included or available
 - that a policy applies, or a restriction is in effect, for a specific situation
 - that a recipient email exists
@@ -290,16 +290,16 @@ UNSUPPORTED CLAIMS — do NOT state any of the following unless verified via a l
 - that any reminder, message, email, or notification was previously sent (never write "we sent reminders", "we've reached out before", or similar unless you verified it via a live tool or notification log). If you only know a time gap such as "12 days since last logged shifts", state exactly that and nothing more.
 For attachments, distinguish: attached to this request / available in a verified record / recommended for the user to attach / unavailable.
 
-MISSING DATA — mark the field "Unavailable", do not invent it, do not imply it exists elsewhere, and do not claim a draft is "ready to send" when required recipient information is missing.
+MISSING DATA, mark the field "Unavailable", do not invent it, do not imply it exists elsewhere, and do not claim a draft is "ready to send" when required recipient information is missing.
 
-SCHOOL & ROSTER SEARCH. School abbreviations are initialisms, not substrings of the full name (e.g. "APU" = Azusa Pacific University; "CSULB" = California State University, Long Beach; "CSULA" = California State University, Los Angeles; "WCU" = West Coast University). For ANY school-specific question, count, or action, call search_students with the school term (it resolves these abbreviations and variants automatically) BEFORE concluding that no such students exist. Never answer "there are no <school> students" — or list the cohort's schools as if complete — from a cohort summary or school-distribution alone; confirm with a roster search first. If a summary implies zero but a roster search finds matches, the roster search wins.
+SCHOOL & ROSTER SEARCH. School abbreviations are initialisms, not substrings of the full name (e.g. "APU" = Azusa Pacific University; "CSULB" = California State University, Long Beach; "CSULA" = California State University, Los Angeles; "WCU" = West Coast University). For ANY school-specific question, count, or action, call search_students with the school term (it resolves these abbreviations and variants automatically) BEFORE concluding that no such students exist. Never answer "there are no <school> students", or list the cohort's schools as if complete, from a cohort summary or school-distribution alone; confirm with a roster search first. If a summary implies zero but a roster search finds matches, the roster search wins.
 
 The background program knowledge that follows is GENERAL GUIDANCE ONLY, subordinate to live data per the precedence above.
 `.trim();
 
 // ── KEITH-DRAFT-FIRST-1: drafting-mode posture (injected ONLY for email_drafting) ─
 // In drafting mode Keith must prioritize writing the content. The prior behavior
-// over-clarified — it asked which recipients to target before producing any draft.
+// over-clarified - it asked which recipients to target before producing any draft.
 // This directive makes Keith draft a generic message first and move recipient/targeting
 // clarification to AFTER the draft, unless the user explicitly asks to send or to
 // generate recipient-specific content. It does not loosen the grounding rules for
@@ -315,8 +315,8 @@ The user has asked you to draft or revise a communication. In drafting mode, pri
 5. Only build a recipient list, target specific students or groups, or personalize per student when the user explicitly asks you to send, target, build a recipient list, or personalize by student or group.
 6. Honor the requested tone exactly (for example supportive and not inquisitive). The placement-specific verification block applies only to drafts about a specific identified student or placement, per the grounding rules above; it does not apply to a generic group message.
 7. SIGNATURE. The email body is sent by the logged-in user, not by you. Sign the draft with the user's signature provided in your user context (EMAIL DRAFT SIGNATURE); if none is available use their name, or the placeholder "[Your name]". NEVER sign an email draft as Keith, ASPIRE Intelligence, ASPIRE AI, or "the assistant." You may say "I drafted this for you" in chat, but never inside the email body.
-8. RECIPIENT EMAIL ADDRESS is NOT required to draft. If the user names a recipient (for example "Susan Hunter of APU") but the email address is unknown, still write the full draft now and address the body to the named person (for example "Dear Susan,"). Do NOT ask for, or block on, the recipient's email address — after the draft, note once that the recipient's email can be selected in ASPIRE Connect > Outreach. A named recipient whose email is unknown is never a reason to withhold the draft or to reply with only a question.
-9. SIGNATURE FORMAT. When you produce a formal signature, put the credentials on the SAME line as the name, separated by commas — for example "Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN" — then the title on the NEXT line, then the affiliation, then "email | phone". Do not place credentials on their own line, and do not merge the title onto the name line.
+8. RECIPIENT EMAIL ADDRESS is NOT required to draft. If the user names a recipient (for example "Susan Hunter of APU") but the email address is unknown, still write the full draft now and address the body to the named person (for example "Dear Susan,"). Do NOT ask for, or block on, the recipient's email address, after the draft, note once that the recipient's email can be selected in ASPIRE Connect > Outreach. A named recipient whose email is unknown is never a reason to withhold the draft or to reply with only a question.
+9. SIGNATURE FORMAT. When you produce a formal signature, put the credentials on the SAME line as the name, separated by commas, for example "Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN", then the title on the NEXT line, then the affiliation, then "email | phone". Do not place credentials on their own line, and do not merge the title onto the name line.
 `.trim();
 
 // ── Tool definitions ─────────────────────────────────────────────────────────
@@ -591,7 +591,7 @@ async function runToolLoop(initialMessages, systemPrompt, tools, supabase, activ
     if (timeRemaining && timeRemaining() < KEITH_TOOL_LOOP_MIN_REMAINING_MS) {
       return {
         text: allToolCalls.length > 0
-          ? "I ran out of time before completing all research steps. Here's what I found so far — please ask again for more detail."
+          ? "I ran out of time before completing all research steps. Here's what I found so far, please ask again for more detail."
           : "I ran out of time before responding. Please try again.",
         toolCalls: allToolCalls,
       };
@@ -719,7 +719,7 @@ export default async function handler(req, res) {
   }
 
   // WS1: verify the caller server-side. ALL authorization below derives from this
-  // result — never from req.body. Assistant-level access is preserved (any
+  // result - never from req.body. Assistant-level access is preserved (any
   // authenticated user with a profile may chat); tools are gated per-role below.
   const requestId = `req_${randomUUID().slice(0, 8)}`;
   const auth = await verifyCaller(req);
@@ -749,7 +749,7 @@ export default async function handler(req, res) {
   // must not use. The user's text is used only for classification and is NEVER logged.
   const lastUserText = [...anthropicMessages].reverse().find(m => m.role === 'user')?.content || '';
   const intent = classifyIntent(lastUserText);
-  // KEITH-INTENT-ROUTING-1: defense-in-depth — a clear drafting/revision request (compose verb +
+  // KEITH-INTENT-ROUTING-1: defense-in-depth - a clear drafting/revision request (compose verb +
   // message noun) must never be intercepted by the person_contact_role contacts short-circuit, even
   // if it also names a role word like "preceptor". The classifier already routes these to
   // email_drafting; this guard is a redundant safety net at the short-circuit boundary.
@@ -761,8 +761,8 @@ export default async function handler(req, res) {
   // ASPIRE Connect Contacts, BEFORE any prompt/context assembly, governed retrieval, or
   // model call. This structurally guarantees that no adjacent person-bearing source
   // (cohort/student data, unit leadership roster, communications) and no tool is ever
-  // involved for these queries — they short-circuit here.
-  // CONTACTS-1d: role gate aligned with confirmed ASPIRE Connect UI access — Owner,
+  // involved for these queries - they short-circuit here.
+  // CONTACTS-1d: role gate aligned with confirmed ASPIRE Connect UI access - Owner,
   // Admin, and Interviewer may use Contacts lookup; Viewer and all other/unknown roles
   // remain denied (pending separate Owner confirmation of their UI Contacts access).
   if (isPersonContactRole) {
@@ -774,7 +774,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ response: CONTACTS_ROLE_DENIED, tool_calls: [] });
     }
     const { response, resultCount, error } = await answerPersonContactQuery(makeServiceRoleClient(), lastUserText);
-    // [keith-contacts]: PII-free — no query text, names, emails, or contact content.
+    // [keith-contacts]: PII-free - no query text, names, emails, or contact content.
     console.log('[keith-contacts]', { request_id: requestId, intent, role_gate: 'pass', result_count: resultCount ?? 0, ...(error ? { error } : {}) });
     return res.status(200).json({ response, tool_calls: [] });
   }
@@ -827,7 +827,7 @@ export default async function handler(req, res) {
     // suggest an adjacent leader, or claim a person does not exist / is not in context.
     liveDataStr = `CURRENT DATE AND TIME (Pacific Time): Today is ${todayLong}; current time ${nowTime}.
 
-CONTACT/ROLE QUESTION — SOURCES WITHHELD BY DESIGN:
+CONTACT/ROLE QUESTION, SOURCES WITHHELD BY DESIGN:
 Live person, contact, and role sources (cohort/student data, unit leadership roster, communications logs) are intentionally NOT loaded for this question, and live ASPIRE Connect Contacts access is not yet available to you.
 Respond ONLY with: live ASPIRE Connect Contacts access is not yet available, so you cannot verify current contact or role records, and the user should verify the person or role in ASPIRE Connect Contacts.
 Do NOT name any person. Do NOT suggest an adjacent unit leader or alternative contact. Do NOT say the person does not exist, is not in your context, or is absent from cohort/roster/communications.`;
@@ -873,7 +873,7 @@ Do NOT name any person. Do NOT suggest an adjacent unit leader or alternative co
         `- ${s.last_name}, ${s.first_name} (${s.approved_hours || 0}/${s.hours_required || 0} hrs)`
       ).join('\n') || '(none)';
 
-      // Unit map — full record including contact info
+      // Unit map - full record including contact info
       const unitMap = {};
       (liveData.units || []).forEach(u => { unitMap[u.id] = u; });
 
@@ -892,7 +892,7 @@ Rotation Window: ${cohort.start_date || 'TBD'} to ${cohort.end_date || 'TBD'}
 Cohort Status: ${cohort.status || 'unknown'}`
         : `Active Cohort ID: ${liveData.activeCohortId || 'none'}`;
 
-      // Preceptor FK fallback — fires only when cached matched_preceptor is empty
+      // Preceptor FK fallback - fires only when cached matched_preceptor is empty
       // but students.preceptor_id is set (data-consistency gap between FK and free-text field).
       // Queries the preceptors table directly using the service role client.
       // Skipped entirely when all placed students already have matched_preceptor populated.
@@ -942,7 +942,7 @@ Cohort Status: ${cohort.status || 'unknown'}`
         timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', year: 'numeric',
       }).format(new Date(d + 'T12:00:00Z'));
 
-      // Detailed placement block — one record per placed student
+      // Detailed placement block - one record per placed student
       const placementLines = placed.slice(0, 50).map(s => {
         const match         = matchesByStudentId[s.id];
         const unit          = unitMap[s.matched_unit_id] || match?.unit || {};
@@ -1049,11 +1049,11 @@ Cohort Status: ${cohort.status || 'unknown'}`
                 type ? `${type} shift` : null,
                 duration,
               ].filter(Boolean);
-              return `- ${parts.join(' — ')}${overdue}`;
+              return `- ${parts.join(', ')}${overdue}`;
             }).join('\n') || '(none currently on campus)';
           } catch (e) {
             console.warn('[keith] on-campus-now derive failed (non-fatal):', e.message);
-            onCampusLines = 'ON CAMPUS NOW: Fetch error — data unavailable for this response';
+            onCampusLines = 'ON CAMPUS NOW: Fetch error, data unavailable for this response';
           }
         }
 
@@ -1077,7 +1077,7 @@ Cohort Status: ${cohort.status || 'unknown'}`
             }).join('\n');
         } else if (commsResult.status === 'rejected') {
           console.warn('[keith] communications fetch failed (non-fatal):', commsResult.reason?.message);
-          commsSection = '\n\nCOMMUNICATIONS: Fetch error — data unavailable for this response';
+          commsSection = '\n\nCOMMUNICATIONS: Fetch error, data unavailable for this response';
         }
 
         // Unit response stats + responses
@@ -1087,7 +1087,7 @@ Cohort Status: ${cohort.status || 'unknown'}`
           const errMsg = statsResult.status === 'rejected'
             ? statsResult.reason?.message : responsesResult.reason?.message;
           console.warn('[keith] unit response fetch failed (non-fatal):', errMsg);
-          unitResponseSection = '\n\nPLACEMENT CAPACITY: Fetch error — data unavailable for this response';
+          unitResponseSection = '\n\nPLACEMENT CAPACITY: Fetch error, data unavailable for this response';
         } else if (stats && ctxCohortId) {
           const hostingRows = (allResponses || []).filter(r => r.response_status === 'submitted_hosting')
             .sort((a, b) => a.unit_name.localeCompare(b.unit_name));
@@ -1106,7 +1106,7 @@ Pending / no response (${stats.pending_count} units):
 ${stats.pending_units.map(u => `  - ${u}`).join('\n') || '  (none)'}`;
         }
 
-        // Unit leadership roster — full roster, all roles, not just primary leads.
+        // Unit leadership roster - full roster, all roles, not just primary leads.
         // KLD-1.1: only assembled for email_drafting intent (allowRoster); for every
         // other intent unitLeaderSection stays empty so the roster never enters context.
         if (allowRoster && leadersResult.status === 'fulfilled') {
@@ -1137,18 +1137,18 @@ ${stats.pending_units.map(u => `  - ${u}`).join('\n') || '  (none)'}`;
             // is no longer injected. The live UNIT LEADERSHIP ROSTER below is genuine
             // live data and is retained; executive/contact lookups belong to ASPIRE
             // Connect Contacts (a future retrieval phase).
-            unitLeaderSection = `\n\nUNIT LEADERSHIP ROSTER (${Object.keys(byUnit).length} units — authoritative, do not invent names outside this list):
+            unitLeaderSection = `\n\nUNIT LEADERSHIP ROSTER (${Object.keys(byUnit).length} units, authoritative, do not invent names outside this list):
 ${rosterLines}`;
           } else {
             unitLeaderSection = '\n\nUNIT LEADERSHIP ROSTER: No data returned from database.';
           }
         } else if (allowRoster) {
           console.warn('[keith] unit leader fetch failed (non-fatal):', leadersResult.reason?.message);
-          unitLeaderSection = '\n\nUNIT LEADERSHIP ROSTER: Fetch error — do not fabricate names.';
+          unitLeaderSection = '\n\nUNIT LEADERSHIP ROSTER: Fetch error, do not fabricate names.';
         }
       }
 
-      liveDataStr = `CURRENT DATE AND TIME (Pacific Time — your operational timezone):
+      liveDataStr = `CURRENT DATE AND TIME (Pacific Time, your operational timezone):
 - Today is ${todayLong}.
 - Current time is ${nowTime}.
 - ISO date for "today": ${todayIso}.
@@ -1163,7 +1163,7 @@ ${cohortContext}
 
 Total students in cohort: ${liveData.students.length}
 
-COHORT STATUS (canonical, per Student Profiles live data — use these exact status names and never merge buckets):
+COHORT STATUS (canonical, per Student Profiles live data, use these exact status names and never merge buckets):
 Total students: ${statusCounts.total}
 Not Proceeding: ${statusCounts.notProceeding} (${STATUS_DEFINITIONS['Not Proceeding']})
 Placed: ${statusCounts.placed} (${STATUS_DEFINITIONS['Placed']})
@@ -1172,20 +1172,20 @@ Completed: ${statusCounts.completed} (${STATUS_DEFINITIONS['Completed']})
 Interviewed: ${statusCounts.interviewed} · Awaiting Interview: ${statusCounts.awaitingInterview} · Needs Outreach: ${statusCounts.needsOutreach}
 Placed does NOT mean rotating. When summarizing the cohort, state the total, then Not Proceeding, then Placed and Active Rotation with their definitions; never describe Placed students as rotating.
 
-On Campus Now — current open shift logs (${onCampusNowCount} student${onCampusNowCount === 1 ? '' : 's'} currently on campus):
-This is the SAME On Campus Now / Open Shift Review list shown in the Aggregate and Rotation > Activity tabs: students with a live open/in-progress shift check-in, plus any whose logged shift window currently contains the present moment. Each row already includes the student's logged unit and logged preceptor for the open shift. When asked "who is on campus today" or "who is on campus now", answer from THIS list and cite the source as the current open shift logs (or the On Campus Now / open shift data) — do NOT attribute it to "Student Profiles live data". Report each student's unit and preceptor EXACTLY as written here: if a row says "Unit: Unavailable" say the unit is unavailable for that student only (never claim all units are unrecorded when other rows have a unit); if it says "Preceptor: Not logged" say the preceptor was not logged (never substitute an assigned preceptor as logged); a preceptor shown as "Assigned: <name> (not logged)" must be described as the assigned preceptor that was not logged on this shift. If the list is empty, say no students have an open or current on-campus shift log right now; do NOT say "no shifts are scheduled" (this is about live/open shifts, not the schedule).
+On Campus Now, current open shift logs (${onCampusNowCount} student${onCampusNowCount === 1 ? '' : 's'} currently on campus):
+This is the SAME On Campus Now / Open Shift Review list shown in the Aggregate and Rotation > Activity tabs: students with a live open/in-progress shift check-in, plus any whose logged shift window currently contains the present moment. Each row already includes the student's logged unit and logged preceptor for the open shift. When asked "who is on campus today" or "who is on campus now", answer from THIS list and cite the source as the current open shift logs (or the On Campus Now / open shift data), do NOT attribute it to "Student Profiles live data". Report each student's unit and preceptor EXACTLY as written here: if a row says "Unit: Unavailable" say the unit is unavailable for that student only (never claim all units are unrecorded when other rows have a unit); if it says "Preceptor: Not logged" say the preceptor was not logged (never substitute an assigned preceptor as logged); a preceptor shown as "Assigned: <name> (not logged)" must be described as the assigned preceptor that was not logged on this shift. If the list is empty, say no students have an open or current on-campus shift log right now; do NOT say "no shifts are scheduled" (this is about live/open shifts, not the schedule).
 ${onCampusLines}
 
 Pending interview / Form Received (${pendingInterview.length}):
 ${pendingLines}
 
-Placed — full detail (${placed.length}):
+Placed, full detail (${placed.length}):
 ${placementLines}
 
 Active Rotation (${activeRotation.length}):
 ${activeList}
 
-CS-LINK ACCESS (canonical five categories, per Student Profiles → CS-Link Access live data — report ONLY these categories, never a "Needs CS-Link" count):
+CS-LINK ACCESS (canonical five categories, per Student Profiles → CS-Link Access live data, report ONLY these categories, never a "Needs CS-Link" count):
 ${csLinkSummary.map(c => `  ${c.label}: ${c.count}`).join('\n')}
 
 Needs badge (${needsBadge.length}):
@@ -1220,7 +1220,7 @@ CRITICAL DATA ACCESS RULES:
 
   // WS1: tool access derives from the SERVER-VERIFIED identity only (never req.body).
   // Per-tool filtering means the model only ever sees tools this caller may use.
-  // KLD-1.1: for person/contact/role questions, expose NO tools — the data tools query
+  // KLD-1.1: for person/contact/role questions, expose NO tools - the data tools query
   // adjacent person-bearing sources (students, units), which must not be used to infer
   // a contact or role. This makes source discipline structural, not instruction-only.
   const activeTools = isPersonContactRole
@@ -1256,7 +1256,7 @@ CRITICAL DATA ACCESS RULES:
     baseSystemPrompt = governed.block + '\n\n' + baseSystemPrompt;
   }
   // [keith-retrieval]: PII-free instrumentation. Records governed coverage + derived
-  // entry metadata only — never the raw question, names, or message content.
+  // entry metadata only - never the raw question, names, or message content.
   console.log('[keith-retrieval]', {
     request_id: requestId,
     governed_coverage: governed.governedCovered,
@@ -1346,7 +1346,7 @@ async function callAnthropicWithRetry(payload, options = {}) {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     // Before a retry (not first attempt), check deadline
     if (attempt > 0 && timeRemaining && timeRemaining() <= KEITH_ANTHROPIC_TIMEOUT_MS + 1000) {
-      console.warn('[keith] skipping retry — insufficient time remaining');
+      console.warn('[keith] skipping retry, insufficient time remaining');
       break;
     }
 

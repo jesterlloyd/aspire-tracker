@@ -1,10 +1,10 @@
-// UI-1: PASSIVE summary metric card (governance register) — extracted from the
+// UI-1: PASSIVE summary metric card (governance register) - extracted from the
 // shipped Knowledge Center summary cards (KT-3a-1).
 //
 // CANON: this is variant="summary" ONLY. It is informational: no onClick prop,
 // no hover lift, no pointer cursor, no selected/active state, no button
 // semantics. The interactive quick-filter KPI card (pastel tint/solid/halo,
-// click-to-filter — the KPIBand operational pattern) is a DIFFERENT component
+// click-to-filter - the KPIBand operational pattern) is a DIFFERENT component
 // and is deliberately NOT built here; it stays the live pattern in the
 // operational workspaces until a later coherence pass. Do not flatten the two.
 import SurfaceCard from './SurfaceCard'

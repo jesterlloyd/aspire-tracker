@@ -1,5 +1,5 @@
 /**
- * Keith - ASPIRE Program Assistant
+ * Keith - ASPIRE Assistant
  * Phase 1: Static knowledge responses (current)
  * Phase 2: Live Supabase data context (pass cohort data to generateResponse)
  * Phase 3: AI-powered responses via Vercel API route at /api/keith.js
@@ -11,7 +11,7 @@
 import { appUrl } from './appUrl.js'
 
 export const ASPIRE_KNOWLEDGE = {
-  program: `The ASPIRE Program (Affiliate Students' Pathway from Internship to Residency Experience) is a senior nursing student placement program at Cedars-Sinai Medical Center. It offers students a hands-on bedside clinical rotation, pairs them with experienced preceptors, and provides a pathway into the New Graduate RN Residency Program (NGRP). The program is led by Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN and Krystal Rodriguez, DNP, RN, NPD-BC, CNOR.`,
+  program: `ASPIRE (Affiliate Students' Pathway from Internship to Residency Experience) is a senior nursing student placement program at Cedars-Sinai Medical Center. It offers students a hands-on bedside clinical rotation, pairs them with experienced preceptors, and provides a pathway into the New Graduate RN Residency Program (NGRP). The program is led by Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN and Krystal Rodriguez, DNP, RN, NPD-BC, CNOR.`,
 
   statusJourney: `Students move through these ASPIRE statuses in order:
 1. Pending Outreach – Added to the system, not yet contacted
@@ -59,15 +59,15 @@ WHAT KEITH MUST NEVER DO:
     rotation: `The Rotation tab has two sub-tabs: Matrix and Preceptors. The Matrix sub-tab is the matching board. Above: Placement at a Glance KPIs and Preference Match donut. Below: a 50/50 split workspace. Unit Pool (left): unit cards in three zones -- Identity (unit name, specialty, division chip), Capacity (dot indicators: filled sage dots, open hollow rings; slot count descriptor), and Placements (compact 36px rows with 24px avatars, match quality chips). Match quality chips: "Perfect Match" (sage, 1st choice), "2nd Choice Match" (amber), "3rd Choice Match" (slate-blue), "Compatible" or "Manual placement" (muted). Clicking a Unit Card filters Student Pool to students who picked that unit as a preference, ranked 1st/2nd/3rd choice. Each filtered Student Pool card shows a header chip like "1st Choice for 5 SCCT". Full units with unnotified placements show a "Notify Unit Leader" button that opens a mailto. Student Pool (right): StudentMatchingCard grid with avatar, name, school/program, status pills, and preference rows with slot availability. Clicking a student creates a match when clicking an open slot. In the Placements zone, placed students without a preceptor show a "+ Assign preceptor" button that opens the PreceptorAssignmentModal. The Preceptors sub-tab shows the full preceptor roster with Add Preceptor button, search, and a table showing name, email, unit, shift type, active/inactive status, current student (for this cohort), cohort count, and last active date.`,
   },
 
-  preceptors: `Preceptors are first-class entities with their own normalized table (preceptors). Each preceptor has a full_name, email (the identity key used for deduplication), unit_id (primary unit), shift_type (Day/Night/Mid/Variable), is_active status, and cohort participation history in preceptor_cohort_participation. Each student can be linked to a preceptor via students.preceptor_id (UUID FK). Free-text fallback fields (students.matched_preceptor, students.preceptor_email, matches.preceptor_assigned) remain populated alongside the FK for backward compatibility. When a coordinator links a preceptor to a student, both the normalized FK and the free-text fields are updated simultaneously. The Preceptors sub-tab in Rotation (Route: /rotation/preceptors) is the master roster. Preceptors can also be assigned from: the student side panel (Preceptor field), and the matching board unit cards in Matrix (+ Assign preceptor link per student slot). The resolvePreceptor() helper in src/lib/preceptor.js returns a normalized display object regardless of source — components use source === 'normalized' vs 'free_text' to determine which fields to render. ActionCenter surfaces "No Preceptor Assigned" as a high-priority item for Placed/Active Rotation students with neither preceptor_id nor matched_preceptor set.`,
+  preceptors: `Preceptors are first-class entities with their own normalized table (preceptors). Each preceptor has a full_name, email (the identity key used for deduplication), unit_id (primary unit), shift_type (Day/Night/Mid/Variable), is_active status, and cohort participation history in preceptor_cohort_participation. Each student can be linked to a preceptor via students.preceptor_id (UUID FK). Free-text fallback fields (students.matched_preceptor, students.preceptor_email, matches.preceptor_assigned) remain populated alongside the FK for backward compatibility. When a coordinator links a preceptor to a student, both the normalized FK and the free-text fields are updated simultaneously. The Preceptors sub-tab in Rotation (Route: /rotation/preceptors) is the master roster. Preceptors can also be assigned from: the student side panel (Preceptor field), and the matching board unit cards in Matrix (+ Assign preceptor link per student slot). The resolvePreceptor() helper in src/lib/preceptor.js returns a normalized display object regardless of source, components use source === 'normalized' vs 'free_text' to determine which fields to render. ActionCenter surfaces "No Preceptor Assigned" as a high-priority item for Placed/Active Rotation students with neither preceptor_id nor matched_preceptor set.`,
 
   csLinkWorkflow: `CS-Link Access is a two-stage process. Stage 1 is a Service Center request: new students need Add Non-Employee, former students need Assignment Change, Extend End Date, or Reactivate. Cedars employees skip Stage 1. Stage 2 is adding CS-Link access for all students. The Action Center flags students from Form Received onwards who have not yet had Stage 1 submitted.`,
 
   shiftLog: `Students log clinical hours at /shift-log using a universal QR code on their badge. They enter their school email, verify their identity, then submit a shift: date, hours worked, shift type (Day or Night), unit, preceptor, optional learning highlight, and optional concern. Hours are auto-approved unless flagged for exceptions (over 13 hours, under 2 hours, outside rotation dates, unit mismatch with non-matching preceptor). The On Campus Now panel in Aggregate shows students who logged shifts for today.`,
 
-  actionCenter: `The Action Center (bell icon in the header) shows 13 categories of items needing attention: Send Student Form, Send Interview Scheduling Link, Interview Reminder, Selection Decision Needed, Unit Leader Placement Notification, Preceptor Welcome Email, CS-Link Not Started, Orientation Email and Pre-Program Survey, Midpoint Student Check-In, Midpoint Preceptor Evaluation, Post-Program Student Survey, Certificate of Completion, and End Preceptor Evaluation. Each item has a one-click email button that opens a pre-filled mailto draft. "Selection Decision Needed" is an urgent-priority item surfacing students whose interview_outcome is 'Do Not Recommend' and whose status remains 'Interviewed' — it requires explicit human selection review (Phase 2A safety guardrail, May 26, 2026). Clicking 'Open Interview Review' navigates to the student's profile.`,
+  actionCenter: `The Action Center (bell icon in the header) shows 13 categories of items needing attention: Send Student Form, Send Interview Scheduling Link, Interview Reminder, Selection Decision Needed, Unit Leader Placement Notification, Preceptor Welcome Email, CS-Link Not Started, Orientation Email and Pre-Program Survey, Midpoint Student Check-In, Midpoint Preceptor Evaluation, Post-Program Student Survey, Certificate of Completion, and End Preceptor Evaluation. Each item has a one-click email button that opens a pre-filled mailto draft. "Selection Decision Needed" is an urgent-priority item surfacing students whose interview_outcome is 'Do Not Recommend' and whose status remains 'Interviewed', it requires explicit human selection review (Phase 2A safety guardrail, May 26, 2026). Clicking 'Open Interview Review' navigates to the student's profile.`,
 
-  ngrpPathway: `The ASPIRE Program is one pathway into the Cedars-Sinai New Graduate RN Residency Program (NGRP). Students who complete their rotation and pass their interview are eligible to apply to the NGRP. The NGRP Hired field in Student Profiles tracks hiring outcomes.`,
+  ngrpPathway: `ASPIRE is one pathway into the Cedars-Sinai New Graduate RN Residency Program (NGRP). Students who complete their rotation and pass their interview are eligible to apply to the NGRP. The NGRP Hired field in Student Profiles tracks hiring outcomes.`,
 
   eligibility: `To qualify for ASPIRE, students must: be in their final semester of an accredited BSN or Master's Entry pre-licensure nursing program affiliated with Cedars-Sinai, have a cumulative GPA of 3.0 or above, commit to at least 90 hours of hands-on bedside rotation, and meet all educational, health, and background standards.`,
 
@@ -80,13 +80,13 @@ WHAT KEITH MUST NEVER DO:
   },
 
   emailTemplates: {
-    studentForm: (name) => `Subject: ASPIRE Program Student Form – Action Required\n\nDear ${name || '[Student First Name]'},\n\nYou have been identified as a potential candidate for the ASPIRE Program (Affiliate Students' Pathway from Internship to Residency Experience) at Cedars-Sinai Medical Center.\n\nTo begin the process, please complete your ASPIRE Student Profile:\n${appUrl('/student-form')}\n\nThis form collects your personal information, clinical interests, and unit preferences. It should take approximately 10 to 15 minutes.\n\nIf you have any questions, please don't hesitate to reach out.\n\nWarm regards,\nJester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN\nNursing Professional Development Practitioner\nGeri & Richard Brawerman Nursing Institute\nJesterLloyd.Bautista@cshs.org | 310-248-8964`,
+    studentForm: (name) => `Subject: ASPIRE Student Form – Action Required\n\nDear ${name || '[Student First Name]'},\n\nYou have been identified as a potential candidate for ASPIRE (Affiliate Students' Pathway from Internship to Residency Experience) at Cedars-Sinai Medical Center.\n\nTo begin the process, please complete your ASPIRE Student Profile:\n${appUrl('/student-form')}\n\nThis form collects your personal information, clinical interests, and unit preferences. It should take approximately 10 to 15 minutes.\n\nIf you have any questions, please don't hesitate to reach out.\n\nWarm regards,\nJester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN\nNursing Professional Development Practitioner\nGeri & Richard Brawerman Nursing Institute\nJesterLloyd.Bautista@cshs.org | 310-248-8964`,
 
     schedulingLink: (name) => `Subject: Schedule Your ASPIRE Interview\n\nDear ${name || '[Student First Name]'},\n\nThank you for completing your ASPIRE Student Profile. The next step is to schedule your interview with our Nursing Professional Development team.\n\nPlease use the link below to view available times:\n${appUrl('/interview-schedule')}\n\nWhen prompted, enter your school email address to access the scheduling page.\n\nIf you have any questions, please don't hesitate to reach out.\n\nWarm regards,\nJester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN\nNursing Professional Development Practitioner\nGeri & Richard Brawerman Nursing Institute\nJesterLloyd.Bautista@cshs.org | 310-248-8964`,
 
     interviewReminder: (name, date, time) => `Subject: Reminder: Your ASPIRE Interview is Coming Up\n\nDear ${name || '[Student First Name]'},\n\nThis is a friendly reminder that your ASPIRE interview is scheduled for:\n\nDate: ${date || '[Interview Date]'}\nTime: ${time || '[Interview Time]'} Pacific Time\nFormat: Microsoft Teams\n\nPlease ensure you are in a quiet, professional setting with a stable internet connection.\n\nWe look forward to speaking with you!\n\nWarm regards,\nJester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN\nNursing Professional Development Practitioner\nGeri & Richard Brawerman Nursing Institute\nJesterLloyd.Bautista@cshs.org | 310-248-8964`,
 
-    unitLeader: (studentName, school, unit) => `Subject: ASPIRE Program Student Placement – ${studentName || '[Student Name]'} | ${unit || '[Unit Name]'}\n\nDear [Unit Leader],\n\nThank you for your continued support of the ASPIRE Program at Cedars-Sinai.\n\nWe are pleased to inform you that we have matched the following student to your unit:\n\nStudent: ${studentName || '[Student Name]'}\nSchool: ${school || '[School]'}\nUnit: ${unit || '[Unit Name]'}\n\nPlease confirm with your team which preceptor will be assigned and reply to this email so we can coordinate next steps.\n\nThank you for your support of clinical nursing education at Cedars-Sinai.\n\nWarm regards,\nJester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN\nNursing Professional Development Practitioner\nGeri & Richard Brawerman Nursing Institute\nJesterLloyd.Bautista@cshs.org | 310-248-8964`,
+    unitLeader: (studentName, school, unit) => `Subject: ASPIRE Student Placement – ${studentName || '[Student Name]'} | ${unit || '[Unit Name]'}\n\nDear [Unit Leader],\n\nThank you for your continued support of ASPIRE at Cedars-Sinai.\n\nWe are pleased to inform you that we have matched the following student to your unit:\n\nStudent: ${studentName || '[Student Name]'}\nSchool: ${school || '[School]'}\nUnit: ${unit || '[Unit Name]'}\n\nPlease confirm with your team which preceptor will be assigned and reply to this email so we can coordinate next steps.\n\nThank you for your support of clinical nursing education at Cedars-Sinai.\n\nWarm regards,\nJester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN\nNursing Professional Development Practitioner\nGeri & Richard Brawerman Nursing Institute\nJesterLloyd.Bautista@cshs.org | 310-248-8964`,
 
     // Pre-rotation outreach to preceptors and unit leaders for a specific unit.
     // Includes standard attachments reminder (ASPIRE Brochure + Pre-licensure Student General Guidelines).
@@ -97,14 +97,14 @@ WHAT KEITH MUST NEVER DO:
       const assignmentLines = Array.isArray(assignments) && assignments.length > 0
         ? assignments.map(a => `${a.studentName || '[Student Name]'}, precepted by ${a.preceptorName || '[Preceptor Name]'}`).join('\n')
         : '[Student Name], precepted by [Preceptor Name]';
-      return `Subject: ASPIRE Program: ${unit} Preceptor Assignments and Orientation\n\nDear Preceptors,\n\nThank you so much for agreeing to precept one of our senior nursing students through the ASPIRE Program (Affiliate Students' Pathway from Internship to Residency Experience). Your willingness to teach, mentor, and support our students truly makes a difference in shaping the next generation of nurses at Cedars-Sinai. Unit leaders, thank you for your support as well.\n\nBelow are the student-preceptor assignments for this rotation:\n\n${assignmentLines}\n\nStudents will attend orientation on ${date}. After that, they will reach out to you directly to introduce themselves and coordinate their schedules. They will also share their individual learning objectives to help guide the experience.\n\nAttached for your reference:\n- ASPIRE Brochure\n- Pre-licensure Student General Guidelines (scope and key restrictions)\n\nA few quick reminders:\n\nPreceptor pay: If eligible, please feel free to reach out to Dr. Krystal Rodriguez with any questions.\nCoverage: If possible, please avoid being in charge while precepting so you can focus on teaching.\nFloating: Students may float with you if you are comfortable and it is appropriate for safety and learning.\n\nWe truly appreciate the time, effort, and heart you invest in mentoring our students. Many of them go on to become strong candidates for our New-Graduate RN Residency Program, and your guidance plays a meaningful role in their transition into practice.\n\nIf you have any questions or need anything at all, please don't hesitate to reach out.\n\nWarm regards,\nJester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN\nJesterLloyd.Bautista@cshs.org | Office: 310-248-8964`;
+      return `Subject: ASPIRE: ${unit} Preceptor Assignments and Orientation\n\nDear Preceptors,\n\nThank you so much for agreeing to precept one of our senior nursing students through ASPIRE (Affiliate Students' Pathway from Internship to Residency Experience). Your willingness to teach, mentor, and support our students truly makes a difference in shaping the next generation of nurses at Cedars-Sinai. Unit leaders, thank you for your support as well.\n\nBelow are the student-preceptor assignments for this rotation:\n\n${assignmentLines}\n\nStudents will attend orientation on ${date}. After that, they will reach out to you directly to introduce themselves and coordinate their schedules. They will also share their individual learning objectives to help guide the experience.\n\nAttached for your reference:\n- ASPIRE Brochure\n- Pre-licensure Student General Guidelines (scope and key restrictions)\n\nA few quick reminders:\n\nPreceptor pay: If eligible, please feel free to reach out to Dr. Krystal Rodriguez with any questions.\nCoverage: If possible, please avoid being in charge while precepting so you can focus on teaching.\nFloating: Students may float with you if you are comfortable and it is appropriate for safety and learning.\n\nWe truly appreciate the time, effort, and heart you invest in mentoring our students. Many of them go on to become strong candidates for our New-Graduate RN Residency Program, and your guidance plays a meaningful role in their transition into practice.\n\nIf you have any questions or need anything at all, please don't hesitate to reach out.\n\nWarm regards,\nJester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN\nJesterLloyd.Bautista@cshs.org | Office: 310-248-8964`;
     },
   },
 };
 
 // KEITH-SUGGESTIONS-UI-1: a calmer, higher-value default set. Reduced from 15 chips to 6
 // so the starter area is easy to scan; every removed prompt still works if typed manually
-// (Keith's capabilities are unchanged — this only trims the default visible suggestions).
+// (Keith's capabilities are unchanged - this only trims the default visible suggestions).
 export const SUGGESTED_PROMPTS = [
   { label: 'Who needs follow-up today?', category: 'action' },
   { label: 'Summarize this cohort.', category: 'summary' },
@@ -416,7 +416,7 @@ export async function getKeithContext(supabase, cohortId) {
 // ── Knowledge exports for the API route ──────────────────────────────────────
 
 export const PLATFORM_OVERVIEW = `
-ASPIRE Intelligence is the workforce intelligence platform for the ASPIRE Program (Affiliate Students' Pathway from Internship to Residency Experience) at Cedars-Sinai Medical Center, run out of the Geri and Richard Brawerman Nursing Institute.
+ASPIRE Intelligence is the workforce intelligence platform for ASPIRE (Affiliate Students' Pathway from Internship to Residency Experience) at Cedars-Sinai Medical Center, run out of the Geri and Richard Brawerman Nursing Institute.
 
 ASPIRE places senior pre-licensure nursing students from affiliated schools (Cal State LA, APU, West Coast University, Cal State Long Beach, and others) into 90-hour bedside preceptorships across Cedars-Sinai units. Eligible students with a cumulative GPA of 3.0 or above complete the rotation and then apply early to the New Graduate RN Residency Program (NGRP) prior to RN licensure.
 
@@ -429,7 +429,7 @@ The platform supports four main workflows organized as tabs:
 
 The program is led by Jester Lloyd Bautista (Owner, NPD Practitioner) and co-led by Krystal Rodriguez (Admin).
 
-Keith is the AI assistant built into ASPIRE Intelligence. Keith is named after Keith Hoshal, MSN, RN, NPD-BC, OCN, the creator of the Graduate Nurse Trainee-Transition to Practice (GNT-TTP) Program at Cedars-Sinai. The GNT-TTP Program is the predecessor from which the ASPIRE Program evolved. When asked about his name or backstory, Keith should share this lineage.
+Keith is the AI assistant built into ASPIRE Intelligence. Keith is named after Keith Hoshal, MSN, RN, NPD-BC, OCN, the creator of the Graduate Nurse Trainee-Transition to Practice (GNT-TTP) Program at Cedars-Sinai. The GNT-TTP Program is the predecessor from which ASPIRE evolved. When asked about his name or backstory, Keith should share this lineage.
 `.trim();
 
 export const USER_ROLES = `
@@ -485,7 +485,7 @@ Data reliability fixes:
 Interview outcome terminology (Phase 2A.1):
 - The interview_outcome value 'Declined' has been renamed to 'Do Not Recommend' across all code and data. This rename clarifies that interview_outcome represents the interviewers' rubric recommendation, not the student's final program disposition (students.status = 'Declined' is a separate concept and was not changed here).
 
-Phase 2A.1 — complete interview_outcome vocabulary cleanup (May 26, 2026):
+Phase 2A.1, complete interview_outcome vocabulary cleanup (May 26, 2026):
 - 'Accepted' renamed to 'Recommend' (15 production rows migrated)
 - 'Accepted with Reservations' renamed to 'Recommend with Reservations' (N rows migrated)
 - 'Pending Interview' and 'Do Not Recommend' unchanged
@@ -493,10 +493,10 @@ Phase 2A.1 — complete interview_outcome vocabulary cleanup (May 26, 2026):
 - Rationale: 'Accepted' implied formal ASPIRE selection, which is a separate concept (Phase 3 disposition). 'Recommend' correctly reflects that interviewers recommend students; ASPIRE leadership makes the formal accept/decline decision.
 - Audit confirmed no SQL views, KPI calculations, cron jobs, or email templates depended on the old values.
 
-Phase 2A safety guardrail — disable silent auto-decline (May 26, 2026):
+Phase 2A safety guardrail, disable silent auto-decline (May 26, 2026):
 - RubricSession.jsx no longer auto-sets students.status to 'Declined' when rubric scoring produces a negative recommendation. Previously, recalculateStudentAverages() returned status: 'Declined' in the low-score branch, causing the student record to be silently updated with no human confirmation or audit trail. The fix: the low-score branch now returns status: 'Interviewed', keeping the student in the post-interview pool. The interview_outcome field still records 'Do Not Recommend' to preserve the rubric semantic. Students in this state are surfaced by the new 'Selection Decision Needed' Action Center item (urgent priority, interview category) which routes coordinators to the student profile for explicit disposition.
 
-Phase 2B — formal disposition workflow (May 26, 2026):
+Phase 2B, formal disposition workflow (May 26, 2026):
 - New schema: student_dispositions (one row per disposition event), student_disposition_followups (notify_student, notify_school_coordinator, leadership_review tasks), student_disposition_private_notes (owner/admin-only notes), student_disposition_program_events, student_active_disposition view (at-most-one active disposition per student).
 - record_student_disposition() SECURITY DEFINER RPC records a complete disposition: type, reason_category, effective_date, decided_by_name, optional follow-up tasks, optional private note.
 - New status 'Not Proceeding' added to students table. Replaces legacy 'Declined' for all new disposition events.
@@ -522,7 +522,7 @@ Technical stack:
 export const UNIT_CATALOG_KNOWLEDGE = (() => {
   const catalog = getUnitCatalogForKeith();
   const lines = catalog.map(u => `  - ${u.name} (${u.division}): ${u.description}${u.aspire_eligible_by_default ? '' : ' [not ASPIRE-eligible by default]'}`);
-  return `CANONICAL UNIT NAMES (27 units — use these exact names when referencing units):
+  return `CANONICAL UNIT NAMES (27 units, use these exact names when referencing units):
 ${lines.join('\n')}
 
 INFORMAL-TO-CANONICAL TRANSLATIONS:
@@ -562,7 +562,7 @@ Key program policies:
 
 // ── Program documents ─────────────────────────────────────────────────────────
 // This export contains the content of physical/PDF documents routinely attached
-// to ASPIRE Program communications. When users ask Keith about scope of practice,
+// to ASPIRE communications. When users ask Keith about scope of practice,
 // medication restrictions, eligibility, application process, or program benefits,
 // Keith should answer from this content rather than from general nursing knowledge
 // in training data. When drafting communications that reference these documents
@@ -575,9 +575,9 @@ ASPIRE PROGRAM DOCUMENTS
 
 --- DOCUMENT 1: ASPIRE BROCHURE ---
 
-Program identity: ASPIRE Program (Affiliate Students' Pathway from Internship to Residency Experience), Brawerman Nursing Institute, Cedars-Sinai Medical Center.
+Program identity: ASPIRE (Affiliate Students' Pathway from Internship to Residency Experience), Brawerman Nursing Institute, Cedars-Sinai Medical Center.
 
-Program description: The ASPIRE Program offers senior nursing students hands-on clinical rotation at Cedars-Sinai, pairing them with experienced preceptors. It is designed to build confidence, sharpen clinical skills, and prepare students for a smooth transition into Cedars-Sinai's New Graduate RN Residency Program (NGRP).
+Program description: ASPIRE offers senior nursing students hands-on clinical rotation at Cedars-Sinai, pairing them with experienced preceptors. It is designed to build confidence, sharpen clinical skills, and prepare students for a smooth transition into Cedars-Sinai's New Graduate RN Residency Program (NGRP).
 
 Eligible programs:
 - BSN (semester and trimester)
@@ -759,7 +759,7 @@ Nursing Professional Development Practitioners (NPD-Ps) and their programs:
    - Charge Nurse Program lead
    - Member of the Nursing Research Council
    - NPD-P lead for "Falls" under the No Harm in Our Care Committee
-   - Co-lead for the ASPIRE Program
+   - Co-lead for ASPIRE
 
 8. Millicent G. De Jesus, PhD, RN, NPD-BC (Millicent.DeJesus@cshs.org, 310-717-8904)
    - NPD-P lead for the Transition to Practice (TTP) Committee
@@ -776,7 +776,7 @@ Nursing Professional Development Practitioners (NPD-Ps) and their programs:
     - NPD-P lead for "HAI (CAUTI / CLABSI)" under the No Harm in Our Care Committee
 
 11. Jester Lloyd Bautista, PhD, MSN, RN, NPD-BC, CCRN, SCRN (JesterLloyd.Bautista@cshs.org, 424-386-5004)
-    - ASPIRE Program lead
+    - ASPIRE lead
     - Preceptor Program co-lead
     - Assists Kathleen with Professional Development rollouts
     - NPD-P lead for "HAPI" under the No Harm in Our Care Committee
@@ -784,7 +784,7 @@ Nursing Professional Development Practitioners (NPD-Ps) and their programs:
 
 12. Keith Hoshal, MSN, RN, NPD-BC, OCN (Keith.Hoshal@cshs.org, 310-435-3935)
     - Title: Project Associate Prdm, per diem, advisor role
-    - Previously ran the ASPIRE Program when it was called the Graduate Nurse Trainee Transition to Practice (GNT-TTP) Program, before Jester renamed and restructured it as ASPIRE
+    - Previously ran ASPIRE when it was called the Graduate Nurse Trainee Transition to Practice (GNT-TTP) Program, before Jester renamed and restructured it as ASPIRE
 
 Key cross-program collaborations:
 - ASPIRE: Jester (lead) and Krystal (co-lead)
@@ -823,12 +823,12 @@ The public /school-form now has a "Rotation Dates" section between School Inform
 
 export const CONTACTS_AND_DIGEST_KNOWLEDGE = `
 ASPIRE CONNECT:
-ASPIRE Connect is the communication hub for the ASPIRE Program. It includes three sections: Contacts, Outreach, and Broadcasts.
+ASPIRE Connect is the communication hub for ASPIRE. It includes three sections: Contacts, Outreach, and Broadcasts.
 
 CONTACTS:
 A centralized contact directory for external and internal program contacts. Contacts are not student records; students remain in Student Profiles as the source of truth and are not imported into Contacts.
 
-Contact categories (multi-category — a contact may belong to more than one):
+Contact categories (multi-category, a contact may belong to more than one):
 - Academic Partners: school coordinators, clinical placement coordinators, program coordinators, program assistants, clinical faculty, managers, associate professors, and related school partners.
 - Unit Leadership: Associate Directors, Assistant Nurse Managers, Unit NPD Practitioners.
 - Preceptors: contacts imported from Rotation > Preceptors. Preceptor contacts can show linked assigned students in the right context rail.
@@ -866,8 +866,8 @@ Custom Message (one-to-one email via Resend):
 - Direct email does NOT create evaluation assignments, tokens, or survey links.
 - Direct email is logged in notification_log as type "direct_message_sent" with recipient_type = "contact" or "student".
 - Contact last-contact fields are updated after a successful direct email send.
-- Student last-contact fields are not yet updated (future enhancement — those columns do not currently exist).
-- ASPIRE Program signature can be included or excluded per send.
+- Student last-contact fields are not yet updated (future enhancement, those columns do not currently exist).
+- ASPIRE signature can be included or excluded per send.
 - Draft compose state is preserved per recipient (contact or student) and restored on return.
 - Explicit Email navigation always loads the selected recipient, overriding remembered last-activity state.
 - Remembered state (last opened contact or draft) is only restored when there is no explicit recipient in the route.
@@ -1051,7 +1051,7 @@ Pending shift log reviews: ${context.pendingShiftReviews || 0}`;
   // api/keith.js. The legacy prose constants remain defined in this file but are no
   // longer referenced here; rollback is a single revert.
   return `
-You are Keith, the AI assistant for ASPIRE Intelligence at Cedars-Sinai, named in honor of Keith Hoshal who created the ASPIRE Program. You are warm, direct, professional, and grounded. Use natural prose. Never use em dashes; use commas, colons, semicolons, or parentheses instead.
+You are Keith, the AI assistant for ASPIRE Intelligence at Cedars-Sinai, named in honor of Keith Hoshal who created ASPIRE. You are warm, direct, professional, and grounded. Use natural prose. Never use em dashes; use commas, colons, semicolons, or parentheses instead.
 
 CRITICAL: Never fabricate
 Never invent student names, unit leader names, email addresses, slot counts, or any other specific fact. If data is missing, say so. If you are unsure, say so. A wrong confident answer is worse than an honest "I don't have that in my current context."
@@ -1059,28 +1059,28 @@ Never invent student names, unit leader names, email addresses, slot counts, or 
 ${GOVERNED_KNOWLEDGE_MARKER}
 
 GOVERNED-SOURCE RULES:
-- Authoritative ASPIRE program guidance comes ONLY from the GOVERNED KNOWLEDGE block above (Active Knowledge Center entries) and from authorized live tools and the LIVE COHORT DATA below.
+- Authoritative ASPIRE guidance comes ONLY from the GOVERNED KNOWLEDGE block above (Active Knowledge Center entries) and from authorized live tools and the LIVE COHORT DATA below.
 - Do NOT answer ASPIRE operational, policy, placement, eligibility, student, contact, role, or workflow questions from any legacy or remembered static ASPIRE knowledge. If no governed entry and no live data cover such a question, say that governed guidance was not found and recommend verification with the ASPIRE Owner or Admin.
 - NO PARTIAL INFERENCE: if the correct source for a question is unavailable, say so plainly. Never infer a person, role, status, or fact from an adjacent or partial source.
 - General, non-ASPIRE questions may be answered normally.
 
-SOURCE LABELING: When you answer, name your source in natural prose — for example "per Student Profiles live data", "per the [entry title] entry", or by directing the user to "ASPIRE Connect Contacts". Do not present a figure or fact without indicating where it came from.
+SOURCE LABELING: When you answer, name your source in natural prose, for example "per Student Profiles live data", "per the [entry title] entry", or by directing the user to "ASPIRE Connect Contacts". Do not present a figure or fact without indicating where it came from.
 
 CONTACTS AND PEOPLE (no inference; live Contacts is a future capability):
 - Current people, contact, and role information lives in ASPIRE Connect Contacts. Live Contacts retrieval is not yet wired into Keith; it is a future capability.
 - Do NOT answer "who is X", "who holds role Y" (such as a unit NPD-P), "who is the contact, preceptor, or academic partner for Z", or any current person/role/contact question from the UNIT LEADERSHIP ROSTER, from remembered names, or from any other adjacent source. Never infer a person or a role from unit-level leadership data.
-- For such questions, say that live ASPIRE Connect Contacts access is not yet available to you and that current contact and role information should be verified in ASPIRE Connect Contacts. NEVER say a person "does not exist" or "is not in your context" — the correct framing is that live Contacts access is a future capability.
+- For such questions, say that live ASPIRE Connect Contacts access is not yet available to you and that current contact and role information should be verified in ASPIRE Connect Contacts. NEVER say a person "does not exist" or "is not in your context", the correct framing is that live Contacts access is a future capability.
 - The UNIT LEADERSHIP ROSTER in your live context is reference data for drafting correspondence to a known unit's leadership. It is not a directory for answering who-is or role questions.
 
 CRITICAL: Unit response and capacity data (live)
 You have unit response data in the PLACEMENT CAPACITY section of your live context. When asked about slot commitments, hosting status, or pending responses, refer to that section directly. Do not claim the data is unavailable unless the section explicitly says it is empty or missing.
 
 PROGRAM VS APP OWNERSHIP:
-- ASPIRE is a Cedars-Sinai program, led and spearheaded by Jester Lloyd Bautista. Do not describe Jester, or anyone, as the "owner" of the ASPIRE Program.
-- "Owner" is a permission role inside ASPIRE Intelligence, the internal app that supports ASPIRE operations. Jester is the Owner of ASPIRE Intelligence (the app/system), not the owner of the ASPIRE Program.
+- ASPIRE is a Cedars-Sinai program, led and spearheaded by Jester Lloyd Bautista. Do not describe Jester, or anyone, as the "owner" of ASPIRE.
+- "Owner" is a permission role inside ASPIRE Intelligence, the internal app that supports ASPIRE operations. Jester is the Owner of ASPIRE Intelligence (the app/system), not the owner of ASPIRE.
 - When asked who runs or leads ASPIRE: ASPIRE is a Cedars-Sinai program led/spearheaded by Jester Lloyd Bautista; Jester is the Owner of ASPIRE Intelligence, the internal app supporting ASPIRE operations.
 
-RESPONSE STYLE: Be concise and practical, under 200 words unless drafting a full email. Always suggest a concrete next action. Use Last Name, First Name format for student lists. Never fabricate student data. Only reference students by name when their data appears in the live context below. Never use markdown syntax in responses. No asterisks for bold. No hashes for headers. No backticks for code blocks. No hyphens used as emphasis markers. The chat interface renders plain text only — any markdown characters will display as literal symbols to the user. For emphasis, use clear structure, capital letters, or simply omit the emphasis. Email drafts should be formatted as plain prose with line breaks for paragraph separation.
+RESPONSE STYLE: Be concise and practical, under 200 words unless drafting a full email. Always suggest a concrete next action. Use Last Name, First Name format for student lists. Never fabricate student data. Only reference students by name when their data appears in the live context below. Never use markdown syntax in responses. No asterisks for bold. No hashes for headers. No backticks for code blocks. No hyphens used as emphasis markers. The chat interface renders plain text only, any markdown characters will display as literal symbols to the user. For emphasis, use clear structure, capital letters, or simply omit the emphasis. Email drafts should be formatted as plain prose with line breaks for paragraph separation.
 
 ${userContext}
 

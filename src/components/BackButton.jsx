@@ -1,11 +1,11 @@
-// BackButton — the canonical back-navigation affordance for ASPIRE Intelligence.
+// BackButton - the canonical back-navigation affordance for ASPIRE Intelligence.
 // Use this component for every "go back" action in the app. Do not create
 // custom back buttons; if a new context needs different behavior, extend
 // this component with a new variant rather than forking it.
 //
 // Props:
-//   label   (string, required)   — text shown after the chevron
-//   onClick (function, required) — back action handler
+//   label   (string, required)   - text shown after the chevron
+//   onClick (function, required) - back action handler
 //   variant ('default' | 'subtle', optional, default: 'default')
 //             default: white pill with border, prominent placement
 //             subtle:  transparent background, no border, inline use

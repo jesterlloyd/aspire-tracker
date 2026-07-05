@@ -1,6 +1,6 @@
 // src/lib/connectTones.js
 //
-// CONNECT-OUTREACH-CONTACTS-PANEL-POLISH — centralized panel tone tokens (ONE source of truth).
+// CONNECT-OUTREACH-CONTACTS-PANEL-POLISH - centralized panel tone tokens (ONE source of truth).
 // Faint gradients that fade to near-white. Used by <ConnectPanel> and by panels that own their
 // own header and only need the shell background (e.g. Contacts side panels). Presentation only.
 
@@ -28,7 +28,7 @@ export const TONE_CHIP = {
   linkedStudents: { bg: '#E6F1EA', border: '#CBE3D3' },
 }
 
-// The tinted-shell gradient for a tone — fades to pure white at the bottom (falls back to butter).
+// The tinted-shell gradient for a tone - fades to pure white at the bottom (falls back to butter).
 export function toneGradient(tone) {
   const t = CONNECT_TONES[tone] || CONNECT_TONES.audience
   return `linear-gradient(160deg, ${t.top} 0%, ${t.mid} 55%, #ffffff 100%)`

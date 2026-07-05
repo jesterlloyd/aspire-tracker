@@ -83,7 +83,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid request body' });
     }
 
-    // Rate limit — fail closed: continue only when allowed === true
+    // Rate limit - fail closed: continue only when allowed === true
     const ip = extractClientIp(req);
     const key = bucketKey('eval_validate', ip);
     const { data: allowed, error: rlError } = await supabaseAdmin.rpc(
@@ -116,7 +116,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Internal error' });
     }
 
-    // Slug allowlist check — BEFORE any state-changing RPC call
+    // Slug allowlist check - BEFORE any state-changing RPC call
     if (!allowedInstrumentSlugs().includes(prefetchedSlug)) {
       return res.status(422).json({ error: 'This survey link is not supported by the current application version.' });
     }

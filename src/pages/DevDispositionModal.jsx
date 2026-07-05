@@ -1,4 +1,4 @@
-// DEV ONLY — gated by import.meta.env.DEV in App.jsx routing.
+// DEV ONLY - gated by import.meta.env.DEV in App.jsx routing.
 // Renders a live DispositionModal with mock student + cohort data for manual QA.
 // This file is NOT imported or bundled in production.
 
@@ -52,7 +52,7 @@ export default function DevDispositionModal() {
         color: '#92400e',
         letterSpacing: '0.04em',
       }}>
-        DEV HARNESS — DispositionModal · Phase 2B.2a
+        DEV HARNESS, DispositionModal · Phase 2B.2a
       </div>
 
       <div style={{
@@ -70,8 +70,8 @@ export default function DevDispositionModal() {
         <table style={{ fontSize: 12, color: 'var(--text-secondary, #6b7280)', borderCollapse: 'collapse', width: '100%' }}>
           <tbody>
             {[
-              ['Logged in as',   userProfile?.full_name || '—'],
-              ['Role',           userProfile?.role || '—'],
+              ['Logged in as',   userProfile?.full_name || '-'],
+              ['Role',           userProfile?.role || '-'],
               ['canEdit',        String(canEdit)],
               ['isOwner',        String(isOwner)],
               ['isAdmin',        String(isAdmin)],
@@ -89,7 +89,7 @@ export default function DevDispositionModal() {
             border: '1px solid #fca5a5', borderRadius: 6,
             fontSize: 12, color: '#991b1b',
           }}>
-            Modal will return null — current role does not have canEdit permission.
+            Modal will return null, current role does not have canEdit permission.
             Log in as owner or admin to test.
           </div>
         )}
@@ -112,7 +112,7 @@ export default function DevDispositionModal() {
         </pre>
         <div style={{ marginTop: 6, fontSize: 11, color: '#9ca3af' }}>
           RPC calls will execute against the real database. Use a test student UUID if you want a real end-to-end test.
-          With mock UUIDs, the RPC will fail with a FK constraint error — this is expected and tests error handling.
+          With mock UUIDs, the RPC will fail with a FK constraint error, this is expected and tests error handling.
         </div>
       </div>
 

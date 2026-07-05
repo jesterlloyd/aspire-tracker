@@ -3,8 +3,8 @@
 -- Do NOT combine with v1b (the RLS restriction). Apply and verify each file separately.
 --
 -- Contains:
---   PART A: is_owner_or_admin()              — reusable SECURITY DEFINER helper for RLS policies
---   PART B: complete_disposition_followup()  — Owner/Admin-only atomic completion RPC
+--   PART A: is_owner_or_admin()              - reusable SECURITY DEFINER helper for RLS policies
+--   PART B: complete_disposition_followup()  - Owner/Admin-only atomic completion RPC
 --
 -- Deployment sequence:
 --   1. Apply this file (v1a) in Supabase SQL editor.
@@ -39,7 +39,7 @@ GRANT EXECUTE ON FUNCTION public.is_owner_or_admin() TO authenticated;
 
 -- ── PART B: complete_disposition_followup() ────────────────────────────────────
 -- Marks a pending disposition follow-up as completed.
--- Owner/Admin only — enforced inside the function (authorization is not deferred to RLS).
+-- Owner/Admin only - enforced inside the function (authorization is not deferred to RLS).
 --
 -- Identity model: resolves auth.uid() → user_profiles.id and writes that UUID into
 -- completed_by_user_id. This matches the existing frontend convention where
@@ -57,7 +57,7 @@ GRANT EXECUTE ON FUNCTION public.is_owner_or_admin() TO authenticated;
 --     p_completion_method must be NULL
 --     p_note required (non-empty)
 --   reopen_placement_slot:
---     always raises exception — must be handled manually through the Units page
+--     always raises exception - must be handled manually through the Units page
 
 -- DROP before CREATE OR REPLACE so a return-type change (void → json) applies cleanly
 -- if v1a was ever partially applied with the prior signature.

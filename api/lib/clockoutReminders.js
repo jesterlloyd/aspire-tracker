@@ -1,10 +1,10 @@
 // api/lib/clockoutReminders.js
 //
-// CLOCKOUT-NUDGE-SCHEDULE-1 — shared core for the clock-out reminder run, used by BOTH the manual
+// CLOCKOUT-NUDGE-SCHEDULE-1 - shared core for the clock-out reminder run, used by BOTH the manual
 // endpoint (api/cron/clockout-reminders.js: dry-run default / preview / explicit live) and the
 // hourly scheduled endpoint (api/cron/clockout-reminders-scheduled.js: live). There is exactly ONE
 // copy of the detection thresholds (reused from shiftStatus.js), the dedup logic, and the email
-// template wiring — neither endpoint duplicates them.
+// template wiring - neither endpoint duplicates them.
 //
 // MODES:
 //   • 'dry-run'  → detect + classify + report. Sends NOTHING. No notification_log write.
@@ -12,12 +12,12 @@
 //   • 'live'     → send to the CURRENT would-send rows only, via the established sendNotification path.
 //
 // Detection is re-run FRESH every call (never stale): open shifts are re-queried, the overdue subset
-// is recomputed via shiftStatus.js, and dedup is re-read — so a live send reflects the state at the
+// is recomputed via shiftStatus.js, and dedup is re-read - so a live send reflects the state at the
 // moment of the call and dedupes on the very next call. This idempotency is what makes the hourly
 // schedule safe against Vercel's occasional duplicate cron invocations.
 //
 // Send/log ordering & residual failure mode: sending reuses sendNotification, which sends via Resend
-// THEN writes notification_log (status 'sent'/'failed'). Not a single atomic op — if the email is
+// THEN writes notification_log (status 'sent'/'failed'). Not a single atomic op - if the email is
 // accepted but the log insert fails, that open shift could be reminded again on a later run (no false
 // "sent" is recorded for an email that wasn't accepted). Established app pattern (midpoint/interview
 // crons); accepted given dedup-verified-on-success.
@@ -32,7 +32,7 @@ import { isAutomationEnabled } from './automationSettings.js';
 import { getStudentPreferredGreetingName } from '../../src/lib/studentNameFormatters.js';
 
 // notification_type written by the live send (via sendNotification) and read for dedup. This is a
-// VALUE for the existing notification_log.notification_type column — NOT a new column.
+// VALUE for the existing notification_log.notification_type column - NOT a new column.
 export const CLOCKOUT_REMINDER_NOTIFICATION_TYPE = 'clockout_reminder';
 
 // Broadened statuses count as "already reminded" (mirrors the midpoint cron hotfix 6df905f), so a
@@ -54,7 +54,7 @@ function rowSummary(log, stu, nowMs) {
   };
 }
 
-// Core run. Returns { status, body } for the calling handler to send. Never throws — DB/send errors
+// Core run. Returns { status, body } for the calling handler to send. Never throws - DB/send errors
 // are caught, recorded to cron_runs (counts-only), and surfaced as a 500 body.
 //   supabase : a service-role client (created by the calling endpoint)
 //   mode     : 'dry-run' | 'preview' | 'live'
@@ -70,7 +70,7 @@ export async function runClockoutReminders(supabase, { mode = 'dry-run', cronNam
   const runId = await startCronRun(supabase, cronName);
 
   try {
-    // Automation gate — scheduled LIVE auto-send ONLY (opt-in via automationKey). Manual dry-run,
+    // Automation gate - scheduled LIVE auto-send ONLY (opt-in via automationKey). Manual dry-run,
     // preview, and confirmed manual-live pass no automationKey and are NEVER gated. Default-ON /
     // fail-open: a missing row or a read failure keeps sending as today. Disabled => paused
     // heartbeat (success) + skipped response; no query, no sends, no notification_log writes.
@@ -101,7 +101,7 @@ export async function runClockoutReminders(supabase, { mode = 'dry-run', cronNam
 
     const open = openLogs || [];
 
-    // ── 2. Overdue subset — reuse shiftStatus.js thresholds (Day 14h, others 16h). No duplication.
+    // ── 2. Overdue subset - reuse shiftStatus.js thresholds (Day 14h, others 16h). No duplication.
     const overdue = open.filter(log => isClockoutMaybeOverdue(log, nowMs));
 
     // ── 3. Recipient resolution (read-only): school_email then personal_email
@@ -187,7 +187,7 @@ export async function runClockoutReminders(supabase, { mode = 'dry-run', cronNam
       wouldSend.push(row);
     }
 
-    // ── 6. LIVE send loop — only when mode === 'live'. Sends to the CURRENT would-send rows only
+    // ── 6. LIVE send loop - only when mode === 'live'. Sends to the CURRENT would-send rows only
     //      (already excludes recently-reminded + no-email). Reuses sendNotification, which writes
     //      notification_log with notification_type='clockout_reminder' and metadata.context.shiftLogId.
     let sentCount = 0;
@@ -219,27 +219,27 @@ export async function runClockoutReminders(supabase, { mode = 'dry-run', cronNam
       }
     }
 
-    // ── 7. cron_runs heartbeat — COUNTS ONLY (no names/emails/links/tokens/preview bodies)
+    // ── 7. cron_runs heartbeat - COUNTS ONLY (no names/emails/links/tokens/preview bodies)
     const counts = {
       dry_run: !isLive,
       open_checked: open.length,
       overdue_count: overdue.length,
       would_send_count: wouldSend.length,
       // SHIFT-EMAIL-ROUTING-1: how many would-send rows fell back to personal_email (school_email
-      // missing/blank). Counts-only — no names/emails persisted to cron_runs.
+      // missing/blank). Counts-only - no names/emails persisted to cron_runs.
       personal_email_fallback_count: wouldSend.filter(r => r.fallbackUsed).length,
       sent_count: sentCount,
       skipped_no_email_count: skippedNoEmail.length,
       skipped_recently_reminded_count: skippedRecent.length,
       failed_count: failedCount,
       error_count: 0,
-      // Observability only — present solely when the settings read failed open (ran as today).
+      // Observability only - present solely when the settings read failed open (ran as today).
       ...(settingsWarning ? { settings_warning: settingsWarning } : {}),
     };
     await finishCronRunSuccess(supabase, runId, counts);
 
     // ── 8. Report. Row details (names + resolved recipient + preview body) are returned ONLY in this
-    //      CRON_SECRET-gated response for Owner/Admin review — they are NOT persisted to cron_runs.
+    //      CRON_SECRET-gated response for Owner/Admin review - they are NOT persisted to cron_runs.
     return {
       status: 200,
       body: {

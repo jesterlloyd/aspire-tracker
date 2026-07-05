@@ -1,5 +1,5 @@
 -- =====================================================================
--- ASPIRE Placement Tracker — Unit Submissions Migration
+-- ASPIRE Placement Tracker - Unit Submissions Migration
 -- Run this entire file in your Supabase SQL Editor
 -- =====================================================================
 

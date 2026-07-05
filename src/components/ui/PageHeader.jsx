@@ -1,7 +1,7 @@
-// UI-1: section page-header — title + optional subtitle + optional access-note
+// UI-1: section page-header - title + optional subtitle + optional access-note
 // pill + optional right-aligned actions slot. Generalizes the shipped
 // SettingsPageHeader (KT-3a-1) pixel-for-pixel; settings/SettingsPageHeader now
-// delegates here. Governance register: calm, plain header (no gradient hero —
+// delegates here. Governance register: calm, plain header (no gradient hero -
 // heroes are reserved for people records).
 export default function PageHeader({ title, subtitle, accessNote, actions }) {
   return (

@@ -1,12 +1,12 @@
 // api/cron/clockout-reminders.js
 //
-// CLOCKOUT-NUDGE-LIVE-1 / SCHEDULE-1 — CRON_SECRET-protected MANUAL clock-out reminder endpoint.
+// CLOCKOUT-NUDGE-LIVE-1 / SCHEDULE-1 - CRON_SECRET-protected MANUAL clock-out reminder endpoint.
 // This is the human-driven endpoint for dry-run / preview / explicit live. It has NO Vercel schedule
-// of its own — a normal call (no live signal) is a dry-run and sends nothing. The hourly automatic
+// of its own - a normal call (no live signal) is a dry-run and sends nothing. The hourly automatic
 // run is a SEPARATE endpoint (api/cron/clockout-reminders-scheduled.js) that hard-codes live mode.
 //
 // All detection/dedup/template/send logic lives in api/lib/clockoutReminders.js and is SHARED with
-// the scheduled endpoint — there is exactly one copy of the thresholds, dedup, and email wiring.
+// the scheduled endpoint - there is exactly one copy of the thresholds, dedup, and email wiring.
 //
 // MODES (CRON_SECRET required for all via the 401 gate below):
 //   • default / anything else  → DRY-RUN: detect + classify + report. Sends NOTHING. No log write.

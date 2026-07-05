@@ -1,12 +1,12 @@
 -- ============================================================
--- ASPIRE Intelligence — Authenticated RLS Audit Migration
+-- ASPIRE Intelligence - Authenticated RLS Audit Migration
 -- ============================================================
 --
 -- PROBLEM: Every table in this project was created with a policy scoped
 -- to the `anon` role.  When users are logged in via Supabase Auth, their
 -- requests use the `authenticated` PostgreSQL role.  The anon policy does
 -- NOT apply to authenticated requests.  Result: every INSERT/UPDATE/DELETE
--- issued by a logged-in user is silently rejected by Supabase RLS — no
+-- issued by a logged-in user is silently rejected by Supabase RLS - no
 -- error reaches the UI.
 --
 -- This was first confirmed on interview_rubrics (see
@@ -24,7 +24,7 @@
 -- Tables already fixed (NOT included here):
 --   interview_rubrics  (migration_rubrics_authenticated_rls.sql)
 --
--- Tables with unknown RLS status — NOT in any tracked migration file,
+-- Tables with unknown RLS status - NOT in any tracked migration file,
 -- meaning they were created via the Supabase dashboard.  Audit these
 -- manually in the Supabase Policy editor after running this migration:
 --   user_profiles, activity_logs, unit_cohort_responses, unit_leaders
@@ -119,7 +119,7 @@ CREATE POLICY "authenticated_all_interviews" ON interviews
 -- ── program_events ───────────────────────────────────────────
 -- Event log is written by logEvent.js (called from authenticated user
 -- sessions) and read by Keith AI.  The existing policy covered anon and
--- service_role but NOT authenticated — meaning auto-logged interview
+-- service_role but NOT authenticated - meaning auto-logged interview
 -- events, rubric_saved events, etc. were silently failing.
 -- App writes: logEvent.js (many call sites), StudentSidePanel.jsx
 

@@ -15,7 +15,7 @@ import { useAuth } from '../contexts/AuthContext'
 import RestrictedAccessOverlay from './RestrictedAccessOverlay'
 import { canPerformMatching } from '../lib/permissions'
 import { KPICell, useUpdatedLabel } from './KPIBand'
-// ── Unified Placement Overview — single panel replacing Placement at a Glance + Preference Match Ring ──
+// ── Unified Placement Overview - single panel replacing Placement at a Glance + Preference Match Ring ──
 
 const PREF_SEGMENTS = [
   { key: 'top',       label: 'Top choice', color: '#C8D5C0' },
@@ -72,7 +72,7 @@ function PlacementOverview({ studentsCount, matchedCount, unmatchedCount, prefCo
         <div style={{ flex:'1.6 1 0', minWidth:200, background:'var(--bg-card,#fff)', padding:'14px 20px', display:'flex', flexDirection:'column', justifyContent:'center', gap:6 }}>
           <div style={{ fontSize:10.5, textTransform:'uppercase', letterSpacing:'0.12em', color:'var(--text-caption,#475467)', fontWeight:700 }}>Preference Match</div>
           <div style={{ fontSize:16, fontWeight:700, color: studentsCount > 0 ? 'var(--color-status-success,#2D4A2B)' : 'var(--text-muted,#98A2B3)', lineHeight:1.2 }}>
-            {studentsCount > 0 ? `${topPct}% received top choice` : '—'}
+            {studentsCount > 0 ? `${topPct}% received top choice` : '-'}
           </div>
           <SegmentedBar counts={counts} total={studentsCount} />
           <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
@@ -371,7 +371,7 @@ export default function MatchingTab({
   return (
     <div className="matching-tab embed-tab" style={{ position: 'relative' }}>
 
-      {/* Access overlay for non-matching roles — sits above everything (shared with Evaluation). */}
+      {/* Access overlay for non-matching roles - sits above everything (shared with Evaluation). */}
       {!canMatch && (
         <RestrictedAccessOverlay
           title="Placement decisions are made by the program leads."
@@ -422,7 +422,7 @@ export default function MatchingTab({
               <button className="embed-light-btn" onClick={exportCSV}>↓ Export CSV</button>
             </div>
             <div className="embed-units-body">
-              {/* Unit Pool guide — shows when no unit is focused and no student selected */}
+              {/* Unit Pool guide - shows when no unit is focused and no student selected */}
               {!focusedUnit && !selectedStudent && (
                 <div style={{ margin:'10px 12px 0', background:'#FAFAF7', border:'1px dashed rgba(29,37,103,0.12)', borderRadius:10, padding:'10px 13px', fontSize:12, color:'#475467', display:'flex', alignItems:'center', gap:8, fontFamily:'DM Sans, sans-serif' }}>
                   <Info size={14} style={{ color:'#98A2B3', flexShrink:0 }} />
@@ -430,7 +430,7 @@ export default function MatchingTab({
                 </div>
               )}
 
-              {/* MatchingBanner — compact card, only when student selected */}
+              {/* MatchingBanner - compact card, only when student selected */}
               {selectedStudent && (
                 <div style={{ padding:'12px 16px 0' }}>
                   <MatchingBanner
@@ -558,13 +558,13 @@ export default function MatchingTab({
                     Preferences for {focusedUnit.unit_name}:
                   </span>
                   <span style={{ color: '#059669', fontWeight: 600 }}>
-                    {sortedPool.filter(s => tierOf(s) === 1).length} — 1st choice
+                    {sortedPool.filter(s => tierOf(s) === 1).length}, 1st choice
                   </span>
                   <span style={{ color: '#B5895A', fontWeight: 600 }}>
-                    {sortedPool.filter(s => tierOf(s) === 2).length} — 2nd
+                    {sortedPool.filter(s => tierOf(s) === 2).length}, 2nd
                   </span>
                   <span style={{ color: '#7C8FD9', fontWeight: 600 }}>
-                    {sortedPool.filter(s => tierOf(s) === 3).length} — 3rd
+                    {sortedPool.filter(s => tierOf(s) === 3).length}, 3rd
                   </span>
                   <button
                     onClick={() => setFocusedUnit(null)}
@@ -578,7 +578,7 @@ export default function MatchingTab({
                 </div>
               )}
 
-              {/* Student Pool guide — shows when no student is selected */}
+              {/* Student Pool guide - shows when no student is selected */}
               {!selectedStudent && filteredPool.length > 0 && (
                 <div style={{ margin:'10px 12px 0', background:'#FAFAF7', border:'1px dashed rgba(29,37,103,0.12)', borderRadius:10, padding:'10px 13px', fontSize:12, color:'#475467', display:'flex', alignItems:'center', gap:8, fontFamily:'DM Sans, sans-serif' }}>
                   <Info size={14} style={{ color:'#98A2B3', flexShrink:0 }} />

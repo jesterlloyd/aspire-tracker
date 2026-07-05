@@ -1,4 +1,4 @@
-// useLookupStudent.js — B1 lookup hook for the shift-log lifecycle.
+// useLookupStudent.js - B1 lookup hook for the shift-log lifecycle.
 // Calls POST /api/shift-log/lookup-student. Returns the parsed response, or
 // { _networkError: true } on timeout / network failure / 5xx. No PII logged.
 

@@ -36,14 +36,14 @@ const GA_QUESTIONS = [
   'Tell me what type of unit or preceptor helps you learn best, and why.',
   'How do you see this ASPIRE experience preparing you for your first nursing job?',
   'What drew you to Cedars-Sinai for your senior preceptorship, and how do you see this experience supporting your growth as a nurse?',
-  'What personal strengths or qualities do you bring that make you a good fit for the ASPIRE Program?',
+  'What personal strengths or qualities do you bring that make you a good fit for ASPIRE?',
 ]
 const DOMAIN_QUESTIONS = { cj: CJ_QUESTIONS, pp: PP_QUESTIONS, ga: GA_QUESTIONS }
 
 const DOMAIN_REF = {
   cj: { desc:'Ability to observe, interpret, prioritize, and respond to patient needs using integrated clinical knowledge and critical thinking.', basis:"Tanner's Clinical Judgment Model and Benner's Novice to Expert framework.", listen:'Patient safety awareness, prioritization, logical reasoning, situational awareness.' },
   pp: { desc:'Demonstrates professional behavior, emotional intelligence, and readiness to function as part of a healthcare team.', basis:'QSEN competencies for teamwork, communication, and patient-centered care.', listen:'Self-reflection, receptiveness to feedback, professionalism under stress, accountability.' },
-  ga: { desc:"Alignment of the student's learning goals, career intentions, and values with the ASPIRE Program's mission.", basis:"Cedars-Sinai's Nursing Professional Practice Model and the ASPIRE Program's mission.", listen:'Clarity of purpose, motivation for ASPIRE, learning goals, cultural fit, post-graduation plans.' },
+  ga: { desc:"Alignment of the student's learning goals, career intentions, and values with ASPIRE's mission.", basis:"Cedars-Sinai's Nursing Professional Practice Model and ASPIRE's mission.", listen:'Clarity of purpose, motivation for ASPIRE, learning goals, cultural fit, post-graduation plans.' },
 }
 const SCORE_LABELS = ['','Not Yet Ready','Emerging','Competent','Strong','Highly Aligned']
 const SCORE_COLORS = [null,
@@ -293,7 +293,7 @@ function RubricCard({ r, interviewers, onSave, canEdit, onView }) {
           <select className="iv-input" style={{ fontSize:12, padding:'4px 8px', width:'100%' }}
             value={editForm.interviewer_name}
             onChange={e => setEditForm(p => ({ ...p, interviewer_name: e.target.value }))}>
-            <option value="">—</option>
+            <option value="">-</option>
             {interviewers.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </div>
@@ -302,7 +302,7 @@ function RubricCard({ r, interviewers, onSave, canEdit, onView }) {
           <select className="iv-input" style={{ fontSize:12, padding:'4px 8px', width:'100%' }}
             value={editForm.individual_recommendation}
             onChange={e => setEditForm(p => ({ ...p, individual_recommendation: e.target.value }))}>
-            <option value="">—</option>
+            <option value="">-</option>
             {REC_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
@@ -376,7 +376,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const completedRubrics = studentRubrics.filter(r => r.status === 'Completed')
 
   // Interviewers list and available units.
-  // staleTime: 0 ensures the list is always fresh when a rubric opens — critical so
+  // staleTime: 0 ensures the list is always fresh when a rubric opens - critical so
   // newly-added interviewers (from InterviewersModal) appear without a page reload.
   const { data: interviewer_unit_data } = useQuery({
     queryKey: ['rubric_support_data', cohortId],
@@ -405,7 +405,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
   const interviewers = interviewer_unit_data?.interviewers || []
   const availUnits   = interviewer_unit_data?.availUnits   || []
 
-  // Unit availability snapshot for the student's 3 preferences — cached per student+cohort+prefs
+  // Unit availability snapshot for the student's 3 preferences - cached per student+cohort+prefs
   const { data: unitAvailability = [null, null, null], isLoading: availLoading, refetch: loadUnitAvailability } = useQuery({
     queryKey: ['unit_availability', cohortId, student.id,
       student.unit_preference_1, student.unit_preference_2, student.unit_preference_3],
@@ -439,7 +439,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     }
     setForm(p => ({ ...p, interviewer_name: name }))
     setRubricId(null)
-    // Selecting an interviewer is a meaningful action — create record immediately
+    // Selecting an interviewer is a meaningful action - create record immediately
     if (name) persist({ interviewer_name: name }, true)
   }
 
@@ -507,7 +507,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     return true
   }
 
-  // Debounced save — never creates a new record
+  // Debounced save - never creates a new record
   const saveText = (field, value) => {
     setForm(p => ({ ...p, [field]: value }))
     hasUnsavedEditsRef.current = true
@@ -521,7 +521,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     hasUnsavedEditsRef.current = true
     persist({ [field]: value }, false)
   }
-  // Immediate save for meaningful edits — creates record if first interaction
+  // Immediate save for meaningful edits - creates record if first interaction
   const saveMeaningful = (field, value) => {
     setForm(p => ({ ...p, [field]: value }))
     hasUnsavedEditsRef.current = true
@@ -539,7 +539,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     // rather than silently doing nothing.
     const saved = await persist({ ...form, status:'Completed', composite_score: composite }, true)
     if (!saved) {
-      // persist already showed an error toast — do not show success UI
+      // persist already showed an error toast - do not show success UI
       return
     }
     setForm(p => ({ ...p, status:'Completed', composite_score: composite }))
@@ -558,7 +558,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       })
     }
     toast?.success('Rubric submitted', `Interview scored ${composite}/15.`)
-    // Clear the localStorage draft — rubric is now persisted on the server.
+    // Clear the localStorage draft - rubric is now persisted on the server.
     try {
       if (student?.id && userId) localStorage.removeItem(`aspire.rubric.draft.${student.id}.${userId}`)
     } catch (_) { /* non-critical */ }
@@ -629,7 +629,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       await persistRef.current(formRef.current, false)
     }, 30_000)
     return () => clearInterval(interval)
-  }, []) // deliberately [] — reads from refs, not re-created on every render
+  }, []) // deliberately [] - reads from refs, not re-created on every render
 
   // ── Session refresh (every 15 min) ────────────────────────────────────────
   // Ensures the JWT stays valid during long interview sessions (Supabase tokens
@@ -673,7 +673,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     formStateRef.current = { form, prefs, flagNote, isFlagged, otherClicked }
   }, [form, prefs, flagNote, isFlagged, otherClicked])
 
-  // Core save function — reads from ref so it always captures the latest values.
+  // Core save function - reads from ref so it always captures the latest values.
   // Guards: only writes when there is real user-entered content (not just auto-populated initial state).
   const saveDraftToLocalStorage = useCallback(() => {
     if (readOnly) return
@@ -723,7 +723,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
         || student?.updated_at
       if (serverUpdatedAt && new Date(draft.savedAt) <= new Date(serverUpdatedAt)) return
 
-      // Skip restore if the draft has no real user-entered content — avoids false-positive toasts
+      // Skip restore if the draft has no real user-entered content - avoids false-positive toasts
       if (!hasRubricContent(draft)) return
 
       // Restore every tracked field
@@ -760,7 +760,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
     { id:'s7', label:'Recommendation', status: stepSt(!!form.individual_recommendation, false) },
   ]
 
-  // Validation errors — computed live, gate Mark Complete
+  // Validation errors - computed live, gate Mark Complete
   const validationErrors = !locked ? [
     !form.interviewer_name                       && 'Interviewer name is required in Section 1',
     !form.interview_date                         && 'Date of interview is required in Section 1',
@@ -784,7 +784,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
 
   return (
     <div className="rub-session">
-      {/* Back button + save indicator — hidden in readOnly (modal provides its own close) */}
+      {/* Back button + save indicator - hidden in readOnly (modal provides its own close) */}
       {!readOnly && (
         <div className="rub-topbar">
           <BackButton label="Back to Interview List" onClick={onBack} />
@@ -821,7 +821,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
       <div className="rub-panels">
         {/* ── Left panel ── */}
         <div className="rub-left">
-          {/* Contact-style header — gradient card, centered, read-only reference */}
+          {/* Contact-style header - gradient card, centered, read-only reference */}
           <div style={{ flexShrink:0, padding:'12px 12px 0' }}>
           <div style={{
             borderRadius:16,
@@ -984,7 +984,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
             ) : null)}
           </div>
 
-          {/* Flag toggle — hidden in readOnly view */}
+          {/* Flag toggle - hidden in readOnly view */}
           {!readOnly && <div className="rub-divider" />}
           {!readOnly && (
           <div className="rub-left-section">
@@ -1067,7 +1067,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
             </div>
           )}
 
-          {/* No-name banner — shown until interviewer selects their name */}
+          {/* No-name banner - shown until interviewer selects their name */}
           {!locked && !form.interviewer_name && (
             <div style={{ background:'var(--sand)', border:'1px solid var(--border)', borderRadius:6, padding:'10px 14px', marginBottom:12, fontSize:13, color:'var(--nightfall)', fontWeight:500 }}>
               Select your name in Section 1 to begin saving your rubric.
@@ -1095,8 +1095,8 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                   <p>Begin by introducing yourself and your role. Then invite the student to briefly introduce themselves.</p>
                   <p>Once you are both settled, say:</p>
                   <p className="rub-script-quote">"Thanks for being here today. The goal of this interview is to get a better sense of your clinical readiness and explore how we can best support your transition into professional nursing practice."</p>
-                  <p className="rub-script-heading">Introduce the ASPIRE Program</p>
-                  <p className="rub-script-quote">"The ASPIRE Program offers senior nursing students the opportunity to complete their final clinical rotation at Cedars-Sinai Medical Center. It is designed to support a seamless transition into our New Graduate RN Residency Program through personalized unit and preceptor matching, mentorship, application guidance, and connection to a strong nursing community."</p>
+                  <p className="rub-script-heading">Introduce ASPIRE</p>
+                  <p className="rub-script-quote">"ASPIRE offers senior nursing students the opportunity to complete their final clinical rotation at Cedars-Sinai Medical Center. It is designed to support a seamless transition into our New Graduate RN Residency Program through personalized unit and preceptor matching, mentorship, application guidance, and connection to a strong nursing community."</p>
                   <p className="rub-script-heading">Explain the Interview Format</p>
                   <p className="rub-script-quote">"This is a structured, rubric-based interview. I will be asking at least one question in each of three areas: Clinical Judgment, Professional Presence, and Goal Alignment. These are grounded in the AACN Essentials for nursing practice. There are no right or wrong answers. We simply want to hear your honest thoughts and experiences. I may take notes as we go, and we will close with a brief recommendation. Take all the time you need before answering. Ready to begin?"</p>
                   <p>Then ask:</p>
@@ -1159,7 +1159,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                 </div>
                 <div className="iv-field">
                   <label className="iv-label">Interview Time</label>
-                  {locked ? <div className="iv-readonly">{form.interview_time || student.interview_scheduled_time || '—'}</div>
+                  {locked ? <div className="iv-readonly">{form.interview_time || student.interview_scheduled_time || '-'}</div>
                     : <input className="iv-input" type="text" value={form.interview_time || student.interview_scheduled_time || ''} onChange={e => saveText('interview_time', e.target.value)} placeholder="e.g. 09:00" />}
                 </div>
               </div>
@@ -1173,7 +1173,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                 {(['unit_preference_1','unit_preference_2','unit_preference_3']).map((f, i) => (
                   <div className="iv-field" key={f}>
                     <label className="iv-label">{['1st','2nd','3rd'][i]} Choice</label>
-                    {locked ? <div className="iv-readonly">{prefs[f] || '—'}</div>
+                    {locked ? <div className="iv-readonly">{prefs[f] || '-'}</div>
                       : <select className="iv-input" value={prefs[f]} onChange={e => savePreference(f, e.target.value)}>
                           <option value="">Not specified</option>
                           {availUnits.map(u => <option key={u} value={u}>{u}</option>)}
@@ -1183,7 +1183,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
               </div>
               <div className="iv-field">
                 <label className="iv-label">Unit Preferences, Rationale, and Introduction Notes</label>
-                {locked ? <div className="iv-readonly iv-readonly-tall">{form.unit_preferences_rationale || '—'}</div>
+                {locked ? <div className="iv-readonly iv-readonly-tall">{form.unit_preferences_rationale || '-'}</div>
                   : <textarea className="iv-textarea iv-notes-textarea" rows={4} value={form.unit_preferences_rationale}
                       onChange={e => saveText('unit_preferences_rationale', e.target.value)}
                       placeholder="Capture rationale, introduction observations…" />}
@@ -1225,7 +1225,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                   <p className="iv-prompt">Ask at least one of the following:</p>
 
                   <div className="iv-questions">
-                    {/* Preset question tiles — always fully clickable */}
+                    {/* Preset question tiles - always fully clickable */}
                     {questions.map((q, qi) => {
                       const sel = form[qField] === q && !isOtherActive
                       if (locked && !sel) return null
@@ -1273,7 +1273,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                               Type the custom question asked:
                             </label>
                             {locked
-                              ? <div className="iv-readonly">{form[qField] || '—'}</div>
+                              ? <div className="iv-readonly">{form[qField] || '-'}</div>
                               : <textarea
                                   className="iv-textarea iv-notes-textarea"
                                   rows={3}
@@ -1291,7 +1291,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                   {/* Notes */}
                   <div className="iv-field" style={{ marginTop:14 }}>
                     <label className="iv-label iv-score-label">Notes and Response Summary</label>
-                    {locked ? <div className="iv-readonly iv-readonly-tall">{form[nField] || '—'}</div>
+                    {locked ? <div className="iv-readonly iv-readonly-tall">{form[nField] || '-'}</div>
                       : <textarea className="iv-textarea iv-notes-textarea" rows={3} value={form[nField]} onChange={e => saveText(nField, e.target.value)} placeholder="Key points from the student's response…" />}
                   </div>
 
@@ -1331,7 +1331,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
             <div className="iv-section" id="s6">
               <div className="iv-section-title">Section 6: Student Questions</div>
               <p className="iv-prompt">"Before we wrap up, what questions do you have for us?"</p>
-              {locked ? <div className="iv-readonly iv-readonly-tall">{form.student_questions || '—'}</div>
+              {locked ? <div className="iv-readonly iv-readonly-tall">{form.student_questions || '-'}</div>
                 : <textarea className="iv-textarea iv-notes-textarea" rows={3} value={form.student_questions}
                     onChange={e => saveText('student_questions', e.target.value)}
                     placeholder="Student questions and notable comments (optional)…" />}
@@ -1356,12 +1356,12 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
               </p>
               <div className="iv-field" style={{ marginTop:14 }}>
                 <label className="iv-label">Suggested Unit</label>
-                {locked ? <div className="iv-readonly">{form.suggested_unit || '—'}</div>
+                {locked ? <div className="iv-readonly">{form.suggested_unit || '-'}</div>
                   : <input className="iv-input" value={form.suggested_unit} onChange={e => saveText('suggested_unit', e.target.value)} placeholder="Unit you would suggest" />}
               </div>
               <div className="iv-field" style={{ marginTop:12 }}>
                 <label className="iv-label">Summary Comments</label>
-                {locked ? <div className="iv-readonly iv-readonly-tall">{form.summary_comments || '—'}</div>
+                {locked ? <div className="iv-readonly iv-readonly-tall">{form.summary_comments || '-'}</div>
                   : <textarea className="iv-textarea iv-notes-textarea" rows={4} value={form.summary_comments} onChange={e => saveText('summary_comments', e.target.value)} placeholder="Overall impressions, strengths, areas for development…" />}
               </div>
             </div>
@@ -1414,7 +1414,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
               <div className="iv-locked-notice">✓ Your rubric is marked Complete. Click "Unlock to Edit" to make changes.</div>
             )}
 
-            {/* All rubrics for this student — hidden in readOnly view */}
+            {/* All rubrics for this student - hidden in readOnly view */}
             {!readOnly && completedRubrics.length > 0 && (
               <div className="rub-all-section">
                 <div className="rub-all-title">All Rubrics for This Student ({completedRubrics.length})</div>
@@ -1434,7 +1434,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                     if (!scored.length) {
                       console.log('[RubricSession] average composite is null for student', student.id,
                         { rubrics: completedRubrics.map(r => ({ status: r.status, score: r.composite_score })) })
-                      return '—'
+                      return '-'
                     }
                     const avg = scored.reduce((s, r) => s + (r.composite_score || 0), 0) / scored.length
                     return avg.toFixed(1)
@@ -1503,7 +1503,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
           <div className="modal-rubric-view" onMouseDown={e => e.stopPropagation()}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 20px', borderBottom:'1px solid var(--color-border-subtle, #f3f4f6)', flexShrink:0 }}>
               <div style={{ fontFamily:'DM Sans', fontWeight:700, fontSize:15, color:'var(--color-text-primary)' }}>
-                Rubric — {viewingRubric.interviewer_name || 'Unknown Interviewer'}
+                Rubric, {viewingRubric.interviewer_name || 'Unknown Interviewer'}
               </div>
               <button className="modal-close" onClick={() => setViewingRubric(null)}>×</button>
             </div>

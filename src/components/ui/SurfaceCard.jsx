@@ -1,4 +1,4 @@
-// UI-1: governance surface card — the white, borderless, soft-shadow card used
+// UI-1: governance surface card - the white, borderless, soft-shadow card used
 // across Settings / Knowledge Center (extracted pixel-for-pixel from the shipped
 // KT-3a-1 surfaces). Non-interactive by design: no hover, no cursor, no elevation
 // change. Reads theme.css variables so dark mode is not made worse.

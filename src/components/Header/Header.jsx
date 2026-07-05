@@ -27,13 +27,13 @@ export default function Header({ cohort, search, actions }) {
 
       <div style={{ flex:1 }} />
 
-      {/* Zone 2: Status — cohort picker */}
+      {/* Zone 2: Status - cohort picker */}
       <CohortPicker {...cohort} />
 
       {/* Zone 3: Search */}
       <UniversalSearch {...search} />
 
-      {/* Zone 3: Actions — connect + bell + user menu */}
+      {/* Zone 3: Actions - connect + bell + user menu */}
       <HeaderActions {...actions} />
     </header>
   )

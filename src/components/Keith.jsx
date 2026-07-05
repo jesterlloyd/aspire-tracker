@@ -54,7 +54,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
     requestAnimationFrame(() => scrollToBottom('auto'));
   }, [isOpen]);
 
-  // UI-0.5: mutual dismiss — close this panel when another floating panel
+  // UI-0.5: mutual dismiss - close this panel when another floating panel
   // (e.g. the UserMenu) announces it is opening. Closing only toggles isOpen;
   // chat/message state is untouched, exactly like the existing backdrop close.
   useEffect(() => onFloatingPanelOpen(source => {
@@ -65,7 +65,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
   const welcomeMessage = {
     id: 'welcome',
     role: 'keith',
-    text: `Hi${firstName ? `, ${firstName}` : ''}! I'm Keith, your ASPIRE Program assistant.\n\nI'm here to help you manage the ASPIRE workflow. I can help you:\n\n• Identify students who need follow-up\n• Summarize cohort status\n• Draft common ASPIRE emails\n• Answer questions about any part of the program\n\nWhat can I help you with today?`,
+    text: `Hi${firstName ? `, ${firstName}` : ''}! I'm Keith, your ASPIRE assistant.\n\nI'm here to help you manage the ASPIRE workflow. I can help you:\n\n• Identify students who need follow-up\n• Summarize cohort status\n• Draft common ASPIRE emails\n• Answer questions about any part of the program\n\nWhat can I help you with today?`,
   };
 
   const handleSend = async (messageText) => {
@@ -96,7 +96,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
       shiftLogProgress: queryClient.getQueryData(['shift_log_progress', cohortId]) || {},
     };
 
-    // Bounded parallel prefetch — backend has authoritative data if any time out
+    // Bounded parallel prefetch - backend has authoritative data if any time out
     if (cohortId) {
       const prefetches = [];
       if (liveData.students.length === 0)
@@ -151,7 +151,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
           new Promise(resolve => { prefetchTimeoutId = setTimeout(resolve, KEITH_PREFETCH_CEILING_MS); }),
         ]);
         clearTimeout(prefetchTimeoutId);
-        // Refresh liveData from cache — picks up whatever resolved within the ceiling
+        // Refresh liveData from cache - picks up whatever resolved within the ceiling
         liveData.students         = queryClient.getQueryData(['students_in_cohort', cohortId]) || liveData.students;
         liveData.units            = queryClient.getQueryData(['units_cohort', cohortId]) || liveData.units;
         liveData.shiftLogProgress = queryClient.getQueryData(['shift_log_progress', cohortId]) || liveData.shiftLogProgress;
@@ -205,7 +205,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
           return;
         }
 
-        // Transient error (overloaded, rate limit, etc.) — show friendly message + retry
+        // Transient error (overloaded, rate limit, etc.) - show friendly message + retry
         if (data.transient) {
           setMessages(prev => [...prev, {
             id: Date.now() + 1, role: 'keith',
@@ -215,7 +215,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
           return;
         }
 
-        // Non-transient error — log details but show a clean message
+        // Non-transient error - log details but show a clean message
         console.error('Keith API error:', response.status, data);
         setMessages(prev => [...prev, {
           id: Date.now() + 1, role: 'keith',
@@ -429,7 +429,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
               gap: '12px',
               flexShrink: 0,
             }}>
-              {/* Header orb — static, no animation */}
+              {/* Header orb - static, no animation */}
               <div style={{
                 width: '36px', height: '36px', borderRadius: '50%',
                 position: 'relative', overflow: 'hidden', flexShrink: 0,
@@ -444,7 +444,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
               </div>
               <div>
                 <div style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '16px', color: '#ffffff' }}>Keith</div>
-                <div style={{ fontFamily: 'DM Sans', fontWeight: 400, fontSize: '12px', color: 'rgba(255,255,255,0.65)' }}>ASPIRE Program Assistant</div>
+                <div style={{ fontFamily: 'DM Sans', fontWeight: 400, fontSize: '12px', color: 'rgba(255,255,255,0.65)' }}>ASPIRE Assistant</div>
               </div>
               <Tooltip label="New conversation" placement="bottom">
               <button
@@ -491,7 +491,7 @@ export default function Keith({ activeTab, setActiveTab, cohortName, cohortId, s
                 </div>
               </div>
 
-              {/* Suggested prompts — only show when no messages yet */}
+              {/* Suggested prompts - only show when no messages yet */}
               {messages.length === 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
                   {SUGGESTED_PROMPTS.map((prompt, i) => (

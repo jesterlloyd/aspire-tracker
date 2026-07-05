@@ -95,7 +95,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
       // Use the cohort_id from the student's own record
       setCohortId(stu.cohort_id)
       setStudent(stu)
-      // TODO(Phase B.2 public-forms): ShiftLogPage is a public route — students do not
+      // TODO(Phase B.2 public-forms): ShiftLogPage is a public route - students do not
       // authenticate, so RLS blocks reads from the preceptors table. Preceptor data here
       // is read from students.matched_preceptor (free-text fallback). When public forms
       // migrate to serverless functions (Fall 2026), resolve via preceptors table instead.
@@ -171,7 +171,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
       const prevApproved = parseFloat(student.approved_hours || 0)
       const requiredH    = parseFloat(student.hours_required || 0)
 
-      submissionIdRef.current = null  // attempt complete — next submission gets a new key
+      submissionIdRef.current = null  // attempt complete - next submission gets a new key
       setNewApproved(newApprovedV)
       setSubmittedStatus(newStatus)
       setSubmittedReason(newReason)
@@ -180,7 +180,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
     } catch (err) {
       setFormErrors([err?.message || 'Submission failed. Please try again.'])
     } finally {
-      setSubmitting(false)   // ALWAYS resets — no path can leave the button stuck
+      setSubmitting(false)   // ALWAYS resets - no path can leave the button stuck
     }
   }
 
@@ -248,9 +248,9 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
                 Welcome, {getStudentPreferredGreetingName(student)}!
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'4px 16px', fontSize:13, color:'#6b7280', marginBottom:14 }}>
-                <span><strong style={{color:'var(--raven)'}}>School:</strong> {student.school||'—'}</span>
-                <span><strong style={{color:'var(--raven)'}}>Unit:</strong> {unitName||'—'}</span>
-                <span><strong style={{color:'var(--raven)'}}>Rotation:</strong> {student.term_dates||'—'}</span>
+                <span><strong style={{color:'var(--raven)'}}>School:</strong> {student.school||'-'}</span>
+                <span><strong style={{color:'var(--raven)'}}>Unit:</strong> {unitName||'-'}</span>
+                <span><strong style={{color:'var(--raven)'}}>Rotation:</strong> {student.term_dates||'-'}</span>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, textAlign:'center', marginBottom:12 }}>
                 {[['Required', required], ['Approved', approved], ['Remaining', remaining]].map(([lbl, val]) => (
@@ -438,12 +438,12 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
                   You've Completed Your Required Hours!
                 </div>
                 <p style={{ fontSize:14, color:'#166534', lineHeight:1.6, margin:'0 0 16px' }}>
-                  Congratulations on completing your {required} required hours for the ASPIRE Program at Cedars-Sinai. Your coordinator will be in touch soon with your Certificate of Completion.
+                  Congratulations on completing your {required} required hours for ASPIRE at Cedars-Sinai. Your coordinator will be in touch soon with your Certificate of Completion.
                 </p>
                 <button
                   onClick={() => {
                     const subject = encodeURIComponent(`ASPIRE Hours Completed - ${student.first_name} ${student.last_name}`)
-                    const body = encodeURIComponent(`Hi Jester,\n\nI have completed my required ${required} hours for the ASPIRE Program rotation.\n\nStudent: ${student.last_name}, ${student.first_name}\nSchool: ${student.school}\nTotal Approved Hours: ${newApproved}\n\nThank you!`)
+                    const body = encodeURIComponent(`Hi Jester,\n\nI have completed my required ${required} hours for ASPIRE rotation.\n\nStudent: ${student.last_name}, ${student.first_name}\nSchool: ${student.school}\nTotal Approved Hours: ${newApproved}\n\nThank you!`)
                     openMailtoLink(`mailto:JesterLloyd.Bautista@cshs.org?subject=${subject}&body=${body}`)
                   }}
                   style={{ background:'var(--nightfall)', color:'#fff', border:'none', borderRadius:10, padding:'12px 24px', fontSize:15, fontWeight:700, fontFamily:'DM Sans,sans-serif', cursor:'pointer' }}>
@@ -451,7 +451,7 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
                 </button>
               </div>
             )}
-            {/* Already over required hours — logging additional shifts */}
+            {/* Already over required hours - logging additional shifts */}
             {!celebration && newApproved >= required && required > 0 && (
               <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:10, padding:'12px 16px', marginBottom:16, fontSize:14, color:'#166534', lineHeight:1.6, textAlign:'center' }}>
                 You have logged <strong>{newApproved}</strong> hours, exceeding your required <strong>{required}</strong>. Great dedication!

@@ -1,6 +1,6 @@
 -- =====================================================================
 -- ASPIRE Preceptor Data Backfill
--- Phase B.1 — One-time population of normalized preceptors table
+-- Phase B.1 - One-time population of normalized preceptors table
 --
 -- Run AFTER migration_preceptor_normalization.sql has been applied.
 -- Idempotent: safe to re-run (all INSERTs use ON CONFLICT DO NOTHING
@@ -132,9 +132,9 @@ ON CONFLICT (preceptor_id, cohort_id) DO NOTHING;
 -- ─────────────────────────────────────────────────────────────────────
 -- Step 5: Admin review view
 -- Surfaces every student-preceptor relationship and its resolution status:
---   resolved    — preceptor_id was successfully set
---   needs_email — preceptor name present but no email to match on
---   unresolved  — email present but no preceptors row matched
+--   resolved    - preceptor_id was successfully set
+--   needs_email - preceptor name present but no email to match on
+--   unresolved  - email present but no preceptors row matched
 -- Use in Phase B.3 admin UI to identify records needing manual triage.
 -- ─────────────────────────────────────────────────────────────────────
 
@@ -161,7 +161,7 @@ WHERE s.matched_preceptor IS NOT NULL
 
 
 -- ─────────────────────────────────────────────────────────────────────
--- Post-run verification — counts printed to query output
+-- Post-run verification - counts printed to query output
 -- ─────────────────────────────────────────────────────────────────────
 
 DO $$

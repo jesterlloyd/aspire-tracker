@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 
-// CATALOG-3 — Owner/Admin category metadata management (rename + reorder).
+// CATALOG-3 - Owner/Admin category metadata management (rename + reorder).
 //
 // Two actions, both metadata-only on catalog_categories:
 //   action 'rename'  → update a category's display_name and/or description (located BY slug).
@@ -9,9 +9,9 @@ import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js';
 //                      exactly, and assign sort_order by position in ONE atomic upsert.
 //
 // HARD limits: 'rename' writes ONLY display_name / description. sort_order is writable ONLY via
-// 'reorder' (which requires the full ordered slug list) — so sort_order sent to 'rename' is
+// 'reorder' (which requires the full ordered slug list) - so sort_order sent to 'rename' is
 // rejected as unsupported, closing the partial-reorder bypass. It NEVER edits slug (the stable
-// anchor), is_active (archive is CATALOG-3B), id, or actor/timestamp columns — those are
+// anchor), is_active (archive is CATALOG-3B), id, or actor/timestamp columns - those are
 // rejected with 400. It performs NO Storage operation and NEVER touches catalog_resources, so
 // resource rows and storage_path are untouched and slugs/links stay stable.
 
@@ -126,7 +126,7 @@ export default async function handler(req, res) {
   }
 
   // Load the existing categories and confirm the submitted list matches EXACTLY (no missing,
-  // no extra). This guarantees we reassign the whole set coherently — never a partial order.
+  // no extra). This guarantees we reassign the whole set coherently - never a partial order.
   const { data: existing, error: exErr } = await supabaseAdmin
     .from('catalog_categories')
     .select('slug, display_name, description');

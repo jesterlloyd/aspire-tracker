@@ -3,12 +3,12 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { classifyCohort, PERIOD_LABELS } from '../../lib/evaluation/preceptorDueDetection'
 
-// PS-3a/PS-3b — Survey Automation due-detection + Owner/Admin per-item RELEASE.
+// PS-3a/PS-3b - Survey Automation due-detection + Owner/Admin per-item RELEASE.
 //
 // Detection is READ-ONLY and live-computed by the pure preceptorDueDetection module
 // (students, preceptors, preceptor_progress assignments via the existing Owner/Admin RLS
 // SELECT policies). PS-3b adds a per-item Release control on due_sendable rows that calls
-// the release endpoint (student_id + period only — no recipient override). The endpoint
+// the release endpoint (student_id + period only - no recipient override). The endpoint
 // re-runs detection server-side and sends through the SAME shared core as the PS-2b manual
 // send. There is NO queue table, NO cron, NO auto-send, and NO bulk/Release-All.
 
@@ -24,7 +24,7 @@ const GROUPS = [
 ]
 
 function fmtHours(n) {
-  if (n == null) return '—'
+  if (n == null) return '-'
   return Number.isInteger(n) ? String(n) : Number(n).toFixed(2)
 }
 
@@ -102,12 +102,12 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
     return g
   }, [rows])
 
-  // SURVEY-UX-2 — report this survey's already-computed counts up to the dashboard status
+  // SURVEY-UX-2 - report this survey's already-computed counts up to the dashboard status
   // band (presentational rollup only; no detection change). summary is memoized, so this
   // fires only when detection actually changes.
   useEffect(() => { onCounts?.(summary) }, [onCounts, summary])
 
-  // PS-3b: release one due_sendable item. Sends only { student_id, period } — the server
+  // PS-3b: release one due_sendable item. Sends only { student_id, period } - the server
   // re-validates and resolves the recipient. No recipient is ever sent from the client.
   const doRelease = useCallback(async (row) => {
     setReleasing(true); setReleaseMsg(null)
@@ -117,7 +117,7 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
         setReleaseMsg({ tone: 'err', text: 'Your session expired. Please sign in again.' })
         setReleasing(false); return
       }
-      // expected_preceptor_email is the recipient the Owner saw — sent for a server-side
+      // expected_preceptor_email is the recipient the Owner saw - sent for a server-side
       // mismatch check ONLY. The server still resolves the actual recipient from the student.
       const res = await fetch('/api/evaluation-release-preceptor-survey', {
         method: 'POST',
@@ -130,7 +130,7 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
       })
       const body = await res.json().catch(() => ({}))
       if (res.ok && body.released) {
-        setReleaseMsg({ tone: 'ok', text: `Released — survey sent to ${body.preceptor_name || body.preceptor_email || 'the preceptor'} for ${row.studentName} (${PERIOD_LABELS[row.period]}).` })
+        setReleaseMsg({ tone: 'ok', text: `Released, survey sent to ${body.preceptor_name || body.preceptor_email || 'the preceptor'} for ${row.studentName} (${PERIOD_LABELS[row.period]}).` })
       } else {
         setReleaseMsg({ tone: 'err', text: `Release refused for ${row.studentName} (${PERIOD_LABELS[row.period]}): ${body.reason || body.error || 'no longer sendable'}` })
       }
@@ -139,11 +139,11 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
     } finally {
       setReleasing(false)
       setConfirm(null)
-      await load() // refresh detection — a released item moves to suppressed_existing
+      await load() // refresh detection - a released item moves to suppressed_existing
     }
   }, [load])
 
-  // SURVEY-UX-3 — render the full-width detail body only when this is the selected workflow.
+  // SURVEY-UX-3 - render the full-width detail body only when this is the selected workflow.
   // Detection + count reporting hooks above still run regardless, so the summary card and
   // status band stay live even while this workflow's detail is not shown.
   if (!active) return null
@@ -159,7 +159,7 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
   return (
     <>
       <div style={{ fontFamily: F }}>
-      {/* Workspace header — restates the selected workflow + recipient. */}
+      {/* Workspace header - restates the selected workflow + recipient. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
         <h2 style={{ fontSize: 17, fontWeight: 700, color: '#191919', margin: 0 }}>Preceptor Student Readiness Assessment</h2>
         <span style={{
@@ -172,17 +172,17 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
       <p style={{ fontSize: 13, color: '#9ca3af', margin: '0 0 16px', lineHeight: 1.6 }}>
         Live-computed queue of students due for an automated preceptor survey. Midpoint is
         due at ≥ 50% of required hours; End of Rotation at ≥ 100%. Release is per-item and
-        human-approved — there is no auto-send.
+        human-approved, there is no auto-send.
       </p>
 
-      {/* Banner — no cron / no auto-send / no recipient override */}
+      {/* Banner - no cron / no auto-send / no recipient override */}
       <div style={{
         fontSize: 12.5, color: '#1D2567', background: '#EEF1FB', border: '1px solid #d7ddf5',
         borderRadius: 8, padding: '10px 14px', marginBottom: 18, lineHeight: 1.55,
       }}>
         <strong>Human-approved sends only.</strong> Releasing re-checks eligibility on the
         server and sends the preceptor survey through the same path as a manual send. The
-        recipient is resolved server-side from the student — there is no recipient field.
+        recipient is resolved server-side from the student, there is no recipient field.
       </div>
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
@@ -246,7 +246,7 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
                           <tr key={`${r.studentId}-${r.period || 'na'}`} style={{ background: idx % 2 ? '#fafafa' : '#fff', borderBottom: '1px solid #f3f4f6' }}>
                             <td style={{ padding: '9px 13px', fontSize: 13, color: '#191919', fontWeight: 600 }}>{r.studentName}</td>
                             <td style={{ padding: '9px 13px', fontSize: 12.5, color: '#374151' }}>
-                              {r.period ? PERIOD_LABELS[r.period] : '—'}
+                              {r.period ? PERIOD_LABELS[r.period] : '-'}
                             </td>
                             <td style={{ padding: '9px 13px', fontSize: 12.5, color: '#374151', fontVariantNumeric: 'tabular-nums' }}>
                               {fmtHours(r.approvedHours)} / {fmtHours(r.hoursRequired)}
@@ -257,7 +257,7 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
                               )}
                             </td>
                             <td style={{ padding: '9px 13px', fontSize: 12.5, color: '#374151' }}>
-                              {r.preceptorName || <span style={{ color: '#9ca3af' }}>—</span>}
+                              {r.preceptorName || <span style={{ color: '#9ca3af' }}>-</span>}
                               {r.preceptorEmail && <div style={{ fontSize: 11, color: '#9ca3af' }}>{r.preceptorEmail}</div>}
                             </td>
                             <td style={{ padding: '9px 13px', fontSize: 12, color: '#4b5563', lineHeight: 1.5 }}>
@@ -303,7 +303,7 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
       )}
       </div>
 
-      {/* Release confirmation — no editable recipient field. */}
+      {/* Release confirmation - no editable recipient field. */}
       {confirm && (
         <div className="modal-overlay" onMouseDown={() => !releasing && setConfirm(null)}>
           <div
@@ -325,7 +325,7 @@ export default function PreceptorAutomationPanel({ cohortId, onCounts, active })
                 <span style={{ color: '#9ca3af', fontWeight: 600 }}>Hours</span><span>{fmtHours(confirm.approvedHours)} / {fmtHours(confirm.hoursRequired)}</span>
                 <span style={{ color: '#9ca3af', fontWeight: 600 }}>Preceptor</span>
                 <span>
-                  {confirm.preceptorName || '—'}
+                  {confirm.preceptorName || '-'}
                   {confirm.preceptorEmail && <div style={{ fontSize: 12, color: '#6b7280' }}>{confirm.preceptorEmail}</div>}
                 </span>
               </div>

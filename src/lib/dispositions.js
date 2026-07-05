@@ -106,7 +106,7 @@ export const REASON_CATEGORIES_BY_TYPE = {
   },
 };
 
-// Pre-placement disposition types — used by DispositionModal in Phase 2B.2a
+// Pre-placement disposition types - used by DispositionModal in Phase 2B.2a
 export const PRE_PLACEMENT_DISPOSITION_TYPES = [
   'not_selected',
   'student_declined_offer',
@@ -114,7 +114,7 @@ export const PRE_PLACEMENT_DISPOSITION_TYPES = [
   'ineligible',
 ];
 
-// Post-placement disposition types — used in Phase 4
+// Post-placement disposition types - used in Phase 4
 export const POST_PLACEMENT_DISPOSITION_TYPES = [
   'placement_cancelled',
   'student_withdrew_after_placement',

@@ -4,7 +4,7 @@
 //   teamsInviteReminderEscalation -> interviewer (second/escalation, urgent callout)
 // Owner is included as a recipient via the recipients resolver; both get identical content.
 // EMAIL-BRAND-REFRESH Phase 2B-5: migrated onto the shared ASPIRE system shell
-// (lib/server/email/aspireShell.js) — Nightfall header (ASPIRE wordmark + meaning), white card,
+// (lib/server/email/aspireShell.js) - Nightfall header (ASPIRE wordmark + meaning), white card,
 // Nightfall footer with the no-reply line. Typed system signature only (no handwritten image).
 
 import { aspireEmailShell } from '../../../../lib/server/email/aspireShell.js';

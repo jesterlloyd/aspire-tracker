@@ -1,6 +1,6 @@
 // src/components/connect/AutomationEmailPreviewDrawer.jsx
 //
-// AUTOMATIONS-EMAIL-PREVIEW-1 — right-side slide-over that previews a scheduled automation's email
+// AUTOMATIONS-EMAIL-PREVIEW-1 - right-side slide-over that previews a scheduled automation's email
 // using SAFE SYNTHETIC fixtures (src/lib/notifications/previewFixtures.js). Client-side render only:
 // it calls the same template builder the cron sends, with mock data. No network, no DB, no tokens.
 //
@@ -19,7 +19,7 @@ export default function AutomationEmailPreviewDrawer({ title, entry, onClose }) 
   const variants = entry?.variants || null
   const [variant, setVariant] = useState(variants?.[0]?.key || null)
 
-  // Render the chosen variant client-side; never throws out — surfaces as an error state instead.
+  // Render the chosen variant client-side; never throws out - surfaces as an error state instead.
   const result = useMemo(() => {
     if (!entry) return { error: 'No preview available.' }
     try {
@@ -112,7 +112,7 @@ export default function AutomationEmailPreviewDrawer({ title, entry, onClose }) 
                 </div>
               </div>
 
-              {/* Body preview — strict sandbox, no scripts, no same-origin, no referrer */}
+              {/* Body preview - strict sandbox, no scripts, no same-origin, no referrer */}
               <iframe
                 srcDoc={result.html}
                 sandbox=""

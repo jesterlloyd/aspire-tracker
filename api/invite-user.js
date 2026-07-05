@@ -26,7 +26,7 @@ import { appUrl } from '../lib/server/appUrl.js';
 
 const PERMITTED_INVITE_ROLES = ['admin', 'interviewer', 'viewer'];
 
-// ── Server-verified caller identity (WS1 pattern, replicated — not extracted) ──
+// ── Server-verified caller identity (WS1 pattern, replicated - not extracted) ──
 async function verifyCaller(req) {
   const authHeader = req.headers['authorization'] || req.headers['Authorization'] || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
@@ -141,7 +141,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'invalid_request', field: 'full_name', message: 'Full name is required.' });
   }
 
-  // ── All seven gates passed — privileged mutation may now begin ──────────────
+  // ── All seven gates passed - privileged mutation may now begin ──────────────
   const url        = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const supabaseAdmin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -166,7 +166,7 @@ export default async function handler(req, res) {
     const newUserId = data.user.id;
 
     // Profile creation. Sequence preserved: Auth invite first, then profile
-    // upsert (Auth and Postgres are NOT in a shared transaction — see report).
+    // upsert (Auth and Postgres are NOT in a shared transaction - see report).
     // An existing temp profile (pre-created by email) is linked; otherwise insert.
     const { data: existingProfile } = await supabaseAdmin
       .from('user_profiles')

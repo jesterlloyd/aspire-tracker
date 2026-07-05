@@ -1,4 +1,4 @@
-// STUDENT-PROFILE-CANON-1C — canonical rotation-date-window helpers.
+// STUDENT-PROFILE-CANON-1C - canonical rotation-date-window helpers.
 //
 // The single source of truth for a student's placement window is the linked coordinator-owned
 // cohort_school_rotations row (rotation_start_date / rotation_end_date). The legacy free-text
@@ -28,7 +28,7 @@ export function canonicalRotationWindow(rotationRow) {
 }
 
 // True when shiftDate (YYYY-MM-DD) is before the window start or after the window end.
-// Returns FALSE when the window is unavailable — we never flag, and never fall back to legacy
+// Returns FALSE when the window is unavailable - we never flag, and never fall back to legacy
 // term_dates. (Distinguish "unavailable" from "inside" via canonicalRotationWindow() if needed.)
 export function isOutsideRotationWindow(shiftDate, rotationRow) {
   const win = canonicalRotationWindow(rotationRow)
@@ -40,7 +40,7 @@ export function isOutsideRotationWindow(shiftDate, rotationRow) {
   return sd < start || sd > end
 }
 
-// STUDENT-PROFILE-CANON-1D — cohort-wide canonical date span derived from the coordinator-owned
+// STUDENT-PROFILE-CANON-1D - cohort-wide canonical date span derived from the coordinator-owned
 // rotation rows: earliest non-sentinel rotation_start_date → latest non-sentinel rotation_end_date.
 // Sentinel/invalid rows are excluded. Returns { start, end } (YYYY-MM-DD) or null when no valid row
 // exists (caller should show a pending message, never the sentinel). YYYY-MM-DD sorts chronologically.

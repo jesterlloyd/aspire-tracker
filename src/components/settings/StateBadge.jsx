@@ -2,7 +2,7 @@
 // the shared ui/StatusBadge primitive (extracted verbatim); this file now owns
 // only the DOMAIN color map for the four KT-1 lifecycle states
 // (draft | active | deprecated | archived) and stays the import for Knowledge
-// Center (and Templates in KT-3b). Colors unchanged — drawn from the existing
+// Center (and Templates in KT-3b). Colors unchanged - drawn from the existing
 // Cedars-Sinai status palette. No other lifecycle state is used in this system.
 import StatusBadge from '../ui/StatusBadge'
 

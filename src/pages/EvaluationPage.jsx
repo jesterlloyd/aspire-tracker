@@ -146,9 +146,9 @@ const EVAL_CSS = `
     .eval-input, .eval-select { max-width: 100%; }
   }
 
-  /* Branded survey header — renders across all page states */
+  /* Branded survey header - renders across all page states */
 
-  /* Dark band — mirrors app navbar gradient treatment */
+  /* Dark band - mirrors app navbar gradient treatment */
   .eval-branded-band {
     background: linear-gradient(180deg, #1D2567 0%, #161D52 100%);
   }
@@ -167,7 +167,7 @@ const EVAL_CSS = `
     flex-shrink: 0;
   }
 
-  /* Light title block — below the dark band */
+  /* Light title block - below the dark band */
   .eval-branded-title {
     background: #ffffff;
     border-bottom: 1px solid #e8e4dc;
@@ -405,9 +405,9 @@ export default function EvaluationPage() {
   return (
     <div className="eval-page">
 
-      {/* Branded header — always visible regardless of page state */}
+      {/* Branded header - always visible regardless of page state */}
       <header>
-        {/* Dark identity band — Nightfall gradient matching app navbar */}
+        {/* Dark identity band - Nightfall gradient matching app navbar */}
         <div className="eval-branded-band">
           <div className="eval-branded-band-inner">
             <img
@@ -421,7 +421,7 @@ export default function EvaluationPage() {
             </span>
           </div>
         </div>
-        {/* Light title block — survey identity below the brand band */}
+        {/* Light title block - survey identity below the brand band */}
         <div className="eval-branded-title">
           <div className="eval-branded-title-inner">
             <h1 style={{
@@ -437,7 +437,7 @@ export default function EvaluationPage() {
         </div>
       </header>
 
-      {/* Non-form state messages — same text as existing state screens */}
+      {/* Non-form state messages - same text as existing state screens */}
       {view !== 'form' && (
         <div className="eval-container">
           <p style={{ fontSize: 16, color: '#4b5563', textAlign: 'center', marginTop: 80 }}>
@@ -454,11 +454,11 @@ export default function EvaluationPage() {
         </div>
       )}
 
-      {/* Form view — rendered only when view === 'form' and surveyData is loaded */}
+      {/* Form view - rendered only when view === 'form' and surveyData is loaded */}
       {view === 'form' && surveyData && (
       <>
 
-      {/* Sticky progress bar — spans full viewport width */}
+      {/* Sticky progress bar - spans full viewport width */}
       <div className="eval-progress-bar" role="status" aria-live="polite" aria-label="Survey progress">
         <div className="eval-progress-inner">
           <span>Required responses completed:</span>
@@ -475,13 +475,13 @@ export default function EvaluationPage() {
             Hello, {firstName}.
           </p>
           <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>
-            {instrumentDisplayName} — {timepointLabel}
+            {instrumentDisplayName}, {timepointLabel}
           </p>
         </div>
 
         <form onSubmit={handleSubmit}>
 
-          {/* Section I — 4-point scale, 15 items */}
+          {/* Section I - 4-point scale, 15 items */}
           <SectionMatrix
             title="Section I"
             instructions={content.sectionInstructions?.s1}
@@ -493,7 +493,7 @@ export default function EvaluationPage() {
             onChange={handleValueChange}
           />
 
-          {/* Section II — 5-point scale, 4 items */}
+          {/* Section II - 5-point scale, 4 items */}
           <SectionMatrix
             title="Section II"
             instructions={content.sectionInstructions?.s2}
@@ -505,7 +505,7 @@ export default function EvaluationPage() {
             onChange={handleValueChange}
           />
 
-          {/* Section III — 3-point scale, 31 items */}
+          {/* Section III - 3-point scale, 31 items */}
           <SectionMatrix
             title="Section III"
             instructions={content.sectionInstructions?.s3}
@@ -517,7 +517,7 @@ export default function EvaluationPage() {
             onChange={handleValueChange}
           />
 
-          {/* Section IV — demographic questions */}
+          {/* Section IV - demographic questions */}
           <div className="eval-card">
             <h2 className="eval-section-title">Section IV</h2>
             {content.sectionInstructions?.s4 && (

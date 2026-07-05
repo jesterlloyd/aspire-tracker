@@ -1,5 +1,5 @@
 // src/components/connect/SentHistory.jsx
-// Communication History Phase C.1 + C.2 — Sent History (read-only).
+// Communication History Phase C.1 + C.2 - Sent History (read-only).
 //
 // Honest outbound audit trail from notification_log. NOT an email client:
 // no inbox, drafts, threads, replies, resend, content retrieval, or batch grouping.
@@ -33,10 +33,10 @@ const MESSAGE_TYPE_LABELS = {
   teams_invite_reminder_escalation: 'Teams Invite Escalation',
 }
 function messageTypeLabel(type) {
-  return MESSAGE_TYPE_LABELS[type] || type || '—'
+  return MESSAGE_TYPE_LABELS[type] || type || '-'
 }
 
-// Pseudo-folders — exclusive; map to API filters. 'internal_system' uses the
+// Pseudo-folders - exclusive; map to API filters. 'internal_system' uses the
 // orthogonal recipient_type_filter, the rest use notification_types.
 const PSEUDO_FOLDERS = [
   { key: 'all',             label: 'All' },
@@ -101,15 +101,15 @@ function computeDateRange(range, customStart, customEnd) {
 }
 
 function formatSentAt(iso) {
-  if (!iso) return '—'
+  if (!iso) return '-'
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return '-'
   return d.toLocaleString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
   })
 }
 
-// Category chip colors — mirror ContactsView's CATEGORY_CHIP_STYLES for parity.
+// Category chip colors - mirror ContactsView's CATEGORY_CHIP_STYLES for parity.
 const CATEGORY_CHIP_STYLES = {
   'Academic Partners':  { color: '#1D2567', bg: '#EEF2FB', border: '#c3cdf0' },
   'Unit Leadership':    { color: '#0d7a8a', bg: '#E0F7FA', border: '#9dd6f2' },
@@ -294,7 +294,7 @@ export default function SentHistory() {
   const [totalPages, setTotalPages] = useState(1)
   const [expandedRowIds, setExpandedRowIds] = useState(() => new Set())
 
-  // "View message" drawer — fetches one message's preview on demand. Independent of the list query,
+  // "View message" drawer - fetches one message's preview on demand. Independent of the list query,
   // so opening/closing never refetches Sent History or disturbs pagination/filters.
   const [viewId, setViewId]   = useState(null)
   const [detail, setDetail]   = useState({ loading: false, error: false, message: null })
@@ -320,7 +320,7 @@ export default function SentHistory() {
     setDetail({ loading: false, error: false, message: null })
   }, [])
 
-  // Recipient constraint (Phase D.1 contact, D.2 student) — URL-based, ephemeral
+  // Recipient constraint (Phase D.1 contact, D.2 student) - URL-based, ephemeral
   // (NOT persisted to localStorage). student_id takes precedence over contact_id
   // so the two never apply at once (no ambiguous combined constraint); a single
   // dismissable filter pill reflects the active constraint.
@@ -334,7 +334,7 @@ export default function SentHistory() {
       : null
   const [pillName, setPillName] = useState('')
 
-  // Filters — initialized from localStorage so the first fetch uses restored state.
+  // Filters - initialized from localStorage so the first fetch uses restored state.
   const stored = readStoredFilters()
   const [pseudoFolder,    setPseudoFolder]    = useState(stored.pseudoFolder || 'all')
   const [failedOnly,      setFailedOnly]      = useState(stored.failedOnly || false)

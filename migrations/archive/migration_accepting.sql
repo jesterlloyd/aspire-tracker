@@ -1,5 +1,5 @@
 -- =====================================================================
--- ASPIRE Placement Tracker — Accepting Submissions + Student Submissions
+-- ASPIRE Placement Tracker - Accepting Submissions + Student Submissions
 -- Run this entire file in your Supabase SQL Editor
 -- =====================================================================
 

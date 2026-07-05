@@ -1,10 +1,10 @@
 import React from 'react'
 import { Eye } from 'lucide-react'
 
-// SURVEY-UX-3 — Presentational-only COMPACT SUMMARY CARD for a Survey Automation workflow.
+// SURVEY-UX-3 - Presentational-only COMPACT SUMMARY CARD for a Survey Automation workflow.
 // It is a selection control: clicking it selects this workflow, whose detail then renders in
 // the shared full-width workspace below (it no longer expands dense content in place). Holds
-// NO detection, release, or send logic — the parent passes `counts` (the workflow's reported
+// NO detection, release, or send logic - the parent passes `counts` (the workflow's reported
 // summary), `selected`, and `onSelect`.
 
 const F = 'DM Sans, sans-serif'
@@ -61,7 +61,7 @@ export default function SurveyAutomationCard({ title, recipientLabel, counts = {
       onClick={activate}
       onKeyDown={onKeyDown}
       style={{
-        // EVALUATION-RELEASE-PREVIEW-1: match ASPIRE Connect > Automations cards — clean white card,
+        // EVALUATION-RELEASE-PREVIEW-1: match ASPIRE Connect > Automations cards - clean white card,
         // subtle border + shadow, no heavy dark outline. Selected state is soft: a faint tint plus a
         // subtle inset navy accent bar (no layout shift, no thick ring). Text ("Viewing details ▾")
         // also conveys selection, so state is never color-only.
@@ -108,7 +108,7 @@ export default function SurveyAutomationCard({ title, recipientLabel, counts = {
       {/* One-line status summary */}
       <div style={{ fontSize: 12.5, color: '#6b7280', lineHeight: 1.4 }}>{statusLine}</div>
 
-      {/* Count chips — each shows number + label */}
+      {/* Count chips - each shows number + label */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {CHIPS.map(c => (
           <span key={c.key} style={{
@@ -120,7 +120,7 @@ export default function SurveyAutomationCard({ title, recipientLabel, counts = {
         ))}
       </div>
 
-      {/* Selection affordance — text conveys state (not color alone). */}
+      {/* Selection affordance - text conveys state (not color alone). */}
       <div style={{ fontSize: 12, fontWeight: 700, color: NAVY, marginTop: 2 }}>
         {selected ? 'Viewing details below ▾' : 'View details →'}
       </div>

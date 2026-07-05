@@ -185,7 +185,7 @@ export default function FeedbackPanel({ activeTab, cohortName, isAuthenticated }
                       ? 'Describe what happened and what you expected instead...'
                       : category === 'Feature Idea'
                       ? 'Describe the feature and how it would help your workflow...'
-                      : 'Ask anything about the platform or the ASPIRE program...'
+                      : 'Ask anything about the platform or ASPIRE...'
                   }
                   rows={5}
                   style={{

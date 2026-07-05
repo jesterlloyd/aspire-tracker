@@ -2,13 +2,13 @@
 // Weekly digest email sent to school placement coordinators every Friday.
 // Summarises the past 7 days of student activity for their school.
 // EMAIL-BRAND-REFRESH Phase 2B-6: migrated onto the shared ASPIRE system shell
-// (lib/server/email/aspireShell.js) — Nightfall header (ASPIRE wordmark + meaning), white card,
+// (lib/server/email/aspireShell.js) - Nightfall header (ASPIRE wordmark + meaning), white card,
 // Nightfall footer with the no-reply line. Typed system signature only (no handwritten image).
 
 import { aspireEmailShell } from '../../../../lib/server/email/aspireShell.js';
 import { aspireHandwrittenSignature } from '../handwrittenSignature.js';
 
-const NAVY  = '#1d2567';   // Nightfall — ASPIRE primary brand color
+const NAVY  = '#1d2567';   // Nightfall - ASPIRE primary brand color
 const RAVEN = '#191919';   // Near-black body text
 
 // ── Category metadata ─────────────────────────────────────────────────────────
@@ -26,7 +26,7 @@ const CATEGORIES = [
 // Defensive display sanitizer: line items are built upstream (cron); strip any em/en dash used as
 // punctuation to a comma so the rendered digest stays dash-free regardless of the upstream format.
 function cleanLine(line) {
-  return String(line == null ? '' : line).replace(/\s*[—–]\s*/g, ', ');
+  return String(line == null ? '' : line).replace(/\s*[-–]\s*/g, ', ');
 }
 
 // ── Section renderer ──────────────────────────────────────────────────────────

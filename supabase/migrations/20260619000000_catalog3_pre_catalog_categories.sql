@@ -16,7 +16,7 @@
 --
 -- HOW TO RUN: paste into the Supabase SQL Editor and execute the STEPS IN ORDER. Run the
 -- verification query in STEP 3 and confirm it returns ZERO rows BEFORE running STEP 4 (the FK).
--- Claude Code applies nothing — the Owner applies and verifies each step, then authorizes commit.
+-- Claude Code applies nothing - the Owner applies and verifies each step, then authorizes commit.
 -- Idempotency: CREATE TABLE IF NOT EXISTS; DROP POLICY/CONSTRAINT IF EXISTS before CREATE/ADD;
 -- seed uses ON CONFLICT (slug) DO NOTHING (re-running never duplicates and never clobbers a
 -- future CATALOG-3 rename).
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS catalog_categories (
 );
 
 -- RLS ENABLED. Read for catalog-viewing roles (Owner/Admin/Interviewer) so display names and
--- order render for everyone who browses. NO client write policy — category writes go through a
+-- order render for everyone who browses. NO client write policy - category writes go through a
 -- server (service-role) Owner/Admin endpoint in CATALOG-3.
 ALTER TABLE catalog_categories ENABLE ROW LEVEL SECURITY;
 
@@ -71,7 +71,7 @@ INSERT INTO catalog_categories (slug, display_name, sort_order) VALUES
 ON CONFLICT (slug) DO NOTHING;
 
 
--- ── STEP 3. PRE-FK VERIFICATION — run this and confirm ZERO rows BEFORE STEP 4 ───
+-- ── STEP 3. PRE-FK VERIFICATION - run this and confirm ZERO rows BEFORE STEP 4 ───
 -- Any row returned here is a resource whose category does not resolve to a seeded slug; the FK
 -- in STEP 4 would fail. Expected: 0 rows. If non-zero, STOP and resolve before continuing.
 --
@@ -82,7 +82,7 @@ ON CONFLICT (slug) DO NOTHING;
 
 -- ── STEP 4. Foreign key: catalog_resources.category → catalog_categories.slug ────
 -- Validates resource categories THROUGH the live table (as the CHECK did through a frozen list).
--- Adds a constraint only — resource ROWS are never modified. DROP-then-ADD makes it idempotent.
+-- Adds a constraint only - resource ROWS are never modified. DROP-then-ADD makes it idempotent.
 
 ALTER TABLE catalog_resources DROP CONSTRAINT IF EXISTS fk_catalog_resources_category;
 ALTER TABLE catalog_resources
@@ -91,7 +91,7 @@ ALTER TABLE catalog_resources
 
 
 -- ── STEP 5. Drop the now-redundant category CHECK (the FK replaces it) ────────────
--- This is a SWAP, not a loosening: category is still constrained — now by the FK against the
+-- This is a SWAP, not a loosening: category is still constrained - now by the FK against the
 -- live catalog_categories table instead of a frozen IN-list.
 
 ALTER TABLE catalog_resources DROP CONSTRAINT IF EXISTS chk_catalog_category;

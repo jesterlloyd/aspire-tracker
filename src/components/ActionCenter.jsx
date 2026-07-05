@@ -32,7 +32,7 @@ const REDUCED_MOTION = typeof window !== 'undefined' && typeof window.matchMedia
   ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
   : false
 
-// ── Triage taxonomy (presentation grouping only — NOT task triggers) ─────────
+// ── Triage taxonomy (presentation grouping only - NOT task triggers) ─────────
 // Existing tasks keep their predicates/priority/actionType; we just regroup them
 // into three reader-friendly sections plus a session-derived "Recently completed".
 const PRIORITY_RANK = { urgent: 0, high: 1, routine: 2, fyi: 3 }
@@ -51,12 +51,12 @@ function sectionFor(item) {
 
 const SECTION_ORDER = [
   { key: 'urgent',         label: 'Urgent',          color: '#dc2626', hint: 'Needs a decision or compliance action' },
-  { key: 'due_soon',       label: 'Due soon',        color: '#d97706', hint: 'Time-bound — coming due' },
+  { key: 'due_soon',       label: 'Due soon',        color: '#d97706', hint: 'Time-bound, coming due' },
   { key: 'needs_followup', label: 'Needs follow-up', color: '#1D2567', hint: 'Outstanding outreach and setup' },
 ]
 
 // Action Center shell styles. Native ASPIRE look: a mostly-solid, high-contrast
-// panel and a very light scrim — NO app-wide backdrop blur (which previously washed
+// panel and a very light scrim - NO app-wide backdrop blur (which previously washed
 // out the header/bell). Crisp cards and pills consistent with other app panels.
 const AC_GLASS_STYLES = `
 .ac-scrim {
@@ -68,7 +68,7 @@ const AC_GLASS_STYLES = `
   border: 1px solid rgba(29,37,103,0.12);
   box-shadow: 0 12px 40px rgba(15,23,42,0.18), 0 2px 8px rgba(15,23,42,0.06);
 }
-/* Clean task cards — solid, crisp, lightweight. */
+/* Clean task cards - solid, crisp, lightweight. */
 .ac-card {
   margin: 0 14px 7px;
   border-radius: 12px;
@@ -148,10 +148,10 @@ function outlookCompose(to, subject, body, cc = '') {
 }
 
 function buildStudentFormEmail(s) {
-  return outlookCompose(s.school_email, 'ASPIRE Program Student Form – Action Required',
+  return outlookCompose(s.school_email, 'ASPIRE Student Form – Action Required',
 `Dear ${s.first_name},
 
-You have been identified as a potential candidate for the ASPIRE Program (Affiliate Students' Pathway from Internship to Residency Experience) at Cedars-Sinai Medical Center.
+You have been identified as a potential candidate for ASPIRE (Affiliate Students' Pathway from Internship to Residency Experience) at Cedars-Sinai Medical Center.
 
 To begin the process, please complete your ASPIRE Student Profile using the link below:
 
@@ -206,10 +206,10 @@ function buildPreceptorWelcomeEmail(s, unitContactEmail) {
   const prec = s.matched_preceptor || 'Preceptor'
   const precFirst = prec.split(' ')[0]
   const cc = unitContactEmail || ''
-  return outlookCompose(s.preceptor_email, 'ASPIRE Program – Student Preceptor Assignment',
+  return outlookCompose(s.preceptor_email, 'ASPIRE – Student Preceptor Assignment',
 `Dear ${precFirst},
 
-Thank you so much for agreeing to precept one of our senior nursing students through the ASPIRE Program (Affiliate Students' Pathway from Internship to Residency Experience). Your willingness to teach, mentor, and support our students truly makes a difference in shaping the next generation of nurses at Cedars-Sinai.
+Thank you so much for agreeing to precept one of our senior nursing students through ASPIRE (Affiliate Students' Pathway from Internship to Residency Experience). Your willingness to teach, mentor, and support our students truly makes a difference in shaping the next generation of nurses at Cedars-Sinai.
 
 Below is your student assignment for this rotation:
 
@@ -288,7 +288,7 @@ function ItemCard({
             ))}
             <div style={{ background: '#f8f9fb', borderRadius: 6, padding: '8px 10px', marginBottom: 10,
               fontSize: 11, fontFamily: 'monospace', whiteSpace: 'pre-wrap', overflowX: 'auto', maxHeight: 100, overflowY: 'auto', color: '#374151' }}>
-              {`Student Name | Unit | Shift | Preceptor | Preceptor Email\n${placedStudents.map(s => `${s.last_name}, ${s.first_name} | — | — | ${s.matched_preceptor||'—'} | ${s.preceptor_email||'—'}`).join('\n')}`}
+              {`Student Name | Unit | Shift | Preceptor | Preceptor Email\n${placedStudents.map(s => `${s.last_name}, ${s.first_name} |, |, | ${s.matched_preceptor||'-'} | ${s.preceptor_email||'-'}`).join('\n')}`}
             </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
               <button onClick={onCopyOrientation}
@@ -381,7 +381,7 @@ export default function ActionCenter({
   const [actioning,      setActioning]      = useState(null)
   const [showCompleted,  setShowCompleted]  = useState(false)
   // "Recently completed": only tasks the user actually resolved in THIS session.
-  // No durable store — derived from real actions taken, never invented.
+  // No durable store - derived from real actions taken, never invented.
   const [completedLog,   setCompletedLog]   = useState([])
   const logCompleted = (entry) => setCompletedLog(prev => {
     if (!entry?.title) return prev
@@ -411,7 +411,7 @@ export default function ActionCenter({
 
   useEffect(() => { setShiftLogs([]); setShiftLogsLoaded(false); setShiftLogsError(null); setCompletedLog([]) }, [cohortId])
 
-  // Disposition followups — reload fresh on every open so completion state stays current
+  // Disposition followups - reload fresh on every open so completion state stays current
   const [dispositionFollowups,        setDispositionFollowups]        = useState([])
   const [activeDispositionIds,        setActiveDispositionIds]        = useState([])
   const [dispositionFollowupsError,   setDispositionFollowupsError]   = useState(null)
@@ -429,7 +429,7 @@ export default function ActionCenter({
     // Fetch pending follow-ups AND the set of currently-active dispositions. Clearing a
     // disposition (clear_student_disposition RPC) inactivates it WITHOUT deleting its
     // follow-ups or changing their 'pending' status, so a pending row can outlive its
-    // disposition. We keep a follow-up only when its disposition_id is still active —
+    // disposition. We keep a follow-up only when its disposition_id is still active -
     // both queries run fresh on open, so the task self-clears after a clear/refresh.
     Promise.all([
       supabase
@@ -545,7 +545,7 @@ export default function ActionCenter({
         sentToName: item.studentName,
       })
       // Unit Leader Placement Notification self-clears on matches.notification_sent (the
-      // predicate source, written by the Rotations unit card) — not on the comm log. Set
+      // predicate source, written by the Rotations unit card) - not on the comm log. Set
       // it here too, with the same fields/pattern, so the task clears and the two surfaces
       // stay consistent.
       if (type === 'unit_notification') {
@@ -567,7 +567,7 @@ export default function ActionCenter({
     setActioning(null)
     setConfirmingId(null)
     if (!err) {
-      toast?.success('Completed', `${item.studentName} — task marked complete.`)
+      toast?.success('Completed', `${item.studentName}, task marked complete.`)
       logCompleted({ id: item.id, title: item.title, studentName: item.studentName })
     } else {
       toast?.error('Error', err.message || 'Could not complete.')
@@ -580,12 +580,12 @@ export default function ActionCenter({
   const buildOrientationBody = () => {
     const rows = placedStudents.map(s => {
       const u = units.find(u => u.id === s.matched_unit_id)
-      return `${s.last_name}, ${s.first_name} | ${u?.unit_name||'—'} | ${s.shift_assigned||'—'} | ${s.matched_preceptor||'—'} | ${s.preceptor_email||'—'}`
+      return `${s.last_name}, ${s.first_name} | ${u?.unit_name||'-'} | ${s.shift_assigned||'-'} | ${s.matched_preceptor||'-'} | ${s.preceptor_email||'-'}`
     }).join('\n')
     const table = `Student Name | Unit | Shift | Preceptor | Preceptor Email\n${rows}`
     return `Dear ASPIRANTS,
 
-Congratulations and welcome to the ASPIRE Program (Affiliate Students' Pathway from Internship to Residency Experience)!
+Congratulations and welcome to ASPIRE (Affiliate Students' Pathway from Internship to Residency Experience)!
 
 We are so excited to have you join us at Cedars-Sinai for your senior rotation. This is a huge milestone in your nursing journey, and we are here to support you every step of the way as you build confidence, sharpen your clinical skills, and prepare for practice.
 
@@ -636,7 +636,7 @@ ${KR_SIG}`
 
   const handleOpenOrientationMailto = () => {
     const bccs = placedStudents.map(s => s.personal_email||s.school_email).filter(Boolean).join(',')
-    openHref(buildOutlookComposeUrl({ bcc: bccs, subject: 'Welcome to the ASPIRE Program – Orientation Details Inside' }))
+    openHref(buildOutlookComposeUrl({ bcc: bccs, subject: 'Welcome to ASPIRE – Orientation Details Inside' }))
   }
 
   const handleMarkOrientationSent = async () => {
@@ -730,7 +730,7 @@ ${KR_SIG}`
   )
   const act1  = students.filter(s => s.status === 'Pending Outreach')
 
-  // act19: Disposition Follow-up Required — grouped by student from lazy-fetched followup data
+  // act19: Disposition Follow-up Required - grouped by student from lazy-fetched followup data
   const act19 = (() => {
     if (!canEdit || !dispositionFollowupsLoaded) return []
     const activeIds = new Set(activeDispositionIds)
@@ -756,7 +756,7 @@ ${KR_SIG}`
     ...act19.map(({ student: s, followups }) => {
       const dispLabel = DISPOSITION_TYPES[s.active_disposition?.disposition_type] || 'Disposition'
       const pendingLabels = followups.map(f => FOLLOWUP_TYPES[f.followup_type] || f.followup_type).join(', ')
-      return { id:`${s.id}-df`, studentId:s.id, studentName:`${s.last_name || ''}, ${s.first_name || ''}`.trim().replace(/^,\s*/, '') || s.name || '—', cohortId:s.cohort_id, student:s, category:'disposition', priority:'high', title:'Disposition Follow-up Required', description:`${dispLabel} · Pending: ${pendingLabels}`, actionType:'disposition_followup', canMarkDone:false, markDoneType:null, navigateToProfile:true }
+      return { id:`${s.id}-df`, studentId:s.id, studentName:`${s.last_name || ''}, ${s.first_name || ''}`.trim().replace(/^,\s*/, '') || s.name || '-', cohortId:s.cohort_id, student:s, category:'disposition', priority:'high', title:'Disposition Follow-up Required', description:`${dispLabel} · Pending: ${pendingLabels}`, actionType:'disposition_followup', canMarkDone:false, markDoneType:null, navigateToProfile:true }
     }),
     // Placement
     ...(canEdit ? act4.map(s => {
@@ -767,18 +767,18 @@ ${KR_SIG}`
     }) : []),
     ...act5.map(s => {
       const unit = units.find(u => u.id === s.matched_unit_id)
-      return { id:`${s.id}-pw`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:'routine', title:'Preceptor Welcome Email', description:s.preceptor_email?`Preceptor: ${s.matched_preceptor}. Welcome email not sent.`:'Preceptor email missing — add it in the student profile.', actionType:'unit_notification_needed', canMarkDone:!!s.preceptor_email, markDoneType:'log_communication', markDonePayload:{type:'preceptor_welcome'}, emailHref:s.preceptor_email?buildPreceptorWelcomeEmail(s,unit?.contact_email):null, warning:!s.preceptor_email?'Missing preceptor email':null }
+      return { id:`${s.id}-pw`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:'routine', title:'Preceptor Welcome Email', description:s.preceptor_email?`Preceptor: ${s.matched_preceptor}. Welcome email not sent.`:'Preceptor email missing, add it in the student profile.', actionType:'unit_notification_needed', canMarkDone:!!s.preceptor_email, markDoneType:'log_communication', markDonePayload:{type:'preceptor_welcome'}, emailHref:s.preceptor_email?buildPreceptorWelcomeEmail(s,unit?.contact_email):null, warning:!s.preceptor_email?'Missing preceptor email':null }
     }),
-    ...(canEdit ? act17.map(s => ({ id:`${s.id}-prec`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:(s.status === 'Active Rotation' ? 'urgent' : 'high'), title:'No Preceptor Assigned', description:`${s.status} — no preceptor linked yet.`, actionType:'preceptor_needed', canMarkDone:false, markDoneType:null, navigateToProfile:true })) : []),
+    ...(canEdit ? act17.map(s => ({ id:`${s.id}-prec`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'placement', priority:(s.status === 'Active Rotation' ? 'urgent' : 'high'), title:'No Preceptor Assigned', description:`${s.status}, no preceptor linked yet.`, actionType:'preceptor_needed', canMarkDone:false, markDoneType:null, navigateToProfile:true })) : []),
     // CS-Link
     ...(canEdit ? act6.map(s => ({ id:`${s.id}-cs`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'cslink', priority:'routine', title:'CS-Link Access Not Started', description:'Service Center Step 2 not yet submitted.', actionType:'cslink_incomplete', canMarkDone:false, markDoneType:null, navigateToProfile:true })) : []),
     // Badge
     ...(canEdit ? act16.map(s => ({ id:`${s.id}-badge`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'badge', priority:'routine', title:'Badge Not Created', description:'Student placed. CS badge not yet created.', actionType:'badge_needed', canMarkDone:true, markDoneType:'update_field', markDonePayload:{fields:{badge_created:true}}, navigateToProfile:false })) : []),
     // Hours
-    ...act13.map(item => ({ id:`${item.id}-sr`, studentId:item.student_id, studentName:item.student?`${item.student.last_name}, ${item.student.first_name}`:'—', cohortId, student:item.student, category:'hours', priority:'routine', title:'Shift Log Needs Review', description:`${item.shift_date} · ${item.total_hours}h`, actionType:'shift_log_submitted', canMarkDone:false, markDoneType:null, navigateToProfile:true })),
+    ...act13.map(item => ({ id:`${item.id}-sr`, studentId:item.student_id, studentName:item.student?`${item.student.last_name}, ${item.student.first_name}`:'-', cohortId, student:item.student, category:'hours', priority:'routine', title:'Shift Log Needs Review', description:`${item.shift_date} · ${item.total_hours}h`, actionType:'shift_log_submitted', canMarkDone:false, markDoneType:null, navigateToProfile:true })),
     ...act15.map(s => ({ id:`${s.id}-nl`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'hours', priority:'routine', title:'Student Not Logged Recently', description:s.daysSince===null?'No shifts logged yet.':`${s.daysSince} days since last log.`, actionType:'shift_log_submitted', canMarkDone:false, navigateToProfile:true })),
     // Communications
-    ...(canEdit ? act1.map(s => ({ id:`${s.id}-sf`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'communication', priority:'routine', title:'Send Student Form', description:'Pending outreach — form not yet sent.', actionType:'student_form', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'student_form'}, emailHref:buildStudentFormEmail(s) })) : []),
+    ...(canEdit ? act1.map(s => ({ id:`${s.id}-sf`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'communication', priority:'routine', title:'Send Student Form', description:'Pending outreach, form not yet sent.', actionType:'student_form', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'student_form'}, emailHref:buildStudentFormEmail(s) })) : []),
   ]
 
   const totalCount = actionItems.length
@@ -791,7 +791,7 @@ ${KR_SIG}`
   // Report the live visible-task count up so the bell badge matches the panel exactly,
   // including the lazy-loaded tasks (Disposition / Shift Log / Not Logged). Gated on
   // lazyReady so the badge keeps App's stable closed count until the exact count is known
-  // — no transient inflated flash on open. Recently completed is NOT part of totalCount.
+  // - no transient inflated flash on open. Recently completed is NOT part of totalCount.
   useEffect(() => {
     if (!lazyReady) return
     onActionCountChange?.(totalCount)
@@ -803,7 +803,7 @@ ${KR_SIG}`
     return () => onActionCountChange?.(null)
   }, [onActionCountChange])
 
-  // Group into the three triage sections (presentation only — predicates untouched),
+  // Group into the three triage sections (presentation only - predicates untouched),
   // each ordered by priority. Cheap derivation over <=20 items, memoized for clarity.
   const grouped = useMemo(() => {
     const g = { urgent: [], due_soon: [], needs_followup: [] }
@@ -814,7 +814,7 @@ ${KR_SIG}`
     return g
   }, [actionItems])
 
-  // Section filter pills — All plus only the sections that currently have items.
+  // Section filter pills - All plus only the sections that currently have items.
   const pills = [
     { key: null, label: 'All', count: totalCount },
     ...SECTION_ORDER
@@ -829,7 +829,7 @@ ${KR_SIG}`
     <>
       <style>{AC_GLASS_STYLES}</style>
 
-      {/* Soft semi-clear veil — app content stays visible but softened */}
+      {/* Soft semi-clear veil - app content stays visible but softened */}
       <div
         className={`ac-scrim${REDUCED_MOTION ? '' : ' ac-anim-scrim'}`}
         aria-hidden="true"
@@ -858,7 +858,7 @@ ${KR_SIG}`
         overflow: 'hidden',
       }}
     >
-      {/* Header — solid Nightfall/Raven navy band, crisp against the panel */}
+      {/* Header - solid Nightfall/Raven navy band, crisp against the panel */}
       <div style={{
         background: 'linear-gradient(135deg, #1D2567, #232C72)',
         padding: '15px 18px 13px', flexShrink: 0,
@@ -1006,7 +1006,7 @@ ${KR_SIG}`
           })
         )}
 
-        {/* Recently completed — only tasks resolved in this session; collapsed; omitted when empty */}
+        {/* Recently completed - only tasks resolved in this session; collapsed; omitted when empty */}
         {completedLog.length > 0 && (
           <div style={{ marginTop: 6, paddingTop: 4, borderTop: '1px solid rgba(255,255,255,0.30)' }}>
             <button

@@ -71,7 +71,7 @@ export default function ScheduleInterviewModal({ students, defaults, onClose, on
             <label className="form-label">Student *</label>
             <select className="form-select" value={studentId} onChange={e => setStudentId(e.target.value)}>
               <option value="">Select student…</option>
-              {eligible.map(s => <option key={s.id} value={s.id}>{displayName(s)} — {s.school || ''}</option>)}
+              {eligible.map(s => <option key={s.id} value={s.id}>{displayName(s)}, {s.school || ''}</option>)}
             </select>
             {eligible.length === 0 && (
               <p style={{ fontSize:12, color:'var(--text-secondary)', marginTop:4 }}>

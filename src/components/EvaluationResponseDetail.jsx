@@ -11,7 +11,7 @@ const TIMEPOINT_LABELS = {
   post_rotation:           'Post-Rotation',
 }
 
-// Mirror of STATUS_CONFIG in EvaluationTab.jsx — inline so this component
+// Mirror of STATUS_CONFIG in EvaluationTab.jsx - inline so this component
 // has no cross-file dependency on EvaluationTab internals.
 const STATUS_CONFIG = {
   completed:    { bg: '#EDF2E2', text: '#166534', border: '#c6d9a8', label: 'Completed'    },
@@ -40,7 +40,7 @@ const S4_CODES = [
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Mirror of effectiveStatus in EvaluationTab.jsx — render-time projection only
+// Mirror of effectiveStatus in EvaluationTab.jsx - render-time projection only
 function effectiveStatus(assignment) {
   if (
     (assignment.status === 'sent' || assignment.status === 'opened') &&
@@ -53,7 +53,7 @@ function effectiveStatus(assignment) {
 }
 
 function fmtDate(iso) {
-  if (!iso) return '—'
+  if (!iso) return '-'
   return new Date(iso).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
   })
@@ -82,7 +82,7 @@ function resolveItemText(code, content) {
 // Resolves the anchor label for a given code + 1-indexed integer response value.
 // Section is inferred from the code prefix; anchors are 0-indexed per-section arrays.
 function resolveAnchorLabel(code, responseValue, content) {
-  if (responseValue == null) return '—'
+  if (responseValue == null) return '-'
   let section
   if      (code.startsWith('S1_')) section = 's1'
   else if (code.startsWith('S2_')) section = 's2'
@@ -102,7 +102,7 @@ function resolveDemographicLabel(code, content) {
 // For 'select' type items the stored value is the option string.
 // For 'text' and 'number' types the stored value is the answer directly.
 function resolveDemographicValue(responseValue) {
-  if (responseValue == null || responseValue === '') return '—'
+  if (responseValue == null || responseValue === '') return '-'
   return String(responseValue)
 }
 
@@ -149,12 +149,12 @@ function SectionBlock({ title, children }) {
  * EvaluationResponseDetail
  *
  * Props:
- *   assignment       — full assignment row from EvaluationTab (with embedded
+ *   assignment       - full assignment row from EvaluationTab (with embedded
  *                      evaluation_responses including the responses JSONB column)
- *   instrumentContent — { content: {...} } on success, { error: true } on failure,
+ *   instrumentContent - { content: {...} } on success, { error: true } on failure,
  *                       undefined while loading
- *   isOpen           — boolean
- *   onClose          — callback
+ *   isOpen           - boolean
+ *   onClose          - callback
  */
 export default function EvaluationResponseDetail({ assignment, instrumentContent, isOpen, onClose }) {
   const closeRef = useRef(null)
@@ -260,7 +260,7 @@ export default function EvaluationResponseDetail({ assignment, instrumentContent
               display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center',
             }}>
               <span style={{ fontWeight: 500, color: '#374151' }}>
-                {assignment.evaluation_instruments?.display_name || '—'}
+                {assignment.evaluation_instruments?.display_name || '-'}
               </span>
               <span>·</span>
               <span>{TIMEPOINT_LABELS[assignment.timepoint] || assignment.timepoint}</span>
@@ -282,7 +282,7 @@ export default function EvaluationResponseDetail({ assignment, instrumentContent
         {/* ── Scrollable body ── */}
         <div style={{ overflowY: 'auto', flex: 1, padding: '20px 24px' }}>
 
-          {/* Section I — subscale means (no instrument content required) */}
+          {/* Section I - subscale means (no instrument content required) */}
           <SectionBlock title={s1Title}>
             {[
               ['Clinical Problem-Solving (CPS)', cps],
@@ -302,7 +302,7 @@ export default function EvaluationResponseDetail({ assignment, instrumentContent
                     fontSize: 14, fontWeight: 700, color: '#0E1428',
                     fontVariantNumeric: 'tabular-nums', fontFamily: F,
                   }}>
-                    {val != null ? Number(val).toFixed(2) : '—'}
+                    {val != null ? Number(val).toFixed(2) : '-'}
                   </span>
                   {val != null && (
                     <div style={{
@@ -377,7 +377,7 @@ export default function EvaluationResponseDetail({ assignment, instrumentContent
                 ))}
               </SectionBlock>
 
-              {/* Optional comment — only if present and non-empty */}
+              {/* Optional comment - only if present and non-empty */}
               {commentValue && (
                 <SectionBlock title={commentLabel}>
                   <p style={{

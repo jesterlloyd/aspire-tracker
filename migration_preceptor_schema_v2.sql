@@ -6,7 +6,7 @@
 -- Run manually in the Supabase SQL Editor.
 -- The entire migration is one atomic transaction: all statements
 -- succeed together or nothing applies.
--- No backfill / INSERT statements — preceptor records will be entered
+-- No backfill / INSERT statements - preceptor records will be entered
 -- through the Phase B.3 admin UI.
 -- =====================================================================
 
@@ -84,7 +84,7 @@ CREATE POLICY "authenticated_read_preceptors"
   USING (true);
 
 -- Only owners can write (auth_user_id and is_owner are the actual
--- user_profiles column names — confirmed from migration_notification_log.sql)
+-- user_profiles column names - confirmed from migration_notification_log.sql)
 CREATE POLICY "owners_insert_preceptors"
   ON public.preceptors FOR INSERT TO authenticated
   WITH CHECK (
@@ -340,7 +340,7 @@ LEFT JOIN public.units   u ON u.id = m.unit_id;
 
 
 -- ─────────────────────────────────────────────────────────────────────
--- Commit — all parts succeeded
+-- Commit - all parts succeeded
 -- ─────────────────────────────────────────────────────────────────────
 
 COMMIT;

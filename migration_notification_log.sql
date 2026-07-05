@@ -1,4 +1,4 @@
--- Notification log table — queryable history of every email sent through ASPIRE Intelligence.
+-- Notification log table - queryable history of every email sent through ASPIRE Intelligence.
 -- Supports Keith AI communication awareness, delivery tracking, and future webhook ingestion.
 -- Run in Supabase SQL Editor.
 

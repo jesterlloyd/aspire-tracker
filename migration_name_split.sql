@@ -1,5 +1,5 @@
 -- =====================================================================
--- ASPIRE Tracker — First Name / Last Name Split Migration
+-- ASPIRE Tracker - First Name / Last Name Split Migration
 -- Run this entire file in your Supabase SQL Editor
 -- =====================================================================
 

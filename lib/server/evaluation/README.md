@@ -38,20 +38,20 @@ QA fixtures, synthetic tokens, and the `EVALUATION_QA_MODE='1'` flag exist only 
 
 Run these test cases against the Preview deployment after the feature branch is auto-deployed:
 
-- **Happy-path validate** — valid raw token against a sent assignment with an authorized QA instrument; expect 200 with survey context including `firstName`, `instrumentSlug`, `sections`, `requiredItemCodes`, `optionalItemCodes`.
-- **Happy-path submit** — valid raw token with a well-formed 60-item QA response payload; expect 200 with `{ success: true, submittedAt: ... }`.
-- **Repeat validate after submit** — re-use the same raw token after successful submission; expect 200 with `{ completed: true }`.
-- **Repeat submit after submit** — re-submit the same token; expect 410 generic.
-- **Malformed token** — send a token that fails `isWellFormedRawToken` (e.g. too short, wrong charset); expect 400.
-- **Unknown token** — send a well-formed 43-character base64url string that matches no `token_hash`; expect 410 generic.
-- **Expired assignment** — token linked to an assignment whose `expires_at` has passed; expect 410 specific ("response window has closed").
-- **Revoked assignment** — token linked to a revoked assignment; expect 410 generic.
-- **Validate with unsupported slug** — token linked to an instrument not in the allowlist (QA mode off, or slug not recognized); expect 422 without `opened_at` being set.
-- **Submit with unsupported slug** — same condition on the submit endpoint; expect 422.
-- **Response with out-of-range S1 value** — submit with one S1 item set to `5`; expect 422 generic.
-- **Response missing a required S2 item** — submit with S2_Q03 absent; expect 422 generic.
-- **Response with S4_COMMENT over 2000 characters (trimmed)** — expect 422 generic.
-- **Submit with qa_test_instrument slug when QA mode is enabled** — should succeed if assignment and token are valid.
-- **Rate limit** — send 21 validate requests from the same IP within 60 seconds; the 21st should return 429. Prerequisites: all 21 requests use tokens unknown to the database so each reaches rate-limit check; alternatively, use a scripted loop against a single valid or invalid token.
+- **Happy-path validate** - valid raw token against a sent assignment with an authorized QA instrument; expect 200 with survey context including `firstName`, `instrumentSlug`, `sections`, `requiredItemCodes`, `optionalItemCodes`.
+- **Happy-path submit** - valid raw token with a well-formed 60-item QA response payload; expect 200 with `{ success: true, submittedAt: ... }`.
+- **Repeat validate after submit** - re-use the same raw token after successful submission; expect 200 with `{ completed: true }`.
+- **Repeat submit after submit** - re-submit the same token; expect 410 generic.
+- **Malformed token** - send a token that fails `isWellFormedRawToken` (e.g. too short, wrong charset); expect 400.
+- **Unknown token** - send a well-formed 43-character base64url string that matches no `token_hash`; expect 410 generic.
+- **Expired assignment** - token linked to an assignment whose `expires_at` has passed; expect 410 specific ("response window has closed").
+- **Revoked assignment** - token linked to a revoked assignment; expect 410 generic.
+- **Validate with unsupported slug** - token linked to an instrument not in the allowlist (QA mode off, or slug not recognized); expect 422 without `opened_at` being set.
+- **Submit with unsupported slug** - same condition on the submit endpoint; expect 422.
+- **Response with out-of-range S1 value** - submit with one S1 item set to `5`; expect 422 generic.
+- **Response missing a required S2 item** - submit with S2_Q03 absent; expect 422 generic.
+- **Response with S4_COMMENT over 2000 characters (trimmed)** - expect 422 generic.
+- **Submit with qa_test_instrument slug when QA mode is enabled** - should succeed if assignment and token are valid.
+- **Rate limit** - send 21 validate requests from the same IP within 60 seconds; the 21st should return 429. Prerequisites: all 21 requests use tokens unknown to the database so each reaches rate-limit check; alternatively, use a scripted loop against a single valid or invalid token.
 
 Token generation for QA (one-time, Owner-only): run the `generateToken()` export from `lib/server/evaluation/tokens.js` in a local Node invocation with the Preview `EVALUATION_TOKEN_PEPPER` set, then insert the resulting `hash` and `hashPrefix` into the Preview Branch alongside a matching assignment row.

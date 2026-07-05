@@ -190,13 +190,13 @@ export default async function handler(req, res) {
   }
   if (!target) return res.status(404).json({ error: 'not_found' });
 
-  // Gate 7b: OWNER IMMUTABILITY — reject any Owner target before anything else.
+  // Gate 7b: OWNER IMMUTABILITY - reject any Owner target before anything else.
   if (target.is_owner === true || target.role === 'owner') {
     console.log('[admin-users] Owner mutation blocked', { callerRole: auth.role, callerIsOwner: auth.isOwner, operation, targetProfileId: target.id, request_id: requestId });
     return res.status(403).json({ error: 'forbidden', message: 'This operation is not permitted on this account.' });
   }
 
-  // Gate 7c: SELF-TARGETING — compare RESOLVED auth_user_id (same domain).
+  // Gate 7c: SELF-TARGETING - compare RESOLVED auth_user_id (same domain).
   if (target.auth_user_id === auth.userId) {
     console.log('[admin-users] self-mutation blocked', { callerRole: auth.role, callerIsOwner: auth.isOwner, operation, request_id: requestId });
     return res.status(403).json({ error: 'forbidden', message: 'You cannot modify your own account through this endpoint.' });
@@ -217,7 +217,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // ── send_password_reset: no mutation — dispatch the recovery email via the SAME proven
+  // ── send_password_reset: no mutation - dispatch the recovery email via the SAME proven
   // self-service flow (implicit resetPasswordForEmail → /auth/reset-password). Inactive accounts
   // cannot sign in, so they cannot receive a reset. Owner/self/admin-to-admin already blocked above.
   if (operation === 'send_password_reset') {
@@ -265,7 +265,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, no_change: true, message: 'No change needed.' });
   }
 
-  // ── All gates passed — perform the mutation using the resolved profile PK ────
+  // ── All gates passed - perform the mutation using the resolved profile PK ────
   let patch;
   if (operation === 'update_role')                  patch = { role: newRole };
   else if (operation === 'toggle_active')           patch = { is_active: newActive };

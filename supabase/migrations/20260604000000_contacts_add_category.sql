@@ -28,7 +28,7 @@
 
 -- ── Step 1: Add nullable category column ─────────────────────────────────────
 --
--- TEXT, no CHECK constraint — allows future category values to be added
+-- TEXT, no CHECK constraint - allows future category values to be added
 -- without a migration. Validation enforced at application layer.
 
 ALTER TABLE contacts

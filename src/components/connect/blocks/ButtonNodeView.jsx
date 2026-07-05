@@ -1,6 +1,6 @@
 // src/components/connect/blocks/ButtonNodeView.jsx
 //
-// RICH-COMPOSE-2A-2 — in-editor preview for the Linked Button atom. Shows a branded Cedars-Sinai
+// RICH-COMPOSE-2A-2 - in-editor preview for the Linked Button atom. Shows a branded Cedars-Sinai
 // button approximation (not pixel-perfect; the server render is authoritative) plus an Edit affordance.
 // Click/tap or Enter opens the shared edit modal (via editor.storage.aspireButton.requestEdit);
 // Backspace/Delete removes the block. No drag/drop.

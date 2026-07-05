@@ -16,7 +16,7 @@
 -- There is still NO client write policy on catalog_resources; all writes remain service-role
 -- only behind the Owner/Admin-gated upload/update endpoints. Interviewers cannot write.
 --
--- HOW TO RUN: paste into the Supabase SQL Editor and execute. Claude Code applies nothing —
+-- HOW TO RUN: paste into the Supabase SQL Editor and execute. Claude Code applies nothing -
 -- the Owner applies this manually and verifies, THEN authorizes commit of this file.
 -- Idempotent: DROP POLICY IF EXISTS before CREATE.
 -- =============================================================================

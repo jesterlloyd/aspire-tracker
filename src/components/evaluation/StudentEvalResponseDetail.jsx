@@ -14,7 +14,7 @@ import { useAuth } from '../../contexts/AuthContext'
 const F = 'DM Sans, sans-serif'
 
 function fmtDate(iso) {
-  if (!iso) return '—'
+  if (!iso) return '-'
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
@@ -33,7 +33,7 @@ function Field({ label, value, prewrap }) {
         fontSize: 13, fontWeight: 600, color: '#191919', fontFamily: F,
         whiteSpace: prewrap ? 'pre-wrap' : 'normal', lineHeight: prewrap ? 1.6 : 1.4,
       }}>
-        {value == null || value === '' ? '—' : value}
+        {value == null || value === '' ? '-' : value}
       </div>
     </div>
   )
@@ -58,7 +58,7 @@ function SectionBlock({ title, children }) {
 function makeScaleLabel(scale) {
   const map = new Map((Array.isArray(scale) ? scale : []).map(o => [o.value, o.label]))
   return (v) => {
-    if (v == null || v === '') return '—'
+    if (v == null || v === '') return '-'
     const label = map.get(v)
     return label ? `${v} · ${label}` : String(v)
   }
@@ -137,7 +137,7 @@ export default function StudentEvalResponseDetail({ assignment, instrumentConten
 
           {!isLoading && !isError && (
             <>
-              {/* Evaluated target — the preceptor/unit this student evaluated (from response JSON) */}
+              {/* Evaluated target - the preceptor/unit this student evaluated (from response JSON) */}
               <SectionBlock title="Evaluated Preceptor / Unit">
                 <Field label="Preceptor" value={et.preceptor_name} />
                 <Field label="Unit / Area" value={et.unit} />

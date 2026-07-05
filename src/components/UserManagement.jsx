@@ -1,6 +1,6 @@
 // ACCOUNTS-ACCESS-PROFILE-BOARD-2B: Settings → Accounts & Access is now a visual PEOPLE BOARD.
 // The board renders login accounts as cozy, hover-lift profile cards grouped by role; the whole card
-// is the entry point — clicking (or Enter/Space) opens the centered AccountProfileModal, which holds
+// is the entry point - clicking (or Enter/Space) opens the centered AccountProfileModal, which holds
 // the access controls (Role / Interviewer access / calendar color, dirty-save), per-user recent activity,
 // and supported account actions. The old inline invite form, Users/Activity tabs, summary pills,
 // filter chips, per-card Manage Access / View Activity / three-dot menu, and the Manage Access drawer
@@ -20,7 +20,7 @@ import AccountProfileModal from './settings/AccountProfileModal';
 const F = 'DM Sans, sans-serif'
 const DEFAULT_COLOR = '#1D2567'
 
-// ── Cozy interactive profile card — hover lift via the shared CARD tokens / StudentCard recipe. ──
+// ── Cozy interactive profile card - hover lift via the shared CARD tokens / StudentCard recipe. ──
 function ProfileCard({ user, online, onOpen }) {
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
@@ -66,7 +66,7 @@ function ProfileCard({ user, online, onOpen }) {
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{ background: rb.bg, color: rb.text, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20 }}>{displayRole(user)}</span>
         {isInactive && <span style={{ background: '#F3F4F6', color: '#6B7280', fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 20 }}>Inactive</span>}
-        {/* Interviewer-access badge — shown only when it ADDS meaning (not when the role badge already
+        {/* Interviewer-access badge - shown only when it ADDS meaning (not when the role badge already
             reads "Interviewer"), so there's never a duplicate Interviewer badge. */}
         {user.can_conduct_interviews && displayRole(user) !== 'Interviewer' && (
           <span title="Interviewer access" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#E0E7FF', color: '#3730A3', fontSize: 10, fontWeight: 500, padding: '2px 8px', borderRadius: 20 }}>
@@ -90,7 +90,7 @@ export function UserManagementContent({ onRequestClose }) {
   const [saveToast,    setSaveToast]    = useState(null)
   const triggerElRef = useRef(null)
 
-  // User list — org-wide, get_all_user_profiles (unchanged).
+  // User list - org-wide, get_all_user_profiles (unchanged).
   const { data: users = [], isLoading: loading, error: usersErrorObj } = useQuery({
     queryKey: ['people_access_users'],
     queryFn: async () => {
@@ -109,7 +109,7 @@ export function UserManagementContent({ onRequestClose }) {
     setTimeout(() => setSaveToast(null), 3500)
   }
 
-  // Admin proxy — forwards the Supabase access token; server authorizes (unchanged).
+  // Admin proxy - forwards the Supabase access token; server authorizes (unchanged).
   const adminProxy = async (body) => {
     const { data: { session } } = await supabase.auth.getSession()
     const token = session?.access_token
@@ -123,7 +123,7 @@ export function UserManagementContent({ onRequestClose }) {
     return true
   }
 
-  // Save access — SAME payloads/invalidations as the old Manage Access saveDraft (role /
+  // Save access - SAME payloads/invalidations as the old Manage Access saveDraft (role /
   // toggle_interviewer / update_interviewer_color). Owner role demotion blocked; server authoritative.
   const saveAccess = async (u, draft) => {
     if (u.is_owner && draft.role !== 'owner') {
@@ -235,7 +235,7 @@ export function UserManagementContent({ onRequestClose }) {
         </div>
       )}
 
-      {/* Optional close — only when opened via the (dead) legacy modal wrapper. */}
+      {/* Optional close - only when opened via the (dead) legacy modal wrapper. */}
       {onRequestClose && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
           <button onClick={onRequestClose} aria-label="Close" style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280' }}>
@@ -267,7 +267,7 @@ export function UserManagementContent({ onRequestClose }) {
         <div style={{ textAlign: 'center', padding: '40px 24px', color: '#9ca3af', fontSize: 13 }}>No users found.</div>
       )}
 
-      {/* People board — vertical classification columns (OWNER / ADMINS / INTERVIEWERS / GUESTS),
+      {/* People board - vertical classification columns (OWNER / ADMINS / INTERVIEWERS / GUESTS),
           side-by-side on wide screens, stacking on narrow. Empty columns are dropped. */}
       {!loading && !error && users.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 16, alignItems: 'start' }}>
@@ -305,7 +305,7 @@ export function UserManagementContent({ onRequestClose }) {
   )
 }
 
-// WS2.2: legacy modal/drawer wrapper — kept for rollback; no live importer.
+// WS2.2: legacy modal/drawer wrapper - kept for rollback; no live importer.
 export default function UserManagement({ isOpen, onClose }) {
   const { canEdit } = useAuth()
   if (!isOpen || !canEdit) return null

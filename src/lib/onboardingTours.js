@@ -6,7 +6,7 @@ export const TOUR_VERSION = 'v2';
 // TOUR-1: copy refreshed to current ASPIRE Intelligence terminology and the
 // Evaluation + ASPIRE Connect areas added. All targets reuse anchors that already
 // exist live (nav tab-* anchors, header connect / action-center / global-search,
-// keith-orb, feedback-button, user-profile) — no anchor changes. Internal step
+// keith-orb, feedback-button, user-profile) - no anchor changes. Internal step
 // identifiers and the tab-embed anchor (Rotation tab) are intentionally preserved.
 
 const stepWelcome = (firstName) => ({
@@ -14,7 +14,7 @@ const stepWelcome = (firstName) => ({
   placement: 'center',
   disableBeacon: true,
   title: `Welcome, ${firstName}!`,
-  content: "This is ASPIRE Intelligence, your workspace for managing ASPIRE cohorts — students, interviews, placements, evaluations, and communication. This short tour walks you through the areas you'll use most.",
+  content: "This is ASPIRE Intelligence, your workspace for managing ASPIRE cohorts, students, interviews, placements, evaluations, and communication. This short tour walks you through the areas you'll use most.",
 });
 
 const stepCohortSwitcher = {
@@ -32,13 +32,13 @@ const stepAggregate = {
 const stepStudentProfiles = {
   target: '[data-tour="tab-student-profiles"]',
   title: 'Student Profiles',
-  content: 'Browse the cohort as a grid or list — names show a student’s preferred first name, with a profile-completion indicator. Open any student to review school, program, GPA, unit preferences, status, and rotation progress in the side panel.',
+  content: 'Browse the cohort as a grid or list, names show a student’s preferred first name, with a profile-completion indicator. Open any student to review school, program, GPA, unit preferences, status, and rotation progress in the side panel.',
 };
 
 const stepCatalog = {
   target: '[data-tour="catalog"]',
   title: 'ASPIRE Catalog',
-  content: 'Curated resources, guides, forms, and documents for the ASPIRE Program — open it anytime from the header.',
+  content: 'Curated resources, guides, forms, and documents for ASPIRE, open it anytime from the header.',
   placement: 'bottom-end',
   spotlightPadding: 6,
   disableBeacon: true,
@@ -47,7 +47,7 @@ const stepCatalog = {
 const stepInterviewRubric = {
   target: '[data-tour="tab-interview-rubric"]',
   title: 'Interviews',
-  content: 'Open a scheduled interview to score the ASPIRE rubric — Clinical Judgment, Professional Presence, and Goal Alignment — then submit your recommendation.',
+  content: 'Open a scheduled interview to score the ASPIRE rubric, Clinical Judgment, Professional Presence, and Goal Alignment, then submit your recommendation.',
 };
 
 // Rotation tab. Internal name + the tab-embed anchor are preserved; user-facing
@@ -61,13 +61,13 @@ const stepEmbed = {
 const stepEvaluation = {
   target: '[data-tour="tab-evaluation"]',
   title: 'Evaluation',
-  content: 'Manage evaluation workflows — Casey-Fink readiness surveys and related student and preceptor evaluation activity for the cohort.',
+  content: 'Manage evaluation workflows, Casey-Fink readiness surveys and related student and preceptor evaluation activity for the cohort.',
 };
 
 const stepConnect = {
   target: '[data-tour="connect"]',
   title: 'ASPIRE Connect',
-  content: 'Manage contacts, outreach, and survey invitations — compose messages, send invitations, and review sent history.',
+  content: 'Manage contacts, outreach, and survey invitations, compose messages, send invitations, and review sent history.',
   placement: 'bottom-end',
   spotlightPadding: 6,
   disableBeacon: true,
@@ -91,7 +91,7 @@ const stepSearch = {
 const stepKeith = {
   target: '[data-tour="keith-orb"]',
   title: 'Keith, your AI assistant',
-  content: 'Ask Keith about ASPIRE workflows, rules, and how to complete a task. Keith answers within your role’s access — look bottom-right.',
+  content: 'Ask Keith about ASPIRE workflows, rules, and how to complete a task. Keith answers within your role’s access, look bottom-right.',
 };
 
 const stepFeedback = {
@@ -103,7 +103,7 @@ const stepFeedback = {
 const stepUserMenu = {
   target: '[data-tour="user-profile"]',
   title: 'Your Profile',
-  content: 'View your role, open Settings, update your photo, restart this tour, or sign out. Settings holds appearance and help — and, for Owners and Admins, account access and the governed Knowledge Center.',
+  content: 'View your role, open Settings, update your photo, restart this tour, or sign out. Settings holds appearance and help, and, for Owners and Admins, account access and the governed Knowledge Center.',
   placement: 'bottom-end',
   spotlightPadding: 6,
   disableBeacon: true,
@@ -127,7 +127,7 @@ export function getTourSteps(userProfile) {
   // Sequence logic: Welcome → Cohort Picker (context) → main workflow TABS in order →
   // header/taskbar TOOLS in order → Finish.
   if (isPrivileged) {
-    // Owner / Admin / Co-Lead — full tour incl. Catalog, Rotation, Evaluation, Connect.
+    // Owner / Admin / Co-Lead - full tour incl. Catalog, Rotation, Evaluation, Connect.
     return [
       stepWelcome(firstName),
       stepCohortSwitcher,
@@ -150,7 +150,7 @@ export function getTourSteps(userProfile) {
   }
 
   if (role === 'interviewer') {
-    // Interviewers get Catalog but NOT Rotation / Evaluation / Connect — those are restricted
+    // Interviewers get Catalog but NOT Rotation / Evaluation / Connect - those are restricted
     // (overlay-only) or owner/admin-oriented, so the tour does not walk them through those areas.
     return [
       stepWelcome(firstName),
@@ -169,7 +169,7 @@ export function getTourSteps(userProfile) {
     ];
   }
 
-  // Viewer and default — conservative; Catalog is NOT shown (not visible to viewers).
+  // Viewer and default - conservative; Catalog is NOT shown (not visible to viewers).
   return [
     stepWelcome(firstName),
     stepCohortSwitcher,

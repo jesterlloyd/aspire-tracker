@@ -9,7 +9,7 @@ import PreceptorAssignmentModal from './PreceptorAssignmentModal'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 
 function fmtDate(d) {
-  if (!d) return '—'
+  if (!d) return '-'
   const dt = new Date(d + 'T00:00:00')
   return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
@@ -64,7 +64,7 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
       )
     : preceptors
 
-  // Map preceptor_id → student for current cohort (PRIMARY source — students.preceptor_id, unchanged)
+  // Map preceptor_id → student for current cohort (PRIMARY source - students.preceptor_id, unchanged)
   const studentByPreceptorId = {}
   for (const s of students) {
     if (s.preceptor_id) studentByPreceptorId[s.preceptor_id] = s
@@ -73,7 +73,7 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
   // PRECEPTOR-MODEL-3: read-only cohort-scoped ACTIVE secondary/coverage assignments so a preceptor
   // with a coverage relationship is no longer shown "without a student assigned". Read via the
   // table's Owner/Admin SELECT RLS; this only AUGMENTS the predicate, it does not change the primary
-  // source. (Backfilled active-primary rows are intentionally ignored here — primary is shown above.)
+  // source. (Backfilled active-primary rows are intentionally ignored here - primary is shown above.)
   const { data: coverageRows = [] } = useQuery({
     queryKey: ['spa_active_coverage', cohortId],
     enabled: !!cohortId,
@@ -266,13 +266,13 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
                       </div>
                     </td>
                     <td className="am-td" style={{ color: '#4b5563', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {p.email || '—'}
+                      {p.email || '-'}
                     </td>
                     <td className="am-td" style={{ color: '#6b7280', whiteSpace: 'nowrap' }}>
-                      {p.unit_name || '—'}
+                      {p.unit_name || '-'}
                     </td>
                     <td className="am-td" style={{ color: '#6b7280', whiteSpace: 'nowrap' }}>
-                      {p.shift_type || '—'}
+                      {p.shift_type || '-'}
                     </td>
                     <td className="am-td">
                       <span style={{
@@ -288,10 +288,10 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
                         ? `${currentStudent.first_name} ${currentStudent.last_name}`
                         : (() => {
                             // PRECEPTOR-MODEL-3: no PRIMARY student, but an active secondary/coverage
-                            // relationship means this preceptor IS assigned — show it role-labeled
-                            // instead of "—". (Primary, when present, is shown unchanged above.)
+                            // relationship means this preceptor IS assigned - show it role-labeled
+                            // instead of "-". (Primary, when present, is shown unchanged above.)
                             const cov = coverageByPreceptorId[p.id] || []
-                            if (cov.length === 0) return <span style={{ color: '#9ca3af' }}>—</span>
+                            if (cov.length === 0) return <span style={{ color: '#9ca3af' }}>-</span>
                             const first = cov[0]
                             const stu = studentById[first.student_id]
                             const name = stu ? `${stu.first_name} ${stu.last_name}` : 'Assigned'
@@ -307,7 +307,7 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
                       }
                     </td>
                     <td className="am-td" style={{ color: '#6b7280', textAlign: 'center' }}>
-                      {p.cohorts_participated ?? '—'}
+                      {p.cohorts_participated ?? '-'}
                     </td>
                     <td className="am-td" style={{ color: '#6b7280', whiteSpace: 'nowrap' }}>
                       {p.last_active_cohort

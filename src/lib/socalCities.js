@@ -1,5 +1,5 @@
 // ASPIRE-POLISH-6A: bundled Southern California city centroid table + nearest-city lookup for the
-// welcome-band weather label. Pure math, fully offline — NO API key, NO network request, NO
+// welcome-band weather label. Pure math, fully offline - NO API key, NO network request, NO
 // third-party reverse geocoder, NO server endpoint. Coordinates passed in are the browser's
 // (already rounded) geolocation; nothing here persists, logs, or transmits them.
 //
@@ -8,7 +8,7 @@
 // location is farther than the threshold from every listed city (user outside the region), the lookup
 // returns null and the caller keeps the neutral "Current location" label.
 
-// { name, lat, lon } — approximate city centroids.
+// { name, lat, lon } - approximate city centroids.
 export const SOCAL_CITIES = [
   // Core LA basin
   { name: 'Los Angeles',      lat: 34.0522, lon: -118.2437 },

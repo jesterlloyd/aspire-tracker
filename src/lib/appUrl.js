@@ -1,6 +1,6 @@
 // src/lib/appUrl.js
 //
-// ASPIRE-DOMAIN-CANONICAL-1 — single source of truth for the app's canonical
+// ASPIRE-DOMAIN-CANONICAL-1 - single source of truth for the app's canonical
 // public URL. Automated emails and public form links must point at the primary
 // domain (aspireintelligence.app), NOT the legacy Vercel deployment URL
 // (aspire-tracker.vercel.app), which now serves only as a deployment/redirect
@@ -15,7 +15,7 @@
 // Canonical public origin. No trailing slash.
 export const CANONICAL_APP_URL = 'https://aspireintelligence.app';
 
-// Legacy Vercel deployment origin — retained only as a documented fallback /
+// Legacy Vercel deployment origin - retained only as a documented fallback /
 // redirect target. Never used to build user-facing links.
 export const LEGACY_APP_URL = 'https://aspire-tracker.vercel.app';
 

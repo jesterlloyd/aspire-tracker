@@ -1,5 +1,5 @@
 /* ================================================================
-   ASPIRE Intelligence — Theme Layer
+   ASPIRE Intelligence - Theme Layer
    Two-tier token system: palette tokens (raw colors) + semantic aliases
    Switched via data-theme attribute on <html>
    ================================================================ */
@@ -35,22 +35,22 @@
   --color-accent-lavender:  #B8B5D6;
   --color-accent-nova:      #9FAFF8;
 
-  /* Status — success (sage / placed) */
+  /* Status - success (sage / placed) */
   --color-status-success:    #2D4A2B;
   --color-status-success-bg: #C8D5C0;
   --color-status-success-fg: #1F3219;
 
-  /* Status — warning (amber / pending) */
+  /* Status - warning (amber / pending) */
   --color-status-warning:    #8B6914;
   --color-status-warning-bg: #F4D9B6;
   --color-status-warning-fg: #5C4509;
 
-  /* Status — danger (chroma / flag) */
+  /* Status - danger (chroma / flag) */
   --color-status-danger:    #930045;
   --color-status-danger-bg: #F2D5E0;
   --color-status-danger-fg: #5C0029;
 
-  /* Status — info (marina / neutral) */
+  /* Status - info (marina / neutral) */
   --color-status-info:    #4F6DA8;
   --color-status-info-bg: #D5DCEC;
   --color-status-info-fg: #2C3E66;
@@ -325,7 +325,7 @@
   color: var(--color-text-placeholder);
 }
 
-/* Public forms — always stay light */
+/* Public forms - always stay light */
 [data-theme-lock="light"] {
   --color-bg-page:     #F4F1EC;
   --color-bg-surface:  #FFFFFF;

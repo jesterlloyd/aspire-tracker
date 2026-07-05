@@ -121,7 +121,7 @@ function InterviewBlockPopover({ student, session, position, onClose, onEditSche
           {student.interview_duration_minutes ? ` · ${student.interview_duration_minutes} min` : ''}
           {student.interview_assigned_interviewers ? ` · ${student.interview_assigned_interviewers}` : ''}
         </div>
-        {/* ASPIRE Status pill — precise disposition for Not Proceeding */}
+        {/* ASPIRE Status pill - precise disposition for Not Proceeding */}
         {student.status && (
           <span style={{ display:'inline-block', marginTop:8, fontSize:11, fontWeight:700,
             padding:'2px 9px', borderRadius:20, background:cfg.bg, color:cfg.text,
@@ -284,7 +284,7 @@ export default function WeekCalendar({
     setBlockPopover({ student, position: { top, left }, session: getSessionForStudent(student.id) })
   }
 
-  // Day cell click (month view) — shows interviews + available slots for that day
+  // Day cell click (month view) - shows interviews + available slots for that day
   const handleDayClick = (dateStr, e) => {
     if (dayPopover?.dateStr === dateStr) { setDayPopover(null); return }
     setBlockPopover(null) // close any open block popover
@@ -317,7 +317,7 @@ export default function WeekCalendar({
     ]).then(([blocksRes, intRes, acctRes]) => {
       if (!blocksRes.error) setBlocks(blocksRes.data || [])
       // ACCOUNTS-ACCESS-PEOPLE-MODEL-2A: prefer the account interviewer color
-      // (user_profiles.interviewer_color — the single source of truth), keyed by full name; fall back
+      // (user_profiles.interviewer_color - the single source of truth), keyed by full name; fall back
       // to the legacy directory color for names without an account, then the default navy.
       if (!intRes.error) {
         const merged = {}
@@ -374,7 +374,7 @@ export default function WeekCalendar({
         </div>
       </div>
 
-      {/* Week view — 7 columns Sun–Sat */}
+      {/* Week view - 7 columns Sun–Sat */}
       {calMode === 'week' && (
         <div className="week-cal-grid week-cal-grid-7">
           {dates.map((d, i) => {
@@ -436,7 +436,7 @@ export default function WeekCalendar({
         </div>
       )}
 
-      {/* Month view — Sun-first */}
+      {/* Month view - Sun-first */}
       {calMode === 'month' && (
         <>
           <div className="month-cal-header-row">
@@ -554,7 +554,7 @@ export default function WeekCalendar({
         </div>
       </div>
 
-      {/* FIX 1: unified block popover — same content in both views */}
+      {/* FIX 1: unified block popover - same content in both views */}
       {blockPopover && (
         <div ref={blockPopoverRef}>
           <InterviewBlockPopover
@@ -583,7 +583,7 @@ export default function WeekCalendar({
         />
       )}
 
-      {/* Day-level detail popover — FIX 1: restored month view day click */}
+      {/* Day-level detail popover - FIX 1: restored month view day click */}
       {dayPopover && (
         <div ref={dayPopoverRef} onClick={e => e.stopPropagation()}
           style={{
@@ -603,7 +603,7 @@ export default function WeekCalendar({
             <button onClick={() => setDayPopover(null)}
               style={{ background:'none', border:'none', fontSize:18, cursor:'pointer', color:'var(--text-secondary)', lineHeight:1 }}>×</button>
           </div>
-          {/* Scrollable body — Part D */}
+          {/* Scrollable body - Part D */}
           <div style={{ padding:'12px 14px', overflowY:'auto', maxHeight:400 }}>
             {/* Scheduled Interviews */}
             <div className="day-detail-section-title">Scheduled Interviews</div>

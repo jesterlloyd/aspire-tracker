@@ -292,18 +292,18 @@ export default function PreceptorEvaluationPage() {
 
           <form onSubmit={handleSubmit}>
 
-            {/* Section 1 — details */}
+            {/* Section 1 - details */}
             <div className="pe-card">
               <h2 className="pe-section-title">{s1?.title || 'Student and Preceptor Details'}</h2>
               {s1?.instructions && <p className="pe-section-instr">{s1.instructions}</p>}
 
               <div className="pe-field">
                 <span className="pe-label">{s1?.fields?.student_name?.label || 'Student Name'}</span>
-                <div className="pe-readonly">{meta.studentName || '—'}</div>
+                <div className="pe-readonly">{meta.studentName || '-'}</div>
               </div>
               <div className="pe-field">
                 <span className="pe-label">{s1?.fields?.preceptor_name?.label || 'Preceptor Name'}</span>
-                <div className="pe-readonly">{meta.preceptorName || '—'}</div>
+                <div className="pe-readonly">{meta.preceptorName || '-'}</div>
               </div>
               {meta.rotationUnit && (
                 <div className="pe-field">
@@ -330,7 +330,7 @@ export default function PreceptorEvaluationPage() {
               />
             </div>
 
-            {/* Section 2 — competency */}
+            {/* Section 2 - competency */}
             <div className="pe-card">
               <h2 className="pe-section-title">{s2?.title || 'Clinical Progress and Competency'}</h2>
               {s2?.instructions && <p className="pe-section-instr">{s2.instructions}</p>}
@@ -359,7 +359,7 @@ export default function PreceptorEvaluationPage() {
               })}
             </div>
 
-            {/* Section 3 — narrative */}
+            {/* Section 3 - narrative */}
             <div className="pe-card">
               <h2 className="pe-section-title">{s3?.title || 'Narrative Feedback'}</h2>
               <TextareaField id="strengths" label={s3?.fields?.strengths_observed?.label || 'Strengths Observed'}
@@ -371,7 +371,7 @@ export default function PreceptorEvaluationPage() {
                 examples={s3?.fields?.suggested_support_plan?.examples} />
             </div>
 
-            {/* Section 4 — readiness + endorsement */}
+            {/* Section 4 - readiness + endorsement */}
             <div className="pe-card">
               <h2 className="pe-section-title">{s4?.title || 'Readiness and Endorsement'}</h2>
               <SelectField id="transition_readiness" label={s4?.fields?.transition_readiness?.label}
@@ -386,7 +386,7 @@ export default function PreceptorEvaluationPage() {
                 required={false} value={bestFit} onChange={setBestFit} />
             </div>
 
-            {/* Section 5 — confidential */}
+            {/* Section 5 - confidential */}
             <div className="pe-card">
               <h2 className="pe-section-title">{s5?.title || 'Confidential ASPIRE Team Comments'}</h2>
               <TextareaField id="confidential" label={s5?.fields?.confidential_comments?.label}

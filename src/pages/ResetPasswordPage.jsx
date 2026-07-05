@@ -7,7 +7,7 @@
 // component subscribes): we (1) capture the initial URL hash/search for a `type=recovery` marker
 // synchronously on first render, (2) subscribe to onAuthStateChange for PASSWORD_RECOVERY while
 // mounted, and (3) fall back to getSession(). A plain session WITHOUT a recovery marker is treated as
-// a normal signed-in user (neutral state) — never the password form. No tokens/URL fragments are
+// a normal signed-in user (neutral state) - never the password form. No tokens/URL fragments are
 // ever rendered.
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'

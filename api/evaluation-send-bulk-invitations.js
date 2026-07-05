@@ -8,8 +8,8 @@
 // CRITICAL SAFETY INVARIANTS:
 //   - Owner/admin only.
 //   - Requires exact typed confirmation phrase: "SEND SURVEYS".
-//   - Recipient emails resolved server-side only — no override from request body.
-//   - Sequential sends — no Promise.all around Resend calls.
+//   - Recipient emails resolved server-side only - no override from request body.
+//   - Sequential sends - no Promise.all around Resend calls.
 //   - Idempotency: skips any assignment already in notification_log as evaluation_invitation_sent.
 //   - Per-recipient failure isolation: failures do not abort the batch.
 //   - Does NOT create evaluation_assignments or evaluation_assignment_tokens.
@@ -25,11 +25,11 @@
 // Authorization: Bearer <session-token>
 //
 // Body (JSON):
-//   items              — required non-empty array, max 5, each: { assignment_id, student_id, survey_url }
-//   instrument_slug    — required (e.g. 'casey_fink_readiness_2024')
-//   timepoint          — required valid timepoint
-//   expires_at         — required ISO datetime
-//   confirmation_phrase — required, must exactly equal 'SEND SURVEYS'
+//   items              - required non-empty array, max 5, each: { assignment_id, student_id, survey_url }
+//   instrument_slug    - required (e.g. 'casey_fink_readiness_2024')
+//   timepoint          - required valid timepoint
+//   expires_at         - required ISO datetime
+//   confirmation_phrase - required, must exactly equal 'SEND SURVEYS'
 
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
@@ -141,7 +141,7 @@ async function _handler(req, res, startMs) {
   const { items, instrument_slug, timepoint, expires_at, subject_override, body_override } = body;
 
   // Optional editable-draft overrides (Send-to-One). Send-to-Many does not pass these, so the
-  // builder falls back to the fixed template — Send-to-Many behavior is unchanged.
+  // builder falls back to the fixed template - Send-to-Many behavior is unchanged.
   const draftCheck = validateDraftOverrides({ subject_override, body_override });
   if (!draftCheck.ok) return res.status(400).json({ success: false, error: draftCheck.error });
 
@@ -210,7 +210,7 @@ async function _handler(req, res, startMs) {
     const { assignment_id, student_id, survey_url } = item;
 
     try {
-      // 5a. Assignment validation — read only, no mutation. Fetched FIRST so the idempotency check
+      // 5a. Assignment validation - read only, no mutation. Fetched FIRST so the idempotency check
       //     (5b) can be scoped to the current invitation cycle via invited_at.
       const { data: assignment, error: assignErr } = await supabaseAdmin
         .from('evaluation_assignments')
@@ -247,7 +247,7 @@ async function _handler(req, res, startMs) {
       //     assignment_id AND sent_at >= the assignment's current invited_at. A reissue REUSES the
       //     assignment_id and refreshes invited_at, so a send logged in a PRIOR cycle (the original,
       //     expired/uncompleted invitation) must NOT suppress the reissued send. Without this cycle
-      //     scope the reissued "Send to student" was silently skipped — never reaching Resend.
+      //     scope the reissued "Send to student" was silently skipped - never reaching Resend.
       let dedupQuery = supabaseAdmin
         .from('notification_log')
         .select('id')
@@ -283,7 +283,7 @@ async function _handler(req, res, startMs) {
       const studentFirstName = getStudentPreferredGreetingName(student);  // preferred → legal → 'there'
       const studentName      = `${student.first_name || ''} ${student.last_name || ''}`.trim();
 
-      // 5d. Build email — survey_url used only in email body, never stored/logged
+      // 5d. Build email - survey_url used only in email body, never stored/logged
       const { subject, html } = buildStudentInvitationEmail({
         studentFirstName,
         timepointLabel,
@@ -326,7 +326,7 @@ async function _handler(req, res, startMs) {
         continue;
       }
 
-      // 5f. Audit log — survey_url and token are NOT included in metadata
+      // 5f. Audit log - survey_url and token are NOT included in metadata
       const sentAt = new Date().toISOString();
       try {
         await supabaseAdmin.from('notification_log').insert({
@@ -349,11 +349,11 @@ async function _handler(req, res, startMs) {
             source:          'bulk_survey_send',
             sent_by_user_id: senderUserId,
             sent_by_email:   senderEmail,
-            // survey_url intentionally omitted — token must not be persisted
+            // survey_url intentionally omitted - token must not be persisted
           },
         });
       } catch (logErr) {
-        // Non-fatal — email was already sent; log the failure
+        // Non-fatal - email was already sent; log the failure
         console.error('[bulk-send] log_write_failed:', { assignment_id, student_id, error: logErr.message });
       }
 

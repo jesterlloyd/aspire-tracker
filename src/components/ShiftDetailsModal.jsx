@@ -1,5 +1,5 @@
 // src/components/ShiftDetailsModal.jsx
-// Phase S.1 — read-only Shift Details modal for the Clinical Hours table.
+// Phase S.1 - read-only Shift Details modal for the Clinical Hours table.
 // Surfaces shift data already fetched by StudentSidePanel's select('*') query
 // that is otherwise not shown: learning highlight, support needed, submission
 // time, override reasons, review reason / admin notes / exception flags.
@@ -23,14 +23,14 @@ const STATUS_STYLES = {
   'rejected':       { bg: '#FEE2E2', text: '#7F1D1D', label: 'Rejected' },
 }
 
-// shift_date is a 'YYYY-MM-DD' text column — anchor at noon to avoid tz rollover.
+// shift_date is a 'YYYY-MM-DD' text column - anchor at noon to avoid tz rollover.
 function fmtShiftDate(s) {
-  if (!s) return '—'
+  if (!s) return '-'
   const d = new Date(`${s}T12:00:00`)
   if (Number.isNaN(d.getTime())) return s
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
 }
-// timestamptz columns (submitted_at, reviewed_at) — show local date + time.
+// timestamptz columns (submitted_at, reviewed_at) - show local date + time.
 function fmtTimestamp(iso) {
   if (!iso) return null
   const d = new Date(iso)
@@ -73,7 +73,7 @@ export default function ShiftDetailsModal({ shift, onClose }) {
 
   if (!shift) return null
 
-  const s = STATUS_STYLES[shift.status] || { bg: '#F3F4F6', text: '#6B7280', label: shift.status || '—' }
+  const s = STATUS_STYLES[shift.status] || { bg: '#F3F4F6', text: '#6B7280', label: shift.status || '-' }
   const submitted = fmtTimestamp(shift.submitted_at)
   const reviewedAt = fmtTimestamp(shift.reviewed_at)
 
@@ -111,10 +111,10 @@ export default function ShiftDetailsModal({ shift, onClose }) {
           {/* ── Shift Information ─────────────────────────────────────────── */}
           <SectionLabel>Shift Information</SectionLabel>
           <Row label="Date">{fmtShiftDate(shift.shift_date)}</Row>
-          <Row label="Hours">{shift.total_hours ?? '—'}</Row>
+          <Row label="Hours">{shift.total_hours ?? '-'}</Row>
           <Row label="Shift Type">{shift.shift_type || 'Day'}</Row>
           <Row label="Unit">
-            {shift.unit_name || '—'}
+            {shift.unit_name || '-'}
             {unitOverride && (shift.unit_override_reason || '').trim() && (
               <div style={{ fontSize: 12, fontStyle: 'italic', color: '#6b7280', marginTop: 2 }}>
                 Override reason: {shift.unit_override_reason.trim()}
@@ -122,7 +122,7 @@ export default function ShiftDetailsModal({ shift, onClose }) {
             )}
           </Row>
           <Row label="Preceptor">
-            {shift.preceptor_name || '—'}
+            {shift.preceptor_name || '-'}
             {preceptorOverride && (shift.preceptor_override_note || '').trim() && (
               <div style={{ fontSize: 12, fontStyle: 'italic', color: '#6b7280', marginTop: 2 }}>
                 Override note: {shift.preceptor_override_note.trim()}

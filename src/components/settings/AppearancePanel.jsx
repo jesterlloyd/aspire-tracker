@@ -1,6 +1,6 @@
 // WS2.4: Settings → Appearance panel. The Appearance control was consolidated here from
 // the UserMenu dropdown and Settings → General so theme/display has a single canonical
-// home. It reuses the existing ThemeToggle unchanged — theme persistence, data-theme
+// home. It reuses the existing ThemeToggle unchanged - theme persistence, data-theme
 // behavior, the OS listener, and the public data-theme-lock all remain in ThemeContext.
 // No new preference storage, accent color, or user_settings write is introduced.
 import ThemeToggle from '../ThemeToggle'

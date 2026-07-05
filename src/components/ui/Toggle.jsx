@@ -1,5 +1,5 @@
 /**
- * Toggle — canonical on/off switch for ASPIRE Intelligence.
+ * Toggle - canonical on/off switch for ASPIRE Intelligence.
  *
  * Apple liquid-glass aesthetic: frosted-white OFF pill with green ambient glow,
  * green ON pill with stronger glow, smooth knob slide.
@@ -144,7 +144,7 @@ export default function Toggle({
     </button>
   )
 
-  // ── No label — just the pill ──────────────────────────────────
+  // ── No label - just the pill ──────────────────────────────────
   if (!label && !description) return pill
 
   // ── With label (and optional description) ────────────────────
@@ -158,7 +158,7 @@ export default function Toggle({
         fontFamily: 'DM Sans, sans-serif',
       }}
     >
-      {/* Text stack — fills remaining space */}
+      {/* Text stack - fills remaining space */}
       <div style={{ flex: 1, minWidth: 0 }}>
         {label && (
           <div style={{

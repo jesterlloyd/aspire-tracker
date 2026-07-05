@@ -1,6 +1,6 @@
 // src/components/connect/blocks/ButtonModal.jsx
 //
-// RICH-COMPOSE-2A-2 — shared modal form for inserting/editing a Linked Button. Owned by
+// RICH-COMPOSE-2A-2 - shared modal form for inserting/editing a Linked Button. Owned by
 // RichTextEditor and reused for both insert and edit. Client-side validation is for UX only; the
 // server (renderContentBlocks + buttonUrl) is the authority and re-validates/escapes on render.
 
@@ -13,7 +13,7 @@ const NAVY = '#1D2567'
 const LABEL_MAX = 60
 
 // The parent (RichTextEditor) gives this component a remount `key` per open, so useState initializes
-// fresh from initialLabel/initialUrl each time — no open-sync effect needed.
+// fresh from initialLabel/initialUrl each time - no open-sync effect needed.
 export default function ButtonModal({ open, mode = 'insert', initialLabel = '', initialUrl = '', onSave, onCancel }) {
   const [label, setLabel] = useState(initialLabel)
   const [url, setUrl] = useState(initialUrl)

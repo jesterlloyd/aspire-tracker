@@ -11,7 +11,7 @@ UPDATE unit_leaders
 SET preferred_name = 'Lori'
 WHERE full_name = 'Lorraine Sheffield';
 
--- Verification — expected: two rows (Luba for 5 SCCT, Lori for 7 SCCT)
+-- Verification - expected: two rows (Luba for 5 SCCT, Lori for 7 SCCT)
 SELECT unit_name, full_name, preferred_name, email, role
 FROM unit_leaders
 WHERE preferred_name IS NOT NULL;

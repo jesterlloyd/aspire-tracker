@@ -1,4 +1,4 @@
-// CheckOutView.jsx — check-out form, prefilled from the open in_progress shift.
+// CheckOutView.jsx - check-out form, prefilled from the open in_progress shift.
 // Client validation mirrors the B3 endpoint's hard validation.
 import { useState } from 'react'
 import { useCheckOut } from './useCheckOut'

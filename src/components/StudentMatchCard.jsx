@@ -95,7 +95,7 @@ export default function StudentMatchCard({
                 {ivStatus.label}
               </span>
             )}
-            {/* Tier badge — only shown when a unit is focused */}
+            {/* Tier badge - only shown when a unit is focused */}
             {focusedUnit && choiceTier && choiceTier < 4 && (
               <span style={{
                 fontFamily: 'DM Sans', fontWeight: 700, fontSize: '10px',

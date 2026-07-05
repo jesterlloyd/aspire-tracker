@@ -1,5 +1,5 @@
 /**
- * resolvePreceptor — dual-read with free-text fallback.
+ * resolvePreceptor - dual-read with free-text fallback.
  *
  * Returns a normalized object regardless of whether the student has a
  * linked preceptors row (source: 'normalized') or only free-text fields

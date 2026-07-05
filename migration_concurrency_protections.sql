@@ -1,5 +1,5 @@
 -- ============================================================
--- ASPIRE Intelligence — Concurrency Protection Migration
+-- ASPIRE Intelligence - Concurrency Protection Migration
 -- ============================================================
 --
 -- WHAT THIS DOES:

@@ -9,5 +9,5 @@ WHERE name ILIKE '%jester%';
 UPDATE interviewers SET email = 'Krystal.Rodriguez@cshs.org'
 WHERE name ILIKE '%krystal%';
 
--- Remaining interviewers will have empty email fields —
+-- Remaining interviewers will have empty email fields -
 -- fill them in via the Manage Interviewers modal in the app.

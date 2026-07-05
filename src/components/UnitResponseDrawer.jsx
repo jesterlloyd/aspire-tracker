@@ -1,6 +1,6 @@
 // src/components/UnitResponseDrawer.jsx
 // UNIT-FORM-RESPONSE-VISIBILITY: read-only detail of one /unit-form submission (unit_cohort_responses
-// row), shown from Aggregate > Placement Capacity. No fetch, no edit, no resend/contact — display only.
+// row), shown from Aggregate > Placement Capacity. No fetch, no edit, no resend/contact - display only.
 import DetailDrawer from './ui/DetailDrawer'
 
 const F = 'DM Sans, sans-serif'
@@ -62,7 +62,7 @@ export default function UnitResponseDrawer({ open, onClose, response }) {
     : 'Pending'
 
   return (
-    <DetailDrawer open={open} onClose={onClose} title={`${r.unit_name || 'Unit'} — Unit Form Response`}>
+    <DetailDrawer open={open} onClose={onClose} title={`${r.unit_name || 'Unit'}, Unit Form Response`}>
       <Section title="Submission Details">
         <Row label="Unit / Department" value={r.unit_name} />
         <Row label="Submitted by" value={r.submitted_by_name} />

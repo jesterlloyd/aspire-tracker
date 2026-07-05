@@ -7,7 +7,7 @@
 -- The existing table uses:
 --   block_id       (not parent_block_id)
 --   slot_time      (HH:MM start time, not separate start_time/end_time columns)
---   is_booked      (boolean, not status — run migration_slot_level_management.sql first)
+--   is_booked      (boolean, not status - run migration_slot_level_management.sql first)
 --
 -- Run AFTER migration_slot_level_management.sql so the status column exists.
 -- Run in the Supabase SQL Editor.

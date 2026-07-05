@@ -8,12 +8,12 @@ import { useAuth } from '../../contexts/AuthContext'
 import { FilterKPICard } from '../KPIBand'
 import WorkspaceBackLink from '../ui/WorkspaceBackLink'
 
-// CATALOG-1 — Read-only ASPIRE Catalog browse UI (Owner/Admin only).
+// CATALOG-1 - Read-only ASPIRE Catalog browse UI (Owner/Admin only).
 //
 // Reads catalog_resources via the user session; the table's Owner/Admin SELECT RLS is the
 // gate (a non-Owner/Admin simply sees no rows). Internal files open through the server-side
 // /api/catalog-resource-open endpoint (short-lived signed URL, never persisted); external
-// links navigate out. No writes, no uploads, no edit/delete — Manage affordances are inert
+// links navigate out. No writes, no uploads, no edit/delete - Manage affordances are inert
 // placeholders only.
 
 const F = 'DM Sans, sans-serif'
@@ -40,9 +40,9 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024
 const DAY_MS = 24 * 60 * 60 * 1000
 
 function fmtDate(iso) {
-  if (!iso) return '—'
+  if (!iso) return '-'
   const d = new Date(iso)
-  if (isNaN(d.getTime())) return '—'
+  if (isNaN(d.getTime())) return '-'
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
@@ -140,7 +140,7 @@ export default function CatalogPage({ backPath = '/aggregate', backLabel = 'Aggr
   // Active (non-deactivated) rows drive the metrics and right rail, regardless of "Show removed".
   const activeRows = useMemo(() => rows.filter(r => r.is_active !== false), [rows])
 
-  // Metric cards — computed from the active data (never hardcoded).
+  // Metric cards - computed from the active data (never hardcoded).
   const metrics = useMemo(() => {
     const now = Date.now()
     const categories = new Set(activeRows.map(r => r.category).filter(Boolean))
@@ -219,7 +219,7 @@ export default function CatalogPage({ backPath = '/aggregate', backLabel = 'Aggr
 
   // Open/Download an internal_file via the server signed-URL endpoint; external_link → navigate.
   // mode is 'open' (inline view) or 'download' (attachment disposition). The client still sends
-  // ONLY the slug — the server resolves storage_path and mints a short-lived signed URL that is
+  // ONLY the slug - the server resolves storage_path and mints a short-lived signed URL that is
   // used immediately and never persisted.
   const accessResource = useCallback(async (r, mode = 'open') => {
     setOpenError(null)
@@ -247,7 +247,7 @@ export default function CatalogPage({ backPath = '/aggregate', backLabel = 'Aggr
       const body = await res.json().catch(() => ({}))
       if (res.ok && body.signedUrl) {
         if (mode === 'download') {
-          // Transient anchor — the server's attachment disposition drives the download.
+          // Transient anchor - the server's attachment disposition drives the download.
           const a = document.createElement('a')
           a.href = body.signedUrl
           a.rel = 'noopener'
@@ -273,7 +273,7 @@ export default function CatalogPage({ backPath = '/aggregate', backLabel = 'Aggr
     }
   }, [])
 
-  // CATALOG-2C — metadata-only update via the server-verified endpoint (strict whitelist).
+  // CATALOG-2C - metadata-only update via the server-verified endpoint (strict whitelist).
   // Used by edit, move-to-category, feature/pin toggles, soft-remove, and reactivate. No
   // Storage operation is ever involved; the server updates metadata columns only.
   const runUpdate = useCallback(async (id, patch, okText) => {
@@ -295,7 +295,7 @@ export default function CatalogPage({ backPath = '/aggregate', backLabel = 'Aggr
   }, [load])
 
   const copyLink = useCallback(async (r) => {
-    // Internal slug-link only — NOT a signed/file URL. Opening it still requires auth + Owner/Admin.
+    // Internal slug-link only - NOT a signed/file URL. Opening it still requires auth + Owner/Admin.
     const link = `${window.location.origin}/catalog?resource=${encodeURIComponent(r.slug)}`
     try {
       await navigator.clipboard.writeText(link)
@@ -326,7 +326,7 @@ export default function CatalogPage({ backPath = '/aggregate', backLabel = 'Aggr
 
   return (
     <div style={{ padding: '4px 24px 40px', maxWidth: 1280, margin: '0 auto', fontFamily: F }}>
-      {/* Return control — on the page background, no utility bar. */}
+      {/* Return control - on the page background, no utility bar. */}
       <div style={{ marginBottom: 12 }}>
         <WorkspaceBackLink path={backPath} label={backLabel} />
       </div>
@@ -335,10 +335,10 @@ export default function CatalogPage({ backPath = '/aggregate', backLabel = 'Aggr
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 700, color: '#191919', margin: '0 0 4px' }}>ASPIRE Catalog</h1>
           <p style={{ fontSize: 14, color: '#6b7280', margin: 0 }}>
-            Curated resources, guides, forms, and documents for the ASPIRE Program.
+            Curated resources, guides, forms, and documents for ASPIRE.
           </p>
         </div>
-        {/* Owner/Admin only — the upload/category endpoints re-verify server-side. */}
+        {/* Owner/Admin only - the upload/category endpoints re-verify server-side. */}
         {canManage && (
           <div style={{ display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
             <button
@@ -448,7 +448,7 @@ export default function CatalogPage({ backPath = '/aggregate', backLabel = 'Aggr
         })}
       </div>
 
-      {/* Metric cards — interactive KPI filters. Reuses the shared FilterKPICard so the
+      {/* Metric cards - interactive KPI filters. Reuses the shared FilterKPICard so the
           hover lift / shadow / active treatment matches Student Profiles exactly. Counts are
           computed from loaded data; filtering stays client-side. */}
       <div className="stat-cards-row" style={{ marginBottom: 24 }}>
@@ -565,7 +565,7 @@ export default function CatalogPage({ backPath = '/aggregate', backLabel = 'Aggr
           )}
         </div>
 
-        {/* Right rail — view-only; Manage is an inert placeholder */}
+        {/* Right rail - view-only; Manage is an inert placeholder */}
         <aside style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <RailCard icon={<Folder size={14} strokeWidth={2} />} title="Featured Collections">
             {featuredCollections.length === 0 ? (
@@ -616,7 +616,7 @@ function RailCard({ icon, title, children }) {
         <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: '#191919' }}>
           <span style={{ color: NAVY }}>{icon}</span>{title}
         </span>
-        {/* Inert placeholder — management is not part of CATALOG-1 */}
+        {/* Inert placeholder - management is not part of CATALOG-1 */}
         <span style={{ fontSize: 11, fontWeight: 600, color: '#c0c4ca', userSelect: 'none' }}>Manage</span>
       </div>
       <div style={{ padding: '6px 16px 12px' }}>{children}</div>
@@ -628,7 +628,7 @@ function RailEmpty({ children }) {
   return <div style={{ fontSize: 12.5, color: '#9ca3af', padding: '6px 0' }}>{children}</div>
 }
 
-// CATALOG-2B — Owner/Admin "Add resource" modal. Uploads a NEW internal_file via the
+// CATALOG-2B - Owner/Admin "Add resource" modal. Uploads a NEW internal_file via the
 // signed-upload-URL flow: (1) POST phase 'sign' to get a one-time per-path token, (2) PUT the
 // bytes straight to Supabase via uploadToSignedUrl, (3) POST phase 'commit' so the server
 // verifies the object and inserts the row. The client never holds a broad Storage credential
@@ -686,7 +686,7 @@ function AddResourceModal({ categories = UPLOAD_CATEGORIES, onClose, onCreated }
         .uploadToSignedUrl(sign.path, sign.token, file, { contentType: file.type || undefined })
       if (up.error) { setErr(`File upload failed: ${up.error.message}`); return }
 
-      // 3) commit — server verifies the object and inserts the row
+      // 3) commit - server verifies the object and inserts the row
       const commitRes = await fetch('/api/catalog-resource-upload', {
         method: 'POST', headers: authHeaders, body: JSON.stringify({ phase: 'commit', ...meta }),
       })
@@ -939,7 +939,7 @@ function RowMenu({ r, external, inactive, onAccess, actions, canManage, categori
             <Link2 size={14} /> Copy link
           </button>
 
-          {/* Management actions — Owner/Admin only. Interviewers see read actions above only. */}
+          {/* Management actions - Owner/Admin only. Interviewers see read actions above only. */}
           {canManage && <div style={{ height: 1, background: '#f1efe9', margin: '4px 0' }} />}
 
           {canManage && (inactive ? (
@@ -952,7 +952,7 @@ function RowMenu({ r, external, inactive, onAccess, actions, canManage, categori
                 <Pencil size={14} /> Edit details
               </button>
 
-              {/* Move to category — metadata-only category-field change (file never moves). */}
+              {/* Move to category - metadata-only category-field change (file never moves). */}
               <button type="button" style={itemStyle} onClick={() => setMoveOpen(o => !o)} aria-expanded={moveOpen}>
                 <FolderInput size={14} /> Move to category
               </button>
@@ -988,7 +988,7 @@ function RowMenu({ r, external, inactive, onAccess, actions, canManage, categori
   )
 }
 
-// CATALOG-2C — Edit details (metadata only). Sends only title/description/category/tags/
+// CATALOG-2C - Edit details (metadata only). Sends only title/description/category/tags/
 // featured/pinned to the strict-whitelist endpoint. Slug, storage_path, and the file are never
 // touched (copied links stay stable; the file stays at its original key).
 function EditResourceModal({ resource, categories = UPLOAD_CATEGORIES, onClose, onSaved }) {
@@ -1066,7 +1066,7 @@ function EditResourceModal({ resource, categories = UPLOAD_CATEGORIES, onClose, 
             </label>
           </div>
           <div style={{ fontSize: 11.5, color: '#9ca3af' }}>
-            The file and its link stay the same — only these details change.
+            The file and its link stay the same, only these details change.
           </div>
           {err && (
             <div style={{ fontSize: 12.5, borderRadius: 8, padding: '9px 12px', background: '#FEECEC', color: '#991b1b', border: '1px solid #f3c6c6' }}>
@@ -1087,7 +1087,7 @@ function EditResourceModal({ resource, categories = UPLOAD_CATEGORIES, onClose, 
   )
 }
 
-// CATALOG-2C — Soft-remove confirmation. Sets is_active=false (reversible); never deletes the
+// CATALOG-2C - Soft-remove confirmation. Sets is_active=false (reversible); never deletes the
 // row and never touches Storage.
 function RemoveConfirmDialog({ resource, onCancel, onConfirm }) {
   const [working, setWorking] = useState(false)
@@ -1100,7 +1100,7 @@ function RemoveConfirmDialog({ resource, onCancel, onConfirm }) {
         <div style={{ padding: '16px 20px', fontSize: 13.5, color: '#374151', lineHeight: 1.6 }}>
           <p style={{ margin: '0 0 10px' }}>
             <strong>{resource.title}</strong> will be hidden from the catalog. The file is <strong>not</strong> deleted
-            and this is reversible — turn on <strong>Show removed</strong> to restore it.
+            and this is reversible, turn on <strong>Show removed</strong> to restore it.
           </p>
         </div>
         <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
@@ -1115,10 +1115,10 @@ function RemoveConfirmDialog({ resource, onCancel, onConfirm }) {
   )
 }
 
-// CATALOG-3 — Manage Categories (Owner/Admin). Rename display_name (+ optional description) and
+// CATALOG-3 - Manage Categories (Owner/Admin). Rename display_name (+ optional description) and
 // reorder via up/down. Saves through the server endpoint: renames as per-category metadata
 // updates, reorder as ONE coherent write of the full ordered slug list. NO Add, NO Archive, NO
-// slug editing — slug is shown read-only as the stable anchor. No resource row or Storage touch.
+// slug editing - slug is shown read-only as the stable anchor. No resource row or Storage touch.
 function ManageCategoriesModal({ cats, onClose, onSaved, setActionMsg }) {
   const [draft, setDraft] = useState(() => cats.map(c => ({
     slug: c.slug, display_name: c.display_name || '', description: c.description || '',
@@ -1158,7 +1158,7 @@ function ManageCategoriesModal({ cats, onClose, onSaved, setActionMsg }) {
     const origBySlug = Object.fromEntries(cats.map(c => [c.slug, c]))
     setSaving(true)
     try {
-      // 1) Renames (display_name / description changes) — per-category metadata updates.
+      // 1) Renames (display_name / description changes) - per-category metadata updates.
       for (const d of draft) {
         const o = origBySlug[d.slug] || {}
         const dn = d.display_name.trim()
@@ -1167,7 +1167,7 @@ function ManageCategoriesModal({ cats, onClose, onSaved, setActionMsg }) {
           await post({ action: 'rename', slug: d.slug, display_name: dn, description: desc })
         }
       }
-      // 2) Reorder — one coherent write of the full ordered slug list (only if order changed).
+      // 2) Reorder - one coherent write of the full ordered slug list (only if order changed).
       const newOrder = draft.map(d => d.slug)
       const oldOrder = cats.map(c => c.slug)
       if (JSON.stringify(newOrder) !== JSON.stringify(oldOrder)) {

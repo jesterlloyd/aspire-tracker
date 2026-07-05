@@ -6,7 +6,7 @@ import { isIsoDateString, isLegacyNonIsoDateValue, dateInputValue } from '../lib
 import StudentAvatar from './StudentAvatar'
 
 // CSLINK-DATE-PICKER-DATA-RECOVERY: the four CS-Link date columns are TEXT and may hold legacy
-// non-ISO values. We only ever WRITE a date field the user actually touched — untouched fields are
+// non-ISO values. We only ever WRITE a date field the user actually touched - untouched fields are
 // omitted from the save so a legacy value is never coerced to null.
 const CSLINK_DATE_FIELDS = ['cs_stage1_submitted_date', 'cs_stage1_complete_date', 'cs_link_requested_date', 'cs_link_complete_date']
 
@@ -114,9 +114,9 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
                 School&nbsp;{sortBy === 'school' ? (sortDir === 'asc' ? '↑' : '↓') : <span className="am-sort-icon">↕</span>}
               </th>
               <th className="am-th">Cedars-Sinai Status</th>
-              <th className="am-th">Step 2 — Service Center</th>
-              <th className="am-th">Step 3 — Account Active</th>
-              <th className="am-th">Step 4 — CS-Link</th>
+              <th className="am-th">Step 2, Service Center</th>
+              <th className="am-th">Step 3, Account Active</th>
+              <th className="am-th">Step 4, CS-Link</th>
               <th className="am-th">Status</th>
               <th className="am-th">Notes</th>
             </tr>
@@ -137,7 +137,7 @@ export default function AccessTab({ students, onUpdate, focusStudentId }) {
 function AccessRow({ student, onUpdate, isHighlighted }) {
   const queryClient = useQueryClient()
 
-  // null until student data is confirmed present — prevents rendering inputs
+  // null until student data is confirmed present - prevents rendering inputs
   // before fields arrive and prevents empty-string saves on uninitialized state.
   const [formData, setFormData] = useState(null)
   const [isDirty,  setIsDirty]  = useState(false)
@@ -188,13 +188,13 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
   ]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Toggle a boolean field. The paired date is kept in formData hidden but
-  // intact — re-checking the box restores it without losing the value.
+  // intact - re-checking the box restores it without losing the value.
   const handleToggleBox = (boolField) => {
     setFormData(prev => ({ ...prev, [boolField]: !prev[boolField] }))
     setIsDirty(true)
   }
 
-  // Update a date or text field in local state only — no save yet.
+  // Update a date or text field in local state only - no save yet.
   const handleChangeField = (field, value) => {
     if (CSLINK_DATE_FIELDS.includes(field)) touchedDatesRef.current.add(field)
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -202,7 +202,7 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
   }
 
   // Cedars-Sinai status cascades: setting the status also updates the action
-  // and resets stage1 flags in formData (no auto-save — waits for Save button).
+  // and resets stage1 flags in formData (no auto-save - waits for Save button).
   const handleChangeCedarsStatus = (v) => {
     const extras = v === 'employee'
       ? { cs_stage1_action:'not_applicable', cs_stage1_submitted:true, cs_stage1_complete:true }
@@ -216,14 +216,14 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
   // Explicit Save: write the full payload in one atomic update so that boolean
   // and date fields always travel together. This is the fix for the race where
   // clearTimeout(timerRef) in per-field checkbox saves was canceling in-flight
-  // date debounce timers — dates never reached Supabase, so they vanished on refresh.
+  // date debounce timers - dates never reached Supabase, so they vanished on refresh.
   const handleSave = async () => {
     if (!student?.id || !formData || saving) return
     setSaving(true)
 
     // CSLINK-DATE-PICKER-DATA-RECOVERY: never overwrite a legacy non-ISO date. Booleans / status /
     // notes always save atomically; a date field is written ONLY if the user touched it this session
-    // — then a valid pick saves as ISO and an intentional clear saves null. Untouched date fields are
+    // - then a valid pick saves as ISO and an intentional clear saves null. Untouched date fields are
     // OMITTED entirely, so the stored value (ISO or legacy free-text) is preserved as-is.
     const payload = {
       cs_cedars_status:    formData.cs_cedars_status || null,
@@ -264,7 +264,7 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
             <span>{displayName(student)}</span>
           </div>
         </td>
-        <td className="am-td am-td-school">{student.school || '—'}</td>
+        <td className="am-td am-td-school">{student.school || '-'}</td>
         <td className="am-td" colSpan={6} />
       </tr>
     )
@@ -285,24 +285,24 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
       </td>
 
       {/* Col 2: School */}
-      <td className="am-td am-td-school">{student.school || '—'}</td>
+      <td className="am-td am-td-school">{student.school || '-'}</td>
 
       {/* Col 3: Cedars-Sinai Status */}
       <td className="am-td">
         <select className="am-select" value={formData.cs_cedars_status || ''}
           onChange={e => handleChangeCedarsStatus(e.target.value)}>
-          <option value="">—</option>
+          <option value="">-</option>
           {CEDARS_STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </td>
 
-      {/* Col 4: Step 2 — Service Center Request */}
+      {/* Col 4: Step 2 - Service Center Request */}
       <td className="am-td">
         {formData.cs_stage1_action
           ? <div style={{ fontSize:11, fontWeight:600, color:'var(--text-secondary)', marginBottom:5 }}>
               {STAGE1_ACTION_LABELS[formData.cs_stage1_action] || formData.cs_stage1_action}
             </div>
-          : <div style={{ fontSize:11, color:'#9ca3af', marginBottom:5 }}>—</div>
+          : <div style={{ fontSize:11, color:'#9ca3af', marginBottom:5 }}>-</div>
         }
         {formData.cs_stage1_action && formData.cs_stage1_action !== 'not_applicable' && (
           <div className="am-access-cell">
@@ -321,7 +321,7 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
                   onChange={e => handleChangeField('cs_stage1_submitted_date', e.target.value)}
                   placeholder="Date" />
                 {isLegacyNonIsoDateValue(formData.cs_stage1_submitted_date) && (
-                  <span style={{ fontSize:9, color:'#92400e', display:'block' }} title="Legacy value — re-enter to update">was: {formData.cs_stage1_submitted_date}</span>
+                  <span style={{ fontSize:9, color:'#92400e', display:'block' }} title="Legacy value, re-enter to update">was: {formData.cs_stage1_submitted_date}</span>
                 )}
               </>
             )}
@@ -329,7 +329,7 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
         )}
       </td>
 
-      {/* Col 5: Step 3 — Account Active */}
+      {/* Col 5: Step 3 - Account Active */}
       <td className="am-td">
         <div className="am-access-cell">
           <input type="checkbox" className="am-checkbox"
@@ -342,14 +342,14 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
                 onChange={e => handleChangeField('cs_stage1_complete_date', e.target.value)}
                 placeholder="Date" />
               {isLegacyNonIsoDateValue(formData.cs_stage1_complete_date) && (
-                <span style={{ fontSize:9, color:'#92400e', display:'block' }} title="Legacy value — re-enter to update">was: {formData.cs_stage1_complete_date}</span>
+                <span style={{ fontSize:9, color:'#92400e', display:'block' }} title="Legacy value, re-enter to update">was: {formData.cs_stage1_complete_date}</span>
               )}
             </>
           )}
         </div>
       </td>
 
-      {/* Col 6: Step 4 — CS-Link (Requested + Complete stacked) */}
+      {/* Col 6: Step 4 - CS-Link (Requested + Complete stacked) */}
       <td className="am-td">
         <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
           <div className="am-access-cell">
@@ -366,7 +366,7 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
                   onChange={e => handleChangeField('cs_link_requested_date', e.target.value)}
                   placeholder="Date" />
                 {isLegacyNonIsoDateValue(formData.cs_link_requested_date) && (
-                  <span style={{ fontSize:9, color:'#92400e', display:'block' }} title="Legacy value — re-enter to update">was: {formData.cs_link_requested_date}</span>
+                  <span style={{ fontSize:9, color:'#92400e', display:'block' }} title="Legacy value, re-enter to update">was: {formData.cs_link_requested_date}</span>
                 )}
               </>
             )}
@@ -385,7 +385,7 @@ function AccessRow({ student, onUpdate, isHighlighted }) {
                   onChange={e => handleChangeField('cs_link_complete_date', e.target.value)}
                   placeholder="Date" />
                 {isLegacyNonIsoDateValue(formData.cs_link_complete_date) && (
-                  <span style={{ fontSize:9, color:'#92400e', display:'block' }} title="Legacy value — re-enter to update">was: {formData.cs_link_complete_date}</span>
+                  <span style={{ fontSize:9, color:'#92400e', display:'block' }} title="Legacy value, re-enter to update">was: {formData.cs_link_complete_date}</span>
                 )}
               </>
             )}

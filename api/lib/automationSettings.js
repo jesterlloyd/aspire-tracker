@@ -1,10 +1,10 @@
-// CONNECT-AUTOMATION — shared server helper: is a scheduled automation enabled?
+// CONNECT-AUTOMATION - shared server helper: is a scheduled automation enabled?
 //
 // Reads the GLOBAL automation_settings row for a key. DEFAULT-ON and FAIL-OPEN for existing crons:
-// a missing row OR a read failure NEVER disables a live reminder — the cron keeps sending as today.
+// a missing row OR a read failure NEVER disables a live reminder - the cron keeps sending as today.
 //
 // Used ONLY by scheduled cron paths to gate AUTOMATIC sends. Manual/admin, dry-run, preview, and
-// manual-live flows must NOT call this — operator actions are never suppressed by an automation
+// manual-live flows must NOT call this - operator actions are never suppressed by an automation
 // toggle. Counts-only world: returns a boolean + a short source/warning token; no PII, no secrets,
 // no raw Supabase error detail is returned to callers (raw error stays in the server log only).
 //

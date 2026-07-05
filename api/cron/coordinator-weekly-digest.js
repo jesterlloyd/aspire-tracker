@@ -50,7 +50,7 @@ function getServiceClient() {
 
 export default async function handler(req, res) {
   if (req.headers['authorization'] !== `Bearer ${process.env.CRON_SECRET}`) {
-    // Log auth failure BEFORE the 401 return — this fires even if console output
+    // Log auth failure BEFORE the 401 return - this fires even if console output
     // later in the handler would be absent, making auth failures visible in Vercel logs.
     console.warn('[coordinator-digest] auth_failed:', {
       reason: 'authorization_header_mismatch',
@@ -68,7 +68,7 @@ export default async function handler(req, res) {
   console.log(`[coordinator-digest] cron run at ${now.toISOString()}`);
 
   // CRON-OBS-1: best-effort heartbeat client, separate from the in-try `db` so the catch can
-  // record status='error'. getServiceClient() may throw on missing creds — guarded, non-fatal.
+  // record status='error'. getServiceClient() may throw on missing creds - guarded, non-fatal.
   let hbDb = null;
   try { hbDb = getServiceClient(); } catch { /* heartbeat unavailable; non-fatal */ }
   const runId = await startCronRun(hbDb, 'coordinator-weekly-digest');
@@ -80,7 +80,7 @@ export default async function handler(req, res) {
     const { windowStart, windowEnd } = getDigestWindow(now);
     console.log(`[coordinator-digest] window: ${windowStart.toISOString()} → ${windowEnd.toISOString()}`);
 
-    // Log 1 — handler_entry: confirms the handler was invoked and passed auth.
+    // Log 1 - handler_entry: confirms the handler was invoked and passed auth.
     // Appears even before any DB queries, so cron invocation is visible in logs.
     console.log('[coordinator-digest] handler_entry:', {
       timestamp: now.toISOString(),
@@ -97,7 +97,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // Automation gate — LIVE scheduled send ONLY. Dry-run (logged above) bypasses entirely so
+    // Automation gate - LIVE scheduled send ONLY. Dry-run (logged above) bypasses entirely so
     // preview keeps working even when paused. Default-ON / fail-open: a missing row or a read
     // failure keeps sending as today. Disabled live => paused heartbeat (success) + 200, with no
     // events query, no sends, no notification_log rows, and no contact digest-marker updates.
@@ -132,7 +132,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: eventsErr.message });
     }
 
-    // Log 2 — events_query: logs event counts and school spread before the early
+    // Log 2 - events_query: logs event counts and school spread before the early
     // no-events return, so this fires regardless of whether events exist.
     // schools computed here (null-safe) and reused for the contacts query below.
     const schools = [...new Set((events || []).map(e => e.students?.school).filter(Boolean))];
@@ -148,7 +148,7 @@ export default async function handler(req, res) {
     });
 
     if (!events || events.length === 0) {
-      console.log('[coordinator-digest] no qualifying events this week — nothing to send');
+      console.log('[coordinator-digest] no qualifying events this week, nothing to send');
       console.log('[coordinator-digest] run_summary:', {
         total_events:               0,
         active_coordinators_loaded: 0,
@@ -252,7 +252,7 @@ export default async function handler(req, res) {
             const intName  = timeMatch?.[3]?.trim();
             const when = [datePart && formatShortDate(datePart), timePart && formatTime(timePart)].filter(Boolean).join(' at ');
             const with_ = intName ? ` with ${intName}` : '';
-            bucket.interview_booked.push({ line: `${studentName}${when ? ' — ' + when : ''}${with_}` });
+            bucket.interview_booked.push({ line: `${studentName}${when ? ', ' + when : ''}${with_}` });
             break;
           }
 
@@ -266,11 +266,11 @@ export default async function handler(req, res) {
           case 'placement': {
             const unitMatch = event.notes?.match(/Placed in (.+)$/);
             const unit = unitMatch?.[1]?.trim();
-            bucket.placement.push({ line: `${studentName}${unit ? ` — ${unit}` : ''}` });
+            bucket.placement.push({ line: `${studentName}${unit ? `, ${unit}` : ''}` });
             break;
           }
 
-          // rotation_start and status_change_active_rotation are the same milestone — collapse
+          // rotation_start and status_change_active_rotation are the same milestone - collapse
           // both into one 'rotation' line and show the student once (dedup by student id).
           case 'rotation_start':
           case 'status_change_active_rotation': {
@@ -283,7 +283,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // Log 3 — coordinator_resolution: after grouping, shows how many coordinators
+    // Log 3 - coordinator_resolution: after grouping, shows how many coordinators
     // were matched and flags schools that had events but no matching coordinator.
     // unmatched_schools identifies school-name mismatch failures at a glance.
     const unmatchedSchools = schools
@@ -300,7 +300,7 @@ export default async function handler(req, res) {
     const coordinatorEntries = Object.entries(grouped);
 
     if (coordinatorEntries.length === 0) {
-      console.log('[coordinator-digest] events found but no coordinators resolved — nothing to send');
+      console.log('[coordinator-digest] events found but no coordinators resolved, nothing to send');
       console.log('[coordinator-digest] run_summary:', {
         total_events:               events.length,
         active_coordinators_loaded: (allCoordinators || []).length,
@@ -368,7 +368,7 @@ export default async function handler(req, res) {
       if (alreadySentIds.has(coordinatorId)) {
         summary.skipped++;
         summary.details.push({ coordinator: coordinator.full_name, status: 'skipped', reason: 'already_sent_this_window' });
-        // Log 4 — dedup skip
+        // Log 4 - dedup skip
         console.log('[coordinator-digest] skip_dedup:', {
           coordinator_id:     coordinatorId,
           dedup_window_start: windowStart.toISOString(),
@@ -388,7 +388,7 @@ export default async function handler(req, res) {
       if (!coordinator.email) {
         summary.skipped++;
         summary.details.push({ coordinator: coordinator.full_name, status: 'skipped', reason: 'no_email' });
-        // Log 4 — missing email skip
+        // Log 4 - missing email skip
         console.log('[coordinator-digest] skip_missing_email:', {
           coordinator_id: coordinatorId,
           role:           coordinator.role,
@@ -409,7 +409,7 @@ export default async function handler(req, res) {
       if (coordinator.notification_preferences?.weekly_digest === false) {
         summary.skipped++;
         summary.details.push({ coordinator: coordinator.full_name, status: 'skipped', reason: 'opted_out' });
-        // Log 4 — opted-out skip
+        // Log 4 - opted-out skip
         console.log('[coordinator-digest] skip_opted_out:', {
           coordinator_id: coordinatorId,
           school_name:    coordinator.school_name,
@@ -469,7 +469,7 @@ export default async function handler(req, res) {
       let sendStatus = 'sent';
       let sendError  = null;
 
-      // Log 5 — send_attempt: fired immediately before the Resend call so a crash
+      // Log 5 - send_attempt: fired immediately before the Resend call so a crash
       // or timeout inside the send is distinguishable from a skip or pre-send failure.
       console.log('[coordinator-digest] send_attempt:', {
         coordinator_id:        coordinatorId,
@@ -494,7 +494,7 @@ export default async function handler(req, res) {
           sendStatus = 'failed';
           sendError  = emailErr.message || JSON.stringify(emailErr);
           console.error(`[coordinator-digest] Resend error for ${coordinator.full_name}:`, emailErr);
-          // Log 6 — send failure (Resend API returned an error object)
+          // Log 6 - send failure (Resend API returned an error object)
           console.error('[coordinator-digest] send_failure:', {
             coordinator_id:  coordinatorId,
             recipient_email: coordinator.email,
@@ -503,8 +503,8 @@ export default async function handler(req, res) {
           });
         } else {
           resendId = emailData?.id || null;
-          console.log(`[coordinator-digest] sent to ${coordinator.email} (${coordinator.full_name}) — ${totalItems} items | resend: ${resendId}`);
-          // Log 6 — send success
+          console.log(`[coordinator-digest] sent to ${coordinator.email} (${coordinator.full_name}), ${totalItems} items | resend: ${resendId}`);
+          // Log 6 - send success
           console.log('[coordinator-digest] send_success:', {
             coordinator_id:    coordinatorId,
             recipient_email:   coordinator.email,
@@ -515,7 +515,7 @@ export default async function handler(req, res) {
         sendStatus = 'failed';
         sendError  = sendErr.message;
         console.error(`[coordinator-digest] send threw for ${coordinator.full_name}:`, sendErr.message);
-        // Log 6 — send failure (exception thrown during send)
+        // Log 6 - send failure (exception thrown during send)
         console.error('[coordinator-digest] send_failure:', {
           coordinator_id:  coordinatorId,
           recipient_email: coordinator.email,
@@ -571,7 +571,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── Dry-run response — returned before the live summary block ────────────
+    // ── Dry-run response - returned before the live summary block ────────────
     if (isDryRun) {
       const wouldSendCount = dryRunRecipients.filter(r => r.status === 'would_send').length;
       const skippedList    = dryRunRecipients.filter(r => r.status !== 'would_send');
@@ -625,7 +625,7 @@ export default async function handler(req, res) {
       );
     }
 
-    // Log 7 — run_summary: structured final summary covering all outcome paths.
+    // Log 7 - run_summary: structured final summary covering all outcome paths.
     // status field makes grepping for "completed_with_sends" vs "completed_all_skipped" unambiguous.
     const runStatus = summary.sent > 0 && summary.failed === 0 ? 'completed_with_sends'
       : summary.sent > 0 && summary.failed > 0                ? 'completed_partial_failures'
@@ -701,8 +701,8 @@ function pacificMidnight(dateStr) {
 
 // Resolve ALL eligible academic-partner contacts for a student (attribute-based routing).
 // A contact is eligible when its school_name matches the student's school AND either:
-//   - school-wide  (program_type IS NULL)  — receives every student of that school; or
-//   - program-specific (program_type set)  — receives only students whose program_type
+//   - school-wide  (program_type IS NULL)  - receives every student of that school; or
+//   - program-specific (program_type set)  - receives only students whose program_type
 //     exactly matches (and the student's program_type must be non-null).
 // Multiple contacts may match; a school-wide contact is never suppressed by a
 // program-specific one. role is NOT used. Contacts were already filtered to is_active +

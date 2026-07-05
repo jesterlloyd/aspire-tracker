@@ -64,14 +64,14 @@ const DRAFT_TTL_MS     = 7 * 24 * 60 * 60 * 1000 // 7 days
 const DRAFT_DEBOUNCE_MS = 600
 // All keys are scoped by the logged-in user so one account cannot see another's draft on a
 // shared browser. token = `student:ID` | `contact:ID`. Returns null when userKey is absent
-// (autosave disabled — no read/write).
+// (autosave disabled - no read/write).
 const directDraftKey = (userKey, cohortId, token) =>
   (userKey && token) ? `aspire.connect.outreach.directDraft.v${DRAFT_VERSION}.${userKey}.${cohortId || 'none'}.${token}` : null
 const lastDraftPointerKey = (userKey, cohortId) =>
   userKey ? `aspire.connect.outreach.lastDraftPointer.v${DRAFT_VERSION}.${userKey}.${cohortId || 'none'}` : null
 
-// Read a stored draft (strictly versioned; no legacy migration — old unscoped drafts are
-// never resurrected). Drops stale (>TTL) or invalid payloads. NOTE: uses Date.now — call
+// Read a stored draft (strictly versioned; no legacy migration - old unscoped drafts are
+// never resurrected). Drops stale (>TTL) or invalid payloads. NOTE: uses Date.now - call
 // only from effects/handlers, never during render.
 function readDirectDraft(key) {
   if (!key || typeof localStorage === 'undefined') return null
@@ -100,7 +100,7 @@ function readDraftPointer(userKey, cohortId) {
 
 // Bulk survey send chunk size. The send endpoint caps items per request
 // (a defensive guard against the Vercel function timeout), so the UI splits the
-// selected recipients into chunks of this size and sends them sequentially —
+// selected recipients into chunks of this size and sends them sequentially -
 // invisibly to the owner, who simply selects any group size and sends once.
 // Keep aligned with the backend per-request limit.
 const SEND_CHUNK_SIZE = 5
@@ -110,7 +110,7 @@ function chunkArray(arr, size) {
   return out
 }
 
-// Message type roster for Single Recipient mode — now sourced from the shared template registry
+// Message type roster for Single Recipient mode - now sourced from the shared template registry
 // (CONNECT-TEMPLATE-REGISTRY-1). Each entry keeps the legacy fields this view switches on:
 //   kind: 'mode' = drives the composer (outreachMode radio); 'hydrate' = pre-fills the Custom Message
 //   composer (editable, ASPIRE Outreach send). The registry adds audience metadata (deferred use).
@@ -126,7 +126,7 @@ const FUTURE_AUDIENCES = [
   'Preceptors',
 ]
 
-// Eligible student statuses per timepoint — mirrors backend TIMEPOINT_ELIGIBILITY
+// Eligible student statuses per timepoint - mirrors backend TIMEPOINT_ELIGIBILITY
 const BULK_ELIGIBILITY = {
   baseline:               ['Placed', 'Active Rotation'],
   early_rotation_baseline: ['Placed', 'Active Rotation'],
@@ -134,7 +134,7 @@ const BULK_ELIGIBILITY = {
   post_rotation:          ['Active Rotation', 'Completed'],
 }
 
-// Send-to-Many message types — sourced from the shared template registry
+// Send-to-Many message types - sourced from the shared template registry
 // (CONNECT-TEMPLATE-REGISTRY-1). Survey Invitation keeps its existing student-only flow; the four
 // manual templates open the multi-source BulkManualComposer. Labels/behavior unchanged in Phase 1.
 const BULK_MSG_TYPES = SEND_TO_MANY_TEMPLATES
@@ -150,11 +150,11 @@ function liftSelectedIntoPrimary({ primary, other }, selectedKey) {
   return { primary: [...primary, other[idx]], other: other.filter((_, i) => i !== idx) }
 }
 
-// CONNECT-TEMPLATE-AUDIENCE-UX-2: shared chrome for an audience-aware template selector — a primary
+// CONNECT-TEMPLATE-AUDIENCE-UX-2: shared chrome for an audience-aware template selector - a primary
 // section (audience heading + helper) plus a collapsible "Other templates" escape hatch. Each surface
 // supplies its own button markup via renderItem(template) so existing visuals are untouched. When the
 // audience is null (no inference yet) the caller passes the full list as `primary` with empty `other`,
-// so this renders a flat list with no heading — preserving the pre-filtering look.
+// so this renders a flat list with no heading - preserving the pre-filtering look.
 function TemplateGroup({ audience, helperText, primary, other, otherOpen, onToggleOther, renderItem }) {
   const title = audience ? getPrimarySectionTitle(audience) : null
   return (
@@ -209,7 +209,7 @@ function minExpiresAt() {
 }
 
 function fmtDate(iso) {
-  if (!iso) return '—'
+  if (!iso) return '-'
   const [y, m, d] = iso.split('-').map(Number)
   return new Date(y, m - 1, d).toLocaleDateString('en-US', {
     month: 'long', day: 'numeric', year: 'numeric',
@@ -267,7 +267,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   const navigate       = useNavigate()
   const [searchParams] = useSearchParams()
 
-  // URL params — support both legacy (studentId/contactId) and new (recipientType+recipientId) formats
+  // URL params - support both legacy (studentId/contactId) and new (recipientType+recipientId) formats
   const urlMode          = searchParams.get('mode')           // 'message' | 'survey' | null
   const urlRecipientType = searchParams.get('recipientType')  // 'contact' | 'student' | null
   const urlRecipientId   = searchParams.get('recipientId')    // UUID | null
@@ -283,11 +283,11 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // Explicit routing wins over any localStorage-restored memory.
   const hasExplicitRecipient = !!(urlStudentId || urlContactId || fromStudent || fromContact)
 
-  // Resolved IDs — explicit URL/state sources take precedence
+  // Resolved IDs - explicit URL/state sources take precedence
   const contactId = fromContact?.id || urlContactId || null
   const studentId = fromStudent?.id || urlStudentId || null
 
-  // Display info availability — router state preferred, fetched record as fallback
+  // Display info availability - router state preferred, fetched record as fallback
   const contactHasDisplayInfo = !!(fromContact?.name || fromContact?.email)
 
   // Recipient type: student URL params are checked BEFORE contact to prevent
@@ -330,20 +330,20 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   const [bulkLoadingAssignments, setBulkLoadingAssignments] = useState(false)
   // Selection: plain array stored in state, converted to Set for membership checks
   const [bulkSelectedIds,        setBulkSelectedIds]        = useState([])
-  // Filters — simplified to School / Email source / Sort (shared with manual templates).
+  // Filters - simplified to School / Email source / Sort (shared with manual templates).
   const [bulkSearch,             setBulkSearch]             = useState('')
   const [bulkFilterSchool,       setBulkFilterSchool]       = useState('')
   const [bulkFilterEmail,        setBulkFilterEmail]        = useState('school') // explicit email source
   const [bulkSort,               setBulkSort]               = useState('name')   // name | status
-  // Generation state — surveyUrls live in bulkResults ONLY, never in storage
+  // Generation state - surveyUrls live in bulkResults ONLY, never in storage
   const [bulkGenerating,         setBulkGenerating]         = useState(false)
   const [bulkResults,            setBulkResults]            = useState(null)
   const [bulkShowReview,         setBulkShowReview]         = useState(false)
   const [bulkReviewReady,        setBulkReviewReady]        = useState(false)
-  // Per-row copy state — { assignmentId: true } for 2.5s after copy
+  // Per-row copy state - { assignmentId: true } for 2.5s after copy
   const [bulkCopiedIds,          setBulkCopiedIds]          = useState({})
   const bulkCopyTimers           = useRef({})
-  // Per-row test send state — { assignmentId: 'sending' | 'sent' | 'error' }
+  // Per-row test send state - { assignmentId: 'sending' | 'sent' | 'error' }
   const [bulkTestSendState,      setBulkTestSendState]      = useState({})
   const [bulkTestSendMsg,        setBulkTestSendMsg]        = useState({})
   // Bulk send via Resend state (Phase 3B.2B)
@@ -374,7 +374,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   const [dmSendInFlight,    setDmSendInFlight]     = useState(false)
   const [dmBodyExpanded,    setDmBodyExpanded]     = useState(false)
   const [dmSendStatus,      setDmSendStatus]       = useState(null) // null | { ok, msg }
-  // CONNECT-COMMS-1B: true "Preview as sent" — the exact branded HTML + server-resolved recipient,
+  // CONNECT-COMMS-1B: true "Preview as sent" - the exact branded HTML + server-resolved recipient,
   // fetched (debounced) from the same endpoint/renderer used to send. { html, recipient, loading, error }
   const [dmPreview,         setDmPreview]          = useState({ html: '', recipient: null, cc: [], signature: null, loading: false, error: null })
   // CONNECT-COMMS-1D: CC support (Direct Message only). ccList = confirmed chips; ccInput = in-progress typing.
@@ -384,7 +384,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   const [ccInputError,      setCcInputError]       = useState(null)
   const [ccAutoSuggested,   setCcAutoSuggested]    = useState(false)
 
-  // ── Direct Message draft — keys scoped by logged-in user + cohort + recipient ──
+  // ── Direct Message draft - keys scoped by logged-in user + cohort + recipient ──
   // userKey: auth user id → normalized email → null. When null, autosave is DISABLED
   // (DRAFT_KEY is null), so no draft is read or written. Stores ONLY { subject, body,
   // includeSignature }. Tokens and URLs are NEVER stored.
@@ -438,7 +438,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     setSurveyDraftTpKey(timepoint)
     if (!surveyDraftEdited) setSurveyDraftSubject(`ASPIRE: Casey-Fink Readiness Survey, ${TIMEPOINT_LABELS[timepoint] || timepoint}`)
   }
-  // SURVEY-REISSUE-1: prior-invitation classification (UX assist only — server is source of truth).
+  // SURVEY-REISSUE-1: prior-invitation classification (UX assist only - server is source of truth).
   // null | 'completed' (block) | 'active' (block) | 'reissuable' (expired/revoked, incomplete → allowed)
   const [priorInvitation,   setPriorInvitation]   = useState(null)
   const [checkingDuplicate, setCheckingDuplicate] = useState(false)
@@ -446,7 +446,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // ── Generate Link state ───────────────────────────────────────────────────
   const [generating,    setGenerating]    = useState(false)
   const [generateError, setGenerateError] = useState(null)
-  // surveyResult holds the returned payload — surveyUrl, assignmentId, expiresAt, student.
+  // surveyResult holds the returned payload - surveyUrl, assignmentId, expiresAt, student.
   // NEVER persisted to localStorage/sessionStorage. Cleared on form field changes.
   const [surveyResult,  setSurveyResult]  = useState(null)
   const [copied,        setCopied]        = useState(false)
@@ -459,7 +459,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   const [singleSendState,       setSingleSendState]       = useState(null) // null|'sent'|'error'
   const [singleSendMsg,         setSingleSendMsg]         = useState(null)
 
-  // ── Recipient picker (Phase 1 — single-recipient only) ───────────────────
+  // ── Recipient picker (Phase 1 - single-recipient only) ───────────────────
   // pickerOpen is the explicit "Change recipient" toggle. The picker also shows
   // implicitly as the empty state when no recipient is resolved (see showPicker
   // in render). Selecting a recipient navigates exactly like a deep link, so the
@@ -487,7 +487,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     setPickerOpen(false)
   }, [navigate])
 
-  // Cancel a "Change recipient" without picking — the previous recipient remains
+  // Cancel a "Change recipient" without picking - the previous recipient remains
   // active (we never navigated away), so its draft/compose stay intact.
   const handlePickerCancel = useCallback(() => setPickerOpen(false), [])
 
@@ -716,7 +716,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // ── Restore-or-clear the composer when recipient / identity changes ──────────
   // SINGLE effect so the restore is never clobbered by a separate reset (the prior bug:
   // a reset cleared msgSubject/msgBody AFTER the restore set them). Restores this
-  // recipient's saved draft if present; otherwise clears — but ONLY when the recipient
+  // recipient's saved draft if present; otherwise clears - but ONLY when the recipient
   // actually changed, so in-progress typing during auth (userKey) hydration is preserved.
   useEffect(() => {
     const recipientChanged = lastRecipientRef.current !== draftRecipientId
@@ -751,7 +751,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // ── Derived values ────────────────────────────────────────────────────────
   // effectiveStudent and studentHasDisplayInfo are declared earlier (before effects) to avoid TDZ.
 
-  // True when any DM recipient is loaded — enables compose fields for both contacts and students
+  // True when any DM recipient is loaded - enables compose fields for both contacts and students
   const dmHasAnyRecipient = !!(contactId || studentId)
 
   const selectedStudent  = students.find(s => s.id === selectedStudentId) || null
@@ -765,7 +765,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // send path already resolves the preferred greeting server-side).
   const firstName        = (selectedStudent ? getStudentPreferredFirstName(selectedStudent) : '') || null
   const expiresFormatted = fmtDate(expiresAt)
-  // Branded "Email Preview" HTML — the EXACT Casey-Fink invitation template the send uses, rendered
+  // Branded "Email Preview" HTML - the EXACT Casey-Fink invitation template the send uses, rendered
   // client-side from the generated survey link (no send, no endpoint call).
   const surveyPreviewHtml = useMemo(() => {
     if (!surveyResult?.surveyUrl) return ''
@@ -790,7 +790,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   //   • no recipient      → preserve the standalone student dropdown (fallback)
   const recipientIsContact = !!contactId
 
-  // Display fields for the Direct Message recipient — used to label the saved-draft
+  // Display fields for the Direct Message recipient - used to label the saved-draft
   // pointer so "Resume draft for {name}" can be shown when no recipient is selected.
   const dmRecipientName = recipientType === 'contact'
     ? String(fromContact?.name || fetchedContact?.name || '').trim()
@@ -832,7 +832,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     setOutreachMode('message')
     setMsgSubject(subject)
     // EMAIL-MANUAL-TEMPLATE-BLOCKS-1: when rich compose is ON and this template ships a block layout
-    // (richBody = HTML with Content Block markers), hydrate the editor from it — clearing richDocRef
+    // (richBody = HTML with Content Block markers), hydrate the editor from it - clearing richDocRef
     // first so the editor parses the markers into blocks fresh (RICH-COMPOSE-2A-1) rather than reusing
     // a stale richDoc. Otherwise the prior behavior: plain-text → safe HTML paragraphs (rich), or the
     // raw plain text (flag OFF). Placeholders are preserved verbatim either way.
@@ -842,7 +842,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     } else {
       setMsgBody(richEnabled ? plainTextToHtml(body) : body)
     }
-    setIncludeSignature(true)  // template body has no signature — app appends the closing + sender block
+    setIncludeSignature(true)  // template body has no signature - app appends the closing + sender block
     setActiveTemplateId(key)   // sidebar selected-state: mark which template loaded the draft
   }, [buildTemplateDraft, richEnabled])
 
@@ -876,7 +876,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     return null
   }, [recipientType, fetchedContact])
 
-  // Shared Send-to-Many Message Type selector — rendered identically by the Survey zone and the
+  // Shared Send-to-Many Message Type selector - rendered identically by the Survey zone and the
   // manual BulkManualComposer so the two paths never visually drift. Now audience-aware: the caller
   // passes the inferred audience (Survey zone → always 'student'; manual composer → from its source/
   // category). Splitting + the selected-lift keep the active choice visible; the rest go to "Other".
@@ -956,7 +956,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       })
 
       // Read the body as text ONCE, then try to parse JSON. A handler crash / platform error returns
-      // HTML, not JSON — reading the raw text lets us show what actually came back instead of a
+      // HTML, not JSON - reading the raw text lets us show what actually came back instead of a
       // misleading "missing env var" guess. (Owner/Admin-only surface; no tokens are in error bodies.)
       const rawText = await res.text()
       let payload = null
@@ -1380,7 +1380,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         setCcInput('')
         setCcInputError(null)
         setDmBodyExpanded(false)
-        // Clear saved draft + resume pointer — sent content should not restore on next visit
+        // Clear saved draft + resume pointer - sent content should not restore on next visit
         if (DRAFT_KEY) localStorage.removeItem(DRAFT_KEY)
         try {
           const sentRecipId = recipientType === 'student' ? studentId : contactId
@@ -1428,7 +1428,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         if (!session?.access_token) {
-          if (!cancelled) setDmPreview(p => ({ ...p, loading: false, error: 'Session expired — refresh to preview.' }))
+          if (!cancelled) setDmPreview(p => ({ ...p, loading: false, error: 'Session expired, refresh to preview.' }))
           return
         }
         const res = await fetch('/api/connect-send-direct-email', {
@@ -1464,7 +1464,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // The clinical coordinator's email is sourced from fetchedStudent (the navigation state in
   // fromStudent does not carry coordinator fields). We pre-fill exactly ONE removable chip when:
   // a student recipient is loaded, the coordinator email is valid, and it is not the same address
-  // we'd send To (school-first). Re-runs only when the recipient or coordinator email changes —
+  // we'd send To (school-first). Re-runs only when the recipient or coordinator email changes -
   // so manual chip edits are preserved, and a removed coordinator chip is not re-added.
   const coordEmail = (fetchedStudent?.id === studentId ? (fetchedStudent?.school_coordinator_email || '') : '').trim()
   const coordName  = (fetchedStudent?.id === studentId ? (fetchedStudent?.school_coordinator_name  || '') : '').trim()
@@ -1531,7 +1531,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // Mirrors the Interview Rubric localStorage pattern: a ref holds the latest values, a
   // single persist function reads from it (so flush handlers always write the newest
   // content), and we flush on tab-hide / beforeunload / unmount in addition to the
-  // debounced write. Stores ONLY { subject, body, includeSignature } — never tokens or
+  // debounced write. Stores ONLY { subject, body, includeSignature } - never tokens or
   // preview HTML. Pointer tracks the most recent non-empty draft for the Resume link.
   useEffect(() => {
     latestDraftRef.current = {
@@ -1604,7 +1604,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   }, [recipientMode, hasExplicitRecipient, selectedStudentId, cohortId, userKey, DRAFT_KEY])
 
   // One-time cleanup: purge legacy UNSCOPED Connect draft/pointer keys (pre user-scoping).
-  // They are never migrated — resurrecting them could expose another user's draft on a
+  // They are never migrated - resurrecting them could expose another user's draft on a
   // shared browser. Keys for the current version (".v1.") are left untouched.
   useEffect(() => {
     try {
@@ -1654,7 +1654,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
   // chunks of SEND_CHUNK_SIZE and POSTing each chunk sequentially to the same
   // endpoint. Results accumulate into ONE summary; the owner never sees a hard
   // stop or a per-chunk result. Idempotency and the token/URL security model are
-  // unchanged — we only pass through already-generated assignment_id + survey_url.
+  // unchanged - we only pass through already-generated assignment_id + survey_url.
   const handleBulkSendViaResend = useCallback(async () => {
     if (bulkSendInFlight || !bulkResults?.generated?.length) return
     const eligibleItems = bulkResults.generated.filter(g => !bulkSentIds.has(g.assignmentId))
@@ -1738,16 +1738,16 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         setBulkSendPhrase('')
       }
 
-      // One overall summary toast — same five scenarios, on accumulated totals.
+      // One overall summary toast - same five scenarios, on accumulated totals.
       const { total_sent: s, total_skipped: sk, total_failed: f } = summary
       if (s > 0 && f === 0 && sk === 0) {
         toast?.success('Surveys sent', `Sent ${s} survey invitation${s !== 1 ? 's' : ''}`)
       } else if (s > 0 && sk > 0 && f === 0) {
         toast?.success('Surveys sent', `Sent ${s} · Skipped ${sk} (already sent)`)
       } else if (s > 0 && f > 0) {
-        toast?.warning('Surveys sent with failures', `Sent ${s} · Failed ${f} — review results below`)
+        toast?.warning('Surveys sent with failures', `Sent ${s} · Failed ${f}, review results below`)
       } else if (s === 0 && f > 0) {
-        toast?.error('No surveys sent', `${f} failed — see error details below`)
+        toast?.error('No surveys sent', `${f} failed, see error details below`)
       } else if (s === 0 && sk > 0) {
         toast?.info('All already sent', 'All recipients were sent in a previous batch')
       }
@@ -1764,7 +1764,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
     <div style={{ padding: '20px 24px', fontFamily: F }}>
 
       {/* ══════════════════════════════════════════════════════════════════
-          RECIPIENT MODE TOGGLE — Single vs Bulk
+          RECIPIENT MODE TOGGLE, Single vs Bulk
           Segmented control above the three zones.
       ═══════════════════════════════════════════════════════════════════ */}
       <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -1812,18 +1812,18 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           </button>
         </div>
         <span style={{ fontSize: 11, color: '#9ca3af', fontFamily: F }}>
-          {recipientMode === 'bulk' ? 'Bulk Operation — Phase 3A scaffolding' : ''}
+          {recipientMode === 'bulk' ? 'Bulk Operation, Phase 3A scaffolding' : ''}
         </span>
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════
-          SINGLE RECIPIENT MODE — all existing three-zone behavior preserved
+          SINGLE RECIPIENT MODE, all existing three-zone behavior preserved
       ═══════════════════════════════════════════════════════════════════ */}
       {recipientMode === 'single' && (
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
         {/* ═══════════════════════════════════════════════════════════════
-            LEFT COLUMN — Recipient profile card + message type picker
+            LEFT COLUMN, Recipient profile card + message type picker
             (Rich profile card replaces the former Audience card.
              Message Type picker is stacked below it in this column.)
         ════════════════════════════════════════════════════════════════ */}
@@ -1860,7 +1860,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     </option>
                     {students.map(s => (
                       <option key={s.id} value={s.id}>
-                        {s.first_name} {s.last_name}{s.school ? ` — ${s.school}` : ''}
+                        {s.first_name} {s.last_name}{s.school ? `, ${s.school}` : ''}
                       </option>
                     ))}
                   </select>
@@ -1927,7 +1927,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           {/* ── Message Type picker (moved into left column below profile card) ── */}
           <ConnectPanel tone="message" title="Message Type" helper="Workflow">
 
-          {/* Type selector — audience-aware (CONNECT-TEMPLATE-AUDIENCE-UX-2). Grouping/behavior of
+          {/* Type selector - audience-aware (CONNECT-TEMPLATE-AUDIENCE-UX-2). Grouping/behavior of
               each item is unchanged; templates are split into a primary list for the inferred
               recipient audience plus an "Other templates" escape hatch. Custom Message is pinned to
               primary; the selected template is always lifted into primary so it stays visible. */}
@@ -2002,7 +2002,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           {/* Workflow settings for selected type */}
           <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 14 }}>
 
-            {/* Direct Message workflow — recipient details shown in profile card above */}
+            {/* Direct Message workflow - recipient details shown in profile card above */}
             {outreachMode === 'message' && (
               <div>
                 <div style={{
@@ -2020,7 +2020,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
               </div>
             )}
 
-            {/* Survey Invitation — State 2: Contact recipient → guard (form hidden) */}
+            {/* Survey Invitation - State 2: Contact recipient → guard (form hidden) */}
             {outreachMode === 'survey' && recipientIsContact && (
               <div style={{
                 padding: '14px 16px',
@@ -2049,14 +2049,14 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
               </div>
             )}
 
-            {/* Survey Invitation workflow — all form fields + Generate Link
+            {/* Survey Invitation workflow - all form fields + Generate Link
                 (State 1 student recipient → summary; State 3 no recipient → dropdown) */}
             {outreachMode === 'survey' && !recipientIsContact && (
               <div>
                 {/* Recipient is chosen in the Recipient panel above (student selector when
                     none is selected; recipient card + delivery email once selected). The
                     Message Type panel holds only message-workflow + survey settings. */}
-                {/* Field — Instrument */}
+                {/* Field - Instrument */}
                 <div style={fieldWrap}>
                   <label style={labelStyle}>
                     Instrument <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
@@ -2072,7 +2072,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                   </select>
                 </div>
 
-                {/* Field 4 — Timepoint (Casey-Fink is sent at Baseline and Post-Rotation only) */}
+                {/* Field 4 - Timepoint (Casey-Fink is sent at Baseline and Post-Rotation only) */}
                 <div style={fieldWrap}>
                   <label style={labelStyle}>
                     Timepoint <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
@@ -2088,7 +2088,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                   </select>
                 </div>
 
-                {/* Field 5 — Expires at */}
+                {/* Field 5 - Expires at */}
                 <div style={fieldWrap}>
                   <label style={labelStyle}>
                     Expires <span style={{ color: '#dc2626', fontWeight: 400 }}>*</span>
@@ -2102,7 +2102,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                   />
                 </div>
 
-                {/* Field 6 — Notes */}
+                {/* Field 6 - Notes */}
                 <div style={fieldWrap}>
                   <label style={labelStyle}>
                     Notes{' '}
@@ -2200,7 +2200,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
         </div>{/* end left column */}
 
         {/* ═══════════════════════════════════════════════════════════════
-            ZONE 3 — Compose / Preview / Action
+            ZONE 3, Compose / Preview / Action
             Actual writing, preview, generated-link placement, and actions.
             Right column: fills remaining width.
         ════════════════════════════════════════════════════════════════ */}
@@ -2212,7 +2212,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
             <ConnectPanel tone="draft" title="Draft">
 
               {/* Subject input */}
-              {/* Subject input — enabled for any loaded recipient (contact or student) */}
+              {/* Subject input - enabled for any loaded recipient (contact or student) */}
               <div style={fieldWrap}>
                 <label style={labelStyle}>Subject</label>
                 <input
@@ -2225,7 +2225,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 />
               </div>
 
-              {/* Body — rich editor when the Owner has opted in (flag), else the plain-text textarea. */}
+              {/* Body - rich editor when the Owner has opted in (flag), else the plain-text textarea. */}
               <div style={fieldWrap}>
                 <label style={labelStyle}>Message</label>
                 {richEnabled ? (
@@ -2273,7 +2273,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 </div>
               </div>
 
-              {/* CC field (CONNECT-COMMS-1D) — Direct Message only. Chips + free entry; the clinical
+              {/* CC field (CONNECT-COMMS-1D) - Direct Message only. Chips + free entry; the clinical
                   coordinator is pre-filled as a removable suggestion. Server is source of truth
                   (validates, dedupes, drops CC==To, caps at 5). */}
               <div style={fieldWrap}>
@@ -2302,7 +2302,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                       </span>
                     )
                   })}
-                  {/* CONNECT-COMMS-1F: reusable contact typeahead. Suggestions augment — never replace —
+                  {/* CONNECT-COMMS-1F: reusable contact typeahead. Suggestions augment - never replace -
                       manual entry; the server (resolveCcList) remains the source of truth. */}
                   <ContactAutocomplete
                     value={ccInput}
@@ -2363,7 +2363,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                                     : ''
                 return (
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
-                    {/* Drafts autosave automatically — no manual save button. */}
+                    {/* Drafts autosave automatically - no manual save button. */}
                     {canSend ? (
                       <button
                         onClick={() => { setDmBodyExpanded(false); setDmConfirmOpen(true) }}
@@ -2406,7 +2406,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
               )}
             </ConnectPanel>
 
-            {/* CONNECT-COMMS-1B: branded "Email Preview" — exact server-rendered HTML from the same
+            {/* CONNECT-COMMS-1B: branded "Email Preview" - exact server-rendered HTML from the same
                 renderer/endpoint used to send, plus the server-resolved (school-first) recipient. */}
             <ConnectPanel tone="preview" title="Email Preview" style={{ marginTop: 14 }}>
 
@@ -2416,7 +2416,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                   return (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', margin: '2px 0 10px' }}>
                       <span style={{ fontSize: 12, color: '#374151', fontFamily: F }}>
-                        To: <strong>{dmPreview.recipient.email || '—'}</strong>
+                        To: <strong>{dmPreview.recipient.email || '-'}</strong>
                       </span>
                       <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 10,
                         textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: F,
@@ -2438,10 +2438,10 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 )}
                 {dmPreview.signature && (
                   <div style={{ fontSize: 11, color: dmPreview.signature.warning ? '#92400e' : '#6b7280', fontFamily: F, margin: '0 0 10px' }}>
-                    Signature: <strong>{dmPreview.signature.display_name || '—'}</strong>
+                    Signature: <strong>{dmPreview.signature.display_name || '-'}</strong>
                     {dmPreview.signature.source && dmPreview.signature.source !== 'user' && (
                       <> · {dmPreview.signature.source === 'static' || dmPreview.signature.source === 'fallback'
-                        ? 'using a fallback signature — set yours in Settings → Email Signature'
+                        ? 'using a fallback signature, set yours in Settings → Email Signature'
                         : `seeded (${dmPreview.signature.source})`}</>
                     )}
                   </div>
@@ -2471,14 +2471,14 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
           )}
 
           {/* Survey Invitation: email preview + generated link card
-              Hidden for a contact recipient (State 2) — the left column shows the guard. */}
+              Hidden for a contact recipient (State 2), the left column shows the guard. */}
           {outreachMode === 'survey' && !recipientIsContact && (
             <div>
 
-              {/* Survey subject/message preview — Draft panel (lavender) */}
+              {/* Survey subject/message preview - Draft panel (lavender) */}
               <ConnectPanel tone="draft" title="Draft"
                 style={surveyResult ? { border: '1px solid rgba(29,37,103,0.16)' } : undefined}>
-                {/* Subject line — editable; this exact value is used by the preview and the actual send */}
+                {/* Subject line - editable; this exact value is used by the preview and the actual send */}
                 <div style={{ marginBottom: 14, paddingBottom: 14, borderBottom: '1px solid #f3f4f6' }}>
                   <span style={sectionLabel}>Subject</span>
                   <input
@@ -2496,7 +2496,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                   />
                 </div>
 
-                {/* Body — editable intro/message; greeting, link, expiry, and signature are added automatically */}
+                {/* Body - editable intro/message; greeting, link, expiry, and signature are added automatically */}
                 <div>
                   <span style={sectionLabel}>Message</span>
                   <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.8 }}>
@@ -2525,7 +2525,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                       A “Complete Survey” button and the secure link are added automatically. This survey expires on <strong style={{ fontStyle: 'normal', color: '#6b7280' }}>{expiresFormatted}</strong>.
                     </p>
 
-                    {/* Survey link — placeholder before generation, real URL shown once after.
+                    {/* Survey link - placeholder before generation, real URL shown once after.
                         The generated row carries an icon-only Copy control at the far right. */}
                     <p style={{ margin: '0 0 12px' }}>
                       {surveyResult ? (
@@ -2581,7 +2581,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 </div>
               </ConnectPanel>
 
-              {/* Generated link — inline action-required (warning) panel, shown after Generate Link */}
+              {/* Generated link - inline action-required (warning) panel, shown after Generate Link */}
               {surveyResult && (
                 <div style={{
                   marginTop: 14,
@@ -2592,7 +2592,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                   padding: 16,
                   fontFamily: F,
                 }}>
-                  {/* Warning header — circular warning icon + "Warning" */}
+                  {/* Warning header - circular warning icon + "Warning" */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 4 }}>
                     <span style={{
                       width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
@@ -2683,11 +2683,11 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 </div>
               )}
 
-              {/* Email Preview — the branded final survey email (below the Warning panel) */}
+              {/* Email Preview - the branded final survey email (below the Warning panel) */}
               {surveyResult && (
                 <ConnectPanel tone="preview" title="Email Preview" style={{ marginTop: 14 }}>
                   <div style={{ fontSize: 12, color: '#374151', fontFamily: F, margin: '2px 0 10px' }}>
-                    To: <strong>{resolvedEmail || '—'}</strong>
+                    To: <strong>{resolvedEmail || '-'}</strong>
                   </div>
                   <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
                     {surveyPreviewHtml ? (
@@ -2714,7 +2714,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       )}{/* end recipientMode === 'single' */}
 
       {/* ══════════════════════════════════════════════════════════════════
-          BULK OPERATION MODE — Phase 3A active
+          BULK OPERATION MODE, Phase 3A active
           Calls /api/evaluation-bulk-invitations for generate_only.
           No email. No Resend. Generated surveyUrls live in React state only.
       ═══════════════════════════════════════════════════════════════════ */}
@@ -2738,7 +2738,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
             helper={loadingStudents ? 'Loading students…' : `${students.length} students in cohort`}
             style={{ flex: '0 0 340px', minWidth: 280, maxHeight: 'calc(100dvh - 280px)', overflowY: 'auto' }}>
 
-            {/* Unified Audience Source tabs — Survey Invitation requires student recipients, so
+            {/* Unified Audience Source tabs - Survey Invitation requires student recipients, so
                 Students is active/required and Contacts / Paste · Type are disabled with a note. */}
             <div style={{ display: 'flex', borderBottom: '1px solid #f3f4f6', marginBottom: 8 }}>
               <div style={{ flex: 1, padding: '7px 6px', fontSize: 11, fontWeight: 700, fontFamily: F, textAlign: 'center', color: '#1D2567', borderBottom: '2px solid #1D2567' }}>Students</div>
@@ -2796,7 +2796,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 placeholder="Search name, personal/school email, or school…"
                 style={{ ...inputBase, fontSize: 12, padding: '7px 10px', marginBottom: 6 }}
               />
-              {/* School / Email source / Sort — shared layout with manual templates */}
+              {/* School / Email source / Sort - shared layout with manual templates */}
               <div style={{ display: 'flex', gap: 6 }}>
                 {bulkSchools.length > 1 && (
                   <select value={bulkFilterSchool} onChange={e => setBulkFilterSchool(e.target.value)}
@@ -2994,7 +2994,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                       Generate {bulkSelectedIds.length} {bulkSelectedIds.length === 1 ? 'Link' : 'Links'}
                     </button>
                   )}
-                  {/* Send via Resend — enabled when generated rows exist */}
+                  {/* Send via Resend - enabled when generated rows exist */}
                   {(() => {
                     const eligible = (bulkResults?.generated || []).filter(g => !bulkSentIds.has(g.assignmentId))
                     const allSent  = bulkResults?.generated?.length > 0 && eligible.length === 0
@@ -3077,7 +3077,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                         ))}
                       </div>
 
-                      {/* Send via Resend — visible in results row so it's accessible after generation */}
+                      {/* Send via Resend - visible in results row so it's accessible after generation */}
                       {(() => {
                         const eligibleInResults = (bulkResults.generated || []).filter(g => !bulkSentIds.has(g.assignmentId))
                         const allSentInResults  = bulkResults.generated?.length > 0 && eligibleInResults.length === 0
@@ -3214,7 +3214,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     {bulkResults.skippedDuplicates?.length > 0 && (
                       <div style={{ ...panelCard, marginBottom: 10 }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: '#8B5E1A', fontFamily: F, marginBottom: 8 }}>
-                          {bulkResults.skippedDuplicates.length} skipped — active assignment exists
+                          {bulkResults.skippedDuplicates.length} skipped, active assignment exists
                         </div>
                         {bulkResults.skippedDuplicates.map(d => (
                           <div key={d.existingAssignmentId} style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginBottom: 4 }}>
@@ -3228,11 +3228,11 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     {bulkResults.skippedMissingEmails?.length > 0 && (
                       <div style={{ ...panelCard, marginBottom: 10 }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', fontFamily: F, marginBottom: 8 }}>
-                          {bulkResults.skippedMissingEmails.length} skipped — no email on file
+                          {bulkResults.skippedMissingEmails.length} skipped, no email on file
                         </div>
                         {bulkResults.skippedMissingEmails.map(m => (
                           <div key={m.studentId} style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginBottom: 2 }}>
-                            {m.studentName}{m.school ? ` · ${m.school}` : ''} — update student record to include.
+                            {m.studentName}{m.school ? ` · ${m.school}` : ''}, update student record to include.
                           </div>
                         ))}
                       </div>
@@ -3242,7 +3242,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                     {bulkResults.skippedInvalidStatus?.length > 0 && (
                       <div style={{ ...panelCard, marginBottom: 10 }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', fontFamily: F, marginBottom: 8 }}>
-                          {bulkResults.skippedInvalidStatus.length} skipped — status not eligible for this timepoint
+                          {bulkResults.skippedInvalidStatus.length} skipped, status not eligible for this timepoint
                         </div>
                         {bulkResults.skippedInvalidStatus.map(si => (
                           <div key={si.studentId} style={{ fontSize: 11, color: '#6b7280', fontFamily: F, marginBottom: 2 }}>
@@ -3260,7 +3260,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                         </div>
                         {bulkResults.failed.map(f => (
                           <div key={f.studentId} style={{ fontSize: 11, color: '#dc2626', fontFamily: F, marginBottom: 2 }}>
-                            {f.studentName} — {f.reason}
+                            {f.studentName}, {f.reason}
                           </div>
                         ))}
                       </div>
@@ -3275,7 +3275,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       )}{/* end recipientMode === 'bulk' */}
 
       {/* ══════════════════════════════════════════════════════════════════
-          SENT HISTORY MODE — read-only outbound audit trail (Phase C.1)
+          SENT HISTORY MODE, read-only outbound audit trail (Phase C.1)
       ═══════════════════════════════════════════════════════════════════ */}
       {recipientMode === 'history' && (
         <SentHistory />
@@ -3510,7 +3510,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
       )}
 
       {/* ── Direct Message confirmation modal ─────────────────────────────── */}
-      {/* Branded "Replace draft?" confirm — replaces the native window.confirm for template hydration. */}
+      {/* Branded "Replace draft?" confirm - replaces the native window.confirm for template hydration. */}
       {replaceTemplateKey && (
         <div onClick={() => setReplaceTemplateKey(null)} style={{
           position: 'fixed', inset: 0, zIndex: 1000,
@@ -3564,12 +3564,12 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 style={{ background: 'none', border: 'none', cursor: dmSendInFlight ? 'not-allowed' : 'pointer', fontSize: 20, color: '#9ca3af', lineHeight: 1, padding: '2px 6px' }}>×</button>
             </div>
 
-            {/* Recipient + source — server-resolved (school-first for students). Fixes the prior
+            {/* Recipient + source - server-resolved (school-first for students). Fixes the prior
                 gap where a student recipient's email did not appear in this modal. */}
             <div style={{ padding: '10px 14px', marginBottom: 14, background: '#EEF2FB', border: '1px solid #c3cdf0', borderRadius: 8 }}>
               {(() => {
                 const r = dmPreview.recipient
-                const name = r?.name || fromContact?.name || '—'
+                const name = r?.name || fromContact?.name || '-'
                 const c = dmSourceChip(r?.type || (recipientType === 'contact' ? 'contact' : 'missing'))
                 return (
                   <>
@@ -3604,7 +3604,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
                 <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: F, marginBottom: 4 }}>Signature</div>
                 <div style={{ fontSize: 12.5, color: dmPreview.signature.warning ? '#92400e' : '#374151', fontFamily: F, lineHeight: 1.5 }}>
                   {includeSignature
-                    ? <><strong>{dmPreview.signature.display_name || '—'}</strong>{dmPreview.signature.source && dmPreview.signature.source !== 'user' ? ((dmPreview.signature.source === 'static' || dmPreview.signature.source === 'fallback') ? ' · fallback (set yours in Settings → Email Signature)' : ` · seeded`) : ''}</>
+                    ? <><strong>{dmPreview.signature.display_name || '-'}</strong>{dmPreview.signature.source && dmPreview.signature.source !== 'user' ? ((dmPreview.signature.source === 'static' || dmPreview.signature.source === 'fallback') ? ' · fallback (set yours in Settings → Email Signature)' : ` · seeded`) : ''}</>
                     : <span style={{ color: '#6b7280' }}>Omitted</span>}
                 </div>
               </div>
@@ -3616,7 +3616,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
               <div style={{ fontSize: 13, color: '#374151', fontFamily: F, lineHeight: 1.5 }}>{msgSubject}</div>
             </div>
 
-            {/* Preview as sent — exact branded HTML (same server renderer as send) */}
+            {/* Preview as sent - exact branded HTML (same server renderer as send) */}
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: '0.1em', textTransform: 'uppercase', fontFamily: F, marginBottom: 4 }}>Preview as sent</div>
               <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, overflow: 'hidden' }}>
@@ -3641,7 +3641,7 @@ export default function OutreachView({ cohortId, toast, refreshKey = 0 }) {
             {/* CONNECT-COMMS-1B: block send if no valid recipient email resolved. */}
             {dmPreview.recipient?.type === 'missing' && (
               <div style={{ fontSize: 12, color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontFamily: F }}>
-                No valid email on file for this recipient — cannot send.
+                No valid email on file for this recipient, cannot send.
               </div>
             )}
 

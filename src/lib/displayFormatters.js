@@ -1,7 +1,7 @@
 // src/lib/displayFormatters.js
 // Centralised display-name utilities.
 // Consumed by StudentCard (all variants) and List View Identity column.
-// Single source of truth for abbreviation rules — update once, propagates everywhere.
+// Single source of truth for abbreviation rules - update once, propagates everywhere.
 
 // ── School shortener ──────────────────────────────────────────────────────────
 

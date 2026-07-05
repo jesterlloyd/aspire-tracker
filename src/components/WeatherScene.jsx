@@ -3,9 +3,9 @@
 //  background and the scene share ONE weather query. The disabled rule is a dev-only Fast-Refresh
 //  hint with no runtime/production impact.)
 // ASPIRE-WEATHER-4 / 4A: a LARGE, original HTML/SVG animated weather scene for the Aggregate welcome
-// band — a signature "sky moment" living in its own center-left sky strip (not a status chip beside
+// band - a signature "sky moment" living in its own center-left sky strip (not a status chip beside
 // View Calendar). Fixed Cedars-Sinai / Los Angeles via Open-Meteo (NO key, NO geolocation, NO env
-// var). Day/night aware via current.is_day (sun by day, moon+stars by night) — the visible label
+// var). Day/night aware via current.is_day (sun by day, moon+stars by night) - the visible label
 // never says "night". Optional + non-blocking: returns null on any failure (silent hide, never throws,
 // never blocks the welcome band). Pure CSS keyframes (prefixed, scoped inline <style>), auto-frozen
 // under prefers-reduced-motion; a scoped media query shrinks the graphic on narrow screens.
@@ -32,7 +32,7 @@ function mapScene(code, windKmh, isDay) {
   return scene
 }
 
-// Visible labels — simple; never contain the word "night".
+// Visible labels - simple; never contain the word "night".
 const LABELS = {
   clear_day: 'Sunny', clear_night: 'Clear',
   partly_cloudy_day: 'Partly Cloudy', partly_cloudy_night: 'Partly Cloudy',
@@ -50,7 +50,7 @@ const KEYFRAMES = `
 @keyframes wx-twinkle { 0%,100%{opacity:.25} 50%{opacity:1} }
 @keyframes wx-fall { 0%{transform:translateY(0);opacity:0} 15%{opacity:.9} 85%{opacity:.9} 100%{transform:translateY(360%);opacity:0} }
 @keyframes wx-blow { 0%{transform:translateX(0) rotate(0deg);opacity:0} 12%{opacity:.95} 82%{opacity:.95} 100%{transform:translateX(1100%) rotate(300deg);opacity:0} }
-/* Licensed-asset hero box — same responsive footprint as .wx-svg, fixed 19:12 aspect; layers are
+/* Licensed-asset hero box - same responsive footprint as .wx-svg, fixed 19:12 aspect; layers are
    absolutely positioned % children. overflow:hidden crops the tall sun/moon source renders. */
 .wx-assetbox{ position:relative; aspect-ratio: 19 / 12; overflow:hidden }
 .wx-assetbox img{ position:absolute; display:block; user-select:none }
@@ -161,7 +161,7 @@ function SceneSvg({ scene }) {
 // ASPIRE-WEATHER-ASSETS-1: licensed-asset scene renderer. Renders the manifest's image layers from
 // public/weather/aspire-licensed/ inside the same hero footprint as the SVG scene. Every animated
 // layer carries wx-a (frozen under prefers-reduced-motion; layers stay visible statically). If ANY
-// image fails to load, onBroken() flips WeatherScene back to the built-in SVG scene — no broken
+// image fails to load, onBroken() flips WeatherScene back to the built-in SVG scene - no broken
 // image is ever shown. Stars stay CSS dots (the package has no star asset).
 function AssetScene({ manifest, onBroken }) {
   return (
@@ -196,7 +196,7 @@ function AssetScene({ manifest, onBroken }) {
   )
 }
 
-// Shared query — the band background (day/night theming) and this scene both read it. Both call this
+// Shared query - the band background (day/night theming) and this scene both read it. Both call this
 // hook, which shares one geolocation resolution (module singleton) → same coords → same query key →
 // React Query dedupes to a single fetch. Same Open-Meteo source/params/mapping as before; only the
 // latitude/longitude (and the label) now come from the browser location when granted, else LA/Cedars.
@@ -238,7 +238,7 @@ export default function WeatherScene() {
   const label = LABELS[scene]
   const night = data.isDay === 0
   const manifest = assetsBroken ? null : sceneAssets(scene, night)
-  // Caption IN FRONT of the graphic — light over the dark night sky, dark over the light day sky,
+  // Caption IN FRONT of the graphic - light over the dark night sky, dark over the light day sky,
   // each with a soft shadow so it reads over clouds/moon/sun. Restrained sizes.
   const cTemp = night ? '#ffffff' : NAVY
   const cCond = night ? 'rgba(255,255,255,0.92)' : '#334155'

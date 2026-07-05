@@ -117,7 +117,7 @@ function MainApp({ onLogout }) {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const queryClient = useQueryClient()
 
-  // Cohorts list — org-wide, fetched once at startup
+  // Cohorts list - org-wide, fetched once at startup
   const { data: cohorts = [] } = useQuery({
     queryKey: ['cohorts_all'],
     queryFn: async () => {
@@ -193,7 +193,7 @@ function MainApp({ onLogout }) {
   // Track the last non-Connect path for the workspace back affordance.
   // Stored in a ref so it never triggers re-renders.
   useEffect(() => {
-    // WS2.1: Settings (like Connect) is an app-level utility, not a workspace — exclude
+    // WS2.1: Settings (like Connect) is an app-level utility, not a workspace - exclude
     // it so Back-to-workspace returns to the prior operational tab, not /settings.
     if (!location.pathname.startsWith('/connect') && !location.pathname.startsWith('/settings') && !location.pathname.startsWith('/catalog')) {
       prevWorkspacePath.current = location.pathname
@@ -225,7 +225,7 @@ function MainApp({ onLogout }) {
   }, [location.pathname])
 
   // AUTH-UX-1B: when the AUTHENTICATED IDENTITY changes between sessions in the same browser,
-  // force the new user to Aggregate ONCE — fixes the case where logout/login leaves the browser
+  // force the new user to Aggregate ONCE - fixes the case where logout/login leaves the browser
   // on the prior user's route (e.g. /connect, /catalog) so the `/`-only restore above is bypassed.
   // Same-user refresh: previous id === current id → no redirect (current route preserved).
   // First user in this browser: no previous id → no redirect (just records the id). The `/`
@@ -250,7 +250,7 @@ function MainApp({ onLogout }) {
   // ROTATION-ACTIVITY-NAV: pending student to focus (expand + scroll) in Rotation > Activity,
   // set when an On Campus Now student is clicked in Aggregate.
   const [focusActivityStudentId, setFocusActivityStudentId] = useState(null)
-  // Ref for Connect soft-refresh — ConnectPage registers its handleRefresh here so the
+  // Ref for Connect soft-refresh - ConnectPage registers its handleRefresh here so the
   // toolbar RefreshHint can call it without a full page reload.
   const connectRefreshRef = useRef(null)
   const [highlightUnitId,    setHighlightUnitId]    = useState(null)
@@ -364,7 +364,7 @@ function MainApp({ onLogout }) {
   }
 
   // Stable handler for the Action Center's count report. When the panel reports null
-  // (it closed), refetch the lazy data so the CLOSED badge is fresh — preventing both the
+  // (it closed), refetch the lazy data so the CLOSED badge is fresh - preventing both the
   // open→close bounce to stale data and lingering counts after in-session resolution.
   const handleActionCount = useCallback((n) => {
     setPanelActionCount(n)
@@ -422,11 +422,11 @@ function MainApp({ onLogout }) {
     ].forEach(key => queryClient.invalidateQueries({ queryKey: [key] }))
   }
 
-  // Auto-start welcome tour — re-evaluates whenever the key tour fields change in context
+  // Auto-start welcome tour - re-evaluates whenever the key tour fields change in context
   useEffect(() => {
     if (!currentUserProfile?.auth_user_id || !activeCohortId) return
 
-    // WELCOME-TOUR-REFRESH-RESET: acknowledgement is version-scoped — completing OR dismissing
+    // WELCOME-TOUR-REFRESH-RESET: acknowledgement is version-scoped - completing OR dismissing
     // counts only for the version it was made against. A TOUR_VERSION bump therefore re-shows the
     // tour once to everyone (completed AND previously-dismissed users), with no data mutation.
     // Wait until the tour fields are loaded (undefined = profile/migration not ready yet).
@@ -505,7 +505,7 @@ function MainApp({ onLogout }) {
   // then, it returns a conflict error instead of silently overwriting.
   // WS1e-A4: explicit field→action router (replaces the generic update wrapper).
   // Every field maps to one explicit, server-validated action; there is NO generic
-  // fallback — an unmapped field throws. The local students-state merge is preserved.
+  // fallback - an unmapped field throws. The local students-state merge is preserved.
   // (Preceptor/shift/interview_outcome are routed at the component level (A2/A3b);
   // this router covers the remaining staff domains.)
   const updateStudent = useCallback(async (id, updates, _loadedUpdatedAt) => {
@@ -651,7 +651,7 @@ function MainApp({ onLogout }) {
     const hasInterview = rubrics && rubrics.length > 0
     // Phase 2B.2e: disposition is the source of truth for program status.
     // Unmatching releases the unit slot but must NOT undo a documented program
-    // decision — preserve 'Not Proceeding' when the student has an active
+    // decision - preserve 'Not Proceeding' when the student has an active
     // disposition; otherwise revert as before.
     const revertStatus = student.active_disposition?.disposition_type
       ? 'Not Proceeding'
@@ -746,7 +746,7 @@ function MainApp({ onLogout }) {
 
   const activeCohort = cohorts.find(c => c.id === activeCohortId)
 
-  // ── Action Center badge count — must be after activeCohort ───
+  // ── Action Center badge count - must be after activeCohort ───
   // ── Header: click-outside for cohort + search ────────────────────────────────
   useEffect(() => {
     const handler = e => {
@@ -768,7 +768,7 @@ function MainApp({ onLogout }) {
   const runSearch = useCallback(async q => {
     if (!activeCohortId || q.length < 2) { setSearchResults({ students:[], units:[], placements:[], contacts:[], preceptors:[], cohorts:[], catalog:[] }); setSearchOpen(false); return }
     setSearchLoading(true); setSearchOpen(true)
-    // UNIVERSAL-SEARCH-1: every query below is an EXISTING-RLS-backed client read — permissioning is
+    // UNIVERSAL-SEARCH-1: every query below is an EXISTING-RLS-backed client read - permissioning is
     // the table's own RLS (students/units cohort-scoped; contacts is_active; preceptors authenticated
     // read; catalog Owner/Admin/Interviewer-tiered). No new endpoint, no schema, read-only.
     const [stuRes, unitRes, contRes, precRes, catRes] = await Promise.all([
@@ -783,7 +783,7 @@ function MainApp({ onLogout }) {
       // Preceptors: operational roster (global, not cohort-scoped). RLS = authenticated_read_preceptors.
       supabase.from('preceptors').select('id, full_name, email, unit_name, shift_type')
         .or(`full_name.ilike.%${q}%,email.ilike.%${q}%,unit_name.ilike.%${q}%`).limit(5),
-      // Catalog: SAFE metadata only — slug (routing), title, description, category, tags. storage_path
+      // Catalog: SAFE metadata only - slug (routing), title, description, category, tags. storage_path
       // is NEVER selected. RLS returns only rows this role may see; client-filtered below (text[] tags).
       supabase.from('catalog_resources').select('id, slug, title, description, category, tags')
         .eq('is_active', true).limit(100),
@@ -839,18 +839,18 @@ function MainApp({ onLogout }) {
     else if (item.type === 'unit') { setHighlightUnitId(item.data.id); switchTab('rotation'); setTimeout(() => setHighlightUnitId(null), 2500) }
     else if (item.type === 'placement') { setHighlightUnitId(item.data.unit?.id); switchTab('rotation'); setTimeout(() => setHighlightUnitId(null), 2500) }
     else if (item.type === 'contact') { navigate(`/connect/contacts?contactId=${item.data.id}`) }
-    // UNIVERSAL-SEARCH-1 — existing safe destinations only; no file access, no secure URLs.
+    // UNIVERSAL-SEARCH-1 - existing safe destinations only; no file access, no secure URLs.
     else if (item.type === 'preceptor') { navigate('/rotation/preceptors') }
     else if (item.type === 'cohort') { handleCohortSwitch(item.data.id) }
     else if (item.type === 'catalog') { navigate(`/catalog?resource=${encodeURIComponent(item.data.slug)}`) }
   }
 
-  // Eager bell-badge count — mirrors the Action Center panel's EAGER task predicates
+  // Eager bell-badge count - mirrors the Action Center panel's EAGER task predicates
   // (src/components/ActionCenter.jsx `actionItems`). Keep the two in sync.
   // Excludes the 5 survey/completion/eval tasks removed in ACTION-CENTER-SCOPE-CLEANUP.
   // The 3 lazy-loaded tasks (Disposition Follow-up, Shift Log Needs Review, Student Not
   // Logged Recently) need data fetched only when the panel opens, so they are not counted
-  // here — used only as the fallback BEFORE the panel reports its exact live count.
+  // here - used only as the fallback BEFORE the panel reports its exact live count.
   const eagerActionBadgeCount = (() => {
     if (!students.length) return 0
     const hasSent = (sid, type) => communications.some(c => c.student_id === sid && c.type === type)
@@ -970,7 +970,7 @@ function MainApp({ onLogout }) {
         )}
 
         {/* All five tabs mount simultaneously once initial data is ready.
-            Tab switching only changes CSS display — no unmount/remount,
+            Tab switching only changes CSS display, no unmount/remount,
             so queries, local state, and scroll position persist instantly. */}
         {!loading && !dbError && cohorts.length > 0 && (
           <>
@@ -1100,7 +1100,7 @@ function MainApp({ onLogout }) {
   )
 }
 
-// Auth shell — rendered for all authenticated paths (everything except the five public forms)
+// Auth shell - rendered for all authenticated paths (everything except the five public forms)
 function AuthedShell() {
   const { user, userProfile, loading, signOut } = useAuth()
 
@@ -1142,7 +1142,7 @@ function AuthedShell() {
 export default function App() {
   return (
     <Routes>
-      {/* Public routes — no auth required, no app shell */}
+      {/* Public routes - no auth required, no app shell */}
       <Route path="/unit-form/*"          element={<div data-theme-lock="light"><UnitFormPage /></div>} />
       <Route path="/school-form/*"        element={<div data-theme-lock="light"><SchoolFormPage /></div>} />
       <Route path="/student-form/*"       element={<div data-theme-lock="light"><StudentIntakeFormPage /></div>} />
@@ -1159,9 +1159,9 @@ export default function App() {
       <Route path="/embed"                 element={<Navigate to="/rotation/matrix" replace />} />
       {/* Retired: Rotation > Check-Ins. Midpoint auto-send now lives in Connect > Automation. */}
       <Route path="/rotation/checkins"     element={<Navigate to="/connect/broadcasts" replace />} />
-      {/* Dev harness routes — excluded from production build */}
+      {/* Dev harness routes - excluded from production build */}
       {import.meta.env.DEV && <Route path="/dev/disposition-modal" element={<DevDispositionModal />} />}
-      {/* Authenticated app — handles /, /aggregate, /students, /interviews, /rotation/*, /evaluation */}
+      {/* Authenticated app - handles /, /aggregate, /students, /interviews, /rotation/*, /evaluation */}
       <Route path="/*"                    element={<AuthedShell />} />
     </Routes>
   )

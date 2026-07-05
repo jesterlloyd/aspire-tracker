@@ -1,5 +1,5 @@
 -- ============================================================
--- ASPIRE Intelligence — Authenticated RLS Audit Migration v2
+-- ASPIRE Intelligence - Authenticated RLS Audit Migration v2
 -- ============================================================
 --
 -- v2 CHANGES FROM v1:
@@ -14,11 +14,11 @@
 --   All 19 tables below returned HTTP 200/206 (not 404).
 --
 -- TABLES EXCLUDED FROM THIS MIGRATION (already correct):
---   interview_rubrics — fixed in migration_rubrics_authenticated_rls.sql
---   notification_log  — already has a restrictive authenticated SELECT policy;
+--   interview_rubrics - fixed in migration_rubrics_authenticated_rls.sql
+--   notification_log  - already has a restrictive authenticated SELECT policy;
 --                       do not override it with a blanket ALL policy
---   student_reads     — uses auth.uid() without a TO clause; works for authenticated
---   session_reads     — same pattern as student_reads
+--   student_reads     - uses auth.uid() without a TO clause; works for authenticated
+--   session_reads     - same pattern as student_reads
 --
 -- HOW TO RUN: Paste into Supabase SQL Editor and execute.
 -- All DROP POLICY lines are idempotent (safe to re-run).

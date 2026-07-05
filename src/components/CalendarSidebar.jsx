@@ -186,7 +186,7 @@ function TodaySnapshot({ slots }) {
 
   const fmt = t => t
     ? new Date(`2000-01-01T${t}`).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' })
-    : '—'
+    : '-'
 
   return (
     <div style={{ marginTop:'20px', paddingTop:'16px', borderTop:'1px solid #f3f4f6' }}>

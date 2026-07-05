@@ -7,7 +7,7 @@
 -- survey (slug: student_preceptor_eval). The student is BOTH the subject (student_id)
 -- and the respondent (respondent_type = 'student', respondent_email = the student's
 -- email). The preceptor/unit being evaluated is the evaluated_target ONLY and is carried
--- inside the response JSON (responses.evaluated_target) — it is NOT modeled as the
+-- inside the response JSON (responses.evaluated_target) - it is NOT modeled as the
 -- respondent and must never be written to respondent_preceptor_id.
 --
 -- Scope guardrails (SR-2-pre only):

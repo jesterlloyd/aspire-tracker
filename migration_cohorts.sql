@@ -1,5 +1,5 @@
 -- =====================================================================
--- ASPIRE Placement Tracker — Cohort Management Migration
+-- ASPIRE Placement Tracker - Cohort Management Migration
 -- Run this entire file in your Supabase SQL Editor
 -- =====================================================================
 

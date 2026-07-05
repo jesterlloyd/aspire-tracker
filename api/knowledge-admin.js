@@ -80,7 +80,7 @@ function findUnexpectedKeys(object, allowedKeys) {
 function isNonEmptyString(v, max) {
   return typeof v === 'string' && v.trim().length > 0 && v.length <= max
 }
-// Present string (may be empty) within cap — used for full revision snapshots.
+// Present string (may be empty) within cap - used for full revision snapshots.
 function isCappedString(v, max) {
   return typeof v === 'string' && v.length <= max
 }
@@ -123,7 +123,7 @@ function mapGovernanceRpcError(rpcError, res, requestId, ctx) {
   }
   if (is('P0107', 'governance_invalid_actor')) {
     // The endpoint always passes auth.profileId (resolved by verifyCaller from
-    // user_profiles), so P0107 means that profile id no longer resolves in-RPC —
+    // user_profiles), so P0107 means that profile id no longer resolves in-RPC -
     // a data-integrity anomaly (e.g. orphaned/removed profile), not a normal client
     // error. Loud server log; sanitized 403 to the client (consistent with the
     // KT-2a no_profile → 403 convention for an invalid principal).
@@ -244,9 +244,9 @@ async function nextAvailableSlug(db, base) {
 }
 
 // Validate the shared knowledge content fields.
-// `mode`: 'create'   — title+category required; body/source/precedence optional
-//         'patch'    — every field optional, validated when present (draft update)
-//         'snapshot' — full proposed revision; title+category+body+source+rank required
+// `mode`: 'create'   - title+category required; body/source/precedence optional
+//         'patch'    - every field optional, validated when present (draft update)
+//         'snapshot' - full proposed revision; title+category+body+source+rank required
 function validateKnowledgeFields(body, mode) {
   // title
   if (mode === 'patch') {
@@ -330,7 +330,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'invalid_request', field: unexpected[0], message: 'Unexpected request field.' })
   }
 
-  // (5) role authorization — Owner/Admin for every action (denies co-lead/co_lead/
+  // (5) role authorization - Owner/Admin for every action (denies co-lead/co_lead/
   // interviewer/viewer/no-profile). KT-2b lifecycle actions tighten to Owner-only.
   if (!canGovern(auth.role, auth.isOwner)) {
     console.log('[knowledge-admin] insufficient authority', { action, callerRole: auth.role, callerIsOwner: auth.isOwner, request_id: requestId })

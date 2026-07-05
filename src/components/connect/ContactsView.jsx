@@ -77,7 +77,7 @@ const ROLE_COLORS = {
   'Chief Nursing Officer':          { color: '#92400e', bg: '#FEF3C7', border: '#fde68a' },
 }
 
-// Category-level chip fallback — used when the contact's role string isn't in ROLE_COLORS.
+// Category-level chip fallback - used when the contact's role string isn't in ROLE_COLORS.
 // Ensures contacts with non-standard role titles (e.g., "Professor & Assistant Director")
 // still receive the correct category color rather than the generic gray default.
 // CATEGORY_CHIP_STYLES is the shared canonical palette (imported from lib/contactCategories).
@@ -138,7 +138,7 @@ const NOTIF_LABELS = {
 }
 
 function notifLabel(type) {
-  return NOTIF_LABELS[type] || type?.replace(/_/g, ' ') || '—'
+  return NOTIF_LABELS[type] || type?.replace(/_/g, ' ') || '-'
 }
 
 // ── Copy helper ───────────────────────────────────────────────────────────────
@@ -181,7 +181,7 @@ function StatusBadge({ status }) {
       border:     `1px solid ${isGood ? '#c6d9a8' : '#fecaca'}`,
       fontFamily: F, textTransform: 'uppercase', letterSpacing: '0.06em',
     }}>
-      {status || '—'}
+      {status || '-'}
     </span>
   )
 }
@@ -314,7 +314,7 @@ function ContactProfile({ contact, navigate, onEdit, onDeactivate }) {
         background: 'linear-gradient(160deg, #dceff8 0%, #f0f6fb 50%, #ffffff 100%)',
         borderRadius: '12px 12px 0 0',
       }}>
-        {/* Avatar — shows image if avatar_url is present, falls back to initials */}
+        {/* Avatar - shows image if avatar_url is present, falls back to initials */}
         <div style={{
           width: 80, height: 80, borderRadius: '50%',
           background: NAVY, margin: '0 auto 14px',
@@ -683,7 +683,7 @@ function ContactContext({ contact, navigate, commHistory, loadingComm, linkedStu
                     fontSize: 9, fontWeight: 600, padding: '1px 5px', borderRadius: 4,
                     background: '#f3f4f6', color: '#6b7280', fontFamily: F,
                   }}>
-                    {s.status || '—'}
+                    {s.status || '-'}
                   </span>
                 </div>
               ))}
@@ -872,12 +872,12 @@ function SyncPreceptorsModal({ onClose, onSynced }) {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderRadius: 8, background: '#f9fafb', border: '1px solid #e5e7eb' }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: '#6b7280', minWidth: 22, textAlign: 'right' }}>{preview.alreadyExists.length}</span>
-                <span style={{ fontSize: 12, color: '#6b7280' }}>already in Contacts — will be skipped</span>
+                <span style={{ fontSize: 12, color: '#6b7280' }}>already in Contacts, will be skipped</span>
               </div>
               {preview.missingEmail.length > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderRadius: 8, background: '#fffbeb', border: '1px solid #fde68a' }}>
                   <span style={{ fontSize: 13, fontWeight: 700, color: '#92400e', minWidth: 22, textAlign: 'right' }}>{preview.missingEmail.length}</span>
-                  <span style={{ fontSize: 12, color: '#92400e' }}>missing email — cannot be synced</span>
+                  <span style={{ fontSize: 12, color: '#92400e' }}>missing email, cannot be synced</span>
                 </div>
               )}
             </div>
@@ -903,7 +903,7 @@ function SyncPreceptorsModal({ onClose, onSynced }) {
             {/* Missing email list */}
             {preview.missingEmail.length > 0 && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#92400e', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Missing email — skipped</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#92400e', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Missing email, skipped</div>
                 <div style={{ fontSize: 12, color: '#92400e', lineHeight: 1.6 }}>{preview.missingEmail.map(p => p.full_name).join(' · ')}</div>
               </div>
             )}
@@ -921,8 +921,8 @@ function SyncPreceptorsModal({ onClose, onSynced }) {
           <div style={{ fontSize: 13, color: '#374151', lineHeight: 1.8 }}>
             <div style={{ fontWeight: 700, fontSize: 14, color: '#166534', marginBottom: 10 }}>Sync complete</div>
             <div>✓ <strong>{result.inserted}</strong> preceptor{result.inserted !== 1 ? 's' : ''} added to Contacts</div>
-            <div style={{ color: '#6b7280' }}>— <strong>{result.skippedExisting}</strong> already in Contacts (skipped)</div>
-            <div style={{ color: '#6b7280' }}>— <strong>{result.skippedMissing}</strong> missing email (skipped)</div>
+            <div style={{ color: '#6b7280' }}>- <strong>{result.skippedExisting}</strong> already in Contacts (skipped)</div>
+            <div style={{ color: '#6b7280' }}>- <strong>{result.skippedMissing}</strong> missing email (skipped)</div>
             {result.failed > 0 && (
               <div style={{ marginTop: 8, color: '#dc2626' }}>✗ <strong>{result.failed}</strong> failed: {result.failedNames.join(', ')}</div>
             )}
@@ -1065,7 +1065,7 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
   }
 
   // Warn when the selected category would hide currently-populated fields.
-  // 'Other' is the flexible catch-all — it shows all fields, so nothing is hidden by it.
+  // 'Other' is the flexible catch-all - it shows all fields, so nothing is hidden by it.
   const hiddenPopulatedFields = []
   if (cat) {
     if (cat !== 'Academic Partners' && cat !== 'Other') {
@@ -1270,7 +1270,7 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
 
           {/* ── Section helper ── */}
           {[
-            // Section headings rendered inline — this is a local style constant
+            // Section headings rendered inline - this is a local style constant
           ].map(() => null)}
 
           {/* ── Category ── */}
@@ -1344,7 +1344,7 @@ function ContactModal({ mode, initialData, onClose, onSaved }) {
               <input value={formData.role || ''} onChange={e => set('role', e.target.value)} placeholder="e.g. School Coordinator" style={inputStyle} />
             </div>
           </div>
-          {/* Role Qualifier — label and visibility driven by category */}
+          {/* Role Qualifier - label and visibility driven by category */}
           {(cat === 'Academic Partners' || cat === 'BNI Team' || cat === 'Nursing Executives' || cat === 'Other' || !!formData.role_qualifier) && (
             <div style={{ marginBottom: 20 }}>
               <label style={labelStyle}>{cat === 'Academic Partners' ? 'Program Focus' : 'Title Detail'}</label>
@@ -1669,7 +1669,7 @@ export default function ContactsView({ refreshKey = 0 }) {
       setSelectedId(savedId)
       // Only update the URL when the Contacts tab is actually active.
       // If the user navigated directly to Outreach or another tab, do NOT
-      // replace their URL with a contact URL — that would stomp the explicit route.
+      // replace their URL with a contact URL - that would stomp the explicit route.
       if (location.pathname.startsWith('/connect/contacts')) {
         navigate(`/connect/contacts?contactId=${savedId}`, { replace: true })
       }
@@ -1700,7 +1700,7 @@ export default function ContactsView({ refreshKey = 0 }) {
   // ── Derived values ──────────────────────────────────────────────────────────
   const selected = contacts.find(c => c.id === selectedId) || null
 
-  // Category counts — respect the showInactive toggle so pills count only visible contacts
+  // Category counts - respect the showInactive toggle so pills count only visible contacts
   const categoryCounts = {}
   contacts
     .filter(c => showInactive || c.is_active !== false)
@@ -1769,7 +1769,7 @@ export default function ContactsView({ refreshKey = 0 }) {
 
   const listItems = []
   if (showGrouped) {
-    // Group by primary category — each contact appears exactly once
+    // Group by primary category - each contact appears exactly once
     const grouped = {}
     sortedFiltered.forEach(c => {
       const cat = getPrimaryCategory(c)
@@ -1937,7 +1937,7 @@ export default function ContactsView({ refreshKey = 0 }) {
         </div>{/* end flex wrap */}
         </div>{/* end category section */}
 
-        {/* Show inactive toggle — only when inactive contacts exist */}
+        {/* Show inactive toggle - only when inactive contacts exist */}
         {inactiveCount > 0 && (
           <div style={{ padding: '2px 14px 6px', flexShrink: 0 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}>
@@ -2011,7 +2011,7 @@ export default function ContactsView({ refreshKey = 0 }) {
           )}
         </div>
 
-        {/* Repair tool — muted footer link for backfilling pre-auto-sync preceptors */}
+        {/* Repair tool - muted footer link for backfilling pre-auto-sync preceptors */}
         <div style={{ padding: '6px 14px 8px', borderTop: '1px solid rgba(29,37,103,0.05)', flexShrink: 0, textAlign: 'center' }}>
           <button
             onClick={() => setShowSyncModal(true)}
@@ -2049,8 +2049,8 @@ export default function ContactsView({ refreshKey = 0 }) {
         )}
       </div>
 
-      {/* ── Zone 3: Context — history + linked students (right) ───────── */}
-      {/* No white outer shell — each card is its own standalone tinted ConnectPanel. */}
+      {/* ── Zone 3: Context - history + linked students (right) ───────── */}
+      {/* No white outer shell - each card is its own standalone tinted ConnectPanel. */}
       <div style={{
         flex: '0 0 300px', minWidth: 0,
         overflowY: 'auto',

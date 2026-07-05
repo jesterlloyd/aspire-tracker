@@ -30,16 +30,16 @@ const DISABLED_STYLE = {
 }
 
 // Props:
-//   variant        — 'primary' | 'secondary' | 'linkedin'
-//   icon           — React node rendered at the start (string emoji or JSX element)
-//   label          — button label text
-//   iconOnly       — if true, hides the text label; shows label in tooltip
-//   onClick        — used in button mode
-//   href           — when set, renders an <a> tag
-//   target / rel   — anchor props
-//   disabled       — visually muted, non-clickable
-//   disabledReason — tooltip shown when disabled
-//   ariaLabel      — accessible label (defaults to label)
+//   variant        - 'primary' | 'secondary' | 'linkedin'
+//   icon           - React node rendered at the start (string emoji or JSX element)
+//   label          - button label text
+//   iconOnly       - if true, hides the text label; shows label in tooltip
+//   onClick        - used in button mode
+//   href           - when set, renders an <a> tag
+//   target / rel   - anchor props
+//   disabled       - visually muted, non-clickable
+//   disabledReason - tooltip shown when disabled
+//   ariaLabel      - accessible label (defaults to label)
 
 export default function ProfileActionButton({
   variant = 'secondary',

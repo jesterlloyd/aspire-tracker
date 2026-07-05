@@ -1,29 +1,29 @@
 /**
- * StudentMatchingCard — matching-context card, visual sibling to StudentCard.
+ * StudentMatchingCard - matching-context card, visual sibling to StudentCard.
  *
  * DESIGN CONTRACT
  * This component is part of the same design family as StudentCard. All visual
  * properties (radius, shadow, hover, typography, colors, spacing) reference the
  * same shared CARD tokens. A StudentCard and a StudentMatchingCard placed side by
- * side must read as siblings — same design DNA, different content purpose.
+ * side must read as siblings - same design DNA, different content purpose.
  *
  * DO NOT add one-off visual values here. Every border, shadow, spacing, and color
  * must come from the shared tokens in designTokens.js. That's the unification
  * mechanism: shared tokens, not identical structure.
  *
  * CONTENT DIFFERS from StudentCard:
- * StudentCard — compact grid card (avatar + short name + school·prog + variant strip)
- * StudentMatchingCard — horizontal workspace card with full name + preferences + availability
+ * StudentCard - compact grid card (avatar + short name + school·prog + variant strip)
+ * StudentMatchingCard - horizontal workspace card with full name + preferences + availability
  *
  * PROPS
- * @param {Object}   student     — student record (full, including preferences)
- * @param {boolean}  isSelected  — whether this student is currently selected for matching
- * @param {Function} onSelect    — (student) → void
- * @param {boolean}  isReadOnly  — disables click interaction
- * @param {boolean}  isFading    — triggers CSS exit animation when student is matched
- * @param {boolean}  isFadingIn  — triggers CSS enter animation when student returns to pool
- * @param {Array}    units       — participating unit records, used for availability display
- * @param {Object}   focusedUnit — unit currently focused; highlights preference tier
+ * @param {Object}   student     - student record (full, including preferences)
+ * @param {boolean}  isSelected  - whether this student is currently selected for matching
+ * @param {Function} onSelect    - (student) → void
+ * @param {boolean}  isReadOnly  - disables click interaction
+ * @param {boolean}  isFading    - triggers CSS exit animation when student is matched
+ * @param {boolean}  isFadingIn  - triggers CSS enter animation when student returns to pool
+ * @param {Array}    units       - participating unit records, used for availability display
+ * @param {Object}   focusedUnit - unit currently focused; highlights preference tier
  */
 
 import { useState } from 'react'
@@ -53,7 +53,7 @@ const F = 'DM Sans, sans-serif'
  * Returns slots remaining for a unit name from the participating units array.
  * Uses slots_remaining (kept in sync by createMatch / unmatch in App.jsx).
  * Returns null if the unit is not in the pool (hides the indicator rather
- * than showing a misleading value — per design spec).
+ * than showing a misleading value - per design spec).
  */
 function getOpenCount(unitName, units) {
   if (!unitName || !units?.length) return null
@@ -150,7 +150,7 @@ export default function StudentMatchingCard({
         position:     'relative',
       }}
     >
-      {/* ── Tier header chip + shift compatibility cue — shown when a unit filter is active ── */}
+      {/* ── Tier header chip + shift compatibility cue - shown when a unit filter is active ── */}
       {focusedUnit && (() => {
         const chipStyle = choiceTier === 1
           ? { bg:'#D1FAE5', color:'#065F46' }
@@ -210,11 +210,11 @@ export default function StudentMatchingCard({
 
       {/* ── Top row: avatar + identity + selected pill ─────────────────── */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 0 }}>
-        {/* Avatar — 48px, same circular treatment and fallback as StudentCard */}
+        {/* Avatar - 48px, same circular treatment and fallback as StudentCard */}
         <StudentAvatar student={student} size={48} style={{ flexShrink: 0, marginTop: 1 }} />
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          {/* Full name (not short form — matching context needs the full name) */}
+          {/* Full name (not short form - matching context needs the full name) */}
           <div style={{
             fontWeight: 700, fontSize: 13, color: '#1D2567', fontFamily: F,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -223,7 +223,7 @@ export default function StudentMatchingCard({
             {student.first_name} {student.last_name}
           </div>
 
-          {/* School · Program — same utility and typography as StudentCard */}
+          {/* School · Program - same utility and typography as StudentCard */}
           {(() => {
             const sp = formatSchoolProgram(student.school, student.program_type)
             return sp ? (
@@ -237,7 +237,7 @@ export default function StudentMatchingCard({
             ) : null
           })()}
 
-          {/* Status pills — cap at 2-3 to avoid overflow */}
+          {/* Status pills - cap at 2-3 to avoid overflow */}
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {statusCfg && (
               <span style={{
@@ -256,7 +256,7 @@ export default function StudentMatchingCard({
                 GPA {gpaVal.toFixed(2)}
               </span>
             )}
-            {/* Small inline tier pill — shown only when NO unit filter is active.
+            {/* Small inline tier pill - shown only when NO unit filter is active.
                 When focusedUnit is set, the header chip above the card already
                 carries this information; rendering it here too is redundant. */}
             {choiceTier != null && !focusedUnit && (
@@ -270,7 +270,7 @@ export default function StudentMatchingCard({
           </div>
         </div>
 
-        {/* Selected indicator — top-right chip */}
+        {/* Selected indicator - top-right chip */}
         {isSelected && (
           <span style={{
             flexShrink: 0, fontSize: 9, fontWeight: 700, fontFamily: F,
@@ -283,7 +283,7 @@ export default function StudentMatchingCard({
         )}
       </div>
 
-      {/* Shift preference + AVAILABILITY-CANON-1D readiness badge (readiness/review only — NOT
+      {/* Shift preference + AVAILABILITY-CANON-1D readiness badge (readiness/review only - NOT
           preceptor compatibility). Privacy-safe: tooltip shows structural facts, never free text. */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
         {(() => {

@@ -22,13 +22,13 @@
 --   - Idempotent: ADD COLUMN IF NOT EXISTS, CREATE INDEX IF NOT EXISTS, and
 --     every UPDATE is guarded by `WHERE <col> IS NULL` so re-running never
 --     overwrites a value already present.
---   - metadata is read but NEVER written — the jsonb column is fully preserved.
+--   - metadata is read but NEVER written - the jsonb column is fully preserved.
 --   - All metadata-to-uuid casts are regex-guarded to prevent cast errors on
 --     any malformed value.
 --   - No foreign key constraints are added (deferred to a future migration if
 --     desired; the existing contact_id/student_id FKs are untouched).
 --
--- recipient_type backfill — EXPECTED OUTCOME (not "every row gets a value"):
+-- recipient_type backfill - EXPECTED OUTCOME (not "every row gets a value"):
 --   - Rows with contact evidence  -> 'contact'
 --   - Rows with student evidence  -> 'student'
 --   - Rows where the recipient type cannot be safely determined -> remain NULL.
@@ -67,7 +67,7 @@ WHERE student_id IS NULL
 --      direct_message_sent, which records 'contact' or 'student');
 --   2) 'contact' if a contact_id is known (column now backfilled, or valid in metadata);
 --   3) 'student' if a student_id is known (column now backfilled, or valid in metadata);
---   4) otherwise leave NULL — unknown / system / form / test rows that do not
+--   4) otherwise leave NULL - unknown / system / form / test rows that do not
 --      map to a single Contact or Student. NULL here is expected and acceptable.
 -- Only touches rows where recipient_type IS NULL, so re-running is a no-op.
 UPDATE notification_log

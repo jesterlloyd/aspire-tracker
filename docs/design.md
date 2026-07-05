@@ -10,7 +10,7 @@ This is the visual contract for ASPIRE Intelligence. Every new component should 
 
 ## Color
 - **Ink hierarchy.** ink1 for primary text, ink2 for Nightfall accents (brand moments), ink3–5 for secondary, tertiary, disabled.
-- **One accent per surface.** Pick chroma OR sage OR dawn OR marina — not several. Use the tint variants for backgrounds.
+- **One accent per surface.** Pick chroma OR sage OR dawn OR marina - not several. Use the tint variants for backgrounds.
 - **Hairlines, not borders.** Use line1 (8% Nightfall) for visible separators, line2 (4%) for subtle internal divisions.
 
 ## Patterns
@@ -49,5 +49,5 @@ All notification counters use **Chroma `#930045`** (the `chroma` token).
 Never use orange, red, or generic "warning" colors for counters. Chroma is the single attention color for ASPIRE.
 
 ## Files
-- `src/lib/designTokens.js` — token primitives and composed styles
-- `src/components/KPIBand.jsx` — shared `KPICell` and `useUpdatedLabel` for passive readout bands
+- `src/lib/designTokens.js` - token primitives and composed styles
+- `src/components/KPIBand.jsx` - shared `KPICell` and `useUpdatedLabel` for passive readout bands

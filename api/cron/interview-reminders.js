@@ -43,7 +43,7 @@ export default async function handler(req, res) {
   const runId = await startCronRun(supabase, 'interview-reminders');
 
   try {
-    // Automation gate — scheduled auto-send only. Default-ON / fail-open: a missing row or a read
+    // Automation gate - scheduled auto-send only. Default-ON / fail-open: a missing row or a read
     // failure keeps sending as today. Disabled => paused heartbeat (success) + 200, no query/send.
     // The manual admin resend endpoint is intentionally NOT gated.
     const gate = await isAutomationEnabled({ supabaseAdmin: supabase, automationKey: 'interview_reminders' });
@@ -173,7 +173,7 @@ export default async function handler(req, res) {
     // Alert if the send rate drops below threshold (surfaces in Vercel function logs)
     if (tomorrowCount > 0 && fired.length < tomorrowCount * ALERT_THRESHOLD) {
       console.error(
-        `[interview-reminders] ⚠ ALERT: low send rate — sent ${fired.length}/${tomorrowCount}` +
+        `[interview-reminders] ⚠ ALERT: low send rate, sent ${fired.length}/${tomorrowCount}` +
         ` (${Math.round((fired.length / tomorrowCount) * 100)}%). Investigate skip reasons above.`
       );
     }
@@ -184,7 +184,7 @@ export default async function handler(req, res) {
       fired_count: fired.length,
       skipped_count: skipped.length,
       skip_reasons: skipReasons,
-      // Observability only — present solely when the settings read failed open (ran as today).
+      // Observability only - present solely when the settings read failed open (ran as today).
       ...(gate.source === 'fail_open' ? { settings_warning: gate.warning } : {}),
     });
     return res.status(200).json({
@@ -230,7 +230,7 @@ function formatSlotDate(dateStr) {
   }).format(dt);
 }
 
-// Format "13:30" → "1:30 PM" (no timezone needed — slot_time is already Pacific)
+// Format "13:30" → "1:30 PM" (no timezone needed - slot_time is already Pacific)
 function formatSlotTime(timeStr) {
   if (!timeStr) return 'TBD';
   const [hStr, mStr = '00'] = timeStr.split(':');

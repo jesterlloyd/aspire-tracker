@@ -1,6 +1,6 @@
-// CheckInView.jsx — check-in form, prefilled from the B1 eligible student.
+// CheckInView.jsx - check-in form, prefilled from the B1 eligible student.
 // Planned unit & shift type required; planned preceptor OPTIONAL (B1's
-// matched_preceptor can be null/blank — see A.5/B.4.A). All values editable.
+// matched_preceptor can be null/blank - see A.5/B.4.A). All values editable.
 import { useState } from 'react'
 import { useCheckIn } from './useCheckIn'
 import { getStudentPreferredGreetingName } from '../../lib/studentNameFormatters'
@@ -32,7 +32,7 @@ export default function CheckInView({ student, onSuccess, onNetworkError, onPast
   const [plannedPreceptor, setPlannedPreceptor] = useState(student?.matched_preceptor || '')
   // SHIFT-LOG-ASSIGNED-SHIFT-DEFAULT: default to the student's assigned (preceptor) shift when the
   // server confidently resolved it; otherwise keep the existing 'Day' fallback. useState INITIALIZER
-  // only — no effect re-syncs this, so a student's manual change is never overwritten after load.
+  // only - no effect re-syncs this, so a student's manual change is never overwritten after load.
   const defaultedFromAssignment = SHIFT_TYPES.includes(student?.assigned_shift_type)
   const [plannedShiftType, setPlannedShiftType] = useState(
     defaultedFromAssignment ? student.assigned_shift_type : 'Day'
@@ -113,7 +113,7 @@ export default function CheckInView({ student, onSuccess, onNetworkError, onPast
           </div>
           {defaultedFromAssignment && plannedShiftType === student.assigned_shift_type && (
             <div style={{ marginTop: 8, fontSize: 13, color: '#6b7280', fontFamily: F }}>
-              Defaulted from your assigned shift — change if needed.
+              Defaulted from your assigned shift, change if needed.
             </div>
           )}
         </div>

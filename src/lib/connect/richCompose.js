@@ -1,6 +1,6 @@
 // src/lib/connect/richCompose.js
 //
-// RICH-COMPOSE-1 — minimal, owner-gated feature flag for the ASPIRE Connect rich-text manual
+// RICH-COMPOSE-1 - minimal, owner-gated feature flag for the ASPIRE Connect rich-text manual
 // composer. There is no general feature-flag system in this app, so this is a deliberately tiny
 // local flag:
 //
@@ -12,7 +12,7 @@
 // now defaults ON and localStorage acts as an explicit per-browser opt-OUT instead. Non-owners can
 // NEVER enable it (UX gate), and the SEND endpoints independently require an Owner to accept
 // body_format:'html' (authoritative server gate), so a non-owner can never produce a rich send even by
-// forging a request — flipping the default only affects what the single Owner account sees.
+// forging a request - flipping the default only affects what the single Owner account sees.
 //
 // To opt OUT (Owner, this browser):  localStorage.setItem('aspire.connect.richCompose', 'off')
 // To re-enable / clear the opt-out:  localStorage.removeItem('aspire.connect.richCompose')
@@ -21,7 +21,7 @@
 
 export const RICH_COMPOSE_FLAG_KEY = 'aspire.connect.richCompose';
 
-// RICH-COMPOSE-2A-1 — shallow validity check for a persisted TipTap document (richDoc) before it is
+// RICH-COMPOSE-2A-1 - shallow validity check for a persisted TipTap document (richDoc) before it is
 // used to hydrate the editor. A valid ProseMirror doc is { type: 'doc', content: [...] }. This is a
 // cheap guard, NOT a schema validation: TipTap setContent is still wrapped in try/catch by the editor,
 // and the composer falls back to the body HTML if richDoc is missing or invalid. Never throws.

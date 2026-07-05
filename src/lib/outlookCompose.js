@@ -6,7 +6,7 @@
 // so the ASPIRE Intelligence window is never replaced.
 //
 // SCOPE: Outlook Web compose requires a Cedars-Sinai / Microsoft 365 session, so use this ONLY for
-// staff-facing in-app controls — NOT student/coordinator-facing public pages (which keep mailto:),
+// staff-facing in-app controls - NOT student/coordinator-facing public pages (which keep mailto:),
 // and NOT inside outbound email templates.
 
 const COMPOSE_BASE = 'https://outlook.office.com/mail/deeplink/compose'

@@ -1,15 +1,15 @@
 // src/lib/connect/templateRegistry.js
 //
-// CONNECT-TEMPLATE-REGISTRY-1 — single source of truth for ASPIRE Connect Outreach templates
+// CONNECT-TEMPLATE-REGISTRY-1 - single source of truth for ASPIRE Connect Outreach templates
 // (Send-to-one "message types" and Send-to-many "message types"). Phase 1 is a behavior-neutral
 // foundation: it CENTRALIZES the existing entries + adds audience metadata, but it does NOT yet
 // drive audience-aware filtering or the "Other templates" disclosure (deferred to later phases).
 //
 // TWO CONCEPTS, kept explicit via `templateKind`:
-//   • 'manual' — editable email starters. NO token generation. Sent through the existing manual
+//   • 'manual' - editable email starters. NO token generation. Sent through the existing manual
 //                paths (Send-to-one → /api/connect-send-direct-email; Send-to-many → the bulk
 //                manual composer / /api/connect-send-bulk-message). Always fully editable.
-//   • 'survey' — tokenized survey workflow (currently the student-only Casey-Fink invitation).
+//   • 'survey' - tokenized survey workflow (currently the student-only Casey-Fink invitation).
 //                Respondent-locked; the survey backend is OWNED ELSEWHERE and untouched here.
 //
 // COMPATIBILITY NOTE: the Send-to-one entries intentionally keep the legacy `kind` field
@@ -115,7 +115,7 @@ export function templateMatchesAudience(template, audience) {
 //                                   pre-filtering UX, e.g. Send-to-one before a recipient is chosen).
 //   • templateKind === 'survey'   → respondent-locked: appears in PRIMARY only when its declared
 //                                   audiences include the inferred audience; otherwise fully hidden
-//                                   (never relegated to "Other" — a survey must not look cross-audience).
+//                                   (never relegated to "Other" - a survey must not look cross-audience).
 //   • manual templates            → primary when they match the audience (or are listed in
 //                                   alwaysPrimaryKeys, e.g. Custom Message); otherwise → other.
 export function splitTemplatesForAudience(templates, audience, options = {}) {
@@ -217,7 +217,7 @@ export const SEND_TO_MANY_TEMPLATES = [
 ]
 
 // ── Derived maps for BulkManualComposer (single source of truth; values are byte-identical to the
-//    former local literals). Only 'manual' bulk templates participate — the survey entry is handled
+//    former local literals). Only 'manual' bulk templates participate - the survey entry is handled
 //    by OutreachView's own survey zone, never by the manual composer. ────────────────────────────
 const BULK_MANUAL_TEMPLATES = SEND_TO_MANY_TEMPLATES.filter(t => t.templateKind === 'manual')
 
