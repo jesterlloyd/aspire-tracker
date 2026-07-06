@@ -97,6 +97,10 @@ export function applyMergeFields(text, recipient) {
   let out = String(text || '')
   const fn = recipient?.firstName || ''
   const school = recipient?.school || ''
+  // Greeting token ALWAYS resolves (never leaves a raw bracket in a sent email), whether or not a
+  // first name is known: "Good morning {name}," with a name, or a plain "Good morning," without one.
+  // Uses the same escaped/raw `fn` as the first-name tokens below (html mode escapes it upstream).
+  out = out.split('[Clinical Coordinator Greeting]').join(fn ? `Good morning ${fn},` : 'Good morning,')
   if (fn) for (const tok of FIRST_NAME_TOKENS) out = out.split(tok).join(fn)
   if (school) out = out.split('[School]').join(school)
   return out

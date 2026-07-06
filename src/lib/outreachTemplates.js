@@ -64,33 +64,70 @@ Please don't hesitate to reach out if you have any questions.`
   return { subject, body }
 }
 
-// Academic Partner Update - external academic-partner/coordinator email (ASPIRE Outreach).
-// CONNECT-MANUAL-TEMPLATES-3: repurposed from the former "Coordinator Acceptance Update" - the
-// registry KEY is preserved as 'coordinator_acceptance' for draft/routing compatibility; only the
-// visible label and this copy changed (confirm acceptance + invite to orientation, concise).
-// Salutation uses the recipient's first name when available, else "Colleague".
-export function buildAcademicPartnerUpdateDraft({ firstName } = {}) {
-  const subject = 'ASPIRE: Student placement update and orientation next steps'
-  const body = `Dear ${fb(firstName, 'Colleague')},
+// ── Academic Partner Acceptance / Orientation - ONE shared factory for Send-to-one AND Send-to-many.
+// ASPIRE-EMAIL-PARTNER-ORIENTATION-1: unifies the former divergent one/many copies. The message
+// communicates: students accepted, orientation now being planned, a warm invitation to attend or stay
+// looped in, what orientation is for, student expectations, a save-the-contact reminder (so weekly
+// updates do not land in spam), and a direct contact line. NO risky "[Insert ...]" placeholders and
+// NO leakable raw merge token. Greeting: mode 'one' resolves the recipient's first name now (safe
+// fallback when missing); mode 'many' uses the always-resolving [Clinical Coordinator Greeting] token
+// (applyMergeFields turns it into "Good morning {name}," or "Good morning,"). Orientation details are
+// a configurable block: an editable Content Block Note in the rich (Send-to-one) layout, and a plain
+// paragraph with the same default text otherwise. Rich Content Blocks are only wired into Send-to-one;
+// Send-to-many uses the plain body (the bulk composer converts it to HTML paragraphs) - see report.
+const AP_ORIENTATION_SUBJECT = 'ASPIRE: Student acceptance and orientation next steps'
+const AP_ORIENTATION_DEFAULT = 'Orientation details are being finalized. We will share the confirmed date, time, location or meeting link, and any check-in instructions once available.'
 
-I'm writing with an update on your students' participation in ASPIRE at Cedars-Sinai.
+export function buildAcademicPartnerAcceptanceOrientation({ mode = 'one', firstName } = {}) {
+  const subject  = AP_ORIENTATION_SUBJECT
+  const greeting = mode === 'many'
+    ? '[Clinical Coordinator Greeting]'
+    : (fb(firstName, '') ? `Good morning ${fb(firstName, '')},` : 'Good morning,')
 
-The following student(s) have been accepted and are moving forward in the ASPIRE process:
+  const pAccepted = 'I hope you are doing well. I am writing to share that your students have been accepted to ASPIRE at Cedars-Sinai and are moving forward in the placement process.'
+  const pPurpose  = 'We are now planning orientation for the accepted students. Orientation is designed to help students understand ASPIRE expectations, onboarding steps, communication pathways, scheduling responsibilities, and how to prepare for a successful transition into their assigned units.'
+  const pInvite   = 'You are warmly invited to attend or stay looped in, whichever is best for your program. Your involvement helps reinforce school-specific expectations and supports a consistent transition for students as they begin ASPIRE.'
+  const pExpect   = 'Student expectations include completing required onboarding items on time, monitoring ASPIRE emails, communicating promptly, attending scheduled orientation activities, and following Cedars-Sinai and school requirements throughout the placement process.'
+  const pSave     = 'To make sure ASPIRE updates reach you, please add ASPIRE at Cedars-Sinai (noreply@aspire-program.com) to your contacts or safe-sender list.'
+  const pContact  = 'For any questions, please email Jester directly at jesterlloyd.bautista@cshs.org.'
+  const pClose    = 'Thank you for your continued partnership.'
 
-[Insert accepted student names and relevant details here.]
+  const body = `${greeting}
 
-As a next step, students will be invited to the required in-person orientation before they begin their shifts. We will send each student the orientation date, location, parking, and arrival details directly.
+${pAccepted}
 
-You are warmly invited to attend the orientation or to stay looped in as appropriate for your program. If you would like to join, please let me know and I will share the details.
+${pPurpose}
 
-Thank you for your continued partnership in supporting clinical nursing education.`
+${pInvite}
+
+${AP_ORIENTATION_DEFAULT}
+
+${pExpect}
+
+${pSave}
+
+${pContact}
+
+${pClose}`
+
+  if (mode === 'many') return { subject, body }
+
   const richBody =
-    bH2('ASPIRE Student Update')
-    + bP(`Dear ${fb(firstName, 'Colleague')}, I'm writing with an update on your students' participation in ASPIRE at Cedars-Sinai. The following student(s) have been accepted and are moving forward in the ASPIRE process:`)
-    + bP('[Insert accepted student names and relevant details here.]')
-    + bNote({ title: 'Next step: orientation', body: 'Students will be invited to the required in-person orientation before they begin their shifts. We will send each student the orientation date, location, parking, and arrival details directly.' })
-    + bP('You are warmly invited to attend the orientation or to stay looped in as appropriate for your program. If you would like to join, please let me know and I will share the details. Thank you for your continued partnership in supporting clinical nursing education.')
+    bH2('Student acceptance and orientation next steps')
+    + bP(`${greeting} ${pAccepted}`)
+    + bP(pPurpose)
+    + bP(pInvite)
+    + bNote({ title: 'Orientation details', body: AP_ORIENTATION_DEFAULT })
+    + bP(pExpect)
+    + bNote({ title: 'Save the ASPIRE contact', body: pSave })
+    + bP(`${pContact} ${pClose}`)
   return { subject, body, richBody }
+}
+
+// Send-to-one entry (registry KEY preserved as 'coordinator_acceptance' for draft/routing
+// compatibility). Salutation uses the recipient's first name when available, else a plain greeting.
+export function buildAcademicPartnerUpdateDraft({ firstName } = {}) {
+  return buildAcademicPartnerAcceptanceOrientation({ mode: 'one', firstName })
 }
 
 // Preceptor Details Request - internal Cedars email asking the preceptor for the information needed
@@ -312,29 +349,11 @@ ASPIRE at Cedars-Sinai <noreply@aspire-program.com>
 We are excited to support your growth, learning, and transition into professional nursing practice.`,
 }
 
-// Academic Partner Acceptance / Orientation Update (bulk) - CONNECT-MANUAL-TEMPLATES-3. Bulk version
-// of the Send-to-one Academic Partner Update: confirm acceptance + orientation next steps. First name
-// merges via [Clinical Coordinator First Name]; every other placeholder stays literal and editable.
-const BULK_ACADEMIC_PARTNER_ACCEPTANCE = {
-  subject: 'ASPIRE: Student placement update and orientation next steps',
-  body: `Dear [Clinical Coordinator First Name],
-
-I'm writing with an update on your students' participation in ASPIRE at Cedars-Sinai.
-
-The following student(s) have been accepted and are moving forward in the ASPIRE process:
-
-[Insert accepted student names and relevant details here.]
-
-As a next step, students will be invited to the required in-person orientation before they begin their shifts. We will send each student the orientation date, location, parking, and arrival details directly.
-
-You are warmly invited to attend the orientation or to stay looped in as appropriate for your program. If you would like to join, please let us know.
-
-To help ensure that you receive ASPIRE communications, including future updates regarding student progress, please add the following email address to your contact list or safe senders:
-
-ASPIRE at Cedars-Sinai <noreply@aspire-program.com>
-
-Thank you for your continued partnership in supporting clinical nursing education.`,
-}
+// Academic Partner Acceptance / Orientation Update (bulk). ASPIRE-EMAIL-PARTNER-ORIENTATION-1: now
+// the Send-to-many mode of the ONE shared factory above, so one/many stay in lockstep. Greeting uses
+// the always-resolving [Clinical Coordinator Greeting] token (no raw first-name token can leak); no
+// "[Insert ...]" placeholder; includes the save-the-contact reminder in the plain body.
+const BULK_ACADEMIC_PARTNER_ACCEPTANCE = buildAcademicPartnerAcceptanceOrientation({ mode: 'many' })
 
 // Interviewer Availability / App Access Request (bulk) - CONNECT-MANUAL-TEMPLATES-3. Asks BNI /
 // interviewer colleagues to access ASPIRE Intelligence and enter availability. First name merges via
