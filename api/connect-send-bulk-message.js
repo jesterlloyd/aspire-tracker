@@ -274,11 +274,17 @@ async function _handler(req, res) {
   }
 
   // ============================ SEND MODE (Phase 2B-2) ============================
-  return await runSendMode(res, body, senderSig, profile);
+  // Pass the already-gated resolvedBodyFormat through: the Owner-only html gate is enforced above
+  // (before this branch), and runSendMode needs the resolved format for its body-size cap and html
+  // escaping. Without this argument runSendMode referenced an out-of-scope variable (ReferenceError:
+  // resolvedBodyFormat is not defined) on every bulk send.
+  return await runSendMode(res, body, senderSig, profile, resolvedBodyFormat);
 }
 
 // Send-mode handler. Kept separate from the preview path so preview behavior is provably untouched.
-async function runSendMode(res, body, senderSig, profile) {
+// `resolvedBodyFormat` is passed in from the gated caller (never re-derived here) so the Owner-only
+// html gate stays the single source of truth.
+async function runSendMode(res, body, senderSig, profile, resolvedBodyFormat) {
   // ── S1. Reject any caller attempt to inject a top-level recipient override. ──
   for (const f of ['email', 'to', 'cc', 'bcc']) {
     if (f in body) {
