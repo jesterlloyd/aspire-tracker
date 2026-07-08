@@ -83,7 +83,14 @@ function readBulkDraft(key) {
 // (RICH-COMPOSE-1), plain text otherwise. Pristine detection compares against this.
 function bulkTemplateBody(type, rich) {
   const tpl = buildBulkTemplate(type)
-  const plain = tpl ? withStaticLinks(type, tpl.body) : ''
+  if (!tpl) return ''
+  // ASPIRE-CONNECT-BULK-RICH-TEMPLATES-1: when rich compose is ON and this template ships a richBody
+  // (Content Block HTML), hydrate the editor from it - the RichTextEditor parses the data-aspire-block
+  // markers into Heading/Note blocks (same proven path as Send-to-one). Static-link tokens are still
+  // substituted (a no-op when the template carries no token). Otherwise the plain body: HTML paragraphs
+  // in rich mode, raw text in plain mode. Non-Owners never reach here with rich=true (Owner gate).
+  if (rich && tpl.richBody) return withStaticLinks(type, tpl.richBody)
+  const plain = withStaticLinks(type, tpl.body)
   return rich ? plainTextToHtml(plain) : plain
 }
 function bulkDraftIsPristine(type, subject, body, rich) {
@@ -932,7 +939,11 @@ export default function BulkManualComposer({
           <div style={{ marginBottom: 12 }}>
             <label style={labelStyle}>Message</label>
             {richEnabled ? (
-              <RichTextEditor html={body} richDocRef={bulkRichDocRef} onChange={(html, json) => { setBody(html); bulkRichDocRef.current = json || null }} ariaLabel="Message" minHeight={240} />
+              // ASPIRE-CONNECT-BULK-RICH-TEMPLATES-1: key={bulkMsgType} remounts the editor on a template
+              // switch so it initializes fresh from the new body HTML (parsing richBody Content Block
+              // markers) rather than reusing a prior template's stale richDoc. Typing never changes
+              // bulkMsgType, so there is no remount mid-edit.
+              <RichTextEditor key={bulkMsgType} html={body} richDocRef={bulkRichDocRef} onChange={(html, json) => { setBody(html); bulkRichDocRef.current = json || null }} ariaLabel="Message" minHeight={240} />
             ) : (
               <textarea value={body} onChange={e => setBody(e.target.value)} rows={14}
                 style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, minHeight: 240, fontSize: 13 }} />

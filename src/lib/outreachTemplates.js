@@ -10,6 +10,8 @@
 // the resolved sender signature, so templates end at body content to avoid a duplicate closing.
 // Callers hydrate these with includeSignature=true.
 
+import { appUrl } from './appUrl.js'
+
 // fallback: trimmed value if present, else the placeholder.
 const fb = (v, placeholder) => (v && String(v).trim()) ? String(v).trim() : placeholder
 
@@ -110,8 +112,10 @@ ${pContact}
 
 ${pClose}`
 
-  if (mode === 'many') return { subject, body }
-
+  // Rich Content Block layout for BOTH modes (Send-to-one hydrates it directly; Send-to-many hydrates
+  // it too now that the bulk composer supports richBody). The greeting carries through as-is: mode
+  // 'one' is already resolved; mode 'many' keeps the [Clinical Coordinator Greeting] token (bP escapes
+  // only < > &, so the bracket token survives and applyMergeFields resolves it per recipient at send).
   const richBody =
     bH2('Student acceptance and orientation next steps')
     + bP(`${greeting} ${pAccepted}`)
@@ -221,30 +225,60 @@ Thank you for being part of the ASPIRE interview team.`
 // Static public links (/school-form, /student-form, /interview-schedule) remain editable
 // placeholders in this UI-only phase.
 
-const BULK_ACADEMIC_PARTNER = {
-  subject: 'ASPIRE: Student Placement Request Form for [Cohort Name]',
-  body: `Dear [Clinical Coordinator First Name],
+// ASPIRE-CONNECT-BULK-RICH-TEMPLATES-1: cleaned Academic Partner Placement Request. Drops the former
+// leak-prone placeholders (a cohort token in the subject, a raw first-name salutation, and a bracketed
+// deadline) in favor of the always-resolving Clinical Coordinator Greeting token plus the real
+// canonical school-form link. Ships both a plain body (readable fallback) and a richBody (heading and a
+// Submission timeline Note block) hydrated by the bulk composer when rich compose is on.
+const BULK_ACADEMIC_PARTNER = (() => {
+  const subject = 'ASPIRE: Student Placement Request Form'
+  const link    = appUrl('/school-form')
+  const greeting = '[Clinical Coordinator Greeting]'
+  const pIntro   = 'I hope you are doing well.'
+  const pInvite  = 'We are preparing for the upcoming ASPIRE cohort at Cedars-Sinai and would like to invite your school to submit student placement requests for consideration.'
+  const pForm    = 'Please complete the ASPIRE School Placement Request Form using the link below:'
+  const pWhat    = 'This form allows us to collect requested student placements, including student names, program details, preferred units, rotation requirements, dates, and any important notes that may help us review placement feasibility.'
+  const pTimeline = 'Please submit the form by the timeline shared for your cohort, if possible, so we can review all requests alongside available unit capacity.'
+  const pDisc    = 'As a reminder, submission of a request does not guarantee placement. Placement decisions are based on unit capacity, preceptor availability, student eligibility, and program alignment.'
+  const pSave    = 'To help ensure that you receive ASPIRE communications, including future updates regarding student progress, please add ASPIRE at Cedars-Sinai (noreply@aspire-program.com) to your contacts or safe-sender list.'
+  const pContact = 'For any questions, please email Jester directly at jesterlloyd.bautista@cshs.org.'
+  const pClose   = 'Thank you for your continued partnership.'
 
-I hope you are doing well.
+  const body = `${greeting}
 
-We are preparing for the upcoming ASPIRE cohort at Cedars-Sinai and would like to invite your school to submit student placement requests for consideration.
+${pIntro}
 
-Please complete the ASPIRE School Placement Request Form using the link below:
+${pInvite}
 
-[Insert School Form Link]
+${pForm}
 
-This form allows us to collect your requested student placements, including student names, program details, preferred units, rotation requirements, dates, and any important notes that may help us review placement feasibility.
+${link}
 
-Please submit the form by [Insert Deadline], if possible, so we can review all requests alongside available unit capacity.
+${pWhat}
 
-As a reminder, submission of a request does not guarantee placement. Placement decisions are based on unit capacity, preceptor availability, student eligibility, and program alignment.
+${pTimeline}
 
-To help ensure that you receive ASPIRE communications, including future updates regarding student progress, please add the following email address to your contact list or safe senders:
+${pDisc}
 
-ASPIRE at Cedars-Sinai <noreply@aspire-program.com>
+${pSave}
 
-Thank you for your continued partnership in supporting clinical nursing education.`,
-}
+${pContact}
+
+${pClose}`
+
+  const richBody =
+    bH2('Student placement request')
+    + bP(`${greeting} ${pIntro}`)
+    + bP(pInvite)
+    + bP(`${pForm} ${link}`)
+    + bP(pWhat)
+    + bNote({ title: 'Submission timeline', body: pTimeline })
+    + bP(pDisc)
+    + bNote({ title: 'Save the ASPIRE contact', body: pSave })
+    + bP(`${pContact} ${pClose}`)
+
+  return { subject, body, richBody }
+})()
 
 const BULK_STUDENT_PROFILE = {
   subject: 'ASPIRE: Complete Your Student Profile',
@@ -386,5 +420,7 @@ const BULK_TEMPLATES = {
 // Returns a fresh { subject, body } for a bulk template key, or null for an unknown key.
 export function buildBulkTemplate(key) {
   const tpl = BULK_TEMPLATES[key]
-  return tpl ? { subject: tpl.subject, body: tpl.body } : null
+  // richBody (Content Block HTML) is present only on templates that ship one; the bulk composer
+  // hydrates it when rich compose is on, else falls back to the plain `body`. undefined otherwise.
+  return tpl ? { subject: tpl.subject, body: tpl.body, richBody: tpl.richBody } : null
 }
