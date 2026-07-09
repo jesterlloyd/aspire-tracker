@@ -22,6 +22,7 @@ import DevDispositionModal from './pages/DevDispositionModal'
 import EvaluationPage from './pages/EvaluationPage'
 import PreceptorEvaluationPage from './pages/PreceptorEvaluationPage'
 import StudentEvaluationPage from './pages/StudentEvaluationPage'
+import PostRotationEvaluationPage from './pages/PostRotationEvaluationPage'
 import UnitFormPage from './components/UnitFormPage'
 import SchoolFormPage from './components/SchoolFormPage'
 import StudentIntakeFormPage from './components/StudentIntakeFormPage'
@@ -1151,6 +1152,7 @@ export default function App() {
       <Route path="/evaluation/readiness/*" element={<div data-theme-lock="light"><EvaluationPage /></div>} />
       <Route path="/evaluation/feedback/*"  element={<div data-theme-lock="light"><PreceptorEvaluationPage /></div>} />
       <Route path="/evaluation/experience/*" element={<div data-theme-lock="light"><StudentEvaluationPage /></div>} />
+      <Route path="/evaluation/post-rotation/*" element={<div data-theme-lock="light"><PostRotationEvaluationPage /></div>} />
       {/* RECOVERY-PASSWORD-SCREEN-1: public password-recovery landing (Supabase reset link target).
           Must precede the /* wildcard so it renders outside AuthedShell even with a recovery session. */}
       <Route path="/auth/reset-password"   element={<div data-theme-lock="light"><ResetPasswordPage /></div>} />
