@@ -11,11 +11,33 @@
 // archiveManualMessage: best-effort insert into public.message_archive (service-role). Never throws -
 // returns a status the caller surfaces as archive_status without ever failing an already-sent email.
 
+import { appUrl } from '../../src/lib/appUrl.js';
+
 const UNSAFE_URL_MARKERS = /\?|token|magic|survey|resume|headshot|packet|signature|expires|access_token|refresh_token|jwt/i;
+
+// The handwritten signature image is a PUBLIC, non-sensitive ASPIRE brand asset
+// (/signature-jester.gif). Its filename contains "signature", which the generic redaction
+// treats as a secure-URL keyword and neutralizes to "#", so the signature renders as a broken
+// image in Sent History previews. restoreTrustedSignatureImg re-points ONLY the signature image
+// (identified by its fixed alt text) to the canonical public asset. It hard-sets one known static
+// image and DISCARDS whatever src was present, so it never restores a tokenized or secure URL, and
+// a spoofed <img alt="Jester Lloyd Bautista"> can only ever resolve to this benign brand asset.
+const SIGNATURE_ASSET_URL = appUrl('/signature-jester.gif');
+const SIGNATURE_ALT = /\balt\s*=\s*["']Jester Lloyd Bautista["']/i;
+
+function restoreTrustedSignatureImg(html) {
+  return html.replace(/<img\b[^>]*>/gi, (tag) => {
+    if (!SIGNATURE_ALT.test(tag)) return tag;
+    if (/\ssrc\s*=\s*"[^"]*"/i.test(tag)) return tag.replace(/\ssrc\s*=\s*"[^"]*"/i, ` src="${SIGNATURE_ASSET_URL}"`);
+    if (/\ssrc\s*=\s*'[^']*'/i.test(tag)) return tag.replace(/\ssrc\s*=\s*'[^']*'/i, ` src="${SIGNATURE_ASSET_URL}"`);
+    // No src attribute present: inject the trusted one.
+    return tag.replace(/^<img\b/i, `<img src="${SIGNATURE_ASSET_URL}"`);
+  });
+}
 
 export function redactArchiveHtml(html) {
   if (typeof html !== 'string' || html.trim() === '') return '';
-  return html
+  const redacted = html
     // Strip risky tags AND their contents.
     .replace(/<(script|style|iframe|object|embed|form)\b[\s\S]*?<\/\1>/gi, '')
     // Strip any self-closing / unclosed risky tags too (defensive).
@@ -26,6 +48,8 @@ export function redactArchiveHtml(html) {
     // Neutralize href/src whose value carries a query string or any secure/token marker.
     .replace(/\s(href|src)\s*=\s*"([^"]*)"/gi, (m, attr, url) => (UNSAFE_URL_MARKERS.test(url) ? ` ${attr}="#"` : m))
     .replace(/\s(href|src)\s*=\s*'([^']*)'/gi, (m, attr, url) => (UNSAFE_URL_MARKERS.test(url) ? ` ${attr}='#'` : m));
+  // Defense in depth stays intact above; re-point only the known public signature asset.
+  return restoreTrustedSignatureImg(redacted);
 }
 
 // Best-effort archive write. Returns:
