@@ -1,6 +1,7 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import PreceptorAutomationPanel from './PreceptorAutomationPanel'
 import StudentEvalAutomationPanel from './StudentEvalAutomationPanel'
+import PostRotationAutomationPanel from './PostRotationAutomationPanel'
 import SurveyAutomationCard from './SurveyAutomationCard'
 import AutomationEmailPreviewDrawer from '../connect/AutomationEmailPreviewDrawer'
 import { getEvaluationPreviewFixture } from '../../lib/evaluation/evaluationPreviewFixtures'
@@ -18,8 +19,9 @@ const WORKSPACE_ID = 'survey-automation-workspace'
 
 // The two survey workflows, in display order. `key` drives selection + the count rollup.
 const WORKFLOWS = [
-  { key: 'preceptor', title: 'Preceptor Student Readiness Assessment', recipientLabel: 'Preceptor' },
-  { key: 'student',   title: 'Student Feedback: Preceptor & Unit',     recipientLabel: 'Student' },
+  { key: 'preceptor',    title: 'Preceptor Student Readiness Assessment',  recipientLabel: 'Preceptor' },
+  { key: 'student',      title: 'Student Feedback: Preceptor & Unit',      recipientLabel: 'Student' },
+  { key: 'postRotation', title: 'Post-Rotation Evaluation & Certificate',  recipientLabel: 'Student' },
 ]
 
 export default function SurveyAutomationDashboard({ cohortId }) {
@@ -34,8 +36,9 @@ export default function SurveyAutomationDashboard({ cohortId }) {
   const report = useCallback((key, summary) => {
     setCounts(prev => (prev[key] === summary ? prev : { ...prev, [key]: summary }))
   }, [])
-  const reportPreceptor = useCallback((s) => report('preceptor', s), [report])
-  const reportStudent   = useCallback((s) => report('student', s), [report])
+  const reportPreceptor    = useCallback((s) => report('preceptor', s), [report])
+  const reportStudent      = useCallback((s) => report('student', s), [report])
+  const reportPostRotation = useCallback((s) => report('postRotation', s), [report])
 
   const isActionable = (key) =>
     (counts[key]?.due_sendable || 0) > 0 || (counts[key]?.due_unsendable || 0) > 0
@@ -102,7 +105,9 @@ export default function SurveyAutomationDashboard({ cohortId }) {
             counts={counts[w.key]}
             selected={effective === w.key}
             onSelect={() => setSelected(w.key)}
-            onPreview={() => setPreviewKey(w.key)}
+            // Post-rotation has no email designed yet (release ships next phase), so it
+            // shows no email preview affordance.
+            onPreview={w.key === 'postRotation' ? undefined : () => setPreviewKey(w.key)}
             workspaceId={WORKSPACE_ID}
           />
         ))}
@@ -130,6 +135,8 @@ export default function SurveyAutomationDashboard({ cohortId }) {
         <PreceptorAutomationPanel cohortId={cohortId} active={effective === 'preceptor'} onCounts={reportPreceptor} />
         {/* SR-2b-1: separate read-only queue for the student-completed survey. */}
         <StudentEvalAutomationPanel cohortId={cohortId} active={effective === 'student'} onCounts={reportStudent} />
+        {/* ASPIRE-POSTROTATION-CERT-UI-1: read-only eligible queue; release ships next phase. */}
+        <PostRotationAutomationPanel cohortId={cohortId} active={effective === 'postRotation'} onCounts={reportPostRotation} />
       </section>
     </div>
   )
