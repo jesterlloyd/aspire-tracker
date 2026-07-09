@@ -105,9 +105,7 @@ export default function SurveyAutomationDashboard({ cohortId }) {
             counts={counts[w.key]}
             selected={effective === w.key}
             onSelect={() => setSelected(w.key)}
-            // Post-rotation has no email designed yet (release ships next phase), so it
-            // shows no email preview affordance.
-            onPreview={w.key === 'postRotation' ? undefined : () => setPreviewKey(w.key)}
+            onPreview={() => setPreviewKey(w.key)}
             workspaceId={WORKSPACE_ID}
           />
         ))}
