@@ -1,21 +1,19 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { classifyPostRotationCohort } from '../../lib/evaluation/postRotationCertDueDetection'
 import { getStudentPreferredFullName } from '../../lib/studentNameFormatters'
 
-// ASPIRE-POSTROTATION-CERT-UI-1 - READ-ONLY eligible / in-flow queue for the
-// Post-Rotation Evaluation & Certificate workflow (slug: post_rotation_evaluation).
-// Recipient is the STUDENT. This phase is EVIDENCE ONLY: NO release/send button,
-// NO assignment/token creation, NO Resend, NO certificate issuance, NO PDFs. The
-// Release action is present but disabled ("Release in next phase").
+// READ-ONLY eligible / in-flow queue for the ASPIRE Post-Rotation Evaluation workflow (slug:
+// post_rotation_evaluation). Recipient is the STUDENT. This is NON-GATING experience feedback and
+// is fully decoupled from the Certificate of Participation (the Casey-Fink post-rotation survey is
+// the certificate gate). Release is PAUSED here: the action is disabled and nothing sends email,
+// creates tokens/assignments, issues certificates, or generates PDFs.
 //
-// Reads (Owner/Admin RLS SELECT policies): students, post_rotation_evaluation
-// assignments, and certificates. student_shift_logs powers the optional Last Shift
-// column and the support-needed warning; it degrades gracefully if unavailable.
-// Data loading uses react-query (the repo pattern) so there is no load effect and
-// no impure timestamp in render.
+// Reads (Owner/Admin RLS SELECT policies): students + post_rotation_evaluation assignments.
+// student_shift_logs powers the optional Last Shift column and the support-needed warning; it
+// degrades gracefully if unavailable. Data loading uses react-query (the repo pattern).
 
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -24,10 +22,9 @@ const STATUS_STYLE = {
   eligible_for_review:  { label: 'Eligible for Review',  fg: '#166534', bg: '#EDF7F0' },
   evaluation_released:  { label: 'Evaluation Released',  fg: '#1D2567', bg: '#EEF1FB' },
   evaluation_completed: { label: 'Evaluation Completed', fg: '#7c3aed', bg: '#F3EEFC' },
-  certificate_unlocked: { label: 'Certificate Unlocked', fg: '#b45309', bg: '#FBF5E8' },
 }
 
-const COLS = ['Student', 'School', 'Unit', 'Approved', 'Required', 'Last Shift', 'Evaluation', 'Certificate', 'Warnings', 'Action']
+const COLS = ['Student', 'School', 'Unit', 'Approved', 'Required', 'Last Shift', 'Evaluation Status', 'Warnings', 'Action']
 
 function fmtHours(n) {
   if (n == null) return '-'
@@ -84,20 +81,8 @@ async function loadPostRotationQueue(cohortId) {
     return i?.slug
   }
   const assignments = (aRes.data || []).filter(a => slugFor(a) === 'post_rotation_evaluation')
-  const studentIds = students.map(s => s.id)
 
-  // Wave 2 (fatal): certificates for these students (Owner/Admin SELECT policy).
-  let certificates = []
-  if (studentIds.length) {
-    const cRes = await supabase
-      .from('certificates')
-      .select('id, student_id, certificate_number, certificate_unlocked_at')
-      .in('student_id', studentIds)
-    if (cRes.error) throw cRes.error
-    certificates = cRes.data || []
-  }
-
-  // Wave 2 (non-fatal): last shift date + support-needed flag. Optional; degrades to '-'.
+  // Last shift date + support-needed flag (non-fatal). Optional; degrades to '-'.
   const shiftMeta = new Map()
   let shiftNote = null
   try {
@@ -118,7 +103,7 @@ async function loadPostRotationQueue(cohortId) {
     shiftNote = 'Last shift dates and support-needed flags are unavailable right now.'
   }
 
-  return { students, assignments, certificates, shiftMeta, shiftNote, detectedAtMs: Date.now() }
+  return { students, assignments, shiftMeta, shiftNote, detectedAtMs: Date.now() }
 }
 
 export default function PostRotationAutomationPanel({ cohortId, onCounts, active }) {
@@ -141,7 +126,6 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
       return classifyPostRotationCohort({
         students: data.students,
         assignments: data.assignments,
-        certificates: data.certificates,
         shiftMeta: data.shiftMeta,
         displayName: getStudentPreferredFullName,
         nowMs: data.detectedAtMs,
@@ -153,41 +137,8 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
   // Report the standard summary up to the shared status band + summary card.
   useEffect(() => { onCounts?.(summary) }, [onCounts, summary])
 
-  // Manual release state (per-student, human-approved). No auto-send, no bulk.
-  const [confirm, setConfirm] = useState(null)       // row pending release confirmation
-  const [releasing, setReleasing] = useState(false)
-  const [releaseMsg, setReleaseMsg] = useState(null) // { tone:'ok'|'err', text }
-
-  // Release ONE eligible student. Sends only { student_id }; the server re-checks eligibility
-  // (post-rotation detector) and resolves the recipient. No recipient override. Certificates are
-  // NOT issued here - the certificate number is assigned only when the student submits.
-  const doRelease = useCallback(async (row) => {
-    setReleasing(true); setReleaseMsg(null)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) {
-        setReleaseMsg({ tone: 'err', text: 'Your session expired. Please sign in again.' })
-        setReleasing(false); return
-      }
-      const res = await fetch('/api/evaluation-release-post-rotation-survey', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ student_id: row.studentId }),
-      })
-      const body = await res.json().catch(() => ({}))
-      if (res.ok && body.released) {
-        setReleaseMsg({ tone: 'ok', text: `Released. Post-rotation evaluation sent to ${body.student_email || 'the student'} for ${row.studentName}.` })
-      } else {
-        setReleaseMsg({ tone: 'err', text: `Release refused for ${row.studentName}: ${body.reason || body.error || 'no longer eligible'}` })
-      }
-    } catch {
-      setReleaseMsg({ tone: 'err', text: 'Network error. Please try again.' })
-    } finally {
-      setReleasing(false)
-      setConfirm(null)
-      await refetch() // a released student moves from eligible to Evaluation Released
-    }
-  }, [refetch])
+  // Release is PAUSED for this non-gating workflow, so there is no client release action, no
+  // confirmation flow, and no call to the (retained but UI-unreachable) release API.
 
   // Render the detail body only when this workflow is selected (the query above still runs).
   if (!active) return null
@@ -213,9 +164,9 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
         </span>
       </div>
       <p style={{ fontSize: 13, color: '#9ca3af', margin: '0 0 16px', lineHeight: 1.6 }}>
-        Experience feedback on the unit, preceptor, and ASPIRE rotation. This survey is no longer the
-        certificate gate; the Certificate of Participation is now unlocked by the Casey-Fink
-        Readiness for Practice survey (post-rotation). Students appear here at or above their required hours.
+        Collect student feedback about the ASPIRE rotation experience, unit learning environment, and
+        preceptor support. The Certificate of Participation is unlocked through the Casey-Fink
+        post-rotation readiness survey. Students appear here at or above their required hours.
       </p>
 
       {/* Release paused - the certificate gate moved to the Casey-Fink post-rotation survey. */}
@@ -224,14 +175,14 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
         borderRadius: 8, padding: '10px 14px', marginBottom: 18, lineHeight: 1.55,
       }}>
         <strong>Release paused.</strong> Casey-Fink post-rotation is now the certificate-gating
-        survey. ASPIRE Post-Rotation Evaluation release will be updated next; this queue is
-        review-only for now and does not issue certificates.
+        survey. ASPIRE Post-Rotation Evaluation release is paused while this workflow is updated as
+        non-gating feedback.
       </div>
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
         <button
           onClick={() => refetch()}
-          disabled={isFetching || releasing}
+          disabled={isFetching}
           style={{
             padding: '7px 14px', background: NAVY, color: '#fff', border: 'none', borderRadius: 7,
             fontSize: 12.5, fontWeight: 600, fontFamily: F, cursor: isFetching ? 'default' : 'pointer', opacity: isFetching ? 0.6 : 1,
@@ -252,20 +203,9 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
           fontSize: 12, fontWeight: 600, color: '#1D2567', background: '#EEF1FB',
           border: '1px solid #d7ddf5', borderRadius: 999, padding: '3px 10px',
         }}>
-          {summary.in_flow} in evaluation or certificate flow
+          {summary.in_flow} in evaluation flow
         </span>
       </div>
-
-      {releaseMsg && (
-        <div style={{
-          fontSize: 13, borderRadius: 8, padding: '10px 14px', marginBottom: 16, lineHeight: 1.5,
-          background: releaseMsg.tone === 'ok' ? '#EDF7F0' : '#FEECEC',
-          color: releaseMsg.tone === 'ok' ? '#166534' : '#991b1b',
-          border: `1px solid ${releaseMsg.tone === 'ok' ? '#c6e7d0' : '#f3c6c6'}`,
-        }}>
-          {releaseMsg.text}
-        </div>
-      )}
 
       {data?.shiftNote && (
         <div style={{ fontSize: 12.5, color: '#6b7280', marginBottom: 14 }}>{data.shiftNote}</div>
@@ -285,7 +225,7 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
             <div style={{ padding: '24px 0', textAlign: 'center', color: '#9ca3af', fontSize: 14, lineHeight: 1.6 }}>
               {students.length === 0
                 ? 'No students in this cohort.'
-                : 'No students are eligible for post-rotation review yet. Students appear here once their approved hours reach the required total, or once they enter the evaluation or certificate flow.'}
+                : 'No students are eligible for post-rotation review yet. Students appear here once their approved hours reach the required total, or once they enter the evaluation flow.'}
             </div>
           ) : (
             <div style={{ background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
@@ -322,9 +262,6 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
                             borderRadius: 999, padding: '2px 9px', whiteSpace: 'nowrap',
                           }}>{st.label}</span>
                         </td>
-                        <td style={{ padding: '9px 13px', fontSize: 12.5, color: '#374151', whiteSpace: 'nowrap' }}>
-                          {r.certificateNumber || '-'}
-                        </td>
                         <td style={{ padding: '9px 13px', fontSize: 12, color: '#92400e', lineHeight: 1.5 }}>
                           {r.warnings.length ? r.warnings.join(' · ') : <span style={{ color: '#9ca3af' }}>-</span>}
                         </td>
@@ -354,51 +291,6 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
             </div>
           )}
         </>
-      )}
-
-      {/* Release confirmation - shows the server-resolved STUDENT recipient; no editable field. */}
-      {confirm && (
-        <div className="modal-overlay" onMouseDown={() => !releasing && setConfirm(null)}>
-          <div
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            style={{ maxWidth: 470, fontFamily: F }}
-            onMouseDown={e => e.stopPropagation()}
-          >
-            <div className="modal-header">
-              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1D2567', fontFamily: F }}>
-                Release post-rotation evaluation?
-              </h2>
-            </div>
-            <div style={{ padding: '16px 20px', fontSize: 13.5, color: '#374151', lineHeight: 1.6 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '6px 12px', marginBottom: 14 }}>
-                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Student</span><span style={{ fontWeight: 600, color: '#191919' }}>{confirm.studentName}</span>
-                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Recipient email</span><span>{confirm.studentEmail || '-'}</span>
-                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Approved / Required</span><span>{fmtHours(confirm.approvedHours)} / {fmtHours(confirm.hoursRequired)}</span>
-              </div>
-              <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>
-                This will send the post-rotation evaluation email to the student. The Certificate of
-                Participation will become available only after the evaluation is submitted. Eligibility
-                is re-checked on the server before sending.
-              </p>
-            </div>
-            <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="btn-outline-modal" onClick={() => setConfirm(null)} disabled={releasing}>Cancel</button>
-              <button
-                onClick={() => doRelease(confirm)}
-                disabled={releasing}
-                style={{
-                  padding: '8px 18px', background: '#166534', color: '#fff', border: 'none',
-                  borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: F,
-                  cursor: releasing ? 'default' : 'pointer', opacity: releasing ? 0.6 : 1,
-                }}
-              >
-                {releasing ? 'Sending…' : 'Confirm & Send'}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   )

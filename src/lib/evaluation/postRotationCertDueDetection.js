@@ -1,20 +1,18 @@
-// Pure, READ-ONLY status detection for the Post-Rotation Evaluation & Certificate
-// workflow (instrument slug: post_rotation_evaluation). Recipient is the STUDENT.
-//
-// ASPIRE-POSTROTATION-CERT-UI-1 - EVIDENCE ONLY. This phase surfaces an eligible /
-// in-flow queue. It performs NO I/O and NEVER sends, mints tokens, creates
-// assignments, calls issue_participation_certificate(), writes certificates, or
-// generates PDFs. Release is added in a later phase.
+// Pure, READ-ONLY status detection for the ASPIRE Post-Rotation Evaluation workflow (instrument
+// slug: post_rotation_evaluation). Recipient is the STUDENT. This is NON-GATING experience
+// feedback: it is fully decoupled from the Certificate of Participation (the Casey-Fink
+// post-rotation survey is the certificate gate). This module reads NO certificate data and never
+// reports a certificate status. It performs NO I/O and NEVER sends, mints tokens, creates
+// assignments, issues certificates, or generates PDFs.
 //
 // Per-student display status (highest state wins):
-//   certificate_unlocked - a certificates row exists for the student
 //   evaluation_completed - a post_rotation_evaluation assignment has completed_at
 //   evaluation_released  - a post_rotation_evaluation assignment is live (sent/opened/reminder_due)
 //   eligible_for_review  - no in-flow record and approved_hours >= hours_required (> 0)
 //   not_eligible         - below the hours threshold, or hours_required is 0 or less
 //
-// The queue shows eligible + in-flow students only (not the whole cohort), matching
-// the existing survey panels. Warnings are non-blocking display text.
+// The queue shows eligible + in-flow students only (not the whole cohort). Warnings are
+// non-blocking display text.
 
 function num(v) {
   const n = Number(v)
@@ -54,25 +52,18 @@ function resolveStudentEmail(student) {
 //                   students.matched_unit_id; '' when the student has no matched unit.
 //   assignments  - post_rotation_evaluation assignments for the cohort ONLY:
 //                  [{ id, student_id, status, revoked_at, completed_at, expires_at, sent_at, created_at }]
-//   certificates - certificates rows for these students:
-//                  [{ id, student_id, certificate_number, certificate_unlocked_at }]
 //   shiftMeta    - Map studentId -> { lastShiftDate: string|null, supportNeeded: boolean } (optional)
 //   displayName  - (student) => string, injected so the panel controls name formatting
 //   nowMs        - current epoch ms (injected for testability)
 //
 // Returns { rows, summary }. `rows` are queue rows (eligible + in-flow) sorted by name.
 export function classifyPostRotationCohort({
-  students = [], assignments = [], certificates = [],
+  students = [], assignments = [],
   shiftMeta = new Map(), displayName, nowMs = 0,
 }) {
   const nameOf = typeof displayName === 'function'
     ? displayName
     : (s) => `${s.first_name || ''} ${s.last_name || ''}`.trim() || '(unnamed student)'
-
-  const certByStudent = new Map()
-  for (const c of certificates) {
-    if (c?.student_id && !certByStudent.has(c.student_id)) certByStudent.set(c.student_id, c)
-  }
 
   // Representative post_rotation_evaluation assignment per student (state precedence, then recency).
   const asgByStudent = new Map()
@@ -97,7 +88,7 @@ export function classifyPostRotationCohort({
     // release" band truthful. eligible_for_review is still surfaced inside the panel.
     due_sendable: 0,
     due_unsendable: 0,
-    suppressed_existing: 0, // in-flow: released + completed + certificate unlocked
+    suppressed_existing: 0, // in-flow: released + completed
     ineligible_hours: 0,    // hours_required is 0 or less
     not_due: 0,             // below the required-hours threshold
     // Panel-only extras (ignored by the shared card):
@@ -109,23 +100,21 @@ export function classifyPostRotationCohort({
     const approved = num(s.approved_hours)
     const required = num(s.hours_required)
     const pending = num(s.pending_hours)
-    const cert = certByStudent.get(s.id) || null
     const asg = asgByStudent.get(s.id) || null
     const state = asg ? assignmentState(asg, nowMs) : null
 
     let status
-    if (cert) status = 'certificate_unlocked'
-    else if (asg && state === 'completed') status = 'evaluation_completed'
+    if (asg && state === 'completed') status = 'evaluation_completed'
     else if (asg && state === 'active') status = 'evaluation_released'
     else if (required > 0 && approved >= required) status = 'eligible_for_review'
     else if (required <= 0) status = 'not_eligible_hours' // required invalid
     else status = 'not_eligible' // below threshold
 
-    // Recipient resolution is needed both for the ready/needs-attention split and for the row.
+    // Recipient resolution is used for the row + the missing-email warning.
     const recipient = resolveStudentEmail(s)
 
     // Count every student for the card buckets.
-    if (status === 'certificate_unlocked' || status === 'evaluation_completed' || status === 'evaluation_released') {
+    if (status === 'evaluation_completed' || status === 'evaluation_released') {
       summary.suppressed_existing += 1
       summary.in_flow += 1
     } else if (status === 'eligible_for_review') {
@@ -140,7 +129,7 @@ export function classifyPostRotationCohort({
 
     // The queue lists only eligible + in-flow students (not the whole cohort).
     const inQueue = status === 'eligible_for_review' || status === 'evaluation_released' ||
-      status === 'evaluation_completed' || status === 'certificate_unlocked'
+      status === 'evaluation_completed'
     if (!inQueue) continue
 
     const unit = (s.matched_unit_name || '').trim()
@@ -165,7 +154,6 @@ export function classifyPostRotationCohort({
       hoursRequired: required,
       lastShiftDate: meta?.lastShiftDate || null,
       status,
-      certificateNumber: cert?.certificate_number || null,
       studentEmail: recipient.email,
       warnings,
     })

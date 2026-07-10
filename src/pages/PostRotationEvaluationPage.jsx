@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 
 // Public tokenized renderer for the ASPIRE Post-Rotation Evaluation (slug:
-// post_rotation_evaluation). Mounted at /evaluation/post-rotation. Fully isolated from the
-// Casey-Fink, preceptor, and student-experience pages, none of which is modified. Submits the
-// flat response object to /api/evaluation-post-rotation-submit, which calls
-// submit_post_rotation_evaluation_response and then issues the Certificate of Participation
-// metadata. This page never shows a certificate download link (that arrives in a later phase).
+// post_rotation_evaluation). Mounted at /evaluation/post-rotation. This is NON-GATING experience
+// feedback and is fully decoupled from the Certificate of Participation (the Casey-Fink
+// post-rotation survey is the certificate gate). Fully isolated from the Casey-Fink, preceptor, and
+// student-experience pages, none of which is modified. Submits the flat response object to
+// /api/evaluation-post-rotation-submit, which calls submit_post_rotation_evaluation_response (which
+// no longer issues a certificate). This page never shows a certificate download link.
 
 const TOKEN_PATTERN = /^#t=([A-Za-z0-9_-]{43})$/
 
@@ -102,9 +103,6 @@ export default function PostRotationEvaluationPage() {
   const [meta, setMeta] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [answers, setAnswers] = useState({})
-  const [certificateNumber, setCertificateNumber] = useState(null)
-  const [downloading, setDownloading] = useState(false)
-  const [downloadError, setDownloadError] = useState(null)
 
   useEffect(() => {
     const m = document.createElement('meta'); m.name = 'referrer'; m.content = 'no-referrer'; document.head.appendChild(m)
@@ -191,7 +189,7 @@ export default function PostRotationEvaluationPage() {
         body: JSON.stringify({ token: rawToken, responses }),
       })
       const body = await res.json().catch(() => ({}))
-      if (res.status === 200) { setCertificateNumber(body.certificateNumber || null); setView('thank_you') }
+      if (res.status === 200) { setView('thank_you') }
       else if (res.status === 410) { setErrorMessage(body.error || 'This evaluation link is no longer valid.'); setView('invalid') }
       else if (res.status === 422) { setView('rejected') }
       else if (res.status === 429) { setView('rate_limited') }
@@ -199,36 +197,6 @@ export default function PostRotationEvaluationPage() {
     } catch { setView('error') }
     finally { setSubmitting(false) }
   }, [rawToken, submitting, allComplete, allItems, answers])
-
-  // Download the certificate on demand using the token already in page state. The server derives
-  // the assignment from the token hash and generates the PDF; nothing is stored client-side.
-  const handleDownloadCertificate = useCallback(async () => {
-    if (!rawToken || downloading) return
-    setDownloading(true); setDownloadError(null)
-    try {
-      const res = await fetch('/api/certificate-participation-download', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: rawToken }),
-      })
-      if (!res.ok) { setDownloadError('The certificate could not be downloaded right now. Please try again in a moment.'); return }
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `ASPIRE-Certificate-of-Participation-${certificateNumber || 'certificate'}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch {
-      setDownloadError('Network error. Please try again.')
-    } finally {
-      setDownloading(false)
-    }
-  }, [rawToken, downloading, certificateNumber])
-
-  const thankYouCopy = certificateNumber
-    ? 'Your Certificate of Participation has been unlocked. You may download it below.'
-    : 'Your response has been submitted. Your Certificate of Participation will be available after certificate access is finalized in ASPIRE Intelligence.'
 
   return (
     <div className="pr-page">
@@ -259,27 +227,16 @@ export default function PostRotationEvaluationPage() {
           {view === 'thank_you' ? (
             <div className="pr-card" style={{ textAlign: 'center', marginTop: 40 }}>
               <h2 style={{ fontSize: 19, fontWeight: 700, color: '#191919', margin: '0 0 12px' }}>
-                Thank you for completing your post-rotation evaluation.
+                Thank you for completing the ASPIRE Post-Rotation Evaluation.
               </h2>
-              <p style={{ fontSize: 15, color: '#4b5563', lineHeight: 1.65, margin: certificateNumber ? '0 0 18px' : 0 }}>
-                {thankYouCopy}
+              <p style={{ fontSize: 15, color: '#4b5563', lineHeight: 1.65, margin: '0 0 10px' }}>
+                Your feedback has been submitted. Your responses help us improve ASPIRE for future
+                students and academic partners.
               </p>
-              {certificateNumber && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleDownloadCertificate}
-                    disabled={downloading}
-                    className="pr-submit"
-                    style={{ maxWidth: 360, margin: '0 auto', opacity: downloading ? 0.6 : 1, cursor: downloading ? 'default' : 'pointer' }}
-                  >
-                    {downloading ? 'Preparing…' : 'Download Certificate of Participation'}
-                  </button>
-                  {downloadError && (
-                    <p style={{ fontSize: 13, color: '#991b1b', margin: '12px 0 0' }}>{downloadError}</p>
-                  )}
-                </>
-              )}
+              <p style={{ fontSize: 13.5, color: '#6b7280', lineHeight: 1.6, margin: 0 }}>
+                The Certificate of Participation is unlocked through the Casey-Fink post-rotation
+                readiness survey.
+              </p>
             </div>
           ) : (
             <p style={{ fontSize: 16, color: '#4b5563', textAlign: 'center', marginTop: 80, lineHeight: 1.6 }}>
