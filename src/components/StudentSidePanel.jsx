@@ -354,6 +354,7 @@ export default function StudentSidePanel({
   const [dlPhotoDoc,       setDlPhotoDoc]       = useState(false)
   const [downloadErr,      setDownloadErr]      = useState(null)
   const [generatingBadge,  setGeneratingBadge]  = useState(false)
+  const [downloadingCert,  setDownloadingCert]  = useState(false)
 
   const showDlError = () => {
     setDownloadErr('Download failed. The file may have been removed. Try re-uploading.')
@@ -441,6 +442,31 @@ export default function StudentSidePanel({
   })
   // Mark synced when shift log data loads
   useEffect(() => { markHoursSynced() }, [shiftLogs]) // eslint-disable-line
+
+  // Certificate + post-rotation state, for the Download Certificate button (Owner/Admin only;
+  // certificates RLS grants SELECT to owner/admin). Never issues a certificate - read-only.
+  const { data: certState = { certificate: null, postRotation: [] } } = useQuery({
+    queryKey: ['student_certificate_state', student.id],
+    queryFn: async () => {
+      const [certRes, asgRes] = await Promise.all([
+        supabase.from('certificates').select('id, certificate_number').eq('student_id', student.id).maybeSingle(),
+        supabase.from('evaluation_assignments')
+          .select('status, completed_at, revoked_at, evaluation_instruments!inner ( slug )')
+          .eq('student_id', student.id),
+      ])
+      if (certRes.error) throw certRes.error
+      if (asgRes.error) throw asgRes.error
+      const slugOf = (a) => {
+        const i = Array.isArray(a.evaluation_instruments) ? a.evaluation_instruments[0] : a.evaluation_instruments
+        return i?.slug
+      }
+      return {
+        certificate: certRes.data || null,
+        postRotation: (asgRes.data || []).filter(a => slugOf(a) === 'post_rotation_evaluation'),
+      }
+    },
+    enabled: !!student.id && canEdit,
+  })
 
   // WS1e-A4: earned-hour aggregate mutation is prohibited (approved/pending hours are
   // derived from submitted shift logs). The per-shift approve/reject/adjust controls
@@ -788,6 +814,41 @@ export default function StudentSidePanel({
     }
     setGeneratingBadge(false)
   }
+
+  // Download the Certificate of Participation (Owner/Admin). The server generates the PDF on
+  // demand from the certificates row; nothing is created or stored here.
+  const handleDownloadCertificate = async () => {
+    setDownloadingCert(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) { toast?.error('Session expired', 'Please sign in again.'); setDownloadingCert(false); return }
+      const res = await fetch(`/api/certificate-participation-admin-download?student_id=${encodeURIComponent(student.id)}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!res.ok) { toast?.error('Certificate download failed', 'The certificate could not be downloaded right now.'); setDownloadingCert(false); return }
+      const blob = await res.blob()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = `ASPIRE-Certificate-of-Participation-${(data.last_name || '').replace(/\s+/g, '_')}-${certState.certificate?.certificate_number || 'certificate'}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast?.success('Certificate downloaded', 'The Certificate of Participation was saved.')
+    } catch (err) {
+      toast?.error('Certificate download failed', err.message)
+    }
+    setDownloadingCert(false)
+  }
+
+  // Certificate button state. Enabled once a certificate row exists; otherwise a tooltip explains
+  // the gate. A live (non-revoked) post-rotation assignment means "released, awaiting submission".
+  const hasCertificate = !!certState.certificate?.certificate_number
+  const postRotationLive = certState.postRotation.some(a => !a.revoked_at && a.status !== 'revoked')
+  const certDisabledReason = hasCertificate
+    ? null
+    : postRotationLive
+    ? 'Certificate available after the student completes the post-rotation evaluation.'
+    : 'Certificate available after post-rotation evaluation completion.'
 
   // Compute badge button disabled reason (shown as tooltip)
   const badgeDates         = rotationRow ? calculateBadgeDates(rotationRow) : null
@@ -1620,6 +1681,30 @@ export default function StudentSidePanel({
                 {headMsg === 'success' && <span className="doc-status doc-success">✓ Uploaded</span>}
                 {headMsg && headMsg !== 'success' && <span className="doc-status doc-error" style={{ color:'var(--cs-red)' }}>{headMsg}</span>}
               </div>
+
+              {/* Download Certificate of Participation - Owner/Admin. Enabled once the certificate
+                  is unlocked (post-rotation evaluation submitted); disabled with a tooltip otherwise. */}
+              {canEdit && (
+                <div className="doc-upload-area">
+                  <div className="doc-area-label">Certificate of Participation</div>
+                  <Tooltip label={certDisabledReason || 'Download the Certificate of Participation'} placement="top">
+                    <button
+                      onClick={handleDownloadCertificate}
+                      disabled={!!certDisabledReason || downloadingCert}
+                      aria-label={certDisabledReason || 'Download Certificate of Participation'}
+                      style={{
+                        background: certDisabledReason ? '#f3f4f6' : 'var(--nightfall)',
+                        border: certDisabledReason ? '1px solid #e5e7eb' : '1px solid var(--nightfall)',
+                        color: certDisabledReason ? '#9ca3af' : '#fff',
+                        fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px',
+                        cursor: (certDisabledReason || downloadingCert) ? 'not-allowed' : 'pointer',
+                        fontFamily:'DM Sans,sans-serif',
+                      }}>
+                      {downloadingCert ? 'Preparing…' : 'Download Certificate of Participation'}
+                    </button>
+                  </Tooltip>
+                </div>
+              )}
             </div>
           </div>
 

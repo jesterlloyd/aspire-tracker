@@ -103,6 +103,8 @@ export default function PostRotationEvaluationPage() {
   const [submitting, setSubmitting] = useState(false)
   const [answers, setAnswers] = useState({})
   const [certificateNumber, setCertificateNumber] = useState(null)
+  const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState(null)
 
   useEffect(() => {
     const m = document.createElement('meta'); m.name = 'referrer'; m.content = 'no-referrer'; document.head.appendChild(m)
@@ -198,8 +200,34 @@ export default function PostRotationEvaluationPage() {
     finally { setSubmitting(false) }
   }, [rawToken, submitting, allComplete, allItems, answers])
 
+  // Download the certificate on demand using the token already in page state. The server derives
+  // the assignment from the token hash and generates the PDF; nothing is stored client-side.
+  const handleDownloadCertificate = useCallback(async () => {
+    if (!rawToken || downloading) return
+    setDownloading(true); setDownloadError(null)
+    try {
+      const res = await fetch('/api/certificate-participation-download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: rawToken }),
+      })
+      if (!res.ok) { setDownloadError('The certificate could not be downloaded right now. Please try again in a moment.'); return }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `ASPIRE-Certificate-of-Participation-${certificateNumber || 'certificate'}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setDownloadError('Network error. Please try again.')
+    } finally {
+      setDownloading(false)
+    }
+  }, [rawToken, downloading, certificateNumber])
+
   const thankYouCopy = certificateNumber
-    ? 'Your Certificate of Participation has been unlocked. Certificate download access will be added in the next phase.'
+    ? 'Your Certificate of Participation has been unlocked. You may download it below.'
     : 'Your response has been submitted. Your Certificate of Participation will be available after certificate access is finalized in ASPIRE Intelligence.'
 
   return (
@@ -233,9 +261,25 @@ export default function PostRotationEvaluationPage() {
               <h2 style={{ fontSize: 19, fontWeight: 700, color: '#191919', margin: '0 0 12px' }}>
                 Thank you for completing your post-rotation evaluation.
               </h2>
-              <p style={{ fontSize: 15, color: '#4b5563', lineHeight: 1.65, margin: 0 }}>
+              <p style={{ fontSize: 15, color: '#4b5563', lineHeight: 1.65, margin: certificateNumber ? '0 0 18px' : 0 }}>
                 {thankYouCopy}
               </p>
+              {certificateNumber && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleDownloadCertificate}
+                    disabled={downloading}
+                    className="pr-submit"
+                    style={{ maxWidth: 360, margin: '0 auto', opacity: downloading ? 0.6 : 1, cursor: downloading ? 'default' : 'pointer' }}
+                  >
+                    {downloading ? 'Preparing…' : 'Download Certificate of Participation'}
+                  </button>
+                  {downloadError && (
+                    <p style={{ fontSize: 13, color: '#991b1b', margin: '12px 0 0' }}>{downloadError}</p>
+                  )}
+                </>
+              )}
             </div>
           ) : (
             <p style={{ fontSize: 16, color: '#4b5563', textAlign: 'center', marginTop: 80, lineHeight: 1.6 }}>
