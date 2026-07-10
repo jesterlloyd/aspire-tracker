@@ -49,11 +49,13 @@ const EMPTY_SUMMARY = {
 // Read-only load of everything the queue needs, in the repo's react-query pattern.
 // The captured detectedAtMs is taken here (event/async context, never during render).
 async function loadPostRotationQueue(cohortId) {
-  // Wave 1 (fatal): students + post_rotation_evaluation assignments for this cohort.
-  const [sRes, aRes] = await Promise.all([
+  // Wave 1 (fatal): students + post_rotation_evaluation assignments + units for this cohort. The
+  // unit NAME is resolved from the units table via students.matched_unit_id (the app-wide pattern);
+  // there is no students.unit / students.matched_unit column.
+  const [sRes, aRes, uRes] = await Promise.all([
     supabase
       .from('students')
-      .select('id, first_name, last_name, preferred_first_name, school, program_type, unit, matched_unit, approved_hours, hours_required, pending_hours, personal_email, school_email')
+      .select('id, first_name, last_name, preferred_first_name, school, program_type, matched_unit_id, approved_hours, hours_required, pending_hours, personal_email, school_email')
       .eq('cohort_id', cohortId)
       .order('last_name').order('first_name'),
     supabase
@@ -63,11 +65,19 @@ async function loadPostRotationQueue(cohortId) {
         evaluation_instruments!inner ( slug )
       `)
       .eq('cohort_id', cohortId),
+    supabase
+      .from('units')
+      .select('id, unit_name'),
   ])
   if (sRes.error) throw sRes.error
   if (aRes.error) throw aRes.error
+  if (uRes.error) throw uRes.error
 
-  const students = sRes.data || []
+  const unitNameById = new Map((uRes.data || []).map(u => [u.id, u.unit_name]))
+  const students = (sRes.data || []).map(s => ({
+    ...s,
+    matched_unit_name: unitNameById.get(s.matched_unit_id) || '',
+  }))
   const slugFor = (a) => {
     const inst = a.evaluation_instruments
     const i = Array.isArray(inst) ? inst[0] : inst

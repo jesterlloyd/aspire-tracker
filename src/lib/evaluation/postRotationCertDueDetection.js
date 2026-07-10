@@ -48,8 +48,10 @@ function resolveStudentEmail(student) {
 
 // Classify one cohort. All inputs are already loaded; this function does no I/O.
 //   students     - [{ id, first_name, last_name, preferred_first_name, school, program_type,
-//                     unit, matched_unit, approved_hours, hours_required, pending_hours,
+//                     matched_unit_name, approved_hours, hours_required, pending_hours,
 //                     personal_email, school_email }]
+//                   matched_unit_name is resolved by the caller from units.unit_name via
+//                   students.matched_unit_id; '' when the student has no matched unit.
 //   assignments  - post_rotation_evaluation assignments for the cohort ONLY:
 //                  [{ id, student_id, status, revoked_at, completed_at, expires_at, sent_at, created_at }]
 //   certificates - certificates rows for these students:
@@ -143,7 +145,7 @@ export function classifyPostRotationCohort({
       status === 'evaluation_completed' || status === 'certificate_unlocked'
     if (!inQueue) continue
 
-    const unit = (s.unit || s.matched_unit || '').trim()
+    const unit = (s.matched_unit_name || '').trim()
     const meta = shiftMeta.get(s.id) || null
 
     // Non-blocking warnings.

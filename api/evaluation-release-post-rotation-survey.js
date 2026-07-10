@@ -136,7 +136,7 @@ async function _handler(req, res) {
   // ── 4. Load detection inputs for THIS student and re-run the post-rotation detector. ────
   const { data: student, error: studentErr } = await supabaseAdmin
     .from('students')
-    .select('id, first_name, last_name, preferred_first_name, school, program_type, unit, matched_unit, cohort_id, approved_hours, hours_required, pending_hours, personal_email, school_email')
+    .select('id, first_name, last_name, preferred_first_name, school, program_type, cohort_id, approved_hours, hours_required, pending_hours, personal_email, school_email')
     .eq('id', studentId)
     .single();
   if (studentErr || !student) {
