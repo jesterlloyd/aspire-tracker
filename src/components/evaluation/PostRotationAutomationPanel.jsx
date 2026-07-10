@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -143,6 +143,42 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
   // Report the standard summary up to the shared status band + summary card.
   useEffect(() => { onCounts?.(summary) }, [onCounts, summary])
 
+  // Manual release state (per-student, human-approved). No auto-send, no bulk.
+  const [confirm, setConfirm] = useState(null)       // row pending release confirmation
+  const [releasing, setReleasing] = useState(false)
+  const [releaseMsg, setReleaseMsg] = useState(null) // { tone:'ok'|'err', text }
+
+  // Release ONE eligible student. Sends only { student_id }; the server re-checks eligibility
+  // (post-rotation detector) and resolves the recipient. No recipient override. Certificates are
+  // NOT issued here - the certificate number is assigned only when the student submits.
+  const doRelease = useCallback(async (row) => {
+    setReleasing(true); setReleaseMsg(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        setReleaseMsg({ tone: 'err', text: 'Your session expired. Please sign in again.' })
+        setReleasing(false); return
+      }
+      const res = await fetch('/api/evaluation-release-post-rotation-survey', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ student_id: row.studentId }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (res.ok && body.released) {
+        setReleaseMsg({ tone: 'ok', text: `Released. Post-rotation evaluation sent to ${body.student_email || 'the student'} for ${row.studentName}.` })
+      } else {
+        setReleaseMsg({ tone: 'err', text: `Release refused for ${row.studentName}: ${body.reason || body.error || 'no longer eligible'}` })
+      }
+    } catch {
+      setReleaseMsg({ tone: 'err', text: 'Network error. Please try again.' })
+    } finally {
+      setReleasing(false)
+      setConfirm(null)
+      await refetch() // a released student moves from eligible to Evaluation Released
+    }
+  }, [refetch])
+
   // Render the detail body only when this workflow is selected (the query above still runs).
   if (!active) return null
 
@@ -172,20 +208,20 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
         hours, along with anyone already in the evaluation or certificate flow.
       </p>
 
-      {/* Phase banner - release is not live yet. */}
+      {/* Release banner - human-approved sends only. */}
       <div style={{
-        fontSize: 12.5, color: '#92400e', background: '#FBF5E8', border: '1px solid #f0e0bd',
+        fontSize: 12.5, color: '#1D2567', background: '#EEF1FB', border: '1px solid #d7ddf5',
         borderRadius: 8, padding: '10px 14px', marginBottom: 18, lineHeight: 1.55,
       }}>
-        <strong>Review only for now.</strong> This is the eligible queue. Manual release, the
-        student email, and the Certificate of Participation are added in the next phase. Nothing
-        here sends email, creates tokens, or issues certificates.
+        <strong>Human-approved sends only.</strong> Releasing emails the student their post-rotation
+        evaluation and re-checks eligibility on the server first. The Certificate of Participation
+        unlocks only after the student submits the evaluation. There is no auto-send and no bulk release.
       </div>
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
         <button
           onClick={() => refetch()}
-          disabled={isFetching}
+          disabled={isFetching || releasing}
           style={{
             padding: '7px 14px', background: NAVY, color: '#fff', border: 'none', borderRadius: 7,
             fontSize: 12.5, fontWeight: 600, fontFamily: F, cursor: isFetching ? 'default' : 'pointer', opacity: isFetching ? 0.6 : 1,
@@ -209,6 +245,17 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
           {summary.in_flow} in evaluation or certificate flow
         </span>
       </div>
+
+      {releaseMsg && (
+        <div style={{
+          fontSize: 13, borderRadius: 8, padding: '10px 14px', marginBottom: 16, lineHeight: 1.5,
+          background: releaseMsg.tone === 'ok' ? '#EDF7F0' : '#FEECEC',
+          color: releaseMsg.tone === 'ok' ? '#166534' : '#991b1b',
+          border: `1px solid ${releaseMsg.tone === 'ok' ? '#c6e7d0' : '#f3c6c6'}`,
+        }}>
+          {releaseMsg.text}
+        </div>
+      )}
 
       {data?.shiftNote && (
         <div style={{ fontSize: 12.5, color: '#6b7280', marginBottom: 14 }}>{data.shiftNote}</div>
@@ -272,18 +319,22 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
                           {r.warnings.length ? r.warnings.join(' · ') : <span style={{ color: '#9ca3af' }}>-</span>}
                         </td>
                         <td style={{ padding: '9px 13px', textAlign: 'right' }}>
-                          <button
-                            type="button"
-                            disabled
-                            title="Manual release will be added in the next phase."
-                            style={{
-                              padding: '6px 12px', background: '#f3f4f6', color: '#9ca3af',
-                              border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 12, fontWeight: 600,
-                              fontFamily: F, cursor: 'not-allowed', whiteSpace: 'nowrap',
-                            }}
-                          >
-                            Release in next phase
-                          </button>
+                          {r.status === 'eligible_for_review' ? (
+                            <button
+                              type="button"
+                              onClick={() => { setReleaseMsg(null); setConfirm(r) }}
+                              disabled={releasing}
+                              style={{
+                                padding: '6px 14px', background: '#166534', color: '#fff', border: 'none',
+                                borderRadius: 7, fontSize: 12, fontWeight: 600, fontFamily: F,
+                                cursor: releasing ? 'default' : 'pointer', opacity: releasing ? 0.6 : 1, whiteSpace: 'nowrap',
+                              }}
+                            >
+                              Release Evaluation
+                            </button>
+                          ) : (
+                            <span style={{ color: '#9ca3af', fontSize: 12 }}>-</span>
+                          )}
                         </td>
                       </tr>
                     )
@@ -293,6 +344,51 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
             </div>
           )}
         </>
+      )}
+
+      {/* Release confirmation - shows the server-resolved STUDENT recipient; no editable field. */}
+      {confirm && (
+        <div className="modal-overlay" onMouseDown={() => !releasing && setConfirm(null)}>
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            style={{ maxWidth: 470, fontFamily: F }}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1D2567', fontFamily: F }}>
+                Release post-rotation evaluation?
+              </h2>
+            </div>
+            <div style={{ padding: '16px 20px', fontSize: 13.5, color: '#374151', lineHeight: 1.6 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '6px 12px', marginBottom: 14 }}>
+                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Student</span><span style={{ fontWeight: 600, color: '#191919' }}>{confirm.studentName}</span>
+                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Recipient email</span><span>{confirm.studentEmail || '-'}</span>
+                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Approved / Required</span><span>{fmtHours(confirm.approvedHours)} / {fmtHours(confirm.hoursRequired)}</span>
+              </div>
+              <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>
+                This will send the post-rotation evaluation email to the student. The Certificate of
+                Participation will become available only after the evaluation is submitted. Eligibility
+                is re-checked on the server before sending.
+              </p>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="btn-outline-modal" onClick={() => setConfirm(null)} disabled={releasing}>Cancel</button>
+              <button
+                onClick={() => doRelease(confirm)}
+                disabled={releasing}
+                style={{
+                  padding: '8px 18px', background: '#166534', color: '#fff', border: 'none',
+                  borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: F,
+                  cursor: releasing ? 'default' : 'pointer', opacity: releasing ? 0.6 : 1,
+                }}
+              >
+                {releasing ? 'Sending…' : 'Confirm & Send'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

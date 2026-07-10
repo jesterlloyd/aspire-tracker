@@ -89,10 +89,11 @@ export function classifyPostRotationCohort({
 
   const rows = []
   const summary = {
-    // Standard SurveyAutomationCard buckets. Release is not live this phase, so
-    // nothing is reported as releasable (due_sendable/due_unsendable stay 0) to keep
-    // the shared "releases ready" status band truthful. eligible_for_review is tracked
-    // separately and surfaced inside the panel, not on the shared release band.
+    // Standard SurveyAutomationCard buckets. Release is now live, so eligible students count
+    // as release-ready: eligible + a resolvable student email -> due_sendable; eligible with no
+    // email on file -> due_unsendable (needs attention). In-flow students (released / completed /
+    // certificate unlocked) are suppressed_existing and are never counted as ready. This keeps the
+    // shared "Ready to release" band truthful.
     due_sendable: 0,
     due_unsendable: 0,
     suppressed_existing: 0, // in-flow: released + completed + certificate unlocked
@@ -119,12 +120,18 @@ export function classifyPostRotationCohort({
     else if (required <= 0) status = 'not_eligible_hours' // required invalid
     else status = 'not_eligible' // below threshold
 
+    // Recipient resolution is needed both for the ready/needs-attention split and for the row.
+    const recipient = resolveStudentEmail(s)
+
     // Count every student for the card buckets.
     if (status === 'certificate_unlocked' || status === 'evaluation_completed' || status === 'evaluation_released') {
       summary.suppressed_existing += 1
       summary.in_flow += 1
     } else if (status === 'eligible_for_review') {
       summary.eligible_for_review += 1
+      // Release is live: eligible + resolvable email is ready; eligible without an email needs attention.
+      if (recipient.sendable) summary.due_sendable += 1
+      else summary.due_unsendable += 1
     } else if (status === 'not_eligible_hours') {
       summary.ineligible_hours += 1
     } else {
@@ -137,7 +144,6 @@ export function classifyPostRotationCohort({
     if (!inQueue) continue
 
     const unit = (s.unit || s.matched_unit || '').trim()
-    const recipient = resolveStudentEmail(s)
     const meta = shiftMeta.get(s.id) || null
 
     // Non-blocking warnings.
