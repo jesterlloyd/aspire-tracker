@@ -279,6 +279,9 @@ export default function EvaluationPage() {
   const [responses,    setResponses]    = useState({})
   const [rawToken,     setRawToken]     = useState(null)
   const [submitting,   setSubmitting]   = useState(false)
+  const [certificateNumber, setCertificateNumber] = useState(null)
+  const [downloading,  setDownloading]  = useState(false)
+  const [downloadError, setDownloadError] = useState(null)
 
   // Insert no-referrer meta tag + page CSS; both removed on unmount
   useEffect(() => {
@@ -370,6 +373,9 @@ export default function EvaluationPage() {
       })
       const body = await res.json().catch(() => ({}))
       if (res.status === 200) {
+        // certificateNumber is present only for a student post_rotation Casey-Fink submission that
+        // unlocked the Certificate of Participation. Baseline submissions never return one.
+        setCertificateNumber(body.certificateNumber || null)
         setView('thank_you')
       } else if (res.status === 410) {
         setErrorMessage(body.error || 'This survey link is no longer valid.')
@@ -387,6 +393,32 @@ export default function EvaluationPage() {
       setSubmitting(false)
     }
   }, [rawToken, responses, submitting])
+
+  // Download the certificate on demand using the token already in page state (only shown for a
+  // post_rotation Casey-Fink submission that unlocked a certificate). Nothing is stored client-side.
+  const handleDownloadCertificate = useCallback(async () => {
+    if (!rawToken || downloading) return
+    setDownloading(true); setDownloadError(null)
+    try {
+      const res = await fetch('/api/certificate-participation-download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: rawToken }),
+      })
+      if (!res.ok) { setDownloadError('The certificate could not be downloaded right now. Please try again in a moment.'); return }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `ASPIRE-Certificate-of-Participation-${certificateNumber || 'certificate'}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setDownloadError('Network error. Please try again.')
+    } finally {
+      setDownloading(false)
+    }
+  }, [rawToken, downloading, certificateNumber])
 
   // ── Render ────────────────────────────────────────────────────────────────
   // Branded header is rendered across ALL page states.
@@ -440,17 +472,40 @@ export default function EvaluationPage() {
       {/* Non-form state messages - same text as existing state screens */}
       {view !== 'form' && (
         <div className="eval-container">
-          <p style={{ fontSize: 16, color: '#4b5563', textAlign: 'center', marginTop: 80 }}>
-            {view === 'loading'       ? 'Loading…'
-            : view === 'completed'   ? 'Thank you. Your response has already been recorded.'
-            : view === 'thank_you'   ? 'Thank you. Your response has been recorded.'
-            : view === 'invalid'     ? (errorMessage || 'This survey link is no longer valid.')
-            : view === 'unsupported' ? 'This survey link is not supported by the current application version.'
-            : view === 'rate_limited'? 'Too many requests. Please try again in a minute.'
-            : view === 'rejected'    ? 'Please review your responses and try again.'
-            :                          'Something went wrong. Please try again later.'
-            }
-          </p>
+          {view === 'thank_you' && certificateNumber ? (
+            <div style={{ maxWidth: 620, margin: '80px auto 0', textAlign: 'center' }}>
+              <p style={{ fontSize: 16, color: '#191919', fontWeight: 600, margin: '0 0 8px' }}>
+                Thank you. Your response has been recorded.
+              </p>
+              <p style={{ fontSize: 15, color: '#4b5563', lineHeight: 1.6, margin: '0 0 18px' }}>
+                Your Certificate of Participation has been unlocked. You may download it below.
+              </p>
+              <button
+                type="button"
+                onClick={handleDownloadCertificate}
+                disabled={downloading}
+                className="eval-submit-btn"
+                style={{ maxWidth: 360, margin: '0 auto', opacity: downloading ? 0.6 : 1, cursor: downloading ? 'default' : 'pointer' }}
+              >
+                {downloading ? 'Preparing…' : 'Download Certificate of Participation'}
+              </button>
+              {downloadError && (
+                <p style={{ fontSize: 13, color: '#991b1b', margin: '12px 0 0' }}>{downloadError}</p>
+              )}
+            </div>
+          ) : (
+            <p style={{ fontSize: 16, color: '#4b5563', textAlign: 'center', marginTop: 80 }}>
+              {view === 'loading'       ? 'Loading…'
+              : view === 'completed'   ? 'Thank you. Your response has already been recorded.'
+              : view === 'thank_you'   ? 'Thank you. Your response has been recorded.'
+              : view === 'invalid'     ? (errorMessage || 'This survey link is no longer valid.')
+              : view === 'unsupported' ? 'This survey link is not supported by the current application version.'
+              : view === 'rate_limited'? 'Too many requests. Please try again in a minute.'
+              : view === 'rejected'    ? 'Please review your responses and try again.'
+              :                          'Something went wrong. Please try again later.'
+              }
+            </p>
+          )}
         </div>
       )}
 

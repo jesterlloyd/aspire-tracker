@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import PreceptorAutomationPanel from './PreceptorAutomationPanel'
 import StudentEvalAutomationPanel from './StudentEvalAutomationPanel'
+import CaseyFinkPostRotationAutomationPanel from './CaseyFinkPostRotationAutomationPanel'
 import PostRotationAutomationPanel from './PostRotationAutomationPanel'
 import SurveyAutomationCard from './SurveyAutomationCard'
 import AutomationEmailPreviewDrawer from '../connect/AutomationEmailPreviewDrawer'
@@ -19,9 +20,10 @@ const WORKSPACE_ID = 'survey-automation-workspace'
 
 // The two survey workflows, in display order. `key` drives selection + the count rollup.
 const WORKFLOWS = [
-  { key: 'preceptor',    title: 'Preceptor Student Readiness Assessment',  recipientLabel: 'Preceptor' },
-  { key: 'student',      title: 'Student Feedback: Preceptor & Unit',      recipientLabel: 'Student' },
-  { key: 'postRotation', title: 'Post-Rotation Evaluation & Certificate',  recipientLabel: 'Student' },
+  { key: 'preceptor',            title: 'Preceptor Student Readiness Assessment',          recipientLabel: 'Preceptor' },
+  { key: 'student',              title: 'Student Feedback: Preceptor & Unit',              recipientLabel: 'Student' },
+  { key: 'caseyFinkPostRotation', title: 'Casey-Fink Readiness for Practice, Post-Rotation', recipientLabel: 'Student' },
+  { key: 'postRotation',         title: 'ASPIRE Post-Rotation Evaluation',                 recipientLabel: 'Student' },
 ]
 
 export default function SurveyAutomationDashboard({ cohortId }) {
@@ -38,6 +40,7 @@ export default function SurveyAutomationDashboard({ cohortId }) {
   }, [])
   const reportPreceptor    = useCallback((s) => report('preceptor', s), [report])
   const reportStudent      = useCallback((s) => report('student', s), [report])
+  const reportCaseyFink    = useCallback((s) => report('caseyFinkPostRotation', s), [report])
   const reportPostRotation = useCallback((s) => report('postRotation', s), [report])
 
   const isActionable = (key) =>
@@ -133,7 +136,9 @@ export default function SurveyAutomationDashboard({ cohortId }) {
         <PreceptorAutomationPanel cohortId={cohortId} active={effective === 'preceptor'} onCounts={reportPreceptor} />
         {/* SR-2b-1: separate read-only queue for the student-completed survey. */}
         <StudentEvalAutomationPanel cohortId={cohortId} active={effective === 'student'} onCounts={reportStudent} />
-        {/* ASPIRE-POSTROTATION-CERT-UI-1: read-only eligible queue; release ships next phase. */}
+        {/* ASPIRE-CASEYFINK-CERT-GATE-1: certificate-gating post-rotation Casey-Fink workflow. */}
+        <CaseyFinkPostRotationAutomationPanel cohortId={cohortId} active={effective === 'caseyFinkPostRotation'} onCounts={reportCaseyFink} />
+        {/* ASPIRE Post-Rotation Evaluation: experience feedback, no longer the certificate gate. */}
         <PostRotationAutomationPanel cohortId={cohortId} active={effective === 'postRotation'} onCounts={reportPostRotation} />
       </section>
     </div>

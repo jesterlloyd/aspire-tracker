@@ -121,7 +121,13 @@ export default async function handler(req, res) {
     }
 
     if (submitResult.status === 'success') {
-      return res.status(200).json({ success: true, submittedAt: submitResult.submitted_at });
+      // certificate_number is present only when this was a student post_rotation Casey-Fink
+      // submission that issued (or matched an existing) certificate. Baseline never returns one.
+      return res.status(200).json({
+        success: true,
+        submittedAt: submitResult.submitted_at,
+        certificateNumber: submitResult.certificate_number || null,
+      });
     }
 
     if (

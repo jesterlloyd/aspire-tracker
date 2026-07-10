@@ -16,12 +16,14 @@
 import { buildPreceptorInvitationEmail, formatExpiresAt } from '../../../lib/server/evaluation/preceptorEmailTemplates.js';
 import { buildStudentEvalInvitationEmail } from '../../../lib/server/evaluation/studentEvalEmailTemplates.js';
 import { buildPostRotationInvitationEmail } from '../../../lib/server/evaluation/postRotationEmailTemplates.js';
+import { buildCaseyFinkPostRotationInvitationEmail } from '../../../lib/server/evaluation/caseyFinkPostRotationEmailTemplates.js';
 import { appUrl } from '../appUrl.js';
 
 // Obvious, non-live preview URLs. `#t=preview-token` makes clear this is not a real tokenized link.
 const PRECEPTOR_PREVIEW_URL     = `${appUrl('/evaluation/feedback')}#t=preview-token`;
 const STUDENT_PREVIEW_URL       = `${appUrl('/evaluation/preceptor-unit')}#t=preview-token`;
 const POST_ROTATION_PREVIEW_URL = `${appUrl('/evaluation/post-rotation')}#t=preview-token`;
+const CASEY_FINK_PREVIEW_URL    = `${appUrl('/evaluation/readiness')}#t=preview-token`;
 
 // Reasonable future expiry (~2 weeks out), formatted with the builders' own helper.
 function previewExpiresAtHuman() {
@@ -69,14 +71,26 @@ export function getEvaluationPreviewFixture(workflowKey) {
   }
 
   if (workflowKey === 'postRotation') {
-    // Post-Rotation Evaluation & Certificate release email. The certificate is NOT included;
-    // the copy tells the student it becomes available after the evaluation is submitted.
+    // ASPIRE Post-Rotation Evaluation release email (experience feedback; no longer the gate).
     return {
       recipientType: 'Student',
       render: () => buildPostRotationInvitationEmail({
         studentFirstName: MOCK.studentFirstName,
         expiresAtHuman: previewExpiresAtHuman(),
         surveyUrl: POST_ROTATION_PREVIEW_URL,
+      }),
+    };
+  }
+
+  if (workflowKey === 'caseyFinkPostRotation') {
+    // Casey-Fink post-rotation release email. This is the certificate-gating survey; the copy
+    // tells the student that completing it unlocks the Certificate of Participation.
+    return {
+      recipientType: 'Student',
+      render: () => buildCaseyFinkPostRotationInvitationEmail({
+        studentFirstName: MOCK.studentFirstName,
+        expiresAtHuman: previewExpiresAtHuman(),
+        surveyUrl: CASEY_FINK_PREVIEW_URL,
       }),
     };
   }

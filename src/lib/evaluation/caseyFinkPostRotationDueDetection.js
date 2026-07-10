@@ -1,20 +1,17 @@
-// Pure, READ-ONLY status detection for the Post-Rotation Evaluation & Certificate
-// workflow (instrument slug: post_rotation_evaluation). Recipient is the STUDENT.
+// Pure, READ-ONLY status detection for the post-rotation Casey-Fink Readiness for Practice
+// Survey (slug: casey_fink_readiness_2024, timepoint: post_rotation). Recipient is the STUDENT.
+// This is the certificate-gating workflow: completing it unlocks the Certificate of Participation.
 //
-// ASPIRE-POSTROTATION-CERT-UI-1 - EVIDENCE ONLY. This phase surfaces an eligible /
-// in-flow queue. It performs NO I/O and NEVER sends, mints tokens, creates
-// assignments, calls issue_participation_certificate(), writes certificates, or
-// generates PDFs. Release is added in a later phase.
+// Parallel to postRotationCertDueDetection.js. It performs NO I/O and NEVER sends, mints tokens,
+// creates assignments, issues certificates, or writes. The caller passes ONLY the student's
+// post-rotation Casey-Fink assignments (slug + timepoint filtered).
 //
 // Per-student display status (highest state wins):
-//   certificate_unlocked - a certificates row exists for the student
-//   evaluation_completed - a post_rotation_evaluation assignment has completed_at
-//   evaluation_released  - a post_rotation_evaluation assignment is live (sent/opened/reminder_due)
-//   eligible_for_review  - no in-flow record and approved_hours >= hours_required (> 0)
-//   not_eligible         - below the hours threshold, or hours_required is 0 or less
-//
-// The queue shows eligible + in-flow students only (not the whole cohort), matching
-// the existing survey panels. Warnings are non-blocking display text.
+//   certificate_unlocked  - a certificates row exists for the student
+//   readiness_completed   - the post-rotation Casey-Fink assignment has completed_at
+//   readiness_released    - the post-rotation Casey-Fink assignment is live (sent/opened/reminder_due)
+//   eligible_for_review   - no in-flow record and approved_hours >= hours_required (> 0)
+//   not_eligible          - below the hours threshold, or hours_required is 0 or less
 
 function num(v) {
   const n = Number(v)
@@ -26,7 +23,6 @@ function isSafeEmail(v) {
   return typeof v === 'string' && EMAIL_PATTERN.test(v.trim())
 }
 
-// Conservative live/terminal state of a post_rotation_evaluation assignment.
 function assignmentState(a, nowMs) {
   if (a?.revoked_at || a?.status === 'revoked') return 'revoked'
   if (a?.completed_at || a?.status === 'completed') return 'completed'
@@ -52,16 +48,16 @@ function resolveStudentEmail(student) {
 //                     personal_email, school_email }]
 //                   matched_unit_name is resolved by the caller from units.unit_name via
 //                   students.matched_unit_id; '' when the student has no matched unit.
-//   assignments  - post_rotation_evaluation assignments for the cohort ONLY:
-//                  [{ id, student_id, status, revoked_at, completed_at, expires_at, sent_at, created_at }]
-//   certificates - certificates rows for these students:
-//                  [{ id, student_id, certificate_number, certificate_unlocked_at }]
-//   shiftMeta    - Map studentId -> { lastShiftDate: string|null, supportNeeded: boolean } (optional)
-//   displayName  - (student) => string, injected so the panel controls name formatting
-//   nowMs        - current epoch ms (injected for testability)
+//   assignments  - casey_fink_readiness_2024 assignments at timepoint post_rotation for the
+//                  cohort ONLY: [{ id, student_id, status, revoked_at, completed_at, expires_at,
+//                  sent_at, created_at }]
+//   certificates - certificates rows for these students: [{ id, student_id, certificate_number }]
+//   shiftMeta    - Map studentId -> { lastShiftDate, supportNeeded } (optional)
+//   displayName  - (student) => string
+//   nowMs        - current epoch ms
 //
-// Returns { rows, summary }. `rows` are queue rows (eligible + in-flow) sorted by name.
-export function classifyPostRotationCohort({
+// Returns { rows, summary }. rows are queue rows (eligible + in-flow) sorted by name.
+export function classifyCaseyFinkPostRotationCohort({
   students = [], assignments = [], certificates = [],
   shiftMeta = new Map(), displayName, nowMs = 0,
 }) {
@@ -74,7 +70,6 @@ export function classifyPostRotationCohort({
     if (c?.student_id && !certByStudent.has(c.student_id)) certByStudent.set(c.student_id, c)
   }
 
-  // Representative post_rotation_evaluation assignment per student (state precedence, then recency).
   const asgByStudent = new Map()
   for (const a of assignments) {
     const existing = asgByStudent.get(a.student_id)
@@ -91,16 +86,14 @@ export function classifyPostRotationCohort({
 
   const rows = []
   const summary = {
-    // The ASPIRE Post-Rotation Evaluation is no longer the certificate gate, and its release is
-    // temporarily disabled (the Casey-Fink post-rotation survey is the gate). So nothing here is
-    // reported as releasable (due_sendable/due_unsendable stay 0), keeping the shared "Ready to
-    // release" band truthful. eligible_for_review is still surfaced inside the panel.
+    // Certificate gate is live: eligible + resolvable email -> due_sendable; eligible with no
+    // email -> due_unsendable. In-flow (released / completed / certificate) -> suppressed_existing,
+    // never counted as ready.
     due_sendable: 0,
     due_unsendable: 0,
-    suppressed_existing: 0, // in-flow: released + completed + certificate unlocked
-    ineligible_hours: 0,    // hours_required is 0 or less
-    not_due: 0,             // below the required-hours threshold
-    // Panel-only extras (ignored by the shared card):
+    suppressed_existing: 0,
+    ineligible_hours: 0,
+    not_due: 0,
     eligible_for_review: 0,
     in_flow: 0,
   }
@@ -115,38 +108,34 @@ export function classifyPostRotationCohort({
 
     let status
     if (cert) status = 'certificate_unlocked'
-    else if (asg && state === 'completed') status = 'evaluation_completed'
-    else if (asg && state === 'active') status = 'evaluation_released'
+    else if (asg && state === 'completed') status = 'readiness_completed'
+    else if (asg && state === 'active') status = 'readiness_released'
     else if (required > 0 && approved >= required) status = 'eligible_for_review'
-    else if (required <= 0) status = 'not_eligible_hours' // required invalid
-    else status = 'not_eligible' // below threshold
+    else if (required <= 0) status = 'not_eligible_hours'
+    else status = 'not_eligible'
 
-    // Recipient resolution is needed both for the ready/needs-attention split and for the row.
     const recipient = resolveStudentEmail(s)
 
-    // Count every student for the card buckets.
-    if (status === 'certificate_unlocked' || status === 'evaluation_completed' || status === 'evaluation_released') {
+    if (status === 'certificate_unlocked' || status === 'readiness_completed' || status === 'readiness_released') {
       summary.suppressed_existing += 1
       summary.in_flow += 1
     } else if (status === 'eligible_for_review') {
-      // Release is disabled for this workflow now, so eligible students are NOT counted as ready
-      // to release. The count is surfaced in the panel only.
       summary.eligible_for_review += 1
+      if (recipient.sendable) summary.due_sendable += 1
+      else summary.due_unsendable += 1
     } else if (status === 'not_eligible_hours') {
       summary.ineligible_hours += 1
     } else {
       summary.not_due += 1
     }
 
-    // The queue lists only eligible + in-flow students (not the whole cohort).
-    const inQueue = status === 'eligible_for_review' || status === 'evaluation_released' ||
-      status === 'evaluation_completed' || status === 'certificate_unlocked'
+    const inQueue = status === 'eligible_for_review' || status === 'readiness_released' ||
+      status === 'readiness_completed' || status === 'certificate_unlocked'
     if (!inQueue) continue
 
     const unit = (s.matched_unit_name || '').trim()
     const meta = shiftMeta.get(s.id) || null
 
-    // Non-blocking warnings.
     const warnings = []
     if (approved < required && required > 0) warnings.push('Below required hours')
     if (pending > 0) warnings.push(`Pending hours: ${Number.isInteger(pending) ? pending : pending.toFixed(2)}`)

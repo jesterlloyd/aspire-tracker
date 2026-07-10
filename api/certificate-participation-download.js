@@ -7,9 +7,10 @@
 //
 // Authorization (all required):
 //   - token hashes to an evaluation_assignment_tokens row
-//   - its assignment is instrument slug post_rotation_evaluation, respondent_type student,
-//     timepoint post_rotation, and completed_at IS NOT NULL
-//   - a certificates row exists for that assignment
+//   - its assignment is a completed (completed_at IS NOT NULL) student post_rotation gating
+//     assignment: instrument slug casey_fink_readiness_2024 (the current certificate gate) or
+//     post_rotation_evaluation (compatibility fallback), respondent_type student, timepoint post_rotation
+//   - a certificates row exists for that student
 // The token's used_at may be set (submission consumes it) - that does NOT block download.
 //
 // This endpoint NEVER creates a certificate row, assigns a number, or touches
@@ -25,7 +26,10 @@ import { emailBaseUrl } from '../lib/server/appUrl.js';
 import { generateParticipationCertificate } from '../lib/server/certificates/generateParticipationCertificate.js';
 import { getStudentPreferredFullName } from '../src/lib/studentNameFormatters.js';
 
-const POST_ROTATION_SLUG = 'post_rotation_evaluation';
+// Gating instruments whose completed post_rotation token authorizes a certificate download.
+// casey_fink_readiness_2024 is the current gate; post_rotation_evaluation is a compatibility
+// fallback (no certificates are issued from it, but a token is accepted if a certificate exists).
+const GATING_SLUGS = new Set(['casey_fink_readiness_2024', 'post_rotation_evaluation']);
 const TEMPLATE_PATH = '/certificates/templates/aspire-certificate-of-participation.pdf';
 
 function firstOf(v) { return Array.isArray(v) ? v[0] : v; }
@@ -96,20 +100,21 @@ export default async function handler(req, res) {
     const student = firstOf(assignment?.students);
 
     if (!assignment || !instrument || !student) return res.status(500).json({ error: 'Internal error' });
-    if (instrument.slug !== POST_ROTATION_SLUG ||
+    if (!GATING_SLUGS.has(instrument.slug) ||
         assignment.respondent_type !== 'student' ||
         assignment.timepoint !== 'post_rotation') {
       return res.status(422).json({ error: 'This certificate link is not supported.' });
     }
     if (!assignment.completed_at) {
-      return res.status(409).json({ error: 'The certificate is available after the evaluation is submitted.' });
+      return res.status(409).json({ error: 'The certificate is available after the survey is submitted.' });
     }
 
-    // The certificate must already exist (issued by the submit RPC). We never create it here.
+    // The certificate must already exist (issued by the Casey-Fink post-rotation submit). We never
+    // create it here. Look up by student so either gating token resolves the same certificate.
     const { data: cert, error: certErr } = await supabaseAdmin
       .from('certificates')
       .select('certificate_number')
-      .eq('evaluation_assignment_id', assignment.id)
+      .eq('student_id', assignment.student_id)
       .maybeSingle();
     if (certErr) return res.status(500).json({ error: 'Internal error' });
     if (!cert || !cert.certificate_number) {
