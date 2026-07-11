@@ -6,6 +6,7 @@ import CaseyFinkPostRotationAutomationPanel from './CaseyFinkPostRotationAutomat
 import PostRotationAutomationPanel from './PostRotationAutomationPanel'
 import AutomationEmailPreviewDrawer from '../connect/AutomationEmailPreviewDrawer'
 import { getEvaluationPreviewFixture } from '../../lib/evaluation/evaluationPreviewFixtures'
+import { resolveEffectiveWorkflow } from '../../lib/evaluation/workflowSelection'
 
 // ASPIRE-EVALUATION-REVIEW-RELEASE-LAYOUT-1 - Review & Release as a workflow navigator with a
 // selected operational workspace (Settings-inspired left nav + right workspace). This shell runs
@@ -26,8 +27,6 @@ const WORKFLOWS = [
   { key: 'caseyFinkPostRotation', label: 'Casey-Fink Post-Rotation', title: 'Casey-Fink Readiness for Practice, Post-Rotation', recipient: 'Student', badge: 'Certificate gate', badgeTone: 'gate' },
   { key: 'postRotation',          label: 'ASPIRE Rotation Feedback', title: 'ASPIRE Post-Rotation Evaluation',               recipient: 'Student', badge: 'Paused', badgeTone: 'paused', paused: true },
 ]
-
-const DEFAULT_KEY = 'caseyFinkPostRotation'
 
 const CSS = `
 .rr-layout { display:flex; gap:18px; align-items:flex-start; }
@@ -142,11 +141,16 @@ export default function SurveyAutomationDashboard({ cohortId }) {
     return { ready, needs }
   }, [counts])
 
-  // Initial priority: first workflow with release-ready students, else first needing attention,
-  // else the Casey-Fink certificate-gating workflow. Explicit user selection always wins.
-  const firstReady = WORKFLOWS.find(w => (counts[w.key]?.due_sendable || 0) > 0)?.key
-  const firstNeeds = WORKFLOWS.find(w => (counts[w.key]?.due_unsendable || 0) > 0)?.key
-  const effective = selected || firstReady || firstNeeds || DEFAULT_KEY
+  // ROUTING-HOTFIX-1/1B: the operational workspace is DETERMINISTIC via the shared, pure resolver
+  // (workflowSelection.resolveEffectiveWorkflow) - it is the user's explicit selection, or a fixed
+  // default (the Casey-Fink certificate gate) until the user picks one. It NEVER auto-switches based
+  // on which workflow's async counts arrive first. The prior "prefer first ready" auto-follow made
+  // the active/releasing panel change out from under the user (a student release-ready for two
+  // workflows resolved to whichever is earlier in WORKFLOWS order, and could auto-follow after a
+  // release dropped that workflow's ready count to zero). Because the navigator highlight, the active
+  // panel, and the preview all derive from this one value, the visible workflow and the releasing
+  // workflow can never diverge. Each nav row still shows its own ready/attention status.
+  const effective = resolveEffectiveWorkflow(selected)
 
   const attention = totals.ready > 0 || totals.needs > 0
   const bannerText = attention

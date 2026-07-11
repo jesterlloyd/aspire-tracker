@@ -111,14 +111,29 @@ async function _handler(req, res) {
     return res.status(400).json({ success: false, error: 'Invalid request body' });
   }
 
-  // Strict allowlist - the body may contain ONLY student_id. No recipient/email/override.
-  const extraKeys = Object.keys(body).filter(k => k !== 'student_id');
+  // Strict allowlist - the body may contain ONLY student_id (+ the optional workflow-guard field).
+  // No recipient/email/override.
+  const ALLOWED_KEYS = ['student_id', 'expected_instrument_slug'];
+  const extraKeys = Object.keys(body).filter(k => !ALLOWED_KEYS.includes(k));
   if (extraKeys.length > 0) {
-    return res.status(400).json({ success: false, error: `Unexpected field(s): ${extraKeys.join(', ')}. Allowed: student_id.` });
+    return res.status(400).json({ success: false, error: `Unexpected field(s): ${extraKeys.join(', ')}. Allowed: ${ALLOWED_KEYS.join(', ')}.` });
   }
   const studentId = body.student_id;
   if (!isUuid(studentId)) {
     return res.status(400).json({ success: false, error: 'student_id must be a valid UUID' });
+  }
+  // ROUTING-HOTFIX-1B pre-send guard (MANDATORY): the caller must declare which workflow it intends,
+  // and it must match this endpoint's instrument. This runs BEFORE instrument resolution, student
+  // load, assignment creation, token creation, notification insertion, and email send - so a call
+  // aimed at the wrong workflow (or an unlabeled direct call) writes nothing and sends nothing. The
+  // instrument slug uniquely identifies the workflow, so it is a complete pre-send identity; no
+  // separate timepoint/workflow-key field is needed. The only callers are the Review & Release
+  // panels, which always send this field.
+  if (body.expected_instrument_slug == null || body.expected_instrument_slug === '') {
+    return res.status(400).json({ success: false, error: 'expected_instrument_slug is required. Nothing was sent.' });
+  }
+  if (body.expected_instrument_slug !== INSTRUMENT_SLUG) {
+    return res.status(400).json({ success: false, error: `Workflow mismatch: this endpoint releases ${INSTRUMENT_SLUG}, not ${body.expected_instrument_slug}. Nothing was sent.` });
   }
 
   // ── 3. Resolve + authorize instrument ──────────────────────────────────────────
@@ -357,5 +372,8 @@ async function _handler(req, res) {
     student_name: studentName,
     student_email: studentEmail,
     sent_at: sentAtIso,
+    // ROUTING-HOTFIX-1: echo the workflow identity for the client's post-send assertion.
+    instrument_slug: INSTRUMENT_SLUG,
+    timepoint: TIMEPOINT,
   });
 }

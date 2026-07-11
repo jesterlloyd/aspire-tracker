@@ -4,6 +4,11 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { classifyCaseyFinkPostRotationCohort } from '../../lib/evaluation/caseyFinkPostRotationDueDetection'
 import { getStudentPreferredFullName } from '../../lib/studentNameFormatters'
+import { RELEASE_ROUTES } from '../../lib/evaluation/releaseRouting'
+
+// ROUTING-HOTFIX-1: this panel releases ONLY the Casey-Fink post-rotation workflow, via its own
+// explicit route entry. It can never call another workflow's endpoint.
+const ROUTE = RELEASE_ROUTES.caseyFinkPostRotation
 
 // ASPIRE-CASEYFINK-CERT-GATE-1 - eligible / in-flow queue for the post-rotation Casey-Fink
 // Readiness for Practice Survey (slug: casey_fink_readiness_2024, timepoint: post_rotation).
@@ -146,6 +151,11 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
   const [confirm, setConfirm] = useState(null)
   const [releasing, setReleasing] = useState(false)
   const [releaseMsg, setReleaseMsg] = useState(null)
+  // ROUTING-HOTFIX-1B: set true only when the post-send identity tripwire fires. A tripwire failure
+  // means a release may already have completed against an unexpected workflow, so we HALT further
+  // release actions in this panel until the operator re-runs detection and verifies. This prevents a
+  // blind retry from sending a duplicate.
+  const [identityHold, setIdentityHold] = useState(false)
 
   const doRelease = useCallback(async (row) => {
     setReleasing(true); setReleaseMsg(null)
@@ -155,14 +165,21 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
         setReleaseMsg({ tone: 'err', text: 'Your session expired. Please sign in again.' })
         setReleasing(false); return
       }
-      const res = await fetch('/api/evaluation-release-casey-fink-post-rotation-survey', {
+      const res = await fetch(ROUTE.endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ student_id: row.studentId }),
+        // Pre-send workflow guard: the server refuses if its instrument is not Casey-Fink.
+        body: JSON.stringify({ student_id: row.studentId, expected_instrument_slug: ROUTE.instrumentSlug }),
       })
       const body = await res.json().catch(() => ({}))
       if (res.ok && body.released) {
-        setReleaseMsg({ tone: 'ok', text: `Released. Readiness survey sent to ${body.student_email || 'the student'} for ${row.studentName}.` })
+        // Post-send tripwire: the released workflow identity must match this panel's workflow.
+        if (body.instrument_slug !== ROUTE.instrumentSlug || body.timepoint !== ROUTE.timepoint) {
+          setIdentityHold(true)
+          setReleaseMsg({ tone: 'err', text: `Release identity mismatch for ${row.studentName}. The server reported ${body.instrument_slug}/${body.timepoint}, not the expected ${ROUTE.instrumentSlug}/${ROUTE.timepoint}. This release may have completed and an email may have been sent. Do NOT retry: verify in the send log first, since retrying could send a duplicate. Re-run detection to confirm the current state.` })
+        } else {
+          setReleaseMsg({ tone: 'ok', text: `Released. Readiness survey sent to ${body.student_email || 'the student'} for ${row.studentName}.` })
+        }
       } else {
         setReleaseMsg({ tone: 'err', text: `Release refused for ${row.studentName}: ${body.reason || body.error || 'no longer eligible'}` })
       }
@@ -220,7 +237,7 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
         <button
-          onClick={() => refetch()}
+          onClick={() => { setIdentityHold(false); refetch() }}
           disabled={isFetching || releasing}
           style={{
             padding: '7px 14px', background: NAVY, color: '#fff', border: 'none', borderRadius: 7,
@@ -323,11 +340,11 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
                             <button
                               type="button"
                               onClick={() => { setReleaseMsg(null); setConfirm(r) }}
-                              disabled={releasing}
+                              disabled={releasing || identityHold}
                               style={{
                                 padding: '6px 14px', background: '#166534', color: '#fff', border: 'none',
                                 borderRadius: 7, fontSize: 12, fontWeight: 600, fontFamily: F,
-                                cursor: releasing ? 'default' : 'pointer', opacity: releasing ? 0.6 : 1, whiteSpace: 'nowrap',
+                                cursor: (releasing || identityHold) ? 'default' : 'pointer', opacity: (releasing || identityHold) ? 0.6 : 1, whiteSpace: 'nowrap',
                               }}
                             >
                               Release Survey
@@ -363,6 +380,7 @@ export default function CaseyFinkPostRotationAutomationPanel({ cohortId, onCount
             </div>
             <div style={{ padding: '16px 20px', fontSize: 13.5, color: '#374151', lineHeight: 1.6 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '6px 12px', marginBottom: 14 }}>
+                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Workflow</span><span style={{ fontWeight: 600, color: '#1D2567' }}>{ROUTE.workflowTitle}</span>
                 <span style={{ color: '#9ca3af', fontWeight: 600 }}>Student</span><span style={{ fontWeight: 600, color: '#191919' }}>{confirm.studentName}</span>
                 <span style={{ color: '#9ca3af', fontWeight: 600 }}>Recipient email</span><span>{confirm.studentEmail || '-'}</span>
                 <span style={{ color: '#9ca3af', fontWeight: 600 }}>Approved / Required</span><span>{fmtHours(confirm.approvedHours)} / {fmtHours(confirm.hoursRequired)}</span>

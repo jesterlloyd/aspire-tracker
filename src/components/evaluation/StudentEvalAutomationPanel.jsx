@@ -2,6 +2,11 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { classifyStudentEvalCohort } from '../../lib/evaluation/studentEvalDueDetection'
+import { RELEASE_ROUTES } from '../../lib/evaluation/releaseRouting'
+
+// ROUTING-HOTFIX-1: this panel releases ONLY the Student Feedback workflow, via its own explicit
+// route entry. It can never call another workflow's endpoint.
+const ROUTE = RELEASE_ROUTES.student
 
 // SR-2b-1 - READ-ONLY due-detection queue for the Student Evaluation of Preceptor/Unit
 // Experience survey (slug: student_preceptor_eval). Recipient is the STUDENT.
@@ -42,6 +47,11 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
   const [confirm, setConfirm] = useState(null)        // row pending release confirmation
   const [releasing, setReleasing] = useState(false)
   const [releaseMsg, setReleaseMsg] = useState(null)  // { tone:'ok'|'err', text }
+  // ROUTING-HOTFIX-1B: set true only when the post-send identity tripwire fires. A tripwire failure
+  // means a release may already have completed against an unexpected workflow, so we HALT further
+  // release actions in this panel until the operator re-runs detection and verifies. This prevents a
+  // blind retry from sending a duplicate.
+  const [identityHold, setIdentityHold] = useState(false)
 
   const load = useCallback(async () => {
     if (!cohortId || !canView) return
@@ -103,14 +113,21 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
         setReleaseMsg({ tone: 'err', text: 'Your session expired. Please sign in again.' })
         setReleasing(false); return
       }
-      const res = await fetch('/api/evaluation-release-student-eval-survey', {
+      const res = await fetch(ROUTE.endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ student_id: row.studentId }),
+        // Pre-send workflow guard: the server refuses if its instrument is not Student Feedback.
+        body: JSON.stringify({ student_id: row.studentId, expected_instrument_slug: ROUTE.instrumentSlug }),
       })
       const body = await res.json().catch(() => ({}))
       if (res.ok && body.released) {
-        setReleaseMsg({ tone: 'ok', text: `Released, survey sent to ${body.student_email || 'the student'} for ${row.studentName}.` })
+        // Post-send tripwire: the released workflow identity must match this panel's workflow.
+        if (body.instrument_slug !== ROUTE.instrumentSlug || body.timepoint !== ROUTE.timepoint) {
+          setIdentityHold(true)
+          setReleaseMsg({ tone: 'err', text: `Release identity mismatch for ${row.studentName}. The server reported ${body.instrument_slug}/${body.timepoint}, not the expected ${ROUTE.instrumentSlug}/${ROUTE.timepoint}. This release may have completed and an email may have been sent. Do NOT retry: verify in the send log first, since retrying could send a duplicate. Re-run detection to confirm the current state.` })
+        } else {
+          setReleaseMsg({ tone: 'ok', text: `Released, survey sent to ${body.student_email || 'the student'} for ${row.studentName}.` })
+        }
       } else {
         setReleaseMsg({ tone: 'err', text: `Release refused for ${row.studentName}: ${body.reason || body.error || 'no longer sendable'}` })
       }
@@ -179,7 +196,7 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
         <button
-          onClick={load}
+          onClick={() => { setIdentityHold(false); load() }}
           disabled={loading || releasing}
           style={{
             padding: '7px 14px', background: NAVY, color: '#fff', border: 'none', borderRadius: 7,
@@ -272,11 +289,11 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
                               <td style={{ padding: '9px 13px', textAlign: 'right' }}>
                                 <button
                                   onClick={() => { setReleaseMsg(null); setConfirm(r) }}
-                                  disabled={releasing}
+                                  disabled={releasing || identityHold}
                                   style={{
                                     padding: '6px 14px', background: '#166534', color: '#fff', border: 'none',
                                     borderRadius: 7, fontSize: 12, fontWeight: 600, fontFamily: F,
-                                    cursor: releasing ? 'default' : 'pointer', opacity: releasing ? 0.6 : 1, whiteSpace: 'nowrap',
+                                    cursor: (releasing || identityHold) ? 'default' : 'pointer', opacity: (releasing || identityHold) ? 0.6 : 1, whiteSpace: 'nowrap',
                                   }}
                                 >
                                   Release
