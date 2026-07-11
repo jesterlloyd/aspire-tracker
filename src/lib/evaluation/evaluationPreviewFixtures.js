@@ -71,9 +71,9 @@ export function getEvaluationPreviewFixture(workflowKey) {
   }
 
   if (workflowKey === 'postRotation') {
-    // ASPIRE Post-Rotation Evaluation email: NON-GATING experience feedback. Subject "Share Your
-    // ASPIRE Rotation Feedback", button "Share Feedback". The copy makes clear the certificate is
-    // unlocked through the Casey-Fink post-rotation survey, which is sent separately.
+    // ASPIRE Post-Rotation Evaluation email: NON-GATING experience feedback, focused only on
+    // rotation/unit/preceptor feedback. Subject "Share Your ASPIRE Rotation Feedback", button
+    // "Share Feedback".
     return {
       recipientType: 'Student',
       render: () => buildPostRotationInvitationEmail({

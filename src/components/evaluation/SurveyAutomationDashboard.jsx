@@ -37,21 +37,18 @@ const CSS = `
   flex:1; min-width:0; background:#fff; border:1px solid #e8e4dc; border-radius:14px;
   box-shadow:0 1px 3px rgba(25,25,25,0.06); padding:16px 20px 20px;
 }
-/* Non-interactive container holding two sibling buttons (select + preview). No nested controls. */
-.rr-row { display:flex; align-items:stretch; gap:8px; }
+/* Navigation-only workflow rows: one selection button each (no per-row preview control). Selected
+   state = subtle nightfall tint + thin nightfall left accent bar; hover is a lighter tint; focus is
+   a distinct blue outline (separate from selection). */
 .rr-row-select {
-  flex:1; min-width:0; display:flex; align-items:center; text-align:left; padding:11px 12px;
+  width:100%; display:flex; align-items:center; text-align:left; padding:11px 12px;
   cursor:pointer; background:#fff; border:1px solid #e8e4dc; border-radius:12px;
   box-shadow:0 1px 3px rgba(25,25,25,0.06); font-family:${F};
 }
+.rr-row-select:hover { background:#fafbff; }
 .rr-row-select.sel { background:#f7f9ff; box-shadow:0 1px 3px rgba(25,25,25,0.06), inset 3px 0 0 0 ${NAVY}; }
+.rr-row-select.sel:hover { background:#f7f9ff; }
 .rr-row-select:focus-visible { outline:3px solid #93c5fd; outline-offset:2px; }
-.rr-row-preview {
-  width:40px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;
-  background:#fff; border:1px solid #e8e4dc; border-radius:12px; cursor:pointer; color:#9ca3af;
-  box-shadow:0 1px 3px rgba(25,25,25,0.06); padding:0;
-}
-.rr-row-preview:focus-visible { outline:3px solid #93c5fd; outline-offset:2px; }
 .rr-preview-btn {
   display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:#fff; color:${NAVY};
   border:1px solid #d7ddf5; border-radius:8px; font-size:12.5px; font-weight:600; font-family:${F}; cursor:pointer;
@@ -94,40 +91,29 @@ function badgeStyle(tone) {
   return { color: NAVY, background: '#EEF1FB', border: '1px solid #d7ddf5' }
 }
 
-// Non-interactive container with two sibling buttons: one selects the workflow, one opens the
-// email preview. No nested interactive controls; both are native buttons (Enter/Space work).
-function WorkflowNavRow({ w, counts, selected, onSelect, onPreview }) {
+// Navigation-only workflow row: a single native selection button (no per-row preview control).
+// Email preview is reached from the workspace Preview Email button. Enter/Space work natively.
+function WorkflowNavRow({ w, counts, selected, onSelect }) {
   return (
-    <div className="rr-row">
-      <button
-        type="button"
-        className={`rr-row-select${selected ? ' sel' : ''}`}
-        aria-current={selected ? 'true' : undefined}
-        onClick={onSelect}
-      >
-        <span style={{ display: 'block', flex: 1, minWidth: 0 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 13.5, fontWeight: 700, color: '#191919' }}>{w.label}</span>
-            {w.badge && (
-              <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap', ...badgeStyle(w.badgeTone) }}>
-                {w.badge}
-              </span>
-            )}
-          </span>
-          <span style={{ display: 'block', fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{w.recipient}</span>
-          <span style={{ display: 'block', fontSize: 11.5, color: '#6b7280', marginTop: 3, lineHeight: 1.35 }}>{statusLine(w, counts)}</span>
+    <button
+      type="button"
+      className={`rr-row-select${selected ? ' sel' : ''}`}
+      aria-current={selected ? 'true' : undefined}
+      onClick={onSelect}
+    >
+      <span style={{ display: 'block', flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: '#191919' }}>{w.label}</span>
+          {w.badge && (
+            <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap', ...badgeStyle(w.badgeTone) }}>
+              {w.badge}
+            </span>
+          )}
         </span>
-      </button>
-      <button
-        type="button"
-        className="rr-row-preview"
-        onClick={onPreview}
-        title="Preview email"
-        aria-label={`Preview email for ${w.title}`}
-      >
-        <Eye size={16} />
-      </button>
-    </div>
+        <span style={{ display: 'block', fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{w.recipient}</span>
+        <span style={{ display: 'block', fontSize: 11.5, color: '#6b7280', marginTop: 3, lineHeight: 1.35 }}>{statusLine(w, counts)}</span>
+      </span>
+    </button>
   )
 }
 
@@ -228,7 +214,6 @@ export default function SurveyAutomationDashboard({ cohortId }) {
               counts={counts[w.key]}
               selected={effective === w.key}
               onSelect={() => setSelected(w.key)}
-              onPreview={() => setPreviewKey(w.key)}
             />
           ))}
         </nav>
