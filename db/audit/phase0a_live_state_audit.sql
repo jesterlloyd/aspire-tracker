@@ -73,12 +73,15 @@ SELECT id, name, public, created_at
 FROM storage.buckets
 ORDER BY name;
 
--- 6. Identity invariant behind read-receipt policies (finding F9).
---    Expect mismatched = 0. Any other value means support_request_reads
---    policies and student_reads/session_reads policies disagree about what a
---    user id is, and one of the two features is silently broken.
+-- 6. Three-identity model check (NOT a defect test).
+--    id <> auth_user_id is EXPECTED for every profile: user_profiles.id is the
+--    application profile identity, user_profiles.auth_user_id maps to
+--    auth.uid(). The read-receipt policies (student_reads, session_reads,
+--    support_request_reads) intentionally translate auth.uid() to
+--    user_profiles.id via a sub-select. A high "distinct_from_auth" count is
+--    the normal, correct state. Do NOT attempt to make id equal auth_user_id.
 SELECT
-  count(*) FILTER (WHERE id <> auth_user_id) AS mismatched,
+  count(*) FILTER (WHERE id <> auth_user_id) AS distinct_from_auth_expected,
   count(*)                                   AS total_profiles
 FROM public.user_profiles;
 

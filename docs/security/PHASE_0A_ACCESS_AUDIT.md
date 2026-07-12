@@ -362,15 +362,38 @@ re-evaluate in Phase 3.
 
 ### 5.24 support_request_reads, student_reads, session_reads
 
-- support_request_reads: SELECT and INSERT own rows AND is_owner_or_admin(),
-  anon revoked, append-only (verified). Uses `user_id = auth.uid()` directly.
+Intentional three-identity model (Owner-confirmed, live-audit corrected). The
+application deliberately uses three distinct identifiers, and they are NOT
+meant to be equal:
+
+- `auth.users.id` = the Supabase Auth user id, returned by `auth.uid()`.
+- `user_profiles.auth_user_id` = the foreign key from a profile to its Auth
+  user (`user_profiles.auth_user_id = auth.uid()`).
+- `user_profiles.id` = the application profile identity, used as the
+  `user_id`/`user_profile_id` foreign key throughout app tables.
+
+The live audit found `user_profiles.id <> user_profiles.auth_user_id` for all
+profiles. This is EXPECTED and correct, not a defect. Do not modify existing
+profile ids and do not attempt to make `id` equal `auth_user_id`.
+
 - student_reads and session_reads: own-row SELECT, INSERT, UPDATE via the
   sub-select `user_id = (select id from user_profiles where auth_user_id =
-  auth.uid())`, no TO clause (defaults to public; anon cannot satisfy the
-  predicate).
-- Finding F9: the two conventions are only both correct if
-  `user_profiles.id = auth_user_id` for every row. Script section 6 verifies the
-  invariant. Low urgency; UPDATE policies lack WITH CHECK (cosmetic, F10).
+  auth.uid())`. This correctly maps `auth.uid()` to `user_profiles.id`. Anon
+  cannot satisfy the predicate.
+- support_request_reads: own-row SELECT and INSERT gated additionally by
+  is_owner_or_admin(), anon revoked, append-only (verified). Per Owner
+  confirmation the live policy also maps `auth.uid()` to `user_profiles.id`
+  (the client writes `user_id = userProfile.id`, confirmed in
+  `src/lib/support/useSupportRequestReads.js` and its callers). NOTE: the
+  historical file `migrations/migration_support_request_reads.sql` shows the
+  literal form `user_id = auth.uid()`; that literal is superseded by the
+  correct live policy and must NOT be re-run, or it would break the working
+  read filter under the intentional id model.
+- Resolution: there is no identity-mismatch defect here. Former finding F9 is
+  withdrawn. The three tables are correct as-is; no Wave touches them. The
+  only residual is cosmetic (former F10): the student_reads and session_reads
+  UPDATE policies omit WITH CHECK and a TO clause. Optional, deferred, not
+  security-bearing.
 
 ### 5.25 notification_log and message_archive
 
@@ -436,18 +459,24 @@ security mode and ACL; remediation follows the output.
 
 ## 6. Findings register (ranked)
 
+Classifications updated to reflect the completed live-state audit
+(2026-07-12). F1 through F8 are now CONFIRMED against production; F9 is
+WITHDRAWN (the id vs auth_user_id difference is intentional, see 5.24); F10
+remains cosmetic. A new confirmed finding F11 (realtime publication) is added.
+
 | ID | Severity | Classification | Finding |
 |---|---|---|---|
-| F1 | Critical | partially verified | Residual permissive anon policies on students, cohorts, units, matches, interview_rubrics, interview_sessions, interviews, interviewers, interview_availability_blocks, interview_slots, student_shift_logs, ngrp_outcomes, cohort_snapshots, program_events (plus anon_insert_students). The audit v1/v2 migrations added authenticated policies but never dropped the anon ones. If live, the anon key embedded in the public bundle reads and writes core program data. |
-| F2 | Critical | partially verified | `authenticated_all_user_profiles` allows any authenticated account to update any profile, including self-escalation to admin or owner. |
-| F3 | High | verified dependency | The public intake form reads `students` with SELECT * as anon by design; any anon SELECT policy on students exposes the full table (filters are client-side only). |
-| F4 | High | verified dependency | `unit_cohort_responses` anon INSERT, UPDATE (unscoped), SELECT are live dependencies of the public `/unit-form` upsert; the anon UPDATE lets anyone overwrite any unit's submission, and anon SELECT exposes NGRP and alumni feedback answers. |
-| F5 | High | partially verified | `authenticated_all_activity_logs` lets any staff account alter or delete the audit trail. |
-| F6 | Medium | verified | Broad `authenticated_all_*` (FOR ALL, true/true) on students, cohorts, units, matches, communications, rubrics, sessions, interviews, interviewers, blocks, slots, shift logs, ngrp_outcomes, cohort_snapshots, program_events, contacts, dispositions, unit_leaders, unit_cohort_responses gives every staff role full write and delete, and is incompatible with introducing external roles (hard prerequisite for Phase 2). |
-| F7 | Medium | suspected | student-files, avatars, aspire-catalog bucket policies are untracked; student-files receives anon uploads from the public intake form. |
-| F8 | Medium | suspected | Untracked RPCs may be anon-executable via default PUBLIC EXECUTE; get_all_user_profiles is the highest-risk candidate. |
-| F9 | Low | suspected | Mixed identity conventions in read-receipt policies assume `user_profiles.id = auth_user_id`; invariant unverified. |
-| F10 | Low | verified | student_reads and session_reads UPDATE policies lack WITH CHECK and TO clauses; cosmetic hardening. |
+| F1 | Critical | confirmed (live) | Residual permissive anon policies on students, cohorts, units, matches, interview_rubrics, interview_sessions, interviews, interviewers, interview_availability_blocks, interview_slots, student_shift_logs, ngrp_outcomes, cohort_snapshots, program_events (plus anon_insert_students). Broad anon table grants also confirmed live. The anon key embedded in the public bundle reads and writes core program data. Closed by Waves B, C, D. |
+| F2 | Critical | confirmed (live) | Broad authenticated policy on user_profiles allows any authenticated account to update any profile, including self-escalation to admin or owner. Closed by Wave E. |
+| F3 | High | confirmed (live) | The public intake form reads `students` with SELECT * as anon by design; any anon SELECT policy on students exposes the full table (filters are client-side only). Closed by Wave D (code already live). |
+| F4 | High | confirmed (live) | `unit_cohort_responses` anon INSERT, UPDATE (unscoped), SELECT are live dependencies of the public `/unit-form` upsert; the anon UPDATE lets anyone overwrite any unit's submission, and anon SELECT exposes NGRP and alumni feedback answers. Closed by Wave D (code already live). |
+| F5 | High | confirmed (live) | Broad authenticated policy on activity_logs lets any staff account alter or delete the audit trail. Closed by Wave E. |
+| F6 | Medium | confirmed (live) | Broad `authenticated_all_*` (FOR ALL, true/true) plus broad table grants on core tables give every staff role full write and delete, incompatible with introducing external roles (hard prerequisite for Phase 2). Closed by Wave E. |
+| F7 | High | confirmed (live) | student-files is a PUBLIC storage bucket and contains student resumes and headshots. Any unauthenticated party with a file URL (or who can enumerate the intake upload path pattern `cohortId/studentId/resume.ext`) can read them. Closed by Wave F-2, which is gated on an application replacement for authorized upload and signed download (see Wave F design). |
+| F8 | Medium | confirmed (live) | Several SECURITY DEFINER functions are executable by anon or PUBLIC via default PUBLIC EXECUTE. Highest risk: get_all_user_profiles (would leak all staff names and emails if anon-callable). Closed by Wave F-1 (function EXECUTE privilege hardening), which preserves the two school-form functions legitimately required by the anonymous /school-form workflow. |
+| F9 | n/a | WITHDRAWN | Not a defect. `user_profiles.id <> user_profiles.auth_user_id` is the intentional three-identity model (see 5.24). The read-receipt tables map `auth.uid()` to `user_profiles.id` correctly. No change. |
+| F10 | Low | verified | student_reads and session_reads UPDATE policies lack WITH CHECK and TO clauses; cosmetic only, not security-bearing. Optional, deferred. |
+| F11 | Medium | confirmed (live) | students, interview_rubrics, interview_sessions, interview_slots are in the `supabase_realtime` publication. Realtime streams are governed by the same RLS as ordinary reads, so Waves B, D, E close the exposure (post-Wave-E an anon or portal subscriber receives nothing). No separate migration needed; the tables stay in the publication because interview_sessions realtime powers the live question-locking workflow. Re-verify with live-state script section 7 after Wave E. |
 
 ## 7. Remediation map (input to Phase 0B)
 
@@ -471,11 +500,22 @@ Wave order, each wave independently revertible:
 5. Wave E (staff re-scope): replace every `authenticated_all_*` with staff-scoped
    policies; user_profiles and activity_logs get their dedicated shapes (5.17,
    5.18).
-6. Wave F (per script output): bucket and RPC hardening based on live-state
-   results (F7, F8), plus F9 and F10 cleanups.
+6. Wave F (now drafted from the confirmed live-state audit), split in two:
+   - Wave F-1 (function EXECUTE privilege hardening, F8): revoke anon and
+     PUBLIC EXECUTE from SECURITY DEFINER functions, preserving the two
+     school-form functions the anonymous workflow needs; tighten the sensitive
+     ones to the narrowest role. Pure privilege SQL, no application change.
+   - Wave F-2 (student-files storage hardening, F7): flip the bucket to
+     private with storage RLS for authorized upload and signed download.
+     GATED on an application replacement (authorized upload endpoint plus
+     signed download), so the SQL must not run until that code is deployed and
+     verified (constraint: do not make the bucket private before the app has a
+     verified replacement).
+   F11 (realtime) needs no separate migration; Waves B, D, E close it. F10 is
+   an optional cosmetic cleanup, folded into F-1's file as a commented tail.
 
-Waves B and C and the user_profiles fix are the minimum bar before any Phase 2
-external account exists. Waves depend on live-state confirmation first.
+Waves B, C, D and the Wave E user_profiles fix are the minimum bar before any
+Phase 2 external account exists.
 
 ## 8. Live-state verification (Owner action)
 
