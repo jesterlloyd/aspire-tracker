@@ -31,6 +31,12 @@ input[type="number"] { -moz-appearance: textfield; }
   --border-lt:   #e5e7eb;
   --text-secondary: #6b7280;
 
+  /* Height of the sticky application chrome (.top-section) on tabbed pages: app header (64px,
+     .header-inner / Header) + primary tab navigation (UnifiedNav, ~46px). Used as the sticky-top
+     offset for in-page sticky sidebars so they pin just beneath the header + tab bar. Rounded up a
+     touch so the sidebar never slides under the tab bar. */
+  --app-chrome-height: 112px;
+
   font-size: 14px;
   line-height: 1.5;
   color: var(--raven);

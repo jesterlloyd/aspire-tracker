@@ -33,7 +33,18 @@ const CSS = `
    column is minmax(0,1fr) so it expands to fill the shared shell and its tables/notes can shrink
    (min-width:0) without forcing horizontal overflow. */
 .rr-layout { display:grid; grid-template-columns:minmax(250px, 280px) minmax(0, 1fr); gap:18px; align-items:flex-start; }
-.rr-nav { min-width:0; display:flex; flex-direction:column; gap:8px; }
+/* STICKY-NAV-1: the workflow navigator pins beneath the sticky app header + tab bar while the right
+   workspace scrolls with the page. The page/document remains the only scroll container; the workspace
+   is untouched (no fixed height, no overflow). align-self:start keeps the nav its own height (it must
+   not stretch to the tall workspace row, or it could not move). overflow-y:auto + max-height only
+   engage on short viewports, so on normal screens the four cards show fully with no inner scrollbar.
+   Offset uses the shared --app-chrome-height token (header + tab bar). */
+.rr-nav {
+  min-width:0; display:flex; flex-direction:column; gap:8px;
+  position:sticky; top:var(--app-chrome-height); align-self:start;
+  max-height:calc(100dvh - var(--app-chrome-height) - 20px);
+  overflow-y:auto; overscroll-behavior:contain;
+}
 .rr-nav-mobile { display:none; }
 .rr-workspace {
   min-width:0; background:#fff; border:1px solid #e8e4dc; border-radius:14px;
