@@ -4,12 +4,14 @@
 //      Progress              campus today, with rotation progress + follow-up indicators.
 // Read-only. Owner/Admin-only (canEdit). No writes/email/cron/RPC. Progress math mirrors the
 // Student Profile (approved_hours / hours_required); no-recent-log mirrors Action Center act15.
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import OpenShiftReview from './OpenShiftReview'
 import ClinicalHoursPanel from './ClinicalHoursPanel'
+import { useSupportRequestReads } from '../lib/support/useSupportRequestReads'
+import { unreadCountByStudent } from '../lib/support/supportRequests'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { resolvePreceptor } from '../lib/preceptor'
 import { canonicalRotationWindow } from '../lib/rotationWindow'
@@ -92,7 +94,7 @@ function Badge({ label, tone }) {
 // Expanded clinical-hours detail for one student. Fetches the SAME per-student shift-log
 // query as the Student Profile (shared React Query cache key) and renders the shared
 // ClinicalHoursPanel - same totals, table, and Shift Details modal.
-function ActiveRotationHours({ student }) {
+function ActiveRotationHours({ student, autoOpenShiftLogId, onAutoOpenConsumed }) {
   const { data: shiftLogs = [], isLoading } = useQuery({
     queryKey: ['student_shift_logs', student.id],
     queryFn: async () => {
@@ -111,12 +113,12 @@ function ActiveRotationHours({ student }) {
       </div>
       {isLoading
         ? <div style={{ fontSize: 12.5, color: '#9ca3af', fontFamily: F }}>Loading hours…</div>
-        : <ClinicalHoursPanel student={student} shiftLogs={shiftLogs} />}
+        : <ClinicalHoursPanel student={student} shiftLogs={shiftLogs} autoOpenShiftLogId={autoOpenShiftLogId} onAutoOpenConsumed={onAutoOpenConsumed} />}
     </div>
   )
 }
 
-function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef, highlighted }) {
+function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef, highlighted, autoOpenShiftLogId, onAutoOpenConsumed }) {
   const { s, req, apv, pct, lastLog, daysSince, noRecentLog, missingPreceptor, onCampus,
           precName, unitName, complete, nearComplete, shift, school, range, supportNeeded } = card
   const name = getStudentPreferredFullName(s)
@@ -210,13 +212,15 @@ function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef, highlight
      </div>
 
       {/* Expanded clinical-hours detail (shared ClinicalHoursPanel) */}
-      {expanded && <ActiveRotationHours student={s} />}
+      {expanded && <ActiveRotationHours student={s} autoOpenShiftLogId={autoOpenShiftLogId} onAutoOpenConsumed={onAutoOpenConsumed} />}
     </div>
   )
 }
 
-export default function RotationActivity({ students = [], units = [], cohortId, onNavigateToStudent, focusStudentId, onFocusConsumed }) {
-  const { canEdit } = useAuth()
+export default function RotationActivity({ students = [], units = [], cohortId, onNavigateToStudent, focusStudentId, onFocusConsumed, focusShiftLogId = null, onFocusShiftConsumed }) {
+  const { canEdit, userProfile } = useAuth()
+  const profileId = userProfile?.id
+  const { receipts: supportReceipts } = useSupportRequestReads(profileId)
   const [expandedId, setExpandedId] = useState(null)
   const [sortMode, setSortMode] = useState('attention')
   const [highlightId, setHighlightId] = useState(null)
@@ -280,38 +284,37 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
   // Per-student last-log summary for the Active Rotation Progress section. Computed in the
   // async query (not during render) so the board stays free of impure render-time Date calls.
   // "No recent log" = no submitted shift in the last 7 days (mirrors Action Center act15).
-  const { data: logSummary = {} } = useQuery({
+  const { data: logSummary = { summary: {}, supportLogs: [] } } = useQuery({
     queryKey: ['rotation_log_summary', cohortId],
     queryFn: async () => {
-      // SUPPORT-NEEDED-VISIBILITY-1: also read support_needed (same table/rows, no schema/RLS change)
-      // so a per-student "Support needed" badge can render on the card without opening View Hours.
+      // SUPPORT-REQUEST-ACTION-CENTER-2: also read support_needed WITH the shift id (same table/rows,
+      // no schema/RLS change) so the per-student badge can count UNREAD requests (derived in render
+      // against the current user's receipts). id is required to match receipts per exact shift.
       const { data, error } = await supabase
         .from('student_shift_logs')
-        .select('student_id, submitted_at, support_needed')
+        .select('id, student_id, submitted_at, support_needed')
         .eq('cohort_id', cohortId)
       if (error) throw error
       const now = Date.now()
       const latest = {}
-      const supportCount = {}
+      const supportLogs = []
       for (const l of (data || [])) {
         // A support entry exists when the textbox is non-empty after trimming (null/blank = none).
-        if ((l.support_needed || '').trim()) supportCount[l.student_id] = (supportCount[l.student_id] || 0) + 1
+        if ((l.support_needed || '').trim()) supportLogs.push({ id: l.id, student_id: l.student_id, support_needed: l.support_needed })
         if (!l.submitted_at) continue
         const t = new Date(l.submitted_at).getTime()
         if (!latest[l.student_id] || t > latest[l.student_id].t) latest[l.student_id] = { t, iso: l.submitted_at }
       }
       const summary = {}
-      const ids = new Set([...Object.keys(latest), ...Object.keys(supportCount)])
-      for (const sid of ids) {
+      for (const sid of Object.keys(latest)) {
         const v = latest[sid]
         summary[sid] = {
-          lastLog: v ? v.iso : null,
-          daysSince: v ? Math.floor((now - v.t) / (24 * 3600 * 1000)) : null,
-          noRecentLog: v ? (now - v.t) > SEVEN_DAYS_MS : true,
-          supportNeeded: supportCount[sid] || 0,
+          lastLog: v.iso,
+          daysSince: Math.floor((now - v.t) / (24 * 3600 * 1000)),
+          noRecentLog: (now - v.t) > SEVEN_DAYS_MS,
         }
       }
-      return summary
+      return { summary, supportLogs }
     },
     enabled: !!cohortId && canEdit,
     refetchInterval: 60 * 1000,
@@ -334,6 +337,13 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
     staleTime: 5 * 60_000,
   })
 
+  // Per-student count of UNREAD support requests for the current user (drives the "Support needed"
+  // badge). Recomputes when the receipts query invalidates after a modal marks a request read.
+  const unreadSupportByStudent = useMemo(
+    () => unreadCountByStudent(logSummary.supportLogs || [], profileId, supportReceipts),
+    [logSummary, profileId, supportReceipts]
+  )
+
   if (!canEdit) return null // Owner/Admin-only, carried over from CLOCKOUT-DETECT-1.
 
   const onCampusIds = new Set(openLogs.map(l => l.student_id))
@@ -344,7 +354,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
       const req = parseFloat(s.hours_required || 0)
       const apv = parseFloat(s.approved_hours || 0)
       const pct = req > 0 ? Math.min(100, (apv / req) * 100) : 0
-      const log = logSummary[s.id] || null
+      const log = logSummary.summary?.[s.id] || null
       const prec = resolvePreceptor(s)
       const unit = units.find(u => u.id === s.matched_unit_id)
       return {
@@ -361,7 +371,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
         range: resolveRotationRange(s, rotationById[s.cohort_school_rotation_id]),
         complete: pct >= 100,
         nearComplete: pct >= NEARING_PCT && pct < 100,
-        supportNeeded: log?.supportNeeded || 0,
+        supportNeeded: unreadSupportByStudent[s.id] || 0,
       }
     })
 
@@ -422,6 +432,10 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
             expanded={expandedId === card.s.id}
             onToggle={() => setExpandedId(prev => (prev === card.s.id ? null : card.s.id))}
             onOpen={onNavigateToStudent}
+            /* SUPPORT-REQUEST-ACTION-CENTER-2: only the focused, expanded card receives the exact
+               shift id so its ClinicalHoursPanel auto-opens that shift's Details modal. */
+            autoOpenShiftLogId={(focusShiftLogId && expandedId === card.s.id) ? focusShiftLogId : null}
+            onAutoOpenConsumed={onFocusShiftConsumed}
           />
         ))
       )}

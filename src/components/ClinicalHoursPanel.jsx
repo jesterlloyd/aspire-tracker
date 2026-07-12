@@ -6,13 +6,30 @@
 // (hours_required / approved_hours / pending_hours) - the canonical source the profile uses.
 // The caller supplies `shiftLogs` (cached per student via React Query, queryKey
 // ['student_shift_logs', student.id]) so each surface controls its own fetch + side effects.
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Info } from 'lucide-react'
 import ShiftDetailsModal from './ShiftDetailsModal'
+import { useAuth } from '../contexts/AuthContext'
+import { useSupportRequestReads } from '../lib/support/useSupportRequestReads'
+import { isShiftSupportUnread } from '../lib/support/supportRequests'
 
-export default function ClinicalHoursPanel({ student, shiftLogs = [] }) {
+export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenShiftLogId = null, onAutoOpenConsumed }) {
   const [selectedShift, setSelectedShift] = useState(null)
+  const { userProfile } = useAuth()
+  const profileId = userProfile?.id
+  const { receipts } = useSupportRequestReads(profileId)
   const data = student || {}
+
+  // SUPPORT-REQUEST-ACTION-CENTER-2: when the Action Center focuses an exact shift, open its Details
+  // modal automatically once the shift is present in this student's loaded logs. The modal (not this
+  // effect) writes the read receipt after the support text renders.
+  useEffect(() => {
+    if (!autoOpenShiftLogId) return
+    const target = shiftLogs.find(l => l.id === autoOpenShiftLogId)
+    if (!target) return
+    setSelectedShift(target)
+    onAutoOpenConsumed?.()
+  }, [autoOpenShiftLogId, shiftLogs, onAutoOpenConsumed])
 
   const req = parseFloat(data.hours_required || 0)
   const apv = parseFloat(data.approved_hours || 0)
@@ -88,10 +105,11 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [] }) {
                     })()}
                   </td>
                   <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
-                    {/* SUPPORT-NEEDED-VISIBILITY-1: amber dot flags a shift whose support-needed note
-                        is non-empty, so the specific entry is easy to find; the full text stays in the
-                        Details modal (ShiftDetailsModal "Support requested" callout). */}
-                    {(log.support_needed || '').trim() && (
+                    {/* SUPPORT-REQUEST-ACTION-CENTER-2: amber dot flags a shift whose support request
+                        is UNREAD for the current user (no matching receipt for this exact version). It
+                        clears after the Details modal marks it read and re-arms if the text is
+                        meaningfully edited. The full text always stays in the Details modal. */}
+                    {isShiftSupportUnread(log, profileId, receipts) && (
                       <span
                         aria-label="Support needed"
                         title="This shift has a support-needed note, open Details"

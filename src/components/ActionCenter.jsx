@@ -9,6 +9,8 @@ export { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { useAuth } from '../contexts/AuthContext'
 import { DISPOSITION_TYPES, FOLLOWUP_TYPES } from '../lib/dispositions'
 import { getCsLinkStatus } from '../lib/utils'
+import { useSupportRequestReads } from '../lib/support/useSupportRequestReads'
+import { unreadSupportShifts, buildSupportActionItem } from '../lib/support/supportRequests'
 
 function fmtLocalDate(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
@@ -45,7 +47,8 @@ const DUE_SOON_TYPES = new Set([
 // Map one action item to its triage section. Pure function of existing fields.
 function sectionFor(item) {
   if (item.priority === 'urgent' || item.category === 'disposition') return 'urgent'
-  if (item.isOrientation || DUE_SOON_TYPES.has(item.actionType)) return 'due_soon'
+  // Unread support requests are time-sensitive; group them in the amber "Due soon" section.
+  if (item.isOrientation || item.actionType === 'support_request' || DUE_SOON_TYPES.has(item.actionType)) return 'due_soon'
   return 'needs_followup'
 }
 
@@ -109,6 +112,7 @@ const AC_GLASS_STYLES = `
 
 function getActionLabel(item) {
   if (item.isOrientation) return null
+  if (item.actionType === 'support_request') return 'Open Details'
   if (item.actionType === 'selection_decision') return 'Open Interview Review'
   if (item.navigateToProfile && !item.canMarkDone) return 'Open Profile'
   if (item.markDoneType === 'update_field') return 'Mark Complete'
@@ -365,9 +369,10 @@ export default function ActionCenter({
   isOpen, onClose, anchorEl,
   students, units, matches, cohortId, activeCohort,
   communications, onLogCommunication, onStudentUpdate, onMatchUpdate,
-  onNavigateToProfiles, onActionCountChange, toast,
+  onNavigateToProfiles, onNavigateToActivityShift, onActionCountChange, toast,
 }) {
-  const { canEdit } = useAuth()
+  const { canEdit, userProfile } = useAuth()
+  const { receipts: supportReceipts } = useSupportRequestReads(userProfile?.id)
   const popoverRef = useRef(null)
 
   // UI state
@@ -525,6 +530,13 @@ export default function ActionCenter({
 
   // ── Action handler ──────────────────────────────────────────
   const handleAction = async (item) => {
+    if (item.navigateToActivityShift) {
+      // Navigate + focus + auto-open the exact shift. The receipt is written by the modal after the
+      // support text renders, NOT here - clicking alone never marks the request read.
+      onNavigateToActivityShift?.(item.studentId, item.shiftLogId)
+      onClose()
+      return
+    }
     if (item.navigateToProfile) {
       onNavigateToProfiles?.(item.studentId)
       onClose()
@@ -746,6 +758,9 @@ ${KR_SIG}`
     return Array.from(grouped.values())
   })()
 
+  // Unread support-request shifts for the current user (empty until shiftLogs load, like act13/act15).
+  const supportUnread = !shiftLogsLoaded ? [] : unreadSupportShifts(shiftLogs, userProfile?.id, supportReceipts)
+
   const actionItems = [
     // Orientation special item in placement
     ...(showOrientation ? [{ id: 'orientation', isOrientation: true, category: 'placement', priority: 'high', title: 'Orientation Email', studentName: `${placedStudents.length} placed student${placedStudents.length !== 1 ? 's' : ''}`, description: 'Orientation email and pre-program survey not yet sent.', canMarkDone: false }] : []),
@@ -779,6 +794,22 @@ ${KR_SIG}`
     ...act15.map(s => ({ id:`${s.id}-nl`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'hours', priority:'routine', title:'Student Not Logged Recently', description:s.daysSince===null?'No shifts logged yet.':`${s.daysSince} days since last log.`, actionType:'shift_log_submitted', canMarkDone:false, navigateToProfile:true })),
     // Communications
     ...(canEdit ? act1.map(s => ({ id:`${s.id}-sf`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'communication', priority:'routine', title:'Send Student Form', description:'Pending outreach, form not yet sent.', actionType:'student_form', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'student_form'}, emailHref:buildStudentFormEmail(s) })) : []),
+    // SUPPORT-REQUEST-ACTION-CENTER-2: one item per UNREAD support-request shift for the current user
+    // (not collapsed by student). Uses the same shiftLogs (select('*')) + the shared unread helper as
+    // the Rotation indicators and bell. Clicking navigates to Rotation > Activity and auto-opens the
+    // exact shift's Details modal; the receipt is written there, after the text renders.
+    ...supportUnread.map(log => {
+      const st = students.find(s => s.id === log.student_id)
+      const built = buildSupportActionItem(log, { studentName: st ? `${st.last_name}, ${st.first_name}` : '-' })
+      const dateStr = log.shift_date ? new Date(log.shift_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
+      return {
+        id: `${log.id}-support`, studentId: log.student_id, shiftLogId: log.id,
+        studentName: built.studentName, cohortId, student: st,
+        category: 'support', priority: 'high', title: 'Support requested',
+        description: [dateStr, log.unit_name, built.preview].filter(Boolean).join(' · '),
+        actionType: 'support_request', navigateToActivityShift: true, canMarkDone: false, markDoneType: null,
+      }
+    }),
   ]
 
   const totalCount = actionItems.length

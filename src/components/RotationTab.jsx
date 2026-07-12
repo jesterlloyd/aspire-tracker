@@ -86,6 +86,8 @@ export default function RotationTab(props) {
             onNavigateToStudent={props.onNavigateToStudent}
             focusStudentId={props.focusActivityStudentId}
             onFocusConsumed={props.onFocusActivityConsumed}
+            focusShiftLogId={props.focusActivityShiftLogId}
+            onFocusShiftConsumed={props.onFocusActivityShiftConsumed}
           />
         </div>
       )}

@@ -6,7 +6,11 @@
 // Purely presentational: no edits, no mutations, no action buttons except Close.
 
 import { useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Info, X, AlertTriangle } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import { hasSupportRequest } from '../lib/support/supportRequests'
+import { markSupportRequestRead } from '../lib/support/useSupportRequestReads'
 
 const F = 'DM Sans, sans-serif'
 
@@ -61,6 +65,9 @@ function SectionLabel({ children }) {
 
 export default function ShiftDetailsModal({ shift, onClose }) {
   const closeRef = useRef(null)
+  const { userProfile, isOwner, isAdmin } = useAuth()
+  const queryClient = useQueryClient()
+  const profileId = userProfile?.id
 
   // Escape closes; focus the close button on open.
   useEffect(() => {
@@ -70,6 +77,24 @@ export default function ShiftDetailsModal({ shift, onClose }) {
     closeRef.current?.focus()
     return () => document.removeEventListener('keydown', onKey)
   }, [shift, onClose])
+
+  // SUPPORT-REQUEST-ACTION-CENTER-2: mark the exact support request read for the current Owner/Admin
+  // AFTER this modal has rendered a NONBLANK support note. This is the ONLY mark-as-read trigger: it
+  // fires on real display of the text, never on hover, student expansion, row/badge visibility, the
+  // Action Center opening, navigation, a failed load, or blank text. The write is idempotent (upsert
+  // ON CONFLICT DO NOTHING) so a re-open of the same version is a no-op; a failure keeps the request
+  // unread and still fully viewable. Support text is never logged. If the profile id is unavailable,
+  // no receipt is written and indicators stay unread.
+  useEffect(() => {
+    if (!shift || !profileId || !(isOwner || isAdmin)) return
+    if (!hasSupportRequest(shift.support_needed)) return
+    let cancelled = false
+    markSupportRequestRead(queryClient, profileId, shift).then((res) => {
+      if (cancelled) return
+      void res // success clears indicators via the shared invalidation; failure leaves them unread
+    })
+    return () => { cancelled = true }
+  }, [shift, profileId, isOwner, isAdmin, queryClient])
 
   if (!shift) return null
 

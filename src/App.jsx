@@ -31,6 +31,8 @@ import ShiftLogPage from './components/ShiftLogPage'
 import ShiftLogLifecycle from './components/shift-log-lifecycle/ShiftLogLifecycle'
 import InterviewersModal from './components/InterviewersModal'
 import ActionCenter from './components/ActionCenter'
+import { useSupportRequestReads } from './lib/support/useSupportRequestReads'
+import { unreadSupportBellCount } from './lib/support/supportRequests'
 import CustomOnboardingTour from './components/CustomOnboardingTour'
 import { TOUR_VERSION } from './lib/onboardingTours'
 import Keith from './components/Keith'
@@ -251,6 +253,8 @@ function MainApp({ onLogout }) {
   // ROTATION-ACTIVITY-NAV: pending student to focus (expand + scroll) in Rotation > Activity,
   // set when an On Campus Now student is clicked in Aggregate.
   const [focusActivityStudentId, setFocusActivityStudentId] = useState(null)
+  // SUPPORT-REQUEST-ACTION-CENTER-2: exact shift the Action Center wants Rotation > Activity to open.
+  const [focusActivityShiftLogId, setFocusActivityShiftLogId] = useState(null)
   // Ref for Connect soft-refresh - ConnectPage registers its handleRefresh here so the
   // toolbar RefreshHint can call it without a full page reload.
   const connectRefreshRef = useRef(null)
@@ -467,6 +471,14 @@ function MainApp({ onLogout }) {
   // ROTATION-ACTIVITY-NAV: from Aggregate > On Campus Now, route to Rotation > Activity and
   // flag the student so RotationActivity expands + scrolls their Active Rotation Progress card.
   const goToActivityStudent = id => { setFocusActivityStudentId(id); navigate('/rotation/activity') }
+  // Action Center support item -> Rotation > Activity, expand the student AND auto-open the exact
+  // shift's Details modal (which is where the read receipt is written after the text renders).
+  const goToActivityShift = (studentId, shiftLogId) => {
+    setFocusActivityStudentId(studentId)
+    setFocusActivityShiftLogId(shiftLogId)
+    navigate('/rotation/activity')
+    setShowActionCenter(false)
+  }
 
   // WS2.3/WS2.4: single source of truth for the tour-restart behavior. WS2.4 removed the
   // UserMenu duplicate, so the Settings → Tours & Help panel is now the sole consumer.
@@ -905,9 +917,30 @@ function MainApp({ onLogout }) {
     return shiftReview + notLogged + dispo
   })()
 
-  // While the panel is open it reports its exact visible-task count; the badge uses that.
-  // When closed, fall back to eager + lazy so all 13 task types are reflected.
-  const actionBadgeCount = panelActionCount != null ? panelActionCount : (eagerActionBadgeCount + lazyActionBadgeCount)
+  // SUPPORT-REQUEST-ACTION-CENTER-2: current user's unread support requests contribute to the bell.
+  // Cohort-scoped shift logs with support text + the current user's receipts -> one count per unread
+  // shift. The open Action Center reports the same support items inside panelActionCount, so the
+  // closed (here) and open counts stay consistent and this is never double-counted.
+  const supportProfileId = currentUserProfile?.id
+  const { receipts: supportReceipts } = useSupportRequestReads(supportProfileId)
+  const { data: supportShiftLogs = [] } = useQuery({
+    queryKey: ['support_shift_logs', activeCohortId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('student_shift_logs')
+        .select('id, student_id, support_needed')
+        .eq('cohort_id', activeCohortId)
+      if (error) throw error
+      return (data || []).filter(l => (l.support_needed || '').trim())
+    },
+    enabled: !!activeCohortId && canEdit,
+    staleTime: 30 * 1000,
+  })
+  const supportUnreadCount = unreadSupportBellCount(supportShiftLogs, supportProfileId, supportReceipts)
+
+  // While the panel is open it reports its exact visible-task count (including support items); the
+  // badge uses that. When closed, fall back to eager + lazy + support so all task types are reflected.
+  const actionBadgeCount = panelActionCount != null ? panelActionCount : (eagerActionBadgeCount + lazyActionBadgeCount + supportUnreadCount)
 
   return (
     <div className="app">
@@ -1026,6 +1059,8 @@ function MainApp({ onLogout }) {
                 onNavigateToStudent={id => { setFocusStudentId(id); switchTab('profiles') }}
                 focusActivityStudentId={focusActivityStudentId}
                 onFocusActivityConsumed={() => setFocusActivityStudentId(null)}
+                focusActivityShiftLogId={focusActivityShiftLogId}
+                onFocusActivityShiftConsumed={() => setFocusActivityShiftLogId(null)}
                 toast={toast}
               />
             </div>
@@ -1076,6 +1111,7 @@ function MainApp({ onLogout }) {
           onStudentUpdate={updateStudent}
           onActionCountChange={handleActionCount}
           onNavigateToProfiles={id => { setFocusStudentId(id); switchTab('profiles'); setShowActionCenter(false) }}
+          onNavigateToActivityShift={goToActivityShift}
           toast={toast}
         />
       )}
