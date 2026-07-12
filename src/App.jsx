@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './lib/supabase'
@@ -44,6 +44,11 @@ import { logActivity } from './lib/logActivity'
 import { safeWrite } from './lib/safeWrite'
 import ConnectPage from './pages/Connect'
 import CatalogPage from './components/catalog/CatalogPage'
+
+// PHASE1-PUBLIC-SITE: the public marketing site is a lazy chunk so the staff
+// bundle does not grow and public visitors do not download the staff app UI
+// up front (data access was never in the public chunk; there is none).
+const PublicSite = lazy(() => import('./public-site/PublicSite'))
 
 /*
   COHORT ISOLATION CONTRACT
@@ -1176,9 +1181,118 @@ function AuthedShell() {
   return <MainApp onLogout={signOut} />
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE1-PUBLIC-SITE: routing contract for the public site and portal entry.
+//   /        -> ALWAYS the public homepage, even for authenticated users
+//   /login   -> authentication; already-signed-in visitors bounce to /portal
+//   /portal  -> role-aware entry: staff go to their last tab (or /aggregate);
+//               future portal roles (Phase 2) will render PortalShell here
+// All pre-existing routes and deep links are untouched; unauthenticated users
+// hitting a staff path still see the login screen in place (AuthedShell).
+
+const PORTAL_STAFF_ROLES = ['owner', 'admin', 'co_lead', 'co-lead', 'interviewer', 'viewer']
+
+function ShellSplash() {
+  return (
+    <div style={{
+      minHeight: '100vh', background: '#F4F1EC',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+    }}>
+      <div style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '14px', color: '#9ca3af' }}>
+        Loading ASPIRE Intelligence...
+      </div>
+    </div>
+  )
+}
+
+function LoginRoute() {
+  const { user, loading } = useAuth()
+  if (loading) return <ShellSplash />
+  if (user) return <Navigate to="/portal" replace />
+  return <LoginNew />
+}
+
+function PortalRoute() {
+  const { user, userProfile, loading } = useAuth()
+  if (loading) return <ShellSplash />
+  if (!user) return <Navigate to="/login" replace />
+
+  // Staff (or profile still resolving): enter the staff app at the last-used
+  // tab, mirroring the pre-existing "/" restore behavior. AuthedShell keeps
+  // handling deactivated accounts and missing profiles as it always has.
+  const isStaff = !userProfile || userProfile.is_owner === true ||
+    PORTAL_STAFF_ROLES.includes(userProfile.role)
+  if (isStaff) {
+    let target = '/aggregate'
+    try {
+      const savedTab = localStorage.getItem(lastTabKey(user.id))
+      if (savedTab && TAB_TO_PATH[savedTab]) target = TAB_TO_PATH[savedTab]
+    } catch { /* storage unavailable: default target */ }
+    return <Navigate to={target} replace />
+  }
+
+  // Non-staff roles exist only from Phase 2 onward; until their portals ship,
+  // show a minimal signed-in landing rather than the staff app.
+  return <PortalPlaceholder />
+}
+
+function PortalPlaceholder() {
+  const { signOut } = useAuth()
+  return (
+    <div style={{
+      minHeight: '100vh', background: '#F4F1EC', fontFamily: 'DM Sans, sans-serif',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+    }}>
+      <div style={{
+        background: '#fff', border: '1px solid #e3ded4', borderRadius: 14,
+        padding: '36px 40px', maxWidth: 460, textAlign: 'center',
+      }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: '#1D2567', marginBottom: 8 }}>
+          Your ASPIRE portal is being prepared
+        </div>
+        <div style={{ fontSize: 14, color: '#4b5265', lineHeight: 1.6, marginBottom: 20 }}>
+          Your account is active, but your portal experience is not available yet.
+          The ASPIRE team will let you know as soon as it opens.
+        </div>
+        <button onClick={signOut} style={{
+          padding: '9px 18px', borderRadius: 9, border: '1.5px solid #1D2567',
+          background: 'transparent', color: '#1D2567', fontWeight: 600,
+          fontSize: 13.5, cursor: 'pointer', fontFamily: 'inherit',
+        }}>
+          Sign out
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Public pages are light-locked like the other public routes and render inside
+// a Suspense boundary while the lazy public-site chunk loads.
+function publicPage(page) {
+  return (
+    <div data-theme-lock="light">
+      <Suspense fallback={<ShellSplash />}>
+        <PublicSite page={page} />
+      </Suspense>
+    </div>
+  )
+}
+
 export default function App() {
   return (
     <Routes>
+      {/* PHASE1-PUBLIC-SITE: public marketing site (no data access) */}
+      <Route path="/"            element={publicPage('home')} />
+      <Route path="/about"       element={publicPage('about')} />
+      <Route path="/eligibility" element={publicPage('eligibility')} />
+      <Route path="/apply"       element={publicPage('apply')} />
+      <Route path="/experience"  element={publicPage('experience')} />
+      <Route path="/preceptors"  element={publicPage('preceptors')} />
+      <Route path="/faq"         element={publicPage('faq')} />
+      <Route path="/contact"     element={publicPage('contact')} />
+      {/* PHASE1-PUBLIC-SITE: explicit auth entry points */}
+      <Route path="/login"       element={<LoginRoute />} />
+      <Route path="/portal"      element={<PortalRoute />} />
       {/* Public routes - no auth required, no app shell */}
       <Route path="/unit-form/*"          element={<div data-theme-lock="light"><UnitFormPage /></div>} />
       <Route path="/school-form/*"        element={<div data-theme-lock="light"><SchoolFormPage /></div>} />
@@ -1199,7 +1313,9 @@ export default function App() {
       <Route path="/rotation/checkins"     element={<Navigate to="/connect/broadcasts" replace />} />
       {/* Dev harness routes - excluded from production build */}
       {import.meta.env.DEV && <Route path="/dev/disposition-modal" element={<DevDispositionModal />} />}
-      {/* Authenticated app - handles /, /aggregate, /students, /interviews, /rotation/*, /evaluation */}
+      {/* Authenticated app - handles /aggregate, /students, /interviews, /rotation/*,
+          /evaluation, /connect*, /catalog*, /settings*. ("/" is the public homepage
+          above as of PHASE1-PUBLIC-SITE; deep links behave exactly as before.) */}
       <Route path="/*"                    element={<AuthedShell />} />
     </Routes>
   )
