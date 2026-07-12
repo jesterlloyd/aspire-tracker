@@ -1,19 +1,24 @@
 // src/public-site/publicContent.js
 //
-// PHASE1-PUBLIC-SITE: every string on the public site lives here, in one
-// reviewable module, so copy changes never touch layout code and a future
+// PHASE1-PUBLIC-SITE (elevated): every string on the public site lives here, in
+// one reviewable module, so copy changes never touch layout code and a future
 // governed content interface (Phase 5) can replace this file wholesale.
 //
-// Copy discipline (see reference source and PHASE_0A planning constraints):
+// Copy discipline (see reference source and planning constraints):
 //   - Only "likely public-safe after approval" content blocks are used.
 //   - NO outcome metrics, NO partner school names, NO team names or bios,
-//     NO Magnet or PTAP language, NO health-clearance detail, NO internal
-//     workflow references, NO public email address (mailbox approval pending).
+//     NO testimonials, NO Magnet or PTAP language, NO health-clearance detail,
+//     NO internal workflow references, NO public email address (mailbox
+//     approval pending).
 //   - "ASPIRE" is never written as "ASPIRE Program".
+//   - The formal residency name is always "New Graduate RN Residency Program".
+//   - No language implies guaranteed placement, employment, or residency
+//     admission, or a single preceptor for every shift.
 //   - The whole site ships noindex until Cedars-Sinai communications approves
 //     public indexing (meta tag in index.html).
 
 export const SITE_NAME = 'ASPIRE at Cedars-Sinai'
+export const SITE_TITLE = 'ASPIRE at Cedars-Sinai | Senior Nursing Student Clinical Pathway'
 
 export const NAV_LINKS = [
   { path: '/about',       label: 'About' },
@@ -26,7 +31,7 @@ export const NAV_LINKS = [
 ]
 
 export const HOME = {
-  heroKicker: 'Cedars-Sinai Nursing',
+  heroEyebrow: 'ASPIRE at Cedars-Sinai',
   heroTitle: 'Finish your nursing degree where you want to begin your career.',
   heroBody:
     'ASPIRE, the Affiliate Students’ Pathway from Internship to Residency Experience, ' +
@@ -35,41 +40,84 @@ export const HOME = {
     'paired with an experienced preceptor.',
   heroPrimaryCta:   { path: '/eligibility', label: 'See if you are eligible' },
   heroSecondaryCta: { path: '/apply',       label: 'How to apply' },
+  // First public-facing use of NPD is spelled out; later references may use NPD.
+  heroTrust: 'A Cedars-Sinai Nursing workforce pathway, guided by Nursing Professional Development (NPD).',
+
+  audienceTitle: 'Find your pathway',
+  audienceIntro: 'ASPIRE connects four groups around one shared goal: a strong, well-supported start to nursing practice.',
+  audiences: [
+    {
+      icon: 'cap',
+      title: 'Nursing Students',
+      body: 'Senior students seeking hands-on bedside experience and a strong start to their career.',
+      cta: { path: '/eligibility', label: 'Explore your pathway' },
+    },
+    {
+      icon: 'mentor',
+      title: 'Preceptors',
+      body: 'Experienced nurses ready to mentor and shape the next generation of caregivers.',
+      cta: { path: '/preceptors', label: 'Learn about precepting' },
+    },
+    {
+      icon: 'hospital',
+      title: 'Unit Leaders',
+      body: 'Partner with ASPIRE to build your team and strengthen the nursing workforce.',
+      cta: { path: '/contact', label: 'Partner with ASPIRE' },
+    },
+    {
+      icon: 'handshake',
+      title: 'Academic Partners',
+      body: 'Collaborate with Cedars-Sinai to support student success and clinical excellence.',
+      cta: { path: '/contact', label: 'Work together' },
+    },
+  ],
+
   glanceTitle: 'ASPIRE at a glance',
+  glanceIntro: 'What a senior rotation through ASPIRE offers.',
   glanceCards: [
-    { title: 'Hands-on bedside hours',   body: 'A minimum of 90 hours of direct patient care during your final rotation.' },
-    { title: 'Specialized unit placement', body: 'Placement in a specialized unit aligned with your clinical interests when possible.' },
-    { title: 'A dedicated preceptor',    body: 'One experienced RN preceptor supports your growth throughout the rotation.' },
-    { title: 'Professional development', body: 'Nursing Professional Development practitioners support you from start to finish.' },
-    { title: 'A residency pathway',      body: 'ASPIRE strengthens your preparation for the New-Graduate RN Residency at Cedars-Sinai.' },
+    { icon: 'clock',       stat: '90+', title: 'Bedside clinical hours', body: 'Hands-on direct patient care in a specialized unit. Your nursing school may require more.' },
+    { icon: 'compass',     title: 'Specialty-aligned placement', body: 'Placement in a unit that aligns with your clinical interests whenever possible.' },
+    { icon: 'stethoscope', title: 'Dedicated preceptor support', body: 'A primary preceptor supports your growth throughout the rotation.' },
+    { icon: 'heart',       title: 'NPD guidance throughout', body: 'Nursing Professional Development practitioners support you from start to finish.' },
   ],
-  stepsTitle: 'How ASPIRE works',
-  steps: [
-    { title: 'Talk to your placement coordinator', body: 'Tell your school’s placement coordinator you are interested in a senior rotation at Cedars-Sinai through ASPIRE. The coordinator confirms your eligibility with the ASPIRE team.' },
-    { title: 'Complete the intake form',           body: 'Once your school confirms eligibility, you receive an intake form covering your unit preferences, interests, goals, and scheduling.' },
-    { title: 'Have a brief conversation',          body: 'The ASPIRE team meets with you to discuss placement fit, your learning objectives, and unit availability.' },
+  glanceNote: 'Complete at least 90 hours of hands-on bedside clinical practice, or the greater number of hours required by your nursing school.',
+
+  journeyTitle: 'The ASPIRE journey',
+  journeyIntro: 'Six steps from your school to your first year of practice.',
+  journey: [
+    { icon: 'school',      title: 'School confirms eligibility', body: 'Your placement coordinator confirms your eligibility and program requirements with the ASPIRE team.' },
+    { icon: 'form',        title: 'Student completes intake',    body: 'You complete the ASPIRE intake form covering your goals, interests, and preferences.' },
+    { icon: 'chat',        title: 'ASPIRE conversation',         body: 'The ASPIRE team meets with you to discuss placement fit and learning objectives.' },
+    { icon: 'match',       title: 'Unit and preceptor match',    body: 'You are matched with a unit and preceptor based on fit and availability.' },
+    { icon: 'pulse',       title: 'Clinical rotation',           body: 'You complete your hands-on rotation with mentorship and Nursing Professional Development support.' },
+    { icon: 'cap',         title: 'Residency application opportunity', body: 'ASPIRE strengthens your preparation to apply to the New Graduate RN Residency Program.' },
   ],
-  preceptorBandTitle: 'Experienced nurses: help shape the next generation.',
-  preceptorBandBody:  'ASPIRE preceptors mentor senior nursing students through their final rotation, with structured support from Nursing Professional Development.',
-  preceptorBandCta:   { path: '/preceptors', label: 'Learn about precepting' },
+  journeyNote: 'ASPIRE strengthens your preparation for the New Graduate RN Residency Program. It does not guarantee placement, employment, or residency admission.',
+
+  preceptorBandEyebrow: 'For Preceptors',
+  preceptorBandTitle: 'Help shape the next generation of exceptional nurses.',
+  preceptorBandBody:  'Share your expertise. Inspire future colleagues. Strengthen our profession, with structured support from Nursing Professional Development.',
+  preceptorBandCta:   { path: '/preceptors', label: 'Become a preceptor' },
+
+  faqTitle: 'Frequently asked questions',
+  faqCtaLabel: 'View all FAQs',
 }
 
 export const ABOUT = {
-  title: 'About ASPIRE',
+  eyebrow: 'About',
+  title: 'A supported bridge from student to professional nurse.',
   intro:
     'The Affiliate Students’ Pathway from Internship to Residency Experience, or ASPIRE, ' +
     'is Cedars-Sinai’s pathway for senior nursing students to complete hands-on bedside ' +
     'clinical rotations in specialized units while paired with experienced preceptors.',
+  designedTitle: 'What ASPIRE is designed to do',
+  designed: [
+    { icon: 'compass',     title: 'Build clinical confidence', body: 'Grow confidence at the bedside before graduation.' },
+    { icon: 'stethoscope', title: 'Sharpen bedside skills',    body: 'Practice in a specialty area of interest with expert guidance.' },
+    { icon: 'match',       title: 'Support the transition',    body: 'Ease the move from student to professional nursing practice.' },
+    { icon: 'cap',         title: 'Strengthen preparation',    body: 'Build readiness to apply to the New Graduate RN Residency Program.' },
+  ],
   sections: [
-    {
-      heading: 'What ASPIRE is designed to do',
-      bullets: [
-        'Build clinical confidence before graduation',
-        'Sharpen bedside skills in a specialty area of interest',
-        'Support the transition into professional nursing practice',
-        'Strengthen preparation for the New-Graduate RN Residency',
-      ],
-    },
     {
       heading: 'Why Cedars-Sinai offers ASPIRE',
       body:
@@ -88,7 +136,8 @@ export const ABOUT = {
 }
 
 export const ELIGIBILITY = {
-  title: 'Eligibility',
+  eyebrow: 'Eligibility',
+  title: 'See if ASPIRE is right for you.',
   intro: 'Applicants should meet all applicable criteria below. Your school’s placement coordinator confirms eligibility with the ASPIRE team.',
   checklistHeading: 'Eligibility checklist',
   checklist: [
@@ -96,7 +145,7 @@ export const ELIGIBILITY = {
     'Be enrolled in an eligible program type (listed below)',
     'Complete a hands-on bedside clinical rotation involving direct patient care',
     'Have a cumulative GPA of 3.0 or higher on a 4.0 scale',
-    'Complete a minimum of 90 hours in a direct patient-care role under preceptor supervision',
+    'Complete at least 90 hours of hands-on bedside clinical practice, or the greater number of hours required by your nursing school',
     'Meet the educational, health, safety, and background requirements established by both Cedars-Sinai and your nursing school',
   ],
   programsHeading: 'Eligible academic programs',
@@ -115,14 +164,19 @@ export const ELIGIBILITY = {
     'Detailed educational, health, and safety requirements are provided through your ' +
     'school’s placement coordinator during eligibility verification, and are subject ' +
     'to change under Cedars-Sinai policy.',
+  ctaHeading: 'Ready to take the next step?',
+  ctaBody: 'Applying to ASPIRE starts at your school, not with an application portal.',
+  ctaLabel: 'See how to apply',
+  ctaPath: '/apply',
 }
 
 export const APPLY = {
-  title: 'How to apply',
-  intro: 'Applying to ASPIRE starts at your school, not with an application portal.',
+  eyebrow: 'How to Apply',
+  title: 'Applying to ASPIRE starts at your school.',
+  intro: 'Applying to ASPIRE starts at your school, not with an application portal. Your placement coordinator is your first and most important contact.',
   steps: [
     {
-      title: 'Step 1: Notify your school’s placement coordinator',
+      title: 'Notify your school’s placement coordinator',
       body:
         'Tell your placement coordinator you are interested in completing your senior rotation ' +
         'at Cedars-Sinai through ASPIRE. The coordinator helps confirm your school’s ' +
@@ -130,7 +184,7 @@ export const APPLY = {
         'school-specific and Cedars-Sinai prerequisites.',
     },
     {
-      title: 'Step 2: Complete the intake form',
+      title: 'Complete the intake form',
       body:
         'After your school confirms eligibility, you receive an intake form from the ASPIRE ' +
         'team. It collects your unit preferences, specialty interests, career goals, learning ' +
@@ -138,57 +192,59 @@ export const APPLY = {
         'completing it.',
     },
     {
-      title: 'Step 3: Participate in a brief conversation',
+      title: 'Participate in a brief conversation',
       body:
         'The ASPIRE team meets with you to discuss your preferences, interests, goals, and ' +
-        'learning objectives, along with placement fit and unit availability. Placement ' +
-        'decisions consider both your interests and organizational workforce needs.',
+        'learning objectives, along with placement fit and unit availability.',
     },
   ],
+  placementNote: 'Placement depends on eligibility, student interests, unit capacity, and preceptor availability.',
 }
 
 export const EXPERIENCE = {
-  title: 'The student experience',
+  eyebrow: 'The Experience',
+  title: 'Hands-on practice, real mentorship, a supported transition.',
   intro: 'ASPIRE is built around hands-on practice, mentorship, and a supported transition into professional nursing.',
   bullets: [
-    'Hands-on patient care in a specialized unit',
-    'Placement aligned with your clinical interests when possible',
-    'Mentorship from an experienced RN preceptor',
-    'Nursing Professional Development support throughout the rotation',
-    'Unit rounding and coaching',
-    'Professional connections with nurses, leaders, and peers',
-    'Exposure to the transition from student nurse to professional nurse',
+    { icon: 'stethoscope', text: 'Hands-on patient care in a specialized unit' },
+    { icon: 'compass',     text: 'Placement aligned with your clinical interests when possible' },
+    { icon: 'mentor',      text: 'Mentorship from an experienced RN preceptor' },
+    { icon: 'heart',       text: 'Nursing Professional Development support throughout the rotation' },
+    { icon: 'pulse',       text: 'Unit rounding and coaching' },
+    { icon: 'handshake',   text: 'Professional connections with nurses, leaders, and peers' },
   ],
   continuityHeading: 'Preceptor continuity',
   continuityBody:
-    'Continuity is the preferred model. Students are generally assigned one primary preceptor ' +
-    'to support relationship development, consistency, progressive learning, and reliable ' +
-    'feedback. When staffing or scheduling requires temporary or secondary preceptor support, ' +
-    'the change is coordinated with Nursing Professional Development.',
+    'Students are assigned a primary preceptor whenever possible. A secondary preceptor may ' +
+    'support scheduling or staffing needs. Any change is coordinated with Nursing Professional ' +
+    'Development to protect consistency, progressive learning, and reliable feedback.',
 }
 
 export const PRECEPTORS = {
-  title: 'For preceptors',
+  eyebrow: 'For Preceptors',
+  title: 'Mentor a future colleague. Grow as a leader.',
   intro:
     'ASPIRE needs experienced nurses and advanced practice nurses who are passionate about ' +
     'developing the next generation of nurses.',
   benefitsHeading: 'What precepting can offer you',
   benefits: [
-    'Structured mentorship experience',
-    'Nursing Professional Development support and dedicated resources',
-    'Leadership and coaching development',
-    'Professional growth',
-    'A direct contribution to the nursing workforce pipeline',
-    'The opportunity to shape a new nurse’s career',
+    { icon: 'mentor',      title: 'Structured mentorship', body: 'A guided mentorship experience with clear expectations.' },
+    { icon: 'heart',       title: 'Dedicated support',     body: 'Nursing Professional Development support and dedicated resources.' },
+    { icon: 'compass',     title: 'Leadership growth',     body: 'Develop coaching and leadership skills that carry across your career.' },
+    { icon: 'handshake',   title: 'Lasting impact',        body: 'A direct contribution to the nursing workforce pipeline.' },
   ],
   ctaHeading: 'Interested in becoming an ASPIRE preceptor?',
   ctaBody:
     'Let your unit leadership know you are interested, or reach out to the ASPIRE team ' +
     'through Nursing Professional Development at Cedars-Sinai.',
+  ctaLabel: 'Contact the ASPIRE team',
+  ctaPath: '/contact',
 }
 
 export const FAQ = {
+  eyebrow: 'FAQ',
   title: 'Frequently asked questions',
+  intro: 'Answers to the questions students and schools ask most often.',
   items: [
     {
       q: 'My program requires a leadership or observational rotation. Can I still participate in ASPIRE?',
@@ -200,44 +256,90 @@ export const FAQ = {
     },
     {
       q: 'How is unit placement determined?',
-      a: 'Placement is based on your clinical interests, career goals, and learning objectives, together with unit availability, preceptor availability, and workforce needs. The ASPIRE conversation helps clarify your preferences and potential placement options.',
+      a: 'Placement depends on eligibility, student interests, unit capacity, and preceptor availability. The ASPIRE conversation helps clarify your preferences and potential placement options.',
     },
     {
       q: 'Will I have the same preceptor throughout the rotation?',
-      a: 'Continuity is the preferred model, and students are generally assigned one primary preceptor. When staffing or scheduling needs require temporary or secondary preceptor support, the change is coordinated with Nursing Professional Development.',
+      a: 'Students are assigned a primary preceptor whenever possible. A secondary preceptor may support scheduling or staffing needs, and any change is coordinated with Nursing Professional Development.',
     },
     {
       q: 'Do I need an RN license before starting the residency?',
-      a: 'Yes. An RN license is required before beginning the New-Graduate RN Residency. Confirm current timing and licensure requirements with the residency team through your coordinator.',
+      a: 'Yes. An RN license is required before beginning the New Graduate RN Residency Program. Confirm current timing and licensure requirements with the residency team through your coordinator.',
     },
     {
       q: 'Is ASPIRE the only path into the residency?',
-      a: 'No. ASPIRE is one pathway into the New-Graduate RN Residency, but it is not the only one. Applicants who meet the requirements of other residency pathways may still apply.',
+      a: 'No. ASPIRE is one pathway toward the New Graduate RN Residency Program, but it is not the only one. Applicants who meet the requirements of other residency pathways may still apply.',
     },
   ],
 }
 
 export const CONTACT = {
-  title: 'Contact',
-  sections: [
+  eyebrow: 'Contact',
+  title: 'Let’s find your next step.',
+  intro: 'Choose the description that fits you best. Each path points you to the fastest route to an answer.',
+  cards: [
     {
-      heading: 'Students and schools',
-      body:
-        'Start with your school’s placement coordinator. Coordinators work directly with ' +
-        'the ASPIRE team on eligibility, requirements, and placement, and they are the fastest ' +
-        'route to an answer about your specific situation.',
+      icon: 'cap',
+      title: 'Students and schools',
+      body: 'Start with your school’s placement coordinator. Coordinators work directly with the ASPIRE team on eligibility, requirements, and placement.',
+      cta: { path: '/apply', label: 'See how to apply' },
     },
     {
-      heading: 'Cedars-Sinai employees and clinicians',
-      body:
-        'Current Cedars-Sinai employees pursuing a nursing degree, and nurses interested in ' +
-        'precepting, can reach the ASPIRE team through Nursing Professional Development.',
+      icon: 'hospital',
+      title: 'Cedars-Sinai employees',
+      body: 'Current employees pursuing a nursing degree can begin the same way: confirm eligibility with your school, then connect with the ASPIRE team.',
+      cta: { path: '/eligibility', label: 'Check eligibility' },
+    },
+    {
+      icon: 'mentor',
+      title: 'Preceptors and unit leaders',
+      body: 'Interested in precepting or hosting ASPIRE students on your unit? Learn what the preceptor experience involves and how to get started.',
+      cta: { path: '/preceptors', label: 'Explore precepting' },
+    },
+    {
+      icon: 'handshake',
+      title: 'Participants and partners',
+      body: 'Already part of ASPIRE, or partnering with us as a school or unit? Sign in to your ASPIRE Intelligence account to continue your work.',
+      cta: { path: '/login', label: 'Sign in' },
     },
   ],
-  loginNote: 'Program participants and partners with an ASPIRE Intelligence account can sign in from the Log in link above.',
+  note: 'A public ASPIRE contact address is being finalized with Cedars-Sinai communications. Until then, your school’s placement coordinator and Nursing Professional Development are the best points of contact.',
 }
 
 export const FOOTER = {
+  brandBlurb:
+    'A nursing workforce pathway at Cedars-Sinai, connecting senior nursing students with ' +
+    'hands-on clinical experience and professional growth.',
+  columns: [
+    {
+      heading: 'Program',
+      links: [
+        { path: '/about',       label: 'About' },
+        { path: '/eligibility', label: 'Eligibility' },
+        { path: '/apply',       label: 'How to Apply' },
+        { path: '/experience',  label: 'The Experience' },
+      ],
+    },
+    {
+      heading: 'Partners',
+      links: [
+        { path: '/preceptors', label: 'For Preceptors' },
+        { path: '/contact',    label: 'Unit Leaders' },
+        { path: '/contact',    label: 'Academic Partners' },
+      ],
+    },
+    {
+      heading: 'Resources',
+      links: [
+        { path: '/faq',     label: 'FAQ' },
+        { path: '/contact', label: 'Contact' },
+        { path: '/login',   label: 'Log in' },
+      ],
+    },
+  ],
+  contactHeading: 'Get started',
+  contactBody: 'Work with your school’s placement coordinator to begin.',
+  contactCta: { path: '/apply', label: 'How to apply' },
   disclaimer:
     'Program details are subject to change and are confirmed through your school’s ' +
     'placement coordinator.',
