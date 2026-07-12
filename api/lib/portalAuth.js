@@ -47,7 +47,7 @@ export async function verifyPortalCaller(req) {
     const admin = getServiceDb()
     const { data: profile, error: pErr } = await admin
       .from('user_profiles')
-      .select('id, role, is_owner, is_active, full_name')
+      .select('id, role, is_owner, is_active, full_name, email')
       .eq('auth_user_id', user.id)
       .maybeSingle()
     if (pErr) return { authenticated: false, status: 401, reason: 'profile_lookup_failed' }
@@ -83,4 +83,15 @@ export async function getActiveStudentLinks(db, profileId) {
     .eq('user_profile_id', profileId)
   if (error || !data) return []
   return data.filter(r => r.revoked_at === null).map(r => r.student_id)
+}
+
+// PHASE3-UNIT-PORTAL: active unit scopes for this profile.
+// Returns [{ unit_key, cohort_id }] (cohort_id null = all cohorts).
+export async function getActiveUnitScopes(db, profileId) {
+  const { data, error } = await db
+    .from('user_unit_scopes')
+    .select('unit_key, cohort_id, starts_at, expires_at, revoked_at')
+    .eq('user_profile_id', profileId)
+  if (error || !data) return []
+  return data.filter(nowActive).map(r => ({ unit_key: r.unit_key, cohort_id: r.cohort_id }))
 }

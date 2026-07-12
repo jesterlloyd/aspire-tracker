@@ -12,6 +12,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import PortalShell from './PortalShell'
 import StudentPortal from './StudentPortal'
+import UnitLeaderPortal from './UnitLeaderPortal'
 import './portal.css'
 
 export default function PortalApp() {
@@ -55,12 +56,19 @@ export default function PortalApp() {
     )
   }
 
-  if (roles.includes('unit_leader') || roles.includes('academic_partner')) {
-    const label = roles.includes('unit_leader') ? 'Unit Leader Portal' : 'Academic Partner Portal'
+  if (roles.includes('unit_leader')) {
     return (
-      <PortalShell title={label} userName={userProfile?.full_name}>
+      <PortalShell title="Unit Leader Portal" userName={userProfile?.full_name}>
+        <UnitLeaderPortal />
+      </PortalShell>
+    )
+  }
+
+  if (roles.includes('academic_partner')) {
+    return (
+      <PortalShell title="Academic Partner Portal" userName={userProfile?.full_name}>
         <div className="ptl-card ptl-center-card">
-          <div className="ptl-card-title">Your {label.toLowerCase()} is almost ready</div>
+          <div className="ptl-card-title">Your academic partner portal is almost ready</div>
           <p className="ptl-muted">
             Your access is active, and this portal opens in an upcoming release.
             The ASPIRE team will notify you when it is available.

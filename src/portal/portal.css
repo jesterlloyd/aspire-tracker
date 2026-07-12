@@ -114,3 +114,34 @@
 
 .ptl-muted { color: #6b7280; font-size: 13.5px; line-height: 1.6; }
 .ptl-small { font-size: 12.5px; margin-top: 6px; }
+
+/* PHASE3-UNIT-PORTAL: roster table and participation form */
+.ptl-table-wrap { overflow-x: auto; }
+.ptl-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.ptl-table th {
+  text-align: left; padding: 8px 10px; color: #6b7280; font-size: 12px;
+  text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e3ded4;
+}
+.ptl-table td { padding: 9px 10px; border-bottom: 1px dashed #eee9df; vertical-align: top; }
+.ptl-table tr:last-child td { border-bottom: none; }
+.ptl-chip-inline { margin-left: 8px; font-size: 11px; padding: 2px 8px; }
+
+.ptl-form { margin-top: 14px; display: flex; flex-direction: column; gap: 12px; }
+.ptl-form label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: #4b5265; font-weight: 600; }
+.ptl-form-row { display: flex; gap: 14px; flex-wrap: wrap; }
+.ptl-form-row > label { flex: 1; min-width: 220px; }
+.ptl-input {
+  padding: 9px 12px; border-radius: 9px; border: 1.5px solid #d7d2c7;
+  background: #fff; font-family: inherit; font-size: 14px; font-weight: 400;
+}
+.ptl-radio-row { display: flex; gap: 18px; align-items: center; }
+.ptl-radio-row label { flex-direction: row; align-items: center; gap: 6px; font-weight: 400; }
+.ptl-form-actions { display: flex; gap: 10px; align-items: center; }
+.ptl-form-error {
+  margin: 10px 0; padding: 9px 13px; border-radius: 9px;
+  background: #fdecec; color: #991b1b; font-size: 13px;
+}
+.ptl-form-ok {
+  margin: 10px 0; padding: 9px 13px; border-radius: 9px;
+  background: #e7f4ec; color: #14532d; font-size: 13px;
+}
