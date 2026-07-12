@@ -99,6 +99,7 @@ function PublicHeader() {
   }, [open])
 
   return (
+    <>
     <header className="ps-header">
       <div className="ps-header-inner">
         <Link to="/" className="ps-brand" aria-label="ASPIRE at Cedars-Sinai home">
@@ -132,8 +133,12 @@ function PublicHeader() {
           </button>
         </div>
       </div>
+    </header>
 
-      {/* Mobile drawer plus backdrop */}
+      {/* Mobile drawer plus backdrop. Rendered as a SIBLING of the header, not
+          inside it: the header's backdrop-filter would otherwise become the
+          containing block for these position:fixed elements and collapse the
+          drawer to the header's height. */}
       <div className={`ps-drawer-backdrop ${open ? 'ps-drawer-backdrop-open' : ''}`}
         onClick={close} aria-hidden="true" />
       <div id="ps-drawer" ref={panelRef}
@@ -166,7 +171,7 @@ function PublicHeader() {
             : <Link to="/login"  className="ps-btn ps-btn-primary ps-btn-block" onClick={() => setOpenFor(null)}>Log in</Link>}
         </div>
       </div>
-    </header>
+    </>
   )
 }
 

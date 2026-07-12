@@ -45,34 +45,38 @@
   grid-template-columns: 1fr 1fr;
 }
 
-/* ── Brand panel ─────────────────────────────────────────────────────────── */
+/* ── Brand panel ───────────────────────────────────────────────────────────
+   Navy surface (on-brand with the public-site preceptor band) so the approved
+   cs-logo-large.png, whose "Cedars Sinai" wordmark is white, reads clearly. */
 .lg-brand {
   background:
-    linear-gradient(160deg, #fbfaf7 0%, #eef0f8 100%);
-  border-right: 1px solid #e3ded4;
+    radial-gradient(120% 90% at 15% 0%, #26307a 0%, rgba(38, 48, 122, 0) 60%),
+    linear-gradient(165deg, #1f2874 0%, #141a4d 100%);
+  border-right: 1px solid #141a4d;
   padding: 40px 38px 34px;
   display: flex; flex-direction: column; gap: 18px;
 }
-.lg-logo { width: min(230px, 68%); height: auto; display: block; }
+.lg-logo { width: min(230px, 70%); height: auto; display: block; }
 .lg-wordmark {
   display: flex; align-items: baseline; gap: 10px; margin-top: 6px;
 }
 .lg-wordmark-name {
-  font-size: 26px; font-weight: 700; letter-spacing: 0.05em; color: #1D2567;
+  font-size: 26px; font-weight: 700; letter-spacing: 0.05em; color: #ffffff;
 }
 .lg-wordmark-sub {
   font-size: 12px; font-weight: 700; letter-spacing: 0.16em;
-  text-transform: uppercase; color: #B3282D;
+  text-transform: uppercase; color: #ff9ea1;
 }
 .lg-brand-blurb {
-  margin: 0; font-size: 14.5px; line-height: 1.65; color: #4b5265; max-width: 330px;
+  margin: 0; font-size: 14.5px; line-height: 1.65; color: #cdd2ea; max-width: 330px;
 }
-.lg-brand-inst { margin: 0; font-size: 12.5px; color: #5f6472; }
+.lg-brand-inst { margin: 0; font-size: 12.5px; color: #97a0cf; }
 .lg-brand-art { margin-top: auto; position: relative; }
 .lg-brand-art img {
   display: block; width: 100%; aspect-ratio: 5 / 4; object-fit: cover;
   border-radius: 18px;
-  box-shadow: 0 18px 40px -22px rgba(29, 37, 103, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.5);
 }
 
 /* ── Form panel ──────────────────────────────────────────────────────────── */
