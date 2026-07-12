@@ -29,11 +29,14 @@ const WORKFLOWS = [
 ]
 
 const CSS = `
-.rr-layout { display:flex; gap:18px; align-items:flex-start; }
-.rr-nav { width:300px; flex-shrink:0; display:flex; flex-direction:column; gap:8px; }
+/* LAYOUT-SHELL-CONSISTENCY-1: compact left navigator + flexible right workspace. The workspace
+   column is minmax(0,1fr) so it expands to fill the shared shell and its tables/notes can shrink
+   (min-width:0) without forcing horizontal overflow. */
+.rr-layout { display:grid; grid-template-columns:minmax(250px, 280px) minmax(0, 1fr); gap:18px; align-items:flex-start; }
+.rr-nav { min-width:0; display:flex; flex-direction:column; gap:8px; }
 .rr-nav-mobile { display:none; }
 .rr-workspace {
-  flex:1; min-width:0; background:#fff; border:1px solid #e8e4dc; border-radius:14px;
+  min-width:0; background:#fff; border:1px solid #e8e4dc; border-radius:14px;
   box-shadow:0 1px 3px rgba(25,25,25,0.06); padding:16px 20px 20px;
 }
 /* Navigation-only workflow rows: one selection button each (no per-row preview control). Selected
@@ -54,7 +57,7 @@ const CSS = `
 }
 .rr-preview-btn:focus-visible { outline:3px solid #93c5fd; outline-offset:2px; }
 @media (max-width: 900px) {
-  .rr-layout { flex-direction:column; }
+  .rr-layout { grid-template-columns:1fr; }
   .rr-nav { display:none; }
   .rr-nav-mobile { display:block; width:100%; }
   .rr-workspace { width:100%; }
@@ -160,7 +163,7 @@ export default function SurveyAutomationDashboard({ cohortId }) {
   const previewWorkflow = WORKFLOWS.find(w => w.key === previewKey)
 
   return (
-    <div style={{ padding: '4px 20px 28px', maxWidth: 1200, fontFamily: F }}>
+    <div style={{ padding: '4px 20px 28px', fontFamily: F }}>
       <style>{CSS}</style>
 
       {/* Global header */}

@@ -1823,23 +1823,19 @@ export default function ContactsView({ refreshKey = 0 }) {
   // ── Three-zone CRM layout ─────────────────────────────────────────────────
   return (
     <>
-    <div style={{
-      display: 'flex', height: '100%', fontFamily: F, overflow: 'hidden',
-      padding: '10px 12px', gap: 10,
-      background: 'var(--bg-app, #F4F1EC)',
-      boxSizing: 'border-box',
-    }}>
+    {/* LAYOUT-SHELL-CONSISTENCY-1B: three-zone CRM grid. Layout (columns, gap, height, overflow,
+        20px inset, responsive reflow) lives in .connect-three-zone (index.css). Three columns on
+        large desktop, two columns at <=1024px (context under profile), one column at <=768px. */}
+    <div className="connect-three-zone">
 
       {/* ── Zone 1: Directory (left) ──────────────────────────────────── */}
       {/* Tinted shell only (butter); inner list/search/rows keep their own surfaces. */}
-      <div style={{
-        flex: '0 0 320px', flexShrink: 0,
+      <div className="c3-col c3-contacts" style={{
         borderRadius: 12,
         border: '1px solid rgba(29,37,103,0.10)',
         boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
         display: 'flex', flexDirection: 'column',
         background: toneGradient('contacts'),
-        overflow: 'hidden',
       }}>
 
         {/* Directory header with Add Contact */}
@@ -2026,9 +2022,7 @@ export default function ContactsView({ refreshKey = 0 }) {
       </div>
 
       {/* ── Zone 2: Contact Profile (center) ──────────────────────────── */}
-      <div style={{
-        flex: '1 1 0', minWidth: 0,
-        overflowY: 'auto',
+      <div className="c3-col c3-profile" style={{
         background: '#fff',
         borderRadius: 12,
         border: '1px solid rgba(29,37,103,0.10)',
@@ -2051,10 +2045,7 @@ export default function ContactsView({ refreshKey = 0 }) {
 
       {/* ── Zone 3: Context - history + linked students (right) ───────── */}
       {/* No white outer shell - each card is its own standalone tinted ConnectPanel. */}
-      <div style={{
-        flex: '0 0 300px', minWidth: 0,
-        overflowY: 'auto',
-      }}>
+      <div className="c3-col c3-context">
         {selected ? (
           <ContactContext
             contact={selected}

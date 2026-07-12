@@ -325,7 +325,7 @@ export default function CatalogPage({ backPath = '/aggregate', backLabel = 'Aggr
   }
 
   return (
-    <div style={{ padding: '4px 24px 40px', maxWidth: 1280, margin: '0 auto', fontFamily: F }}>
+    <div style={{ padding: '4px 20px 40px', fontFamily: F }}>
       {/* Return control - on the page background, no utility bar. */}
       <div style={{ marginBottom: 12 }}>
         <WorkspaceBackLink path={backPath} label={backLabel} />
@@ -521,8 +521,10 @@ export default function CatalogPage({ backPath = '/aggregate', backLabel = 'Aggr
         )}
       </div>
 
-      {/* Two-column: resource list + right rail */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: 22, alignItems: 'start' }}>
+      {/* Two-column: resource list + right rail. LAYOUT-SHELL-CONSISTENCY-1/1B: main list takes the
+          flexible width; the supporting sidebar uses a bounded responsive range on desktop and stacks
+          below the list at <=1024px (see .catalog-content-grid in index.css). */}
+      <div className="catalog-content-grid">
         {/* Main: resource list */}
         <div>
           {loading ? (

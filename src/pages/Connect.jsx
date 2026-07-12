@@ -72,8 +72,8 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 128px)', fontFamily: F }}>
 
-      {/* Page header */}
-      <div style={{ padding: '12px 28px 0', flexShrink: 0 }}>
+      {/* Page header. LAYOUT-SHELL-CONSISTENCY-1: 20px horizontal inset matches the primary tabs. */}
+      <div style={{ padding: '12px 20px 0', flexShrink: 0 }}>
         {/* Return control (left) + refresh (right) - on the page background, no utility bar. */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
           <WorkspaceBackLink path={backPath} label={backLabel} />

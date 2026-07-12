@@ -635,7 +635,12 @@ export default function EvaluationTab({ cohortId }) {
 
       {/* ── Cohort View ─────────────────────────────────────────────────── */}
       {activeSubTab === 'cohort' && (
-        <div style={{ padding: '4px 20px 24px', maxWidth: 1400 }}>
+        // LAYOUT-SHELL-CONSISTENCY-1/1B: fill the shared app-main shell explicitly. The EvaluationTab
+        // root is a flex column, so this body already stretched to the shell width at viewports up to
+        // ~1540px; the removed maxWidth:1400 only left a right-side gap on WIDER monitors (app-main
+        // exceeds 1400 above ~1541px, and the capped flex child left-aligned). width:100% + min-width:0
+        // make full-width, shrink-safe behavior explicit and independent of the parent's align-items.
+        <div style={{ width: '100%', minWidth: 0, padding: '4px 20px 24px' }}>
 
           {/* Header - title, subtitle, and freshness cue right-aligned (mirrors OverviewTab) */}
           <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
