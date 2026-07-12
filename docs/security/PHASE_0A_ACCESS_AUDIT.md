@@ -169,9 +169,16 @@ history implies exists in production today.
 ### 5.3 units
 
 Same shape as cohorts: `anon_all` (migration_matching.sql:24) plus
-`authenticated_all_units`. Anon SELECT dependency verified (intake form unit
-preferences, unit form unit list). Same remediation: anon SELECT interim, staff
-re-scope, endpoint or view later.
+`authenticated_all_units`.
+
+Correction (implementation evidence, 2026-07-12): the anon dependency is wider
+than first recorded. Besides the verified anon SELECTs (intake form unit
+preferences, unit form unit lookup), the public unit form also INSERTS and
+UPDATES units rows as anon (`src/components/UnitFormPage.jsx`, submit handler:
+contact person, slots, participation flags). Remediation therefore moves from
+Wave C to Wave D: the server-side submit endpoint takes over the units writes
+first, then anon narrows to SELECT only. Cohorts remains the only Wave C
+table.
 
 ### 5.4 matches
 
@@ -402,7 +409,7 @@ RLS enabled, zero policies, service role only (verified). Sound.
 | Bucket | Tracked policies | Classification |
 |---|---|---|
 | contact-avatars | public read (anon plus authenticated), owner and admin insert and update (verified, 20260601000001) | sound for its content |
-| student-files | none tracked; browser uploads from the public intake form and 12 staff call sites | unknown, F7: if the bucket is public or anon-writable beyond intent, student documents are exposed. Script sections 2 and 5 confirm |
+| student-files | none tracked; browser uploads from the public intake form and 12 staff call sites | F7, upgraded to partially verified: the intake form calls `getPublicUrl` on uploaded resumes and headshots and stores the resulting URLs (`src/components/StudentIntakeFormPage.jsx`), which only work on a PUBLIC bucket. Student documents are therefore reachable by unauthenticated URL (unguessable UUID paths are the only protection). Script sections 2 and 5 confirm the bucket flag and any write policies; remediation (signed URLs plus private bucket) is Wave F |
 | avatars | none tracked | unknown, F7 |
 | aspire-catalog | none tracked; described as private, Owner-managed; access via signed URLs from `api/catalog-resource-open.js` | unknown, F7 |
 
@@ -453,12 +460,14 @@ Wave order, each wave independently revertible:
    interviewers (x3), interview_availability_blocks, interview_slots,
    student_shift_logs, matches, ngrp_outcomes, cohort_snapshots, program_events
    (x4), anon_insert_students. Pure risk removal.
-3. Wave C (narrowing with dependency preserved): cohorts and units, replace anon
-   ALL with anon SELECT only. Public forms keep working; public write access
-   ends.
+3. Wave C (narrowing with dependency preserved): cohorts, replace anon ALL
+   with anon SELECT only. Public forms keep working; public write access ends.
+   (Units originally sat here too; moved to Wave D when implementation
+   evidence showed the unit form also writes units as anon, see 5.3.)
 4. Wave D (code plus SQL pairs): move intake pre-fill lookup server-side, then
    drop `anon_all` on students; move unit form submit and pre-fill server-side,
-   then drop the three anon policies on unit_cohort_responses.
+   then drop the three anon policies on unit_cohort_responses and narrow units
+   to anon SELECT.
 5. Wave E (staff re-scope): replace every `authenticated_all_*` with staff-scoped
    policies; user_profiles and activity_logs get their dedicated shapes (5.17,
    5.18).

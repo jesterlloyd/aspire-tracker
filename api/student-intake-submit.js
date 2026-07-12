@@ -23,9 +23,11 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { toLocalDateStr } from '../shared/dateUtils.js'
-import { normalizeEmailForLookup, escapeLikePattern } from '../src/lib/emailUtils.js'
+import { normalizeEmailForLookup } from '../src/lib/emailUtils.js'
 import { sanitizeWeekdays, sanitizeIsoDates, coerceBoolOrNull } from '../src/lib/availability.js'
 import { STUDENT_FORM_ACK_VERSION } from '../src/lib/studentFormAck.js'
+// PHASE0B-WAVE-D: cohort and student resolution shared with student-intake-lookup.js
+import { resolveAcceptingCohort, resolveStudentByEmail } from './lib/intakeStudentLookup.js'
 
 function getDb() {
   const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
@@ -120,47 +122,31 @@ export default async function handler(req, res) {
 
   // ── Eligibility 1: exactly one cohort must be accepting submissions ─────────
   // 0 → 403 not_accepting; 1 → proceed; >1 → 409 ambiguous_cohort (never pick a row).
-  const { data: acceptingCohorts, error: cohortErr } = await db
-    .from('cohorts')
-    .select('id')
-    .eq('accepting_submissions', true)
-  if (cohortErr) return res.status(500).json({ error: 'internal_error' })
-  if (!acceptingCohorts || acceptingCohorts.length === 0) {
-    return res.status(403).json({ error: 'not_accepting', message: 'This form is not currently accepting submissions. Please contact the ASPIRE team.' })
+  // PHASE0B-WAVE-D: shared with student-intake-lookup.js (identical semantics).
+  const cohortResult = await resolveAcceptingCohort(db)
+  if (cohortResult.failure) {
+    if (cohortResult.failure.error === 'ambiguous_cohort') {
+      console.log('[student-intake-submit] multiple accepting cohorts', { request_id: requestId })
+    }
+    const { status, ...rest } = cohortResult.failure
+    return res.status(status).json(rest)
   }
-  if (acceptingCohorts.length > 1) {
-    console.log('[student-intake-submit] multiple accepting cohorts', { request_id: requestId, count: acceptingCohorts.length })
-    return res.status(409).json({ error: 'ambiguous_cohort', message: 'Submissions are temporarily unavailable. Please contact the ASPIRE team.' })
-  }
-  const cohortId = acceptingCohorts[0].id
+  const cohortId = cohortResult.cohortId
 
   // ── Eligibility 2: the submitted email must resolve to EXACTLY ONE student ──
   // within the cohort, across school_email AND personal_email. No first-match
-  // fallback: collect the distinct matching student IDs and require exactly one.
-  // Normalized (case/whitespace/zero-width); escaped ilike = case-insensitive
-  // EXACT match (no % / _ wildcard broadening).
-  const cleanEmail = normalizeEmailForLookup(schoolEmail)
-  const likeEmail = escapeLikePattern(cleanEmail)
-  const { data: bySchool, error: e1 } = await db
-    .from('students').select('id, cohort_id, status, cs_cedars_status')
-    .eq('cohort_id', cohortId).ilike('school_email', likeEmail)
-  const { data: byPersonal, error: e2 } = await db
-    .from('students').select('id, cohort_id, status, cs_cedars_status')
-    .eq('cohort_id', cohortId).ilike('personal_email', likeEmail)
-  if (e1 || e2) return res.status(500).json({ error: 'internal_error' })
-
-  const matched = new Map()
-  ;(bySchool   || []).forEach(s => matched.set(s.id, s))
-  ;(byPersonal || []).forEach(s => matched.set(s.id, s))
-  const matchedIds = [...matched.keys()]
-  if (matchedIds.length === 0) {
-    return res.status(404).json({ error: 'not_found', message: 'We could not find your information for the current cycle. Please contact the ASPIRE team to confirm your school email on file.' })
+  // fallback. Normalized (case/whitespace/zero-width); escaped ilike =
+  // case-insensitive EXACT match (no % / _ wildcard broadening).
+  // PHASE0B-WAVE-D: shared with student-intake-lookup.js (identical semantics).
+  const studentResult = await resolveStudentByEmail(db, cohortId, schoolEmail)
+  if (studentResult.failure) {
+    if (studentResult.failure.error === 'ambiguous_student') {
+      console.log('[student-intake-submit] ambiguous student match', { request_id: requestId })
+    }
+    const { status, ...rest } = studentResult.failure
+    return res.status(status).json(rest)
   }
-  if (matchedIds.length > 1) {
-    console.log('[student-intake-submit] ambiguous student match', { request_id: requestId, matchCount: matchedIds.length })
-    return res.status(409).json({ error: 'ambiguous_student', message: 'We could not uniquely identify your record. Please contact the ASPIRE team.' })
-  }
-  const student = matched.get(matchedIds[0])
+  const student = studentResult.student
 
   // ── Submission-state protection: do not overwrite advanced/staff-managed records
   const currentStatus = student.status || 'Pending Outreach'

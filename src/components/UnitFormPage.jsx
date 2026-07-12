@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { safeWrite } from '../lib/safeWrite'
-import { PATIENT_POPULATION_MAP } from '../lib/constants'
 import { getUnitsByDivision, getUnit, DIVISION_ORDER } from '../lib/unitCatalog'
 
 const PAGE_TITLE = 'ASPIRE: Unit Availability Form'
@@ -77,26 +75,19 @@ export default function UnitFormPage() {
 
     setLookingUp(true)
     try {
-      // Find units row for this unit_name + cohort
-      const { data: unitsRow } = await supabase
-        .from('units')
-        .select('id')
-        .eq('cohort_id', cohortId)
-        .eq('unit_name', unitName)
-        .limit(1)
-        .maybeSingle()
+      // PHASE0B-WAVE-D: pre-fill moved server-side. The endpoint resolves the
+      // accepting cohort itself and returns only the allow-listed pre-fill
+      // fields for this unit, so the anon SELECT policies on units and
+      // unit_cohort_responses can be dropped.
+      const lookupRes = await fetch('/api/unit-form-lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unit_name: unitName }),
+      })
+      const lookupData = await lookupRes.json().catch(() => ({}))
+      const responseRow = (lookupRes.ok && lookupData.found) ? lookupData.response : null
 
-      if (!unitsRow) { setLookingUp(false); return }
-
-      // Find response row
-      const { data: responseRow } = await supabase
-        .from('unit_cohort_responses')
-        .select('*')
-        .eq('cohort_id', cohortId)
-        .eq('unit_id', unitsRow.id)
-        .maybeSingle()
-
-      if (responseRow && responseRow.response_status !== 'pending') {
+      if (responseRow) {
         setExistingRow(responseRow)
         setForm({
           unit_name:             unitName,
@@ -155,87 +146,37 @@ export default function UnitFormPage() {
     const timeoutId = setTimeout(() => controller.abort(), 10000)
 
     try {
-      // 1. Upsert the units row (ensures matching board has a record)
-      let unitId
-      const { data: existingUnit } = await supabase
-        .from('units')
-        .select('id')
-        .eq('cohort_id', cohortId)
-        .eq('unit_name', form.unit_name.trim())
-        .limit(1)
-        .abortSignal(controller.signal)
-        .maybeSingle()
-
-      if (existingUnit) {
-        unitId = existingUnit.id
-        await safeWrite(
-          () => supabase.from('units').update({
-            contact_person:   form.submitter_name.trim(),
-            contact_email:    form.submitter_email.trim(),
-            is_participating: isHosting,
-            total_slots:      isHosting ? slotsNum : 0,
-            slots_remaining:  isHosting ? slotsNum : 0,
-            shift_preference: form.shift_preference,
-            preceptors:       form.preferred_preceptors.trim(),
-            considerations:   form.considerations.trim(),
-          }).eq('id', unitId).abortSignal(controller.signal),
-          { name: 'update unit form' }
-        )
-      } else {
-        const { data: newUnit, error: unitErr } = await safeWrite(
-          () => supabase.from('units').insert({
-            unit_name:          form.unit_name.trim(),
-            contact_person:     form.submitter_name.trim(),
-            contact_email:      form.submitter_email.trim(),
-            is_participating:   isHosting,
-            total_slots:        isHosting ? slotsNum : 0,
-            slots_remaining:    isHosting ? slotsNum : 0,
-            shift_preference:   form.shift_preference,
-            preceptors:         form.preferred_preceptors.trim(),
-            considerations:     form.considerations.trim(),
-            patient_population: PATIENT_POPULATION_MAP[form.unit_name.trim()] || '',
-            cohort_id:          cohortId,
-          }).select('id').abortSignal(controller.signal).single(),
-          { name: 'insert unit form' }
-        )
-
-        if (unitErr) throw unitErr
-        unitId = newUnit.id
+      // PHASE0B-WAVE-D: submission moved server-side. The endpoint resolves
+      // the accepting cohort itself, upserts the units row and the
+      // unit_cohort_responses row, and owns submission_count / submitted_at /
+      // last_updated_at, so the anon write policies on both tables can be
+      // dropped. Field mapping is unchanged from the previous client upsert.
+      const submitRes = await fetch('/api/unit-form-submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          unit_name:             form.unit_name.trim(),
+          submitter_name:        form.submitter_name.trim(),
+          submitter_email:       form.submitter_email.trim(),
+          submitter_role:        form.submitter_role,
+          slots_offered:         slotsNum,
+          shift_preference:      form.shift_preference,
+          preferred_preceptors:  form.preferred_preceptors.trim(),
+          considerations:        form.considerations.trim(),
+          reason_for_zero:       form.reason_for_zero.trim(),
+          hiring_ngrp:           form.hiring_ngrp,
+          hiring_ngrp_reason:    form.hiring_ngrp_reason.trim(),
+          has_fired_alumni:      form.has_fired_alumni,
+          alumni_outcome:        form.alumni_outcome,
+          alumni_notes:          form.alumni_notes.trim(),
+          would_consider_alumni: form.would_consider_alumni,
+        }),
+      })
+      const submitData = await submitRes.json().catch(() => ({}))
+      if (!submitRes.ok) {
+        throw new Error(submitData.message || 'Something went wrong. Please try again.')
       }
-
-      // 2. Upsert unit_cohort_responses
-      const now = new Date().toISOString()
-      const prevCount = existingRow?.submission_count || 0
-      const upsertData = {
-        cohort_id:                    cohortId,
-        unit_id:                      unitId,
-        unit_name:                    form.unit_name.trim(),
-        response_status:              isHosting ? 'submitted_hosting' : 'submitted_not_hosting',
-        submitted_by_name:            form.submitter_name.trim(),
-        submitted_by_email:           form.submitter_email.trim(),
-        submitted_by_role:            form.submitter_role,
-        slots_offered:                isHosting ? slotsNum : 0,
-        shift_preference:             form.shift_preference || null,
-        preferred_preceptors:         form.preferred_preceptors.trim() || null,
-        considerations:               form.considerations.trim() || null,
-        reason_for_zero:              !isHosting ? (form.reason_for_zero.trim() || null) : null,
-        hiring_new_grads_ngrp:        form.hiring_ngrp,
-        hiring_new_grads_reason:      form.hiring_ngrp === false ? (form.hiring_ngrp_reason.trim() || null) : null,
-        has_hired_aspire_alumni:      form.has_fired_alumni || null,
-        aspire_alumni_outcome:        form.has_fired_alumni === 'yes' ? (form.alumni_outcome || null) : null,
-        aspire_alumni_notes:          form.has_fired_alumni === 'yes' ? (form.alumni_notes.trim() || null) : null,
-        would_consider_aspire_alumni: form.has_fired_alumni === 'no'  ? (form.would_consider_alumni || null) : null,
-        submission_count:             prevCount + 1,
-        submitted_at:                 existingRow?.submitted_at || now,
-        last_updated_at:              now,
-      }
-
-      const { error: upsertErr } = await supabase
-        .from('unit_cohort_responses')
-        .upsert(upsertData, { onConflict: 'cohort_id,unit_id' })
-        .abortSignal(controller.signal)
-
-      if (upsertErr) throw upsertErr
 
       clearTimeout(timeoutId)
       clearTimeout(uiTimeoutId)

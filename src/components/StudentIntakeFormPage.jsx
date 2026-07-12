@@ -176,51 +176,35 @@ export default function StudentIntakeFormPage() {
     setSubmitting(true)
     setError(null)
 
-    // Step 1: Get the accepting cohort fresh at submit time
-    const { data: acceptingCohort } = await supabase
-      .from('cohorts')
-      .select('id')
-      .eq('accepting_submissions', true)
-      .maybeSingle()
-
-    if (!acceptingCohort) {
-      setError('This form is not currently accepting submissions. Please contact the ASPIRE team.')
-      setSubmitting(false)
-      return
-    }
-
-    // Step 2: Look up student by school_email (case-insensitive, trimmed)
+    // PHASE0B-WAVE-D: cohort + student resolution moved server-side. The
+    // lookup endpoint applies the same exactly-one-cohort / exactly-one-student
+    // semantics as student-intake-submit and returns ONLY opaque IDs (used
+    // below solely to build the file-upload paths). The client no longer reads
+    // the students table directly, so its anon RLS policy can be dropped.
     const cleanEmail = form.school_email.trim().toLowerCase()
 
-    const { data: studentBySchool } = await supabase
-      .from('students')
-      .select('*')
-      .eq('cohort_id', acceptingCohort.id)
-      .ilike('school_email', cleanEmail)
-      .maybeSingle()
-
-    // Step 3: If not found by school_email, try personal_email as fallback
-    let foundStudent = studentBySchool
-    if (!foundStudent) {
-      const { data: studentByPersonal } = await supabase
-        .from('students')
-        .select('*')
-        .eq('cohort_id', acceptingCohort.id)
-        .ilike('personal_email', cleanEmail)
-        .maybeSingle()
-      foundStudent = studentByPersonal
-    }
-
-    // Step 4: If still not found, show the error message
-    if (!foundStudent) {
-      setError('We could not find your information in our system for the current cycle. Please contact the ASPIRE team to confirm your school email on file.')
+    let lookup
+    try {
+      const lookupRes = await fetch('/api/student-intake-lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ school_email: cleanEmail }),
+      })
+      const lookupData = await lookupRes.json().catch(() => ({}))
+      if (!lookupRes.ok) {
+        setError(lookupData.message || 'We could not find your information in our system for the current cycle. Please contact the ASPIRE team to confirm your school email on file.')
+        setSubmitting(false)
+        return
+      }
+      lookup = lookupData
+    } catch {
+      setError('Something went wrong. Please try again or contact the ASPIRE team.')
       setSubmitting(false)
       return
     }
 
-    // Step 5: Proceed with updating the found student record
-    const studentId     = foundStudent.id
-    const activeCohortId = acceptingCohort.id
+    const studentId      = lookup.student_id
+    const activeCohortId = lookup.cohort_id
 
     // Upload files if provided
     let resume_url = ''
