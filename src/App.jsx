@@ -49,6 +49,8 @@ import CatalogPage from './components/catalog/CatalogPage'
 // bundle does not grow and public visitors do not download the staff app UI
 // up front (data access was never in the public chunk; there is none).
 const PublicSite = lazy(() => import('./public-site/PublicSite'))
+// PHASE2-PORTAL: the portal app is its own lazy chunk for the same reason.
+const PortalApp = lazy(() => import('./portal/PortalApp'))
 
 /*
   COHORT ISOLATION CONTRACT
@@ -1178,6 +1180,14 @@ function AuthedShell() {
     )
   }
 
+  // PHASE2-PORTAL: portal accounts (role 'portal', non-staff) never enter the
+  // staff shell; a portal user following a staff deep link lands on /portal.
+  // UX routing only: RLS (Phase 0B Wave E) is the actual security boundary.
+  if (userProfile && userProfile.is_owner !== true &&
+      !PORTAL_STAFF_ROLES.includes(userProfile.role)) {
+    return <Navigate to="/portal" replace />
+  }
+
   return <MainApp onLogout={signOut} />
 }
 
@@ -1231,38 +1241,14 @@ function PortalRoute() {
     return <Navigate to={target} replace />
   }
 
-  // Non-staff roles exist only from Phase 2 onward; until their portals ship,
-  // show a minimal signed-in landing rather than the staff app.
-  return <PortalPlaceholder />
-}
-
-function PortalPlaceholder() {
-  const { signOut } = useAuth()
+  // PHASE2-PORTAL: non-staff accounts enter the portal app (lazy chunk). It
+  // resolves the caller's active role grants via get_my_portal_access() and
+  // renders the matching portal (student now; unit leader and academic
+  // partner in Phases 3 and 4).
   return (
-    <div style={{
-      minHeight: '100vh', background: '#F4F1EC', fontFamily: 'DM Sans, sans-serif',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
-    }}>
-      <div style={{
-        background: '#fff', border: '1px solid #e3ded4', borderRadius: 14,
-        padding: '36px 40px', maxWidth: 460, textAlign: 'center',
-      }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: '#1D2567', marginBottom: 8 }}>
-          Your ASPIRE portal is being prepared
-        </div>
-        <div style={{ fontSize: 14, color: '#4b5265', lineHeight: 1.6, marginBottom: 20 }}>
-          Your account is active, but your portal experience is not available yet.
-          The ASPIRE team will let you know as soon as it opens.
-        </div>
-        <button onClick={signOut} style={{
-          padding: '9px 18px', borderRadius: 9, border: '1.5px solid #1D2567',
-          background: 'transparent', color: '#1D2567', fontWeight: 600,
-          fontSize: 13.5, cursor: 'pointer', fontFamily: 'inherit',
-        }}>
-          Sign out
-        </button>
-      </div>
-    </div>
+    <Suspense fallback={<ShellSplash />}>
+      <PortalApp />
+    </Suspense>
   )
 }
 

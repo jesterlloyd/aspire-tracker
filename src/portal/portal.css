@@ -1,0 +1,116 @@
+/* PHASE2-PORTAL: portal chunk styles, namespaced .ptl- to avoid any bleed
+   into the staff app or public site. Visual language matches the public site
+   (light surface, DM Sans, Cedars navy #1D2567). */
+
+.ptl-page {
+  min-height: 100vh;
+  background: #F4F1EC;
+  font-family: 'DM Sans', sans-serif;
+  color: #232842;
+  display: flex;
+  flex-direction: column;
+}
+
+.ptl-center { align-items: center; justify-content: center; display: flex; }
+
+.ptl-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 28px; background: #fff; border-bottom: 1px solid #e3ded4;
+}
+.ptl-header-brand { display: flex; align-items: center; gap: 14px; }
+.ptl-header-title { display: flex; flex-direction: column; line-height: 1.15; }
+.ptl-header-aspire { font-weight: 700; letter-spacing: 0.06em; color: #1D2567; font-size: 15px; }
+.ptl-header-sub { font-size: 12px; color: #6b7280; }
+.ptl-header-user { display: flex; align-items: center; gap: 16px; }
+.ptl-header-name { font-size: 13.5px; font-weight: 600; color: #232842; }
+.ptl-header-link { font-size: 13px; color: #1D2567; text-decoration: none; }
+.ptl-header-link:hover { text-decoration: underline; }
+
+.ptl-main { flex: 1; width: 100%; max-width: 1020px; margin: 0 auto; padding: 28px 20px 40px; }
+
+.ptl-footer {
+  text-align: center; padding: 18px; font-size: 12px; color: #9ca3af;
+  border-top: 1px solid #e3ded4;
+}
+
+.ptl-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+}
+.ptl-span2 { grid-column: 1 / -1; }
+@media (max-width: 760px) {
+  .ptl-grid { grid-template-columns: 1fr; }
+  .ptl-span2 { grid-column: auto; }
+}
+
+.ptl-card {
+  background: #fff; border: 1px solid #e3ded4; border-radius: 14px;
+  padding: 22px 24px;
+}
+.ptl-center-card { max-width: 460px; margin: 40px auto; text-align: center; }
+.ptl-card-title { font-size: 15px; font-weight: 700; color: #1D2567; margin-bottom: 12px; }
+.ptl-error { border-color: #fca5a5; color: #991b1b; }
+
+.ptl-welcome { font-size: 22px; font-weight: 700; color: #1D2567; margin-bottom: 10px; }
+.ptl-status-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.ptl-chip {
+  display: inline-block; padding: 4px 12px; border-radius: 999px;
+  background: #1D2567; color: #fff; font-size: 12.5px; font-weight: 600;
+}
+.ptl-chip-soft { background: #eef0f8; color: #1D2567; }
+.ptl-chip-ok { background: #e7f4ec; color: #14532d; }
+.ptl-chip-wait { background: #fdf3e3; color: #92400e; }
+
+.ptl-dl { margin: 0; }
+.ptl-dl > div { display: flex; justify-content: space-between; gap: 14px; padding: 7px 0; border-bottom: 1px dashed #eee9df; }
+.ptl-dl > div:last-child { border-bottom: none; }
+.ptl-dl dt { color: #6b7280; font-size: 13.5px; }
+.ptl-dl dd { margin: 0; font-weight: 600; font-size: 13.5px; text-align: right; }
+
+.ptl-hours-line { margin-bottom: 10px; }
+.ptl-hours-big { font-size: 30px; font-weight: 700; color: #1D2567; }
+.ptl-progress {
+  height: 10px; border-radius: 999px; background: #eee9df; overflow: hidden; margin-bottom: 8px;
+}
+.ptl-progress-fill { height: 100%; border-radius: 999px; background: #1D2567; transition: width 300ms ease; }
+
+.ptl-steps { list-style: none; margin: 0 0 6px; padding: 0; }
+.ptl-steps li { padding: 6px 0; font-size: 14px; display: flex; gap: 10px; align-items: baseline; }
+.ptl-step-done { color: #6b7280; }
+.ptl-step-mark { color: #1D2567; font-weight: 700; }
+.ptl-step-done .ptl-step-mark { color: #16a34a; }
+
+.ptl-list { list-style: none; margin: 0; padding: 0; }
+.ptl-list li {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 8px 0; border-bottom: 1px dashed #eee9df; font-size: 13.5px;
+}
+.ptl-list li:last-child { border-bottom: none; }
+.ptl-list a { color: #1D2567; }
+
+.ptl-cert {
+  margin-top: 12px; padding: 10px 14px; border-radius: 10px;
+  background: #e7f4ec; color: #14532d; font-size: 13.5px;
+}
+
+.ptl-label { display: block; font-size: 12.5px; color: #6b7280; margin-bottom: 6px; }
+.ptl-select {
+  width: 100%; max-width: 420px; padding: 9px 12px; border-radius: 9px;
+  border: 1.5px solid #d7d2c7; background: #fff; font-family: inherit; font-size: 14px;
+}
+
+.ptl-btn {
+  display: inline-block; margin-top: 10px; padding: 10px 20px; border-radius: 9px;
+  background: #1D2567; color: #fff; font-weight: 600; font-size: 13.5px;
+  text-decoration: none; border: none; cursor: pointer; font-family: inherit;
+}
+.ptl-btn:hover { background: #2a3480; }
+.ptl-btn-outline {
+  padding: 9px 18px; border-radius: 9px; border: 1.5px solid #1D2567;
+  background: transparent; color: #1D2567; font-weight: 600; font-size: 13.5px;
+  cursor: pointer; font-family: inherit;
+}
+.ptl-btn-sm { padding: 7px 14px; font-size: 12.5px; }
+
+.ptl-muted { color: #6b7280; font-size: 13.5px; line-height: 1.6; }
+.ptl-small { font-size: 12.5px; margin-top: 6px; }
