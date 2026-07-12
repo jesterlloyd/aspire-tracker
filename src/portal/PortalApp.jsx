@@ -13,6 +13,7 @@ import { useAuth } from '../contexts/AuthContext'
 import PortalShell from './PortalShell'
 import StudentPortal from './StudentPortal'
 import UnitLeaderPortal from './UnitLeaderPortal'
+import AcademicPartnerPortal from './AcademicPartnerPortal'
 import './portal.css'
 
 export default function PortalApp() {
@@ -67,13 +68,7 @@ export default function PortalApp() {
   if (roles.includes('academic_partner')) {
     return (
       <PortalShell title="Academic Partner Portal" userName={userProfile?.full_name}>
-        <div className="ptl-card ptl-center-card">
-          <div className="ptl-card-title">Your academic partner portal is almost ready</div>
-          <p className="ptl-muted">
-            Your access is active, and this portal opens in an upcoming release.
-            The ASPIRE team will notify you when it is available.
-          </p>
-        </div>
+        <AcademicPartnerPortal />
       </PortalShell>
     )
   }
