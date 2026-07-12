@@ -235,10 +235,10 @@ export const PRECEPTORS = {
   ],
   ctaHeading: 'Interested in becoming an ASPIRE preceptor?',
   ctaBody:
-    'Let your unit leadership know you are interested, or reach out to the ASPIRE team ' +
-    'through Nursing Professional Development at Cedars-Sinai.',
-  ctaLabel: 'Contact the ASPIRE team',
-  ctaPath: '/contact',
+    'Let your unit leadership know you are interested, or email the ASPIRE team ' +
+    'directly at aspire@cshs.org.',
+  ctaLabel: 'Email the ASPIRE team',
+  ctaPath: 'mailto:aspire@cshs.org',
 }
 
 export const FAQ = {
@@ -303,7 +303,13 @@ export const CONTACT = {
       cta: { path: '/login', label: 'Sign in' },
     },
   ],
-  note: 'A public ASPIRE contact address is being finalized with Cedars-Sinai communications. Until then, your school’s placement coordinator and Nursing Professional Development are the best points of contact.',
+  // aspire@cshs.org is approved for public use (Owner approval, 2026-07-12).
+  emailHeading: 'Email the ASPIRE team',
+  emailBody:
+    'For anything that does not fit a path above, including preceptor and unit ' +
+    'participation questions, reach the ASPIRE team directly.',
+  email: 'aspire@cshs.org',
+  note: 'For eligibility and placement questions, your school’s placement coordinator remains the fastest route to an answer.',
 }
 
 export const FOOTER = {
@@ -338,12 +344,14 @@ export const FOOTER = {
     },
   ],
   contactHeading: 'Get started',
-  contactBody: 'Work with your school’s placement coordinator to begin.',
+  contactBody: 'Work with your school’s placement coordinator to begin, or email the ASPIRE team.',
   contactCta: { path: '/apply', label: 'How to apply' },
+  // aspire@cshs.org is approved for public use (Owner approval, 2026-07-12).
+  contactEmail: 'aspire@cshs.org',
   disclaimer:
     'Program details are subject to change and are confirmed through your school’s ' +
     'placement coordinator.',
-  // Institute naming, team bios, partner schools, metrics, and a public email
-  // address are all withheld pending approval (Owner decision list, Phase 1).
+  // Institute naming, team bios, partner schools, and metrics remain withheld
+  // pending approval (Owner decision list, Phase 1).
   attribution: '© Cedars-Sinai. ASPIRE is a nursing workforce pathway at Cedars-Sinai.',
 }

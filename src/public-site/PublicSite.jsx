@@ -12,15 +12,34 @@
 //     "Log in" (via useAuth); everyone else sees Log in, which routes to
 //     /login. No data is fetched anywhere on the public site.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import Icon, { HeroArt, LoopMotif } from './PublicIcons'
+import Icon, { LoopMotif, StatBadge } from './PublicIcons'
 import {
   SITE_NAME, SITE_TITLE, NAV_LINKS, HOME, ABOUT, ELIGIBILITY, APPLY,
   EXPERIENCE, PRECEPTORS, FAQ, CONTACT, FOOTER,
 } from './publicContent'
 import './publicSite.css'
+
+// ── Art-directed illustration (approved vector set) ──────────────────────────
+// Each page gets its own crop pair (desktop + mobile) generated from the
+// approved source illustrations under reference/ (tracked derivatives live in
+// public/public-site/illustrations/). The <picture> swap is true art
+// direction: phones get a tighter, wider framing, not a squeezed desktop crop.
+function Art({ base, alt, className = '', eager = false }) {
+  return (
+    <picture className={`ps-art ${className}`}>
+      <source media="(max-width: 760px)" srcSet={`/public-site/illustrations/${base}-mobile.jpg`} />
+      <img
+        src={`/public-site/illustrations/${base}-desktop.jpg`}
+        alt={alt}
+        loading={eager ? 'eager' : 'lazy'}
+        decoding="async"
+      />
+    </picture>
+  )
+}
 
 const PAGE_TITLES = {
   home:        SITE_TITLE,
@@ -33,7 +52,12 @@ const PAGE_TITLES = {
   contact:     'Contact | ASPIRE at Cedars-Sinai',
 }
 
-// ── Header with accessible mobile nav ─────────────────────────────────────────
+// ── Header with accessible mobile nav drawer ─────────────────────────────────
+// The mobile menu is a clearly separate elevated white panel that slides over
+// a dimmed backdrop (it no longer blends into the cream page). While open:
+// body scroll is locked, focus moves to the close control, Tab cycles inside
+// the panel, and Escape (or the backdrop, or any link) closes it and returns
+// focus to the toggle.
 function PublicHeader() {
   const { user } = useAuth()
   const location = useLocation()
@@ -41,6 +65,38 @@ function PublicHeader() {
   // false without a cascading setState-in-effect.
   const [openFor, setOpenFor] = useState(null)
   const open = openFor === location.pathname
+  const panelRef = useRef(null)
+  const closeBtnRef = useRef(null)
+  const toggleRef = useRef(null)
+
+  const close = () => {
+    setOpenFor(null)
+    if (toggleRef.current) toggleRef.current.focus()
+  }
+
+  useEffect(() => {
+    if (!open) return undefined
+    // Scroll lock plus keyboard behavior for the drawer.
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    if (closeBtnRef.current) closeBtnRef.current.focus()
+
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); close(); return }
+      if (e.key !== 'Tab' || !panelRef.current) return
+      const focusables = panelRef.current.querySelectorAll('a[href], button:not([disabled])')
+      if (focusables.length === 0) return
+      const first = focusables[0]
+      const last = focusables[focusables.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.body.style.overflow = prevOverflow
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
 
   return (
     <header className="ps-header">
@@ -51,7 +107,8 @@ function PublicHeader() {
           <span className="ps-brand-name">ASPIRE</span>
         </Link>
 
-        <nav className={`ps-nav ${open ? 'ps-nav-open' : ''}`} aria-label="Primary" id="ps-primary-nav">
+        {/* Desktop inline nav */}
+        <nav className="ps-nav" aria-label="Primary">
           {NAV_LINKS.map(l => (
             <Link key={l.path} to={l.path}
               aria-current={location.pathname === l.path ? 'page' : undefined}
@@ -59,17 +116,14 @@ function PublicHeader() {
               {l.label}
             </Link>
           ))}
-          {user
-            ? <Link to="/portal" className="ps-login-btn ps-login-btn-mobile">Open Portal</Link>
-            : <Link to="/login"  className="ps-login-btn ps-login-btn-mobile">Log in</Link>}
         </nav>
 
         <div className="ps-header-actions">
           {user
             ? <Link to="/portal" className="ps-login-btn">Open Portal</Link>
             : <Link to="/login"  className="ps-login-btn">Log in</Link>}
-          <button type="button" className="ps-nav-toggle"
-            aria-expanded={open} aria-controls="ps-primary-nav"
+          <button type="button" className="ps-nav-toggle" ref={toggleRef}
+            aria-expanded={open} aria-controls="ps-drawer"
             aria-label={open ? 'Close menu' : 'Open menu'}
             onClick={() => setOpenFor(v => (v === location.pathname ? null : location.pathname))}>
             <span className="ps-nav-toggle-bar" />
@@ -78,19 +132,63 @@ function PublicHeader() {
           </button>
         </div>
       </div>
+
+      {/* Mobile drawer plus backdrop */}
+      <div className={`ps-drawer-backdrop ${open ? 'ps-drawer-backdrop-open' : ''}`}
+        onClick={close} aria-hidden="true" />
+      <div id="ps-drawer" ref={panelRef}
+        className={`ps-drawer ${open ? 'ps-drawer-open' : ''}`}
+        role="dialog" aria-modal="true" aria-label="Site menu"
+        inert={!open}>
+        <div className="ps-drawer-head">
+          <span className="ps-drawer-title">Menu</span>
+          <button type="button" className="ps-drawer-close" ref={closeBtnRef}
+            onClick={close} aria-label="Close menu">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+              <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor"
+                strokeWidth="2.2" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+        <nav className="ps-drawer-nav" aria-label="Primary, mobile">
+          {NAV_LINKS.map(l => (
+            <Link key={l.path} to={l.path} onClick={() => setOpenFor(null)}
+              aria-current={location.pathname === l.path ? 'page' : undefined}
+              className={location.pathname === l.path ? 'ps-drawer-active' : undefined}>
+              {l.label}
+              <span className="ps-drawer-arrow" aria-hidden="true">→</span>
+            </Link>
+          ))}
+        </nav>
+        <div className="ps-drawer-foot">
+          {user
+            ? <Link to="/portal" className="ps-btn ps-btn-primary ps-btn-block" onClick={() => setOpenFor(null)}>Open Portal</Link>
+            : <Link to="/login"  className="ps-btn ps-btn-primary ps-btn-block" onClick={() => setOpenFor(null)}>Log in</Link>}
+        </div>
+      </div>
     </header>
   )
+}
+
+// Renders internal routes with the SPA Link and mailto (or other external)
+// targets with a plain anchor, so approved email CTAs behave like normal
+// public-website email links.
+function SmartLink({ to, className, children }) {
+  if (typeof to === 'string' && to.startsWith('mailto:')) {
+    return <a href={to} className={className}>{children}</a>
+  }
+  return <Link to={to} className={className}>{children}</Link>
 }
 
 function CtaLink({ cta, variant = 'text' }) {
   if (variant === 'text') {
     return (
-      <Link to={cta.path} className="ps-arrow-link">
+      <SmartLink to={cta.path} className="ps-arrow-link">
         {cta.label} <span aria-hidden="true">→</span>
-      </Link>
+      </SmartLink>
     )
   }
-  return <Link to={cta.path} className={`ps-btn ps-btn-${variant}`}>{cta.label}</Link>
+  return <SmartLink to={cta.path} className={`ps-btn ps-btn-${variant}`}>{cta.label}</SmartLink>
 }
 
 // ── Home ──────────────────────────────────────────────────────────────────────
@@ -109,8 +207,12 @@ function HomePage() {
             </div>
             <p className="ps-hero-trust">{HOME.heroTrust}</p>
           </div>
-          <div className="ps-hero-art" aria-hidden="false">
-            <HeroArt className="ps-hero-illustration" />
+          <div className="ps-hero-art">
+            <div className="ps-hero-figure">
+              <Art base="hero" eager
+                alt="Illustration of a Cedars-Sinai nurse talking with a senior nursing student in a bright hospital lobby" />
+              <StatBadge className="ps-hero-badge" />
+            </div>
           </div>
         </div>
       </section>
@@ -155,18 +257,7 @@ function HomePage() {
           <h2 id="ps-journey-title" className="ps-h2">{HOME.journeyTitle}</h2>
           <p className="ps-section-intro">{HOME.journeyIntro}</p>
         </div>
-        <ol className="ps-journey">
-          {HOME.journey.map((s, i) => (
-            <li className="ps-journey-step" key={s.title}>
-              <div className="ps-journey-node">
-                <span className="ps-journey-num">{i + 1}</span>
-                <span className="ps-journey-icon"><Icon name={s.icon} /></span>
-              </div>
-              <h3>{s.title}</h3>
-              <p>{s.body}</p>
-            </li>
-          ))}
-        </ol>
+        <Journey />
         <p className="ps-inline-note">{HOME.journeyNote}</p>
       </section>
 
@@ -180,6 +271,85 @@ function HomePage() {
         <FaqAccordion items={FAQ.items.slice(0, 3)} idPrefix="home-faq" />
       </section>
     </>
+  )
+}
+
+// ── ASPIRE journey ────────────────────────────────────────────────────────────
+// Desktop: the six steps render as the familiar grid rail. Mobile: the SAME
+// list becomes a horizontally swipeable scroll-snap stepper (one card at a
+// time) with previous/next controls, a segmented progress rail, and a
+// "Step X of 6" live region, so the journey no longer stacks into a tall
+// six-card column. The list semantics are unchanged for screen readers; the
+// controls are a visual affordance layered on top. Smooth scrolling defers to
+// prefers-reduced-motion.
+function Journey() {
+  const scrollerRef = useRef(null)
+  const [index, setIndex] = useState(0)
+  const count = HOME.journey.length
+
+  const currentIndex = () => {
+    const el = scrollerRef.current
+    if (!el || el.scrollWidth <= el.clientWidth) return 0
+    const progress = el.scrollLeft / (el.scrollWidth - el.clientWidth)
+    return Math.round(progress * (count - 1))
+  }
+
+  const onScroll = () => {
+    const next = currentIndex()
+    setIndex(prev => (prev === next ? prev : next))
+  }
+
+  const scrollToStep = (i) => {
+    const el = scrollerRef.current
+    if (!el) return
+    const clamped = Math.max(0, Math.min(count - 1, i))
+    const target = (el.scrollWidth - el.clientWidth) * (clamped / (count - 1))
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    el.scrollTo({ left: target, behavior: reduce ? 'auto' : 'smooth' })
+  }
+
+  return (
+    <div className="ps-journey-wrap">
+      <ol className="ps-journey" ref={scrollerRef} onScroll={onScroll} tabIndex={0}
+        aria-label={HOME.journeyTitle}>
+        {HOME.journey.map((s, i) => (
+          <li className="ps-journey-step" key={s.title}>
+            <div className="ps-journey-node">
+              <span className="ps-journey-num">{i + 1}</span>
+              <span className="ps-journey-icon"><Icon name={s.icon} /></span>
+            </div>
+            <h3>{s.title}</h3>
+            <p>{s.body}</p>
+          </li>
+        ))}
+      </ol>
+      <div className="ps-journey-controls">
+        <button type="button" className="ps-journey-btn" onClick={() => scrollToStep(index - 1)}
+          disabled={index === 0} aria-label="Previous step">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+            <path d="M14.5 5.5 8 12l6.5 6.5" fill="none" stroke="currentColor"
+              strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <div className="ps-journey-progress">
+          <span className="ps-journey-count" aria-live="polite">Step {index + 1} of {count}</span>
+          <div className="ps-journey-rail" aria-hidden="true">
+            {HOME.journey.map((s, i) => (
+              <button type="button" key={s.title} tabIndex={-1}
+                className={`ps-journey-seg ${i === index ? 'ps-journey-seg-on' : ''}`}
+                onClick={() => scrollToStep(i)} aria-label={`Go to step ${i + 1}`} />
+            ))}
+          </div>
+        </div>
+        <button type="button" className="ps-journey-btn" onClick={() => scrollToStep(index + 1)}
+          disabled={index === count - 1} aria-label="Next step">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+            <path d="M9.5 5.5 16 12l-6.5 6.5" fill="none" stroke="currentColor"
+              strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -231,7 +401,13 @@ function AboutPage() {
   return (
     <>
       <section className="ps-section">
-        <PageHead eyebrow={ABOUT.eyebrow} title={ABOUT.title} intro={ABOUT.intro} />
+        <div className="ps-head-split">
+          <PageHead eyebrow={ABOUT.eyebrow} title={ABOUT.title} intro={ABOUT.intro} />
+          <div className="ps-head-art ps-head-art-offset">
+            <Art base="about"
+              alt="Illustration of a senior nursing student and a Cedars-Sinai nurse reviewing coursework together at a desk" />
+          </div>
+        </div>
       </section>
       <section className="ps-section ps-section-tint" aria-labelledby="ps-about-designed">
         <h2 id="ps-about-designed" className="ps-h2">{ABOUT.designedTitle}</h2>
@@ -323,6 +499,10 @@ function ExperiencePage() {
     <>
       <section className="ps-section">
         <PageHead eyebrow={EXPERIENCE.eyebrow} title={EXPERIENCE.title} intro={EXPERIENCE.intro} />
+        <div className="ps-banner-art">
+          <Art base="experience"
+            alt="Illustration of a Nursing Professional Development practitioner, a nurse, and a nursing student talking as a care team" />
+        </div>
         <div className="ps-feature-grid">
           {EXPERIENCE.bullets.map(b => (
             <article className="ps-feature-card ps-feature-row" key={b.text}>
@@ -346,7 +526,13 @@ function PreceptorsPage() {
   return (
     <>
       <section className="ps-section">
-        <PageHead eyebrow={PRECEPTORS.eyebrow} title={PRECEPTORS.title} intro={PRECEPTORS.intro} />
+        <div className="ps-head-split">
+          <PageHead eyebrow={PRECEPTORS.eyebrow} title={PRECEPTORS.title} intro={PRECEPTORS.intro} />
+          <div className="ps-head-art ps-head-art-arch">
+            <Art base="preceptors"
+              alt="Illustration of a Cedars-Sinai nurse teaching at a workstation while a nursing student takes notes" />
+          </div>
+        </div>
         <h2 className="ps-h3">{PRECEPTORS.benefitsHeading}</h2>
         <div className="ps-feature-grid">
           {PRECEPTORS.benefits.map(b => (
@@ -383,9 +569,16 @@ function ContactPage() {
             <span className="ps-contact-icon"><Icon name={c.icon} /></span>
             <h3>{c.title}</h3>
             <p>{c.body}</p>
-            <Link to={c.cta.path} className="ps-btn ps-btn-primary ps-btn-block">{c.cta.label}</Link>
+            <SmartLink to={c.cta.path} className="ps-btn ps-btn-primary ps-btn-block">{c.cta.label}</SmartLink>
           </article>
         ))}
+      </div>
+      <div className="ps-minicta ps-contact-email">
+        <div>
+          <h2 className="ps-h3">{CONTACT.emailHeading}</h2>
+          <p>{CONTACT.emailBody}</p>
+        </div>
+        <a href={`mailto:${CONTACT.email}`} className="ps-btn ps-btn-primary">{CONTACT.email}</a>
       </div>
       <p className="ps-note">{CONTACT.note}</p>
     </section>
@@ -400,7 +593,7 @@ function MiniCta({ heading, body, label, path }) {
           <h2 className="ps-h3">{heading}</h2>
           <p>{body}</p>
         </div>
-        <Link to={path} className="ps-btn ps-btn-primary">{label}</Link>
+        <SmartLink to={path} className="ps-btn ps-btn-primary">{label}</SmartLink>
       </div>
     </section>
   )
@@ -436,6 +629,9 @@ function PublicFooter() {
             <Link to={FOOTER.contactCta.path} className="ps-arrow-link">
               {FOOTER.contactCta.label} <span aria-hidden="true">→</span>
             </Link>
+            <a href={`mailto:${FOOTER.contactEmail}`} className="ps-footer-email">
+              {FOOTER.contactEmail}
+            </a>
           </div>
         </nav>
       </div>

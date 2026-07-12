@@ -1,6 +1,14 @@
-import React, { useState } from 'react';
+// ASPIRE-PUBLIC-SITE-REDESIGN: login restyled into the public site's visual
+// system (cream, navy, DM Sans; prominent Cedars-Sinai identity via
+// cs-logo-large.png; approved vector illustration on desktop). AUTH BEHAVIOR
+// IS UNCHANGED: the sign-in, reset, error, and loading logic below is the
+// exact pre-redesign code; only the markup and styling around it moved.
+
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { appUrl } from '../lib/appUrl';
+import './login.css';
 
 export default function Login() {
   const [email, setEmail]           = useState('');
@@ -32,156 +40,114 @@ export default function Login() {
     setLoading(false);
   };
 
-  const inputStyle = {
-    width: '100%', padding: '11px 14px',
-    border: '1px solid #e5e7eb', borderRadius: '10px',
-    fontSize: '14px', color: '#374151', outline: 'none',
-    boxSizing: 'border-box', fontFamily: 'DM Sans, sans-serif',
-  };
-
   return (
-    <div style={{
-      minHeight: '100vh', background: '#F4F1EC',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '24px', fontFamily: 'DM Sans, sans-serif',
-    }}>
-      <div style={{
-        width: '100%', maxWidth: '400px', background: '#ffffff',
-        borderRadius: '20px', overflow: 'hidden',
-        boxShadow: '0 8px 40px rgba(29,37,103,0.16)',
-      }}>
+    <div className="lg-page">
+      <div className="lg-top">
+        <Link to="/" className="lg-back">
+          <span aria-hidden="true">←</span> Back to the ASPIRE site
+        </Link>
+      </div>
 
-        {/* Header */}
-        <div style={{
-          background: 'linear-gradient(180deg, #1c2452 0%, #141928 100%)',
-          padding: '28px 32px 24px', textAlign: 'center',
-        }}>
-          <img src="/cs-logo-rev.png" alt="Cedars-Sinai"
-            style={{ height: '28px', width: 'auto', marginBottom: '14px' }} />
-          <div style={{ fontWeight: 700, fontSize: '20px', color: '#ffffff', marginBottom: '4px' }}>
-            ASPIRE Intelligence
-          </div>
-          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
-            Geri and Richard Brawerman Nursing Institute
-          </div>
-        </div>
+      <div className="lg-center">
+        <div className="lg-shell">
 
-        {/* Body */}
-        <div style={{ padding: '32px' }}>
-          {!showForgot ? (
-            <>
-              <div style={{ fontWeight: 600, fontSize: '15px', color: '#1D2567', marginBottom: '20px', textAlign: 'center' }}>
-                Sign in to your account
-              </div>
-
-              {error && (
-                <div style={{
-                  background: '#fff1f2', border: '1px solid #fca5a5',
-                  borderRadius: '8px', padding: '10px 14px',
-                  fontSize: '13px', color: '#991b1b', marginBottom: '16px',
-                }}>
-                  {error}
-                </div>
-              )}
-
-              <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <div>
-                  <label style={{ fontWeight: 600, fontSize: '12px', color: '#374151', display: 'block', marginBottom: '6px' }}>
-                    Email address
-                  </label>
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                    required placeholder="your@cshs.org" style={inputStyle}
-                    onFocus={e => e.target.style.borderColor = '#1D2567'}
-                    onBlur={e => e.target.style.borderColor = '#e5e7eb'}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontWeight: 600, fontSize: '12px', color: '#374151', display: 'block', marginBottom: '6px' }}>
-                    Password
-                  </label>
-                  <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-                    required placeholder="••••••••" style={inputStyle}
-                    onFocus={e => e.target.style.borderColor = '#1D2567'}
-                    onBlur={e => e.target.style.borderColor = '#e5e7eb'}
-                  />
-                </div>
-
-                <button type="submit" disabled={loading} style={{
-                  width: '100%', padding: '13px',
-                  background: loading ? '#e5e7eb' : '#1D2567',
-                  border: 'none', borderRadius: '10px',
-                  fontWeight: 700, fontSize: '14px', color: '#ffffff',
-                  cursor: loading ? 'default' : 'pointer', marginTop: '4px',
-                  fontFamily: 'DM Sans, sans-serif',
-                }}>
-                  {loading ? 'Signing in...' : 'Sign In'}
-                </button>
-              </form>
-
-              <div style={{ textAlign: 'center', marginTop: '16px' }}>
-                <button onClick={() => setShowForgot(true)} style={{
-                  background: 'none', border: 'none', fontSize: '12px',
-                  color: '#6b7280', cursor: 'pointer', textDecoration: 'underline',
-                  fontFamily: 'DM Sans, sans-serif',
-                }}>
-                  Forgot your password?
-                </button>
-              </div>
-            </>
-          ) : resetSent ? (
-            <div style={{ textAlign: 'center', padding: '16px 0' }}>
-              <div style={{ fontSize: '36px', marginBottom: '12px' }}>📬</div>
-              <div style={{ fontWeight: 700, fontSize: '15px', color: '#1D2567', marginBottom: '8px' }}>
-                Check your email
-              </div>
-              <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: 1.6 }}>
-                We sent a reset link to {email}.
-              </div>
-              <button onClick={() => { setShowForgot(false); setResetSent(false); }} style={{
-                marginTop: '20px', background: 'none', border: 'none',
-                fontSize: '13px', color: '#1D2567', cursor: 'pointer', fontWeight: 600,
-                fontFamily: 'DM Sans, sans-serif',
-              }}>
-                ← Back to sign in
-              </button>
+          {/* Brand panel */}
+          <div className="lg-brand">
+            <img src="/cs-logo-large.png" alt="Cedars-Sinai" className="lg-logo" />
+            <div className="lg-wordmark">
+              <span className="lg-wordmark-name">ASPIRE</span>
+              <span className="lg-wordmark-sub">Portal</span>
             </div>
-          ) : (
-            <>
-              <div style={{ fontWeight: 700, fontSize: '15px', color: '#1D2567', marginBottom: '8px' }}>
-                Reset your password
-              </div>
-              <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '20px', lineHeight: 1.6 }}>
-                Enter your email and we will send you a reset link.
-              </div>
-              <form onSubmit={handleReset} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                  required placeholder="your@cshs.org" style={inputStyle}
-                />
-                <button type="submit" disabled={loading} style={{
-                  width: '100%', padding: '13px', background: '#1D2567',
-                  border: 'none', borderRadius: '10px', fontWeight: 700,
-                  fontSize: '14px', color: '#ffffff', cursor: 'pointer',
-                  fontFamily: 'DM Sans, sans-serif',
-                }}>
-                  {loading ? 'Sending...' : 'Send Reset Link'}
-                </button>
-              </form>
-              <div style={{ textAlign: 'center', marginTop: '16px' }}>
-                <button onClick={() => setShowForgot(false)} style={{
-                  background: 'none', border: 'none', fontSize: '12px',
-                  color: '#6b7280', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
-                }}>
-                  ← Back to sign in
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+            <p className="lg-brand-blurb">
+              One sign-in for everyone connected to ASPIRE: students in the
+              pathway, unit leaders, academic partners, and the Cedars-Sinai
+              team.
+            </p>
+            <p className="lg-brand-inst">Geri and Richard Brawerman Nursing Institute</p>
+            <div className="lg-brand-art">
+              <img src="/public-site/illustrations/login-panel.jpg" alt=""
+                loading="lazy" decoding="async" />
+            </div>
+          </div>
 
-        <div style={{ padding: '0 32px 20px', textAlign: 'center', fontSize: '11px', color: '#9ca3af' }}>
-          Access is by invitation only.
-          <br />Contact JesterLloyd.Bautista@cshs.org for access.
+          {/* Form panel (logic unchanged) */}
+          <div className="lg-form-panel">
+            {!showForgot ? (
+              <>
+                <h1 className="lg-form-title">Sign in</h1>
+                <p className="lg-form-sub">
+                  Use the account the ASPIRE team invited you with.
+                </p>
+
+                {error && <div className="lg-error">{error}</div>}
+
+                <form onSubmit={handleLogin} className="lg-form">
+                  <div>
+                    <label className="lg-label" htmlFor="lg-email">Email address</label>
+                    <input id="lg-email" className="lg-input" type="email" value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      required placeholder="your@cshs.org" autoComplete="email" />
+                  </div>
+                  <div>
+                    <label className="lg-label" htmlFor="lg-password">Password</label>
+                    <input id="lg-password" className="lg-input" type="password" value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      required placeholder="••••••••" autoComplete="current-password" />
+                  </div>
+                  <button type="submit" disabled={loading} className="lg-submit">
+                    {loading ? 'Signing in...' : 'Sign In'}
+                  </button>
+                </form>
+
+                <div className="lg-form-links">
+                  <button onClick={() => setShowForgot(true)} className="lg-linkbtn">
+                    Forgot your password?
+                  </button>
+                </div>
+              </>
+            ) : resetSent ? (
+              <div className="lg-reset-done">
+                <div className="lg-reset-done-icon" aria-hidden="true">📬</div>
+                <h2>Check your email</h2>
+                <p>We sent a reset link to {email}.</p>
+                <div className="lg-form-links">
+                  <button onClick={() => { setShowForgot(false); setResetSent(false); }}
+                    className="lg-linkbtn lg-linkbtn-strong">
+                    ← Back to sign in
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <h1 className="lg-form-title">Reset your password</h1>
+                <p className="lg-form-sub">
+                  Enter your email and we will send you a reset link.
+                </p>
+                <form onSubmit={handleReset} className="lg-form">
+                  <div>
+                    <label className="lg-label" htmlFor="lg-reset-email">Email address</label>
+                    <input id="lg-reset-email" className="lg-input" type="email" value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      required placeholder="your@cshs.org" autoComplete="email" />
+                  </div>
+                  <button type="submit" disabled={loading} className="lg-submit">
+                    {loading ? 'Sending...' : 'Send Reset Link'}
+                  </button>
+                </form>
+                <div className="lg-form-links">
+                  <button onClick={() => setShowForgot(false)} className="lg-linkbtn">
+                    ← Back to sign in
+                  </button>
+                </div>
+              </>
+            )}
+
+            <div className="lg-invite">
+              Access is available to invited ASPIRE participants and partners.
+              <br />For account assistance, contact{' '}
+              <a href="mailto:aspire@cshs.org" className="lg-invite-link">aspire@cshs.org</a>.
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -51,10 +51,35 @@ export function LoopMotif({ className }) {
   )
 }
 
+// Compact 90+ hours ring, used as a floating badge over the hero
+// illustration (the distinctive stat survives the move to real artwork).
+export function StatBadge({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="ps-g-badge" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#26307a" />
+          <stop offset="1" stopColor="#1D2567" />
+        </linearGradient>
+      </defs>
+      <circle cx="60" cy="60" r="58" fill="#ffffff" />
+      <circle cx="60" cy="60" r="46" fill="none" stroke="#eceadf" strokeWidth="11" />
+      <circle cx="60" cy="60" r="46" fill="none" stroke="url(#ps-g-badge)" strokeWidth="11"
+        strokeLinecap="round" strokeDasharray="217 289" transform="rotate(-90 60 60)" />
+      <text x="60" y="58" textAnchor="middle" fontFamily="DM Sans, sans-serif"
+        fontSize="27" fontWeight="700" fill="#1D2567">90+</text>
+      <text x="60" y="78" textAnchor="middle" fontFamily="DM Sans, sans-serif"
+        fontSize="11.5" fontWeight="600" fill="#4b5265">hours</text>
+    </svg>
+  )
+}
+
 // An original, warm hero illustration: layered "care" composition built from
 // abstract cards (a mentorship pairing, an hours ring, a growth arc). No
 // photography, no faces. Clearly a concept graphic; a Cedars-Sinai approved
-// photograph can replace it later (see approval list).
+// photograph can replace it later (see approval list). Retained as the source
+// of the social preview card even though the live hero now uses the approved
+// vector illustration set.
 export function HeroArt({ className }) {
   return (
     <svg className={className} viewBox="0 0 480 420" role="img"

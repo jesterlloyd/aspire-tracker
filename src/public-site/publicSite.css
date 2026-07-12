@@ -77,7 +77,6 @@
   transition: background 120ms ease;
 }
 .ps-login-btn:hover { background: var(--ps-navy-deep); }
-.ps-login-btn-mobile { display: none; }
 
 .ps-nav-toggle {
   display: none; width: 42px; height: 42px; border: 1px solid var(--ps-line);
@@ -85,6 +84,71 @@
   flex-direction: column; align-items: center; justify-content: center; gap: 4px;
 }
 .ps-nav-toggle-bar { width: 18px; height: 2px; background: var(--ps-navy); border-radius: 2px; }
+
+/* ── Mobile nav drawer ────────────────────────────────────────────────────────
+   A clearly separate elevated white surface over a dimmed, blurred backdrop
+   (the old inline menu blended into the cream page). Slides from the right;
+   respects safe areas; transform-only motion (disabled under reduced motion). */
+.ps-drawer-backdrop {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(20, 26, 77, 0.42);
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  opacity: 0; pointer-events: none; transition: opacity 180ms ease;
+}
+.ps-drawer-backdrop-open { opacity: 1; pointer-events: auto; }
+.ps-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 61;
+  width: min(340px, 88vw);
+  background: var(--ps-card);
+  border-left: 1px solid var(--ps-line);
+  border-radius: 20px 0 0 20px;
+  box-shadow: -18px 0 50px -12px rgba(20, 26, 77, 0.35);
+  display: flex; flex-direction: column;
+  padding:
+    calc(14px + env(safe-area-inset-top, 0px))
+    calc(18px + env(safe-area-inset-right, 0px))
+    calc(18px + env(safe-area-inset-bottom, 0px))
+    18px;
+  transform: translateX(105%);
+  visibility: hidden;
+  transition: transform 220ms ease, visibility 0s linear 220ms;
+}
+.ps-drawer-open {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform 220ms ease;
+}
+.ps-drawer-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 2px 14px; border-bottom: 1px solid var(--ps-line-soft);
+}
+.ps-drawer-title {
+  font-size: 12.5px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--ps-ink-soft);
+}
+.ps-drawer-close {
+  width: 42px; height: 42px; border: 1px solid var(--ps-line);
+  border-radius: 10px; background: var(--ps-cream); color: var(--ps-navy);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.ps-drawer-nav { display: flex; flex-direction: column; padding: 12px 0; overflow-y: auto; }
+.ps-drawer-nav a {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 48px; padding: 11px 12px; border-radius: 11px;
+  font-size: 16px; font-weight: 500; color: var(--ps-ink);
+}
+.ps-drawer-nav a:hover { background: var(--ps-cream); }
+.ps-drawer-arrow { color: #b9b2a4; font-size: 15px; }
+.ps-drawer-nav a.ps-drawer-active {
+  background: var(--ps-tint); color: var(--ps-navy); font-weight: 700;
+}
+.ps-drawer-nav a.ps-drawer-active .ps-drawer-arrow { color: var(--ps-navy); }
+.ps-drawer-foot {
+  margin-top: auto; padding-top: 16px; border-top: 1px solid var(--ps-line-soft);
+}
+@media (min-width: 761px) {
+  .ps-drawer, .ps-drawer-backdrop { display: none; }
+}
 
 /* ── Section scaffold ─────────────────────────────────────────────────────── */
 .ps-main { flex: 1; }
@@ -154,7 +218,82 @@
 .ps-hero-copy { max-width: 620px; }
 .ps-hero-trust { margin: 24px 0 0; font-size: 13.5px; color: #5f6472; line-height: 1.55; }
 .ps-hero-art { display: flex; justify-content: center; }
-.ps-hero-illustration { width: 100%; max-width: 480px; height: auto; }
+
+/* ── Illustration primitives ─────────────────────────────────────────────────
+   The approved vector set, art-directed per page. Base rule keeps every image
+   fluid; each placement defines its own mask and framing so no two pages
+   repeat the same composition. */
+.ps-art { display: block; }
+.ps-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* Homepage hero: organic editorial mask with a soft cream feather and the
+   90+ hours badge overlapping the frame. */
+.ps-hero-figure {
+  position: relative; width: 100%; max-width: 480px;
+}
+.ps-hero-figure .ps-art {
+  aspect-ratio: 8 / 7; overflow: hidden;
+  border-radius: 46% 54% 44% 56% / 52% 46% 54% 48%;
+  box-shadow: 0 30px 60px -30px rgba(29, 37, 103, 0.45);
+}
+.ps-hero-figure::before {
+  content: ''; position: absolute; inset: -7%; z-index: -1;
+  border-radius: 54% 46% 56% 44% / 46% 54% 46% 54%;
+  background: linear-gradient(135deg, #e9ecf8 0%, rgba(233, 236, 248, 0) 70%);
+}
+.ps-hero-figure .ps-art::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(244, 241, 236, 0.28), rgba(244, 241, 236, 0) 34%);
+  pointer-events: none;
+}
+.ps-hero-figure .ps-art { position: relative; }
+.ps-hero-badge {
+  position: absolute; left: -14px; bottom: 6px;
+  width: clamp(84px, 22%, 108px); height: auto;
+  filter: drop-shadow(0 10px 24px rgba(29, 37, 103, 0.28));
+}
+
+/* Page-head split (About, For Preceptors): copy left, image right. */
+.ps-head-split {
+  display: grid; grid-template-columns: 1.1fr 0.9fr;
+  gap: 44px; align-items: center; margin-bottom: 8px;
+}
+.ps-head-art { position: relative; }
+/* About: offset editorial frame (tilted tint block behind a rounded image). */
+.ps-head-art-offset .ps-art {
+  aspect-ratio: 10 / 9; overflow: hidden; border-radius: 22px;
+  box-shadow: 0 24px 50px -28px rgba(29, 37, 103, 0.42);
+}
+.ps-head-art-offset::before {
+  content: ''; position: absolute; inset: 14px -14px -14px 14px;
+  background: var(--ps-tint); border-radius: 26px; z-index: -1;
+  transform: rotate(-2deg);
+}
+/* Preceptors: arched portico mask, a nod to mentorship "doorways". */
+.ps-head-art-arch .ps-art {
+  aspect-ratio: 9 / 8; overflow: hidden;
+  border-radius: 240px 240px 22px 22px;
+  border: 1px solid var(--ps-line);
+  box-shadow: 0 24px 50px -28px rgba(29, 37, 103, 0.42);
+}
+.ps-head-art-arch::after {
+  content: ''; position: absolute; right: -12px; top: -12px; z-index: -1;
+  width: 108px; height: 108px; border-radius: 50%;
+  border: 2px dashed #d8b8ba;
+}
+
+/* Experience: full-width editorial banner between the intro and the grid. */
+.ps-banner-art { margin: 6px 0 40px; position: relative; }
+.ps-banner-art .ps-art {
+  aspect-ratio: 21 / 8; overflow: hidden; border-radius: 26px;
+  box-shadow: 0 28px 56px -30px rgba(29, 37, 103, 0.4);
+}
+.ps-banner-art .ps-art::after {
+  content: ''; position: absolute; inset: 0; border-radius: 26px;
+  background: linear-gradient(to right, rgba(244, 241, 236, 0.16), rgba(244, 241, 236, 0) 22%);
+  pointer-events: none;
+}
+.ps-banner-art .ps-art { position: relative; }
 
 /* ── Audience pathways ────────────────────────────────────────────────────── */
 .ps-audience-grid {
@@ -230,6 +369,25 @@
 .ps-journey-step:nth-child(even) .ps-journey-num { background: var(--ps-accent); }
 .ps-journey-step h3 { margin: 0 0 7px; font-size: 14.5px; font-weight: 700; color: var(--ps-ink); line-height: 1.25; }
 .ps-journey-step p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ps-ink-soft); }
+
+/* Mobile journey controls (hidden on desktop, where the grid rail shows all
+   six steps at once). */
+.ps-journey-controls { display: none; }
+.ps-journey-btn {
+  width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+  border: 1px solid var(--ps-line); background: var(--ps-card);
+  color: var(--ps-navy); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.ps-journey-btn:disabled { opacity: 0.35; cursor: default; }
+.ps-journey-progress { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; }
+.ps-journey-count { font-size: 13px; font-weight: 600; color: var(--ps-ink-soft); }
+.ps-journey-rail { display: flex; gap: 6px; }
+.ps-journey-seg {
+  width: 26px; height: 6px; border-radius: 999px; border: none; padding: 0;
+  background: var(--ps-line); cursor: pointer; transition: background 160ms ease;
+}
+.ps-journey-seg-on { background: var(--ps-navy); }
 
 /* ── Preceptor band ───────────────────────────────────────────────────────── */
 .ps-band { background: var(--ps-navy); color: #fff; overflow: hidden; }
@@ -410,38 +568,80 @@
 }
 
 @media (max-width: 760px) {
-  .ps-nav {
-    display: none; position: absolute; left: 0; right: 0; top: 100%;
-    flex-direction: column; align-items: stretch; gap: 2px;
-    background: var(--ps-cream); border-bottom: 1px solid var(--ps-line);
-    padding: 12px 16px 18px;
-  }
-  .ps-nav-open { display: flex; }
-  .ps-nav a { padding: 12px 14px; font-size: 15px; }
-  .ps-login-btn-mobile { display: block; text-align: center; margin-top: 8px; }
-  .ps-header-actions .ps-login-btn { display: none; }
+  .ps-nav { display: none; }
   .ps-nav-toggle { display: flex; }
-  .ps-header-inner { position: relative; }
+  .ps-header-inner { padding: 12px 16px; gap: 12px; }
+  /* Keep the Log in / Open Portal action visible next to the toggle; it is
+     also repeated inside the drawer for thumb reach. */
+  .ps-header-actions { margin-left: auto; }
+  .ps-header-actions .ps-login-btn { padding: 9px 14px; font-size: 13.5px; }
 
-  .ps-hero-inner { grid-template-columns: 1fr; padding: 44px 20px 40px; gap: 30px; }
-  .ps-hero-art { order: -1; max-width: 360px; margin: 0 auto; }
+  .ps-hero-inner { grid-template-columns: 1fr; padding: 40px 20px 40px; gap: 30px; }
+  .ps-hero-art { order: -1; }
+  .ps-hero-figure { max-width: 420px; margin: 0 auto; }
+  .ps-hero-figure .ps-art { aspect-ratio: 16 / 10; border-radius: 22px; }
+  .ps-hero-figure::before { display: none; }
+  .ps-hero-badge { left: auto; right: -6px; bottom: -14px; }
+
+  .ps-head-split { grid-template-columns: 1fr; gap: 24px; }
+  .ps-head-art { order: -1; max-width: 480px; }
+  .ps-head-art-offset .ps-art,
+  .ps-head-art-arch .ps-art { aspect-ratio: 16 / 10; border-radius: 18px; }
+  .ps-head-art-offset::before { inset: 10px -10px -10px 10px; }
+  .ps-head-art-arch::after { display: none; }
+  .ps-banner-art .ps-art { aspect-ratio: 3 / 2; border-radius: 18px; }
+
   .ps-section { padding: 44px 20px; }
   .ps-section-tint { padding: 44px 20px; }
 
   .ps-audience-grid, .ps-glance-grid, .ps-feature-grid,
-  .ps-journey, .ps-prose, .ps-split, .ps-contact-grid,
+  .ps-prose, .ps-split, .ps-contact-grid,
   .ps-footer-cols {
     grid-template-columns: 1fr;
   }
-  .ps-journey { gap: 14px; }
-  .ps-journey-step { display: grid; grid-template-columns: 54px 1fr; gap: 16px; text-align: left; align-items: start; }
-  .ps-journey-node { margin: 0; }
+
+  /* ── Mobile journey: horizontally swipeable scroll-snap stepper ──────────
+     One card at a time with previous/next controls, a segmented progress
+     rail, and a Step X of 6 live count. Replaces the old six-card vertical
+     stack entirely. */
+  .ps-journey {
+    display: flex; gap: 12px;
+    overflow-x: auto; scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px 4px 10px; margin: 0 -4px;
+    scrollbar-width: none;
+  }
+  .ps-journey::-webkit-scrollbar { display: none; }
+  .ps-journey::before { display: none; }
+  .ps-journey-step {
+    flex: 0 0 86%; scroll-snap-align: center;
+    background: var(--ps-card); border: 1px solid var(--ps-line);
+    border-radius: var(--ps-radius); padding: 20px;
+    display: grid; grid-template-columns: 54px 1fr; gap: 8px 16px;
+    text-align: left; align-items: start;
+  }
+  .ps-journey-node { margin: 0; grid-row: span 2; }
+  .ps-journey-step h3 { font-size: 15.5px; margin-top: 6px; }
+  .ps-journey-step p { font-size: 13.5px; }
+  .ps-journey-controls {
+    display: flex; align-items: center; gap: 14px; margin-top: 14px;
+  }
+
   .ps-footer-cols { gap: 28px; }
   .ps-minicta { flex-direction: column; align-items: flex-start; }
+  .ps-highlight { align-items: flex-start; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .ps-root *, .ps-root *::before, .ps-root *::after {
     transition: none !important; animation: none !important;
   }
+}
+
+/* Approved public contact email (Owner approval, 2026-07-12) */
+.ps-contact-email { margin-top: 26px; }
+.ps-footer-email {
+  display: inline-block; margin-top: 10px;
+  font-size: 14px; font-weight: 600; color: var(--ps-navy) !important;
+  text-decoration: underline;
 }
