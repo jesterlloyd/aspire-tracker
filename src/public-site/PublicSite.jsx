@@ -15,7 +15,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import Icon, { LoopMotif, StatBadge } from './PublicIcons'
+import Icon, { LoopMotif } from './PublicIcons'
+import { celebrate } from './confetti'
 import {
   SITE_NAME, SITE_TITLE, NAV_LINKS, HOME, ABOUT, ELIGIBILITY, APPLY,
   EXPERIENCE, PRECEPTORS, FAQ, CONTACT, FOOTER,
@@ -27,6 +28,8 @@ import './publicSite.css'
 // approved source illustrations under reference/ (tracked derivatives live in
 // public/public-site/illustrations/). The <picture> swap is true art
 // direction: phones get a tighter, wider framing, not a squeezed desktop crop.
+// Images are blended into the page (soft edge-fade masks, no hard frames)
+// via the ps-art-* classes in CSS rather than sitting in visible rectangles.
 function Art({ base, alt, className = '', eager = false }) {
   return (
     <picture className={`ps-art ${className}`}>
@@ -210,13 +213,11 @@ function HomePage() {
               <CtaLink cta={HOME.heroPrimaryCta} variant="primary" />
               <CtaLink cta={HOME.heroSecondaryCta} variant="ghost" />
             </div>
-            <p className="ps-hero-trust">{HOME.heroTrust}</p>
           </div>
           <div className="ps-hero-art">
             <div className="ps-hero-figure">
               <Art base="hero" eager
                 alt="Illustration of a Cedars-Sinai nurse talking with a senior nursing student in a bright hospital lobby" />
-              <StatBadge className="ps-hero-badge" />
             </div>
           </div>
         </div>
@@ -408,24 +409,27 @@ function AboutPage() {
       <section className="ps-section">
         <div className="ps-head-split">
           <PageHead eyebrow={ABOUT.eyebrow} title={ABOUT.title} intro={ABOUT.intro} />
-          <div className="ps-head-art ps-head-art-offset">
+          <div className="ps-head-art ps-head-art-blend">
             <Art base="about"
               alt="Illustration of a senior nursing student and a Cedars-Sinai nurse reviewing coursework together at a desk" />
           </div>
         </div>
-      </section>
-      <section className="ps-section ps-section-tint" aria-labelledby="ps-about-designed">
-        <h2 id="ps-about-designed" className="ps-h2">{ABOUT.designedTitle}</h2>
-        <div className="ps-feature-grid">
-          {ABOUT.designed.map(d => (
-            <article className="ps-feature-card" key={d.title}>
-              <span className="ps-feature-icon"><Icon name={d.icon} /></span>
-              <h3>{d.title}</h3>
-              <p>{d.body}</p>
-            </article>
-          ))}
+
+        {/* Benefit cards flow directly after the intro (no detached band). */}
+        <div className="ps-about-build" aria-labelledby="ps-about-designed">
+          <h2 id="ps-about-designed" className="ps-h3">{ABOUT.designedTitle}</h2>
+          <div className="ps-feature-grid">
+            {ABOUT.designed.map(d => (
+              <article className="ps-feature-card" key={d.title}>
+                <span className="ps-feature-icon"><Icon name={d.icon} /></span>
+                <h3>{d.title}</h3>
+                <p>{d.body}</p>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
+
       <section className="ps-section ps-prose">
         {ABOUT.sections.map(s => (
           <div className="ps-prose-block" key={s.heading}>
@@ -438,6 +442,69 @@ function AboutPage() {
   )
 }
 
+// ── Interactive eligibility self-check ────────────────────────────────────────
+// Each requirement is an accessible checkbox. When ALL are checked, a restrained
+// confetti burst fires (reduced-motion honored inside celebrate()), an aria-live
+// region announces completion, and the completion card is revealed. This is a
+// self-assessment only; copy never implies it confirms official eligibility.
+function EligibilitySelfCheck() {
+  const items = ELIGIBILITY.checklist
+  const [checked, setChecked] = useState(() => items.map(() => false))
+  const complete = checked.every(Boolean)
+  const wasComplete = useRef(false)
+  const cardRef = useRef(null)
+
+  useEffect(() => {
+    if (complete && !wasComplete.current) {
+      celebrate(cardRef.current)
+    }
+    wasComplete.current = complete
+  }, [complete])
+
+  const toggle = (i) => setChecked(prev => prev.map((v, idx) => (idx === i ? !v : v)))
+
+  return (
+    <div className="ps-selfcheck">
+      <h2 className="ps-h3">{ELIGIBILITY.checklistHeading}</h2>
+      <p className="ps-selfcheck-intro">{ELIGIBILITY.checklistIntro}</p>
+      <ul className="ps-check-list">
+        {items.map((c, i) => (
+          <li key={c}>
+            <label className="ps-check-label">
+              <input type="checkbox" className="ps-check-input"
+                checked={checked[i]} onChange={() => toggle(i)} />
+              <span className="ps-check-box" aria-hidden="true" />
+              <span className="ps-check-text">{c}</span>
+            </label>
+          </li>
+        ))}
+      </ul>
+
+      {/* Polite live region: announces completion without stealing focus. */}
+      <p className="ps-visually-hidden" role="status" aria-live="polite">
+        {complete ? ELIGIBILITY.ready.announce : ''}
+      </p>
+
+      {complete && (
+        <div className="ps-ready-card" ref={cardRef}>
+          <span className="ps-ready-badge" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="26" height="26" focusable="false">
+              <path d="M5 12.5l4.5 4.5L19 7" fill="none" stroke="currentColor"
+                strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+          <h3>{ELIGIBILITY.ready.heading}</h3>
+          <p className="ps-ready-body">{ELIGIBILITY.ready.body}</p>
+          <p className="ps-ready-support">{ELIGIBILITY.ready.support}</p>
+          <Link to={ELIGIBILITY.ready.ctaPath} className="ps-btn ps-btn-primary">
+            {ELIGIBILITY.ready.ctaLabel}
+          </Link>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function EligibilityPage() {
   return (
     <>
@@ -445,18 +512,9 @@ function EligibilityPage() {
         <PageHead eyebrow={ELIGIBILITY.eyebrow} title={ELIGIBILITY.title} intro={ELIGIBILITY.intro} />
         <div className="ps-split">
           <div className="ps-split-main">
-            <h2 className="ps-h3">{ELIGIBILITY.checklistHeading}</h2>
-            <ul className="ps-check-list">
-              {ELIGIBILITY.checklist.map(c => (
-                <li key={c}><span className="ps-check" aria-hidden="true" />{c}</li>
-              ))}
-            </ul>
+            <EligibilitySelfCheck />
           </div>
           <aside className="ps-split-side">
-            <div className="ps-callout">
-              <h3>{ELIGIBILITY.limitationHeading}</h3>
-              <p>{ELIGIBILITY.limitationBody}</p>
-            </div>
             <div className="ps-side-card">
               <h3>{ELIGIBILITY.programsHeading}</h3>
               <ul className="ps-plain-list">
@@ -465,10 +523,31 @@ function EligibilityPage() {
             </div>
           </aside>
         </div>
+      </section>
+
+      <section className="ps-section ps-section-tint" aria-labelledby="ps-schools-title">
+        <div className="ps-section-head">
+          <h2 id="ps-schools-title" className="ps-h2">{ELIGIBILITY.schoolsHeading}</h2>
+          <p className="ps-section-intro">{ELIGIBILITY.schoolsIntro}</p>
+        </div>
+        <ul className="ps-school-grid">
+          {ELIGIBILITY.schools.map(s => (
+            <li className="ps-school-pill" key={s}>
+              <span className="ps-school-mark" aria-hidden="true"><Icon name="cap" size={18} /></span>
+              {s}
+            </li>
+          ))}
+        </ul>
+        <p className="ps-inline-note">{ELIGIBILITY.schoolsNote}</p>
+      </section>
+
+      <section className="ps-section">
+        <div className="ps-info-note">
+          <h2 className="ps-h3">{ELIGIBILITY.rotationHeading}</h2>
+          <p>{ELIGIBILITY.rotationBody}</p>
+        </div>
         <p className="ps-note">{ELIGIBILITY.requirementsNote}</p>
       </section>
-      <MiniCta heading={ELIGIBILITY.ctaHeading} body={ELIGIBILITY.ctaBody}
-        label={ELIGIBILITY.ctaLabel} path={ELIGIBILITY.ctaPath} />
     </>
   )
 }

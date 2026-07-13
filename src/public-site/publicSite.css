@@ -50,8 +50,10 @@
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--ps-line);
 }
+/* Wider than the content column so the Cedars-Sinai and ASPIRE identity sits
+   closer to the left edge on large screens while nav stays balanced right. */
 .ps-header-inner {
-  max-width: var(--ps-maxw); margin: 0 auto; padding: 14px 24px;
+  max-width: 1320px; margin: 0 auto; padding: 14px clamp(20px, 3vw, 40px);
   display: flex; align-items: center; gap: 20px;
 }
 .ps-brand { display: flex; align-items: center; gap: 12px; }
@@ -216,41 +218,30 @@
   display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 48px; align-items: center;
 }
 .ps-hero-copy { max-width: 620px; }
-.ps-hero-trust { margin: 24px 0 0; font-size: 13.5px; color: #5f6472; line-height: 1.55; }
 .ps-hero-art { display: flex; justify-content: center; }
 
 /* ── Illustration primitives ─────────────────────────────────────────────────
-   The approved vector set, art-directed per page. Base rule keeps every image
-   fluid; each placement defines its own mask and framing so no two pages
-   repeat the same composition. */
-.ps-art { display: block; }
+   The approved vector set, art-directed per page and BLENDED into the page
+   rather than framed in rectangles: soft gradient edge-fade masks feather each
+   image into the cream (or navy) background, no borders, no drop-shadow cards.
+   Each placement keeps its own crop and mask so no two pages repeat. */
+.ps-art { display: block; position: relative; }
 .ps-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
-/* Homepage hero: organic editorial mask with a soft cream feather and the
-   90+ hours badge overlapping the frame. */
-.ps-hero-figure {
-  position: relative; width: 100%; max-width: 480px;
-}
+/* Homepage hero: borderless, feathered on all sides into the hero backdrop.
+   The student-and-preceptor relationship is the sole focus (no overlay graphic). */
+.ps-hero-figure { position: relative; width: 100%; max-width: 520px; }
 .ps-hero-figure .ps-art {
-  aspect-ratio: 8 / 7; overflow: hidden;
-  border-radius: 46% 54% 44% 56% / 52% 46% 54% 48%;
-  box-shadow: 0 30px 60px -30px rgba(29, 37, 103, 0.45);
+  aspect-ratio: 8 / 7;
+  -webkit-mask-image:
+    radial-gradient(120% 120% at 50% 42%, #000 55%, rgba(0,0,0,0) 88%);
+  mask-image:
+    radial-gradient(120% 120% at 50% 42%, #000 55%, rgba(0,0,0,0) 88%);
 }
 .ps-hero-figure::before {
-  content: ''; position: absolute; inset: -7%; z-index: -1;
-  border-radius: 54% 46% 56% 44% / 46% 54% 46% 54%;
-  background: linear-gradient(135deg, #e9ecf8 0%, rgba(233, 236, 248, 0) 70%);
-}
-.ps-hero-figure .ps-art::after {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(to top, rgba(244, 241, 236, 0.28), rgba(244, 241, 236, 0) 34%);
-  pointer-events: none;
-}
-.ps-hero-figure .ps-art { position: relative; }
-.ps-hero-badge {
-  position: absolute; left: -14px; bottom: 6px;
-  width: clamp(84px, 22%, 108px); height: auto;
-  filter: drop-shadow(0 10px 24px rgba(29, 37, 103, 0.28));
+  content: ''; position: absolute; inset: -6% -4% -2%; z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(60% 60% at 55% 45%, #e6eaf7 0%, rgba(230, 234, 247, 0) 72%);
 }
 
 /* Page-head split (About, For Preceptors): copy left, image right. */
@@ -259,41 +250,46 @@
   gap: 44px; align-items: center; margin-bottom: 8px;
 }
 .ps-head-art { position: relative; }
-/* About: offset editorial frame (tilted tint block behind a rounded image). */
-.ps-head-art-offset .ps-art {
-  aspect-ratio: 10 / 9; overflow: hidden; border-radius: 22px;
-  box-shadow: 0 24px 50px -28px rgba(29, 37, 103, 0.42);
+/* About: soft organic edge-fade, blended borderless into the page. */
+.ps-head-art-blend .ps-art {
+  aspect-ratio: 10 / 9;
+  -webkit-mask-image:
+    radial-gradient(125% 115% at 60% 40%, #000 52%, rgba(0,0,0,0) 86%);
+  mask-image:
+    radial-gradient(125% 115% at 60% 40%, #000 52%, rgba(0,0,0,0) 86%);
 }
-.ps-head-art-offset::before {
-  content: ''; position: absolute; inset: 14px -14px -14px 14px;
-  background: var(--ps-tint); border-radius: 26px; z-index: -1;
-  transform: rotate(-2deg);
+.ps-head-art-blend::before {
+  content: ''; position: absolute; inset: -8% -6%; z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(58% 58% at 60% 42%, #eceadf 0%, rgba(236, 234, 223, 0) 74%);
 }
-/* Preceptors: arched portico mask, a nod to mentorship "doorways". */
+/* Preceptors: vertical feather so the pairing dissolves top and bottom. */
 .ps-head-art-arch .ps-art {
-  aspect-ratio: 9 / 8; overflow: hidden;
-  border-radius: 240px 240px 22px 22px;
-  border: 1px solid var(--ps-line);
-  box-shadow: 0 24px 50px -28px rgba(29, 37, 103, 0.42);
-}
-.ps-head-art-arch::after {
-  content: ''; position: absolute; right: -12px; top: -12px; z-index: -1;
-  width: 108px; height: 108px; border-radius: 50%;
-  border: 2px dashed #d8b8ba;
+  aspect-ratio: 9 / 8;
+  -webkit-mask-image:
+    linear-gradient(to bottom, rgba(0,0,0,0) 0%, #000 18%, #000 82%, rgba(0,0,0,0) 100%),
+    linear-gradient(to right, rgba(0,0,0,0) 0%, #000 12%, #000 90%, rgba(0,0,0,0) 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to bottom, rgba(0,0,0,0) 0%, #000 18%, #000 82%, rgba(0,0,0,0) 100%),
+    linear-gradient(to right, rgba(0,0,0,0) 0%, #000 12%, #000 90%, rgba(0,0,0,0) 100%);
+  mask-composite: intersect;
 }
 
-/* Experience: full-width editorial banner between the intro and the grid. */
-.ps-banner-art { margin: 6px 0 40px; position: relative; }
+/* Experience: full-width editorial banner, edges dissolving left and right into
+   the page so it reads as part of the layout, not a boxed photo. */
+.ps-banner-art { margin: 10px 0 40px; position: relative; }
 .ps-banner-art .ps-art {
-  aspect-ratio: 21 / 8; overflow: hidden; border-radius: 26px;
-  box-shadow: 0 28px 56px -30px rgba(29, 37, 103, 0.4);
+  aspect-ratio: 21 / 8;
+  -webkit-mask-image:
+    linear-gradient(to right, rgba(0,0,0,0) 0%, #000 14%, #000 86%, rgba(0,0,0,0) 100%),
+    linear-gradient(to bottom, rgba(0,0,0,0) 0%, #000 12%, #000 88%, rgba(0,0,0,0) 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, rgba(0,0,0,0) 0%, #000 14%, #000 86%, rgba(0,0,0,0) 100%),
+    linear-gradient(to bottom, rgba(0,0,0,0) 0%, #000 12%, #000 88%, rgba(0,0,0,0) 100%);
+  mask-composite: intersect;
 }
-.ps-banner-art .ps-art::after {
-  content: ''; position: absolute; inset: 0; border-radius: 26px;
-  background: linear-gradient(to right, rgba(244, 241, 236, 0.16), rgba(244, 241, 236, 0) 22%);
-  pointer-events: none;
-}
-.ps-banner-art .ps-art { position: relative; }
 
 /* ── Audience pathways ────────────────────────────────────────────────────── */
 .ps-audience-grid {
@@ -420,24 +416,89 @@
 .ps-prose-block h2 { margin-bottom: 12px; }
 .ps-prose-block .ps-body { max-width: 520px; }
 
-/* ── Eligibility split ────────────────────────────────────────────────────── */
+/* ── About: integrated benefit band (flows after the intro, not detached) ──── */
+.ps-about-build { margin-top: 40px; }
+.ps-about-build .ps-h3 { margin-bottom: 18px; }
+
+/* ── Eligibility split + interactive self-check ───────────────────────────── */
 .ps-split { display: grid; grid-template-columns: 1.3fr 1fr; gap: 34px; margin-top: 34px; align-items: start; }
+.ps-selfcheck-intro { margin: 0 0 18px; font-size: 14px; line-height: 1.6; color: var(--ps-ink-soft); max-width: 620px; }
 .ps-check-list { list-style: none; margin: 0; padding: 0; }
-.ps-check-list li {
-  position: relative; padding: 13px 0 13px 34px;
-  font-size: 15.5px; line-height: 1.5; color: var(--ps-ink);
-  border-bottom: 1px solid var(--ps-line);
-}
+.ps-check-list li { border-bottom: 1px solid var(--ps-line); }
 .ps-check-list li:last-child { border-bottom: none; }
-.ps-check {
-  position: absolute; left: 0; top: 14px;
-  width: 20px; height: 20px; border-radius: 6px; background: var(--ps-navy);
+.ps-check-label {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 14px 6px; cursor: pointer; min-height: 44px;
 }
-.ps-check::after {
-  content: ''; position: absolute; left: 6px; top: 4px;
-  width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+.ps-check-input {
+  position: absolute; width: 1px; height: 1px; opacity: 0;
+  margin: 0; pointer-events: none;
 }
+.ps-check-box {
+  flex-shrink: 0; margin-top: 1px;
+  width: 24px; height: 24px; border-radius: 7px;
+  border: 2px solid #c7c1b4; background: var(--ps-card);
+  position: relative; transition: background 120ms ease, border-color 120ms ease;
+}
+.ps-check-box::after {
+  content: ''; position: absolute; left: 7px; top: 3px;
+  width: 6px; height: 11px; border: solid #fff; border-width: 0 2.4px 2.4px 0;
+  transform: rotate(45deg) scale(0); transition: transform 140ms ease;
+}
+.ps-check-input:checked + .ps-check-box {
+  background: var(--ps-navy); border-color: var(--ps-navy);
+}
+.ps-check-input:checked + .ps-check-box::after { transform: rotate(45deg) scale(1); }
+.ps-check-input:focus-visible + .ps-check-box {
+  outline: 3px solid var(--ps-accent); outline-offset: 2px;
+}
+.ps-check-text { font-size: 15px; line-height: 1.5; color: var(--ps-ink); }
+
+.ps-visually-hidden {
+  position: absolute !important; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0);
+  white-space: nowrap; border: 0;
+}
+
+.ps-ready-card {
+  margin-top: 24px; padding: 26px 28px;
+  background: linear-gradient(160deg, #f2f8f3 0%, #eef0f8 100%);
+  border: 1px solid #cfe4d4; border-radius: var(--ps-radius);
+}
+.ps-ready-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 48px; height: 48px; border-radius: 50%;
+  background: #157a3d; color: #fff; margin-bottom: 12px;
+}
+.ps-ready-card h3 { margin: 0 0 8px; font-size: 20px; font-weight: 700; color: var(--ps-navy); }
+.ps-ready-body { margin: 0 0 10px; font-size: 15px; line-height: 1.6; color: var(--ps-ink-soft); }
+.ps-ready-support { margin: 0 0 18px; font-size: 14.5px; font-weight: 600; color: var(--ps-navy); }
+
+/* ── Affiliate schools ────────────────────────────────────────────────────── */
+.ps-school-grid {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.ps-school-pill {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--ps-card); border: 1px solid var(--ps-line);
+  border-radius: 12px; padding: 14px 16px;
+  font-size: 14.5px; font-weight: 500; color: var(--ps-ink);
+}
+.ps-school-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+  background: var(--ps-tint); color: var(--ps-navy);
+}
+
+/* ── Neutral informational note (rotation requirement) ────────────────────── */
+.ps-info-note {
+  background: var(--ps-card); border: 1px solid var(--ps-line);
+  border-radius: var(--ps-radius); padding: 22px 26px; max-width: 760px;
+}
+.ps-info-note .ps-h3 { margin: 0 0 8px; }
+.ps-info-note p { margin: 0; font-size: 15px; line-height: 1.65; color: var(--ps-ink-soft); }
+
 .ps-split-side { display: flex; flex-direction: column; gap: 18px; }
 .ps-side-card {
   background: var(--ps-card); border: 1px solid var(--ps-line);
@@ -576,20 +637,28 @@
   .ps-header-actions { margin-left: auto; }
   .ps-header-actions .ps-login-btn { padding: 9px 14px; font-size: 13.5px; }
 
-  .ps-hero-inner { grid-template-columns: 1fr; padding: 40px 20px 40px; gap: 30px; }
+  .ps-hero-inner { grid-template-columns: 1fr; padding: 36px 20px 40px; gap: 24px; }
   .ps-hero-art { order: -1; }
-  .ps-hero-figure { max-width: 420px; margin: 0 auto; }
-  .ps-hero-figure .ps-art { aspect-ratio: 16 / 10; border-radius: 22px; }
-  .ps-hero-figure::before { display: none; }
-  .ps-hero-badge { left: auto; right: -6px; bottom: -14px; }
+  /* Mobile keeps the subjects prominent with a wider crop and a gentle
+     all-around feather so the image still blends without a hard box. */
+  .ps-hero-figure { max-width: 460px; margin: 0 auto; }
+  .ps-hero-figure .ps-art {
+    aspect-ratio: 16 / 11;
+    -webkit-mask-image: radial-gradient(130% 130% at 50% 45%, #000 62%, rgba(0,0,0,0) 94%);
+    mask-image: radial-gradient(130% 130% at 50% 45%, #000 62%, rgba(0,0,0,0) 94%);
+  }
 
-  .ps-head-split { grid-template-columns: 1fr; gap: 24px; }
-  .ps-head-art { order: -1; max-width: 480px; }
-  .ps-head-art-offset .ps-art,
-  .ps-head-art-arch .ps-art { aspect-ratio: 16 / 10; border-radius: 18px; }
-  .ps-head-art-offset::before { inset: 10px -10px -10px 10px; }
-  .ps-head-art-arch::after { display: none; }
-  .ps-banner-art .ps-art { aspect-ratio: 3 / 2; border-radius: 18px; }
+  .ps-head-split { grid-template-columns: 1fr; gap: 20px; }
+  .ps-head-art { order: -1; max-width: 460px; margin: 0 auto; }
+  .ps-head-art-blend .ps-art,
+  .ps-head-art-arch .ps-art {
+    aspect-ratio: 16 / 11;
+    -webkit-mask-image: radial-gradient(130% 130% at 55% 45%, #000 62%, rgba(0,0,0,0) 94%);
+    -webkit-mask-composite: source-over;
+    mask-image: radial-gradient(130% 130% at 55% 45%, #000 62%, rgba(0,0,0,0) 94%);
+    mask-composite: add;
+  }
+  .ps-banner-art .ps-art { aspect-ratio: 3 / 2; }
 
   .ps-section { padding: 44px 20px; }
   .ps-section-tint { padding: 44px 20px; }

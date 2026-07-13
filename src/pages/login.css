@@ -56,9 +56,10 @@
   padding: 40px 38px 34px;
   display: flex; flex-direction: column; gap: 18px;
 }
-.lg-logo { width: min(230px, 70%); height: auto; display: block; }
+/* Reduced ~24% from 230px for better balance with the wordmark and copy. */
+.lg-logo { width: min(175px, 54%); height: auto; display: block; }
 .lg-wordmark {
-  display: flex; align-items: baseline; gap: 10px; margin-top: 6px;
+  display: flex; align-items: baseline; gap: 10px; margin-top: 4px;
 }
 .lg-wordmark-name {
   font-size: 26px; font-weight: 700; letter-spacing: 0.05em; color: #ffffff;
@@ -144,7 +145,7 @@
     border-right: none; border-bottom: 1px solid #e3ded4;
     padding: 28px 26px 24px; gap: 12px;
   }
-  .lg-logo { width: min(190px, 60%); }
+  .lg-logo { width: min(150px, 48%); }
   .lg-brand-art { display: none; }
   .lg-brand-blurb { max-width: none; }
   .lg-form-panel { padding: 28px 26px 22px; }

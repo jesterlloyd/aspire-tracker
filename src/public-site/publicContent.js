@@ -40,8 +40,6 @@ export const HOME = {
     'paired with an experienced preceptor.',
   heroPrimaryCta:   { path: '/eligibility', label: 'See if you are eligible' },
   heroSecondaryCta: { path: '/apply',       label: 'How to apply' },
-  // First public-facing use of NPD is spelled out; later references may use NPD.
-  heroTrust: 'A Cedars-Sinai Nursing workforce pathway, guided by Nursing Professional Development (NPD).',
 
   audienceTitle: 'Find your pathway',
   audienceIntro: 'ASPIRE connects four groups around one shared goal: a strong, well-supported start to nursing practice.',
@@ -78,7 +76,7 @@ export const HOME = {
     { icon: 'clock',       stat: '90+', title: 'Bedside clinical hours', body: 'Hands-on direct patient care in a specialized unit. Your nursing school may require more.' },
     { icon: 'compass',     title: 'Specialty-aligned placement', body: 'Placement in a unit that aligns with your clinical interests whenever possible.' },
     { icon: 'stethoscope', title: 'Dedicated preceptor support', body: 'A primary preceptor supports your growth throughout the rotation.' },
-    { icon: 'heart',       title: 'NPD guidance throughout', body: 'Nursing Professional Development practitioners support you from start to finish.' },
+    { icon: 'heart',       title: 'NPD guidance throughout', body: 'Nursing Professional Development (NPD) practitioners support you from start to finish.' },
   ],
   glanceNote: 'Complete at least 90 hours of hands-on bedside clinical practice, or the greater number of hours required by your nursing school.',
 
@@ -110,7 +108,7 @@ export const ABOUT = {
     'The Affiliate Students’ Pathway from Internship to Residency Experience, or ASPIRE, ' +
     'is Cedars-Sinai’s pathway for senior nursing students to complete hands-on bedside ' +
     'clinical rotations in specialized units while paired with experienced preceptors.',
-  designedTitle: 'What ASPIRE is designed to do',
+  designedTitle: 'What students build through ASPIRE',
   designed: [
     { icon: 'compass',     title: 'Build clinical confidence', body: 'Grow confidence at the bedside before graduation.' },
     { icon: 'stethoscope', title: 'Sharpen bedside skills',    body: 'Practice in a specialty area of interest with expert guidance.' },
@@ -139,15 +137,30 @@ export const ELIGIBILITY = {
   eyebrow: 'Eligibility',
   title: 'See if ASPIRE is right for you.',
   intro: 'Applicants should meet all applicable criteria below. Your school’s placement coordinator confirms eligibility with the ASPIRE team.',
-  checklistHeading: 'Eligibility checklist',
+  checklistHeading: 'Quick eligibility self-check',
+  checklistIntro:
+    'Check each item that describes you. This is a self-assessment only. It does not ' +
+    'confirm official eligibility, which is verified by your school and the ASPIRE team.',
   checklist: [
-    'Be in the final semester of an accredited nursing program affiliated with Cedars-Sinai',
-    'Be enrolled in an eligible program type (listed below)',
-    'Complete a hands-on bedside clinical rotation involving direct patient care',
-    'Have a cumulative GPA of 3.0 or higher on a 4.0 scale',
-    'Complete at least 90 hours of hands-on bedside clinical practice, or the greater number of hours required by your nursing school',
-    'Meet the educational, health, safety, and background requirements established by both Cedars-Sinai and your nursing school',
+    'I am in the final semester of an accredited nursing program affiliated with Cedars-Sinai',
+    'I am enrolled in an eligible program type (listed below)',
+    'My rotation is a hands-on bedside clinical rotation involving direct patient care',
+    'I have a cumulative GPA of 3.0 or higher on a 4.0 scale',
+    'I can complete at least 90 hours of hands-on bedside clinical practice, or the greater number my nursing school requires',
+    'I can meet the educational, health, safety, and background requirements set by both Cedars-Sinai and my nursing school',
   ],
+  // Completion card, revealed only when every self-check item is checked.
+  ready: {
+    heading: 'Ready to take the next step?',
+    body:
+      'Your responses suggest you may be ready to participate. Final eligibility is ' +
+      'confirmed by your school and the ASPIRE team.',
+    support: 'Applying to ASPIRE starts at your school, not with an application portal.',
+    ctaLabel: 'See how to apply',
+    ctaPath: '/apply',
+    // aria-live announcement when the self-check completes.
+    announce: 'All self-check items complete. You may be ready to take the next step.',
+  },
   programsHeading: 'Eligible academic programs',
   programs: [
     'Bachelor of Science in Nursing (semester, trimester, or quarter formats)',
@@ -156,18 +169,32 @@ export const ELIGIBILITY = {
     'Master’s Entry Clinical Nurse',
     'Entry-Level Master’s in Nursing',
   ],
-  limitationHeading: 'An important limitation',
-  limitationBody:
-    'Leadership rotations and observation-only rotations do not meet ASPIRE criteria. ' +
-    'The rotation must include direct patient care.',
+  // Verified affiliate-school names from the approved ASPIRE source content.
+  // Text only; partner-logo use is a separate approval.
+  schoolsHeading: 'Our affiliate schools',
+  schoolsIntro:
+    'ASPIRE partners with accredited nursing programs across the region.',
+  schools: [
+    'Azusa Pacific University',
+    'California State University, Long Beach',
+    'California State University, Los Angeles',
+    'California State University, Northridge',
+    'University of California, Los Angeles',
+    'West Coast University, Los Angeles Campus',
+    'West Coast University, Orange County Campus',
+  ],
+  schoolsNote:
+    'Your school’s placement coordinator confirms current program eligibility and ' +
+    'affiliation with Cedars-Sinai.',
+  // Neutral informational note, presented after schools and programs.
+  rotationHeading: 'Rotation requirement',
+  rotationBody:
+    'ASPIRE requires a hands-on bedside clinical rotation involving direct patient care. ' +
+    'Leadership rotations and observation-only rotations do not meet ASPIRE criteria.',
   requirementsNote:
     'Detailed educational, health, and safety requirements are provided through your ' +
     'school’s placement coordinator during eligibility verification, and are subject ' +
     'to change under Cedars-Sinai policy.',
-  ctaHeading: 'Ready to take the next step?',
-  ctaBody: 'Applying to ASPIRE starts at your school, not with an application portal.',
-  ctaLabel: 'See how to apply',
-  ctaPath: '/apply',
 }
 
 export const APPLY = {
