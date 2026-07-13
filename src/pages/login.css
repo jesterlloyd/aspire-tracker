@@ -53,26 +53,32 @@
     radial-gradient(120% 90% at 15% 0%, #26307a 0%, rgba(38, 48, 122, 0) 60%),
     linear-gradient(165deg, #1f2874 0%, #141a4d 100%);
   border-right: 1px solid #141a4d;
-  padding: 40px 38px 34px;
-  display: flex; flex-direction: column; gap: 18px;
+  padding: 44px 38px 40px;
+  /* Centered and vertically balanced so no single element dominates. */
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; text-align: center; gap: 16px;
 }
-/* Reduced ~24% from 230px for better balance with the wordmark and copy. */
-.lg-logo { width: min(175px, 54%); height: auto; display: block; }
+/* Reduced a further ~12% (145px -> 127px) so the logo supports, not dominates,
+   the wordmark and copy. */
+.lg-logo { width: min(127px, 42%); height: auto; display: block; }
 .lg-wordmark {
-  display: flex; align-items: baseline; gap: 10px; margin-top: 4px;
+  display: flex; align-items: baseline; justify-content: center;
+  gap: 9px; flex-wrap: wrap; margin-top: 4px;
 }
+/* Heading is the strongest element in the panel (larger than the logo mark's
+   optical weight and clearly stronger than the institute line). */
 .lg-wordmark-name {
-  font-size: 26px; font-weight: 700; letter-spacing: 0.05em; color: #ffffff;
+  font-size: 24px; font-weight: 700; letter-spacing: 0.02em; color: #ffffff;
 }
 .lg-wordmark-sub {
   font-size: 12px; font-weight: 700; letter-spacing: 0.16em;
   text-transform: uppercase; color: #ff9ea1;
 }
 .lg-brand-blurb {
-  margin: 0; font-size: 14.5px; line-height: 1.65; color: #cdd2ea; max-width: 330px;
+  margin: 2px 0 0; font-size: 14px; line-height: 1.65; color: #cdd2ea; max-width: 320px;
 }
-.lg-brand-inst { margin: 0; font-size: 12.5px; color: #97a0cf; }
-.lg-brand-art { margin-top: auto; position: relative; }
+.lg-brand-inst { margin: 0; font-size: 11.5px; letter-spacing: 0.01em; color: #8891c4; }
+.lg-brand-art { margin-top: 8px; width: 100%; position: relative; }
 .lg-brand-art img {
   display: block; width: 100%; aspect-ratio: 5 / 4; object-fit: cover;
   border-radius: 18px;
@@ -145,7 +151,7 @@
     border-right: none; border-bottom: 1px solid #e3ded4;
     padding: 28px 26px 24px; gap: 12px;
   }
-  .lg-logo { width: min(150px, 48%); }
+  .lg-logo { width: min(110px, 38%); }
   .lg-brand-art { display: none; }
   .lg-brand-blurb { max-width: none; }
   .lg-form-panel { padding: 28px 26px 22px; }

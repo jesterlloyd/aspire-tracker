@@ -161,7 +161,7 @@ export const ELIGIBILITY = {
     // aria-live announcement when the self-check completes.
     announce: 'All self-check items complete. You may be ready to take the next step.',
   },
-  programsHeading: 'Eligible academic programs',
+  programsHeading: 'Eligible Academic Programs',
   programs: [
     'Bachelor of Science in Nursing (semester, trimester, or quarter formats)',
     'Accelerated Bachelor of Science in Nursing',
@@ -171,9 +171,7 @@ export const ELIGIBILITY = {
   ],
   // Verified affiliate-school names from the approved ASPIRE source content.
   // Text only; partner-logo use is a separate approval.
-  schoolsHeading: 'Our affiliate schools',
-  schoolsIntro:
-    'ASPIRE partners with accredited nursing programs across the region.',
+  schoolsHeading: 'Our Affiliate Schools',
   schools: [
     'Azusa Pacific University',
     'California State University, Long Beach',
@@ -187,7 +185,7 @@ export const ELIGIBILITY = {
     'Your school’s placement coordinator confirms current program eligibility and ' +
     'affiliation with Cedars-Sinai.',
   // Neutral informational note, presented after schools and programs.
-  rotationHeading: 'Rotation requirement',
+  rotationHeading: 'Rotation Requirement',
   rotationBody:
     'ASPIRE requires a hands-on bedside clinical rotation involving direct patient care. ' +
     'Leadership rotations and observation-only rotations do not meet ASPIRE criteria.',
@@ -200,7 +198,9 @@ export const ELIGIBILITY = {
 export const APPLY = {
   eyebrow: 'How to Apply',
   title: 'Applying to ASPIRE starts at your school.',
-  intro: 'Applying to ASPIRE starts at your school, not with an application portal. Your placement coordinator is your first and most important contact.',
+  // Single supporting statement (the "not with an application portal" repetition
+  // and the blue banner were removed per Owner correction).
+  intro: 'Your school’s placement coordinator is your first and most important contact.',
   steps: [
     {
       title: 'Notify your school’s placement coordinator',
@@ -340,9 +340,7 @@ export const CONTACT = {
 }
 
 export const FOOTER = {
-  brandBlurb:
-    'A nursing workforce pathway at Cedars-Sinai, connecting senior nursing students with ' +
-    'hands-on clinical experience and professional growth.',
+  // brandBlurb sentence removed per Owner correction (footer kept lighter).
   columns: [
     {
       heading: 'Program',
@@ -370,9 +368,9 @@ export const FOOTER = {
       ],
     },
   ],
-  contactHeading: 'Get started',
-  contactBody: 'Work with your school’s placement coordinator to begin, or email the ASPIRE team.',
-  contactCta: { path: '/apply', label: 'How to apply' },
+  contactHeading: 'Get Started',
+  // Simplified per Owner correction: two functional links only (no paragraph).
+  contactCta: { path: '/apply', label: 'How to Apply' },
   // aspire@cshs.org is approved for public use (Owner approval, 2026-07-12).
   contactEmail: 'aspire@cshs.org',
   disclaimer:

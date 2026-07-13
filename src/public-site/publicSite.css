@@ -50,10 +50,11 @@
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--ps-line);
 }
-/* Wider than the content column so the Cedars-Sinai and ASPIRE identity sits
-   closer to the left edge on large screens while nav stays balanced right. */
+/* Full-width header shell (NOT capped at the content column) with balanced
+   left/right padding, so the Cedars-Sinai and ASPIRE identity sits close to the
+   left edge on desktop while the nav stays aligned right. */
 .ps-header-inner {
-  max-width: 1320px; margin: 0 auto; padding: 14px clamp(20px, 3vw, 40px);
+  max-width: none; margin: 0; padding: 14px clamp(20px, 3.5vw, 52px);
   display: flex; align-items: center; gap: 20px;
 }
 .ps-brand { display: flex; align-items: center; gap: 12px; }
@@ -220,76 +221,30 @@
 .ps-hero-copy { max-width: 620px; }
 .ps-hero-art { display: flex; justify-content: center; }
 
-/* ── Illustration primitives ─────────────────────────────────────────────────
-   The approved vector set, art-directed per page and BLENDED into the page
-   rather than framed in rectangles: soft gradient edge-fade masks feather each
-   image into the cream (or navy) background, no borders, no drop-shadow cards.
-   Each placement keeps its own crop and mask so no two pages repeat. */
-.ps-art { display: block; position: relative; }
-.ps-art img { display: block; width: 100%; height: 100%; object-fit: cover; }
-
-/* Homepage hero: borderless, feathered on all sides into the hero backdrop.
-   The student-and-preceptor relationship is the sole focus (no overlay graphic). */
-.ps-hero-figure { position: relative; width: 100%; max-width: 520px; }
-.ps-hero-figure .ps-art {
-  aspect-ratio: 8 / 7;
-  -webkit-mask-image:
-    radial-gradient(120% 120% at 50% 42%, #000 55%, rgba(0,0,0,0) 88%);
-  mask-image:
-    radial-gradient(120% 120% at 50% 42%, #000 55%, rgba(0,0,0,0) 88%);
-}
-.ps-hero-figure::before {
-  content: ''; position: absolute; inset: -6% -4% -2%; z-index: -1;
-  border-radius: 50%;
-  background: radial-gradient(60% 60% at 55% 45%, #e6eaf7 0%, rgba(230, 234, 247, 0) 72%);
+/* ── Illustrations ────────────────────────────────────────────────────────────
+   Approved transparent PNGs with organic outer edges. Placement is fully
+   borderless: NO mask, border, corner radius, shadow, or fade. The whole
+   composition stays visible at its natural aspect ratio; only responsive
+   scaling is applied, so the organic edge blends into the cream page. */
+.ps-art {
+  display: block; width: 100%; height: auto;
+  object-fit: contain;
 }
 
-/* Page-head split (About, For Preceptors): copy left, image right. */
+/* Homepage hero: preserve the wide student-and-preceptor composition (no
+   square, both people fully visible). */
+.ps-hero-figure { position: relative; width: 100%; max-width: 560px; }
+
+/* Page-head split (About, For Preceptors): copy left, full illustration right. */
 .ps-head-split {
   display: grid; grid-template-columns: 1.1fr 0.9fr;
   gap: 44px; align-items: center; margin-bottom: 8px;
 }
 .ps-head-art { position: relative; }
-/* About: soft organic edge-fade, blended borderless into the page. */
-.ps-head-art-blend .ps-art {
-  aspect-ratio: 10 / 9;
-  -webkit-mask-image:
-    radial-gradient(125% 115% at 60% 40%, #000 52%, rgba(0,0,0,0) 86%);
-  mask-image:
-    radial-gradient(125% 115% at 60% 40%, #000 52%, rgba(0,0,0,0) 86%);
-}
-.ps-head-art-blend::before {
-  content: ''; position: absolute; inset: -8% -6%; z-index: -1;
-  border-radius: 50%;
-  background: radial-gradient(58% 58% at 60% 42%, #eceadf 0%, rgba(236, 234, 223, 0) 74%);
-}
-/* Preceptors: vertical feather so the pairing dissolves top and bottom. */
-.ps-head-art-arch .ps-art {
-  aspect-ratio: 9 / 8;
-  -webkit-mask-image:
-    linear-gradient(to bottom, rgba(0,0,0,0) 0%, #000 18%, #000 82%, rgba(0,0,0,0) 100%),
-    linear-gradient(to right, rgba(0,0,0,0) 0%, #000 12%, #000 90%, rgba(0,0,0,0) 100%);
-  -webkit-mask-composite: source-in;
-  mask-image:
-    linear-gradient(to bottom, rgba(0,0,0,0) 0%, #000 18%, #000 82%, rgba(0,0,0,0) 100%),
-    linear-gradient(to right, rgba(0,0,0,0) 0%, #000 12%, #000 90%, rgba(0,0,0,0) 100%);
-  mask-composite: intersect;
-}
 
-/* Experience: full-width editorial banner, edges dissolving left and right into
-   the page so it reads as part of the layout, not a boxed photo. */
-.ps-banner-art { margin: 10px 0 40px; position: relative; }
-.ps-banner-art .ps-art {
-  aspect-ratio: 21 / 8;
-  -webkit-mask-image:
-    linear-gradient(to right, rgba(0,0,0,0) 0%, #000 14%, #000 86%, rgba(0,0,0,0) 100%),
-    linear-gradient(to bottom, rgba(0,0,0,0) 0%, #000 12%, #000 88%, rgba(0,0,0,0) 100%);
-  -webkit-mask-composite: source-in;
-  mask-image:
-    linear-gradient(to right, rgba(0,0,0,0) 0%, #000 14%, #000 86%, rgba(0,0,0,0) 100%),
-    linear-gradient(to bottom, rgba(0,0,0,0) 0%, #000 12%, #000 88%, rgba(0,0,0,0) 100%);
-  mask-composite: intersect;
-}
+/* Experience: full care-team composition, borderless, centered and sized so the
+   complete scene (NPD practitioner, preceptor, student, hospital) is visible. */
+.ps-banner-art { margin: 12px auto 40px; max-width: 720px; }
 
 /* ── Audience pathways ────────────────────────────────────────────────────── */
 .ps-audience-grid {
@@ -474,22 +429,9 @@
 .ps-ready-body { margin: 0 0 10px; font-size: 15px; line-height: 1.6; color: var(--ps-ink-soft); }
 .ps-ready-support { margin: 0 0 18px; font-size: 14.5px; font-weight: 600; color: var(--ps-navy); }
 
-/* ── Affiliate schools ────────────────────────────────────────────────────── */
-.ps-school-grid {
-  list-style: none; margin: 0; padding: 0;
-  display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-}
-.ps-school-pill {
-  display: flex; align-items: center; gap: 12px;
-  background: var(--ps-card); border: 1px solid var(--ps-line);
-  border-radius: 12px; padding: 14px 16px;
-  font-size: 14.5px; font-weight: 500; color: var(--ps-ink);
-}
-.ps-school-mark {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
-  background: var(--ps-tint); color: var(--ps-navy);
-}
+/* Affiliate-schools card matches the Eligible Academic Programs card exactly
+   (same .ps-side-card + .ps-plain-list); only the affiliation note differs. */
+.ps-side-note { margin: 14px 0 0; font-size: 12.5px; line-height: 1.55; color: #5f6472; }
 
 /* ── Neutral informational note (rotation requirement) ────────────────────── */
 .ps-info-note {
@@ -602,7 +544,9 @@
   max-width: var(--ps-maxw); margin: 0 auto; padding: 48px 24px 36px;
   display: grid; grid-template-columns: 1.3fr 2fr; gap: 40px;
 }
-.ps-footer-brand p { margin: 16px 0 0; font-size: 14px; line-height: 1.6; color: var(--ps-ink-soft); max-width: 320px; }
+/* Brand blurb removed (Owner correction): the footer brand column is now just
+   the identity, keeping the footer lighter and less crowded. */
+.ps-footer-brand { align-self: center; }
 .ps-footer-cols { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
 .ps-footer-col h3 {
   margin: 0 0 14px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
@@ -639,26 +583,12 @@
 
   .ps-hero-inner { grid-template-columns: 1fr; padding: 36px 20px 40px; gap: 24px; }
   .ps-hero-art { order: -1; }
-  /* Mobile keeps the subjects prominent with a wider crop and a gentle
-     all-around feather so the image still blends without a hard box. */
-  .ps-hero-figure { max-width: 460px; margin: 0 auto; }
-  .ps-hero-figure .ps-art {
-    aspect-ratio: 16 / 11;
-    -webkit-mask-image: radial-gradient(130% 130% at 50% 45%, #000 62%, rgba(0,0,0,0) 94%);
-    mask-image: radial-gradient(130% 130% at 50% 45%, #000 62%, rgba(0,0,0,0) 94%);
-  }
+  /* Full composition preserved on mobile (no crop/mask); just scaled down. */
+  .ps-hero-figure { max-width: 480px; margin: 0 auto; }
 
   .ps-head-split { grid-template-columns: 1fr; gap: 20px; }
-  .ps-head-art { order: -1; max-width: 460px; margin: 0 auto; }
-  .ps-head-art-blend .ps-art,
-  .ps-head-art-arch .ps-art {
-    aspect-ratio: 16 / 11;
-    -webkit-mask-image: radial-gradient(130% 130% at 55% 45%, #000 62%, rgba(0,0,0,0) 94%);
-    -webkit-mask-composite: source-over;
-    mask-image: radial-gradient(130% 130% at 55% 45%, #000 62%, rgba(0,0,0,0) 94%);
-    mask-composite: add;
-  }
-  .ps-banner-art .ps-art { aspect-ratio: 3 / 2; }
+  .ps-head-art { order: -1; max-width: 480px; margin: 0 auto; }
+  .ps-banner-art { max-width: 480px; }
 
   .ps-section { padding: 44px 20px; }
   .ps-section-tint { padding: 44px 20px; }

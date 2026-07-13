@@ -55,7 +55,7 @@ export default function Login() {
           <div className="lg-brand">
             <img src="/cs-logo-large.png" alt="Cedars-Sinai" className="lg-logo" />
             <div className="lg-wordmark">
-              <span className="lg-wordmark-name">ASPIRE</span>
+              <span className="lg-wordmark-name">ASPIRE Intelligence</span>
               <span className="lg-wordmark-sub">Portal</span>
             </div>
             <p className="lg-brand-blurb">

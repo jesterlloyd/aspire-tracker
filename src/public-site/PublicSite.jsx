@@ -23,24 +23,22 @@ import {
 } from './publicContent'
 import './publicSite.css'
 
-// ── Art-directed illustration (approved vector set) ──────────────────────────
-// Each page gets its own crop pair (desktop + mobile) generated from the
-// approved source illustrations under reference/ (tracked derivatives live in
-// public/public-site/illustrations/). The <picture> swap is true art
-// direction: phones get a tighter, wider framing, not a squeezed desktop crop.
-// Images are blended into the page (soft edge-fade masks, no hard frames)
-// via the ps-art-* classes in CSS rather than sitting in visible rectangles.
+// ── Illustration (approved transparent vector set) ───────────────────────────
+// Each approved PNG has an organic, soft outer edge on a TRANSPARENT background,
+// so it blends into the cream page with no mask, border, corner radius, shadow,
+// or fade. The full composition (every student, badge, hand, and Cedars-Sinai
+// context) is preserved at its natural aspect ratio; the CSS only scales it
+// responsively. The alpha channel is kept (PNG, never JPEG, which would show a
+// rectangle).
 function Art({ base, alt, className = '', eager = false }) {
   return (
-    <picture className={`ps-art ${className}`}>
-      <source media="(max-width: 760px)" srcSet={`/public-site/illustrations/${base}-mobile.jpg`} />
-      <img
-        src={`/public-site/illustrations/${base}-desktop.jpg`}
-        alt={alt}
-        loading={eager ? 'eager' : 'lazy'}
-        decoding="async"
-      />
-    </picture>
+    <img
+      className={`ps-art ${className}`}
+      src={`/public-site/illustrations/${base}.png`}
+      alt={alt}
+      loading={eager ? 'eager' : 'lazy'}
+      decoding="async"
+    />
   )
 }
 
@@ -409,7 +407,7 @@ function AboutPage() {
       <section className="ps-section">
         <div className="ps-head-split">
           <PageHead eyebrow={ABOUT.eyebrow} title={ABOUT.title} intro={ABOUT.intro} />
-          <div className="ps-head-art ps-head-art-blend">
+          <div className="ps-head-art">
             <Art base="about"
               alt="Illustration of a senior nursing student and a Cedars-Sinai nurse reviewing coursework together at a desk" />
           </div>
@@ -511,34 +509,27 @@ function EligibilityPage() {
       <section className="ps-section">
         <PageHead eyebrow={ELIGIBILITY.eyebrow} title={ELIGIBILITY.title} intro={ELIGIBILITY.intro} />
         <div className="ps-split">
+          {/* Left: self-check. Right: programs card, then affiliate-schools
+              card directly below it, same card style (no full-width band). */}
           <div className="ps-split-main">
             <EligibilitySelfCheck />
           </div>
-          <aside className="ps-split-side">
+          <aside className="ps-split-side" aria-labelledby="ps-schools-title">
             <div className="ps-side-card">
               <h3>{ELIGIBILITY.programsHeading}</h3>
               <ul className="ps-plain-list">
                 {ELIGIBILITY.programs.map(p => <li key={p}>{p}</li>)}
               </ul>
             </div>
+            <div className="ps-side-card">
+              <h3 id="ps-schools-title">{ELIGIBILITY.schoolsHeading}</h3>
+              <ul className="ps-plain-list">
+                {ELIGIBILITY.schools.map(s => <li key={s}>{s}</li>)}
+              </ul>
+              <p className="ps-side-note">{ELIGIBILITY.schoolsNote}</p>
+            </div>
           </aside>
         </div>
-      </section>
-
-      <section className="ps-section ps-section-tint" aria-labelledby="ps-schools-title">
-        <div className="ps-section-head">
-          <h2 id="ps-schools-title" className="ps-h2">{ELIGIBILITY.schoolsHeading}</h2>
-          <p className="ps-section-intro">{ELIGIBILITY.schoolsIntro}</p>
-        </div>
-        <ul className="ps-school-grid">
-          {ELIGIBILITY.schools.map(s => (
-            <li className="ps-school-pill" key={s}>
-              <span className="ps-school-mark" aria-hidden="true"><Icon name="cap" size={18} /></span>
-              {s}
-            </li>
-          ))}
-        </ul>
-        <p className="ps-inline-note">{ELIGIBILITY.schoolsNote}</p>
       </section>
 
       <section className="ps-section">
@@ -557,10 +548,6 @@ function ApplyPage() {
     <>
       <section className="ps-section">
         <PageHead eyebrow={APPLY.eyebrow} title={APPLY.title} intro={APPLY.intro} />
-        <div className="ps-highlight" role="note">
-          <span className="ps-highlight-icon"><Icon name="school" /></span>
-          <p>Applying to ASPIRE starts at your school, not with an application portal.</p>
-        </div>
         <ol className="ps-steps-rail">
           {APPLY.steps.map((s, i) => (
             <li className="ps-rail-step" key={s.title}>
@@ -612,7 +599,7 @@ function PreceptorsPage() {
       <section className="ps-section">
         <div className="ps-head-split">
           <PageHead eyebrow={PRECEPTORS.eyebrow} title={PRECEPTORS.title} intro={PRECEPTORS.intro} />
-          <div className="ps-head-art ps-head-art-arch">
+          <div className="ps-head-art">
             <Art base="preceptors"
               alt="Illustration of a Cedars-Sinai nurse teaching at a workstation while a nursing student takes notes" />
           </div>
@@ -694,7 +681,6 @@ function PublicFooter() {
             <span className="ps-brand-sep" aria-hidden="true" />
             <span className="ps-brand-name">ASPIRE</span>
           </div>
-          <p>{FOOTER.brandBlurb}</p>
         </div>
         <nav className="ps-footer-cols" aria-label="Footer">
           {FOOTER.columns.map(col => (
@@ -709,13 +695,16 @@ function PublicFooter() {
           ))}
           <div className="ps-footer-col">
             <h3>{FOOTER.contactHeading}</h3>
-            <p className="ps-footer-contact">{FOOTER.contactBody}</p>
-            <Link to={FOOTER.contactCta.path} className="ps-arrow-link">
-              {FOOTER.contactCta.label} <span aria-hidden="true">→</span>
-            </Link>
-            <a href={`mailto:${FOOTER.contactEmail}`} className="ps-footer-email">
-              {FOOTER.contactEmail}
-            </a>
+            <ul>
+              <li>
+                <Link to={FOOTER.contactCta.path} className="ps-arrow-link">
+                  {FOOTER.contactCta.label} <span aria-hidden="true">→</span>
+                </Link>
+              </li>
+              <li>
+                <a href={`mailto:${FOOTER.contactEmail}`}>{FOOTER.contactEmail}</a>
+              </li>
+            </ul>
           </div>
         </nav>
       </div>
