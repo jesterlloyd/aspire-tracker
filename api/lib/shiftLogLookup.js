@@ -58,6 +58,7 @@ export async function lookupStudentByEmail(schoolEmail) {
       matched_preceptor,
       preceptor_id,
       preferred_first_name,
+      term_dates,
       hours_required,
       approved_hours,
       pending_hours,
@@ -161,6 +162,10 @@ export async function lookupStudentByEmail(schoolEmail) {
       status: student.status,
       cohort_id: student.cohort_id,
       cohort_name: cohort?.name || null,
+      // Legacy free-text rotation window; surfaced for the past-shift summary
+      // card (ShiftLogPage) so it renders identically after the lookup moved
+      // server-side. Additive: existing consumers ignore it.
+      term_dates: student.term_dates || null,
       assigned_unit_name: assignedUnitName,
       matched_preceptor: student.matched_preceptor || null,
       assigned_shift_type: assignedShiftType,   // 'Day'|'Night'|'Mid' or null (additive)

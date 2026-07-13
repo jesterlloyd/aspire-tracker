@@ -1,10 +1,10 @@
 // All external navigation must use openLink helpers (src/lib/openLink.js)
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../lib/supabase'
 import { SHIFT_LOG_STATUSES } from '../lib/shiftLogValidation'
 import { openMailtoLink } from '../lib/openLink'
-import { normalizeEmailForLookup, escapeLikePattern } from '../lib/emailUtils'
+import { normalizeEmailForLookup } from '../lib/emailUtils'
 import { getStudentPreferredGreetingName } from '../lib/studentNameFormatters'
+import { useLookupStudent } from './shift-log-lifecycle/useLookupStudent'
 // WS1e-A0b: past-shift submission now goes through /api/shift-log/submit-past-shift.
 // The server resolves the student, classifies the shift, inserts the completed
 // student_shift_logs row, recomputes approved/pending totals, applies the
@@ -27,6 +27,11 @@ function fmtDisplayDate(s) {
 }
 
 export default function ShiftLogPage({ initialSchoolEmail = '' }) {
+  // Student resolution goes through /api/shift-log/lookup-student (service role,
+  // server-side) via the shared lifecycle hook. ShiftLogPage performs NO
+  // browser-side read of public.students or public.units, so this public route
+  // survives Phase 0B Wave D (anon students removal).
+  const { lookup } = useLookupStudent()
   const [screen,   setScreen]   = useState('email') // email | form | confirm
   const [email,    setEmail]    = useState(initialSchoolEmail || '')
   const [loading,  setLoading]  = useState(false)
@@ -62,50 +67,44 @@ export default function ShiftLogPage({ initialSchoolEmail = '' }) {
   useEffect(() => { document.title = 'ASPIRE Shift Log' }, [])
 
   // ── Email screen ──────────────────────────────────────────────
+  // Resolve the student server-side through /api/shift-log/lookup-student. The
+  // endpoint matches the school email exactly (case-insensitive, trimmed, no
+  // wildcard broadening), decides eligibility (cohort not Archived AND status
+  // Placed or Active Rotation), and returns only safe fields, including the
+  // already-resolved assigned_unit_name. No browser-side students/units query.
   const handleEmailSubmit = async e => {
     e.preventDefault()
     setError(null); setLoading(true)
     try {
-      // Forgiving email match: case-insensitive, trimmed, zero-width-tolerant.
-      // ilike(escaped) avoids % / _ wildcard broadening; a JS normalized-equality
-      // check confirms exact identity so no wrong student is ever selected.
       const normEmail = normalizeEmailForLookup(email)
       if (!normEmail) {
         setError(`Please enter your school email. If you need help, contact ${JESTER}.`)
         setLoading(false); return
       }
-      // Search across all non-Archived cohorts so Active Rotation students can log hours
-      // regardless of whether their cohort is still accepting intake submissions.
-      const { data: candidates } = await supabase
-        .from('students')
-        .select('*, cohorts!inner(id, name, status, accepting_submissions)')
-        .ilike('school_email', escapeLikePattern(normEmail))
-        .not('cohorts.status', 'eq', 'Archived')
-        .order('created_at', { ascending: false })
-        .limit(5)
 
-      // Confirm exact normalized equality (most-recent non-archived match wins).
-      const stu = (candidates || []).find(c => normalizeEmailForLookup(c.school_email) === normEmail) || null
+      const result = await lookup(email)
+      if (result._networkError) {
+        setError('Something went wrong. Please try again.')
+        setLoading(false); return
+      }
+      if (result.error === 'ambiguous_student_email') {
+        setError(`We found more than one record for that email. Please contact ${JESTER}.`)
+        setLoading(false); return
+      }
 
-      if (!stu || stu.cohorts?.status === 'Archived') {
+      const stu = result.student
+      if (!result.found || !result.eligible || !stu) {
         setError(`We could not find your email in the current ASPIRE cohort. Please check the spelling or contact ${JESTER}.`)
         setLoading(false); return
       }
 
-      // Use the cohort_id from the student's own record
       setCohortId(stu.cohort_id)
       setStudent(stu)
-      // TODO(Phase B.2 public-forms): ShiftLogPage is a public route - students do not
-      // authenticate, so RLS blocks reads from the preceptors table. Preceptor data here
-      // is read from students.matched_preceptor (free-text fallback). When public forms
-      // migrate to serverless functions (Fall 2026), resolve via preceptors table instead.
+      // Preceptor prefill from the student's free-text matched_preceptor, the
+      // same source as before (now resolved server-side by the endpoint).
       setPreceptorName(stu.matched_preceptor || '')
-
-      // Fetch unit name
-      if (stu.matched_unit_id) {
-        const { data: u } = await supabase.from('units').select('unit_name').eq('id', stu.matched_unit_id).single()
-        setUnitName(u?.unit_name || stu.matched_unit_id)
-      }
+      // Unit name is resolved server-side (assigned_unit_name); no client units read.
+      setUnitName(stu.assigned_unit_name || '')
       setScreen('form')
     } catch { setError('Something went wrong. Please try again.') }
     setLoading(false)
