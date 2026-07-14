@@ -37,7 +37,7 @@ its findings confirmed against production. Confirmed conclusions:
 | 6 | `20260712000005_phase0b_wave_e2_residual_authenticated_policy_cleanup.sql` | requires 5; APPLIED-Wave-E follow-up. Drops the 14 residual dashboard-named broad authenticated policies Wave E missed by a name mismatch | completes F6 (and the activity_logs F5 insert) |
 | 7 | `20260712000006_phase0b_wave_f1_function_execute_hardening.sql` | requires 1; privilege-only, no app change; preserves the two school-form functions | closes F8 (anon/PUBLIC EXECUTE) |
 | 8 | `20260712000007_phase2_authz_foundation.sql` | requires 1 through 6; additive; explicitly transactional (BEGIN/COMMIT) | portal role grants, scopes, student links |
-| 9 | `20260712000008_phase2_student_portal_views.sql` | requires 8 | student portal reads |
+| 9 | `20260712000008_phase2_student_portal_views.sql` | requires 8; additive; explicitly transactional (BEGIN/COMMIT); PRECHECK that all referenced base-table columns exist (some base tables are dashboard-created) | student portal reads |
 | 10 | `20260712000009_phase3_unit_portal.sql` | requires 8 | unit leader portal reads, released_reports |
 | 11 | `20260712000010_phase4_school_portal.sql` | requires 8 and 10; contains the ONE backfill (students.school_id, fills NULLs only) | academic partner portal, schools |
 | 12 | `20260712000011_phase5_public_metrics.sql` | requires 1; additive, seeds nothing | public metrics workflow |

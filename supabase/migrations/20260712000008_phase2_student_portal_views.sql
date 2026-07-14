@@ -24,6 +24,13 @@
 --     check-in and check-out, evaluations), NOT through the portal.
 -- ============================================================================
 
+-- ── 0. Explicit transaction: apply the three views and their grants
+--       atomically. Several base-table columns live in dashboard-created tables,
+--       so a CREATE VIEW could fail on a missing column; an explicit transaction
+--       avoids leaving a partial view surface rather than relying on the SQL
+--       editor's implicit-transaction behavior. ─────────────────────────────
+BEGIN;
+
 -- ── 1. Own shift logs ────────────────────────────────────────────────────────
 -- Excluded on purpose: school_email (redundant), attestation, exception_flags,
 -- admin_notes, reviewed_by (staff-internal). reviewed_at is kept so students
@@ -106,6 +113,8 @@ GRANT SELECT ON public.portal_my_shift_logs,
                 public.portal_my_evaluation_assignments,
                 public.portal_my_certificates
   TO service_role;
+
+COMMIT;
 
 -- Verification (as any staff user with no student link, all three must
 -- return zero rows):
