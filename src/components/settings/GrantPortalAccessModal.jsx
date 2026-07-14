@@ -18,7 +18,7 @@ import { X, Mail, Loader, ChevronLeft, ShieldCheck, Contact as ContactIcon } fro
 import { supabase } from '../../lib/supabase'
 import { PORTAL_ROLE_OPTIONS, PORTAL_ROLE_LABELS } from '../../lib/portalAccessStatus'
 import { UNIT_SCOPE_OPTIONS, SCHOOL_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
-import { useContactSearch, contactSubtitle, matchCatalogKeys, pickReliableStudent } from '../../lib/contactSearch'
+import { useContactSearch, contactSubtitle, matchCatalogKeys, pickReliableStudent, inferPortalRoleFromContact, bestStudentLoginEmail } from '../../lib/contactSearch'
 
 const F = 'DM Sans, sans-serif'
 const field = { width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontFamily: F, fontSize: 13, outline: 'none', boxSizing: 'border-box' }
@@ -149,7 +149,7 @@ function StudentPicker({ value, onPick, cohortsById }) {
     setLoading(true)
     const run = setTimeout(async () => {
       const { data } = await supabase.from('students')
-        .select('id, first_name, last_name, preferred_first_name, school, school_email, status, cohort_id')
+        .select('id, first_name, last_name, preferred_first_name, school, school_email, personal_email, status, cohort_id')
         .or(`first_name.ilike.%${t}%,last_name.ilike.%${t}%,school_email.ilike.%${t}%`)
         .limit(12)
       if (!cancelled) { setRows(data || []); setLoading(false) }
@@ -216,6 +216,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [selectedContact, setSelectedContact] = useState(null)
+  const [roleDetected, setRoleDetected] = useState(false)
   // Manual-edit guards: once the Owner edits a scope field, autofill leaves it alone.
   const [unitTouched, setUnitTouched] = useState(!!initial?.scope?.units?.length)
   const [schoolTouched, setSchoolTouched] = useState(!!initial?.scope?.schools?.length)
@@ -233,47 +234,76 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
     return () => { clearTimeout(t); document.removeEventListener('keydown', onKey) }
   }, [onClose, loading])
 
-  // Suggest the role's scope from a contact, respecting the manual-edit guards.
-  const suggestScope = useCallback(async (c, roleArg) => {
+  // Explicit saved-contact selection: infer the portal role from the contact's
+  // canonical category, fill name + email, and suggest the role's scope. A new
+  // contact is an explicit action, so it may replace a previously inferred role
+  // and refresh suggestions (touched guards reset).
+  const applyContactSelection = useCallback(async (c) => {
     if (!c) return
-    if (roleArg === 'unit_leader') {
-      if (!unitTouched) { const keys = matchCatalogKeys(c.unit_name, UNIT_VALUES); if (keys.length) setUnitKeys(keys) }
-    } else if (roleArg === 'academic_partner') {
-      if (!schoolTouched) { const keys = matchCatalogKeys(c.school_name, SCHOOL_VALUES); if (keys.length) setSchoolKeys(keys) }
-    } else if (roleArg === 'student') {
-      if (!studentTouched && c.email) {
-        // Reliable link = exact email match to EXACTLY ONE student. Never by name.
-        const em = c.email.trim()
-        const { data } = await supabase.from('students')
-          .select('id, first_name, last_name, preferred_first_name, school, school_email, personal_email, cohort_id, status')
-          .or(`school_email.ilike.${em},personal_email.ilike.${em}`)
-          .limit(5)
-        const match = pickReliableStudent(c.email, data || [])
-        if (match) setStudent(match)
-      }
-    }
-  }, [unitTouched, schoolTouched, studentTouched])
-
-  // Selecting a saved contact fills identity and suggests scope (untouched only).
-  const onPickContact = useCallback((c) => {
-    if (!c) return
+    setResult(null)
     setSelectedContact(c)
     setFullName(contactName(c))
     if (c.email) setEmail(c.email)
-    suggestScope(c, role)
-  }, [role, suggestScope])
 
-  // Switching roles preserves name/email; re-suggests the new role's scope.
+    const inferred = inferPortalRoleFromContact(c)
+    const targetRole = inferred || role
+    if (inferred && inferred !== role) { setRole(targetRole); setRoleDetected(true) }
+    else if (!inferred) setRoleDetected(false)
+
+    // Fresh contact -> fresh suggestions for the (possibly new) role.
+    setUnitTouched(false); setSchoolTouched(false); setStudentTouched(false)
+
+    if (targetRole === 'unit_leader') {
+      setUnitKeys(matchCatalogKeys(c.unit_name, UNIT_VALUES))
+    } else if (targetRole === 'academic_partner') {
+      setSchoolKeys(matchCatalogKeys(c.school_name, SCHOOL_VALUES))
+    } else if (targetRole === 'student' && c.email) {
+      // Reliable link = exact email match to EXACTLY ONE student. Never by name.
+      const em = c.email.trim()
+      const { data } = await supabase.from('students')
+        .select('id, first_name, last_name, preferred_first_name, school, school_email, personal_email, cohort_id, status')
+        .or(`school_email.ilike.${em},personal_email.ilike.${em}`)
+        .limit(5)
+      const match = pickReliableStudent(c.email, data || [])
+      if (match) setStudent(match)
+    }
+  }, [role])
+
+  // Manual role change: preserve name/email, clear the "detected" note, and offer
+  // the selected contact's scope for the new role ONLY where untouched.
+  const suggestUntouchedScope = useCallback((c, roleArg) => {
+    if (!c) return
+    if (roleArg === 'unit_leader' && !unitTouched) { const k = matchCatalogKeys(c.unit_name, UNIT_VALUES); if (k.length) setUnitKeys(k) }
+    else if (roleArg === 'academic_partner' && !schoolTouched) { const k = matchCatalogKeys(c.school_name, SCHOOL_VALUES); if (k.length) setSchoolKeys(k) }
+  }, [unitTouched, schoolTouched])
+
   const onRoleChange = (next) => {
-    setRole(next)
-    if (selectedContact) suggestScope(selectedContact, next)
+    setRole(next); setRoleDetected(false); setResult(null)
+    if (selectedContact) suggestUntouchedScope(selectedContact, next)
   }
 
+  // Explicit student-record selection: link the student, set role to student,
+  // populate the canonical name, and suggest the best available login email.
+  const onPickStudentRecord = useCallback((s) => {
+    setResult(null); setStudentTouched(true)
+    if (!s) { setStudent(null); return }
+    setStudent(s)
+    setRole('student')
+    setFullName(studentName(s))
+    const em = bestStudentLoginEmail(s, null)
+    if (em) setEmail(em) // else leave as-is; the manual-entry prompt shows below
+  }, [])
+
+  // Validation evaluates ONLY the currently selected role's scope, so a role
+  // change clears the previous role's requirement (e.g. Student's linked-record
+  // requirement no longer blocks Unit Leader).
   const scopeValid =
     role === 'student' ? !!student :
     role === 'unit_leader' ? unitKeys.length > 0 :
     role === 'academic_partner' ? schoolKeys.length > 0 : false
-  const formValid = !!email && !!fullName && !!role && scopeValid && !loading
+  const formValid = !!email.trim() && !!fullName.trim() && !!role && scopeValid && !loading
+  // A student is linked but no reliable email was found: require manual entry.
+  const showStudentEmailPrompt = role === 'student' && !!student && !email.trim()
 
   const buildPayload = () => {
     const base = { role, email: email.trim(), full_name: fullName.trim() }
@@ -349,15 +379,21 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
                 <select id="gpa-role" value={role} disabled={isRenew} onChange={e => onRoleChange(e.target.value)} style={{ ...field, cursor: isRenew ? 'default' : 'pointer', background: isRenew ? '#f9fafb' : '#fff' }}>
                   {PORTAL_ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                 </select>
+                {roleDetected && <div role="status" style={{ fontSize: 11, color: '#166534', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>Role detected from saved contact (editable)</div>}
               </div>
               <div style={{ marginBottom: 12 }}>
                 <label style={label} htmlFor="gpa-name">Full name</label>
-                <ContactSuggest id="gpa-name" value={fullName} onChange={setFullName} onPick={onPickContact} placeholder="Search saved contacts or type a name" ariaLabel="Full name, searches saved contacts" />
+                <ContactSuggest id="gpa-name" value={fullName} onChange={setFullName} onPick={applyContactSelection} placeholder="Search saved contacts or type a name" ariaLabel="Full name, searches saved contacts" />
                 {selectedContact && <div style={{ fontSize: 11, color: '#1D2567', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}><ContactIcon size={11} /> From saved contact (editable)</div>}
               </div>
               <div style={{ marginBottom: 6 }}>
                 <label style={label} htmlFor="gpa-email">Login email</label>
-                <ContactSuggest id="gpa-email" type="email" value={email} onChange={setEmail} onPick={onPickContact} placeholder="Search saved contacts or type an email" ariaLabel="Login email, searches saved contacts" />
+                <ContactSuggest id="gpa-email" type="email" value={email} onChange={setEmail} onPick={applyContactSelection} placeholder="Search saved contacts or type an email" ariaLabel="Login email, searches saved contacts" />
+                {showStudentEmailPrompt && (
+                  <div role="alert" style={{ fontSize: 11.5, color: '#991b1b', marginTop: 5 }}>
+                    No email is on file for this student. Enter a login email manually.
+                  </div>
+                )}
               </div>
               <p style={{ margin: '0 0 14px', fontSize: 11.5, color: '#6b7280', lineHeight: 1.5 }}>
                 The login email is the address used to access the portal. It does not have to match an email stored on the linked ASPIRE student record.
@@ -366,7 +402,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
               {role === 'student' && (
                 <div style={{ marginBottom: 14 }}>
                   <label style={label}>Linked student record (exactly one)</label>
-                  <StudentPicker value={student} onPick={(s) => { setStudentTouched(true); setStudent(s) }} cohortsById={cohortsById} />
+                  <StudentPicker value={student} onPick={onPickStudentRecord} cohortsById={cohortsById} />
                 </div>
               )}
               {role === 'unit_leader' && (

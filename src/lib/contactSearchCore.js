@@ -2,6 +2,7 @@
 // search (no React, no Supabase import), so both the browser modules and the
 // Node tests import the same logic. src/lib/contactSearch.js re-exports these
 // alongside the query + hook that need the Supabase client.
+import { getPrimaryCategory } from './contactCategories.js'
 
 // Columns needed for both the CC picker and portal autofill (adds unit_name for
 // unit-leader scope suggestions; harmless to the CC picker, which ignores it).
@@ -52,4 +53,34 @@ export function pickReliableStudent(email, students) {
     }
   }
   return hits.length === 1 ? hits[0] : null
+}
+
+// Map a saved contact's CANONICAL category (getPrimaryCategory, which honors the
+// stored contacts.category and falls back to role inference) to a supported
+// portal role. Returns null for unsupported or ambiguous categories (Preceptors,
+// BNI Team, Nursing Executives, Other) so the caller preserves the current role
+// and requires explicit selection. Never infers from a loose name match.
+const CATEGORY_TO_PORTAL_ROLE = new Map([
+  ['unit leadership', 'unit_leader'],
+  ['unit leader', 'unit_leader'],
+  ['unit leaders', 'unit_leader'],
+  ['academic partners', 'academic_partner'],
+  ['academic partner', 'academic_partner'],
+  ['student', 'student'],
+  ['students', 'student'],
+])
+export function inferPortalRoleFromContact(contact) {
+  if (!contact) return null
+  const cat = getPrimaryCategory(contact)
+  if (!cat) return null
+  return CATEGORY_TO_PORTAL_ROLE.get(String(cat).toLowerCase().trim()) || null
+}
+
+// Best login email for a student, in the documented priority order:
+//   1. an exact linked saved-contact email (passed in when a contact drove the
+//      selection), 2. student school email, 3. student personal email.
+// Returns null when none is available (the caller then requires manual entry).
+export function bestStudentLoginEmail(student, contactEmail) {
+  const pick = (v) => (v && String(v).trim()) ? String(v).trim() : null
+  return pick(contactEmail) || pick(student?.school_email) || pick(student?.personal_email) || null
 }

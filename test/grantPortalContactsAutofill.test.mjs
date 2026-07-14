@@ -40,27 +40,28 @@ test('Grant modal Contacts autofill', async (t) => {
   })
 
   await t.test('selecting a contact fills full name and login email', () => {
-    assert.match(modal, /const onPickContact = useCallback\(\(c\) => \{/)
+    assert.match(modal, /const applyContactSelection = useCallback\(async \(c\) => \{/)
     assert.match(modal, /setFullName\(contactName\(c\)\)/)
     assert.match(modal, /if \(c\.email\) setEmail\(c\.email\)/)
   })
 
   await t.test('unit leader preselects units from the contact affiliation, editable', () => {
     assert.match(modal, /matchCatalogKeys\(c\.unit_name, UNIT_VALUES\)/)
-    assert.match(modal, /if \(!unitTouched\)/, 'unit suggestion respects manual edits')
+    // On a manual role change, the suggestion respects manual edits.
+    assert.match(modal, /roleArg === 'unit_leader' && !unitTouched/)
     // The unit chips remain editable and edits mark the field touched.
     assert.match(modal, /onChange=\{\(next\) => \{ setUnitTouched\(true\); setUnitKeys\(next\) \}\}/)
   })
 
   await t.test('academic partner preselects schools from the contact affiliation, editable', () => {
     assert.match(modal, /matchCatalogKeys\(c\.school_name, SCHOOL_VALUES\)/)
-    assert.match(modal, /if \(!schoolTouched\)/)
+    assert.match(modal, /roleArg === 'academic_partner' && !schoolTouched/)
     assert.match(modal, /onChange=\{\(next\) => \{ setSchoolTouched\(true\); setSchoolKeys\(next\) \}\}/)
   })
 
   await t.test('student is preselected only via a reliable exact-email link, never by name', () => {
     assert.match(modal, /pickReliableStudent\(c\.email, data \|\| \[\]\)/)
-    assert.match(modal, /if \(!studentTouched && c\.email\)/)
+    assert.match(modal, /targetRole === 'student' && c\.email/)
     assert.match(modal, /school_email\.ilike\.\$\{em\},personal_email\.ilike\.\$\{em\}/, 'matches by email, not name')
     // The reliable-link helper (tested in contactSearch.test) requires exactly one match.
     assert.doesNotMatch(modal, /full_name.*===.*contact|name match/i)
@@ -71,10 +72,10 @@ test('Grant modal Contacts autofill', async (t) => {
     assert.match(modal, /onChange=\{setFullName\}/)
     assert.match(modal, /onChange=\{setEmail\}/)
     // ...and switching roles preserves name/email while re-suggesting scope (guarded).
-    assert.match(modal, /const onRoleChange = \(next\) => \{[\s\S]*?if \(selectedContact\) suggestScope\(selectedContact, next\)/)
-    assert.match(modal, /suggestScope = useCallback\(async \(c, roleArg\) =>/)
-    // suggestScope only writes untouched fields.
-    assert.match(modal, /\}, \[unitTouched, schoolTouched, studentTouched\]\)/)
+    assert.match(modal, /const onRoleChange = \(next\) => \{[\s\S]*?if \(selectedContact\) suggestUntouchedScope\(selectedContact, next\)/)
+    assert.match(modal, /suggestUntouchedScope = useCallback\(\(c, roleArg\) =>/)
+    // The guarded suggestion only writes untouched fields.
+    assert.match(modal, /\}, \[unitTouched, schoolTouched\]\)/)
   })
 
   await t.test('keyboard navigation and Escape work in the contact typeahead', () => {
