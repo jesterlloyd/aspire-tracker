@@ -39,6 +39,11 @@
 -- it by updating expires_at, or revoke it and grant anew.
 -- ============================================================================
 
+-- ── 0. Explicit transaction: the CREATE POLICY statements below are not
+--       idempotent, so this file must be atomic (all-or-nothing) rather than
+--       relying on the SQL editor's implicit-transaction behavior. ────────────
+BEGIN;
+
 -- ── 1. Role grants ──────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS public.user_role_grants (
@@ -278,6 +283,8 @@ GRANT EXECUTE ON FUNCTION public.my_linked_student_ids()      TO authenticated;
 GRANT EXECUTE ON FUNCTION public.my_unit_scope_keys()         TO authenticated;
 GRANT EXECUTE ON FUNCTION public.my_school_scope_keys()       TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_my_portal_access()       TO authenticated;
+
+COMMIT;
 
 -- Verification (expected: 4 tables with rls_enabled = true, 8 policies,
 -- 6 functions):

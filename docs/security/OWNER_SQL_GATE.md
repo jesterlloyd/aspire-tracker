@@ -36,7 +36,7 @@ its findings confirmed against production. Confirmed conclusions:
 | 5 | `20260712000004_phase0b_wave_e_staff_rescope.sql` | requires 1; behavior-identical for current users | closes F2, F5, F6, completes F11 |
 | 6 | `20260712000005_phase0b_wave_e2_residual_authenticated_policy_cleanup.sql` | requires 5; APPLIED-Wave-E follow-up. Drops the 14 residual dashboard-named broad authenticated policies Wave E missed by a name mismatch | completes F6 (and the activity_logs F5 insert) |
 | 7 | `20260712000006_phase0b_wave_f1_function_execute_hardening.sql` | requires 1; privilege-only, no app change; preserves the two school-form functions | closes F8 (anon/PUBLIC EXECUTE) |
-| 8 | `20260712000007_phase2_authz_foundation.sql` | requires 1 through 6; additive | portal role grants, scopes, student links |
+| 8 | `20260712000007_phase2_authz_foundation.sql` | requires 1 through 6; additive; explicitly transactional (BEGIN/COMMIT) | portal role grants, scopes, student links |
 | 9 | `20260712000008_phase2_student_portal_views.sql` | requires 8 | student portal reads |
 | 10 | `20260712000009_phase3_unit_portal.sql` | requires 8 | unit leader portal reads, released_reports |
 | 11 | `20260712000010_phase4_school_portal.sql` | requires 8 and 10; contains the ONE backfill (students.school_id, fills NULLs only) | academic partner portal, schools |
@@ -149,6 +149,31 @@ portal account. The Wave E migration file itself is left unchanged (it was
 already applied); this note records the discovery and the required correction.
 Revert lives in
 `db/audit/phase0b_reverts.sql`, section Wave E-2.
+
+## Phase 2 authorization foundation (file 8) notes
+
+- The migration is now explicitly transactional (`BEGIN;` before the first DDL,
+  `COMMIT;` after the last grant; the verification queries stay outside the
+  transaction). It contains non-idempotent `CREATE POLICY` statements, so it is
+  atomic rather than relying on the SQL editor's implicit-transaction behavior.
+  Run the whole file as one block; do not rerun it (rerunning would error on the
+  existing policies).
+- Expired-but-unrevoked grant renewal was reviewed. The partial unique indexes
+  key on `revoked_at IS NULL`, so an expired but unrevoked `user_role_grants`,
+  `user_unit_scopes`, or `user_school_scopes` row still occupies its active slot.
+  The only writer, `api/invite-portal-user.js`, uses plain `INSERT`s with no
+  update, upsert, or revoke-before-insert, and there is no renewal, extension,
+  or revoke endpoint. Renewing an expired-but-unrevoked grant (or re-inviting a
+  still-active portal user) therefore fails with a uniqueness error surfaced as
+  a 500 after the auth invite and profile update already ran (a partial state).
+  Reinvitation after an explicit revocation (`revoked_at` set) works, because a
+  revoked row frees the slot.
+- REQUIRED before reinviting or renewing any portal user: add a renewal path
+  (extend `expires_at` in place, or set `revoked_at` on the old grant before
+  inserting the replacement, per the migration header), plus a pre-check in the
+  invite endpoint that returns a clean 409 instead of a 500 partial. This
+  foundation migration is safe to apply now; the renewal limitation must be
+  resolved in application code before the first renewal or reinvitation.
 
 ## First migration to run after approval
 
