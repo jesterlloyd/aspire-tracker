@@ -20,6 +20,7 @@ const STUDENT_COLUMNS = [
   'id', 'cohort_id', 'first_name', 'preferred_first_name', 'last_name',
   'school', 'status', 'unit', 'preceptor_name', 'term_dates',
   'hours_required', 'approved_hours', 'pending_hours',
+  'headshot_url', 'phone',
 ].join(', ')
 
 const COHORT_COLUMNS = 'id, name, status, start_date, end_date'
@@ -96,6 +97,8 @@ export default async function handler(req, res) {
     last_name: s.last_name,
     school: s.school,
     status: s.status,
+    headshot_url: s.headshot_url || null,
+    phone: s.phone || null,
     unit_name: s.unit || null,
     preceptor_name: assignmentsByStudent[s.id]?.preceptor_name || s.preceptor_name || null,
     term_dates: s.term_dates || null,

@@ -1,24 +1,21 @@
-// PHASE2-PORTAL: student portal home.
+// PHASE2-PORTAL / ASPIRE-STUDENT-PORTAL: student portal home. Mobile-first,
+// profile-forward redesign.
 //
-// Reads (all server-authorized, see amendment 4 pattern choices):
+// Reads (all server-authorized):
 //   - Summary (profile, placement, cohort, hours): GET /api/portal/student-summary
-//     (JWT-verified endpoint, column allowlist)
 //   - Shift logs / evaluation statuses / certificate: scoped definer views
-//     portal_my_shift_logs, portal_my_evaluation_assignments,
-//     portal_my_certificates (empty for anyone without an active student grant)
-// Writes: none. Shift logging stays on the public /shift-log flow; evaluations
-// stay on their tokenized links.
-
-import { useState, useEffect } from 'react'
+//     (empty for anyone without an active student grant)
+// Writes: only self-service presentation fields via /api/portal/update-profile
+// (EditProfileDrawer). Shift logging stays on the public /shift-log flow;
+// evaluations stay on their tokenized links.
+import { useState, useEffect, useRef } from 'react'
+import { MapPin, Clock, ListChecks, ClipboardCheck, CalendarPlus, LifeBuoy, Pencil, Mail, ChevronRight } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { deriveNextSteps } from '../lib/portalNextSteps'
+import { fmtDate, placementWindow, TBC } from '../lib/portalDates'
+import EditProfileDrawer from './EditProfileDrawer'
 
-const fmtDate = (d) => {
-  if (!d) return ''
-  try {
-    return new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  } catch { return String(d) }
-}
+const SUPPORT = 'aspire@cshs.org'
 
 const EVAL_STATUS_LABELS = {
   draft: 'Not yet sent', sent: 'Waiting for you', opened: 'In progress',
@@ -26,7 +23,29 @@ const EVAL_STATUS_LABELS = {
   non_responder: 'Window closed', expired: 'Window closed', revoked: 'Withdrawn',
 }
 
-export default function StudentPortal() {
+function initials(name) {
+  return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
+}
+
+function contactMailto({ name, school, cohort, status }) {
+  const subject = 'ASPIRE Student Support Request'
+  const body = `Name: ${name || ''}\nSchool: ${school || ''}\nCohort: ${cohort || ''}\nStatus: ${status || ''}\n\nHow can we help?\n`
+  return `mailto:${SUPPORT}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+}
+
+function SectionCard({ icon: Icon, title, accent, children, span }) {
+  return (
+    <section className={`ptl-card ptl-section${span ? ' ptl-span2' : ''}`}>
+      <div className="ptl-section-head">
+        <span className="ptl-section-icon" style={accent ? { background: accent.bg, color: accent.fg } : undefined}><Icon size={16} /></span>
+        <h2 className="ptl-section-title">{title}</h2>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdit }) {
   const [summary, setSummary]   = useState(null)
   const [logs, setLogs]         = useState([])
   const [evals, setEvals]       = useState([])
@@ -34,39 +53,34 @@ export default function StudentPortal() {
   const [error, setError]       = useState(null)
   const [loading, setLoading]   = useState(true)
   const [activeId, setActiveId] = useState(null)
+  const editBtnRef = useRef(null)
 
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      try {
-        const { data: sessionData } = await supabase.auth.getSession()
-        const token = sessionData?.session?.access_token
-        if (!token) { setError('Your session expired. Please sign in again.'); setLoading(false); return }
-
-        const [summaryRes, logsRes, evalsRes, certsRes] = await Promise.all([
-          fetch('/api/portal/student-summary', { headers: { Authorization: `Bearer ${token}` } }),
-          supabase.from('portal_my_shift_logs').select('*').order('shift_date', { ascending: false }),
-          supabase.from('portal_my_evaluation_assignments').select('*').order('sent_at', { ascending: false }),
-          supabase.from('portal_my_certificates').select('*'),
-        ])
-
-        if (cancelled) return
-        const summaryData = summaryRes.ok ? await summaryRes.json() : { students: [] }
-        setSummary(summaryData)
-        setActiveId(summaryData.students?.[0]?.id || null)
-        setLogs(logsRes.data || [])
-        setEvals(evalsRes.data || [])
-        setCerts(certsRes.data || [])
-      } catch {
-        if (!cancelled) setError('We could not load your portal right now. Please try again shortly.')
-      }
-      if (!cancelled) setLoading(false)
+  async function load() {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData?.session?.access_token
+      if (!token) { setError('Your session expired. Please sign in again.'); setLoading(false); return }
+      const [summaryRes, logsRes, evalsRes, certsRes] = await Promise.all([
+        fetch('/api/portal/student-summary', { headers: { Authorization: `Bearer ${token}` } }),
+        supabase.from('portal_my_shift_logs').select('*').order('shift_date', { ascending: false }),
+        supabase.from('portal_my_evaluation_assignments').select('*').order('sent_at', { ascending: false }),
+        supabase.from('portal_my_certificates').select('*'),
+      ])
+      const summaryData = summaryRes.ok ? await summaryRes.json() : { students: [] }
+      setSummary(summaryData)
+      setActiveId(prev => prev || summaryData.students?.[0]?.id || null)
+      setLogs(logsRes.data || [])
+      setEvals(evalsRes.data || [])
+      setCerts(certsRes.data || [])
+    } catch {
+      setError('We could not load your portal right now. Please try again shortly.')
     }
-    load()
-    return () => { cancelled = true }
-  }, [])
+    setLoading(false)
+  }
 
-  if (loading) return <div className="ptl-muted">Loading your information...</div>
+  useEffect(() => { let c = false; load().then(() => { if (c) return }); return () => { c = true } }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (loading) return <div className="ptl-muted ptl-loading">Loading your information...</div>
   if (error)   return <div className="ptl-card ptl-error">{error}</div>
 
   const students = summary?.students || []
@@ -74,10 +88,7 @@ export default function StudentPortal() {
     return (
       <div className="ptl-card ptl-center-card">
         <div className="ptl-card-title">No student record is linked yet</div>
-        <p className="ptl-muted">
-          Your account is active, but no student record is connected to it.
-          Please contact the ASPIRE team.
-        </p>
+        <p className="ptl-muted">Your account is active, but no student record is connected to it yet. Please contact the ASPIRE team at <a href={`mailto:${SUPPORT}`}>{SUPPORT}</a>.</p>
       </div>
     )
   }
@@ -91,148 +102,148 @@ export default function StudentPortal() {
   const required = student.hours.required
   const approved = student.hours.approved || 0
   const pending  = student.hours.pending || 0
-  const pct = required ? Math.min(100, Math.round((approved / required) * 100)) : null
+  const hoursReliable = Number.isFinite(required) && required > 0 && Number.isFinite(approved)
+  const pct = hoursReliable ? Math.min(100, Math.round((approved / required) * 100)) : null
 
-  const steps = deriveNextSteps({
-    status: student.status,
-    hours: { approved, required },
-    evaluations: myEvals,
-    certificate: myCert,
-  })
-
+  const steps = deriveNextSteps({ status: student.status, hours: { approved, required }, evaluations: myEvals, certificate: myCert })
   const displayName = student.preferred_first_name || student.first_name
+  const fullName = [displayName, student.last_name].filter(Boolean).join(' ')
+  const cohortName = student.cohort?.name || null
+  const rotationWindow = placementWindow(student.cohort, student.term_dates)
+  const activeRotation = student.status === 'Active Rotation'
+  const mailto = contactMailto({ name: fullName, school: student.school, cohort: cohortName, status: student.status })
+
+  const openEdit = () => onOpenEdit?.()
 
   return (
-    <div className="ptl-grid">
+    <div className="ptl-student">
       {students.length > 1 && (
-        <div className="ptl-card ptl-span2">
+        <div className="ptl-rotation-switch">
           <label className="ptl-label" htmlFor="ptl-rotation-pick">Rotation</label>
-          <select
-            id="ptl-rotation-pick"
-            className="ptl-select"
-            value={student.id}
-            onChange={e => setActiveId(e.target.value)}
-          >
-            {students.map(s => (
-              <option key={s.id} value={s.id}>
-                {s.cohort?.name || 'Rotation'} ({s.status})
-              </option>
-            ))}
+          <select id="ptl-rotation-pick" className="ptl-select" value={student.id} onChange={e => setActiveId(e.target.value)}>
+            {students.map(s => <option key={s.id} value={s.id}>{s.cohort?.name || 'Rotation'} ({s.status})</option>)}
           </select>
         </div>
       )}
 
-      <div className="ptl-card ptl-span2">
-        <div className="ptl-welcome">Welcome, {displayName}</div>
-        <div className="ptl-status-row">
-          <span className="ptl-chip">{student.status}</span>
-          {student.cohort?.name ? <span className="ptl-chip ptl-chip-soft">{student.cohort.name}</span> : null}
-        </div>
-      </div>
-
-      <div className="ptl-card">
-        <div className="ptl-card-title">Your placement</div>
-        <dl className="ptl-dl">
-          <div><dt>Unit</dt><dd>{student.unit_name || 'To be confirmed'}</dd></div>
-          <div><dt>Preceptor</dt><dd>{student.preceptor_name || 'To be confirmed'}</dd></div>
-          <div><dt>Rotation window</dt><dd>
-            {student.term_dates
-              || (student.cohort?.start_date ? `${fmtDate(student.cohort.start_date)} to ${fmtDate(student.cohort.end_date)}` : 'To be confirmed')}
-          </dd></div>
-          <div><dt>School</dt><dd>{student.school || ''}</dd></div>
-        </dl>
-      </div>
-
-      <div className="ptl-card">
-        <div className="ptl-card-title">Clinical hours</div>
-        {required ? (
-          <>
-            <div className="ptl-hours-line">
-              <span className="ptl-hours-big">{approved}</span>
-              <span className="ptl-muted"> of {required} hours approved</span>
+      {/* Profile hero */}
+      <section className="ptl-hero">
+        <div className="ptl-hero-top">
+          <div className="ptl-hero-id">
+            <div className="ptl-avatar" aria-hidden="true">
+              {student.headshot_url ? <img src={student.headshot_url} alt="" onError={e => { e.currentTarget.style.display = 'none' }} /> : initials(fullName)}
             </div>
-            <div className="ptl-progress"><div className="ptl-progress-fill" style={{ width: `${pct}%` }} /></div>
-            <div className="ptl-muted ptl-small">
-              {pending > 0 ? `${pending} hours pending review. ` : ''}
-              {Math.max(0, required - approved)} hours remaining.
+            <div className="ptl-hero-text">
+              <div className="ptl-hero-hello">Welcome back,</div>
+              <div className="ptl-hero-name">{displayName}</div>
+              <div className="ptl-hero-meta">{[student.school, cohortName].filter(Boolean).join(' · ') || 'ASPIRE Student'}</div>
+              <div className="ptl-hero-chips">
+                {student.status ? <span className="ptl-chip">{student.status}</span> : null}
+                <span className="ptl-chip ptl-chip-soft">{student.unit_name ? `Unit: ${student.unit_name}` : 'Placement pending'}</span>
+              </div>
             </div>
-          </>
-        ) : (
-          <div className="ptl-muted">Your required hours will appear once your rotation is set up.</div>
-        )}
-      </div>
-
-      <div className="ptl-card ptl-span2">
-        <div className="ptl-card-title">Next steps</div>
-        <ul className="ptl-steps">
-          {steps.map(s => (
-            <li key={s.key} className={s.done ? 'ptl-step-done' : ''}>
-              <span className="ptl-step-mark">{s.done ? '✓' : '•'}</span> {s.label}
-            </li>
-          ))}
-        </ul>
-        {student.status === 'Active Rotation' && (
-          <a className="ptl-btn" href="/shift-log">Log a shift</a>
-        )}
-      </div>
-
-      <div className="ptl-card">
-        <div className="ptl-card-title">Evaluations</div>
-        {myEvals.length === 0 ? (
-          <div className="ptl-muted">No evaluations yet. Links arrive by email when one opens.</div>
-        ) : (
-          <ul className="ptl-list">
-            {myEvals.map(e => (
-              <li key={e.id}>
-                <span>{e.instrument_title || e.instrument_slug}</span>
-                <span className={`ptl-chip ptl-chip-soft ptl-chip-${e.status === 'completed' ? 'ok' : 'wait'}`}>
-                  {EVAL_STATUS_LABELS[e.status] || e.status}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {myCert?.certificate_unlocked_at && (
-          <div className="ptl-cert">
-            Certificate <strong>{myCert.certificate_number}</strong> issued.
-            Use the download link from your certificate email.
           </div>
-        )}
-      </div>
-
-      <div className="ptl-card">
-        <div className="ptl-card-title">Recent shift logs</div>
-        {myLogs.length === 0 ? (
-          <div className="ptl-muted">
-            No shifts logged yet. Check in at <a href="/shift-log">aspireintelligence.app/shift-log</a>.
-          </div>
-        ) : (
-          <ul className="ptl-list">
-            {myLogs.slice(0, 8).map(l => (
-              <li key={l.id}>
-                <span>{fmtDate(l.shift_date)} · {l.unit_name}{l.total_hours != null ? ` · ${l.total_hours}h` : ''}</span>
-                <span className={`ptl-chip ptl-chip-soft ptl-chip-${l.status === 'approved' ? 'ok' : 'wait'}`}>{l.status}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      {supportItems.length > 0 && (
-        <div className="ptl-card ptl-span2">
-          <div className="ptl-card-title">Your support requests</div>
-          <ul className="ptl-list">
-            {supportItems.slice(0, 5).map(l => (
-              <li key={l.id}>
-                <span>{fmtDate(l.shift_date)}: {l.support_needed}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="ptl-muted ptl-small">
-            The ASPIRE team reviews every support note. For anything urgent, contact your NPD practitioner directly.
-          </div>
+          <button type="button" ref={editBtnRef} className="ptl-edit-btn" onClick={openEdit}><Pencil size={14} /> Edit Profile</button>
         </div>
-      )}
+        <div className="ptl-hero-actions">
+          <a className="ptl-btn ptl-btn-primary" href="/shift-log"><CalendarPlus size={16} /> Log a Shift</a>
+          <a className="ptl-btn-outline ptl-btn-contact" href={mailto}><Mail size={15} /> Contact ASPIRE</a>
+        </div>
+      </section>
+
+      <div className="ptl-grid">
+        <SectionCard icon={MapPin} title="Placement" accent={{ bg: '#eef2fb', fg: '#1D2567' }}>
+          <dl className="ptl-dl">
+            <div><dt>Unit</dt><dd>{student.unit_name || TBC}</dd></div>
+            <div><dt>Preceptor</dt><dd>{student.preceptor_name || TBC}</dd></div>
+            <div><dt>Rotation window</dt><dd>{rotationWindow}</dd></div>
+            <div><dt>School</dt><dd>{student.school || TBC}</dd></div>
+          </dl>
+        </SectionCard>
+
+        <SectionCard icon={Clock} title="Clinical hours" accent={{ bg: '#e0f7fa', fg: '#0d7a8a' }}>
+          {hoursReliable ? (
+            <>
+              <div className="ptl-hours-line"><span className="ptl-hours-big">{approved}</span><span className="ptl-muted"> of {required} hours approved</span></div>
+              <div className="ptl-progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}><div className="ptl-progress-fill" style={{ width: `${pct}%` }} /></div>
+              <div className="ptl-muted ptl-small">{pending > 0 ? `${pending} hours pending review. ` : ''}{Math.max(0, required - approved)} hours remaining.</div>
+            </>
+          ) : (
+            <div className="ptl-empty">Your required hours will appear once your rotation is set up.</div>
+          )}
+        </SectionCard>
+
+        <SectionCard icon={ListChecks} title="Next steps" accent={{ bg: '#edf2e2', fg: '#166534' }} span>
+          <ul className="ptl-steps">
+            {steps.map(s => <li key={s.key} className={s.done ? 'ptl-step-done' : ''}><span className="ptl-step-mark">{s.done ? '✓' : '○'}</span> {s.label}</li>)}
+          </ul>
+          {activeRotation && <a className="ptl-btn ptl-btn-sm" href="/shift-log"><CalendarPlus size={15} /> Log a Shift</a>}
+        </SectionCard>
+
+        <SectionCard icon={ClipboardCheck} title="Evaluations" accent={{ bg: '#fdf3e3', fg: '#92400e' }}>
+          {myEvals.length === 0 ? (
+            <div className="ptl-empty">No evaluations yet. Links arrive by email when one opens.</div>
+          ) : (
+            <ul className="ptl-list">
+              {myEvals.map(e => (
+                <li key={e.id}>
+                  <span>{e.instrument_title || e.instrument_slug}</span>
+                  <span className={`ptl-chip ptl-chip-soft ptl-chip-${e.status === 'completed' ? 'ok' : 'wait'}`}>{EVAL_STATUS_LABELS[e.status] || e.status}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {myCert?.certificate_unlocked_at && <div className="ptl-cert">Certificate <strong>{myCert.certificate_number}</strong> issued. Use the download link from your certificate email.</div>}
+        </SectionCard>
+
+        <SectionCard icon={CalendarPlus} title="Shift logs" accent={{ bg: '#eef2fb', fg: '#1D2567' }}>
+          {myLogs.length === 0 ? (
+            <div className="ptl-empty">No shifts logged yet. Use <strong>Log a Shift</strong> to record your first one.</div>
+          ) : (
+            <ul className="ptl-list">
+              {myLogs.slice(0, 6).map(l => (
+                <li key={l.id}>
+                  <span>{fmtDate(l.shift_date) || 'Date pending'}{l.unit_name ? ` · ${l.unit_name}` : ''}{l.total_hours != null ? ` · ${l.total_hours}h` : ''}</span>
+                  <span className={`ptl-chip ptl-chip-soft ptl-chip-${l.status === 'approved' ? 'ok' : 'wait'}`}>{l.status}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <a className="ptl-inline-link" href="/shift-log">Log a Shift <ChevronRight size={13} /></a>
+        </SectionCard>
+
+        <SectionCard icon={LifeBuoy} title="Need help?" accent={{ bg: '#fdecec', fg: '#b91c1c' }} span>
+          <div className="ptl-help-grid">
+            <div className="ptl-help-item">
+              <div className="ptl-help-title">Shift documentation</div>
+              <p className="ptl-muted ptl-small">Use <strong>Log a Shift</strong> to record hours and flag shift-related support.</p>
+              <a className="ptl-inline-link" href="/shift-log">Log a Shift <ChevronRight size={13} /></a>
+            </div>
+            <div className="ptl-help-item">
+              <div className="ptl-help-title">General questions</div>
+              <p className="ptl-muted ptl-small">Use <strong>Contact ASPIRE</strong> for anything else. We are glad to help.</p>
+              <a className="ptl-inline-link" href={mailto}>Contact ASPIRE <ChevronRight size={13} /></a>
+            </div>
+          </div>
+          {supportItems.length > 0 && (
+            <div className="ptl-support-notes">
+              <div className="ptl-help-title">Your recent support notes</div>
+              <ul className="ptl-list">
+                {supportItems.slice(0, 4).map(l => <li key={l.id}><span>{fmtDate(l.shift_date) || 'Recent'}: {l.support_needed}</span></li>)}
+              </ul>
+              <div className="ptl-muted ptl-small">The ASPIRE team reviews every support note. For anything urgent, contact your NPD practitioner directly.</div>
+            </div>
+          )}
+        </SectionCard>
+      </div>
+
+      {/* Mobile sticky action bar (respects the iOS safe area) */}
+      <div className="ptl-actionbar">
+        <a className="ptl-btn ptl-btn-primary" href="/shift-log"><CalendarPlus size={16} /> Log a Shift</a>
+        <a className="ptl-btn-outline ptl-btn-contact" href={mailto}><Mail size={15} /> Contact</a>
+      </div>
+
+      <EditProfileDrawer open={editOpen} student={student} returnFocusRef={editBtnRef} onClose={onCloseEdit} onSaved={() => load()} />
     </div>
   )
 }

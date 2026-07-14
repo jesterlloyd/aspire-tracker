@@ -27,10 +27,12 @@ test('invite-portal-user failure-safe lifecycle', async (t) => {
 
   await t.test('a conflict is checked BEFORE any auth work (clean 409, not a partial 500)', () => {
     const conflictIdx = src.indexOf('already linked to a portal account')
-    const inviteIdx = src.indexOf('inviteUserByEmail')
+    // The auth account is now created via generateLink (branded email), not inviteUserByEmail.
+    const inviteIdx = src.indexOf('admin.generateLink')
     const rpcIdx = src.indexOf("rpc('provision_portal_access'")
     assert.ok(conflictIdx > 0, 'conflict pre-check present')
-    assert.ok(conflictIdx < inviteIdx, 'conflict check precedes the auth invite')
+    assert.ok(inviteIdx > 0, 'auth account created via generateLink')
+    assert.ok(conflictIdx < inviteIdx, 'conflict check precedes the auth account creation')
     assert.ok(conflictIdx < rpcIdx, 'conflict check precedes provisioning')
     // The conflict is scoped to a DIFFERENT profile so a self re-invite is allowed.
     assert.match(src, /activeLink\.user_profile_id !== existingProfile\?\.id/, 'conflict scoped to a different profile')

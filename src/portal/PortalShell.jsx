@@ -1,25 +1,62 @@
-// PHASE2-PORTAL: shared portal frame (header, identity, sign out).
-// Deliberately minimal: portals are focused, read-mostly surfaces. The staff
-// app shell (tabs, Action Center, Keith) is never loaded in this chunk.
-
+// PHASE2-PORTAL / ASPIRE-STUDENT-PORTAL: shared portal frame. Mobile-first,
+// safe-area-aware header: a compact Cedars-Sinai + ASPIRE brand on the left and a
+// single avatar / profile-menu button on the right. The full student name,
+// Public site link, Edit Profile, and Sign out live inside the profile menu on
+// mobile (the desktop header may surface a couple of them inline). Portals are
+// focused, read-mostly surfaces; the staff shell is never loaded here.
+import { useState, useRef, useEffect } from 'react'
+import { ChevronDown, ExternalLink, Pencil, LogOut } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
-export default function PortalShell({ title, userName, children }) {
+function initials(name) {
+  return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
+}
+
+function ProfileMenu({ userName, onEditProfile }) {
   const { signOut } = useAuth()
+  const [open, setOpen] = useState(false)
+  const btnRef = useRef(null)
+  const menuRef = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e) => { if (!menuRef.current?.contains(e.target) && !btnRef.current?.contains(e.target)) setOpen(false) }
+    const onKey = (e) => { if (e.key === 'Escape') { setOpen(false); btnRef.current?.focus() } }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    setTimeout(() => menuRef.current?.querySelector('[role="menuitem"]')?.focus(), 10)
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey) }
+  }, [open])
+  return (
+    <div className="ptl-menu-wrap">
+      <button ref={btnRef} type="button" className="ptl-avatar-btn" aria-haspopup="menu" aria-expanded={open} aria-label="Open profile menu" onClick={() => setOpen(o => !o)}>
+        <span className="ptl-avatar ptl-avatar-sm" aria-hidden="true">{initials(userName)}</span>
+        <ChevronDown size={15} className="ptl-avatar-caret" />
+      </button>
+      {open && (
+        <div ref={menuRef} className="ptl-menu" role="menu" aria-label="Profile menu">
+          {userName && <div className="ptl-menu-name">{userName}</div>}
+          {onEditProfile && <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onEditProfile() }}><Pencil size={15} /> Edit Profile</button>}
+          <a role="menuitem" className="ptl-menu-item" href="/"><ExternalLink size={15} /> Public site</a>
+          <button role="menuitem" type="button" className="ptl-menu-item ptl-menu-danger" onClick={() => { setOpen(false); signOut() }}><LogOut size={15} /> Sign out</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function PortalShell({ title, userName, onEditProfile, children }) {
   return (
     <div className="ptl-page">
       <header className="ptl-header">
         <div className="ptl-header-brand">
-          <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" height="30" />
+          <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" className="ptl-header-logo" height="26" />
           <div className="ptl-header-title">
             <span className="ptl-header-aspire">ASPIRE</span>
             <span className="ptl-header-sub">{title}</span>
           </div>
         </div>
         <div className="ptl-header-user">
-          {userName ? <span className="ptl-header-name">{userName}</span> : null}
-          <a className="ptl-header-link" href="/">Public site</a>
-          <button className="ptl-btn-outline ptl-btn-sm" onClick={signOut}>Sign out</button>
+          <ProfileMenu userName={userName} onEditProfile={onEditProfile} />
         </div>
       </header>
       <main className="ptl-main">{children}</main>

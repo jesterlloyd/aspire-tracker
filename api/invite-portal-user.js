@@ -36,11 +36,33 @@
 // must be applied before this endpoint can succeed.
 
 import { createClient } from '@supabase/supabase-js'
+import { Resend } from 'resend'
 import { randomUUID } from 'crypto'
 import { appUrl } from '../lib/server/appUrl.js'
 import { UNIT_CATALOG } from '../src/lib/unitCatalog.js'
+import { portalInvitationEmail } from '../lib/server/email/portalInvitation.js'
 
 const PORTAL_ROLES = ['student', 'unit_leader', 'academic_partner']
+// Verified ASPIRE Resend sender (cshs.org is not a verified Resend domain, so
+// aspire@cshs.org is used as the reply-to / support address, not the from).
+const EMAIL_FROM = 'ASPIRE at Cedars-Sinai <noreply@aspire-program.com>'
+const EMAIL_REPLY_TO = 'aspire@cshs.org'
+
+// Send the branded ASPIRE Student Portal invitation via Resend. The activation
+// link is embedded ONLY in the email HTML and is never logged or returned.
+async function sendPortalInvitation({ to, firstName, activationLink, expiresAt, requestId }) {
+  try {
+    if (!process.env.RESEND_API_KEY || !activationLink) return false
+    const { subject, html } = portalInvitationEmail({ firstName, activationLink, expiresAt })
+    const resend = new Resend(process.env.RESEND_API_KEY)
+    const { error } = await resend.emails.send({ from: EMAIL_FROM, to, replyTo: EMAIL_REPLY_TO, subject, html })
+    if (error) { console.log('[invite-portal-user] branded invite email failed', { request_id: requestId }); return false }
+    return true
+  } catch {
+    console.log('[invite-portal-user] branded invite email threw', { request_id: requestId })
+    return false
+  }
+}
 const CANONICAL_UNIT_KEYS = new Set(UNIT_CATALOG.map(u => u.name))
 
 const str = (v) => (typeof v === 'string' ? v.trim() : '')
@@ -229,27 +251,32 @@ export default async function handler(req, res) {
   //    renewal; only invite (and flag for compensation) when we create one. ──
   let authUserId = null
   let createdAuthUser = false
+  let activationLink = null // Supabase-hosted acceptance link; embedded in the branded email only, never logged/returned.
   try {
     if (existingProfile?.auth_user_id) {
       authUserId = existingProfile.auth_user_id
     } else {
-      const { data: invited, error: inviteErr } = await db.auth.admin.inviteUserByEmail(email, {
-        data: { full_name: fullName, role: 'portal', portal_role: portalRole },
-        redirectTo: appUrl('/portal'),
+      // generateLink creates the user and returns the activation link WITHOUT
+      // sending Supabase's default email, so ASPIRE controls the branded send.
+      const { data: linkData, error: linkErr } = await db.auth.admin.generateLink({
+        type: 'invite',
+        email,
+        options: { data: { full_name: fullName, role: 'portal', portal_role: portalRole }, redirectTo: appUrl('/portal') },
       })
-      if (inviteErr) {
-        if ((inviteErr.message || '').toLowerCase().includes('already')) {
+      if (linkErr) {
+        if (/already|registered|exists/i.test(linkErr.message || '')) {
           // Auth account exists but is not linked to a profile by this email.
           authUserId = await findAuthUserIdByEmail(db, email)
           if (!authUserId) {
             return res.status(409).json({ error: 'conflict', message: 'A user with that email may already exist.' })
           }
         } else {
-          console.log('[invite-portal-user] auth invite failed', { errorCode: inviteErr.code, request_id: requestId })
+          console.log('[invite-portal-user] activation link generation failed', { errorCode: linkErr.code, request_id: requestId })
           return res.status(500).json({ error: 'internal_error' })
         }
       } else {
-        authUserId = invited.user.id
+        authUserId = linkData.user.id
+        activationLink = linkData.properties?.action_link || null
         createdAuthUser = true
       }
     }
@@ -299,13 +326,30 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'internal_error', message: 'The invitation could not be completed.' })
     }
 
+    // Send the branded ASPIRE invitation for a newly created account. The
+    // account and grant are already committed, so a mail failure does not roll
+    // back or compensate; it is reported (email_sent:false) for a resend.
+    let emailSent = false
+    if (createdAuthUser && activationLink) {
+      emailSent = await sendPortalInvitation({
+        to: email,
+        firstName: (fullName.split(/\s+/)[0] || ''),
+        activationLink,
+        expiresAt: result?.grant?.expires_at || expiresAt,
+        requestId,
+      })
+    }
+
     const status = createdAuthUser ? 201 : 200
     console.log('[invite-portal-user] portal access provisioned', {
-      portalRole, created: createdAuthUser, grant: result?.grant?.action, request_id: requestId,
+      portalRole, created: createdAuthUser, grant: result?.grant?.action, email_sent: emailSent, request_id: requestId,
     })
     return res.status(status).json({
       success: true,
-      message: createdAuthUser ? 'Portal invitation sent.' : 'Portal access updated.',
+      message: createdAuthUser
+        ? (emailSent ? 'Portal invitation sent and access granted.' : 'Portal access granted. The invitation email could not be sent; please resend.')
+        : 'Portal access updated.',
+      email_sent: createdAuthUser ? emailSent : undefined,
       provisioned: {
         role: result?.role,
         grant_action: result?.grant?.action,

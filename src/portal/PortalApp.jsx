@@ -20,6 +20,7 @@ export default function PortalApp() {
   const { userProfile } = useAuth()
   const [access, setAccess]   = useState(null)   // { roles, student_ids, unit_keys, school_keys }
   const [loading, setLoading] = useState(true)
+  const [editOpen, setEditOpen] = useState(false) // student self-service profile drawer
 
   useEffect(() => {
     let cancelled = false
@@ -51,8 +52,8 @@ export default function PortalApp() {
 
   if (roles.includes('student')) {
     return (
-      <PortalShell title="Student Portal" userName={userProfile?.full_name}>
-        <StudentPortal />
+      <PortalShell title="Student Portal" userName={userProfile?.full_name} onEditProfile={() => setEditOpen(true)}>
+        <StudentPortal editOpen={editOpen} onOpenEdit={() => setEditOpen(true)} onCloseEdit={() => setEditOpen(false)} />
       </PortalShell>
     )
   }
