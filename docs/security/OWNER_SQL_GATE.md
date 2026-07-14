@@ -264,6 +264,66 @@ account.
   invite endpoint compensates any newly created auth user, so no partial account
   is left, but no portal account can be created.
 
+## Accounts & Access directory (Owner-facing portal management UI)
+
+Settings → Accounts & Access is now a scalable access directory
+(`src/components/settings/AccountsDirectory.jsx`), replacing the former
+role-grouped profile-card board. It is Owner/Admin-only (registry-hidden
+otherwise, and every endpoint authorizes server-side regardless of client
+visibility).
+
+- Three tabs, staff and portal kept separate:
+  - **Staff Access**: staff accounts from `get_all_user_profiles`; management via
+    the existing `/api/admin-users` operations (unchanged payloads). The staff
+    invite modal (`/api/invite-user`, renamed action "Invite Staff User") offers
+    ONLY staff roles (admin, co-lead, interviewer, viewer). Portal roles never
+    appear in the staff selector.
+  - **Portal Access**: student, unit_leader, academic_partner grants with derived
+    status (Active / Scheduled / Expired / Revoked), scope summary, and
+    expiration. Data comes ONLY from the new listing endpoint.
+  - **Pending Invitations**: portal invitations not yet accepted, derived from the
+    auth admin API when reachable; an honest unavailable/empty state otherwise
+    (staff acceptance state is not exposed by the staff data source, so it is not
+    inferred).
+- Summary indicators: Staff, Portal Users, Pending Invitations, Expiring Soon
+  (active grants expiring within 30 days). Counts come from authorized sources
+  only (staff RPC + the listing endpoint), never a direct browser read of the
+  authorization tables.
+- **New endpoint `GET /api/list-portal-access`**: Owner/Admin, service-role on the
+  server, read-only, paginated, with search/role/status filters. Returns
+  sanitized per-grant summaries (full_name, email, portal_role, status,
+  starts_at, expires_at, resolved scope, `grant_id`, and `user_profile_id` solely
+  so the client can submit a revoke). It never returns internal auth identifiers,
+  revoker ids, tokens, or raw db errors, and performs no mutation. Historical
+  (revoked/expired) grants are retained as separate records.
+- **Grant Portal Access** modal (`GrantPortalAccessModal`) submits only through
+  `POST /api/invite-portal-user` with the role-specific payload (student_id /
+  unit_keys / school_keys, optional cohort_id, optional expires_at). It has a
+  review step, prevents duplicate submission, and surfaces 201/200(grant_action)/
+  409/400/401/403/500 with sanitized messages. The login email is explained as
+  independent of the linked student record's email.
+- **Renewal / Edit** reuses `POST /api/invite-portal-user` (backend idempotency:
+  created | reused | renewed | reissued); no duplicate active grants are created
+  in browser logic.
+- **Revoke** (details drawer) uses `POST /api/revoke-portal-access` with a
+  confirmation that states the sign-in identity and profile are not deleted,
+  history is preserved, and only the selected role/scope closes. Repeat revoke is
+  idempotent. The revoked row stays visible as history.
+- **No browser authorization-table access**: the directory, grant modal, and
+  drawer never read or write `user_role_grants`, `user_student_links`,
+  `user_unit_scopes`, or `user_school_scopes`. The student selector reads the
+  staff-authorized `students`/`cohorts` tables only (not authorization tables).
+- The right-side details drawer traps focus, returns focus to the opening row,
+  closes on Escape when no destructive confirmation is pending, and never renders
+  internal identifiers.
+
+**Pilot status: the Walden pilot account remains uncreated.** No portal account,
+grant, link, or scope was created by this UI work. The exact next pilot step is
+unchanged: the Owner applies files 10 and 11 (already applied in production per
+the current state), then uses **Grant Portal Access → Student** to invite the one
+designated pilot student through `/api/invite-portal-user`, and verifies scope
+with the runbook queries in the pre-pilot verification section.
+
 ## First migration to run after approval
 
 File 1, `supabase/migrations/20260712000000_phase0b_wave_a_is_staff_helper.sql`

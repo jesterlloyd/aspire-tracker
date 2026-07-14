@@ -59,12 +59,12 @@ export default function InviteUserModal({ onClose, onInvited }) {
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Invite New User"
+      aria-label="Invite Staff User"
       style={{ position: 'fixed', inset: 0, zIndex: 2300, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: F, padding: 16 }}
     >
       <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, width: 'min(420px, 100%)', boxShadow: '0 16px 48px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #f3f4f6' }}>
-          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1D2567' }}>Invite New User</h2>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1D2567' }}>Invite Staff User</h2>
           <button type="button" onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', padding: 4, display: 'flex' }}>
             <X size={18} />
           </button>
