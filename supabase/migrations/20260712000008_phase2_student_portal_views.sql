@@ -2,7 +2,7 @@
 -- PHASE 2, PART 2: student portal read surface (scoped, column-limited views)
 -- ============================================================================
 -- *** PREREQUISITES (hard): Phase 0B Waves A through E, then                ***
--- *** 20260712000005_phase2_authz_foundation.sql.                           ***
+-- *** 20260712000007_phase2_authz_foundation.sql.                           ***
 --
 -- Owner instructions: run this ENTIRE file as one block. Additive only.
 --

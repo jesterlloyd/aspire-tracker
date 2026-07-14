@@ -2,7 +2,7 @@
 -- PHASE 3: unit leader portal read surface and released-reports foundation
 -- ============================================================================
 -- *** PREREQUISITES (hard): Phase 0B Waves A through E, then the Phase 2     ***
--- *** foundation (20260712000005). Apply 20260712000006 first as well so    ***
+-- *** foundation (20260712000007). Apply 20260712000008 first as well so    ***
 -- *** the portal migrations stay in order.                                  ***
 --
 -- Owner instructions: run this ENTIRE file as one block. Additive only.

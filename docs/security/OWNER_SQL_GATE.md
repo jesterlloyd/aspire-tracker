@@ -34,13 +34,14 @@ its findings confirmed against production. Confirmed conclusions:
 | 3 | `20260712000002_phase0b_wave_c_narrow_cohorts_anon.sql` | keeps public forms working | closes cohorts public-write |
 | 4 | `20260712000003_phase0b_wave_d_form_backed_anon_removal.sql` | code prerequisite ALREADY live (74526e5); **QUIET PERIOD: the intake window is open, apply outside collection hours; stale tabs must refresh** | closes F1 students, F3, F4, part of F11 |
 | 5 | `20260712000004_phase0b_wave_e_staff_rescope.sql` | requires 1; behavior-identical for current users | closes F2, F5, F6, completes F11 |
-| 6 | `20260712000010_phase0b_wave_f1_function_execute_hardening.sql` | requires 1; privilege-only, no app change; preserves the two school-form functions | closes F8 (anon/PUBLIC EXECUTE) |
-| 7 | `20260712000005_phase2_authz_foundation.sql` | requires 1 through 5; additive | portal role grants, scopes, student links |
-| 8 | `20260712000006_phase2_student_portal_views.sql` | requires 7 | student portal reads |
-| 9 | `20260712000007_phase3_unit_portal.sql` | requires 7 | unit leader portal reads, released_reports |
-| 10 | `20260712000008_phase4_school_portal.sql` | requires 7 and 9; contains the ONE backfill (students.school_id, fills NULLs only) | academic partner portal, schools |
-| 11 | `20260712000009_phase5_public_metrics.sql` | requires 1; additive, seeds nothing | public metrics workflow |
-| 12 | `20260712000011_phase0b_wave_f2_student_files_private.sql` | **DO NOT RUN until the Wave F-2 code prerequisite below is deployed and verified** | closes F7 (public resume bucket) |
+| 6 | `20260712000005_phase0b_wave_e2_residual_authenticated_policy_cleanup.sql` | requires 5; APPLIED-Wave-E follow-up. Drops the 14 residual dashboard-named broad authenticated policies Wave E missed by a name mismatch | completes F6 (and the activity_logs F5 insert) |
+| 7 | `20260712000006_phase0b_wave_f1_function_execute_hardening.sql` | requires 1; privilege-only, no app change; preserves the two school-form functions | closes F8 (anon/PUBLIC EXECUTE) |
+| 8 | `20260712000007_phase2_authz_foundation.sql` | requires 1 through 6; additive | portal role grants, scopes, student links |
+| 9 | `20260712000008_phase2_student_portal_views.sql` | requires 8 | student portal reads |
+| 10 | `20260712000009_phase3_unit_portal.sql` | requires 8 | unit leader portal reads, released_reports |
+| 11 | `20260712000010_phase4_school_portal.sql` | requires 8 and 10; contains the ONE backfill (students.school_id, fills NULLs only) | academic partner portal, schools |
+| 12 | `20260712000011_phase5_public_metrics.sql` | requires 1; additive, seeds nothing | public metrics workflow |
+| 13 | `20260712000012_phase0b_wave_f2_student_files_private.sql` | **DO NOT RUN until the Wave F-2 code prerequisite below is deployed and verified** | closes F7 (public resume bucket) |
 
 All files under `supabase/migrations/`. Each ends with its own verification
 queries and (waves) a rollback section. Prior-wave reverts also live in
@@ -69,20 +70,20 @@ migrations).
 No portal account may be created (api/invite-portal-user) until its
 prerequisites are applied AND the F8 internal-gate confirmation above is done.
 
-- Invite a STUDENT: files 1, 2, 3, 4, 5, 6, 7, 8 applied. (Student portal reads
+- Invite a STUDENT: files 1 through 9 applied. (Student portal reads
   need the Phase 2 foundation and the student views.)
-- Invite a UNIT LEADER: files 1 through 7 plus 9 applied. (Unit portal needs the
+- Invite a UNIT LEADER: files 1 through 8 plus 10 applied. (Unit portal needs the
   Phase 2 foundation and the Phase 3 unit views/released_reports.)
-- Invite an ACADEMIC PARTNER: files 1 through 7, 9, and 10 applied. (Partner
+- Invite an ACADEMIC PARTNER: files 1 through 8, 10, and 11 applied. (Partner
   portal needs schools normalization and its scoped report view.)
 
-In all three cases the security floor (files 1 through 6) MUST be in place
+In all three cases the security floor (files 1 through 7) MUST be in place
 first; never invite an external account while any broad anon/authenticated
 policy from F1/F2/F6 remains.
 
-## Wave F-2 code prerequisite (blocks file 12 only)
+## Wave F-2 code prerequisite (blocks file 13 only)
 
-File 12 makes student-files private. It must NOT run until an application
+File 13 makes student-files private. It must NOT run until an application
 replacement is deployed and verified. That replacement is a separate,
 guarded change (not in this package; it needs authorized-upload and
 signed-download flows that can only be verified against real storage):
@@ -99,7 +100,7 @@ signed-download flows that can only be verified against real storage):
    already-stored public-URL values until a backfill converts them to paths.
    The stored-value backfill touches production data and is its own gated step.
 
-Until that ships, files 1 through 11 fully harden the database; file 12 waits.
+Until that ships, files 1 through 12 fully harden the database; file 13 waits.
 
 ## After application
 
@@ -113,6 +114,34 @@ Until that ships, files 1 through 11 fully harden the database; file 12 waits.
 4. Pilot: invite ONE controlled account per role (guarded workflow), verify it
    sees only its own scope and that a staff account sees zero rows through the
    portal_my_* views, then decide on broader rollout.
+
+## Wave E residual-policy correction (Wave E-2)
+
+Wave E was applied to production. Production verification then found that 14
+broad `authenticated` policies survived it, because Wave E's `DROP POLICY`
+statements used the repository-assumed names (`authenticated_all_<table>`)
+while the LIVE policies were dashboard-created under the names
+`Authenticated full access on <table>` (13 tables, FOR ALL true/true) and
+`Authenticated users can insert logs` (activity_logs, INSERT WITH CHECK true).
+`DROP POLICY IF EXISTS` on a non-matching name is a silent no-op, so those
+permissive policies remained and, combining with OR, defeat the new
+`is_staff()` restrictions. Wave E's `CREATE` statements all succeeded, so the
+staff policies exist alongside the residual ones.
+
+Follow-up migration (file 6 in the application order above):
+`supabase/migrations/20260712000005_phase0b_wave_e2_residual_authenticated_policy_cleanup.sql`
+drops the 14 residual policies by their exact live names (plus the assumed
+variants, defensively). It creates nothing and changes no grants. It is
+versioned `...000005` so it sorts immediately after Wave E (`...000004`) and
+before Wave F-1 and every Phase 2 or later migration. The unapplied Wave F-1
+and Phase 2 through Phase 5 files were re-versioned so that lexicographic
+filename order now matches the roadmap exactly (Wave E-2 `...000005`, Wave F-1
+`...000006`, Phase 2 authz `...000007`, Phase 2 views `...000008`, Phase 3
+`...000009`, Phase 4 `...000010`, Phase 5 `...000011`, Wave F-2 `...000012`). Apply it immediately AFTER Wave E and before inviting any
+portal account. The Wave E migration file itself is left unchanged (it was
+already applied); this note records the discovery and the required correction.
+Revert lives in
+`db/audit/phase0b_reverts.sql`, section Wave E-2.
 
 ## First migration to run after approval
 

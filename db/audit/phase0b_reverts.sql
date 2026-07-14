@@ -192,3 +192,41 @@ GRANT ALL ON public.activity_logs TO authenticated;
 CREATE POLICY "authenticated_all_activity_logs" ON public.activity_logs
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 */
+
+-- ── REVERT WAVE E-2 (residual broad authenticated policy cleanup) ────────────
+-- Recreates ONLY the residual dashboard-named broad policies that Wave E-2
+-- dropped, exactly as they existed before the cleanup. This REINTRODUCES the
+-- F6 (and activity_logs F5 insert) exposure: permissive true/true authenticated
+-- access defeats is_staff() again. Use only to undo Wave E-2. The Wave E
+-- staff_* / self / owner-admin policies are left in place (Wave E-2 never
+-- touched them), so this revert restores the exact pre-E-2 state.
+/*
+CREATE POLICY "Authenticated full access on students" ON public.students
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated full access on cohorts" ON public.cohorts
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated full access on communications" ON public.communications
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated full access on units" ON public.units
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated full access on matches" ON public.matches
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated full access on interview_sessions" ON public.interview_sessions
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated full access on program_events" ON public.program_events
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated full access on interview_availability_blocks" ON public.interview_availability_blocks
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated full access on interview_slots" ON public.interview_slots
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated full access on student_shift_logs" ON public.student_shift_logs
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated full access on ngrp_outcomes" ON public.ngrp_outcomes
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated full access on cohort_snapshots" ON public.cohort_snapshots
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated full access on interview_rubrics" ON public.interview_rubrics
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated users can insert logs" ON public.activity_logs
+  FOR INSERT TO authenticated WITH CHECK (true);
+*/
