@@ -1,20 +1,96 @@
-// ASPIRE-PORTAL-ACCESS-UI: Grant / Renew scoped portal access. SEPARATE from the
-// staff invite modal: portal roles (student, unit_leader, academic_partner)
-// never appear in the staff role selector, and this modal never touches staff
-// invitation. All writes go through POST /api/invite-portal-user; the browser
-// never inserts into the authorization tables. Backend idempotency handles
-// renewal (grant_action: created | reused | renewed | reissued).
-import { useState, useRef, useEffect, useMemo } from 'react'
-import { X, Mail, Loader, ChevronLeft, ShieldCheck } from 'lucide-react'
+// ASPIRE-PORTAL-ACCESS-UI / ASPIRE-PORTAL-CONTACTS: Grant / Renew scoped portal
+// access. SEPARATE from the staff invite modal: portal roles (student,
+// unit_leader, academic_partner) never appear in the staff role selector, and
+// this modal never touches staff invitation. All writes go through POST
+// /api/invite-portal-user; the browser never inserts into the authorization
+// tables. Backend idempotency handles renewal (created | reused | renewed |
+// reissued).
+//
+// The Full name and Login email fields are saved-Contacts typeaheads that reuse
+// the shared contacts search (src/lib/contactSearch.js, the same authorized path
+// Outreach uses). Selecting a contact autofills name + email and SUGGESTS the
+// role's scope (units/schools preselected; a student is preselected ONLY on a
+// reliable exact-email link to exactly one student). Suggestions never overwrite
+// fields the Owner has manually edited, and manual entry always remains
+// available. Final role and scope are still validated server-side.
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import { X, Mail, Loader, ChevronLeft, ShieldCheck, Contact as ContactIcon } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { PORTAL_ROLE_OPTIONS, PORTAL_ROLE_LABELS } from '../../lib/portalAccessStatus'
 import { UNIT_SCOPE_OPTIONS, SCHOOL_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
+import { useContactSearch, contactSubtitle, matchCatalogKeys, pickReliableStudent } from '../../lib/contactSearch'
 
 const F = 'DM Sans, sans-serif'
 const field = { width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontFamily: F, fontSize: 13, outline: 'none', boxSizing: 'border-box' }
 const label = { display: 'block', fontFamily: F, fontWeight: 600, fontSize: 12, color: '#374151', marginBottom: 6 }
+const UNIT_VALUES = UNIT_SCOPE_OPTIONS.map(o => o.value)
+const SCHOOL_VALUES = SCHOOL_SCOPE_OPTIONS.map(o => o.value)
 
 const studentName = (s) => s ? [s.preferred_first_name || s.first_name, s.last_name].filter(Boolean).join(' ') : ''
+const contactName = (c) => c?.full_name || c?.preferred_name || c?.email || ''
+
+// ── Saved-Contacts typeahead input (reuses the shared contacts search). Typing
+//    searches Contacts by name/email; picking a contact fires onPick(contact). ──
+function ContactSuggest({ id, value, onChange, onPick, placeholder, ariaLabel, type = 'text' }) {
+  const { rows, loading, debounced } = useContactSearch(value)
+  const [open, setOpen] = useState(false)
+  const [activeIdx, setActiveIdx] = useState(0)
+  const listRef = useRef(null)
+  const safeActive = rows.length ? Math.min(activeIdx, rows.length - 1) : 0
+  const showNoMatch = open && !loading && debounced.length >= 2 && rows.length === 0
+
+  const choose = (c) => { onPick?.(c); setOpen(false) }
+  const onKey = (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActiveIdx(Math.min(safeActive + 1, rows.length - 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx(Math.max(safeActive - 1, 0)) }
+    else if (e.key === 'Enter') { if (open && rows[safeActive]) { e.preventDefault(); choose(rows[safeActive]) } }
+    else if (e.key === 'Escape') { if (open) { e.preventDefault(); setOpen(false) } }
+  }
+  const listboxId = `${id}-listbox`
+  return (
+    <div style={{ position: 'relative' }}>
+      <input id={id} type={type} value={value}
+        onChange={e => { onChange?.(e.target.value); setActiveIdx(0); setOpen(true) }}
+        onKeyDown={onKey}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 130)}
+        placeholder={placeholder} style={field}
+        role="combobox" aria-expanded={open && rows.length > 0} aria-controls={listboxId} aria-autocomplete="list"
+        aria-label={ariaLabel}
+        aria-activedescendant={open && rows[safeActive] ? `${id}-opt-${safeActive}` : undefined} />
+      {open && (rows.length > 0 || loading || showNoMatch) && (
+        <div id={listboxId} ref={listRef} role="listbox" aria-label="Saved contact suggestions"
+          style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, zIndex: 60, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, boxShadow: '0 8px 28px rgba(0,0,0,0.12)', maxHeight: 300, overflowY: 'auto', padding: 4 }}>
+          {loading && <div style={{ fontSize: 11.5, color: '#9ca3af', padding: '10px' }}>Searching…</div>}
+          {showNoMatch && (
+            <div style={{ fontSize: 12, color: '#6b7280', padding: '10px', lineHeight: 1.5 }}>
+              No matching contact found. You can continue by entering the details manually.
+            </div>
+          )}
+          {rows.map((c, i) => {
+            const isActive = i === safeActive
+            return (
+              <div key={c.id} id={`${id}-opt-${i}`} data-idx={i} role="option" aria-selected={isActive}
+                onMouseDown={e => e.preventDefault()} onClick={() => choose(c)} onMouseEnter={() => setActiveIdx(i)}
+                style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 9px', cursor: 'pointer', borderRadius: 7, background: isActive ? '#EEF2FB' : 'transparent' }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: '#1D2567', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  {c.avatar_url
+                    ? <img src={c.avatar_url} alt="" onError={e => { e.currentTarget.style.display = 'none' }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <ContactIcon size={14} />}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: '#191919', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{contactName(c)}</div>
+                  <div style={{ fontSize: 10.5, color: '#6b7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{contactSubtitle(c)}</div>
+                </div>
+                <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 10, flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.04em', background: '#EEF2FB', color: '#1D2567', border: '1px solid #c3cdf0' }}>Saved contact</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // Accessible multi-select chip picker over a static catalog.
 function MultiScopePicker({ id, options, selected, onChange, placeholder }) {
@@ -139,18 +215,59 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
   const [cohorts, setCohorts] = useState([])
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
+  const [selectedContact, setSelectedContact] = useState(null)
+  // Manual-edit guards: once the Owner edits a scope field, autofill leaves it alone.
+  const [unitTouched, setUnitTouched] = useState(!!initial?.scope?.units?.length)
+  const [schoolTouched, setSchoolTouched] = useState(!!initial?.scope?.schools?.length)
+  const [studentTouched, setStudentTouched] = useState(false)
   const firstFieldRef = useRef(null)
 
   const cohortsById = useMemo(() => Object.fromEntries(cohorts.map(c => [c.id, c.name])), [cohorts])
 
   useEffect(() => {
-    const t = setTimeout(() => firstFieldRef.current?.focus(), 30)
+    const t = setTimeout(() => firstFieldRef.current?.focus?.(), 30)
     const onKey = (e) => { if (e.key === 'Escape' && !loading) onClose?.() }
     document.addEventListener('keydown', onKey)
     supabase.from('cohorts').select('id, name').order('created_at', { ascending: false })
       .then(({ data }) => setCohorts(data || []))
     return () => { clearTimeout(t); document.removeEventListener('keydown', onKey) }
   }, [onClose, loading])
+
+  // Suggest the role's scope from a contact, respecting the manual-edit guards.
+  const suggestScope = useCallback(async (c, roleArg) => {
+    if (!c) return
+    if (roleArg === 'unit_leader') {
+      if (!unitTouched) { const keys = matchCatalogKeys(c.unit_name, UNIT_VALUES); if (keys.length) setUnitKeys(keys) }
+    } else if (roleArg === 'academic_partner') {
+      if (!schoolTouched) { const keys = matchCatalogKeys(c.school_name, SCHOOL_VALUES); if (keys.length) setSchoolKeys(keys) }
+    } else if (roleArg === 'student') {
+      if (!studentTouched && c.email) {
+        // Reliable link = exact email match to EXACTLY ONE student. Never by name.
+        const em = c.email.trim()
+        const { data } = await supabase.from('students')
+          .select('id, first_name, last_name, preferred_first_name, school, school_email, personal_email, cohort_id, status')
+          .or(`school_email.ilike.${em},personal_email.ilike.${em}`)
+          .limit(5)
+        const match = pickReliableStudent(c.email, data || [])
+        if (match) setStudent(match)
+      }
+    }
+  }, [unitTouched, schoolTouched, studentTouched])
+
+  // Selecting a saved contact fills identity and suggests scope (untouched only).
+  const onPickContact = useCallback((c) => {
+    if (!c) return
+    setSelectedContact(c)
+    setFullName(contactName(c))
+    if (c.email) setEmail(c.email)
+    suggestScope(c, role)
+  }, [role, suggestScope])
+
+  // Switching roles preserves name/email; re-suggests the new role's scope.
+  const onRoleChange = (next) => {
+    setRole(next)
+    if (selectedContact) suggestScope(selectedContact, next)
+  }
 
   const scopeValid =
     role === 'student' ? !!student :
@@ -218,7 +335,6 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
         </div>
 
         <div style={{ padding: '18px 20px', overflowY: 'auto' }}>
-          {/* Scoped-access banner: makes clear this is NOT staff app access. */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: '#eef2fb', border: '1px solid #dbe3fb', borderRadius: 8, padding: '9px 12px', marginBottom: 16 }}>
             <ShieldCheck size={16} style={{ color: '#1D2567', flexShrink: 0, marginTop: 1 }} />
             <div style={{ fontSize: 12, color: '#3a4a7a', lineHeight: 1.5 }}>
@@ -230,17 +346,18 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
             <>
               <div style={{ marginBottom: 12 }}>
                 <label style={label} htmlFor="gpa-role">Portal role</label>
-                <select id="gpa-role" value={role} disabled={isRenew} onChange={e => setRole(e.target.value)} style={{ ...field, cursor: isRenew ? 'default' : 'pointer', background: isRenew ? '#f9fafb' : '#fff' }}>
+                <select id="gpa-role" value={role} disabled={isRenew} onChange={e => onRoleChange(e.target.value)} style={{ ...field, cursor: isRenew ? 'default' : 'pointer', background: isRenew ? '#f9fafb' : '#fff' }}>
                   {PORTAL_ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                 </select>
               </div>
               <div style={{ marginBottom: 12 }}>
                 <label style={label} htmlFor="gpa-name">Full name</label>
-                <input id="gpa-name" ref={firstFieldRef} value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Full name" style={field} />
+                <ContactSuggest id="gpa-name" value={fullName} onChange={setFullName} onPick={onPickContact} placeholder="Search saved contacts or type a name" ariaLabel="Full name, searches saved contacts" />
+                {selectedContact && <div style={{ fontSize: 11, color: '#1D2567', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}><ContactIcon size={11} /> From saved contact (editable)</div>}
               </div>
               <div style={{ marginBottom: 6 }}>
                 <label style={label} htmlFor="gpa-email">Login email</label>
-                <input id="gpa-email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@example.com" style={field} />
+                <ContactSuggest id="gpa-email" type="email" value={email} onChange={setEmail} onPick={onPickContact} placeholder="Search saved contacts or type an email" ariaLabel="Login email, searches saved contacts" />
               </div>
               <p style={{ margin: '0 0 14px', fontSize: 11.5, color: '#6b7280', lineHeight: 1.5 }}>
                 The login email is the address used to access the portal. It does not have to match an email stored on the linked ASPIRE student record.
@@ -249,19 +366,19 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
               {role === 'student' && (
                 <div style={{ marginBottom: 14 }}>
                   <label style={label}>Linked student record (exactly one)</label>
-                  <StudentPicker value={student} onPick={setStudent} cohortsById={cohortsById} />
+                  <StudentPicker value={student} onPick={(s) => { setStudentTouched(true); setStudent(s) }} cohortsById={cohortsById} />
                 </div>
               )}
               {role === 'unit_leader' && (
                 <div style={{ marginBottom: 14 }}>
                   <label style={label} htmlFor="gpa-units">Assigned units (at least one)</label>
-                  <MultiScopePicker id="gpa-units" options={UNIT_SCOPE_OPTIONS} selected={unitKeys} onChange={setUnitKeys} placeholder="Search units" />
+                  <MultiScopePicker id="gpa-units" options={UNIT_SCOPE_OPTIONS} selected={unitKeys} onChange={(next) => { setUnitTouched(true); setUnitKeys(next) }} placeholder="Search units" />
                 </div>
               )}
               {role === 'academic_partner' && (
                 <div style={{ marginBottom: 14 }}>
                   <label style={label} htmlFor="gpa-schools">Assigned schools (at least one)</label>
-                  <MultiScopePicker id="gpa-schools" options={SCHOOL_SCOPE_OPTIONS} selected={schoolKeys} onChange={setSchoolKeys} placeholder="Search schools" />
+                  <MultiScopePicker id="gpa-schools" options={SCHOOL_SCOPE_OPTIONS} selected={schoolKeys} onChange={(next) => { setSchoolTouched(true); setSchoolKeys(next) }} placeholder="Search schools" />
                 </div>
               )}
               {(role === 'unit_leader' || role === 'academic_partner') && (

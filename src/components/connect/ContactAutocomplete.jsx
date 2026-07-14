@@ -19,6 +19,7 @@
 // scroll-into-view (no setState).
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
+import { searchContacts } from '../../lib/contactSearch'
 import StudentAvatar from '../StudentAvatar'
 import { normalizeEmailForLookup } from '../../lib/emailUtils'
 import { isValidEmail } from '../../lib/notifications/studentRecipient'
@@ -106,18 +107,15 @@ export default function ContactAutocomplete({
     const id = ++reqRef.current
     const like = `%${debounced}%`
     Promise.all([
-      supabase.from('contacts')
-        .select('id, full_name, preferred_name, email, role, category, avatar_url, organization, school_name')
-        .eq('is_active', true)
-        .or(`full_name.ilike.${like},preferred_name.ilike.${like},email.ilike.${like},role.ilike.${like},school_name.ilike.${like},organization.ilike.${like},category.ilike.${like}`)
-        .limit(6),
+      // Shared single-source contacts search (see src/lib/contactSearch.js).
+      searchContacts(debounced, { limit: 6 }),
       supabase.from('preceptors')
         .select('id, full_name, email, unit_name, shift_type')
         .or(`full_name.ilike.${like},email.ilike.${like},unit_name.ilike.${like}`)
         .limit(6),
-    ]).then(([cRes, pRes]) => {
+    ]).then(([cRows, pRes]) => {
       if (id !== reqRef.current) return // a newer query superseded this one
-      setRemote({ key: debounced, contacts: cRes.data || [], preceptors: pRes.data || [] })
+      setRemote({ key: debounced, contacts: cRows || [], preceptors: pRes.data || [] })
     }).catch(() => {
       if (id !== reqRef.current) return
       setRemote({ key: debounced, contacts: [], preceptors: [] })
