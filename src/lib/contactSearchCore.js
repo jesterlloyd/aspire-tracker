@@ -37,6 +37,38 @@ export function matchCatalogKeys(text, optionValues) {
   return out
 }
 
+// Normalize a school term the way api/lib/schoolAliases.js does: lowercase,
+// punctuation to spaces, collapse whitespace. So "California State University,
+// Los Angeles", "Cal State LA", and "CSULA" all compare cleanly.
+export function normalizeSchoolTerm(s) {
+  return String(s || '').toLowerCase().replace(/[.,&/\-]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+// Map free-text school affiliation(s) (contact.school_name, contact.organization,
+// or any structured affiliation field) to canonical school keys, using each
+// option's approved aliases. Matching is normalized EXACT equality per token, so
+// aliases resolve but a bare/ambiguous value never guesses a specific campus.
+// `sources` may be a string or an array of strings; multiple distinct canonical
+// matches are all returned. Splits only on ; / | (never comma, which appears
+// inside canonical names).
+export function matchSchoolKeys(sources, schoolOptions) {
+  const inputs = (Array.isArray(sources) ? sources : [sources]).filter(Boolean)
+  const tokens = []
+  for (const s of inputs) {
+    for (const part of String(s).split(/[;/|]/)) {
+      const n = normalizeSchoolTerm(part)
+      if (n) tokens.push(n)
+    }
+  }
+  if (!tokens.length) return []
+  const out = []
+  for (const opt of schoolOptions || []) {
+    const terms = [opt.value, ...(opt.aliases || [])].map(normalizeSchoolTerm)
+    if (tokens.some(t => terms.includes(t)) && !out.includes(opt.value)) out.push(opt.value)
+  }
+  return out
+}
+
 // A "reliable" contact-to-student link is an EXACT email match to EXACTLY ONE
 // student (school_email or personal_email). Zero or multiple matches, or a
 // name-only resemblance, are never treated as a link. `students` is a list of

@@ -1,44 +1,137 @@
-// ASPIRE-PORTAL-ACCESS-UI / ASPIRE-PORTAL-CONTACTS: Grant / Renew scoped portal
-// access. SEPARATE from the staff invite modal: portal roles (student,
-// unit_leader, academic_partner) never appear in the staff role selector, and
-// this modal never touches staff invitation. All writes go through POST
-// /api/invite-portal-user; the browser never inserts into the authorization
-// tables. Backend idempotency handles renewal (created | reused | renewed |
-// reissued).
+// ASPIRE-PORTAL-ACCESS-UI / ASPIRE-PORTAL-STUDENT-PICKER: Grant / Renew scoped
+// portal access. SEPARATE from the staff invite modal: portal roles never appear
+// in the staff role selector. All writes go through POST /api/invite-portal-user;
+// the browser never touches the authorization tables.
 //
-// The Full name and Login email fields are saved-Contacts typeaheads that reuse
-// the shared contacts search (src/lib/contactSearch.js, the same authorized path
-// Outreach uses). Selecting a contact autofills name + email and SUGGESTS the
-// role's scope (units/schools preselected; a student is preselected ONLY on a
-// reliable exact-email link to exactly one student). Suggestions never overwrite
-// fields the Owner has manually edited, and manual entry always remains
-// available. Final role and scope are still validated server-side.
+// Identity fields reuse the shared saved-Contacts search (src/lib/contactSearch.js,
+// the same authorized path Outreach uses). Selecting a saved Contact infers the
+// portal role from its canonical category (Unit Leadership -> unit_leader,
+// Academic Partners -> academic_partner, a stored Student -> student), fills name
+// + email, and suggests the role's scope (units via the catalog; schools via
+// alias-aware matching over school_name + organization). For the Student role the
+// Full name field IS a unified picker over ASPIRE student records AND Contacts, so
+// the Owner never selects the same person twice; the selected students.id is the
+// authoritative linkage and the login email is only the sign-in identity.
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
-import { X, Mail, Loader, ChevronLeft, ShieldCheck, Contact as ContactIcon } from 'lucide-react'
+import { X, Mail, Loader, ChevronLeft, ShieldCheck, Contact as ContactIcon, GraduationCap } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { PORTAL_ROLE_OPTIONS, PORTAL_ROLE_LABELS } from '../../lib/portalAccessStatus'
 import { UNIT_SCOPE_OPTIONS, SCHOOL_SCOPE_OPTIONS } from '../../lib/portalScopeCatalog'
-import { useContactSearch, contactSubtitle, matchCatalogKeys, pickReliableStudent, inferPortalRoleFromContact, bestStudentLoginEmail } from '../../lib/contactSearch'
+import { useContactSearch, contactSubtitle, matchCatalogKeys, matchSchoolKeys, pickReliableStudent, inferPortalRoleFromContact, bestStudentLoginEmail } from '../../lib/contactSearch'
 
 const F = 'DM Sans, sans-serif'
 const field = { width: '100%', padding: '10px 12px', border: '1px solid #e5e7eb', borderRadius: 8, fontFamily: F, fontSize: 13, outline: 'none', boxSizing: 'border-box' }
 const label = { display: 'block', fontFamily: F, fontWeight: 600, fontSize: 12, color: '#374151', marginBottom: 6 }
 const UNIT_VALUES = UNIT_SCOPE_OPTIONS.map(o => o.value)
-const SCHOOL_VALUES = SCHOOL_SCOPE_OPTIONS.map(o => o.value)
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const isValidEmail = (e) => EMAIL_RE.test(String(e || '').trim())
 
 const studentName = (s) => s ? [s.preferred_first_name || s.first_name, s.last_name].filter(Boolean).join(' ') : ''
 const contactName = (c) => c?.full_name || c?.preferred_name || c?.email || ''
+// Available student login emails (live schema exposes school_email + personal_email;
+// there is no Cedars-Sinai student email column, so none is shown).
+const studentEmailOptions = (s) => !s ? [] : [
+  s.school_email && { label: 'School email', value: s.school_email },
+  s.personal_email && { label: 'Personal email', value: s.personal_email },
+].filter(Boolean)
 
-// ── Saved-Contacts typeahead input (reuses the shared contacts search). Typing
-//    searches Contacts by name/email; picking a contact fires onPick(contact). ──
-function ContactSuggest({ id, value, onChange, onPick, placeholder, ariaLabel, type = 'text' }) {
+// Sanitize a free-typed term for PostgREST .or(ilike).
+const sanitize = (s) => String(s || '').replace(/[,()%_\\*]/g, ' ').replace(/\s+/g, ' ').trim()
+
+// ── Unified identity picker: Contacts always, ASPIRE students when includeStudents.
+//    Searches by full name and every approved student email field. ──
+function IdentityPicker({ id, value, onChange, onPickStudent, onPickContact, includeStudents, cohortsById, placeholder, ariaLabel }) {
+  const { rows: contactRows, loading: contactsLoading, debounced } = useContactSearch(value)
+  const [students, setStudents] = useState([])
+  const [studentsLoading, setStudentsLoading] = useState(false)
+  const [open, setOpen] = useState(false)
+  const [activeIdx, setActiveIdx] = useState(0)
+
+  useEffect(() => {
+    if (!includeStudents) { setStudents([]); return }
+    const term = sanitize(value)
+    if (term.length < 2) { setStudents([]); return }
+    let cancelled = false; setStudentsLoading(true)
+    const run = setTimeout(async () => {
+      const like = `%${term}%`
+      const { data } = await supabase.from('students')
+        .select('id, first_name, last_name, preferred_first_name, school, cohort_id, status, school_email, personal_email, matched_unit_id')
+        .or(`first_name.ilike.${like},last_name.ilike.${like},preferred_first_name.ilike.${like},school_email.ilike.${like},personal_email.ilike.${like}`)
+        .limit(6)
+      if (!cancelled) { setStudents(data || []); setStudentsLoading(false) }
+    }, 250)
+    return () => { cancelled = true; clearTimeout(run) }
+  }, [value, includeStudents])
+
+  const results = useMemo(() => {
+    const list = []
+    if (includeStudents) for (const s of students) list.push({ kind: 'student', key: `stu-${s.id}`, student: s })
+    for (const c of contactRows) list.push({ kind: 'contact', key: `con-${c.id}`, contact: c })
+    return list
+  }, [students, contactRows, includeStudents])
+
+  const loading = contactsLoading || studentsLoading
+  const safeActive = results.length ? Math.min(activeIdx, results.length - 1) : 0
+  const showNoMatch = open && !loading && debounced.length >= 2 && results.length === 0
+  const listboxId = `${id}-listbox`
+
+  const choose = (r) => { if (r.kind === 'student') onPickStudent?.(r.student); else onPickContact?.(r.contact); setOpen(false) }
+  const onKey = (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActiveIdx(Math.min(safeActive + 1, results.length - 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx(Math.max(safeActive - 1, 0)) }
+    else if (e.key === 'Enter') { if (open && results[safeActive]) { e.preventDefault(); choose(results[safeActive]) } }
+    else if (e.key === 'Escape') { if (open) { e.preventDefault(); setOpen(false) } }
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input id={id} value={value}
+        onChange={e => { onChange?.(e.target.value); setActiveIdx(0); setOpen(true) }}
+        onKeyDown={onKey} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 130)}
+        placeholder={placeholder} style={field}
+        role="combobox" aria-expanded={open && results.length > 0} aria-controls={listboxId} aria-autocomplete="list"
+        aria-label={ariaLabel} aria-activedescendant={open && results[safeActive] ? `${id}-opt-${safeActive}` : undefined} />
+      {open && (results.length > 0 || loading || showNoMatch) && (
+        <div id={listboxId} role="listbox" aria-label="Search results"
+          style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, zIndex: 60, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, boxShadow: '0 8px 28px rgba(0,0,0,0.12)', maxHeight: 320, overflowY: 'auto', padding: 4 }}>
+          {loading && <div style={{ fontSize: 11.5, color: '#9ca3af', padding: '10px' }}>Searching…</div>}
+          {showNoMatch && <div style={{ fontSize: 12, color: '#6b7280', padding: '10px', lineHeight: 1.5 }}>No matching student or contact found. You can continue by entering the details manually.</div>}
+          {results.map((r, i) => {
+            const isActive = i === safeActive
+            const isStudent = r.kind === 'student'
+            const s = r.student, c = r.contact
+            const emails = isStudent ? studentEmailOptions(s).map(e => `${e.label.split(' ')[0]}: ${e.value}`).join(' · ') : ''
+            const sub = isStudent
+              ? [s.school, cohortsById?.[s.cohort_id], s.status, s.matched_unit_id ? 'Placed' : null].filter(Boolean).join(' · ')
+              : contactSubtitle(c)
+            return (
+              <div key={r.key} id={`${id}-opt-${i}`} role="option" aria-selected={isActive}
+                onMouseDown={e => e.preventDefault()} onClick={() => choose(r)} onMouseEnter={() => setActiveIdx(i)}
+                style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 9px', cursor: 'pointer', borderRadius: 7, background: isActive ? '#EEF2FB' : 'transparent' }}>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: isStudent ? '#92400e' : '#1D2567', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {isStudent ? <GraduationCap size={14} /> : <ContactIcon size={14} />}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: '#191919', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{isStudent ? studentName(s) : contactName(c)}</div>
+                  <div style={{ fontSize: 10.5, color: '#6b7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}{isStudent && emails ? ` · ${emails}` : ''}</div>
+                </div>
+                <span style={{ fontSize: 9, fontWeight: 700, padding: '2px 7px', borderRadius: 10, flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.04em', background: isStudent ? '#FEF3C7' : '#EEF2FB', color: isStudent ? '#92400e' : '#1D2567', border: `1px solid ${isStudent ? '#fde68a' : '#c3cdf0'}` }}>{isStudent ? 'ASPIRE student' : 'Saved contact'}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Contacts-only typeahead (Unit Leader / Academic Partner name field).
+function ContactSuggest({ id, value, onChange, onPick, placeholder, ariaLabel }) {
   const { rows, loading, debounced } = useContactSearch(value)
   const [open, setOpen] = useState(false)
   const [activeIdx, setActiveIdx] = useState(0)
-  const listRef = useRef(null)
   const safeActive = rows.length ? Math.min(activeIdx, rows.length - 1) : 0
   const showNoMatch = open && !loading && debounced.length >= 2 && rows.length === 0
-
   const choose = (c) => { onPick?.(c); setOpen(false) }
   const onKey = (e) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActiveIdx(Math.min(safeActive + 1, rows.length - 1)) }
@@ -49,35 +142,24 @@ function ContactSuggest({ id, value, onChange, onPick, placeholder, ariaLabel, t
   const listboxId = `${id}-listbox`
   return (
     <div style={{ position: 'relative' }}>
-      <input id={id} type={type} value={value}
+      <input id={id} value={value}
         onChange={e => { onChange?.(e.target.value); setActiveIdx(0); setOpen(true) }}
-        onKeyDown={onKey}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 130)}
+        onKeyDown={onKey} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 130)}
         placeholder={placeholder} style={field}
         role="combobox" aria-expanded={open && rows.length > 0} aria-controls={listboxId} aria-autocomplete="list"
-        aria-label={ariaLabel}
-        aria-activedescendant={open && rows[safeActive] ? `${id}-opt-${safeActive}` : undefined} />
+        aria-label={ariaLabel} aria-activedescendant={open && rows[safeActive] ? `${id}-opt-${safeActive}` : undefined} />
       {open && (rows.length > 0 || loading || showNoMatch) && (
-        <div id={listboxId} ref={listRef} role="listbox" aria-label="Saved contact suggestions"
+        <div id={listboxId} role="listbox" aria-label="Saved contact suggestions"
           style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, zIndex: 60, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, boxShadow: '0 8px 28px rgba(0,0,0,0.12)', maxHeight: 300, overflowY: 'auto', padding: 4 }}>
           {loading && <div style={{ fontSize: 11.5, color: '#9ca3af', padding: '10px' }}>Searching…</div>}
-          {showNoMatch && (
-            <div style={{ fontSize: 12, color: '#6b7280', padding: '10px', lineHeight: 1.5 }}>
-              No matching contact found. You can continue by entering the details manually.
-            </div>
-          )}
+          {showNoMatch && <div style={{ fontSize: 12, color: '#6b7280', padding: '10px', lineHeight: 1.5 }}>No matching contact found. You can continue by entering the details manually.</div>}
           {rows.map((c, i) => {
             const isActive = i === safeActive
             return (
-              <div key={c.id} id={`${id}-opt-${i}`} data-idx={i} role="option" aria-selected={isActive}
+              <div key={c.id} id={`${id}-opt-${i}`} role="option" aria-selected={isActive}
                 onMouseDown={e => e.preventDefault()} onClick={() => choose(c)} onMouseEnter={() => setActiveIdx(i)}
                 style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 9px', cursor: 'pointer', borderRadius: 7, background: isActive ? '#EEF2FB' : 'transparent' }}>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: '#1D2567', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                  {c.avatar_url
-                    ? <img src={c.avatar_url} alt="" onError={e => { e.currentTarget.style.display = 'none' }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <ContactIcon size={14} />}
-                </div>
+                <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: '#1D2567', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ContactIcon size={14} /></div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 600, color: '#191919', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{contactName(c)}</div>
                   <div style={{ fontSize: 10.5, color: '#6b7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{contactSubtitle(c)}</div>
@@ -108,9 +190,7 @@ function MultiScopePicker({ id, options, selected, onChange, placeholder }) {
             <span key={v} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#eef2fb', color: '#1D2567', fontSize: 12, fontWeight: 600, padding: '3px 8px', borderRadius: 16 }}>
               {o?.label || v}
               <button type="button" aria-label={`Remove ${o?.label || v}`} onClick={() => onChange(selected.filter(s => s !== v))}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1D2567', display: 'flex', padding: 0 }}>
-                <X size={12} />
-              </button>
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1D2567', display: 'flex', padding: 0 }}><X size={12} /></button>
             </span>
           )
         })}
@@ -124,67 +204,9 @@ function MultiScopePicker({ id, options, selected, onChange, placeholder }) {
               onClick={() => { onChange([...selected, o.value]); setTerm('') }}
               onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onChange([...selected, o.value]); setTerm('') } }}
               style={{ padding: '7px 9px', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}
-              onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               <span style={{ fontWeight: 600, color: '#1D2567' }}>{o.label}</span>
               {o.hint && <span style={{ color: '#9ca3af', marginLeft: 6, fontSize: 12 }}>{o.hint}</span>}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-}
-
-// Searchable single-select over live students (staff-authorized read; students
-// is NOT a protected authorization table).
-function StudentPicker({ value, onPick, cohortsById }) {
-  const [term, setTerm] = useState('')
-  const [rows, setRows] = useState([])
-  const [loading, setLoading] = useState(false)
-  useEffect(() => {
-    const t = term.trim()
-    if (t.length < 2 || value) { setRows([]); return }
-    let cancelled = false
-    setLoading(true)
-    const run = setTimeout(async () => {
-      const { data } = await supabase.from('students')
-        .select('id, first_name, last_name, preferred_first_name, school, school_email, personal_email, status, cohort_id')
-        .or(`first_name.ilike.%${t}%,last_name.ilike.%${t}%,school_email.ilike.%${t}%`)
-        .limit(12)
-      if (!cancelled) { setRows(data || []); setLoading(false) }
-    }, 250)
-    return () => { cancelled = true; clearTimeout(run) }
-  }, [term, value])
-
-  if (value) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, border: '1px solid #c7d2fe', background: '#eef2fb', borderRadius: 8, padding: '10px 12px' }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 13, color: '#1D2567' }}>{studentName(value)}</div>
-          <div style={{ fontSize: 12, color: '#4b5563' }}>{[value.school, cohortsById[value.cohort_id], value.status].filter(Boolean).join(' · ')}</div>
-        </div>
-        <button type="button" aria-label="Clear selected student" onClick={() => onPick(null)}
-          style={{ background: '#fff', border: '1px solid #c7d2fe', borderRadius: 6, cursor: 'pointer', color: '#1D2567', padding: '4px 8px', fontSize: 12, fontWeight: 600 }}>Change</button>
-      </div>
-    )
-  }
-  return (
-    <div>
-      <input value={term} onChange={e => setTerm(e.target.value)} placeholder="Search students by name or school email"
-        role="combobox" aria-expanded={rows.length > 0} aria-controls="student-picker-list" aria-autocomplete="list" style={field} />
-      {loading && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 6 }}>Searching…</div>}
-      {rows.length > 0 && (
-        <ul id="student-picker-list" role="listbox" style={{ listStyle: 'none', margin: '6px 0 0', padding: 4, border: '1px solid #e5e7eb', borderRadius: 8, maxHeight: 220, overflowY: 'auto' }}>
-          {rows.map(s => (
-            <li key={s.id} role="option" aria-selected={false} tabIndex={0}
-              onClick={() => onPick(s)}
-              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(s) } }}
-              style={{ padding: '8px 9px', borderRadius: 6, cursor: 'pointer' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#f3f4f6'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-              <div style={{ fontWeight: 600, fontSize: 13, color: '#1D2567' }}>{studentName(s)}</div>
-              <div style={{ fontSize: 12, color: '#6b7280' }}>{[s.school, cohortsById[s.cohort_id], s.status].filter(Boolean).join(' · ')}</div>
             </li>
           ))}
         </ul>
@@ -206,7 +228,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
   const [role, setRole] = useState(initial?.portal_role || 'student')
   const [fullName, setFullName] = useState(initial?.full_name || '')
   const [email, setEmail] = useState(initial?.email || '')
-  const [startsAt, setStartsAt] = useState('') // '' = now
+  const [startsAt, setStartsAt] = useState('')
   const [expiresAt, setExpiresAt] = useState(initial?.expires_at ? initial.expires_at.slice(0, 10) : '')
   const [student, setStudent] = useState(null)
   const [unitKeys, setUnitKeys] = useState(initial?.scope?.units?.map(u => u.unit_key) || [])
@@ -216,28 +238,22 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [selectedContact, setSelectedContact] = useState(null)
-  const [roleDetected, setRoleDetected] = useState(false)
-  // Manual-edit guards: once the Owner edits a scope field, autofill leaves it alone.
   const [unitTouched, setUnitTouched] = useState(!!initial?.scope?.units?.length)
   const [schoolTouched, setSchoolTouched] = useState(!!initial?.scope?.schools?.length)
   const [studentTouched, setStudentTouched] = useState(false)
-  const firstFieldRef = useRef(null)
 
   const cohortsById = useMemo(() => Object.fromEntries(cohorts.map(c => [c.id, c.name])), [cohorts])
 
   useEffect(() => {
-    const t = setTimeout(() => firstFieldRef.current?.focus?.(), 30)
     const onKey = (e) => { if (e.key === 'Escape' && !loading) onClose?.() }
     document.addEventListener('keydown', onKey)
-    supabase.from('cohorts').select('id, name').order('created_at', { ascending: false })
-      .then(({ data }) => setCohorts(data || []))
-    return () => { clearTimeout(t); document.removeEventListener('keydown', onKey) }
+    supabase.from('cohorts').select('id, name').order('created_at', { ascending: false }).then(({ data }) => setCohorts(data || []))
+    return () => document.removeEventListener('keydown', onKey)
   }, [onClose, loading])
 
-  // Explicit saved-contact selection: infer the portal role from the contact's
-  // canonical category, fill name + email, and suggest the role's scope. A new
-  // contact is an explicit action, so it may replace a previously inferred role
-  // and refresh suggestions (touched guards reset).
+  // Explicit saved-contact selection: infer the role from the contact's category,
+  // fill name + email, and suggest the (possibly new) role's scope. A fresh
+  // contact resets scope guards so its suggestions apply.
   const applyContactSelection = useCallback(async (c) => {
     if (!c) return
     setResult(null)
@@ -247,21 +263,22 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
 
     const inferred = inferPortalRoleFromContact(c)
     const targetRole = inferred || role
-    if (inferred && inferred !== role) { setRole(targetRole); setRoleDetected(true) }
-    else if (!inferred) setRoleDetected(false)
-
-    // Fresh contact -> fresh suggestions for the (possibly new) role.
+    if (inferred) setRole(targetRole)
     setUnitTouched(false); setSchoolTouched(false); setStudentTouched(false)
 
     if (targetRole === 'unit_leader') {
+      setStudent(null)
       setUnitKeys(matchCatalogKeys(c.unit_name, UNIT_VALUES))
     } else if (targetRole === 'academic_partner') {
-      setSchoolKeys(matchCatalogKeys(c.school_name, SCHOOL_VALUES))
+      setStudent(null)
+      // Alias-aware, normalized matching over ALL affiliation fields.
+      setSchoolKeys(matchSchoolKeys([c.school_name, c.organization], SCHOOL_SCOPE_OPTIONS))
     } else if (targetRole === 'student' && c.email) {
-      // Reliable link = exact email match to EXACTLY ONE student. Never by name.
+      // Reliable link = exact email match (school or personal) to EXACTLY ONE
+      // student. Never by name; ambiguous/zero keeps explicit selection required.
       const em = c.email.trim()
       const { data } = await supabase.from('students')
-        .select('id, first_name, last_name, preferred_first_name, school, school_email, personal_email, cohort_id, status')
+        .select('id, first_name, last_name, preferred_first_name, school, school_email, personal_email, cohort_id, status, matched_unit_id')
         .or(`school_email.ilike.${em},personal_email.ilike.${em}`)
         .limit(5)
       const match = pickReliableStudent(c.email, data || [])
@@ -269,41 +286,40 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
     }
   }, [role])
 
-  // Manual role change: preserve name/email, clear the "detected" note, and offer
-  // the selected contact's scope for the new role ONLY where untouched.
   const suggestUntouchedScope = useCallback((c, roleArg) => {
     if (!c) return
     if (roleArg === 'unit_leader' && !unitTouched) { const k = matchCatalogKeys(c.unit_name, UNIT_VALUES); if (k.length) setUnitKeys(k) }
-    else if (roleArg === 'academic_partner' && !schoolTouched) { const k = matchCatalogKeys(c.school_name, SCHOOL_VALUES); if (k.length) setSchoolKeys(k) }
+    else if (roleArg === 'academic_partner' && !schoolTouched) { const k = matchSchoolKeys([c.school_name, c.organization], SCHOOL_SCOPE_OPTIONS); if (k.length) setSchoolKeys(k) }
   }, [unitTouched, schoolTouched])
 
+  // Manual role change: preserve name/email, clear the other role's student link,
+  // and offer the selected contact's scope only where untouched.
   const onRoleChange = (next) => {
-    setRole(next); setRoleDetected(false); setResult(null)
+    setRole(next); setResult(null)
+    if (next !== 'student') setStudent(null) // deactivate internal student_id off the Student role
     if (selectedContact) suggestUntouchedScope(selectedContact, next)
   }
 
-  // Explicit student-record selection: link the student, set role to student,
-  // populate the canonical name, and suggest the best available login email.
+  // Explicit ASPIRE student-record selection: authoritative student_id linkage.
   const onPickStudentRecord = useCallback((s) => {
     setResult(null); setStudentTouched(true)
     if (!s) { setStudent(null); return }
     setStudent(s)
     setRole('student')
     setFullName(studentName(s))
-    const em = bestStudentLoginEmail(s, null)
+    const em = bestStudentLoginEmail(s, null) // school -> personal (no Cedars-Sinai column exists)
     if (em) setEmail(em) // else leave as-is; the manual-entry prompt shows below
   }, [])
 
-  // Validation evaluates ONLY the currently selected role's scope, so a role
-  // change clears the previous role's requirement (e.g. Student's linked-record
-  // requirement no longer blocks Unit Leader).
+  // Validation evaluates ONLY the active role's scope.
   const scopeValid =
     role === 'student' ? !!student :
     role === 'unit_leader' ? unitKeys.length > 0 :
     role === 'academic_partner' ? schoolKeys.length > 0 : false
-  const formValid = !!email.trim() && !!fullName.trim() && !!role && scopeValid && !loading
-  // A student is linked but no reliable email was found: require manual entry.
+  const emailValid = isValidEmail(email)
+  const formValid = !!fullName.trim() && emailValid && !!role && scopeValid && !loading
   const showStudentEmailPrompt = role === 'student' && !!student && !email.trim()
+  const emails = studentEmailOptions(student)
 
   const buildPayload = () => {
     const base = { role, email: email.trim(), full_name: fullName.trim() }
@@ -330,8 +346,7 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
         setResult({ success: true, message: 'Portal invitation sent and access granted.' })
         onGranted?.(); setTimeout(() => onClose?.(), 1100)
       } else if (res.status === 200) {
-        const action = json?.provisioned?.grant_action
-        setResult({ success: true, message: OUTCOME_200[action] || 'Portal access updated.' })
+        setResult({ success: true, message: OUTCOME_200[json?.provisioned?.grant_action] || 'Portal access updated.' })
         onGranted?.(); setTimeout(() => onClose?.(), 1100)
       } else if (res.status === 409) {
         setResult({ success: false, message: role === 'student'
@@ -379,32 +394,52 @@ export default function GrantPortalAccessModal({ onClose, onGranted, initial = n
                 <select id="gpa-role" value={role} disabled={isRenew} onChange={e => onRoleChange(e.target.value)} style={{ ...field, cursor: isRenew ? 'default' : 'pointer', background: isRenew ? '#f9fafb' : '#fff' }}>
                   {PORTAL_ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                 </select>
-                {roleDetected && <div role="status" style={{ fontSize: 11, color: '#166534', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>Role detected from saved contact (editable)</div>}
               </div>
+
               <div style={{ marginBottom: 12 }}>
-                <label style={label} htmlFor="gpa-name">Full name</label>
-                <ContactSuggest id="gpa-name" value={fullName} onChange={setFullName} onPick={applyContactSelection} placeholder="Search saved contacts or type a name" ariaLabel="Full name, searches saved contacts" />
-                {selectedContact && <div style={{ fontSize: 11, color: '#1D2567', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}><ContactIcon size={11} /> From saved contact (editable)</div>}
-              </div>
-              <div style={{ marginBottom: 6 }}>
-                <label style={label} htmlFor="gpa-email">Login email</label>
-                <ContactSuggest id="gpa-email" type="email" value={email} onChange={setEmail} onPick={applyContactSelection} placeholder="Search saved contacts or type an email" ariaLabel="Login email, searches saved contacts" />
-                {showStudentEmailPrompt && (
-                  <div role="alert" style={{ fontSize: 11.5, color: '#991b1b', marginTop: 5 }}>
-                    No email is on file for this student. Enter a login email manually.
+                <label style={label} htmlFor="gpa-name">{role === 'student' ? 'Student' : 'Full name'}</label>
+                {role === 'student' && student ? (
+                  <div style={{ border: '1px solid #c7d2fe', background: '#eef2fb', borderRadius: 8, padding: '10px 12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: '#1D2567' }}>{studentName(student)}</div>
+                        <div style={{ fontSize: 12, color: '#4b5563' }}>{[student.school, cohortsById[student.cohort_id], student.status, student.matched_unit_id ? 'Placed' : null].filter(Boolean).join(' · ')}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button type="button" onClick={() => setStudent(null)} style={{ background: '#fff', border: '1px solid #c7d2fe', borderRadius: 6, cursor: 'pointer', color: '#1D2567', padding: '4px 8px', fontSize: 12, fontWeight: 600 }}>Change</button>
+                        <button type="button" onClick={() => { setStudent(null); setFullName('') }} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 6, cursor: 'pointer', color: '#6b7280', padding: '4px 8px', fontSize: 12, fontWeight: 600 }}>Clear</button>
+                      </div>
+                    </div>
+                    <input value={fullName} onChange={e => setFullName(e.target.value)} aria-label="Full name for the invitation" placeholder="Full name" style={{ ...field, marginTop: 8 }} />
                   </div>
+                ) : role === 'student' ? (
+                  <IdentityPicker id="gpa-name" value={fullName} onChange={setFullName} onPickStudent={onPickStudentRecord} onPickContact={applyContactSelection}
+                    includeStudents cohortsById={cohortsById} placeholder="Search students by name or email" ariaLabel="Student, searches ASPIRE students and saved contacts" />
+                ) : (
+                  <ContactSuggest id="gpa-name" value={fullName} onChange={setFullName} onPick={applyContactSelection} placeholder="Search saved contacts or type a name" ariaLabel="Full name, searches saved contacts" />
                 )}
               </div>
+
+              <div style={{ marginBottom: 6 }}>
+                <label style={label} htmlFor="gpa-email">Login email</label>
+                <input id="gpa-email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="name@example.com" style={field} aria-label="Login email" />
+                {role === 'student' && student && emails.length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 7, alignItems: 'center' }}>
+                    <span style={{ fontSize: 11, color: '#6b7280' }}>Use:</span>
+                    {emails.map(e => (
+                      <button key={e.value} type="button" onClick={() => setEmail(e.value)} aria-label={`Use ${e.label} ${e.value}`}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 14, border: `1px solid ${email.trim().toLowerCase() === e.value.toLowerCase() ? '#1D2567' : '#d5d9e2'}`, background: email.trim().toLowerCase() === e.value.toLowerCase() ? '#eef2fb' : '#fff', color: '#1D2567', fontFamily: F, fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}>
+                        {e.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {showStudentEmailPrompt && <div role="alert" style={{ fontSize: 11.5, color: '#991b1b', marginTop: 5 }}>No email is on file for this student. Enter a login email manually.</div>}
+              </div>
               <p style={{ margin: '0 0 14px', fontSize: 11.5, color: '#6b7280', lineHeight: 1.5 }}>
-                The login email is the address used to access the portal. It does not have to match an email stored on the linked ASPIRE student record.
+                The login email is the portal sign-in identity. It does not have to match an email stored on the linked ASPIRE student record, and changing it never changes the linked student.
               </p>
 
-              {role === 'student' && (
-                <div style={{ marginBottom: 14 }}>
-                  <label style={label}>Linked student record (exactly one)</label>
-                  <StudentPicker value={student} onPick={onPickStudentRecord} cohortsById={cohortsById} />
-                </div>
-              )}
               {role === 'unit_leader' && (
                 <div style={{ marginBottom: 14 }}>
                   <label style={label} htmlFor="gpa-units">Assigned units (at least one)</label>

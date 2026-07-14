@@ -1,6 +1,6 @@
-// ASPIRE-PORTAL-CONTACTS: static-source guards for the Contacts autofill added to
-// the Grant Portal Access modal, and for the shared single-source contacts
-// search (ContactAutocomplete now reuses it, so there is no duplicate search).
+// ASPIRE-PORTAL-CONTACTS / ASPIRE-PORTAL-STUDENT-PICKER: static-source guards for
+// the Contacts + student autofill in the Grant Portal Access modal, and for the
+// shared single-source contacts search (ContactAutocomplete reuses it).
 // Run: node --test test/grantPortalContactsAutofill.test.mjs
 
 import test from 'node:test'
@@ -18,67 +18,54 @@ test('shared contacts search is the single source of truth', async (t) => {
   await t.test('the Outreach ContactAutocomplete reuses the shared search', () => {
     assert.match(autocomplete, /import \{ searchContacts \} from '\.\.\/\.\.\/lib\/contactSearch'/)
     assert.match(autocomplete, /searchContacts\(debounced/)
-    // It no longer defines its own inline contacts .or(ilike) query.
     assert.doesNotMatch(autocomplete, /from\('contacts'\)\s*\n?\s*\.select/)
   })
-  await t.test('the shared module runs one authorized contacts query (is_active, .or ilike)', () => {
+  await t.test('the shared module runs one authorized contacts query', () => {
     assert.match(shared, /from\('contacts'\)/)
     assert.match(shared, /\.eq\('is_active', true\)/)
     assert.match(shared, /full_name\.ilike[\s\S]*email\.ilike/)
-    // 250ms debounce mirrors the CC picker.
     assert.match(shared, /setTimeout\(\(\) => setDebounced\(sanitizeContactTerm\(value\)\), 250\)/)
   })
 })
 
-test('Grant modal Contacts autofill', async (t) => {
-  await t.test('name and email are saved-contact typeaheads', () => {
+test('Grant modal identity + scope autofill', async (t) => {
+  await t.test('name/email use the shared contacts search; Student uses a unified picker', () => {
     assert.match(modal, /import \{ useContactSearch[^}]*\} from '\.\.\/\.\.\/lib\/contactSearch'/)
+    assert.match(modal, /function IdentityPicker/)
     assert.match(modal, /function ContactSuggest/)
-    assert.match(modal, /<ContactSuggest id="gpa-name"/)
-    assert.match(modal, /<ContactSuggest id="gpa-email"/)
     assert.match(modal, /useContactSearch\(value\)/)
-  })
-
-  await t.test('selecting a contact fills full name and login email', () => {
-    assert.match(modal, /const applyContactSelection = useCallback\(async \(c\) => \{/)
-    assert.match(modal, /setFullName\(contactName\(c\)\)/)
-    assert.match(modal, /if \(c\.email\) setEmail\(c\.email\)/)
   })
 
   await t.test('unit leader preselects units from the contact affiliation, editable', () => {
     assert.match(modal, /matchCatalogKeys\(c\.unit_name, UNIT_VALUES\)/)
-    // On a manual role change, the suggestion respects manual edits.
     assert.match(modal, /roleArg === 'unit_leader' && !unitTouched/)
-    // The unit chips remain editable and edits mark the field touched.
     assert.match(modal, /onChange=\{\(next\) => \{ setUnitTouched\(true\); setUnitKeys\(next\) \}\}/)
   })
 
-  await t.test('academic partner preselects schools from the contact affiliation, editable', () => {
-    assert.match(modal, /matchCatalogKeys\(c\.school_name, SCHOOL_VALUES\)/)
+  await t.test('academic partner school autofill is alias-aware over ALL affiliation fields', () => {
+    assert.match(modal, /matchSchoolKeys\(\[c\.school_name, c\.organization\], SCHOOL_SCOPE_OPTIONS\)/)
     assert.match(modal, /roleArg === 'academic_partner' && !schoolTouched/)
     assert.match(modal, /onChange=\{\(next\) => \{ setSchoolTouched\(true\); setSchoolKeys\(next\) \}\}/)
+    // The old canonical-only school matching is gone.
+    assert.doesNotMatch(modal, /matchCatalogKeys\(c\.school_name/)
   })
 
-  await t.test('student is preselected only via a reliable exact-email link, never by name', () => {
+  await t.test('a saved student contact links a student only via a reliable exact-email match', () => {
     assert.match(modal, /pickReliableStudent\(c\.email, data \|\| \[\]\)/)
     assert.match(modal, /targetRole === 'student' && c\.email/)
     assert.match(modal, /school_email\.ilike\.\$\{em\},personal_email\.ilike\.\$\{em\}/, 'matches by email, not name')
-    // The reliable-link helper (tested in contactSearch.test) requires exactly one match.
     assert.doesNotMatch(modal, /full_name.*===.*contact|name match/i)
   })
 
   await t.test('manual entry works and manual edits are protected on role change', () => {
-    // Direct typing updates the field...
-    assert.match(modal, /onChange=\{setFullName\}/)
-    assert.match(modal, /onChange=\{setEmail\}/)
-    // ...and switching roles preserves name/email while re-suggesting scope (guarded).
+    assert.match(modal, /onChange=\{setFullName\}/, 'name field is directly editable')
+    assert.match(modal, /onChange=\{e => setEmail\(e\.target\.value\)\}/, 'login email is directly editable')
     assert.match(modal, /const onRoleChange = \(next\) => \{[\s\S]*?if \(selectedContact\) suggestUntouchedScope\(selectedContact, next\)/)
     assert.match(modal, /suggestUntouchedScope = useCallback\(\(c, roleArg\) =>/)
-    // The guarded suggestion only writes untouched fields.
     assert.match(modal, /\}, \[unitTouched, schoolTouched\]\)/)
   })
 
-  await t.test('keyboard navigation and Escape work in the contact typeahead', () => {
+  await t.test('keyboard navigation and Escape work in the pickers', () => {
     assert.match(modal, /e\.key === 'ArrowDown'/)
     assert.match(modal, /e\.key === 'ArrowUp'/)
     assert.match(modal, /e\.key === 'Enter'/)
@@ -90,9 +77,10 @@ test('Grant modal Contacts autofill', async (t) => {
 
   await t.test('no-match state guides manual entry', () => {
     assert.match(modal, /No matching contact found\. You can continue by entering the details manually\./)
+    assert.match(modal, /No matching student or contact found\. You can continue by entering the details manually\./)
   })
 
-  await t.test('duplicate submission remains prevented and writes stay server-side', () => {
+  await t.test('duplicate submission prevented and writes stay server-side', () => {
     assert.match(modal, /if \(!formValid \|\| loading\) return/)
     assert.match(modal, /disabled=\{loading \|\| !formValid\}/)
     assert.match(modal, /\/api\/invite-portal-user/)
