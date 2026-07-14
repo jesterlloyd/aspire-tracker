@@ -47,23 +47,30 @@ All files under `supabase/migrations/`. Each ends with its own verification
 queries and (waves) a rollback section. Prior-wave reverts also live in
 `db/audit/phase0b_reverts.sql`.
 
-## Required internal-gate confirmation before portal invites (F8 follow-up)
+## Wave F-1 live-state reconciliation (F8 close, done in the migration)
 
-Wave F-1 removes anon and PUBLIC EXECUTE, but Postgres cannot distinguish a
-staff authenticated session from a portal authenticated session by privilege
-alone. Before inviting ANY portal user, confirm that these functions carry an
-INTERNAL owner/admin (or staff) gate in their body, using live-state audit
-section 4 output:
+Wave F-1 was reconciled against production and now, in the migration itself:
 
-- `get_all_user_profiles` (must gate to is_owner_or_admin(); it returns all
-  staff identities)
-- any interviewer-mutation RPC (add/update interviewer), if one exists as a
-  callable function rather than only the service-role `/api/manage-interviewers`
+- Revokes PUBLIC and anon EXECUTE from every public SECURITY DEFINER function
+  including the two school-form functions (they previously kept PUBLIC), then
+  re-grants anon only to `school_form_requires_password` and
+  `verify_school_form_password`, authenticated to the approved staff/self
+  allowlist, and service_role to all.
+- Sets a fixed `search_path = public, pg_catalog` on nine functions.
+- Adds the required INTERNAL authorization gate to five dashboard-created
+  functions, using their exact live bodies captured from production
+  (`pg_get_functiondef`), so the repository is the source of truth:
+  `get_all_user_profiles` and the interviewer-mutation RPCs (`add_interviewer`,
+  `update_interviewer_color`, `update_interviewer_email`) gate to
+  `is_owner_or_admin()`; `get_active_interviewers` gates to `is_staff()`.
+  `is_current_user_owner` is a self-check and is intentionally left ungated.
 
-If a gate is missing, add it (pattern in the Wave F-1 header comment) before
-proceeding. record_student_disposition, clear_student_disposition, and
-complete_disposition_followup already gate internally (verified in the tracked
-migrations).
+Because these gates are now applied by Wave F-1, no separate pre-Phase-2 gate
+step remains for these functions. `record_student_disposition`,
+`clear_student_disposition`, and `complete_disposition_followup` already gate
+internally (verified in the tracked migrations). Before inviting any portal
+user, still confirm no NEW untracked SECURITY DEFINER function exposing
+staff-wide data has appeared since this reconciliation.
 
 ## Which migrations gate which invitations
 
