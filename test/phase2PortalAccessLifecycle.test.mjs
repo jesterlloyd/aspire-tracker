@@ -98,10 +98,11 @@ test('Phase 2 portal access lifecycle', async (t) => {
     const files = readdirSync(migDir).filter(f => f.startsWith('20260712') && f.endsWith('.sql')).sort()
     const expected = [
       '20260712000009_phase2_portal_access_lifecycle.sql',
-      '20260712000010_phase3_unit_portal.sql',
-      '20260712000011_phase4_school_portal.sql',
-      '20260712000012_phase5_public_metrics.sql',
-      '20260712000013_phase0b_wave_f2_student_files_private.sql',
+      '20260712000010_phase2_portal_role_enablement.sql',
+      '20260712000011_phase3_unit_portal.sql',
+      '20260712000012_phase4_school_portal.sql',
+      '20260712000013_phase5_public_metrics.sql',
+      '20260712000014_phase0b_wave_f2_student_files_private.sql',
     ]
     for (const f of expected) {
       assert.ok(files.includes(f), `expected migration ${f} to exist`)

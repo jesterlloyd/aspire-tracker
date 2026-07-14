@@ -39,10 +39,11 @@ its findings confirmed against production. Confirmed conclusions:
 | 8 | `20260712000007_phase2_authz_foundation.sql` | requires 1 through 6; additive; explicitly transactional (BEGIN/COMMIT) | portal role grants, scopes, student links |
 | 9 | `20260712000008_phase2_student_portal_views.sql` | requires 8; additive; explicitly transactional (BEGIN/COMMIT); PRECHECK that all referenced base-table columns exist (some base tables are dashboard-created); the eval view sources `evaluation_instruments.display_name` (live schema; there is no `title` column), exposed as `instrument_title` | student portal reads |
 | 10 | `20260712000009_phase2_portal_access_lifecycle.sql` | requires 8; additive; explicitly transactional (BEGIN/COMMIT); two service-role-only SECURITY DEFINER functions (`provision_portal_access`, `revoke_portal_access`); **MUST be applied before inviting or renewing ANY portal account** (the invite endpoint now provisions through the RPC) | failure-safe portal provisioning, renewal, revocation |
-| 11 | `20260712000010_phase3_unit_portal.sql` | requires 8 | unit leader portal reads, released_reports |
-| 12 | `20260712000011_phase4_school_portal.sql` | requires 8 and 11; contains the ONE backfill (students.school_id, fills NULLs only) | academic partner portal, schools |
-| 13 | `20260712000012_phase5_public_metrics.sql` | requires 1; additive, seeds nothing | public metrics workflow |
-| 14 | `20260712000013_phase0b_wave_f2_student_files_private.sql` | **DO NOT RUN until the Wave F-2 code prerequisite below is deployed and verified** | closes F7 (public resume bucket) |
+| 11 | `20260712000010_phase2_portal_role_enablement.sql` | requires 9; CHECK-constraint widening only (adds `portal` to `user_profiles_role_check`, keeping owner/admin/interviewer/viewer); no data, no conversion; **MUST be applied before inviting any portal account** (provisioning sets `role='portal'`, which the live CHECK rejects until this runs) | portal profile role accepted |
+| 12 | `20260712000011_phase3_unit_portal.sql` | requires 8 | unit leader portal reads, released_reports |
+| 13 | `20260712000012_phase4_school_portal.sql` | requires 8 and 12; contains the ONE backfill (students.school_id, fills NULLs only) | academic partner portal, schools |
+| 14 | `20260712000013_phase5_public_metrics.sql` | requires 1; additive, seeds nothing | public metrics workflow |
+| 15 | `20260712000014_phase0b_wave_f2_student_files_private.sql` | **DO NOT RUN until the Wave F-2 code prerequisite below is deployed and verified** | closes F7 (public resume bucket) |
 
 All files under `supabase/migrations/`. Each ends with its own verification
 queries and (waves) a rollback section. Prior-wave reverts also live in
@@ -77,16 +78,18 @@ staff-wide data has appeared since this reconciliation.
 
 No portal account may be created (api/invite-portal-user) until its
 prerequisites are applied AND the F8 internal-gate confirmation above is done.
-Every invitation now provisions through `provision_portal_access`, so file 10
-(the lifecycle migration) is required for ALL roles.
+Every invitation now provisions through `provision_portal_access` (file 10) and
+sets `role='portal'`, which the role CHECK rejects until the role-enablement
+migration (file 11) runs. Both are required for ALL roles.
 
-- Invite a STUDENT: files 1 through 10 applied. (Provisioning RPC plus the
-  Phase 2 foundation and the student views.)
-- Invite a UNIT LEADER: files 1 through 8 plus 10 and 11 applied. (Provisioning
-  RPC, the Phase 2 foundation, and the Phase 3 unit views/released_reports.)
-- Invite an ACADEMIC PARTNER: files 1 through 8, 10, 11, and 12 applied.
-  (Provisioning RPC, the Phase 3 released_reports dependency, and the schools
-  normalization plus its scoped report view.)
+- Invite a STUDENT: files 1 through 11 applied. (Provisioning RPC, role
+  enablement, the Phase 2 foundation, and the student views.)
+- Invite a UNIT LEADER: files 1 through 8 plus 10, 11, and 12 applied.
+  (Provisioning RPC, role enablement, the Phase 2 foundation, and the Phase 3
+  unit views/released_reports.)
+- Invite an ACADEMIC PARTNER: files 1 through 8, 10, 11, 12, and 13 applied.
+  (Provisioning RPC, role enablement, the Phase 3 released_reports dependency,
+  and the schools normalization plus its scoped report view.)
 
 In all three cases the security floor (files 1 through 7) MUST be in place
 first; never invite an external account while any broad anon/authenticated
@@ -148,9 +151,10 @@ before Wave F-1 and every Phase 2 or later migration. The unapplied Wave F-1
 and Phase 2 through Phase 5 files were re-versioned so that lexicographic
 filename order now matches the roadmap exactly (Wave E-2 `...000005`, Wave F-1
 `...000006`, Phase 2 authz `...000007`, Phase 2 views `...000008`, Phase 2
-lifecycle `...000009`, Phase 3 `...000010`, Phase 4 `...000011`, Phase 5
-`...000012`, Wave F-2 `...000013`; the Phase 2 lifecycle migration was later
-inserted at `...000009`, shifting Phase 3 through Wave F-2 up by one). Apply it immediately AFTER Wave E and before inviting any
+lifecycle `...000009`, Phase 2 role enablement `...000010`, Phase 3 `...000011`,
+Phase 4 `...000012`, Phase 5 `...000013`, Wave F-2 `...000014`; the Phase 2
+lifecycle migration was inserted at `...000009` and the Phase 2 role-enablement
+migration at `...000010`, each shifting the later phases up by one). Apply it immediately AFTER Wave E and before inviting any
 portal account. The Wave E migration file itself is left unchanged (it was
 already applied); this note records the discovery and the required correction.
 Revert lives in
@@ -223,11 +227,42 @@ matching application code. It is additive and explicitly transactional
   endpoint plus the new revoke endpoint before inviting, renewing, or revoking
   any portal account. The invite endpoint fails closed (500) if the RPC is not
   yet present.
-- STILL VERIFY before the first invite (unchanged from the foundation note):
-  confirm `user_profiles` has no CHECK constraint that rejects `role = 'portal'`
-  (the table is dashboard-created). If such a constraint exists, provisioning
-  rolls back and the endpoint compensates, but no account is created until the
-  constraint is reconciled.
+- CHECK-constraint blocker (CONFIRMED live, RESOLVED by file 11): the live
+  `user_profiles_role_check` allowed only `owner`, `admin`, `interviewer`,
+  `viewer`, so provisioning `role='portal'` failed. File 11 (the role-enablement
+  migration) widens the CHECK to add `portal`. See the next section.
+
+## Phase 2 portal role enablement (file 11) notes
+
+`supabase/migrations/20260712000010_phase2_portal_role_enablement.sql` drops and
+re-adds `user_profiles_role_check` (same constraint name) to allow exactly five
+roles: `owner`, `admin`, `interviewer`, `viewer`, `portal`. It is explicitly
+transactional, inserts no data, converts no existing profile, and creates no
+table, policy, function, or grant. Applying it does NOT activate any portal
+account.
+
+- Allowed roles after this migration: `owner`, `admin`, `interviewer`, `viewer`,
+  `portal`. NULL role remains permitted (a CHECK passes on NULL), exactly as
+  before. `co_lead`/`co-lead` were NOT in the live CHECK and are not added.
+- NOT a staff role: `is_staff()` (owner, admin, co_lead, co-lead, interviewer,
+  viewer) and `is_owner_or_admin()` (owner, admin) do not list `portal`, and the
+  client `PORTAL_STAFF_ROLES` list (`src/App.jsx`) does not either. A
+  `role='portal'` profile enters PortalApp, and with no active authorization
+  grant it sees no portal data.
+- No escalation path (audited): Phase 0B Wave E (applied) already revoked
+  table-level UPDATE on `user_profiles` from `authenticated` and granted only a
+  COLUMN-level UPDATE on the cosmetic self-service columns (`avatar_url`,
+  `onboarding_tour_*`, `last_login_at`). `role`, `is_owner`, `is_active`,
+  `can_conduct_interviews`, and `login_enabled` are not client-writable, so a
+  portal user cannot self-promote. Widening the CHECK confers no privilege; only
+  the service-role, Owner/Admin-gated `provision_portal_access` writes
+  `role='portal'`. Avatar and Connect-signature self-service (the
+  `update_my_avatar` and `update_my_connect_signature` RPCs, plus the avatar_url
+  column grant) are unaffected.
+- REQUIRED before any portal invitation: apply file 11 (in addition to file 10).
+  Until it runs, `provision_portal_access` rolls back on the role write and the
+  invite endpoint compensates any newly created auth user, so no partial account
+  is left, but no portal account can be created.
 
 ## First migration to run after approval
 
