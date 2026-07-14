@@ -56,6 +56,15 @@ test('Phase 2 student portal views', async (t) => {
     assert.match(sql, /respondent_type = 'student'/, 'evaluation view must restrict to respondent_type student')
   })
 
+  await t.test('evaluation view sources instrument_title from live display_name column', () => {
+    // Live evaluation_instruments has display_name, not title.
+    assert.match(sql, /i\.display_name\s+AS instrument_title/, 'instrument_title must source from i.display_name')
+    assert.doesNotMatch(sql, /i\.title\b/, 'no reference to the nonexistent i.title column may remain')
+    // Portal-facing output column name is preserved.
+    assert.match(sql, /AS instrument_title/, 'output alias instrument_title must be preserved')
+    assert.match(sql, /i\.slug\s+AS instrument_slug/, 'instrument_slug mapping must be preserved')
+  })
+
   await t.test('no staff-only columns are selected in any view', () => {
     // Only inspect the view-definition region (before the privileges section).
     const defs = sql.slice(0, sql.indexOf('-- ── 4. Privileges'))

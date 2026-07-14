@@ -74,7 +74,7 @@ WITH (security_barrier = true) AS
     a.completed_at,
     a.expires_at,
     i.slug  AS instrument_slug,
-    i.title AS instrument_title
+    i.display_name AS instrument_title
   FROM public.evaluation_assignments a
   JOIN public.evaluation_instruments i ON i.id = a.instrument_id
   WHERE a.respondent_type = 'student'
