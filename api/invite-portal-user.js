@@ -1,26 +1,39 @@
 // api/invite-portal-user.js
 //
-// PHASE2-PORTAL: invitation endpoint for external portal accounts (students,
-// unit leaders, academic partners), the many-to-many counterpart of
-// api/invite-user.js (which remains the staff invitation endpoint).
+// PHASE2-PORTAL / PHASE2-ACCESS: invitation AND renewal endpoint for external
+// portal accounts (students, unit leaders, academic partners), the
+// many-to-many counterpart of api/invite-user.js (the staff invitation
+// endpoint).
 //
 // Authorization mirrors invite-user.js: server-verified JWT plus the caller's
 // authoritative user_profiles row; only owners and admins may invite portal
 // users; nothing in the body influences caller authority.
 //
-// Created accounts get user_profiles.role = 'portal' (a NON-staff value, so
-// is_staff() excludes them and the staff app treats them as portal users),
-// is_owner = false, and their actual capabilities come EXCLUSIVELY from
-// user_role_grants plus the scope tables:
-//   role 'student'          -> requires student_id           -> user_student_links
-//     (one active portal account per student row, enforced by a partial unique)
-//   role 'unit_leader'      -> requires unit_keys[]          -> user_unit_scopes
-//   role 'academic_partner' -> requires school_keys[]        -> user_school_scopes
-// Optional expires_at applies to the role grant (auto-deactivation).
+// FAILURE-SAFE LIFECYCLE (ASPIRE-PHASE2-ACCESS):
+//   All database-side provisioning (profile resolve/create, role grant, and
+//   the role's own links/scopes) happens in ONE transaction via the
+//   provision_portal_access() RPC. This endpoint never performs the four
+//   authorization-table inserts separately. The RPC creates, RENEWS (expired,
+//   reissued, or changed window), or idempotently reuses each row, so
+//   re-inviting or renewing a portal user no longer fails on the active-slot
+//   partial unique indexes.
 //
-// PREREQUISITE: the Phase 2 authorization migration must be applied before
-// this endpoint can succeed; before that, inserts fail closed with 500 and no
-// portal capability exists anywhere.
+//   The one remaining cross-system boundary is the auth user vs. the database.
+//   When THIS request created the auth user and the RPC then fails, the auth
+//   user is deleted (compensation). A pre-existing auth user and any existing
+//   user_profiles row are never deleted.
+//
+// Status codes:
+//   201 newly provisioned account (this request created the auth user)
+//   200 idempotent reuse or renewal of an existing account
+//   409 genuine authorization conflict (e.g. student linked elsewhere)
+//   400 invalid input
+//   401 / 403 caller authorization failure
+//   500 unexpected server failure
+//
+// PREREQUISITE: the Phase 2 authorization foundation (20260712000007) AND the
+// portal access lifecycle (20260712000009, which defines provision_portal_access)
+// must be applied before this endpoint can succeed.
 
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
@@ -30,6 +43,17 @@ import { UNIT_CATALOG } from '../src/lib/unitCatalog.js'
 const PORTAL_ROLES = ['student', 'unit_leader', 'academic_partner']
 const CANONICAL_UNIT_KEYS = new Set(UNIT_CATALOG.map(u => u.name))
 
+const str = (v) => (typeof v === 'string' ? v.trim() : '')
+const strArray = (v) => (Array.isArray(v) ? v.map(str).filter(Boolean) : [])
+
+function getServiceDb() {
+  return createClient(
+    process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  )
+}
+
 async function verifyCaller(req) {
   const authHeader = req.headers['authorization'] || req.headers['Authorization'] || ''
   const token = authHeader.replace(/^Bearer\s+/i, '').trim()
@@ -37,7 +61,6 @@ async function verifyCaller(req) {
 
   const url     = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   let user
   try {
@@ -53,7 +76,7 @@ async function verifyCaller(req) {
   }
 
   try {
-    const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
+    const admin = getServiceDb()
     const { data: profile, error: pErr } = await admin
       .from('user_profiles')
       .select('id, role, is_owner')
@@ -67,8 +90,20 @@ async function verifyCaller(req) {
   }
 }
 
-const str = (v) => (typeof v === 'string' ? v.trim() : '')
-const strArray = (v) => (Array.isArray(v) ? v.map(str).filter(Boolean) : [])
+// Locate an existing auth user id by email when an invite reports the address
+// is already registered but no profile row carries its auth_user_id. Bounded
+// paging keeps this cheap; portal-scale deployments have few auth users.
+async function findAuthUserIdByEmail(db, email) {
+  const target = email.toLowerCase()
+  for (let page = 1; page <= 20; page++) {
+    const { data, error } = await db.auth.admin.listUsers({ page, perPage: 200 })
+    if (error || !data?.users?.length) return null
+    const match = data.users.find(u => (u.email || '').toLowerCase() === target)
+    if (match) return match.id
+    if (data.users.length < 200) return null
+  }
+  return null
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -129,13 +164,9 @@ export default async function handler(req, res) {
     expiresAt = d.toISOString()
   }
 
-  // ── Gate 7: role-specific scope validation (server-verified) ─────────────
-  const db = createClient(
-    process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
-    { auth: { persistSession: false, autoRefreshToken: false } }
-  )
+  const db = getServiceDb()
 
+  // ── Gate 7: role-specific scope validation (server-verified) ─────────────
   let studentId = null
   let unitKeys = []
   let schoolKeys = []
@@ -150,12 +181,6 @@ export default async function handler(req, res) {
     if (stErr) return res.status(500).json({ error: 'internal_error' })
     if (!studentRow) {
       return res.status(404).json({ error: 'not_found', field: 'student_id', message: 'No student record with that id.' })
-    }
-    const { data: existingLink, error: linkErr } = await db
-      .from('user_student_links').select('id').eq('student_id', studentId).is('revoked_at', null).maybeSingle()
-    if (linkErr) return res.status(500).json({ error: 'internal_error' })
-    if (existingLink) {
-      return res.status(409).json({ error: 'conflict', message: 'That student record is already linked to a portal account.' })
     }
   } else if (portalRole === 'unit_leader') {
     unitKeys = strArray(body.unit_keys)
@@ -173,88 +198,126 @@ export default async function handler(req, res) {
     }
   }
 
-  // ── All gates passed: invite, profile, grant, scopes ──────────────────────
-  try {
-    const { data: invited, error: inviteErr } = await db.auth.admin.inviteUserByEmail(email, {
-      data: { full_name: fullName, role: 'portal', portal_role: portalRole },
-      redirectTo: appUrl('/portal'),
-    })
-    if (inviteErr) {
-      if ((inviteErr.message || '').toLowerCase().includes('already')) {
-        return res.status(409).json({ error: 'conflict', message: 'A user with that email may already exist.' })
-      }
-      console.log('[invite-portal-user] auth invite failed', { errorCode: inviteErr.code, request_id: requestId })
+  // ── Locate any existing profile for this email BEFORE touching auth. Its id
+  //    scopes the conflict pre-check (a student may be re-invited to its OWN
+  //    account) and its auth_user_id lets us reuse an existing account for a
+  //    renewal instead of failing on a duplicate invite. ────────────────────
+  let existingProfile = null
+  {
+    const { data, error } = await db
+      .from('user_profiles').select('id, auth_user_id').eq('email', email).maybeSingle()
+    if (error) {
+      console.log('[invite-portal-user] profile lookup failed', { errorCode: error.code, request_id: requestId })
       return res.status(500).json({ error: 'internal_error' })
     }
-    const newAuthUserId = invited.user.id
+    existingProfile = data || null
+  }
 
-    // Profile: link an existing email-matched row or insert a new one.
-    const { data: existingProfile } = await db
-      .from('user_profiles').select('id').eq('email', email).maybeSingle()
+  // ── Conflict pre-check (clean 409 before any auth work). A student row may
+  //    hold at most one active link; block only when it belongs to a DIFFERENT
+  //    profile than the invitee's. ───────────────────────────────────────────
+  if (portalRole === 'student') {
+    const { data: activeLink, error: linkErr } = await db
+      .from('user_student_links').select('user_profile_id').eq('student_id', studentId).is('revoked_at', null).maybeSingle()
+    if (linkErr) return res.status(500).json({ error: 'internal_error' })
+    if (activeLink && activeLink.user_profile_id !== existingProfile?.id) {
+      return res.status(409).json({ error: 'conflict', message: 'That student record is already linked to a portal account.' })
+    }
+  }
 
-    let profileId
-    if (existingProfile) {
-      const { error: upErr } = await db.from('user_profiles')
-        .update({ auth_user_id: newAuthUserId, full_name: fullName, role: 'portal', login_enabled: true, is_active: true })
-        .eq('id', existingProfile.id)
-      if (upErr) {
-        console.log('[invite-portal-user] profile update failed', { errorCode: upErr.code, request_id: requestId })
-        return res.status(500).json({ error: 'internal_error', message: 'Invitation partially processed. The ASPIRE team will follow up.' })
-      }
-      profileId = existingProfile.id
+  // ── Resolve or create the auth user. Reuse the existing account for a
+  //    renewal; only invite (and flag for compensation) when we create one. ──
+  let authUserId = null
+  let createdAuthUser = false
+  try {
+    if (existingProfile?.auth_user_id) {
+      authUserId = existingProfile.auth_user_id
     } else {
-      const { data: newProfile, error: insErr } = await db.from('user_profiles')
-        .insert({
-          auth_user_id: newAuthUserId,
-          full_name: fullName,
-          email,
-          role: 'portal',
-          is_owner: false,
-          is_active: true,
-          login_enabled: true,
-        })
-        .select('id').single()
-      if (insErr || !newProfile) {
-        console.log('[invite-portal-user] profile insert failed', { errorCode: insErr?.code, request_id: requestId })
-        return res.status(500).json({ error: 'internal_error', message: 'Invitation partially processed. The ASPIRE team will follow up.' })
+      const { data: invited, error: inviteErr } = await db.auth.admin.inviteUserByEmail(email, {
+        data: { full_name: fullName, role: 'portal', portal_role: portalRole },
+        redirectTo: appUrl('/portal'),
+      })
+      if (inviteErr) {
+        if ((inviteErr.message || '').toLowerCase().includes('already')) {
+          // Auth account exists but is not linked to a profile by this email.
+          authUserId = await findAuthUserIdByEmail(db, email)
+          if (!authUserId) {
+            return res.status(409).json({ error: 'conflict', message: 'A user with that email may already exist.' })
+          }
+        } else {
+          console.log('[invite-portal-user] auth invite failed', { errorCode: inviteErr.code, request_id: requestId })
+          return res.status(500).json({ error: 'internal_error' })
+        }
+      } else {
+        authUserId = invited.user.id
+        createdAuthUser = true
       }
-      profileId = newProfile.id
     }
-
-    // Role grant (with optional expiry) plus role-specific scope rows.
-    const { error: grantErr } = await db.from('user_role_grants').insert({
-      user_profile_id: profileId,
-      role: portalRole,
-      granted_by: auth.profileId,
-      expires_at: expiresAt,
-    })
-    if (grantErr) {
-      console.log('[invite-portal-user] grant insert failed', { errorCode: grantErr.code, request_id: requestId })
-      return res.status(500).json({ error: 'internal_error', message: 'Invitation partially processed. The ASPIRE team will follow up.' })
-    }
-
-    let scopeErr = null
-    if (portalRole === 'student') {
-      ;({ error: scopeErr } = await db.from('user_student_links').insert({
-        user_profile_id: profileId, student_id: studentId, linked_by: auth.profileId,
-      }))
-    } else if (portalRole === 'unit_leader') {
-      ;({ error: scopeErr } = await db.from('user_unit_scopes').insert(
-        unitKeys.map(k => ({ user_profile_id: profileId, unit_key: k, granted_by: auth.profileId, expires_at: expiresAt }))
-      ))
-    } else if (portalRole === 'academic_partner') {
-      ;({ error: scopeErr } = await db.from('user_school_scopes').insert(
-        schoolKeys.map(k => ({ user_profile_id: profileId, school_key: k, granted_by: auth.profileId, expires_at: expiresAt }))
-      ))
-    }
-    if (scopeErr) {
-      console.log('[invite-portal-user] scope insert failed', { errorCode: scopeErr.code, request_id: requestId })
-      return res.status(500).json({ error: 'internal_error', message: 'Invitation partially processed. The ASPIRE team will follow up.' })
-    }
-
-    console.log('[invite-portal-user] portal invitation issued', { portalRole, request_id: requestId })
-    return res.status(200).json({ success: true, message: 'Portal invitation sent.' })
   } catch (err) {
+    console.log('[invite-portal-user] auth resolution threw', { errorCode: err?.code, request_id: requestId })
+    return res.status(500).json({ error: 'internal_error' })
+  }
+
+  // ── Single transactional provisioning call. Any failure rolls back every
+  //    database write; we then compensate only a newly created auth user. ────
+  try {
+    const { data: result, error: rpcErr } = await db.rpc('provision_portal_access', {
+      p_auth_user_id: authUserId,
+      p_email: email,
+      p_full_name: fullName,
+      p_role: portalRole,
+      p_granted_by: auth.profileId,
+      p_expires_at: expiresAt,
+      p_student_id: portalRole === 'student' ? studentId : null,
+      p_unit_keys: portalRole === 'unit_leader' ? unitKeys : null,
+      p_school_keys: portalRole === 'academic_partner' ? schoolKeys : null,
+      p_cohort_id: null,
+    })
+
+    if (rpcErr) {
+      // Compensate: undo ONLY an auth user this request created. Never delete a
+      // pre-existing auth user, and never delete a user_profiles row.
+      if (createdAuthUser) {
+        const { error: delErr } = await db.auth.admin.deleteUser(authUserId)
+        if (delErr) {
+          console.log('[invite-portal-user] COMPENSATION FAILED: orphan auth user left', { authUserId, errorCode: delErr.code, request_id: requestId })
+        } else {
+          console.log('[invite-portal-user] compensated: newly created auth user removed', { request_id: requestId })
+        }
+      }
+      const code = rpcErr.code || ''
+      if (code === 'PT409') {
+        return res.status(409).json({ error: 'conflict', message: 'That assignment conflicts with an existing active portal account.' })
+      }
+      if (code === 'PT400') {
+        return res.status(400).json({ error: 'invalid_request', message: 'The invitation could not be validated.' })
+      }
+      if (code === 'PT404') {
+        return res.status(404).json({ error: 'not_found', message: 'A referenced record was not found.' })
+      }
+      console.log('[invite-portal-user] provisioning failed', { errorCode: rpcErr.code, request_id: requestId })
+      return res.status(500).json({ error: 'internal_error', message: 'The invitation could not be completed.' })
+    }
+
+    const status = createdAuthUser ? 201 : 200
+    console.log('[invite-portal-user] portal access provisioned', {
+      portalRole, created: createdAuthUser, grant: result?.grant?.action, request_id: requestId,
+    })
+    return res.status(status).json({
+      success: true,
+      message: createdAuthUser ? 'Portal invitation sent.' : 'Portal access updated.',
+      provisioned: {
+        role: result?.role,
+        grant_action: result?.grant?.action,
+        starts_at: result?.grant?.starts_at,
+        expires_at: result?.grant?.expires_at,
+      },
+    })
+  } catch (err) {
+    if (createdAuthUser) {
+      try { await db.auth.admin.deleteUser(authUserId) } catch { /* logged below */ }
+      console.log('[invite-portal-user] unexpected error after auth create; compensated', { request_id: requestId })
+    }
     console.log('[invite-portal-user] unexpected error', { errorCode: err?.code, request_id: requestId })
     return res.status(500).json({ error: 'internal_error' })
   }

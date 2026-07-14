@@ -38,10 +38,11 @@ its findings confirmed against production. Confirmed conclusions:
 | 7 | `20260712000006_phase0b_wave_f1_function_execute_hardening.sql` | requires 1; privilege-only, no app change; preserves the two school-form functions | closes F8 (anon/PUBLIC EXECUTE) |
 | 8 | `20260712000007_phase2_authz_foundation.sql` | requires 1 through 6; additive; explicitly transactional (BEGIN/COMMIT) | portal role grants, scopes, student links |
 | 9 | `20260712000008_phase2_student_portal_views.sql` | requires 8; additive; explicitly transactional (BEGIN/COMMIT); PRECHECK that all referenced base-table columns exist (some base tables are dashboard-created); the eval view sources `evaluation_instruments.display_name` (live schema; there is no `title` column), exposed as `instrument_title` | student portal reads |
-| 10 | `20260712000009_phase3_unit_portal.sql` | requires 8 | unit leader portal reads, released_reports |
-| 11 | `20260712000010_phase4_school_portal.sql` | requires 8 and 10; contains the ONE backfill (students.school_id, fills NULLs only) | academic partner portal, schools |
-| 12 | `20260712000011_phase5_public_metrics.sql` | requires 1; additive, seeds nothing | public metrics workflow |
-| 13 | `20260712000012_phase0b_wave_f2_student_files_private.sql` | **DO NOT RUN until the Wave F-2 code prerequisite below is deployed and verified** | closes F7 (public resume bucket) |
+| 10 | `20260712000009_phase2_portal_access_lifecycle.sql` | requires 8; additive; explicitly transactional (BEGIN/COMMIT); two service-role-only SECURITY DEFINER functions (`provision_portal_access`, `revoke_portal_access`); **MUST be applied before inviting or renewing ANY portal account** (the invite endpoint now provisions through the RPC) | failure-safe portal provisioning, renewal, revocation |
+| 11 | `20260712000010_phase3_unit_portal.sql` | requires 8 | unit leader portal reads, released_reports |
+| 12 | `20260712000011_phase4_school_portal.sql` | requires 8 and 11; contains the ONE backfill (students.school_id, fills NULLs only) | academic partner portal, schools |
+| 13 | `20260712000012_phase5_public_metrics.sql` | requires 1; additive, seeds nothing | public metrics workflow |
+| 14 | `20260712000013_phase0b_wave_f2_student_files_private.sql` | **DO NOT RUN until the Wave F-2 code prerequisite below is deployed and verified** | closes F7 (public resume bucket) |
 
 All files under `supabase/migrations/`. Each ends with its own verification
 queries and (waves) a rollback section. Prior-wave reverts also live in
@@ -76,13 +77,16 @@ staff-wide data has appeared since this reconciliation.
 
 No portal account may be created (api/invite-portal-user) until its
 prerequisites are applied AND the F8 internal-gate confirmation above is done.
+Every invitation now provisions through `provision_portal_access`, so file 10
+(the lifecycle migration) is required for ALL roles.
 
-- Invite a STUDENT: files 1 through 9 applied. (Student portal reads
-  need the Phase 2 foundation and the student views.)
-- Invite a UNIT LEADER: files 1 through 8 plus 10 applied. (Unit portal needs the
-  Phase 2 foundation and the Phase 3 unit views/released_reports.)
-- Invite an ACADEMIC PARTNER: files 1 through 8, 10, and 11 applied. (Partner
-  portal needs schools normalization and its scoped report view.)
+- Invite a STUDENT: files 1 through 10 applied. (Provisioning RPC plus the
+  Phase 2 foundation and the student views.)
+- Invite a UNIT LEADER: files 1 through 8 plus 10 and 11 applied. (Provisioning
+  RPC, the Phase 2 foundation, and the Phase 3 unit views/released_reports.)
+- Invite an ACADEMIC PARTNER: files 1 through 8, 10, 11, and 12 applied.
+  (Provisioning RPC, the Phase 3 released_reports dependency, and the schools
+  normalization plus its scoped report view.)
 
 In all three cases the security floor (files 1 through 7) MUST be in place
 first; never invite an external account while any broad anon/authenticated
@@ -143,8 +147,10 @@ versioned `...000005` so it sorts immediately after Wave E (`...000004`) and
 before Wave F-1 and every Phase 2 or later migration. The unapplied Wave F-1
 and Phase 2 through Phase 5 files were re-versioned so that lexicographic
 filename order now matches the roadmap exactly (Wave E-2 `...000005`, Wave F-1
-`...000006`, Phase 2 authz `...000007`, Phase 2 views `...000008`, Phase 3
-`...000009`, Phase 4 `...000010`, Phase 5 `...000011`, Wave F-2 `...000012`). Apply it immediately AFTER Wave E and before inviting any
+`...000006`, Phase 2 authz `...000007`, Phase 2 views `...000008`, Phase 2
+lifecycle `...000009`, Phase 3 `...000010`, Phase 4 `...000011`, Phase 5
+`...000012`, Wave F-2 `...000013`; the Phase 2 lifecycle migration was later
+inserted at `...000009`, shifting Phase 3 through Wave F-2 up by one). Apply it immediately AFTER Wave E and before inviting any
 portal account. The Wave E migration file itself is left unchanged (it was
 already applied); this note records the discovery and the required correction.
 Revert lives in
@@ -174,6 +180,54 @@ Revert lives in
   invite endpoint that returns a clean 409 instead of a 500 partial. This
   foundation migration is safe to apply now; the renewal limitation must be
   resolved in application code before the first renewal or reinvitation.
+- RESOLVED by file 10 (the Phase 2 access lifecycle migration) plus the
+  refactored `api/invite-portal-user.js` and the new `api/revoke-portal-access.js`.
+  See the next section.
+
+## Phase 2 portal access lifecycle (file 10) notes
+
+The renewal/revocation limitation recorded above is corrected by
+`supabase/migrations/20260712000009_phase2_portal_access_lifecycle.sql` and the
+matching application code. It is additive and explicitly transactional
+(`BEGIN;`/`COMMIT;`); it creates no tables or policies.
+
+- Two SECURITY DEFINER functions, both with `search_path = public, pg_catalog`
+  and EXECUTE granted to `service_role` ONLY (PUBLIC, anon, and authenticated
+  are revoked):
+  - `provision_portal_access(...)` runs every database-side write (profile
+    resolve/create, role grant, and the role's own student link or unit/school
+    scopes) in ONE transaction. It creates, RENEWS (expired-unrevoked slot
+    revoked then re-granted; reissued after a prior revoke; or an intentionally
+    changed `expires_at` updated in place), or idempotently REUSES each row, so
+    re-inviting or renewing a portal user no longer fails on the active-slot
+    partial unique indexes. A student row already linked to a DIFFERENT active
+    profile raises `PT409`; the same profile's own re-invite is idempotent. The
+    three-identity model is preserved (profile `id` is never forced to equal
+    `auth_user_id`), and `role='portal'` is set only when the profile is not an
+    existing staff account.
+  - `revoke_portal_access(...)` sets `revoked_at`/`revoked_by` on the active
+    grant and, when cascading, on that role's own links/scopes. It NEVER
+    deletes, never touches unrelated roles or assignments, and is idempotent
+    (already-revoked is a success).
+- `api/invite-portal-user.js` now invites or LOCATES the auth user, then calls
+  `provision_portal_access` for all authorization writes (never four separate
+  inserts). It pre-checks the student-link conflict before any auth work
+  (clean 409, not a partial 500), and if the RPC fails after THIS request
+  created the auth user, it deletes only that newly created auth user
+  (compensation); a pre-existing auth user and any `user_profiles` row are never
+  deleted. Status codes: 201 new account, 200 renewal/idempotent, 409 conflict,
+  400 invalid, 401/403 caller-auth, 500 unexpected.
+- `api/revoke-portal-access.js` is a new Owner/Admin endpoint that calls
+  `revoke_portal_access`. It never deletes the auth user or the profile.
+- DEPLOY ORDER before the pilot: apply file 10 AND deploy the refactored invite
+  endpoint plus the new revoke endpoint before inviting, renewing, or revoking
+  any portal account. The invite endpoint fails closed (500) if the RPC is not
+  yet present.
+- STILL VERIFY before the first invite (unchanged from the foundation note):
+  confirm `user_profiles` has no CHECK constraint that rejects `role = 'portal'`
+  (the table is dashboard-created). If such a constraint exists, provisioning
+  rolls back and the endpoint compensates, but no account is created until the
+  constraint is reconciled.
 
 ## First migration to run after approval
 

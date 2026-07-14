@@ -2,7 +2,7 @@
 -- PHASE 4: schools normalization and academic partner read surface
 -- ============================================================================
 -- *** PREREQUISITES (hard): Phase 0B Waves A through E, Phase 2 foundation   ***
--- *** (20260712000007), Phase 3 (20260712000009, for released_reports).     ***
+-- *** (20260712000007), Phase 3 (20260712000010, for released_reports).     ***
 --
 -- Owner instructions: run this ENTIRE file as one block. Additive plus ONE
 -- backfill UPDATE (students.school_id, described below). The backfill only
