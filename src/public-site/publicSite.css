@@ -88,69 +88,31 @@
 }
 .ps-nav-toggle-bar { width: 18px; height: 2px; background: var(--ps-navy); border-radius: 2px; }
 
-/* ── Mobile nav drawer ────────────────────────────────────────────────────────
-   A clearly separate elevated white surface over a dimmed, blurred backdrop
-   (the old inline menu blended into the cream page). Slides from the right;
-   respects safe areas; transform-only motion (disabled under reduced motion). */
-.ps-drawer-backdrop {
-  position: fixed; inset: 0; z-index: 60;
-  background: rgba(20, 26, 77, 0.42);
-  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
-  opacity: 0; pointer-events: none; transition: opacity 180ms ease;
-}
-.ps-drawer-backdrop-open { opacity: 1; pointer-events: auto; }
-.ps-drawer {
-  position: fixed; top: 0; right: 0; bottom: 0; z-index: 61;
-  width: min(340px, 88vw);
+/* ── Compact mobile menu popover ──────────────────────────────────────────────
+   A small right-aligned white card near the hamburger (same interaction scale
+   as the Student Portal profile menu). The page stays visible behind it; no
+   full-screen drawer, no scroll lock. */
+.ps-menu-wrap { position: relative; display: flex; align-items: center; }
+.ps-menu {
+  position: absolute; top: calc(100% + 10px); right: 0; z-index: 61;
+  width: min(260px, 86vw);
+  max-height: calc(100vh - 96px - env(safe-area-inset-top, 0px));
+  overflow-y: auto;
   background: var(--ps-card);
-  border-left: 1px solid var(--ps-line);
-  border-radius: 20px 0 0 20px;
-  box-shadow: -18px 0 50px -12px rgba(20, 26, 77, 0.35);
-  display: flex; flex-direction: column;
-  padding:
-    calc(14px + env(safe-area-inset-top, 0px))
-    calc(18px + env(safe-area-inset-right, 0px))
-    calc(18px + env(safe-area-inset-bottom, 0px))
-    18px;
-  transform: translateX(105%);
-  visibility: hidden;
-  transition: transform 220ms ease, visibility 0s linear 220ms;
+  border: 1px solid var(--ps-line);
+  border-radius: 14px;
+  box-shadow: 0 12px 34px -8px rgba(20, 26, 77, 0.30);
+  padding: 6px;
 }
-.ps-drawer-open {
-  transform: translateX(0);
-  visibility: visible;
-  transition: transform 220ms ease;
+.ps-menu-item {
+  display: block; padding: 10px 12px; border-radius: 9px;
+  font-size: 15px; font-weight: 500; color: var(--ps-ink);
 }
-.ps-drawer-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 4px 2px 14px; border-bottom: 1px solid var(--ps-line-soft);
-}
-.ps-drawer-title {
-  font-size: 12.5px; font-weight: 700; letter-spacing: 0.14em;
-  text-transform: uppercase; color: var(--ps-ink-soft);
-}
-.ps-drawer-close {
-  width: 42px; height: 42px; border: 1px solid var(--ps-line);
-  border-radius: 10px; background: var(--ps-cream); color: var(--ps-navy);
-  display: flex; align-items: center; justify-content: center; cursor: pointer;
-}
-.ps-drawer-nav { display: flex; flex-direction: column; padding: 12px 0; overflow-y: auto; }
-.ps-drawer-nav a {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  min-height: 48px; padding: 11px 12px; border-radius: 11px;
-  font-size: 16px; font-weight: 500; color: var(--ps-ink);
-}
-.ps-drawer-nav a:hover { background: var(--ps-cream); }
-.ps-drawer-arrow { color: #b9b2a4; font-size: 15px; }
-.ps-drawer-nav a.ps-drawer-active {
-  background: var(--ps-tint); color: var(--ps-navy); font-weight: 700;
-}
-.ps-drawer-nav a.ps-drawer-active .ps-drawer-arrow { color: var(--ps-navy); }
-.ps-drawer-foot {
-  margin-top: auto; padding-top: 16px; border-top: 1px solid var(--ps-line-soft);
-}
+.ps-menu-item:hover { background: var(--ps-cream); }
+.ps-menu-item[aria-current="page"] { background: var(--ps-tint); color: var(--ps-navy); font-weight: 700; }
+.ps-menu-foot { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--ps-line-soft); }
 @media (min-width: 761px) {
-  .ps-drawer, .ps-drawer-backdrop { display: none; }
+  .ps-menu { display: none; }
 }
 
 /* ── Section scaffold ─────────────────────────────────────────────────────── */
@@ -575,11 +537,14 @@
 @media (max-width: 760px) {
   .ps-nav { display: none; }
   .ps-nav-toggle { display: flex; }
-  .ps-header-inner { padding: 12px 16px; gap: 12px; }
-  /* Keep the Log in / Open Portal action visible next to the toggle; it is
-     also repeated inside the drawer for thumb reach. */
+  .ps-header-inner {
+    padding: calc(12px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px));
+    gap: 12px;
+  }
+  /* The closed mobile header is only brand + hamburger; the Open Portal / Log in
+     action moves INTO the compact menu popover. */
   .ps-header-actions { margin-left: auto; }
-  .ps-header-actions .ps-login-btn { padding: 9px 14px; font-size: 13.5px; }
+  .ps-header-actions > .ps-login-btn { display: none; }
 
   .ps-hero-inner { grid-template-columns: 1fr; padding: 36px 20px 40px; gap: 24px; }
   .ps-hero-art { order: -1; }

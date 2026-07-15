@@ -197,7 +197,7 @@
 }
 .ptl-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .ptl-hero-id { display: flex; align-items: center; gap: 15px; min-width: 0; }
-.ptl-hero .ptl-avatar { border: 2.5px solid rgba(255,255,255,0.85); box-shadow: 0 3px 14px rgba(0,0,0,0.18); }
+.ptl-hero .ptl-avatar { width: 80px; height: 80px; font-size: 28px; border: 3px solid rgba(255,255,255,0.9); box-shadow: 0 4px 18px rgba(0,0,0,0.22); }
 .ptl-hero-text { min-width: 0; }
 .ptl-hero-hello { font-size: 13px; color: rgba(255,255,255,0.72); }
 .ptl-hero-name { font-size: 24px; font-weight: 800; line-height: 1.15; }
@@ -261,7 +261,7 @@
   .ptl-header-sub { display: none; }
   .ptl-hero { padding: 18px 16px; border-radius: 16px; }
   .ptl-hero-name { font-size: 21px; }
-  .ptl-hero .ptl-avatar { width: 48px; height: 48px; font-size: 17px; }
+  .ptl-hero .ptl-avatar { width: 72px; height: 72px; font-size: 25px; }
   .ptl-help-grid { grid-template-columns: 1fr; }
   .ptl-card { padding: 18px 16px; }
   /* Hero inline actions collapse into the sticky bar on small screens */

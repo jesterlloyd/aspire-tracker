@@ -53,12 +53,14 @@ const PAGE_TITLES = {
   contact:     'Contact | ASPIRE at Cedars-Sinai',
 }
 
-// ── Header with accessible mobile nav drawer ─────────────────────────────────
-// The mobile menu is a clearly separate elevated white panel that slides over
-// a dimmed backdrop (it no longer blends into the cream page). While open:
-// body scroll is locked, focus moves to the close control, Tab cycles inside
-// the panel, and Escape (or the backdrop, or any link) closes it and returns
-// focus to the toggle.
+// ── Header with a compact mobile menu popover ────────────────────────────────
+// The desktop header is unchanged (inline nav + Open Portal/Log in). On mobile
+// the closed header shows only the compact Cedars-Sinai + ASPIRE brand and one
+// hamburger button; every navigation link and the emphasized Open Portal action
+// live inside a compact right-aligned dropdown popover (the same interaction
+// scale/quality as the Student Portal profile menu). The popover leaves the page
+// visible behind it and closes on Escape, an outside click, route selection, or
+// the toggle, returning focus to the hamburger.
 function PublicHeader() {
   const { user } = useAuth()
   const location = useLocation()
@@ -67,7 +69,6 @@ function PublicHeader() {
   const [openFor, setOpenFor] = useState(null)
   const open = openFor === location.pathname
   const panelRef = useRef(null)
-  const closeBtnRef = useRef(null)
   const toggleRef = useRef(null)
 
   const close = () => {
@@ -77,30 +78,24 @@ function PublicHeader() {
 
   useEffect(() => {
     if (!open) return undefined
-    // Scroll lock plus keyboard behavior for the drawer.
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    if (closeBtnRef.current) closeBtnRef.current.focus()
-
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); close(); return }
-      if (e.key !== 'Tab' || !panelRef.current) return
-      const focusables = panelRef.current.querySelectorAll('a[href], button:not([disabled])')
-      if (focusables.length === 0) return
-      const first = focusables[0]
-      const last = focusables[focusables.length - 1]
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    // Compact popover: focus the first item, close on Escape (return focus) or
+    // an outside click. No scroll lock and no modal; the page stays visible.
+    const t = setTimeout(() => panelRef.current?.querySelector('[role="menuitem"]')?.focus(), 10)
+    const onKeyDown = (e) => { if (e.key === 'Escape') { e.preventDefault(); close() } }
+    const onDocDown = (e) => {
+      if (panelRef.current?.contains(e.target) || toggleRef.current?.contains(e.target)) return
+      setOpenFor(null)
     }
     document.addEventListener('keydown', onKeyDown)
+    document.addEventListener('mousedown', onDocDown)
     return () => {
-      document.body.style.overflow = prevOverflow
+      clearTimeout(t)
       document.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('mousedown', onDocDown)
     }
-  }, [open])
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <>
     <header className="ps-header">
       <div className="ps-header-inner">
         <Link to="/" className="ps-brand" aria-label="ASPIRE at Cedars-Sinai home">
@@ -109,7 +104,7 @@ function PublicHeader() {
           <span className="ps-brand-name">ASPIRE</span>
         </Link>
 
-        {/* Desktop inline nav */}
+        {/* Desktop inline nav (unchanged) */}
         <nav className="ps-nav" aria-label="Primary">
           {NAV_LINKS.map(l => (
             <Link key={l.path} to={l.path}
@@ -121,58 +116,41 @@ function PublicHeader() {
         </nav>
 
         <div className="ps-header-actions">
+          {/* Desktop-only inline action; hidden on mobile (moves into the menu). */}
           {user
             ? <Link to="/portal" className="ps-login-btn">Open Portal</Link>
             : <Link to="/login"  className="ps-login-btn">Log in</Link>}
-          <button type="button" className="ps-nav-toggle" ref={toggleRef}
-            aria-expanded={open} aria-controls="ps-drawer"
-            aria-label={open ? 'Close menu' : 'Open menu'}
-            onClick={() => setOpenFor(v => (v === location.pathname ? null : location.pathname))}>
-            <span className="ps-nav-toggle-bar" />
-            <span className="ps-nav-toggle-bar" />
-            <span className="ps-nav-toggle-bar" />
-          </button>
+
+          <div className="ps-menu-wrap">
+            <button type="button" className="ps-nav-toggle" ref={toggleRef}
+              aria-haspopup="menu" aria-expanded={open} aria-controls="ps-menu"
+              aria-label={open ? 'Close menu' : 'Open menu'}
+              onClick={() => setOpenFor(v => (v === location.pathname ? null : location.pathname))}>
+              <span className="ps-nav-toggle-bar" />
+              <span className="ps-nav-toggle-bar" />
+              <span className="ps-nav-toggle-bar" />
+            </button>
+
+            {open && (
+              <div id="ps-menu" ref={panelRef} className="ps-menu" role="menu" aria-label="Site menu">
+                {NAV_LINKS.map(l => (
+                  <Link key={l.path} to={l.path} role="menuitem" className="ps-menu-item"
+                    onClick={() => setOpenFor(null)}
+                    aria-current={location.pathname === l.path ? 'page' : undefined}>
+                    {l.label}
+                  </Link>
+                ))}
+                <div className="ps-menu-foot">
+                  {user
+                    ? <Link to="/portal" role="menuitem" className="ps-btn ps-btn-primary ps-btn-block" onClick={() => setOpenFor(null)}>Open Portal</Link>
+                    : <Link to="/login"  role="menuitem" className="ps-btn ps-btn-primary ps-btn-block" onClick={() => setOpenFor(null)}>Log in</Link>}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>
-
-      {/* Mobile drawer plus backdrop. Rendered as a SIBLING of the header, not
-          inside it: the header's backdrop-filter would otherwise become the
-          containing block for these position:fixed elements and collapse the
-          drawer to the header's height. */}
-      <div className={`ps-drawer-backdrop ${open ? 'ps-drawer-backdrop-open' : ''}`}
-        onClick={close} aria-hidden="true" />
-      <div id="ps-drawer" ref={panelRef}
-        className={`ps-drawer ${open ? 'ps-drawer-open' : ''}`}
-        role="dialog" aria-modal="true" aria-label="Site menu"
-        inert={!open}>
-        <div className="ps-drawer-head">
-          <span className="ps-drawer-title">Menu</span>
-          <button type="button" className="ps-drawer-close" ref={closeBtnRef}
-            onClick={close} aria-label="Close menu">
-            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
-              <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor"
-                strokeWidth="2.2" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-        <nav className="ps-drawer-nav" aria-label="Primary, mobile">
-          {NAV_LINKS.map(l => (
-            <Link key={l.path} to={l.path} onClick={() => setOpenFor(null)}
-              aria-current={location.pathname === l.path ? 'page' : undefined}
-              className={location.pathname === l.path ? 'ps-drawer-active' : undefined}>
-              {l.label}
-              <span className="ps-drawer-arrow" aria-hidden="true">→</span>
-            </Link>
-          ))}
-        </nav>
-        <div className="ps-drawer-foot">
-          {user
-            ? <Link to="/portal" className="ps-btn ps-btn-primary ps-btn-block" onClick={() => setOpenFor(null)}>Open Portal</Link>
-            : <Link to="/login"  className="ps-btn ps-btn-primary ps-btn-block" onClick={() => setOpenFor(null)}>Log in</Link>}
-        </div>
-      </div>
-    </>
   )
 }
 
