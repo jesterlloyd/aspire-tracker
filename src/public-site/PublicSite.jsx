@@ -17,6 +17,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Icon from './PublicIcons'
 import { celebrate } from './confetti'
+import { composePublicEmail } from '../lib/outlookCompose'
 import {
   SITE_NAME, SITE_TITLE, NAV_LINKS, HOME, ABOUT, ELIGIBILITY, APPLY,
   EXPERIENCE, PRECEPTORS, FAQ, CONTACT, FOOTER,
@@ -175,6 +176,29 @@ function CtaLink({ cta, variant = 'text' }) {
   return <SmartLink to={cta.path} className={`ps-btn ps-btn-${variant}`}>{cta.label}</SmartLink>
 }
 
+// Email CTA for the public Preceptors and Contact pages. Uses the centralized
+// compose helper (Outlook Web in a new tab for cshs.org, safe new-tab mailto
+// otherwise); never navigates the current tab. If the browser blocks the popup,
+// a brief, keyboard-reachable fallback shows the address as selectable text.
+function EmailButton({ to, subject, label, variant = 'primary' }) {
+  const [blocked, setBlocked] = useState(false)
+  const onClick = () => {
+    const res = composePublicEmail({ to, subject })
+    setBlocked(!res.opened)
+  }
+  return (
+    <div className="ps-email-cta">
+      <button type="button" className={`ps-btn ps-btn-${variant}`} onClick={onClick}
+        aria-label={`${label} (opens an email compose in a new tab)`}>{label}</button>
+      {blocked && (
+        <p className="ps-email-fallback" role="alert">
+          Your browser blocked the email window. Email <span className="ps-email-addr">{to}</span> directly.
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ── Home ──────────────────────────────────────────────────────────────────────
 function HomePage() {
   return (
@@ -193,7 +217,7 @@ function HomePage() {
           <div className="ps-hero-art">
             <div className="ps-hero-figure">
               <Art base="hero" eager
-                alt="Illustration of a Cedars-Sinai nurse talking with a senior nursing student in a bright hospital lobby" />
+                alt="Illustration of a diverse group of senior nursing students walking together in a Cedars-Sinai hospital environment" />
             </div>
           </div>
         </div>
@@ -225,13 +249,11 @@ function HomePage() {
           {HOME.glanceCards.map(c => (
             <article className="ps-glance-card" key={c.title}>
               <span className="ps-glance-icon"><Icon name={c.icon} /></span>
-              {c.stat && <div className="ps-glance-stat">{c.stat}</div>}
               <h3>{c.title}</h3>
               <p>{c.body}</p>
             </article>
           ))}
         </div>
-        <p className="ps-inline-note">{HOME.glanceNote}</p>
       </section>
 
       <section className="ps-section" aria-labelledby="ps-journey-title">
@@ -250,7 +272,7 @@ function HomePage() {
           <h2 id="ps-faq-title" className="ps-h2">{HOME.faqTitle}</h2>
           <Link to="/faq" className="ps-arrow-link">{HOME.faqCtaLabel} <span aria-hidden="true">→</span></Link>
         </div>
-        <FaqAccordion items={FAQ.items.slice(0, 3)} idPrefix="home-faq" />
+        <FaqAccordion items={HOME.faqPreview.map(p => ({ q: p.q, a: FAQ.items[p.i].a }))} idPrefix="home-faq" />
       </section>
     </>
   )
@@ -358,11 +380,14 @@ function PreceptorBand() {
 
 // ── Reusable page header ──────────────────────────────────────────────────────
 function PageHead({ eyebrow, title, intro }) {
+  const paras = Array.isArray(intro) ? intro : (intro ? [intro] : [])
   return (
     <div className="ps-page-head">
       <p className="ps-eyebrow">{eyebrow}</p>
       <h1 className="ps-h1">{title}</h1>
-      {intro && <p className="ps-lead">{intro}</p>}
+      {paras.map((p, i) => (
+        <p key={i} className={i === 0 ? 'ps-lead' : 'ps-body ps-head-extra'}>{p}</p>
+      ))}
     </div>
   )
 }
@@ -384,6 +409,23 @@ function FaqAccordion({ items, idPrefix }) {
   )
 }
 
+function FeatureGrid({ id, heading, items }) {
+  return (
+    <div className="ps-about-build" aria-labelledby={id}>
+      <h2 id={id} className="ps-h3">{heading}</h2>
+      <div className="ps-feature-grid">
+        {items.map(d => (
+          <article className="ps-feature-card" key={d.title}>
+            <span className="ps-feature-icon"><Icon name={d.icon} /></span>
+            <h3>{d.title}</h3>
+            <p>{d.body}</p>
+          </article>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function AboutPage() {
   return (
     <>
@@ -391,24 +433,12 @@ function AboutPage() {
         <div className="ps-head-split">
           <PageHead eyebrow={ABOUT.eyebrow} title={ABOUT.title} intro={ABOUT.intro} />
           <div className="ps-head-art">
-            <Art base="about"
-              alt="Illustration of a senior nursing student and a Cedars-Sinai nurse reviewing coursework together at a desk" />
+            <Art base="about" alt={ABOUT.alt} />
           </div>
         </div>
 
-        {/* Benefit cards flow directly after the intro (no detached band). */}
-        <div className="ps-about-build" aria-labelledby="ps-about-designed">
-          <h2 id="ps-about-designed" className="ps-h3">{ABOUT.designedTitle}</h2>
-          <div className="ps-feature-grid">
-            {ABOUT.designed.map(d => (
-              <article className="ps-feature-card" key={d.title}>
-                <span className="ps-feature-icon"><Icon name={d.icon} /></span>
-                <h3>{d.title}</h3>
-                <p>{d.body}</p>
-              </article>
-            ))}
-          </div>
-        </div>
+        <FeatureGrid id="ps-about-sets-apart" heading={ABOUT.setsApartHeading} items={ABOUT.setsApart} />
+        <FeatureGrid id="ps-about-build" heading={ABOUT.buildHeading} items={ABOUT.build} />
       </section>
 
       <section className="ps-section ps-prose">
@@ -515,12 +545,15 @@ function EligibilityPage() {
         </div>
       </section>
 
-      <section className="ps-section">
+      <section className="ps-section ps-elig-notes">
         <div className="ps-info-note">
           <h2 className="ps-h3">{ELIGIBILITY.rotationHeading}</h2>
           <p>{ELIGIBILITY.rotationBody}</p>
         </div>
-        <p className="ps-note">{ELIGIBILITY.requirementsNote}</p>
+        <div className="ps-info-note">
+          <h2 className="ps-h3">{ELIGIBILITY.finalHeading}</h2>
+          <p>{ELIGIBILITY.requirementsNote}</p>
+        </div>
       </section>
     </>
   )
@@ -555,15 +588,15 @@ function ExperiencePage() {
         <div className="ps-exp-hero">
           <PageHead eyebrow={EXPERIENCE.eyebrow} title={EXPERIENCE.title} intro={EXPERIENCE.intro} />
           <div className="ps-exp-art">
-            <Art base="experience"
-              alt="Illustration of a Nursing Professional Development practitioner, a nurse, and a nursing student talking as a care team" />
+            <Art base="experience" alt={EXPERIENCE.alt} />
           </div>
         </div>
         <div className="ps-feature-grid">
-          {EXPERIENCE.bullets.map(b => (
-            <article className="ps-feature-card ps-feature-row" key={b.text}>
+          {EXPERIENCE.items.map(b => (
+            <article className="ps-feature-card" key={b.title}>
               <span className="ps-feature-icon"><Icon name={b.icon} /></span>
-              <p>{b.text}</p>
+              <h3>{b.title}</h3>
+              <p>{b.body}</p>
             </article>
           ))}
         </div>
@@ -585,8 +618,7 @@ function PreceptorsPage() {
         <div className="ps-head-split">
           <PageHead eyebrow={PRECEPTORS.eyebrow} title={PRECEPTORS.title} intro={PRECEPTORS.intro} />
           <div className="ps-head-art">
-            <Art base="preceptors"
-              alt="Illustration of a Cedars-Sinai nurse teaching at a workstation while a nursing student takes notes" />
+            <Art base="preceptors" alt={PRECEPTORS.alt} />
           </div>
         </div>
         <h2 className="ps-h3">{PRECEPTORS.benefitsHeading}</h2>
@@ -600,8 +632,21 @@ function PreceptorsPage() {
           ))}
         </div>
       </section>
-      <MiniCta heading={PRECEPTORS.ctaHeading} body={PRECEPTORS.ctaBody}
-        label={PRECEPTORS.ctaLabel} path={PRECEPTORS.ctaPath} />
+      <section className="ps-section">
+        <div className="ps-minicta ps-minicta-col">
+          <div>
+            <h2 className="ps-h3">{PRECEPTORS.ctaHeading}</h2>
+            <p>{PRECEPTORS.ctaBody}</p>
+            <p className="ps-minicta-sub">{PRECEPTORS.ctaSupport}</p>
+          </div>
+          <div className="ps-minicta-actions">
+            <EmailButton to={PRECEPTORS.emailAspire} subject="ASPIRE Preceptor Interest"
+              label={PRECEPTORS.ctaAspireLabel} variant="primary" />
+            <EmailButton to={PRECEPTORS.emailPreceptor} subject="ASPIRE Preceptor Question"
+              label={PRECEPTORS.ctaPreceptorLabel} variant="ghost" />
+          </div>
+        </div>
+      </section>
     </>
   )
 }
@@ -617,41 +662,64 @@ function FaqPage() {
 
 function ContactPage() {
   return (
-    <section className="ps-section">
-      <PageHead eyebrow={CONTACT.eyebrow} title={CONTACT.title} intro={CONTACT.intro} />
-      <div className="ps-contact-grid">
-        {CONTACT.cards.map(c => (
-          <article className="ps-contact-card" key={c.title}>
-            <span className="ps-contact-icon"><Icon name={c.icon} /></span>
-            <h3>{c.title}</h3>
-            <p>{c.body}</p>
-            <SmartLink to={c.cta.path} className="ps-btn ps-btn-primary ps-btn-block">{c.cta.label}</SmartLink>
-          </article>
-        ))}
-      </div>
-      <div className="ps-minicta ps-contact-email">
-        <div>
-          <h2 className="ps-h3">{CONTACT.emailHeading}</h2>
-          <p>{CONTACT.emailBody}</p>
-        </div>
-        <a href={`mailto:${CONTACT.email}`} className="ps-btn ps-btn-primary">{CONTACT.email}</a>
-      </div>
-      <p className="ps-note">{CONTACT.note}</p>
-    </section>
-  )
-}
+    <>
+      {/* 1. Compact hero (no illustration on Contact) */}
+      <section className="ps-section ps-contact-hero">
+        <PageHead eyebrow={CONTACT.eyebrow} title={CONTACT.title} intro={CONTACT.intro} />
+      </section>
 
-function MiniCta({ heading, body, label, path }) {
-  return (
-    <section className="ps-section">
-      <div className="ps-minicta">
-        <div>
-          <h2 className="ps-h3">{heading}</h2>
-          <p>{body}</p>
+      {/* 2. Choose your path: three equal audience cards */}
+      <section className="ps-section ps-contact-cards-section">
+        <div className="ps-choose-grid">
+          {CONTACT.cards.map(c => (
+            <article className="ps-choose-card" key={c.title}>
+              <span className="ps-contact-icon"><Icon name={c.icon} /></span>
+              <h2 className="ps-choose-title">{c.title}</h2>
+              <p>{c.body}</p>
+              <SmartLink to={c.cta.path} className="ps-btn ps-btn-primary ps-btn-block ps-choose-cta">{c.cta.label}</SmartLink>
+            </article>
+          ))}
         </div>
-        <SmartLink to={path} className="ps-btn ps-btn-primary">{label}</SmartLink>
-      </div>
-    </section>
+      </section>
+
+      {/* 3. Distinct portal sign-in banner (full-width navy) */}
+      <section className="ps-signin-band" aria-labelledby="ps-signin-title">
+        <div className="ps-signin-inner">
+          <div className="ps-signin-copy">
+            <span className="ps-signin-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor"
+                strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" focusable="false">
+                <rect x="4.5" y="10.5" width="15" height="10" rx="2.2" />
+                <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
+                <circle cx="12" cy="15.4" r="1.3" />
+              </svg>
+            </span>
+            <div>
+              <h2 id="ps-signin-title" className="ps-signin-heading">{CONTACT.signin.heading}</h2>
+              <p className="ps-signin-body">{CONTACT.signin.body}</p>
+            </div>
+          </div>
+          <Link to={CONTACT.signin.ctaPath} className="ps-btn ps-btn-ondark ps-signin-cta">{CONTACT.signin.ctaLabel}</Link>
+        </div>
+      </section>
+
+      {/* 4. Direct contact: two email columns */}
+      <section className="ps-section">
+        <div className="ps-contact-direct">
+          {[CONTACT.direct.aspire, CONTACT.direct.preceptor].map(col => (
+            <div className="ps-contact-col" key={col.email}>
+              <h2 className="ps-h3">{col.heading}</h2>
+              <p className="ps-body">{col.body}</p>
+              <p className="ps-contact-addr">{col.email}</p>
+              <EmailButton to={col.email} subject="ASPIRE Inquiry" label={col.ctaLabel} variant="primary" />
+            </div>
+          ))}
+        </div>
+
+        {/* 5. Guidance strip */}
+        <p className="ps-guidance-strip">{CONTACT.guidance}</p>
+      </section>
+    </>
   )
 }
 

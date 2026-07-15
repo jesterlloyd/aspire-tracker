@@ -51,32 +51,34 @@ export default function Login() {
       <div className="lg-center">
         <div className="lg-shell">
 
-          {/* Brand panel */}
+          {/* Brand panel: Cedars-Sinai (parent org) at the top, then the ASPIRE
+              Intelligence title + Portal badge, supporting copy, the human hero
+              illustration, and the institute attribution below it. The logo and
+              institute name are deliberately NOT grouped together. */}
           <div className="lg-brand">
             <img src="/cs-logo-large.png" alt="Cedars-Sinai" className="lg-logo" />
-            <div className="lg-wordmark">
-              <span className="lg-wordmark-name">ASPIRE Intelligence</span>
-              <span className="lg-wordmark-sub">Portal</span>
+            <div className="lg-brand-identity">
+              <h1 className="lg-brand-name">ASPIRE Intelligence</h1>
+              <span className="lg-brand-badge">Portal</span>
             </div>
             <p className="lg-brand-blurb">
-              One sign-in for everyone connected to ASPIRE: students in the
-              pathway, unit leaders, academic partners, and the Cedars-Sinai
-              team.
+              One secure sign-in for invited ASPIRE students, preceptors, unit
+              leaders, academic partners, and Cedars-Sinai staff.
             </p>
-            <p className="lg-brand-inst">Geri and Richard Brawerman Nursing Institute</p>
-            <div className="lg-brand-art">
-              <img src="/public-site/illustrations/login-panel.jpg" alt=""
+            <div className="lg-brand-art" aria-hidden="true">
+              <img src="/public-site/illustrations/hero.png" alt=""
                 loading="lazy" decoding="async" />
             </div>
+            <p className="lg-brand-inst">Geri &amp; Richard Brawerman Nursing Institute</p>
           </div>
 
           {/* Form panel (logic unchanged) */}
           <div className="lg-form-panel">
             {!showForgot ? (
               <>
-                <h1 className="lg-form-title">Sign in</h1>
+                <h2 className="lg-form-title">Sign in</h2>
                 <p className="lg-form-sub">
-                  Use the account the ASPIRE team invited you with.
+                  Use the email address that received your ASPIRE invitation.
                 </p>
 
                 {error && <div className="lg-error">{error}</div>}
@@ -86,16 +88,16 @@ export default function Login() {
                     <label className="lg-label" htmlFor="lg-email">Email address</label>
                     <input id="lg-email" className="lg-input" type="email" value={email}
                       onChange={e => setEmail(e.target.value)}
-                      required placeholder="your@cshs.org" autoComplete="email" />
+                      required placeholder="your@email.com" autoComplete="email" />
                   </div>
                   <div>
                     <label className="lg-label" htmlFor="lg-password">Password</label>
                     <input id="lg-password" className="lg-input" type="password" value={password}
                       onChange={e => setPassword(e.target.value)}
-                      required placeholder="••••••••" autoComplete="current-password" />
+                      required placeholder="Enter your password" autoComplete="current-password" />
                   </div>
                   <button type="submit" disabled={loading} className="lg-submit">
-                    {loading ? 'Signing in...' : 'Sign In'}
+                    {loading ? 'Signing in...' : 'Sign in'}
                   </button>
                 </form>
 
@@ -119,7 +121,7 @@ export default function Login() {
               </div>
             ) : (
               <>
-                <h1 className="lg-form-title">Reset your password</h1>
+                <h2 className="lg-form-title">Reset your password</h2>
                 <p className="lg-form-sub">
                   Enter your email and we will send you a reset link.
                 </p>
@@ -128,7 +130,7 @@ export default function Login() {
                     <label className="lg-label" htmlFor="lg-reset-email">Email address</label>
                     <input id="lg-reset-email" className="lg-input" type="email" value={email}
                       onChange={e => setEmail(e.target.value)}
-                      required placeholder="your@cshs.org" autoComplete="email" />
+                      required placeholder="your@email.com" autoComplete="email" />
                   </div>
                   <button type="submit" disabled={loading} className="lg-submit">
                     {loading ? 'Sending...' : 'Send Reset Link'}
@@ -142,10 +144,12 @@ export default function Login() {
               </>
             )}
 
-            <div className="lg-invite">
-              Access is available to invited ASPIRE participants and partners.
-              <br />For account assistance, contact{' '}
-              <a href="mailto:aspire@cshs.org" className="lg-invite-link">aspire@cshs.org</a>.
+            <div className="lg-access">
+              <p className="lg-access-note">Access is limited to invited ASPIRE participants, partners, and staff.</p>
+              <p className="lg-access-help">
+                Need account assistance? Contact{' '}
+                <a href="mailto:aspire@cshs.org" className="lg-invite-link">aspire@cshs.org</a>.
+              </p>
             </div>
           </div>
         </div>

@@ -85,6 +85,22 @@ function openInNewTab(url) {
   return true
 }
 
+// ── Public-site email compose ────────────────────────────────────────────────
+// Used by the public Preceptors and Contact pages. Routes cshs.org recipients
+// (Cedars-Sinai staff and preceptors) to Outlook Web compose in a NEW TAB, and
+// everything else to a safe NEW-TAB mailto. Like composePortalEmail, it MUST be
+// called synchronously from a user click and NEVER navigates the current ASPIRE
+// tab (no raw same-tab mailto). Routing is by the RECIPIENT domain since the
+// public site has no signed-in sender. Returns { mode, opened }.
+export function composePublicEmail({ to, subject, body } = {}) {
+  const useOutlook = MICROSOFT_365_DOMAINS.has(emailDomain(to))
+  const url = useOutlook
+    ? buildOutlookComposeUrl({ to, subject, body })
+    : buildMailtoUrl({ to, subject, body })
+  const opened = openInNewTab(url)
+  return { mode: useOutlook ? 'outlook' : 'mailto', opened }
+}
+
 // Compose a portal email. MUST be called synchronously from a user click so the
 // browser attributes the popup to the gesture. Never logs the composed URL (it
 // may carry student context) and never navigates the current ASPIRE tab.

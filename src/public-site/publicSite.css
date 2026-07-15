@@ -524,6 +524,76 @@
 .ps-contact-card h3 { margin: 6px 0 0; font-size: 18px; font-weight: 700; color: var(--ps-navy); }
 .ps-contact-card p { margin: 0 0 8px; font-size: 14.5px; line-height: 1.6; color: var(--ps-ink-soft); flex: 1; }
 
+/* ── ASPIRE-PUBLIC-SITE: Contact journey (hero, 3 cards, sign-in banner,
+      two email columns, guidance strip) ─────────────────────────────────── */
+.ps-contact-hero { padding-bottom: 4px; }
+.ps-contact-cards-section { padding-top: 12px; }
+.ps-choose-grid { display: grid; gap: 20px; grid-template-columns: repeat(3, 1fr); }
+.ps-choose-card {
+  background: var(--ps-card); border: 1px solid var(--ps-line);
+  border-radius: var(--ps-radius); padding: 26px;
+  display: flex; flex-direction: column; gap: 10px;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+.ps-choose-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 34px -18px rgba(29, 37, 103, 0.4);
+  border-color: #d3ccbf;
+}
+.ps-choose-title { margin: 6px 0 0; font-size: 18px; font-weight: 700; color: var(--ps-navy); }
+.ps-choose-card p { margin: 0 0 8px; font-size: 14.5px; line-height: 1.6; color: var(--ps-ink-soft); flex: 1; }
+.ps-choose-cta { margin-top: auto; }
+
+/* Portal sign-in banner: full-width navy, deliberately distinct from the cards */
+.ps-signin-band { background: var(--ps-navy); color: #fff; }
+.ps-signin-inner {
+  max-width: var(--ps-maxw); margin: 0 auto; padding: 34px 24px;
+  display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+}
+.ps-signin-copy { display: flex; align-items: center; gap: 16px; max-width: 720px; }
+.ps-signin-icon {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 46px; height: 46px; border-radius: 13px;
+  background: rgba(255,255,255,0.14); color: #fff;
+}
+.ps-signin-heading { margin: 0 0 6px; font-size: clamp(20px, 2.4vw, 26px); font-weight: 700; color: #fff; line-height: 1.15; }
+.ps-signin-body { margin: 0; font-size: 15px; line-height: 1.55; color: #cdd2ea; }
+.ps-signin-cta { flex-shrink: 0; }
+
+/* Direct contact: two email columns */
+.ps-contact-direct { display: grid; gap: 24px; grid-template-columns: 1fr 1fr; }
+.ps-contact-col {
+  background: var(--ps-card); border: 1px solid var(--ps-line);
+  border-radius: var(--ps-radius); padding: 26px 28px;
+  display: flex; flex-direction: column;
+}
+.ps-contact-col h2 { margin: 0 0 8px; }
+.ps-contact-col .ps-body { margin: 0 0 12px; max-width: 460px; }
+.ps-contact-addr { margin: 0 0 14px; font-size: 15px; font-weight: 600; color: var(--ps-navy); }
+
+/* Email CTA button + safe, keyboard-reachable popup-blocked fallback */
+.ps-email-cta { margin-top: auto; }
+.ps-email-fallback { margin: 10px 0 0; font-size: 13px; line-height: 1.5; color: var(--ps-ink-soft); }
+.ps-email-addr { font-weight: 600; color: var(--ps-navy); }
+
+/* Guidance strip */
+.ps-guidance-strip {
+  margin: 26px 0 0; padding: 16px 20px;
+  background: var(--ps-tint); border: 1px solid #dbe0f2; border-radius: 12px;
+  font-size: 14px; line-height: 1.6; color: var(--ps-ink-soft);
+}
+
+/* Preceptors closing: stacked heading, supporting line, and two email CTAs */
+.ps-minicta-col { flex-direction: column; align-items: flex-start; }
+.ps-minicta .ps-minicta-sub { margin: 8px 0 0; font-size: 14px; color: var(--ps-ink-soft); }
+.ps-minicta-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; margin-top: 18px; }
+
+/* About: second intro paragraph within the page head */
+.ps-head-extra { margin-top: 12px; max-width: 560px; }
+
+/* Eligibility: stack the two informational notes with breathing room */
+.ps-elig-notes { display: flex; flex-direction: column; gap: 18px; }
+
 /* ── Footer ───────────────────────────────────────────────────────────────── */
 .ps-footer { border-top: 1px solid var(--ps-line); background: var(--ps-cream-deep); }
 .ps-footer-inner {
@@ -597,9 +667,17 @@
 
   .ps-audience-grid, .ps-glance-grid, .ps-feature-grid,
   .ps-prose, .ps-split, .ps-contact-grid,
+  .ps-choose-grid, .ps-contact-direct,
   .ps-footer-cols {
     grid-template-columns: 1fr;
   }
+
+  /* Contact sign-in banner + Preceptors closing stack on mobile. */
+  .ps-signin-inner { flex-direction: column; align-items: flex-start; padding: 26px 20px; }
+  .ps-signin-cta { width: 100%; text-align: center; justify-content: center; }
+  .ps-minicta-actions { flex-direction: column; align-items: stretch; width: 100%; }
+  .ps-minicta-actions .ps-email-cta { width: 100%; }
+  .ps-minicta-actions .ps-btn { width: 100%; justify-content: center; }
 
   /* ── Mobile journey: horizontally swipeable scroll-snap stepper ──────────
      One card at a time with previous/next controls, a segmented progress
