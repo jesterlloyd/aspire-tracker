@@ -278,29 +278,35 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
         </SectionCard>
 
         <SectionCard icon={LifeBuoy} title="Need help?" accent={{ bg: '#fdecec', fg: '#b91c1c' }} cols={4}>
-          <div className="ptl-help-list">
-            <div className="ptl-help-item">
-              <div className="ptl-help-title">Log a shift</div>
-              <p className="ptl-muted ptl-small">Record hours and flag shift-related support.</p>
-              <a className="ptl-inline-link" href="/shift-log">Log a Shift <ChevronRight size={13} /></a>
-            </div>
-            <div className="ptl-help-item">
-              <div className="ptl-help-title">Contact ASPIRE</div>
-              <p className="ptl-muted ptl-small">General questions and anything else. We are glad to help.</p>
-              <button type="button" className="ptl-inline-link ptl-inline-btn" onClick={onContact} aria-label="Contact ASPIRE (opens an email compose in a new tab)">Contact ASPIRE <ChevronRight size={13} /></button>
-            </div>
-            <div className="ptl-help-item">
-              <div className="ptl-help-title">Request a profile correction</div>
-              <p className="ptl-muted ptl-small">Ask us to fix a managed field like school, cohort, or placement.</p>
-              <button type="button" className="ptl-inline-link ptl-inline-btn" onClick={openEdit}>Request a correction <ChevronRight size={13} /></button>
-            </div>
-            <div className="ptl-help-item">
-              <div className="ptl-help-title">Email</div>
-              <p className="ptl-muted ptl-small ptl-help-email">
-                <span>{SUPPORT}</span>
-                <button type="button" className="ptl-inline-link ptl-inline-btn" onClick={() => copy(SUPPORT)} aria-label="Copy the ASPIRE email address"><Copy size={13} /> Copy</button>
-              </p>
-            </div>
+          <div className="ptl-help-actions">
+            <a className="ptl-help-action" href="/shift-log">
+              <span className="ptl-help-action-icon" aria-hidden="true"><CalendarPlus size={17} /></span>
+              <span className="ptl-help-action-text">
+                <span className="ptl-help-action-title">Log a Shift</span>
+                <span className="ptl-help-action-desc">Record hours and flag shift-related support.</span>
+              </span>
+              <ChevronRight size={16} className="ptl-help-action-chev" aria-hidden="true" />
+            </a>
+            <button type="button" className="ptl-help-action" onClick={onContact} aria-label="Contact ASPIRE (opens an email compose in a new tab)">
+              <span className="ptl-help-action-icon" aria-hidden="true"><Mail size={16} /></span>
+              <span className="ptl-help-action-text">
+                <span className="ptl-help-action-title">Contact ASPIRE</span>
+                <span className="ptl-help-action-desc">General questions and anything else. We are glad to help.</span>
+              </span>
+              <ChevronRight size={16} className="ptl-help-action-chev" aria-hidden="true" />
+            </button>
+            <button type="button" className="ptl-help-action" onClick={openEdit}>
+              <span className="ptl-help-action-icon" aria-hidden="true"><Pencil size={16} /></span>
+              <span className="ptl-help-action-text">
+                <span className="ptl-help-action-title">Request a profile correction</span>
+                <span className="ptl-help-action-desc">Ask us to fix a managed field like school, cohort, or placement.</span>
+              </span>
+              <ChevronRight size={16} className="ptl-help-action-chev" aria-hidden="true" />
+            </button>
+          </div>
+          <div className="ptl-help-email">
+            <span className="ptl-muted ptl-small">{SUPPORT}</span>
+            <button type="button" className="ptl-inline-link ptl-inline-btn" onClick={() => copy(SUPPORT)} aria-label="Copy the ASPIRE email address"><Copy size={13} /> Copy</button>
           </div>
           {supportItems.length > 0 && (
             <div className="ptl-support-notes">
@@ -368,6 +374,7 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
         </SectionCard>
 
         <SectionCard icon={FileText} title="Documents" accent={{ bg: '#eef2fb', fg: '#1D2567' }} cols={4}>
+          <div className="ptl-doc-list">
           {/* ID Badge: status only. No downloadable badge file exists server-side
               (see src/lib/portalDocuments.js), so no active download button is
               ever rendered here. */}
@@ -405,6 +412,7 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
             ) : (
               <p className="ptl-muted ptl-small">{certStatus.lockedReason}</p>
             )}
+          </div>
           </div>
         </SectionCard>
       </div>

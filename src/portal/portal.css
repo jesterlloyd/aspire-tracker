@@ -26,11 +26,15 @@
 .ptl-header-link { font-size: 13px; color: #1D2567; text-decoration: none; }
 .ptl-header-link:hover { text-decoration: underline; }
 
-/* ASPIRE-STUDENT-HOME: wider desktop workspace (was 1020px) so the portal uses
-   the available screen with a purposeful 12-column grid, while side padding and
-   per-card text measures keep line lengths readable. Mobile width is unchanged
-   (the grid collapses to one column below 760px). */
-.ptl-main { flex: 1; width: 100%; max-width: 1200px; margin: 0 auto; padding: 28px 24px 40px; }
+/* ASPIRE-STUDENT-HOME: fluid desktop workspace. Mobile and tablet keep full
+   width with comfortable side padding (no restrictive max-width). From 1024px
+   up the workspace becomes fluid (94vw) so large displays gain usable width,
+   capped at 1500px on very wide screens so text measures inside cards stay
+   readable. Per-card content widths are capped separately below. */
+.ptl-main { flex: 1; width: 100%; margin: 0 auto; padding: 28px 24px 40px; }
+@media (min-width: 1024px) {
+  .ptl-main { width: 94vw; max-width: 1500px; padding: 24px 0 40px; }
+}
 
 .ptl-footer {
   text-align: center; padding: 18px; font-size: 12px; color: #9ca3af;
@@ -292,17 +296,20 @@
 .ptl-tl-step:last-child { border-bottom: none; }
 .ptl-tl-mark {
   width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 700; border: 2px solid #d7d2c7; color: #9ca3af; background: #fff;
+  font-size: 12px; font-weight: 700; border: 2px solid #b6b0a1; color: #6b7280; background: #fff;
 }
 .ptl-tl-complete .ptl-tl-mark { background: #16a34a; border-color: #16a34a; color: #fff; }
 .ptl-tl-current .ptl-tl-mark { border-color: #1D2567; color: #1D2567; }
+/* Upcoming stays quieter than Current/Complete but is clearly readable (a solid
+   dot, a darker border, mid-contrast text) so status never rests on color alone. */
+.ptl-tl-upcoming .ptl-tl-mark { border-color: #a49d8d; color: #7a8395; }
 .ptl-tl-label { font-size: 14.5px; color: #374151; }
 .ptl-tl-current .ptl-tl-label { font-weight: 700; color: #1D2567; }
-.ptl-tl-upcoming .ptl-tl-label { color: #9ca3af; }
+.ptl-tl-upcoming .ptl-tl-label { color: #55607a; }
 .ptl-tl-state { font-size: 11px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
 .ptl-tl-complete .ptl-tl-state { background: #e7f4ec; color: #14532d; }
 .ptl-tl-current .ptl-tl-state { background: #eef2fb; color: #1D2567; }
-.ptl-tl-upcoming .ptl-tl-state { background: #f3f1ea; color: #6b7280; }
+.ptl-tl-upcoming .ptl-tl-state { background: #eae6db; color: #4b5563; border: 1px solid #d7d2c7; }
 
 /* Need Help panel list */
 .ptl-help-list { display: flex; flex-direction: column; gap: 15px; }
@@ -330,6 +337,63 @@
 .ptl-doc-meta { margin-bottom: 8px; }
 .ptl-doc-row .ptl-btn-sm { margin-top: 6px; }
 .ptl-doc-row .ptl-form-ok, .ptl-doc-row .ptl-form-error { margin-bottom: 0; }
+
+/* Cap descriptive/empty text so wide cards do not stretch copy into long lines
+   or leave sparse, oversized empty states. */
+.ptl-empty { max-width: 420px; }
+.ptl-eval-meta, .ptl-doc-row p, .ptl-help-action-desc { max-width: 460px; }
+
+/* ── Need Help: interactive action rows ─────────────────────────────────────
+   The three primary destinations become compact, clearly interactive rows
+   (icon + title + description + chevron) with visible hover/focus and a
+   comfortable touch target. Destinations and handlers are unchanged. */
+.ptl-help-actions { display: flex; flex-direction: column; gap: 10px; }
+.ptl-help-action {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  min-height: 56px; padding: 10px 12px; border-radius: 11px;
+  border: 1px solid #e7e1d6; background: #fbfaf6; cursor: pointer;
+  font-family: inherit; color: #232842; text-decoration: none;
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+.ptl-help-action:hover { background: #f4f1e9; border-color: #d7d2c7; box-shadow: 0 2px 10px rgba(16,24,40,0.06); }
+.ptl-help-action:focus-visible { outline: 2px solid #1D2567; outline-offset: 2px; }
+.ptl-help-action-icon {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 34px; height: 34px; border-radius: 9px; background: #eef2fb; color: #1D2567;
+}
+.ptl-help-action-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.ptl-help-action-title { font-size: 14px; font-weight: 700; color: #232842; }
+.ptl-help-action-desc { font-size: 12.5px; line-height: 1.45; color: #6b7280; }
+.ptl-help-action-chev { flex-shrink: 0; color: #9199a8; }
+.ptl-help-action:hover .ptl-help-action-chev { color: #1D2567; }
+.ptl-help-email { margin-top: 12px; }
+
+/* Documents: two clearly separated document rows (bordered mini-panels) with
+   aligned status badges and consistent action placement. */
+.ptl-doc-list { display: flex; flex-direction: column; gap: 12px; }
+.ptl-doc-row { padding: 14px; border: 1px solid #eee9df; border-radius: 11px; background: #fbfaf6; }
+.ptl-doc-row:first-child { padding-top: 14px; }
+.ptl-doc-row:last-child { padding-bottom: 14px; }
+
+/* ── Desktop refinements (>=761px): tighter hero, larger current-stage panel,
+   stronger name. Mobile (<=760px) keeps its current height, spacing, and
+   type scale untouched. ─────────────────────────────────────────────────── */
+@media (min-width: 761px) {
+  .ptl-hero { padding: 16px 28px 14px; }
+  .ptl-hero-name { font-size: 32px; }
+  .ptl-hero-actions { margin-top: 10px; }
+  .ptl-hero-stage { padding: 16px 18px; min-width: 248px; max-width: 304px; gap: 12px; }
+  .ptl-stage-eyebrow { font-size: 11px; }
+  .ptl-stage-value { font-size: 18px; }
+  .ptl-stage-next { font-size: 14px; }
+}
+
+/* Very wide desktop: a touch more card padding and grid gap so the extra width
+   reads as hierarchy and breathing room, not stretched text. */
+@media (min-width: 1280px) {
+  .ptl-grid { gap: 22px; }
+  .ptl-card { padding: 24px 26px; }
+}
 
 /* Mobile sticky action bar (hidden on desktop) */
 .ptl-actionbar { display: none; }

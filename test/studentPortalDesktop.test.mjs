@@ -16,8 +16,20 @@ const portal = read('src/portal/StudentPortal.jsx')
 const css = read('src/portal/portal.css')
 
 test('desktop workspace and 12-column grid', async (t) => {
-  await t.test('the desktop workspace is widened to ~1180-1240px', () => {
-    assert.match(css, /\.ptl-main \{[^}]*max-width: 1200px/)
+  await t.test('the desktop workspace is fluid (94vw) with a large-screen cap >= ~1440px', () => {
+    assert.match(css, /@media \(min-width: 1024px\) \{[\s\S]*?\.ptl-main \{[^}]*width: 94vw/)
+    const capMatch = css.match(/@media \(min-width: 1024px\) \{[\s\S]*?\.ptl-main \{[^}]*max-width: (\d+)px/)
+    assert.ok(capMatch, 'desktop .ptl-main must set a max-width cap')
+    assert.ok(Number(capMatch[1]) >= 1440, `cap ${capMatch[1]}px must be at least 1440px`)
+  })
+  await t.test('no old restrictive 1020/1200 max-width remains on the primary workspace', () => {
+    assert.doesNotMatch(css, /\.ptl-main \{[^}]*max-width: 10(20|00)px/)
+    assert.doesNotMatch(css, /\.ptl-main \{[^}]*max-width: 1200px/)
+  })
+  await t.test('responsive side gutters remain (fluid vw width, not 100vw overflow)', () => {
+    // 94vw leaves ~3vw gutters each side; never 100vw (which would overflow).
+    assert.doesNotMatch(css, /\.ptl-main \{[^}]*width: 100vw/)
+    assert.match(css, /width: 94vw/)
   })
   await t.test('a purposeful 12-column grid with the specified spans', () => {
     assert.match(css, /\.ptl-grid \{[\s\S]*?grid-template-columns: repeat\(12, 1fr\)/)
@@ -77,11 +89,54 @@ test('Need Help is raised above the lower cards', async (t) => {
     assert.ok(needHelp > 0 && needHelp < evaluations, 'Need help before Evaluations')
     assert.ok(evaluations < shiftLogs && shiftLogs < documents, 'lower row order Eval, Shift, Documents')
   })
-  await t.test('Need Help offers Log a Shift, Contact ASPIRE, correction, and the email', () => {
-    assert.match(portal, /ptl-help-list/)
+  await t.test('Need Help renders three interactive action rows plus the email + copy', () => {
+    const actionRows = portal.match(/className="ptl-help-action"/g) || []
+    assert.equal(actionRows.length, 3, 'exactly three action rows')
     assert.match(portal, /Request a profile correction/)
-    assert.match(portal, /onClick=\{openEdit\}/)
     assert.match(portal, /aspire@cshs\.org/)
+    assert.match(portal, /Copy the ASPIRE email address/)
+  })
+  await t.test('the action rows preserve their existing destinations and handlers', () => {
+    // Log a Shift -> /shift-log (no identifiers); Contact -> onContact; correction -> openEdit.
+    assert.match(portal, /className="ptl-help-action" href="\/shift-log"/)
+    assert.match(portal, /className="ptl-help-action" onClick=\{onContact\}/)
+    assert.match(portal, /className="ptl-help-action" onClick=\{openEdit\}/)
+  })
+  await t.test('the action rows are styled interactive (icon, hover, focus, touch target)', () => {
+    assert.match(css, /\.ptl-help-action \{[\s\S]*?min-height: 56px/)
+    assert.match(css, /\.ptl-help-action:hover \{/)
+    assert.match(css, /\.ptl-help-action:focus-visible \{[^}]*outline:/)
+    assert.match(css, /\.ptl-help-action-icon \{/)
+  })
+})
+
+test('desktop refinements (tighter hero, larger stage, upcoming contrast, documents)', async (t) => {
+  await t.test('the desktop hero is tightened (reduced vertical padding)', () => {
+    assert.match(css, /@media \(min-width: 761px\) \{[\s\S]*?\.ptl-hero \{ padding: 16px 28px 14px/)
+    assert.match(css, /@media \(min-width: 761px\) \{[\s\S]*?\.ptl-hero-actions \{ margin-top: 10px/)
+  })
+  await t.test('the desktop avatar remains 104px', () => {
+    assert.match(css, /\.ptl-hero \.ptl-avatar \{ width: 104px; height: 104px;/)
+  })
+  await t.test('the Current Stage panel gains scale (wider, larger value + next text)', () => {
+    assert.match(css, /@media \(min-width: 761px\) \{[\s\S]*?\.ptl-hero-stage \{[^}]*min-width: 248px/)
+    assert.match(css, /@media \(min-width: 761px\) \{[\s\S]*?\.ptl-stage-value \{ font-size: 18px/)
+    assert.match(css, /@media \(min-width: 761px\) \{[\s\S]*?\.ptl-stage-next \{ font-size: 14px/)
+  })
+  await t.test('Upcoming timeline states gain readable contrast but stay quieter', () => {
+    // Darker label, darker mark border, and a bordered badge distinguish Upcoming
+    // by treatment (not color alone) while remaining quieter than Current/Complete.
+    assert.match(css, /\.ptl-tl-upcoming \.ptl-tl-label \{ color: #55607a/)
+    assert.match(css, /\.ptl-tl-upcoming \.ptl-tl-mark \{ border-color: #a49d8d/)
+    assert.match(css, /\.ptl-tl-upcoming \.ptl-tl-state \{[^}]*border: 1px solid/)
+  })
+  await t.test('Documents shows two clearly separated, bordered document rows', () => {
+    assert.match(portal, /className="ptl-doc-list"/)
+    assert.match(css, /\.ptl-doc-list \{ display: flex;[^}]*gap: 12px/)
+    assert.match(css, /\.ptl-doc-row \{ padding: 14px; border: 1px solid [^;]+; border-radius: 11px;/)
+  })
+  await t.test('Clinical Hours empty state stays compact (capped width)', () => {
+    assert.match(css, /\.ptl-empty \{ max-width: 420px; \}/)
   })
 })
 
