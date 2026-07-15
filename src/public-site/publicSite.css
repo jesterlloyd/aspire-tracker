@@ -54,6 +54,10 @@
    left/right padding, so the Cedars-Sinai and ASPIRE identity sits close to the
    left edge on desktop while the nav stays aligned right. */
 .ps-header-inner {
+  /* flex:1 makes this fill the flex parent (.ps-header). Without it the inner
+     shrink-wraps to its content, leaving free space on the right so margin-left:
+     auto cannot push the mobile hamburger to the far edge. */
+  flex: 1; min-width: 0;
   max-width: none; margin: 0; padding: 14px clamp(20px, 3.5vw, 52px);
   display: flex; align-items: center; gap: 20px;
 }

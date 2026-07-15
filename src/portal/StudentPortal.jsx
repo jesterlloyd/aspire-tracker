@@ -9,13 +9,16 @@
 // (EditProfileDrawer). Shift logging stays on the public /shift-log flow;
 // evaluations stay on their tokenized links.
 import { useState, useEffect, useRef } from 'react'
-import { MapPin, Clock, ListChecks, ClipboardCheck, CalendarPlus, LifeBuoy, Pencil, Mail, ChevronRight } from 'lucide-react'
+import { MapPin, Clock, ListChecks, ClipboardCheck, CalendarPlus, LifeBuoy, Pencil, Mail, ChevronRight, Copy } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 import { deriveNextSteps } from '../lib/portalNextSteps'
 import { fmtDate, placementWindow, TBC } from '../lib/portalDates'
+import { composePortalEmail } from '../lib/outlookCompose'
 import EditProfileDrawer from './EditProfileDrawer'
 
 const SUPPORT = 'aspire@cshs.org'
+const CONTACT_SUBJECT = 'ASPIRE Student Support Request'
 
 const EVAL_STATUS_LABELS = {
   draft: 'Not yet sent', sent: 'Waiting for you', opened: 'In progress',
@@ -27,10 +30,9 @@ function initials(name) {
   return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
 }
 
-function contactMailto({ name, school, cohort, status }) {
-  const subject = 'ASPIRE Student Support Request'
-  const body = `Name: ${name || ''}\nSchool: ${school || ''}\nCohort: ${cohort || ''}\nStatus: ${status || ''}\n\nHow can we help?\n`
-  return `mailto:${SUPPORT}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+// Approved, non-sensitive support message body (no ids, notes, scores, or history).
+function buildContactBody({ name, school, cohort, status } = {}) {
+  return `Hello ASPIRE Team,\n\nI am contacting you for assistance.\n\nName: ${name || 'not available'}\nSchool: ${school || 'not available'}\nCohort: ${cohort || 'not available'}\nASPIRE status: ${status || 'not available'}\n\nMy question or concern:\n\n\nThank you.`
 }
 
 function SectionCard({ icon: Icon, title, accent, children, span }) {
@@ -46,6 +48,8 @@ function SectionCard({ icon: Icon, title, accent, children, span }) {
 }
 
 export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdit }) {
+  const { user } = useAuth()
+  const loginEmail = user?.email || ''
   const [summary, setSummary]   = useState(null)
   const [logs, setLogs]         = useState([])
   const [evals, setEvals]       = useState([])
@@ -53,7 +57,20 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
   const [error, setError]       = useState(null)
   const [loading, setLoading]   = useState(true)
   const [activeId, setActiveId] = useState(null)
+  const [compose, setCompose]   = useState(null) // { kind: 'outlook'|'sent'|'blocked', loginEmail?, body? }
   const editBtnRef = useRef(null)
+
+  // Contact ASPIRE: route recognized Microsoft 365 logins to Outlook Web, others
+  // to a separate-tab mailto. Called synchronously from the click so the popup is
+  // attributed to the gesture; never navigates the current ASPIRE tab.
+  const contactAspire = (ctx) => {
+    const body = buildContactBody(ctx)
+    const res = composePortalEmail({ to: SUPPORT, subject: CONTACT_SUBJECT, body, loginEmail })
+    if (!res.opened) setCompose({ kind: 'blocked', body })
+    else if (res.mode === 'outlook') setCompose({ kind: 'outlook', loginEmail: res.loginEmail })
+    else setCompose({ kind: 'sent' })
+  }
+  const copy = (text) => { try { navigator.clipboard?.writeText(text) } catch { /* clipboard unavailable */ } }
 
   async function load() {
     try {
@@ -88,7 +105,9 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
     return (
       <div className="ptl-card ptl-center-card">
         <div className="ptl-card-title">No student record is linked yet</div>
-        <p className="ptl-muted">Your account is active, but no student record is connected to it yet. Please contact the ASPIRE team at <a href={`mailto:${SUPPORT}`}>{SUPPORT}</a>.</p>
+        <p className="ptl-muted">Your account is active, but no student record is connected to it yet. Please contact the ASPIRE team.</p>
+        <button type="button" className="ptl-btn ptl-btn-sm" onClick={() => contactAspire({})} aria-label="Contact ASPIRE (opens an email compose in a new tab)"><Mail size={15} /> Contact ASPIRE</button>
+        <ComposeNote compose={compose} onDismiss={() => setCompose(null)} onCopyEmail={() => copy(SUPPORT)} onCopyMessage={copy} />
       </div>
     )
   }
@@ -111,7 +130,7 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
   const cohortName = student.cohort?.name || null
   const rotationWindow = placementWindow(student.cohort, student.term_dates)
   const activeRotation = student.status === 'Active Rotation'
-  const mailto = contactMailto({ name: fullName, school: student.school, cohort: cohortName, status: student.status })
+  const onContact = () => contactAspire({ name: fullName, school: student.school, cohort: cohortName, status: student.status })
 
   const openEdit = () => onOpenEdit?.()
 
@@ -147,9 +166,11 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
         </div>
         <div className="ptl-hero-actions">
           <a className="ptl-btn ptl-btn-primary" href="/shift-log"><CalendarPlus size={16} /> Log a Shift</a>
-          <a className="ptl-btn-outline ptl-btn-contact" href={mailto}><Mail size={15} /> Contact ASPIRE</a>
+          <button type="button" className="ptl-btn-outline ptl-btn-contact" onClick={onContact} aria-label="Contact ASPIRE (opens an email compose in a new tab)"><Mail size={15} /> Contact ASPIRE</button>
         </div>
       </section>
+
+      <ComposeNote compose={compose} onDismiss={() => setCompose(null)} onCopyEmail={() => copy(SUPPORT)} onCopyMessage={copy} />
 
       <div className="ptl-grid">
         <SectionCard icon={MapPin} title="Placement" accent={{ bg: '#eef2fb', fg: '#1D2567' }}>
@@ -222,7 +243,7 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
             <div className="ptl-help-item">
               <div className="ptl-help-title">General questions</div>
               <p className="ptl-muted ptl-small">Use <strong>Contact ASPIRE</strong> for anything else. We are glad to help.</p>
-              <a className="ptl-inline-link" href={mailto}>Contact ASPIRE <ChevronRight size={13} /></a>
+              <button type="button" className="ptl-inline-link ptl-inline-btn" onClick={onContact} aria-label="Contact ASPIRE (opens an email compose in a new tab)">Contact ASPIRE <ChevronRight size={13} /></button>
             </div>
           </div>
           {supportItems.length > 0 && (
@@ -240,10 +261,39 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
       {/* Mobile sticky action bar (respects the iOS safe area) */}
       <div className="ptl-actionbar">
         <a className="ptl-btn ptl-btn-primary" href="/shift-log"><CalendarPlus size={16} /> Log a Shift</a>
-        <a className="ptl-btn-outline ptl-btn-contact" href={mailto}><Mail size={15} /> Contact</a>
+        <button type="button" className="ptl-btn-outline ptl-btn-contact" onClick={onContact} aria-label="Contact ASPIRE (opens an email compose in a new tab)"><Mail size={15} /> Contact</button>
       </div>
 
-      <EditProfileDrawer open={editOpen} student={student} returnFocusRef={editBtnRef} onClose={onCloseEdit} onSaved={() => load()} />
+      <EditProfileDrawer open={editOpen} student={student} loginEmail={loginEmail} returnFocusRef={editBtnRef} onClose={onCloseEdit} onSaved={() => load()} />
+    </div>
+  )
+}
+
+// Feedback shown after a Contact ASPIRE click: an Outlook confirm-your-account
+// note, or a popup-blocked panel with Copy actions. Nothing sensitive is shown.
+function ComposeNote({ compose, onDismiss, onCopyEmail, onCopyMessage }) {
+  if (!compose) return null
+  if (compose.kind === 'blocked') {
+    return (
+      <div className="ptl-compose-note ptl-compose-blocked" role="alert">
+        <div>Your browser blocked the email window. Allow pop-ups or copy {SUPPORT}.</div>
+        <div className="ptl-compose-actions">
+          <button type="button" className="ptl-btn-outline ptl-btn-sm" onClick={onCopyEmail}><Copy size={13} /> Copy email address</button>
+          <button type="button" className="ptl-btn-outline ptl-btn-sm" onClick={() => onCopyMessage(compose.body)}><Copy size={13} /> Copy message</button>
+          <button type="button" className="ptl-inline-link ptl-inline-btn" onClick={onDismiss}>Dismiss</button>
+        </div>
+      </div>
+    )
+  }
+  const text = compose.kind === 'outlook'
+    ? (compose.loginEmail
+        ? `Compose opened in Outlook. Confirm you are sending from ${compose.loginEmail}.`
+        : 'Compose opened in Outlook. Confirm you are using the intended email account.')
+    : 'Email compose opened in a new tab. Confirm you are using the intended email account.'
+  return (
+    <div className="ptl-compose-note" role="status">
+      <span>{text}</span>
+      <button type="button" className="ptl-inline-link ptl-inline-btn" onClick={onDismiss}>Dismiss</button>
     </div>
   )
 }

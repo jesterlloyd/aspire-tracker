@@ -58,6 +58,14 @@ test('public-site mobile header + compact menu', async (t) => {
     assert.match(css, /\.ps-menu \{[\s\S]*?position: absolute;[\s\S]*?right: 0;[\s\S]*?border-radius: 14px;[\s\S]*?box-shadow:/)
     assert.match(css, /@media \(min-width: 761px\) \{\s*\.ps-menu \{ display: none; \}/)
     assert.match(css, /env\(safe-area-inset-top/, 'header respects the safe area')
+    // No conflicting left positioning on the menu.
+    assert.doesNotMatch(css, /\.ps-menu \{[^}]*left:/)
+  })
+
+  await t.test('the header inner fills the full width so the hamburger reaches the far right', () => {
+    // Root cause fix: .ps-header-inner must not shrink-wrap inside the flex header.
+    assert.match(css, /\.ps-header-inner \{[\s\S]*?flex: 1;/)
+    assert.match(css, /\.ps-header-actions \{ margin-left: auto; \}/, 'mobile actions pushed to the far right')
   })
 
   await t.test('desktop navigation is unchanged (inline nav + inline action)', () => {

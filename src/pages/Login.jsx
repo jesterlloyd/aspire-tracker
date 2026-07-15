@@ -44,7 +44,7 @@ export default function Login() {
     <div className="lg-page">
       <div className="lg-top">
         <Link to="/" className="lg-back">
-          <span aria-hidden="true">←</span> Back to the ASPIRE site
+          <span aria-hidden="true">←</span> Public site
         </Link>
       </div>
 

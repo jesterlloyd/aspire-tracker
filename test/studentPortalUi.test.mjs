@@ -34,11 +34,10 @@ test('Student Portal redesign', async (t) => {
     assert.doesNotMatch(portal, /shift-log\?[^"']*(student|id|email)/i)
   })
 
-  await t.test('Contact ASPIRE uses a prefilled mailto to aspire@cshs.org', () => {
-    assert.match(portal, /function contactMailto/)
-    assert.match(portal, /mailto:\$\{SUPPORT\}/)
+  await t.test('Contact ASPIRE composes to aspire@cshs.org via the centralized helper', () => {
+    assert.match(portal, /composePortalEmail\(\{ to: SUPPORT, subject: CONTACT_SUBJECT/)
     assert.match(portal, /const SUPPORT = 'aspire@cshs\.org'/)
-    assert.match(portal, /ASPIRE Student Support Request/)
+    assert.match(portal, /const CONTACT_SUBJECT = 'ASPIRE Student Support Request'/)
   })
 
   await t.test('sections carry meaningful icons (Placement, Hours, Next Steps, Evaluations, Shift logs, Support)', () => {
@@ -94,10 +93,10 @@ test('EditProfileDrawer boundaries', async (t) => {
     assert.match(drawer, /\/api\/portal\/update-profile/)
     assert.match(drawer, /preferred_first_name: preferred\.trim\(\), phone: phone\.trim\(\)/)
   })
-  await t.test('authoritative fields are read-only with a correction mailto', () => {
+  await t.test('authoritative fields are read-only with a Request a correction action', () => {
     assert.match(drawer, /Managed by ASPIRE/)
     assert.match(drawer, /Request a correction/)
-    assert.match(drawer, /function correctionMailto/)
+    assert.match(drawer, /const requestCorrection = /)
   })
   await t.test('focus is trapped and returns on close; no authz-table writes', () => {
     assert.match(drawer, /e\.key === 'Escape'/)

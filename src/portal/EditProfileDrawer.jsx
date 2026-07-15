@@ -5,23 +5,35 @@
 // cohort, status, placement) are shown read-only with a "Request a correction"
 // mailto to the ASPIRE team. Focus is trapped while open and returns on close.
 import { useEffect, useRef, useState } from 'react'
-import { X } from 'lucide-react'
+import { X, Copy } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { composePortalEmail } from '../lib/outlookCompose'
 
 const SUPPORT = 'aspire@cshs.org'
+const CORRECTION_SUBJECT = 'ASPIRE Student Profile Correction Request'
 
-function correctionMailto({ fullName, school, cohort }) {
-  const subject = 'ASPIRE Student Portal - Correction Request'
-  const body = `Hello ASPIRE team,\n\nMy name is ${fullName || ''}${school ? ` (${school}${cohort ? `, ${cohort}` : ''})` : ''}.\nI would like to request a correction to the following information:\n\nField: \nCurrent value: \nCorrect value: \n\nThank you.`
-  return `mailto:${SUPPORT}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+// Approved, non-sensitive correction request body (no internal identifiers).
+function buildCorrectionBody({ fullName, field, currentValue }) {
+  return `Hello ASPIRE Team,\n\nI would like to request a correction to my student profile.\n\nName: ${fullName || 'not available'}\nField: ${field || ''}\nCurrent information: ${currentValue || ''}\n\nRequested correction:\n\n\nThank you.`
 }
 
-export default function EditProfileDrawer({ open, student, onClose, onSaved, returnFocusRef }) {
+export default function EditProfileDrawer({ open, student, loginEmail = '', onClose, onSaved, returnFocusRef }) {
   const panelRef = useRef(null)
   const [preferred, setPreferred] = useState('')
   const [phone, setPhone] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState(null)
+  const [compose, setCompose] = useState(null) // { kind, loginEmail?, body? }
+
+  const requestCorrection = () => {
+    const fullName = [student?.preferred_first_name || student?.first_name, student?.last_name].filter(Boolean).join(' ')
+    const body = buildCorrectionBody({ fullName, field: '', currentValue: '' })
+    const res = composePortalEmail({ to: SUPPORT, subject: CORRECTION_SUBJECT, body, loginEmail })
+    if (!res.opened) setCompose({ kind: 'blocked', body })
+    else if (res.mode === 'outlook') setCompose({ kind: 'outlook', loginEmail: res.loginEmail })
+    else setCompose({ kind: 'sent' })
+  }
+  const copy = (text) => { try { navigator.clipboard?.writeText(text) } catch { /* clipboard unavailable */ } }
 
   useEffect(() => {
     if (open) {
@@ -49,8 +61,6 @@ export default function EditProfileDrawer({ open, student, onClose, onSaved, ret
   }, [open, busy, onClose, returnFocusRef])
 
   if (!open) return null
-
-  const fullName = [student?.preferred_first_name || student?.first_name, student?.last_name].filter(Boolean).join(' ')
 
   const save = async () => {
     setBusy(true); setMsg(null)
@@ -92,9 +102,27 @@ export default function EditProfileDrawer({ open, student, onClose, onSaved, ret
               <div><dt>Placement</dt><dd>{student?.unit_name || 'To be confirmed'}</dd></div>
             </dl>
             <p className="ptl-muted ptl-small">
-              These are managed by the ASPIRE team. <a href={correctionMailto({ fullName, school: student?.school, cohort: student?.cohort?.name })}>Request a correction</a>.
+              These are managed by the ASPIRE team. <button type="button" className="ptl-inline-link ptl-inline-btn" onClick={requestCorrection} aria-label="Request a correction (opens an email compose in a new tab)">Request a correction</button>.
             </p>
           </div>
+
+          {compose && (compose.kind === 'blocked' ? (
+            <div className="ptl-compose-note ptl-compose-blocked" role="alert">
+              <div>Your browser blocked the email window. Allow pop-ups or copy {SUPPORT}.</div>
+              <div className="ptl-compose-actions">
+                <button type="button" className="ptl-btn-outline ptl-btn-sm" onClick={() => copy(SUPPORT)}><Copy size={13} /> Copy email address</button>
+                <button type="button" className="ptl-btn-outline ptl-btn-sm" onClick={() => copy(compose.body)}><Copy size={13} /> Copy message</button>
+              </div>
+            </div>
+          ) : (
+            <div className="ptl-compose-note" role="status">
+              {compose.kind === 'outlook'
+                ? (compose.loginEmail
+                    ? `Compose opened in Outlook. Confirm you are sending from ${compose.loginEmail}.`
+                    : 'Compose opened in Outlook. Confirm you are using the intended email account.')
+                : 'Email compose opened in a new tab. Confirm you are using the intended email account.'}
+            </div>
+          ))}
 
           {msg && <div className={msg.ok ? 'ptl-form-ok' : 'ptl-form-error'} role="status">{msg.text}</div>}
         </div>

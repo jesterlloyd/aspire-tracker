@@ -277,3 +277,15 @@
   .ptl-actionbar .ptl-btn-primary { background: #1D2567; color: #fff; }
   .ptl-drawer { max-width: 100%; }
 }
+
+/* ── ASPIRE-PORTAL-NAV: Contact ASPIRE compose feedback + inline button reset ── */
+.ptl-inline-btn {
+  background: none; border: none; padding: 0; cursor: pointer; font-family: inherit;
+}
+.ptl-compose-note {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  background: #eef2fb; border: 1px solid #dbe3fb; color: #1D2567;
+  border-radius: 12px; padding: 11px 14px; font-size: 13px;
+}
+.ptl-compose-blocked { display: block; background: #fff7f7; border-color: #fca5a5; color: #991b1b; }
+.ptl-compose-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
