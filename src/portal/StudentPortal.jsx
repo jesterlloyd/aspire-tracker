@@ -1,18 +1,26 @@
-// PHASE2-PORTAL / ASPIRE-STUDENT-PORTAL: student portal home. Mobile-first,
-// profile-forward redesign.
+// PHASE2-PORTAL / ASPIRE-STUDENT-PORTAL / ASPIRE-STUDENT-HOME: student portal
+// home. Mobile-first, profile-forward; the desktop layout adds a purposeful
+// 12-column grid, a stronger profile hero with a current-stage panel, a Next
+// Steps progress timeline, a Need Help panel raised into the top desktop rows,
+// and a secure Documents area (ID badge status + Certificate of Completion
+// download).
 //
 // Reads (all server-authorized):
-//   - Summary (profile, placement, cohort, hours): GET /api/portal/student-summary
+//   - Summary (profile, placement, cohort, hours, badge_created): GET
+//     /api/portal/student-summary
 //   - Shift logs / evaluation statuses / certificate: scoped definer views
 //     (empty for anyone without an active student grant)
 // Writes: only self-service presentation fields via /api/portal/update-profile
 // (EditProfileDrawer). Shift logging stays on the public /shift-log flow;
-// evaluations stay on their tokenized links.
+// evaluations stay on their tokenized links. Document downloads go through
+// authenticated, server-authorized endpoints that resolve the linked student
+// from the caller's grant (never from a client-supplied id).
 import { useState, useEffect, useRef } from 'react'
-import { MapPin, Clock, ListChecks, ClipboardCheck, CalendarPlus, LifeBuoy, Pencil, Mail, ChevronRight, Copy } from 'lucide-react'
+import { MapPin, Clock, ListChecks, ClipboardCheck, CalendarPlus, LifeBuoy, Pencil, Mail, ChevronRight, Copy, FileText, Download, Award, IdCard } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { deriveNextSteps } from '../lib/portalNextSteps'
+import { deriveHeroStage, derivePortalTimeline, deriveClinicalHours } from '../lib/portalProgress'
+import { deriveBadgeStatus, deriveCertificateStatus } from '../lib/portalDocuments'
 import { fmtDate, placementWindow, TBC } from '../lib/portalDates'
 import { composePortalEmail } from '../lib/outlookCompose'
 import EditProfileDrawer from './EditProfileDrawer'
@@ -26,6 +34,11 @@ const EVAL_STATUS_LABELS = {
   non_responder: 'Window closed', expired: 'Window closed', revoked: 'Withdrawn',
 }
 
+const TIMEPOINT_LABELS = {
+  baseline: 'Baseline', early_rotation_baseline: 'Early rotation',
+  midpoint: 'Midpoint', post_rotation: 'Post-rotation',
+}
+
 function initials(name) {
   return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
 }
@@ -35,9 +48,9 @@ function buildContactBody({ name, school, cohort, status } = {}) {
   return `Hello ASPIRE Team,\n\nI am contacting you for assistance.\n\nName: ${name || 'not available'}\nSchool: ${school || 'not available'}\nCohort: ${cohort || 'not available'}\nASPIRE status: ${status || 'not available'}\n\nMy question or concern:\n\n\nThank you.`
 }
 
-function SectionCard({ icon: Icon, title, accent, children, span }) {
+function SectionCard({ icon: Icon, title, accent, children, cols = 12 }) {
   return (
-    <section className={`ptl-card ptl-section${span ? ' ptl-span2' : ''}`}>
+    <section className={`ptl-card ptl-section ptl-col-${cols}`}>
       <div className="ptl-section-head">
         <span className="ptl-section-icon" style={accent ? { background: accent.bg, color: accent.fg } : undefined}><Icon size={16} /></span>
         <h2 className="ptl-section-title">{title}</h2>
@@ -58,6 +71,8 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
   const [loading, setLoading]   = useState(true)
   const [activeId, setActiveId] = useState(null)
   const [compose, setCompose]   = useState(null) // { kind: 'outlook'|'sent'|'blocked', loginEmail?, body? }
+  const [certBusy, setCertBusy] = useState(false)
+  const [certMsg, setCertMsg]   = useState(null)  // { ok, text } | null
   const editBtnRef = useRef(null)
 
   // Contact ASPIRE: route recognized Microsoft 365 logins to Outlook Web, others
@@ -71,6 +86,34 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
     else setCompose({ kind: 'sent' })
   }
   const copy = (text) => { try { navigator.clipboard?.writeText(text) } catch { /* clipboard unavailable */ } }
+
+  // Certificate of Completion download. The endpoint resolves the linked student
+  // from the caller's grant and generates the PDF on demand; NO student id or
+  // path is placed in the URL. The blob is downloaded without navigating the
+  // portal tab.
+  const downloadCertificate = async () => {
+    setCertBusy(true); setCertMsg(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token) { setCertMsg({ ok: false, text: 'Please sign in again to download your certificate.' }); setCertBusy(false); return }
+      const res = await fetch('/api/portal/download-certificate', { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) { setCertMsg({ ok: false, text: 'Your certificate could not be downloaded right now.' }); setCertBusy(false); return }
+      const blob = await res.blob()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = 'ASPIRE-Certificate-of-Completion.pdf'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      setCertMsg({ ok: true, text: 'Your certificate download has started.' })
+    } catch {
+      setCertMsg({ ok: false, text: 'Your certificate could not be downloaded right now.' })
+    }
+    setCertBusy(false)
+  }
 
   async function load() {
     try {
@@ -118,19 +161,22 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
   const myCert  = certs.find(c => c.student_id === student.id) || null
   const supportItems = myLogs.filter(l => (l.support_needed || '').trim().length > 0)
 
-  const required = student.hours.required
-  const approved = student.hours.approved || 0
-  const pending  = student.hours.pending || 0
-  const hoursReliable = Number.isFinite(required) && required > 0 && Number.isFinite(approved)
-  const pct = hoursReliable ? Math.min(100, Math.round((approved / required) * 100)) : null
+  const hours = deriveClinicalHours(student.hours)
+  const stage = deriveHeroStage(student.status)
+  const timeline = derivePortalTimeline({ status: student.status, certificateUnlocked: !!myCert?.certificate_unlocked_at })
+  const badgeStatus = deriveBadgeStatus({ badgeCreated: student.badge_created, status: student.status })
+  const certStatus  = deriveCertificateStatus({ certificate: myCert, status: student.status, evaluations: myEvals })
 
-  const steps = deriveNextSteps({ status: student.status, hours: { approved, required }, evaluations: myEvals, certificate: myCert })
   const displayName = student.preferred_first_name || student.first_name
   const fullName = [displayName, student.last_name].filter(Boolean).join(' ')
   const cohortName = student.cohort?.name || null
   const rotationWindow = placementWindow(student.cohort, student.term_dates)
   const activeRotation = student.status === 'Active Rotation'
   const onContact = () => contactAspire({ name: fullName, school: student.school, cohort: cohortName, status: student.status })
+
+  const shiftCount = myLogs.length
+  const totalShiftHours = Math.round(myLogs.reduce((sum, l) => sum + (Number(l.total_hours) || 0), 0) * 10) / 10
+  const mostRecentShift = fmtDate(myLogs[0]?.shift_date)
 
   const openEdit = () => onOpenEdit?.()
 
@@ -145,7 +191,7 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
         </div>
       )}
 
-      {/* Profile hero */}
+      {/* Profile hero (row 1, full width) */}
       <section className="ptl-hero">
         <div className="ptl-hero-top">
           <div className="ptl-hero-id">
@@ -162,7 +208,21 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
               </div>
             </div>
           </div>
-          <button type="button" ref={editBtnRef} className="ptl-edit-btn" onClick={openEdit}><Pencil size={14} /> Edit Profile</button>
+          <div className="ptl-hero-aside">
+            <button type="button" ref={editBtnRef} className="ptl-edit-btn" onClick={openEdit}><Pencil size={14} /> Edit Profile</button>
+            {stage && (
+              <div className="ptl-hero-stage">
+                <div className="ptl-stage-block">
+                  <span className="ptl-stage-eyebrow">Current stage</span>
+                  <span className="ptl-stage-value">{stage.current}</span>
+                </div>
+                <div className="ptl-stage-block">
+                  <span className="ptl-stage-eyebrow">Next</span>
+                  <span className="ptl-stage-next">{stage.next}</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         <div className="ptl-hero-actions">
           <a className="ptl-btn ptl-btn-primary" href="/shift-log"><CalendarPlus size={16} /> Log a Shift</a>
@@ -173,8 +233,9 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
       <ComposeNote compose={compose} onDismiss={() => setCompose(null)} onCopyEmail={() => copy(SUPPORT)} onCopyMessage={copy} />
 
       <div className="ptl-grid">
-        <SectionCard icon={MapPin} title="Placement" accent={{ bg: '#eef2fb', fg: '#1D2567' }}>
-          <dl className="ptl-dl">
+        {/* Row 2: Placement (7) + Clinical hours (5) */}
+        <SectionCard icon={MapPin} title="Placement" accent={{ bg: '#eef2fb', fg: '#1D2567' }} cols={7}>
+          <dl className="ptl-dl ptl-dl-lg">
             <div><dt>Unit</dt><dd>{student.unit_name || TBC}</dd></div>
             <div><dt>Preceptor</dt><dd>{student.preceptor_name || TBC}</dd></div>
             <div><dt>Rotation window</dt><dd>{rotationWindow}</dd></div>
@@ -182,68 +243,63 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
           </dl>
         </SectionCard>
 
-        <SectionCard icon={Clock} title="Clinical hours" accent={{ bg: '#e0f7fa', fg: '#0d7a8a' }}>
-          {hoursReliable ? (
+        <SectionCard icon={Clock} title="Clinical hours" accent={{ bg: '#e0f7fa', fg: '#0d7a8a' }} cols={5}>
+          {hours.reliable ? (
             <>
-              <div className="ptl-hours-line"><span className="ptl-hours-big">{approved}</span><span className="ptl-muted"> of {required} hours approved</span></div>
-              <div className="ptl-progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}><div className="ptl-progress-fill" style={{ width: `${pct}%` }} /></div>
-              <div className="ptl-muted ptl-small">{pending > 0 ? `${pending} hours pending review. ` : ''}{Math.max(0, required - approved)} hours remaining.</div>
+              <div className="ptl-hours-stats">
+                <div className="ptl-stat"><span className="ptl-stat-num ptl-hours-big">{hours.completed}</span><span className="ptl-stat-label">Completed</span></div>
+                <div className="ptl-stat"><span className="ptl-stat-num">{hours.required}</span><span className="ptl-stat-label">Required</span></div>
+                <div className="ptl-stat"><span className="ptl-stat-num">{hours.remaining}</span><span className="ptl-stat-label">Remaining</span></div>
+              </div>
+              <div className="ptl-progress" role="progressbar" aria-label="Clinical hours completed"
+                aria-valuenow={hours.pct} aria-valuemin={0} aria-valuemax={100}
+                aria-valuetext={`${hours.completed} of ${hours.required} hours completed, ${hours.pct} percent`}>
+                <div className="ptl-progress-fill" style={{ width: `${hours.pct}%` }} />
+              </div>
+              <div className="ptl-muted ptl-small">{hours.pct}% complete{hours.pending > 0 ? ` · ${hours.pending} hours pending review` : ''}</div>
             </>
           ) : (
-            <div className="ptl-empty">Your required hours will appear once your rotation is set up.</div>
+            <div className="ptl-empty">Rotation hours have not been configured yet. You will see required, completed, and remaining hours here once your rotation begins.</div>
           )}
         </SectionCard>
 
-        <SectionCard icon={ListChecks} title="Next steps" accent={{ bg: '#edf2e2', fg: '#166534' }} span>
-          <ul className="ptl-steps">
-            {steps.map(s => <li key={s.key} className={s.done ? 'ptl-step-done' : ''}><span className="ptl-step-mark">{s.done ? '✓' : '○'}</span> {s.label}</li>)}
-          </ul>
+        {/* Row 3: Next steps timeline (8) + Need help (4) */}
+        <SectionCard icon={ListChecks} title="Next steps" accent={{ bg: '#edf2e2', fg: '#166534' }} cols={8}>
+          <ol className="ptl-timeline" aria-label="Your ASPIRE progress">
+            {timeline.steps.map(s => (
+              <li key={s.key} className={`ptl-tl-step ptl-tl-${s.state}`}>
+                <span className="ptl-tl-mark" aria-hidden="true">{s.state === 'complete' ? '✓' : s.state === 'current' ? '●' : '○'}</span>
+                <span className="ptl-tl-label">{s.label}</span>
+                <span className="ptl-tl-state">{s.stateLabel}</span>
+              </li>
+            ))}
+          </ol>
           {activeRotation && <a className="ptl-btn ptl-btn-sm" href="/shift-log"><CalendarPlus size={15} /> Log a Shift</a>}
         </SectionCard>
 
-        <SectionCard icon={ClipboardCheck} title="Evaluations" accent={{ bg: '#fdf3e3', fg: '#92400e' }}>
-          {myEvals.length === 0 ? (
-            <div className="ptl-empty">No evaluations yet. Links arrive by email when one opens.</div>
-          ) : (
-            <ul className="ptl-list">
-              {myEvals.map(e => (
-                <li key={e.id}>
-                  <span>{e.instrument_title || e.instrument_slug}</span>
-                  <span className={`ptl-chip ptl-chip-soft ptl-chip-${e.status === 'completed' ? 'ok' : 'wait'}`}>{EVAL_STATUS_LABELS[e.status] || e.status}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {myCert?.certificate_unlocked_at && <div className="ptl-cert">Certificate <strong>{myCert.certificate_number}</strong> issued. Use the download link from your certificate email.</div>}
-        </SectionCard>
-
-        <SectionCard icon={CalendarPlus} title="Shift logs" accent={{ bg: '#eef2fb', fg: '#1D2567' }}>
-          {myLogs.length === 0 ? (
-            <div className="ptl-empty">No shifts logged yet. Use <strong>Log a Shift</strong> to record your first one.</div>
-          ) : (
-            <ul className="ptl-list">
-              {myLogs.slice(0, 6).map(l => (
-                <li key={l.id}>
-                  <span>{fmtDate(l.shift_date) || 'Date pending'}{l.unit_name ? ` · ${l.unit_name}` : ''}{l.total_hours != null ? ` · ${l.total_hours}h` : ''}</span>
-                  <span className={`ptl-chip ptl-chip-soft ptl-chip-${l.status === 'approved' ? 'ok' : 'wait'}`}>{l.status}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <a className="ptl-inline-link" href="/shift-log">Log a Shift <ChevronRight size={13} /></a>
-        </SectionCard>
-
-        <SectionCard icon={LifeBuoy} title="Need help?" accent={{ bg: '#fdecec', fg: '#b91c1c' }} span>
-          <div className="ptl-help-grid">
+        <SectionCard icon={LifeBuoy} title="Need help?" accent={{ bg: '#fdecec', fg: '#b91c1c' }} cols={4}>
+          <div className="ptl-help-list">
             <div className="ptl-help-item">
-              <div className="ptl-help-title">Shift documentation</div>
-              <p className="ptl-muted ptl-small">Use <strong>Log a Shift</strong> to record hours and flag shift-related support.</p>
+              <div className="ptl-help-title">Log a shift</div>
+              <p className="ptl-muted ptl-small">Record hours and flag shift-related support.</p>
               <a className="ptl-inline-link" href="/shift-log">Log a Shift <ChevronRight size={13} /></a>
             </div>
             <div className="ptl-help-item">
-              <div className="ptl-help-title">General questions</div>
-              <p className="ptl-muted ptl-small">Use <strong>Contact ASPIRE</strong> for anything else. We are glad to help.</p>
+              <div className="ptl-help-title">Contact ASPIRE</div>
+              <p className="ptl-muted ptl-small">General questions and anything else. We are glad to help.</p>
               <button type="button" className="ptl-inline-link ptl-inline-btn" onClick={onContact} aria-label="Contact ASPIRE (opens an email compose in a new tab)">Contact ASPIRE <ChevronRight size={13} /></button>
+            </div>
+            <div className="ptl-help-item">
+              <div className="ptl-help-title">Request a profile correction</div>
+              <p className="ptl-muted ptl-small">Ask us to fix a managed field like school, cohort, or placement.</p>
+              <button type="button" className="ptl-inline-link ptl-inline-btn" onClick={openEdit}>Request a correction <ChevronRight size={13} /></button>
+            </div>
+            <div className="ptl-help-item">
+              <div className="ptl-help-title">Email</div>
+              <p className="ptl-muted ptl-small ptl-help-email">
+                <span>{SUPPORT}</span>
+                <button type="button" className="ptl-inline-link ptl-inline-btn" onClick={() => copy(SUPPORT)} aria-label="Copy the ASPIRE email address"><Copy size={13} /> Copy</button>
+              </p>
             </div>
           </div>
           {supportItems.length > 0 && (
@@ -255,6 +311,101 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
               <div className="ptl-muted ptl-small">The ASPIRE team reviews every support note. For anything urgent, contact your NPD practitioner directly.</div>
             </div>
           )}
+        </SectionCard>
+
+        {/* Row 4: Evaluations (4) + Shift logs (4) + Documents (4) */}
+        <SectionCard icon={ClipboardCheck} title="Evaluations" accent={{ bg: '#fdf3e3', fg: '#92400e' }} cols={4}>
+          {myEvals.length === 0 ? (
+            <div className="ptl-empty">No evaluations are currently available. When an evaluation opens, you will receive an email and see its status here.</div>
+          ) : (
+            <ul className="ptl-eval-list">
+              {myEvals.map(e => {
+                const meta = [
+                  e.timepoint ? (TIMEPOINT_LABELS[e.timepoint] || e.timepoint) : null,
+                  fmtDate(e.sent_at) ? `Sent ${fmtDate(e.sent_at)}` : null,
+                  fmtDate(e.opened_at) ? `Opened ${fmtDate(e.opened_at)}` : null,
+                  fmtDate(e.completed_at) ? `Completed ${fmtDate(e.completed_at)}` : null,
+                  fmtDate(e.expires_at) ? `Expires ${fmtDate(e.expires_at)}` : null,
+                ].filter(Boolean).join(' · ')
+                return (
+                  <li key={e.id} className="ptl-eval-item">
+                    <div className="ptl-eval-head">
+                      <span className="ptl-eval-title">{e.instrument_title || e.instrument_slug}</span>
+                      <span className={`ptl-chip ptl-chip-soft ptl-chip-${e.status === 'completed' ? 'ok' : 'wait'}`}>{EVAL_STATUS_LABELS[e.status] || e.status}</span>
+                    </div>
+                    {meta && <div className="ptl-muted ptl-small ptl-eval-meta">{meta}</div>}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </SectionCard>
+
+        <SectionCard icon={CalendarPlus} title="Shift logs" accent={{ bg: '#eef2fb', fg: '#1D2567' }} cols={4}>
+          {shiftCount === 0 ? (
+            <>
+              <div className="ptl-empty">No shifts logged yet. Record your first shift when your clinical rotation begins.</div>
+              <a className="ptl-btn ptl-btn-sm" href="/shift-log"><CalendarPlus size={15} /> Log a Shift</a>
+            </>
+          ) : (
+            <>
+              <div className="ptl-shift-summary">
+                <div className="ptl-stat"><span className="ptl-stat-num">{shiftCount}</span><span className="ptl-stat-label">Shifts</span></div>
+                <div className="ptl-stat"><span className="ptl-stat-num">{totalShiftHours}</span><span className="ptl-stat-label">Hours</span></div>
+                {mostRecentShift && <div className="ptl-stat"><span className="ptl-stat-num ptl-stat-date">{mostRecentShift}</span><span className="ptl-stat-label">Most recent</span></div>}
+              </div>
+              <ul className="ptl-list">
+                {myLogs.slice(0, 4).map(l => (
+                  <li key={l.id}>
+                    <span>{fmtDate(l.shift_date) || 'Date pending'}{l.unit_name ? ` · ${l.unit_name}` : ''}{l.total_hours != null ? ` · ${l.total_hours}h` : ''}</span>
+                    <span className={`ptl-chip ptl-chip-soft ptl-chip-${l.status === 'approved' ? 'ok' : 'wait'}`}>{l.status}</span>
+                  </li>
+                ))}
+              </ul>
+              <a className="ptl-btn ptl-btn-sm" href="/shift-log"><CalendarPlus size={15} /> Log a Shift</a>
+            </>
+          )}
+        </SectionCard>
+
+        <SectionCard icon={FileText} title="Documents" accent={{ bg: '#eef2fb', fg: '#1D2567' }} cols={4}>
+          {/* ID Badge: status only. No downloadable badge file exists server-side
+              (see src/lib/portalDocuments.js), so no active download button is
+              ever rendered here. */}
+          <div className="ptl-doc-row">
+            <div className="ptl-doc-head">
+              <span className="ptl-doc-icon" aria-hidden="true"><IdCard size={16} /></span>
+              <span className="ptl-doc-title">ID Badge</span>
+              <span className={`ptl-doc-status ptl-doc-${badgeStatus.state}`}>{badgeStatus.label}</span>
+            </div>
+            <p className="ptl-muted ptl-small">{badgeStatus.detail}</p>
+          </div>
+
+          {/* Certificate of Completion */}
+          <div className="ptl-doc-row">
+            <div className="ptl-doc-head">
+              <span className="ptl-doc-icon" aria-hidden="true"><Award size={16} /></span>
+              <span className="ptl-doc-title">Certificate of Completion</span>
+              <span className={`ptl-doc-status ptl-doc-${certStatus.state}`}>{certStatus.label}</span>
+            </div>
+            {certStatus.downloadable ? (
+              <>
+                <div className="ptl-muted ptl-small ptl-doc-meta">
+                  {[
+                    certStatus.number ? `Certificate ${certStatus.number}` : null,
+                    certStatus.year ? String(certStatus.year) : null,
+                    fmtDate(certStatus.unlockedAt) ? `Unlocked ${fmtDate(certStatus.unlockedAt)}` : null,
+                  ].filter(Boolean).join(' · ')}
+                </div>
+                <button type="button" className="ptl-btn ptl-btn-sm" onClick={downloadCertificate} disabled={certBusy}
+                  aria-label="Download your Certificate of Completion (PDF)">
+                  <Download size={15} /> {certBusy ? 'Preparing...' : 'Download Certificate'}
+                </button>
+                {certMsg && <div className={certMsg.ok ? 'ptl-form-ok' : 'ptl-form-error'} role="status">{certMsg.text}</div>}
+              </>
+            ) : (
+              <p className="ptl-muted ptl-small">{certStatus.lockedReason}</p>
+            )}
+          </div>
         </SectionCard>
       </div>
 

@@ -53,9 +53,11 @@ test('Student Portal redesign', async (t) => {
     assert.doesNotMatch(portal, /toLocaleDateString/, 'formatting goes through portalDates, not inline')
   })
 
-  await t.test('clinical-hours progress bar renders only with reliable data', () => {
-    assert.match(portal, /const hoursReliable = Number\.isFinite\(required\) && required > 0 && Number\.isFinite\(approved\)/)
-    assert.match(portal, /hoursReliable \? \(/)
+  await t.test('clinical-hours progress bar renders only with reliable data (via deriveClinicalHours)', () => {
+    // The reliability gate now lives in the pure, unit-tested helper
+    // (test/portalProgress.test.mjs); the card renders the bar only when reliable.
+    assert.match(portal, /deriveClinicalHours\(student\.hours\)/)
+    assert.match(portal, /hours\.reliable \? \(/)
   })
 
   await t.test('a mobile sticky action bar exists and no service-role reference', () => {

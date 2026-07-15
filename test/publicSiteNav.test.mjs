@@ -78,8 +78,8 @@ test('public-site mobile header + compact menu', async (t) => {
 })
 
 test('Student Portal hero avatar is larger and keeps the initials fallback', async (t) => {
-  await t.test('desktop avatar is ~72-88px with a preserved ring', () => {
-    assert.match(portalCss, /\.ptl-hero \.ptl-avatar \{ width: 80px; height: 80px;[\s\S]*?border: 3px solid rgba\(255,255,255/)
+  await t.test('desktop avatar is ~96-112px with a preserved ring (ASPIRE-STUDENT-HOME)', () => {
+    assert.match(portalCss, /\.ptl-hero \.ptl-avatar \{ width: 104px; height: 104px;[\s\S]*?border: 3px solid rgba\(255,255,255/)
   })
   await t.test('mobile avatar is ~72-84px', () => {
     assert.match(portalCss, /\.ptl-hero \.ptl-avatar \{ width: 72px; height: 72px;/)

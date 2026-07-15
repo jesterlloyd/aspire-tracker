@@ -26,20 +26,40 @@
 .ptl-header-link { font-size: 13px; color: #1D2567; text-decoration: none; }
 .ptl-header-link:hover { text-decoration: underline; }
 
-.ptl-main { flex: 1; width: 100%; max-width: 1020px; margin: 0 auto; padding: 28px 20px 40px; }
+/* ASPIRE-STUDENT-HOME: wider desktop workspace (was 1020px) so the portal uses
+   the available screen with a purposeful 12-column grid, while side padding and
+   per-card text measures keep line lengths readable. Mobile width is unchanged
+   (the grid collapses to one column below 760px). */
+.ptl-main { flex: 1; width: 100%; max-width: 1200px; margin: 0 auto; padding: 28px 24px 40px; }
 
 .ptl-footer {
   text-align: center; padding: 18px; font-size: 12px; color: #9ca3af;
   border-top: 1px solid #e3ded4;
 }
 
+/* ASPIRE-STUDENT-HOME: purposeful 12-column desktop grid.
+   Row 2: Placement (7) + Clinical hours (5)
+   Row 3: Next steps (8) + Need help (4)
+   Row 4: Evaluations (4) + Shift logs (4) + Documents (4)
+   align-items:start keeps each card at its natural height (no stretch). */
 .ptl-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+  display: grid; grid-template-columns: repeat(12, 1fr); gap: 18px; align-items: start;
 }
-.ptl-span2 { grid-column: 1 / -1; }
+.ptl-col-4  { grid-column: span 4; }
+.ptl-col-5  { grid-column: span 5; }
+.ptl-col-7  { grid-column: span 7; }
+.ptl-col-8  { grid-column: span 8; }
+.ptl-col-12 { grid-column: span 12; }
+
+/* Tablet / narrower desktop: collapse into a comfortable two-up layout. The
+   lower three cards become a two-column layout and the third wraps. */
+@media (max-width: 1000px) {
+  .ptl-col-4, .ptl-col-5, .ptl-col-7, .ptl-col-8 { grid-column: span 6; }
+}
+/* Mobile: single-column stacking, preserved spacing, no horizontal overflow. */
 @media (max-width: 760px) {
   .ptl-grid { grid-template-columns: 1fr; }
-  .ptl-span2 { grid-column: auto; }
+  .ptl-col-4, .ptl-col-5, .ptl-col-7, .ptl-col-8, .ptl-col-12 { grid-column: auto; }
 }
 
 .ptl-card {
@@ -195,12 +215,24 @@
   color: #fff; border-radius: 18px; padding: 22px 22px 20px;
   box-shadow: 0 8px 28px rgba(29,37,103,0.18);
 }
-.ptl-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
-.ptl-hero-id { display: flex; align-items: center; gap: 15px; min-width: 0; }
-.ptl-hero .ptl-avatar { width: 80px; height: 80px; font-size: 28px; border: 3px solid rgba(255,255,255,0.9); box-shadow: 0 4px 18px rgba(0,0,0,0.22); }
+.ptl-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.ptl-hero-id { display: flex; align-items: center; gap: 18px; min-width: 0; }
+/* Desktop hero avatar ~104px (task target 96-112); mobile keeps 72px below. */
+.ptl-hero .ptl-avatar { width: 104px; height: 104px; font-size: 36px; border: 3px solid rgba(255,255,255,0.9); box-shadow: 0 4px 18px rgba(0,0,0,0.22); }
 .ptl-hero-text { min-width: 0; }
 .ptl-hero-hello { font-size: 13px; color: rgba(255,255,255,0.72); }
-.ptl-hero-name { font-size: 24px; font-weight: 800; line-height: 1.15; }
+.ptl-hero-name { font-size: 30px; font-weight: 800; line-height: 1.12; letter-spacing: -0.01em; }
+/* Right cluster: Edit Profile plus, on desktop, a compact current-stage panel. */
+.ptl-hero-aside { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; flex-shrink: 0; }
+.ptl-hero-stage {
+  display: flex; flex-direction: column; gap: 10px; text-align: left;
+  background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.20);
+  border-radius: 12px; padding: 12px 14px; min-width: 208px; max-width: 260px;
+}
+.ptl-stage-block { display: flex; flex-direction: column; gap: 2px; }
+.ptl-stage-eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: rgba(255,255,255,0.62); }
+.ptl-stage-value { font-size: 15px; font-weight: 700; color: #fff; line-height: 1.25; }
+.ptl-stage-next { font-size: 13px; color: rgba(255,255,255,0.9); line-height: 1.4; }
 .ptl-hero-meta { font-size: 13px; color: rgba(255,255,255,0.82); margin-top: 2px; }
 .ptl-hero-chips { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
 .ptl-hero .ptl-chip { background: rgba(255,255,255,0.16); color: #fff; }
@@ -236,6 +268,69 @@
 .ptl-support-notes { margin-top: 16px; border-top: 1px dashed #eee9df; padding-top: 12px; }
 .ptl-loading { padding: 40px 4px; }
 
+/* ── ASPIRE-STUDENT-HOME: desktop information scale + new surfaces ──────────── */
+/* Slightly larger card headings and key values on desktop (kept modest). */
+.ptl-section-title { font-size: 18px; }
+.ptl-dl-lg dt { font-size: 14px; }
+.ptl-dl-lg dd { font-size: 15px; }
+
+/* Stat rows (Clinical hours, Shift logs summary) */
+.ptl-hours-stats, .ptl-shift-summary { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.ptl-stat { display: flex; flex-direction: column; gap: 2px; min-width: 64px; }
+.ptl-stat-num { font-size: 20px; font-weight: 700; color: #1D2567; line-height: 1.1; }
+.ptl-stat-num.ptl-hours-big { font-size: 26px; }
+.ptl-stat-num.ptl-stat-date { font-size: 15px; }
+.ptl-stat-label { font-size: 11.5px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600; }
+
+/* Next Steps progress timeline (structured multi-step; state is text, not just
+   color, for screen readers). */
+.ptl-timeline { list-style: none; margin: 0 0 6px; padding: 0; }
+.ptl-tl-step {
+  display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 12px;
+  padding: 9px 0; border-bottom: 1px dashed #eee9df;
+}
+.ptl-tl-step:last-child { border-bottom: none; }
+.ptl-tl-mark {
+  width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; border: 2px solid #d7d2c7; color: #9ca3af; background: #fff;
+}
+.ptl-tl-complete .ptl-tl-mark { background: #16a34a; border-color: #16a34a; color: #fff; }
+.ptl-tl-current .ptl-tl-mark { border-color: #1D2567; color: #1D2567; }
+.ptl-tl-label { font-size: 14.5px; color: #374151; }
+.ptl-tl-current .ptl-tl-label { font-weight: 700; color: #1D2567; }
+.ptl-tl-upcoming .ptl-tl-label { color: #9ca3af; }
+.ptl-tl-state { font-size: 11px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.ptl-tl-complete .ptl-tl-state { background: #e7f4ec; color: #14532d; }
+.ptl-tl-current .ptl-tl-state { background: #eef2fb; color: #1D2567; }
+.ptl-tl-upcoming .ptl-tl-state { background: #f3f1ea; color: #6b7280; }
+
+/* Need Help panel list */
+.ptl-help-list { display: flex; flex-direction: column; gap: 15px; }
+.ptl-help-email { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* Evaluations card items */
+.ptl-eval-list { list-style: none; margin: 0; padding: 0; }
+.ptl-eval-item { padding: 10px 0; border-bottom: 1px dashed #eee9df; }
+.ptl-eval-item:last-child { border-bottom: none; }
+.ptl-eval-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ptl-eval-title { font-size: 13.5px; font-weight: 600; color: #232842; }
+.ptl-eval-meta { margin-top: 4px; }
+
+/* Documents card (ID Badge + Certificate of Completion) */
+.ptl-doc-row { padding: 12px 0; border-bottom: 1px dashed #eee9df; }
+.ptl-doc-row:first-child { padding-top: 0; }
+.ptl-doc-row:last-child { border-bottom: none; padding-bottom: 0; }
+.ptl-doc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.ptl-doc-icon { display: inline-flex; color: #1D2567; }
+.ptl-doc-title { font-size: 14px; font-weight: 700; color: #232842; flex: 1; }
+.ptl-doc-status { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; padding: 2px 9px; border-radius: 999px; background: #f3f1ea; color: #6b7280; white-space: nowrap; }
+.ptl-doc-available, .ptl-doc-created { background: #e7f4ec; color: #14532d; }
+.ptl-doc-processing, .ptl-doc-eligible { background: #fdf3e3; color: #92400e; }
+.ptl-doc-locked, .ptl-doc-not_yet, .ptl-doc-unavailable { background: #f3f1ea; color: #6b7280; }
+.ptl-doc-meta { margin-bottom: 8px; }
+.ptl-doc-row .ptl-btn-sm { margin-top: 6px; }
+.ptl-doc-row .ptl-form-ok, .ptl-doc-row .ptl-form-error { margin-bottom: 0; }
+
 /* Mobile sticky action bar (hidden on desktop) */
 .ptl-actionbar { display: none; }
 
@@ -262,6 +357,9 @@
   .ptl-hero { padding: 18px 16px; border-radius: 16px; }
   .ptl-hero-name { font-size: 21px; }
   .ptl-hero .ptl-avatar { width: 72px; height: 72px; font-size: 25px; }
+  /* The desktop current-stage panel is hidden on mobile so the hero keeps its
+     current, working layout; the Next Steps timeline carries stage context. */
+  .ptl-hero-stage { display: none; }
   .ptl-help-grid { grid-template-columns: 1fr; }
   .ptl-card { padding: 18px 16px; }
   /* Hero inline actions collapse into the sticky bar on small screens */
