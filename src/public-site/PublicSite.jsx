@@ -15,7 +15,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import Icon, { LoopMotif } from './PublicIcons'
+import Icon from './PublicIcons'
 import { celebrate } from './confetti'
 import {
   SITE_NAME, SITE_TITLE, NAV_LINKS, HOME, ABOUT, ELIGIBILITY, APPLY,
@@ -339,7 +339,12 @@ function PreceptorBand() {
   return (
     <section className="ps-band" aria-labelledby="ps-band-title">
       <div className="ps-band-inner">
-        <LoopMotif className="ps-band-motif" />
+        {/* Subtle Cedars-Sinai white mark watermark (approved brand asset),
+            replacing the former generic outlined circle. Decorative only:
+            aria-hidden, non-interactive, understated opacity, sits behind the
+            copy (z-index below .ps-band-copy) so it never affects contrast. */}
+        <img className="ps-band-mark" src="/cs-logo-white-mark.png" alt=""
+          aria-hidden="true" draggable="false" />
         <div className="ps-band-copy">
           <p className="ps-eyebrow ps-eyebrow-light">{HOME.preceptorBandEyebrow}</p>
           <h2 id="ps-band-title">{HOME.preceptorBandTitle}</h2>
@@ -547,10 +552,12 @@ function ExperiencePage() {
   return (
     <>
       <section className="ps-section">
-        <PageHead eyebrow={EXPERIENCE.eyebrow} title={EXPERIENCE.title} intro={EXPERIENCE.intro} />
-        <div className="ps-banner-art">
-          <Art base="experience"
-            alt="Illustration of a Nursing Professional Development practitioner, a nurse, and a nursing student talking as a care team" />
+        <div className="ps-exp-hero">
+          <PageHead eyebrow={EXPERIENCE.eyebrow} title={EXPERIENCE.title} intro={EXPERIENCE.intro} />
+          <div className="ps-exp-art">
+            <Art base="experience"
+              alt="Illustration of a Nursing Professional Development practitioner, a nurse, and a nursing student talking as a care team" />
+          </div>
         </div>
         <div className="ps-feature-grid">
           {EXPERIENCE.bullets.map(b => (

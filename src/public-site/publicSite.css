@@ -19,6 +19,10 @@
   --ps-tint: #eef0f8;
   --ps-radius: 16px;
   --ps-maxw: 1160px;
+  /* Wider editorial width for the primary image-led heroes only (homepage and
+     The Experience). Body copy, cards, and FAQ keep --ps-maxw for a readable
+     measure. */
+  --ps-maxw-wide: 1240px;
   min-height: 100vh;
   background: var(--ps-cream);
   color: var(--ps-ink);
@@ -180,11 +184,14 @@
     var(--ps-cream);
   border-bottom: 1px solid var(--ps-line);
 }
+/* Editorial split: text ~5 of 12 columns, illustration ~7. The image side is
+   deliberately wider so the artwork reads as the primary visual, not a
+   thumbnail. Wider container + reduced gap keep the two columns close. */
 .ps-hero-inner {
-  max-width: var(--ps-maxw); margin: 0 auto; padding: 72px 24px;
-  display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 48px; align-items: center;
+  max-width: var(--ps-maxw-wide); margin: 0 auto; padding: 72px 24px;
+  display: grid; grid-template-columns: 5fr 7fr; gap: 40px; align-items: center;
 }
-.ps-hero-copy { max-width: 620px; }
+.ps-hero-copy { max-width: 560px; }
 .ps-hero-art { display: flex; justify-content: center; }
 
 /* ── Illustrations ────────────────────────────────────────────────────────────
@@ -198,19 +205,26 @@
 }
 
 /* Homepage hero: preserve the wide student-and-preceptor composition (no
-   square, both people fully visible). */
-.ps-hero-figure { position: relative; width: 100%; max-width: 560px; }
+   square, both people fully visible) at a larger, editorial size. */
+.ps-hero-figure { position: relative; width: 100%; max-width: 640px; }
 
-/* Page-head split (About, For Preceptors): copy left, full illustration right. */
+/* Page-head split (About, For Preceptors): copy ~45%, illustration ~55% so the
+   artwork carries comparable weight to the headline. Tighter gap trims the
+   empty space between the two columns. */
 .ps-head-split {
-  display: grid; grid-template-columns: 1.1fr 0.9fr;
-  gap: 44px; align-items: center; margin-bottom: 8px;
+  display: grid; grid-template-columns: minmax(0, 0.82fr) minmax(0, 1fr);
+  gap: 40px; align-items: center; margin-bottom: 8px;
 }
 .ps-head-art { position: relative; }
 
-/* Experience: full care-team composition, borderless, centered and sized so the
-   complete scene (NPD practitioner, preceptor, student, hospital) is visible. */
-.ps-banner-art { margin: 12px auto 40px; max-width: 720px; }
+/* Experience: two-column editorial hero (copy ~45%, care-team illustration
+   ~55%) so the full scene (NPD practitioner, preceptor, student, hospital)
+   anchors the section beside the headline instead of floating alone. */
+.ps-exp-hero {
+  display: grid; grid-template-columns: minmax(0, 0.82fr) minmax(0, 1fr);
+  gap: 40px; align-items: center; margin-bottom: 40px;
+}
+.ps-exp-art { position: relative; }
 
 /* ── Audience pathways ────────────────────────────────────────────────────── */
 .ps-audience-grid {
@@ -315,9 +329,15 @@
 .ps-band-copy { position: relative; z-index: 1; max-width: 640px; }
 .ps-band-copy h2 { color: #fff; margin: 0 0 12px; font-size: clamp(24px, 3vw, 34px); line-height: 1.14; }
 .ps-band-copy p { color: #cdd2ea; margin: 0 0 24px; font-size: 16px; line-height: 1.6; }
-.ps-band-motif {
-  position: absolute; right: -30px; top: 50%; transform: translateY(-50%);
-  width: 360px; height: auto; color: #fff; opacity: 0.10; z-index: 0;
+/* Cedars-Sinai white mark as a subtle, non-interactive watermark on the right,
+   vertically centered and understated. Sits below .ps-band-copy (z-index 0 vs
+   1) and clear of the ~640px copy column, so it never overlaps the heading,
+   body, or the Become a preceptor button. .ps-band has overflow: hidden, so it
+   can never cause horizontal overflow. */
+.ps-band-mark {
+  position: absolute; right: 40px; top: 50%; transform: translateY(-50%);
+  width: 260px; height: auto; opacity: 0.11; z-index: 0;
+  pointer-events: none; user-select: none; -webkit-user-select: none;
 }
 
 /* ── Feature grids (About, Experience, Preceptors) ────────────────────────── */
@@ -536,6 +556,12 @@
   .ps-journey { grid-template-columns: repeat(3, 1fr); gap: 24px 8px; }
   .ps-journey::before { display: none; }
   .ps-footer-inner { grid-template-columns: 1fr; gap: 32px; }
+  /* Below the wide desktop, the right gutter beside the copy narrows, so the
+     watermark moves to a compact lower-right accent that stays clear of the
+     copy column and behind the (opaque) button. */
+  .ps-band-mark {
+    width: 190px; right: 20px; top: auto; bottom: 20px; transform: none; opacity: 0.10;
+  }
 }
 
 @media (max-width: 760px) {
@@ -557,7 +583,14 @@
 
   .ps-head-split { grid-template-columns: 1fr; gap: 20px; }
   .ps-head-art { order: -1; max-width: 480px; margin: 0 auto; }
-  .ps-banner-art { max-width: 480px; }
+  /* The Experience keeps its working mobile composition: headline first, then
+     the illustration below it (no order flip), at the same 480px cap. */
+  .ps-exp-hero { grid-template-columns: 1fr; gap: 20px; }
+  .ps-exp-art { max-width: 480px; margin: 0 auto; }
+  /* Watermark shrinks to a lower-right corner accent, clear of the copy. */
+  .ps-band-mark {
+    width: 168px; right: 12px; top: auto; bottom: 16px; transform: none; opacity: 0.09;
+  }
 
   .ps-section { padding: 44px 20px; }
   .ps-section-tint { padding: 44px 20px; }
