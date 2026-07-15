@@ -53,27 +53,75 @@ test('homepage', async (t) => {
     // Card 1 heading is a normal card heading (same hierarchy as the others).
     assert.match(content, /title: 'At least 90 bedside clinical hours'/)
   })
-  await t.test('six-step journey with approved step titles', () => {
+  await t.test('six-step journey aligned with the actual application process', () => {
     for (const step of [
-      'Your school confirms eligibility',
-      'You complete the ASPIRE intake',
-      'You meet with the ASPIRE Team',
+      'Your school confirms eligibility and submits a request',
+      'You complete the ASPIRE intake form',
+      'You interview with the ASPIRE Team',
       'ASPIRE coordinates your unit and preceptor match',
       'You complete your clinical rotation',
       'You prepare for your next step',
     ]) assert.match(content, new RegExp(`title: '${step.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'`))
+    // Step 1 body: school confirms eligibility AND submits the placement request.
+    assert.match(content, /confirms your eligibility and clinical requirements, then submits a placement request through the ASPIRE portal\./)
+    // Step 2 body now includes scheduling information.
+    assert.match(content, /learning needs, placement preferences, and scheduling information\./)
     assert.match(content, /journeyNote: 'Participation in ASPIRE does not guarantee/)
   })
   await t.test('homepage preceptor callout copy + watermark', () => {
     assert.match(content, /preceptorBandTitle: 'Help shape a future colleague\.'/)
     assert.match(site, /cs-logo-white-mark\.png/)
   })
-  await t.test('FAQ preview shows the three approved questions from shared answers', () => {
+  await t.test('FAQ preview shows the three approved questions', () => {
     assert.match(content, /faqPreview:/)
     for (const q of ['How do I apply to ASPIRE\\?', 'How are the unit and preceptor selected\\?', 'Can current Cedars-Sinai employees participate in ASPIRE\\?']) {
       assert.match(content, new RegExp(`q: '${q}'`))
     }
-    assert.match(site, /HOME\.faqPreview\.map\(p => \(\{ q: p\.q, a: FAQ\.items\[p\.i\]\.a \}\)\)/)
+    // The preview uses a dedicated answer when one is defined, else the shared FAQ answer.
+    assert.match(site, /HOME\.faqPreview\.map\(p => \(\{ q: p\.q, a: p\.a \?\? FAQ\.items\[p\.i\]\.a \}\)\)/)
+  })
+  await t.test('the "How do I apply" preview answer does NOT begin with "No.", but the full FAQ does', () => {
+    // Dedicated homepage-preview answer opens with "Applying", not "No.".
+    assert.match(content, /q: 'How do I apply to ASPIRE\?',[\s\S]*?a: 'Applying begins with your school’s clinical placement coordinator\./)
+    // The full FAQ "Can I apply directly to ASPIRE?" answer still opens with "No.".
+    assert.match(content, /q: 'Can I apply directly to ASPIRE\?',\s*a: 'No\. Applying begins with your school’s clinical placement coordinator\./)
+  })
+})
+
+test('coordinator terminology and support/compensation copy', async (t) => {
+  await t.test('public copy standardizes on "clinical placement coordinator"', () => {
+    // No non-clinical variants remain in the public copy.
+    assert.doesNotMatch(content, /school’s placement coordinator/)
+    assert.doesNotMatch(content, /school placement coordinator/)
+    assert.match(content, /school’s clinical placement coordinator/)
+    // Later within-section references may use "your coordinator".
+    assert.match(content, /your coordinator/)
+  })
+  await t.test('glance heading renamed to "Support beyond the rotation"', () => {
+    assert.match(content, /title: 'Support beyond the rotation'/)
+    assert.doesNotMatch(content, /NPD guidance beyond the rotation/)
+  })
+  await t.test('preceptor NPD heading spelled out, and revised compensation copy', () => {
+    assert.match(content, /title: 'Dedicated Nursing Professional Development support'/)
+    assert.doesNotMatch(content, /Dedicated NPD support/)
+    assert.match(content, /Cedars-Sinai nurses may be eligible for additional compensation for qualifying preceptor assignments, in accordance with applicable policy\./)
+    assert.doesNotMatch(content, /may receive additional compensation for qualifying preceptor assignments, subject to applicable policy/)
+  })
+})
+
+test('eligibility completion accessibility', async (t) => {
+  await t.test('the short completion status is screen-reader-only (visually hidden aria-live)', () => {
+    // The short announce sentence renders only inside the ps-visually-hidden live region.
+    assert.match(site, /<p className="ps-visually-hidden" role="status" aria-live="polite">\s*\{complete \? ELIGIBILITY\.ready\.announce : ''\}/)
+    // ...and is NOT placed in the visible ready card.
+    assert.doesNotMatch(site, /ps-ready-card[\s\S]*?ready\.announce/)
+  })
+  await t.test('the visible completion panel keeps the approved copy', () => {
+    assert.match(content, /heading: 'Ready to take the next step\?'/)
+    assert.match(content, /body:\s*'Based on your responses, you may be eligible to participate in ASPIRE\. Final eligibility is/)
+    assert.match(content, /support: 'Applying to ASPIRE begins with your school, not through a public application portal\.'/)
+    assert.match(content, /ctaLabel: 'See how to apply'/)
+    assert.match(site, /ps-ready-support/)
   })
 })
 
@@ -154,9 +202,10 @@ test('preceptors page', async (t) => {
 
 test('faq page', async (t) => {
   await t.test('has 14 approved items including the new additions', () => {
-    // FAQ items declare `q: '` at line start (one per item); the 3 homepage
-    // faqPreview entries are inline `{ q: '...' }` and are counted separately.
-    const qs = [...content.matchAll(/^\s+q: '/gm)]
+    // Count q: entries only within the FAQ export (the HOME.faqPreview entries
+    // live earlier, in the HOME block, and must not be counted here).
+    const faqBlock = content.slice(content.indexOf('export const FAQ'), content.indexOf('export const CONTACT'))
+    const qs = [...faqBlock.matchAll(/^\s+q: '/gm)]
     assert.equal(qs.length, 14, `expected 14 FAQ items, got ${qs.length}`)
     for (const q of [
       'Can I apply directly to ASPIRE\\?',

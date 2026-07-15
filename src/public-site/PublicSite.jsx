@@ -272,7 +272,7 @@ function HomePage() {
           <h2 id="ps-faq-title" className="ps-h2">{HOME.faqTitle}</h2>
           <Link to="/faq" className="ps-arrow-link">{HOME.faqCtaLabel} <span aria-hidden="true">→</span></Link>
         </div>
-        <FaqAccordion items={HOME.faqPreview.map(p => ({ q: p.q, a: FAQ.items[p.i].a }))} idPrefix="home-faq" />
+        <FaqAccordion items={HOME.faqPreview.map(p => ({ q: p.q, a: p.a ?? FAQ.items[p.i].a }))} idPrefix="home-faq" />
       </section>
     </>
   )
