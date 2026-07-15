@@ -194,20 +194,29 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
       {/* Profile hero (row 1, full width) */}
       <section className="ptl-hero">
         <div className="ptl-hero-top">
-          <div className="ptl-hero-id">
-            <div className="ptl-avatar" aria-hidden="true">
-              {student.headshot_url ? <img src={student.headshot_url} alt="" onError={e => { e.currentTarget.style.display = 'none' }} /> : initials(fullName)}
-            </div>
-            <div className="ptl-hero-text">
-              <div className="ptl-hero-hello">Welcome back,</div>
-              <div className="ptl-hero-name">{displayName}</div>
-              <div className="ptl-hero-meta">{[student.school, cohortName].filter(Boolean).join(' · ') || 'ASPIRE Student'}</div>
-              <div className="ptl-hero-chips">
-                {student.status ? <span className="ptl-chip">{student.status}</span> : null}
-                <span className="ptl-chip ptl-chip-soft">{student.unit_name ? `Unit: ${student.unit_name}` : 'Placement pending'}</span>
+          {/* Left column: identity + actions, grouped so the buttons sit directly
+              beneath the status chips (not at the bottom of the hero). */}
+          <div className="ptl-hero-main">
+            <div className="ptl-hero-id">
+              <div className="ptl-avatar" aria-hidden="true">
+                {student.headshot_url ? <img src={student.headshot_url} alt="" onError={e => { e.currentTarget.style.display = 'none' }} /> : initials(fullName)}
+              </div>
+              <div className="ptl-hero-text">
+                <div className="ptl-hero-hello">Welcome back,</div>
+                <div className="ptl-hero-name">{displayName}</div>
+                <div className="ptl-hero-meta">{[student.school, cohortName].filter(Boolean).join(' · ') || 'ASPIRE Student'}</div>
+                <div className="ptl-hero-chips">
+                  {student.status ? <span className="ptl-chip">{student.status}</span> : null}
+                  <span className="ptl-chip ptl-chip-soft">{student.unit_name ? `Unit: ${student.unit_name}` : 'Placement pending'}</span>
+                </div>
               </div>
             </div>
+            <div className="ptl-hero-actions">
+              <a className="ptl-btn ptl-btn-primary" href="/shift-log"><CalendarPlus size={16} /> Log a Shift</a>
+              <button type="button" className="ptl-btn-outline ptl-btn-contact" onClick={onContact} aria-label="Contact ASPIRE (opens an email compose in a new tab)"><Mail size={15} /> Contact ASPIRE</button>
+            </div>
           </div>
+          {/* Right column: Edit Profile above the Current Stage panel, grouped. */}
           <div className="ptl-hero-aside">
             <button type="button" ref={editBtnRef} className="ptl-edit-btn" onClick={openEdit}><Pencil size={14} /> Edit Profile</button>
             {stage && (
@@ -223,10 +232,6 @@ export default function StudentPortal({ editOpen = false, onOpenEdit, onCloseEdi
               </div>
             )}
           </div>
-        </div>
-        <div className="ptl-hero-actions">
-          <a className="ptl-btn ptl-btn-primary" href="/shift-log"><CalendarPlus size={16} /> Log a Shift</a>
-          <button type="button" className="ptl-btn-outline ptl-btn-contact" onClick={onContact} aria-label="Contact ASPIRE (opens an email compose in a new tab)"><Mail size={15} /> Contact ASPIRE</button>
         </div>
       </section>
 

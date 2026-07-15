@@ -111,9 +111,25 @@ test('Need Help is raised above the lower cards', async (t) => {
 })
 
 test('desktop refinements (tighter hero, larger stage, upcoming contrast, documents)', async (t) => {
-  await t.test('the desktop hero is tightened (reduced vertical padding)', () => {
-    assert.match(css, /@media \(min-width: 761px\) \{[\s\S]*?\.ptl-hero \{ padding: 16px 28px 14px/)
-    assert.match(css, /@media \(min-width: 761px\) \{[\s\S]*?\.ptl-hero-actions \{ margin-top: 10px/)
+  await t.test('the desktop hero is compact and content-driven (no fixed/min height)', () => {
+    // ~22px vertical padding, columns vertically centered, actions grouped with
+    // identity (gap, not a bottom-pushing margin).
+    assert.match(css, /@media \(min-width: 761px\) \{[\s\S]*?\.ptl-hero \{ padding: 22px 28px; \}/)
+    assert.match(css, /@media \(min-width: 761px\) \{[\s\S]*?\.ptl-hero-top \{ align-items: center; \}/)
+    assert.match(css, /@media \(min-width: 761px\) \{[\s\S]*?\.ptl-hero-main \{ gap: 14px; \}/)
+    assert.match(css, /@media \(min-width: 761px\) \{[\s\S]*?\.ptl-hero-actions \{ margin-top: 0; \}/)
+    // No restrictive desktop min-height or vertical space-between on the hero.
+    assert.doesNotMatch(css, /\.ptl-hero \{[^}]*min-height/)
+    assert.doesNotMatch(css, /\.ptl-hero-top \{[^}]*flex-direction: column[^}]*space-between/)
+  })
+  await t.test('actions are grouped with identity in the left column', () => {
+    // ptl-hero-main wraps the identity AND the actions (actions no longer a
+    // separate sibling row after ptl-hero-top).
+    assert.match(portal, /<div className="ptl-hero-main">[\s\S]*?ptl-hero-id[\s\S]*?ptl-hero-actions[\s\S]*?<\/div>\s*\{\/\* Right column/)
+    assert.match(css, /\.ptl-hero-main \{ display: flex; flex-direction: column;/)
+  })
+  await t.test('Edit Profile and the Current Stage panel share the right-side column', () => {
+    assert.match(portal, /<div className="ptl-hero-aside">\s*<button[^>]*ptl-edit-btn[\s\S]*?Edit Profile[\s\S]*?ptl-hero-stage/)
   })
   await t.test('the desktop avatar remains 104px', () => {
     assert.match(css, /\.ptl-hero \.ptl-avatar \{ width: 104px; height: 104px;/)

@@ -220,6 +220,9 @@
   box-shadow: 0 8px 28px rgba(29,37,103,0.18);
 }
 .ptl-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+/* Left column wrapper: on desktop it stacks identity + actions; on mobile the
+   actions are hidden (sticky bar), so it collapses to just the identity. */
+.ptl-hero-main { display: flex; flex-direction: column; min-width: 0; }
 .ptl-hero-id { display: flex; align-items: center; gap: 18px; min-width: 0; }
 /* Desktop hero avatar ~104px (task target 96-112); mobile keeps 72px below. */
 .ptl-hero .ptl-avatar { width: 104px; height: 104px; font-size: 36px; border: 3px solid rgba(255,255,255,0.9); box-shadow: 0 4px 18px rgba(0,0,0,0.22); }
@@ -379,10 +382,16 @@
    stronger name. Mobile (<=760px) keeps its current height, spacing, and
    type scale untouched. ─────────────────────────────────────────────────── */
 @media (min-width: 761px) {
-  .ptl-hero { padding: 16px 28px 14px; }
+  /* Compact, content-driven hero: two vertically centered columns (identity +
+     actions on the left, Edit Profile + Current Stage on the right). No fixed
+     or min height, no space-between, no bottom-pushing margins, so the height
+     is driven by the taller column plus ~22px padding (approx 210-240px). */
+  .ptl-hero { padding: 22px 28px; }
+  .ptl-hero-top { align-items: center; }
+  .ptl-hero-main { gap: 14px; }
   .ptl-hero-name { font-size: 32px; }
-  .ptl-hero-actions { margin-top: 10px; }
-  .ptl-hero-stage { padding: 16px 18px; min-width: 248px; max-width: 304px; gap: 12px; }
+  .ptl-hero-actions { margin-top: 0; }
+  .ptl-hero-stage { padding: 16px 18px; min-width: 248px; max-width: 304px; gap: 10px; }
   .ptl-stage-eyebrow { font-size: 11px; }
   .ptl-stage-value { font-size: 18px; }
   .ptl-stage-next { font-size: 14px; }
