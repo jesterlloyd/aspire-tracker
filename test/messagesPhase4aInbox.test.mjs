@@ -87,10 +87,10 @@ test('inbox state utilities', async (t) => {
   await t.test('filters serialize to the deployed query parameters', () => {
     const { query } = serializeInboxQuery({
       filters: { status: 'waiting', assignee: 'me', category: 'Scheduling', flagged: 'flagged' },
-      search: '  Placement  ', limit: 25, meProfileId: 'p-1',
+      search: '  Placement  ', limit: 25,
     })
     assert.equal(query.status, 'waiting')
-    assert.equal(query.assignee, 'p-1', 'Me resolves to the current profile id')
+    assert.equal(query.assignee, 'me', 'Me is a sentinel resolved by the server, never a client id')
     assert.equal(query.category, 'Scheduling')
     assert.equal(query.flagged, 'true')
     assert.equal(query.search, 'Placement', 'search is trimmed')
@@ -101,18 +101,18 @@ test('inbox state utilities', async (t) => {
     assert.equal(query.flagged, 'false')
   })
 
-  await t.test('unassigned and uncategorized are surfaced as unsupported, never silently client-filtered', () => {
+  await t.test('unassigned and uncategorized are sent as real server filters (v2 modes)', () => {
+    // Stage A added the v2 RPC filter modes, so these are now genuine
+    // server-side IS NULL filters, never client-filtered from a partial page.
     const a = serializeInboxQuery({ filters: { ...DEFAULT_FILTERS, assignee: 'unassigned' } })
-    assert.equal(a.query.assignee, undefined, 'must not send a bogus assignee')
-    assert.equal(a.clientOnly.assignee, 'unassigned')
+    assert.equal(a.query.assignee, 'unassigned')
     const c = serializeInboxQuery({ filters: { ...DEFAULT_FILTERS, category: 'uncategorized' } })
-    assert.equal(c.query.category, undefined)
-    assert.equal(c.clientOnly.category, 'uncategorized')
+    assert.equal(c.query.category, 'uncategorized')
   })
 
-  await t.test('Me without a known profile id sends no assignee filter', () => {
-    const { query } = serializeInboxQuery({ filters: { ...DEFAULT_FILTERS, assignee: 'me' }, meProfileId: null })
-    assert.equal(query.assignee, undefined)
+  await t.test('a client profile id is never used to resolve Me', () => {
+    const { query } = serializeInboxQuery({ filters: { ...DEFAULT_FILTERS, assignee: 'me' } })
+    assert.equal(query.assignee, 'me', 'the server resolves Me from the verified caller')
   })
 
   await t.test('limits are capped at 100 and default to 25', () => {

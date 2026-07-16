@@ -4,11 +4,15 @@ Phase 4 builds the staff-facing ASPIRE Messages interface inside ASPIRE Connect,
 on top of the Phase 3 APIs already deployed in production. It is delivered in two
 halves.
 
-- Phase 4A (this document): the secure lookups, shared client and utilities, and
-  the staff inbox component. Built, tested, and deployed as DORMANT code.
-- Phase 4B (not started): Connect tab integration, the thread workspace, read
-  state, polling, the new-conversation dialog, the reply composer, management
-  controls, and responsive and accessibility refinements.
+- Phase 4A (done): the secure lookups, shared client and utilities, and the staff
+  inbox component. Built, tested, and deployed as DORMANT code.
+- Phase 4B Stage A (applied and verified): the v2 staff-list RPC with explicit
+  filter modes, which unblocks Unassigned and Uncategorized.
+- Phase 4B Stage B1 (done): the staff-list API migrated onto the v2 RPC. Still
+  dormant.
+- Phase 4B Stage B2 (not started): Connect tab integration, the thread workspace,
+  read state, polling, the new-conversation dialog, the reply composer,
+  management controls, and responsive and accessibility refinements.
 
 ## Why the Messages tab is not exposed yet
 
@@ -83,8 +87,9 @@ an HTTP status and a short safe code; the client logs nothing.
 
 ## Inbox architecture
 
-`MessagesInbox` takes `selectedId`, `onSelect`, `meProfileId`, `refreshKey`, and
-an injectable `api`. Data flows through React Query, the app's existing
+`MessagesInbox` takes `selectedId`, `onSelect`, `refreshKey`, and an injectable
+`api`. It needs no profile id: the server resolves the Me filter from the
+verified caller. Data flows through React Query, the app's existing
 convention: `useInfiniteQuery` for the cursor-paginated list and `useQuery` for
 the small cached assignee list. React Query owns request cancellation, stale
 responses, and loading flags, so the component holds no manual request state.
@@ -98,29 +103,23 @@ parsing. Staff email is never displayed.
 ## Search
 
 A debounced search input at 300 milliseconds, inside the approved 250 to 400
-range, so there is no request per keystroke. It searches only the authorized
-subject and participant fields the staff list endpoint exposes; message bodies
-are never searched. Clearing restores the unfiltered list. A search change alters
-the query identity, which restarts pagination.
+range, so there is no request per keystroke. It searches SUBJECT ONLY, because
+that is exactly what the applied server RPC supports; message bodies and
+participant names are never searched. The label and placeholder ("Search
+subjects") say so rather than implying otherwise. Clearing restores the current
+filter set. A search change alters the query identity, which restarts pagination.
 
 ## Filters and a known limitation
 
-Status (All, Open, Waiting, Resolved), Assignee (All, Me, each active
-Owner/Admin), Category (All, each approved category), and Follow up (All,
-Flagged, Not flagged). All are labeled native selects, so keyboard use and
+Status (All, Open, Waiting, Resolved), Assignee (All, Unassigned, Me, each active
+Owner/Admin), Category (All, Uncategorized, each approved category), and Follow up
+(All, Flagged, Not flagged). All are labeled native selects, so keyboard use and
 accessible naming are inherent. One Reset filters action clears filters and
 search. Filters are reflected in the server request and preserved while paging.
 
-**Unassigned and Uncategorized are not offered in Phase 4A.** The deployed
-`messages_staff_list_conversations` RPC treats a null `p_assignee` or
-`p_category` as "no filter", so it cannot express "is null". Client-filtering a
-partial server page would corrupt cursor pagination and is explicitly disallowed,
-and the RPC lives in an applied, locked migration. `serializeInboxQuery`
-therefore returns these two selections in a `clientOnly` result instead of
-sending a bogus parameter, and the inbox omits the options rather than shipping a
-dead control. Enabling them needs a small corrective migration (a nullable-aware
-predicate or a dedicated filter parameter) and is a Phase 4B decision for the
-Owner.
+**Unassigned and Uncategorized are now supported** (Phase 4B Stage A and Stage B1
+below). They are real server-side filters through the v2 RPC modes; nothing is
+client-filtered from a partial page.
 
 ## Pagination
 
@@ -171,7 +170,7 @@ list-to-thread transition is Phase 4B, since it requires the thread workspace.
 Phase 4B should: add `messages` to `VALID_TABS` and the tab bar between Outreach
 and Automations (leaving the Automations `/connect/broadcasts` slug untouched),
 route it at `/connect/messages`, and render `MessagesInbox` in the left column
-with `selectedId`, `onSelect`, `meProfileId`, and the existing `refreshKey`. It
+with `selectedId`, `onSelect`, and the existing `refreshKey`. It
 should gate the tab on an active Owner or Admin (`['owner','admin'].includes(role)`
 plus `is_active !== false`), remembering that client hiding is not a security
 boundary. The thread, composer, and management controls should reuse the typed
@@ -253,10 +252,42 @@ whole, as one block, in the Supabase SQL editor, then runs the read-only
 `db/audit/messages_phase4_staff_inbox_filter_modes_verification.sql`. The
 committed migration is not modified after it is applied.
 
+## Phase 4B Stage B1: v2 staff-list API integration
+
+Stage A is applied and verified in production. Stage B1 wires the API onto it.
+
+`api/messages-staff-list.js` now calls `messages_staff_list_conversations_v2` and
+translates safe HTTP filter values into the explicit RPC modes. The browser never
+calls the RPC directly; it reaches it only through this authenticated endpoint.
+
+| HTTP value | RPC mode |
+|---|---|
+| assignee absent or `all` | `p_assignee_mode = any` |
+| `assignee=unassigned` | `p_assignee_mode = unassigned` (`assigned_staff_profile_id IS NULL`) |
+| `assignee=me` | `p_assignee_mode = specific` plus the SERVER-VERIFIED caller profile id |
+| `assignee=<uuid>` | `p_assignee_mode = specific` with the validated id |
+| category absent or `all` | `p_category_mode = any` |
+| `category=uncategorized` | `p_category_mode = uncategorized` (`category IS NULL`) |
+| `category=<approved>` | `p_category_mode = specific` |
+
+Me is resolved only from `caller.profile.id`; a client-supplied profile id is
+never trusted for Me. A specific assignee id must be a uuid and can come only
+from the secure active Owner/Admin options endpoint. An RPC validation rejection
+(`MS400`) maps to 422 and the staff gate (`MS403`) to 403; internal SQL text is
+never returned. The cursor is forwarded unchanged and the response contract
+(`conversations` plus `next_cursor`) is unchanged, so existing callers stay
+compatible.
+
+The dormant inbox now offers Unassigned, Me, and Uncategorized, and
+`serializeInboxQuery` passes them through as sentinels with no `clientOnly`
+fallback. Search is labeled truthfully as subject search ("Search subjects"),
+because the applied RPC searches subject only and never message bodies.
+
 ## Known limitations
 
-- Unassigned and Uncategorized filters are unavailable in the interface until the
-  Stage A migration is applied and Stage B wires the v2 RPC into the client.
+- The Messages workspace is still dormant: Stage B1 delivered the backend
+  integration only. The Connect tab, thread, composer, management controls, and
+  polling remain unbuilt, so nothing is exposed to production users yet.
 - The inbox is dormant: not mounted, not routable.
 - No read pointers, polling, thread, composer, or management actions in Phase 4A.
 - Component tests are pure and static-source, matching the repository stack; no
