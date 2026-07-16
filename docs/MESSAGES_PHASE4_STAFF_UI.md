@@ -180,10 +180,83 @@ client functions already defined here (`getStaffThread`, `markStaffRead`,
 `listParticipantOptions`), which already carry the routing-field guard and error
 mapping.
 
+## Phase 4B Stage A: staff inbox null-filter support
+
+Stage A resolves the Unassigned and Uncategorized blocker recorded above. It is a
+database change only. The Messages interface remains dormant: Connect.jsx,
+`VALID_TABS`, `App.jsx`, and the `/connect` redirect are untouched, no routed page
+imports the inbox, and `/connect/messages` still falls through to the existing
+default.
+
+### Why the existing RPC could not express a null filter
+
+The applied Phase 3 `messages_staff_list_conversations()` filters with
+`(p_assignee IS NULL OR c.assigned_staff_profile_id = p_assignee)` and
+`(p_category IS NULL OR c.category = p_category)`. A null therefore means "no
+filter", so the function cannot distinguish "no assignee filter" from
+`assigned_staff_profile_id IS NULL`, nor "no category filter" from
+`category IS NULL`. The filter is inexpressible through that signature.
+
+### Why client-side filtering was rejected
+
+Filtering a partial cursor page in the browser would drop rows from an
+already-limited server page, producing incorrect pagination and incorrect counts.
+Phase 4A therefore omitted both options rather than ship a control that silently
+returns wrong results.
+
+### The new v2 RPC
+
+`supabase/migrations/20260716000004_messages_phase4_staff_inbox_filter_modes.sql`
+adds `messages_staff_list_conversations_v2` with explicit filter modes, so a null
+is never ambiguous. The name is deliberately distinct: an overloaded
+`messages_staff_list_conversations(...)` would make PostgREST function resolution
+ambiguous. The query body, ordering, return shape, authorization, unread
+calculation, preview truncation, and subject-only search are reused verbatim from
+the applied Phase 3 definition; only the assignee and category predicates change,
+plus added validation.
+
+- **Assignee modes:** `any` (ignores the profile id), `unassigned`
+  (`assigned_staff_profile_id IS NULL`), `specific` (exact `user_profiles.id`,
+  and a null profile id is rejected). The UI option Me is simply `specific` plus
+  the server-verified current staff profile id, so there is no separate database
+  mode for Me.
+- **Category modes:** `any`, `uncategorized` (`category IS NULL`), `specific`
+  (one approved category; null or blank is rejected).
+- **Status:** null means all; otherwise open, waiting, or resolved. Anything else
+  is rejected.
+- **Follow-up:** `p_flagged` stays nullable, so null means all.
+- **Cursor:** unchanged and stable, `last_message_at` descending with the
+  conversation id as tie-breaker. Every filter is applied before the limit, so
+  Unassigned and Uncategorized page correctly across the full result set. A
+  partial cursor is now rejected explicitly rather than silently returning an
+  empty page.
+- **Limits:** default 25, hard cap 100, no offset pagination.
+
+Authorization is unchanged: active Owner or Admin via
+`is_active_owner_or_admin()`. `is_staff()` is never used. Assignment and related
+student, unit, school, or cohort context remain projections and filters only,
+never authorization gates. Search stays subject only; message bodies are never
+searched, and the only body read is the approved 160-character preview.
+
+### Backward compatibility
+
+The original `messages_staff_list_conversations` is not modified, replaced, or
+dropped, and remains fully functional for any existing caller. The migration
+creates no table, no policy, and no data, changes no row, and touches no
+`message_archive` object. Nothing calls v2 yet; wiring it into the client is
+Stage B.
+
+### Manual SQL gate
+
+The migration is committed and pushed before it is applied. The Owner runs it
+whole, as one block, in the Supabase SQL editor, then runs the read-only
+`db/audit/messages_phase4_staff_inbox_filter_modes_verification.sql`. The
+committed migration is not modified after it is applied.
+
 ## Known limitations
 
-- Unassigned and Uncategorized filters are unavailable pending a corrective
-  migration (above).
+- Unassigned and Uncategorized filters are unavailable in the interface until the
+  Stage A migration is applied and Stage B wires the v2 RPC into the client.
 - The inbox is dormant: not mounted, not routable.
 - No read pointers, polling, thread, composer, or management actions in Phase 4A.
 - Component tests are pure and static-source, matching the repository stack; no
