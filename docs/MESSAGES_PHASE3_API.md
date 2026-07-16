@@ -282,9 +282,130 @@ Corrective tests: `test/messagesPhase3DeliveryInvariant.test.mjs`.
   `message_profile_has_active_student_link()`. The audit's expectation text has
   been corrected to name all four.
 
-## Stage B remains blocked
+## Stage B: backend APIs
 
-Stage B (portal and staff API handlers, the service layer, notification and
-rate-limit integration, API tests, and the API documentation) does not begin
-until the Owner confirms the Stage A SQL is applied and verified live. No staff
-or portal user interface is built in Phase 3. Phase 4 is out of scope.
+Stage A and its corrective migration are applied and verified in production.
+Stage B adds the authenticated backend APIs. No staff or portal user interface,
+navigation, badge, polling, or realtime is built.
+
+### Shared utilities
+
+- `lib/server/messages/validation.js` (pure): subject (trimmed, 3 to 120),
+  body (non-blank, at most 5000, CRLF normalized, never HTML), category and
+  status allowlists, uuid checks, capped limits, all-or-nothing cursor parsing,
+  and next-cursor construction.
+- `api/lib/messagesAuth.js`: `verifyStaffCaller` (active Owner or Admin only,
+  never `is_staff()`), `verifyPortalStudentCaller` (active student grant plus
+  active student link), and `getUserScopedDb` (a client bound to the caller's JWT
+  for the authenticated read RPCs).
+- `api/lib/messagesApi.js`: method guards (405), JSON content-type and body-size
+  limits, the RPC SQLSTATE to HTTP map (MS400 to 422, MS403 to 403, MS404 to 404,
+  MS409 to 409), 429 shaping with `Retry-After`, non-enumerating 404, and
+  sanitized operational logging.
+- `api/lib/messagesContext.js`: the only service-role reads in the API layer,
+  used solely to feed Phase 2 routing (conversation subject, category, eligible
+  assignee, active participant). They never grant access.
+- `lib/server/messages/conversationService.js`: the trusted write orchestrator.
+
+### Portal API inventory
+
+All require an authenticated active Student Portal caller.
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `api/portal/messages-list.js` | GET | my conversations, cursor paginated |
+| `api/portal/messages-thread.js` | GET | one thread, non-enumerating 404 |
+| `api/portal/messages-start.js` | POST | start a conversation |
+| `api/portal/messages-reply.js` | POST | reply (auto-reopens a resolved thread) |
+| `api/portal/messages-mark-read.js` | POST | advance my read pointer only |
+| `api/portal/messages-unread-count.js` | GET | lightweight unread count |
+
+### Staff API inventory
+
+All require an authenticated active Owner or Admin.
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `api/messages-staff-list.js` | GET | inbox with status, assignee, category, flag, and search filters |
+| `api/messages-staff-thread.js` | GET | one thread with events and participant access status |
+| `api/messages-staff-start.js` | POST | start a conversation with an active participant |
+| `api/messages-staff-reply.js` | POST | reply (409 when participant access is inactive) |
+| `api/messages-staff-manage.js` | POST | `assign`, `status`, `category`, `flag` |
+| `api/messages-staff-read.js` | GET, POST | my unread count; mark read for me only |
+
+### Transaction and delivery integration
+
+Writes follow the required order: verify the JWT, resolve the profile through
+`auth_user_id`, verify the active role and scope, validate input, apply portal
+rate limits, route with the Phase 2 service, construct the delivery payload
+server-side, call the transactional RPC, confirm a non-null `delivery_id`, then
+attempt the awaited send, and return authoritative success regardless of the
+email outcome.
+
+The client never supplies `p_delivery`, `recipient_email`, `recipient_kind`,
+`recipient_profile_id`, `event_type`, `idempotency_key`, snapshot fields, or the
+CTA path. `buildDeliveryPayload` emits exactly nine scalar fields and nothing
+else; no body, preview, snippet, content, HTML, quoted text, metadata, or nested
+object can enter it.
+
+Because the RPC mints the conversation and message ids inside the transaction,
+the key is built by `buildRpcDeliveryIdempotencyKey`, which binds one
+server-generated attempt id to the event and the actual recipient identity. The
+unique idempotency guarantee is unchanged, and the corrective RPC still aborts
+the whole transaction rather than committing a message without its delivery row.
+
+The awaited send uses `claimAndSendDeliveryById`, a minimal Phase 2 delivery
+service addition that conditionally claims an already-existing `queued` or
+`retry_wait` row by id. It never creates a row, never double-sends a row the cron
+worker already claimed, and any failure leaves the durable row for the Phase 2
+retry worker.
+
+### Rate limits
+
+Portal start consumes both `new_conversation` (5 per 3600 seconds) and `message`
+(20 per 600 seconds); portal reply consumes `message`. Both use the
+server-verified `user_profiles.id` only, fail closed, and return 429 with
+`Retry-After` and safe retry timing. Staff are not rate-limited through the
+portal mechanism.
+
+### Unread and read state
+
+Portal unread counts staff-authored messages newer than the participant's own
+pointer, in accessible conversations. Staff unread counts portal-authored
+messages newer than that staff member's own pointer. Mark-read advances only the
+caller's pointer to a server-derived timestamp; a client timestamp is never
+accepted, and one staff member reading never clears another's unread.
+
+### Pagination
+
+Cursor based. Conversations use `(last_message_at, id)` descending, messages use
+`(created_at, id)` ascending. Limits default to 25 (lists) and 50 (threads) and
+cap at 100. A partial or malformed cursor is rejected with 422 rather than
+silently restarting.
+
+### Authorization and privacy controls
+
+Reads go through the authenticated SECURITY DEFINER RPCs with the caller's JWT,
+so portal scope comes from `my_message_conversation_ids()` and staff scope from
+`is_active_owner_or_admin()`. Writes go through the service-role transactional
+RPCs, which re-validate authorization from the server-verified profile id.
+Assignment and related context never authorize. Interviewer, Viewer, inactive
+Owner, inactive Admin, and portal-only profiles are denied from staff APIs.
+Version one authorizes the student role only.
+
+Portal responses label staff messages `ASPIRE Team` with an optional staff name
+and never a staff email. Portal status maps open and waiting to `Open` and
+resolved to `Closed`. Inaccessible conversation ids return an identical
+non-enumerating 404. Message bodies and previews are returned only to an
+authorized caller inside an authenticated response, and never enter an email,
+notification row, delivery snapshot, `notification_log` metadata, `cron_runs`, or
+any log. Errors never return internal SQL text, tokens, or authorization headers.
+
+## Phase 4 interface contract
+
+A future interface consumes these endpoints only. It should call the portal or
+staff list endpoint with `limit` and an opaque `next_cursor`, the thread endpoint
+for messages, the unread-count endpoint for a badge, and the mark-read endpoint
+on open. It must treat `status` from the portal endpoints as already mapped
+(`Open` or `Closed`), must not attempt to construct a delivery payload, and must
+surface 429 `retry_after_seconds` to the user. Phase 4 has not begun.
