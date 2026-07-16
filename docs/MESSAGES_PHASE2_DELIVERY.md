@@ -177,9 +177,146 @@ one block, in the Supabase SQL editor, then runs
 RLS, constraints, function security, grants, the queue/provider separation, and
 the no-body posture. The committed migration is not modified after it is applied.
 
-## Stage B remains blocked
+## Stage B: server delivery and rate-limit code
 
-Stage B (server helper, routing, retry worker, webhook reconciliation, and the
-rate-limit server utility) does not begin until the Owner confirms the Stage A
-SQL is applied and verified live. No conversation API or user interface is built
-in Phase 2. Phase 3 backend APIs are out of scope.
+Stage A is applied and verified in production. Stage B adds the server code that
+operates on the Stage A objects. No conversation API or user interface is built.
+Phase 3 backend APIs remain out of scope.
+
+### Files
+
+- `lib/server/messages/config.js`: shared pure constants (shared inbox, sender,
+  reply-to, event and recipient sets, rate limits, retry bounds, backoff,
+  snapshot allowlist).
+- `lib/server/messages/idempotency.js`: deterministic delivery idempotency key.
+- `lib/server/messages/routing.js`: pure notification routing and duplicate
+  suppression.
+- `lib/server/messages/deliveryLogic.js`: pure retry backoff, queue-state
+  transition, provider-status monotonicity, snapshot allowlist, error
+  sanitization, error classification.
+- `lib/server/messages/emailContent.js`: pure no-body email builder.
+- `lib/server/messages/deliveryService.js`: durable enqueue, claimed-row send,
+  and the retry worker batch (injected `db` and `resend`).
+- `lib/server/messages/rateLimitUtil.js`: server-only rate-limit utility.
+- `api/cron/messages-delivery-worker.js`: the Vercel cron retry worker.
+- `api/webhooks/resend.js`: extended to reconcile delivery `provider_status`.
+- `vercel.json`: the worker cron schedule and `maxDuration`.
+
+### Final delivery lifecycle
+
+1. The future conversation API (Phase 3) saves the authoritative conversation
+   and message, then updates unread state.
+2. It calls `enqueueDelivery` per routed recipient, which builds the deterministic
+   idempotency key and inserts a `queued` row (or returns the existing row on a
+   duplicate). This is the durable record created before any send.
+3. The retry worker (or a future inline call) claims due rows via
+   `claim_due_message_notification_deliveries` (FOR UPDATE SKIP LOCKED),
+   marking them `processing`.
+4. For a `portal_user` recipient, `processClaimedDelivery` first calls
+   `message_recipient_has_active_access`; if access is not active the row is
+   marked `suppressed` and no email is sent.
+5. It builds the no-body email and performs an awaited
+   `resend.emails.send(payload, { idempotencyKey })`, reusing the durable key.
+6. It records a `notification_log` row (status, `resend_email_id`, sanitized
+   metadata, no body) and stores `notification_log_id` on the delivery row.
+7. It sets the terminal or retry queue state (`sent`, `retry_wait` with
+   `next_attempt_at`, or `failed`), clears the claim, and stores
+   `resend_email_id`.
+8. The Resend webhook later advances `provider_status` only.
+
+### Retry schedule, maximum attempts, and claim timeout
+
+- Maximum attempts: 5 (matches the Stage A column default and cap of 10).
+- Backoff after each failed attempt (seconds): 60, 300, 900, 1800, 3600 (bounded,
+  non-decreasing, clamped at the last step).
+- Claim timeout: a `processing` row whose `locked_at` is older than 300 seconds
+  is recovered to `retry_wait` at the start of the next claim, while attempts
+  remain.
+- Batch size: up to 25 rows per worker invocation.
+
+### Routing rules and duplicate suppression
+
+- `new_conversation`: one delivery to the shared inbox `aspire@cshs.org` (new
+  conversations are unassigned).
+- `portal_reply`: to the assigned staff member when they are an active Owner or
+  Admin with a valid email; otherwise to the shared inbox. If the assignee email
+  is the shared inbox, a single `shared_inbox` delivery is produced.
+- `staff_reply`: to the portal participant's `user_profiles.email`, gated live by
+  active access.
+- The sender is never notified of their own message (a self-match is suppressed
+  with reason `sender_self`, recorded as a suppressed durable row for audit).
+- No email is sent for conversation resolution, acknowledgement, assignment
+  change alone, follow-up flag change alone, or email reply ingestion; those
+  events never reach the router.
+
+### Active recipient gating
+
+A `staff_reply` to a portal participant is sent only when
+`message_recipient_has_active_access(conversation_id, recipient_profile_id)`
+returns true (active student participant, active student role grant, active
+student link). Expired, revoked, missing, or removed access suppresses the
+notification. Email presence alone is never sufficient.
+
+### Provider idempotency and residual risk
+
+The durable idempotency key is reused as the Resend `Idempotency-Key` (SDK
+v6.12.3, `idempotencyKey` option). The application guarantees one durable row per
+logical notification, no duplicate enqueue for the same key, one active worker
+claim at a time, and bounded retries, plus best-available provider deduplication
+within Resend's idempotency window. It does not mathematically guarantee
+exactly-once external delivery after an ambiguous network failure.
+
+### Rate limits
+
+`consumeMessageRateLimit(db, { profileId, action })` calls
+`consume_message_rate_limit` with a server-verified `user_profiles.id` and the
+approved windows: 5 new conversations per 3600 seconds; 20 messages per 600
+seconds. It fails closed (a denied result) on any RPC error. It creates no API
+endpoint and never accepts a client-supplied profile id. The 5000-character body
+limit is enforced by the Phase 1 constraint and mirrored as a shared constant.
+
+### Cron endpoint and schedule
+
+`api/cron/messages-delivery-worker.js` runs on `*/10 * * * *` (every 10 minutes),
+`maxDuration` 60. It validates `Authorization: Bearer CRON_SECRET` exactly as the
+existing cron endpoints do, writes `cron_runs` observability (counts only, never
+a body), claims a bounded batch, processes each row independently, and is safe
+under overlapping invocations. Until the Phase 3 API enqueues rows, the worker
+finds nothing due and sends nothing; it never initiates a send on its own. The
+10-minute cadence assumes the production Vercel plan that already runs the
+hourly clock-out cron; it can be relaxed to hourly if required.
+
+### Webhook reconciliation
+
+`api/webhooks/resend.js` keeps its Svix verification, its `notification_log`
+behavior, and its monotonic status guard, and additionally reconciles
+`message_notification_deliveries.provider_status` by `resend_email_id`. It only
+advances `provider_status` (monotonically), never changes `queue_status`, never
+retries, and never reads or writes a message body. Reconciliation is best-effort
+and non-fatal to the existing path.
+
+### Operational failure behavior
+
+A send failure updates only the delivery row and its `notification_log` entry; it
+never alters the authoritative conversation or message. A worker error records a
+`cron_runs` error and returns without wedging the cron; the next run recovers
+stale claims. A `notification_log` write failure is non-fatal (the delivery row
+remains the job record).
+
+### No-body guarantee
+
+No message body, preview, snippet, or quoted text is ever placed in an email, a
+delivery row, a rate-limit row, `notification_log` metadata, delivery metadata,
+`cron_runs` details, console logs, or error fields. Only the explicit safe
+snapshot (sender display name, subject, category, CTA route) is persisted, and a
+runtime allowlist rejects body-like fields.
+
+### Phase 3 integration contract
+
+A future conversation API will: verify the caller with `verifyPortalCaller`;
+enforce rate limits with `consumeMessageRateLimit` before writing; save the
+authoritative conversation and message and update unread state; then call
+`enqueueDelivery` for each recipient produced by `planNotificationRecipients`,
+passing an explicit safe snapshot. It may attempt an inline send for the first
+attempt; retries are left to the worker. It must never pass a message body to any
+Stage B function.
