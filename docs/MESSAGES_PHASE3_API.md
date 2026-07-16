@@ -182,6 +182,106 @@ posture, the absence of new tables and portal base-table policies, and that
 `is_staff()` is used nowhere. The committed migration is not modified after it is
 applied.
 
+## Stage A corrective migration (delivery invariant fix)
+
+Migration `20260716000002_messages_phase3_api_foundation.sql` was applied
+successfully and is now locked. Verification of the applied definitions then
+exposed a transactional invariant gap that must be closed before any API
+deployment.
+
+### The defect
+
+The applied `messages_start_conversation()` and `messages_post_reply()` guarded
+the durable delivery insert with:
+
+```
+IF p_delivery IS NOT NULL AND p_delivery ? 'idempotency_key' THEN
+  INSERT INTO message_notification_deliveries (...)
+  ON CONFLICT (idempotency_key) DO NOTHING
+  RETURNING id INTO v_delivery_id;
+END IF;
+```
+
+That permits four ways to commit an authoritative message with no delivery row:
+a null `p_delivery`, a `p_delivery` missing `idempotency_key`, a silently ignored
+conflict, and a `v_delivery_id` that was never asserted non-null. The approved
+invariant is that starting a conversation and posting a reply must atomically
+create the durable queued delivery row. A server-side promise to always pass a
+valid payload is not sufficient, because the RPC is the transaction boundary that
+must enforce the invariant.
+
+The other five write RPCs (`messages_mark_read`, `messages_set_assignment`,
+`messages_set_status`, `messages_set_category`, `messages_set_follow_up`) were
+reviewed for the same class of problem. They create no delivery rows by design
+(assignment, status, category, flag, and read changes send no email; resolution
+is silent), and each performs its update and its audit-event insert
+unconditionally after authorization. No similar gap exists.
+
+### The correction
+
+`supabase/migrations/20260716000003_messages_phase3_delivery_invariant_fix.sql`
+uses `CREATE OR REPLACE FUNCTION` on only the two affected RPCs (same signatures,
+so grants are preserved) and adds one helper,
+`message_assert_valid_delivery(p_delivery, p_expected_event, p_actor_profile_id)`
+(SECURITY DEFINER, fixed search_path, service-role only). The corrected RPCs now:
+
+- require a non-null delivery object and reject a missing or blank
+  `idempotency_key` or `recipient_email`
+- reject an invalid `recipient_kind` or `event_type`, and require the event type
+  appropriate to the operation (student start is `new_conversation`, staff start
+  is `staff_reply`, student reply is `portal_reply`, staff reply is
+  `staff_reply`)
+- enforce the approved Phase 2 routing shape: `new_conversation` to
+  `shared_inbox`, `portal_reply` to `shared_inbox` or `assigned_staff`,
+  `staff_reply` to `portal_user` with a required `recipient_profile_id` that must
+  match the conversation's active participant
+- reject the sender being the recipient
+- require the safe snapshot and CTA fields, and reject any body-like key
+  (`body`, `preview`, `snippet`, `content`, `html`, `text`, `quote`, `quoted`)
+- validate before any authoritative write, so an invalid payload creates nothing
+- insert the delivery with **no** `ON CONFLICT DO NOTHING`. Because the message is
+  new inside the transaction, an existing row for that key can never legitimately
+  belong to it, so a unique violation raises `MS409` and rolls the whole
+  transaction back rather than committing a message with no delivery record
+- assert a non-null `delivery_id` and return it
+
+Everything else is preserved: the 5000-character body limit, the 3 to 120
+character subject rule, every authorization check, sender-only read-pointer
+updates, automatic reopening with its `reopened` audit event, and the append-only
+message model. Phase 2 routing is not duplicated in SQL; Stage B still computes
+routing and the idempotency key with the Phase 2 modules, and the RPC only
+enforces that what arrives is internally consistent and actually persisted.
+
+The unique idempotency guarantee is unchanged: one successful authoritative
+message has exactly one durable delivery row, with no duplicate enqueue and no
+silent omission.
+
+Corrective verification:
+`db/audit/messages_phase3_delivery_invariant_verification.sql` (read-only).
+Corrective tests: `test/messagesPhase3DeliveryInvariant.test.mjs`.
+
+### Two verification clarifications
+
+- **`message_archive` is pre-existing and unrelated.** It was created on
+  2026-06-25 by `supabase/migrations/20260625000000_message_archive.sql`
+  (SENT-HISTORY-PHASE2A) and stores redacted rendered bodies of manual ASPIRE
+  Connect Outreach emails, one row per `notification_log` row. It is not part of
+  ASPIRE Messages, and neither Phase 3 migration created, modified, or references
+  it. The nine-versus-eight table count came from an over-broad
+  `LIKE 'message%'` pattern in verification query 9, which now lists the eight
+  ASPIRE Messages tables explicitly and documents the exclusion.
+- **Audit 7 is an inspection, not a zero-row guard.** It lists any Phase 3
+  function that mentions related context or assignment so each reference can be
+  confirmed as a projection, a filter, or a write rather than an authorization
+  gate. The four returned rows (`messages_start_conversation`,
+  `messages_set_assignment`, `messages_staff_list_conversations`,
+  `messages_staff_get_thread`) were each reviewed and are correct: context is
+  written or projected for display, and `p_assignee` is a caller filter that
+  narrows an already-authorized result set. Authorization remains
+  `message_profile_is_active_owner_or_admin()`, `is_active_owner_or_admin()`, or
+  `message_profile_has_active_student_link()`. The audit's expectation text has
+  been corrected to name all four.
+
 ## Stage B remains blocked
 
 Stage B (portal and staff API handlers, the service layer, notification and
