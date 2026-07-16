@@ -8,7 +8,7 @@
 
 import { verifyStaffCaller, getUserScopedDb } from './lib/messagesAuth.js';
 import { methodGuard, notFound, logApiError } from './lib/messagesApi.js';
-import { parseLimit, parseCursor, isUuid, nextCursorFrom } from '../lib/server/messages/validation.js';
+import { parseLimit, parseCursor, isUuid } from '../lib/server/messages/validation.js';
 
 export default async function handler(req, res) {
   if (!methodGuard(req, res, ['GET'])) return;
@@ -28,7 +28,13 @@ export default async function handler(req, res) {
   if (!db) return res.status(401).json({ error: 'unauthenticated' });
 
   try {
-    const { data, error } = await db.rpc('messages_staff_get_thread', {
+    // Phase 4B2a Stage A added messages_staff_get_thread_v2, because the original
+    // RPC pages FORWARD from the oldest message: its first page is the oldest
+    // content, so "Load earlier messages" is impossible and staff would open a
+    // long thread on the wrong end. v2 opens at the NEWEST bounded page and pages
+    // BACKWARD. The browser never calls this RPC directly: it reaches it only
+    // through this authenticated endpoint.
+    const { data, error } = await db.rpc('messages_staff_get_thread_v2', {
       p_conversation_id: conversationId,
       p_limit: limit.value,
       p_cursor_ts: cursor.value.ts,
@@ -36,16 +42,24 @@ export default async function handler(req, res) {
     });
     if (error) {
       logApiError('messages-staff-thread', 'rpc_failed', error);
-      return res.status(error.code === 'MS403' ? 403 : 500).json({ error: error.code === 'MS403' ? 'forbidden' : 'internal_error' });
+      // MS400 is a validation rejection from the RPC (a partial cursor);
+      // MS403 is the active Owner/Admin gate.
+      const httpStatus = error.code === 'MS403' ? 403 : error.code === 'MS400' ? 422 : 500;
+      const code = error.code === 'MS403' ? 'forbidden'
+        : error.code === 'MS400' ? 'validation_failed' : 'internal_error';
+      return res.status(httpStatus).json({ error: code });
     }
     if (!data) return notFound(res);
 
-    const messages = data.messages || [];
     return res.status(200).json({
       conversation: data.conversation,
-      messages,
+      messages: data.messages || [],
       events: data.events || [],
-      next_cursor: nextCursorFrom(messages, limit.value, 'created_at'),
+      // v2 returns the authoritative BACKWARD cursor (the oldest message of the
+      // page) and has_more itself, so the API passes them through rather than
+      // deriving a forward cursor from the returned rows.
+      next_cursor: data.next_cursor ?? null,
+      has_more: data.has_more === true,
     });
   } catch (err) {
     logApiError('messages-staff-thread', 'threw', err);
