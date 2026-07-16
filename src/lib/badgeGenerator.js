@@ -21,7 +21,9 @@ const CANVAS_H = 1050
 
 // Template paths (relative to the public/ directory)
 const TEMPLATE_FRONT = '/badge-templates/front.png'
-const TEMPLATE_BACK  = '/badge-templates/back.png'
+// Versioned filename (dated) so the updated back template gets a new immutable URL and browser/CDN
+// caches never serve the old QR. Bump the date suffix whenever the back template art changes.
+const TEMPLATE_BACK  = '/badge-templates/back-20260716.png'
 
 // Date value that signals "not yet set by admin"
 const SENTINEL = '1900-01-01'
@@ -234,7 +236,7 @@ export async function generateBadgePNGs({ student, rotation, headshotUrl }) {
     }),
     loadImage(TEMPLATE_BACK).catch(() => {
       throw new Error(
-        'Back badge template not found. Upload public/badge-templates/back.png and try again.'
+        'Back badge template not found. Upload public/badge-templates/back-20260716.png and try again.'
       )
     }),
     loadImage(headshotUrl).catch(() => {
