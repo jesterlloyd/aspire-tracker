@@ -25,6 +25,10 @@
     {
       "path": "/api/cron/clockout-reminders-scheduled",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/messages-delivery-worker",
+      "schedule": "*/10 * * * *"
     }
   ],
   "functions": {
@@ -47,6 +51,7 @@
     "api/update-rotation-dates.js":                { "maxDuration": 15 },
     "api/cron/midpoint-checkin.js":                { "maxDuration": 60 },
     "api/cron/clockout-reminders-scheduled.js":    { "maxDuration": 60 },
+    "api/cron/messages-delivery-worker.js":        { "maxDuration": 60 },
     "api/send-midpoint-checkin.js":                { "maxDuration": 15 },
     "api/evaluation-send-preceptor-invitations.js": { "maxDuration": 60 },
     "api/evaluation-release-preceptor-survey.js":   { "maxDuration": 30 },
