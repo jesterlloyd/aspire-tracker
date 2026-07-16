@@ -10,9 +10,16 @@
 // Props:
 //   selectedId          currently selected conversation id (externally managed)
 //   onSelect(id, row)   selection callback
-//   meProfileId         the current staff user_profiles.id (for the Me filter)
 //   refreshKey          increments to force a reload (Connect soft-refresh)
 //   api                 injected for tests; defaults to the real client
+//
+// The Me filter needs no profile id here: it is sent as a sentinel and resolved
+// by the server from the verified caller, so a client-supplied id is never
+// trusted.
+//
+// Search is SUBJECT ONLY, because that is what the applied server RPC supports.
+// The label and placeholder say so rather than implying that message bodies or
+// participant names are searched.
 //
 // Privacy: previews render as PLAIN TEXT only. There is no dangerouslySetInnerHTML,
 // no Markdown, and no HTML parsing. Staff email is never displayed.
@@ -46,7 +53,6 @@ const T = {
 export default function MessagesInbox({
   selectedId = null,
   onSelect = () => {},
-  meProfileId = null,
   refreshKey = 0,
   api = defaultApi,
 }) {
@@ -76,7 +82,7 @@ export default function MessagesInbox({
     initialPageParam: null,
     queryFn: ({ pageParam, signal }) => {
       const { query } = serializeInboxQuery({
-        filters, search, cursor: pageParam, limit: PAGE_LIMIT, meProfileId,
+        filters, search, cursor: pageParam, limit: PAGE_LIMIT,
       })
       return api.listStaffConversations(query, { signal })
     },
@@ -114,7 +120,7 @@ export default function MessagesInbox({
 
       {/* Search */}
       <div style={{ padding: '0 0 10px' }}>
-        <label htmlFor="msg-search" style={srOnly}>Search conversations by subject or participant</label>
+        <label htmlFor="msg-search" style={srOnly}>Search conversations by subject</label>
         <div style={{ position: 'relative' }}>
           <Search size={14} aria-hidden="true" style={{ position: 'absolute', left: 10, top: 10, color: T.muted }} />
           <input
@@ -122,7 +128,7 @@ export default function MessagesInbox({
             type="search"
             value={searchInput}
             onChange={onSearchChange}
-            placeholder="Search subject or participant"
+            placeholder="Search subjects"
             style={{
               width: '100%', height: 34, padding: '0 10px 0 30px', boxSizing: 'border-box',
               border: `1px solid ${T.border}`, borderRadius: 7, fontSize: 13,
@@ -139,12 +145,16 @@ export default function MessagesInbox({
         <FilterSelect id="msg-f-status" label="Status" value={filters.status} onChange={(v) => setFilter('status', v)}
           options={[{ value: 'all', label: 'All statuses' },
             ...STAFF_STATUSES.map((s) => ({ value: s, label: STAFF_STATUS_LABEL[s] }))]} />
+        {/* Unassigned and Me are server-side v2 filter modes. Me is sent as a
+            sentinel and resolved from the verified caller by the API. */}
         <FilterSelect id="msg-f-assignee" label="Assignee" value={filters.assignee} onChange={(v) => setFilter('assignee', v)}
           options={[{ value: 'all', label: 'All assignees' },
-            ...(meProfileId ? [{ value: 'me', label: 'Me' }] : []),
+            { value: 'unassigned', label: 'Unassigned' },
+            { value: 'me', label: 'Me' },
             ...assignees.filter((a) => !a.is_current_user).map((a) => ({ value: a.profile_id, label: a.display_name }))]} />
         <FilterSelect id="msg-f-category" label="Category" value={filters.category} onChange={(v) => setFilter('category', v)}
           options={[{ value: 'all', label: 'All categories' },
+            { value: 'uncategorized', label: 'Uncategorized' },
             ...MESSAGE_CATEGORIES.map((c) => ({ value: c, label: c }))]} />
         <FilterSelect id="msg-f-flagged" label="Follow up" value={filters.flagged} onChange={(v) => setFilter('flagged', v)}
           options={[{ value: 'all', label: 'All' },

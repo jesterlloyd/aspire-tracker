@@ -19,27 +19,24 @@ export function filtersAreDefault(filters) {
     && DEFAULT_FILTERS.flagged === filters.flagged;
 }
 
-// Serialize filters, search, and cursor into the exact query the Phase 3 staff
-// list endpoint accepts. Only defined values are included, so 'all' never
-// narrows the server query.
+// Serialize filters, search, and cursor into the exact query the staff list
+// endpoint accepts. Only narrowing values are included, so 'all' is simply
+// omitted.
 //
-// 'unassigned' and 'uncategorized' are NOT sent as filter values: the deployed
-// endpoint treats a null p_assignee / p_category as "no filter", so it cannot
-// express "is null" server side. They are returned in `clientOnly` so the caller
-// can surface an accurate limitation rather than silently filtering a partial
-// server page. See the Phase 4A documentation.
-export function serializeInboxQuery({ filters = DEFAULT_FILTERS, search = '', cursor = null, limit = 25, meProfileId = null } = {}) {
+// Phase 4B Stage A: the endpoint now translates these HTTP values into the
+// explicit v2 RPC filter modes, so 'unassigned' and 'uncategorized' are real
+// server-side filters (assigned_staff_profile_id IS NULL and category IS NULL).
+// They are passed through as sentinels rather than resolved here. Nothing is
+// ever client-filtered from a partial page.
+//
+// 'me' is passed through as the sentinel string, NOT as a profile id: the server
+// resolves Me from the verified caller, so a client-supplied id is never trusted.
+export function serializeInboxQuery({ filters = DEFAULT_FILTERS, search = '', cursor = null, limit = 25 } = {}) {
   const query = { limit: String(clampLimit(limit)) };
-  const clientOnly = {};
 
   if (filters.status !== 'all') query.status = filters.status;
-
-  if (filters.assignee === 'unassigned') clientOnly.assignee = 'unassigned';
-  else if (filters.assignee === 'me') { if (meProfileId) query.assignee = meProfileId; }
-  else if (filters.assignee !== 'all') query.assignee = filters.assignee;
-
-  if (filters.category === 'uncategorized') clientOnly.category = 'uncategorized';
-  else if (filters.category !== 'all') query.category = filters.category;
+  if (filters.assignee !== 'all') query.assignee = filters.assignee;
+  if (filters.category !== 'all') query.category = filters.category;
 
   if (filters.flagged === 'flagged') query.flagged = 'true';
   else if (filters.flagged === 'not_flagged') query.flagged = 'false';
@@ -52,7 +49,7 @@ export function serializeInboxQuery({ filters = DEFAULT_FILTERS, search = '', cu
     query.cursor_id = cursor.cursor_id;
   }
 
-  return { query, clientOnly };
+  return { query };
 }
 
 export function clampLimit(limit) {
