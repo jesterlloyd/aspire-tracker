@@ -195,6 +195,35 @@ test('Stage A verification file', async (t) => {
     assert.doesNotMatch(strip(verify), /\b(INSERT|UPDATE|DELETE|TRUNCATE|CREATE|ALTER|DROP)\b/i)
   })
 
+  await t.test('audit guards are comment-stripped and line-anchored (no false positives)', () => {
+    // Root cause 1: pg_get_functiondef returns the body VERBATIM including its
+    // in-body comments, so the old "no OFFSET" absence check matched the comment
+    // documenting "no OFFSET". Every code guard must strip comments first.
+    assert.ok(verify.includes("regexp_replace(pg_get_functiondef(p.oid), '--[^"),
+      'code guards must strip in-body comments')
+    // Root cause 2: the old audit 9 regex (IF|WHERE)[^;]*token[^;]*(THEN|=)
+    // spanned a whole multi-line projection statement. The guard must be line
+    // anchored so it can only flag a token on an actual IF gate line.
+    assert.ok(verify.includes('(?n)^'), 'the context guard must be line anchored with (?n)')
+    // Guard the executable SQL: the NOTE comment quotes the old regex on purpose
+    // to record the defect, so strip comments before asserting it is gone.
+    assert.ok(!strip(verify).includes('(IF|WHERE)[^;]*'),
+      'the old span-based regex must be gone from executable SQL')
+    // Audit 6 must be self-diagnosing (one row per check), not an 8-way AND.
+    assert.ok(verify.includes("THEN 'PASS' ELSE 'FAIL' END"), 'audit 6 must report per-check pass/fail')
+    assert.ok(verify.includes('checks(check_name, pattern, must_match)'), 'audit 6 must be a per-check table')
+  })
+
+  await t.test('the required separate proofs are present', () => {
+    for (const tok of ['9b. POSITIVE PROOF', '9c. EVERY gate', '9d. participant_profile_id',
+      '9e. p_conversation_id']) {
+      assert.ok(verify.includes(tok), `verification missing proof ${tok}`)
+    }
+    // Explicit pass expectations, so zero rows never has to be guessed at.
+    assert.match(verify, /Expect EIGHT rows, every result = 'PASS'/)
+    assert.match(verify, /Expect ZERO rows/)
+  })
+
   await t.test('covers the required checks', () => {
     for (const tok of ['messages_staff_get_thread_v2', 'prosecdef', 'search_path',
       'has_function_privilege', 'role_routine_grants', 'is_active_owner_or_admin', 'is_staff',

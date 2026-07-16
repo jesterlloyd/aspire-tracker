@@ -9,7 +9,10 @@
 -- one block. Every statement is a SELECT against system catalogs. It changes
 -- nothing and is safe against production at any time.
 --
--- Expected high-level outcome: messages_staff_get_thread_v2 exists, is SECURITY
+-- Expected high-level outcome: audit 6 returns EIGHT rows all 'PASS'; audits 9
+-- and 14 return ZERO rows; 9b/9c/9d/9e prove context is projection-only and the
+-- sole authorization gate is is_active_owner_or_admin(). Beyond that:
+-- messages_staff_get_thread_v2 exists, is SECURITY
 -- DEFINER with a fixed search_path, is executable by authenticated and
 -- service_role but never anon or PUBLIC, gates on is_active_owner_or_admin(),
 -- never uses is_staff(), selects the newest rows with a DESC order and LIMIT
@@ -62,23 +65,37 @@ WHERE n.nspname = 'public'
   AND p.proname = 'messages_staff_get_thread_v2'
   AND has_function_privilege('authenticated', p.oid, 'EXECUTE');
 
--- 6. THE CORE PAGINATION GUARD. The live definition must: gate on
---    is_active_owner_or_admin(); select newest-first (created_at DESC, id DESC);
---    page backward with the less-than tuple cursor; return the bounded page
---    chronologically; reject a partial cursor; cap the limit at 100; and never
---    use is_staff() or OFFSET. Expect ONE row.
-SELECT p.proname AS function_name
-FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-WHERE n.nspname = 'public'
-  AND p.proname = 'messages_staff_get_thread_v2'
-  AND pg_get_functiondef(p.oid) ~ 'is_active_owner_or_admin'
-  AND pg_get_functiondef(p.oid) ~ 'ORDER BY m\.created_at DESC, m\.id DESC'
-  AND pg_get_functiondef(p.oid) ~ '\(m\.created_at, m\.id\) < \(p_cursor_ts, p_cursor_id\)'
-  AND pg_get_functiondef(p.oid) ~ 'ORDER BY p\.created_at, p\.id'
-  AND pg_get_functiondef(p.oid) ~ '\(p_cursor_ts IS NULL\) <> \(p_cursor_id IS NULL\)'
-  AND pg_get_functiondef(p.oid) ~ 'LEAST\(GREATEST\(COALESCE\(p_limit, 50\), 1\), 100\)'
-  AND pg_get_functiondef(p.oid) !~ 'is_staff'
-  AND pg_get_functiondef(p.oid) !~ '\mOFFSET\M';
+-- 6. THE CORE CONTRACT GUARD, one row PER CHECK so a failure is diagnosable.
+--    Expect EIGHT rows, every result = 'PASS'.
+--
+--    NOTE: this compares against the definition with in-body SQL comments
+--    STRIPPED. pg_get_functiondef returns the body verbatim INCLUDING its
+--    comments, so an absence check like "no OFFSET" would otherwise match the
+--    comment that documents "no OFFSET" and report a false failure. An earlier
+--    version of this audit was a single 8-way AND, which collapsed to zero rows
+--    on any one condition and gave no indication of which. Both are fixed here.
+WITH def AS (
+  SELECT regexp_replace(pg_get_functiondef(p.oid), '--[^\n]*', '', 'g') AS code
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public' AND p.proname = 'messages_staff_get_thread_v2'
+),
+checks(check_name, pattern, must_match) AS (
+  VALUES
+    ('1 active Owner/Admin is the authorization gate', 'IF NOT public\.is_active_owner_or_admin\(\) THEN', true),
+    ('2 is_staff absent',                              'is_staff', false),
+    ('3 newest-first selection bounded by LIMIT',      'ORDER BY m\.created_at DESC, m\.id DESC\s*\n\s*LIMIT v_limit', true),
+    ('4 older pages use the less-than tuple cursor',   '\(m\.created_at, m\.id\) < \(p_cursor_ts, p_cursor_id\)', true),
+    ('5 returned page is chronological',               'ORDER BY p\.created_at, p\.id', true),
+    ('6 partial cursor rejected',                      '\(p_cursor_ts IS NULL\) <> \(p_cursor_id IS NULL\)', true),
+    ('7 limit capped at 100',                          'LEAST\(GREATEST\(COALESCE\(p_limit, 50\), 1\), 100\)', true),
+    ('8 OFFSET absent from code',                      '\mOFFSET\M', false)
+)
+SELECT c.check_name,
+       (d.code ~ c.pattern) AS found,
+       c.must_match          AS expected,
+       CASE WHEN (d.code ~ c.pattern) = c.must_match THEN 'PASS' ELSE 'FAIL' END AS result
+FROM checks c CROSS JOIN def d
+ORDER BY c.check_name;
 
 -- 7. Guard: the LIMIT is applied inside the newest-first page CTE, so the thread
 --    is never aggregated unbounded before limiting. Expect ONE row.
@@ -97,15 +114,82 @@ WHERE n.nspname = 'public'
   AND pg_get_functiondef(p.oid) ~ 'jsonb_build_object\(''cursor_ts'', v_oldest_ts, ''cursor_id'', v_oldest_id\)'
   AND pg_get_functiondef(p.oid) ~ 'IF v_conv IS NULL THEN\s*\n\s*RETURN NULL;';
 
--- 9. Guard: assignment and related context are never authorization gates. They
---    may appear only in the conversation projection. Inspect the definition in
---    query 12 and confirm every reference sits inside jsonb_build_object.
---    Expect ZERO rows (no related_* or assigned_staff inside an IF/WHERE gate).
-SELECT p.proname AS function_name, 'context used as a gate' AS finding
-FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-WHERE n.nspname = 'public'
-  AND p.proname = 'messages_staff_get_thread_v2'
-  AND pg_get_functiondef(p.oid) ~ '(IF|WHERE)[^;]*(related_student_id|related_unit_key|related_school_key|related_cohort_id|assigned_staff_profile_id)[^;]*(THEN|=)';
+-- 9. Guard: assignment and related context are NEVER authorization gates.
+--    Expect ZERO rows.
+--
+--    NOTE: the previous version used (IF|WHERE)[^;]*token[^;]*(THEN|=), which
+--    matched a 511-character span of the SINGLE multi-line conversation
+--    projection statement: it began at "WHERE up.id = c.assigned_staff_profile_id"
+--    (the correlated subquery that projects assignee_name) and ran on to
+--    "FROM public.conversations c WHERE c.id =". Because [^;]* only stops at a
+--    semicolon, it conflated a projection with a gate and reported a false
+--    positive. This version is LINE ANCHORED with (?n), so it can only flag a
+--    token that actually sits on an IF gate line.
+WITH def AS (
+  SELECT regexp_replace(pg_get_functiondef(p.oid), '--[^\n]*', '', 'g') AS code
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public' AND p.proname = 'messages_staff_get_thread_v2'
+)
+SELECT 'context used as an authorization gate' AS finding
+FROM def
+WHERE code ~ '(?n)^\s*IF\s.*(related_student_id|related_unit_key|related_school_key|related_cohort_id|assigned_staff_profile_id)';
+
+-- 9b. POSITIVE PROOF of how each context token is actually used. Expect FOUR
+--     rows, every usage = 'projection (ok)': assigned_staff_profile_id and
+--     assignee_name, related_student_id, related_cohort_id. Any 'GATE (defect)'
+--     row is a real defect.
+WITH def AS (
+  SELECT regexp_replace(pg_get_functiondef(p.oid), '--[^\n]*', '', 'g') AS code
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public' AND p.proname = 'messages_staff_get_thread_v2'
+),
+lines AS (SELECT btrim(unnest(string_to_array(code, E'\n'))) AS line FROM def)
+SELECT line, CASE WHEN line ~ '^IF\s' THEN 'GATE (defect)' ELSE 'projection (ok)' END AS usage
+FROM lines
+WHERE line ~ '(related_student_id|related_unit_key|related_school_key|related_cohort_id|assigned_staff_profile_id)'
+ORDER BY usage, line;
+
+-- 9c. EVERY gate in the function, listed. Expect FOUR rows and ONLY these:
+--       IF NOT public.is_active_owner_or_admin() THEN   <- the sole authz gate
+--       IF (p_cursor_ts IS NULL) <> (p_cursor_id IS NULL) THEN  <- cursor validation
+--       IF v_conv IS NULL THEN                           <- non-enumerating 404
+--       IF v_count > 0 AND v_oldest_id IS NOT NULL THEN  <- bounded has_more
+--     No gate may reference assignment or related context.
+WITH def AS (
+  SELECT regexp_replace(pg_get_functiondef(p.oid), '--[^\n]*', '', 'g') AS code
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public' AND p.proname = 'messages_staff_get_thread_v2'
+),
+lines AS (SELECT btrim(unnest(string_to_array(code, E'\n'))) AS line FROM def)
+SELECT line AS gate FROM lines WHERE line ~ '^IF\s' ORDER BY line;
+
+-- 9d. participant_profile_id / v_participant is used ONLY for participant
+--     projection and access-status display, never as a gate. Expect every row's
+--     usage = 'projection or access status (ok)'.
+WITH def AS (
+  SELECT regexp_replace(pg_get_functiondef(p.oid), '--[^\n]*', '', 'g') AS code
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public' AND p.proname = 'messages_staff_get_thread_v2'
+),
+lines AS (SELECT btrim(unnest(string_to_array(code, E'\n'))) AS line FROM def)
+SELECT line, CASE WHEN line ~ '^IF\s' THEN 'GATE (defect)' ELSE 'projection or access status (ok)' END AS usage
+FROM lines
+WHERE line ~ '(participant_profile_id|v_participant)'
+ORDER BY usage, line;
+
+-- 9e. p_conversation_id is used ONLY to identify the requested thread (the
+--     conversation, participant, message, and event lookups), never as a gate.
+--     Expect every row's usage = 'thread lookup (ok)'.
+WITH def AS (
+  SELECT regexp_replace(pg_get_functiondef(p.oid), '--[^\n]*', '', 'g') AS code
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public' AND p.proname = 'messages_staff_get_thread_v2'
+),
+lines AS (SELECT btrim(unnest(string_to_array(code, E'\n'))) AS line FROM def)
+SELECT line, CASE WHEN line ~ '^IF\s' THEN 'GATE (defect)' ELSE 'thread lookup (ok)' END AS usage
+FROM lines
+WHERE line ~ 'p_conversation_id'
+ORDER BY usage, line;
 
 -- 10. Guard: the ORIGINAL staff thread RPC is still present and STILL uses the
 --     old forward cursor (proof it was not modified or replaced). Expect ONE row.
