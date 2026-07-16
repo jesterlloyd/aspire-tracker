@@ -108,12 +108,27 @@ WHERE n.nspname = 'public'
   AND (p.proname LIKE 'messages\_%' ESCAPE '\' OR p.proname LIKE 'message\_%' ESCAPE '\')
   AND pg_get_functiondef(p.oid) ~ 'is_staff';
 
--- 7. Guard: no Phase 3 function authorizes through related context or
---    assignment. related_* and assigned_staff_profile_id may be SELECTED for
---    display, but must never appear in an authorization predicate. Inspect the
---    definitions returned here and confirm every related_* / assigned_staff
---    reference is a projection, not a gate. Expect only the staff read RPCs
---    (which project related_student_id / assigned_staff_profile_id for display).
+-- 7. INSPECTION (not a zero-row guard). Lists every Phase 3 function whose
+--    definition MENTIONS related context or assignment, so each reference can be
+--    confirmed as a projection, a filter, or a write, and never an authorization
+--    gate. related_* and assigned_staff_profile_id may be selected for display,
+--    filtered on by an already-authorized staff caller, or written; they must
+--    never gate access.
+--
+--    EXPECTED: exactly these four rows, all reviewed and correct:
+--      - messages_start_conversation      writes related_student_id as context
+--                                         metadata on INSERT (not a gate).
+--      - messages_set_assignment          reads the prior assignee for the audit
+--                                         event and UPDATEs it (not a gate).
+--      - messages_staff_list_conversations projects assignee/related_student_id
+--                                         and uses p_assignee as a caller FILTER
+--                                         that narrows an already-authorized set.
+--      - messages_staff_get_thread        projects assignee name,
+--                                         related_student_id, related_cohort_id.
+--    Authorization in all four is message_profile_is_active_owner_or_admin(),
+--    is_active_owner_or_admin(), or message_profile_has_active_student_link().
+--    Any OTHER function appearing here, or any related_*/assigned_staff
+--    reference used as an access predicate, is a defect.
 SELECT p.proname AS function_name
 FROM pg_proc p
 JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -138,12 +153,28 @@ FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public' AND p.proname = 'messages_post_reply';
 
 -- 9. Guard: no NEW table was created by Phase 3. Expect exactly the eight known
---    Messages tables (six from Phase 1, two from Phase 2).
+--    ASPIRE Messages tables (six from Phase 1, two from Phase 2), listed
+--    explicitly.
+--
+--    NOTE on message_archive: an earlier version of this query used the pattern
+--    LIKE 'message%', which also matched public.message_archive and made the
+--    result look like nine Messages tables. message_archive is NOT part of
+--    ASPIRE Messages. It PRE-EXISTS Phase 3: it was created on 2026-06-25 by
+--    supabase/migrations/20260625000000_message_archive.sql (SENT-HISTORY-PHASE2A)
+--    and stores redacted rendered bodies of manual ASPIRE Connect Outreach
+--    emails, one row per notification_log row (FK to notification_log(id)),
+--    RLS-enabled with no policies and service-role writes. Neither Phase 3
+--    migration created, modified, or references it. It is intentionally excluded
+--    from this inventory and must not be modified or deleted.
 SELECT c.relname AS table_name
 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public' AND c.relkind = 'r'
-  AND (c.relname LIKE 'conversation%' OR c.relname LIKE 'message%'
-       OR c.relname IN ('staff_conversation_reads', 'participant_conversation_reads'))
+  AND c.relname IN (
+    'conversations', 'conversation_participants', 'messages',
+    'staff_conversation_reads', 'participant_conversation_reads',
+    'conversation_events', 'message_notification_deliveries',
+    'message_rate_limit_counters'
+  )
 ORDER BY c.relname;
 
 -- 10. Guard: NO portal base-table SELECT policy was added. Policies on the six
