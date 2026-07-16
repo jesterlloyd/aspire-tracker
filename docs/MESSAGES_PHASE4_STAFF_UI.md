@@ -366,6 +366,118 @@ whole, as one block, in the Supabase SQL editor, then runs the read-only
 committed migration is not modified after it is applied. The workspace stays
 dormant until Phase 4B2a Stage B builds it on this RPC.
 
+## Phase 4B2a Stage B: dormant workspace, thread, read state, and polling
+
+Stage A is applied and verified. Stage B builds the staff workspace on it and
+keeps it DORMANT: `Connect.jsx`, `App.jsx`, `VALID_TABS`, and the `/connect`
+redirect are untouched, no routed page imports the workspace, and
+`/connect/messages` still falls through to the existing default. No feature flag,
+no debug route. Phase 4B2b adds New message, the reply composer, and management
+controls, and only then exposes the Connect tab.
+
+### Files
+
+- `api/messages-staff-thread.js` (updated to v2)
+- `src/lib/messages/messagesPolling.js` (reusable polling utilities)
+- `src/components/connect/messages/MessagesWorkspace.jsx` (dormant workspace)
+- `test/messagesPhase4b2aWorkspace.test.mjs`
+
+### Staff thread v2 integration
+
+The endpoint now calls `messages_staff_get_thread_v2`. The HTTP path, method,
+authentication, and error mapping are unchanged; the response gains `has_more`,
+and `next_cursor` is now the RPC's authoritative BACKWARD cursor (the oldest
+message of the page) rather than a forward cursor derived from the returned rows.
+`nextCursorFrom` is no longer used here. The browser never calls the RPC directly.
+`MS400` maps to 422 (a partial cursor) and `MS403` to 403; no SQL text or function
+name is ever returned.
+
+### Thread behavior
+
+The newest bounded page opens first, so staff land on the latest activity. "Load
+earlier messages" sends `next_cursor.cursor_ts` and `cursor_id` to fetch older
+history. Page 0 is the newest and each later page is older, so the flattened
+array reverses the page order before merging through `appendPage`, which drops any
+id an overlapping page repeats and never re-sorts. Existing messages stay visible
+while an older page loads; only the initial load renders a loading state. No
+offset pagination.
+
+Messages render as plain text with `white-space: pre-wrap` and
+`overflow-wrap: anywhere`, so line breaks are preserved and long text wraps. There
+is no `dangerouslySetInnerHTML`, no Markdown, and no HTML interpretation. No email
+is displayed. Date separators appear when the day changes.
+
+### Read state
+
+Mark-read runs only after the newest page has successfully loaded and rendered. It
+is keyed on `${conversationId}:${newestMessageCreatedAt}`, so loading an older
+page never re-triggers it, and it never fires from the inbox list or before thread
+content exists. The request sends only `conversation_id`: no client timestamp and
+no profile id, because the server derives both. Local unread clears only after
+mark-read SUCCEEDS, invalidating `messages_staff_unread` and `messages_staff_list`.
+A failure is non-fatal: the thread stays usable, the token resets so a later render
+can retry, and unread reconciles on the next refresh.
+
+### Unread
+
+`useStaffUnreadCount` counts only portal-authored messages unread by the current
+staff profile, so one staff member reading never clears another's count. Display is
+compact (1 to 99, then 99+) with screen-reader text, never color alone.
+
+### Polling
+
+React Query drives every interval, so requests cancel on unmount and never overlap
+for a key. There is no `setInterval` and no Supabase Realtime. Active workspace:
+inbox, selected thread, and unread all refresh at 30 seconds. Polling pauses
+entirely while `document.hidden` is true (`refetchInterval: false`) and refreshes
+on focus. Background refresh never shows a full skeleton, and never resets the
+selected conversation, search, filters, or loaded pages. `IDLE_UNREAD_POLL_MS`
+(60 seconds) is exported and ready for the future Connect tab badge, but is not
+mounted in Connect.
+
+### Stale-request protection
+
+The thread query key is scoped by conversation id and the `AbortSignal` is passed
+through, so a response for a previously selected conversation can never populate a
+newer selection or mark the wrong conversation read. No shared mutable thread state
+exists.
+
+### Mobile state
+
+List-first. Selecting a conversation opens the thread; "Back to messages" returns
+to the list. The inbox stays mounted, so search, filters, and pagination survive
+the round trip. At phone width the layout is a single column, never a compressed
+two-column split. The Back control is a real button with a 44px touch target.
+
+### Accessibility
+
+Keyboard-selectable rows with `aria-current` (from the Phase 4A inbox), a
+`role="status"` loading announcement, keyboard-accessible Retry, unread and
+participant-access conveyed by text as well as styling, `<time dateTime>` with a
+full accessible timestamp, and `aria-hidden` on decorative icons.
+
+### Privacy
+
+No message body, preview, thread response, authorization header, or token is
+logged. Nothing is written to localStorage, sessionStorage, or IndexedDB. No
+analytics or telemetry. No direct browser RPC and no service-role credentials.
+Message content exists only in authorized browser memory for rendering.
+
+### Phase 4B2b integration contract
+
+Phase 4B2b should: add `messages` to `VALID_TABS` and the tab bar between Outreach
+and Automations (leaving the Automations `/connect/broadcasts` slug alone), route
+it at `/connect/messages`, and render `MessagesWorkspace` with the existing
+`refreshKey`. Gate the tab on an active Owner or Admin
+(`['owner','admin'].includes(role)` plus `is_active !== false`), remembering that
+client hiding is not a security boundary. Mount `useStaffUnreadCount({ intervalMs:
+IDLE_UNREAD_POLL_MS })` for the tab badge while another sub-tab is active. Add the
+New message dialog, reply composer, and management controls using the typed client
+functions already defined (`startStaffConversation`, `replyStaffConversation`,
+`manageStaffConversation`, `listParticipantOptions`), which already carry the
+routing-field guard and error mapping. The workspace exposes participant access
+state, so the composer can be disabled when access is inactive.
+
 ## Known limitations
 
 - The Messages workspace is still dormant: the Connect tab, workspace, thread,
