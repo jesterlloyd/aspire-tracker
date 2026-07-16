@@ -283,11 +283,96 @@ The dormant inbox now offers Unassigned, Me, and Uncategorized, and
 fallback. Search is labeled truthfully as subject search ("Search subjects"),
 because the applied RPC searches subject only and never message bodies.
 
+## Phase 4B2a Stage A: staff thread reverse pagination
+
+The staff workspace remains dormant. This stage is a database change only,
+resolving a blocker found while inspecting the deployed thread contract.
+
+### The oldest-first thread blocker
+
+The applied `messages_staff_get_thread` pages FORWARD from the oldest message:
+
+```
+AND (p_cursor_ts IS NULL OR (m.created_at, m.id) > (p_cursor_ts, p_cursor_id))
+ORDER BY m.created_at, m.id
+LIMIT v_limit
+```
+
+A greater-than cursor with an ascending order means the first page is the OLDEST
+messages and paging moves toward newer ones. Three consequences:
+
+- "Load earlier messages" is impossible: nothing is earlier than page one.
+- Staff opening a thread over 50 messages land on the oldest content, not the
+  newest activity they opened it to read.
+- `messages_mark_read` derives `max(created_at)` across the whole conversation,
+  so marking read after only the oldest page rendered would mark newer messages
+  read that were never displayed.
+
+### Why an API-layer workaround was rejected
+
+Reaching the newest page requires a reverse-ordered query. The only alternatives
+are paging through the entire thread or fetching all of it, both unbounded and
+unsafe. Viewport preservation while loading earlier history presumes newest-first
+plus backward paging, which the deployed contract cannot express.
+
+### The new staff v2 thread RPC
+
+`supabase/migrations/20260716000005_messages_phase4_staff_thread_reverse_pagination.sql`
+adds `messages_staff_get_thread_v2`. The name is deliberately distinct: an
+overload would make PostgREST resolution ambiguous, so the original is untouched
+and fully backward compatible.
+
+- **Newest page first.** With no cursor it selects the newest `p_limit` rows.
+- **Backward cursor.** With a cursor it selects the newest `p_limit` rows
+  strictly older than it, using `(m.created_at, m.id) < (p_cursor_ts,
+  p_cursor_id)`.
+- **Bounded before aggregation.** The inner page CTE orders `created_at DESC,
+  id DESC` and applies `LIMIT` first, so the thread is never fetched or
+  aggregated unbounded. The bounded page is then reordered ascending for
+  chronological display.
+- **Cursor points backward.** `next_cursor` is the oldest message of the returned
+  page, taken from the page itself (no OFFSET, no extra scan). An additive
+  `has_more` boolean comes from a bounded EXISTS check.
+- Default limit 50, cap 100, partial cursors rejected, no offset pagination,
+  stable `(created_at, id)` ordering on ties.
+
+The conversation, message, and event contract is reused verbatim. Authorization
+is unchanged: active Owner or Admin via `is_active_owner_or_admin()`, never
+`is_staff()`. Assignment and related context are projections only. An
+inaccessible conversation still returns NULL (non-enumerating). No email is
+projected.
+
+### Relationship to mark-read safety
+
+`messages_mark_read` is NOT modified. The Phase 4B2a interface will open the
+NEWEST page and mark read only after that page successfully loads and renders;
+loading older pages must not trigger a further mark-read. Because the newest
+activity is present in the initial rendered page, mark-read may continue deriving
+the authoritative latest timestamp server-side.
+
+### Portal thread reserved for Phase 5
+
+`messages_portal_get_thread` has the same oldest-first forward-cursor pattern and
+is equally unsuitable for a portal thread view. It is intentionally NOT changed
+here. A separate portal v2 thread RPC must be created before the Student Portal
+Messages interface is built; the forward-pagination contract must not be silently
+reused in Phase 5.
+
+### Manual SQL gate
+
+The migration is committed and pushed before it is applied. The Owner runs it
+whole, as one block, in the Supabase SQL editor, then runs the read-only
+`db/audit/messages_phase4_staff_thread_reverse_pagination_verification.sql`. The
+committed migration is not modified after it is applied. The workspace stays
+dormant until Phase 4B2a Stage B builds it on this RPC.
+
 ## Known limitations
 
-- The Messages workspace is still dormant: Stage B1 delivered the backend
-  integration only. The Connect tab, thread, composer, management controls, and
-  polling remain unbuilt, so nothing is exposed to production users yet.
+- The Messages workspace is still dormant: the Connect tab, workspace, thread,
+  composer, management controls, and polling remain unbuilt, so nothing is
+  exposed to production users yet.
+- `messages_portal_get_thread` still pages oldest-first. Fixing it is a Phase 5
+  prerequisite before any Student Portal Messages interface is built.
 - The inbox is dormant: not mounted, not routable.
 - No read pointers, polling, thread, composer, or management actions in Phase 4A.
 - Component tests are pure and static-source, matching the repository stack; no
