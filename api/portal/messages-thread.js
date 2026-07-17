@@ -5,10 +5,15 @@
 // inaccessible or missing conversation returns an identical non-enumerating 404.
 // Staff messages are labeled ASPIRE Team with an optional staff author name and
 // never a staff email address.
+//
+// PHASE 5A: migrated onto messages_portal_get_thread_v2. The newest bounded page
+// opens first, each page is chronological, and cursor_ts plus cursor_id page
+// BACKWARD through history. next_cursor points at the oldest message of the page
+// returned and is null when no older history remains.
 
 import { verifyPortalStudentCaller, getUserScopedDb } from '../lib/messagesAuth.js';
 import { methodGuard, notFound, logApiError } from '../lib/messagesApi.js';
-import { parseLimit, parseCursor, isUuid, nextCursorFrom } from '../../lib/server/messages/validation.js';
+import { parseLimit, parseCursor, isUuid } from '../../lib/server/messages/validation.js';
 
 export default async function handler(req, res) {
   if (!methodGuard(req, res, ['GET'])) return;
@@ -28,7 +33,14 @@ export default async function handler(req, res) {
   if (!db) return res.status(401).json({ error: 'unauthenticated' });
 
   try {
-    const { data, error } = await db.rpc('messages_portal_get_thread', {
+    // Phase 5A added messages_portal_get_thread_v2, because the original RPC
+    // pages FORWARD from the oldest message: its first page is the oldest
+    // content, so a student opens a long thread on the wrong end and never
+    // reaches the message they were notified about. "Load earlier messages" is
+    // not expressible against it. v2 opens at the NEWEST bounded page and pages
+    // BACKWARD. The browser never calls this RPC directly: it reaches it only
+    // through this authenticated endpoint, running as the signed-in student.
+    const { data, error } = await db.rpc('messages_portal_get_thread_v2', {
       p_conversation_id: conversationId,
       p_limit: limit.value,
       p_cursor_ts: cursor.value.ts,
@@ -36,16 +48,24 @@ export default async function handler(req, res) {
     });
     if (error) {
       logApiError('portal/messages-thread', 'rpc_failed', error);
-      return res.status(500).json({ error: 'internal_error' });
+      // MS400 is a validation rejection from the RPC (a partial cursor). The
+      // portal has no MS403 path: an inaccessible conversation returns NULL and
+      // maps to the same non-enumerating 404 as a missing one.
+      const httpStatus = error.code === 'MS400' ? 422 : 500;
+      const code = error.code === 'MS400' ? 'validation_failed' : 'internal_error';
+      return res.status(httpStatus).json({ error: code });
     }
     // The RPC returns NULL for both inaccessible and missing conversations.
     if (!data) return notFound(res);
 
-    const messages = data.messages || [];
     return res.status(200).json({
       conversation: data.conversation,
-      messages,
-      next_cursor: nextCursorFrom(messages, limit.value, 'created_at'),
+      messages: data.messages || [],
+      // v2 returns the authoritative BACKWARD cursor (the oldest message of the
+      // page) and has_more itself, so the API passes them through rather than
+      // deriving a forward cursor from the returned rows.
+      next_cursor: data.next_cursor ?? null,
+      has_more: data.has_more === true,
     });
   } catch (err) {
     logApiError('portal/messages-thread', 'threw', err);
