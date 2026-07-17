@@ -460,3 +460,92 @@
 }
 .ptl-compose-blocked { display: block; background: #fff7f7; border-color: #fca5a5; color: #991b1b; }
 .ptl-compose-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+/* ── ASPIRE MESSAGES, PHASE 5B-i: Student Portal Messages workspace ──────────
+   DORMANT: these rules style components that no routed portal page mounts yet.
+   Colors, radii, and spacing follow the existing portal card and chip language;
+   nothing here looks like a public social chat application. */
+
+.ptl-msg-head { align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ptl-msg-head-text { display: flex; flex-direction: column; gap: 2px; }
+.ptl-msg-subtitle { font-size: 13.5px; margin: 0; }
+.ptl-msg-head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ptl-msg-unread-summary { white-space: nowrap; }
+
+/* Desktop: a readable list beside a thread wide enough for long content. The
+   list is fixed and the thread takes the remaining space, so neither collapses. */
+.ptl-msg-split { display: grid; grid-template-columns: 320px 1fr; gap: 18px; margin-top: 16px; align-items: start; }
+.ptl-msg-pane { min-width: 0; }  /* lets long content wrap instead of forcing overflow */
+.ptl-msg-pane-list { max-height: 620px; overflow-y: auto; }
+.ptl-msg-pane-thread { display: flex; flex-direction: column; gap: 12px; min-height: 320px; }
+
+/* Tablet: keep the split while it stays usable, on a narrower list. */
+@media (max-width: 1000px) {
+  .ptl-msg-split { grid-template-columns: 260px 1fr; gap: 14px; }
+}
+
+/* Phone: list-first. One column only, never a compressed two-column split. */
+@media (max-width: 760px) {
+  .ptl-msg-split, .ptl-msg-split-narrow { grid-template-columns: 1fr; }
+  .ptl-msg-pane-list { max-height: none; }
+  .ptl-msg-head-actions { width: 100%; }
+  .ptl-msg-new { width: 100%; justify-content: center; min-height: 44px; }
+}
+
+.ptl-msg-list { display: flex; flex-direction: column; gap: 8px; }
+
+/* Conversation rows are real buttons, so they are keyboard reachable and
+   activatable by default with no synthetic key handling. */
+.ptl-msg-row {
+  display: flex; flex-direction: column; gap: 6px; width: 100%;
+  text-align: left; padding: 12px 14px; min-height: 44px;
+  background: #fff; border: 1px solid #e3ded4; border-radius: 12px;
+  cursor: pointer; font: inherit; color: inherit;
+}
+.ptl-msg-row:hover { border-color: #cfc7b8; }
+.ptl-msg-row:focus-visible { outline: 2px solid #1D2567; outline-offset: 2px; }
+.ptl-msg-row-selected { border-color: #1D2567; background: #f6f7fb; }
+/* Unread is reinforced by weight and by the count chip, never by color alone. */
+.ptl-msg-row-unread .ptl-msg-row-subject { font-weight: 700; }
+
+.ptl-msg-row-top { display: flex; align-items: center; gap: 8px; }
+.ptl-msg-row-subject { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.ptl-msg-unread-dot {
+  flex-shrink: 0; min-width: 20px; padding: 1px 6px; border-radius: 999px;
+  background: #1D2567; color: #fff; font-size: 11.5px; font-weight: 700; text-align: center;
+}
+.ptl-msg-row-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; }
+.ptl-msg-row-cat { color: #6b6355; }
+.ptl-msg-row-time { color: #6b6355; margin-left: auto; white-space: nowrap; }
+.ptl-msg-row-preview {
+  font-size: 12.5px; color: #6b6355; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ptl-msg-loadmore, .ptl-msg-loadearlier { align-self: center; min-height: 44px; }
+
+.ptl-msg-thread { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ptl-msg-thread-head { display: flex; flex-direction: column; gap: 6px; }
+.ptl-msg-thread-subject { margin: 0; font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }
+.ptl-msg-thread-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; }
+.ptl-msg-back { align-self: flex-start; min-height: 44px; gap: 4px; }
+
+.ptl-msg-scroll { display: flex; flex-direction: column; gap: 12px; max-height: 460px; overflow-y: auto; padding-right: 4px; }
+@media (max-width: 760px) { .ptl-msg-scroll { max-height: none; } }
+
+/* Restrained message grouping: a labeled block, not a speech bubble. */
+.ptl-msg-item { border: 1px solid #e3ded4; border-radius: 12px; padding: 10px 12px; background: #fff; min-width: 0; }
+.ptl-msg-item-staff { background: #f6f7fb; border-color: #dcdfee; }
+.ptl-msg-item-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.ptl-msg-author { font-size: 12.5px; font-weight: 700; }
+/* Secondary context only: an individual staff name never outranks the team. */
+.ptl-msg-author-name { font-size: 12px; font-weight: 400; color: #6b6355; }
+.ptl-msg-time { margin-left: auto; font-size: 11.5px; color: #6b6355; white-space: nowrap; }
+/* pre-wrap preserves the sender's line breaks. The text is rendered as text:
+   no HTML parsing and no Markdown. */
+.ptl-msg-body { font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.ptl-msg-composer { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #e3ded4; padding-top: 12px; }
+.ptl-msg-textarea { resize: vertical; min-height: 88px; font: inherit; }
+.ptl-msg-safety { font-size: 12px; color: #6b6355; }
+.ptl-msg-closed-note { font-size: 12.5px; }
+.ptl-msg-empty, .ptl-msg-noselect { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 18px; }
