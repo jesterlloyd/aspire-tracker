@@ -28,7 +28,13 @@ export const NAV_LINKS = [
 
 export const HOME = {
   heroEyebrow: 'ASPIRE at Cedars-Sinai',
-  heroTitle: 'Complete your senior clinical rotation where you hope to begin your nursing career.',
+  // The headline renders in two parts so the closing phrase can carry the
+  // italic editorial voice and drawn underline. Read together, the sentence
+  // is unchanged from the approved headline.
+  heroTitleLead: 'Complete your senior clinical rotation where you hope to ',
+  heroTitleEmphasis: 'begin your nursing career.',
+  heroNote: 'Applying begins with your school’s clinical placement coordinator.',
+  scrollCueLabel: 'Follow the pathway',
   heroBody:
     'ASPIRE, the Affiliate Students’ Pathway from Internship to Residency Experience, gives ' +
     'eligible senior nursing students the opportunity to complete a hands-on bedside clinical ' +
@@ -38,6 +44,7 @@ export const HOME = {
   heroPrimaryCta:   { path: '/eligibility', label: 'See if you are eligible' },
   heroSecondaryCta: { path: '/apply',       label: 'How to apply' },
 
+  audienceEyebrow: 'One connected ecosystem',
   audienceTitle: 'Find your pathway',
   audienceIntro:
     'ASPIRE brings four groups together around one shared goal: helping nursing students build ' +
@@ -69,6 +76,7 @@ export const HOME = {
     },
   ],
 
+  glanceEyebrow: 'What to expect',
   glanceTitle: 'ASPIRE at a glance',
   glanceIntro: 'What students can expect from a senior clinical rotation through ASPIRE.',
   glanceCards: [
@@ -94,6 +102,7 @@ export const HOME = {
     },
   ],
 
+  journeyEyebrow: 'Six steps',
   journeyTitle: 'The ASPIRE journey',
   journeyIntro: 'Six steps from eligibility through your clinical rotation and preparation for what comes next.',
   journey: [
@@ -114,6 +123,7 @@ export const HOME = {
     'Nursing Professional Development practitioners.',
   preceptorBandCta: { path: '/preceptors', label: 'Become a preceptor' },
 
+  faqEyebrow: 'Good to know',
   faqTitle: 'Frequently asked questions',
   faqCtaLabel: 'View all FAQs',
   // Homepage FAQ preview: friendly question labels paired with the shared FAQ
@@ -133,6 +143,15 @@ export const HOME = {
     { q: 'How are the unit and preceptor selected?', i: 3 },
     { q: 'Can current Cedars-Sinai employees participate in ASPIRE?', i: 2 },
   ],
+
+  // Closing invitation at the end of the homepage journey.
+  closingTitle: 'Your pathway starts at your school.',
+  closingBody:
+    'Talk with your school’s clinical placement coordinator about completing your senior ' +
+    'clinical rotation at Cedars-Sinai through ASPIRE, and bring your questions to the ' +
+    'ASPIRE Team anytime.',
+  closingPrimaryCta:   { path: '/apply',   label: 'See how to apply' },
+  closingSecondaryCta: { path: '/contact', label: 'Contact the ASPIRE Team' },
 }
 
 export const ABOUT = {
@@ -149,6 +168,12 @@ export const ABOUT = {
     'shape nursing care in that environment.',
   ],
   alt: 'A senior nursing student discussing clinical learning with a nurse and members of the care team.',
+  // Pull statement between the two ledgers; the emphasized phrase comes
+  // directly from the approved intro copy ("students gain more than clinical
+  // hours").
+  pullLead: 'Through one-to-one preceptorship and sustained unit immersion, students gain ',
+  pullEmphasis: 'more than clinical hours',
+  pullTail: '.',
   setsApartHeading: 'What sets ASPIRE apart',
   setsApart: [
     { icon: 'mentor',      title: 'One-to-one preceptorship',       body: 'Each student’s experience is centered around a primary preceptor who provides individualized teaching, feedback, and guidance at the bedside, with support from other members of the unit team when needed.' },
@@ -443,6 +468,9 @@ export const CONTACT = {
 }
 
 export const FOOTER = {
+  // Editorial sign-off above the footer columns; drawn from the approved
+  // program purpose (building the future nursing workforce before graduation).
+  tagline: 'Helping build the future nursing workforce, before graduation.',
   columns: [
     {
       heading: 'Explore',

@@ -1,35 +1,48 @@
-/* PHASE1-PUBLIC-SITE (elevated): styles for the public marketing pages.
-   Scoped under .ps-root so nothing leaks into the staff app or the existing
-   public forms. The public site is light-locked (wrapped in
-   data-theme-lock="light"). Editorial, warm, premium; Cedars-Sinai navy and
-   red on cream. Motion is minimal and respects prefers-reduced-motion. */
+/* ASPIRE-PUBLIC-REDESIGN: "The Pathway" design system for the public site.
+   Scoped under .ps-root so nothing leaks into the staff app or public forms.
+   The public site is light-locked (wrapped in data-theme-lock="light").
+
+   Creative direction:
+   - Editorial voice: Fraunces (display serif) for headlines over DM Sans body.
+   - The pathway thread: a navy-to-red drawn line that recurs in the scroll
+     cue, heading flourishes, and the journey timeline, echoing the route
+     from nursing school into professional practice.
+   - Motion: reveal-on-scroll with gentle stagger. Every animated state is
+     gated behind .ps-js (set on mount) AND prefers-reduced-motion:
+     no-preference, so content is never hidden without JS or for
+     reduced-motion visitors.
+   - Cedars-Sinai red is an intentional accent (eyebrows, thread ends, focus
+     rings), never a field color. */
 
 .ps-root {
   --ps-navy: #1D2567;
   --ps-navy-deep: #141a4d;
   --ps-navy-soft: #26307a;
+  --ps-navy-tint: #e6e9f6;
   --ps-ink: #1f2430;
   --ps-ink-soft: #4b5265;
   --ps-cream: #F4F1EC;
-  --ps-cream-deep: #efece5;
+  --ps-cream-deep: #ece8e0;
   --ps-card: #ffffff;
   --ps-line: #e3ded4;
   --ps-line-soft: #eee9df;
   --ps-accent: #B3282D;
+  --ps-accent-soft: #f6e3e4;
   --ps-tint: #eef0f8;
-  --ps-radius: 16px;
+  --ps-gold: #c9a227;
+  --ps-radius: 18px;
   --ps-maxw: 1160px;
-  /* Wider editorial width for the primary image-led heroes only (homepage and
-     The Experience). Body copy, cards, and FAQ keep --ps-maxw for a readable
-     measure. */
-  --ps-maxw-wide: 1240px;
+  --ps-maxw-wide: 1280px;
+  --ps-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --ps-sans: 'DM Sans', -apple-system, sans-serif;
   min-height: 100vh;
   background: var(--ps-cream);
   color: var(--ps-ink);
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--ps-sans);
   display: flex;
   flex-direction: column;
   -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
 }
 
 .ps-root a { text-decoration: none; color: inherit; }
@@ -47,20 +60,71 @@
 }
 .ps-skip-link:focus { top: 12px; }
 
+.ps-visually-hidden {
+  position: absolute !important; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0);
+  white-space: nowrap; border: 0;
+}
+
+/* ── Reveal system ─────────────────────────────────────────────────────────
+   .ps-rv elements start hidden ONLY when JS is live (.ps-js) and the visitor
+   accepts motion; IntersectionObserver adds .is-in once. --rv-d staggers. */
+@media (prefers-reduced-motion: no-preference) {
+  .ps-js .ps-rv {
+    opacity: 0;
+    transform: translateY(26px);
+    transition: opacity 640ms cubic-bezier(0.22, 0.9, 0.3, 1) var(--rv-d, 0ms),
+                transform 640ms cubic-bezier(0.22, 0.9, 0.3, 1) var(--rv-d, 0ms);
+  }
+  .ps-js .ps-rv.is-in { opacity: 1; transform: none; }
+
+  /* Drawn flourish under headings: a short pathway stroke that sweeps in. */
+  .ps-js .ps-flourish path {
+    stroke-dasharray: 220;
+    stroke-dashoffset: 220;
+    transition: stroke-dashoffset 900ms cubic-bezier(0.3, 0.8, 0.3, 1) 220ms;
+  }
+  .ps-js .is-in .ps-flourish path,
+  .ps-js .ps-rv.is-in ~ * .ps-flourish path { stroke-dashoffset: 0; }
+
+  .ps-js .ps-hero-copy > * {
+    opacity: 0; transform: translateY(24px);
+    animation: ps-rise 760ms cubic-bezier(0.22, 0.9, 0.3, 1) forwards;
+  }
+  .ps-js .ps-hero-copy > *:nth-child(1) { animation-delay: 60ms; }
+  .ps-js .ps-hero-copy > *:nth-child(2) { animation-delay: 170ms; }
+  .ps-js .ps-hero-copy > *:nth-child(3) { animation-delay: 300ms; }
+  .ps-js .ps-hero-copy > *:nth-child(4) { animation-delay: 420ms; }
+  .ps-js .ps-hero-copy > *:nth-child(5) { animation-delay: 540ms; }
+  .ps-js .ps-hero-stage {
+    opacity: 0; transform: translateY(30px) scale(0.985);
+    animation: ps-rise-soft 900ms cubic-bezier(0.22, 0.9, 0.3, 1) 240ms forwards;
+  }
+  .ps-js .ps-hero-badge {
+    animation: ps-float 5.6s ease-in-out 1.4s infinite;
+  }
+  .ps-js .ps-hero-underline path {
+    stroke-dasharray: 320; stroke-dashoffset: 320;
+    animation: ps-draw 1100ms cubic-bezier(0.3, 0.8, 0.3, 1) 720ms forwards;
+  }
+  .ps-js .ps-scrollcue-line::after { animation: ps-cue 2.4s ease-in-out 1.6s infinite; }
+}
+
+@keyframes ps-rise      { to { opacity: 1; transform: none; } }
+@keyframes ps-rise-soft { to { opacity: 1; transform: none; } }
+@keyframes ps-draw      { to { stroke-dashoffset: 0; } }
+@keyframes ps-float     { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+@keyframes ps-cue       { 0% { transform: translateY(-100%); } 55%, 100% { transform: translateY(100%); } }
+
 /* ── Header ──────────────────────────────────────────────────────────────── */
 .ps-header {
   position: sticky; top: 0; z-index: 50;
-  background: rgba(244, 241, 236, 0.92);
-  backdrop-filter: blur(10px);
+  background: rgba(244, 241, 236, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--ps-line);
 }
-/* Full-width header shell (NOT capped at the content column) with balanced
-   left/right padding, so the Cedars-Sinai and ASPIRE identity sits close to the
-   left edge on desktop while the nav stays aligned right. */
 .ps-header-inner {
-  /* flex:1 makes this fill the flex parent (.ps-header). Without it the inner
-     shrink-wraps to its content, leaving free space on the right so margin-left:
-     auto cannot push the mobile hamburger to the far edge. */
   flex: 1; min-width: 0;
   max-width: none; margin: 0; padding: 14px clamp(20px, 3.5vw, 52px);
   display: flex; align-items: center; gap: 20px;
@@ -74,12 +138,18 @@
 }
 .ps-nav { display: flex; align-items: center; gap: 2px; margin-left: auto; }
 .ps-nav a {
+  position: relative;
   padding: 8px 12px; border-radius: 8px;
   font-size: 14px; font-weight: 500; color: var(--ps-ink-soft);
   transition: background 120ms ease, color 120ms ease;
 }
 .ps-nav a:hover { background: #e7e1d6; color: var(--ps-ink); }
 .ps-nav a.ps-nav-active { color: var(--ps-navy); font-weight: 700; }
+.ps-nav a.ps-nav-active::after {
+  content: ''; position: absolute; left: 12px; right: 12px; bottom: 2px;
+  height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--ps-navy), var(--ps-accent));
+}
 .ps-header-actions { display: flex; align-items: center; gap: 10px; }
 .ps-login-btn {
   padding: 9px 18px; border-radius: 10px;
@@ -96,10 +166,6 @@
 }
 .ps-nav-toggle-bar { width: 18px; height: 2px; background: var(--ps-navy); border-radius: 2px; }
 
-/* ── Compact mobile menu popover ──────────────────────────────────────────────
-   A small right-aligned white card near the hamburger (same interaction scale
-   as the Student Portal profile menu). The page stays visible behind it; no
-   full-screen drawer, no scroll lock. */
 .ps-menu-wrap { position: relative; display: flex; align-items: center; }
 .ps-menu {
   position: absolute; top: calc(100% + 10px); right: 0; z-index: 61;
@@ -119,53 +185,97 @@
 .ps-menu-item:hover { background: var(--ps-cream); }
 .ps-menu-item[aria-current="page"] { background: var(--ps-tint); color: var(--ps-navy); font-weight: 700; }
 .ps-menu-foot { margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--ps-line-soft); }
-@media (min-width: 761px) {
+/* The inline nav needs ~1000px to breathe beside the brand and Log in;
+   below that the hamburger menu takes over (tablet keeps the inline Log in). */
+@media (min-width: 1024px) {
   .ps-menu { display: none; }
+}
+@media (max-width: 1023px) {
+  .ps-nav { display: none; }
+  .ps-nav-toggle { display: flex; }
 }
 
 /* ── Section scaffold ─────────────────────────────────────────────────────── */
 .ps-main { flex: 1; }
-.ps-section { max-width: var(--ps-maxw); margin: 0 auto; padding: 64px 24px; }
-.ps-section-narrow { max-width: 820px; }
+.ps-section { max-width: var(--ps-maxw); margin: 0 auto; padding: clamp(56px, 8vw, 96px) 24px; }
+.ps-section-narrow { max-width: 840px; }
 .ps-section-tint {
   max-width: none; background: var(--ps-tint);
   padding-left: 24px; padding-right: 24px;
 }
 .ps-section-tint > * { max-width: var(--ps-maxw); margin-left: auto; margin-right: auto; }
+.ps-section-white {
+  max-width: none; background: var(--ps-card);
+  border-top: 1px solid var(--ps-line-soft);
+  border-bottom: 1px solid var(--ps-line-soft);
+  padding-left: 24px; padding-right: 24px;
+}
+.ps-section-white > * { max-width: var(--ps-maxw); margin-left: auto; margin-right: auto; }
 
-.ps-section-head { margin-bottom: 32px; max-width: 720px; }
+.ps-section-head { margin-bottom: clamp(30px, 4.5vw, 52px); max-width: 780px; }
 .ps-section-head-row {
   display: flex; align-items: baseline; justify-content: space-between;
   gap: 20px; max-width: var(--ps-maxw); flex-wrap: wrap;
 }
-.ps-section-intro { font-size: 16px; line-height: 1.6; color: var(--ps-ink-soft); margin: 10px 0 0; }
+.ps-section-intro { font-size: clamp(15.5px, 1.4vw, 17px); line-height: 1.65; color: var(--ps-ink-soft); margin: 14px 0 0; max-width: 640px; }
 
+/* Eyebrow: uppercase sans with a short pathway rule before it. */
 .ps-eyebrow {
-  font-size: 12.5px; font-weight: 700; letter-spacing: 0.16em;
-  text-transform: uppercase; color: var(--ps-accent); margin: 0 0 14px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12.5px; font-weight: 700; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--ps-accent); margin: 0 0 18px;
 }
-.ps-eyebrow-light { color: #ff9ea1; }
+.ps-eyebrow::before {
+  content: ''; width: 26px; height: 2px; border-radius: 2px; flex-shrink: 0;
+  background: linear-gradient(90deg, var(--ps-navy), var(--ps-accent));
+}
+.ps-eyebrow-light { color: #ffb3b6; }
+.ps-eyebrow-light::before { background: linear-gradient(90deg, #8d96d8, #ffb3b6); }
 
-.ps-h1 { font-size: clamp(32px, 5vw, 52px); line-height: 1.08; font-weight: 700; color: var(--ps-navy); margin: 0 0 20px; letter-spacing: -0.01em; }
-.ps-h2 { font-size: clamp(23px, 3vw, 32px); font-weight: 700; color: var(--ps-navy); margin: 0; letter-spacing: -0.01em; }
-.ps-h3 { font-size: clamp(19px, 2.2vw, 23px); font-weight: 700; color: var(--ps-navy); margin: 0 0 20px; }
-.ps-lead { font-size: clamp(16px, 1.6vw, 18.5px); line-height: 1.62; color: var(--ps-ink-soft); max-width: 640px; margin: 0 0 26px; }
+/* Editorial type scale: Fraunces for display, DM Sans everywhere else. */
+.ps-h1 {
+  font-family: var(--ps-serif);
+  font-size: clamp(34px, 4.6vw, 54px); line-height: 1.07; font-weight: 560;
+  color: var(--ps-navy); margin: 0 0 22px; letter-spacing: -0.015em;
+}
+.ps-h2 {
+  font-family: var(--ps-serif);
+  font-size: clamp(27px, 3.4vw, 40px); line-height: 1.12; font-weight: 560;
+  color: var(--ps-navy); margin: 0; letter-spacing: -0.012em;
+}
+.ps-h3 {
+  font-family: var(--ps-serif);
+  font-size: clamp(21px, 2.4vw, 27px); line-height: 1.2; font-weight: 560;
+  color: var(--ps-navy); margin: 0 0 18px; letter-spacing: -0.008em;
+}
+.ps-em {
+  font-style: italic; font-weight: 480; color: inherit;
+}
+.ps-lead { font-size: clamp(16px, 1.6vw, 18.5px); line-height: 1.65; color: var(--ps-ink-soft); max-width: 620px; margin: 0 0 28px; }
 .ps-body { font-size: 16px; line-height: 1.72; color: var(--ps-ink-soft); }
 
-.ps-page-head { max-width: 760px; }
+.ps-page-head { max-width: 780px; }
+
+/* Heading flourish: small drawn pathway stroke used under section heads. */
+.ps-flourish { display: block; width: 96px; height: 14px; margin-top: 14px; }
+.ps-flourish path { fill: none; stroke-width: 3; stroke-linecap: round; }
 
 /* ── Buttons and links ────────────────────────────────────────────────────── */
 .ps-cta-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
 .ps-btn {
-  display: inline-flex; align-items: center; justify-content: center;
-  padding: 13px 24px; border-radius: 11px;
-  font-size: 15px; font-weight: 600; transition: background 120ms ease, transform 120ms ease;
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  padding: 14px 26px; border-radius: 999px;
+  font-size: 15px; font-weight: 600;
+  transition: background 140ms ease, transform 140ms ease, box-shadow 140ms ease;
 }
 .ps-btn:active { transform: translateY(1px); }
-.ps-btn-primary { background: var(--ps-navy); color: #fff !important; }
-.ps-btn-primary:hover { background: var(--ps-navy-deep); }
-.ps-btn-ghost { border: 1.5px solid var(--ps-navy); color: var(--ps-navy) !important; background: transparent; }
-.ps-btn-ghost:hover { background: #e7e1d6; }
+.ps-btn-primary {
+  background: var(--ps-navy); color: #fff !important;
+  box-shadow: 0 10px 24px -14px rgba(20, 26, 77, 0.55);
+}
+.ps-btn-primary:hover { background: var(--ps-navy-deep); box-shadow: 0 14px 28px -14px rgba(20, 26, 77, 0.6); }
+.ps-btn-ghost { border: 1.5px solid rgba(29, 37, 103, 0.4); color: var(--ps-navy) !important; background: transparent; }
+.ps-btn-ghost:hover { background: #e9e4d9; border-color: var(--ps-navy); }
 .ps-btn-ondark { background: #fff; color: var(--ps-navy) !important; }
 .ps-btn-ondark:hover { background: var(--ps-cream); }
 .ps-btn-block { display: flex; width: 100%; margin-top: auto; }
@@ -179,205 +289,413 @@
 
 /* ── Hero ─────────────────────────────────────────────────────────────────── */
 .ps-hero {
+  position: relative;
   background:
-    radial-gradient(120% 120% at 85% 0%, #e9ecf8 0%, rgba(233,236,248,0) 55%),
+    radial-gradient(90% 110% at 88% -10%, #e6e9f6 0%, rgba(230, 233, 246, 0) 60%),
+    radial-gradient(60% 80% at -8% 100%, #f0e4de 0%, rgba(240, 228, 222, 0) 55%),
     var(--ps-cream);
   border-bottom: 1px solid var(--ps-line);
+  overflow: hidden;
 }
-/* Editorial split: text ~5 of 12 columns, illustration ~7. The image side is
-   deliberately wider so the artwork reads as the primary visual, not a
-   thumbnail. Wider container + reduced gap keep the two columns close. */
 .ps-hero-inner {
-  max-width: var(--ps-maxw-wide); margin: 0 auto; padding: 72px 24px;
-  display: grid; grid-template-columns: 5fr 7fr; gap: 40px; align-items: center;
+  position: relative;
+  max-width: var(--ps-maxw-wide); margin: 0 auto;
+  padding: clamp(48px, 7vw, 88px) 24px clamp(56px, 7vw, 84px);
+  display: grid; grid-template-columns: 6fr 7fr; gap: clamp(28px, 4vw, 56px);
+  align-items: center;
 }
-.ps-hero-copy { max-width: 560px; }
+.ps-hero-copy { max-width: 590px; }
+.ps-hero-title { position: relative; }
+.ps-hero-underline {
+  display: block; width: min(300px, 60%); height: 16px; margin-top: 6px;
+  overflow: visible;
+}
+.ps-hero-underline path { fill: none; stroke-width: 4; stroke-linecap: round; }
+.ps-hero-note {
+  margin: 18px 0 0; font-size: 14px; color: var(--ps-ink-soft);
+  display: flex; align-items: center; gap: 8px;
+}
+.ps-hero-note svg { flex-shrink: 0; color: var(--ps-navy); opacity: 0.75; }
+
+/* Layered illustration stage: organic shapes behind, floating badge above. */
 .ps-hero-art { display: flex; justify-content: center; }
-
-/* ── Illustrations ────────────────────────────────────────────────────────────
-   Approved transparent PNGs with organic outer edges. Placement is fully
-   borderless: NO mask, border, corner radius, shadow, or fade. The whole
-   composition stays visible at its natural aspect ratio; only responsive
-   scaling is applied, so the organic edge blends into the cream page. */
-.ps-art {
-  display: block; width: 100%; height: auto;
-  object-fit: contain;
+.ps-hero-stage { position: relative; width: 100%; max-width: 680px; }
+.ps-hero-stage::before {
+  content: ''; position: absolute; inset: 8% -4% 2% 6%;
+  background: radial-gradient(70% 70% at 60% 40%, rgba(230, 233, 246, 0.9), rgba(230, 233, 246, 0));
+  border-radius: 48% 52% 55% 45% / 55% 45% 55% 45%;
+  z-index: 0;
+}
+.ps-art { display: block; width: 100%; height: auto; object-fit: contain; position: relative; z-index: 1; }
+.ps-hero-badge {
+  position: absolute; z-index: 2;
+  left: -14px; bottom: 6%;
+  width: clamp(88px, 9.5vw, 122px);
+  filter: drop-shadow(0 14px 24px rgba(20, 26, 77, 0.22));
 }
 
-/* Homepage hero: preserve the wide student-and-preceptor composition (no
-   square, both people fully visible) at a larger, editorial size. */
-.ps-hero-figure { position: relative; width: 100%; max-width: 640px; }
-
-/* Page-head split (About, For Preceptors): copy ~45%, illustration ~55% so the
-   artwork carries comparable weight to the headline. Tighter gap trims the
-   empty space between the two columns. */
-.ps-head-split {
-  display: grid; grid-template-columns: minmax(0, 0.82fr) minmax(0, 1fr);
-  gap: 40px; align-items: center; margin-bottom: 8px;
+/* Scroll cue: a slim pathway line inviting the visitor downward. */
+.ps-scrollcue {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 0 24px 34px;
+  max-width: var(--ps-maxw-wide); margin: 0 auto;
 }
-.ps-head-art { position: relative; }
-
-/* Experience: two-column editorial hero (copy ~45%, care-team illustration
-   ~55%) so the full scene (NPD practitioner, preceptor, student, hospital)
-   anchors the section beside the headline instead of floating alone. */
-.ps-exp-hero {
-  display: grid; grid-template-columns: minmax(0, 0.82fr) minmax(0, 1fr);
-  gap: 40px; align-items: center; margin-bottom: 40px;
+.ps-scrollcue-label {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--ps-ink-soft); margin: 0;
 }
-.ps-exp-art { position: relative; }
-
-/* ── Audience pathways ────────────────────────────────────────────────────── */
-.ps-audience-grid {
-  display: grid; gap: 18px;
-  grid-template-columns: repeat(4, 1fr);
+.ps-scrollcue-line {
+  position: relative; width: 2px; height: 44px; border-radius: 2px;
+  background: var(--ps-line); overflow: hidden;
 }
-.ps-audience-card {
+.ps-scrollcue-line::after {
+  content: ''; position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+  background: linear-gradient(180deg, var(--ps-navy), var(--ps-accent));
+  transform: translateY(-100%);
+}
+
+/* ── Pathway finder (interactive audience selector) ───────────────────────── */
+.ps-finder {
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: clamp(20px, 3vw, 40px); align-items: stretch;
+}
+.ps-finder-tabs { display: flex; flex-direction: column; gap: 8px; }
+.ps-finder-tab {
+  display: flex; align-items: center; gap: 14px; text-align: left;
+  padding: 16px 18px; border-radius: 14px; cursor: pointer;
+  border: 1px solid transparent; background: transparent;
+  font-family: var(--ps-sans); font-size: 16.5px; font-weight: 600; color: var(--ps-ink-soft);
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+.ps-finder-tab:hover { background: #ece7dd; color: var(--ps-ink); }
+.ps-finder-tab[aria-selected="true"] {
+  background: var(--ps-card); border-color: var(--ps-line);
+  color: var(--ps-navy);
+  box-shadow: 0 12px 30px -20px rgba(29, 37, 103, 0.5);
+}
+.ps-finder-tab-icon {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 42px; height: 42px; border-radius: 12px;
+  background: var(--ps-tint); color: var(--ps-navy);
+  transition: background 140ms ease, color 140ms ease;
+}
+.ps-finder-tab[aria-selected="true"] .ps-finder-tab-icon { background: var(--ps-navy); color: #fff; }
+.ps-finder-tab-arrow { margin-left: auto; opacity: 0; transform: translateX(-4px); transition: opacity 140ms ease, transform 140ms ease; color: var(--ps-accent); }
+.ps-finder-tab[aria-selected="true"] .ps-finder-tab-arrow { opacity: 1; transform: none; }
+
+.ps-finder-panel {
+  position: relative;
   background: var(--ps-card); border: 1px solid var(--ps-line);
-  border-radius: var(--ps-radius); padding: 24px;
-  display: flex; flex-direction: column; gap: 10px;
-  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+  border-radius: 22px; padding: clamp(26px, 3.4vw, 44px);
+  display: flex; flex-direction: column; justify-content: center;
+  overflow: hidden;
 }
-.ps-audience-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 14px 34px -18px rgba(29, 37, 103, 0.4);
-  border-color: #d3ccbf;
+.ps-finder-panel::after {
+  content: ''; position: absolute; right: -70px; bottom: -70px;
+  width: 220px; height: 220px; border-radius: 50%;
+  border: 30px solid var(--ps-tint); opacity: 0.8;
+  pointer-events: none;
 }
-.ps-audience-icon, .ps-glance-icon, .ps-feature-icon, .ps-contact-icon {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 46px; height: 46px; border-radius: 13px;
+.ps-finder-panel-title {
+  font-family: var(--ps-serif); font-size: clamp(23px, 2.6vw, 31px);
+  font-weight: 560; color: var(--ps-navy); margin: 0 0 14px; line-height: 1.16;
+}
+.ps-finder-panel-body { position: relative; z-index: 1; margin: 0 0 22px; font-size: 16.5px; line-height: 1.7; color: var(--ps-ink-soft); max-width: 520px; }
+.ps-finder-panel .ps-arrow-link { font-size: 15.5px; }
+@media (prefers-reduced-motion: no-preference) {
+  .ps-js .ps-finder-panel-inner { animation: ps-rise 420ms cubic-bezier(0.22, 0.9, 0.3, 1); }
+}
+
+/* ── Expectation mosaic (ASPIRE at a glance) ──────────────────────────────── */
+.ps-mosaic {
+  display: grid; gap: 18px;
+  grid-template-columns: repeat(12, 1fr);
+}
+.ps-mosaic-hours {
+  grid-column: span 5; grid-row: 1 / span 3;
+  background: var(--ps-navy); color: #fff;
+  border-radius: 22px; padding: clamp(26px, 3vw, 38px);
+  display: flex; flex-direction: column; gap: 8px; justify-content: center;
+  position: relative; overflow: hidden;
+}
+.ps-mosaic-hours::before {
+  content: ''; position: absolute; right: -60px; top: -60px;
+  width: 200px; height: 200px; border-radius: 50%;
+  border: 26px solid rgba(255, 255, 255, 0.07);
+}
+.ps-mosaic-ring { width: clamp(120px, 11vw, 156px); margin-bottom: 10px; }
+.ps-mosaic-hours h3 { margin: 0; font-family: var(--ps-serif); font-weight: 560; font-size: clamp(21px, 2.2vw, 26px); line-height: 1.2; color: #fff; }
+.ps-mosaic-hours p { margin: 6px 0 0; font-size: 15px; line-height: 1.62; color: #cdd2ea; max-width: 380px; }
+.ps-mosaic-cell {
+  grid-column: span 7;
+  background: var(--ps-card); border: 1px solid var(--ps-line);
+  border-radius: 22px; padding: clamp(24px, 2.6vw, 32px);
+  display: flex; gap: 18px; align-items: flex-start;
+}
+.ps-mosaic-cell + .ps-mosaic-cell { grid-column: span 7; }
+.ps-mosaic-icon {
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 48px; height: 48px; border-radius: 14px;
   background: var(--ps-tint); color: var(--ps-navy);
 }
-.ps-audience-card:nth-child(even) .ps-audience-icon { background: #f7dedf; color: var(--ps-accent); }
-.ps-audience-card h3 { margin: 4px 0 0; font-size: 17px; font-weight: 700; color: var(--ps-navy); }
-.ps-audience-card p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--ps-ink-soft); flex: 1; }
-.ps-audience-card .ps-arrow-link { margin-top: 4px; }
-
-/* ── ASPIRE at a glance ───────────────────────────────────────────────────── */
-.ps-glance-grid { display: grid; gap: 18px; grid-template-columns: repeat(4, 1fr); }
-.ps-glance-card {
-  background: var(--ps-card); border: 1px solid var(--ps-line);
-  border-radius: var(--ps-radius); padding: 24px;
-}
-.ps-glance-icon { margin-bottom: 14px; }
-.ps-glance-stat { font-size: 34px; font-weight: 700; color: var(--ps-navy); line-height: 1; margin-bottom: 6px; letter-spacing: -0.02em; }
-.ps-glance-card h3 { margin: 0 0 8px; font-size: 16px; font-weight: 700; color: var(--ps-navy); }
-.ps-glance-card p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--ps-ink-soft); }
+.ps-mosaic-cell:nth-of-type(odd) .ps-mosaic-icon { background: var(--ps-accent-soft); color: var(--ps-accent); }
+.ps-mosaic-cell h3 { margin: 2px 0 8px; font-size: 17.5px; font-weight: 700; color: var(--ps-navy); font-family: var(--ps-sans); }
+.ps-mosaic-cell p { margin: 0; font-size: 14.5px; line-height: 1.64; color: var(--ps-ink-soft); }
 
 .ps-inline-note {
-  margin: 26px auto 0; max-width: 760px;
+  margin: 28px auto 0; max-width: 780px;
   font-size: 14px; line-height: 1.6; color: var(--ps-ink-soft);
   background: var(--ps-card); border: 1px dashed var(--ps-line);
   border-radius: 12px; padding: 14px 18px;
 }
 
-/* ── Journey timeline ─────────────────────────────────────────────────────── */
+/* ── Journey timeline (scroll-drawn pathway) ──────────────────────────────── */
+.ps-journey-wrap { position: relative; max-width: 900px; margin: 0 auto; }
 .ps-journey {
   list-style: none; margin: 0; padding: 0;
-  display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px;
   position: relative;
+  display: flex; flex-direction: column; gap: clamp(26px, 4vw, 44px);
 }
-.ps-journey::before {
-  content: ''; position: absolute; top: 27px; left: 8%; right: 8%; height: 2px;
-  background: linear-gradient(90deg, var(--ps-navy), var(--ps-accent));
-  opacity: 0.35;
+/* The track: a quiet line down the center (desktop) / left (mobile), with a
+   gradient fill whose height follows scroll progress via --ps-fill. */
+.ps-journey-track {
+  position: absolute; top: 10px; bottom: 10px; left: 50%; width: 3px;
+  transform: translateX(-50%);
+  background: var(--ps-line); border-radius: 3px;
+  overflow: hidden;
 }
-.ps-journey-step { position: relative; padding: 0 8px; text-align: center; }
+.ps-journey-track::after {
+  content: ''; position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+  background: linear-gradient(180deg, var(--ps-navy) 0%, var(--ps-navy-soft) 55%, var(--ps-accent) 100%);
+  transform-origin: top;
+  transform: scaleY(var(--ps-fill, 0));
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ps-journey-track::after { transition: transform 160ms linear; }
+}
+
+.ps-journey-step {
+  position: relative;
+  display: grid; grid-template-columns: 1fr 92px 1fr;
+  align-items: center;
+}
+.ps-journey-card { grid-column: 1; text-align: right; padding-right: 6px; }
+.ps-journey-step:nth-child(even) .ps-journey-card { grid-column: 3; text-align: left; padding-right: 0; padding-left: 6px; }
+.ps-journey-card h3 {
+  margin: 0 0 8px; font-family: var(--ps-serif); font-weight: 560;
+  font-size: clamp(17.5px, 1.9vw, 21px); line-height: 1.25; color: var(--ps-navy);
+}
+.ps-journey-card p { margin: 0; font-size: 14.5px; line-height: 1.62; color: var(--ps-ink-soft); }
+
 .ps-journey-node {
+  grid-column: 2; justify-self: center;
   position: relative; z-index: 1;
-  width: 54px; height: 54px; margin: 0 auto 16px;
-  border-radius: 50%; background: var(--ps-card);
-  border: 2px solid var(--ps-navy); color: var(--ps-navy);
+  width: 58px; height: 58px; border-radius: 50%;
+  background: var(--ps-card);
+  border: 2px solid var(--ps-line); color: var(--ps-ink-soft);
   display: flex; align-items: center; justify-content: center;
+  transition: border-color 300ms ease, color 300ms ease, background 300ms ease, box-shadow 300ms ease;
 }
-.ps-journey-step:nth-child(even) .ps-journey-node { border-color: var(--ps-accent); color: var(--ps-accent); }
 .ps-journey-num {
   position: absolute; top: -7px; right: -7px;
-  width: 22px; height: 22px; border-radius: 50%;
-  background: var(--ps-navy); color: #fff;
+  width: 23px; height: 23px; border-radius: 50%;
+  background: var(--ps-line); color: var(--ps-ink-soft);
   font-size: 12px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
+  transition: background 300ms ease, color 300ms ease;
 }
-.ps-journey-step:nth-child(even) .ps-journey-num { background: var(--ps-accent); }
-.ps-journey-step h3 { margin: 0 0 7px; font-size: 14.5px; font-weight: 700; color: var(--ps-ink); line-height: 1.25; }
-.ps-journey-step p { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--ps-ink-soft); }
-
-/* Mobile journey controls (hidden on desktop, where the grid rail shows all
-   six steps at once). */
-.ps-journey-controls { display: none; }
-.ps-journey-btn {
-  width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
-  border: 1px solid var(--ps-line); background: var(--ps-card);
-  color: var(--ps-navy); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
+.ps-journey-step.is-in .ps-journey-node {
+  border-color: var(--ps-navy); color: var(--ps-navy);
+  box-shadow: 0 10px 26px -14px rgba(29, 37, 103, 0.55);
 }
-.ps-journey-btn:disabled { opacity: 0.35; cursor: default; }
-.ps-journey-progress { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; }
-.ps-journey-count { font-size: 13px; font-weight: 600; color: var(--ps-ink-soft); }
-.ps-journey-rail { display: flex; gap: 6px; }
-.ps-journey-seg {
-  width: 26px; height: 6px; border-radius: 999px; border: none; padding: 0;
-  background: var(--ps-line); cursor: pointer; transition: background 160ms ease;
-}
-.ps-journey-seg-on { background: var(--ps-navy); }
+.ps-journey-step.is-in .ps-journey-num { background: var(--ps-navy); color: #fff; }
+.ps-journey-step:last-child.is-in .ps-journey-node { border-color: var(--ps-accent); color: var(--ps-accent); }
+.ps-journey-step:last-child.is-in .ps-journey-num { background: var(--ps-accent); }
 
 /* ── Preceptor band ───────────────────────────────────────────────────────── */
-.ps-band { background: var(--ps-navy); color: #fff; overflow: hidden; }
+.ps-band {
+  position: relative;
+  background:
+    radial-gradient(80% 130% at 100% 0%, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0) 55%),
+    var(--ps-navy);
+  color: #fff; overflow: hidden;
+}
+.ps-band::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+  background: linear-gradient(90deg, var(--ps-accent), var(--ps-navy-soft) 60%, transparent);
+}
 .ps-band-inner {
-  max-width: var(--ps-maxw); margin: 0 auto; padding: 60px 24px;
+  max-width: var(--ps-maxw); margin: 0 auto; padding: clamp(52px, 6vw, 76px) 24px;
   position: relative;
 }
 .ps-band-copy { position: relative; z-index: 1; max-width: 640px; }
-.ps-band-copy h2 { color: #fff; margin: 0 0 12px; font-size: clamp(24px, 3vw, 34px); line-height: 1.14; }
-.ps-band-copy p { color: #cdd2ea; margin: 0 0 24px; font-size: 16px; line-height: 1.6; }
-/* Cedars-Sinai white mark as a subtle, non-interactive watermark on the right,
-   vertically centered and understated. Sits below .ps-band-copy (z-index 0 vs
-   1) and clear of the ~640px copy column, so it never overlaps the heading,
-   body, or the Become a preceptor button. .ps-band has overflow: hidden, so it
-   can never cause horizontal overflow. */
+.ps-band-copy h2 {
+  color: #fff; margin: 0 0 14px;
+  font-family: var(--ps-serif); font-weight: 560;
+  font-size: clamp(26px, 3.4vw, 40px); line-height: 1.12;
+}
+.ps-band-copy p { color: #cdd2ea; margin: 0 0 26px; font-size: 16px; line-height: 1.65; }
 .ps-band-mark {
   position: absolute; right: 40px; top: 50%; transform: translateY(-50%);
   width: 260px; height: auto; opacity: 0.11; z-index: 0;
   pointer-events: none; user-select: none; -webkit-user-select: none;
 }
 
-/* ── Feature grids (About, Experience, Preceptors) ────────────────────────── */
-.ps-feature-grid { display: grid; gap: 18px; grid-template-columns: repeat(4, 1fr); }
-.ps-feature-card {
-  background: var(--ps-card); border: 1px solid var(--ps-line);
-  border-radius: var(--ps-radius); padding: 22px;
+/* ── FAQ (preview + full page) ────────────────────────────────────────────── */
+.ps-faq-preview {
+  display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+  gap: clamp(24px, 4vw, 56px); align-items: start;
 }
-.ps-feature-card h3 { margin: 12px 0 8px; font-size: 16px; font-weight: 700; color: var(--ps-navy); }
-.ps-feature-card p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--ps-ink-soft); }
-.ps-feature-row { display: flex; align-items: center; gap: 14px; }
-.ps-feature-row p { font-size: 15px; }
-.ps-feature-icon { flex-shrink: 0; }
+.ps-faq-preview-head { position: sticky; top: 96px; }
+.ps-faq-preview-head .ps-arrow-link { margin-top: 18px; }
+.ps-faq-list { display: flex; flex-direction: column; gap: 12px; }
+.ps-faq-item {
+  background: var(--ps-card); border: 1px solid var(--ps-line);
+  border-radius: 14px; overflow: hidden;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.ps-faq-item[open] { border-color: #d3ccbf; box-shadow: 0 14px 30px -22px rgba(29, 37, 103, 0.45); }
+.ps-faq-item summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 18px 22px; cursor: pointer; list-style: none;
+  font-size: 15.5px; font-weight: 600; color: var(--ps-navy);
+}
+.ps-faq-item summary::-webkit-details-marker { display: none; }
+.ps-faq-marker {
+  position: relative; flex-shrink: 0; width: 24px; height: 24px;
+  border: 1.5px solid var(--ps-line); border-radius: 50%;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+.ps-faq-item[open] .ps-faq-marker { background: var(--ps-navy); border-color: var(--ps-navy); }
+.ps-faq-marker::before, .ps-faq-marker::after {
+  content: ''; position: absolute; background: var(--ps-navy);
+  left: 50%; top: 50%; transform: translate(-50%, -50%);
+  transition: background 160ms ease, transform 160ms ease;
+}
+.ps-faq-marker::before { width: 10px; height: 2px; }
+.ps-faq-marker::after { width: 2px; height: 10px; }
+.ps-faq-item[open] .ps-faq-marker::before { background: #fff; }
+.ps-faq-item[open] .ps-faq-marker::after { background: #fff; transform: translate(-50%, -50%) scaleY(0); }
+.ps-faq-answer { padding: 0 22px 20px; }
+.ps-faq-answer p { margin: 0; font-size: 14.5px; line-height: 1.68; color: var(--ps-ink-soft); max-width: 720px; }
 
-/* ── Prose blocks ─────────────────────────────────────────────────────────── */
-.ps-prose { display: grid; gap: 30px; grid-template-columns: 1fr 1fr; }
-.ps-prose-block h2 { margin-bottom: 12px; }
+/* ── Closing CTA ──────────────────────────────────────────────────────────── */
+.ps-closing {
+  max-width: none; background: var(--ps-cream);
+  border-top: 1px solid var(--ps-line-soft);
+  padding: clamp(64px, 9vw, 120px) 24px;
+  text-align: center;
+}
+.ps-closing-inner { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; }
+.ps-closing .ps-h2 { font-size: clamp(30px, 4.2vw, 48px); }
+.ps-closing-body { margin: 18px 0 30px; font-size: clamp(15.5px, 1.5vw, 17.5px); line-height: 1.65; color: var(--ps-ink-soft); max-width: 560px; }
+.ps-closing .ps-flourish { margin: 0 auto 26px; }
+
+/* ── Page heads (subpages) ────────────────────────────────────────────────── */
+.ps-head-split {
+  display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr);
+  gap: clamp(24px, 3.5vw, 48px); align-items: center; margin-bottom: clamp(24px, 4vw, 48px);
+}
+.ps-head-art { position: relative; }
+.ps-head-art::before {
+  content: ''; position: absolute; inset: 10% -2% 4% 8%;
+  background: radial-gradient(70% 70% at 55% 45%, rgba(230, 233, 246, 0.85), rgba(230, 233, 246, 0));
+  border-radius: 52% 48% 45% 55% / 48% 52% 45% 55%;
+}
+.ps-head-extra { margin-top: 12px; max-width: 600px; }
+
+.ps-exp-hero {
+  display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr);
+  gap: clamp(24px, 3.5vw, 48px); align-items: center; margin-bottom: clamp(28px, 4vw, 52px);
+}
+.ps-exp-art { position: relative; }
+.ps-exp-art::before {
+  content: ''; position: absolute; inset: 10% -2% 4% 8%;
+  background: radial-gradient(70% 70% at 55% 45%, rgba(230, 233, 246, 0.85), rgba(230, 233, 246, 0));
+  border-radius: 52% 48% 45% 55% / 48% 52% 45% 55%;
+}
+
+/* ── Editorial feature rows (About, Experience, Preceptors) ───────────────────
+   Replaces identical icon-card grids: a two-column ledger of numbered entries
+   divided by hairlines. Serif ordinals give the editorial rhythm; icons stay
+   as quiet supporting marks. */
+.ps-ledger { margin-top: 8px; }
+.ps-ledger-heading { margin-bottom: 6px; }
+.ps-ledger-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  column-gap: clamp(28px, 4vw, 64px);
+}
+.ps-ledger-item {
+  display: grid; grid-template-columns: 52px 1fr; gap: 4px 18px;
+  padding: clamp(20px, 2.4vw, 30px) 0;
+  border-bottom: 1px solid var(--ps-line);
+  align-items: start; align-content: start;
+}
+.ps-ledger-ord {
+  grid-row: span 2;
+  font-family: var(--ps-serif); font-weight: 480; font-style: italic;
+  font-size: clamp(26px, 2.6vw, 33px); line-height: 1; color: var(--ps-accent);
+  padding-top: 2px;
+}
+.ps-ledger-item h3 { margin: 0; font-size: 17px; font-weight: 700; color: var(--ps-navy); font-family: var(--ps-sans); display: flex; align-items: center; gap: 10px; }
+.ps-ledger-item h3 svg { flex-shrink: 0; color: var(--ps-navy); opacity: 0.65; }
+.ps-ledger-item p { margin: 6px 0 0; font-size: 14.5px; line-height: 1.66; color: var(--ps-ink-soft); }
+
+/* About: full-bleed pull statement between ledgers and prose. */
+.ps-pull {
+  max-width: none; background: var(--ps-card);
+  border-top: 1px solid var(--ps-line-soft); border-bottom: 1px solid var(--ps-line-soft);
+  padding: clamp(48px, 6vw, 80px) 24px;
+}
+.ps-pull blockquote {
+  max-width: 880px; margin: 0 auto; padding: 0;
+  font-family: var(--ps-serif); font-weight: 480; font-style: italic;
+  font-size: clamp(22px, 3vw, 33px); line-height: 1.35; color: var(--ps-navy);
+  text-align: center;
+}
+.ps-pull blockquote strong { font-style: normal; font-weight: 640; color: var(--ps-accent); }
+
+.ps-prose { display: grid; gap: clamp(24px, 4vw, 48px); grid-template-columns: 1fr 1fr; }
+.ps-prose-block h2 { margin-bottom: 14px; font-size: clamp(23px, 2.6vw, 30px); }
 .ps-prose-block .ps-body { max-width: 520px; }
 
-/* ── About: integrated benefit band (flows after the intro, not detached) ──── */
-.ps-about-build { margin-top: 40px; }
-.ps-about-build .ps-h3 { margin-bottom: 18px; }
+/* ── Eligibility ──────────────────────────────────────────────────────────── */
+.ps-split { display: grid; grid-template-columns: 1.3fr 1fr; gap: clamp(24px, 3vw, 40px); margin-top: 34px; align-items: start; }
 
-/* ── Eligibility split + interactive self-check ───────────────────────────── */
-.ps-split { display: grid; grid-template-columns: 1.3fr 1fr; gap: 34px; margin-top: 34px; align-items: start; }
-.ps-selfcheck-intro { margin: 0 0 18px; font-size: 14px; line-height: 1.6; color: var(--ps-ink-soft); max-width: 620px; }
+.ps-selfcheck {
+  background: var(--ps-card); border: 1px solid var(--ps-line);
+  border-radius: 22px; padding: clamp(24px, 3vw, 36px);
+}
+.ps-selfcheck-intro { margin: 0 0 14px; font-size: 14px; line-height: 1.6; color: var(--ps-ink-soft); max-width: 620px; }
+.ps-selfcheck-progress { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.ps-selfcheck-bar {
+  flex: 1; height: 6px; border-radius: 999px; background: var(--ps-line-soft); overflow: hidden;
+}
+.ps-selfcheck-bar span {
+  display: block; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--ps-navy), var(--ps-accent));
+  transform-origin: left;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ps-selfcheck-bar span { transition: width 320ms cubic-bezier(0.22, 0.9, 0.3, 1); }
+}
+.ps-selfcheck-count { font-size: 13px; font-weight: 700; color: var(--ps-navy); white-space: nowrap; }
 .ps-check-list { list-style: none; margin: 0; padding: 0; }
-.ps-check-list li { border-bottom: 1px solid var(--ps-line); }
+.ps-check-list li { border-bottom: 1px solid var(--ps-line-soft); }
 .ps-check-list li:last-child { border-bottom: none; }
 .ps-check-label {
   display: flex; align-items: flex-start; gap: 14px;
-  padding: 14px 6px; cursor: pointer; min-height: 44px;
+  padding: 14px 6px; cursor: pointer; min-height: 44px; border-radius: 10px;
 }
+.ps-check-label:hover { background: #faf8f4; }
 .ps-check-input {
   position: absolute; width: 1px; height: 1px; opacity: 0;
   margin: 0; pointer-events: none;
 }
 .ps-check-box {
   flex-shrink: 0; margin-top: 1px;
-  width: 24px; height: 24px; border-radius: 7px;
+  width: 24px; height: 24px; border-radius: 8px;
   border: 2px solid #c7c1b4; background: var(--ps-card);
   position: relative; transition: background 120ms ease, border-color 120ms ease;
 }
@@ -395,159 +713,111 @@
 }
 .ps-check-text { font-size: 15px; line-height: 1.5; color: var(--ps-ink); }
 
-.ps-visually-hidden {
-  position: absolute !important; width: 1px; height: 1px;
-  padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0);
-  white-space: nowrap; border: 0;
-}
-
 .ps-ready-card {
   margin-top: 24px; padding: 26px 28px;
   background: linear-gradient(160deg, #f2f8f3 0%, #eef0f8 100%);
-  border: 1px solid #cfe4d4; border-radius: var(--ps-radius);
+  border: 1px solid #cfe4d4; border-radius: 18px;
 }
 .ps-ready-badge {
   display: inline-flex; align-items: center; justify-content: center;
   width: 48px; height: 48px; border-radius: 50%;
   background: #157a3d; color: #fff; margin-bottom: 12px;
 }
-.ps-ready-card h3 { margin: 0 0 8px; font-size: 20px; font-weight: 700; color: var(--ps-navy); }
+.ps-ready-card h3 { margin: 0 0 8px; font-size: 21px; color: var(--ps-navy); }
 .ps-ready-body { margin: 0 0 10px; font-size: 15px; line-height: 1.6; color: var(--ps-ink-soft); }
 .ps-ready-support { margin: 0 0 18px; font-size: 14.5px; font-weight: 600; color: var(--ps-navy); }
 
-/* Affiliate-schools card matches the Eligible Academic Programs card exactly
-   (same .ps-side-card + .ps-plain-list); only the affiliation note differs. */
 .ps-side-note { margin: 14px 0 0; font-size: 12.5px; line-height: 1.55; color: #5f6472; }
 
-/* ── Neutral informational note (rotation requirement) ────────────────────── */
 .ps-info-note {
   background: var(--ps-card); border: 1px solid var(--ps-line);
-  border-radius: var(--ps-radius); padding: 22px 26px; max-width: 760px;
+  border-radius: var(--ps-radius); padding: 22px 26px; max-width: 780px;
 }
-.ps-info-note .ps-h3 { margin: 0 0 8px; }
+.ps-info-note .ps-h3 { margin: 0 0 8px; font-size: clamp(18px, 2vw, 22px); }
 .ps-info-note p { margin: 0; font-size: 15px; line-height: 1.65; color: var(--ps-ink-soft); }
 
 .ps-split-side { display: flex; flex-direction: column; gap: 18px; }
 .ps-side-card {
   background: var(--ps-card); border: 1px solid var(--ps-line);
-  border-radius: var(--ps-radius); padding: 20px 22px;
+  border-radius: var(--ps-radius); padding: 22px 24px;
 }
-.ps-side-card h3 { margin: 0 0 12px; font-size: 15.5px; font-weight: 700; color: var(--ps-navy); }
+.ps-side-card h3 { margin: 0 0 12px; font-size: 15.5px; font-weight: 700; color: var(--ps-navy); font-family: var(--ps-sans); }
 .ps-plain-list { margin: 0; padding-left: 18px; }
 .ps-plain-list li { font-size: 14px; line-height: 1.5; color: var(--ps-ink-soft); margin-bottom: 8px; }
 
-.ps-callout {
-  border-left: 4px solid var(--ps-accent);
-  background: var(--ps-card); border-radius: 0 12px 12px 0;
-  padding: 18px 22px;
-}
-.ps-callout h3 { margin: 0 0 7px; font-size: 15px; font-weight: 700; color: var(--ps-accent); }
-.ps-callout p { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--ps-ink-soft); }
-
-.ps-note { font-size: 13px; color: #5f6472; max-width: 760px; margin-top: 26px; line-height: 1.6; }
+.ps-elig-notes { display: flex; flex-direction: column; gap: 18px; }
 
 /* ── Apply page ───────────────────────────────────────────────────────────── */
-.ps-highlight {
-  display: flex; align-items: center; gap: 16px;
-  background: var(--ps-navy); color: #fff;
-  border-radius: var(--ps-radius); padding: 20px 24px; margin: 30px 0 36px;
-}
-.ps-highlight-icon {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 44px; height: 44px; border-radius: 12px;
-  background: rgba(255,255,255,0.14); color: #fff; flex-shrink: 0;
-}
-.ps-highlight p { margin: 0; font-size: clamp(16px, 2vw, 19px); font-weight: 600; line-height: 1.4; }
-
-.ps-steps-rail { list-style: none; margin: 0; padding: 0; }
-.ps-rail-step { display: flex; gap: 20px; padding-bottom: 28px; position: relative; }
+.ps-steps-rail { list-style: none; margin: 40px 0 0; padding: 0; max-width: 780px; }
+.ps-rail-step { display: flex; gap: clamp(18px, 3vw, 30px); padding-bottom: clamp(28px, 4vw, 44px); position: relative; }
 .ps-rail-step:not(:last-child)::before {
-  content: ''; position: absolute; left: 21px; top: 46px; bottom: 0; width: 2px;
-  background: var(--ps-line);
+  content: ''; position: absolute; left: 26px; top: 58px; bottom: 6px; width: 2px;
+  background: linear-gradient(180deg, var(--ps-navy) 0%, var(--ps-line) 100%);
+  opacity: 0.45;
 }
 .ps-rail-num {
-  flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%;
-  background: var(--ps-navy); color: #fff; font-size: 17px; font-weight: 700;
+  flex-shrink: 0; width: 52px; height: 52px; border-radius: 50%;
+  background: var(--ps-card); border: 2px solid var(--ps-navy);
+  color: var(--ps-navy);
+  font-family: var(--ps-serif); font-size: 22px; font-weight: 560; font-style: italic;
   display: flex; align-items: center; justify-content: center; z-index: 1;
 }
-.ps-rail-body h3 { margin: 8px 0 8px; font-size: 18px; font-weight: 700; color: var(--ps-navy); }
-.ps-rail-body p { margin: 0; font-size: 15px; line-height: 1.65; color: var(--ps-ink-soft); max-width: 640px; }
+.ps-rail-step:last-child .ps-rail-num { border-color: var(--ps-accent); color: var(--ps-accent); }
+.ps-rail-body h3 { margin: 10px 0 8px; font-family: var(--ps-serif); font-weight: 560; font-size: clamp(19px, 2.2vw, 24px); color: var(--ps-navy); }
+.ps-rail-body p { margin: 0; font-size: 15px; line-height: 1.68; color: var(--ps-ink-soft); max-width: 620px; }
 
-/* ── Continuity block ─────────────────────────────────────────────────────── */
-.ps-continuity { max-width: 760px; }
-.ps-continuity .ps-body { margin-top: 12px; }
+/* ── Experience: continuity ───────────────────────────────────────────────── */
+.ps-continuity { max-width: 780px; }
+.ps-continuity .ps-body { margin-top: 14px; }
 
-/* ── Mini CTA ─────────────────────────────────────────────────────────────── */
+/* ── Mini CTA (Preceptors closing) ────────────────────────────────────────── */
 .ps-minicta {
   display: flex; align-items: center; justify-content: space-between; gap: 24px;
   flex-wrap: wrap;
   background: var(--ps-card); border: 1px solid var(--ps-line);
-  border-radius: var(--ps-radius); padding: 28px 32px;
+  border-radius: 22px; padding: clamp(26px, 3vw, 40px);
 }
-.ps-minicta h2 { margin: 0 0 6px; }
-.ps-minicta p { margin: 0; font-size: 15.5px; color: var(--ps-ink-soft); line-height: 1.55; max-width: 560px; }
+.ps-minicta h2 { margin: 0 0 8px; }
+.ps-minicta p { margin: 0; font-size: 15.5px; color: var(--ps-ink-soft); line-height: 1.6; max-width: 560px; }
+.ps-minicta-col { flex-direction: column; align-items: flex-start; }
+.ps-minicta .ps-minicta-sub { margin: 8px 0 0; font-size: 14px; color: var(--ps-ink-soft); }
+.ps-minicta-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; margin-top: 20px; }
 
-/* ── FAQ accordion ────────────────────────────────────────────────────────── */
-.ps-faq-list { display: flex; flex-direction: column; gap: 12px; }
-.ps-faq-item {
-  background: var(--ps-card); border: 1px solid var(--ps-line);
-  border-radius: 13px; overflow: hidden;
-}
-.ps-faq-item summary {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 18px 22px; cursor: pointer; list-style: none;
-  font-size: 15.5px; font-weight: 600; color: var(--ps-navy);
-}
-.ps-faq-item summary::-webkit-details-marker { display: none; }
-.ps-faq-marker {
-  position: relative; flex-shrink: 0; width: 22px; height: 22px;
-  border: 1.5px solid var(--ps-line); border-radius: 50%;
-}
-.ps-faq-marker::before, .ps-faq-marker::after {
-  content: ''; position: absolute; background: var(--ps-navy);
-  left: 50%; top: 50%; transform: translate(-50%, -50%);
-}
-.ps-faq-marker::before { width: 10px; height: 2px; }
-.ps-faq-marker::after { width: 2px; height: 10px; transition: transform 160ms ease; }
-.ps-faq-item[open] .ps-faq-marker::after { transform: translate(-50%, -50%) scaleY(0); }
-.ps-faq-answer { padding: 0 22px 20px; }
-.ps-faq-answer p { margin: 0; font-size: 14.5px; line-height: 1.68; color: var(--ps-ink-soft); max-width: 720px; }
+.ps-email-cta { margin-top: auto; }
+.ps-email-fallback { margin: 10px 0 0; font-size: 13px; line-height: 1.5; color: var(--ps-ink-soft); }
+.ps-email-addr { font-weight: 600; color: var(--ps-navy); }
 
 /* ── Contact ──────────────────────────────────────────────────────────────── */
-.ps-contact-grid { display: grid; gap: 18px; grid-template-columns: repeat(2, 1fr); margin-top: 8px; }
-.ps-contact-card {
-  background: var(--ps-card); border: 1px solid var(--ps-line);
-  border-radius: var(--ps-radius); padding: 26px;
-  display: flex; flex-direction: column; gap: 10px;
-}
-.ps-contact-icon { width: 48px; height: 48px; }
-.ps-contact-card h3 { margin: 6px 0 0; font-size: 18px; font-weight: 700; color: var(--ps-navy); }
-.ps-contact-card p { margin: 0 0 8px; font-size: 14.5px; line-height: 1.6; color: var(--ps-ink-soft); flex: 1; }
-
-/* ── ASPIRE-PUBLIC-SITE: Contact journey (hero, 3 cards, sign-in banner,
-      two email columns, guidance strip) ─────────────────────────────────── */
 .ps-contact-hero { padding-bottom: 4px; }
 .ps-contact-cards-section { padding-top: 12px; }
 .ps-choose-grid { display: grid; gap: 20px; grid-template-columns: repeat(3, 1fr); }
 .ps-choose-card {
   background: var(--ps-card); border: 1px solid var(--ps-line);
-  border-radius: var(--ps-radius); padding: 26px;
+  border-radius: 22px; padding: 28px;
   display: flex; flex-direction: column; gap: 10px;
   transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
 }
 .ps-choose-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 14px 34px -18px rgba(29, 37, 103, 0.4);
+  transform: translateY(-4px);
+  box-shadow: 0 18px 40px -22px rgba(29, 37, 103, 0.45);
   border-color: #d3ccbf;
 }
-.ps-choose-title { margin: 6px 0 0; font-size: 18px; font-weight: 700; color: var(--ps-navy); }
+.ps-contact-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 48px; height: 48px; border-radius: 14px;
+  background: var(--ps-tint); color: var(--ps-navy);
+}
+.ps-choose-title { margin: 6px 0 0; font-family: var(--ps-serif); font-weight: 560; font-size: 21px; color: var(--ps-navy); }
 .ps-choose-card p { margin: 0 0 8px; font-size: 14.5px; line-height: 1.6; color: var(--ps-ink-soft); flex: 1; }
 .ps-choose-cta { margin-top: auto; }
 
-/* Portal sign-in banner: full-width navy, deliberately distinct from the cards */
-.ps-signin-band { background: var(--ps-navy); color: #fff; }
+.ps-signin-band { background: var(--ps-navy); color: #fff; position: relative; overflow: hidden; }
+.ps-signin-band::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+  background: linear-gradient(90deg, var(--ps-accent), var(--ps-navy-soft) 60%, transparent);
+}
 .ps-signin-inner {
-  max-width: var(--ps-maxw); margin: 0 auto; padding: 34px 24px;
+  max-width: var(--ps-maxw); margin: 0 auto; padding: 36px 24px;
   display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;
 }
 .ps-signin-copy { display: flex; align-items: center; gap: 16px; max-width: 720px; }
@@ -556,171 +826,159 @@
   width: 46px; height: 46px; border-radius: 13px;
   background: rgba(255,255,255,0.14); color: #fff;
 }
-.ps-signin-heading { margin: 0 0 6px; font-size: clamp(20px, 2.4vw, 26px); font-weight: 700; color: #fff; line-height: 1.15; }
+.ps-signin-heading { margin: 0 0 6px; font-family: var(--ps-serif); font-weight: 560; font-size: clamp(21px, 2.4vw, 27px); color: #fff; line-height: 1.15; }
 .ps-signin-body { margin: 0; font-size: 15px; line-height: 1.55; color: #cdd2ea; }
 .ps-signin-cta { flex-shrink: 0; }
 
-/* Direct contact: two email columns */
 .ps-contact-direct { display: grid; gap: 24px; grid-template-columns: 1fr 1fr; }
 .ps-contact-col {
   background: var(--ps-card); border: 1px solid var(--ps-line);
-  border-radius: var(--ps-radius); padding: 26px 28px;
+  border-radius: 22px; padding: 28px 30px;
   display: flex; flex-direction: column;
 }
-.ps-contact-col h2 { margin: 0 0 8px; }
+.ps-contact-col h2 { margin: 0 0 8px; font-size: clamp(19px, 2vw, 23px); }
 .ps-contact-col .ps-body { margin: 0 0 12px; max-width: 460px; }
 .ps-contact-addr { margin: 0 0 14px; font-size: 15px; font-weight: 600; color: var(--ps-navy); }
 
-/* Email CTA button + safe, keyboard-reachable popup-blocked fallback */
-.ps-email-cta { margin-top: auto; }
-.ps-email-fallback { margin: 10px 0 0; font-size: 13px; line-height: 1.5; color: var(--ps-ink-soft); }
-.ps-email-addr { font-weight: 600; color: var(--ps-navy); }
-
-/* Guidance strip */
 .ps-guidance-strip {
   margin: 26px 0 0; padding: 16px 20px;
   background: var(--ps-tint); border: 1px solid #dbe0f2; border-radius: 12px;
   font-size: 14px; line-height: 1.6; color: var(--ps-ink-soft);
 }
 
-/* Preceptors closing: stacked heading, supporting line, and two email CTAs */
-.ps-minicta-col { flex-direction: column; align-items: flex-start; }
-.ps-minicta .ps-minicta-sub { margin: 8px 0 0; font-size: 14px; color: var(--ps-ink-soft); }
-.ps-minicta-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; margin-top: 18px; }
-
-/* About: second intro paragraph within the page head */
-.ps-head-extra { margin-top: 12px; max-width: 560px; }
-
-/* Eligibility: stack the two informational notes with breathing room */
-.ps-elig-notes { display: flex; flex-direction: column; gap: 18px; }
-
 /* ── Footer ───────────────────────────────────────────────────────────────── */
-.ps-footer { border-top: 1px solid var(--ps-line); background: var(--ps-cream-deep); }
+.ps-footer { background: var(--ps-navy-deep); color: #fff; position: relative; overflow: hidden; }
+.ps-footer::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+  background: linear-gradient(90deg, var(--ps-navy-soft), var(--ps-accent), var(--ps-navy-soft));
+}
+.ps-footer-tagline {
+  max-width: var(--ps-maxw); margin: 0 auto; padding: clamp(44px, 5vw, 64px) 24px 0;
+}
+.ps-footer-tagline p {
+  margin: 0; font-family: var(--ps-serif); font-weight: 480; font-style: italic;
+  font-size: clamp(21px, 2.8vw, 30px); line-height: 1.3; color: #e6e9f6; max-width: 640px;
+}
 .ps-footer-inner {
-  max-width: var(--ps-maxw); margin: 0 auto; padding: 48px 24px 36px;
+  max-width: var(--ps-maxw); margin: 0 auto; padding: clamp(32px, 4vw, 48px) 24px 36px;
   display: grid; grid-template-columns: 1.3fr 2fr; gap: 40px;
 }
-/* Brand blurb removed (Owner correction): the footer brand column is now just
-   the identity, keeping the footer lighter and less crowded. */
-.ps-footer-brand { align-self: center; }
+.ps-footer-brand { align-self: start; }
+.ps-footer-brand .ps-brand-name { color: #fff; }
+.ps-footer-brand .ps-brand-sep { background: rgba(255, 255, 255, 0.25); }
 .ps-footer-cols { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
 .ps-footer-col h3 {
   margin: 0 0 14px; font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--ps-navy);
+  text-transform: uppercase; color: #9aa3d8;
 }
 .ps-footer-col ul { list-style: none; margin: 0; padding: 0; }
 .ps-footer-col li { margin-bottom: 10px; }
-.ps-footer-col a { font-size: 14px; color: var(--ps-ink-soft); }
-.ps-footer-col a:hover { color: var(--ps-navy); }
-.ps-footer-contact { font-size: 14px; line-height: 1.55; color: var(--ps-ink-soft); margin: 0 0 12px; }
+.ps-footer-col a { font-size: 14px; color: #cdd2ea; }
+.ps-footer-col a:hover { color: #fff; }
+.ps-footer-col .ps-arrow-link { color: #fff !important; }
 .ps-footer-legal {
-  border-top: 1px solid var(--ps-line);
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
   max-width: var(--ps-maxw); margin: 0 auto; padding: 20px 24px;
   display: flex; flex-wrap: wrap; gap: 8px 28px; justify-content: space-between;
 }
-.ps-footer-legal p { margin: 0; font-size: 12.5px; color: #5f6472; line-height: 1.5; }
+.ps-footer-legal p { margin: 0; font-size: 12.5px; color: #9aa3d8; line-height: 1.5; }
 
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 1000px) {
-  .ps-audience-grid, .ps-glance-grid, .ps-feature-grid { grid-template-columns: repeat(2, 1fr); }
-  .ps-journey { grid-template-columns: repeat(3, 1fr); gap: 24px 8px; }
-  .ps-journey::before { display: none; }
+  .ps-mosaic-hours { grid-column: span 12; grid-row: auto; }
+  .ps-mosaic-cell, .ps-mosaic-cell + .ps-mosaic-cell { grid-column: span 6; }
+  .ps-ledger-grid { grid-template-columns: 1fr; }
   .ps-footer-inner { grid-template-columns: 1fr; gap: 32px; }
-  /* Below the wide desktop, the right gutter beside the copy narrows, so the
-     watermark moves to a compact lower-right accent that stays clear of the
-     copy column and behind the (opaque) button. */
   .ps-band-mark {
     width: 190px; right: 20px; top: auto; bottom: 20px; transform: none; opacity: 0.10;
   }
+  .ps-faq-preview { grid-template-columns: 1fr; }
+  .ps-faq-preview-head { position: static; }
+}
+
+/* Tablet: single-column heroes and page heads before the full mobile pass. */
+@media (max-width: 900px) {
+  .ps-hero-inner { grid-template-columns: 1fr; gap: 26px; }
+  .ps-hero-art { order: -1; }
+  .ps-hero-stage { max-width: 520px; margin: 0 auto; }
+  .ps-head-split { grid-template-columns: 1fr; gap: 20px; }
+  .ps-head-art { order: -1; max-width: 500px; margin: 0 auto; }
+  .ps-exp-hero { grid-template-columns: 1fr; gap: 20px; }
+  .ps-exp-art { max-width: 500px; margin: 0 auto; }
 }
 
 @media (max-width: 760px) {
-  .ps-nav { display: none; }
-  .ps-nav-toggle { display: flex; }
   .ps-header-inner {
     padding: calc(12px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px));
     gap: 12px;
   }
-  /* The closed mobile header is only brand + hamburger; the Open Portal / Log in
-     action moves INTO the compact menu popover. */
   .ps-header-actions { margin-left: auto; }
   .ps-header-actions > .ps-login-btn { display: none; }
 
-  .ps-hero-inner { grid-template-columns: 1fr; padding: 36px 20px 40px; gap: 24px; }
-  .ps-hero-art { order: -1; }
-  /* Full composition preserved on mobile (no crop/mask); just scaled down. */
-  .ps-hero-figure { max-width: 480px; margin: 0 auto; }
+  .ps-hero-inner { padding: 34px 20px 40px; }
+  .ps-hero-stage { max-width: 500px; }
+  .ps-hero-badge { left: -4px; bottom: 4%; width: 86px; }
+  .ps-scrollcue { display: none; }
 
-  .ps-head-split { grid-template-columns: 1fr; gap: 20px; }
-  .ps-head-art { order: -1; max-width: 480px; margin: 0 auto; }
-  /* The Experience keeps its working mobile composition: headline first, then
-     the illustration below it (no order flip), at the same 480px cap. */
-  .ps-exp-hero { grid-template-columns: 1fr; gap: 20px; }
-  .ps-exp-art { max-width: 480px; margin: 0 auto; }
-  /* Watermark shrinks to a lower-right corner accent, clear of the copy. */
+  .ps-head-art, .ps-exp-art { max-width: 480px; }
   .ps-band-mark {
     width: 168px; right: 12px; top: auto; bottom: 16px; transform: none; opacity: 0.09;
   }
 
-  .ps-section { padding: 44px 20px; }
-  .ps-section-tint { padding: 44px 20px; }
+  .ps-section { padding: 46px 20px; }
+  .ps-section-tint, .ps-section-white { padding-left: 20px; padding-right: 20px; }
 
-  .ps-audience-grid, .ps-glance-grid, .ps-feature-grid,
-  .ps-prose, .ps-split, .ps-contact-grid,
-  .ps-choose-grid, .ps-contact-direct,
-  .ps-footer-cols {
+  /* Pathway finder stacks: tabs become a horizontal scroll strip. */
+  .ps-finder { grid-template-columns: 1fr; }
+  .ps-finder-tabs {
+    flex-direction: row; overflow-x: auto; gap: 8px;
+    padding: 4px 2px 10px; margin: 0 -2px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .ps-finder-tabs::-webkit-scrollbar { display: none; }
+  .ps-finder-tab {
+    flex: 0 0 auto; padding: 10px 14px; font-size: 14.5px;
+    border: 1px solid var(--ps-line); border-radius: 999px; background: var(--ps-card);
+  }
+  .ps-finder-tab .ps-finder-tab-icon { width: 30px; height: 30px; border-radius: 9px; }
+  .ps-finder-tab .ps-finder-tab-icon svg { width: 18px; height: 18px; }
+  .ps-finder-tab-arrow { display: none; }
+  .ps-finder-tab[aria-selected="true"] { border-color: var(--ps-navy); }
+
+  .ps-mosaic-cell, .ps-mosaic-cell + .ps-mosaic-cell { grid-column: span 12; }
+
+  /* Journey: the track moves to the left, steps become single-column rows. */
+  .ps-journey-track { left: 28px; transform: none; }
+  .ps-journey-step { grid-template-columns: 58px 1fr; gap: 0 18px; }
+  .ps-journey-node { grid-column: 1; }
+  .ps-journey-card,
+  .ps-journey-step:nth-child(even) .ps-journey-card {
+    grid-column: 2; text-align: left; padding: 0;
+  }
+
+  .ps-prose, .ps-split, .ps-choose-grid, .ps-contact-direct, .ps-footer-cols {
     grid-template-columns: 1fr;
   }
 
-  /* Contact sign-in banner + Preceptors closing stack on mobile. */
   .ps-signin-inner { flex-direction: column; align-items: flex-start; padding: 26px 20px; }
   .ps-signin-cta { width: 100%; text-align: center; justify-content: center; }
   .ps-minicta-actions { flex-direction: column; align-items: stretch; width: 100%; }
   .ps-minicta-actions .ps-email-cta { width: 100%; }
   .ps-minicta-actions .ps-btn { width: 100%; justify-content: center; }
 
-  /* ── Mobile journey: horizontally swipeable scroll-snap stepper ──────────
-     One card at a time with previous/next controls, a segmented progress
-     rail, and a Step X of 6 live count. Replaces the old six-card vertical
-     stack entirely. */
-  .ps-journey {
-    display: flex; gap: 12px;
-    overflow-x: auto; scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    padding: 4px 4px 10px; margin: 0 -4px;
-    scrollbar-width: none;
-  }
-  .ps-journey::-webkit-scrollbar { display: none; }
-  .ps-journey::before { display: none; }
-  .ps-journey-step {
-    flex: 0 0 86%; scroll-snap-align: center;
-    background: var(--ps-card); border: 1px solid var(--ps-line);
-    border-radius: var(--ps-radius); padding: 20px;
-    display: grid; grid-template-columns: 54px 1fr; gap: 8px 16px;
-    text-align: left; align-items: start;
-  }
-  .ps-journey-node { margin: 0; grid-row: span 2; }
-  .ps-journey-step h3 { font-size: 15.5px; margin-top: 6px; }
-  .ps-journey-step p { font-size: 13.5px; }
-  .ps-journey-controls {
-    display: flex; align-items: center; gap: 14px; margin-top: 14px;
-  }
-
-  .ps-footer-cols { gap: 28px; }
+  .ps-footer-cols { gap: 28px; grid-template-columns: 1fr 1fr; }
   .ps-minicta { flex-direction: column; align-items: flex-start; }
-  .ps-highlight { align-items: flex-start; }
 }
 
+@media (max-width: 480px) {
+  .ps-footer-cols { grid-template-columns: 1fr; }
+}
+
+/* Reduced motion: no transitions or animations anywhere; every element is in
+   its final, fully visible state (reveal hiding is already gated above). */
 @media (prefers-reduced-motion: reduce) {
   .ps-root *, .ps-root *::before, .ps-root *::after {
     transition: none !important; animation: none !important;
   }
-}
-
-/* Approved public contact email (Owner approval, 2026-07-12) */
-.ps-contact-email { margin-top: 26px; }
-.ps-footer-email {
-  display: inline-block; margin-top: 10px;
-  font-size: 14px; font-weight: 600; color: var(--ps-navy) !important;
-  text-decoration: underline;
 }
