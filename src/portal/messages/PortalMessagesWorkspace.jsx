@@ -112,31 +112,40 @@ export default function PortalMessagesWorkspace({
   const showList = !narrow || mobileView === 'list'
   const showThread = !narrow || mobileView === 'thread'
   const closed = portalStatusIsClosed(conversation?.status)
+  // On a phone the thread is its own view, so the workspace header (heading,
+  // subtitle, unread summary, New message) is not context there: it is a second
+  // header stacked above "Back to messages" that pushes the conversation down a
+  // full screen. Back plus the conversation subject is the context on that view,
+  // and New message stays one tap away through Back. On desktop the header is
+  // always shown, because the list and thread share one screen.
+  const showHead = !narrow || mobileView === 'list'
 
   return (
     <section className="ptl-card ptl-section ptl-msg-workspace">
-      <div className="ptl-section-head ptl-msg-head">
-        <div className="ptl-msg-head-text">
-          <h2 className="ptl-section-title">Messages</h2>
-          <p className="ptl-muted ptl-msg-subtitle">{PORTAL_SUBTITLE}</p>
+      {showHead && (
+        <div className="ptl-section-head ptl-msg-head">
+          <div className="ptl-msg-head-text">
+            <h2 className="ptl-section-title">Messages</h2>
+            <p className="ptl-muted ptl-msg-subtitle">{PORTAL_SUBTITLE}</p>
+          </div>
+          <div className="ptl-msg-head-actions">
+            {unread > 0 && (
+              <span className="ptl-chip ptl-chip-wait ptl-msg-unread-summary">
+                <span aria-hidden="true">{formatUnread(unread)} unread</span>
+                <span style={srOnly}>{unreadLabel(unread)}</span>
+              </span>
+            )}
+            <button
+              ref={newBtnRef}
+              type="button"
+              className="ptl-btn ptl-msg-btn ptl-msg-new"
+              onClick={() => setNewOpen(true)}
+            >
+              <MessageSquarePlus size={15} aria-hidden="true" /> New message
+            </button>
+          </div>
         </div>
-        <div className="ptl-msg-head-actions">
-          {unread > 0 && (
-            <span className="ptl-chip ptl-chip-wait ptl-msg-unread-summary">
-              <span aria-hidden="true">{formatUnread(unread)} unread</span>
-              <span style={srOnly}>{unreadLabel(unread)}</span>
-            </span>
-          )}
-          <button
-            ref={newBtnRef}
-            type="button"
-            className="ptl-btn ptl-msg-btn ptl-msg-new"
-            onClick={() => setNewOpen(true)}
-          >
-            <MessageSquarePlus size={15} aria-hidden="true" /> New message
-          </button>
-        </div>
-      </div>
+      )}
 
       <div className={`ptl-msg-split${narrow ? ' ptl-msg-split-narrow' : ''}`}>
         {showList && (

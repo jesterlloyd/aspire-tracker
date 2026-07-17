@@ -129,6 +129,18 @@ test('mobile rhythm', async (t) => {
     assert.match(css, /\.ptl-msg-textarea \{ resize: vertical; min-height: 104px; max-height: 320px; font: inherit; \}/)
   })
 
+  await t.test('the phone thread starts at Back to messages, not a second header', () => {
+    // The workspace header (heading, subtitle, unread, New message) stacked above
+    // Back to messages on the phone thread view and pushed the conversation down
+    // a full screen. Back plus the subject is the context there; New message
+    // stays one tap away through Back.
+    const ws = read('../src/portal/messages/PortalMessagesWorkspace.jsx')
+    assert.match(ws, /const showHead = !narrow \|\| mobileView === 'list'/)
+    assert.match(ws, /\{showHead && \(\s*\n\s*<div className="ptl-section-head ptl-msg-head">/)
+    // Desktop always shows it, because the list and thread share one screen.
+    assert.match(ws, /const showList = !narrow \|\| mobileView === 'list'/)
+  })
+
   await t.test('the New message drawer textarea is not oversized', () => {
     assert.match(drawer, /rows=\{5\}/)
     assert.doesNotMatch(drawer, /rows=\{7\}/)

@@ -522,6 +522,11 @@
      button share one row: previously flex-wrap plus width:100% pushed the chip
      onto its own line and opened a 49px gap under the subtitle. */
   .ptl-msg-head { flex-direction: column; align-items: stretch; gap: 12px; margin-bottom: 16px; }
+  /* The thread is its own view on a phone, so it starts at Back to messages. */
+  .ptl-msg-pane-thread { gap: 10px; }
+  .ptl-msg-back { margin-top: -4px; }
+  .ptl-msg-thread { gap: 8px; }
+  .ptl-msg-thread-head { gap: 8px; }
   .ptl-msg-head-actions { width: 100%; gap: 10px; flex-wrap: nowrap; }
   .ptl-msg-new { flex: 1; }
 }
