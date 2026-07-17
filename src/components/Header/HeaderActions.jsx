@@ -7,12 +7,30 @@ import { MessagesSquare, Library } from 'lucide-react'
 import Tooltip from '../ui/Tooltip'
 import UserMenu from '../UserMenu'
 import { useAuth } from '../../contexts/AuthContext'
+import { IDLE_UNREAD_POLL_MS, useStaffUnreadCount } from '../../lib/messages/messagesPolling'
+import { UNREAD_BADGE_BG, UNREAD_BADGE_FG, formatUnread, unreadLabel } from '../../lib/messages/messagesConstants'
 
 export default function HeaderActions({
   cohorts, navigate, activeTab, bellRef, setShowActionCenter, showActionCenter, actionBadgeCount,
 }) {
-  const { isOwner, isAdmin, isInterviewer } = useAuth()
+  const { isOwner, isAdmin, isInterviewer, userProfile } = useAuth()
   const canViewCatalog = isOwner || isAdmin || isInterviewer
+  // ASPIRE MESSAGES: the Connect icon's unread badge follows the Messages
+  // authorization gate, which is stricter than the icon's own rule. isAdmin and
+  // canEdit are role-only and ignore profile activity, so neither is sufficient:
+  // a deactivated Owner would still poll. Same gate as Connect.jsx.
+  const canUseMessages = ['owner', 'admin'].includes(userProfile?.role)
+    && userProfile?.is_active !== false
+  // Reuses the ['messages_staff_unread'] query. React Query serves every
+  // observer of one key from a single query, so mounting this alongside the
+  // Connect Messages tab adds no second request and no new interval: the tab's
+  // 30s observer simply wins while it is mounted, and this 60s cadence applies
+  // everywhere else. `enabled` keeps an unauthorized caller from requesting at
+  // all.
+  const messagesUnread = useStaffUnreadCount({
+    enabled: canUseMessages,
+    intervalMs: IDLE_UNREAD_POLL_MS,
+  })
   // While Action Center is open the bell is the active surface - suppress the route-based
   // Connect/Catalog active treatment so only one nav marker shows at a time. Routing and
   // the current page are unchanged; this is purely the active-marker visual state.
@@ -24,7 +42,12 @@ export default function HeaderActions({
         <Tooltip label="ASPIRE Connect" placement="bottom">
         <button
           data-tour="connect"
-          aria-label="ASPIRE Connect"
+          // aria-label overrides inner text for the accessible name, so the count
+          // belongs in the label itself rather than in hidden text that would
+          // never be announced. It carries the TRUE count, not the 99+ cap.
+          aria-label={messagesUnread > 0
+            ? `ASPIRE Connect, ${unreadLabel(messagesUnread)}`
+            : 'ASPIRE Connect'}
           onClick={() => {
             const saved = localStorage.getItem('aspire.connect.lastTab')
             const tab = (['contacts','outreach','broadcasts'].includes(saved)) ? saved : 'contacts'
@@ -45,6 +68,21 @@ export default function HeaderActions({
           onMouseLeave={e => e.currentTarget.style.background = connectActive ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)'}
         >
           <MessagesSquare size={15} strokeWidth={1.9} />
+          {/* Unread counter. Position and shape mirror the Action Center bell
+              badge; the color is Cedars-Sinai red rather than the bell's
+              #930045, which is a different red and deliberately untouched. The
+              1.5px navy ring keeps it legible against the navy header. */}
+          {messagesUnread > 0 && (
+            <span aria-hidden="true" style={{
+              position: 'absolute', top: -3, right: -3, minWidth: 16, height: 16,
+              borderRadius: 8, background: UNREAD_BADGE_BG, color: UNREAD_BADGE_FG,
+              fontSize: 10, fontWeight: 700, fontFamily: 'DM Sans',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '0 3px', lineHeight: 1, border: '1.5px solid #1D2567',
+            }}>
+              {formatUnread(messagesUnread)}
+            </span>
+          )}
           {connectActive && (
             <span style={{
               position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
