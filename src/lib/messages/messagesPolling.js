@@ -39,21 +39,25 @@ export function useDocumentVisible() {
   return visible;
 }
 
-// The current staff member's unread count. Reusable at two cadences: the active
-// workspace passes ACTIVE_POLL_MS; Phase 4B2b will mount this same hook with
-// IDLE_UNREAD_POLL_MS to drive the Connect tab badge while another sub-tab is
-// active. It is NOT mounted in Connect yet.
+// The current staff member's unread count, at two cadences: the active workspace
+// passes ACTIVE_POLL_MS, and the Connect tab badge passes IDLE_UNREAD_POLL_MS
+// while another sub-tab is active.
+//
+// `enabled` is the authorization guard. An unauthorized caller (interviewer,
+// viewer, inactive staff, portal user) must never even REQUEST a Messages API,
+// so Connect passes enabled: false and no query is issued at all.
 //
 // Unread counts only portal-authored messages unread by THIS staff profile, so
 // one staff member reading never clears another's count.
-export function useStaffUnreadCount({ intervalMs = ACTIVE_POLL_MS, api = defaultApi } = {}) {
+export function useStaffUnreadCount({ intervalMs = ACTIVE_POLL_MS, enabled = true, api = defaultApi } = {}) {
   const visible = useDocumentVisible();
   const { data } = useQuery({
     queryKey: ['messages_staff_unread'],
     queryFn: ({ signal }) => api.getStaffUnreadCount({ signal }),
+    enabled,
     // false pauses the interval entirely while hidden; focus triggers a refetch.
-    refetchInterval: visible ? intervalMs : false,
-    refetchOnWindowFocus: true,
+    refetchInterval: enabled && visible ? intervalMs : false,
+    refetchOnWindowFocus: enabled,
     staleTime: 10 * 1000,
     retry: 1,
   });
