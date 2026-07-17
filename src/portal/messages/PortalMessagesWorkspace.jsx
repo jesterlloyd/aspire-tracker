@@ -159,6 +159,7 @@ export default function PortalMessagesWorkspace({
               refreshMs={active ? PORTAL_ACTIVE_POLL_MS : false}
               onConversation={setConversation}
               onMarkRead={handleMarkRead}
+              active={active}
             />
             {selectedId && (
               <PortalReplyComposer

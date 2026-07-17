@@ -32,6 +32,10 @@ export default function PortalMessagesThread({
   refreshMs,
   onConversation,
   onMarkRead,
+  // False while Messages is mounted but not the active portal view. The
+  // workspace stays mounted so drafts and selection survive a view switch, so
+  // this is what stops a hidden view from marking anything read.
+  active = true,
   api = { getPortalThreadPage },
 }) {
   const markedRef = useRef(null)
@@ -80,13 +84,18 @@ export default function PortalMessagesThread({
     : null
 
   useEffect(() => {
+    // Gate BEFORE the token is recorded. Gating in the callback instead would
+    // burn the token while hidden, so returning to Messages would never mark the
+    // conversation read. `active` is a dependency, so the effect re-runs and
+    // marks read once the view becomes visible again.
+    if (!active) return
     if (!conversationId || !newestPage) return
     if (!threadPageIsCurrent(newestPage, conversationId)) return
     const token = `${conversationId}:${newestAt || 'empty'}`
     if (markedRef.current === token) return
     markedRef.current = token
     onMarkRead?.(conversationId)
-  }, [conversationId, newestPage, newestAt, onMarkRead])
+  }, [active, conversationId, newestPage, newestAt, onMarkRead])
 
   if (!conversationId) {
     return <div className="ptl-empty ptl-msg-noselect"><p className="ptl-muted">{PORTAL_NO_SELECTION}</p></div>

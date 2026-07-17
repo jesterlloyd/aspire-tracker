@@ -549,3 +549,37 @@
 .ptl-msg-safety { font-size: 12px; color: #6b6355; }
 .ptl-msg-closed-note { font-size: 12.5px; }
 .ptl-msg-empty, .ptl-msg-noselect { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 18px; }
+
+/* ── ASPIRE MESSAGES, PHASE 5B-ii: Student Portal section navigation ─────────
+   Sits under the shell header. Real buttons, so keyboard reach, activation, and
+   focus come from the platform rather than synthetic handlers. */
+
+.ptl-nav {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 14px; border-bottom: 1px solid #e3ded4; background: #fff;
+  overflow-x: auto;                 /* many items scroll rather than wrap raggedly */
+  -webkit-overflow-scrolling: touch;
+}
+.ptl-nav-item {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 12px 12px; min-height: 44px;    /* touch target */
+  border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  background: none; cursor: pointer; white-space: nowrap;
+  font: inherit; font-size: 14px; font-weight: 600; color: #6b6355;
+}
+.ptl-nav-item:hover { color: #1D2567; }
+.ptl-nav-item:focus-visible { outline: 2px solid #1D2567; outline-offset: -2px; }
+/* The active section is carried by aria-current for assistive technology; the
+   underline plus weight are the visual echo, never the only signal. */
+.ptl-nav-item-active { color: #1D2567; border-bottom-color: #1D2567; }
+
+.ptl-nav-badge {
+  min-width: 19px; padding: 1px 6px; border-radius: 999px;
+  background: #1D2567; color: #fff;
+  font-size: 11.5px; font-weight: 700; line-height: 1.5; text-align: center;
+}
+
+@media (max-width: 760px) {
+  .ptl-nav { padding: 0 8px; }
+  .ptl-nav-item { flex: 1 1 auto; justify-content: center; }
+}
