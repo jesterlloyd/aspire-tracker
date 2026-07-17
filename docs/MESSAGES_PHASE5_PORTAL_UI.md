@@ -3,8 +3,9 @@
 Phase 5 builds the student-facing ASPIRE Messages interface on top of the portal
 APIs already deployed in production. It is delivered in two halves.
 
-- Phase 5A (Stage A committed, awaiting manual SQL): the Student Portal thread
-  reverse-pagination prerequisite. Backend and API foundation only.
+- Phase 5A (COMPLETE): the Student Portal thread reverse-pagination
+  prerequisite. Backend and API foundation only. Migration applied and verified,
+  endpoint integrated, deployed.
 - Phase 5B (not started): the Student Portal Messages interface itself.
 
 No Student Portal Messages interface exists yet, and Phase 5A does not build one.
@@ -51,7 +52,7 @@ exist under `api/portal/`.
 | Concern | File | Method | RPC called |
 | --- | --- | --- | --- |
 | Conversation list | `api/portal/messages-list.js` | GET | `messages_portal_list_conversations` |
-| Conversation thread | `api/portal/messages-thread.js` | GET | `messages_portal_get_thread` |
+| Conversation thread | `api/portal/messages-thread.js` | GET | `messages_portal_get_thread_v2` (was v1 before Stage B) |
 | Start conversation | `api/portal/messages-start.js` | POST | `messages_start_conversation` |
 | Reply | `api/portal/messages-reply.js` | POST | `messages_post_reply` |
 | Mark read | `api/portal/messages-mark-read.js` | POST | `messages_mark_read` |
@@ -60,7 +61,10 @@ exist under `api/portal/`.
 Start and reply call the shared write RPCs rather than portal-specific ones; the
 caller kind is resolved server-side. Only the thread endpoint changes in Phase 5A.
 
-### The thread endpoint as deployed
+### The thread endpoint BEFORE Stage B
+
+Recorded as the starting point. See "Stage B: portal thread v2 API integration"
+below for the current contract.
 
 `GET /api/portal/messages-thread`
 
@@ -69,12 +73,13 @@ Query parameters: `conversation_id` (uuid, required), `limit` (default 50, max
 
 Response: `{ conversation, messages, next_cursor }`.
 
-Behavior worth noting: the endpoint derives `next_cursor` itself through
+Behavior worth noting: the endpoint derived `next_cursor` itself through
 `nextCursorFrom(messages, limit.value, 'created_at')` because the v1 RPC returns
 no pagination metadata. It guards methods through `methodGuard(req, res, ['GET'])`,
 authenticates through `verifyPortalStudentCaller(req)`, and calls the RPC through
 `getUserScopedDb(req)`, so the RPC runs as the signed-in student rather than as
-service_role. A NULL RPC result maps to a non-enumerating 404.
+service_role. A NULL RPC result maps to a non-enumerating 404. Stage B preserved
+all of that and changed only the RPC and the pagination metadata.
 
 ## The portal thread v2 RPC
 
@@ -230,18 +235,145 @@ dropped, no anonymous access is granted, and no direct table access is granted.
 
 ## Migration application status
 
-NOT YET APPLIED. Committed and pushed, awaiting manual application by Jester in
-the Supabase SQL editor per the Owner SQL gate.
+APPLIED AND VERIFIED. Applied manually in the Supabase SQL editor per the Owner
+SQL gate, at Stage A commit `fbe2219`.
 
 - Migration: `supabase/migrations/20260716000006_messages_phase5_portal_thread_reverse_pagination.sql`
 - Verification: `db/audit/messages_phase5_portal_thread_reverse_pagination_verification.sql`
 
-Both files are run as one block. The migration is wrapped in `BEGIN; ... COMMIT;`
-and ends with `NOTIFY pgrst, 'reload schema';` so PostgREST picks up the new
-function. The verification file is read-only (system-catalog SELECTs and function
-source assertions only) and is safe against production at any time.
+All 14 audits passed, run one numbered section at a time:
 
-Stage B does not begin until Jester confirms the exact committed SQL was applied.
+| Audit | Result |
+| --- | --- |
+| 1. v2 function exists | Correct signature, SECURITY DEFINER, stable volatility, fixed search_path |
+| 2. No ambiguous overload | Portal v1, portal v2, and staff v2 each have exactly one overload |
+| 3. Privileges | `authenticated` and `service_role` only |
+| 4. Anonymous denial | `anon` and `PUBLIC` cannot execute |
+| 5. Pagination source | All 10 checks PASS |
+| 6. Authorization source | All 6 checks PASS |
+| 7. Return privacy | All 4 checks PASS |
+| 8. Portal v1 unmodified | Zero rows |
+| 9. v1 and staff v2 present | Both present |
+| 10. Staff v2 unmodified | Zero rows |
+| 11. No anonymous portal execute | Zero rows |
+| 12. RLS | Enabled on all six Messages tables |
+| 13. Policy inventory unchanged | Zero rows |
+| 14. Supporting index | `idx_messages_conversation_created` exists |
+
+The migration is atomic (`BEGIN; ... COMMIT;`) and ends with
+`NOTIFY pgrst, 'reload schema';` so PostgREST picked up the new function. The
+verification file is read-only and remains safe to re-run at any time.
+
+## Stage B: portal thread v2 API integration
+
+`api/portal/messages-thread.js` now calls `messages_portal_get_thread_v2`. The
+endpoint path, GET-only guard, authentication, authorization, query parameter
+names, and the conversation and message projections are all unchanged. No
+parallel endpoint was created; the RPC was swapped in place.
+
+### Request
+
+`GET /api/portal/messages-thread`
+
+| Parameter | Rule |
+| --- | --- |
+| `conversation_id` | uuid, required, 422 `invalid_conversation_id` otherwise |
+| `limit` | optional, default 50, max 100, 422 `invalid_limit` if not a positive integer |
+| `cursor_ts` | optional, ISO timestamp, required together with `cursor_id` |
+| `cursor_id` | optional, uuid, required together with `cursor_ts` |
+
+Cursor naming is `cursor_ts` and `cursor_id`, the established repository
+convention shared with the staff thread endpoint, `parseCursor`, and the RPC's own
+`next_cursor` shape. That last point is the reason not to rename: a client feeds
+`next_cursor` straight back as query parameters with no translation step. An
+alternative such as `before_created_at` would have broken that round-trip and
+diverged from staff for no gain.
+
+### Response
+
+```
+{
+  "conversation": { ... },
+  "messages": [ ... ],
+  "has_more": true,
+  "next_cursor": { "cursor_ts": "...", "cursor_id": "..." }
+}
+```
+
+`next_cursor` is null when no older page exists. Both fields now come from the
+RPC and are passed through. The previous `nextCursorFrom(messages, limit,
+'created_at')` derivation was removed from this endpoint: it inferred a FORWARD
+cursor from the last row of a page, which cannot describe backward paging, and it
+inferred "more history" from a full page, which is wrong whenever the oldest page
+is exactly `limit` long. `nextCursorFrom` remains in use by both list endpoints,
+which do page forward.
+
+### Cursor rules
+
+- Newest page: no cursor values, returns the newest bounded rows, chronological.
+- Older page: BOTH `cursor_ts` and `cursor_id`, returns rows strictly older than
+  the tuple.
+- A partial cursor is rejected twice over: `parseCursor` returns 422
+  `invalid_cursor` before the database is touched, and the RPC independently
+  raises MS400 if one ever reaches it.
+- The next cursor is the oldest message of the page returned.
+- Equal timestamps are separated by the message id tie-breaker, so no duplicate
+  and no skipped row.
+- No offset, no page numbers, no forward cursor, no unbounded retrieval.
+
+### Error mapping
+
+| Condition | Status | Body |
+| --- | --- | --- |
+| Missing or invalid authentication | 401 | `unauthenticated` (or the caller's reason) |
+| Invalid `conversation_id` | 422 | `invalid_conversation_id` |
+| Invalid `limit` | 422 | `invalid_limit` |
+| Invalid or partial cursor | 422 | `invalid_cursor` |
+| RPC MS400 (partial cursor) | 422 | `validation_failed` |
+| Inaccessible or missing conversation | 404 | non-enumerating |
+| Anything else | 500 | `internal_error` |
+
+There is no MS403 path on the portal: an inaccessible conversation returns NULL
+from the RPC and maps to the same 404 as a missing one, so a student cannot
+distinguish "not yours" from "does not exist". SQLSTATE, RPC names, stack traces,
+raw Supabase errors, service-role details, and provider errors are never exposed.
+
+### Privacy
+
+Only a stable label and the error object reach `logApiError`. Message bodies,
+previews, raw thread responses, authorization headers, bearer tokens, participant
+data, and notification data are never logged. No analytics or telemetry was
+added. No email is exposed.
+
+## Dormant client foundation
+
+`src/lib/messages/portalThreadState.js`. Pure, no React, no fetch, not imported
+by any routed page.
+
+| Export | Purpose |
+| --- | --- |
+| `PORTAL_THREAD_LIMIT_DEFAULT` / `_MAX` | 50 and 100, mirroring the RPC bounds |
+| `clampThreadLimit` | Never request more than the backend honors |
+| `portalThreadQueryKey` | Conversation-scoped cache key |
+| `serializePortalThreadQuery` | Newest page or older page; never sends a partial cursor |
+| `nextThreadCursor` | Reads the backward cursor; `has_more` is authoritative |
+| `prependOlderPage` | Duplicate-safe merge of an older page in FRONT |
+| `appendNewerPage` | Duplicate-safe merge of a refresh at the END |
+| `threadPageIsCurrent` | Stale-response guard |
+
+It exists as a separate file rather than reusing `inboxState.js` because the
+thread inverts two of the inbox's assumptions. The inbox pages downward and
+appends; the thread pages into history and must prepend. The inbox derives its
+cursor from the last row; the thread RPC returns the authoritative backward
+cursor, so the client round-trips it instead of computing one.
+
+The stale-response rule is documented in the file for Phase 5B: key every query
+by `portalThreadQueryKey(conversationId)`, pass the `AbortSignal` into the fetch,
+and confirm `threadPageIsCurrent` before merging any page.
+
+## Deployment verification
+
+See the Phase 5A Stage B handoff for the deployed SHA and probe results.
 
 ## Phase 5B contract
 
@@ -261,6 +393,9 @@ pagination, and it must not reintroduce a direct browser RPC call.
   reply endpoint independently rejects an inactive participant with a 409.
 - `messages_portal_get_thread` (v1) remains deployed for rollback. It should be
   retired once the v2 integration is verified in production.
-- The v1 endpoint derived `next_cursor` in JavaScript through `nextCursorFrom`.
-  The v2 RPC returns it directly, so that derivation is no longer authoritative
-  for the thread endpoint.
+- `nextCursorFrom` is no longer used by the thread endpoint (the RPC returns the
+  authoritative cursor). It remains correct and in use for both list endpoints,
+  which page forward.
+- Phase 5A verified the endpoint by static and pure-function tests plus
+  unauthenticated production probes. No authenticated production thread read was
+  performed, because opening a thread as a real student could move a read pointer.
