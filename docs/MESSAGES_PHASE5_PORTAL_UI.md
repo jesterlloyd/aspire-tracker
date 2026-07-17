@@ -6,9 +6,13 @@ APIs already deployed in production. It is delivered in two halves.
 - Phase 5A (COMPLETE): the Student Portal thread reverse-pagination
   prerequisite. Backend and API foundation only. Migration applied and verified,
   endpoint integrated, deployed.
-- Phase 5B (not started): the Student Portal Messages interface itself.
+- Phase 5B-i (COMPLETE): the full Student Portal Messages workspace, built and
+  deployed DORMANT. No portal navigation, route, or badge exposes it.
+- Phase 5B-ii (not started): activation, plus final visual refinement.
 
-No Student Portal Messages interface exists yet, and Phase 5A does not build one.
+No Student Portal Messages interface is EXPOSED. Phase 5B-i built the complete
+workspace but left it dormant: it is reachable only from tests and from other
+dormant Messages modules.
 
 ## Phase 5A scope
 
@@ -399,3 +403,178 @@ pagination, and it must not reintroduce a direct browser RPC call.
 - Phase 5A verified the endpoint by static and pure-function tests plus
   unauthenticated production probes. No authenticated production thread read was
   performed, because opening a thread as a real student could move a read pointer.
+
+## Phase 5B-i: dormant Student Portal Messages workspace
+
+The complete student workspace, built and deployed but not exposed. Phase 5B-ii
+performs the activation.
+
+### Dormancy
+
+Dormancy is structural, not conditional. No feature flag exists. `StudentPortal.jsx`,
+`PortalApp.jsx`, `PortalShell.jsx`, and `App.jsx` are byte-for-byte unchanged, so
+nothing routed imports the workspace and no half-built surface can appear.
+
+The Student Portal has NO router and NO navigation: `PortalApp` resolves portal
+roles through `get_my_portal_access()` and renders `StudentPortal` directly inside
+`PortalShell`. There is therefore no route map to guard and no `/portal/messages`
+path to leave dangling. The Phase 5B-ii activation points are exactly two:
+
+- `src/portal/StudentPortal.jsx`, which would render the workspace as a section
+- `src/portal/PortalShell.jsx`, which would host a navigation badge if one is wanted
+
+Neither was touched.
+
+### Files
+
+| File | Role |
+| --- | --- |
+| `src/lib/messages/portalMessagesApiClient.js` | The six portal endpoints |
+| `src/lib/messages/portalMessagesConstants.js` | Copy, status handling, safe errors |
+| `src/lib/messages/portalMessagesPolling.js` | Unread hook, visibility, narrow width |
+| `src/portal/messages/PortalMessagesWorkspace.jsx` | Composition, mark-read, mobile view |
+| `src/portal/messages/PortalMessagesInbox.jsx` | Conversation list |
+| `src/portal/messages/PortalMessagesThread.jsx` | Thread and Load earlier messages |
+| `src/portal/messages/PortalNewMessageDrawer.jsx` | New message |
+| `src/portal/messages/PortalReplyComposer.jsx` | Reply |
+| `src/portal/portal.css` | Responsive and accessibility rules |
+
+Portal components live under `src/portal/messages/`, never inside the staff
+Connect tree.
+
+### Client architecture
+
+The portal client holds no transport logic. It reuses the exported `request` core
+from `messagesApiClient.js`, which already owns the bearer token, the
+routing-field guard, safe error mapping, and the no-raw-logging rule. Duplicating
+that would have meant two places to get authentication wrong.
+
+`MessagesApiError` now carries `reason` in addition to `code`. This was
+additive: `code` is unchanged and the staff client is unaffected.
+
+### Contracts as used
+
+| Concern | Request | Response |
+| --- | --- | --- |
+| List | `limit` (25 default, 100 max), `cursor_ts`, `cursor_id` | `{conversations, next_cursor}` |
+| Thread | `conversation_id`, `limit` (50 default), `cursor_ts`, `cursor_id` | `{conversation, messages, has_more, next_cursor}` |
+| Start | `{subject, category, body}` | 201 `{conversation_id, message_id, created_at, status, confirmation}` |
+| Reply | `{conversation_id, body}` | 201 `{message_id, created_at, reopened, confirmation}` |
+| Mark read | `{conversation_id}` | 200 `{conversation_id, last_read_at}` |
+| Unread | none | `{unread_count}` |
+
+Start takes NO recipient and NO participant field: the server resolves the
+student from the verified JWT and the ASPIRE Team is implicit. That is why there
+is no recipient picker. Mark-read takes only `conversation_id`: the timestamp is
+server-derived and the profile comes from the JWT, so a client clock and a client
+profile id cannot move a pointer.
+
+Both writes return a `confirmation` string. The UI announces the server's own
+value and treats the local constant only as a fallback, so an announcement can
+never contradict what actually happened. No email delivery is ever claimed.
+
+### Status mapping
+
+The browser does NOT map status. `message_portal_status_label()` already collapses
+`waiting` into `Open` and `resolved` into `Closed` server-side, and both the list
+RPC and the thread v2 RPC project that label rather than the raw workflow status.
+The staff-only `Waiting` state is therefore unreachable from the portal by
+construction rather than by client convention. `portalStatusLabel` normalizes what
+the API sends and fails safe to `Open`.
+
+### Thread pagination
+
+Reuses the Phase 5A foundation unchanged: newest bounded page first, chronological
+within each page, `cursor_ts` plus `cursor_id` paging backward, older pages
+prepended duplicate-safe, `has_more` authoritative rather than inferred from page
+length, no offset, no unbounded retrieval. Conversation-scoped query keys plus
+`threadPageIsCurrent` keep a late response from a previous selection out of the
+current thread.
+
+### Author display
+
+`author_label` is the server's own label (`You` or `ASPIRE Team`). A staff display
+name renders as smaller, lighter secondary context, so an individual never
+outranks the team. No staff email exists in the projection.
+
+### Mark-read flow
+
+Fires only when the newest page renders for the still-selected conversation,
+keyed on the newest message id so loading an older page cannot trigger it. Unread
+clears and the total refreshes only after the awaited success. Failure leaves
+unread intact and recoverable rather than falsely clearing the badge.
+
+### Polling
+
+30 seconds for inbox, thread, and unread while Messages is active; 60 seconds for
+the unread total elsewhere (`PORTAL_IDLE_UNREAD_POLL_MS`, wired in 5B-ii). Paused
+while `document.hidden`, refreshed on focus, serialized per query key by React
+Query so requests cannot overlap. No Supabase Realtime. Selection, pagination, and
+drafts are component state, so a background refresh preserves them and shows no
+full loading state.
+
+### Responsive and accessibility
+
+Desktop is a 320px list beside a flexible thread; tablet narrows to 260px; phone
+collapses to one column, which is what makes list-first real rather than a
+compressed split. Back to messages returns without clearing the selection.
+Conversation rows are real buttons, so keyboard reach and focus come from the
+platform. Touch targets are at least 44px. Unread carries weight plus a count
+chip; Closed carries a text label; neither relies on color. The drawer is a
+labeled modal with a focus trap, Escape close, and focus return to the trigger.
+
+### Privacy
+
+No logging of bodies, previews, drafts, raw responses, or tokens. No analytics or
+telemetry. No browser persistence: drafts live in React state only. No email is
+rendered. No `dangerouslySetInnerHTML` and no Markdown; bodies render as text with
+`white-space: pre-wrap`, so line breaks survive and markup does not execute.
+
+### Visual verification performed
+
+An interactive local pass WAS performed, against a temporary harness with
+synthetic nonclinical data, removed before committing. It exercised: empty inbox,
+populated inbox, unread rows, Open and Closed, long subjects, long messages, Load
+earlier, New message, validation, reply composer, the 409 state, mobile inbox,
+mobile thread, Back to messages, focus, and overflow.
+
+It found three real defects that static tests and lint had passed, all fixed and
+now regression-tested:
+
+1. Duplicate submit was not prevented. Three clicks in one tick produced three
+   requests, because a `pending` React state check cannot block repeats inside a
+   single tick. Both writes now use a synchronous ref mutex.
+2. A 409 could never be recognized as access-lost, because the shared request core
+   captured only `error` (`'conflict'`) and dropped the `reason` discriminator.
+3. An unmeasured `window.innerWidth` of 0 collapsed the desktop into the mobile
+   layout.
+
+This is the argument for the harness: each defect was invisible to source
+assertions, because the source looked correct in all three cases.
+
+## Phase 5B-ii activation contract
+
+Phase 5B-ii may:
+
+- render `PortalMessagesWorkspace` from `StudentPortal.jsx`
+- add Student Portal Messages navigation and a visible unread badge, driven by
+  `usePortalUnreadCount` with `PORTAL_IDLE_UNREAD_POLL_MS` when Messages is not
+  the active view
+- perform final visual refinement and activated-route accessibility
+
+It must not regress Phase 5A pagination to oldest-first, must not reintroduce a
+direct browser RPC call, and must keep the activation commit last.
+
+## Known limitations, Phase 5B-i
+
+- `can_reply` remains hardcoded `true` in the list RPC, the thread v2 RPC, and
+  their conversation projections, so it is not a usable access signal. The
+  composer therefore stays available and the reply endpoint remains authoritative,
+  with the 409 handled safely: the draft is preserved, sending disables, and the
+  student sees safe copy. Phase 5B-ii or a later phase should decide whether
+  `can_reply` must reflect real participant access.
+- The unread summary in the workspace header is not the navigation badge; the
+  badge itself is Phase 5B-ii.
+- Component tests remain pure and static-source, matching the repository stack.
+  They pin structure and contracts, not rendered output, which is why the
+  interactive pass mattered.
