@@ -556,7 +556,8 @@
 
 .ptl-nav {
   display: flex; align-items: center; gap: 6px;
-  padding: 0 14px; border-bottom: 1px solid #e3ded4; background: #fff;
+  margin-bottom: 14px; padding: 0 4px;
+  border-bottom: 1px solid #e3ded4;
   overflow-x: auto;                 /* many items scroll rather than wrap raggedly */
   -webkit-overflow-scrolling: touch;
 }
@@ -580,6 +581,6 @@
 }
 
 @media (max-width: 760px) {
-  .ptl-nav { padding: 0 8px; }
+  .ptl-nav { padding: 0; margin-bottom: 12px; }
   .ptl-nav-item { flex: 1 1 auto; justify-content: center; }
 }
