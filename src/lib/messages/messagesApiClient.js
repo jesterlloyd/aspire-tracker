@@ -61,7 +61,10 @@ function assertNoRoutingFields(body = {}) {
   }
 }
 
-async function request(path, { method = 'GET', params, body, signal } = {}) {
+// Exported so the portal client can reuse this exact authenticated request core
+// (bearer token, routing-field guard, safe error mapping, no raw logging) rather
+// than duplicate it. The portal client adds no transport behavior of its own.
+export async function request(path, { method = 'GET', params, body, signal } = {}) {
   const headers = { Authorization: await authHeader() };
   const init = { method, headers, signal };
   if (body !== undefined) {
