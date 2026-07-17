@@ -172,7 +172,7 @@ export default function PortalNewMessageDrawer({
             <textarea
               id="ptl-newmsg-body"
               className="ptl-input ptl-input-full ptl-msg-textarea"
-              rows={7}
+              rows={5}
               value={body}
               maxLength={MESSAGE_MAX_BODY_CHARS}
               onChange={(e) => setBody(e.target.value)}
@@ -193,7 +193,7 @@ export default function PortalNewMessageDrawer({
 
           <div className="ptl-form-actions ptl-drawer-foot">
             <button type="button" className="ptl-btn-outline" onClick={onClose} disabled={pending}>Cancel</button>
-            <button type="submit" className="ptl-btn-primary" disabled={disabled}>
+            <button type="submit" className="ptl-btn ptl-msg-btn" disabled={disabled}>
               {pending ? 'Sending...' : 'Send message'}
             </button>
           </div>

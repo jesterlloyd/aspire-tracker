@@ -466,30 +466,64 @@
    Colors, radii, and spacing follow the existing portal card and chip language;
    nothing here looks like a public social chat application. */
 
-.ptl-msg-head { align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+/* Primary actions. .ptl-btn is the established filled navy primary; this
+   modifier mirrors what .ptl-hero-actions already does to it (reset the baked-in
+   margin-top, make it inline-flex so an icon aligns) and adds the touch target,
+   focus ring, and disabled state the base never defined. */
+.ptl-msg-btn {
+  margin-top: 0; display: inline-flex; align-items: center; justify-content: center;
+  gap: 7px; min-height: 44px; padding: 10px 18px; font-size: 14px; line-height: 1.2;
+}
+.ptl-msg-btn:focus-visible { outline: 2px solid #1D2567; outline-offset: 2px; }
+.ptl-msg-btn:disabled { background: #b9bed6; cursor: not-allowed; }
+.ptl-msg-btn:disabled:hover { background: #b9bed6; }
+
+.ptl-msg-head { align-items: flex-start; justify-content: space-between; gap: 12px; }
 .ptl-msg-head-text { display: flex; flex-direction: column; gap: 2px; }
-.ptl-msg-subtitle { font-size: 13.5px; margin: 0; }
+/* Scoped so StudentPortal's own section cards keep their 15/18px titles. */
+.ptl-msg-workspace .ptl-section-title { font-size: 24px; line-height: 1.25; }
+@media (min-width: 1024px) { .ptl-msg-workspace .ptl-section-title { font-size: 26px; } }
+.ptl-msg-subtitle { font-size: 14.5px; margin: 0; }
 .ptl-msg-head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .ptl-msg-unread-summary { white-space: nowrap; }
 
 /* Desktop: a readable list beside a thread wide enough for long content. The
    list is fixed and the thread takes the remaining space, so neither collapses. */
-.ptl-msg-split { display: grid; grid-template-columns: 320px 1fr; gap: 18px; margin-top: 16px; align-items: start; }
+/* Bounded, centered content width. Constrained on the workspace rather than on
+   .ptl-main, which the other portal sections and portal roles also use. */
+.ptl-msg-workspace { max-width: 1280px; margin-left: auto; margin-right: auto; }
+.ptl-msg-split { display: grid; grid-template-columns: 360px 1fr; gap: 18px; margin-top: 16px; align-items: start; }
 .ptl-msg-pane { min-width: 0; }  /* lets long content wrap instead of forcing overflow */
 .ptl-msg-pane-list { max-height: 620px; overflow-y: auto; }
 .ptl-msg-pane-thread { display: flex; flex-direction: column; gap: 12px; min-height: 320px; }
 
+/* Desktop: the workspace fills a useful height instead of floating as a short
+   strip in a tall page. The scroll region flexes so the composer stays pinned to
+   the thread rather than drifting. */
+@media (min-width: 761px) {
+  .ptl-msg-split { min-height: 560px; }
+  .ptl-msg-pane-list { max-height: 560px; }
+  .ptl-msg-pane-thread { height: 560px; }
+  .ptl-msg-thread { flex: 1; min-height: 0; }
+  .ptl-msg-scroll { flex: 1; min-height: 0; max-height: none; }
+  .ptl-msg-noselect { min-height: 240px; justify-content: center; }
+}
+
 /* Tablet: keep the split while it stays usable, on a narrower list. */
 @media (max-width: 1000px) {
-  .ptl-msg-split { grid-template-columns: 260px 1fr; gap: 14px; }
+  .ptl-msg-split { grid-template-columns: 300px 1fr; gap: 14px; }
 }
 
 /* Phone: list-first. One column only, never a compressed two-column split. */
 @media (max-width: 760px) {
-  .ptl-msg-split, .ptl-msg-split-narrow { grid-template-columns: 1fr; }
+  .ptl-msg-split, .ptl-msg-split-narrow { grid-template-columns: 1fr; margin-top: 0; }
   .ptl-msg-pane-list { max-height: none; }
-  .ptl-msg-head-actions { width: 100%; }
-  .ptl-msg-new { width: 100%; justify-content: center; min-height: 44px; }
+  /* Heading, subtitle, then the primary action, then the list. The chip and the
+     button share one row: previously flex-wrap plus width:100% pushed the chip
+     onto its own line and opened a 49px gap under the subtitle. */
+  .ptl-msg-head { flex-direction: column; align-items: stretch; gap: 12px; margin-bottom: 16px; }
+  .ptl-msg-head-actions { width: 100%; gap: 10px; flex-wrap: nowrap; }
+  .ptl-msg-new { flex: 1; }
 }
 
 .ptl-msg-list { display: flex; flex-direction: column; gap: 8px; }
@@ -497,8 +531,8 @@
 /* Conversation rows are real buttons, so they are keyboard reachable and
    activatable by default with no synthetic key handling. */
 .ptl-msg-row {
-  display: flex; flex-direction: column; gap: 6px; width: 100%;
-  text-align: left; padding: 12px 14px; min-height: 44px;
+  display: flex; flex-direction: column; gap: 7px; width: 100%;
+  text-align: left; padding: 14px 16px; min-height: 44px;
   background: #fff; border: 1px solid #e3ded4; border-radius: 12px;
   cursor: pointer; font: inherit; color: inherit;
 }
@@ -509,25 +543,31 @@
 .ptl-msg-row-unread .ptl-msg-row-subject { font-weight: 700; }
 
 .ptl-msg-row-top { display: flex; align-items: center; gap: 8px; }
-.ptl-msg-row-subject { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.ptl-msg-row-subject { flex: 1; min-width: 0; font-size: 15.5px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
 .ptl-msg-unread-dot {
   flex-shrink: 0; min-width: 20px; padding: 1px 6px; border-radius: 999px;
   background: #1D2567; color: #fff; font-size: 11.5px; font-weight: 700; text-align: center;
 }
-.ptl-msg-row-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; }
+.ptl-msg-row-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12.5px; }
 .ptl-msg-row-cat { color: #6b6355; }
 .ptl-msg-row-time { color: #6b6355; margin-left: auto; white-space: nowrap; }
 .ptl-msg-row-preview {
-  font-size: 12.5px; color: #6b6355; overflow-wrap: anywhere;
+  font-size: 13px; line-height: 1.45; color: #6b6355; overflow-wrap: anywhere;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .ptl-msg-loadmore, .ptl-msg-loadearlier { align-self: center; min-height: 44px; }
 
 .ptl-msg-thread { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .ptl-msg-thread-head { display: flex; flex-direction: column; gap: 6px; }
-.ptl-msg-thread-subject { margin: 0; font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }
+.ptl-msg-thread-subject { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
 .ptl-msg-thread-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; }
-.ptl-msg-back { align-self: flex-start; min-height: 44px; gap: 4px; }
+.ptl-msg-back {
+  align-self: flex-start; align-items: center; gap: 4px;
+  min-height: 44px; margin-left: -8px; padding: 8px;
+  color: #1D2567; font-size: 13.5px; font-weight: 600;
+}
+.ptl-msg-back:hover { color: #2a3480; }
+.ptl-msg-back:focus-visible { outline: 2px solid #1D2567; outline-offset: 2px; border-radius: 8px; }
 
 .ptl-msg-scroll { display: flex; flex-direction: column; gap: 12px; max-height: 460px; overflow-y: auto; padding-right: 4px; }
 @media (max-width: 760px) { .ptl-msg-scroll { max-height: none; } }
@@ -542,11 +582,26 @@
 .ptl-msg-time { margin-left: auto; font-size: 11.5px; color: #6b6355; white-space: nowrap; }
 /* pre-wrap preserves the sender's line breaks. The text is rendered as text:
    no HTML parsing and no Markdown. */
-.ptl-msg-body { font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ptl-msg-body { font-size: 14.5px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 
-.ptl-msg-composer { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid #e3ded4; padding-top: 12px; }
-.ptl-msg-textarea { resize: vertical; min-height: 88px; font: inherit; }
-.ptl-msg-safety { font-size: 12px; color: #6b6355; }
+.ptl-msg-composer { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #e3ded4; padding-top: 14px; }
+.ptl-msg-composer .ptl-form-actions { margin-top: 2px; display: flex; justify-content: flex-end; }
+.ptl-msg-textarea { resize: vertical; min-height: 104px; max-height: 320px; font: inherit; }
+/* Declared after the base: an equal-specificity rule inside an earlier media
+   block would lose the cascade. 16px also avoids Safari's zoom-on-focus, which
+   fires for any font under 16px and shifts the whole composer. */
+@media (max-width: 760px) {
+  .ptl-msg-textarea { min-height: 112px; font-size: 16px; }
+  .ptl-msg-composer .ptl-form-actions .ptl-msg-btn { flex: 1; }
+}
+/* .ptl-compose-note is a space-between note-plus-action row; used for a three
+   line paragraph it rendered a 114px panel that dominated the composer. Reset it
+   to a compact block. */
+.ptl-msg-safety {
+  display: block; padding: 10px 12px;
+  background: #f6f7fb; border-color: #e2e6f3; color: #4b5563;
+  border-radius: 10px; font-size: 12.5px; line-height: 1.45;
+}
 .ptl-msg-closed-note { font-size: 12.5px; }
 .ptl-msg-empty, .ptl-msg-noselect { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 18px; }
 

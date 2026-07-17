@@ -73,7 +73,7 @@ export default function PortalMessagesInbox({
       <div className="ptl-empty ptl-msg-empty">
         <div className="ptl-card-title">{PORTAL_EMPTY_TITLE}</div>
         <p className="ptl-muted">{PORTAL_EMPTY_BODY}</p>
-        <button type="button" className="ptl-btn-primary" onClick={onNewMessage}>
+        <button type="button" className="ptl-btn ptl-msg-btn" onClick={onNewMessage}>
           <MessageSquarePlus size={15} aria-hidden="true" /> New message
         </button>
       </div>

@@ -100,7 +100,7 @@ export default function PortalReplyComposer({
       {err && <p className="ptl-form-error" role="alert">{err}</p>}
 
       <div className="ptl-form-actions">
-        <button type="submit" className="ptl-btn-primary" disabled={disabled}>
+        <button type="submit" className="ptl-btn ptl-msg-btn" disabled={disabled}>
           <Send size={15} aria-hidden="true" /> {pending ? 'Sending...' : 'Send'}
         </button>
       </div>

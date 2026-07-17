@@ -130,7 +130,7 @@ export default function PortalMessagesWorkspace({
           <button
             ref={newBtnRef}
             type="button"
-            className="ptl-btn-primary ptl-msg-new"
+            className="ptl-btn ptl-msg-btn ptl-msg-new"
             onClick={() => setNewOpen(true)}
           >
             <MessageSquarePlus size={15} aria-hidden="true" /> New message
