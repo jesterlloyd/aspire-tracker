@@ -25,6 +25,39 @@ export const STAFF_STATUS_LABEL = {
   resolved: 'Resolved',
 };
 
+// Phase 4B2b-i: client-side validation bounds, mirroring the Phase 1 CHECK
+// constraints and the Phase 3 server validation exactly. These give the staff a
+// clean inline error before a request is made; the server remains authoritative.
+export const MESSAGE_MAX_BODY_CHARS = 5000;
+export const SUBJECT_MIN_CHARS = 3;
+export const SUBJECT_MAX_CHARS = 120;
+
+// Messages are plain text. Normalize line endings only; never treat input as
+// HTML and never sanitize or render rich text.
+export function normalizeBody(input) {
+  if (typeof input !== 'string') return '';
+  return input.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+}
+
+// Subject: required, trimmed, 3 to 120 characters, never whitespace only.
+export function validateSubjectValue(input) {
+  if (typeof input !== 'string') return { ok: false, error: 'Enter a subject.' };
+  const value = input.trim();
+  if (value.length < SUBJECT_MIN_CHARS) return { ok: false, error: `Use at least ${SUBJECT_MIN_CHARS} characters.` };
+  if (value.length > SUBJECT_MAX_CHARS) return { ok: false, error: `Use at most ${SUBJECT_MAX_CHARS} characters.` };
+  return { ok: true, value };
+}
+
+// Body: trimmed content must be at least 1 character, at most 5000.
+export function validateBodyValue(input) {
+  const value = normalizeBody(input);
+  if (value.trim().length < 1) return { ok: false, error: 'Enter a message.' };
+  if (value.length > MESSAGE_MAX_BODY_CHARS) {
+    return { ok: false, error: `Use at most ${MESSAGE_MAX_BODY_CHARS} characters.` };
+  }
+  return { ok: true, value };
+}
+
 export const PARTICIPANT_ACCESS_LABEL = {
   active: 'Active portal access',
   inactive: 'Portal access inactive',
