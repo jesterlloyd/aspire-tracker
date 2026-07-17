@@ -718,7 +718,9 @@ gates the query, the interval, and the focus refetch together.
 ## Known limitations
 
 - `messages_portal_get_thread` still pages oldest-first. Fixing it is a Phase 5
-  prerequisite before any Student Portal Messages interface is built.
+  prerequisite before any Student Portal Messages interface is built. Phase 5A
+  addresses this with `messages_portal_get_thread_v2`; see
+  `docs/MESSAGES_PHASE5_PORTAL_UI.md`.
 - No Student Portal Messages interface exists. Participants receive notification
   emails but have no in-app conversation view until Phase 5.
 - Component tests are pure and static-source, matching the repository stack; no
