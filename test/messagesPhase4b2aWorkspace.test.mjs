@@ -73,10 +73,10 @@ test('workspace composition and dormancy', async (t) => {
     assert.doesNotMatch(strip(workspace), /queryKey: \['messages_staff_list', /)
   })
 
-  await t.test('Connect.jsx and App.jsx are unchanged and Messages is unrouted', () => {
-    assert.match(connect, /const VALID_TABS = new Set\(\['contacts', 'outreach', 'broadcasts'\]\)/)
-    assert.doesNotMatch(connect, /messages/i)
-    assert.doesNotMatch(connect, /MessagesWorkspace|MessagesInbox/)
+  await t.test('Messages is gated in Connect; App.jsx is untouched', () => {
+    assert.match(connect, /const VALID_TABS = new Set\(\['contacts', 'outreach', 'messages', 'broadcasts'\]\)/)
+    assert.match(connect, /const canUseMessages = \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/, 'Messages is activated in Phase 4B2b-ii and gated to an active Owner or Admin')
+    assert.match(connect, /const canUseMessages = \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/, 'Messages is activated in Phase 4B2b-ii and gated to an active Owner or Admin')
     assert.doesNotMatch(app, /MessagesWorkspace|MessagesInbox/)
     assert.doesNotMatch(app, /\/connect\/messages/)
   })
@@ -86,11 +86,11 @@ test('workspace composition and dormancy', async (t) => {
   // asserts their absence; it asserts what still matters, that the workspace
   // stays DORMANT and unreachable. Their behavior is covered by
   // test/messagesPhase4b2iStaffWrites.test.mjs.
-  await t.test('the workspace remains dormant and unreachable', () => {
-    assert.doesNotMatch(connect, /MessagesWorkspace|MessagesInbox/)
+  await t.test('the workspace is mounted behind the active Owner/Admin gate', () => {
+    assert.match(connect, /const canUseMessages = \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/, 'Messages is activated in Phase 4B2b-ii and gated to an active Owner or Admin')
     assert.doesNotMatch(app, /MessagesWorkspace|MessagesInbox/)
     assert.doesNotMatch(app, /\/connect\/messages/)
-    assert.match(connect, /const VALID_TABS = new Set\(\['contacts', 'outreach', 'broadcasts'\]\)/)
+    assert.match(connect, /const VALID_TABS = new Set\(\['contacts', 'outreach', 'messages', 'broadcasts'\]\)/)
   })
 
   await t.test('no Student Portal Messages UI exists', () => {
@@ -211,7 +211,9 @@ test('polling and visibility', async (t) => {
 
   await t.test('thread and unread poll at the active cadence', () => {
     assert.match(workspace, /refetchInterval: visible \? ACTIVE_POLL_MS : false/)
-    assert.match(polling, /refetchInterval: visible \? intervalMs : false/)
+    // Phase 4B2b-ii added the authorization guard, so an unauthorized caller
+    // never polls at all.
+    assert.match(polling, /refetchInterval: enabled && visible \? intervalMs : false/)
     assert.match(workspace, /useStaffUnreadCount\(\{ intervalMs: ACTIVE_POLL_MS, api \}\)/)
   })
 
@@ -219,7 +221,7 @@ test('polling and visibility', async (t) => {
     assert.match(polling, /typeof document === 'undefined' \? true : !document\.hidden/)
     assert.match(polling, /document\.addEventListener\('visibilitychange', sync\)/)
     assert.match(polling, /window\.addEventListener\('focus', sync\)/)
-    assert.match(polling, /refetchOnWindowFocus: true/)
+    assert.match(polling, /refetchOnWindowFocus: enabled/)
   })
 
   await t.test('listeners are cleaned up on unmount and no setInterval is used', () => {
@@ -230,11 +232,14 @@ test('polling and visibility', async (t) => {
     assert.doesNotMatch(strip(workspace), /setInterval/)
   })
 
-  await t.test('the idle unread hook is reusable but not mounted in Connect', () => {
-    // Phase 4B2b mounts this with IDLE_UNREAD_POLL_MS for the tab badge.
+  await t.test('the idle unread hook drives the Connect tab badge', () => {
+    // Phase 4B2b-ii mounts this in Connect: ACTIVE_POLL_MS on the Messages tab,
+    // IDLE_UNREAD_POLL_MS elsewhere, and disabled entirely without authorization.
     assert.match(polling, /export function useStaffUnreadCount/)
     assert.match(polling, /intervalMs = ACTIVE_POLL_MS/)
-    assert.doesNotMatch(connect, /useStaffUnreadCount/)
+    assert.match(connect, /useStaffUnreadCount\(\{/)
+    assert.match(connect, /intervalMs: activeSubTab === 'messages' \? ACTIVE_POLL_MS : IDLE_UNREAD_POLL_MS/)
+    assert.match(connect, /enabled: canUseMessages/)
   })
 
   await t.test('no Supabase Realtime is used', () => {

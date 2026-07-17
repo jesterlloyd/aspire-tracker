@@ -1,8 +1,9 @@
 # ASPIRE Messages, Phase 4: ASPIRE Connect Staff Interface
 
 Phase 4 builds the staff-facing ASPIRE Messages interface inside ASPIRE Connect,
-on top of the Phase 3 APIs already deployed in production. It is delivered in two
-halves.
+on top of the Phase 3 APIs already deployed in production. Phase 4 is COMPLETE:
+the staff workspace is activated in ASPIRE Connect and available to an active
+Owner or Admin.
 
 - Phase 4A (done): the secure lookups, shared client and utilities, and the staff
   inbox component. Built, tested, and deployed as DORMANT code.
@@ -10,21 +11,31 @@ halves.
   filter modes, which unblocks Unassigned and Uncategorized.
 - Phase 4B Stage B1 (done): the staff-list API migrated onto the v2 RPC. Still
   dormant.
-- Phase 4B Stage B2 (not started): Connect tab integration, the thread workspace,
-  read state, polling, the new-conversation dialog, the reply composer,
-  management controls, and responsive and accessibility refinements.
+- Phase 4B2a Stage A (applied and verified): the v2 staff thread RPC, which opens
+  a thread at the newest messages and pages backward.
+- Phase 4B2a Stage B (done): the workspace shell, thread, read state, and
+  polling. Still dormant.
+- Phase 4B2b-i (done): the new-message dialog, reply composer, and management
+  controls. Still dormant.
+- Phase 4B2b-ii (done): responsive and accessibility refinement, and the final
+  Connect activation. Messages is now exposed.
 
-## Why the Messages tab is not exposed yet
+## The dormancy strategy, and why it ended here
 
-An incomplete Messages feature must not reach production users. Phase 4A
-therefore ships the inbox as dormant code: it is not imported by any routed page.
-`src/pages/Connect.jsx` is byte-for-byte unchanged, `VALID_TABS` still contains
-only `contacts`, `outreach`, and `broadcasts`, the bare `/connect` redirect is
-untouched, and `/connect/messages` resolves to the existing default rather than a
-half-built workspace. No feature flag was introduced. Tests assert all of this,
-so the guarantee cannot regress silently.
+An incomplete Messages feature must not reach production users. Every stage from
+Phase 4A through Phase 4B2b-i therefore shipped as DORMANT code: fully built,
+tested, and deployed, but not imported by any routed page. `src/pages/Connect.jsx`
+stayed byte-for-byte unchanged across all of them, so a half-built workspace could
+never appear even mid-sequence. No feature flag was introduced; dormancy was
+structural rather than conditional, which is why it could not be flipped on by
+accident or by configuration drift.
 
-Phase 4B mounts the component once the full operational workspace exists.
+Phase 4B2b-ii ends that deliberately and all at once. The activation commit is the
+LAST commit of the phase and touches only `src/pages/Connect.jsx`, landing after
+every test, lint, build, and scan already passed. The tests that formerly asserted
+dormancy were retargeted in the same commit to assert the authorization gate that
+replaced it, so the guarantee still cannot regress silently: it simply guards a
+different invariant now.
 
 ## Files
 
@@ -614,14 +625,105 @@ That gate must be `['owner','admin'].includes(role) && userProfile?.is_active !=
 false`: `useAuth()` exposes `isAdmin` and `canEdit` as role-only, so using either
 alone would show Messages to an inactive Owner or Admin.
 
+## Phase 4B2b-ii: final refinement and Connect activation
+
+The last stage of Phase 4. It exposes the workspace built across 4A through
+4B2b-i, and changes exactly two files plus tests and this document.
+
+### Files
+
+- `src/lib/messages/messagesPolling.js` (refined): `useStaffUnreadCount` gained an
+  `enabled` option.
+- `src/pages/Connect.jsx` (activated): the Messages tab, route, gate, and badge.
+
+### The authorization gate
+
+```js
+const canUseMessages = ['owner', 'admin'].includes(userProfile?.role)
+  && userProfile?.is_active !== false
+```
+
+Both halves are required. `useAuth()` exposes `isAdmin` and `canEdit`, but both
+are role-only, so either one alone would show Messages to a deactivated Owner or
+Admin. `userProfile` comes from the `get_my_profile` RPC and does carry
+`is_active`, which `src/App.jsx` already relies on to render the Account
+Deactivated screen for the whole authenticated shell. That screen is a second,
+independent block: an inactive Owner or Admin never reaches Connect at all. The
+gate is written to stand on its own regardless, rather than depend on a guard
+that lives in another file.
+
+`is_staff()` is not used anywhere.
+
+### Client-side hiding is not the security boundary
+
+The gate hides the tab and prevents the workspace from mounting, which is a
+usability and privacy measure, not an authorization one. Every read and write
+still goes through the authenticated API endpoints, which independently verify an
+active Owner or Admin against the caller's verified profile and return 403
+otherwise. Removing the gate in a browser devtools session would reveal an empty
+shell whose every request fails.
+
+### Route resolution and the redirect
+
+```js
+const rawSubTab = /* derived from location.pathname */
+const activeSubTab = (rawSubTab === 'messages' && !canUseMessages) ? 'contacts' : rawSubTab
+```
+
+`rawSubTab` is the path; `activeSubTab` is the resolved tab. Keeping them
+separate is what makes the unauthorized redirect safe: the effect fires on
+`rawSubTab`, so after it replaces the URL with `/connect/contacts` the path is no
+longer `/connect/messages` and the effect cannot re-fire. A guard written against
+`activeSubTab` would have been unable to distinguish "redirected away" from
+"never asked", which is the classic redirect loop.
+
+An unauthorized user who types `/connect/messages` therefore lands on Contacts,
+mounts no workspace, and issues no Messages request of any kind. The unread query
+is additionally disabled through `enabled: canUseMessages`, so not even the count
+is fetched.
+
+The last-tab store in `localStorage` is gated the same way in both directions: a
+stored `messages` value is only honored for an authorized user, and is only
+written by one.
+
+### Tab order and preservation
+
+Contacts, Outreach, Messages, Automations. Messages sits next to Outreach because
+both are person-to-person; Automations stays last as the configuration surface,
+and keeps its existing `/connect/broadcasts` slug, which was deliberately left
+alone. Every existing tab keeps its route, its mounted-but-hidden `display`
+behavior, and its props.
+
+### The unread badge
+
+The Messages tab carries a count chip that appears only above zero, uses the
+shared `formatUnread` (capping at `99+`) and `unreadLabel` helpers, and pairs the
+visible number with screen-reader text. The count is never conveyed by color
+alone.
+
+Cadence follows attention: `ACTIVE_POLL_MS` (30 seconds) while the Messages tab
+is open, `IDLE_UNREAD_POLL_MS` (60 seconds) elsewhere in Connect, and paused
+entirely while the document is hidden. The count comes from the staff unread
+endpoint, which is scoped to the calling staff profile, so one staff member
+reading a thread never clears another's badge. No global sidebar badge was added.
+
+### The `enabled` option
+
+`useStaffUnreadCount` previously polled unconditionally. Mounting it in Connect
+would have made every Owner and Admin poll, but also required that an
+unauthorized caller never poll at all. Rather than mount the hook conditionally
+(which React's rules of hooks forbid), the hook took an `enabled` option that
+gates the query, the interval, and the focus refetch together.
+
 ## Known limitations
 
-- The Messages workspace is still dormant: the Connect tab, workspace, thread,
-  composer, management controls, and polling remain unbuilt, so nothing is
-  exposed to production users yet.
 - `messages_portal_get_thread` still pages oldest-first. Fixing it is a Phase 5
   prerequisite before any Student Portal Messages interface is built.
-- The inbox is dormant: not mounted, not routable.
-- No read pointers, polling, thread, composer, or management actions in Phase 4A.
+- No Student Portal Messages interface exists. Participants receive notification
+  emails but have no in-app conversation view until Phase 5.
 - Component tests are pure and static-source, matching the repository stack; no
-  testing-library or jsdom was introduced.
+  testing-library or jsdom was introduced. They pin structure and contracts, not
+  rendered output.
+- No interactive local visual pass was performed for this stage. See the
+  verification notes in the Phase 4B2b-ii handoff.
+- Subject search is subject-only; message bodies are deliberately not searchable.

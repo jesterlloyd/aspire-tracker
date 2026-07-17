@@ -289,16 +289,16 @@ test('privacy and dormancy', async (t) => {
     assert.match(client, /function assertNoRoutingFields/, 'the routing-field guard is still active')
   })
 
-  await t.test('Messages stays dormant: Connect.jsx and App.jsx unchanged', () => {
-    assert.match(connect, /const VALID_TABS = new Set\(\['contacts', 'outreach', 'broadcasts'\]\)/)
-    assert.doesNotMatch(connect, /messages/i)
-    assert.doesNotMatch(connect, /MessagesWorkspace|MessagesInbox/)
+  await t.test('Messages is gated in Connect; App.jsx is untouched', () => {
+    assert.match(connect, /const VALID_TABS = new Set\(\['contacts', 'outreach', 'messages', 'broadcasts'\]\)/)
+    assert.match(connect, /const canUseMessages = \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/, 'Messages is activated in Phase 4B2b-ii and gated to an active Owner or Admin')
+    assert.match(connect, /const canUseMessages = \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/, 'Messages is activated in Phase 4B2b-ii and gated to an active Owner or Admin')
     assert.doesNotMatch(app, /MessagesWorkspace|MessagesInbox/)
     assert.doesNotMatch(app, /\/connect\/messages/)
   })
 
-  await t.test('no visible Connect unread badge was added in this stage', () => {
-    assert.doesNotMatch(connect, /unread/i)
+  await t.test('the Connect unread badge is present and accessible', () => {
+    assert.match(connect, /messagesUnread/)
   })
 
   await t.test('no Student Portal Messages UI exists', () => {

@@ -141,10 +141,10 @@ test('regression: migrations, Connect, and dormancy', async (t) => {
     assert.match(m('20260716000004_messages_phase4_staff_inbox_filter_modes.sql'), /messages_staff_list_conversations_v2/)
   })
 
-  await t.test('Messages remains dormant: Connect and App untouched', () => {
-    assert.match(connect, /const VALID_TABS = new Set\(\['contacts', 'outreach', 'broadcasts'\]\)/)
-    assert.doesNotMatch(connect, /messages/i)
-    assert.doesNotMatch(connect, /MessagesInbox/)
+  await t.test('Messages is gated in Connect; App.jsx is untouched', () => {
+    assert.match(connect, /const VALID_TABS = new Set\(\['contacts', 'outreach', 'messages', 'broadcasts'\]\)/)
+    assert.match(connect, /const canUseMessages = \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/, 'Messages is activated in Phase 4B2b-ii and gated to an active Owner or Admin')
+    assert.match(connect, /const canUseMessages = \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/, 'Messages is activated in Phase 4B2b-ii and gated to an active Owner or Admin')
     assert.doesNotMatch(app, /MessagesInbox/)
     assert.doesNotMatch(app, /\/connect\/messages/)
   })

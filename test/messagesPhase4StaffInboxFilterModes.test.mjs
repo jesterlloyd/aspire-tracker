@@ -230,15 +230,15 @@ test('Stage A verification file', async (t) => {
 })
 
 test('Phase 4A remains dormant and Messages stays unexposed', async (t) => {
-  await t.test('Connect.jsx and App.jsx are unchanged', () => {
-    assert.match(connect, /const VALID_TABS = new Set\(\['contacts', 'outreach', 'broadcasts'\]\)/)
-    assert.doesNotMatch(connect, /messages/i)
-    assert.doesNotMatch(connect, /MessagesInbox/)
+  await t.test('Messages is gated in Connect; App.jsx is untouched', () => {
+    assert.match(connect, /const VALID_TABS = new Set\(\['contacts', 'outreach', 'messages', 'broadcasts'\]\)/)
+    assert.match(connect, /const canUseMessages = \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/, 'Messages is activated in Phase 4B2b-ii and gated to an active Owner or Admin')
+    assert.match(connect, /const canUseMessages = \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/, 'Messages is activated in Phase 4B2b-ii and gated to an active Owner or Admin')
     assert.doesNotMatch(app, /MessagesInbox/)
   })
 
-  await t.test('no routed page mounts the inbox and no Messages route is activated', () => {
-    assert.doesNotMatch(connect, /\/connect\/messages/)
+  await t.test('the inbox is mounted only through the gated Connect workspace', () => {
+    assert.match(connect, /navigate\('\/connect\/messages'\)/)
     assert.doesNotMatch(app, /\/connect\/messages/)
   })
 
