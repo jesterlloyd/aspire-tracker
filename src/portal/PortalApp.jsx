@@ -11,9 +11,14 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import PortalShell from './PortalShell'
+import PortalNav from './PortalNav'
 import StudentPortal from './StudentPortal'
 import UnitLeaderPortal from './UnitLeaderPortal'
 import AcademicPartnerPortal from './AcademicPartnerPortal'
+import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
+import {
+  PORTAL_ACTIVE_POLL_MS, PORTAL_IDLE_UNREAD_POLL_MS, usePortalUnreadCount,
+} from '../lib/messages/portalMessagesPolling'
 import './portal.css'
 
 export default function PortalApp() {
@@ -21,6 +26,22 @@ export default function PortalApp() {
   const [access, setAccess]   = useState(null)   // { roles, student_ids, unit_keys, school_keys }
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false) // student self-service profile drawer
+  // ASPIRE MESSAGES PHASE 5B-ii: which student section is showing. The portal has
+  // no router and never had URL state, so the view is plain state. A refresh
+  // returns to Home, which is the portal's existing behavior.
+  const [studentView, setStudentView] = useState('home')
+
+  // The unread badge count. Hooks cannot be called after the early returns
+  // below, so this is resolved here and gated by `enabled` instead: a caller
+  // without an active student grant never issues a Messages request, not even
+  // for a count. `roles` comes from get_my_portal_access(), which returns only
+  // grants passing the canonical active predicate, so this is the same
+  // authorization boundary the server enforces.
+  const isStudent = (access?.roles || []).includes('student')
+  const unread = usePortalUnreadCount({
+    enabled: isStudent,
+    intervalMs: studentView === 'messages' ? PORTAL_ACTIVE_POLL_MS : PORTAL_IDLE_UNREAD_POLL_MS,
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -53,7 +74,21 @@ export default function PortalApp() {
   if (roles.includes('student')) {
     return (
       <PortalShell title="Student Portal" userName={userProfile?.full_name} onEditProfile={() => setEditOpen(true)}>
-        <StudentPortal editOpen={editOpen} onOpenEdit={() => setEditOpen(true)} onCloseEdit={() => setEditOpen(false)} />
+        {/* The nav is the first child of the shell's main, so PortalShell stays
+            untouched and this file is the only activation point. */}
+        <PortalNav view={studentView} onSelect={setStudentView} unread={unread} />
+        {/* Both sections stay MOUNTED and are hidden with display, matching the
+            staff Connect convention. Unmounting would drop a reply draft, the
+            selected conversation, the mobile list-or-thread view, and
+            StudentPortal's own fetched data on every switch. The workspace's
+            `active` prop is what stops a hidden view from polling or marking
+            anything read. */}
+        <div style={{ display: studentView === 'home' ? 'block' : 'none' }}>
+          <StudentPortal editOpen={editOpen} onOpenEdit={() => setEditOpen(true)} onCloseEdit={() => setEditOpen(false)} />
+        </div>
+        <div style={{ display: studentView === 'messages' ? 'block' : 'none' }}>
+          <PortalMessagesWorkspace active={studentView === 'messages'} />
+        </div>
       </PortalShell>
     )
   }
