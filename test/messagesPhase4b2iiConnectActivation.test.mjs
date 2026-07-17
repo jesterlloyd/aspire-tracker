@@ -120,7 +120,7 @@ test('Messages tab unread badge', async (t) => {
     assert.match(connect, /<span style=\{srOnly\}>\{unreadLabel\(messagesUnread\)\}<\/span>/)
     // formatUnread caps at 99+ and unreadLabel supplies the text; both are
     // covered by the Phase 4A constants tests.
-    assert.match(connect, /import \{ formatUnread, unreadLabel \}/)
+    assert.match(connect, /import \{[^}]*formatUnread, unreadLabel \}/)
   })
 
   await t.test('is not conveyed by color alone', () => {
