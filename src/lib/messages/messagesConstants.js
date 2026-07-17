@@ -68,12 +68,10 @@ export function participantAccessLabel(isActive) {
 }
 
 // Compact unread display: 1 through 99, then 99+.
-// Cedars-Sinai red for every ASPIRE Messages unread counter. --cs-red is already
-// defined on :root in src/index.css, so the token is reused rather than the hex
-// duplicated; the literal is only the fallback. Action Center's bell badge is a
-// different red (#930045) and is deliberately left alone.
-export const UNREAD_BADGE_BG = 'var(--cs-red, #DC1E34)';
-export const UNREAD_BADGE_FG = '#FFFFFF';
+// Every ASPIRE count badge, Messages or not, comes from src/lib/badgeTokens.js.
+// These aliases keep the existing Messages call sites reading naturally while
+// there remains exactly ONE definition of the color.
+export { BADGE_COUNT_BG as UNREAD_BADGE_BG, BADGE_COUNT_FG as UNREAD_BADGE_FG } from '../badgeTokens.js';
 
 export function formatUnread(count) {
   const n = Number(count) || 0;
