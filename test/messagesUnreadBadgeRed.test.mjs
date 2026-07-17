@@ -82,6 +82,37 @@ test('every Messages unread counter is red, and none is blue', async (t) => {
     assert.match(btn, /<span aria-hidden="true" style=\{pinBadgeStyle\}>/)
   })
 
+  await t.test('Interview Room .ir-tab-badge uses the shared red token', () => {
+    // A count badge, so it follows the badge standard. It is NOT the Chroma
+    // accent that also happens to be #930045.
+    assert.match(indexCss, /\.ir-tab-badge \{[\s\S]{0,600}?background: var\(--cs-red, #DC1E34\); color: #FFFFFF;/)
+    const rule = indexCss.slice(indexCss.indexOf('.ir-tab-badge {'), indexCss.indexOf('.ir-tab-badge {') + 700)
+    // Only the explanatory comment may mention the old color, never a declaration.
+    assert.doesNotMatch(rule, /background:\s*#930045/)
+  })
+
+  await t.test('the live UnifiedNav counter badges use the shared source', () => {
+    const nav = read('../src/components/UnifiedNav.jsx')
+    assert.match(nav, /import \{ BADGE_COUNT_BG, BADGE_COUNT_FG \} from '\.\.\/lib\/badgeTokens'/)
+    // Both spBadge and irBadge spans, color-only migration.
+    assert.equal((nav.match(/background: BADGE_COUNT_BG, color: BADGE_COUNT_FG,/g) || []).length, 2)
+    // No count badge in UnifiedNav is still #930045.
+    const spSpan = nav.slice(nav.indexOf('spBadge > 0'), nav.indexOf('spBadge >= 10'))
+    const irSpan = nav.slice(nav.indexOf('irBadge > 0'), nav.indexOf('irBadge >= 10'))
+    assert.doesNotMatch(spSpan, /#930045/)
+    assert.doesNotMatch(irSpan, /#930045/)
+    // Geometry and 9+ count logic preserved.
+    assert.match(nav, /\{spBadge >= 10 \? '9\+' : spBadge\}/)
+    assert.match(nav, /\{irBadge >= 10 \? '9\+' : irBadge\}/)
+    assert.match(nav, /fontVariantNumeric: 'tabular-nums', lineHeight: 1\.4,/)
+  })
+
+  await t.test('the protected non-badge #930045 tokens are untouched', () => {
+    const theme = read('../src/styles/theme.css')
+    assert.match(theme, /--color-accent-secondary: #930045;/)
+    assert.match(theme, /--color-status-danger:\s*#930045;/)
+  })
+
   await t.test('no unread counter uses the old navy', () => {
     // The badges were authored navy to match the accent, which is the defect.
     assert.doesNotMatch(portalCss, /\.ptl-nav-badge \{[\s\S]{0,160}?background: #1D2567/)

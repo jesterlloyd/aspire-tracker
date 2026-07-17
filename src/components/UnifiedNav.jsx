@@ -1,5 +1,6 @@
 import { RefreshCw } from 'lucide-react'
 import { useUnreadStudents } from '../hooks/useUnreadStudents'
+import { BADGE_COUNT_BG, BADGE_COUNT_FG } from '../lib/badgeTokens'
 import Tooltip from './ui/Tooltip'
 
 // A real "Refresh" button (no longer a "Missing data?" warning; no visible keyboard shortcut).
@@ -111,7 +112,7 @@ export default function UnifiedNav({
 
             {id === 'profiles' && spBadge > 0 && (
               <span style={{
-                background: '#930045', color: '#fff',
+                background: BADGE_COUNT_BG, color: BADGE_COUNT_FG,
                 borderRadius: 999, padding: '1px 7px',
                 fontSize: 11, fontWeight: 700,
                 fontVariantNumeric: 'tabular-nums', lineHeight: 1.4,
@@ -121,7 +122,7 @@ export default function UnifiedNav({
             )}
             {id === 'interviews' && irBadge > 0 && (
               <span style={{
-                background: '#930045', color: '#fff',
+                background: BADGE_COUNT_BG, color: BADGE_COUNT_FG,
                 borderRadius: 999, padding: '1px 7px',
                 fontSize: 11, fontWeight: 700,
                 fontVariantNumeric: 'tabular-nums', lineHeight: 1.4,
