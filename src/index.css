@@ -1975,7 +1975,11 @@ a.doc-file-link:hover { text-decoration: underline; }
 .ir-tab-badge {
   position: absolute; top: -6px; right: -6px;
   width: 18px; height: 18px; border-radius: 50%;
-  background: #930045; color: #fff;
+  /* Shared ASPIRE badge-counter color: Cedars-Sinai red via the --cs-red token,
+     the same source as Action Center, ASPIRE Connect, and Student Portal
+     Messages. Not the Chroma --color-accent-secondary that also happens to be
+     #930045: this is a count badge, so it follows the badge standard. */
+  background: var(--cs-red, #DC1E34); color: #FFFFFF;
   font-size: 11px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   font-family: 'DM Sans', sans-serif;
