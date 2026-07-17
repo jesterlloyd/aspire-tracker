@@ -533,15 +533,22 @@ test('polling', async (t) => {
 
 test('responsive foundation', async (t) => {
   await t.test('desktop is a readable list beside a flexible thread', () => {
-    assert.match(css, /\.ptl-msg-split \{ display: grid; grid-template-columns: 320px 1fr/)
+    // Corrected: 320px read as a cramped inbox against an oversized thread.
+    assert.match(css, /\.ptl-msg-split \{ display: grid; grid-template-columns: 360px 1fr/)
+    // The workspace is bounded and centered rather than stretching to .ptl-main.
+    assert.match(css, /\.ptl-msg-workspace \{ max-width: 1280px; margin-left: auto; margin-right: auto; \}/)
   })
 
   await t.test('tablet keeps a usable split', () => {
-    assert.match(css, /@media \(max-width: 1000px\) \{\s*\n\s*\.ptl-msg-split \{ grid-template-columns: 260px 1fr/)
+    assert.match(css, /@media \(max-width: 1000px\) \{\s*\n\s*\.ptl-msg-split \{ grid-template-columns: 300px 1fr/)
   })
 
   await t.test('phone is list-first and never a compressed two-column split', () => {
-    assert.match(css, /@media \(max-width: 760px\) \{[\s\S]*?\.ptl-msg-split, \.ptl-msg-split-narrow \{ grid-template-columns: 1fr; \}/)
+    assert.match(css, /@media \(max-width: 760px\) \{[\s\S]*?\.ptl-msg-split, \.ptl-msg-split-narrow \{ grid-template-columns: 1fr;/)
+    // The JS breakpoint must equal the CSS one, or widths between them render a
+    // two-column grid with only one pane filled.
+    assert.match(polling, /export const PORTAL_MOBILE_MAX_WIDTH = 760;/)
+    assert.match(css, /@media \(max-width: 760px\)/)
     assert.match(workspace, /const showList = !narrow \|\| mobileView === 'list'/)
     assert.match(workspace, /const showThread = !narrow \|\| mobileView === 'thread'/)
     assert.match(workspace, /if \(narrow\) setMobileView\('thread'\)/)
@@ -561,7 +568,9 @@ test('responsive foundation', async (t) => {
   })
 
   await t.test('New message and the composer stay reachable on a phone', () => {
-    assert.match(css, /\.ptl-msg-new \{ width: 100%; justify-content: center; min-height: 44px; \}/)
+    // justify-content was inert on the old display:block button; the primary now
+    // flexes to fill the row beside the unread chip.
+    assert.match(css, /\.ptl-msg-new \{ flex: 1; \}/)
     assert.match(css, /\.ptl-msg-scroll \{ max-height: none; \}/)
   })
 
@@ -592,7 +601,7 @@ test('accessibility foundation', async (t) => {
   await t.test('focus is visible and touch targets are adequate', () => {
     assert.match(css, /\.ptl-msg-row:focus-visible \{ outline: 2px solid #1D2567; outline-offset: 2px; \}/)
     assert.match(css, /\.ptl-msg-row \{[\s\S]*?min-height: 44px;/)
-    assert.match(css, /\.ptl-msg-back \{ align-self: flex-start; min-height: 44px/)
+    assert.match(css, /\.ptl-msg-back \{[\s\S]{0,200}?min-height: 44px/)
     assert.match(css, /\.ptl-msg-loadmore, \.ptl-msg-loadearlier \{ align-self: center; min-height: 44px; \}/)
   })
 
