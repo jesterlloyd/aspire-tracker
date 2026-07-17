@@ -478,6 +478,142 @@ functions already defined (`startStaffConversation`, `replyStaffConversation`,
 routing-field guard and error mapping. The workspace exposes participant access
 state, so the composer can be disabled when access is inactive.
 
+## Phase 4B2b-i: dormant staff writes and management controls
+
+The workspace remains dormant. Connect.jsx, App.jsx, VALID_TABS, and the
+/connect redirect are untouched, so nothing is exposed. Phase 4B2b-ii performs
+the final responsive and accessibility pass and only then activates the Connect
+Messages tab.
+
+### Actual API contracts used
+
+Inspected from the deployed endpoints, not invented:
+
+- `POST /api/messages-staff-start` with `{participant_profile_id, student_id,
+  subject, category, body}` returns `201 {conversation_id, message_id,
+  created_at, status}`; `409 {error:'conflict', reason}`.
+- `POST /api/messages-staff-reply` with `{conversation_id, body}` returns
+  `201 {message_id, created_at, reopened}`; `409 {error:'conflict',
+  reason:'no_active_participant'}`.
+- `POST /api/messages-staff-manage` with `{action, conversation_id, ...}` where
+  action is `assign` (`assignee_profile_id` uuid or null), `status`
+  (`open|waiting|resolved`), `category` (approved or null), or `flag`
+  (`flagged` boolean). Returns `200 {action, ...data}`.
+- `GET /api/messages-staff-options?kind=participants&q=` returns
+  `{options:[{participant_profile_id, student_id, display_name, context,
+  access_active}]}`, minimum search 2, capped at 20.
+- `GET /api/messages-staff-options?kind=assignees` returns
+  `{options:[{profile_id, display_name, role, is_current_user}]}`.
+
+### New message
+
+`NewMessageDialog.jsx`, rendered inside the dormant workspace. Participant search
+uses React Query with a 300ms debounce and the 2-character minimum, so nothing is
+requested below it. Only `access_active` participants are selectable (a second
+guard on top of the active-only endpoint). No email is displayed and no general
+directory is used. Loading, no-results, and retryable error states are present.
+
+Subject is trimmed and bounded 3 to 120 with a live count; category offers
+Uncategorized (null) plus the seven approved values; body is plain text, trimmed
+non-blank, capped at 5000 with a count that turns red near the limit.
+
+The browser sends exactly `participant_profile_id`, `student_id`, `subject`,
+`category`, and `body`. It never sends `p_delivery`, `recipient_email`,
+`recipient_kind`, a notification `recipient_profile_id`, `event_type`,
+`idempotency_key`, snapshot fields, a CTA path, or notification metadata, and the
+client's `assertNoRoutingFields` guard still enforces this.
+
+### Duplicate-submit protection
+
+Backend notification idempotency does not cover a repeated HTTP request, so the
+client guard is required. While pending, the submit handler returns early, the
+submit button is disabled, and every field is disabled, so one activation
+produces exactly one request whether triggered by click, Enter, or repeated
+keyboard activation. The same pattern protects the reply composer and each
+management action.
+
+### Start success and failure
+
+Success clears the form, closes the dialog, invalidates the inbox and unread
+count, selects the returned `conversation_id` (whose authoritative thread then
+loads), returns focus to the New message trigger, and announces exactly
+`Message sent.` It never claims an email was delivered.
+
+Failure preserves the participant selection, subject, category, and body, and
+shows safe mapped copy. `reset()` runs only on the success path. A 409 clears the
+participant, refreshes the options, and blocks submission until another active
+participant is chosen.
+
+### Reply composer
+
+Below the thread, with a character count, Send, and the exact approved safety
+notice verbatim. Sending is disabled when participant access is inactive, a
+request is pending, the body is blank after trimming, the body exceeds 5000, or
+no conversation is selected.
+
+The draft lives in component memory only. It is never written to localStorage,
+sessionStorage, IndexedDB, or analytics, and background polling never clears it.
+Nothing is inserted optimistically, so a duplicate message cannot appear.
+
+Success clears the draft, invalidates the thread, inbox, and unread count, and
+announces `Message sent.`; the `reopened` flag arrives through the authoritative
+thread refresh. Failure preserves the draft and shows safe retryable copy. A 409
+preserves the draft and refreshes the thread so the header and composer reflect
+the authoritative access state.
+
+### Inactive participant
+
+The exact approved notice is shown, history stays readable, and mark-read,
+assignment, status, category, and follow-up all remain available. Only replying
+and starting a new conversation with that participant are blocked. Email presence
+is never treated as active access.
+
+### Management controls
+
+`ThreadActions.jsx` renders status, assignee, category, and follow-up in the
+thread header. Assignee options come from the narrow active Owner/Admin lookup
+(never a directory), include assign-to-self via `is_current_user`, and allow
+clearing. Status maps to open/waiting/resolved; category uses null for
+Uncategorized; follow-up is an `aria-pressed` toggle labeled `Follow up`.
+
+None of these sends an email: assignment, status including resolution, category,
+and follow-up are silent by backend design. Each action has its own pending state
+so a slow assignment never blocks status, and no optimistic local value is
+written, so a failure simply leaves the server state standing.
+
+### Query invalidation
+
+Success invalidates only `['messages_staff_thread', id]`, `['messages_staff_list']`,
+and where relevant `['messages_staff_unread']`. Search, filters, pagination, the
+selected conversation, and the mobile list or thread view are never reset.
+
+### aria-live feedback
+
+The workspace owns a single `role="status" aria-live="polite"` region. Sends
+announce `Message sent.`; management actions announce a concise result such as
+`Assignment updated.` or `Marked for follow up.` Message content is never
+announced. Validation errors stay associated with their fields through
+`aria-describedby` and `aria-invalid`.
+
+### Accessibility foundation
+
+Labeled participant search, subject, category, message, and reply fields; a
+`role="dialog"` with `aria-modal` and `aria-labelledby`; Escape closes (unless a
+request is pending); focus moves into the dialog on open and returns to the
+trigger on close; icon-only buttons carry accessible names; the inactive-access
+notice is text rather than color. The final tab semantics and full activation
+pass belong to Phase 4B2b-ii.
+
+### Phase 4B2b-ii activation contract
+
+Remaining before exposure: the final responsive pass, the full accessibility
+pass, Connect tab integration in the order Contacts, Outreach, Messages,
+Automations (with Automations keeping `/connect/broadcasts`), the visible unread
+badge with 60-second idle polling, and the active Owner/Admin visibility gate.
+That gate must be `['owner','admin'].includes(role) && userProfile?.is_active !==
+false`: `useAuth()` exposes `isAdmin` and `canEdit` as role-only, so using either
+alone would show Messages to an inactive Owner or Admin.
+
 ## Known limitations
 
 - The Messages workspace is still dormant: the Connect tab, workspace, thread,

@@ -81,11 +81,16 @@ test('workspace composition and dormancy', async (t) => {
     assert.doesNotMatch(app, /\/connect\/messages/)
   })
 
-  await t.test('no New message, reply composer, or management controls exist', () => {
-    const code = strip(workspace)
-    assert.doesNotMatch(code, /New message|startStaffConversation/)
-    assert.doesNotMatch(code, /replyStaffConversation|composer|textarea/i)
-    assert.doesNotMatch(code, /manageStaffConversation|set_assignment|set_status|set_category|set_follow_up/)
+  // Phase 4B2b-i intentionally ADDS the New message workflow, the reply
+  // composer, and the management controls. This guard therefore no longer
+  // asserts their absence; it asserts what still matters, that the workspace
+  // stays DORMANT and unreachable. Their behavior is covered by
+  // test/messagesPhase4b2iStaffWrites.test.mjs.
+  await t.test('the workspace remains dormant and unreachable', () => {
+    assert.doesNotMatch(connect, /MessagesWorkspace|MessagesInbox/)
+    assert.doesNotMatch(app, /MessagesWorkspace|MessagesInbox/)
+    assert.doesNotMatch(app, /\/connect\/messages/)
+    assert.match(connect, /const VALID_TABS = new Set\(\['contacts', 'outreach', 'broadcasts'\]\)/)
   })
 
   await t.test('no Student Portal Messages UI exists', () => {
