@@ -13,7 +13,12 @@ import { getPortalUnreadCount } from './portalMessagesApiClient.js';
 
 export const PORTAL_ACTIVE_POLL_MS = 30 * 1000;
 export const PORTAL_IDLE_UNREAD_POLL_MS = 60 * 1000;
-export const PORTAL_MOBILE_MAX_WIDTH = 900;
+// MUST match the CSS breakpoint in portal.css (@media max-width: 760px). When
+// these disagreed at 900, widths from 761 to 900 rendered the two-column grid in
+// CSS while JS still showed one pane, leaving a dead empty column beside the
+// list. The layout decision lives in two languages, so the number has to be one
+// value in both.
+export const PORTAL_MOBILE_MAX_WIDTH = 760;
 
 // Visibility, so a backgrounded tab stops polling entirely rather than burning
 // requests nobody is reading.
