@@ -318,20 +318,24 @@ test('dormant client: stale-response protection', async (t) => {
   })
 })
 
-test('dormancy: no Student Portal Messages UI exists', async (t) => {
-  await t.test('the client foundation is not imported by any routed page', () => {
-    const importers = ['../src/portal/PortalApp.jsx', '../src/portal/PortalShell.jsx',
-      '../src/portal/StudentPortal.jsx', '../src/App.jsx', '../src/pages/Connect.jsx']
-    for (const f of importers) {
-      assert.doesNotMatch(read(f), /portalThreadState/, `${f} must not mount the Phase 5A foundation`)
-    }
+test('scope: the portal foundation stays out of the staff app', async (t) => {
+  await t.test('the client foundation is imported only by the portal activation point', () => {
+    assert.match(read('../src/portal/PortalApp.jsx'), /portalMessagesPolling/)
+    // The staff app never imports the portal foundation.
+    assert.doesNotMatch(read('../src/pages/Connect.jsx'), /portalThreadState|portalMessages/)
+    assert.doesNotMatch(read('../src/App.jsx'), /portalThreadState|portalMessages/)
   })
 
-  await t.test('no portal Messages tab, route, inbox, thread, composer, or badge', () => {
-    for (const f of ['../src/portal/PortalApp.jsx', '../src/portal/PortalShell.jsx', '../src/portal/StudentPortal.jsx']) {
+  await t.test('PortalApp is the only activation point, and no bypass URL exists', () => {
+    // Phase 5B-ii activated Messages through PortalApp alone.
+    assert.match(read('../src/portal/PortalApp.jsx'), /<PortalMessagesWorkspace active=\{studentView === 'messages'\} \/>/)
+    for (const f of ['../src/portal/PortalShell.jsx', '../src/portal/StudentPortal.jsx']) {
       const s = read(f)
       assert.doesNotMatch(s, /MessagesWorkspace|MessagesInbox|NewMessageDialog|ReplyComposer|messagesApiClient/)
-      assert.doesNotMatch(s, /\/portal\/messages/)
+    }
+    // The portal is state-driven; Messages invented no path of its own.
+    for (const f of ['../src/portal/PortalApp.jsx', '../src/portal/PortalShell.jsx', '../src/portal/StudentPortal.jsx']) {
+      assert.doesNotMatch(read(f), /\/portal\/messages/)
     }
   })
 

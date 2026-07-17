@@ -248,9 +248,15 @@ test('Messages stays dormant and unexposed', async (t) => {
     assert.doesNotMatch(code, /jsx|react/i)
   })
 
-  await t.test('no Student Portal Messages UI exists', () => {
-    for (const f of ['../src/portal/PortalApp.jsx', '../src/portal/PortalShell.jsx', '../src/portal/StudentPortal.jsx']) {
-      assert.doesNotMatch(read(f), /MessagesInbox|MessagesWorkspace|messagesApiClient/)
-    }
+  await t.test('Student Portal Messages is activated and mounted only in the student branch', () => {
+    // Phase 5B-ii ACTIVATED Student Portal Messages. These guards no longer assert
+    // dormancy; they assert the boundary that replaced it. PortalApp is the sole
+    // activation point, so PortalShell, StudentPortal, and App.jsx stay untouched.
+    const papp = read('../src/portal/PortalApp.jsx')
+    assert.match(papp, /<PortalMessagesWorkspace active=\{studentView === 'messages'\} \/>/,
+      'Messages is mounted only in the active student branch')
+    assert.doesNotMatch(read('../src/portal/PortalShell.jsx'), /PortalMessagesWorkspace|PortalNav/)
+    assert.doesNotMatch(read('../src/portal/StudentPortal.jsx'), /PortalMessagesWorkspace|PortalNav/)
+    assert.doesNotMatch(read('../src/App.jsx'), /PortalMessagesWorkspace/)
   })
 })

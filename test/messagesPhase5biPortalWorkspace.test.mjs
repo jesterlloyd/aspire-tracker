@@ -682,29 +682,29 @@ test('privacy', async (t) => {
 })
 
 test('dormancy and regression', async (t) => {
-  await t.test('no routed portal page imports the workspace', () => {
-    for (const f of ['../src/portal/StudentPortal.jsx', '../src/portal/PortalApp.jsx',
-      '../src/portal/PortalShell.jsx', '../src/portal/UnitLeaderPortal.jsx',
-      '../src/portal/AcademicPartnerPortal.jsx', '../src/App.jsx']) {
-      assert.doesNotMatch(read(f), /PortalMessagesWorkspace|portalMessagesApiClient|portalMessagesPolling/,
-        `${f} must not mount Phase 5B-i`)
+  await t.test('only PortalApp imports the workspace, and only in the student branch', () => {
+    // Phase 5B-ii activated Messages through PortalApp alone. The staff shell and
+    // the other portal roles still must not reach it.
+    assert.match(read('../src/portal/PortalApp.jsx'), /import PortalMessagesWorkspace from '\.\/messages\/PortalMessagesWorkspace'/)
+    for (const f of ['../src/portal/PortalShell.jsx', '../src/portal/StudentPortal.jsx',
+      '../src/portal/UnitLeaderPortal.jsx', '../src/portal/AcademicPartnerPortal.jsx', '../src/App.jsx']) {
+      assert.doesNotMatch(read(f), /PortalMessagesWorkspace/, `${f} must not mount the workspace`)
     }
   })
 
-  await t.test('no Student Portal Messages navigation or route exists', () => {
-    for (const f of ['../src/portal/PortalShell.jsx', '../src/portal/PortalApp.jsx',
-      '../src/portal/StudentPortal.jsx']) {
-      const s = read(f)
-      assert.doesNotMatch(s, /\/portal\/messages/)
-      assert.doesNotMatch(s, /Messages/)
-    }
+  await t.test('Student Portal navigation exposes Messages, with no route and no bypass URL', () => {
+    const papp = read('../src/portal/PortalApp.jsx')
+    assert.match(papp, /<PortalNav view=\{studentView\} onSelect=\{setStudentView\} unread=\{unread\} \/>/)
+    // State-driven, so no portal path or query was invented for Messages.
+    assert.doesNotMatch(strip(papp), /\/portal\/messages|useNavigate|useLocation/)
   })
 
-  await t.test('no visible portal unread badge is mounted', () => {
-    // The hook exists but no routed page calls it.
+  await t.test('the portal unread badge is mounted in the student nav only', () => {
     assert.match(polling, /export function usePortalUnreadCount/)
-    assert.doesNotMatch(read('../src/portal/PortalShell.jsx'), /usePortalUnreadCount|unread/i)
-    assert.doesNotMatch(read('../src/portal/StudentPortal.jsx'), /usePortalUnreadCount|unread/i)
+    assert.match(read('../src/portal/PortalApp.jsx'), /const unread = usePortalUnreadCount\(\{/)
+    // Never in the staff sidebar, and never for another portal role.
+    assert.doesNotMatch(read('../src/components/UnifiedNav.jsx'), /usePortalUnreadCount/)
+    assert.doesNotMatch(read('../src/portal/UnitLeaderPortal.jsx'), /usePortalUnreadCount/)
   })
 
   await t.test('the workspace is reachable only through dormant Messages modules', () => {

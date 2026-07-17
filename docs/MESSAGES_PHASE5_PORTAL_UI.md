@@ -7,12 +7,13 @@ APIs already deployed in production. It is delivered in two halves.
   prerequisite. Backend and API foundation only. Migration applied and verified,
   endpoint integrated, deployed.
 - Phase 5B-i (COMPLETE): the full Student Portal Messages workspace, built and
-  deployed DORMANT. No portal navigation, route, or badge exposes it.
-- Phase 5B-ii (not started): activation, plus final visual refinement.
+  deployed DORMANT.
+- Phase 5B-ii (COMPLETE): activation. Student Portal Messages is LIVE.
 
-No Student Portal Messages interface is EXPOSED. Phase 5B-i built the complete
-workspace but left it dormant: it is reachable only from tests and from other
-dormant Messages modules.
+Phase 5 is complete.
+
+Student Portal Messages is live for a student with active Student Portal access.
+Every stage before 5B-ii shipped dormant; 5B-ii ended that in a single commit.
 
 ## Phase 5A scope
 
@@ -578,3 +579,136 @@ direct browser RPC call, and must keep the activation commit last.
 - Component tests remain pure and static-source, matching the repository stack.
   They pin structure and contracts, not rendered output, which is why the
   interactive pass mattered.
+
+## Phase 5B-ii: Student Portal activation
+
+Messages is live. The activation commit changed exactly one production file.
+
+### Activation point
+
+`src/portal/PortalApp.jsx`, and nothing else. Phase 5B-i had identified two
+candidates; the second was avoided.
+
+`PortalShell.jsx`, `StudentPortal.jsx`, and `App.jsx` are byte-for-byte
+unchanged. The navigation renders as the first child of the shell's `main`
+rather than through a new `nav` slot on `PortalShell`, which keeps the shared
+shell (used by the Unit Leader and Academic Partner portals) completely out of
+the change. That is why activation is one file rather than two.
+
+### Navigation, and why there is no route
+
+The Student Portal has no router and has never had URL state: `PortalApp`
+resolves portal roles and renders `StudentPortal` inside `PortalShell` as one
+scrolling page. `PortalNav` adds the smallest view switch that architecture
+supports: plain React state, two items (Home and Messages), no routing library.
+
+No path, query, or hash was introduced. Inventing one only for Messages would
+create a deep-linkable surface where none exists, and the brief explicitly
+forbids a bypass URL. A refresh returns to Home, which is the portal's existing
+behavior rather than a regression.
+
+Both sections stay MOUNTED and are hidden with `display`, matching the staff
+Connect convention. Unmounting would drop a reply draft, the selected
+conversation, the mobile list-or-thread view, and StudentPortal's own fetched
+data on every switch. The workspace's `active` prop is what keeps a hidden view
+from polling or marking anything read.
+
+### Authorization boundary
+
+Messages mounts only inside `roles.includes('student')`. That branch IS the
+active-access gate, not a convenience check: `roles` comes from
+`get_my_portal_access()`, which returns only grants satisfying the canonical
+active predicate (`revoked_at IS NULL AND starts_at <= now() AND (expires_at IS
+NULL OR expires_at > now())`) for the profile resolved through
+`portal_profile_id()`. It is the same predicate `my_message_conversation_ids()`
+applies server-side, so the browser and the database agree by construction.
+
+The unread hook sits above the early returns, because hooks cannot be called
+after them, and is gated with `enabled: isStudent`. A non-student therefore never
+issues a Messages request, not even for a count.
+
+Client visibility is not the security boundary. Every read and write still goes
+through an authenticated `/api/portal/` endpoint that independently verifies the
+caller's own JWT and returns 401, 403, or a non-enumerating 404. No identifier is
+forced equal; no email, `student_id`, school, cohort, unit, placement, preceptor
+relationship, staff assignment, or `is_staff()` grants anything.
+
+### Unread navigation badge
+
+Driven by `usePortalUnreadCount`: `PORTAL_ACTIVE_POLL_MS` (30 seconds) while
+Messages is the active view, `PORTAL_IDLE_UNREAD_POLL_MS` (60 seconds) elsewhere
+in the portal, paused while the document is hidden, refreshed on focus. The
+workspace's own unread observer shares the `['portal_messages_unread']` query
+key, so React Query serves both from one query rather than issuing a second
+request.
+
+Hidden at zero; 1 through 99 render plainly; above that, `99+`. The visible chip
+is `aria-hidden` and the accessible text carries the TRUE count ("150 unread
+messages"), because the cap is a display concern and should not reach a screen
+reader as the fact. Unread never depends on color.
+
+It counts only staff-authored messages newer than this student's own read
+pointer. No staff unread reaches the portal, no portal count reaches the staff
+sidebar, and no badge exists on the public site.
+
+### What was verified interactively
+
+A full local visual pass ran against a temporary harness mirroring the activated
+composition (shell, nav, workspace), with synthetic nonclinical data, removed
+before committing. Verified: nav on desktop and mobile; badge at zero, 3, and
+150 (rendering `99+` with a true accessible count); empty and populated inbox;
+unread rows; Open and Closed; no-selection copy; long subject, preview, and body;
+same-day, multi-day, and identical timestamps; Load earlier; New message and its
+validation; the reply composer; the reopened flow (Closed to Open from the server
+refetch, never optimistic); the revoked-access 409; touch targets (nav 47px, all
+controls at or above 44px); no horizontal overflow; and state preservation across
+a view switch.
+
+The three Phase 5B-i defect fixes were re-verified in the activated context:
+three same-tick clicks produce ONE request; a 409 disables sending with safe copy
+while preserving the draft and history, never leaking the internal reason; and an
+unmeasured `innerWidth` of 0 does not collapse the desktop into mobile.
+
+The hidden-view mark-read gate was verified directly: zero mark-read requests
+fire while Messages is hidden, and returning does not double-mark.
+
+## Manual acceptance required
+
+Automated verification deliberately performed NO production write. The following
+must be done by Jester, signed in, and the thread check is called out because it
+has a side effect:
+
+1. Student Portal shows the Messages navigation item.
+2. Unread badge behavior matches the real count.
+3. The inbox lists real conversations, or shows the empty state.
+4. New message opens and validates WITHOUT submitting.
+5. Opening a thread MARKS IT READ. Do this only when that effect is acceptable.
+6. Mobile layout, Back to messages, and the reply composer.
+7. Closed conversation remains readable.
+
+Do not begin a real student pilot without explicit authorization.
+
+## Future role expansion contract
+
+Unit Leader, Academic Partner, and Preceptor Messages are NOT built and are out
+of scope. Each would need its own participant model, its own authorization
+helper, and its own portal projection: `my_message_conversation_ids()` is
+student-scoped by construction (`participant_role = 'student'` and
+`scope_kind = 'student'`), so it cannot be reused for another role. `PortalNav`
+is student-only and is passed only by the student branch, so the other portals
+are untouched.
+
+## Known limitations, Phase 5
+
+- `can_reply` is projected as `true` by every portal RPC regardless of access
+  state, so it is NOT a usable authorization signal and is not treated as one.
+  The composer stays available and the reply endpoint remains authoritative: a
+  revoked-access 409 preserves the draft, disables further sending for that
+  conversation in the current interface state, keeps history readable, and shows
+  safe copy. Fixing `can_reply` needs an RPC change and a migration, which are
+  deliberately out of scope here.
+- A refresh returns to Home, since the portal has no URL state.
+- `messages_portal_get_thread` (v1) remains deployed for rollback.
+- Component tests are static-source and pure-function, matching the repository
+  stack. They pin structure and contracts, not rendered output, which is why the
+  interactive pass carried the visual and behavioral verification.
