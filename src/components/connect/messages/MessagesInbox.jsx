@@ -29,6 +29,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Search, Filter, RotateCw, Flag, Inbox, AlertCircle } from 'lucide-react'
 import {
   MESSAGE_CATEGORIES, STAFF_STATUSES, STAFF_STATUS_LABEL,
+  UNREAD_BADGE_BG, UNREAD_BADGE_FG,
   formatUnread, unreadLabel, formatInboxTimestamp, formatFullTimestamp,
   participantAccessLabel, mapMessagesError,
 } from '../../../lib/messages/messagesConstants'
@@ -276,7 +277,7 @@ export function ConversationRow({ row, selected, onSelect }) {
 
         <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'center' }}>
           {isUnread && (
-            <span style={{ ...badge, background: T.accent, color: '#fff' }}>
+            <span style={{ ...badge, background: UNREAD_BADGE_BG, color: UNREAD_BADGE_FG }}>
               <span aria-hidden="true">{formatUnread(unread)}</span>
               <span style={srOnly}>{unreadLabel(unread)}</span>
             </span>

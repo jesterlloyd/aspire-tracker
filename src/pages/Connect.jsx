@@ -11,7 +11,7 @@ import OutreachView from '../components/connect/OutreachView'
 import AutomationView from '../components/connect/AutomationView'
 import MessagesWorkspace from '../components/connect/messages/MessagesWorkspace'
 import { useAuth } from '../contexts/AuthContext'
-import { formatUnread, unreadLabel } from '../lib/messages/messagesConstants'
+import { UNREAD_BADGE_BG, UNREAD_BADGE_FG, formatUnread, unreadLabel } from '../lib/messages/messagesConstants'
 import { ACTIVE_POLL_MS, IDLE_UNREAD_POLL_MS, useStaffUnreadCount } from '../lib/messages/messagesPolling'
 import { useToast } from '../hooks/useToast'
 import { ToastContainer } from '../components/Toast'
@@ -161,10 +161,12 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
                   <>
                     {/* Unread is a count chip plus screen-reader text, never
                         color alone. */}
+                    {/* Cedars-Sinai red on every tab state. The red reads on the
+                        active and inactive tab alike, so the badge no longer
+                        changes meaning-carrying color with selection. */}
                     <span aria-hidden="true" style={{
                       marginLeft: 2, padding: '0 5px', borderRadius: 999, minWidth: 16,
-                      background: activeSubTab === 'messages' ? 'rgba(255,255,255,0.22)' : 'var(--color-accent-primary,#1D2567)',
-                      color: activeSubTab === 'messages' ? '#fff' : '#fff',
+                      background: UNREAD_BADGE_BG, color: UNREAD_BADGE_FG,
                       fontSize: 10, fontWeight: 700, lineHeight: '15px', textAlign: 'center',
                     }}>
                       {formatUnread(messagesUnread)}
