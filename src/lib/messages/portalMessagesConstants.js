@@ -5,7 +5,7 @@
 // redefined here: they are imported from messagesConstants.js, because the
 // portal and staff enforce the same limits and the same approved categories.
 
-import { MESSAGE_CATEGORIES } from './messagesConstants';
+import { MESSAGE_CATEGORIES } from './messagesConstants.js';
 
 // The recipient is always the ASPIRE Team. There is no recipient picker.
 export const PORTAL_RECIPIENT_LABEL = 'ASPIRE Team';

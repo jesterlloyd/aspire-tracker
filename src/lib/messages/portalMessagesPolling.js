@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getPortalUnreadCount } from './portalMessagesApiClient';
+import { getPortalUnreadCount } from './portalMessagesApiClient.js';
 
 export const PORTAL_ACTIVE_POLL_MS = 30 * 1000;
 export const PORTAL_IDLE_UNREAD_POLL_MS = 60 * 1000;
@@ -34,13 +34,21 @@ export function usePortalDocumentVisible() {
   return visible;
 }
 
+// A width of 0 means "not measured yet", not "phone". A real viewport is never
+// zero pixels wide, but innerWidth can read 0 before first layout or in an
+// embedded context. Treating that as narrow would collapse a desktop into the
+// mobile list-first view, so an unmeasured width falls back to the wide layout.
+const isNarrowWidth = (width, maxWidth) => width > 0 && width <= maxWidth;
+
 export function usePortalIsNarrow(maxWidth = PORTAL_MOBILE_MAX_WIDTH) {
   const [narrow, setNarrow] = useState(
-    typeof window === 'undefined' ? false : window.innerWidth <= maxWidth,
+    typeof window === 'undefined' ? false : isNarrowWidth(window.innerWidth, maxWidth),
   );
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
-    const onResize = () => setNarrow(window.innerWidth <= maxWidth);
+    const onResize = () => setNarrow(isNarrowWidth(window.innerWidth, maxWidth));
+    // Sync once on mount: the initial state may have been computed before layout.
+    onResize();
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, [maxWidth]);

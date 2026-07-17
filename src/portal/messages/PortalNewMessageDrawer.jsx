@@ -31,6 +31,11 @@ export default function PortalNewMessageDrawer({
   api = { startPortalConversation },
 }) {
   const panelRef = useRef(null)
+  // Synchronous submit mutex. React state does not update until the next render,
+  // so a `pending` state check alone lets repeated activations inside one tick
+  // each fire a request. A ref flips immediately, so one activation is one
+  // request even under a fast double click or a held Enter key.
+  const submittingRef = useRef(false)
   const [subject, setSubject] = useState('')
   const [category, setCategory] = useState('')
   const [body, setBody] = useState('')
@@ -74,12 +79,12 @@ export default function PortalNewMessageDrawer({
   async function submit(e) {
     e?.preventDefault?.()
     setTouched(true)
-    // One user action produces one request: a pending submit is ignored outright
-    // rather than merely disabled, which also covers repeated Enter and
-    // double-click.
-    if (pending) return
+    // One user action produces one request. The ref is checked and set
+    // synchronously, so repeats within the same tick cannot slip through.
+    if (submittingRef.current || pending) return
     if (!subjectCheck.ok || !bodyCheck.ok) return
 
+    submittingRef.current = true
     setPending(true)
     setErr(null)
     try {
@@ -98,9 +103,10 @@ export default function PortalNewMessageDrawer({
     } catch (e2) {
       // The form is preserved on every failure so nothing typed is lost.
       setErr(e2?.status === 409
-        ? mapPortalConflict(e2?.code)
+        ? mapPortalConflict(e2?.reason)
         : mapPortalMessagesError(e2?.status))
     } finally {
+      submittingRef.current = false
       setPending(false)
     }
   }

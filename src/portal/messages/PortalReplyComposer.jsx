@@ -6,7 +6,7 @@
 // sessionStorage, IndexedDB, or analytics, and background polling never clears
 // it because the draft is not derived from any query result.
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Send } from 'lucide-react'
 import { replyToPortalConversation } from '../../lib/messages/portalMessagesApiClient'
 import {
@@ -26,6 +26,9 @@ export default function PortalReplyComposer({
 }) {
   const [body, setBody] = useState('')
   const [pending, setPending] = useState(false)
+  // Synchronous send mutex; see PortalNewMessageDrawer. React state alone cannot
+  // block repeats that land inside a single tick.
+  const sendingRef = useRef(false)
   const [err, setErr] = useState(null)
   // Set only when the server authoritatively reports that portal access to this
   // conversation is gone. The browser never guesses this.
@@ -37,11 +40,12 @@ export default function PortalReplyComposer({
 
   async function send(e) {
     e?.preventDefault?.()
-    // One Send activation produces one request. A pending send is ignored
-    // outright, covering repeated clicks and repeated Enter.
-    if (pending) return
+    // One Send activation produces one request, checked and set synchronously so
+    // repeats within the same tick cannot slip through.
+    if (sendingRef.current || pending) return
     if (!conversationId || !check.ok || accessLost) return
 
+    sendingRef.current = true
     setPending(true)
     setErr(null)
     try {
@@ -57,14 +61,15 @@ export default function PortalReplyComposer({
     } catch (e2) {
       // The draft is preserved on EVERY failure path, including 409.
       if (e2?.status === 409) {
-        setErr(mapPortalConflict(e2?.code))
+        setErr(mapPortalConflict(e2?.reason))
         // Only an authoritative access-lost conflict disables sending.
-        if (portalConflictIsAccessLost(e2?.code)) setAccessLost(true)
+        if (portalConflictIsAccessLost(e2?.reason)) setAccessLost(true)
         onSent?.(null, { refreshOnly: true })
       } else {
         setErr(mapPortalMessagesError(e2?.status))
       }
     } finally {
+      sendingRef.current = false
       setPending(false)
     }
   }

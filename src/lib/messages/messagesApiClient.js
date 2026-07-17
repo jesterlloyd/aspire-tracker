@@ -27,11 +27,18 @@ const FORBIDDEN_WRITE_FIELDS = [
 ];
 
 export class MessagesApiError extends Error {
-  constructor(status, code) {
+  // `code` is the endpoint's `error` field ('conflict', 'rate_limited', ...).
+  // `reason` is the 409 discriminator the write endpoints return alongside it
+  // ('no_active_participant', ...). It is a short machine token, never shown to
+  // a user verbatim: callers map it to safe copy. Without it a caller cannot
+  // tell an access-lost conflict from any other conflict, because every 409
+  // carries the same `error: 'conflict'`.
+  constructor(status, code, reason) {
     super(code || `http_${status}`);
     this.name = 'MessagesApiError';
     this.status = status;
     this.code = code || null;
+    this.reason = reason || null;
   }
 }
 
@@ -74,15 +81,17 @@ export async function request(path, { method = 'GET', params, body, signal } = {
   }
   const res = await fetch(`${path}${toQuery(params)}`, init);
   if (!res.ok) {
-    // Read only a short safe code; never surface or log the raw payload.
+    // Read only short safe tokens; never surface or log the raw payload.
     let code = null;
+    let reason = null;
     try {
       const parsed = await res.json();
       if (typeof parsed?.error === 'string') code = parsed.error;
+      if (typeof parsed?.reason === 'string') reason = parsed.reason;
     } catch {
-      // The body was not JSON. Keep code null and rely on the status.
+      // The body was not JSON. Keep both null and rely on the status.
     }
-    throw new MessagesApiError(res.status, code);
+    throw new MessagesApiError(res.status, code, reason);
   }
   if (res.status === 204) return null;
   return res.json();

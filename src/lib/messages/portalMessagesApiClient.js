@@ -19,7 +19,7 @@
 //     authorization header
 //   - errors carry only an HTTP status and a safe code, never provider or SQL text
 
-import { request, MessagesApiError } from './messagesApiClient';
+import { request, MessagesApiError } from './messagesApiClient.js';
 
 export { MessagesApiError };
 
