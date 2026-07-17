@@ -2,17 +2,27 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 
 const CONNECT_LAST_TAB_KEY = 'aspire.connect.lastTab'
-const VALID_TABS = new Set(['contacts', 'outreach', 'broadcasts'])
-import { Users, Send, Activity } from 'lucide-react'
+// ASPIRE-MESSAGES-P4B2B-II: 'messages' joins the existing URL-derived tab model.
+// Automations keeps its historical '/connect/broadcasts' slug, unchanged.
+const VALID_TABS = new Set(['contacts', 'outreach', 'messages', 'broadcasts'])
+import { Users, Send, Activity, MessageSquare } from 'lucide-react'
 import ContactsView from '../components/connect/ContactsView'
 import OutreachView from '../components/connect/OutreachView'
 import AutomationView from '../components/connect/AutomationView'
+import MessagesWorkspace from '../components/connect/messages/MessagesWorkspace'
+import { useAuth } from '../contexts/AuthContext'
+import { formatUnread, unreadLabel } from '../lib/messages/messagesConstants'
+import { ACTIVE_POLL_MS, IDLE_UNREAD_POLL_MS, useStaffUnreadCount } from '../lib/messages/messagesPolling'
 import { useToast } from '../hooks/useToast'
 import { ToastContainer } from '../components/Toast'
 import { RefreshHint } from '../components/UnifiedNav'
 import WorkspaceBackLink from '../components/ui/WorkspaceBackLink'
 
 const F = 'DM Sans, sans-serif'
+const srOnly = {
+  position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
+  overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
+}
 
 export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef, backPath = '/aggregate', backLabel = 'Aggregate' }) {
   const navigate = useNavigate()
@@ -36,28 +46,62 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
     if (refreshRef) refreshRef.current = handleRefresh
   }, [refreshRef, handleRefresh])
 
-  // URL-routed sub-tab - declared first so useEffects below can safely reference it
-  const activeSubTab = location.pathname.startsWith('/connect/contacts')
-    ? 'contacts'
-    : location.pathname.startsWith('/connect/broadcasts')
-      ? 'broadcasts'
-      : 'outreach'
+  // ASPIRE-MESSAGES-P4B2B-II: Messages is visible only to an ACTIVE Owner or
+  // Admin. useAuth's canEdit/isAdmin are role-only, so neither is sufficient on
+  // its own; is_active must be checked too. This mirrors the server's
+  // is_active_owner_or_admin() (which treats a legacy null as active) and never
+  // uses is_staff(). Client hiding is not a security boundary: every Messages API
+  // enforces the same rule server-side.
+  const { userProfile } = useAuth()
+  const canUseMessages = ['owner', 'admin'].includes(userProfile?.role)
+    && userProfile?.is_active !== false
 
-  // Redirect bare /connect to last active tab (or Contacts as default)
+  // URL-routed sub-tab - declared first so useEffects below can safely reference it
+  const rawSubTab = location.pathname.startsWith('/connect/contacts')
+    ? 'contacts'
+    : location.pathname.startsWith('/connect/messages')
+      ? 'messages'
+      : location.pathname.startsWith('/connect/broadcasts')
+        ? 'broadcasts'
+        : 'outreach'
+  // An unauthorized visitor to /connect/messages never resolves to Messages, so
+  // the workspace is never mounted and no Messages API is ever requested.
+  const activeSubTab = (rawSubTab === 'messages' && !canUseMessages) ? 'contacts' : rawSubTab
+
+  // Redirect bare /connect to last active tab (or Contacts as default). A stored
+  // 'messages' tab is ignored for an unauthorized user, so they can never be sent
+  // to an inaccessible tab.
   useEffect(() => {
     if (location.pathname === '/connect') {
       const saved = localStorage.getItem(CONNECT_LAST_TAB_KEY)
-      const tab = (saved && VALID_TABS.has(saved)) ? saved : 'contacts'
-      navigate(`/connect/${tab}`, { replace: true })
+      const allowed = saved && VALID_TABS.has(saved) && (saved !== 'messages' || canUseMessages)
+      navigate(`/connect/${allowed ? saved : 'contacts'}`, { replace: true })
     }
-  }, [location.pathname, navigate])
+  }, [location.pathname, navigate, canUseMessages])
 
-  // Persist active tab so returning to /connect restores workspace
+  // An unauthorized direct visit to /connect/messages is redirected once to an
+  // allowed tab. The guard is the path, not the resolved tab, so this cannot loop.
   useEffect(() => {
-    if (VALID_TABS.has(activeSubTab)) {
+    if (rawSubTab === 'messages' && !canUseMessages) {
+      navigate('/connect/contacts', { replace: true })
+    }
+  }, [rawSubTab, canUseMessages, navigate])
+
+  // Persist active tab so returning to /connect restores workspace. Messages is
+  // stored only for an authorized user.
+  useEffect(() => {
+    if (VALID_TABS.has(activeSubTab) && (activeSubTab !== 'messages' || canUseMessages)) {
       localStorage.setItem(CONNECT_LAST_TAB_KEY, activeSubTab)
     }
-  }, [activeSubTab])
+  }, [activeSubTab, canUseMessages])
+
+  // Tab unread badge. Polls at 30s while Messages is active and 60s otherwise,
+  // pauses while the document is hidden, and refreshes on focus. `enabled` keeps
+  // an unauthorized user from requesting the endpoint at all.
+  const messagesUnread = useStaffUnreadCount({
+    enabled: canUseMessages,
+    intervalMs: activeSubTab === 'messages' ? ACTIVE_POLL_MS : IDLE_UNREAD_POLL_MS,
+  })
 
   const btnStyle = key => ({
     height: 32, padding: '0 13px',
@@ -109,6 +153,27 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
               <Send size={13} />
               Outreach
             </button>
+            {canUseMessages && (
+              <button onClick={() => navigate('/connect/messages')} style={btnStyle('messages')}>
+                <MessageSquare size={13} />
+                Messages
+                {messagesUnread > 0 && (
+                  <>
+                    {/* Unread is a count chip plus screen-reader text, never
+                        color alone. */}
+                    <span aria-hidden="true" style={{
+                      marginLeft: 2, padding: '0 5px', borderRadius: 999, minWidth: 16,
+                      background: activeSubTab === 'messages' ? 'rgba(255,255,255,0.22)' : 'var(--color-accent-primary,#1D2567)',
+                      color: activeSubTab === 'messages' ? '#fff' : '#fff',
+                      fontSize: 10, fontWeight: 700, lineHeight: '15px', textAlign: 'center',
+                    }}>
+                      {formatUnread(messagesUnread)}
+                    </span>
+                    <span style={srOnly}>{unreadLabel(messagesUnread)}</span>
+                  </>
+                )}
+              </button>
+            )}
             <button onClick={() => navigate('/connect/broadcasts')} style={btnStyle('broadcasts')}>
               <Activity size={13} />
               Automations
@@ -126,6 +191,14 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
         <div style={{ display: activeSubTab === 'outreach' ? 'block' : 'none' }}>
           <OutreachView cohortId={cohortId} onNavigateToStudent={onNavigateToStudent} toast={toast} refreshKey={refreshKey} />
         </div>
+        {/* Messages mounts only for an authorized active Owner/Admin. Like the
+            other sub-tabs it stays mounted while hidden, so search, filters,
+            pagination, selection, and the reply draft survive tab switches. */}
+        {canUseMessages && (
+          <div style={{ display: activeSubTab === 'messages' ? 'flex' : 'none', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+            <MessagesWorkspace refreshKey={refreshKey} />
+          </div>
+        )}
         <div style={{ display: activeSubTab === 'broadcasts' ? 'block' : 'none' }}>
           <AutomationView active={activeSubTab === 'broadcasts'} cohortId={cohortId} toast={toast} refreshKey={refreshKey} />
         </div>
