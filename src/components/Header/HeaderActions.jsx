@@ -8,7 +8,8 @@ import Tooltip from '../ui/Tooltip'
 import UserMenu from '../UserMenu'
 import { useAuth } from '../../contexts/AuthContext'
 import { IDLE_UNREAD_POLL_MS, useStaffUnreadCount } from '../../lib/messages/messagesPolling'
-import { UNREAD_BADGE_BG, UNREAD_BADGE_FG, formatUnread, unreadLabel } from '../../lib/messages/messagesConstants'
+import { pinBadgeStyle } from '../../lib/badgeTokens'
+import { formatUnread, unreadLabel } from '../../lib/messages/messagesConstants'
 
 export default function HeaderActions({
   cohorts, navigate, activeTab, bellRef, setShowActionCenter, showActionCenter, actionBadgeCount,
@@ -68,18 +69,10 @@ export default function HeaderActions({
           onMouseLeave={e => e.currentTarget.style.background = connectActive ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.06)'}
         >
           <MessagesSquare size={15} strokeWidth={1.9} />
-          {/* Unread counter. Position and shape mirror the Action Center bell
-              badge; the color is Cedars-Sinai red rather than the bell's
-              #930045, which is a different red and deliberately untouched. The
-              1.5px navy ring keeps it legible against the navy header. */}
+          {/* Unread counter, sharing the one pin badge with the Action Center
+              bell so the two cannot drift apart again. */}
           {messagesUnread > 0 && (
-            <span aria-hidden="true" style={{
-              position: 'absolute', top: -3, right: -3, minWidth: 16, height: 16,
-              borderRadius: 8, background: UNREAD_BADGE_BG, color: UNREAD_BADGE_FG,
-              fontSize: 10, fontWeight: 700, fontFamily: 'DM Sans',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              padding: '0 3px', lineHeight: 1, border: '1.5px solid #1D2567',
-            }}>
+            <span aria-hidden="true" style={pinBadgeStyle}>
               {formatUnread(messagesUnread)}
             </span>
           )}
@@ -164,8 +157,11 @@ export default function HeaderActions({
               display: 'block',
             }} />
           )}
+          {/* Same shared pin badge as the ASPIRE Connect icon. Only the color and
+              shared styling moved here: the count logic is Action Center's own and
+              is deliberately unchanged, so it still caps at 9+, not Messages 99+. */}
           {actionBadgeCount > 0 && (
-            <span style={{ position:'absolute', top:-3, right:-3, minWidth:16, height:16, borderRadius:8, background:'#930045', color:'#fff', fontSize:10, fontWeight:700, fontFamily:'DM Sans', display:'flex', alignItems:'center', justifyContent:'center', padding:'0 3px', lineHeight:1, border:'1.5px solid #1D2567' }}>
+            <span style={pinBadgeStyle}>
               {actionBadgeCount >= 10 ? '9+' : actionBadgeCount}
             </span>
           )}
