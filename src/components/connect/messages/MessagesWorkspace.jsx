@@ -1,10 +1,9 @@
 // src/components/connect/messages/MessagesWorkspace.jsx
 //
-// ASPIRE MESSAGES, PHASE 4B2A STAGE B: the staff Messages workspace.
+// ASPIRE MESSAGES, PHASE 4B2B-I: the staff Messages workspace.
 //
-// NOT MOUNTED IN PRODUCTION. Phase 4B2b adds the New message dialog, reply
-// composer, and management controls, and only then exposes this as the Connect
-// Messages sub-tab. Until then Connect.jsx, App.jsx, VALID_TABS, and the
+// NOT MOUNTED IN PRODUCTION. Phase 4B2b-ii performs the final responsive and
+// accessibility pass and only then exposes this as the Connect Messages sub-tab. Until then Connect.jsx, App.jsx, VALID_TABS, and the
 // /connect redirect are untouched, so no incomplete Messages feature is
 // reachable. There is no feature flag and no debug route.
 //
@@ -19,8 +18,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, RotateCw, Flag, MessageSquare, AlertCircle } from 'lucide-react'
+import { ArrowLeft, RotateCw, Flag, MessageSquare, AlertCircle, Plus } from 'lucide-react'
 import MessagesInbox from './MessagesInbox'
+import NewMessageDialog from './NewMessageDialog'
+import { ReplyComposer, ThreadManagementControls } from './ThreadActions'
 import {
   STAFF_STATUS_LABEL, formatUnread, unreadLabel, formatFullTimestamp,
   formatInboxTimestamp, participantAccessLabel, mapMessagesError,
@@ -45,7 +46,14 @@ const T = {
 // ── Workspace ───────────────────────────────────────────────────────────────
 
 export default function MessagesWorkspace({ refreshKey = 0, api = defaultApi }) {
+  const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState(null)
+  const [newOpen, setNewOpen] = useState(false)
+  // Reusable announcement region. Sends announce "Message sent."; management
+  // actions announce a concise result. Message content is never announced.
+  const [announcement, setAnnouncement] = useState('')
+  const newBtnRef = useRef(null)
+  const announce = useCallback((text) => setAnnouncement(String(text || '')), [])
   // Mobile is list-first. Selecting a conversation opens the thread view; Back
   // returns to the list with search, filters, and pagination intact (the inbox
   // stays mounted, so its state is never torn down).
@@ -59,6 +67,20 @@ export default function MessagesWorkspace({ refreshKey = 0, api = defaultApi }) 
   }, [])
 
   const backToList = useCallback(() => setMobileView('list'), [])
+
+  // After an authoritative start: refresh the inbox, select the new conversation
+  // (its authoritative thread then loads), and return focus to the trigger.
+  const onCreated = useCallback((conversationId) => {
+    queryClient.invalidateQueries({ queryKey: ['messages_staff_list'] })
+    queryClient.invalidateQueries({ queryKey: ['messages_staff_unread'] })
+    if (conversationId) {
+      setSelectedId(conversationId)
+      setMobileView('thread')
+    }
+    newBtnRef.current?.focus()
+  }, [queryClient])
+
+  const closeNew = useCallback(() => { setNewOpen(false); newBtnRef.current?.focus() }, [])
 
   const showList = !narrow || mobileView === 'list'
   const showThread = !narrow || mobileView === 'thread'
@@ -78,9 +100,19 @@ export default function MessagesWorkspace({ refreshKey = 0, api = defaultApi }) 
           padding: '0 14px',
         }}>
           <div style={{ paddingBottom: 8 }}>
-            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: T.text, fontFamily: F }}>
-              Messages
-            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: T.text, fontFamily: F }}>
+                Messages
+              </h2>
+              <button
+                type="button"
+                ref={newBtnRef}
+                onClick={() => setNewOpen(true)}
+                style={{ ...primaryBtn, marginLeft: 'auto', minHeight: 30 }}
+              >
+                <Plus size={13} aria-hidden="true" /> New message
+              </button>
+            </div>
             <p style={{ margin: '3px 0 0', fontSize: 12.5, color: T.muted, lineHeight: 1.5, fontFamily: F }}>
               Communicate securely with active ASPIRE portal participants.
             </p>
@@ -113,10 +145,22 @@ export default function MessagesWorkspace({ refreshKey = 0, api = defaultApi }) 
             </div>
           )}
           {selectedId
-            ? <ThreadPanel conversationId={selectedId} api={api} onGone={() => setSelectedId(null)} />
+            ? <ThreadPanel conversationId={selectedId} api={api} announce={announce} onGone={() => setSelectedId(null)} />
             : <NoSelection />}
         </div>
       )}
+
+      <NewMessageDialog
+        open={newOpen}
+        onClose={closeNew}
+        onCreated={onCreated}
+        announce={announce}
+        api={api}
+      />
+
+      {/* Polite announcements for sends and management results. Never carries
+          message content or unnecessary participant detail. */}
+      <div role="status" aria-live="polite" style={srOnly}>{announcement}</div>
     </div>
   )
 }
@@ -134,7 +178,7 @@ function NoSelection() {
 
 // ── Thread ──────────────────────────────────────────────────────────────────
 
-export function ThreadPanel({ conversationId, api = defaultApi, onGone = () => {} }) {
+export function ThreadPanel({ conversationId, api = defaultApi, announce = () => {}, onGone = () => {} }) {
   const queryClient = useQueryClient()
   const visible = useDocumentVisible()
   const markedRef = useRef(null)
@@ -233,7 +277,7 @@ export function ThreadPanel({ conversationId, api = defaultApi, onGone = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      <ThreadHeader conversation={conversation} />
+      <ThreadHeader conversation={conversation} api={api} announce={announce} />
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 16px' }}>
         {hasNextPage && (
@@ -261,11 +305,20 @@ export function ThreadPanel({ conversationId, api = defaultApi, onGone = () => {
           ))}
         </ol>
       </div>
+
+      {/* Sending is blocked when portal access is inactive; history stays
+          readable and every management action stays available. */}
+      <ReplyComposer
+        conversationId={conversationId}
+        accessActive={conversation.participant_access_active !== false}
+        api={api}
+        announce={announce}
+      />
     </div>
   )
 }
 
-function ThreadHeader({ conversation: c }) {
+function ThreadHeader({ conversation: c, api, announce }) {
   const accessActive = c.participant_access_active !== false
   return (
     <header style={{ padding: '10px 16px', borderBottom: `1px solid ${T.border}` }}>
@@ -288,6 +341,7 @@ function ThreadHeader({ conversation: c }) {
         )}
         {c.related_student_id && <span style={badge}>Student linked</span>}
       </div>
+      <ThreadManagementControls conversation={c} api={api} announce={announce} />
     </header>
   )
 }
