@@ -82,13 +82,13 @@ test('every Messages unread counter is red, and none is blue', async (t) => {
     assert.match(btn, /<span aria-hidden="true" style=\{pinBadgeStyle\}>/)
   })
 
-  await t.test('Interview Room .ir-tab-badge uses the shared red token', () => {
-    // A count badge, so it follows the badge standard. It is NOT the Chroma
-    // accent that also happens to be #930045.
-    assert.match(indexCss, /\.ir-tab-badge \{[\s\S]{0,600}?background: var\(--cs-red, #DC1E34\); color: #FFFFFF;/)
-    const rule = indexCss.slice(indexCss.indexOf('.ir-tab-badge {'), indexCss.indexOf('.ir-tab-badge {') + 700)
-    // Only the explanatory comment may mention the old color, never a declaration.
-    assert.doesNotMatch(rule, /background:\s*#930045/)
+  await t.test('the orphaned .ir-tab-badge class stays removed', () => {
+    // ASPIRE-CHART dead-code removal: no JSX referenced .ir-tab-badge (the
+    // Interview Room count renders through UnifiedNav's shared-token badge),
+    // so the CSS class was deleted. An orphaned badge class cannot drift from
+    // the standard if it does not exist; keep it out.
+    assert.doesNotMatch(indexCss, /\.ir-tab-badge/)
+    assert.doesNotMatch(read('../src/components/InterviewRubricTab.jsx'), /ir-tab-badge/)
   })
 
   await t.test('the live UnifiedNav counter badges use the shared source', () => {

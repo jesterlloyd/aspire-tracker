@@ -424,7 +424,10 @@ function MainApp({ onLogout }) {
     ;[
       'embed_student_pool', 'embed_unit_pool', 'embed_matches',
       'kpi_stats', 'clinical_placement_availability', 'student_placement_requests',
-      'on_campus_today', 'todays_priorities',
+      // ASPIRE-CHART: 'on_campus_today' and 'todays_priorities' removed - no
+      // live query owns either key (the campus queries use 'on_campus_now*';
+      // priorities.js was dead code, deleted in this commit).
+      'on_campus_now', 'on_campus_now_lifecycle',
       'program_events',
       'availability_blocks', 'interview_sessions', 'interview_slots', 'preference_counts',
       'students_in_cohort', 'interview_calendar', 'todays_interviews',
