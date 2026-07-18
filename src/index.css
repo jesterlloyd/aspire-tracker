@@ -1,5 +1,7 @@
 /* Theme token layer - must load before any legacy vars */
 @import './styles/theme.css';
+/* ASPIRE-CHART: staff functional tokens + shell (loads aspireBrand core) */
+@import './styles/chartTokens.css';
 
 /* ================================================================
    ASPIRE Placement Tracker - Design System

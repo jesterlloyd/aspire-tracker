@@ -210,6 +210,19 @@ function MainApp({ onLogout }) {
     }
   }, [location.pathname])
 
+  // ASPIRE-CHART: consistent staff route titles in the browser tab. Staff
+  // routes are noindex, so this is purely orientation for the human reader.
+  useEffect(() => {
+    const ROUTE_TITLES = {
+      overview: 'Today', profiles: 'Student Profiles', interviews: 'Interviews',
+      rotation: 'Rotation', evaluation: 'Evaluation', connect: 'ASPIRE Connect',
+      catalog: 'Catalog', settings: 'Settings',
+    }
+    const label = ROUTE_TITLES[activeTab]
+    document.title = label ? `${label} · ASPIRE Intelligence` : 'ASPIRE Intelligence'
+    return () => { document.title = 'ASPIRE Intelligence' }
+  }, [activeTab])
+
   // Derive back-navigation label from the stored path
   const backPath  = prevWorkspacePath.current || '/aggregate'
   const backLabel = backPath.startsWith('/rotation') ? 'Rotation'

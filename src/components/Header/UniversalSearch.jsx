@@ -26,7 +26,7 @@ export default function UniversalSearch({
   setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult,
 }) {
   return (
-    <div ref={searchAreaRef} style={{ position:'relative', flexShrink:0 }}>
+    <div ref={searchAreaRef} className="chart-search-area">
       <div style={{ position:'relative', display:'flex', alignItems:'center' }}>
         <span style={{ position:'absolute', left:11, pointerEvents:'none', lineHeight:0, zIndex:1, color:'#fff', opacity: searchFocused ? 1 : 0.95 }}>
           <HeaderSearchIcon />
@@ -40,14 +40,14 @@ export default function UniversalSearch({
           onFocus={() => { setSearchFocused(true); if (searchQuery.length >= 2) setSearchOpen(true) }}
           onBlur={() => setSearchFocused(false)}
           className="header-search-input"
+          /* ASPIRE-CHART: width lives in .chart-search-area CSS so the box can
+             go full-width on narrow screens (focus growth kept on desktop). */
           style={{
             height:34, paddingLeft:32, paddingRight:44,
-            width: searchFocused ? 280 : 220,
             transition:'width 200ms ease, border-color 150ms ease',
             background: searchFocused ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)',
             border:`1px solid ${searchFocused ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.10)'}`,
             borderRadius:8, color:'#fff', fontSize:12.5, fontFamily:'DM Sans',
-            outline:'none',
           }}
           placeholder="Search students, units, contacts…"
         />
@@ -56,7 +56,7 @@ export default function UniversalSearch({
 
       {/* Search dropdown */}
       {searchOpen && (
-        <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, width:360, maxHeight:480, overflowY:'auto', background:'var(--pearl)', border:'1px solid #e5e7eb', borderRadius:12, boxShadow:'0 8px 24px rgba(0,0,0,0.12)', zIndex:400 }}>
+        <div className="chart-search-dropdown">
           {searchLoading ? (
             <div style={{ padding:20, display:'flex', flexDirection:'column', gap:8 }}>
               {[80,60,70].map((w,i) => <div key={i} style={{ height:12, borderRadius:6, background:'#f3f4f6', width:`${w}%` }} />)}

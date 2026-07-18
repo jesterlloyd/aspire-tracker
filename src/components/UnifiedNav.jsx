@@ -51,14 +51,9 @@ export default function UnifiedNav({
   const spBadge = unreadData?.count || 0
 
   return (
-    <nav style={{
-      background: 'var(--bg-card,#FAFAF7)',
-      borderBottom: '1px solid var(--border-divider,rgba(29,37,103,0.08))',
-      padding: '0 32px',
-      display: 'flex',
-      alignItems: 'stretch',
-      fontFamily: 'DM Sans, sans-serif',
-    }}>
+    // ASPIRE-CHART: layout moved to .chart-nav (chartTokens.css). The tab row
+    // scrolls horizontally on narrow screens instead of overflowing the page.
+    <nav className="chart-nav" aria-label="Workspaces">
       {TABS.map(({ id, label, chip }) => {
         const isActive   = activeTab === id
         const tourTarget = {
@@ -74,29 +69,19 @@ export default function UnifiedNav({
             key={id}
             onClick={() => onSwitchTab(id)}
             aria-label={`${label} tab`}
+            aria-current={isActive ? 'page' : undefined}
             data-tour={tourTarget}
+            className="chart-nav-tab"
             style={{
-              position: 'relative',
-              padding: '11px 16px',
-              height: '100%',
-              border: 'none',
               borderBottom: isActive ? '2px solid var(--color-accent-primary,#1D2567)' : '2px solid transparent',
-              background: 'none',
               color: isActive ? 'var(--color-accent-primary,#1D2567)' : 'var(--text-muted,#6B7280)',
-              fontFamily: 'DM Sans, sans-serif',
-              fontSize: 17,
               fontWeight: isActive ? 600 : 500,
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 7,
-              transition: 'color 0.15s, border-color 0.15s',
-              flexShrink: 0,
-              marginBottom: -1,
             }}
             onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = 'var(--text-caption,#374151)' }}
             onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = 'var(--text-muted,#6B7280)' }}
           >
-            {/* ASPIRE mnemonic chip - quiet, always muted grey */}
-            <span style={{
+            {/* ASPIRE mnemonic chip - quiet, always muted grey; hidden on phones */}
+            <span className="chart-nav-chip" style={{
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               height: 20, minWidth: chip.length > 1 ? 26 : 20,
               padding: chip.length > 1 ? '0 4px' : 0,
@@ -134,7 +119,9 @@ export default function UnifiedNav({
         )
       })}
 
-      <RefreshHint />
+      <div className="chart-nav-refresh">
+        <RefreshHint />
+      </div>
     </nav>
   )
 }
