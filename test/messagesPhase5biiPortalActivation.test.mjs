@@ -31,7 +31,9 @@ const rootApp = read('../src/App.jsx')
 test('activation: the workspace is mounted inside the portal boundary', async (t) => {
   await t.test('PortalApp mounts the existing dormant workspace', () => {
     assert.match(app, /import PortalMessagesWorkspace from '\.\/messages\/PortalMessagesWorkspace'/)
-    assert.match(app, /<PortalMessagesWorkspace active=\{studentView === 'messages'\} \/>/)
+    // ASPIRE-COMPASS: the workspace is URL-controlled but still mounted only
+    // here, still gated by the active prop.
+    assert.match(app, /<PortalMessagesWorkspace\s[\s\S]*?active=\{studentView === 'messages'\}/)
   })
 
   await t.test('no second portal Messages implementation was created', () => {
@@ -73,14 +75,20 @@ test('activation: the workspace is mounted inside the portal boundary', async (t
     assert.match(read('../src/lib/messages/portalMessagesApiClient.js'), /\/api\/portal\/messages-list/)
   })
 
-  await t.test('no hidden bypass route and no new routing library', () => {
-    // The portal has no router; the activation adds none.
-    assert.doesNotMatch(appCode, /react-router|BrowserRouter|<Route|useNavigate|useLocation/)
-    assert.doesNotMatch(navCode, /react-router|<Route|useNavigate|useLocation/)
-    assert.doesNotMatch(appCode, /location\.(pathname|search|hash)/)
-    // App.jsx still routes /portal to PortalApp and nothing else changed there.
+  await t.test('URL routing is deliberate, minimal, and grants nothing', () => {
+    // ASPIRE-COMPASS (owner-approved): /portal, /portal/messages, and
+    // /portal/messages/:threadId are real URLs now. Routing uses ONLY the
+    // app's existing react-router (no new routing library), the view derives
+    // from the location, and URLs never grant access: the messages endpoints
+    // still verify the caller's JWT on every request.
+    assert.match(app, /useLocation, useNavigate \} from 'react-router-dom'/)
+    assert.doesNotMatch(appCode, /wouter|@tanstack\/react-router|BrowserRouter|createBrowserRouter/)
+    assert.match(app, /location\.pathname\.startsWith\('\/portal\/messages'\)/)
+    // App.jsx routes the whole /portal/* subtree to the SAME guarded
+    // PortalRoute; the workspace itself is still only imported by PortalApp.
     assert.match(rootApp, /const PortalApp = lazy\(\(\) => import\('\.\/portal\/PortalApp'\)\)/)
-    assert.doesNotMatch(strip(rootApp), /PortalMessagesWorkspace|\/portal\/messages/)
+    assert.match(rootApp, /<Route path="\/portal\/\*"\s+element=\{<PortalRoute \/>\} \/>/)
+    assert.doesNotMatch(strip(rootApp), /PortalMessagesWorkspace/)
   })
 
   await t.test('PortalShell is untouched, so activation is isolated to PortalApp', () => {
@@ -101,16 +109,20 @@ test('activation: view switching preserves both surfaces', async (t) => {
   })
 
   await t.test('the existing portal home still renders and keeps its props', () => {
-    assert.match(app, /<StudentPortal editOpen=\{editOpen\} onOpenEdit=\{\(\) => setEditOpen\(true\)\} onCloseEdit=\{\(\) => setEditOpen\(false\)\} \/>/)
+    assert.match(app, /<StudentPortal\s[\s\S]*?editOpen=\{editOpen\}/)
+    assert.match(app, /onOpenEdit=\{\(\) => setEditOpen\(true\)\}/)
+    assert.match(app, /onCloseEdit=\{\(\) => setEditOpen\(false\)\}/)
   })
 
   await t.test('the default view is Home', () => {
-    assert.match(app, /const \[studentView, setStudentView\] = useState\('home'\)/)
+    // The view derives from the URL; any /portal path that is not
+    // /portal/messages resolves to Home.
+    assert.match(app, /const studentView = location\.pathname\.startsWith\('\/portal\/messages'\) \? 'messages' : 'home'/)
   })
 
   await t.test('a hidden Messages view does not poll the inbox or thread', () => {
     assert.match(workspace, /refreshMs=\{active \? PORTAL_ACTIVE_POLL_MS : false\}/)
-    assert.match(app, /<PortalMessagesWorkspace active=\{studentView === 'messages'\} \/>/)
+    assert.match(app, /<PortalMessagesWorkspace\s[\s\S]*?active=\{studentView === 'messages'\}/)
   })
 
   await t.test('a hidden Messages view never marks anything read', () => {
@@ -125,7 +137,7 @@ test('activation: view switching preserves both surfaces', async (t) => {
 test('unread navigation badge', async (t) => {
   await t.test('the badge is driven by the portal unread hook', () => {
     assert.match(app, /const unread = usePortalUnreadCount\(\{/)
-    assert.match(app, /<PortalNav view=\{studentView\} onSelect=\{setStudentView\} unread=\{unread\} \/>/)
+    assert.match(app, /<PortalNav\s[\s\S]*?unread=\{unread\}/)
   })
 
   await t.test('30 seconds while Messages is active, 60 seconds elsewhere', () => {
@@ -187,19 +199,22 @@ test('navigation semantics and accessibility', async (t) => {
     assert.match(nav, /aria-current=\{view === 'home' \? 'page' : undefined\}/)
     assert.match(nav, /aria-current=\{view === 'messages' \? 'page' : undefined\}/)
     // The underline plus weight are the visual echo.
-    assert.match(css, /\.ptl-nav-item-active \{ color: #1D2567; border-bottom-color: #1D2567; \}/)
+    assert.match(css, /\.ptl-nav-item-active \{ color: var\(--ptl-navy\); border-bottom-color: var\(--ptl-navy\); \}/)
   })
 
   await t.test('visible focus and adequate touch targets', () => {
-    assert.match(css, /\.ptl-nav-item:focus-visible \{ outline: 2px solid #1D2567; outline-offset: -2px; \}/)
+    // ASPIRE-COMPASS: focus comes from the portal-wide focus-visible ring; the
+    // nav only tightens the offset so the ring hugs the tab.
+    assert.match(css, /\.ptl-page \*:focus-visible \{\s*\n\s*outline: 2px solid var\(--ptl-navy\);/)
+    assert.match(css, /\.ptl-nav-item:focus-visible \{ outline-offset: -2px; \}/)
     assert.match(css, /\.ptl-nav-item \{[\s\S]*?min-height: 44px;/)
   })
 
   await t.test('icons are decorative and the label is text', () => {
-    assert.match(nav, /<Home size=\{15\} aria-hidden="true" \/>/)
-    assert.match(nav, /<MessageSquare size=\{15\} aria-hidden="true" \/>/)
-    assert.match(nav, /\n\s*Messages\n/)
-    assert.match(nav, /\n\s*Home\n/)
+    assert.match(nav, /<Home size=\{16\} aria-hidden="true" \/>/)
+    assert.match(nav, /<MessageSquare size=\{16\} aria-hidden="true" \/>/)
+    assert.match(nav, /<span className="ptl-nav-label">Messages<\/span>/)
+    assert.match(nav, /<span className="ptl-nav-label">Home<\/span>/)
   })
 
   await t.test('unrelated portal items were not renamed', () => {

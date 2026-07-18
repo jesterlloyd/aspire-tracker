@@ -56,7 +56,9 @@ test('public-site mobile header + compact menu', async (t) => {
 
   await t.test('the compact popover is a right-aligned card, hidden on desktop', () => {
     assert.match(css, /\.ps-menu \{[\s\S]*?position: absolute;[\s\S]*?right: 0;[\s\S]*?border-radius: 14px;[\s\S]*?box-shadow:/)
-    assert.match(css, /@media \(min-width: 761px\) \{\s*\.ps-menu \{ display: none; \}/)
+    // The hamburger breakpoint moved to 1024px (tablet nav fix): the popover
+    // hides wherever the inline nav shows.
+    assert.match(css, /@media \(min-width: 1024px\) \{\s*\n\s*\.ps-menu \{ display: none; \}/)
     assert.match(css, /env\(safe-area-inset-top/, 'header respects the safe area')
     // No conflicting left positioning on the menu.
     assert.doesNotMatch(css, /\.ps-menu \{[^}]*left:/)
@@ -71,18 +73,18 @@ test('public-site mobile header + compact menu', async (t) => {
   await t.test('desktop navigation is unchanged (inline nav + inline action)', () => {
     assert.match(site, /<nav className="ps-nav" aria-label="Primary">[\s\S]*?NAV_LINKS\.map/)
     assert.match(site, /\? <Link to="\/portal" className="ps-login-btn">Open Portal<\/Link>/)
-    // Desktop still hides the hamburger until <=760px.
+    // The hamburger takes over below 1024px (tablet nav fix).
     assert.match(css, /\.ps-nav-toggle \{\s*display: none;/)
-    assert.match(css, /@media \(max-width: 760px\) \{[\s\S]*?\.ps-nav-toggle \{ display: flex; \}/)
+    assert.match(css, /@media \(max-width: 1023px\) \{[\s\S]*?\.ps-nav-toggle \{ display: flex; \}/)
   })
 })
 
 test('Student Portal hero avatar is larger and keeps the initials fallback', async (t) => {
-  await t.test('desktop avatar is ~96-112px with a preserved ring (ASPIRE-STUDENT-HOME)', () => {
-    assert.match(portalCss, /\.ptl-hero \.ptl-avatar \{ width: 104px; height: 104px;[\s\S]*?border: 3px solid rgba\(255,255,255/)
+  await t.test('desktop avatar is prominent with a preserved ring (ASPIRE-COMPASS)', () => {
+    assert.match(portalCss, /\.ptl-compass \.ptl-avatar \{ width: 88px; height: 88px;[\s\S]*?border: 3px solid rgba\(255,255,255/)
   })
-  await t.test('mobile avatar is ~72-84px', () => {
-    assert.match(portalCss, /\.ptl-hero \.ptl-avatar \{ width: 72px; height: 72px;/)
+  await t.test('mobile avatar scales down but stays recognizable', () => {
+    assert.match(portalCss, /\.ptl-compass \.ptl-avatar \{ width: 64px; height: 64px;/)
   })
   await t.test('circular crop and non-stretch image are preserved', () => {
     assert.match(portalCss, /\.ptl-avatar \{[\s\S]*?border-radius: 50%;/)

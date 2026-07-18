@@ -362,7 +362,8 @@ test('New message', async (t) => {
     assert.match(newMsg, /onSent\?\.\(out\)/)
     assert.match(newMsg, /onClose\?\.\(\)/)
     assert.match(workspace, /if \(out\?\.conversation_id\) \{/)
-    assert.match(workspace, /setSelectedId\(out\.conversation_id\)/)
+    // ASPIRE-COMPASS: selection is a navigation to /portal/messages/:id.
+    assert.match(workspace, /onSelectThread\?\.\(out\.conversation_id\)/)
     assert.match(workspace, /refreshInbox\(\)/)
   })
 
@@ -521,8 +522,10 @@ test('polling', async (t) => {
   })
 
   await t.test('background refresh preserves state and shows no full loading state', () => {
-    // Selection, pagination, and drafts are component state, not query results.
-    assert.match(workspace, /const \[selectedId, setSelectedId\] = useState\(null\)/)
+    // Selection is URL state (ASPIRE-COMPASS); pagination and drafts remain
+    // component state. None of them derive from query results, so a
+    // background refetch can never clear them.
+    assert.match(workspace, /const selectedId = threadId/)
     // isLoading is the first-load flag only; a background refetch does not set it.
     assert.match(inbox, /if \(isLoading\)/)
     assert.match(thread, /if \(isLoading\)/)
@@ -551,20 +554,23 @@ test('responsive foundation', async (t) => {
     assert.match(css, /@media \(max-width: 760px\)/)
     assert.match(workspace, /const showList = !narrow \|\| mobileView === 'list'/)
     assert.match(workspace, /const showThread = !narrow \|\| mobileView === 'thread'/)
-    assert.match(workspace, /if \(narrow\) setMobileView\('thread'\)/)
+    // ASPIRE-COMPASS: the phone view derives from the URL; a thread id means
+    // the thread view.
+    assert.match(workspace, /const mobileView = threadId \? 'thread' : 'list'/)
   })
 
   await t.test('Back to messages exists and returns to the list', () => {
     assert.match(thread, /Back to messages/)
-    assert.match(workspace, /onBack=\{\(\) => setMobileView\('list'\)\}/)
+    assert.match(workspace, /onBack=\{\(\) => onBackToList\?\.\(\)\}/)
     assert.match(workspace, /showBack=\{narrow\}/)
   })
 
-  await t.test('returning to the list preserves selection and state', () => {
-    // Back changes only the view; selectedId is untouched, so the thread, its
-    // pages, and the draft all survive.
+  await t.test('returning to the list preserves pagination and drafts', () => {
+    // Back navigates to /portal/messages; the workspace stays mounted, so the
+    // thread cache, its pages, and any draft survive. Nothing here clears
+    // conversation state on back beyond the selection itself.
     const back = workspace.slice(workspace.indexOf('onBack='), workspace.indexOf('onBack=') + 60)
-    assert.doesNotMatch(back, /setSelectedId\(null\)/)
+    assert.doesNotMatch(back, /setBody|setConversation\(null\)/)
   })
 
   await t.test('New message and the composer stay reachable on a phone', () => {
@@ -701,11 +707,15 @@ test('dormancy and regression', async (t) => {
     }
   })
 
-  await t.test('Student Portal navigation exposes Messages, with no route and no bypass URL', () => {
+  await t.test('Student Portal navigation exposes Messages through guarded URLs only', () => {
     const papp = read('../src/portal/PortalApp.jsx')
-    assert.match(papp, /<PortalNav view=\{studentView\} onSelect=\{setStudentView\} unread=\{unread\} \/>/)
-    // State-driven, so no portal path or query was invented for Messages.
-    assert.doesNotMatch(strip(papp), /\/portal\/messages|useNavigate|useLocation/)
+    assert.match(papp, /<PortalNav\s[\s\S]*?view=\{studentView\}/)
+    // ASPIRE-COMPASS (owner-approved): /portal/messages and
+    // /portal/messages/:threadId are real URLs handled INSIDE the guarded
+    // /portal/* route. They grant nothing: every messages request still
+    // verifies the caller's JWT server-side. No other file mints the path.
+    assert.match(papp, /navigate\(`\/portal\/messages\/\$\{id\}`\)/)
+    assert.doesNotMatch(strip(read('../src/portal/PortalShell.jsx')), /\/portal\/messages/)
   })
 
   await t.test('the portal unread badge is mounted in the student nav only', () => {

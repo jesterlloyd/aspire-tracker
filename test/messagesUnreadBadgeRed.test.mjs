@@ -291,7 +291,7 @@ test('regression', async (t) => {
   })
 
   await t.test('Student Portal Messages still works', () => {
-    assert.match(read('../src/portal/PortalApp.jsx'), /<PortalMessagesWorkspace active=\{studentView === 'messages'\} \/>/)
+    assert.match(read('../src/portal/PortalApp.jsx'), /<PortalMessagesWorkspace\s[\s\S]*?active=\{studentView === 'messages'\}/)
     assert.match(read('../api/portal/messages-thread.js'), /messages_portal_get_thread_v2/)
   })
 

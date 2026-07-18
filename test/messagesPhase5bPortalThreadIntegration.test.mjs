@@ -326,15 +326,17 @@ test('scope: the portal foundation stays out of the staff app', async (t) => {
     assert.doesNotMatch(read('../src/App.jsx'), /portalThreadState|portalMessages/)
   })
 
-  await t.test('PortalApp is the only activation point, and no bypass URL exists', () => {
-    // Phase 5B-ii activated Messages through PortalApp alone.
-    assert.match(read('../src/portal/PortalApp.jsx'), /<PortalMessagesWorkspace active=\{studentView === 'messages'\} \/>/)
+  await t.test('PortalApp is the only activation point, and URLs grant nothing', () => {
+    // Phase 5B-ii activated Messages through PortalApp alone; ASPIRE-COMPASS
+    // made the section URL-driven (/portal/messages[/:threadId]) inside the
+    // same guarded /portal/* route. PortalApp remains the only mount point.
+    assert.match(read('../src/portal/PortalApp.jsx'), /<PortalMessagesWorkspace\s[\s\S]*?active=\{studentView === 'messages'\}/)
     for (const f of ['../src/portal/PortalShell.jsx', '../src/portal/StudentPortal.jsx']) {
       const s = read(f)
       assert.doesNotMatch(s, /MessagesWorkspace|MessagesInbox|NewMessageDialog|ReplyComposer|messagesApiClient/)
     }
-    // The portal is state-driven; Messages invented no path of its own.
-    for (const f of ['../src/portal/PortalApp.jsx', '../src/portal/PortalShell.jsx', '../src/portal/StudentPortal.jsx']) {
+    // Only PortalApp mints the messages path; shell and home never hardcode it.
+    for (const f of ['../src/portal/PortalShell.jsx', '../src/portal/StudentPortal.jsx']) {
       assert.doesNotMatch(read(f), /\/portal\/messages/)
     }
   })

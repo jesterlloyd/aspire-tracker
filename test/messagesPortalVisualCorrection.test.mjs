@@ -24,13 +24,14 @@ const drawer = read('../src/portal/messages/PortalNewMessageDrawer.jsx')
 const jsxFiles = { workspace, inbox, reply, drawer }
 
 test('primary buttons use the established base, not the hero-only modifier', async (t) => {
-  await t.test('.ptl-btn-primary is a hero inverse modifier and must not be used alone', () => {
-    // It is white-on-navy with no padding, radius, border reset, or font. Used
-    // standalone the browser default showed through: 2px outset black border,
-    // 0 padding, 13.3px UA font, 22px tall.
-    assert.match(css, /\.ptl-btn-primary \{ background: #fff; color: #1D2567; \}/)
+  await t.test('.ptl-btn-primary is retired and no component uses it', () => {
+    // ASPIRE-COMPASS removed the hero and the trap class with it: the "primary"
+    // that was secretly white-on-navy no longer exists anywhere. The compass
+    // CTA carries its own explicit on-navy class instead.
+    assert.doesNotMatch(css, /\.ptl-btn-primary/)
+    assert.match(css, /\.ptl-compass-cta \{/)
     for (const [name, s] of Object.entries(jsxFiles)) {
-      assert.doesNotMatch(s, /ptl-btn-primary/, `${name} must not use the hero modifier`)
+      assert.doesNotMatch(s, /ptl-btn-primary/, `${name} must not use the retired hero modifier`)
     }
   })
 
@@ -216,7 +217,7 @@ test('no horizontal overflow and no regressions', async (t) => {
     assert.match(drawer, /const submittingRef = useRef\(false\)/)
     assert.match(reply, /mapPortalConflict\(e2\?\.reason\)/)
     assert.match(read('../src/portal/messages/PortalMessagesThread.jsx'), /if \(!active\) return/)
-    assert.match(read('../src/portal/PortalApp.jsx'), /<PortalMessagesWorkspace active=\{studentView === 'messages'\} \/>/)
+    assert.match(read('../src/portal/PortalApp.jsx'), /<PortalMessagesWorkspace\s[\s\S]*?active=\{studentView === 'messages'\}/)
   })
 
   await t.test('staff Messages and the migrations were not touched', () => {

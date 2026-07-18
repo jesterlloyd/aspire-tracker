@@ -154,7 +154,7 @@ test('regression: migrations, Connect, and dormancy', async (t) => {
     // dormancy; they assert the boundary that replaced it. PortalApp is the sole
     // activation point, so PortalShell, StudentPortal, and App.jsx stay untouched.
     const papp = read('../src/portal/PortalApp.jsx')
-    assert.match(papp, /<PortalMessagesWorkspace active=\{studentView === 'messages'\} \/>/,
+    assert.match(papp, /<PortalMessagesWorkspace\s[\s\S]*?active=\{studentView === 'messages'\}/,
       'Messages is mounted only in the active student branch')
     assert.doesNotMatch(read('../src/portal/PortalShell.jsx'), /PortalMessagesWorkspace|PortalNav/)
     assert.doesNotMatch(read('../src/portal/StudentPortal.jsx'), /PortalMessagesWorkspace|PortalNav/)

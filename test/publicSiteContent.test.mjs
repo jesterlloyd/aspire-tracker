@@ -19,9 +19,16 @@ const outlook = read('src/lib/outlookCompose.js')
 const EM_DASH = /—/
 
 test('global copy discipline', async (t) => {
-  await t.test('never uses "ASPIRE Program"', () => {
+  await t.test('"ASPIRE Program" appears only as the approved search identity', () => {
+    // ASPIRE-PUBLIC-SEO (owner-approved): "Cedars-Sinai ASPIRE Program" is the
+    // primary public search identity, and "ASPIRE Program Eligibility" is an
+    // approved route title. Any OTHER bare "ASPIRE Program" remains forbidden.
     for (const [name, src] of [['content', content], ['site', site], ['login', login]]) {
-      assert.doesNotMatch(src.replace(/never written as .ASPIRE Program./g, ''), /ASPIRE Program/, `${name} contains "ASPIRE Program"`)
+      const stripped = src
+        .replace(/never written as .ASPIRE Program./g, '')
+        .replace(/Cedars-Sinai ASPIRE Program/g, '')
+        .replace(/ASPIRE Program Eligibility/g, '')
+      assert.doesNotMatch(stripped, /ASPIRE Program/, `${name} contains a non-approved "ASPIRE Program"`)
     }
   })
   await t.test('no em dash character in edited public-site copy', () => {
@@ -33,7 +40,10 @@ test('global copy discipline', async (t) => {
 
 test('homepage', async (t) => {
   await t.test('approved hero headline and CTAs', () => {
-    assert.match(content, /heroTitle: 'Complete your senior clinical rotation where you hope to begin your nursing career\.'/)
+    // The headline is split for the editorial emphasis treatment; read
+    // together it is the identical approved sentence.
+    assert.match(content, /heroTitleLead: 'Complete your senior clinical rotation where you hope to '/)
+    assert.match(content, /heroTitleEmphasis: 'begin your nursing career\.'/)
     assert.match(content, /label: 'See if you are eligible'/)
     assert.match(content, /label: 'How to apply'/)
   })
@@ -182,7 +192,9 @@ test('experience page', async (t) => {
       assert.match(content, new RegExp(`title: '${item}'`))
     }
     assert.match(content, /continuityHeading: 'Preceptor continuity'/)
-    assert.match(site, /EXPERIENCE\.items\.map/)
+    // The items render through the shared editorial Ledger since the Pathway
+    // redesign; the copy above is what is protected, not the layout call.
+    assert.match(site, /items=\{EXPERIENCE\.items\}/)
   })
 })
 
@@ -278,10 +290,15 @@ test('login page', async (t) => {
   })
   await t.test('right panel wording, placeholders, and CTA', () => {
     assert.match(login, /<h2 className="lg-form-title">Sign in<\/h2>/)
-    assert.match(login, /Use the email address that received your ASPIRE invitation\./)
+    // ASPIRE-COMPASS: the approved email guidance replaced the invitation
+    // hint. It states the rule without changing it: school email during the
+    // rotation, personal email after completion.
+    assert.match(login, /Use the email address on your ASPIRE account\.[\s\S]*?school email;[\s\S]*?personal email/)
     assert.match(login, /placeholder="your@email\.com"/)
     assert.match(login, /placeholder="Enter your password"/)
-    assert.match(login, /\{loading \? 'Signing in\.\.\.' : 'Sign in'\}/)
+    // The busy state now shows a spinner beside the same wording.
+    assert.match(login, /Signing in\.\.\./)
+    assert.match(login, /lg-spinner/)
     assert.match(login, /Access is limited to invited ASPIRE participants, partners, and staff\./)
     assert.match(login, /Need account assistance\? Contact/)
   })
