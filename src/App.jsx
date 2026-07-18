@@ -275,6 +275,8 @@ function MainApp({ onLogout }) {
   const [focusActivityStudentId, setFocusActivityStudentId] = useState(null)
   // SUPPORT-REQUEST-ACTION-CENTER-2: exact shift the Action Center wants Rotation > Activity to open.
   const [focusActivityShiftLogId, setFocusActivityShiftLogId] = useState(null)
+  // ASPIRE-CHART: student the Placement Board should pre-select (interview handoff).
+  const [focusMatchStudentId, setFocusMatchStudentId] = useState(null)
   // Ref for Connect soft-refresh - ConnectPage registers its handleRefresh here so the
   // toolbar RefreshHint can call it without a full page reload.
   const connectRefreshRef = useRef(null)
@@ -494,6 +496,9 @@ function MainApp({ onLogout }) {
   // ROTATION-ACTIVITY-NAV: from Aggregate > On Campus Now, route to Rotation > Activity and
   // flag the student so RotationActivity expands + scrolls their Active Rotation Progress card.
   const goToActivityStudent = id => { setFocusActivityStudentId(id); navigate('/rotation/activity') }
+  // ASPIRE-CHART interview-to-placement handoff: route to the Placement Board
+  // with the student pre-selected in the pool. Cohort context is unchanged.
+  const goToPlacementStudent = id => { setFocusMatchStudentId(id); navigate('/rotation/matrix') }
   // Action Center support item -> Rotation > Activity, expand the student AND auto-open the exact
   // shift's Details modal (which is where the read receipt is written after the text renders).
   const goToActivityShift = (studentId, shiftLogId) => {
@@ -1034,6 +1039,7 @@ function MainApp({ onLogout }) {
                 onManageInterviewers={() => setShowInterviewersModal(true)}
                 onUpdateSession={updateIvSession}
                 onRefreshSlots={() => fetchIvSlots(activeCohortId)}
+                onNavigateToPlacement={goToPlacementStudent}
                 toast={toast}
               />
             </div>
@@ -1051,6 +1057,8 @@ function MainApp({ onLogout }) {
                 onFocusActivityConsumed={() => setFocusActivityStudentId(null)}
                 focusActivityShiftLogId={focusActivityShiftLogId}
                 onFocusActivityShiftConsumed={() => setFocusActivityShiftLogId(null)}
+                focusMatchStudentId={focusMatchStudentId}
+                onFocusMatchConsumed={() => setFocusMatchStudentId(null)}
                 toast={toast}
               />
             </div>

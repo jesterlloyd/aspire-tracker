@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import StudentListPanel from './StudentListPanel'
 import StudentSidePanel from './StudentSidePanel'
@@ -16,6 +17,28 @@ import { calculateProfileCompletion } from '../lib/profileCompletion'
 import { getCsLinkStatus } from '../lib/utils'
 import { ASPIRE_STATUS_SORT_ORDER } from '../lib/constants'
 const ASPIRE_ORDER = ASPIRE_STATUS_SORT_ORDER
+
+// ── ASPIRE-CHART: URL state (approved) ────────────────────────────────────────
+// /students?student=<id>&sort=<key>&filter=<bucket> is shareable and survives
+// refresh. Values are opaque ids and fixed vocabulary keys only - never names,
+// emails, or free-typed search text (the filter input stays out of the URL so
+// typed PII can never land in one). A URL grants nothing: an id that is not in
+// the caller's cohort data simply fails closed to the default selection.
+const FILTER_KEYS = {
+  'needs-outreach': ['Pending Outreach', 'Form Sent'],
+  'awaiting-interview': ['Form Received', 'Interview Scheduled'],
+  'interviewed': 'Interviewed',
+  'placed': 'Placed',
+  'active': 'Active Rotation',
+  'completed': 'Completed',
+  'not-proceeding': ['Not Proceeding', 'Declined'],
+}
+const filterToKey = (filterValue) => {
+  const target = JSON.stringify(filterValue)
+  return Object.keys(FILTER_KEYS).find(k => JSON.stringify(FILTER_KEYS[k]) === target) || null
+}
+const SORT_KEYS = new Set(['last_name_asc', 'last_name_desc', 'school_asc', 'status',
+  'completion_desc', 'completion_asc', 'gpa_desc', 'gpa_asc'])
 
 // ── Sorting ───────────────────────────────────────────────────────────────────
 function sortStudentsList(students, sortBy) {
@@ -46,17 +69,48 @@ export default function StudentProfilesTab({
 }) {
   const { userProfile, canEdit } = useAuth()
   const queryClient = useQueryClient()
-  const [selectedStudentId, setSelectedStudentId] = useState(null)
+  // ASPIRE-CHART URL state: selection, sort, and the KPI filter initialize
+  // from the querystring (refresh-persistent, shareable) and write back on
+  // change with replace (no history spam; back/forward still work at the
+  // route level). Unknown values fail closed to the defaults.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [selectedStudentId, setSelectedStudentId] = useState(() => searchParams.get('student') || null)
   const [viewMode, setViewMode] = useState('list') // 'list' | 'grid'
   const [unifiedSearch, setUnifiedSearch] = useState('')
-  const [sortBy, setSortBy] = useState('last_name_asc')
-  const [activeStatusFilter, setActiveStatusFilter] = useState(null)
+  const [sortBy, setSortBy] = useState(() => {
+    const s = searchParams.get('sort')
+    return SORT_KEYS.has(s) ? s : 'last_name_asc'
+  })
+  const [activeStatusFilter, setActiveStatusFilter] = useState(() => FILTER_KEYS[searchParams.get('filter')] ?? null)
   const [showImport, setShowImport] = useState(false)
   const prevFilterKey = useRef(null)
 
+  // URL writes happen ONLY in user-action handlers, never in an effect: the
+  // workspace tabs stay mounted while hidden and StrictMode re-runs effects,
+  // so an effect-based sync could fire with a boot-time closure and strip a
+  // deep link. A user action can only occur on the visible, settled tab.
+  const updateUrl = (patch) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      for (const [k, v] of Object.entries(patch)) {
+        if (v) next.set(k, v); else next.delete(k)
+      }
+      return next
+    }, { replace: true })
+  }
+  const selectStudent = (id) => { setSelectedStudentId(id); updateUrl({ student: id }) }
+  const changeSort = (v) => { setSortBy(v); updateUrl({ sort: v === 'last_name_asc' ? null : v }) }
+  const changeFilter = (v) => { setActiveStatusFilter(v); updateUrl({ filter: filterToKey(v) }) }
+  const changeView = (v) => { onViewChange(v); updateUrl({ mode: v === 'access' ? 'access' : null }) }
+
+  // ?mode=access deep-links the CS-Link Access subview (once, on mount).
+  useEffect(() => {
+    if (searchParams.get('mode') === 'access' && view !== 'access') onViewChange('access')
+  }, []) // eslint-disable-line - mount-only deep link
+
   // Open specific student from global search
   useEffect(() => {
-    if (focusStudentId) { setSelectedStudentId(focusStudentId); onClearFocusStudent?.() }
+    if (focusStudentId) { selectStudent(focusStudentId); onClearFocusStudent?.() }
   }, [focusStudentId]) // eslint-disable-line
 
   // Mark profile as read when student is selected
@@ -130,17 +184,16 @@ export default function StudentProfilesTab({
   const selectedName = selectedStudent ? `${selectedStudent.first_name} ${selectedStudent.last_name}`.trim() : null
 
   const handleKpiClick = (filterValue) => {
-    setActiveStatusFilter(prev =>
-      JSON.stringify(prev) === JSON.stringify(filterValue) ? null : filterValue
-    )
+    const next = JSON.stringify(activeStatusFilter) === JSON.stringify(filterValue) ? null : filterValue
+    changeFilter(next)
   }
 
   return (
     <div className="student-profiles-tab">
 
-      {/* ── KPI filter strip (frozen) ── */}
+      {/* ── KPI filter strip (frozen; column count lives in CSS so it reflows) ── */}
       <div className="profiles-frozen">
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(8, 1fr)', gap:10, marginBottom:14 }}>
+        <div className="profiles-kpis" style={{ display:'grid', gap:10, marginBottom:14 }}>
           <FilterKPICard value={pipelineCounts.total}             label="Total"              sub="All students"          accent="nightfall"  active={activeStatusFilter === null}                                                         onClick={() => handleKpiClick(null)} />
           <FilterKPICard value={pipelineCounts.needsOutreach}     label="Needs Outreach"     sub="Pending + Form Sent"   accent="dawn"       active={JSON.stringify(activeStatusFilter)===JSON.stringify(['Pending Outreach','Form Sent'])} onClick={() => handleKpiClick(['Pending Outreach','Form Sent'])} />
           <FilterKPICard value={pipelineCounts.awaitingInterview} label="Awaiting Interview" sub="Form Received + Scheduled" accent="periwinkle" active={JSON.stringify(activeStatusFilter)===JSON.stringify(['Form Received','Interview Scheduled'])} onClick={() => handleKpiClick(['Form Received','Interview Scheduled'])} />
@@ -156,13 +209,13 @@ export default function StudentProfilesTab({
 
           {/* Profiles / CS-Link Access - segmented, matches List/Grid style */}
           <div style={{ display:'flex', borderRadius:7, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', overflow:'hidden', flexShrink:0 }}>
-            <button onClick={() => onViewChange('records')}
+            <button onClick={() => changeView('records')}
               style={{ height:32, padding:'0 13px', display:'flex', alignItems:'center', border:'none', cursor:'pointer', fontSize:12, fontFamily:'DM Sans,sans-serif', fontWeight:500,
                 background: view==='records' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
                 color: view==='records' ? '#fff' : 'var(--text-secondary,#4A5560)', transition:'all 0.12s' }}>
               Profiles
             </button>
-            <button onClick={() => onViewChange('access')}
+            <button onClick={() => changeView('access')}
               style={{ height:32, padding:'0 13px', display:'flex', alignItems:'center', border:'none', cursor:'pointer', fontSize:12, fontFamily:'DM Sans,sans-serif', fontWeight:500,
                 background: view==='access' ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
                 color: view==='access' ? '#fff' : 'var(--text-secondary,#4A5560)', transition:'all 0.12s' }}>
@@ -194,7 +247,7 @@ export default function StudentProfilesTab({
           </div>
 
           {/* Sort */}
-          <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+          <select value={sortBy} onChange={e => changeSort(e.target.value)}
             style={{ height:32, border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7, padding:'0 8px', fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)', color:'var(--text-body,#191919)', outline:'none', cursor:'pointer', flexShrink:0 }}>
             <option value="last_name_asc">Last Name A–Z</option>
             <option value="last_name_desc">Last Name Z–A</option>
@@ -208,7 +261,7 @@ export default function StudentProfilesTab({
 
           {/* Active KPI filter clear */}
           {activeStatusFilter && (
-            <button onClick={() => setActiveStatusFilter(null)}
+            <button onClick={() => changeFilter(null)}
               style={{ display:'flex', alignItems:'center', gap:4, height:32, padding:'0 10px', borderRadius:7, border:'1px solid rgba(29,37,103,0.15)', background:'#f0f3ff', color:'#1D2567', fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans,sans-serif', flexShrink:0 }}>
               <X size={10} />
               {Array.isArray(activeStatusFilter) ? 'Clear filter' : activeStatusFilter}
@@ -289,7 +342,7 @@ export default function StudentProfilesTab({
                 students={displayedStudents}
                 allStudents={students}
                 selectedStudentId={selectedStudentId}
-                onSelect={id => setSelectedStudentId(id)}
+                onSelect={selectStudent}
                 cohortId={cohortId}
                 onRefresh={onRefresh}
                 units={units}
@@ -304,7 +357,7 @@ export default function StudentProfilesTab({
               <StudentSidePanel
                 student={selectedStudent}
                 sortedStudents={displayedStudents}
-                onSelectStudent={setSelectedStudentId}
+                onSelectStudent={selectStudent}
                 onClose={() => {}} // no-op; drawer is always open
                 onUpdate={onUpdate}
                 onDelete={onDelete}

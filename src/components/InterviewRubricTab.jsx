@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { buildOutlookComposeUrl } from '../lib/outlookCompose'
 import { appUrl } from '../lib/appUrl'
 import Tooltip from './ui/Tooltip'
@@ -136,11 +137,16 @@ function getFlagInfo(s, studentRubs) {
 
 // Returns the single distinct action for a row, or null when the default
 // row-click behavior (open rubric) is sufficient - avoids a redundant button.
-function getRowAction(s, studentRubs, sessions) {
+// ASPIRE-CHART honest labels: the schedule action emails the self-scheduling
+// link (it never opened a scheduler), so it says so. The old 'Send Invite'
+// button was removed: it only opened the rubric and sent nothing - the
+// "Needs Teams invite" pill still carries that signal, and marking the invite
+// sent stays in the calendar day drawer. Interviewed students instead get the
+// placement handoff.
+function getRowAction(s, studentRubs, sessions) { // eslint-disable-line no-unused-vars
   if (s.flagged_for_second_interview) return { label:'Review Flag', type:'flag' }
-  if (!s.interview_scheduled_date)    return { label:'Schedule',    type:'schedule' }
-  const ts = getTeamsInviteStatus(s, sessions)
-  if (ts.tone === 'attention')        return { label:'Send Invite', type:'invite' }
+  if (!s.interview_scheduled_date)    return { label:'Email Scheduling Link', type:'schedule' }
+  if (s.status === 'Interviewed')     return { label:'Place →', type:'place' }
   return null  // row click already opens the rubric; no distinct action needed
 }
 
@@ -148,13 +154,33 @@ export default function InterviewRubricTab({
   students, rubrics, cohortId, cohort,
   sessions = [], slots = [],
   onStudentUpdate, onRubricsChange, onRefreshStudents, onManageInterviewers, onUpdateSession, onRefreshSlots,
+  onNavigateToPlacement,
   toast,
 }) {
   const { canInterview, isViewer, userProfile } = useAuth()
-  const [selectedStudentId, setSelectedStudentId] = useState(null)
+  // ASPIRE-CHART URL state: ?student=<id> deep-links an open rubric and
+  // survives refresh. Opaque id only; an id outside the cohort fails closed
+  // to the worklist.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [selectedStudentId, setSelectedStudentId] = useState(() => searchParams.get('student') || null)
   const [sortBy,            setSortBy]            = useState('appointment')
   const [sortDir,           setSortDir]           = useState('asc')
   const [activeFilter,      setActiveFilter]      = useState(null)
+  const [worklistSearch,    setWorklistSearch]    = useState('')
+
+  // URL writes happen ONLY in this user-action handler, never in an effect:
+  // the workspace tabs stay mounted while hidden and StrictMode re-runs
+  // effects, so an effect-based sync could fire with a boot-time closure and
+  // strip a deep link (or another route's params).
+  const selectStudent = (id) => {
+    setSelectedStudentId(id)
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev)
+      if (id) next.set('student', id)
+      else next.delete('student')
+      return next
+    }, { replace: true })
+  }
   const [refreshKey,        setRefreshKey]        = useState(0)
   const [calendarCollapsed,    setCalendarCollapsed]    = useState(false)
   const [calendarInterviewers, setCalendarInterviewers] = useState([])
@@ -247,7 +273,7 @@ export default function InterviewRubricTab({
       return (
         <div style={{ padding:'32px', textAlign:'center', color:'#9ca3af', fontFamily:'DM Sans,sans-serif' }}>
           <div style={{ fontSize:14, marginBottom:12 }}>Rubric submission requires Interviewer access or above.</div>
-          <button onClick={() => setSelectedStudentId(null)}
+          <button onClick={() => selectStudent(null)}
             style={{ background:'#1D2567', color:'#fff', border:'none', borderRadius:8, padding:'8px 18px', fontFamily:'DM Sans,sans-serif', fontWeight:600, cursor:'pointer' }}>
             ← Back to list
           </button>
@@ -260,7 +286,7 @@ export default function InterviewRubricTab({
         student={selectedStudent}
         rubrics={rubrics}
         cohortId={cohortId}
-        onBack={() => setSelectedStudentId(null)}
+        onBack={() => selectStudent(null)}
         onStudentUpdate={onStudentUpdate}
         onRubricsChange={onRubricsChange}
         toast={toast}
@@ -278,7 +304,7 @@ export default function InterviewRubricTab({
       ? <span style={{ marginLeft:3 }}>{sortDir === 'asc' ? '↑' : '↓'}</span>
       : <span style={{ marginLeft:3, opacity:0.3 }}>↕</span>
 
-  const baseStudents = activeFilter
+  const filteredByCard = activeFilter
     ? students.filter(s => {
         if (activeFilter === 'scheduled')     return s.status === 'Interview Scheduled'
         if (activeFilter === 'completed')     return getStudentIvStatus(s, rubrics) === 'Completed'
@@ -289,6 +315,25 @@ export default function InterviewRubricTab({
         return true
       })
     : students
+
+  // ASPIRE-CHART: worklist text search (the tab previously had none). Client
+  // filter over name, school, and email; the query never enters the URL.
+  const baseStudents = worklistSearch.trim()
+    ? filteredByCard.filter(s => {
+        const q = worklistSearch.trim().toLowerCase()
+        return (
+          `${s.first_name || ''} ${s.last_name || ''}`.toLowerCase().includes(q) ||
+          (s.preferred_first_name || '').toLowerCase().includes(q) ||
+          (s.school || '').toLowerCase().includes(q) ||
+          (s.school_email || '').toLowerCase().includes(q)
+        )
+      })
+    : filteredByCard
+
+  // ASPIRE-CHART interview-to-placement handoff: 'Interviewed' is exactly the
+  // status the placement guard accepts and the board pool shows. No decision
+  // semantics change - this is a route, not an action.
+  const readyToPlace = students.filter(s => s.status === 'Interviewed')
 
   // Appointment sort key: ISO datetime string for scheduled, or '' (sorts to end)
   const apptKey = s => {
@@ -332,8 +377,8 @@ export default function InterviewRubricTab({
       <TodaysInterviews
         cohortId={cohortId}
         onStartRubric={(arg) => {
-          if (arg?.student?.id) setSelectedStudentId(arg.student.id)
-          else if (arg?.students?.id) setSelectedStudentId(arg.students.id)
+          if (arg?.student?.id) selectStudent(arg.student.id)
+          else if (arg?.students?.id) selectStudent(arg.students.id)
         }}
       />
       {/* Availability Calendar with collapse toggle */}
@@ -446,17 +491,40 @@ export default function InterviewRubricTab({
       </div>
 
       {/* Interview Recommendations header strip */}
-      <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', padding:'4px 16px 0' }}>
-        <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:18, color:'#191919' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap', padding:'4px 16px 0' }}>
+        <span style={{ fontFamily:'DM Sans,sans-serif', fontWeight:600, fontSize:18, color:'var(--text-heading,#191919)' }}>
           Interview Recommendations
         </span>
-        <span style={{ fontFamily:'DM Sans,sans-serif', fontSize:12, color:'#9ca3af' }}>
-          {students.length} student{students.length !== 1 ? 's' : ''}
+        {/* ASPIRE-CHART: interview-to-placement handoff */}
+        {readyToPlace.length > 0 && onNavigateToPlacement && (
+          <button
+            onClick={() => onNavigateToPlacement(readyToPlace[0].id)}
+            style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'4px 12px', borderRadius:20,
+              border:'1px solid var(--chart-line,rgba(29,37,103,0.12))', background:'var(--chart-ok-bg,#E5F3EA)',
+              color:'var(--chart-ok-ink,#166534)', fontFamily:'DM Sans,sans-serif', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+            Ready to place: {readyToPlace.length} → Placement Board
+          </button>
+        )}
+        {/* ASPIRE-CHART: worklist search (name, school, or email) */}
+        <div style={{ position:'relative', marginLeft:'auto', flex:'0 1 260px', minWidth:150 }}>
+          <input
+            value={worklistSearch}
+            onChange={e => setWorklistSearch(e.target.value)}
+            placeholder="Search name, school, email…"
+            aria-label="Search the interview worklist"
+            style={{ width:'100%', boxSizing:'border-box', padding:'6px 10px',
+              border:'1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius:7,
+              fontSize:12, fontFamily:'DM Sans,sans-serif', background:'var(--bg-input,#fff)',
+              color:'var(--text-body,#191919)' }}
+          />
+        </div>
+        <span style={{ fontFamily:'DM Sans,sans-serif', fontSize:12, color:'var(--text-muted,#9ca3af)', flexShrink:0 }}>
+          {sorted.length} of {students.length} student{students.length !== 1 ? 's' : ''}
         </span>
       </div>
 
       {/* 6 filter cards - color story: Nightfall=anchor, Marina=in motion, Sage=positive, Dawn=needs action, Chroma=alert */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:10, padding:'10px 16px 12px' }}>
+      <div className="ir-kpis" style={{ display:'grid', gap:10, padding:'10px 16px 12px' }}>
         <FilterKPICard value={total}        label="Total"         accent="nightfall"  active={activeFilter === null}            onClick={() => setActiveFilter(null)} />
         <FilterKPICard value={scheduled}    label="Scheduled"     accent="marina"     active={activeFilter === 'scheduled'}    onClick={() => handleCardClick('scheduled')} />
         <FilterKPICard value={completed}    label="Completed"     accent="sage"       active={activeFilter === 'completed'}    onClick={() => handleCardClick('completed')} />
@@ -496,19 +564,24 @@ export default function InterviewRubricTab({
                 { key:'last_name',   col:'ir-wl-col-student',  label:'Student' },
                 { key:'appointment', col:'ir-wl-col-appt',     label:'Appointment' },
               ].map(({ key, col, label }) => (
-                <div
+                // ASPIRE-CHART: sort headers are real buttons with aria-sort.
+                <button
                   key={key}
+                  type="button"
                   className={`ir-wl-th ${col}`}
                   onClick={() => toggleSort(key)}
-                  style={{ cursor:'pointer', userSelect:'none', display:'flex', alignItems:'center', gap:4 }}
+                  aria-sort={sortBy === key ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
+                  aria-label={`Sort by ${label}`}
+                  style={{ cursor:'pointer', userSelect:'none', display:'flex', alignItems:'center', gap:4,
+                    background:'transparent', border:'none', font:'inherit', color:'inherit', textAlign:'left', padding:0 }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'rgba(29,37,103,0.05)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                 >
                   <span style={{ fontWeight: sortBy === key ? 800 : 700 }}>{label}</span>
                   {sortBy === key
-                    ? <span>{sortDir === 'asc' ? '↑' : '↓'}</span>
-                    : <span style={{ opacity:0.3 }}>↕</span>}
-                </div>
+                    ? <span aria-hidden="true">{sortDir === 'asc' ? '↑' : '↓'}</span>
+                    : <span aria-hidden="true" style={{ opacity:0.3 }}>↕</span>}
+                </button>
               ))}
               <div className="ir-wl-th ir-wl-col-workflow" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 Workflow Status
@@ -550,13 +623,21 @@ export default function InterviewRubricTab({
                 e.stopPropagation()
                 if (rowAction.type === 'schedule') {
                   window.open(buildSchedulingComposeUrl(s), '_blank', 'noopener,noreferrer')
+                } else if (rowAction.type === 'place' && onNavigateToPlacement) {
+                  onNavigateToPlacement(s.id)
                 } else {
-                  setSelectedStudentId(s.id)
+                  selectStudent(s.id)
                 }
               }
 
               return (
-                <div key={s.id} className="ir-wl-row" onClick={() => setSelectedStudentId(s.id)}>
+                // ASPIRE-CHART: rows are keyboard targets (Enter/Space opens the rubric).
+                <div key={s.id} className="ir-wl-row" role="button" tabIndex={0}
+                  aria-label={`Open interview record for ${displayName(s)}`}
+                  onClick={() => selectStudent(s.id)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectStudent(s.id) }
+                  }}>
 
                   {/* Flag strip - colored left-edge indicator */}
                   <Tooltip label={flagInfo?.reason || 'Flagged score'} placement="top" disabled={!flagInfo}>

@@ -119,10 +119,22 @@ const POOL_INELIGIBLE_STATUSES = new Set([
 export default function MatchingTab({
   students, units, matches, cohortId, cohort,
   onMatch, onUnmatch, onUpdateMatch, onRefreshUnits, onDeleteUnit, highlightUnitId,
+  focusMatchStudentId, onFocusMatchConsumed,
   toast,
 }) {
   const [selectedStudent,   setSelectedStudent]   = useState(null)
   const cardRefs = useRef({})
+
+  // ASPIRE-CHART interview-to-placement handoff: when Interviews routes here
+  // with a student, pre-select them in the pool (the existing selection
+  // mechanic; the scroll effect below brings the card into view). A student
+  // who is not pool-eligible fails closed to no selection.
+  useEffect(() => {
+    if (!focusMatchStudentId) return
+    const s = students.find(x => x.id === focusMatchStudentId)
+    if (s) setSelectedStudent(s)
+    onFocusMatchConsumed?.()
+  }, [focusMatchStudentId]) // eslint-disable-line react-hooks/exhaustive-deps
   const [showUnitSetup,     setShowUnitSetup]     = useState(false)
   const [showImportUnits,   setShowImportUnits]   = useState(false)
   const [poolSearch,        setPoolSearch]        = useState('')

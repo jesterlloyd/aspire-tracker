@@ -1417,6 +1417,45 @@ a.doc-file-link:hover { text-decoration: underline; }
   from { opacity: 0; transform: translateX(24px); }
   to   { opacity: 1; transform: translateX(0); }
 }
+@media (prefers-reduced-motion: reduce) {
+  .profiles-panel-slide { animation: none; }
+}
+
+/* ── ASPIRE-CHART: Student Profiles reflow ─────────────────────────────────
+   The split view previously had NO breakpoint: at phone widths the list and
+   drawer stayed jammed side by side and the 8-column KPI strip crushed into
+   slivers. Columns step 8-4-2; below 980px the split stacks (list first,
+   drawer beneath) and the page scrolls naturally. No columns or fields are
+   removed - density reflows, information does not. */
+.profiles-kpis { grid-template-columns: repeat(8, 1fr); }
+@media (max-width: 1280px) {
+  .profiles-kpis { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 980px) {
+  .student-profiles-tab { height: auto; overflow: visible; padding: 0 12px; }
+  .profiles-frozen { position: static; }
+  .profiles-slide-container {
+    flex-direction: column;
+    height: auto;
+    overflow: visible;
+    gap: 16px;
+  }
+  .profiles-list-narrow {
+    min-width: 0;
+    height: auto;
+    max-height: 44vh; /* the list stays scannable; the drawer sits right below */
+  }
+  .profiles-panel-slide { height: auto; }
+  /* Stacked mode: the drawer grows with its content and the page scrolls -
+     no nested scroll trap inside a phone-height card. */
+  .profiles-panel-slide .sp-container { height: auto; }
+  .profiles-panel-slide .sp-content { overflow-y: visible; padding-bottom: 24px; }
+  .profiles-scroll-area { overflow: visible; }
+}
+@media (max-width: 560px) {
+  .profiles-kpis { grid-template-columns: repeat(2, 1fr); }
+  .pl-row { grid-template-columns: 1fr !important; }
+}
 
 /* Legacy - keep for any remaining refs */
 .profiles-split { flex: 1; min-height: 0; overflow: hidden; display: flex; }
@@ -1946,6 +1985,22 @@ a.doc-file-link:hover { text-decoration: underline; }
 /* Month view: natural full-page scroll - no fixed height constraints */
 .rub-tab-month       { display: block; height: auto; overflow: visible; padding: 0 20px; }
 .rub-scroll-area-month { padding: 16px 0 0; }
+
+/* ── ASPIRE-CHART: Interviews reflow ─────────────────────────────────────────
+   The KPI cards step 6-3-2 and the fixed-percentage worklist scrolls
+   horizontally on narrow screens instead of crushing (dense table stays a
+   dense table; no columns are dropped). */
+.ir-kpis { grid-template-columns: repeat(6, 1fr); }
+@media (max-width: 1100px) {
+  .ir-kpis { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 900px) {
+  .rub-scroll-area-month { overflow-x: auto; }
+  .ir-worklist { min-width: 720px; }
+}
+@media (max-width: 560px) {
+  .ir-kpis { grid-template-columns: repeat(2, 1fr); }
+}
 
 /* ── Interview Room 5-column worklist ────────────────────────────────────────
    Replaces the old 11-column table. Five operational columns: Student,

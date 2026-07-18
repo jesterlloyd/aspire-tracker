@@ -220,10 +220,19 @@ export default function StudentListPanel({
           const schoolProg = formatSchoolProgram(s.school, s.program_type)
 
           return (
+            // ASPIRE-CHART: rows are real keyboard targets - focusable, Enter/
+            // Space activate, and selection is announced via aria-current.
             <div key={s.id}
               className={`pl-row${sel ? ' pl-selected' : ''}`}
+              role="button"
+              tabIndex={0}
+              aria-current={sel ? 'true' : undefined}
+              aria-label={`Open profile for ${name}`}
               style={{ alignItems:'flex-start', padding:'11px 14px', display:'grid', gridTemplateColumns:'40% 28% 32%', gap:6 }}
-              onClick={() => onSelect(s.id)}>
+              onClick={() => onSelect(s.id)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(s.id) }
+              }}>
 
               {/* COL 1: Identity - Avatar / Full Name / School·Program / ASPIRE pill */}
               <div style={{ display:'flex', gap:9, minWidth:0, alignItems:'flex-start' }}>
