@@ -95,7 +95,10 @@
   padding: 44px 42px 30px;
   display: flex; flex-direction: column;
 }
-.lg-form-title { margin: 0 0 6px; font-size: 21px; font-weight: 700; color: #1D2567; }
+.lg-form-title {
+  margin: 0 0 6px; font-family: var(--aspire-serif, Georgia, serif);
+  font-size: 26px; font-weight: 560; letter-spacing: -0.01em; color: #1D2567;
+}
 .lg-form-sub { margin: 0 0 24px; font-size: 13.5px; line-height: 1.6; color: #5f6472; }
 
 .lg-error {
@@ -127,6 +130,25 @@
 }
 .lg-submit:hover { background: #141a4d; }
 .lg-submit:disabled { background: #c9c4b8; cursor: default; }
+.lg-submit-busy { display: inline-flex; align-items: center; justify-content: center; gap: 9px; }
+.lg-spinner {
+  width: 15px; height: 15px; border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35); border-top-color: #fff;
+  animation: lg-spin 700ms linear infinite;
+}
+@keyframes lg-spin { to { transform: rotate(360deg); } }
+
+/* Show/hide password: the control lives inside the field's padding zone with a
+   44px touch target; the input reserves room so text never runs beneath it. */
+.lg-pw-wrap { position: relative; }
+.lg-input-pw { padding-right: 48px; }
+.lg-pw-toggle {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border: none; background: none; cursor: pointer;
+  color: #6b7280; border-radius: 9px;
+}
+.lg-pw-toggle:hover { color: #1D2567; background: #f4f1ec; }
 
 .lg-linkbtn {
   background: none; border: none; padding: 6px 4px;
@@ -139,7 +161,7 @@
 .lg-form-links { text-align: center; margin-top: 14px; }
 
 .lg-reset-done { text-align: center; padding: 18px 0; }
-.lg-reset-done-icon { font-size: 34px; margin-bottom: 10px; }
+.lg-reset-done-icon { display: flex; justify-content: center; margin-bottom: 10px; color: #157a3d; }
 .lg-reset-done h2 { margin: 0 0 8px; font-size: 16px; font-weight: 700; color: #1D2567; }
 .lg-reset-done p { margin: 0; font-size: 13.5px; color: #5f6472; line-height: 1.6; }
 

@@ -2,12 +2,25 @@
 //
 // Resolves the signed-in user's ACTIVE portal grants via the SECURITY DEFINER
 // RPC get_my_portal_access() (Phase 2 migration) and renders the matching
-// portal. Client-side routing only: every read this chunk performs is
-// authorized server-side (scoped views, RPCs, or JWT-verified endpoints).
-// If the RPC is missing (migration not applied yet) or returns no grants,
-// the user sees the "being prepared" landing, never an error.
+// portal. Every read this chunk performs is authorized server-side (scoped
+// views, RPCs, or JWT-verified endpoints). If the RPC is missing or returns
+// no grants, the user sees the "being prepared" landing, never an error.
+//
+// ASPIRE-COMPASS: the student section is now URL-driven:
+//   /portal                     -> Home
+//   /portal/messages            -> Messages (list)
+//   /portal/messages/:threadId  -> Messages (thread selected)
+// URLs never grant access: the messages endpoints verify the caller's own JWT
+// and an active student link on every request, and an unauthorized or unknown
+// thread id fails closed through the existing error mapping. Both sections
+// stay MOUNTED and are hidden with display (matching the staff Connect
+// convention) so a reply draft, the fetched Home data, and list state survive
+// navigation; the workspace's `active` prop is what stops a hidden view from
+// polling or marking anything read. Refresh, back, and forward now work
+// because the view derives from the location instead of transient state.
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import PortalShell from './PortalShell'
@@ -19,29 +32,40 @@ import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import {
   PORTAL_ACTIVE_POLL_MS, PORTAL_IDLE_UNREAD_POLL_MS, usePortalUnreadCount,
 } from '../lib/messages/portalMessagesPolling'
+import '../styles/aspireBrand.css'
 import './portal.css'
+
+// /portal/messages/abc -> 'abc'; /portal/messages -> null; /portal -> null.
+function threadIdFromPath(pathname) {
+  const m = /^\/portal\/messages\/([^/]+)\/?$/.exec(pathname)
+  return m ? m[1] : null
+}
 
 export default function PortalApp() {
   const { userProfile } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
   const [access, setAccess]   = useState(null)   // { roles, student_ids, unit_keys, school_keys }
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false) // student self-service profile drawer
-  // ASPIRE MESSAGES PHASE 5B-ii: which student section is showing. The portal has
-  // no router and never had URL state, so the view is plain state. A refresh
-  // returns to Home, which is the portal's existing behavior.
-  const [studentView, setStudentView] = useState('home')
+  // The stage-aware mobile action (Log a Shift during Active Rotation) is
+  // reported upward by StudentPortal once its summary loads, so the single
+  // bottom bar can carry it without a second data fetch here.
+  const [mobileAction, setMobileAction] = useState(null)
 
-  // The unread badge count. Hooks cannot be called after the early returns
-  // below, so this is resolved here and gated by `enabled` instead: a caller
-  // without an active student grant never issues a Messages request, not even
-  // for a count. `roles` comes from get_my_portal_access(), which returns only
-  // grants passing the canonical active predicate, so this is the same
-  // authorization boundary the server enforces.
+  const studentView = location.pathname.startsWith('/portal/messages') ? 'messages' : 'home'
+  const threadId = threadIdFromPath(location.pathname)
+
   const isStudent = (access?.roles || []).includes('student')
   const unread = usePortalUnreadCount({
     enabled: isStudent,
     intervalMs: studentView === 'messages' ? PORTAL_ACTIVE_POLL_MS : PORTAL_IDLE_UNREAD_POLL_MS,
   })
+
+  const goHome = useCallback(() => navigate('/portal'), [navigate])
+  const goMessages = useCallback(() => navigate('/portal/messages'), [navigate])
+  const openThread = useCallback((id) => navigate(`/portal/messages/${id}`), [navigate])
+  const backToList = useCallback(() => navigate('/portal/messages'), [navigate])
 
   useEffect(() => {
     let cancelled = false
@@ -64,7 +88,12 @@ export default function PortalApp() {
   if (loading) {
     return (
       <div className="ptl-page ptl-center">
-        <div className="ptl-muted">Loading your ASPIRE portal...</div>
+        <div className="ptl-skel-page" aria-hidden="true">
+          <div className="ptl-skel ptl-skel-band" />
+          <div className="ptl-skel ptl-skel-card" />
+          <div className="ptl-skel ptl-skel-card" />
+        </div>
+        <p className="ptl-visually-hidden" role="status">Loading your ASPIRE portal</p>
       </div>
     )
   }
@@ -73,21 +102,33 @@ export default function PortalApp() {
 
   if (roles.includes('student')) {
     return (
-      <PortalShell title="Student Portal" userName={userProfile?.full_name} onEditProfile={() => setEditOpen(true)}>
-        {/* The nav is the first child of the shell's main, so PortalShell stays
-            untouched and this file is the only activation point. */}
-        <PortalNav view={studentView} onSelect={setStudentView} unread={unread} />
-        {/* Both sections stay MOUNTED and are hidden with display, matching the
-            staff Connect convention. Unmounting would drop a reply draft, the
-            selected conversation, the mobile list-or-thread view, and
-            StudentPortal's own fetched data on every switch. The workspace's
-            `active` prop is what stops a hidden view from polling or marking
-            anything read. */}
+      <PortalShell title="Student Portal" userName={userProfile?.full_name}
+        onEditProfile={() => setEditOpen(true)} withTabBar>
+        <PortalNav
+          view={studentView}
+          unread={unread}
+          onHome={goHome}
+          onMessages={goMessages}
+          action={mobileAction}
+        />
         <div style={{ display: studentView === 'home' ? 'block' : 'none' }}>
-          <StudentPortal editOpen={editOpen} onOpenEdit={() => setEditOpen(true)} onCloseEdit={() => setEditOpen(false)} />
+          <StudentPortal
+            editOpen={editOpen}
+            onOpenEdit={() => setEditOpen(true)}
+            onCloseEdit={() => setEditOpen(false)}
+            unread={unread}
+            onOpenMessages={goMessages}
+            onOpenThread={openThread}
+            onMobileAction={setMobileAction}
+          />
         </div>
         <div style={{ display: studentView === 'messages' ? 'block' : 'none' }}>
-          <PortalMessagesWorkspace active={studentView === 'messages'} />
+          <PortalMessagesWorkspace
+            active={studentView === 'messages'}
+            threadId={threadId}
+            onSelectThread={openThread}
+            onBackToList={backToList}
+          />
         </div>
       </PortalShell>
     )
@@ -116,8 +157,11 @@ function BeingPrepared() {
   const { signOut } = useAuth()
   return (
     <div className="ptl-page ptl-center">
-      <div className="ptl-card ptl-center-card">
-        <div className="ptl-card-title">Your ASPIRE portal is being prepared</div>
+      <div className="ptl-card ptl-center-card ptl-prepared">
+        <div className="ptl-prepared-art" aria-hidden="true">
+          <img src="/public-site/illustrations/hero.png" alt="" loading="lazy" decoding="async" />
+        </div>
+        <h1 className="ptl-card-title">Your ASPIRE portal is being prepared</h1>
         <p className="ptl-muted">
           Your account is active, but your portal experience is not available yet.
           The ASPIRE team will let you know as soon as it opens.

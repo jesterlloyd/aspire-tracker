@@ -44,9 +44,9 @@ function ProfileMenu({ userName, onEditProfile }) {
   )
 }
 
-export default function PortalShell({ title, userName, onEditProfile, children }) {
+export default function PortalShell({ title, userName, onEditProfile, withTabBar = false, children }) {
   return (
-    <div className="ptl-page">
+    <div className={`ptl-page${withTabBar ? ' ptl-page-tabbar' : ''}`}>
       <header className="ptl-header">
         <div className="ptl-header-brand">
           <img src="/Cedars-Sinai.png" alt="Cedars-Sinai" className="ptl-header-logo" height="26" />

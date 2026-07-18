@@ -12,6 +12,7 @@ import { useInfiniteQuery } from '@tanstack/react-query'
 import { MessageSquarePlus, RefreshCw } from 'lucide-react'
 import { listPortalConversations } from '../../lib/messages/portalMessagesApiClient'
 import { appendPage, normalizeCursor } from '../../lib/messages/inboxState'
+import { PORTAL_INBOX_PAGE_SIZE } from '../../lib/messages/portalMessagesPolling'
 import {
   formatInboxTimestamp, formatFullTimestamp, formatUnread, unreadLabel, mapMessagesError,
 } from '../../lib/messages/messagesConstants'
@@ -20,7 +21,10 @@ import {
   mapPortalMessagesError,
 } from '../../lib/messages/portalMessagesConstants'
 
-const PAGE_SIZE = 25
+// One page size shared with the Home preview hook: both observers use the
+// SAME query key, so the query function must be identical or the cache would
+// thrash between two shapes.
+const PAGE_SIZE = PORTAL_INBOX_PAGE_SIZE
 
 const srOnly = {
   position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,

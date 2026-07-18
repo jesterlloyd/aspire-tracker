@@ -1,14 +1,40 @@
-/* PHASE2-PORTAL: portal chunk styles, namespaced .ptl- to avoid any bleed
-   into the staff app or public site. Visual language matches the public site
-   (light surface, DM Sans, Cedars navy #1D2567). */
+/* PHASE2-PORTAL / ASPIRE-COMPASS: portal chunk styles, namespaced .ptl- to
+   avoid any bleed into the staff app or public site. The portal consumes the
+   shared core brand tokens (src/styles/aspireBrand.css) through the --ptl-*
+   functional layer below: operational density, public-site warmth. */
 
 .ptl-page {
+  --ptl-navy: var(--aspire-navy, #1D2567);
+  --ptl-navy-deep: var(--aspire-navy-deep, #141a4d);
+  --ptl-navy-tint: var(--aspire-navy-tint, #eef2fb);
+  --ptl-cream: var(--aspire-cream, #F4F1EC);
+  --ptl-card: var(--aspire-card, #ffffff);
+  --ptl-line: var(--aspire-line, #e3ded4);
+  --ptl-line-soft: var(--aspire-line-soft, #eee9df);
+  --ptl-ink: var(--aspire-ink, #232842);
+  --ptl-ink-soft: var(--aspire-ink-soft, #6b7280);
+  --ptl-serif: var(--aspire-serif, Georgia, serif);
+  --ptl-radius: var(--aspire-radius-card, 16px);
   min-height: 100vh;
-  background: #F4F1EC;
+  background: var(--ptl-cream);
   font-family: 'DM Sans', sans-serif;
-  color: #232842;
+  color: var(--ptl-ink);
   display: flex;
   flex-direction: column;
+}
+
+/* Global, consistent keyboard focus (the login page has the same contract).
+   Individual components may still sharpen offsets, but nothing removes it. */
+.ptl-page *:focus-visible {
+  outline: 2px solid var(--ptl-navy);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.ptl-visually-hidden {
+  position: absolute !important; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0);
+  white-space: nowrap; border: 0;
 }
 
 .ptl-center { align-items: center; justify-content: center; display: flex; }
@@ -67,7 +93,8 @@
 }
 
 .ptl-card {
-  background: #fff; border: 1px solid #e3ded4; border-radius: 14px;
+  background: var(--ptl-card, #fff); border: 1px solid var(--ptl-line, #e3ded4);
+  border-radius: var(--ptl-radius, 16px);
   padding: 22px 24px;
 }
 .ptl-center-card { max-width: 460px; margin: 40px auto; text-align: center; }
@@ -208,54 +235,85 @@
   padding: 9px 10px; border: none; background: none; border-radius: 8px;
   font-family: inherit; font-size: 13.5px; color: #374151; cursor: pointer; text-decoration: none;
 }
-.ptl-menu-item:hover, .ptl-menu-item:focus { background: #f5f4ef; outline: none; }
+/* Hover and focus share the tint; the global focus-visible ring is KEPT so
+   keyboard position is never invisible. */
+.ptl-menu-item:hover, .ptl-menu-item:focus { background: #f5f4ef; }
 .ptl-menu-danger { color: #b91c1c; }
 
-/* Hero */
+/* ── ASPIRE-COMPASS: the orientation band ─────────────────────────────────────
+   One navy surface that answers "where am I, what needs attention, what is
+   next". Fraunces appears here ONLY on the welcome name and the stage name
+   (the two allowed display moments); everything else stays DM Sans. */
 .ptl-student { display: flex; flex-direction: column; gap: 18px; }
-.ptl-rotation-switch { background: #fff; border: 1px solid #e3ded4; border-radius: 14px; padding: 14px 18px; }
-.ptl-hero {
-  background: linear-gradient(135deg, #1D2567 0%, #2a3480 55%, #33507a 100%);
-  color: #fff; border-radius: 18px; padding: 22px 22px 20px;
-  box-shadow: 0 8px 28px rgba(29,37,103,0.18);
+.ptl-rotation-switch { background: var(--ptl-card, #fff); border: 1px solid var(--ptl-line, #e3ded4); border-radius: var(--ptl-radius, 16px); padding: 14px 18px; }
+
+.ptl-compass {
+  background:
+    radial-gradient(110% 130% at 100% 0%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 55%),
+    linear-gradient(135deg, #1D2567 0%, #232c74 60%, #141a4d 100%);
+  color: #fff; border-radius: var(--ptl-radius, 16px);
+  padding: 24px 26px;
+  box-shadow: 0 8px 28px rgba(29, 37, 103, 0.18);
+  display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 20px 28px; align-items: center;
+  position: relative; overflow: hidden;
 }
-.ptl-hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
-/* Left column wrapper: on desktop it stacks identity + actions; on mobile the
-   actions are hidden (sticky bar), so it collapses to just the identity. */
-.ptl-hero-main { display: flex; flex-direction: column; min-width: 0; }
-.ptl-hero-id { display: flex; align-items: center; gap: 18px; min-width: 0; }
-/* Desktop hero avatar ~104px (task target 96-112); mobile keeps 72px below. */
-.ptl-hero .ptl-avatar { width: 104px; height: 104px; font-size: 36px; border: 3px solid rgba(255,255,255,0.9); box-shadow: 0 4px 18px rgba(0,0,0,0.22); }
-.ptl-hero-text { min-width: 0; }
-.ptl-hero-hello { font-size: 13px; color: rgba(255,255,255,0.72); }
-.ptl-hero-name { font-size: 30px; font-weight: 800; line-height: 1.12; letter-spacing: -0.01em; }
-/* Right cluster: Edit Profile plus, on desktop, a compact current-stage panel. */
-.ptl-hero-aside { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; flex-shrink: 0; }
-.ptl-hero-stage {
-  display: flex; flex-direction: column; gap: 10px; text-align: left;
-  background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.20);
-  border-radius: 12px; padding: 12px 14px; min-width: 208px; max-width: 260px;
+.ptl-compass::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px;
+  background: linear-gradient(90deg, var(--aspire-red-editorial, #B3282D), rgba(179, 40, 45, 0) 60%);
 }
-.ptl-stage-block { display: flex; flex-direction: column; gap: 2px; }
-.ptl-stage-eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: rgba(255,255,255,0.62); }
-.ptl-stage-value { font-size: 15px; font-weight: 700; color: #fff; line-height: 1.25; }
-.ptl-stage-next { font-size: 13px; color: rgba(255,255,255,0.9); line-height: 1.4; }
-.ptl-hero-meta { font-size: 13px; color: rgba(255,255,255,0.82); margin-top: 2px; }
-.ptl-hero-chips { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 10px; }
-.ptl-hero .ptl-chip { background: rgba(255,255,255,0.16); color: #fff; }
-.ptl-hero .ptl-chip-soft { background: rgba(255,255,255,0.92); color: #1D2567; }
-.ptl-edit-btn {
-  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
-  background: rgba(255,255,255,0.14); color: #fff; border: 1px solid rgba(255,255,255,0.3);
-  border-radius: 9px; padding: 7px 12px; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+.ptl-compass-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.ptl-compass-id { display: flex; align-items: center; gap: 18px; min-width: 0; }
+.ptl-compass .ptl-avatar { width: 88px; height: 88px; font-size: 31px; border: 3px solid rgba(255,255,255,0.9); box-shadow: 0 4px 18px rgba(0,0,0,0.22); }
+.ptl-compass-text { min-width: 0; }
+.ptl-compass-hello { margin: 0; font-size: 13px; color: rgba(255,255,255,0.72); }
+.ptl-compass-name {
+  margin: 0; font-family: var(--ptl-serif); font-weight: 560;
+  font-size: clamp(26px, 3vw, 34px); line-height: 1.1; letter-spacing: -0.01em;
 }
-.ptl-edit-btn:hover { background: rgba(255,255,255,0.24); }
-.ptl-hero-actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
-.ptl-hero-actions .ptl-btn, .ptl-hero-actions .ptl-btn-outline { margin-top: 0; display: inline-flex; align-items: center; gap: 7px; }
-.ptl-btn-primary { background: #fff; color: #1D2567; }
-.ptl-btn-primary:hover { background: #f0f2fb; }
-.ptl-btn-contact { border-color: rgba(255,255,255,0.6); color: #fff; background: transparent; display: inline-flex; align-items: center; gap: 6px; }
-.ptl-btn-contact:hover { background: rgba(255,255,255,0.12); }
+.ptl-compass-meta { margin: 4px 0 0; font-size: 13px; color: rgba(255,255,255,0.82); overflow-wrap: anywhere; }
+
+/* Attention chips: appear only when something is genuinely waiting. The count
+   uses the standard red badge token; the chip itself stays neutral. */
+.ptl-attention { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; }
+.ptl-attention-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 36px; padding: 6px 12px 6px 6px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.ptl-attention-chip:hover { background: rgba(255, 255, 255, 0.22); }
+.ptl-attention-chip:focus-visible { outline-color: #fff; }
+.ptl-attention-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px;
+  background: var(--cs-red, #DC1E34); color: #fff; font-size: 11.5px; font-weight: 700;
+}
+
+/* Right side: stage, pathway dots, next step, and the ONE primary action. */
+.ptl-compass-side {
+  display: flex; flex-direction: column; gap: 8px; min-width: 0;
+  background: rgba(255, 255, 255, 0.10); border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px; padding: 18px 20px;
+}
+.ptl-compass-stage-eyebrow { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: rgba(255,255,255,0.62); }
+.ptl-compass-stage {
+  margin: 0; font-family: var(--ptl-serif); font-weight: 560; font-style: italic;
+  font-size: clamp(20px, 2.2vw, 25px); line-height: 1.15; color: #fff;
+}
+.ptl-compass-dots { display: flex; gap: 7px; margin: 4px 0 2px; }
+.ptl-dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.28); }
+.ptl-dot-complete { background: #7ee2a0; }
+.ptl-dot-current { background: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,0.25); }
+.ptl-compass-next { margin: 0; font-size: 13.5px; line-height: 1.5; color: rgba(255,255,255,0.92); }
+.ptl-compass-next-label { font-weight: 700; color: #fff; }
+.ptl-compass-cta {
+  margin-top: 10px; align-self: flex-start;
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #fff; color: var(--ptl-navy);
+}
+.ptl-compass-cta:hover { background: #f0f2fb; }
+.ptl-compass-cta:disabled { background: rgba(255,255,255,0.6); cursor: default; }
 
 /* Section cards with icons */
 .ptl-section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
@@ -378,25 +436,6 @@
 .ptl-doc-row:first-child { padding-top: 14px; }
 .ptl-doc-row:last-child { padding-bottom: 14px; }
 
-/* ── Desktop refinements (>=761px): tighter hero, larger current-stage panel,
-   stronger name. Mobile (<=760px) keeps its current height, spacing, and
-   type scale untouched. ─────────────────────────────────────────────────── */
-@media (min-width: 761px) {
-  /* Compact, content-driven hero: two vertically centered columns (identity +
-     actions on the left, Edit Profile + Current Stage on the right). No fixed
-     or min height, no space-between, no bottom-pushing margins, so the height
-     is driven by the taller column plus ~22px padding (approx 210-240px). */
-  .ptl-hero { padding: 22px 28px; }
-  .ptl-hero-top { align-items: center; }
-  .ptl-hero-main { gap: 14px; }
-  .ptl-hero-name { font-size: 32px; }
-  .ptl-hero-actions { margin-top: 0; }
-  .ptl-hero-stage { padding: 16px 18px; min-width: 248px; max-width: 304px; gap: 10px; }
-  .ptl-stage-eyebrow { font-size: 11px; }
-  .ptl-stage-value { font-size: 18px; }
-  .ptl-stage-next { font-size: 14px; }
-}
-
 /* Very wide desktop: a touch more card padding and grid gap so the extra width
    reads as hierarchy and breathing room, not stretched text. */
 @media (min-width: 1280px) {
@@ -404,8 +443,80 @@
   .ptl-card { padding: 24px 26px; }
 }
 
-/* Mobile sticky action bar (hidden on desktop) */
-.ptl-actionbar { display: none; }
+/* ── ASPIRE-COMPASS: stage-aware surface treatments ─────────────────────────── */
+/* Quiet surfaces: present but visually recessive until relevant. */
+.ptl-section-quiet { background: #fbfaf6; }
+.ptl-section-quiet .ptl-section-title { color: #4b5265; }
+/* A surface holding something that waits on the student. */
+.ptl-section-attend { border-color: #ecd9b3; box-shadow: 0 6px 22px -14px rgba(146, 64, 14, 0.35); }
+.ptl-surveys-note {
+  margin: 0 0 12px; padding: 10px 12px; border-radius: 10px;
+  background: var(--aspire-wait-bg, #fdf3e3); color: var(--aspire-wait-fg, #92400e);
+  font-size: 13px; line-height: 1.5;
+}
+/* Meaningful-moment treatments: typography and surface, not confetti. */
+.ptl-moment { border-color: #cfe4d4; }
+.ptl-moment-line {
+  margin: 0 0 12px; font-family: var(--ptl-serif); font-weight: 560;
+  font-size: 17px; line-height: 1.35; color: #14532d;
+}
+.ptl-moment-cert { border-color: #cfe4d4; background: linear-gradient(160deg, #f2f8f3 0%, #ffffff 55%); }
+.ptl-moment-cert-line {
+  margin: 0 0 8px; font-family: var(--ptl-serif); font-weight: 560;
+  font-size: 16.5px; line-height: 1.35; color: #14532d;
+}
+
+/* Hours & shifts: merged surface details. */
+.ptl-stat-pending { color: #92400e; }
+.ptl-shift-divider {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--ptl-line-soft, #eee9df);
+}
+.ptl-shift-count { font-size: 13.5px; font-weight: 700; color: var(--ptl-navy); }
+
+/* Latest-message strip on Home. */
+.ptl-latest-row {
+  display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: left;
+  padding: 12px 14px; border-radius: 12px; border: 1px solid var(--ptl-line, #e3ded4);
+  background: #fbfaf6; cursor: pointer; font: inherit; color: inherit;
+}
+.ptl-latest-row:hover { border-color: #cfc7b8; background: #f4f1e9; }
+.ptl-latest-top { display: flex; align-items: baseline; gap: 10px; }
+.ptl-latest-subject { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600; overflow-wrap: anywhere; }
+.ptl-latest-unread { font-weight: 700; }
+.ptl-latest-time { font-size: 12px; color: var(--ptl-ink-soft); white-space: nowrap; }
+.ptl-latest-preview {
+  font-size: 13px; line-height: 1.45; color: var(--ptl-ink-soft); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ptl-latest-open { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700; color: var(--ptl-navy); }
+
+/* Loading skeletons: stable shapes, shimmer only when motion is allowed. */
+.ptl-skel-page { display: flex; flex-direction: column; gap: 18px; width: 100%; }
+.ptl-skel-row { display: flex; gap: 18px; }
+.ptl-skel-row > * { flex: 1; }
+.ptl-skel {
+  background: #ece8df; border-radius: var(--ptl-radius, 16px);
+  position: relative; overflow: hidden;
+}
+.ptl-skel-band { height: 180px; }
+.ptl-skel-card { height: 220px; }
+@media (prefers-reduced-motion: no-preference) {
+  .ptl-skel::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.55) 50%, transparent 70%);
+    transform: translateX(-100%);
+    animation: ptl-shimmer 1.6s ease-in-out infinite;
+  }
+  @keyframes ptl-shimmer { to { transform: translateX(100%); } }
+}
+
+/* "Being prepared" and no-record states: a narrow cropped strip of the
+   approved hero illustration; never inside dense working surfaces. */
+.ptl-prepared { padding-top: 0; overflow: hidden; }
+.ptl-prepared-art { margin: 0 -24px 18px; height: 120px; overflow: hidden; display: flex; align-items: center; }
+.ptl-prepared-art img { width: 100%; height: auto; display: block; opacity: 0.9; }
+.ptl-prepared h1 { font-size: 15px; }
 
 /* Edit Profile drawer */
 .ptl-drawer-backdrop { position: fixed; inset: 0; background: rgba(15,20,25,0.42); z-index: 1998; }
@@ -425,27 +536,17 @@
 .ptl-readonly-title { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: #6b7280; margin-bottom: 8px; }
 
 @media (max-width: 760px) {
-  .ptl-main { padding: 18px 14px calc(96px + env(safe-area-inset-bottom)); }
+  /* Bottom padding clears the fixed tab bar plus the iOS safe area. */
+  .ptl-page-tabbar .ptl-main { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+  .ptl-main { padding: 18px 14px 28px; }
   .ptl-header-sub { display: none; }
-  .ptl-hero { padding: 18px 16px; border-radius: 16px; }
-  .ptl-hero-name { font-size: 21px; }
-  .ptl-hero .ptl-avatar { width: 72px; height: 72px; font-size: 25px; }
-  /* The desktop current-stage panel is hidden on mobile so the hero keeps its
-     current, working layout; the Next Steps timeline carries stage context. */
-  .ptl-hero-stage { display: none; }
+  .ptl-compass { grid-template-columns: 1fr; padding: 18px 16px; gap: 14px; }
+  .ptl-compass .ptl-avatar { width: 64px; height: 64px; font-size: 23px; }
+  .ptl-compass-name { font-size: 24px; }
+  .ptl-compass-side { padding: 14px 16px; }
+  .ptl-compass-cta { align-self: stretch; justify-content: center; }
   .ptl-help-grid { grid-template-columns: 1fr; }
   .ptl-card { padding: 18px 16px; }
-  /* Hero inline actions collapse into the sticky bar on small screens */
-  .ptl-hero-actions { display: none; }
-  .ptl-actionbar {
-    display: flex; gap: 10px; position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
-    background: rgba(255,255,255,0.96); border-top: 1px solid #e3ded4;
-    padding: 10px max(14px, env(safe-area-inset-left)) calc(10px + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-right));
-    backdrop-filter: saturate(180%) blur(6px);
-  }
-  .ptl-actionbar .ptl-btn { flex: 2; margin-top: 0; text-align: center; justify-content: center; }
-  .ptl-actionbar .ptl-btn-contact { flex: 1; color: #1D2567; border-color: #1D2567; justify-content: center; }
-  .ptl-actionbar .ptl-btn-primary { background: #1D2567; color: #fff; }
   .ptl-drawer { max-width: 100%; }
 }
 
@@ -514,8 +615,11 @@
   .ptl-msg-split { grid-template-columns: 300px 1fr; gap: 14px; }
 }
 
-/* Phone: list-first. One column only, never a compressed two-column split. */
+/* Phone: list-first. One column only, never a compressed two-column split.
+   The workspace card chrome dissolves on phones (ASPIRE-COMPASS): rows are
+   already cards, so the outer frame was pure double framing. */
 @media (max-width: 760px) {
+  .ptl-msg-workspace { border: none; background: transparent; padding: 0; border-radius: 0; }
   .ptl-msg-split, .ptl-msg-split-narrow { grid-template-columns: 1fr; margin-top: 0; }
   .ptl-msg-pane-list { max-height: none; }
   /* Heading, subtitle, then the primary action, then the list. The chip and the
@@ -612,14 +716,17 @@
 .ptl-msg-closed-note { font-size: 12.5px; }
 .ptl-msg-empty, .ptl-msg-noselect { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 18px; }
 
-/* ── ASPIRE MESSAGES, PHASE 5B-ii: Student Portal section navigation ─────────
-   Sits under the shell header. Real buttons, so keyboard reach, activation, and
-   focus come from the platform rather than synthetic handlers. */
+/* ── ASPIRE-COMPASS: Student Portal section navigation ────────────────────────
+   One component, two presentations. Desktop and tablet: underline tabs under
+   the shell header. Phone: a single fixed bottom bar carrying Home, Messages,
+   and the stage-aware action; there is never a second persistent bar. Real
+   buttons and links, so keyboard reach, activation, and focus come from the
+   platform rather than synthetic handlers. */
 
 .ptl-nav {
   display: flex; align-items: center; gap: 6px;
   margin-bottom: 14px; padding: 0 4px;
-  border-bottom: 1px solid #e3ded4;
+  border-bottom: 1px solid var(--ptl-line, #e3ded4);
   overflow-x: auto;                 /* many items scroll rather than wrap raggedly */
   -webkit-overflow-scrolling: touch;
 }
@@ -629,12 +736,16 @@
   border: 0; border-bottom: 2px solid transparent; border-radius: 0;
   background: none; cursor: pointer; white-space: nowrap;
   font: inherit; font-size: 14px; font-weight: 600; color: #6b6355;
+  text-decoration: none;
 }
-.ptl-nav-item:hover { color: #1D2567; }
-.ptl-nav-item:focus-visible { outline: 2px solid #1D2567; outline-offset: -2px; }
+.ptl-nav-item:hover { color: var(--ptl-navy); }
+.ptl-nav-item:focus-visible { outline-offset: -2px; }
 /* The active section is carried by aria-current for assistive technology; the
    underline plus weight are the visual echo, never the only signal. */
-.ptl-nav-item-active { color: #1D2567; border-bottom-color: #1D2567; }
+.ptl-nav-item-active { color: var(--ptl-navy); border-bottom-color: var(--ptl-navy); }
+.ptl-nav-iconwrap { position: relative; display: inline-flex; }
+/* Desktop: the stage-aware action lives in the Compass band, not the tabs. */
+.ptl-nav-action { display: none; }
 
 .ptl-nav-badge {
   min-width: 19px; padding: 1px 6px; border-radius: 999px;
@@ -643,6 +754,25 @@
 }
 
 @media (max-width: 760px) {
-  .ptl-nav { padding: 0; margin-bottom: 12px; }
-  .ptl-nav-item { flex: 1 1 auto; justify-content: center; }
+  /* Phone: the nav becomes THE bottom bar. */
+  .ptl-nav {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    margin: 0; padding: 6px max(10px, env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-right));
+    background: rgba(255, 255, 255, 0.97); border-top: 1px solid var(--ptl-line, #e3ded4);
+    border-bottom: none; overflow: visible;
+    backdrop-filter: saturate(180%) blur(6px);
+    -webkit-backdrop-filter: saturate(180%) blur(6px);
+  }
+  .ptl-nav-item {
+    flex: 1 1 0; flex-direction: column; gap: 3px; justify-content: center;
+    min-height: 52px; padding: 6px 4px; border-bottom: none; border-radius: 10px;
+    font-size: 11.5px;
+  }
+  .ptl-nav-item-active { background: var(--ptl-navy-tint, #eef2fb); }
+  .ptl-nav-iconwrap .ptl-nav-badge {
+    position: absolute; top: -7px; right: -13px;
+    min-width: 17px; padding: 1px 5px; font-size: 10.5px;
+  }
+  .ptl-nav-action { display: inline-flex; color: #fff; background: var(--ptl-navy); }
+  .ptl-nav-action:hover { color: #fff; }
 }

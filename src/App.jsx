@@ -1217,15 +1217,27 @@ function ShellSplash() {
 
 function LoginRoute() {
   const { user, loading } = useAuth()
+  const location = useLocation()
   if (loading) return <ShellSplash />
-  if (user) return <Navigate to="/portal" replace />
+  // ASPIRE-COMPASS: return the signed-in user to the portal path they were
+  // originally heading to (set by PortalRoute below), so a deep link like
+  // /portal/messages/:id survives the sign-in round trip. Only same-app
+  // /portal paths are ever stored, so this can never redirect off-site.
+  if (user) {
+    const from = location.state?.from
+    const target = typeof from === 'string' && from.startsWith('/portal') ? from : '/portal'
+    return <Navigate to={target} replace />
+  }
   return <LoginNew />
 }
 
 function PortalRoute() {
   const { user, userProfile, loading } = useAuth()
+  const location = useLocation()
   if (loading) return <ShellSplash />
-  if (!user) return <Navigate to="/login" replace />
+  // ASPIRE-COMPASS: carry the intended portal path through the sign-in
+  // round trip so deep links (e.g. /portal/messages/:id) are restored.
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />
 
   // Staff (or profile still resolving): enter the staff app at the last-used
   // tab, mirroring the pre-existing "/" restore behavior. AuthedShell keeps
@@ -1278,7 +1290,9 @@ export default function App() {
       <Route path="/contact"     element={publicPage('contact')} />
       {/* PHASE1-PUBLIC-SITE: explicit auth entry points */}
       <Route path="/login"       element={<LoginRoute />} />
-      <Route path="/portal"      element={<PortalRoute />} />
+      {/* ASPIRE-COMPASS: /portal/* so Messages and thread deep links resolve.
+          URLs never grant access: every read remains server-authorized. */}
+      <Route path="/portal/*"    element={<PortalRoute />} />
       {/* Public routes - no auth required, no app shell */}
       <Route path="/unit-form/*"          element={<div data-theme-lock="light"><UnitFormPage /></div>} />
       <Route path="/school-form/*"        element={<div data-theme-lock="light"><SchoolFormPage /></div>} />

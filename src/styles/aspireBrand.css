@@ -1,0 +1,41 @@
+/* ASPIRE-COMPASS: shared core brand tokens for every ASPIRE surface.
+   Layer 1 of the token structure:
+     1. this file        - core brand identity (colors, type, shape, focus)
+     2. publicSite.css   - public-site component tokens (scoped to .ps-root)
+     3. portal.css       - portal functional tokens (scoped to .ptl-page)
+     4. login.css        - login-page tokens (scoped to .lg-page)
+   Only custom properties live here, on :root, so importing this file can never
+   restyle an existing element. --cs-red (the count-badge red) remains defined
+   in src/index.css and is intentionally not redefined here. */
+
+:root {
+  /* Color identity */
+  --aspire-navy: #1D2567;
+  --aspire-navy-deep: #141a4d;
+  --aspire-navy-soft: #2a3480;
+  --aspire-navy-tint: #eef2fb;
+  --aspire-red-editorial: #B3282D;   /* accent red (public editorial voice)  */
+  --aspire-cream: #F4F1EC;
+  --aspire-card: #ffffff;
+  --aspire-line: #e3ded4;
+  --aspire-line-soft: #eee9df;
+  --aspire-ink: #232842;
+  --aspire-ink-soft: #6b7280;
+
+  /* Status palette (shared taxonomy) */
+  --aspire-ok-bg: #e7f4ec;
+  --aspire-ok-fg: #14532d;
+  --aspire-wait-bg: #fdf3e3;
+  --aspire-wait-fg: #92400e;
+  --aspire-err-bg: #fdecec;
+  --aspire-err-fg: #991b1b;
+
+  /* Typography */
+  --aspire-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --aspire-sans: 'DM Sans', -apple-system, sans-serif;
+
+  /* Shape and focus */
+  --aspire-radius-card: 16px;
+  --aspire-radius-control: 10px;
+  --aspire-focus-ring: 2px solid var(--aspire-navy);
+}

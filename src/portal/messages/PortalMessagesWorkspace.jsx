@@ -33,18 +33,27 @@ const srOnly = {
 
 export default function PortalMessagesWorkspace({
   active = true,
+  // ASPIRE-COMPASS: selection is URL-driven. threadId comes from
+  // /portal/messages/:threadId; selecting and going back are navigations
+  // handled by PortalApp, so refresh, back, and forward all work. An unknown
+  // or unauthorized id simply fails closed through the thread query's
+  // existing error mapping.
+  threadId = null,
+  onSelectThread,
+  onBackToList,
   api = { markPortalConversationRead },
 }) {
   const qc = useQueryClient()
   const narrow = usePortalIsNarrow()
   const newBtnRef = useRef(null)
 
-  const [selectedId, setSelectedId] = useState(null)
+  const selectedId = threadId
   const [conversation, setConversation] = useState(null)
   const [newOpen, setNewOpen] = useState(false)
   const [announcement, setAnnouncement] = useState('')
-  // Mobile is list-first: the thread is a separate view, never a squeezed column.
-  const [mobileView, setMobileView] = useState('list')
+  // Mobile is list-first: the thread is a separate view, never a squeezed
+  // column. The view now derives from the URL: a thread id means thread view.
+  const mobileView = threadId ? 'thread' : 'list'
 
   const announce = useCallback((text) => {
     setAnnouncement('')
@@ -83,10 +92,9 @@ export default function PortalMessagesWorkspace({
   }, [api, refreshInbox])
 
   const selectConversation = useCallback((id) => {
-    setSelectedId(id)
     setConversation(null)
-    if (narrow) setMobileView('thread')
-  }, [narrow])
+    onSelectThread?.(id)
+  }, [onSelectThread])
 
   const handleSent = useCallback((out, opts) => {
     if (opts?.refreshOnly) {
@@ -102,12 +110,11 @@ export default function PortalMessagesWorkspace({
     // Select the authoritative conversation the server created, then let the
     // thread query load it. Ordering comes from server timestamps on refetch.
     if (out?.conversation_id) {
-      setSelectedId(out.conversation_id)
       setConversation(null)
-      if (narrow) setMobileView('thread')
+      onSelectThread?.(out.conversation_id)
     }
     refreshInbox()
-  }, [narrow, refreshInbox])
+  }, [onSelectThread, refreshInbox])
 
   const showList = !narrow || mobileView === 'list'
   const showThread = !narrow || mobileView === 'thread'
@@ -125,7 +132,7 @@ export default function PortalMessagesWorkspace({
       {showHead && (
         <div className="ptl-section-head ptl-msg-head">
           <div className="ptl-msg-head-text">
-            <h2 className="ptl-section-title">Messages</h2>
+            <h1 className="ptl-section-title">Messages</h1>
             <p className="ptl-muted ptl-msg-subtitle">{PORTAL_SUBTITLE}</p>
           </div>
           <div className="ptl-msg-head-actions">
@@ -164,7 +171,7 @@ export default function PortalMessagesWorkspace({
             <PortalMessagesThread
               conversationId={selectedId}
               showBack={narrow}
-              onBack={() => setMobileView('list')}
+              onBack={() => onBackToList?.()}
               refreshMs={active ? PORTAL_ACTIVE_POLL_MS : false}
               onConversation={setConversation}
               onMarkRead={handleMarkRead}
