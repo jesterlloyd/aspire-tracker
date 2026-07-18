@@ -32,6 +32,15 @@ export function classifyStoredFileRef(value) {
   return 'path'
 }
 
+// Pure: the public URL for a path. Used ONLY during Pass 1 to keep storing a
+// public URL value (preserving current behavior) after a signed upload. getPublicUrl
+// builds a string; it performs no network call and does not depend on the bucket
+// being public. The Pass 2 backfill replaces these stored URLs with paths.
+export function publicUrlForPath(path) {
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
+  return data?.publicUrl || ''
+}
+
 async function authHeader() {
   const { data: { session } } = await supabase.auth.getSession()
   const token = session?.access_token

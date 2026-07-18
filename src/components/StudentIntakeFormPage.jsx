@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { signAndUploadIntakeFile, publicUrlForPath } from '../lib/studentFileClient'
 import { groupUnitNamesByDivision, getUnit, DIVISION_ORDER } from '../lib/unitCatalog'
 import { WEEKDAYS, toggleWeekday, isValidIsoDate } from '../lib/availability'
 import {
@@ -183,52 +184,47 @@ export default function StudentIntakeFormPage() {
     // the students table directly, so its anon RLS policy can be dropped.
     const cleanEmail = form.school_email.trim().toLowerCase()
 
-    let lookup
+    // Early validation: confirm the email resolves before uploading or
+    // submitting, so the applicant sees the same message at this step as they
+    // would at submit. The signed-upload endpoint re-resolves server-side; the
+    // client no longer needs the returned ids (paths are server-constructed).
     try {
       const lookupRes = await fetch('/api/student-intake-lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ school_email: cleanEmail }),
       })
-      const lookupData = await lookupRes.json().catch(() => ({}))
       if (!lookupRes.ok) {
+        const lookupData = await lookupRes.json().catch(() => ({}))
         setError(lookupData.message || 'We could not find your information in our system for the current cycle. Please contact the ASPIRE team to confirm your school email on file.')
         setSubmitting(false)
         return
       }
-      lookup = lookupData
     } catch {
       setError('Something went wrong. Please try again or contact the ASPIRE team.')
       setSubmitting(false)
       return
     }
 
-    const studentId      = lookup.student_id
-    const activeCohortId = lookup.cohort_id
-
-    // Upload files if provided
+    // WAVE F-2: uploads go through a server-issued signed upload URL. The server
+    // resolves the student by school email and constructs the object path; the
+    // browser no longer chooses a path or writes storage directly. The stored
+    // value stays a public URL during Pass 1 (derived from the returned path);
+    // the Pass 2 backfill converts stored values to paths.
     let resume_url = ''
     let headshot_url = ''
 
     if (resumeFile) {
-      const ext = resumeFile.name.split('.').pop()
-      const path = `${activeCohortId}/${studentId}/resume.${ext}`
-      const { error: uploadErr } = await supabase.storage
-        .from('student-files').upload(path, resumeFile, { upsert: true, contentType: resumeFile.type })
-      if (!uploadErr) {
-        const { data: urlData } = supabase.storage.from('student-files').getPublicUrl(path)
-        resume_url = urlData.publicUrl
-      }
+      try {
+        const { path } = await signAndUploadIntakeFile({ schoolEmail: cleanEmail, kind: 'resume', file: resumeFile })
+        resume_url = publicUrlForPath(path)
+      } catch { /* upload failure is non-fatal: the form still submits without the file */ }
     }
     if (headshotFile) {
-      const ext = headshotFile.name.split('.').pop()
-      const path = `${activeCohortId}/${studentId}/headshot.${ext}`
-      const { error: uploadErr } = await supabase.storage
-        .from('student-files').upload(path, headshotFile, { upsert: true, contentType: headshotFile.type })
-      if (!uploadErr) {
-        const { data: urlData } = supabase.storage.from('student-files').getPublicUrl(path)
-        headshot_url = urlData.publicUrl
-      }
+      try {
+        const { path } = await signAndUploadIntakeFile({ schoolEmail: cleanEmail, kind: 'headshot', file: headshotFile })
+        headshot_url = publicUrlForPath(path)
+      } catch { /* upload failure is non-fatal */ }
     }
 
     const selectedRoles = Object.entries(form.exp_roles)
