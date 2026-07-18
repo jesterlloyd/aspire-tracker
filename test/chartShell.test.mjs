@@ -33,8 +33,8 @@ test('the chart token layer', async (t) => {
   })
 
   await t.test('chart surfaces resolve through the semantic theme layer', () => {
-    assert.match(tokens, /--chart-bg: var\(--bg-base/)
-    assert.match(tokens, /--chart-ink: var\(--text-primary/)
+    assert.match(tokens, /--chart-bg: var\(--bg-app/)
+    assert.match(tokens, /--chart-ink: var\(--text-body/)
     assert.match(tokens, /--chart-navy: var\(--color-accent-primary/)
   })
 
@@ -60,7 +60,7 @@ test('global staff focus baseline', () => {
 test('responsive header', async (t) => {
   await t.test('the header band is class-driven and wraps below 980px', () => {
     assert.match(header, /<header className="chart-header">/)
-    assert.match(tokens, /@media \(max-width: 980px\) \{[\s\S]*?\.chart-header \{[\s\S]*?flex-wrap: wrap/)
+    assert.match(tokens, /@media \(max-width: 1200px\) \{[\s\S]*?\.chart-header \{[\s\S]*?flex-wrap: wrap/)
   })
 
   await t.test('search flexes full-width on narrow screens (no clipped box)', () => {

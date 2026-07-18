@@ -383,9 +383,11 @@ export default function InterviewRubricTab({
       />
       {/* Availability Calendar with collapse toggle */}
       <div style={{ marginBottom: '8px' }}>
-        {/* Calendar controls row: toggle + interviewer legend pill */}
+        {/* Calendar controls row: toggle + interviewer legend pill.
+            ASPIRE-CHART: wraps on narrow screens instead of forcing page
+            overflow (the fixed row previously pushed ~88px past a phone). */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: '12px',
+          display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap',
           marginBottom: calendarCollapsed ? '0' : '12px',
         }}>
           {/* Show Calendar / Focus Table View toggle */}
