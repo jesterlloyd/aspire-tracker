@@ -1,5 +1,6 @@
 import React from 'react'
 import StudentAvatar from './StudentAvatar'
+import { unitOpenSlots } from '../lib/placementDisplay'
 
 const ORDINAL_COLORS = { '1st': '#059669', '2nd': '#B5895A', '3rd': '#7C8FD9' }
 const LEGEND_DOTS    = [
@@ -8,7 +9,7 @@ const LEGEND_DOTS    = [
   { color: '#7C8FD9', label: '3rd choice' },
 ]
 
-export default function MatchingBanner({ student, units, onClearSelection }) {
+export default function MatchingBanner({ student, units, matches, onClearSelection }) {
   if (!student) return null  // guidance shown by subheader strip when no student selected
 
   const prefs = [
@@ -19,7 +20,8 @@ export default function MatchingBanner({ student, units, onClearSelection }) {
 
   const getUnit = (unitName) => (units || []).find(u => u.unit_name === unitName)
 
-  const recommended = prefs.find(p => { const u = getUnit(p.unitName); return u && (u.slots_remaining || 0) > 0 })
+  // ASPIRE-CHART one capacity source: live match count, same as the guard.
+  const recommended = prefs.find(p => { const u = getUnit(p.unitName); return u && (unitOpenSlots(u, matches) || 0) > 0 })
   const recommendedUnit = recommended ? getUnit(recommended.unitName) : null
 
   const interviewStatus =
@@ -83,7 +85,7 @@ export default function MatchingBanner({ student, units, onClearSelection }) {
           </div>
           {prefs.length > 0 ? prefs.map(pref => {
             const unit = getUnit(pref.unitName)
-            const open = unit ? (unit.slots_remaining || 0) : null
+            const open = unit ? (unitOpenSlots(unit, matches) || 0) : null
             return (
               <div key={pref.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
                 <span style={{ fontFamily: 'DM Sans', fontWeight: 700, fontSize: '12px', color: ORDINAL_COLORS[pref.key], flexShrink: 0, width: '28px' }}>

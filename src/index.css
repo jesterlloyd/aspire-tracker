@@ -2002,6 +2002,15 @@ a.doc-file-link:hover { text-decoration: underline; }
   .ir-kpis { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* ── ASPIRE-CHART: Evaluation reflow (KPI band steps 7-4-2) ────────────────── */
+.eval-kpis { grid-template-columns: repeat(7, 1fr); }
+@media (max-width: 1280px) {
+  .eval-kpis { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 560px) {
+  .eval-kpis { grid-template-columns: repeat(2, 1fr); }
+}
+
 /* ── Interview Room 5-column worklist ────────────────────────────────────────
    Replaces the old 11-column table. Five operational columns: Student,
    Appointment, Workflow Status, Outcome, Action. Flag indicators live on

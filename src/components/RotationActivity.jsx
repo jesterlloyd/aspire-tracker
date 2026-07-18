@@ -11,7 +11,7 @@ import { supabase } from '../lib/supabase'
 import OpenShiftReview from './OpenShiftReview'
 import ClinicalHoursPanel from './ClinicalHoursPanel'
 import { useSupportRequestReads } from '../lib/support/useSupportRequestReads'
-import { unreadCountByStudent } from '../lib/support/supportRequests'
+import { unreadCountByStudent, unreadSupportShifts } from '../lib/support/supportRequests'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { resolvePreceptor } from '../lib/preceptor'
 import { canonicalRotationWindow } from '../lib/rotationWindow'
@@ -118,7 +118,7 @@ function ActiveRotationHours({ student, autoOpenShiftLogId, onAutoOpenConsumed }
   )
 }
 
-function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef, highlighted, autoOpenShiftLogId, onAutoOpenConsumed }) {
+function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef, highlighted, autoOpenShiftLogId, onAutoOpenConsumed, onSupportOpen }) {
   const { s, req, apv, pct, lastLog, daysSince, noRecentLog, missingPreceptor, onCampus,
           precName, unitName, complete, nearComplete, shift, school, range, supportNeeded } = card
   const name = getStudentPreferredFullName(s)
@@ -158,9 +158,9 @@ function ProgressRowCard({ card, expanded, onToggle, onOpen, innerRef, highlight
           {supportNeeded > 0 && (
             <button
               type="button"
-              onClick={() => { if (!expanded) onToggle() }}
-              title="View the support request in View Hours"
-              aria-label={`Support needed${supportNeeded > 1 ? ` (${supportNeeded} entries)` : ''}. Open View Hours.`}
+              onClick={() => onSupportOpen ? onSupportOpen(s.id) : (!expanded && onToggle())}
+              title="Open the flagged shift's support request"
+              aria-label={`Support needed${supportNeeded > 1 ? ` (${supportNeeded} entries)` : ''}. Open the flagged shift.`}
               style={{
                 fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 20, whiteSpace: 'nowrap',
                 background: '#FBF5E8', color: '#8B5E1A', border: '1px solid #f0c9b0', fontFamily: F,
@@ -222,6 +222,10 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
   const profileId = userProfile?.id
   const { receipts: supportReceipts } = useSupportRequestReads(profileId)
   const [expandedId, setExpandedId] = useState(null)
+  // ASPIRE-CHART: the in-page Support badge now opens the EXACT flagged shift
+  // (same one-click behavior the Action Center path already had) instead of
+  // only expanding the card and leaving the reader to hunt the table.
+  const [localSupportOpen, setLocalSupportOpen] = useState(null) // { studentId, shiftLogId }
   const [sortMode, setSortMode] = useState('attention')
   const [highlightId, setHighlightId] = useState(null)
   const cardRefs = useRef({})   // { [studentId]: card element } - for scroll-into-view
@@ -346,6 +350,18 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
 
   if (!canEdit) return null // Owner/Admin-only, carried over from CLOCKOUT-DETECT-1.
 
+  // Expand the student's card and target their first unread support shift
+  // (falls back to the first support shift when all are read). The receipt is
+  // still written only by the Details modal after the text renders.
+  const openSupportShift = (studentId) => {
+    const mine = (logSummary.supportLogs || []).filter(l => l.student_id === studentId)
+    const unread = unreadSupportShifts(mine, profileId, supportReceipts)
+    const target = unread[0] || mine[0]
+    if (!target) return
+    setExpandedId(studentId)
+    setLocalSupportOpen({ studentId, shiftLogId: target.id })
+  }
+
   const onCampusIds = new Set(openLogs.map(l => l.student_id))
 
   const cards = students
@@ -434,8 +450,11 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
             onOpen={onNavigateToStudent}
             /* SUPPORT-REQUEST-ACTION-CENTER-2: only the focused, expanded card receives the exact
                shift id so its ClinicalHoursPanel auto-opens that shift's Details modal. */
-            autoOpenShiftLogId={(focusShiftLogId && expandedId === card.s.id) ? focusShiftLogId : null}
-            onAutoOpenConsumed={onFocusShiftConsumed}
+            autoOpenShiftLogId={expandedId === card.s.id
+              ? (focusShiftLogId || (localSupportOpen?.studentId === card.s.id ? localSupportOpen.shiftLogId : null))
+              : null}
+            onAutoOpenConsumed={() => { onFocusShiftConsumed?.(); setLocalSupportOpen(null) }}
+            onSupportOpen={openSupportShift}
           />
         ))
       )}

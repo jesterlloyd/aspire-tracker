@@ -331,7 +331,7 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
           >
             <div className="modal-header">
               <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1D2567', fontFamily: F }}>
-                Send student survey?
+                Release student survey?
               </h2>
             </div>
             <div style={{ padding: '16px 20px', fontSize: 13.5, color: '#374151', lineHeight: 1.6 }}>
@@ -360,7 +360,7 @@ export default function StudentEvalAutomationPanel({ cohortId, onCounts, active 
                   cursor: releasing ? 'default' : 'pointer', opacity: releasing ? 0.6 : 1,
                 }}
               >
-                {releasing ? 'Sending…' : 'Confirm & Send'}
+                {releasing ? 'Releasing…' : 'Confirm & Release'}
               </button>
             </div>
           </div>

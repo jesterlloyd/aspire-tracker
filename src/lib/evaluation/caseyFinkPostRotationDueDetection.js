@@ -129,15 +129,23 @@ export function classifyCaseyFinkPostRotationCohort({
       summary.not_due += 1
     }
 
-    const inQueue = status === 'eligible_for_review' || status === 'readiness_released' ||
-      status === 'readiness_completed' || status === 'certificate_unlocked'
-    if (!inQueue) continue
+    // ASPIRE-CHART (approved): students NOT yet eligible are no longer
+    // silently omitted - they appear as blocked rows with the provable
+    // reason, so "why isn't this student here?" is answerable from the
+    // table. Summary counts and every status threshold are unchanged; the
+    // release action still renders only for eligible_for_review, and the
+    // server re-checks eligibility on release regardless.
+    const blocked = status === 'not_eligible' || status === 'not_eligible_hours'
 
     const unit = (s.matched_unit_name || '').trim()
     const meta = shiftMeta.get(s.id) || null
 
     const warnings = []
-    if (approved < required && required > 0) warnings.push('Below required hours')
+    if (blocked) {
+      if (required <= 0) warnings.push('Required hours not set')
+      else warnings.push(`Required hours not met (${Number.isInteger(approved) ? approved : approved.toFixed(2)} of ${Number.isInteger(required) ? required : required.toFixed(2)})`)
+    }
+    if (!blocked && approved < required && required > 0) warnings.push('Below required hours')
     if (pending > 0) warnings.push(`Pending hours: ${Number.isInteger(pending) ? pending : pending.toFixed(2)}`)
     if (meta?.supportNeeded) warnings.push('Support requested in shift logs')
     if (!unit) warnings.push('No unit on file')
@@ -157,9 +165,11 @@ export function classifyCaseyFinkPostRotationCohort({
       certificateNumber: cert?.certificate_number || null,
       studentEmail: recipient.email,
       warnings,
+      blocked,
     })
   }
 
-  rows.sort((a, b) => a.studentName.localeCompare(b.studentName))
+  // Actionable and in-flow rows first, blocked rows beneath, names A-Z within.
+  rows.sort((a, b) => (a.blocked === b.blocked ? a.studentName.localeCompare(b.studentName) : a.blocked ? 1 : -1))
   return { rows, summary }
 }

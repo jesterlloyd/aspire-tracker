@@ -28,6 +28,7 @@
 
 import { useState } from 'react'
 import StudentAvatar from './StudentAvatar'
+import { unitOpenSlots } from '../lib/placementDisplay'
 import { CARD } from '../lib/designTokens'
 import { formatSchoolProgram } from '../lib/displayFormatters'
 import { ASPIRE_STATUS_CONFIG } from '../lib/constants'
@@ -50,20 +51,21 @@ const TIER_BADGE = {
 const F = 'DM Sans, sans-serif'
 
 /**
- * Returns slots remaining for a unit name from the participating units array.
- * Uses slots_remaining (kept in sync by createMatch / unmatch in App.jsx).
+ * Returns open slots for a unit name from the participating units array.
+ * ASPIRE-CHART one capacity source: live match count vs configured total
+ * (lib/placementDisplay), the same calculation the placement guard uses.
  * Returns null if the unit is not in the pool (hides the indicator rather
  * than showing a misleading value - per design spec).
  */
-function getOpenCount(unitName, units) {
+function getOpenCount(unitName, units, matches) {
   if (!unitName || !units?.length) return null
   const u = units.find(u => u.unit_name === unitName)
-  return u != null ? Math.max(0, u.slots_remaining || 0) : null
+  return u != null ? unitOpenSlots(u, matches) : null
 }
 
 export default function StudentMatchingCard({
   student, isSelected, onSelect, isReadOnly,
-  isFading, isFadingIn, units, focusedUnit, rotation,
+  isFading, isFadingIn, units, matches, focusedUnit, rotation,
 }) {
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
@@ -323,7 +325,7 @@ export default function StudentMatchingCard({
           display: 'flex', flexDirection: 'column', gap: 4,
         }}>
           {prefs.map(({ rank, unitName }) => {
-            const open = getOpenCount(unitName, units)
+            const open = getOpenCount(unitName, units, matches)
             const isFull = open === 0
             return (
               <div key={rank} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

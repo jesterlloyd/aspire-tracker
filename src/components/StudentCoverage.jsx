@@ -7,8 +7,14 @@
 // preceptor" mirrors Action Center act17 / Rotation Activity: !preceptor_id &&
 // !matched_preceptor.trim(). This phase tracks PRIMARY coverage only - secondary/coverage
 // assignments (student_preceptor_assignments) exist but are intentionally not surfaced here.
-// No writes, no assignment path. Open Profile is the only (existing, safe) navigation.
+// ASPIRE-CHART: the EXISTING safe assignment workflow (PreceptorAssignmentModal,
+// the same modal the Placement Board uses) is now reachable from this view for
+// students missing a primary preceptor - staff no longer have to leave the
+// Preceptors route to act on the gap the view exposes. No new write path.
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useAuth } from '../contexts/AuthContext'
+import PreceptorAssignmentModal from './PreceptorAssignmentModal'
 import { supabase } from '../lib/supabase'
 import { getStudentPreferredFullName } from '../lib/studentNameFormatters'
 import { resolvePreceptor } from '../lib/preceptor'
@@ -40,7 +46,7 @@ function Badge({ label, tone }) {
   )
 }
 
-function CoverageRow({ row, onOpen }) {
+function CoverageRow({ row, onOpen, onAssign }) {
   const { s, name, school, status, unitName, shift, range, precName, missing } = row
   const metaLine = [school, status, unitName, shift].filter(Boolean).join(' · ') || '-'
   return (
@@ -61,7 +67,18 @@ function CoverageRow({ row, onOpen }) {
           Preceptor: {missing ? '-' : (precName || '-')}{range ? ` · ${range}` : ''}
         </div>
       </div>
-      <div style={{ flex: '0 0 auto' }}>
+      <div style={{ flex: '0 0 auto', display: 'flex', gap: 8 }}>
+        {missing && onAssign && (
+          <button
+            onClick={() => onAssign(s)}
+            style={{
+              fontSize: 12, fontWeight: 600, color: '#fff', background: '#1D2567',
+              border: 'none', borderRadius: 8, padding: '7px 12px',
+              cursor: 'pointer', fontFamily: F, whiteSpace: 'nowrap',
+            }}>
+            Assign preceptor
+          </button>
+        )}
         {onOpen && (
           <button
             onClick={() => onOpen(s.id)}
@@ -79,6 +96,8 @@ function CoverageRow({ row, onOpen }) {
 }
 
 export default function StudentCoverage({ students = [], units = [], cohortId, onNavigateToStudent }) {
+  const { canEdit } = useAuth()
+  const [assignStudent, setAssignStudent] = useState(null)
   // Canonical rotation windows - shares the React Query cache key with Rotation > Activity.
   const { data: rotationById = {} } = useQuery({
     queryKey: ['rotation_ranges', cohortId],
@@ -137,7 +156,18 @@ export default function StudentCoverage({ students = [], units = [], cohortId, o
           No Active Rotation or Placed students in this cohort yet.
         </div>
       ) : (
-        rows.map(row => <CoverageRow key={row.s.id} row={row} onOpen={onNavigateToStudent} />)
+        rows.map(row => (
+          <CoverageRow key={row.s.id} row={row} onOpen={onNavigateToStudent}
+            onAssign={canEdit ? setAssignStudent : null} />
+        ))
+      )}
+      {assignStudent && (
+        <PreceptorAssignmentModal
+          isOpen
+          onClose={() => setAssignStudent(null)}
+          student={assignStudent}
+          onAssigned={() => setAssignStudent(null)}
+        />
       )}
     </div>
   )

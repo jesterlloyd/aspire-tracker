@@ -453,6 +453,38 @@ export default function EvaluationTab({ cohortId }) {
     return dir * (va > vb ? 1 : -1)
   })
 
+  // ASPIRE-CHART: CSV export of the CURRENT responses view (same filters and
+  // sort the reader sees). Client-side, from already-loaded authorized rows -
+  // the same safety pattern as the students CSV export. No new data access.
+  const exportResponsesCSV = () => {
+    const headers = ['Student', 'Completed By', 'Instrument', 'Timepoint', 'Status', 'Submitted',
+      'S1 Clinical Problem Solving', 'S1 Learning Activities', 'S1 Practice Readiness']
+    const rows = sorted.map(a => {
+      const r = extractResponse(a)
+      return [
+        `${a.students?.last_name || ''}, ${a.students?.first_name || ''}`.replace(/^, /, ''),
+        completedByLabel(a.respondent_type, a.respondent_name),
+        a.evaluation_instruments?.display_name || '',
+        TIMEPOINT_LABELS[a.timepoint] || a.timepoint || '',
+        effectiveStatus(a),
+        r?.submitted_at || '',
+        r?.score_s1_clinical_problem_solving ?? '',
+        r?.score_s1_learning_activities ?? '',
+        r?.score_s1_practice_readiness ?? '',
+      ]
+    })
+    const csv = [headers, ...rows]
+      .map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const dateSlug = new Date().toISOString().slice(0, 10)
+    link.href = url
+    link.download = `aspire_evaluations_${dateSlug}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   // Instrument cards: per-instrument completed/assigned within the current timepoint filter (NOT
   // instrument-filtered, so every instrument is always visible). Only the canonical instruments that
   // actually appear in this cohort are shown - Program Experience is never shown.
@@ -711,10 +743,9 @@ export default function EvaluationTab({ cohortId }) {
                 </div>
               )}
 
-              {/* Status KPI band (secondary) - 7-column grid matching StudentProfilesTab pattern */}
-              <div style={{
+              {/* Status KPI band (secondary) - column count lives in CSS (.eval-kpis) so it reflows */}
+              <div className="eval-kpis" style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(7, 1fr)',
                 gap: 10,
                 marginBottom: 20,
               }}>
@@ -787,6 +818,15 @@ export default function EvaluationTab({ cohortId }) {
                     <option key={t} value={t}>{t === 'All' ? 'All timepoints' : (TIMEPOINT_LABELS[t] || t)}</option>
                   ))}
                 </select>
+
+                <button onClick={exportResponsesCSV} disabled={sorted.length === 0}
+                  style={{ marginLeft: 'auto', height: 32, padding: '0 12px',
+                    border: '1px solid var(--border-input,rgba(29,37,103,0.10))', borderRadius: 7,
+                    fontSize: 12, fontFamily: F, background: 'var(--bg-input,#fff)',
+                    color: sorted.length === 0 ? '#9ca3af' : 'var(--text-body,#191919)',
+                    cursor: sorted.length === 0 ? 'default' : 'pointer', flexShrink: 0 }}>
+                  ↓ Export CSV ({sorted.length})
+                </button>
               </div>
 
               {/* Empty states */}
@@ -801,10 +841,11 @@ export default function EvaluationTab({ cohortId }) {
                 </div>
               )}
 
-              {/* Main table */}
+              {/* Main table - ASPIRE-CHART: scrolls horizontally on narrow
+                  screens instead of clipping its seven columns */}
               {sorted.length > 0 && (
-                <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: F }}>
+                <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflowX: 'auto' }}>
+                  <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontFamily: F }}>
                     <thead>
                       <tr style={{ background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                         <Th label="Student"      sortable onClick={() => handleSort('student')}      active={sortKey === 'student'}      dir={sortDir} />
