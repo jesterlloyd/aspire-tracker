@@ -108,9 +108,13 @@ export default function StudentProfilesTab({
     if (searchParams.get('mode') === 'access' && view !== 'access') onViewChange('access')
   }, []) // eslint-disable-line - mount-only deep link
 
-  // Open specific student from global search
+  // Open specific student from global search / cross-route focus. State only,
+  // NO URL write: this effect can run in the same commit as a route change,
+  // and a query-string write would resolve against the stale closure route,
+  // yanking the path back to where the focus came from. The user's own next
+  // interaction writes the URL as usual.
   useEffect(() => {
-    if (focusStudentId) { selectStudent(focusStudentId); onClearFocusStudent?.() }
+    if (focusStudentId) { setSelectedStudentId(focusStudentId); onClearFocusStudent?.() }
   }, [focusStudentId]) // eslint-disable-line
 
   // Mark profile as read when student is selected

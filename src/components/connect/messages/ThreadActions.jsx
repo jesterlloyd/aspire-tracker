@@ -3,7 +3,8 @@
 // ASPIRE MESSAGES, PHASE 4B2B-I: the staff reply composer and the assignment,
 // status, category, and follow-up controls.
 //
-// NOT MOUNTED IN PRODUCTION. These live inside the dormant MessagesWorkspace.
+// MOUNTED IN PRODUCTION inside Connect > Messages (stale 'dormant' header
+// corrected by ASPIRE-CHART).
 //
 // Contracts (inspected, not invented):
 //   POST /api/messages-staff-reply  { conversation_id, body }

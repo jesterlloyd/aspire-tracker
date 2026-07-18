@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext({});
@@ -96,19 +96,23 @@ export function AuthProvider({ children }) {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-  };
+  }, []);
 
   // Exposed so components can force a context refresh after writing to user_profiles.
   // Bypasses the concurrent-load guard so it always runs.
-  const refreshUserProfile = async () => {
+  const refreshUserProfile = useCallback(async () => {
     const { data, error } = await supabase.rpc('get_my_profile');
     if (error) { console.error('refreshUserProfile error:', error.message); return; }
     if (data?.length > 0) setUserProfile(data[0]);
-  };
+  }, []);
 
-  const value = {
+  // ASPIRE-CHART performance: the context value is memoized so every provider
+  // render no longer hands consumers a brand-new object (which re-rendered
+  // the entire always-mounted tab forest on each auth tick). Values are
+  // byte-identical to before; only the identity is stable.
+  const value = useMemo(() => ({
     user,
     userProfile,
     loading,
@@ -123,7 +127,7 @@ export function AuthProvider({ children }) {
     canViewActivityLog: userProfile?.is_owner === true,
     iAmInterviewer:     userProfile?.can_conduct_interviews === true,
     myInterviewerColor: userProfile?.interviewer_color || '#1D2567',
-  };
+  }), [user, userProfile, loading, signOut, refreshUserProfile]);
 
   return (
     <AuthContext.Provider value={value}>

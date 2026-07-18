@@ -2,7 +2,8 @@
 //
 // ASPIRE MESSAGES, PHASE 4B2B-I: the staff New message workflow.
 //
-// NOT MOUNTED IN PRODUCTION. It lives inside the dormant MessagesWorkspace;
+// MOUNTED IN PRODUCTION inside Connect > Messages (stale 'dormant' header
+// corrected by ASPIRE-CHART);
 // Connect.jsx, App.jsx, VALID_TABS, and /connect/messages are untouched.
 //
 // Contract (inspected, not invented):

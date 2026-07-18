@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { useLocation } from 'react-router-dom'
 import { openOutlookCompose } from '../lib/outlookCompose'
 import { appUrl } from '../lib/appUrl'
 import Tooltip from './ui/Tooltip'
@@ -630,6 +631,12 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [localToast,       setLocalToast]       = useState(null)
   const [campusOpen,       setCampusOpen]       = useState(false)
 
+  // ASPIRE-CHART performance: the five workspace tabs stay mounted while
+  // hidden, so these 60s polls used to run forever regardless of where the
+  // user was. Polling now pauses while another route is visible; the cached
+  // data stays available and refreshes on return.
+  const onTodayRoute = useLocation().pathname === '/aggregate'
+
   // en-CA gives reliable YYYY-MM-DD in the user's local timezone
   const todayStr     = new Date().toLocaleDateString('en-CA')
   const yesterdayStr = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toLocaleDateString('en-CA') })()
@@ -657,7 +664,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       return selectActiveWindowRows(data, new Date())
     },
     enabled:        !!cohortId,
-    refetchInterval: 60 * 1000,
+    refetchInterval: onTodayRoute ? 60 * 1000 : false,
   })
 
   // On Campus Now - lifecycle source (S.5): students with a live in_progress
@@ -680,7 +687,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       return data || []
     },
     enabled:        !!cohortId,
-    refetchInterval: 60 * 1000,
+    refetchInterval: onTodayRoute ? 60 * 1000 : false,
   })
 
   // Hybrid merge: lifecycle rows take precedence (live check-ins, checked_in_at

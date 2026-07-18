@@ -319,6 +319,6 @@ test('Phase 5A: no Student Portal Messages UI was built', async (t) => {
   await t.test('the staff workspace remains activated and unchanged', () => {
     const connect = read('../src/pages/Connect.jsx')
     assert.match(connect, /const canUseMessages = \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/)
-    assert.match(connect, /<MessagesWorkspace refreshKey=\{refreshKey\} \/>/)
+    assert.match(connect, /<MessagesWorkspace refreshKey=\{refreshKey\} onOpenStudent=\{onNavigateToStudent\} \/>/)
   })
 })

@@ -221,7 +221,7 @@ test('no horizontal overflow and no regressions', async (t) => {
   })
 
   await t.test('staff Messages and the migrations were not touched', () => {
-    assert.match(read('../src/pages/Connect.jsx'), /<MessagesWorkspace refreshKey=\{refreshKey\} \/>/)
+    assert.match(read('../src/pages/Connect.jsx'), /<MessagesWorkspace refreshKey=\{refreshKey\} onOpenStudent=\{onNavigateToStudent\} \/>/)
     assert.match(read('../api/messages-staff-thread.js'), /messages_staff_get_thread_v2/)
     for (const n of ['20260716000000_messages_phase1_schema_foundation',
       '20260716000006_messages_phase5_portal_thread_reverse_pagination']) {

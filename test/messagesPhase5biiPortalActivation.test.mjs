@@ -290,7 +290,7 @@ test('regression: nothing else moved', async (t) => {
   await t.test('staff Messages and the other Connect tabs are unchanged', () => {
     const connect = read('../src/pages/Connect.jsx')
     assert.match(connect, /const canUseMessages = \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/)
-    assert.match(connect, /<MessagesWorkspace refreshKey=\{refreshKey\} \/>/)
+    assert.match(connect, /<MessagesWorkspace refreshKey=\{refreshKey\} onOpenStudent=\{onNavigateToStudent\} \/>/)
     assert.match(connect, /<ContactsView refreshKey=\{refreshKey\} \/>/)
     assert.match(connect, /<OutreachView cohortId=\{cohortId\}/)
     assert.match(connect, /<AutomationView active=\{activeSubTab === 'broadcasts'\}/)

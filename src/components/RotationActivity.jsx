@@ -5,6 +5,7 @@
 // Read-only. Owner/Admin-only (canEdit). No writes/email/cron/RPC. Progress math mirrors the
 // Student Profile (approved_hours / hours_required); no-recent-log mirrors Action Center act15.
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -221,6 +222,9 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
   const { canEdit, userProfile } = useAuth()
   const profileId = userProfile?.id
   const { receipts: supportReceipts } = useSupportRequestReads(profileId)
+  // ASPIRE-CHART performance: polling pauses while this always-mounted pane
+  // is not the visible route; data refreshes on return.
+  const onActivityRoute = useLocation().pathname === '/rotation/activity'
   const [expandedId, setExpandedId] = useState(null)
   // ASPIRE-CHART: the in-page Support badge now opens the EXACT flagged shift
   // (same one-click behavior the Action Center path already had) instead of
@@ -282,7 +286,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
       return data || []
     },
     enabled: !!cohortId && canEdit,
-    refetchInterval: 60 * 1000,
+    refetchInterval: onActivityRoute ? 60 * 1000 : false,
   })
 
   // Per-student last-log summary for the Active Rotation Progress section. Computed in the
@@ -321,7 +325,7 @@ export default function RotationActivity({ students = [], units = [], cohortId, 
       return { summary, supportLogs }
     },
     enabled: !!cohortId && canEdit,
-    refetchInterval: 60 * 1000,
+    refetchInterval: onActivityRoute ? 60 * 1000 : false,
   })
 
   // Canonical rotation date windows (coordinator-owned cohort_school_rotations) for the cohort,

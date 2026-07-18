@@ -288,7 +288,7 @@ test('regression', async (t) => {
 
   await t.test('Connect tabs and staff Messages still work', () => {
     assert.match(connect, /const canUseMessages = \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/)
-    assert.match(connect, /<MessagesWorkspace refreshKey=\{refreshKey\} \/>/)
+    assert.match(connect, /<MessagesWorkspace refreshKey=\{refreshKey\} onOpenStudent=\{onNavigateToStudent\} \/>/)
     assert.match(connect, /<ContactsView refreshKey=\{refreshKey\} \/>/)
     assert.match(connect, /<OutreachView cohortId=\{cohortId\}/)
     assert.match(connect, /<AutomationView active=\{activeSubTab === 'broadcasts'\}/)
