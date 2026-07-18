@@ -32,11 +32,21 @@ test('the browser never supplies an authoritative path', () => {
   // Paths come only from canonicalPath / studentFolderPrefix (server-derived).
   assert.match(intakeSign, /canonicalPath\(cohortId, studentId, kind, meta\.ext\)/)
   assert.match(staffSign, /canonicalPath\(student\.cohort_id, student\.id, kind, meta\.ext\)/)
-  assert.match(cleanup, /studentFolderPrefix\(student\.cohort_id, student\.id\)/)
-  // No endpoint reads a path/cohort/folder from the request body.
+  assert.match(cleanup, /studentFolderPrefix\(cohortId, studentId\)/)
+  // No endpoint ever reads an object path or folder from the request body.
   for (const [name, s] of Object.entries(all)) {
-    assert.doesNotMatch(s, /body\.(path|object_path|storage_path|folder|cohort_id)/, `${name} must not trust a client path/cohort`)
+    assert.doesNotMatch(s, /body\.(path|object_path|storage_path|folder)/, `${name} must not trust a client path`)
   }
+  // Only the cleanup endpoint reads body.cohort_id, and only as a uuid-validated
+  // scoping fallback for delete_student after the row is gone (never a path).
+  for (const [name, s] of Object.entries(all)) {
+    if (name === 'cleanup') continue
+    assert.doesNotMatch(s, /body\.cohort_id/, `${name} must not read a client cohort id`)
+  }
+  assert.match(cleanup, /const bodyCohort = typeof body\.cohort_id === 'string'/)
+  assert.match(cleanup, /if \(!isUuid\(bodyCohort\)\) return res\.status\(404\)/)
+  // The cohort fallback is gated to delete_student only.
+  assert.match(cleanup, /else if \(action === 'delete_student'\) \{[\s\S]*?bodyCohort/)
 })
 
 test('intake signed upload: anonymous, server-resolved, validated', () => {
@@ -95,7 +105,10 @@ test('portal access: own headshot only, server-resolved, no resume', () => {
 
 test('cleanup: Owner/Admin, scoped to one student folder, two actions', () => {
   assert.match(cleanup, /const CLEANUP_ROLES = \['owner', 'admin'\]/)
-  assert.match(cleanup, /studentFolderPrefix\(student\.cohort_id, student\.id\)/)
+  assert.match(cleanup, /studentFolderPrefix\(cohortId, studentId\)/)
+  // Replace resolves the cohort from the still-present row; delete_student can
+  // fall back to the caller-supplied uuid after the row is gone.
+  assert.match(cleanup, /cohortId = student\.cohort_id/)
   assert.match(cleanup, /action === 'replace' \|\| body\.action === 'delete_student'/)
   // Replace removes only other-extension siblings of the same kind.
   assert.match(cleanup, /name\.startsWith\(`\$\{kind\}\.`\) && name !== keepName/)

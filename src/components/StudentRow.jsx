@@ -4,8 +4,10 @@ import {
   INTERVIEW_OUTCOMES, SHIFT_OPTIONS,
 } from '../lib/constants'
 import { displayName } from '../lib/utils'
-import { supabase } from '../lib/supabase'
 import { updatePreceptorAssignment, updateInterviewOutcome } from '../lib/studentProxy'
+import { signAndUploadStaffFile, publicUrlForPath, cleanupStudentFiles, classifyStoredFileRef } from '../lib/studentFileClient'
+import { useStudentFileUrl, openStudentFile } from '../lib/useStudentFile'
+import { useAuth } from '../contexts/AuthContext'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 import ScoreFlag from './ScoreFlag'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
@@ -32,6 +34,7 @@ const ACCESS_SUMMARY_FIELDS = [
 ]
 
 export default function StudentRow({ student, units = [], onUpdate, onDelete, onSwitchToAccess }) {
+  const { canEdit } = useAuth()
   const [expanded,       setExpanded]       = useState(false)
   const [data,           setData]           = useState(student)
   const [saveState,      setSaveState]      = useState('idle')
@@ -132,41 +135,67 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
     timerRef.current = setTimeout(() => doSave(field, value), 600)
   }
 
+  // WAVE F-2: staff uploads go through a server-issued signed upload (Owner/Admin,
+  // enforced server-side; the server resolves the cohort and canonical path and
+  // validates type/size). Cleanup safety: upload, persist the new reference, and
+  // ONLY then remove obsolete extension variants (replace never touches the file
+  // just written).
   const handleResumeUpload = async file => {
     if (!file) return
     if (file.size > 10 * 1024 * 1024) { setResumeMsg('error'); return }
+    if (!student.id) { setResumeMsg('error'); return }
     setUploadingRes(true); setResumeMsg(null)
-    const ext  = file.name.split('.').pop()
-    const path = `${student.cohort_id}/${student.id}/resume.${ext}`
-    const { error } = await supabase.storage.from('student-files')
-      .upload(path, file, { upsert: true, contentType: file.type })
-    if (error) { setUploadingRes(false); setResumeMsg('error'); return }
-    const { data: urlData } = supabase.storage.from('student-files').getPublicUrl(path)
-    const url = urlData.publicUrl
-    setData(p => ({ ...p, resume_url: url }))
-    onUpdate(student.id, { resume_url: url })
-    setUploadingRes(false); setResumeMsg('success')
-    setTimeout(() => setResumeMsg(null), 3000)
-    if (resumeInputRef.current) resumeInputRef.current.value = ''
+    try {
+      const { path } = await signAndUploadStaffFile({ studentId: student.id, kind: 'resume', file })
+      const url = publicUrlForPath(path)
+      setData(p => ({ ...p, resume_url: url }))
+      onUpdate(student.id, { resume_url: url })
+      setResumeMsg('success')
+      setTimeout(() => setResumeMsg(null), 3000)
+      cleanupStudentFiles({ studentId: student.id, action: 'replace', kind: 'resume', keepExt: path.split('.').pop() })
+    } catch {
+      setResumeMsg('error')
+    } finally {
+      setUploadingRes(false)
+      if (resumeInputRef.current) resumeInputRef.current.value = ''
+    }
   }
 
   const handleHeadshotUpload = async file => {
     if (!file) return
     if (file.size > 5 * 1024 * 1024) { setHeadMsg('error'); return }
+    if (!student.id) { setHeadMsg('error'); return }
     setUploadingHead(true); setHeadMsg(null)
-    const ext  = file.name.split('.').pop()
-    const path = `${student.cohort_id}/${student.id}/headshot.${ext}`
-    const { error } = await supabase.storage.from('student-files')
-      .upload(path, file, { upsert: true, contentType: file.type })
-    if (error) { setUploadingHead(false); setHeadMsg('error'); return }
-    const { data: urlData } = supabase.storage.from('student-files').getPublicUrl(path)
-    const url = urlData.publicUrl
-    setData(p => ({ ...p, headshot_url: url }))
-    onUpdate(student.id, { headshot_url: url })
-    setUploadingHead(false); setHeadMsg('success')
-    setTimeout(() => setHeadMsg(null), 3000)
-    if (headshotInputRef.current) headshotInputRef.current.value = ''
+    try {
+      const { path } = await signAndUploadStaffFile({ studentId: student.id, kind: 'headshot', file })
+      const url = publicUrlForPath(path)
+      setData(p => ({ ...p, headshot_url: url }))
+      onUpdate(student.id, { headshot_url: url })
+      setHeadMsg('success')
+      setTimeout(() => setHeadMsg(null), 3000)
+      cleanupStudentFiles({ studentId: student.id, action: 'replace', kind: 'headshot', keepExt: path.split('.').pop() })
+    } catch {
+      setHeadMsg('error')
+    } finally {
+      setUploadingHead(false)
+      if (headshotInputRef.current) headshotInputRef.current.value = ''
+    }
   }
+
+  // WAVE F-2: resume View is Owner/Admin only and opens through the server access
+  // endpoint. The headshot preview resolves a short-lived signed URL the same way.
+  const [openingResume, setOpeningResume] = useState(false)
+  const openResume = async () => {
+    setOpeningResume(true)
+    await openStudentFile({ studentId: student.id, kind: 'resume' })
+    setOpeningResume(false)
+  }
+  const headshotHasStored = classifyStoredFileRef(data.headshot_url) !== 'empty'
+  const { url: headshotSignedUrl } = useStudentFileUrl({
+    studentId: student.id, kind: 'headshot',
+    enabled: Boolean(student.id) && headshotHasStored,
+    refreshKey: data.headshot_url,
+  })
 
   const hoursProgress = data.hours_required > 0
     ? Math.min(100, Math.round(((data.hours_completed || 0) / data.hours_required) * 100))
@@ -564,10 +593,13 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
                   onChange={e => handleResumeUpload(e.target.files[0])} />
                 {data.resume_url ? (
                   <div className="doc-existing-file">
-                    <a className="doc-file-link" href={data.resume_url}
-                      target="_blank" rel="noopener noreferrer">
-                      {decodeURIComponent(data.resume_url.split('/').pop()?.split('?')[0] || 'Resume')}
-                    </a>
+                    {/* WAVE F-2: Owner/Admin only; opens via the server access endpoint. */}
+                    {canEdit && (
+                      <button type="button" className="doc-file-link" onClick={openResume} disabled={openingResume}
+                        style={{ background:'none', border:'none', padding:0, font:'inherit', textAlign:'left', cursor:'pointer' }}>
+                        {decodeURIComponent(data.resume_url.split('/').pop()?.split('?')[0] || 'Resume')}
+                      </button>
+                    )}
                     <button type="button" className="doc-replace-btn"
                       disabled={uploadingRes}
                       onClick={() => resumeInputRef.current?.click()}>
@@ -598,7 +630,7 @@ export default function StudentRow({ student, units = [], onUpdate, onDelete, on
                   onChange={e => handleHeadshotUpload(e.target.files[0])} />
                 {data.headshot_url ? (
                   <div className="doc-existing-file">
-                    <img src={data.headshot_url} alt="Headshot" className="doc-headshot-preview" />
+                    {headshotSignedUrl && <img src={headshotSignedUrl} alt="Headshot" className="doc-headshot-preview" />}
                     <button type="button" className="doc-replace-btn"
                       disabled={uploadingHead}
                       onClick={() => headshotInputRef.current?.click()}>

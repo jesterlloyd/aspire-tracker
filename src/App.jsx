@@ -42,6 +42,7 @@ import { useToast } from './hooks/useToast'
 import { ToastContainer } from './components/Toast'
 import { logActivity } from './lib/logActivity'
 import { safeWrite } from './lib/safeWrite'
+import { cleanupStudentFiles } from './lib/studentFileClient'
 import ConnectPage from './pages/Connect'
 import CatalogPage from './components/catalog/CatalogPage'
 
@@ -574,12 +575,20 @@ function MainApp({ onLogout }) {
   }
 
   const deleteStudent = async id => {
+    // WAVE F-2: capture the cohort before deletion so post-delete storage cleanup
+    // can address the student's folder once the row is gone.
+    const cohortId = students.find(s => s.id === id)?.cohort_id || null
     await safeWrite(() => supabase.from('students').delete().eq('id', id), { name: 'delete student' })
     // Belt-and-suspenders: explicitly remove related records in case CASCADE is not yet applied
     await safeWrite(() => supabase.from('interviews').delete().eq('student_id', id), { name: 'delete student interviews' })
     await safeWrite(() => supabase.from('interview_rubrics').delete().eq('student_id', id), { name: 'delete student rubrics' })
     await safeWrite(() => supabase.from('matches').delete().eq('student_id', id), { name: 'delete student matches' })
     await safeWrite(() => supabase.from('interview_sessions').delete().eq('student_id', id), { name: 'delete student sessions' })
+    // WAVE F-2: storage cleanup runs ONLY after the database deletion, so a DB
+    // failure can never orphan an active record. It is best-effort and never
+    // throws; a durable orphan-retry sweep remains part of the controlled Pass 2
+    // cleanup. A missing cohort id (older row without one) simply skips cleanup.
+    if (cohortId) cleanupStudentFiles({ studentId: id, action: 'delete_student', cohortId })
     // Refetch all affected state so every tab reflects the deletion immediately
     setStudents(prev => prev.filter(s => s.id !== id))
     setInterviews(prev => prev.filter(iv => iv.student_id !== id))

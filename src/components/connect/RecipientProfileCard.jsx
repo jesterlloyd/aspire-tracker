@@ -4,6 +4,8 @@
 // Visual style mirrors ContactProfile in ContactsView (gradient header, avatar ring, role chip).
 
 import { useState, useEffect } from 'react'
+import { useStudentFileUrl } from '../../lib/useStudentFile'
+import { classifyStoredFileRef } from '../../lib/studentFileClient'
 
 const F    = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
@@ -117,6 +119,18 @@ export default function RecipientProfileCard({
   studentFetchFailed,
   outreachMode,     // 'message' | 'survey'
 }) {
+
+  // WAVE F-2: a student recipient's headshot resolves through the server access
+  // endpoint (staff read). The contact-branch Avatar below still uses the contact
+  // avatar (a different bucket) and is unaffected. Hook runs before any early
+  // return so it is unconditional.
+  const rpcStudentId = displayStudent?.id || fetchedStudent?.id || null
+  const rpcStoredHeadshot = displayStudent?.headshot_url || fetchedStudent?.headshot_url || null
+  const { url: studentHeadshotSignedUrl } = useStudentFileUrl({
+    studentId: rpcStudentId, kind: 'headshot',
+    enabled: recipientType === 'student' && Boolean(rpcStudentId) && classifyStoredFileRef(rpcStoredHeadshot) !== 'empty',
+    refreshKey: rpcStoredHeadshot,
+  })
 
   // ── No recipient selected ─────────────────────────────────────────────────
   if (!recipientType && !fromContact && !displayStudent && !fetchedStudent) {
@@ -273,8 +287,9 @@ export default function RecipientProfileCard({
       : null
   const sSchool    = student.school
   const sStatus    = student.status
-  // headshot from displayStudent or fetchedStudent (lightweight headshot-only fetch for router-state path)
-  const sAvatarUrl = displayStudent?.headshot_url || fetchedStudent?.headshot_url || null
+  // headshot resolves through the server access endpoint (WAVE F-2); the signed
+  // URL is computed above via useStudentFileUrl.
+  const sAvatarUrl = studentHeadshotSignedUrl
 
   return (
     <div style={cardStyle}>

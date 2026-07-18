@@ -63,12 +63,19 @@ export async function openStudentFile({ studentId, kind }) {
 }
 
 // Imperative: download a student file with a chosen filename. Fetches a fresh
-// signed URL, then the bytes, and saves them. Returns { ok } or { ok:false }.
+// signed URL, then the bytes, and saves them. If the caller's filename has no
+// extension, the real one is taken from the resolved object path so a saved
+// resume keeps its .pdf/.docx. Returns { ok } or { ok:false }.
 export async function downloadStudentFile({ studentId, kind, filename }) {
   try {
     const url = await fetchStudentFileUrl({ studentId, kind })
     if (!url) return { ok: false, status: 404 }
-    await downloadFile(url, filename)
+    let name = filename
+    if (name && !/\.[a-z0-9]+$/i.test(name)) {
+      const ext = url.split('?')[0].split('.').pop()
+      if (ext && ext.length <= 5) name = `${name}.${ext}`
+    }
+    await downloadFile(url, name)
     return { ok: true }
   } catch (e) {
     return { ok: false, status: e?.status || 500 }

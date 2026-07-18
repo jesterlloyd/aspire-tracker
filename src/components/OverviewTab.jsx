@@ -10,6 +10,8 @@ import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import { getUnit, UNIT_CATALOG, DIVISION_ORDER } from '../lib/unitCatalog'
 import StudentAvatar from './StudentAvatar'
+import { useStudentFileUrl } from '../lib/useStudentFile'
+import { classifyStoredFileRef } from '../lib/studentFileClient'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
 import UnitResponseDrawer from './UnitResponseDrawer'
@@ -209,10 +211,19 @@ function CapacityCoverageGauge({ totalDemand, totalCapacity, placed, cohort }) {
 // ── On Campus Today - picture-card layout ────────────────────────────────────
 
 function CampusStudentCard({ log, student, units, onSelectStudent }) {
-  const [imgError, setImgError] = useState(false)
+  // WAVE F-2: the on-campus card headshot resolves through the server access
+  // endpoint (staff read). Track the failed url instead of a boolean so a fresh
+  // signed url re-shows the photo without an effect.
+  const [erroredUrl, setErroredUrl] = useState(null)
+  const hasStoredHeadshot = classifyStoredFileRef(student?.headshot_url) !== 'empty'
+  const { url: headshotSignedUrl } = useStudentFileUrl({
+    studentId: student?.id, kind: 'headshot',
+    enabled: Boolean(student?.id) && hasStoredHeadshot,
+    refreshKey: student?.headshot_url,
+  })
   if (!student) return null
 
-  const hasPhoto  = !!(student.headshot_url && !imgError)
+  const hasPhoto  = !!(headshotSignedUrl && headshotSignedUrl !== erroredUrl)
   const initials  = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`.toUpperCase()
   const unitName  = log.unit_name || units?.find(u => u.id === student.matched_unit_id)?.unit_name || '-'
 
@@ -250,8 +261,8 @@ function CampusStudentCard({ log, student, units, onSelectStudent }) {
       {/* Photo: top 65% */}
       <div style={{ height:182, background:'#F4F1EC', position:'relative', overflow:'hidden' }}>
         {hasPhoto
-          ? <img src={student.headshot_url} alt={`${student.first_name} ${student.last_name}`}
-              onError={() => setImgError(true)}
+          ? <img src={headshotSignedUrl} alt={`${student.first_name} ${student.last_name}`}
+              onError={() => setErroredUrl(headshotSignedUrl)}
               style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
           : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center',
               fontWeight:700, fontSize:36, color:'#9ca3af' }}>{initials}</div>

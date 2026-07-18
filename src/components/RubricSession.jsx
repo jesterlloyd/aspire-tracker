@@ -12,6 +12,7 @@ import ScoreFlag from './ScoreFlag'
 import { logEvent, eventExists } from '../lib/logEvent'
 import { logActivity } from '../lib/logActivity'
 import { useAuth } from '../contexts/AuthContext'
+import { openStudentFile } from '../lib/useStudentFile'
 // WS1e-A3b: rubric outcomes persist through the explicit save_interview_outcome
 // action (Owner/Admin/Interviewer) instead of the generic onStudentUpdate path.
 import { saveInterviewOutcome } from '../lib/studentProxy'
@@ -334,7 +335,7 @@ function RubricCard({ r, interviewers, onSave, canEdit, onView }) {
 }
 
 export default function RubricSession({ student, rubrics, cohortId, onBack, onStudentUpdate, onRubricsChange, toast, readOnly = false, initialRubric = null }) {
-  const { userProfile } = useAuth()
+  const { userProfile, canEdit } = useAuth()
   const [form,           setForm]           = useState(initialRubric || initForm())
   const [rubricId,       setRubricId]       = useState(initialRubric?.id || null)
   const [saveStatus,     setSaveStatus]     = useState('idle')
@@ -870,12 +871,15 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                   GPA: {parseFloat(student.cumulative_gpa).toFixed(2)}
                 </span>
               )}
-              {student.resume_url && (
-                <a href={student.resume_url} target="_blank" rel="noopener noreferrer"
+              {/* WAVE F-2: resume is Owner/Admin only and opens through the server access
+                  endpoint. Interviewers get no resume access, so the control is hidden for
+                  them; all rubric and interview functionality is unaffected. */}
+              {canEdit && student.resume_url && (
+                <button type="button" onClick={() => openStudentFile({ studentId: student.id, kind: 'resume' })}
                   style={{ fontSize:11, fontWeight:600, color:'var(--nightfall)', border:'1px solid var(--nightfall)',
-                    borderRadius:4, padding:'2px 8px', textDecoration:'none' }}>
+                    borderRadius:4, padding:'2px 8px', background:'transparent', cursor:'pointer', fontFamily:'inherit' }}>
                   📄 View Resume
-                </a>
+                </button>
               )}
             </div>
           )}

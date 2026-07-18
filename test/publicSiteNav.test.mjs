@@ -91,7 +91,9 @@ test('Student Portal hero avatar is larger and keeps the initials fallback', asy
     assert.match(portalCss, /\.ptl-avatar img \{ width: 100%; height: 100%; object-fit: cover; \}/)
   })
   await t.test('initials fallback remains when no photo exists', () => {
-    assert.match(portal, /student\.headshot_url \? <img[\s\S]*?: initials\(fullName\)/)
+    // WAVE F-2: the own headshot now resolves through the portal access endpoint
+    // (server-mediated signed URL); the photo-or-initials fallback is unchanged.
+    assert.match(portal, /ownHeadshotUrl \? <img[\s\S]*?: initials\(fullName\)/)
     assert.match(portal, /alt=""/, 'decorative avatar image has empty alt (initials carry identity)')
   })
 })

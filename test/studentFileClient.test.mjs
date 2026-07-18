@@ -31,12 +31,19 @@ test('uploads use server-issued signed tokens, never a direct storage upload', (
   assert.doesNotMatch(src, /\.from\('student-files'\)\.upload\(/)
 })
 
-test('the browser never sends a path or cohort id as authority', () => {
-  // Requests carry school_email or student_id + kind + declared file metadata only.
+test('the browser never sends a path as authority; cohort id only for post-delete cleanup', () => {
+  // Requests never carry an object path as authority.
   assert.doesNotMatch(src, /body: JSON\.stringify\(\{[^}]*\bpath\b/)
-  assert.doesNotMatch(src, /cohort_id/)
   // The signed path returned by the server is used only to upload to it.
   assert.match(src, /const \{ token, path \} = await res\.json\(\)/)
+  // A cohort id is sent ONLY by the cleanup helper (uuid-validated server-side),
+  // and only to scope delete_student cleanup after the student row is gone. It is
+  // a scoping id the Owner/Admin caller already has full access to, not path
+  // authority. No other request carries a cohort id.
+  const cleanupIdx = src.indexOf('export async function cleanupStudentFiles')
+  assert.ok(cleanupIdx > -1, 'cleanupStudentFiles present')
+  assert.doesNotMatch(src.slice(0, cleanupIdx), /cohort_id/)
+  assert.match(src.slice(cleanupIdx), /cohort_id: cohortId/)
 })
 
 test('auth: staff/portal reads and staff uploads carry the bearer JWT; intake does not', () => {
@@ -56,8 +63,10 @@ test('error and cleanup behavior', () => {
   for (const code of ['401', '403', '404', '413', '422', '429']) {
     assert.ok(src.includes(`case ${code}:`), `missing error mapping for ${code}`)
   }
-  // Cleanup never throws into a delete/upload flow.
-  assert.match(src, /\/\/ Cleanup is best-effort; never throw/)
+  // Cleanup never throws into a delete/upload flow: network/auth failure is
+  // caught and a non-ok response returns { ok: false } rather than throwing.
+  assert.match(src, /best-effort and must never throw/)
+  assert.match(src, /\} catch \{[\s\S]*?return \{ ok: false \}/)
   assert.match(src, /if \(!res\.ok\) return \{ ok: false \}/)
 })
 

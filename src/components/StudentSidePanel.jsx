@@ -15,7 +15,8 @@ import {
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { downloadFile, buildStudentFilename } from '../lib/fileUtils'
-import { signAndUploadStaffFile, publicUrlForPath, cleanupStudentFiles } from '../lib/studentFileClient'
+import { signAndUploadStaffFile, publicUrlForPath, cleanupStudentFiles, classifyStoredFileRef, fetchStudentFileUrl } from '../lib/studentFileClient'
+import { useStudentFileUrl, openStudentFile, downloadStudentFile } from '../lib/useStudentFile'
 import { DECLINE_REASONS } from '../lib/statuses'
 import { EVENT_TYPES, EVENT_TYPE_LABELS, getEventColor } from '../lib/eventTypes'
 import { logEvent, eventExists } from '../lib/logEvent'
@@ -223,7 +224,7 @@ export default function StudentSidePanel({
   const [declineReason,        setDeclineReason]        = useState('')
   const [showDispositionModal, setShowDispositionModal] = useState(false)
   const [summaryCopied,    setSummaryCopied]    = useState(false)
-  const { canEdit, canInterview, userProfile } = useAuth()
+  const { canEdit, canGenerateBadge, userProfile } = useAuth()
   const navigate    = useNavigate()
   const queryClient = useQueryClient()
   const [uploadingRes,  setUploadingRes]  = useState(false)
@@ -369,6 +370,33 @@ export default function StudentSidePanel({
     } catch { showDlError() }
     setTimeout(() => setter(false), 1000)
   }
+
+  // WAVE F-2: resume View/Download are Owner/Admin only and route through the
+  // server access endpoint, which mints a fresh short-lived signed URL each time
+  // (so an expired link is never a problem and a denied role gets nothing).
+  const [openingResume, setOpeningResume] = useState(false)
+  const openResume = async () => {
+    setOpeningResume(true)
+    const r = await openStudentFile({ studentId: student.id, kind: 'resume' })
+    if (!r.ok) showDlError()
+    setOpeningResume(false)
+  }
+  const handleResumeDownload = async () => {
+    setDlResume(true)
+    const r = await downloadStudentFile({ studentId: student.id, kind: 'resume', filename: buildStudentFilename(student, 'resume') })
+    if (!r.ok) showDlError()
+    setTimeout(() => setDlResume(false), 1000)
+  }
+
+  // WAVE F-2: the headshot preview resolves through the same server access
+  // endpoint. A stored value (legacy public URL or canonical path) means a photo
+  // exists; the signed URL is what actually renders.
+  const headshotHasStored = classifyStoredFileRef(data.headshot_url) !== 'empty'
+  const { url: headshotSignedUrl } = useStudentFileUrl({
+    studentId: student.id, kind: 'headshot',
+    enabled: Boolean(student.id) && headshotHasStored,
+    refreshKey: data.headshot_url,
+  })
 
   // Reset data when student changes (prev/next navigation)
   useEffect(() => {
@@ -790,10 +818,15 @@ export default function StudentSidePanel({
   const handleDownloadBadge = async () => {
     setGeneratingBadge(true)
     try {
+      // WAVE F-2: the badge headshot comes from the server access endpoint
+      // (Owner/Admin only). A null result means no accessible headshot; the
+      // generator then throws its own "headshot required" message, preserved as
+      // the safe missing-headshot fallback.
+      const headshotUrl = await fetchStudentFileUrl({ studentId: student.id, kind: 'headshot' })
       const { frontBlob, backBlob } = await generateBadgePNGs({
         student:     data,
         rotation:    rotationRow ?? null,
-        headshotUrl: data.headshot_url,
+        headshotUrl,
       })
       const lastName  = (data.last_name  || '').replace(/\s+/g, '_')
       const firstName = (data.first_name || '').replace(/\s+/g, '_')
@@ -1618,13 +1651,20 @@ export default function StudentSidePanel({
                 <input ref={resumeRef} type="file" style={{ display:'none' }} accept=".pdf,.doc,.docx" onChange={e => handleResumeUpload(e.target.files[0])} />
                 {data.resume_url ? (
                   <div className="doc-existing-file">
-                    <a className="doc-file-link" href={data.resume_url} target="_blank" rel="noopener noreferrer">
-                      {decodeURIComponent(data.resume_url.split('/').pop()?.split('?')[0] || 'Resume')}
-                    </a>
-                    <button onClick={() => doDownload(data.resume_url, buildStudentFilename(student,'resume'), setDlResume)} disabled={dlResume}
-                      style={{ background:'var(--pearl)', border:'1px solid var(--nightfall)', color:'var(--nightfall)', fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px', cursor:'pointer', flexShrink:0 }}>
-                      {dlResume ? '…' : '↓ Resume'}
-                    </button>
+                    {/* WAVE F-2: resume View/Download are Owner/Admin only (canEdit). Viewers
+                        and Interviewers never see resume controls; the server denies them anyway. */}
+                    {canEdit && (
+                      <>
+                        <button type="button" className="doc-file-link" onClick={openResume} disabled={openingResume}
+                          style={{ background:'none', border:'none', padding:0, font:'inherit', textAlign:'left', cursor:'pointer' }}>
+                          {decodeURIComponent(data.resume_url.split('/').pop()?.split('?')[0] || 'Resume')}
+                        </button>
+                        <button onClick={handleResumeDownload} disabled={dlResume}
+                          style={{ background:'var(--pearl)', border:'1px solid var(--nightfall)', color:'var(--nightfall)', fontSize:11, fontWeight:600, borderRadius:6, padding:'4px 10px', cursor:'pointer', flexShrink:0 }}>
+                          {dlResume ? '…' : '↓ Resume'}
+                        </button>
+                      </>
+                    )}
                     <button className="doc-replace-btn" disabled={uploadingRes} onClick={() => resumeRef.current?.click()}>Replace</button>
                   </div>
                 ) : (
@@ -1643,9 +1683,10 @@ export default function StudentSidePanel({
                 <input ref={headshotRef} type="file" style={{ display:'none' }} accept=".jpg,.jpeg,.png" onChange={e => handleHeadshotUpload(e.target.files[0])} />
                 {data.headshot_url ? (
                   <div className="doc-existing-file">
-                    <img src={data.headshot_url} alt="Headshot" className="doc-headshot-preview" />
-                    {/* Download Badge - owner/admin/interviewer only; replaces the old raw-photo download */}
-                    {canInterview && (
+                    {headshotSignedUrl && <img src={headshotSignedUrl} alt="Headshot" className="doc-headshot-preview" />}
+                    {/* Download Badge - active Owner/Admin only (canGenerateBadge). Interviewers
+                        get no headshot access, so they cannot generate badges. */}
+                    {canGenerateBadge && (
                       <Tooltip label={badgeDisabledReason || 'Download badge'} placement="top">
                       <button
                         onClick={handleDownloadBadge}

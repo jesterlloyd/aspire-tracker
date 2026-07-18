@@ -141,13 +141,25 @@ export async function signAndUploadStaffFile({ studentId, kind, file }) {
 }
 
 // ── Cleanup (staff) ─────────────────────────────────────────────────────────
-export async function cleanupStudentFiles({ studentId, action, kind, keepExt }) {
-  const res = await fetch('/api/student-file-cleanup', {
-    method: 'POST',
-    headers: { Authorization: await authHeader(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ student_id: studentId, action, ...(kind && { kind }), ...(keepExt && { keep_ext: keepExt }) }),
-  })
-  // Cleanup is best-effort; never throw into a delete/upload flow.
+// cohortId is only needed for delete_student cleanup that runs AFTER the student
+// row is deleted (the server can no longer resolve the cohort from the row). For
+// replace, the server resolves it from the still-present row and cohortId is omitted.
+export async function cleanupStudentFiles({ studentId, action, kind, keepExt, cohortId }) {
+  let res
+  try {
+    res = await fetch('/api/student-file-cleanup', {
+      method: 'POST',
+      headers: { Authorization: await authHeader(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        student_id: studentId, action,
+        ...(kind && { kind }), ...(keepExt && { keep_ext: keepExt }), ...(cohortId && { cohort_id: cohortId }),
+      }),
+    })
+  } catch {
+    // Network/auth failure: cleanup is best-effort and must never throw into a
+    // delete/upload flow. A durable orphan-retry sweep is part of the Pass 2 pass.
+    return { ok: false }
+  }
   if (!res.ok) return { ok: false }
   return { ok: true }
 }

@@ -33,6 +33,8 @@ import { fmtDate, placementWindow, TBC } from '../lib/portalDates'
 import { composePortalEmail } from '../lib/outlookCompose'
 import { usePortalInboxPreview } from '../lib/messages/portalMessagesPolling'
 import { formatInboxTimestamp, formatUnread } from '../lib/messages/messagesConstants'
+import { usePortalHeadshotUrl } from '../lib/useStudentFile'
+import { classifyStoredFileRef } from '../lib/studentFileClient'
 import EditProfileDrawer from './EditProfileDrawer'
 
 const SUPPORT = 'aspire@cshs.org'
@@ -175,6 +177,17 @@ export default function StudentPortal({
 
   const students = summary?.students || []
   const student = students.find(s => s.id === activeId) || students[0] || null
+
+  // WAVE F-2: the student's own portal headshot resolves through the portal
+  // access endpoint (own headshot only). Hook is unconditional (before the
+  // loading/error returns below). A stored value means a photo exists; the signed
+  // URL is what renders. The Fable .ptl-avatar markup and initials fallback are
+  // unchanged.
+  const portalHeadshotStored = classifyStoredFileRef(student?.headshot_url) !== 'empty'
+  const { url: ownHeadshotUrl } = usePortalHeadshotUrl({
+    enabled: portalHeadshotStored,
+    refreshKey: student?.headshot_url,
+  })
   const myLogs  = student ? logs.filter(l => l.student_id === student.id) : []
   const myEvals = student ? evals.filter(e => e.student_id === student.id) : []
   const myCert  = student ? (certs.find(c => c.student_id === student.id) || null) : null
@@ -252,7 +265,7 @@ export default function StudentPortal({
         <div className="ptl-compass-main">
           <div className="ptl-compass-id">
             <div className="ptl-avatar" aria-hidden="true">
-              {student.headshot_url ? <img src={student.headshot_url} alt="" onError={e => { e.currentTarget.style.display = 'none' }} /> : initials(fullName)}
+              {ownHeadshotUrl ? <img src={ownHeadshotUrl} alt="" onError={e => { e.currentTarget.style.display = 'none' }} /> : initials(fullName)}
             </div>
             <div className="ptl-compass-text">
               <p className="ptl-compass-hello">Welcome back,</p>

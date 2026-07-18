@@ -23,7 +23,9 @@ test('the Compass orientation band', async (t) => {
   await t.test('identity with avatar and initials fallback', () => {
     assert.match(portal, /ptl-compass-id/)
     assert.match(portal, /function initials/)
-    assert.match(portal, /student\.headshot_url \? <img[\s\S]*?: initials\(fullName\)/)
+    // WAVE F-2: the own headshot now resolves through the portal access endpoint
+    // (server-mediated signed URL); the photo-or-initials fallback is unchanged.
+    assert.match(portal, /ownHeadshotUrl \? <img[\s\S]*?: initials\(fullName\)/)
   })
 
   await t.test('the welcome name and stage are the Fraunces moments', () => {

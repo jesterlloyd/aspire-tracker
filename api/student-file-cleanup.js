@@ -10,9 +10,13 @@
 //   'delete_student' when a student is deleted, remove every object under the
 //                    student's folder so files do not outlive the record.
 //
-// The cohort id is resolved server-side from the still-present student row; the
-// client never supplies a path. Cleanup is best-effort and never deletes outside
-// the one student's folder (uuid-validated prefix).
+// For 'replace' the cohort id is resolved server-side from the still-present
+// student row. For 'delete_student' the row has already been deleted (cleanup runs
+// AFTER the database delete, so a later DB failure can never orphan an active
+// record), so the cohort id falls back to a uuid-validated value the Owner/Admin
+// caller supplies. The client never supplies a path, and the folder prefix is
+// built from two validated uuids, so cleanup can never escape the one student's
+// folder. Cleanup is best-effort.
 
 import supabaseAdmin from '../lib/server/evaluation/supabase_admin.js'
 import { verifyStaffCaller } from './lib/messagesAuth.js'
@@ -45,13 +49,24 @@ export default async function handler(req, res) {
   const action = body.action === 'replace' || body.action === 'delete_student' ? body.action : null
   if (!action) return res.status(400).json({ error: 'invalid_action' })
 
-  // Resolve the cohort server-side from the student row (still present here).
+  // Resolve the cohort from the student row when it is still present (replace, or
+  // a delete whose row has not yet been removed). For delete_student after the row
+  // is gone, fall back to the caller-supplied cohort id (uuid-validated).
   const { data: student, error: sErr } = await supabaseAdmin
     .from('students').select('id, cohort_id').eq('id', studentId).maybeSingle()
   if (sErr) return res.status(500).json({ error: 'internal_error' })
-  if (!student || !isUuid(student.cohort_id)) return res.status(404).json({ error: 'not_found' })
+  let cohortId
+  if (student && isUuid(student.cohort_id)) {
+    cohortId = student.cohort_id
+  } else if (action === 'delete_student') {
+    const bodyCohort = typeof body.cohort_id === 'string' ? body.cohort_id : ''
+    if (!isUuid(bodyCohort)) return res.status(404).json({ error: 'not_found' })
+    cohortId = bodyCohort
+  } else {
+    return res.status(404).json({ error: 'not_found' })
+  }
 
-  const fp = studentFolderPrefix(student.cohort_id, student.id)
+  const fp = studentFolderPrefix(cohortId, studentId)
   if (!fp.ok) return res.status(500).json({ error: 'internal_error' })
 
   const listed = await listFolder(fp.prefix)

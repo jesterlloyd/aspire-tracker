@@ -120,6 +120,11 @@ export function AuthProvider({ children }) {
     isViewer:           userProfile?.role === 'viewer',
     canEdit:            ['owner', 'admin'].includes(userProfile?.role),
     canInterview:       ['owner', 'admin', 'interviewer'].includes(userProfile?.role),
+    // WAVE F-2: student badge generation is an active Owner/Admin capability only.
+    // It is deliberately NOT canInterview: Interviewers get no student-file (headshot)
+    // access, so they cannot generate badges. Inactive accounts are already blocked at
+    // the App shell, but we gate on is_active here too so the control never shows.
+    canGenerateBadge:   userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role),
     canViewActivityLog: userProfile?.is_owner === true,
     iAmInterviewer:     userProfile?.can_conduct_interviews === true,
     myInterviewerColor: userProfile?.interviewer_color || '#1D2567',
