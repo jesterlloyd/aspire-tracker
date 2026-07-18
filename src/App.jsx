@@ -3,7 +3,8 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from './lib/supabase'
 import { updatePreceptorAssignment, updateContact, updateProfile, updateRequirements, updateCslink, updateNgrp, updateBadge, updateNotes, updateStatus, updateInterviewOutcome } from './lib/studentProxy'
-import { displayName, getCsLinkStatus } from './lib/utils'
+import { displayName } from './lib/utils'
+import { deriveEagerAttention, deriveLazyAttention, attentionBadgeTotal } from './lib/attention'
 import OverviewTab from './components/OverviewTab'
 import StudentProfilesTab from './components/StudentProfilesTab'
 import InterviewRubricTab from './components/InterviewRubricTab'
@@ -177,12 +178,11 @@ function MainApp({ onLogout }) {
   // Live count reported by the open Action Center panel (includes lazy-loaded tasks).
   // null when the panel is closed → badge falls back to the eager + lazy count below.
   const [panelActionCount, setPanelActionCount] = useState(null)
-  // Minimal raw data for the 3 lazy Action Center tasks, so the CLOSED bell badge can
-  // count them too (Shift Log Needs Review, Student Not Logged Recently, Disposition
-  // Follow-up). Lightweight count-only fetch; derived count is filtered by current
-  // students so stale cross-cohort rows never bleed.
+  // Minimal raw data for the lazy attention tasks (Student Not Logged Recently,
+  // Disposition Follow-up), so the CLOSED bell badge can count them too. The
+  // shared engine in lib/attention.js derives the tasks from these rows.
   const [acShiftLogs,        setAcShiftLogs]        = useState([])
-  const [acRecentLogIds,     setAcRecentLogIds]     = useState([])
+  const [acLazyLoaded,       setAcLazyLoaded]       = useState(false)
   const [acPendingFollowups, setAcPendingFollowups] = useState([])
   const [acActiveDispoIds,   setAcActiveDispoIds]   = useState([])
   const [tourRunning,      setTourRunning]      = useState(false)
@@ -292,7 +292,7 @@ function MainApp({ onLogout }) {
   }, [cohorts]) // eslint-disable-line
 
   // Lightweight fetch of the lazy Action Center task data (count-only fields) so the
-  // CLOSED bell badge can include Shift Log Needs Review / Student Not Logged Recently /
+  // CLOSED bell badge can include Student Not Logged Recently /
   // Disposition Follow-up. Declared before the cohort-load effect that calls it.
   // Disposition data is owner/admin-gated.
   const fetchLazyActionData = async (id) => {
@@ -307,20 +307,20 @@ function MainApp({ onLogout }) {
         : Promise.resolve({ data: [] }),
     ]
     const [logsRes, fuRes, adRes] = await Promise.all(reads)
-    const logs = logsRes.data || []
-    // Precompute the "logged within 7 days" student set here (async, not render) so the
-    // badge derivation stays free of impure Date calls during render.
-    const cutoff = new Date(new Date().getTime() - 7*24*3600*1000).toISOString()
-    setAcShiftLogs(logs)
-    setAcRecentLogIds([...new Set(logs.filter(l => l.submitted_at >= cutoff).map(l => l.student_id))])
+    // ASPIRE-CHART: raw rows only - the shared attention engine
+    // (lib/attention.js) derives the tasks, so this fetch and the Action
+    // Center panel can never disagree about what counts.
+    setAcShiftLogs(logsRes.data || [])
     setAcPendingFollowups(fuRes.data || [])
     setAcActiveDispoIds((adRes.data || []).map(d => d.id))
+    setAcLazyLoaded(true)
   }
 
   useEffect(() => {
     if (!activeCohortId) return
     // Clear stale data from previous cohort immediately so no cross-cohort bleed
     setStudents([]); setUnits([]); setMatches([]); setInterviews([]); setIvSessions([]); setIvSlots([]); setCommunications([])
+    setAcShiftLogs([]); setAcLazyLoaded(false)
     setLoading(true); setDbError(null)
     Promise.all([
       fetchStudents(activeCohortId), fetchUnits(activeCohortId),
@@ -881,64 +881,23 @@ function MainApp({ onLogout }) {
     else if (item.type === 'catalog') { navigate(`/catalog?resource=${encodeURIComponent(item.data.slug)}`) }
   }
 
-  // Eager bell-badge count - mirrors the Action Center panel's EAGER task predicates
-  // (src/components/ActionCenter.jsx `actionItems`). Keep the two in sync.
-  // Excludes the 5 survey/completion/eval tasks removed in ACTION-CENTER-SCOPE-CLEANUP.
-  // The 3 lazy-loaded tasks (Disposition Follow-up, Shift Log Needs Review, Student Not
-  // Logged Recently) need data fetched only when the panel opens, so they are not counted
-  // here - used only as the fallback BEFORE the panel reports its exact live count.
-  const eagerActionBadgeCount = (() => {
-    if (!students.length) return 0
-    const hasSent = (sid, type) => communications.some(c => c.student_id === sid && c.type === type)
-    const now = new Date()
-    const td  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
-    const in48 = new Date(now.getTime() + 48*3600*1000)
-    const t48 = `${in48.getFullYear()}-${String(in48.getMonth()+1).padStart(2,'0')}-${String(in48.getDate()).padStart(2,'0')}`
-    const orientationComplete = !!activeCohort?.orientation_sent_at || communications.some(c => c.type === 'orientation_email')
-
-    // Always visible (not canEdit-gated in the panel)
-    let n =
-      students.filter(s => s.status==='Form Received' && !s.interview_scheduled_date).length +                                  // Send Interview Scheduling Link (act2)
-      students.filter(s => s.interview_scheduled_date >= td && s.interview_scheduled_date <= t48 && !hasSent(s.id,'interview_reminder')).length + // Send Interview Reminder (act3)
-      students.filter(s => s.status==='Placed' && s.matched_preceptor && !hasSent(s.id,'preceptor_welcome')).length              // Preceptor Welcome Email (act5)
-
-    // canEdit-gated tasks (match the panel's canEdit wrapping)
-    if (canEdit) {
-      n +=
-        (activeCohort && !orientationComplete && students.some(s => s.status==='Placed') ? 1 : 0) +                              // Orientation Email
-        students.filter(s => s.status==='Pending Outreach').length +                                                            // Send Student Form (act1)
-        students.filter(s => { if (s.status!=='Placed' || !s.matched_unit_id) return false; const m = matches.find(m => m.student_id===s.id); return m && !m.notification_sent }).length + // Unit Leader Placement Notification (act4)
-        students.filter(s => ['Form Received','Interview Scheduled','Interviewed','Placed','Active Rotation'].includes(s.status) && getCsLinkStatus(s)==='not_started').length + // CS-Link Access Not Started (act6, canonical)
-        students.filter(s => s.status==='Placed' && !s.badge_created).length +                                                  // Badge Not Created (act16)
-        students.filter(s => ['Placed','Active Rotation'].includes(s.status) && !s.preceptor_id && (!s.matched_preceptor || !s.matched_preceptor.trim())).length + // No Preceptor Assigned (act17)
-        students.filter(s => s.interview_outcome==='Do Not Recommend' && s.status==='Interviewed').length                       // Selection Decision Needed (act18)
-    }
-    return n
-  })()
-
-  // Closed-panel count for the 3 lazy tasks, mirroring ActionCenter act13/act15/act19.
-  // Filtered by current students so stale cross-cohort rows are ignored. No double-count:
-  // the eager count contains none of these.
-  const lazyActionBadgeCount = (() => {
-    if (!students.length) return 0
-    const ids = new Set(students.map(s => s.id))
-    const recent = new Set(acRecentLogIds)
-    // Shift Log Needs Review (act13): pending-review logs with a matching student
-    const shiftReview = acShiftLogs.filter(l => l.status === 'Pending Review' && !l.reviewed_at && ids.has(l.student_id)).length
-    // Student Not Logged Recently (act15): Active Rotation students with no log in the last 7 days
-    const notLogged = students.filter(s => s.status === 'Active Rotation' && !recent.has(s.id)).length
-    // Disposition Follow-up (act19, owner/admin only): distinct students with an active pending follow-up
-    let dispo = 0
-    if (canEdit) {
-      const active = new Set(acActiveDispoIds)
-      const studs = new Set()
-      for (const f of acPendingFollowups) {
-        if (active.has(f.disposition_id) && ids.has(f.student_id)) studs.add(f.student_id)
-      }
-      dispo = studs.size
-    }
-    return shiftReview + notLogged + dispo
-  })()
+  // ASPIRE-CHART: the closed bell badge derives from the SAME canonical
+  // attention engine (lib/attention.js) the open Action Center panel uses.
+  // The four hand-mirrored predicate copies that previously lived here are
+  // gone; a predicate edit in the module changes both surfaces at once, so
+  // there is nothing left to hand-synchronize. The lazy sets stay empty until
+  // their data has actually loaded, so the badge never briefly over-counts.
+  const attentionNow = new Date()
+  const eagerAttention = deriveEagerAttention({
+    students, matches, communications, activeCohort, canEdit, now: attentionNow,
+  })
+  const lazyAttention = deriveLazyAttention({
+    students,
+    shiftLogs: acShiftLogs, shiftLogsLoaded: acLazyLoaded,
+    dispositionFollowups: acPendingFollowups, activeDispositionIds: acActiveDispoIds,
+    dispositionLoaded: acLazyLoaded,
+    canEdit, now: attentionNow,
+  })
 
   // SUPPORT-REQUEST-ACTION-CENTER-2: current user's unread support requests contribute to the bell.
   // Cohort-scoped shift logs with support text + the current user's receipts -> one count per unread
@@ -962,8 +921,11 @@ function MainApp({ onLogout }) {
   const supportUnreadCount = unreadSupportBellCount(supportShiftLogs, supportProfileId, supportReceipts)
 
   // While the panel is open it reports its exact visible-task count (including support items); the
-  // badge uses that. When closed, fall back to eager + lazy + support so all task types are reflected.
-  const actionBadgeCount = panelActionCount != null ? panelActionCount : (eagerActionBadgeCount + lazyActionBadgeCount + supportUnreadCount)
+  // badge uses that. When closed, fall back to the shared engine's total so all task types are
+  // reflected. Support requests are counted exactly once (never inside eager/lazy).
+  const actionBadgeCount = panelActionCount != null
+    ? panelActionCount
+    : attentionBadgeTotal({ eager: eagerAttention, lazy: lazyAttention, supportUnreadCount })
 
   return (
     <div className="app">

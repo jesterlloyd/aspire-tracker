@@ -194,7 +194,11 @@ test('the Connect icon badge', async (t) => {
     assert.doesNotMatch(headerActions, /#930045/)
     // Its count behavior is Action Center's own and must not change: still 9+.
     assert.match(headerActions, /\{actionBadgeCount >= 10 \? '9\+' : actionBadgeCount\}/)
-    assert.match(headerActions, /aria-label="Action Center"/)
+    // ASPIRE-CHART: the accessible name is dynamic - it always starts with
+    // "Action Center" and carries the TRUE count (the visual chip caps at 9+
+    // and is aria-hidden), mirroring the Connect icon's pattern.
+    assert.match(headerActions, /aria-label=\{actionBadgeCount > 0\s*\n\s*\? `Action Center, \$\{actionBadgeCount\} open action/)
+    assert.match(headerActions, /: 'Action Center'\}/)
     // The bell badge and its open marker still render; only the color moved.
     assert.match(headerActions, /ref=\{bellRef\}/)
   })
