@@ -1253,6 +1253,79 @@ a.doc-file-link:hover { text-decoration: underline; }
 .ov-hero-num   { font-size: 48px; font-weight: 700; line-height: 1; margin-bottom: 6px; }
 .ov-hero-label { font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
 
+/* ── ASPIRE-CHART: Today head + attention digest ─────────────────────────── */
+.today-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  padding: 14px 20px 0;
+}
+.today-title { font-size: 30px; margin: 0; line-height: 1.1; }
+.today-sub { font-size: 13px; color: var(--chart-ink-soft, #6b7280); margin-top: 3px; font-family: 'DM Sans', sans-serif; }
+.today-lastvisit { font-size: 12px; color: var(--chart-ink-soft, #6b7280); font-family: 'DM Sans', sans-serif; padding-bottom: 4px; }
+.today-digest {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 20px 12px;
+  font-family: 'DM Sans', sans-serif;
+}
+.today-digest-lead {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--chart-ink-soft, #6b7280);
+}
+.today-digest-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 10px; border-radius: 20px;
+  border: 1px solid var(--chart-line, rgba(29,37,103,0.12));
+  background: var(--chart-card, #fff);
+  color: var(--chart-ink, #191919);
+  font-family: 'DM Sans', sans-serif; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; transition: border-color 0.12s, background 0.12s;
+}
+.today-digest-btn:hover { border-color: var(--chart-navy, #1D2567); }
+.today-digest-count {
+  /* Actual required-action counts: the one approved use of the shared red. */
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+  background: var(--cs-red, #DC1E34); color: #fff;
+  font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.today-digest-open {
+  background: none; border: none; cursor: pointer;
+  color: var(--chart-navy, #1D2567); font-family: 'DM Sans', sans-serif;
+  font-size: 12.5px; font-weight: 600; padding: 5px 4px;
+}
+.today-error {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--chart-warn-bg, #FBF3E0); color: var(--chart-warn-ink, #8B5E1A);
+  border: 1px solid rgba(139,94,26,0.25); border-radius: 10px;
+  padding: 10px 14px; margin: 10px 0 14px;
+  font-family: 'DM Sans', sans-serif; font-size: 13px;
+}
+.today-error button {
+  background: none; border: 1px solid currentColor; border-radius: 7px;
+  color: inherit; font-family: 'DM Sans', sans-serif; font-size: 12px;
+  font-weight: 600; padding: 4px 12px; cursor: pointer; flex-shrink: 0;
+}
+
+/* ── ASPIRE-CHART: the operational surfaces finally reflow ────────────────── */
+.glance-kpis { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 900px) {
+  .overview-tab { height: auto; overflow-y: visible; }
+  .aggregate-sticky-header { position: static; }
+  .aggregate-panel-headers, .ov-panels-body { grid-template-columns: 1fr; }
+  .aggregate-panel-hdr { border-radius: 14px 14px 0 0; }
+  .ov-panel-body { max-height: none; overflow-y: visible; }
+  .ov-hero { grid-template-columns: repeat(2, 1fr); }
+  .glance-kpis { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 560px) {
+  .glance-kpis { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .ov-hero { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .ov-hero-num { font-size: 34px; }
+  .today-title { font-size: 25px; }
+}
+
 /* Keep these for any legacy references */
 .ov-panels { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
 .ov-panel  { background: var(--pearl); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }

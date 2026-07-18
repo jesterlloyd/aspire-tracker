@@ -995,7 +995,12 @@ function MainApp({ onLogout }) {
           <>
             <div style={{ display: activeTab === 'overview' ? 'block' : 'none' }}>
               <OverviewTab students={students} units={units} onStudentUpdate={updateStudent} cohortId={activeCohortId} cohort={activeCohort} toast={toast}
-                onSelectStudent={goToActivityStudent} />
+                onSelectStudent={goToActivityStudent}
+                /* ASPIRE-CHART: Today's digest reads the SAME attention sets as
+                   the bell badge, so the two can never disagree. */
+                attention={{ eager: eagerAttention, lazy: lazyAttention, supportUnreadCount }}
+                onOpenActionCenter={() => setShowActionCenter(true)}
+                currentUserId={user?.id} />
             </div>
 
             <div style={{ display: activeTab === 'profiles' ? 'block' : 'none' }}>
