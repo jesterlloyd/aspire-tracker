@@ -20,7 +20,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: true,
     storageKey: 'aspire-intelligence-auth',
-    storage: window?.localStorage,
+    // typeof guard (not window?.) because `window` is an undeclared identifier
+    // in Node, where the public-site prerender evaluates this module at build
+    // time. Browser behavior is unchanged.
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     // Bypass Web Locks API entirely - prevents lock conflict errors
     lock: async (_name, _acquireTimeout, fn) => fn(),
   },

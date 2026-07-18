@@ -1,0 +1,10 @@
+# ASPIRE at Cedars-Sinai - public site
+# Public pages are crawlable. Private routes (login, portal, auth, staff) are
+# intentionally NOT disallowed here: they serve noindex in their initial
+# response (meta on the app shell plus X-Robots-Tag headers), and crawlers
+# must be able to fetch them to see that instruction.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://aspireintelligence.app/sitemap.xml

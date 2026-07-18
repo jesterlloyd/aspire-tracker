@@ -14,7 +14,90 @@
 //     public indexing (meta tag in index.html).
 
 export const SITE_NAME = 'ASPIRE at Cedars-Sinai'
-export const SITE_TITLE = 'ASPIRE at Cedars-Sinai | Senior Nursing Student Clinical Pathway'
+export const SITE_TITLE = 'Cedars-Sinai ASPIRE Program | Nursing Student Clinical Experience'
+
+// ── Search metadata ──────────────────────────────────────────────────────────
+// Route-specific titles and descriptions. The primary public identity is
+// "Cedars-Sinai ASPIRE Program" (with "ASPIRE at Cedars-Sinai" as the natural
+// variation); "ASPIRE Intelligence" remains the platform identity. Every
+// description is drawn from approved on-page copy: no outcomes, guarantees,
+// or requirements beyond what the pages already state. Consumed both by the
+// client-side head manager and the build-time prerender.
+export const META = {
+  home: {
+    title: SITE_TITLE,
+    description:
+      'Explore the Cedars-Sinai ASPIRE Program, a structured senior clinical experience that ' +
+      'helps eligible nursing students build confidence, strengthen readiness, and prepare for ' +
+      'professional nursing practice.',
+  },
+  about: {
+    title: 'About the Cedars-Sinai ASPIRE Program',
+    description:
+      'Learn how ASPIRE, the Affiliate Students’ Pathway from Internship to Residency ' +
+      'Experience, pairs senior nursing students with experienced preceptors for a hands-on ' +
+      'bedside clinical rotation at Cedars-Sinai.',
+  },
+  eligibility: {
+    title: 'ASPIRE Program Eligibility | Cedars-Sinai',
+    description:
+      'Review eligibility for the Cedars-Sinai ASPIRE Program: eligible nursing program ' +
+      'pathways, participating schools, the bedside rotation requirement, and a quick ' +
+      'self-check to see whether ASPIRE may be right for you.',
+  },
+  apply: {
+    title: 'How to Apply to the Cedars-Sinai ASPIRE Program',
+    description:
+      'Applying to ASPIRE begins with your school’s clinical placement coordinator, followed ' +
+      'by the ASPIRE intake form and an interview with the ASPIRE Team at Cedars-Sinai.',
+  },
+  experience: {
+    title: 'The ASPIRE Clinical Experience | Cedars-Sinai',
+    description:
+      'Inside the ASPIRE experience at Cedars-Sinai: hands-on bedside practice, one-to-one ' +
+      'preceptorship, meaningful unit immersion, and support from Nursing Professional ' +
+      'Development practitioners.',
+  },
+  preceptors: {
+    title: 'ASPIRE Preceptors | Cedars-Sinai',
+    description:
+      'Experienced Cedars-Sinai nurses guide senior nursing students through ASPIRE ' +
+      'rotations, with preceptor preparation, Nursing Professional Development support, and ' +
+      'room to grow as a leader.',
+  },
+  faq: {
+    title: 'Cedars-Sinai ASPIRE Program FAQ',
+    description:
+      'Frequently asked questions about the Cedars-Sinai ASPIRE Program: eligibility, ' +
+      'applying through your school, unit and preceptor matching, clinical hours, and what ' +
+      'comes after the rotation.',
+  },
+  contact: {
+    title: 'Contact the Cedars-Sinai ASPIRE Team',
+    description:
+      'Find the right starting point for nursing students, school coordinators, Cedars-Sinai ' +
+      'employees, preceptors, and unit leaders, or email the ASPIRE Team directly.',
+  },
+}
+
+// ── The pathway route ────────────────────────────────────────────────────────
+// The public pages presented as stops along one route: powers the waypoint
+// map in each page header and the "Next on the pathway" band. Teasers reuse
+// each page's approved headline language.
+export const PATHWAY = {
+  mapLabel: 'The ASPIRE pathway',
+  nextEyebrow: 'Next on the pathway',
+  nextOverrides: { contact: 'apply' },
+  stops: [
+    { page: 'about',       path: '/about',       label: 'The story',      nav: 'About ASPIRE',                     teaser: 'A supported bridge from nursing school to professional practice.' },
+    { page: 'eligibility', path: '/eligibility', label: 'Eligibility',    nav: 'ASPIRE eligibility',               teaser: 'See whether ASPIRE may be right for you.' },
+    { page: 'apply',       path: '/apply',       label: 'How to apply',   nav: 'Apply to ASPIRE',                  teaser: 'Applying begins with your school.' },
+    { page: 'experience',  path: '/experience',  label: 'The experience', nav: 'Explore the clinical experience',  teaser: 'Hands-on practice, one-to-one mentorship, and unit immersion.' },
+    { page: 'preceptors',  path: '/preceptors',  label: 'Preceptors',     nav: 'Learn about ASPIRE precepting',    teaser: 'Mentor a future colleague. Grow as a leader.' },
+    { page: 'faq',         path: '/faq',         label: 'Questions',      nav: 'ASPIRE program FAQ',               teaser: 'Answers about eligibility, applying, and placement.' },
+    { page: 'contact',     path: '/contact',     label: 'Contact',        nav: 'Contact the ASPIRE team',          teaser: 'Find the right place to start.' },
+  ],
+}
 
 export const NAV_LINKS = [
   { path: '/about',       label: 'About' },
@@ -27,7 +110,7 @@ export const NAV_LINKS = [
 ]
 
 export const HOME = {
-  heroEyebrow: 'ASPIRE at Cedars-Sinai',
+  heroEyebrow: 'The Cedars-Sinai ASPIRE Program',
   // The headline renders in two parts so the closing phrase can carry the
   // italic editorial voice and drawn underline. Read together, the sentence
   // is unchanged from the approved headline.

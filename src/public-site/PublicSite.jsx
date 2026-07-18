@@ -22,14 +22,56 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import Icon, { StatBadge } from './PublicIcons'
+import Icon from './PublicIcons'
 import { celebrate } from './confetti'
 import { composePublicEmail } from '../lib/outlookCompose'
 import {
-  SITE_NAME, SITE_TITLE, NAV_LINKS, HOME, ABOUT, ELIGIBILITY, APPLY,
+  META, PATHWAY, NAV_LINKS, HOME, ABOUT, ELIGIBILITY, APPLY,
   EXPERIENCE, PRECEPTORS, FAQ, CONTACT, FOOTER,
 } from './publicContent'
 import './publicSite.css'
+
+const CANONICAL_BASE = 'https://aspireintelligence.app'
+
+const PAGE_PATHS = {
+  home: '/', about: '/about', eligibility: '/eligibility', apply: '/apply',
+  experience: '/experience', preceptors: '/preceptors', faq: '/faq', contact: '/contact',
+}
+
+// Client-side head manager: keeps title, description, canonical, robots, and
+// OG tags in sync during SPA navigation. Crawlers get the same values from
+// the prerendered initial HTML (scripts/prerender-public.mjs); this keeps the
+// live document consistent after hydration and in-app route changes.
+function applyHead(page) {
+  const meta = META[page] || META.home
+  const url = CANONICAL_BASE + (PAGE_PATHS[page] === '/' ? '/' : PAGE_PATHS[page])
+  document.title = meta.title
+
+  const setMeta = (attr, key, content) => {
+    let el = document.head.querySelector(`meta[${attr}="${key}"]`)
+    if (!el) {
+      el = document.createElement('meta')
+      el.setAttribute(attr, key)
+      document.head.appendChild(el)
+    }
+    el.setAttribute('content', content)
+  }
+  setMeta('name', 'description', meta.description)
+  setMeta('name', 'robots', 'index,follow')
+  setMeta('property', 'og:title', meta.title)
+  setMeta('property', 'og:description', meta.description)
+  setMeta('property', 'og:url', url)
+  setMeta('name', 'twitter:title', meta.title)
+  setMeta('name', 'twitter:description', meta.description)
+
+  let canonical = document.head.querySelector('link[rel="canonical"]')
+  if (!canonical) {
+    canonical = document.createElement('link')
+    canonical.setAttribute('rel', 'canonical')
+    document.head.appendChild(canonical)
+  }
+  canonical.setAttribute('href', url)
+}
 
 // ── Illustration (approved transparent vector set) ───────────────────────────
 // Each approved PNG has an organic, soft outer edge on a TRANSPARENT
@@ -49,16 +91,6 @@ function Art({ base, alt, className = '', eager = false }) {
   )
 }
 
-const PAGE_TITLES = {
-  home:        SITE_TITLE,
-  about:       'About ASPIRE | ASPIRE at Cedars-Sinai',
-  eligibility: 'Eligibility | ASPIRE at Cedars-Sinai',
-  apply:       'How to Apply | ASPIRE at Cedars-Sinai',
-  experience:  'The Experience | ASPIRE at Cedars-Sinai',
-  preceptors:  'For Preceptors | ASPIRE at Cedars-Sinai',
-  faq:         'FAQ | ASPIRE at Cedars-Sinai',
-  contact:     'Contact | ASPIRE at Cedars-Sinai',
-}
 
 // ── Reveal-on-scroll ──────────────────────────────────────────────────────────
 // Renders any element with the .ps-rv class and adds .is-in when it enters the
@@ -164,6 +196,84 @@ function Flourish({ id }) {
         </linearGradient>
       </defs>
       <path d="M2 10 C 20 3, 38 12, 56 7 S 86 4, 94 6" stroke={`url(#ps-fl-${id})`} />
+    </svg>
+  )
+}
+
+// ── The pathway waypoint system ──────────────────────────────────────────────
+// The public pages are presented as stops along one route. Three pieces make
+// the concept legible site-wide:
+//   1. PathwayMap: a waypoint strip in every subpage header showing all seven
+//      stops with the current one lit (each dot is a real crawlable link).
+//   2. PathwayNext: a "Next on the pathway" band closing every subpage,
+//      carrying the visitor (and crawlers) to the next stop.
+//   3. PathwaySeam: a short drawn connector leading from the homepage hero
+//      into the first section, continuing the scroll-cue line.
+function PathwayMap({ current }) {
+  return (
+    <nav className="ps-waypoints" aria-label={PATHWAY.mapLabel}>
+      <span className="ps-waypoints-label">{PATHWAY.mapLabel}</span>
+      <ol className="ps-waypoints-track">
+        {PATHWAY.stops.map(s => {
+          const active = s.page === current
+          return (
+            <li key={s.page} className={active ? 'ps-waypoint ps-waypoint-on' : 'ps-waypoint'}>
+              <Link to={s.path} aria-current={active ? 'page' : undefined} title={s.label}>
+                <span className="ps-waypoint-dot" aria-hidden="true" />
+                <span className={active ? 'ps-waypoint-name' : 'ps-visually-hidden'}>{s.label}</span>
+              </Link>
+            </li>
+          )
+        })}
+      </ol>
+    </nav>
+  )
+}
+
+function PathwayNext({ page }) {
+  const stops = PATHWAY.stops
+  const i = stops.findIndex(s => s.page === page)
+  if (i === -1) return null
+  const overrideKey = PATHWAY.nextOverrides[page]
+  const next = overrideKey
+    ? stops.find(s => s.page === overrideKey)
+    : stops[(i + 1) % stops.length]
+  if (!next || next.page === page) return null
+  return (
+    <section className="ps-next" aria-label={PATHWAY.nextEyebrow}>
+      <Reveal className="ps-next-inner">
+        <svg className="ps-next-line" viewBox="0 0 2 56" aria-hidden="true" focusable="false">
+          <path d="M1 0v56" stroke="url(#ps-next-g)" strokeWidth="2" strokeDasharray="1 6" strokeLinecap="round" />
+          <defs>
+            <linearGradient id="ps-next-g" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#1D2567" />
+              <stop offset="1" stopColor="#B3282D" />
+            </linearGradient>
+          </defs>
+        </svg>
+        <p className="ps-eyebrow ps-next-eyebrow">{PATHWAY.nextEyebrow}</p>
+        <Link to={next.path} className="ps-next-card">
+          <span className="ps-next-label">{next.label}</span>
+          <span className="ps-next-teaser">{next.teaser}</span>
+          <span className="ps-next-arrow" aria-hidden="true">→</span>
+        </Link>
+      </Reveal>
+    </section>
+  )
+}
+
+function PathwaySeam() {
+  return (
+    <svg className="ps-seam" viewBox="0 0 120 90" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="ps-seam-g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#1D2567" />
+          <stop offset="1" stopColor="#B3282D" />
+        </linearGradient>
+      </defs>
+      <path d="M60 0 C 60 30, 24 34, 24 56 S 56 82, 60 90" fill="none"
+        stroke="url(#ps-seam-g)" strokeWidth="2.4" strokeLinecap="round" strokeDasharray="2 8" />
+      <circle cx="60" cy="88" r="4" fill="#B3282D" />
     </svg>
   )
 }
@@ -336,7 +446,6 @@ function HomeHero() {
           <div className="ps-hero-stage">
             <Art base="hero" eager
               alt="Illustration of a diverse group of senior nursing students walking together in a Cedars-Sinai hospital environment" />
-            <StatBadge className="ps-hero-badge" />
           </div>
         </div>
       </div>
@@ -351,7 +460,9 @@ function HomeHero() {
 // ── Home: interactive pathway finder ─────────────────────────────────────────
 // The four audiences become a choose-your-path selector: an accessible tablist
 // on the left, a responding panel on the right. Arrow keys move and select;
-// the panel re-rises gently on change (motion-gated).
+// the panel re-rises gently on change (motion-gated). ALL four panels exist in
+// the markup (inactive ones carry `hidden`), so crawlers and assistive tech
+// can reach every audience without interaction.
 function PathwayFinder() {
   const [index, setIndex] = useState(0)
   const tabRefs = useRef([])
@@ -370,8 +481,6 @@ function PathwayFinder() {
     else if (e.key === 'End') { e.preventDefault(); select(count - 1) }
   }
 
-  const active = HOME.audiences[index]
-
   return (
     <div className="ps-finder">
       <div className="ps-finder-tabs" role="tablist" aria-label={HOME.audienceTitle}>
@@ -382,7 +491,7 @@ function PathwayFinder() {
             role="tab"
             id={`ps-ftab-${i}`}
             aria-selected={i === index}
-            aria-controls="ps-fpanel"
+            aria-controls={`ps-fpanel-${i}`}
             tabIndex={i === index ? 0 : -1}
             ref={el => { tabRefs.current[i] = el }}
             className="ps-finder-tab"
@@ -395,13 +504,23 @@ function PathwayFinder() {
           </button>
         ))}
       </div>
-      <div className="ps-finder-panel" role="tabpanel" id="ps-fpanel"
-        aria-labelledby={`ps-ftab-${index}`}>
-        <div className="ps-finder-panel-inner" key={active.title}>
-          <h3 className="ps-finder-panel-title">{active.panelTitle || active.title}</h3>
-          <p className="ps-finder-panel-body">{active.body}</p>
-          <CtaLink cta={active.cta} />
-        </div>
+      <div className="ps-finder-stage">
+        {HOME.audiences.map((a, i) => (
+          <div
+            key={a.title}
+            className="ps-finder-panel"
+            role="tabpanel"
+            id={`ps-fpanel-${i}`}
+            aria-labelledby={`ps-ftab-${i}`}
+            hidden={i !== index}
+          >
+            <div className="ps-finder-panel-inner" key={`${a.title}-${i === index}`}>
+              <h3 className="ps-finder-panel-title">{a.title}</h3>
+              <p className="ps-finder-panel-body">{a.body}</p>
+              <CtaLink cta={a.cta} />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -545,7 +664,8 @@ function HomePage() {
     <>
       <HomeHero />
 
-      <section className="ps-section" aria-labelledby="ps-aud-title">
+      <section className="ps-section ps-section-seamed" aria-labelledby="ps-aud-title">
+        <PathwaySeam />
         <Reveal className="ps-section-head">
           <p className="ps-eyebrow">{HOME.audienceEyebrow}</p>
           <h2 id="ps-aud-title" className="ps-h2">{HOME.audienceTitle}</h2>
@@ -607,10 +727,13 @@ function HomePage() {
 }
 
 // ── Reusable page header ──────────────────────────────────────────────────────
-function PageHead({ eyebrow, title, intro }) {
+// Every subpage header opens with the pathway waypoint strip (the visitor's
+// position on the route), then the eyebrow, headline, and intro.
+function PageHead({ stop, eyebrow, title, intro }) {
   const paras = Array.isArray(intro) ? intro : (intro ? [intro] : [])
   return (
     <Reveal className="ps-page-head">
+      {stop && <PathwayMap current={stop} />}
       <p className="ps-eyebrow">{eyebrow}</p>
       <h1 className="ps-h1">{title}</h1>
       {paras.map((p, i) => (
@@ -662,7 +785,7 @@ function AboutPage() {
     <>
       <section className="ps-section">
         <div className="ps-head-split">
-          <PageHead eyebrow={ABOUT.eyebrow} title={ABOUT.title} intro={ABOUT.intro} />
+          <PageHead stop="about" eyebrow={ABOUT.eyebrow} title={ABOUT.title} intro={ABOUT.intro} />
           <Reveal className="ps-head-art" delay={140}>
             <Art base="about" alt={ABOUT.alt} />
           </Reveal>
@@ -766,7 +889,7 @@ function EligibilityPage() {
   return (
     <>
       <section className="ps-section">
-        <PageHead eyebrow={ELIGIBILITY.eyebrow} title={ELIGIBILITY.title} intro={ELIGIBILITY.intro} />
+        <PageHead stop="eligibility" eyebrow={ELIGIBILITY.eyebrow} title={ELIGIBILITY.title} intro={ELIGIBILITY.intro} />
         <div className="ps-split">
           <Reveal className="ps-split-main" delay={80}>
             <EligibilitySelfCheck />
@@ -807,7 +930,7 @@ function ApplyPage() {
   return (
     <>
       <section className="ps-section">
-        <PageHead eyebrow={APPLY.eyebrow} title={APPLY.title} intro={APPLY.intro} />
+        <PageHead stop="apply" eyebrow={APPLY.eyebrow} title={APPLY.title} intro={APPLY.intro} />
         <ol className="ps-steps-rail">
           {APPLY.steps.map((s, i) => (
             <Reveal as="li" className="ps-rail-step" key={s.title} delay={i * 110}>
@@ -830,7 +953,7 @@ function ExperiencePage() {
     <>
       <section className="ps-section">
         <div className="ps-exp-hero">
-          <PageHead eyebrow={EXPERIENCE.eyebrow} title={EXPERIENCE.title} intro={EXPERIENCE.intro} />
+          <PageHead stop="experience" eyebrow={EXPERIENCE.eyebrow} title={EXPERIENCE.title} intro={EXPERIENCE.intro} />
           <Reveal className="ps-exp-art" delay={140}>
             <Art base="experience" alt={EXPERIENCE.alt} />
           </Reveal>
@@ -852,7 +975,7 @@ function PreceptorsPage() {
     <>
       <section className="ps-section">
         <div className="ps-head-split">
-          <PageHead eyebrow={PRECEPTORS.eyebrow} title={PRECEPTORS.title} intro={PRECEPTORS.intro} />
+          <PageHead stop="preceptors" eyebrow={PRECEPTORS.eyebrow} title={PRECEPTORS.title} intro={PRECEPTORS.intro} />
           <Reveal className="ps-head-art" delay={140}>
             <Art base="preceptors" alt={PRECEPTORS.alt} />
           </Reveal>
@@ -881,7 +1004,7 @@ function PreceptorsPage() {
 function FaqPage() {
   return (
     <section className="ps-section ps-section-narrow">
-      <PageHead eyebrow={FAQ.eyebrow} title={FAQ.title} intro={FAQ.intro} />
+      <PageHead stop="faq" eyebrow={FAQ.eyebrow} title={FAQ.title} intro={FAQ.intro} />
       <Reveal delay={100}>
         <FaqAccordion items={FAQ.items} idPrefix="faq-page" />
       </Reveal>
@@ -893,7 +1016,7 @@ function ContactPage() {
   return (
     <>
       <section className="ps-section ps-contact-hero">
-        <PageHead eyebrow={CONTACT.eyebrow} title={CONTACT.title} intro={CONTACT.intro} />
+        <PageHead stop="contact" eyebrow={CONTACT.eyebrow} title={CONTACT.title} intro={CONTACT.intro} />
       </section>
 
       <section className="ps-section ps-contact-cards-section">
@@ -1017,9 +1140,7 @@ export default function PublicSite({ page = 'home' }) {
   // className prop stays constant, so React never rewrites it away).
   useEffect(() => { rootRef.current?.classList.add('ps-js') }, [])
 
-  useEffect(() => {
-    document.title = PAGE_TITLES[page] || SITE_NAME
-  }, [page])
+  useEffect(() => { applyHead(page) }, [page])
 
   // New page, top of page (SPA navigation preserves scroll otherwise).
   useEffect(() => { window.scrollTo(0, 0) }, [pathname])
@@ -1028,7 +1149,10 @@ export default function PublicSite({ page = 'home' }) {
     <div ref={rootRef} className="ps-root">
       <a href="#ps-main" className="ps-skip-link">Skip to content</a>
       <PublicHeader />
-      <main className="ps-main" id="ps-main"><Page /></main>
+      <main className="ps-main" id="ps-main">
+        <Page />
+        {page !== 'home' && <PathwayNext page={page} />}
+      </main>
       <PublicFooter />
     </div>
   )

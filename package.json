@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && vite build --ssr src/public-site/prerender-entry.jsx --outDir .prerender-ssr && node scripts/prerender-public.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
