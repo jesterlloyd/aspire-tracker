@@ -15,6 +15,7 @@ import {
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { downloadFile, buildStudentFilename } from '../lib/fileUtils'
+import { signAndUploadStaffFile, publicUrlForPath, cleanupStudentFiles } from '../lib/studentFileClient'
 import { DECLINE_REASONS } from '../lib/statuses'
 import { EVENT_TYPES, EVENT_TYPE_LABELS, getEventColor } from '../lib/eventTypes'
 import { logEvent, eventExists } from '../lib/logEvent'
@@ -860,65 +861,59 @@ export default function StudentSidePanel({
     ? 'Rotation dates pending'
     : null
 
+  // WAVE F-2: staff uploads go through a server-issued signed upload (Owner/Admin
+  // only, enforced server-side). Cleanup safety: upload, then persist the new
+  // reference, and ONLY then remove obsolete extension variants. The replace
+  // cleanup never touches the current file (it keeps kind.<new ext>).
+  const uploadErrMsg = (e, maxLabel) => (
+    e?.status === 422 ? 'That file type is not accepted'
+      : e?.status === 413 ? `File too large (max ${maxLabel})`
+        : e?.status === 403 ? 'You do not have permission to upload files'
+          : 'Upload failed. Please try again.'
+  )
+
   const handleResumeUpload = async file => {
     if (!file || file.size > 10*1024*1024) { setResumeMsg('File too large (max 10 MB)'); return }
-    if (!student.id || !student.cohort_id) {
-      console.error('Missing student id or cohort_id for resume upload', { id: student.id, cohort_id: student.cohort_id })
-      setResumeMsg('Upload failed: student record not found')
-      return
-    }
+    if (!student.id) { setResumeMsg('Upload failed: student record not found'); return }
     setUploadingRes(true)
     setResumeMsg(null)
-    const ext  = file.name.split('.').pop()
-    const path = `${student.cohort_id}/${student.id}/resume.${ext}`
-    const { error } = await supabase.storage
-      .from('student-files')
-      .upload(path, file, { cacheControl: '3600', upsert: true })
-    if (error) {
-      console.error('Resume upload error:', error)
+    try {
+      const { path } = await signAndUploadStaffFile({ studentId: student.id, kind: 'resume', file })
+      const url = publicUrlForPath(path)
+      setData(p => ({ ...p, resume_url: url }))
+      onUpdate(student.id, { resume_url: url })
+      setResumeMsg('success')
+      setTimeout(() => setResumeMsg(null), 3000)
+      cleanupStudentFiles({ studentId: student.id, action: 'replace', kind: 'resume', keepExt: path.split('.').pop() })
+    } catch (e) {
+      setResumeMsg(uploadErrMsg(e, '10 MB'))
+    } finally {
       setUploadingRes(false)
-      setResumeMsg(`Upload failed: ${error.message}`)
-      return
+      if (resumeRef.current) resumeRef.current.value = ''
     }
-    const { data: urlData } = supabase.storage.from('student-files').getPublicUrl(path)
-    const url = urlData.publicUrl
-    setData(p => ({ ...p, resume_url: url }))
-    onUpdate(student.id, { resume_url: url })
-    setUploadingRes(false)
-    setResumeMsg('success')
-    setTimeout(() => setResumeMsg(null), 3000)
-    if (resumeRef.current) resumeRef.current.value = ''
   }
 
   const handleHeadshotUpload = async file => {
     if (!file || file.size > 5*1024*1024) { setHeadMsg('File too large (max 5 MB)'); return }
-    if (!student.id || !student.cohort_id) {
-      console.error('Missing student id or cohort_id for headshot upload', { id: student.id, cohort_id: student.cohort_id })
-      setHeadMsg('Upload failed: student record not found')
-      return
-    }
+    if (!student.id) { setHeadMsg('Upload failed: student record not found'); return }
     setUploadingHead(true)
     setHeadMsg(null)
-    const ext  = file.name.split('.').pop()
-    const path = `${student.cohort_id}/${student.id}/headshot.${ext}`
-    const { error } = await supabase.storage
-      .from('student-files')
-      .upload(path, file, { cacheControl: '3600', upsert: true })
-    if (error) {
-      console.error('Headshot upload error:', error)
+    try {
+      const { path } = await signAndUploadStaffFile({ studentId: student.id, kind: 'headshot', file })
+      const url = publicUrlForPath(path)
+      // The headshot preview and avatars re-fetch a fresh signed URL keyed on
+      // this value, so no cache-buster is needed.
+      setData(p => ({ ...p, headshot_url: url }))
+      onUpdate(student.id, { headshot_url: url })
+      setHeadMsg('success')
+      setTimeout(() => setHeadMsg(null), 3000)
+      cleanupStudentFiles({ studentId: student.id, action: 'replace', kind: 'headshot', keepExt: path.split('.').pop() })
+    } catch (e) {
+      setHeadMsg(uploadErrMsg(e, '5 MB'))
+    } finally {
       setUploadingHead(false)
-      setHeadMsg(`Upload failed: ${error.message}`)
-      return
+      if (headshotRef.current) headshotRef.current.value = ''
     }
-    const { data: urlData } = supabase.storage.from('student-files').getPublicUrl(path)
-    const url = urlData.publicUrl
-    // Cache-bust so browser doesn't serve the old cached image
-    setData(p => ({ ...p, headshot_url: `${url}?t=${Date.now()}` }))
-    onUpdate(student.id, { headshot_url: url })
-    setUploadingHead(false)
-    setHeadMsg('success')
-    setTimeout(() => setHeadMsg(null), 3000)
-    if (headshotRef.current) headshotRef.current.value = ''
   }
 
   const participatingUnits = units.filter(u => u.is_participating).map(u => u.unit_name)
