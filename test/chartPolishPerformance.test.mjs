@@ -63,7 +63,7 @@ test('performance: hidden-tab polling pauses', () => {
 test('performance: context values are memoized', () => {
   const auth = read('src/contexts/AuthContext.jsx')
   assert.match(auth, /const value = useMemo\(\(\) => \(\{/)
-  assert.match(auth, /\}\), \[user, userProfile, loading, signOut, refreshUserProfile\]\);/)
+  assert.match(auth, /\}\), \[user, userProfile, loading, signOut, refreshUserProfile, interviewerCohortIds\]\);/)
   assert.match(auth, /const signOut = useCallback\(/)
   const presence = read('src/contexts/PresenceContext.jsx')
   assert.match(presence, /const value = useMemo\(\(\) => \(\{ onlineUserIds \}\), \[onlineUserIds\]\)/)

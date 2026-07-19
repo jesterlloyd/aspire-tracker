@@ -71,12 +71,14 @@ test('staff signed upload: Owner/Admin only, cohort resolved server-side', () =>
 })
 
 test('access endpoint: the role matrix, server-mediated, short-lived signed URLs', () => {
-  // Owner/Admin -> both; Viewer -> headshot only; interviewer/others -> none.
-  assert.match(access, /if \(r === 'owner' \|\| r === 'admin'\) return new Set\(\['resume', 'headshot'\]\)/)
-  assert.match(access, /if \(r === 'viewer'\) return new Set\(\['headshot'\]\)/)
-  assert.match(access, /return new Set\(\) \/\/ interviewer and everything else: none/)
+  // Owner/Admin: any cohort. Interviewer: entitled cohorts only. Viewer/others: 403.
+  assert.match(access, /verifyPortalCaller\(req\)/)
+  assert.match(access, /const isOwnerAdmin = role === 'owner' \|\| role === 'admin'/)
+  assert.match(access, /const isInterviewer = role === 'interviewer'/)
+  assert.match(access, /if \(!isOwnerAdmin && !isInterviewer\) \{[\s\S]*?staff_role_required/)
+  assert.match(access, /const cohortOk = isOwnerAdmin \|\| entitledCohorts\.has\(row\.cohort_id\)/)
   // Resolves stored value (legacy URL or path) then mints signed URLs.
-  assert.match(access, /parseStoredFileRef\(stored\)/)
+  assert.match(access, /parseStoredFileRef\(row\[COLUMN\[n\.kind\]\]\)/)
   assert.match(access, /createSignedUrls\(toSign\.map\(\(t\) => t\.path\), SIGNED_URL_TTL_SECONDS\)/)
   assert.match(access, /const SIGNED_URL_TTL_SECONDS = 300/)
   // Batch supported for list views.
@@ -85,11 +87,11 @@ test('access endpoint: the role matrix, server-mediated, short-lived signed URLs
   assert.doesNotMatch(access, /signed_url: ref\.path|bucket_id/)
 })
 
-test('access endpoint: never grants an interviewer, and inactive is rejected', () => {
-  // Interviewer falls through to the empty set; inactive is denied by
-  // verifyStaffCaller before authorization runs.
-  assert.doesNotMatch(access, /'interviewer'/)
-  assert.match(access, /verifyStaffCaller\(req\)/)
+test('access endpoint: interviewer access is entitlement-gated, identity-only, inactive denied', () => {
+  // Interviewers are granted per active cohort entitlement (identity), not by role alone.
+  assert.match(access, /activeEntitledCohortIds\(supabaseAdmin, caller\.profile\.id\)/)
+  // Inactive callers are rejected by verifyPortalCaller before authorization runs.
+  assert.match(access, /verifyPortalCaller\(req\)/)
   // No name-string or email-based authorization anywhere.
   assert.doesNotMatch(access, /interviewer_name|interview_assigned_interviewers|\.email/)
 })

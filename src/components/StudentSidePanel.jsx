@@ -224,7 +224,10 @@ export default function StudentSidePanel({
   const [declineReason,        setDeclineReason]        = useState('')
   const [showDispositionModal, setShowDispositionModal] = useState(false)
   const [summaryCopied,    setSummaryCopied]    = useState(false)
-  const { canEdit, canViewStudentResume, canManageStudentFiles, canGenerateBadge, userProfile } = useAuth()
+  const { canEdit, canManageStudentFiles, canGenerateBadge, canViewStudentFilesInCohort, userProfile } = useAuth()
+  // WAVE F-2: whether THIS caller may view/download this student's files. True for
+  // active Owner/Admin (any cohort) or an entitled active interviewer (this cohort).
+  const canViewFiles = canViewStudentFilesInCohort(data?.cohort_id)
   const navigate    = useNavigate()
   const queryClient = useQueryClient()
   const [uploadingRes,  setUploadingRes]  = useState(false)
@@ -1641,12 +1644,14 @@ export default function StudentSidePanel({
               <div className="doc-upload-area">
                 <div className="doc-area-label">Resume</div>
                 <input ref={resumeRef} type="file" style={{ display:'none' }} accept=".pdf,.doc,.docx" onChange={e => handleResumeUpload(e.target.files[0])} />
-                {data.resume_url ? (
+                {/* WAVE F-2: resume View/Download show for anyone who may view this
+                    student's files (active Owner/Admin any cohort, or an entitled active
+                    interviewer for this cohort). Upload/Replace stay Owner/Admin only.
+                    A caller who can neither view nor manage sees nothing at all, so file
+                    existence is never revealed. */}
+                {(data.resume_url && (canViewFiles || canManageStudentFiles)) ? (
                   <div className="doc-existing-file">
-                    {/* WAVE F-2: resume View/Download require the active-Owner/Admin
-                        canViewStudentResume capability. Viewers and Interviewers never see
-                        resume controls; the server denies them regardless. */}
-                    {canViewStudentResume && (
+                    {canViewFiles && (
                       <>
                         <button type="button" className="doc-file-link" onClick={openResume} disabled={openingResume}
                           style={{ background:'none', border:'none', padding:0, font:'inherit', textAlign:'left', cursor:'pointer' }}>
@@ -1662,7 +1667,7 @@ export default function StudentSidePanel({
                       <button className="doc-replace-btn" disabled={uploadingRes} onClick={() => resumeRef.current?.click()}>Replace</button>
                     )}
                   </div>
-                ) : canManageStudentFiles ? (
+                ) : (!data.resume_url && canManageStudentFiles) ? (
                   <div className="doc-upload-zone" onClick={() => resumeRef.current?.click()}>
                     <span className="doc-zone-icon">📄</span>
                     <span className="doc-zone-text">Upload Resume (PDF/Word, max 10MB)</span>
@@ -1676,12 +1681,13 @@ export default function StudentSidePanel({
               <div className="doc-upload-area">
                 <div className="doc-area-label">Headshot</div>
                 <input ref={headshotRef} type="file" style={{ display:'none' }} accept=".jpg,.jpeg,.png" onChange={e => handleHeadshotUpload(e.target.files[0])} />
-                {data.headshot_url ? (
+                {(data.headshot_url && (canViewFiles || canManageStudentFiles)) ? (
                   <div className="doc-existing-file">
                     {headshotSignedUrl && <img src={headshotSignedUrl} alt="Headshot" className="doc-headshot-preview" />}
-                    {/* Download Badge - active Owner/Admin only (canGenerateBadge). Interviewers
-                        get no headshot access, so they cannot generate badges. */}
-                    {canGenerateBadge && (
+                    {/* Badge generation is active Owner/Admin only (canGenerateBadge). An
+                        entitled interviewer may view the photo but never the badge, and sees
+                        the exact restriction message in its place. */}
+                    {canGenerateBadge ? (
                       <Tooltip label={badgeDisabledReason || 'Download badge'} placement="top">
                       <button
                         onClick={handleDownloadBadge}
@@ -1698,12 +1704,16 @@ export default function StudentSidePanel({
                         {generatingBadge ? 'Generating...' : 'Download Badge'}
                       </button>
                       </Tooltip>
-                    )}
+                    ) : canViewFiles ? (
+                      <span className="doc-badge-restricted" style={{ fontSize:11, color:'#6b7280', fontStyle:'italic' }}>
+                        Badge generation/view restricted to Owner/Admin.
+                      </span>
+                    ) : null}
                     {canManageStudentFiles && (
                       <button className="doc-replace-btn" disabled={uploadingHead} onClick={() => headshotRef.current?.click()}>Replace</button>
                     )}
                   </div>
-                ) : canManageStudentFiles ? (
+                ) : (!data.headshot_url && canManageStudentFiles) ? (
                   <div className="doc-upload-zone" onClick={() => headshotRef.current?.click()}>
                     <span className="doc-zone-icon">🖼</span>
                     <span className="doc-zone-text">Upload Headshot (JPG/PNG, max 5MB)</span>

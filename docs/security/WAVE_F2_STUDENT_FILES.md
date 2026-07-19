@@ -41,14 +41,31 @@ again.
 | Owner / Admin | full | full | yes | yes |
 | Viewer | none | view (cohort-wide-visible set) | no | no |
 | Student Portal | none | own only | no | no |
-| Interviewer | none | none | no | no |
+| Interviewer (entitled) | view + download (entitled cohorts) | view + download (entitled cohorts) | no | no |
 | Unit Leader / Academic Partner / Preceptor / inactive | none | none | no | no |
 | Unauthenticated intake | signed upload only | signed upload only | no | no |
 
 Interviewer authorization is never derived from names, emails, free-text, roster
-strings, or interview-assignment strings. A reliable interviewer-to-student
-authorization relationship does not exist and is deferred to a separate future
-product and schema phase.
+strings, or interview-assignment strings. An active interviewer receives read-only
+resume and photo access, cohort-wide, for every cohort in which they hold an active
+entitlement in `interviewer_cohort_entitlements` (keyed on `user_profiles.id`).
+Entitlement is durable (it survives rubric submission, interview completion,
+reassignment, slot/block changes, and the cohort later going inactive) and ends
+only on manual revocation or account deactivation, which the server checks live.
+The table is server-mediated only (RLS grants the browser no access); active
+Owner/Admin manage it through `/api/interviewer-entitlements`, the file-access
+endpoint gates reads by it, and `/api/my-interviewer-cohorts` drives which controls
+the staff UI shows. Interviewers never upload, replace, delete, or touch badges;
+where the badge would appear they see exactly `Badge generation/view restricted to
+Owner/Admin.` See the migration
+`supabase/migrations/20260719000000_interviewer_cohort_entitlements.sql`
+(APPLY MANUALLY), which supersedes the unapplied
+`20260718000002_interviewer_assignment_identity.sql`.
+
+Companion (not in this change): the scheduling flow still attributes availability
+by interviewer name. Making future Owner/Admin scheduling select a linked
+interviewer account and auto-ensure an entitlement is a clearly-ordered follow-up;
+until then, entitlements are managed by the backfill and the management API.
 
 ### Explicit active-role capabilities
 

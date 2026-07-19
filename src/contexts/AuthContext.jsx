@@ -7,6 +7,11 @@ export function AuthProvider({ children }) {
   const [user, setUser]               = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading]         = useState(true);
+  // WAVE F-2 (interviewer file access): the cohorts this caller is actively
+  // entitled to as an interviewer (server-resolved by identity). Empty for
+  // owner/admin/viewer, and empty for an unentitled interviewer. Drives which
+  // file controls are shown; the server access endpoint stays authoritative.
+  const [interviewerCohortIds, setInterviewerCohortIds] = useState([]);
   const loadingRef = useRef(false); // Prevent concurrent profile loads
 
   const loadUserProfile = async () => {
@@ -108,6 +113,30 @@ export function AuthProvider({ children }) {
     if (data?.length > 0) setUserProfile(data[0]);
   }, []);
 
+  // WAVE F-2: resolve the interviewer's entitled cohorts once per profile. Only an
+  // active interviewer can hold entitlements; everyone else keeps an empty set.
+  useEffect(() => {
+    let cancelled = false;
+    const role = String(userProfile?.role || '').toLowerCase();
+    const isEntitledRole = role === 'interviewer' && userProfile?.is_active !== false;
+    // Both branches resolve through a promise, so no setState runs synchronously
+    // in the effect body. Non-interviewers resolve to an empty set.
+    const p = isEntitledRole
+      ? (async () => {
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          if (!token) return [];
+          const res = await fetch('/api/my-interviewer-cohorts', { headers: { Authorization: `Bearer ${token}` } });
+          if (!res.ok) return [];
+          const j = await res.json();
+          return Array.isArray(j?.cohort_ids) ? j.cohort_ids : [];
+        })()
+      : Promise.resolve([]);
+    p.then((ids) => { if (!cancelled) setInterviewerCohortIds(ids); })
+      .catch(() => { if (!cancelled) setInterviewerCohortIds([]); });
+    return () => { cancelled = true; };
+  }, [userProfile?.id, userProfile?.role, userProfile?.is_active]);
+
   // ASPIRE-CHART performance: the context value is memoized so every provider
   // render no longer hands consumers a brand-new object (which re-rendered
   // the entire always-mounted tab forest on each auth tick). Values are
@@ -128,17 +157,27 @@ export function AuthProvider({ children }) {
     // privacy gates for file controls, NOT the broad canEdit (which omits the
     // is_active check). A user is active only when is_active !== false. The server
     // access/upload/cleanup endpoints remain authoritative even when controls are
-    // hidden. Interviewers get no resume or headshot access and no badge.
+    // hidden. An entitled interviewer may VIEW/DOWNLOAD resume+photo for their
+    // entitled cohorts (see canViewStudentFilesInCohort), but never manage files
+    // or badges.
     //   canViewStudentResume  - see/open/download a resume (active Owner/Admin)
     //   canManageStudentFiles - upload/replace/delete student files (active Owner/Admin)
     //   canGenerateBadge      - generate a student badge (active Owner/Admin)
     canViewStudentResume:  userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role),
     canManageStudentFiles: userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role),
     canGenerateBadge:      userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role),
+    // WAVE F-2: an active interviewer's entitled cohorts, and a per-cohort file-view
+    // check that is true for active Owner/Admin (any cohort) or an entitled active
+    // interviewer (that cohort). Manage/badge stay Owner/Admin-only above.
+    interviewerCohortIds,
+    canViewStudentFilesInCohort: (cohortId) =>
+      (userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role)) ||
+      (userProfile?.is_active !== false && String(userProfile?.role || '').toLowerCase() === 'interviewer'
+        && !!cohortId && interviewerCohortIds.includes(cohortId)),
     canViewActivityLog: userProfile?.is_owner === true,
     iAmInterviewer:     userProfile?.can_conduct_interviews === true,
     myInterviewerColor: userProfile?.interviewer_color || '#1D2567',
-  }), [user, userProfile, loading, signOut, refreshUserProfile]);
+  }), [user, userProfile, loading, signOut, refreshUserProfile, interviewerCohortIds]);
 
   return (
     <AuthContext.Provider value={value}>
