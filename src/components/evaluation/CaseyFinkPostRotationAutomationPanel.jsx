@@ -24,6 +24,12 @@ const STATUS_STYLE = {
   readiness_released:   { label: 'Readiness Survey Released',  fg: '#1D2567', bg: '#EEF1FB' },
   readiness_completed:  { label: 'Readiness Survey Completed', fg: '#7c3aed', bg: '#F3EEFC' },
   certificate_unlocked: { label: 'Certificate Unlocked',       fg: '#b45309', bg: '#FBF5E8' },
+  // ASPIRE-CHART (approved): not-yet-eligible students render as blocked rows
+  // with the provable reason instead of being silently omitted. Amber, not
+  // red: a blocker is a state, not an error. No release action ever renders
+  // for these rows, and the server re-checks eligibility regardless.
+  not_eligible_hours:   { label: 'Blocked · hours not set',    fg: '#8B5E1A', bg: '#FBF3E0' },
+  not_eligible:         { label: 'Blocked · below hours',      fg: '#8B5E1A', bg: '#FBF3E0' },
 }
 
 const COLS = ['Student', 'School', 'Unit', 'Approved', 'Required', 'Last Shift', 'Readiness Survey', 'Certificate', 'Warnings', 'Action']

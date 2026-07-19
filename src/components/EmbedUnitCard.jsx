@@ -8,6 +8,7 @@ import StudentAvatar from './StudentAvatar'
 import { getUnit } from '../lib/unitCatalog'
 import { CARD } from '../lib/designTokens'
 import PreceptorAssignmentModal from './PreceptorAssignmentModal'
+import { MATCH_RANK_CONFIG, matchRankOf } from '../lib/placementDisplay'
 
 // ── Choice / match-quality config ────────────────────────────────────────────
 
@@ -17,12 +18,9 @@ const CHOICE_STYLES = {
   '3rd': { border:'#7C8FD9', chipBg:'#E0E7FF', chipText:'#3730A3', label:'★ 3rd choice' },
 }
 
-const MATCH_QUALITY_CONFIG = {
-  '1st':   { label:'★ Perfect Match',    color:'#065F46', bg:'#D1FAE5', border:'#059669' },
-  '2nd':   { label:'2nd Choice Match',   color:'#7C5A1F', bg:'#FCEFD4', border:'#B5895A' },
-  '3rd':   { label:'3rd Choice Match',   color:'#3730A3', bg:'#E0E7FF', border:'#7C8FD9' },
-  'other': { label:'Manual placement',   color:'#6b7280', bg:'#f9fafb', border:'#e5e7eb' },
-}
+// ASPIRE-CHART honest match rank: display comes from the STORED match_quality
+// (lib/placementDisplay), never re-derived from unit names - renaming a unit
+// must not rewrite placement history, and absent data says so explicitly.
 
 const resolveMatchedStudent = (match, studentMap) => {
   if (match?.student?.first_name) return match.student
@@ -34,11 +32,7 @@ const resolveMatchedStudent = (match, studentMap) => {
 
 function CompactPlacementRow({ student, match, unit, onUnmatch, onNotify, onAssignPreceptor }) {
   const [rowHovered, setRowHovered] = useState(false)
-  const qKey = student.unit_preference_1 === unit.unit_name ? '1st'
-    : student.unit_preference_2 === unit.unit_name ? '2nd'
-    : student.unit_preference_3 === unit.unit_name ? '3rd'
-    : 'other'
-  const qCfg       = MATCH_QUALITY_CONFIG[qKey]
+  const qCfg       = MATCH_RANK_CONFIG[matchRankOf(student, match)]
   const isNotified = !!match?.notification_sent
   const hasPreceptor = !!(student.preceptor_id || student.matched_preceptor)
 

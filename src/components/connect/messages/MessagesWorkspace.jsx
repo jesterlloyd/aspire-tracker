@@ -2,10 +2,10 @@
 //
 // ASPIRE MESSAGES, PHASE 4B2B-I: the staff Messages workspace.
 //
-// NOT MOUNTED IN PRODUCTION. Phase 4B2b-ii performs the final responsive and
-// accessibility pass and only then exposes this as the Connect Messages sub-tab. Until then Connect.jsx, App.jsx, VALID_TABS, and the
-// /connect redirect are untouched, so no incomplete Messages feature is
-// reachable. There is no feature flag and no debug route.
+// MOUNTED IN PRODUCTION via Connect > Messages: Phase 4B2b-ii performed the
+// final responsive and accessibility pass and joined the Connect tab model
+// (ASPIRE-CHART corrected this header, which stale-claimed the workspace was
+// dormant). There is no feature flag and no debug route.
 //
 // Composition: the left panel reuses the Phase 4A MessagesInbox verbatim (no
 // parallel inbox exists). The right panel is the thread, built on the Stage A
@@ -45,7 +45,7 @@ const T = {
 
 // ── Workspace ───────────────────────────────────────────────────────────────
 
-export default function MessagesWorkspace({ refreshKey = 0, api = defaultApi }) {
+export default function MessagesWorkspace({ refreshKey = 0, api = defaultApi, onOpenStudent }) {
   const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState(null)
   const [newOpen, setNewOpen] = useState(false)
@@ -145,7 +145,7 @@ export default function MessagesWorkspace({ refreshKey = 0, api = defaultApi }) 
             </div>
           )}
           {selectedId
-            ? <ThreadPanel conversationId={selectedId} api={api} announce={announce} onGone={() => setSelectedId(null)} />
+            ? <ThreadPanel conversationId={selectedId} api={api} announce={announce} onGone={() => setSelectedId(null)} onOpenStudent={onOpenStudent} />
             : <NoSelection />}
         </div>
       )}
@@ -178,7 +178,7 @@ function NoSelection() {
 
 // ── Thread ──────────────────────────────────────────────────────────────────
 
-export function ThreadPanel({ conversationId, api = defaultApi, announce = () => {}, onGone = () => {} }) {
+export function ThreadPanel({ conversationId, api = defaultApi, announce = () => {}, onGone = () => {}, onOpenStudent }) {
   const queryClient = useQueryClient()
   const visible = useDocumentVisible()
   const markedRef = useRef(null)
@@ -277,7 +277,7 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      <ThreadHeader conversation={conversation} api={api} announce={announce} />
+      <ThreadHeader conversation={conversation} api={api} announce={announce} onOpenStudent={onOpenStudent} />
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 16px' }}>
         {hasNextPage && (
@@ -318,7 +318,7 @@ export function ThreadPanel({ conversationId, api = defaultApi, announce = () =>
   )
 }
 
-function ThreadHeader({ conversation: c, api, announce }) {
+function ThreadHeader({ conversation: c, api, announce, onOpenStudent }) {
   const accessActive = c.participant_access_active !== false
   return (
     <header style={{ padding: '10px 16px', borderBottom: `1px solid ${T.border}` }}>
@@ -339,7 +339,21 @@ function ThreadHeader({ conversation: c, api, announce }) {
         {c.follow_up_flagged && (
           <span style={badge}><Flag size={10} aria-hidden="true" /> Follow up</span>
         )}
-        {c.related_student_id && <span style={badge}>Student linked</span>}
+        {/* ASPIRE-CHART: the linked student is a real affordance - it opens
+            the authorized staff student record (the same navigation the rest
+            of the app uses). Falls back to the static chip when no navigator
+            is provided (e.g. isolated mounts). */}
+        {c.related_student_id && (onOpenStudent ? (
+          <button
+            type="button"
+            onClick={() => onOpenStudent(c.related_student_id)}
+            style={{ ...badge, cursor: 'pointer', background: 'transparent' }}
+          >
+            Open student record →
+          </button>
+        ) : (
+          <span style={badge}>Student linked</span>
+        ))}
       </div>
       <ThreadManagementControls conversation={c} api={api} announce={announce} />
     </header>

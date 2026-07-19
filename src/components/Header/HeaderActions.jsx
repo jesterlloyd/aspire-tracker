@@ -50,8 +50,21 @@ export default function HeaderActions({
             ? `ASPIRE Connect, ${unreadLabel(messagesUnread)}`
             : 'ASPIRE Connect'}
           onClick={() => {
+            // ASPIRE-CHART approved destination behavior: when unread Messages
+            // exist (and the caller may use Messages), the badge's promise is
+            // honored - land on Messages. Otherwise restore the last-used
+            // Connect subview, which may now include 'messages' for authorized
+            // users. Authorization itself is unchanged: Connect.jsx re-gates
+            // and the server re-authorizes every Messages read.
+            if (canUseMessages && messagesUnread > 0) {
+              navigate('/connect/messages')
+              return
+            }
             const saved = localStorage.getItem('aspire.connect.lastTab')
-            const tab = (['contacts','outreach','broadcasts'].includes(saved)) ? saved : 'contacts'
+            const allowed = canUseMessages
+              ? ['contacts', 'outreach', 'broadcasts', 'messages']
+              : ['contacts', 'outreach', 'broadcasts']
+            const tab = allowed.includes(saved) ? saved : 'contacts'
             navigate(`/connect/${tab}`)
           }}
           style={{
@@ -128,7 +141,11 @@ export default function HeaderActions({
         <button
           ref={bellRef}
           id="keith-bell-trigger"
-          aria-label="Action Center"
+          // ASPIRE-CHART: the accessible name carries the true open-action
+          // count (the visual badge caps at 9+), mirroring the Connect icon.
+          aria-label={actionBadgeCount > 0
+            ? `Action Center, ${actionBadgeCount} open action${actionBadgeCount === 1 ? '' : 's'}`
+            : 'Action Center'}
           data-tour="action-center"
           onClick={() => setShowActionCenter(p => !p)}
           style={{
@@ -161,7 +178,7 @@ export default function HeaderActions({
               shared styling moved here: the count logic is Action Center's own and
               is deliberately unchanged, so it still caps at 9+, not Messages 99+. */}
           {actionBadgeCount > 0 && (
-            <span style={pinBadgeStyle}>
+            <span aria-hidden="true" style={pinBadgeStyle}>
               {actionBadgeCount >= 10 ? '9+' : actionBadgeCount}
             </span>
           )}

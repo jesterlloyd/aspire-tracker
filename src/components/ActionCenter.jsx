@@ -8,13 +8,10 @@ import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 export { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { useAuth } from '../contexts/AuthContext'
 import { DISPOSITION_TYPES, FOLLOWUP_TYPES } from '../lib/dispositions'
-import { getCsLinkStatus } from '../lib/utils'
+import { deriveEagerAttention, deriveLazyAttention } from '../lib/attention'
 import { useSupportRequestReads } from '../lib/support/useSupportRequestReads'
 import { unreadSupportShifts, buildSupportActionItem } from '../lib/support/supportRequests'
 
-function fmtLocalDate(d) {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-}
 function fmtIvDate(s) {
   if (!s) return ''
   const [y,m,d] = s.split('-').map(Number)
@@ -511,7 +508,6 @@ export default function ActionCenter({
   }, [isOpen, onClose, anchorEl])
 
   // ── Communication helpers ──────────────────────────────────
-  const hasSent = (sid, type) => communications.some(c => c.student_id === sid && c.type === type)
 
   const logComm = async ({ type, student, sentToEmail, sentToName }) => {
     const { data } = await safeWrite(
@@ -680,83 +676,35 @@ ${KR_SIG}`
   }
 
   // ── Derived action items ────────────────────────────────────
-  const now   = new Date()
-  const td    = fmtLocalDate(now)
-  const in48d = new Date(now.getTime() + 48*3600*1000)
-  const t48   = fmtLocalDate(in48d)
-
-  const act2 = students.filter(s => s.status === 'Form Received' && !s.interview_scheduled_date)
-  const act3 = students.filter(s =>
-    s.interview_scheduled_date >= td && s.interview_scheduled_date <= t48 &&
-    !hasSent(s.id, 'interview_reminder')
-  )
-  const act4 = students.filter(s => {
-    if (s.status !== 'Placed' || !s.matched_unit_id) return false
-    const m = matches.find(m => m.student_id === s.id)
-    return m && !m.notification_sent
+  // ASPIRE-CHART: every predicate lives in lib/attention.js, the canonical
+  // attention engine shared with App.jsx's closed-badge count. Do not add
+  // task logic here - add it to the module so both surfaces stay identical.
+  const now = new Date()
+  const eager = deriveEagerAttention({ students, matches, communications, activeCohort, canEdit, now })
+  const lazy = deriveLazyAttention({
+    students, shiftLogs, shiftLogsLoaded,
+    dispositionFollowups, activeDispositionIds,
+    dispositionLoaded: dispositionFollowupsLoaded,
+    canEdit, now,
   })
-  const act5 = students.filter(s => s.status === 'Placed' && s.matched_preceptor && !hasSent(s.id, 'preceptor_welcome'))
-  // CS-Link "not started": use the canonical per-student derivation (utils.getCsLinkStatus,
-  // the same source as Student Profiles → CS-Link Access). The old (!cs_cedars_status ||
-  // !cs_stage1_submitted) test mis-flagged employee/complete/cslink_pending students.
-  // The status whitelist already excludes Not Proceeding / withdrawn students.
-  const act6 = students.filter(s =>
-    ['Form Received','Interview Scheduled','Interviewed','Placed','Active Rotation'].includes(s.status) &&
-    getCsLinkStatus(s) === 'not_started'
-  )
-  const orientationComplete = !!activeCohort?.orientation_sent_at ||
-    communications.some(c => c.type === 'orientation_email')
-  const showOrientation = canEdit && activeCohort && !orientationComplete && placedStudents.length > 0 && !oriDone
 
-  const sevenDaysAgo = new Date(Date.now() - 7*24*3600*1000).toISOString()
-  // Shift-log tasks stay empty until the lazy fetch completes, so the panel/badge never
-  // briefly over-count (e.g. "Not Logged Recently" flags everyone before logs arrive).
-  const act13 = !shiftLogsLoaded ? [] : shiftLogs
-    .filter(l => l.status === 'Pending Review' && !l.reviewed_at)
-    .map(l => ({ ...l, student: students.find(s => s.id === l.student_id) }))
-    .filter(l => l.student)
-  const act15 = !shiftLogsLoaded ? [] : students
-    .filter(s => {
-      if (s.status !== 'Active Rotation') return false
-      return !shiftLogs.find(l => l.student_id === s.id && l.submitted_at >= sevenDaysAgo)
-    })
-    .map(s => {
-      const lastLog = shiftLogs
-        .filter(l => l.student_id === s.id)
-        .sort((a,b) => (b.submitted_at||'').localeCompare(a.submitted_at||''))[0]
-      const daysSince = lastLog
-        ? Math.floor((Date.now() - new Date(lastLog.submitted_at).getTime()) / (24*3600*1000))
-        : null
-      return { ...s, daysSince }
-    })
-
-  const act16 = students.filter(s => s.status === 'Placed' && !s.badge_created)
-  const act17 = students.filter(s =>
-    ['Placed','Active Rotation'].includes(s.status) &&
-    !s.preceptor_id &&
-    (!s.matched_preceptor || !s.matched_preceptor.trim())
-  )
-  const act18 = students.filter(s =>
-    s.interview_outcome === 'Do Not Recommend' &&
-    s.status === 'Interviewed'
-  )
-  const act1  = students.filter(s => s.status === 'Pending Outreach')
-
-  // act19: Disposition Follow-up Required - grouped by student from lazy-fetched followup data
-  const act19 = (() => {
-    if (!canEdit || !dispositionFollowupsLoaded) return []
-    const activeIds = new Set(activeDispositionIds)
-    const grouped = new Map()
-    for (const f of dispositionFollowups) {
-      // Skip follow-ups orphaned by a cleared/replaced disposition.
-      if (!activeIds.has(f.disposition_id)) continue
-      const s = students.find(st => st.id === f.student_id)
-      if (!s) continue
-      if (!grouped.has(f.student_id)) grouped.set(f.student_id, { student: s, followups: [] })
-      grouped.get(f.student_id).followups.push(f)
-    }
-    return Array.from(grouped.values())
-  })()
+  const act1  = eager.sendStudentForm
+  const act2  = eager.schedulingLink
+  const act3  = eager.interviewReminder
+  const act4  = eager.unitLeaderNotification
+  const act5  = eager.preceptorWelcome
+  const act6  = eager.csLinkNotStarted
+  const act15 = lazy.notLoggedRecently
+  const act16 = eager.badgeNotCreated
+  const act17 = eager.noPreceptor
+  const act18 = eager.selectionDecision
+  const act19 = lazy.dispositionFollowup
+  // The former act13 "Shift Log Needs Review" task is retired (approved
+  // shift-log semantics): a plain submitted log is informational activity in
+  // Rotation Activity, not a required action - the staff app deliberately
+  // offers no per-shift approval action for it to point at. Shifts carrying
+  // support-needed text remain actionable below.
+  const showOrientation = eager.orientationDue && !oriDone
 
   // Unread support-request shifts for the current user (empty until shiftLogs load, like act13/act15).
   const supportUnread = !shiftLogsLoaded ? [] : unreadSupportShifts(shiftLogs, userProfile?.id, supportReceipts)
@@ -789,8 +737,7 @@ ${KR_SIG}`
     ...(canEdit ? act6.map(s => ({ id:`${s.id}-cs`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'cslink', priority:'routine', title:'CS-Link Access Not Started', description:'Service Center Step 2 not yet submitted.', actionType:'cslink_incomplete', canMarkDone:false, markDoneType:null, navigateToProfile:true })) : []),
     // Badge
     ...(canEdit ? act16.map(s => ({ id:`${s.id}-badge`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'badge', priority:'routine', title:'Badge Not Created', description:'Student placed. CS badge not yet created.', actionType:'badge_needed', canMarkDone:true, markDoneType:'update_field', markDonePayload:{fields:{badge_created:true}}, navigateToProfile:false })) : []),
-    // Hours
-    ...act13.map(item => ({ id:`${item.id}-sr`, studentId:item.student_id, studentName:item.student?`${item.student.last_name}, ${item.student.first_name}`:'-', cohortId, student:item.student, category:'hours', priority:'routine', title:'Shift Log Needs Review', description:`${item.shift_date} · ${item.total_hours}h`, actionType:'shift_log_submitted', canMarkDone:false, markDoneType:null, navigateToProfile:true })),
+    // Hours (plain submitted logs are informational in Rotation Activity, not tasks)
     ...act15.map(s => ({ id:`${s.id}-nl`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'hours', priority:'routine', title:'Student Not Logged Recently', description:s.daysSince===null?'No shifts logged yet.':`${s.daysSince} days since last log.`, actionType:'shift_log_submitted', canMarkDone:false, navigateToProfile:true })),
     // Communications
     ...(canEdit ? act1.map(s => ({ id:`${s.id}-sf`, studentId:s.id, studentName:`${s.last_name}, ${s.first_name}`, cohortId:s.cohort_id, student:s, category:'communication', priority:'routine', title:'Send Student Form', description:'Pending outreach, form not yet sent.', actionType:'student_form', canMarkDone:true, markDoneType:'log_communication', markDonePayload:{type:'student_form'}, emailHref:buildStudentFormEmail(s) })) : []),

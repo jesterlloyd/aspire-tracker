@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext({});
@@ -96,19 +96,23 @@ export function AuthProvider({ children }) {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-  };
+  }, []);
 
   // Exposed so components can force a context refresh after writing to user_profiles.
   // Bypasses the concurrent-load guard so it always runs.
-  const refreshUserProfile = async () => {
+  const refreshUserProfile = useCallback(async () => {
     const { data, error } = await supabase.rpc('get_my_profile');
     if (error) { console.error('refreshUserProfile error:', error.message); return; }
     if (data?.length > 0) setUserProfile(data[0]);
-  };
+  }, []);
 
-  const value = {
+  // ASPIRE-CHART performance: the context value is memoized so every provider
+  // render no longer hands consumers a brand-new object (which re-rendered
+  // the entire always-mounted tab forest on each auth tick). Values are
+  // byte-identical to before; only the identity is stable.
+  const value = useMemo(() => ({
     user,
     userProfile,
     loading,
@@ -120,15 +124,21 @@ export function AuthProvider({ children }) {
     isViewer:           userProfile?.role === 'viewer',
     canEdit:            ['owner', 'admin'].includes(userProfile?.role),
     canInterview:       ['owner', 'admin', 'interviewer'].includes(userProfile?.role),
-    // WAVE F-2: student badge generation is an active Owner/Admin capability only.
-    // It is deliberately NOT canInterview: Interviewers get no student-file (headshot)
-    // access, so they cannot generate badges. Inactive accounts are already blocked at
-    // the App shell, but we gate on is_active here too so the control never shows.
-    canGenerateBadge:   userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role),
+    // WAVE F-2: explicit active-role student-file capabilities. These are the
+    // privacy gates for file controls, NOT the broad canEdit (which omits the
+    // is_active check). A user is active only when is_active !== false. The server
+    // access/upload/cleanup endpoints remain authoritative even when controls are
+    // hidden. Interviewers get no resume or headshot access and no badge.
+    //   canViewStudentResume  - see/open/download a resume (active Owner/Admin)
+    //   canManageStudentFiles - upload/replace/delete student files (active Owner/Admin)
+    //   canGenerateBadge      - generate a student badge (active Owner/Admin)
+    canViewStudentResume:  userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role),
+    canManageStudentFiles: userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role),
+    canGenerateBadge:      userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role),
     canViewActivityLog: userProfile?.is_owner === true,
     iAmInterviewer:     userProfile?.can_conduct_interviews === true,
     myInterviewerColor: userProfile?.interviewer_color || '#1D2567',
-  };
+  }), [user, userProfile, loading, signOut, refreshUserProfile]);
 
   return (
     <AuthContext.Provider value={value}>

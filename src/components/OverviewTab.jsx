@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { useLocation } from 'react-router-dom'
 import { openOutlookCompose } from '../lib/outlookCompose'
 import { appUrl } from '../lib/appUrl'
 import Tooltip from './ui/Tooltip'
@@ -19,6 +20,7 @@ import StudentCard from './StudentCard'
 import AggregateWelcome from './AggregateWelcome'
 import { selectActiveWindowRows, mergeOnCampusNow } from '../lib/onCampusNow'
 import { shiftTypeOf, shiftBadge, isOpenShift, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../lib/shiftStatus'
+import { buildSchoolSendPlan, buildStudentSendPlan, resolveSendResults } from '../lib/sendFormFlow'
 import { Clock, GraduationCap, MapPin, Users, Copy } from 'lucide-react'
 
 // ── Capacity Coverage Gauge ───────────────────────────────────────────────────
@@ -327,8 +329,8 @@ function ProgramAtAGlance({ totalSlots, placedCount, slotsRemaining, studentsReq
           {cohort?.name || 'Cohort'} · {studentsRequesting} students · {activeSchools} affiliated schools · {participatingUnits} hosting units · Updated {updatedLabel}
         </div>
       </div>
-      {/* KPI grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', background: 'var(--border-card,rgba(29,37,103,0.04))', gap: 1 }}>
+      {/* KPI grid - column count lives in CSS (.glance-kpis) so it can reflow */}
+      <div className="glance-kpis" style={{ display: 'grid', background: 'var(--border-card,rgba(29,37,103,0.04))', gap: 1 }}>
         <KPICell value={totalSlots}          label="Total Slots"       sub={`${participatingUnits} units`} />
         <KPICell value={placedCount}         label="Slots Filled"      sub={`${placedPct}% of total capacity`} accent="sage" />
         <KPICell value={slotsRemaining}      label="Open Slots" />
@@ -561,7 +563,77 @@ function openMailto(bcc, body) {
   openOutlookCompose({ bcc, subject: FORM_SUBJECT, body })
 }
 
-export default function OverviewTab({ students, units, onStudentUpdate, cohortId, cohort, toast, onSelectStudent }) {
+// ── ASPIRE-CHART: attention digest ───────────────────────────────────────────
+// Today leads with what needs a human. Counts come from the SAME canonical
+// attention engine as the bell badge and the Action Center panel (App passes
+// its derived sets down), so this strip can never disagree with either. Each
+// chip opens the Action Center, where every item carries its action.
+function AttentionDigest({ attention, onOpenActionCenter }) {
+  if (!attention) return null
+  const { eager, lazy, supportUnreadCount = 0 } = attention
+  const groups = [
+    { key: 'decisions', label: 'Decisions needed', count: (eager?.selectionDecision?.length || 0) + (lazy?.dispositionFollowup?.length || 0) },
+    { key: 'support', label: 'Support requests', count: supportUnreadCount },
+    { key: 'interviews', label: 'Interview outreach', count: (eager?.schedulingLink?.length || 0) + (eager?.interviewReminder?.length || 0) },
+    { key: 'placement', label: 'Placement setup', count: (eager?.unitLeaderNotification?.length || 0) + (eager?.preceptorWelcome?.length || 0) + (eager?.noPreceptor?.length || 0) + (eager?.badgeNotCreated?.length || 0) + (eager?.orientationDue ? 1 : 0) },
+    { key: 'cslink', label: 'CS-Link access', count: eager?.csLinkNotStarted?.length || 0 },
+    { key: 'outreach', label: 'Student outreach', count: eager?.sendStudentForm?.length || 0 },
+    { key: 'rotation', label: 'Rotation follow-up', count: lazy?.notLoggedRecently?.length || 0 },
+  ].filter(g => g.count > 0)
+
+  if (groups.length === 0) {
+    return (
+      <div className="today-digest" role="status">
+        <span className="chart-chip chart-chip-ok">All caught up · nothing needs your attention right now</span>
+      </div>
+    )
+  }
+  return (
+    <div className="today-digest">
+      <span className="today-digest-lead">Needs attention</span>
+      {groups.map(g => (
+        <button key={g.key} className="today-digest-btn" onClick={onOpenActionCenter}
+          aria-label={`${g.label}: ${g.count} open ${g.count === 1 ? 'action' : 'actions'}. Open Action Center.`}>
+          <span>{g.label}</span>
+          <span className="today-digest-count" aria-hidden="true">{g.count > 99 ? '99+' : g.count}</span>
+        </button>
+      ))}
+      <button className="today-digest-open" onClick={onOpenActionCenter}>Open Action Center →</button>
+    </div>
+  )
+}
+
+// ── ASPIRE-CHART: since-your-last-visit orientation ─────────────────────────
+// Honest and clearly-scoped: the timestamp lives in THIS browser's storage
+// per user+cohort (no server audit log is implied), and the line only claims
+// what the loaded data can prove (students added since that moment).
+function SinceLastVisit({ students, cohortId, currentUserId }) {
+  const [lastVisit, setLastVisit] = useState(null)
+  useEffect(() => {
+    if (!currentUserId || !cohortId) return
+    const key = `aspire:lastVisit:${currentUserId}:${cohortId}`
+    try {
+      const prev = localStorage.getItem(key)
+      setLastVisit(prev || null)
+      localStorage.setItem(key, new Date().toISOString())
+    } catch { /* storage unavailable: skip the affordance */ }
+  }, [currentUserId, cohortId])
+
+  if (!lastVisit) return null
+  const newStudents = students.filter(s => s.created_at && s.created_at > lastVisit).length
+  const then = new Date(lastVisit)
+  const days = Math.floor((Date.now() - then.getTime()) / (24 * 3600 * 1000))
+  const when = days === 0 ? 'earlier today' : days === 1 ? 'yesterday'
+    : then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return (
+    <div className="today-lastvisit">
+      Last visit on this browser: {when}
+      {newStudents > 0 ? ` · ${newStudents} student${newStudents === 1 ? '' : 's'} added since` : ''}
+    </div>
+  )
+}
+
+export default function OverviewTab({ students, units, onStudentUpdate, cohortId, cohort, toast, onSelectStudent, attention, onOpenActionCenter, currentUserId }) {
   const [unitGroupsOpen,   setUnitGroupsOpen]   = useState({})
   const [schoolGroupsOpen, setSchoolGroupsOpen] = useState({})
   const [unitStatusFilter, setUnitStatusFilter] = useState('all')
@@ -569,6 +641,12 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const [selectedUnitResponse, setSelectedUnitResponse] = useState(null)
   const [localToast,       setLocalToast]       = useState(null)
   const [campusOpen,       setCampusOpen]       = useState(false)
+
+  // ASPIRE-CHART performance: the five workspace tabs stay mounted while
+  // hidden, so these 60s polls used to run forever regardless of where the
+  // user was. Polling now pauses while another route is visible; the cached
+  // data stays available and refreshes on return.
+  const onTodayRoute = useLocation().pathname === '/aggregate'
 
   // en-CA gives reliable YYYY-MM-DD in the user's local timezone
   const todayStr     = new Date().toLocaleDateString('en-CA')
@@ -579,6 +657,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   const {
     data:      campusLogs = [],
     isLoading: campusLoading,
+    error:     campusError,
     refetch:   loadCampusLogs,
   } = useQuery({
     queryKey: ['on_campus_now', cohortId, todayStr],
@@ -596,7 +675,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       return selectActiveWindowRows(data, new Date())
     },
     enabled:        !!cohortId,
-    refetchInterval: 60 * 1000,
+    refetchInterval: onTodayRoute ? 60 * 1000 : false,
   })
 
   // On Campus Now - lifecycle source (S.5): students with a live in_progress
@@ -619,7 +698,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       return data || []
     },
     enabled:        !!cohortId,
-    refetchInterval: 60 * 1000,
+    refetchInterval: onTodayRoute ? 60 * 1000 : false,
   })
 
   // Hybrid merge: lifecycle rows take precedence (live check-ins, checked_in_at
@@ -636,7 +715,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   }, [mergedCampusLogs.length])
 
   // Unit Response Status - query unit_cohort_responses for current cohort
-  const { data: unitResponses = [] } = useQuery({
+  const { data: unitResponses = [], error: unitResponsesError, refetch: refetchUnitResponses } = useQuery({
     queryKey: ['unit_cohort_responses', cohortId],
     queryFn:  async () => {
       const { data, error } = await supabase
@@ -750,20 +829,50 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     return null
   }
 
-  // Only send to Pending Outreach students
-  const handleSendSchool = async (school, sStudents) => {
-    const pending = sStudents.filter(s => s.status === 'Pending Outreach')
-    const emails  = pending.map(s => s.school_email).filter(Boolean)
-    openMailto(emails.join(';'), buildFormBody())
-    if (onStudentUpdate)
-      for (const s of pending) await onStudentUpdate(s.id, { status: 'Form Sent' })
-    showToast(`Form sent to ${school}. Status updated to Form Sent.`)
+  // ASPIRE-CHART approved Send Form semantics: opening a draft NEVER changes
+  // status. The staff member confirms the email actually went out, and only
+  // that confirmation writes 'Form Sent'. Cancel/close writes nothing. The
+  // app cannot detect an Outlook send event and does not pretend to.
+  const [sendFormPlan, setSendFormPlan] = useState(null)
+  const [sendFormBusy, setSendFormBusy] = useState(false)
+
+  const handleSendSchool = (school, sStudents) => {
+    const plan = buildSchoolSendPlan(school, sStudents)
+    if (!plan) { showToast(`No Pending Outreach students at ${school}.`); return }
+    openMailto(plan.emails.join(';'), buildFormBody())
+    setSendFormPlan(plan)
   }
 
-  const handleSendStudent = async student => {
+  const handleSendStudent = student => {
+    const plan = buildStudentSendPlan(student)
     openMailto(student.school_email, buildFormBody(student.first_name || 'ASPIRE Student'))
-    if (onStudentUpdate) await onStudentUpdate(student.id, { status: 'Form Sent' })
-    showToast(`Form sent to ${displayName(student)}. Status updated to Form Sent.`)
+    setSendFormPlan(plan)
+  }
+
+  const handleConfirmFormSent = async () => {
+    if (!sendFormPlan || !onStudentUpdate) { setSendFormPlan(null); return }
+    setSendFormBusy(true)
+    const results = []
+    for (const s of sendFormPlan.students) {
+      const error = await onStudentUpdate(s.id, { status: 'Form Sent' })
+      results.push({ student: s, error })
+    }
+    const outcome = resolveSendResults(sendFormPlan, results)
+    setSendFormBusy(false)
+    if (outcome.status === 'done') {
+      setSendFormPlan(null)
+      showToast(`${outcome.succeeded.length === 1 ? displayName(outcome.succeeded[0]) : `${outcome.succeeded.length} students`} marked as Form Sent.`)
+    } else {
+      // Partial failure: keep only the failed students pending so Mark as
+      // sent can be retried for exactly those records.
+      setSendFormPlan(outcome.plan)
+      showToast(`${outcome.failed.length} status update${outcome.failed.length === 1 ? '' : 's'} failed. You can retry.`)
+    }
+  }
+
+  const handleCancelFormSent = () => {
+    setSendFormPlan(null)
+    showToast('No status was changed.')
   }
 
   return (
@@ -778,12 +887,43 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         }}>{localToast}</div>
       )}
 
-      {/* ASPIRE-WELCOME-AGGREGATE-3 / 3A: program-time welcome band above the KPI dashboard. Scrolls
-          with the page (the tab is the scroll container); 0 20px inset matches the sticky header +
-          panels width so the band aligns with the rest of the Aggregate content. */}
-      <div style={{ padding: '0 20px' }}>
-        <AggregateWelcome />
+      {/* ASPIRE-CHART: confirm-gated Send Form. Rendered as a small dialog so
+          the decision (did the email actually go out?) is explicit. */}
+      {sendFormPlan && (
+        <div role="dialog" aria-modal="true" aria-label={sendFormPlan.confirmTitle}
+          style={{ position:'fixed', inset:0, zIndex:9997, display:'flex', alignItems:'center', justifyContent:'center', background:'rgba(15,23,42,0.28)' }}>
+          <div style={{ background:'var(--chart-card,#fff)', borderRadius:14, border:'1px solid var(--chart-line)', boxShadow:'0 12px 40px rgba(15,23,42,0.22)', padding:'20px 22px', width:'min(440px, calc(100vw - 32px))', fontFamily:'DM Sans,sans-serif' }}>
+            <div style={{ fontSize:15, fontWeight:700, color:'var(--chart-ink)', marginBottom:8 }}>{sendFormPlan.confirmTitle}</div>
+            <div style={{ fontSize:13, color:'var(--chart-ink-soft)', lineHeight:1.5, marginBottom:8 }}>{sendFormPlan.confirmBody}</div>
+            <div style={{ fontSize:12, color:'var(--chart-ink-soft)', marginBottom:14 }}>
+              {sendFormPlan.students.map(s => displayName(s)).join(' · ')}
+            </div>
+            <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+              <button onClick={handleCancelFormSent} disabled={sendFormBusy}
+                style={{ padding:'7px 14px', borderRadius:8, border:'1px solid var(--chart-line)', background:'transparent', color:'var(--chart-ink)', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                Not sent
+              </button>
+              <button onClick={handleConfirmFormSent} disabled={sendFormBusy}
+                style={{ padding:'7px 14px', borderRadius:8, border:'none', background:'var(--chart-navy)', color:'#fff', fontFamily:'DM Sans', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                {sendFormBusy ? 'Saving…' : 'Mark as sent'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════ TODAY: route title + attention digest (triage first) ════════ */}
+      <div className="today-head">
+        <div>
+          <h1 className="chart-route-title today-title">Today</h1>
+          <div className="today-sub">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            {cohort?.name ? ` · ${cohort.name}` : ''}
+          </div>
+        </div>
+        <SinceLastVisit students={students} cohortId={cohortId} currentUserId={currentUserId} />
       </div>
+      <AttentionDigest attention={attention} onOpenActionCenter={onOpenActionCenter} />
 
       {/* ════════ STICKY HEADER ════════ */}
       <div className="aggregate-sticky-header">
@@ -896,6 +1036,20 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
       {/* ════════ SCROLLABLE CONTENT ════════ */}
       <div className="aggregate-scrollable-content">
+
+        {/* ASPIRE-CHART honest error states: a failed query must never
+            masquerade as "nothing needs attention". */}
+        {(unitResponsesError || campusError) && (
+          <div className="today-error" role="alert">
+            <span>
+              {unitResponsesError ? 'Unit responses could not load. The Placement Capacity panel may be incomplete. ' : ''}
+              {campusError ? 'On Campus Now could not load. ' : ''}
+            </span>
+            <button onClick={() => { if (unitResponsesError) refetchUnitResponses(); if (campusError) loadCampusLogs() }}>
+              Retry
+            </button>
+          </div>
+        )}
 
         <div className="ov-panels-body">
 
@@ -1153,6 +1307,13 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
             </div>
           </div>
         )}
+
+        {/* ASPIRE-CHART: the program-time welcome band (weather, events,
+            milestones) is DEMOTED below the operational content - kept because
+            it stays useful and tasteful, but Today leads with the work. */}
+        <div style={{ padding: '16px 0 4px' }}>
+          <AggregateWelcome />
+        </div>
 
       </div>
 

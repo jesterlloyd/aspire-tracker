@@ -1,13 +1,15 @@
-// WS2.0: extracted verbatim from App.jsx header (Zone 1 - Brand). No behavior change.
+// WS2.0: extracted verbatim from App.jsx header (Zone 1 - Brand).
+// ASPIRE-CHART: styling moved to .chart-brand classes so the mark scales and
+// the wordmark wraps on narrow screens instead of forcing header overflow.
 import Tooltip from '../ui/Tooltip'
 
 export default function HeaderBrand() {
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:14, flexShrink:0 }}>
-      <img src="/cs-logo-large.png" alt="Cedars-Sinai" style={{ height:46, width:'auto', objectFit:'contain' }} />
-      <div style={{ width:1, height:30, background:'rgba(255,255,255,0.18)', flexShrink:0 }} />
+    <div className="chart-brand">
+      <img src="/cs-logo-large.png" alt="Cedars-Sinai" className="chart-brand-logo" />
+      <div className="chart-brand-divider" />
       <Tooltip label="Affiliate Students' Pathway from Internship to Residency Experience" placement="bottom">
-        <div style={{ fontSize:20, fontWeight:700, color:'#fff', letterSpacing:'-0.01em', cursor:'default' }}>
+        <div className="chart-brand-title">
           ASPIRE Intelligence
         </div>
       </Tooltip>

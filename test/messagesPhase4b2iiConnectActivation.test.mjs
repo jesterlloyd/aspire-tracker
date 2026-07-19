@@ -49,7 +49,7 @@ test('Connect authorization gate', async (t) => {
 
   await t.test('the workspace mounts only for an authorized user', () => {
     assert.match(connect, /\{canUseMessages && \(\s*\n\s*<div style=\{\{ display: activeSubTab === 'messages'/)
-    assert.match(connect, /<MessagesWorkspace refreshKey=\{refreshKey\} \/>/)
+    assert.match(connect, /<MessagesWorkspace refreshKey=\{refreshKey\} onOpenStudent=\{onNavigateToStudent\} \/>/)
   })
 
   await t.test('an unauthorized user never resolves to Messages and never calls its APIs', () => {

@@ -2,7 +2,7 @@
 //
 // ASPIRE MESSAGES, PHASE 4A: the staff conversation inbox.
 //
-// NOT MOUNTED IN PRODUCTION. Phase 4B integrates this into ASPIRE Connect as the
+// MOUNTED IN PRODUCTION: Phase 4B integrated this into ASPIRE Connect as the
 // Messages sub-tab once the thread workspace, composer, and management controls
 // exist. Until then Connect.jsx, VALID_TABS, and the /connect redirect are
 // untouched, so no incomplete Messages feature is reachable.

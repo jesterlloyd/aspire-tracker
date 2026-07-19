@@ -35,7 +35,7 @@ export default function CohortPicker({
 }) {
   if (!(cohorts.length > 0)) return null
   return (
-    <div ref={cohortPickerRef} style={{ position:'relative', flexShrink:0 }}>
+    <div ref={cohortPickerRef} className="chart-cohort-area">
       <Tooltip label="Switch cohort" placement="bottom">
       <button
         data-tour="cohort-switcher"
@@ -59,11 +59,7 @@ export default function CohortPicker({
       </Tooltip>
 
       {cohortOpen && (
-        <div style={{
-          position:'absolute', top:'calc(100% + 6px)', right:0, width:380,
-          background:'var(--pearl)', border:'1px solid #e5e7eb', borderRadius:12,
-          boxShadow:'0 8px 24px rgba(0,0,0,0.12)', zIndex:400, overflow:'hidden',
-        }}>
+        <div className="chart-cohort-dropdown">
           <div style={{ padding:'10px 14px 6px', fontSize:11, fontWeight:600, color:'#6b7280', textTransform:'uppercase', letterSpacing:'0.05em', background:'var(--sand)' }}>Select Cohort</div>
           {sortedCohorts.map(c => {
             const isSel = c.id === activeCohortId

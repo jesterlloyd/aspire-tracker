@@ -82,13 +82,13 @@ test('every Messages unread counter is red, and none is blue', async (t) => {
     assert.match(btn, /<span aria-hidden="true" style=\{pinBadgeStyle\}>/)
   })
 
-  await t.test('Interview Room .ir-tab-badge uses the shared red token', () => {
-    // A count badge, so it follows the badge standard. It is NOT the Chroma
-    // accent that also happens to be #930045.
-    assert.match(indexCss, /\.ir-tab-badge \{[\s\S]{0,600}?background: var\(--cs-red, #DC1E34\); color: #FFFFFF;/)
-    const rule = indexCss.slice(indexCss.indexOf('.ir-tab-badge {'), indexCss.indexOf('.ir-tab-badge {') + 700)
-    // Only the explanatory comment may mention the old color, never a declaration.
-    assert.doesNotMatch(rule, /background:\s*#930045/)
+  await t.test('the orphaned .ir-tab-badge class stays removed', () => {
+    // ASPIRE-CHART dead-code removal: no JSX referenced .ir-tab-badge (the
+    // Interview Room count renders through UnifiedNav's shared-token badge),
+    // so the CSS class was deleted. An orphaned badge class cannot drift from
+    // the standard if it does not exist; keep it out.
+    assert.doesNotMatch(indexCss, /\.ir-tab-badge/)
+    assert.doesNotMatch(read('../src/components/InterviewRubricTab.jsx'), /ir-tab-badge/)
   })
 
   await t.test('the live UnifiedNav counter badges use the shared source', () => {
@@ -194,7 +194,11 @@ test('the Connect icon badge', async (t) => {
     assert.doesNotMatch(headerActions, /#930045/)
     // Its count behavior is Action Center's own and must not change: still 9+.
     assert.match(headerActions, /\{actionBadgeCount >= 10 \? '9\+' : actionBadgeCount\}/)
-    assert.match(headerActions, /aria-label="Action Center"/)
+    // ASPIRE-CHART: the accessible name is dynamic - it always starts with
+    // "Action Center" and carries the TRUE count (the visual chip caps at 9+
+    // and is aria-hidden), mirroring the Connect icon's pattern.
+    assert.match(headerActions, /aria-label=\{actionBadgeCount > 0\s*\n\s*\? `Action Center, \$\{actionBadgeCount\} open action/)
+    assert.match(headerActions, /: 'Action Center'\}/)
     // The bell badge and its open marker still render; only the color moved.
     assert.match(headerActions, /ref=\{bellRef\}/)
   })
@@ -284,7 +288,7 @@ test('regression', async (t) => {
 
   await t.test('Connect tabs and staff Messages still work', () => {
     assert.match(connect, /const canUseMessages = \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/)
-    assert.match(connect, /<MessagesWorkspace refreshKey=\{refreshKey\} \/>/)
+    assert.match(connect, /<MessagesWorkspace refreshKey=\{refreshKey\} onOpenStudent=\{onNavigateToStudent\} \/>/)
     assert.match(connect, /<ContactsView refreshKey=\{refreshKey\} \/>/)
     assert.match(connect, /<OutreachView cohortId=\{cohortId\}/)
     assert.match(connect, /<AutomationView active=\{activeSubTab === 'broadcasts'\}/)

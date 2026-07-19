@@ -19,6 +19,9 @@ export const ROLE_BADGE = {
   owner:       { bg: '#1D2567', text: '#ffffff' },
   admin:       { bg: '#065F46', text: '#ffffff' },
   'co-lead':   { bg: '#3730A3', text: '#ffffff' },
+  // ASPIRE-CHART: persisted profiles carry both spellings of the co-lead role;
+  // both render the same badge (see normalizeStaffRole in lib/permissions.js).
+  co_lead:     { bg: '#3730A3', text: '#ffffff' },
   interviewer: { bg: '#FCEFD4', text: '#7C5A1F' },
   viewer:      { bg: '#F1F5F9', text: '#475569' },
 }

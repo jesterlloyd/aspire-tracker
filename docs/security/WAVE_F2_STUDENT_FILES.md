@@ -50,26 +50,38 @@ strings, or interview-assignment strings. A reliable interviewer-to-student
 authorization relationship does not exist and is deferred to a separate future
 product and schema phase.
 
-### Badge generation
+### Explicit active-role capabilities
 
-Badge generation is gated on the new `canGenerateBadge` capability
-(`src/contexts/AuthContext.jsx`): active Owner/Admin only. It is deliberately not
-`canInterview`, so Interviewers (who have no headshot access) never see the
-control. The badge headshot is fetched through the staff access endpoint; the
-generator keeps its existing "headshot required" fallback.
+File controls use dedicated capabilities in `src/contexts/AuthContext.jsx`, not the
+broad `canEdit` (which omits the `is_active` check). A user is active only when
+`is_active !== false`; the server endpoints remain authoritative regardless.
+
+- `canViewStudentResume` (active Owner/Admin): see/open/download a resume.
+- `canManageStudentFiles` (active Owner/Admin): upload/replace/delete student files.
+- `canGenerateBadge` (active Owner/Admin): generate a student badge. Deliberately
+  not `canInterview`, so Interviewers (no headshot access) never see the control.
+  The badge headshot is fetched through the staff access endpoint; the generator
+  keeps its "headshot required" fallback.
 
 ## Migrated consumers (Pass 1)
 
-Intake upload (`StudentIntakeFormPage`), staff uploads + replace cleanup
-(`StudentSidePanel`, `StudentRow`), the shared avatar (`StudentAvatar`, which
-covers `StudentCard` / `TodaysInterviews` / connect `RecipientPicker`), staff
-detail reads (`StudentSidePanel`, `StudentRow`, `OverviewTab` campus card),
-interviewer session resume link (`RubricSession`, now Owner/Admin only), connect
-recipient headshot (`RecipientProfileCard`), the Fable portal own headshot
-(`StudentPortal`), and student-deletion cleanup (`App.jsx deleteStudent`).
+Retraced after the ASPIRE-CHART refactor, which removed `StudentRow`,
+`StudentList`, and `InterviewSession`. Student rows now render headshots through
+the shared `StudentAvatar` (covering `StudentListPanel`, `StudentMatchingCard`,
+`StudentCard`, `TodaysInterviews`, `InterviewRubricTab`, connect
+`RecipientPicker`), so that one migrated primitive covers every list surface.
+Student-file uploads live only in the signed `StudentSidePanel` flow and the
+anonymous intake.
 
-Consumers that render student headshots on other buckets (user avatars, contact
-avatars, catalog) are out of scope.
+Migrated: intake upload (`StudentIntakeFormPage`), staff uploads + replace
+cleanup (`StudentSidePanel`), shared avatar (`StudentAvatar`), staff detail reads
+(`StudentSidePanel`, `OverviewTab` campus card), interviewer session resume link
+(`RubricSession`, active Owner/Admin only), connect recipient headshot
+(`RecipientProfileCard`), the Fable portal own headshot (`StudentPortal`), and
+student-deletion cleanup (`App.jsx deleteStudent`).
+
+Consumers that render images on other buckets (user avatars, contact avatars,
+catalog) are out of scope.
 
 ## Cleanup safety
 

@@ -195,7 +195,7 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
             pagination, selection, and the reply draft survive tab switches. */}
         {canUseMessages && (
           <div style={{ display: activeSubTab === 'messages' ? 'flex' : 'none', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-            <MessagesWorkspace refreshKey={refreshKey} />
+            <MessagesWorkspace refreshKey={refreshKey} onOpenStudent={onNavigateToStudent} />
           </div>
         )}
         <div style={{ display: activeSubTab === 'broadcasts' ? 'block' : 'none' }}>

@@ -66,7 +66,9 @@ function ToastItem({ toast, onRemove }) {
 export function ToastContainer({ toasts, removeToast }) {
   return (
     <>
-      <div style={{
+      {/* ASPIRE-CHART: a live region so screen readers announce toast feedback.
+          role="status" (polite) keeps announcements from interrupting typing. */}
+      <div role="status" aria-live="polite" style={{
         position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
         display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center',
         zIndex: 9998, pointerEvents: 'none',

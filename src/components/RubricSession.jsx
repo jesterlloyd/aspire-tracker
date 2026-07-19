@@ -335,7 +335,7 @@ function RubricCard({ r, interviewers, onSave, canEdit, onView }) {
 }
 
 export default function RubricSession({ student, rubrics, cohortId, onBack, onStudentUpdate, onRubricsChange, toast, readOnly = false, initialRubric = null }) {
-  const { userProfile, canEdit } = useAuth()
+  const { userProfile, canViewStudentResume } = useAuth()
   const [form,           setForm]           = useState(initialRubric || initForm())
   const [rubricId,       setRubricId]       = useState(initialRubric?.id || null)
   const [saveStatus,     setSaveStatus]     = useState('idle')
@@ -874,7 +874,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
               {/* WAVE F-2: resume is Owner/Admin only and opens through the server access
                   endpoint. Interviewers get no resume access, so the control is hidden for
                   them; all rubric and interview functionality is unaffected. */}
-              {canEdit && student.resume_url && (
+              {canViewStudentResume && student.resume_url && (
                 <button type="button" onClick={() => openStudentFile({ studentId: student.id, kind: 'resume' })}
                   style={{ fontSize:11, fontWeight:600, color:'var(--nightfall)', border:'1px solid var(--nightfall)',
                     borderRadius:4, padding:'2px 8px', background:'transparent', cursor:'pointer', fontFamily:'inherit' }}>

@@ -15,13 +15,15 @@ import { useAuth } from '../contexts/AuthContext'
 import RestrictedAccessOverlay from './RestrictedAccessOverlay'
 import { canPerformMatching } from '../lib/permissions'
 import { KPICell, useUpdatedLabel } from './KPIBand'
+import { unitOpenSlots, totalOpenSlots, derivePrefCounts } from '../lib/placementDisplay'
 // ── Unified Placement Overview - single panel replacing Placement at a Glance + Preference Match Ring ──
 
 const PREF_SEGMENTS = [
-  { key: 'top',       label: 'Top choice', color: '#C8D5C0' },
-  { key: 'second',    label: 'Second',     color: '#D5DCEC' },
-  { key: 'other',     label: 'Other',      color: '#F4D9B6' },
-  { key: 'unmatched', label: 'Unmatched',  color: '#F2D5E0' },
+  { key: 'top',         label: 'Top choice',   color: '#C8D5C0' },
+  { key: 'second',      label: 'Second',       color: '#D5DCEC' },
+  { key: 'other',       label: 'Other',        color: '#F4D9B6' },
+  { key: 'notRecorded', label: 'Not recorded', color: '#E5E7EB' },
+  { key: 'unmatched',   label: 'Unmatched',    color: '#F2D5E0' },
 ]
 
 function SegmentedBar({ counts, total }) {
@@ -39,13 +41,18 @@ function SegmentedBar({ counts, total }) {
 function PlacementOverview({ studentsCount, matchedCount, unmatchedCount, prefCounts, totalSlots, slotsRemaining, poolSchools, cohort, cohortId }) {
   const updatedLabel = useUpdatedLabel(cohortId)
   const schools = poolSchools?.length ?? 0
-  const topPct  = studentsCount > 0 ? Math.round((prefCounts.top / studentsCount) * 100) : 0
+  // ASPIRE-CHART honest match rank: the headline claims a percentage only
+  // over placements with a RECORDED rank; absent data is shown as absent,
+  // never as "0% top choice".
+  const recorded = prefCounts.top + prefCounts.second + prefCounts.other
+  const topPct = recorded > 0 ? Math.round((prefCounts.top / recorded) * 100) : null
 
   const counts = {
-    top:       prefCounts.top,
-    second:    prefCounts.second,
-    other:     prefCounts.other,
-    unmatched: studentsCount - matchedCount,
+    top:         prefCounts.top,
+    second:      prefCounts.second,
+    other:       prefCounts.other,
+    notRecorded: prefCounts.notRecorded,
+    unmatched:   studentsCount - matchedCount,
   }
 
   const matchedSub = (() => {
@@ -53,6 +60,7 @@ function PlacementOverview({ studentsCount, matchedCount, unmatchedCount, prefCo
     if (prefCounts.top    > 0) parts.push(`${prefCounts.top} top choice`)
     if (prefCounts.second > 0) parts.push(`${prefCounts.second} 2nd choice`)
     if (prefCounts.other  > 0) parts.push(`${prefCounts.other} other`)
+    if (prefCounts.notRecorded > 0) parts.push(`${prefCounts.notRecorded} rank not recorded`)
     return parts.length > 0 ? parts.join(' · ') : 'Pending placement'
   })()
 
@@ -71,8 +79,8 @@ function PlacementOverview({ studentsCount, matchedCount, unmatchedCount, prefCo
         <div style={{ flex:'1 1 0' }}><KPICell value={slotsRemaining} label="Open Slots" sub={`of ${totalSlots} total`} /></div>
         <div style={{ flex:'1.6 1 0', minWidth:200, background:'var(--bg-card,#fff)', padding:'14px 20px', display:'flex', flexDirection:'column', justifyContent:'center', gap:6 }}>
           <div style={{ fontSize:10.5, textTransform:'uppercase', letterSpacing:'0.12em', color:'var(--text-caption,#475467)', fontWeight:700 }}>Preference Match</div>
-          <div style={{ fontSize:16, fontWeight:700, color: studentsCount > 0 ? 'var(--color-status-success,#2D4A2B)' : 'var(--text-muted,#98A2B3)', lineHeight:1.2 }}>
-            {studentsCount > 0 ? `${topPct}% received top choice` : '-'}
+          <div style={{ fontSize:16, fontWeight:700, color: topPct !== null ? 'var(--color-status-success,#2D4A2B)' : 'var(--text-muted,#98A2B3)', lineHeight:1.2 }}>
+            {topPct !== null ? `${topPct}% received top choice` : matchedCount > 0 ? 'Match rank not recorded' : '-'}
           </div>
           <SegmentedBar counts={counts} total={studentsCount} />
           <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
@@ -103,12 +111,8 @@ export const getInterviewStatus = (s) => {
   return null
 }
 
-export const MATCH_QUALITY_CONFIG = {
-  '1st':   { label: '★ Perfect Match',    color: '#166534', bg: '#f0fdf4', border: '#86efac' },
-  '2nd':   { label: '2nd Choice Match',   color: '#92400e', bg: '#fffbeb', border: '#fde68a' },
-  '3rd':   { label: '3rd Choice Match',   color: '#1e40af', bg: '#eff6ff', border: '#bfdbfe' },
-  'other': { label: 'Other Match',        color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' },
-}
+// (MATCH_QUALITY_CONFIG removed: match-rank display now comes from the
+// stored-rank config in lib/placementDisplay.js - one source, no duplicate.)
 
 // Blacklist: exclude students who are already placed or finished
 // (whitelist approach was too strict and excluded students with edge-case statuses)
@@ -119,10 +123,22 @@ const POOL_INELIGIBLE_STATUSES = new Set([
 export default function MatchingTab({
   students, units, matches, cohortId, cohort,
   onMatch, onUnmatch, onUpdateMatch, onRefreshUnits, onDeleteUnit, highlightUnitId,
+  focusMatchStudentId, onFocusMatchConsumed,
   toast,
 }) {
   const [selectedStudent,   setSelectedStudent]   = useState(null)
   const cardRefs = useRef({})
+
+  // ASPIRE-CHART interview-to-placement handoff: when Interviews routes here
+  // with a student, pre-select them in the pool (the existing selection
+  // mechanic; the scroll effect below brings the card into view). A student
+  // who is not pool-eligible fails closed to no selection.
+  useEffect(() => {
+    if (!focusMatchStudentId) return
+    const s = students.find(x => x.id === focusMatchStudentId)
+    if (s) setSelectedStudent(s)
+    onFocusMatchConsumed?.()
+  }, [focusMatchStudentId]) // eslint-disable-line react-hooks/exhaustive-deps
   const [showUnitSetup,     setShowUnitSetup]     = useState(false)
   const [showImportUnits,   setShowImportUnits]   = useState(false)
   const [poolSearch,        setPoolSearch]        = useState('')
@@ -139,9 +155,12 @@ export default function MatchingTab({
     setFocusedUnit(prev => prev?.id === unit.id ? null : unit)
 
   const participating   = units.filter(u => u.is_participating)
-  const totalSlots      = participating.reduce((s, u) => s + u.total_slots,     0)
-  const slotsRemaining  = participating.reduce((s, u) => s + u.slots_remaining, 0)
-  const unitsWithOpen   = participating.filter(u => u.slots_remaining > 0).length
+  const totalSlots      = participating.reduce((s, u) => s + (u.total_slots || 0), 0)
+  // ASPIRE-CHART one capacity source: live match count vs configured totals,
+  // the same calculation the placement guard uses. The stored slots_remaining
+  // field is no longer a display source (its write path is unchanged).
+  const slotsRemaining  = totalOpenSlots(participating, matches)
+  const unitsWithOpen   = participating.filter(u => (unitOpenSlots(u, matches) ?? 0) > 0).length
   // AVAILABILITY-CANON-1D: read-only coordinator availability for the readiness badge.
   // Only the fields the badge/readiness helper needs; mapped by rotation id and passed to each
   // StudentMatchingCard. Skips safely when there is no cohort. No writes.
@@ -171,11 +190,9 @@ export default function MatchingTab({
   const unmatchedAll    = students.filter(s => !s.matched_unit_id && !POOL_INELIGIBLE_STATUSES.has(s.status))
   const poolSchools     = [...new Set(students.map(s => s.school).filter(Boolean))].sort()
 
-  const prefCounts = useMemo(() => {
-    const top    = matchedStudents.filter(s => { const u = units.find(u => u.id === s.matched_unit_id); return u && s.unit_preference_1 === u.unit_name }).length
-    const second = matchedStudents.filter(s => { const u = units.find(u => u.id === s.matched_unit_id); const n = u?.unit_name; return n && n !== s.unit_preference_1 && s.unit_preference_2 === n }).length
-    return { top, second, other: matchedStudents.length - top - second }
-  }, [matchedStudents, units])
+  // ASPIRE-CHART: counts come from STORED match ranks (shared module), never
+  // from unit-name comparison - renaming a unit no longer rewrites history.
+  const prefCounts = useMemo(() => derivePrefCounts(matchedStudents, matches), [matchedStudents, matches])
 
   // Filter + sort units
   let displayUnits = [...participating]
@@ -193,7 +210,7 @@ export default function MatchingTab({
       return da.localeCompare(db) || a.unit_name.localeCompare(b.unit_name)
     })
   } else if (sortMode === 'most-available') {
-    displayUnits.sort((a, b) => b.slots_remaining - a.slots_remaining)
+    displayUnits.sort((a, b) => (unitOpenSlots(b, matches) ?? 0) - (unitOpenSlots(a, matches) ?? 0))
   }
 
   // Pool: include fading-out students temporarily for exit animation
@@ -436,6 +453,7 @@ export default function MatchingTab({
                   <MatchingBanner
                     student={selectedStudent}
                     units={participating}
+                    matches={matches}
                     onClearSelection={() => setSelectedStudent(null)}
                   />
                 </div>
@@ -605,6 +623,7 @@ export default function MatchingTab({
                         isFading={fadingStudentIds.has(s.id)}
                         isFadingIn={fadeInStudentIds.has(s.id)}
                         units={participating}
+                        matches={matches}
                         focusedUnit={focusedUnit}
                         rotation={rotationById[s.cohort_school_rotation_id]}
                       />

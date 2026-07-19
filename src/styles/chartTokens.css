@@ -1,0 +1,212 @@
+/* ============================================================
+   THE CHART - staff functional token layer.
+   Layer order: aspireBrand.css (:root core brand) -> theme.css
+   (semantic light/dark) -> this file (staff functional tokens +
+   shell classes). Imported by index.css AFTER theme.css.
+
+   Rules of the layer:
+   - New chart styles consume --chart-* only; --chart-* resolves
+     through the semantic theme vars so dark mode is systematic,
+     not an override list.
+   - Count badges stay on the shared standard (lib/badgeTokens.js
+     + --cs-red). Red is never decorative here.
+   - Fraunces appears ONLY through --chart-serif (route titles and
+     major orientation moments). DM Sans stays the operational face.
+   ============================================================ */
+@import './aspireBrand.css';
+
+:root {
+  /* Type */
+  --chart-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --chart-sans: 'DM Sans', sans-serif;
+
+  /* Surfaces and ink, resolved through the semantic theme layer so
+     [data-theme="dark"] flips them without per-class overrides. */
+  --chart-bg: var(--bg-app, #F4F1EC);
+  --chart-card: var(--bg-card, #FFFFFF);
+  --chart-ink: var(--text-body, #191919);
+  --chart-ink-soft: var(--text-muted, #6B7280);
+  --chart-line: var(--border-divider, rgba(29, 37, 103, 0.08));
+  --chart-navy: var(--color-accent-primary, #1D2567);
+
+  /* Status tones (chip text/background pairs). Every chip carries a
+     text label; these colors are reinforcement, never the message. */
+  --chart-ok-bg: #E5F3EA;      --chart-ok-ink: #166534;
+  --chart-wait-bg: #EDF0FA;    --chart-wait-ink: #3B4A9F;
+  --chart-warn-bg: #FBF3E0;    --chart-warn-ink: #8B5E1A;
+  --chart-info-bg: #EFF1F5;    --chart-info-ink: #4B5563;
+  --chart-err-bg: #FBEAEA;     --chart-err-ink: #991B1B;
+
+  /* Focus */
+  --chart-focus: var(--color-accent-primary, #1D2567);
+}
+
+[data-theme="dark"] {
+  --chart-ok-bg: rgba(94, 195, 133, 0.16);   --chart-ok-ink: #7EE2A0;
+  --chart-wait-bg: rgba(140, 158, 255, 0.16); --chart-wait-ink: #AEBBFF;
+  --chart-warn-bg: rgba(228, 178, 86, 0.16);  --chart-warn-ink: #E8C078;
+  --chart-info-bg: rgba(148, 163, 184, 0.16); --chart-info-ink: #A8B3C4;
+  --chart-err-bg: rgba(248, 113, 113, 0.16);  --chart-err-ink: #F0A6A6;
+  --chart-focus: var(--color-focus-ring, #6B8EFF);
+}
+
+/* ------------------------------------------------------------
+   Global staff focus baseline. Light mode previously had no
+   global :focus-visible strategy (only dark did, in theme.css).
+   Keyboard focus is now always visible inside the staff shell.
+   ------------------------------------------------------------ */
+.app :focus-visible {
+  outline: 2px solid var(--chart-focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ------------------------------------------------------------
+   Route title: the one Fraunces moment per route.
+   ------------------------------------------------------------ */
+.chart-route-title {
+  font-family: var(--chart-serif);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--chart-ink);
+}
+
+/* Status chip primitives (adopted opportunistically per phase). */
+.chart-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--chart-sans);
+  font-size: 11px; font-weight: 700;
+  padding: 2px 9px; border-radius: 20px;
+  white-space: nowrap;
+}
+.chart-chip-ok   { background: var(--chart-ok-bg);   color: var(--chart-ok-ink); }
+.chart-chip-wait { background: var(--chart-wait-bg); color: var(--chart-wait-ink); }
+.chart-chip-warn { background: var(--chart-warn-bg); color: var(--chart-warn-ink); }
+.chart-chip-info { background: var(--chart-info-bg); color: var(--chart-info-ink); }
+.chart-chip-err  { background: var(--chart-err-bg);  color: var(--chart-err-ink); }
+
+/* ============================================================
+   Shell: application header (navy band)
+   Desktop replicates the pre-Chart look exactly; below 980px the
+   band wraps into rows instead of clipping (the header previously
+   truncated mid-search at phone widths).
+   ============================================================ */
+.chart-header {
+  background: linear-gradient(180deg, #1D2567 0%, #161D52 100%);
+  padding: 0 24px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--chart-sans);
+  flex-shrink: 0;
+  position: relative;
+}
+.chart-header-spacer { flex: 1; }
+
+.chart-brand { display: flex; align-items: center; gap: 14px; flex-shrink: 0; min-width: 0; overflow: hidden; }
+/* The tooltip wrapper around the wordmark must be allowed to shrink, or the
+   title escapes the brand box and slides under the action icons on phones. */
+.chart-brand > * { min-width: 0; }
+.chart-brand-logo { height: 46px; width: auto; object-fit: contain; }
+.chart-brand-divider { width: 1px; height: 30px; background: rgba(255, 255, 255, 0.18); flex-shrink: 0; }
+.chart-brand-title {
+  font-size: 20px; font-weight: 700; color: #fff;
+  letter-spacing: -0.01em; cursor: default; white-space: nowrap;
+}
+
+.chart-header-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+
+/* Search: width moved from inline styles to CSS so it can flex on
+   small screens. Focus growth preserved on desktop. */
+.chart-search-area { position: relative; flex-shrink: 0; }
+.chart-search-area .header-search-input { width: 220px; }
+.chart-search-area .header-search-input:focus { width: 280px; }
+.chart-search-dropdown {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  width: min(360px, calc(100vw - 24px));
+  max-height: min(480px, 70vh); overflow-y: auto;
+  background: var(--pearl, #FFFFFF); border: 1px solid #e5e7eb;
+  border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 400;
+}
+.chart-cohort-area { position: relative; flex-shrink: 0; min-width: 0; }
+.chart-cohort-dropdown {
+  position: absolute; top: calc(100% + 6px); right: 0;
+  width: min(380px, calc(100vw - 16px));
+  background: var(--pearl, #FFFFFF); border: 1px solid #e5e7eb;
+  border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 400; overflow: hidden;
+}
+
+/* The unwrapped band needs ~1150px (brand + cohort + search + actions), so
+   wrapping starts at 1200px - measured, not guessed; at 1024 the actions
+   previously overflowed the viewport by ~126px. */
+@media (max-width: 1200px) {
+  .chart-header {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 10px 12px;
+    row-gap: 10px;
+  }
+  .chart-header-spacer { display: none; }
+  .chart-brand { order: 0; flex: 1; }
+  .chart-header-actions { order: 1; }
+  .chart-cohort-area { order: 2; flex: 1 1 auto; }
+  .chart-cohort-area > span, .chart-cohort-area button { max-width: 100%; }
+  .chart-search-area { order: 3; flex: 1 1 160px; }
+  .chart-search-area .header-search-input,
+  .chart-search-area .header-search-input:focus { width: 100%; }
+  .chart-search-dropdown { right: auto; left: 0; }
+}
+@media (max-width: 560px) {
+  .chart-brand { gap: 10px; }
+  .chart-brand-logo { height: 34px; }
+  .chart-brand-divider { display: none; }
+  .chart-brand-title { font-size: 15px; white-space: normal; line-height: 1.15; }
+  .chart-cohort-dropdown { position: fixed; left: 8px; right: 8px; top: auto; width: auto; }
+}
+
+/* ============================================================
+   Shell: workspace tab bar
+   Desktop look preserved; on narrow screens the row scrolls
+   horizontally instead of overflowing the viewport, mnemonic
+   chips step aside, and the refresh affordance yields space.
+   ============================================================ */
+.chart-nav {
+  background: var(--bg-card, #FAFAF7);
+  border-bottom: 1px solid var(--border-divider, rgba(29, 37, 103, 0.08));
+  padding: 0 32px;
+  display: flex;
+  align-items: stretch;
+  font-family: var(--chart-sans);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.chart-nav::-webkit-scrollbar { display: none; }
+.chart-nav-tab {
+  position: relative;
+  padding: 11px 16px;
+  height: 100%;
+  border: none;
+  background: none;
+  font-family: var(--chart-sans);
+  font-size: 17px;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 7px;
+  transition: color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+.chart-nav-refresh { margin-left: auto; flex-shrink: 0; align-self: center; }
+
+@media (max-width: 1100px) {
+  .chart-nav { padding: 0 12px; }
+  .chart-nav-tab { font-size: 15px; padding: 10px 12px; }
+}
+@media (max-width: 760px) {
+  .chart-nav-chip { display: none !important; }
+  .chart-nav-refresh { display: none; }
+  .chart-nav-tab { font-size: 14px; padding: 10px 10px; }
+}

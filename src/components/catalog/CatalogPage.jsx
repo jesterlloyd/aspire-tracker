@@ -8,7 +8,11 @@ import { useAuth } from '../../contexts/AuthContext'
 import { FilterKPICard } from '../KPIBand'
 import WorkspaceBackLink from '../ui/WorkspaceBackLink'
 
-// CATALOG-1 - Read-only ASPIRE Catalog browse UI (Owner/Admin only).
+// CATALOG-1 - ASPIRE Catalog browse UI. View: Owner/Admin/Interviewer (read).
+// Manage (add/edit/move/remove): Owner/Admin only. ASPIRE-CHART corrected the
+// stale 'Owner/Admin only' copy - the code has admitted Interviewers as
+// readers since the header nav gate (HeaderActions canViewCatalog); RLS and
+// the server endpoints remain the real authority on every read and write.
 //
 // Reads catalog_resources via the user session; the table's Owner/Admin SELECT RLS is the
 // gate (a non-Owner/Admin simply sees no rows). Internal files open through the server-side
@@ -319,7 +323,7 @@ export default function CatalogPage({ backPath = '/aggregate', backLabel = 'Aggr
   if (!canView) {
     return (
       <div style={{ padding: '40px 24px', color: '#9ca3af', fontSize: 14, fontFamily: F }}>
-        ASPIRE Catalog is available to Owner/Admin only.
+        The ASPIRE Catalog is available to Owner, Admin, and Interviewer accounts.
       </div>
     )
   }
@@ -618,8 +622,8 @@ function RailCard({ icon, title, children }) {
         <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, color: '#191919' }}>
           <span style={{ color: NAVY }}>{icon}</span>{title}
         </span>
-        {/* Inert placeholder - management is not part of CATALOG-1 */}
-        <span style={{ fontSize: 11, fontWeight: 600, color: '#c0c4ca', userSelect: 'none' }}>Manage</span>
+        {/* ASPIRE-CHART: the inert 'Manage' label is gone - a control that
+            does nothing is a broken promise, not an affordance. */}
       </div>
       <div style={{ padding: '6px 16px 12px' }}>{children}</div>
     </div>
