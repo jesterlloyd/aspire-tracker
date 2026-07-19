@@ -184,26 +184,40 @@ scoped, server-authoritative.
   Supersedes and replaces the removed placeholder draft
   `20260718000000_DRAFT_DO_NOT_APPLY_wave_f2_pass2_backfill.sql`.
 - Pass 3 (`20260719000003_wave_f2_pass3_private_bucket_cutover.sql`, APPLY MANUALLY):
-  the privacy cutover. Sets the bucket private, drops every policy whose definition
-  names `student-files` (the anonymous read/upload/update policies and any broad
-  authenticated policy scoped to this bucket) via a deterministic `pg_policies` loop,
-  and leaves ONLY a `service_role` policy. Bucket-agnostic policies are deliberately
-  not touched, because dropping them would affect other buckets; preflight query 2
-  surfaces them for a separate decision. It deletes, renames, and moves no storage
-  object and modifies no student reference, is transactional, and ships a reviewed
-  rollback. Bucket-level MIME/size limits mirroring `FILE_KIND_RULES` are an OPTIONAL
-  block, gated on preflight query 4. Run the nine read-only checks in
-  `db/audit/wave_f2_pass3_preflight_and_verification.sql` first. Supersedes and
-  replaces the removed drafts `20260712000014_phase0b_wave_f2_student_files_private.sql`
-  and `20260718000001_DRAFT_DO_NOT_APPLY_wave_f2_pass3_private_cutover.sql`, which
-  added broad `is_staff()` storage policies that the server-mediated design does not
-  need; neither may be applied.
+  the privacy cutover. It changes exactly two things: `storage.buckets.public` for this
+  bucket, and the policies that grant direct client access to it. It sets the bucket
+  private and drops, via a deterministic `pg_policies` loop, every policy whose
+  definition names `student-files` and names no other bucket (the anonymous
+  read/upload/update policies and any broad authenticated policy scoped to this
+  bucket). It creates NO policy: `service_role` bypasses RLS, so a service-role policy
+  would be redundant and would obscure the intended model. `file_size_limit` and
+  `allowed_mime_types` are left exactly as they are; any future MIME or size
+  restriction is a separate reviewed change after the cutover is accepted. It deletes,
+  renames, and moves no storage object, modifies no student reference, preserves
+  `wave_f2_pass2_url_backfill_backup`, and is transactional.
 
-Why only `service_role` survives the cutover: reads are service-role signed URLs from
-the authorized access endpoints, uploads are server-issued signed upload tokens (the
+  It fails closed: before writing anything, it aborts if `storage.objects` carries a
+  policy granting `anon` / `authenticated` / `PUBLIC` access that is either
+  bucket-agnostic or names `student-files` together with another bucket. Neither is
+  dropped automatically, because dropping it would change access for other buckets; the
+  abort names them for a separate decision, and preflight query 2 reports the same
+  assessment beforehand. Rollback is exact, not reconstructed: every dropped policy is
+  snapshotted with its generated `CREATE POLICY` statement into
+  `public.wave_f2_pass3_policy_backup` inside the same transaction, and the rollback
+  replays those statements verbatim and restores the `public` flag. Run the read-only
+  preflight in `db/audit/wave_f2_pass3_preflight_and_verification.sql` first.
+  Supersedes and replaces the removed drafts
+  `20260712000014_phase0b_wave_f2_student_files_private.sql` and
+  `20260718000001_DRAFT_DO_NOT_APPLY_wave_f2_pass3_private_cutover.sql`, which added
+  broad `is_staff()` storage policies that the server-mediated design does not need;
+  neither may be applied.
+
+Why no storage policy survives the cutover: reads are service-role signed URLs from the
+authorized access endpoints, uploads are server-issued signed upload tokens (the
 browser's only storage call is `uploadToSignedUrl`, which the token authorizes and
-which works on a private bucket), and cleanup is service-role. Nothing in the browser
-depends on public bucket access.
+which works on a private bucket), and cleanup is service-role. The service-role client
+bypasses RLS, so it needs no policy, and nothing in the browser depends on public
+bucket access.
 
 Manual acceptance of Pass 1 (staff + portal file flows verified on the deployed
 build) was required before Pass 2. Pass 2 is applied and verified in production
