@@ -141,9 +141,19 @@ Student-specific file logic (resume, badge) stays out of shared primitives.
 
 ## Pass 2 and Pass 3 (gated, not applied)
 
-- Pass 2 (`..._DRAFT_DO_NOT_APPLY_wave_f2_pass2_backfill.sql`): data-only backfill
-  of stored legacy public URLs to canonical paths. Deterministic (derived from the
-  existing URL, never guessed). No bucket or policy change.
+- Pass 2 (`20260719000002_wave_f2_pass2_url_to_path_backfill.sql`, APPLY MANUALLY):
+  data-only backfill of the two confirmed columns `students.resume_url` and
+  `students.headshot_url` from recognized student-files public URLs to the canonical
+  object path. It converts ONLY values with the `/storage/v1/object/public/student-files/`
+  marker whose extracted path is `<uuid>/<uuid>/<kind>.<ext>`; it leaves other buckets,
+  signed URLs, external/malformed URLs, URL-encoded or non-canonical names,
+  already-canonical paths, empties, and NULLs unchanged. It is transactional and
+  idempotent, snapshots every changed value into `wave_f2_pass2_url_backfill_backup`
+  for rollback, and touches no storage object, bucket, or policy. The compatibility
+  resolver still serves both forms, so access is identical before and after. Run the
+  read-only preflight in `db/audit/wave_f2_pass2_preflight_and_verification.sql` first.
+  Supersedes and replaces the removed placeholder draft
+  `20260718000000_DRAFT_DO_NOT_APPLY_wave_f2_pass2_backfill.sql`.
 - Pass 3 (`..._DRAFT_DO_NOT_APPLY_wave_f2_pass3_private_cutover.sql`): flips the
   bucket private with a service-role-only policy. It supersedes the earlier draft
   `20260712000014_phase0b_wave_f2_student_files_private.sql`, which added broad
