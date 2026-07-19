@@ -183,13 +183,29 @@ scoped, server-authoritative.
   read-only preflight in `db/audit/wave_f2_pass2_preflight_and_verification.sql` first.
   Supersedes and replaces the removed placeholder draft
   `20260718000000_DRAFT_DO_NOT_APPLY_wave_f2_pass2_backfill.sql`.
-- Pass 3 (`..._DRAFT_DO_NOT_APPLY_wave_f2_pass3_private_cutover.sql`): flips the
-  bucket private with a service-role-only policy. It supersedes the earlier draft
-  `20260712000014_phase0b_wave_f2_student_files_private.sql`, which added broad
-  `is_staff()` SELECT/INSERT/UPDATE storage policies. Those are unnecessary under
-  the server-mediated design (the browser never reads or writes storage directly),
-  so the superseded draft must not be applied.
+- Pass 3 (`20260719000003_wave_f2_pass3_private_bucket_cutover.sql`, APPLY MANUALLY):
+  the privacy cutover. Sets the bucket private, drops every policy whose definition
+  names `student-files` (the anonymous read/upload/update policies and any broad
+  authenticated policy scoped to this bucket) via a deterministic `pg_policies` loop,
+  and leaves ONLY a `service_role` policy. Bucket-agnostic policies are deliberately
+  not touched, because dropping them would affect other buckets; preflight query 2
+  surfaces them for a separate decision. It deletes, renames, and moves no storage
+  object and modifies no student reference, is transactional, and ships a reviewed
+  rollback. Bucket-level MIME/size limits mirroring `FILE_KIND_RULES` are an OPTIONAL
+  block, gated on preflight query 4. Run the nine read-only checks in
+  `db/audit/wave_f2_pass3_preflight_and_verification.sql` first. Supersedes and
+  replaces the removed drafts `20260712000014_phase0b_wave_f2_student_files_private.sql`
+  and `20260718000001_DRAFT_DO_NOT_APPLY_wave_f2_pass3_private_cutover.sql`, which
+  added broad `is_staff()` storage policies that the server-mediated design does not
+  need; neither may be applied.
+
+Why only `service_role` survives the cutover: reads are service-role signed URLs from
+the authorized access endpoints, uploads are server-issued signed upload tokens (the
+browser's only storage call is `uploadToSignedUrl`, which the token authorizes and
+which works on a private bucket), and cleanup is service-role. Nothing in the browser
+depends on public bucket access.
 
 Manual acceptance of Pass 1 (staff + portal file flows verified on the deployed
-build) is required before Pass 2. Pass 2 and Pass 3 are separate and are not begun
-automatically.
+build) was required before Pass 2. Pass 2 is applied and verified in production
+(0 public URLs remaining, 57 canonical paths, backup intact). Pass 3 is prepared and
+is not applied automatically.
