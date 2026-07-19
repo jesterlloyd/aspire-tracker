@@ -9,15 +9,16 @@
 //
 // Access matrix (server-mediated; no broad is_staff storage policy):
 //   Owner / Admin : resume AND headshot, any student
+//   Viewer        : headshot only, for the students a Viewer already sees (Viewers
+//                   are global read-only staff, so this is their visible set; no
+//                   resume, no cohort-wide expansion beyond photos).
 //   Interviewer   : resume AND headshot, but ONLY for students in a cohort for
 //                   which the interviewer holds an ACTIVE entitlement
 //                   (interviewer_cohort_entitlements, keyed on user_profiles.id).
 //                   No entitlement -> null url (never an error, no existence leak).
-//   Viewer        : no access via this endpoint (unchanged: rejected as a
-//                   non-owner/admin, non-interviewer role).
-//   anything else : no access
+//   anything else : no access (403)
 // Inactive callers are rejected by verifyPortalCaller before authorization runs, so
-// a deactivated interviewer is denied immediately even if an entitlement row remains.
+// a deactivated Viewer or interviewer is denied immediately.
 //
 // Single mode:  { student_id, kind }              -> { signed_url }
 // Batch mode:   { items: [{ student_id, kind }] } -> { results: [{ student_id, kind, signed_url }] }
@@ -46,15 +47,25 @@ export default async function handler(req, res) {
   }
   const role = String(caller.profile.role || '').toLowerCase()
   const isOwnerAdmin = role === 'owner' || role === 'admin'
+  const isViewer = role === 'viewer'
   const isInterviewer = role === 'interviewer'
-  // Viewer and every other role keep their prior behavior: denied at this endpoint.
-  if (!isOwnerAdmin && !isInterviewer) {
+  // Only these staff roles use this endpoint; everything else is denied.
+  if (!isOwnerAdmin && !isViewer && !isInterviewer) {
     return res.status(403).json({ error: 'staff_role_required' })
   }
 
+  // Kinds allowed by role: Owner/Admin both; Viewer headshot only; interviewer
+  // both (cohort-gated below). A disallowed kind yields a null url, never an error.
+  const roleKinds = isOwnerAdmin
+    ? FILE_KINDS
+    : isViewer
+      ? new Set(['headshot'])
+      : new Set(['resume', 'headshot'])
+
   // Interviewer: resolve the cohorts they are entitled to (identity-based, active
-  // only). Fail closed on a lookup error. Owner/Admin have no cohort restriction.
-  let entitledCohorts = null // null = unrestricted (owner/admin)
+  // only). Fail closed on a lookup error. Owner/Admin and Viewer have no cohort
+  // restriction beyond the students they already see.
+  let entitledCohorts = null // null = unrestricted (owner/admin, viewer)
   if (isInterviewer) {
     try {
       entitledCohorts = await activeEntitledCohortIds(supabaseAdmin, caller.profile.id)
@@ -95,8 +106,10 @@ export default async function handler(req, res) {
     if (!n.valid) return nullResult
     const row = byId.get(n.student_id)
     if (!row) return nullResult
-    // Owner/Admin: any cohort. Interviewer: only entitled cohorts.
-    const cohortOk = isOwnerAdmin || entitledCohorts.has(row.cohort_id)
+    // Kind must be allowed for the role (Viewer -> headshot only, no resume).
+    if (!roleKinds.has(n.kind)) return nullResult
+    // Owner/Admin and Viewer: any student they see. Interviewer: entitled cohorts.
+    const cohortOk = isOwnerAdmin || isViewer || entitledCohorts.has(row.cohort_id)
     if (!cohortOk) return nullResult
     const ref = parseStoredFileRef(row[COLUMN[n.kind]])
     if (ref.kind === 'empty' || ref.kind === 'unknown') return nullResult

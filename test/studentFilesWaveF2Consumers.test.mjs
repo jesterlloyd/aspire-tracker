@@ -45,18 +45,19 @@ test('explicit active-role file capabilities exist (not the broad canEdit)', () 
 test('StudentSidePanel: file controls by cohort-view, entitled-interviewer badge message, no leak', () => {
   // Resume View/Download shown to anyone who may view this student's files
   // (active Owner/Admin any cohort, or an entitled active interviewer this cohort).
-  assert.match(sidePanel, /const canViewFiles = canViewStudentFilesInCohort\(data\?\.cohort_id\)/)
-  assert.match(sidePanel, /\{canViewFiles && \(\s*\n\s*<>\s*\n\s*<button type="button" className="doc-file-link" onClick=\{openResume\}/)
+  assert.match(sidePanel, /const canViewResume = canViewStudentResumeInCohort\(data\?\.cohort_id\)/)
+  assert.match(sidePanel, /const canViewPhoto  = canViewStudentPhotoInCohort\(data\?\.cohort_id\)/)
+  assert.match(sidePanel, /\{canViewResume && \(\s*\n\s*<>\s*\n\s*<button type="button" className="doc-file-link" onClick=\{openResume\}/)
   assert.match(sidePanel, /downloadStudentFile\(\{ studentId: student\.id, kind: 'resume'/)
   // Upload/replace gated on canManageStudentFiles (Owner/Admin only).
   assert.match(sidePanel, /canManageStudentFiles && \(\s*\n\s*<button className="doc-replace-btn"/)
-  // Badge is canGenerateBadge; an entitled interviewer sees the exact restriction text.
+  // Badge is canGenerateBadge; a photo-viewer (Viewer or entitled interviewer) sees the message.
   assert.match(sidePanel, /canGenerateBadge \? \(/)
   assert.match(sidePanel, /Badge generation\/view restricted to Owner\/Admin\./)
   assert.doesNotMatch(sidePanel, /\{canInterview && \(/)
-  // Existence is never leaked: file rows render only when viewable or manageable.
-  assert.match(sidePanel, /\(data\.resume_url && \(canViewFiles \|\| canManageStudentFiles\)\) \?/)
-  assert.match(sidePanel, /\(data\.headshot_url && \(canViewFiles \|\| canManageStudentFiles\)\) \?/)
+  // Existence is never leaked: resume rows need resume-view or manage; photo rows need photo-view or manage.
+  assert.match(sidePanel, /\(data\.resume_url && \(canViewResume \|\| canManageStudentFiles\)\) \?/)
+  assert.match(sidePanel, /\(data\.headshot_url && \(canViewPhoto \|\| canManageStudentFiles\)\) \?/)
   // Badge headshot and preview come from the server access endpoint.
   assert.match(sidePanel, /fetchStudentFileUrl\(\{ studentId: student\.id, kind: 'headshot' \}\)/)
   assert.match(sidePanel, /headshotSignedUrl && <img src=\{headshotSignedUrl\}/)
@@ -81,7 +82,7 @@ test('OverviewTab campus strip renders headshots only through signed access', ()
 })
 
 test('RubricSession: resume gated by cohort entitlement, opens via the endpoint', () => {
-  assert.match(rubric, /canViewStudentFilesInCohort\(cohortId\) && student\.resume_url && \(/)
+  assert.match(rubric, /canViewStudentResumeInCohort\(cohortId\) && student\.resume_url && \(/)
   assert.match(rubric, /openStudentFile\(\{ studentId: student\.id, kind: 'resume' \}\)/)
   assert.doesNotMatch(rubric, /href=\{student\.resume_url\}/)
 })

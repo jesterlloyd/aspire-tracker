@@ -57,15 +57,26 @@ Owner/Admin manage it through `/api/interviewer-entitlements`, the file-access
 endpoint gates reads by it, and `/api/my-interviewer-cohorts` drives which controls
 the staff UI shows. Interviewers never upload, replace, delete, or touch badges;
 where the badge would appear they see exactly `Badge generation/view restricted to
-Owner/Admin.` See the migration
-`supabase/migrations/20260719000000_interviewer_cohort_entitlements.sql`
-(APPLY MANUALLY), which supersedes the unapplied
-`20260718000002_interviewer_assignment_identity.sql`.
+Owner/Admin.`
 
-Companion (not in this change): the scheduling flow still attributes availability
-by interviewer name. Making future Owner/Admin scheduling select a linked
-interviewer account and auto-ensure an entitlement is a clearly-ordered follow-up;
-until then, entitlements are managed by the backfill and the management API.
+Viewer photo access: an active Viewer receives signed headshot access (no resume)
+for the students they already see, matching the Viewer matrix row above; inactive
+Viewers are denied. This is enforced in the same file-access endpoint.
+
+Identity-backed scheduling: Owner/Admin availability scheduling selects a linked
+interviewer ACCOUNT (`interview_availability_blocks.interviewer_profile_id`), not a
+free-text name (which remains display only). Creating a block for an interviewer
+auto-ensures an active cohort entitlement (idempotent); reassignment never revokes
+the original interviewer's entitlement and the replacement gets one from their own
+block. This is the authorization posture: names are never the boundary.
+
+Migrations (both APPLY MANUALLY, in order):
+`20260719000000_interviewer_cohort_entitlements.sql` (table + RLS + the scheduling
+identity column) then `20260719000001_interviewer_cohort_entitlements_backfill.sql`
+(a separate, actor-selected backfill: run its read-only Owner/Admin listing, choose
+the granting profile id, then run the guarded backfill block; it aborts rather than
+guess if there is not exactly one active cohort). These supersede the unapplied
+`20260718000002_interviewer_assignment_identity.sql`.
 
 ### Explicit active-role capabilities
 

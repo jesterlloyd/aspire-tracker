@@ -335,7 +335,7 @@ function RubricCard({ r, interviewers, onSave, canEdit, onView }) {
 }
 
 export default function RubricSession({ student, rubrics, cohortId, onBack, onStudentUpdate, onRubricsChange, toast, readOnly = false, initialRubric = null }) {
-  const { userProfile, canViewStudentFilesInCohort } = useAuth()
+  const { userProfile, canViewStudentResumeInCohort } = useAuth()
   const [form,           setForm]           = useState(initialRubric || initForm())
   const [rubricId,       setRubricId]       = useState(initialRubric?.id || null)
   const [saveStatus,     setSaveStatus]     = useState('idle')
@@ -875,7 +875,7 @@ export default function RubricSession({ student, rubrics, cohortId, onBack, onSt
                   anyone who may view this cohort's files: active Owner/Admin, or an
                   interviewer with an active entitlement for this interview's cohort.
                   Unentitled callers never see it; the server denies them regardless. */}
-              {canViewStudentFilesInCohort(cohortId) && student.resume_url && (
+              {canViewStudentResumeInCohort(cohortId) && student.resume_url && (
                 <button type="button" onClick={() => openStudentFile({ studentId: student.id, kind: 'resume' })}
                   style={{ fontSize:11, fontWeight:600, color:'var(--nightfall)', border:'1px solid var(--nightfall)',
                     borderRadius:4, padding:'2px 8px', background:'transparent', cursor:'pointer', fontFamily:'inherit' }}>

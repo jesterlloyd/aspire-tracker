@@ -166,12 +166,17 @@ export function AuthProvider({ children }) {
     canViewStudentResume:  userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role),
     canManageStudentFiles: userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role),
     canGenerateBadge:      userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role),
-    // WAVE F-2: an active interviewer's entitled cohorts, and a per-cohort file-view
-    // check that is true for active Owner/Admin (any cohort) or an entitled active
-    // interviewer (that cohort). Manage/badge stay Owner/Admin-only above.
+    // WAVE F-2: an active interviewer's entitled cohorts, plus two per-cohort
+    // file-view checks. Resume view is Owner/Admin or an entitled interviewer.
+    // Photo view additionally includes an active Viewer (headshot only, matching
+    // the Viewer matrix). Manage/badge stay Owner/Admin-only above.
     interviewerCohortIds,
-    canViewStudentFilesInCohort: (cohortId) =>
+    canViewStudentResumeInCohort: (cohortId) =>
       (userProfile?.is_active !== false && ['owner', 'admin'].includes(userProfile?.role)) ||
+      (userProfile?.is_active !== false && String(userProfile?.role || '').toLowerCase() === 'interviewer'
+        && !!cohortId && interviewerCohortIds.includes(cohortId)),
+    canViewStudentPhotoInCohort: (cohortId) =>
+      (userProfile?.is_active !== false && ['owner', 'admin', 'viewer'].includes(userProfile?.role)) ||
       (userProfile?.is_active !== false && String(userProfile?.role || '').toLowerCase() === 'interviewer'
         && !!cohortId && interviewerCohortIds.includes(cohortId)),
     canViewActivityLog: userProfile?.is_owner === true,

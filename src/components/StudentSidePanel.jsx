@@ -224,10 +224,11 @@ export default function StudentSidePanel({
   const [declineReason,        setDeclineReason]        = useState('')
   const [showDispositionModal, setShowDispositionModal] = useState(false)
   const [summaryCopied,    setSummaryCopied]    = useState(false)
-  const { canEdit, canManageStudentFiles, canGenerateBadge, canViewStudentFilesInCohort, userProfile } = useAuth()
-  // WAVE F-2: whether THIS caller may view/download this student's files. True for
-  // active Owner/Admin (any cohort) or an entitled active interviewer (this cohort).
-  const canViewFiles = canViewStudentFilesInCohort(data?.cohort_id)
+  const { canEdit, canManageStudentFiles, canGenerateBadge, canViewStudentResumeInCohort, canViewStudentPhotoInCohort, userProfile } = useAuth()
+  // WAVE F-2: per-cohort file-view checks. Resume view: active Owner/Admin or an
+  // entitled active interviewer. Photo view additionally includes an active Viewer.
+  const canViewResume = canViewStudentResumeInCohort(data?.cohort_id)
+  const canViewPhoto  = canViewStudentPhotoInCohort(data?.cohort_id)
   const navigate    = useNavigate()
   const queryClient = useQueryClient()
   const [uploadingRes,  setUploadingRes]  = useState(false)
@@ -1649,9 +1650,9 @@ export default function StudentSidePanel({
                     interviewer for this cohort). Upload/Replace stay Owner/Admin only.
                     A caller who can neither view nor manage sees nothing at all, so file
                     existence is never revealed. */}
-                {(data.resume_url && (canViewFiles || canManageStudentFiles)) ? (
+                {(data.resume_url && (canViewResume || canManageStudentFiles)) ? (
                   <div className="doc-existing-file">
-                    {canViewFiles && (
+                    {canViewResume && (
                       <>
                         <button type="button" className="doc-file-link" onClick={openResume} disabled={openingResume}
                           style={{ background:'none', border:'none', padding:0, font:'inherit', textAlign:'left', cursor:'pointer' }}>
@@ -1681,7 +1682,7 @@ export default function StudentSidePanel({
               <div className="doc-upload-area">
                 <div className="doc-area-label">Headshot</div>
                 <input ref={headshotRef} type="file" style={{ display:'none' }} accept=".jpg,.jpeg,.png" onChange={e => handleHeadshotUpload(e.target.files[0])} />
-                {(data.headshot_url && (canViewFiles || canManageStudentFiles)) ? (
+                {(data.headshot_url && (canViewPhoto || canManageStudentFiles)) ? (
                   <div className="doc-existing-file">
                     {headshotSignedUrl && <img src={headshotSignedUrl} alt="Headshot" className="doc-headshot-preview" />}
                     {/* Badge generation is active Owner/Admin only (canGenerateBadge). An
@@ -1704,7 +1705,7 @@ export default function StudentSidePanel({
                         {generatingBadge ? 'Generating...' : 'Download Badge'}
                       </button>
                       </Tooltip>
-                    ) : canViewFiles ? (
+                    ) : canViewPhoto ? (
                       <span className="doc-badge-restricted" style={{ fontSize:11, color:'#6b7280', fontStyle:'italic' }}>
                         Badge generation/view restricted to Owner/Admin.
                       </span>

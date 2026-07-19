@@ -76,10 +76,11 @@ export default function AvailabilitySection({ cohortId }) {
     const { data: block, error } = await safeWrite(
       () => supabase.from('interview_availability_blocks').insert({
         ...form,
-        cohort_id:          cohortId,
-        duration_minutes:   Number(form.duration_minutes),
-        interviewer_name:   userProfile.full_name,
-        created_by_user_id: userProfile.id,
+        cohort_id:              cohortId,
+        duration_minutes:       Number(form.duration_minutes),
+        interviewer_name:       userProfile.full_name,
+        interviewer_profile_id: userProfile.id,
+        created_by_user_id:     userProfile.id,
       }).select().single(),
       { name: 'create availability block' }
     )

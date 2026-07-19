@@ -10,7 +10,11 @@
 //   list    { cohort_id? }                          -> { entitlements: [...] }
 //   grant   { interviewer_profile_id, cohort_id }   -> { entitlement, idempotent }
 //   revoke  { interviewer_profile_id, cohort_id }   -> { revoked, idempotent }
-//   restore { interviewer_profile_id, cohort_id }   -> { entitlement, idempotent }
+//
+// Grant is idempotent when an active entitlement exists; a re-grant AFTER a revoke
+// inserts a NEW active row and never touches the revoked row's revoked_at /
+// revoked_by_profile_id, so revocation history stays immutable and auditable.
+// There is deliberately no "restore" action that reactivates a revoked row.
 //
 // Authorization actor is ALWAYS the verified caller's user_profiles.id; no
 // request-body actor is ever trusted. No interviewer name/email/roster matching.
@@ -20,7 +24,7 @@ import { verifyStaffCaller } from './lib/messagesAuth.js'
 
 const ENTITLEMENTS = 'interviewer_cohort_entitlements'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const ACTIONS = new Set(['list', 'grant', 'revoke', 'restore'])
+const ACTIONS = new Set(['list', 'grant', 'revoke'])
 
 // The target must be an active interviewer ACCOUNT (identity, never a name).
 async function verifyInterviewerTarget(db, profileId) {
@@ -85,7 +89,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ entitlements: data || [] })
   }
 
-  // grant / revoke / restore all need a valid interviewer + cohort pair.
+  // grant and revoke both need a valid interviewer + cohort pair.
   const interviewerProfileId = typeof body.interviewer_profile_id === 'string' ? body.interviewer_profile_id : ''
   const cohortId = typeof body.cohort_id === 'string' ? body.cohort_id : ''
   if (!UUID.test(interviewerProfileId)) return res.status(422).json({ error: 'invalid_interviewer_profile_id' })
@@ -105,7 +109,8 @@ export default async function handler(req, res) {
     return res.status(200).json({ revoked: true, idempotent: false })
   }
 
-  // grant / restore both create an active entitlement if one is not present.
+  // grant creates an active entitlement if none is present (a re-grant after a
+  // revoke inserts a NEW row; the revoked row is never modified).
   const targetOk = await verifyInterviewerTarget(db, interviewerProfileId)
   if (!targetOk.ok) return res.status(targetOk.status).json({ error: targetOk.reason })
   const cohortOk = await cohortExists(db, cohortId)

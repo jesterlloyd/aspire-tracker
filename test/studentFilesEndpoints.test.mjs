@@ -71,12 +71,15 @@ test('staff signed upload: Owner/Admin only, cohort resolved server-side', () =>
 })
 
 test('access endpoint: the role matrix, server-mediated, short-lived signed URLs', () => {
-  // Owner/Admin: any cohort. Interviewer: entitled cohorts only. Viewer/others: 403.
+  // Owner/Admin: both, any cohort. Viewer: headshot only, their students. Interviewer:
+  // both for entitled cohorts. Anything else: 403.
   assert.match(access, /verifyPortalCaller\(req\)/)
   assert.match(access, /const isOwnerAdmin = role === 'owner' \|\| role === 'admin'/)
+  assert.match(access, /const isViewer = role === 'viewer'/)
   assert.match(access, /const isInterviewer = role === 'interviewer'/)
-  assert.match(access, /if \(!isOwnerAdmin && !isInterviewer\) \{[\s\S]*?staff_role_required/)
-  assert.match(access, /const cohortOk = isOwnerAdmin \|\| entitledCohorts\.has\(row\.cohort_id\)/)
+  assert.match(access, /if \(!isOwnerAdmin && !isViewer && !isInterviewer\) \{[\s\S]*?staff_role_required/)
+  assert.match(access, /if \(!roleKinds\.has\(n\.kind\)\) return nullResult/)
+  assert.match(access, /const cohortOk = isOwnerAdmin \|\| isViewer \|\| entitledCohorts\.has\(row\.cohort_id\)/)
   // Resolves stored value (legacy URL or path) then mints signed URLs.
   assert.match(access, /parseStoredFileRef\(row\[COLUMN\[n\.kind\]\]\)/)
   assert.match(access, /createSignedUrls\(toSign\.map\(\(t\) => t\.path\), SIGNED_URL_TTL_SECONDS\)/)

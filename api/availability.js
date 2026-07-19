@@ -122,22 +122,35 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'invalid_request', message: 'Missing required fields' });
       }
 
-      // Attribution: Owner/Admin may name any interviewer; an interviewer is forced
-      // to themselves. created_by_user_id is always the verified caller's profile id.
-      let interviewerName;
-      if (adminLevel) {
-        interviewerName = typeof body.interviewer_name === 'string' ? body.interviewer_name.trim() : '';
-        if (!interviewerName) return res.status(400).json({ error: 'invalid_request', field: 'interviewer_name', message: 'interviewer_name is required.' });
-      } else {
-        interviewerName = (auth.fullName || '').trim();
-        if (!interviewerName) return res.status(500).json({ error: 'internal_error' });
+      // WAVE F-2: identity-backed attribution. Owner/Admin select a linked
+      // interviewer ACCOUNT (interviewer_profile_id); an interviewer is forced to
+      // themselves. The name is derived from the account for presentation only and
+      // is never the authorization boundary. created_by_user_id stays the verified
+      // caller's profile id.
+      const interviewerProfileId = adminLevel
+        ? (typeof body.interviewer_profile_id === 'string' ? body.interviewer_profile_id : '')
+        : auth.profileId;
+      if (!interviewerProfileId || !UUID_REGEX.test(interviewerProfileId)) {
+        return res.status(400).json({ error: 'invalid_request', field: 'interviewer_profile_id', message: 'Select a linked interviewer account.' });
       }
+      const { data: interviewerAcct, error: acctErr } = await db
+        .from('user_profiles')
+        .select('id, full_name, role, is_active')
+        .eq('id', interviewerProfileId)
+        .maybeSingle();
+      if (acctErr) return res.status(500).json({ error: 'internal_error' });
+      if (!interviewerAcct || interviewerAcct.is_active === false) {
+        return res.status(400).json({ error: 'invalid_request', field: 'interviewer_profile_id', message: 'That interviewer account is not active.' });
+      }
+      const interviewerName = (interviewerAcct.full_name || '').trim();
+      if (!interviewerName) return res.status(500).json({ error: 'internal_error' });
 
       const { data: block, error: blockError } = await db
         .from('interview_availability_blocks')
         .insert({
           cohort_id,
           interviewer_name: interviewerName,
+          interviewer_profile_id: interviewerProfileId,
           block_date,
           start_time,
           end_time,
@@ -145,7 +158,7 @@ export default async function handler(req, res) {
           is_active: true,
           created_by_user_id: auth.profileId,
         })
-        .select('id, cohort_id, interviewer_name, block_date, start_time, end_time, duration_minutes')
+        .select('id, cohort_id, interviewer_name, interviewer_profile_id, block_date, start_time, end_time, duration_minutes')
         .single();
 
       if (blockError) {
@@ -183,7 +196,29 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'internal_error' });
       }
 
-      console.log('[availability] block created', { callerRole: auth.role, callerIsOwner: auth.isOwner, blockId: block.id, createdBy: auth.profileId, request_id: requestId });
+      // WAVE F-2: when the assignee is an interviewer, ensure an active cohort
+      // entitlement exists (identity-based; the interviewer now has scheduled work
+      // in this cohort). Idempotent: skip if an active row already exists; the
+      // uq_ice_active index also guards a race. Owner/Admin assignees already have
+      // full file access, so they need no entitlement. Best-effort: a failure here
+      // never fails the block creation.
+      if (String(interviewerAcct.role || '').toLowerCase() === 'interviewer') {
+        try {
+          const { data: existing } = await db
+            .from('interviewer_cohort_entitlements')
+            .select('id')
+            .eq('interviewer_profile_id', interviewerProfileId)
+            .eq('cohort_id', cohort_id)
+            .is('revoked_at', null)
+            .maybeSingle();
+          if (!existing) {
+            await db.from('interviewer_cohort_entitlements')
+              .insert({ interviewer_profile_id: interviewerProfileId, cohort_id, granted_by_profile_id: auth.profileId });
+          }
+        } catch { /* best-effort; never blocks scheduling. Entitlement can be granted via the management API. */ }
+      }
+
+      console.log('[availability] block created', { callerRole: auth.role, callerIsOwner: auth.isOwner, blockId: block.id, createdBy: auth.profileId, interviewerProfileId, request_id: requestId });
       return res.status(200).json({ success: true, block, slots: createdSlots, slot_count: createdSlots.length });
     }
 

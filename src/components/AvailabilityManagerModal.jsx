@@ -39,7 +39,7 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
   const [saving,       setSaving]       = useState(false)
   const [form,         setForm]         = useState({
     block_date: '', start_time: '09:00', end_time: '12:00',
-    interviewer_name: '', duration_minutes: 30,
+    interviewer_profile_id: '', duration_minutes: 30,
   })
 
   // Match current user to their interviewer record by email or name
@@ -69,15 +69,15 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
       })
   }, []) // eslint-disable-line
 
-  // Pre-fill form with current user's full_name (non-admin) or leave blank for admin to pick
+  // Pre-fill with the current user's account (non-admin) or leave blank for admin to pick.
   useEffect(() => {
-    if (!isAdmin && userProfile?.full_name) {
+    if (!isAdmin && userProfile?.id) {
       setForm(prev => ({
         ...prev,
-        interviewer_name: userProfile.full_name,
+        interviewer_profile_id: userProfile.id,
       }))
     }
-  }, [userProfile?.full_name, isAdmin]) // eslint-disable-line
+  }, [userProfile?.id, isAdmin]) // eslint-disable-line
 
   const loadBlocks = async () => {
     const { data } = await supabase.from('interview_availability_blocks')
@@ -96,10 +96,10 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
     if (!form.start_time || !form.end_time) { alert('Please set a start and end time.'); return }
     if (!form.duration_minutes) { alert('Please set a slot duration.'); return }
 
-    const interviewerName = isAdmin
-      ? form.interviewer_name
-      : (userProfile?.full_name || '')
-    if (!interviewerName) { alert('Please select an interviewer.'); return }
+    const interviewerProfileId = isAdmin
+      ? form.interviewer_profile_id
+      : (userProfile?.id || '')
+    if (!interviewerProfileId) { alert('Please select an interviewer.'); return }
 
     const [sh, sm] = form.start_time.split(':').map(Number)
     const [eh, em] = form.end_time.split(':').map(Number)
@@ -113,9 +113,9 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
-          action:             'create_block',
-          cohort_id:          cohortId,
-          interviewer_name:   interviewerName,
+          action:                 'create_block',
+          cohort_id:              cohortId,
+          interviewer_profile_id: interviewerProfileId,
           block_date:         form.block_date,
           start_time:         form.start_time,
           end_time:           form.end_time,
@@ -126,8 +126,8 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
       const data = await response.json()
       if (!response.ok) { alert(`Could not create block: ${data.error}`); return }
 
-      const defaultName = isAdmin ? (form.interviewer_name || '') : (userProfile?.full_name || '')
-      setForm(p => ({ ...p, block_date: '', start_time: '09:00', end_time: '12:00', interviewer_name: defaultName }))
+      const defaultInterviewer = isAdmin ? (form.interviewer_profile_id || '') : (userProfile?.id || '')
+      setForm(p => ({ ...p, block_date: '', start_time: '09:00', end_time: '12:00', interviewer_profile_id: defaultInterviewer }))
       await loadBlocks()
       onBlockSaved?.()
     } catch (err) {
@@ -203,9 +203,9 @@ export default function AvailabilityManagerModal({ cohortId, onClose, onBlockSav
               <div className="form-field">
                 <label className="form-label">Your Name *</label>
                 {isAdmin ? (
-                  <select className="form-select" value={form.interviewer_name} onChange={e => set('interviewer_name', e.target.value)}>
+                  <select className="form-select" value={form.interviewer_profile_id} onChange={e => set('interviewer_profile_id', e.target.value)}>
                     <option value="">Select interviewer...</option>
-                    {interviewers.map(i => <option key={i.id} value={i.full_name || i.name}>{i.full_name || i.name}</option>)}
+                    {interviewers.map(i => <option key={i.id} value={i.id}>{i.full_name || i.name}</option>)}
                   </select>
                 ) : (
                   <div style={{ padding:'8px 12px', border:'1px solid #e5e7eb', borderRadius:6, fontSize:13, color:'#1D2567', background:'#F4F1EC', fontWeight:500 }}>
