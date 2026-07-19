@@ -69,6 +69,36 @@ function isAdminLevel(role, isOwner) {
   return isOwner || role === 'admin';
 }
 
+// WAVE F-2: confirm an active cohort entitlement for an interviewer, creating one
+// if absent. Returns { ok:true } only when an active row is present afterward, so
+// the caller can FAIL CLOSED. Idempotent: an existing active row is confirmed with
+// no insert; a concurrent insert that trips the uq_ice_active unique index is
+// re-checked and treated as present. Any other failure returns { ok:false } (never
+// swallowed), and never revokes or mutates an existing row.
+async function ensureCohortEntitlement(db, interviewerProfileId, cohortId, actorProfileId) {
+  const active = () => db
+    .from('interviewer_cohort_entitlements')
+    .select('id')
+    .eq('interviewer_profile_id', interviewerProfileId)
+    .eq('cohort_id', cohortId)
+    .is('revoked_at', null)
+    .maybeSingle();
+
+  const first = await active();
+  if (first.error) return { ok: false };
+  if (first.data) return { ok: true, idempotent: true };
+
+  const { error: insErr } = await db
+    .from('interviewer_cohort_entitlements')
+    .insert({ interviewer_profile_id: interviewerProfileId, cohort_id: cohortId, granted_by_profile_id: actorProfileId });
+  if (!insErr) return { ok: true };
+
+  // A concurrent request may have inserted the active row (uq_ice_active). Re-check.
+  const retry = await active();
+  if (!retry.error && retry.data) return { ok: true, idempotent: true };
+  return { ok: false };
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -196,26 +226,28 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'internal_error' });
       }
 
-      // WAVE F-2: when the assignee is an interviewer, ensure an active cohort
-      // entitlement exists (identity-based; the interviewer now has scheduled work
-      // in this cohort). Idempotent: skip if an active row already exists; the
-      // uq_ice_active index also guards a race. Owner/Admin assignees already have
-      // full file access, so they need no entitlement. Best-effort: a failure here
-      // never fails the block creation.
+      // WAVE F-2: scheduling an interviewer FAILS CLOSED on the cohort entitlement.
+      // The interviewer now has scheduled work in this cohort, so an active
+      // entitlement MUST be confirmed before we report success; if it cannot be, the
+      // just-created block and slots are rolled back (compensated) and a safe error
+      // is returned, so a schedule never exists without matching access. Ensuring is
+      // idempotent (an active row is confirmed without a second insert; a concurrent
+      // insert that trips uq_ice_active is re-checked and treated as present).
+      // Owner/Admin assignees already have full file access and need no entitlement.
+      // This is the permitted fallback to one transactional RPC: the block/slot/auth
+      // flow already lives in this serverless handler with service-role compensating
+      // deletes (see the slot-failure rollback above), so entitlement is confirmed
+      // under the same model rather than moving the whole flow into PL/pgSQL.
       if (String(interviewerAcct.role || '').toLowerCase() === 'interviewer') {
-        try {
-          const { data: existing } = await db
-            .from('interviewer_cohort_entitlements')
-            .select('id')
-            .eq('interviewer_profile_id', interviewerProfileId)
-            .eq('cohort_id', cohort_id)
-            .is('revoked_at', null)
-            .maybeSingle();
-          if (!existing) {
-            await db.from('interviewer_cohort_entitlements')
-              .insert({ interviewer_profile_id: interviewerProfileId, cohort_id, granted_by_profile_id: auth.profileId });
-          }
-        } catch { /* best-effort; never blocks scheduling. Entitlement can be granted via the management API. */ }
+        const ensured = await ensureCohortEntitlement(db, interviewerProfileId, cohort_id, auth.profileId);
+        if (!ensured.ok) {
+          // Fail closed: roll back the block and its slots so no schedule exists
+          // without the matching cohort access, and return a safe error.
+          await db.from('interview_slots').delete().eq('block_id', block.id);
+          await db.from('interview_availability_blocks').delete().eq('id', block.id);
+          console.log('[availability] entitlement ensure failed; block + slots rolled back', { callerRole: auth.role, blockId: block.id, interviewerProfileId, request_id: requestId });
+          return res.status(500).json({ error: 'entitlement_failed', message: 'Could not confirm interviewer cohort access. Nothing was scheduled; please try again.' });
+        }
       }
 
       console.log('[availability] block created', { callerRole: auth.role, callerIsOwner: auth.isOwner, blockId: block.id, createdBy: auth.profileId, interviewerProfileId, request_id: requestId });

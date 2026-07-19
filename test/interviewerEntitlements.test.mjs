@@ -114,18 +114,47 @@ test('my-interviewer-cohorts: own-only, GET, non-interviewer empty', () => {
   assert.match(mine, /!== 'interviewer'\) \{[\s\S]*?cohort_ids: \[\]/)
 })
 
-// ── Identity-backed scheduling + auto-entitlement ────────────────────────────
-test('scheduling: create_block selects an interviewer account and auto-ensures entitlement', () => {
-  // Identity-backed selection, name derived for presentation only.
-  assert.match(availability, /const interviewerProfileId = adminLevel[\s\S]*?body\.interviewer_profile_id[\s\S]*?auth\.profileId/)
+// ── Identity-backed scheduling + fail-closed entitlement ─────────────────────
+test('scheduling: identity-backed selection (Owner/Admin selected profile; self = own)', () => {
+  // Owner/Admin scheduling uses the selected linked interviewer profile; a
+  // self-scheduling interviewer is forced to their own profile id.
+  assert.match(availability, /const interviewerProfileId = adminLevel\s*\n\s*\? \(typeof body\.interviewer_profile_id === 'string'[\s\S]*?: auth\.profileId/)
   assert.match(availability, /\.eq\('id', interviewerProfileId\)/)
   assert.match(availability, /interviewer_profile_id: interviewerProfileId/)
-  // Auto-ensure an active entitlement when the assignee is an interviewer (idempotent).
-  assert.match(availability, /role \|\| ''\)\.toLowerCase\(\) === 'interviewer'/)
-  assert.match(availability, /\.insert\(\{ interviewer_profile_id: interviewerProfileId, cohort_id, granted_by_profile_id: auth\.profileId \}\)/)
+  // Names are never the authorization boundary.
+  assert.doesNotMatch(availability, /interviewer_name === |\.ilike\(/)
   // The modal sends an account id, not a free-text name.
   assert.match(modal, /interviewer_profile_id: interviewerProfileId/)
   assert.match(modal, /<option key=\{i\.id\} value=\{i\.id\}>/)
+})
+
+test('scheduling: entitlement is FAIL CLOSED, idempotent, and compensates orphans', () => {
+  // Only interviewer assignees need an entitlement; it is ensured, not best-effort.
+  assert.match(availability, /role \|\| ''\)\.toLowerCase\(\) === 'interviewer'/)
+  assert.match(availability, /const ensured = await ensureCohortEntitlement\(db, interviewerProfileId, cohort_id, auth\.profileId\)/)
+  // On failure: roll back slots AND block, and return an error (never success).
+  assert.match(availability, /if \(!ensured\.ok\) \{[\s\S]*?from\('interview_slots'\)\.delete\(\)\.eq\('block_id', block\.id\)[\s\S]*?from\('interview_availability_blocks'\)\.delete\(\)\.eq\('id', block\.id\)[\s\S]*?error: 'entitlement_failed'/)
+  // The success return happens only AFTER the fail-closed block (no early success).
+  const failIdx = availability.indexOf("error: 'entitlement_failed'")
+  const successIdx = availability.indexOf('success: true, block, slots: createdSlots')
+  assert.ok(failIdx > -1 && successIdx > failIdx, 'success is reported only after the entitlement gate')
+  // The helper is idempotent: an existing active row is confirmed without a new insert.
+  assert.match(availability, /if \(first\.data\) return \{ ok: true, idempotent: true \}/)
+  // Idempotent insert never mutates/revokes an existing row: the helper only reads
+  // (revoked_at IS NULL filter) and inserts; it issues no UPDATE and writes no revoked_at.
+  const helper = availability.slice(availability.indexOf('async function ensureCohortEntitlement'), availability.indexOf('export default'))
+  assert.doesNotMatch(helper, /\.update\(|revoked_at:/)
+  // A concurrent unique-index race is re-checked and treated as present, not swallowed.
+  assert.match(availability, /A concurrent request may have inserted[\s\S]*?return \{ ok: true, idempotent: true \}/)
+})
+
+test('scheduling: reassignment preserves the original entitlement (cancel never revokes it)', () => {
+  // cancel_booking reverts a student but must not touch interviewer entitlements, so
+  // the original interviewer keeps access; the replacement gets one from their block.
+  // Everything from cancel_booking onward (cancel + delete_block) never references
+  // the entitlement table; only create_block, above, ensures one.
+  const afterCreate = availability.slice(availability.indexOf("action === 'cancel_booking'"))
+  assert.doesNotMatch(afterCreate, /interviewer_cohort_entitlements/)
 })
 
 // ── Staff UI ─────────────────────────────────────────────────────────────────
