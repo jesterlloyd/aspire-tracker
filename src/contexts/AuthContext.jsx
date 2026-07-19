@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { setStudentPhotoCacheScope, clearStudentPhotoCache } from '../lib/studentPhotoCache';
 
 const AuthContext = createContext({});
 
@@ -102,6 +103,7 @@ export function AuthProvider({ children }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const signOut = useCallback(async () => {
+    clearStudentPhotoCache(); // drop every signed photo URL immediately on sign-out
     await supabase.auth.signOut();
   }, []);
 
@@ -112,6 +114,17 @@ export function AuthProvider({ children }) {
     if (error) { console.error('refreshUserProfile error:', error.message); return; }
     if (data?.length > 0) setUserProfile(data[0]);
   }, []);
+
+  // WAVE F-2 (photo performance): scope the shared signed-photo cache to the current
+  // authorization context. Any change to the user, profile, role, or active state
+  // clears the cache, so a signed photo URL is never reused across users or after a
+  // role/account change, and sign-out (user -> null) drops every cached URL.
+  useEffect(() => {
+    const authScope = user?.id
+      ? `${user.id}:${userProfile?.id || ''}:${userProfile?.role || ''}:${userProfile?.is_active === false ? 'inactive' : 'active'}`
+      : null;
+    setStudentPhotoCacheScope(authScope);
+  }, [user?.id, userProfile?.id, userProfile?.role, userProfile?.is_active]);
 
   // WAVE F-2: resolve the interviewer's entitled cohorts once per profile. Only an
   // active interviewer can hold entitlements; everyone else keeps an empty set.

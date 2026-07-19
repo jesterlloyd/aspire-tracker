@@ -10,42 +10,55 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { fetchStudentFileUrl, fetchPortalHeadshotUrl } from './studentFileClient'
+import { resolveStudentPhotoUrl, peekStudentPhotoUrl } from './studentPhotoCache'
 import { downloadFile } from './fileUtils'
 
 // Resolve a signed URL for a student file on mount. Returns { url, loading, error }.
 // `enabled` lets a caller skip the fetch (e.g. no stored file, or a role that
-// should not even ask). `refreshKey` re-fetches when it changes (e.g. after an
-// upload replaces the object).
+// should not even ask). `refreshKey` is the stored reference value; it both re-keys
+// the shared cache (so a replacement upload re-signs) and lets the same student's
+// photo be reused across views and remounts.
+//
+// The signed URL is resolved through the shared studentPhotoCache: repeated mounts
+// (list<->grid, tab navigation) and multiple avatars for the same student share ONE
+// signing request and reuse a STABLE URL until it nears expiry, so warm navigation
+// is instant and the browser image cache is not defeated.
 export function useStudentFileUrl({ studentId, kind, enabled = true, refreshKey } = {}) {
   const active = Boolean(enabled && studentId && kind)
-  const [state, setState] = useState({ url: null, loading: active, error: false })
+  const key = active ? `${studentId}:${kind}:${refreshKey ?? ''}` : null
+  // Warm render: if the URL is already cached, show it immediately (no flash, no request).
+  const [state, setState] = useState(() => {
+    const cached = peekStudentPhotoUrl(key)
+    return { url: cached, loading: active && !cached, error: false }
+  })
   useEffect(() => {
     let cancelled = false
-    const ctrl = new AbortController()
-    // Both branches resolve through the async callback, so no setState runs
-    // synchronously in the effect body. The previous url is kept while a refetch
-    // runs, so an already-rendered image does not flash.
     const p = active
-      ? fetchStudentFileUrl({ studentId, kind, signal: ctrl.signal })
+      ? resolveStudentPhotoUrl(key, () => fetchStudentFileUrl({ studentId, kind }))
       : Promise.resolve(null)
     p.then((url) => { if (!cancelled) setState({ url: url || null, loading: false, error: false }) })
       .catch(() => { if (!cancelled) setState({ url: null, loading: false, error: true }) })
-    return () => { cancelled = true; ctrl.abort() }
-  }, [studentId, kind, active, refreshKey])
+    return () => { cancelled = true }
+  }, [key, active, studentId, kind])
   return state
 }
 
-// The Student Portal caller's own headshot.
+// The Student Portal caller's own headshot (shares the same cache; keyed to self).
 export function usePortalHeadshotUrl({ enabled = true, refreshKey } = {}) {
-  const [state, setState] = useState({ url: null, loading: Boolean(enabled), error: false })
+  const key = enabled ? `portal-self:${refreshKey ?? ''}` : null
+  const [state, setState] = useState(() => {
+    const cached = peekStudentPhotoUrl(key)
+    return { url: cached, loading: Boolean(enabled) && !cached, error: false }
+  })
   useEffect(() => {
     let cancelled = false
-    const ctrl = new AbortController()
-    const p = enabled ? fetchPortalHeadshotUrl({ signal: ctrl.signal }) : Promise.resolve(null)
+    const p = enabled
+      ? resolveStudentPhotoUrl(key, () => fetchPortalHeadshotUrl())
+      : Promise.resolve(null)
     p.then((url) => { if (!cancelled) setState({ url: url || null, loading: false, error: false }) })
       .catch(() => { if (!cancelled) setState({ url: null, loading: false, error: true }) })
-    return () => { cancelled = true; ctrl.abort() }
-  }, [enabled, refreshKey])
+    return () => { cancelled = true }
+  }, [key, enabled])
   return state
 }
 
