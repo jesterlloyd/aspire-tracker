@@ -111,6 +111,18 @@ student-deletion cleanup (`App.jsx deleteStudent`).
 Consumers that render images on other buckets (user avatars, contact avatars,
 catalog) are out of scope.
 
+### Canonical-path persistence (Pass 2)
+
+Every write path now persists the server-returned canonical object path
+`<cohort_id>/<student_id>/<kind>.<ext>` for `students.resume_url` /
+`students.headshot_url`, never a public or signed URL and never a browser-supplied
+path. The two upload sites (`StudentIntakeFormPage` intake, `StudentSidePanel`
+staff resume/headshot, which also serves replacement) store the `path` returned by
+`signAndUpload*`; the `publicUrlForPath`/`getPublicUrl` persistence helper was
+removed from the client. Reads still resolve the stored path through the server
+access endpoint, and the compatibility resolver still accepts any legacy public URL
+during the migration and rollback window.
+
 ## Cleanup safety
 
 - Replace: upload the new object, persist the new reference, and only then remove
@@ -138,6 +150,23 @@ capability, never a property of the shared shell. A shared avatar/headshot
 primitive must resolve through a role-appropriate server access endpoint and must
 not let one role inherit another role's file access through component reuse.
 Student-specific file logic (resume, badge) stays out of shared primitives.
+
+### Future Unit Leader file access (locked product matrix; NOT built in Wave F-2)
+
+The Unit Leader Portal is not implemented in Wave F-2. When it is built, a Unit
+Leader's access to a student's resume, photo, work/school contact, personal email,
+and personal phone MUST be server-mediated (a dedicated access endpoint, never a
+direct public or signed URL and never a broad storage policy) and scoped by explicit
+Unit Leader to unit assignments: a Unit Leader may see the operational profile only
+for students connected to their assigned units, resolved by identity
+(`user_profiles.id` -> unit assignment), never by names, emails, free-text, or
+roster strings. Unit Leaders must NOT receive interview rubrics, readiness survey
+answers, certificates, uploaded onboarding documents, internal staff notes, or
+private support-request narratives. Messaging (when built) is one-to-one, only with
+students connected to assigned units, either party may initiate, ASPIRE staff may
+view and intervene, and Report a Concern stays a shortcut that opens a prefilled
+ASPIRE message. This mirrors the interviewer entitlement pattern: identity-based,
+scoped, server-authoritative.
 
 ## Pass 2 and Pass 3 (gated, not applied)
 

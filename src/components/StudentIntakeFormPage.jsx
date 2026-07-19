@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
-import { signAndUploadIntakeFile, publicUrlForPath } from '../lib/studentFileClient'
+import { signAndUploadIntakeFile } from '../lib/studentFileClient'
 import { groupUnitNamesByDivision, getUnit, DIVISION_ORDER } from '../lib/unitCatalog'
 import { WEEKDAYS, toggleWeekday, isValidIsoDate } from '../lib/availability'
 import {
@@ -209,21 +209,23 @@ export default function StudentIntakeFormPage() {
     // WAVE F-2: uploads go through a server-issued signed upload URL. The server
     // resolves the student by school email and constructs the object path; the
     // browser no longer chooses a path or writes storage directly. The stored
-    // value stays a public URL during Pass 1 (derived from the returned path);
-    // the Pass 2 backfill converts stored values to paths.
+    // WAVE F-2 PASS 2: persist the server-returned CANONICAL object path
+    // (<cohort>/<student>/<kind>.<ext>), never a public or signed URL. Reads resolve
+    // this path through the server access endpoint. The compatibility resolver still
+    // accepts any legacy public URL that predates this change.
     let resume_url = ''
     let headshot_url = ''
 
     if (resumeFile) {
       try {
         const { path } = await signAndUploadIntakeFile({ schoolEmail: cleanEmail, kind: 'resume', file: resumeFile })
-        resume_url = publicUrlForPath(path)
+        resume_url = path
       } catch { /* upload failure is non-fatal: the form still submits without the file */ }
     }
     if (headshotFile) {
       try {
         const { path } = await signAndUploadIntakeFile({ schoolEmail: cleanEmail, kind: 'headshot', file: headshotFile })
-        headshot_url = publicUrlForPath(path)
+        headshot_url = path
       } catch { /* upload failure is non-fatal */ }
     }
 

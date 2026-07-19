@@ -118,10 +118,21 @@ test('migration touches NO storage object, bucket, or policy', () => {
 
 test('preflight is read-only and covers the required distributions', () => {
   assert.doesNotMatch(preflight, /\b(UPDATE|INSERT|DELETE|ALTER|DROP|CREATE)\b/)
-  assert.match(preflight, /nulls[\s\S]*empties[\s\S]*canonical_paths[\s\S]*recognized_public_urls[\s\S]*unrecognized/)
+  assert.match(preflight, /nulls[\s\S]*empties[\s\S]*canonical_paths[\s\S]*recognized_convertible[\s\S]*recognized_non_convertible[\s\S]*other_unrecognized/)
   assert.match(preflight, /would_remain_unchanged/)
   assert.match(preflight, /referencing_rows/)             // duplicate canonical paths
   assert.match(preflight, /distinct hosts/i)              // foreign-host check
+})
+
+test('migration and verification are internally consistent (no silent skip)', () => {
+  // The apply gate: do not apply while any recognized-but-non-canonical public URL
+  // exists; preflight identifies them, so the migration never silently skips a URL
+  // and then claims completeness.
+  assert.match(migration, /CONSISTENCY GATE/)
+  assert.match(migration, /DO NOT APPLY this migration while preflight 5 returns any rows/)
+  assert.match(preflight, /recognized_non_convertible MUST be 0/)
+  // Verification "zero remaining" is documented as exact only because of that gate.
+  assert.match(preflight, /exact because the apply gate required preflight/)
 })
 
 test('no em dash in the Pass 2 SQL files', () => {

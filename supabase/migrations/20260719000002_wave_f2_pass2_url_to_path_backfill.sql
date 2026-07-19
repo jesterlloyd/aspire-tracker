@@ -23,19 +23,29 @@
 --   so file access is identical before and after. Pass 2 does NOT remove the resolver.
 --
 -- Recognition (mirrors the server resolver; conservative on purpose)
---   Converts ONLY a value that:
+--   Converts a value that:
 --     (a) contains '/storage/v1/object/public/student-files/'  (a public URL for the
 --         student-files bucket -- NOT a signed '/object/sign/' URL, NOT another bucket,
 --         NOT an arbitrary external URL, NOT an already-canonical path), AND
 --     (b) whose extracted path (segment after the marker, with any '?query'/'#fragment'
 --         dropped) matches the exact canonical shape
 --         <uuid>/<uuid>/(resume|headshot).<ext>  for the matching column.
---   Everything else is LEFT UNCHANGED: other buckets, signed URLs, arbitrary external
---   URLs, malformed URLs, URL-encoded or non-canonical object names (the read-time
---   resolver still decodes and serves these), already-canonical paths, empty strings,
---   and NULLs. The migration is host-agnostic exactly like the resolver; the preflight
---   lists distinct URL hosts so you can confirm every recognized value belongs to this
---   project before running.
+--   Not touched (correctly): other buckets, signed URLs, arbitrary external URLs,
+--   malformed URLs, already-canonical paths, empty strings, and NULLs.
+--
+-- CONSISTENCY GATE (so "zero public URLs remaining" is exact, never a silent skip):
+--   A student-files public URL whose extracted path is NOT canonical (for example a
+--   URL-encoded or otherwise non <uuid>/<uuid>/<kind>.<ext> object name) is NOT
+--   auto-converted here, because converting an encoded path to a raw stored path
+--   could point at a non-existent object key. PREFLIGHT query 5 lists every such
+--   value. DO NOT APPLY this migration while preflight 5 returns any rows: resolve
+--   those values manually first (or extend this migration with a decode you have
+--   reviewed). Only when preflight 5 is empty does this migration convert EVERY
+--   student-files public URL, so the post-apply verification "zero public URLs
+--   remaining" holds exactly. The migration is host-agnostic like the resolver;
+--   preflight 6b lists distinct hosts so you confirm every value belongs to this
+--   project (and preflight 6a lists any value pointing outside student-files) before
+--   running.
 --
 -- Rollback information is preserved: every changed value is snapshotted into
 --   public.wave_f2_pass2_url_backfill_backup(student_id, column_name, old_value,

@@ -39,13 +39,20 @@ SELECT col,
   count(*) FILTER (WHERE val IS NULL)                                        AS nulls,
   count(*) FILTER (WHERE val = '')                                          AS empties,
   count(*) FILTER (WHERE val IS NOT NULL AND val <> '' AND val !~ '^https?://' AND val ~* pat) AS canonical_paths,
-  count(*) FILTER (WHERE has_marker AND extracted ~* pat)                    AS recognized_public_urls,
+  -- a student-files public URL whose extracted path IS canonical -> the migration converts it
+  count(*) FILTER (WHERE has_marker AND extracted ~* pat)                    AS recognized_convertible,
+  -- a student-files public URL whose extracted path is NOT canonical -> GATE: this
+  -- must be 0 before applying (see preflight 5 for the rows). Non-zero means STOP.
+  count(*) FILTER (WHERE has_marker AND extracted !~* pat)                   AS recognized_non_convertible,
+  -- any other non-empty value (other bucket, signed URL, external, non-canonical path)
   count(*) FILTER (WHERE val IS NOT NULL AND val <> ''
                     AND NOT (val !~ '^https?://' AND val ~* pat)
-                    AND NOT (has_marker AND extracted ~* pat))               AS unrecognized
+                    AND NOT has_marker)                                      AS other_unrecognized
 FROM c
 GROUP BY col
 ORDER BY col;
+-- GATE: recognized_non_convertible MUST be 0 (both columns) before applying the
+-- migration, so that verification "zero public URLs remaining" is exact.
 
 -- ── PREFLIGHT 2: sample recognized transformations (query strings removed) ───
 -- A few examples of old -> new. Sensitive query strings are stripped by extraction.
@@ -148,6 +155,9 @@ GROUP BY 1 ORDER BY n DESC;
 -- ############################################################################
 
 -- ── VERIFY 1: no student-files public URL remains (expected 0) ───────────────
+-- This is exact because the apply gate required preflight 'recognized_non_convertible'
+-- (and preflight 5) to be 0, so the migration converted EVERY student-files public URL.
+-- A non-zero result here means the gate was not clean: handle those rows and re-run.
 SELECT count(*) AS public_urls_remaining
 FROM public.students
 WHERE resume_url   LIKE '%/object/public/student-files/%'

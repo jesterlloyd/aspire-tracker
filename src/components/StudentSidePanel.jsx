@@ -15,7 +15,7 @@ import {
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
 import { buildStudentFilename } from '../lib/fileUtils'
-import { signAndUploadStaffFile, publicUrlForPath, cleanupStudentFiles, classifyStoredFileRef, fetchStudentFileUrl } from '../lib/studentFileClient'
+import { signAndUploadStaffFile, cleanupStudentFiles, classifyStoredFileRef, fetchStudentFileUrl } from '../lib/studentFileClient'
 import { useStudentFileUrl, openStudentFile, downloadStudentFile } from '../lib/useStudentFile'
 import { DECLINE_REASONS } from '../lib/statuses'
 import { EVENT_TYPES, EVENT_TYPE_LABELS, getEventColor } from '../lib/eventTypes'
@@ -908,9 +908,9 @@ export default function StudentSidePanel({
     setResumeMsg(null)
     try {
       const { path } = await signAndUploadStaffFile({ studentId: student.id, kind: 'resume', file })
-      const url = publicUrlForPath(path)
-      setData(p => ({ ...p, resume_url: url }))
-      onUpdate(student.id, { resume_url: url })
+      // WAVE F-2 PASS 2: persist the canonical object path, never a public/signed URL.
+      setData(p => ({ ...p, resume_url: path }))
+      onUpdate(student.id, { resume_url: path })
       setResumeMsg('success')
       setTimeout(() => setResumeMsg(null), 3000)
       cleanupStudentFiles({ studentId: student.id, action: 'replace', kind: 'resume', keepExt: path.split('.').pop() })
@@ -929,11 +929,11 @@ export default function StudentSidePanel({
     setHeadMsg(null)
     try {
       const { path } = await signAndUploadStaffFile({ studentId: student.id, kind: 'headshot', file })
-      const url = publicUrlForPath(path)
-      // The headshot preview and avatars re-fetch a fresh signed URL keyed on
-      // this value, so no cache-buster is needed.
-      setData(p => ({ ...p, headshot_url: url }))
-      onUpdate(student.id, { headshot_url: url })
+      // WAVE F-2 PASS 2: persist the canonical object path, never a public/signed URL.
+      // The headshot preview and avatars re-fetch a fresh signed URL keyed on this
+      // value, so no cache-buster is needed.
+      setData(p => ({ ...p, headshot_url: path }))
+      onUpdate(student.id, { headshot_url: path })
       setHeadMsg('success')
       setTimeout(() => setHeadMsg(null), 3000)
       cleanupStudentFiles({ studentId: student.id, action: 'replace', kind: 'headshot', keepExt: path.split('.').pop() })
