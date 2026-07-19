@@ -14,7 +14,7 @@ import {
 } from '../lib/constants'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
 import { TYPE_LABELS, TYPE_COLORS } from '../lib/commTypes'
-import { downloadFile, buildStudentFilename } from '../lib/fileUtils'
+import { buildStudentFilename } from '../lib/fileUtils'
 import { signAndUploadStaffFile, publicUrlForPath, cleanupStudentFiles, classifyStoredFileRef, fetchStudentFileUrl } from '../lib/studentFileClient'
 import { useStudentFileUrl, openStudentFile, downloadStudentFile } from '../lib/useStudentFile'
 import { DECLINE_REASONS } from '../lib/statuses'
@@ -361,14 +361,6 @@ export default function StudentSidePanel({
   const showDlError = () => {
     setDownloadErr('Download failed. The file may have been removed. Try re-uploading.')
     setTimeout(() => setDownloadErr(null), 4000)
-  }
-  const doDownload = async (url, filename, setter) => {
-    setter(true)
-    try {
-      const ext = url.split('.').pop().split('?')[0] || 'bin'
-      await downloadFile(url, `${filename}.${ext}`)
-    } catch { showDlError() }
-    setTimeout(() => setter(false), 1000)
   }
 
   // WAVE F-2: resume View/Download are Owner/Admin only and route through the
