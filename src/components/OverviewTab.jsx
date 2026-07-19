@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useState, useMemo } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { openOutlookCompose } from '../lib/outlookCompose'
 import { appUrl } from '../lib/appUrl'
 import Tooltip from './ui/Tooltip'
@@ -11,333 +11,152 @@ import { UNIT_DIVISION_MAP, ASPIRE_STATUS_CONFIG } from '../lib/constants'
 import { DISPOSITION_TYPES, DISPOSITION_PILL_COLORS } from '../lib/dispositions'
 import { getUnit, UNIT_CATALOG, DIVISION_ORDER } from '../lib/unitCatalog'
 import StudentAvatar from './StudentAvatar'
-import { useStudentFileUrl } from '../lib/useStudentFile'
-import { classifyStoredFileRef } from '../lib/studentFileClient'
 import StatusLegendPopover from './StatusLegendPopover'
 import EmptyState from './EmptyState'
 import UnitResponseDrawer from './UnitResponseDrawer'
-import StudentCard from './StudentCard'
-import AggregateWelcome from './AggregateWelcome'
+import TodayMasthead from './TodayMasthead'
 import { selectActiveWindowRows, mergeOnCampusNow } from '../lib/onCampusNow'
 import { shiftTypeOf, shiftBadge, isOpenShift, openShiftMs, formatDuration, isClockoutMaybeOverdue } from '../lib/shiftStatus'
 import { buildSchoolSendPlan, buildStudentSendPlan, resolveSendResults } from '../lib/sendFormFlow'
-import { Clock, GraduationCap, MapPin, Users, Copy } from 'lucide-react'
+import { GraduationCap, MapPin, Copy } from 'lucide-react'
 
-// ── Capacity Coverage Gauge ───────────────────────────────────────────────────
-
-// Returns SVG path for a filled annular sector.
-// leftDegStart / leftDegEnd: degrees measured from the left end of the arch (0 = far left, 180 = far right).
-function annularPath(cx, cy, innerR, outerR, leftDegStart, leftDegEnd) {
-  const span = leftDegEnd - leftDegStart
-  if (span < 0.01) return ''
-  // Convert to standard math angles (0° = right, 90° = up): mathAngle = 180° - leftDeg
-  const s = (180 - leftDegStart) * Math.PI / 180
-  const e = (180 - leftDegEnd)   * Math.PI / 180
-  const f = n => n.toFixed(3)
-  const osx = cx + outerR * Math.cos(s), osy = cy - outerR * Math.sin(s)
-  const oex = cx + outerR * Math.cos(e), oey = cy - outerR * Math.sin(e)
-  const iex = cx + innerR * Math.cos(e), iey = cy - innerR * Math.sin(e)
-  const isx = cx + innerR * Math.cos(s), isy = cy - innerR * Math.sin(s)
-  const la = span > 179.9 ? 1 : 0  // large-arc-flag: 1 only for the full 180° baseline
-  // Outer arc: sweep=1 (clockwise in SVG = left→top→right = through the arch top)
-  // Inner arc: sweep=0 (counterclockwise in SVG = right→top→left = return along inner edge)
-  return `M ${f(osx)} ${f(osy)} A ${outerR} ${outerR} 0 ${la} 1 ${f(oex)} ${f(oey)} L ${f(iex)} ${f(iey)} A ${innerR} ${innerR} 0 ${la} 0 ${f(isx)} ${f(isy)} Z`
-}
-
-// Cap circle at a segment boundary (rounded ends effect)
-function CapCircle({ cx, cy, innerR, outerR, leftDeg, fill }) {
-  const mathAngle = (180 - leftDeg) * Math.PI / 180
-  const capR  = (outerR - innerR) / 2
-  const capCx = cx + (innerR + capR) * Math.cos(mathAngle)
-  const capCy = cy - (innerR + capR) * Math.sin(mathAngle)
-  return <circle cx={capCx.toFixed(2)} cy={capCy.toFixed(2)} r={capR} fill={fill} />
-}
-
-// Gauge colors reference CSS variables so they switch with the theme
-const GAUGE_COLORS = {
-  sage:       'var(--gauge-segment-placed,   #C8D5C0)',
-  periwinkle: 'var(--gauge-segment-awaiting, #D5DCEC)',
-  chroma:     'var(--gauge-segment-over,     #F2D5E0)',
-  baseline:   'var(--gauge-segment-base,     #EDEDEB)',
-}
-
-function CapacityCoverageGauge({ totalDemand, totalCapacity, placed, cohort }) {
-  const reducedMotion = typeof window !== 'undefined'
-    && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-
-  const [progress, setProgress] = useState(reducedMotion ? 1 : 0)
-
-  useEffect(() => {
-    if (reducedMotion) return
-    const start = performance.now()
-    const dur = 700
-    let raf
-    const tick = now => {
-      const t = Math.min((now - start) / dur, 1)
-      const p = 1 - Math.pow(1 - t, 3)  // easeOutCubic
-      setProgress(p)
-      if (t < 1) raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [])
-
-  // Derived counts
-  const noStudents = totalDemand === 0
-  const noCapacity = totalCapacity === 0 && totalDemand > 0
-  const awaiting   = noStudents ? 0 : Math.min(Math.max(0, totalCapacity - placed), Math.max(0, totalDemand - placed))
-  const unmatched  = noStudents ? 0 : Math.max(0, totalDemand - totalCapacity)
-
-  // Segment spans in degrees (0–180)
-  const sageDeg      = noStudents ? 0 : (placed    / totalDemand) * 180
-  const periwinkleDeg = noStudents ? 0 : (awaiting  / totalDemand) * 180
-  const chromaDeg    = noStudents ? 0 : (unmatched  / totalDemand) * 180
-
-  // Animated fill: total degrees revealed left-to-right
-  const filled = 180 * progress
-
-  // Each segment's animated right boundary
-  const sageEnd      = Math.min(sageDeg, filled)
-  const periwinkleEnd = Math.min(sageDeg + periwinkleDeg, filled)
-  const chromaEnd    = Math.min(sageDeg + periwinkleDeg + chromaDeg, filled)
-
-  // Rightmost active segment color (for animated cap)
-  const lastColor = chromaEnd > sageDeg + periwinkleDeg ? GAUGE_COLORS.chroma
-    : periwinkleEnd > sageDeg ? GAUGE_COLORS.periwinkle
-    : sageEnd > 0 ? GAUGE_COLORS.sage
-    : null
-
-  // Center text
-  let centerBig = '', centerSub = '', centerColor = '#475467'
-  if (noStudents) {
-    centerBig = '-'; centerSub = 'no students yet'; centerColor = '#98A2B3'
-  } else if (noCapacity) {
-    centerBig = String(totalDemand); centerSub = 'students, no capacity'; centerColor = '#930045'
-  } else if (unmatched > 0) {
-    centerBig = String(unmatched)
-    centerSub = unmatched === 1 ? 'student over capacity' : 'students over capacity'
-    centerColor = '#930045'
-  } else if (totalCapacity === totalDemand) {
-    centerBig = 'Balanced'; centerSub = 'capacity matches demand'; centerColor = '#2D4A2B'
-  } else if (totalCapacity > totalDemand) {
-    centerBig = String(totalCapacity - totalDemand); centerSub = 'buffer slots'; centerColor = '#2D4A2B'
-  } else {
-    centerBig = String(placed); centerSub = 'placed so far'; centerColor = '#2D4A2B'
-  }
-
-  const cx = 110, cy = 100, innerR = 70, outerR = 95
-  const cohortName = cohort?.name || 'Cohort'
-
-  const showChroma = !noStudents && (chromaDeg > 0 || noCapacity)
-  const legend = [
-    { color: GAUGE_COLORS.sage,       value: placed,    label: 'placed' },
-    { color: GAUGE_COLORS.periwinkle, value: awaiting,  label: 'awaiting' },
-    ...(showChroma ? [{ color: GAUGE_COLORS.chroma, value: unmatched, label: 'over cap' }] : []),
-  ]
-
-  return (
-    <section style={{
-      background: 'var(--bg-card,#fff)', border: '1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius: 14,
-      boxShadow: 'var(--shadow-card)',
-      overflow: 'hidden', fontFamily: 'DM Sans, sans-serif', height: '100%', boxSizing: 'border-box',
-    }}>
-      <div style={{ padding: '11px 20px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-card,rgba(29,37,103,0.04))' }}>
-        <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--text-caption,#475467)', fontWeight: 600 }}>Capacity Coverage</div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted,#98A2B3)' }}>{cohortName} · live snapshot</div>
-      </div>
-
-      {/* Gauge left, legend right - wraps on narrow viewports */}
-      <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: '6px 16px 10px', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ flex: '0 0 auto', width: 200 }}>
-          <svg width="100%" viewBox="0 0 220 115" style={{ display: 'block' }}>
-            {/* Baseline full arch in light gray */}
-            <path d={annularPath(cx, cy, innerR, outerR, 0, 180)} fill={GAUGE_COLORS.baseline} stroke="rgba(25,25,25,0.05)" strokeWidth="0.5" />
-
-            {/* Sage - placed */}
-            {sageEnd > 0.1 && (
-              <path d={annularPath(cx, cy, innerR, outerR, 0, sageEnd)} fill={GAUGE_COLORS.sage} stroke="rgba(25,25,25,0.04)" strokeWidth="0.5">
-                <title>{placed} placed</title>
-              </path>
-            )}
-            {/* Periwinkle - awaiting */}
-            {periwinkleEnd > sageDeg + 0.1 && (
-              <path d={annularPath(cx, cy, innerR, outerR, sageDeg, periwinkleEnd)} fill={GAUGE_COLORS.periwinkle} stroke="rgba(25,25,25,0.04)" strokeWidth="0.5">
-                <title>{awaiting} awaiting placement (within capacity)</title>
-              </path>
-            )}
-            {/* Chroma - over capacity */}
-            {chromaEnd > sageDeg + periwinkleDeg + 0.1 && (
-              <path d={annularPath(cx, cy, innerR, outerR, sageDeg + periwinkleDeg, chromaEnd)} fill={GAUGE_COLORS.chroma} stroke="rgba(25,25,25,0.04)" strokeWidth="0.5">
-                <title>{unmatched} students over capacity (no slot available)</title>
-              </path>
-            )}
-
-            {/* Rounded cap at the left end (fixed) */}
-            {(sageEnd > 0.1 || noStudents) && (
-              <CapCircle cx={cx} cy={cy} innerR={innerR} outerR={outerR} leftDeg={0} fill={noStudents ? GAUGE_COLORS.baseline : GAUGE_COLORS.sage} />
-            )}
-            {/* Rounded cap at the animated right end */}
-            {lastColor && filled > 0.1 && (
-              <CapCircle cx={cx} cy={cy} innerR={innerR} outerR={outerR} leftDeg={filled} fill={lastColor} />
-            )}
-
-            {/* Center text inside arch */}
-            <text x={cx} y={cy - 27} textAnchor="middle" fontFamily="DM Sans, sans-serif"
-              fontSize={centerBig.length > 5 ? 16 : 22} fontWeight="700" fill={centerColor}>
-              {centerBig}
-            </text>
-            <text x={cx} y={cy - 10} textAnchor="middle" fontFamily="DM Sans, sans-serif"
-              fontSize="9.5" fontWeight="500" fill="var(--text-muted,#98A2B3)">
-              {centerSub}
-            </text>
-          </svg>
-        </div>
-
-        {/* Legend - vertically stacked to the right of the gauge */}
-        {!noStudents && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: '0 0 auto' }}>
-            {legend.map(({ color, value, label }) => (
-              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                <span style={{ width: 9, height: 9, borderRadius: 2, background: color, display: 'inline-block', flexShrink: 0 }} />
-                <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-heading,#191919)' }}>{value}</span>
-                <span style={{ fontSize: 11, color: 'var(--text-caption,#6b7280)' }}>{label}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
-  )
-}
-
-// ── On Campus Today - picture-card layout ────────────────────────────────────
-
-function CampusStudentCard({ log, student, units, onSelectStudent }) {
-  // WAVE F-2: the on-campus card headshot resolves through the server access
-  // endpoint (staff read). Track the failed url instead of a boolean so a fresh
-  // signed url re-shows the photo without an effect.
-  const [erroredUrl, setErroredUrl] = useState(null)
-  const hasStoredHeadshot = classifyStoredFileRef(student?.headshot_url) !== 'empty'
-  const { url: headshotSignedUrl } = useStudentFileUrl({
-    studentId: student?.id, kind: 'headshot',
-    enabled: Boolean(student?.id) && hasStoredHeadshot,
-    refreshKey: student?.headshot_url,
-  })
-  if (!student) return null
-
-  const hasPhoto  = !!(headshotSignedUrl && headshotSignedUrl !== erroredUrl)
-  const initials  = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`.toUpperCase()
-  const unitName  = log.unit_name || units?.find(u => u.id === student.matched_unit_id)?.unit_name || '-'
-
-  // SHIFT-VIS-1: badge derives from the shift actually being worked (shift_type for completed
-  // rows, planned_shift_type for open rows); unknown → "Shift not specified" (never guessed).
-  const shiftType = shiftTypeOf(log)
-  const { label: shiftLabel, tone } = shiftBadge(shiftType)
-  const BADGE_TONES = {
-    day:         { bg:'#D1EFD8', color:'#166534' },
-    night:       { bg:'#EDE9FE', color:'#5B21B6' },
-    mid:         { bg:'#DCEFF8', color:'#1D2567' },
-    variable:    { bg:'#E8EAF2', color:'#1D2567' },
-    unspecified: { bg:'#F1EFEA', color:'#6b7280' },
-  }
-  const badge = { ...(BADGE_TONES[tone] || BADGE_TONES.unspecified), label: shiftLabel }
-
-  // SHIFT-VIS-1: open-shift duration + hedged overdue (read-only; live clock_in → now).
-  const openShift = isOpenShift(log)
-  const openDur   = openShift ? formatDuration(openShiftMs(log)) : null
-  const overdue   = openShift && isClockoutMaybeOverdue(log)
-
-  return (
-    <button
-      onClick={() => onSelectStudent?.(student.id)}
-      aria-label={`Open profile for ${student.first_name} ${student.last_name}`}
-      style={{ borderRadius:12, border:'1px solid rgba(29,37,103,0.08)', overflow:'hidden',
-        boxShadow:'0 1px 3px rgba(0,0,0,0.06)', transition:'transform 0.15s ease, box-shadow 0.15s ease',
-        fontFamily:'DM Sans, sans-serif', background:'#fff', cursor:'pointer',
-        padding:0, textAlign:'left', display:'block', width:'100%' }}
-      onMouseEnter={e => { e.currentTarget.style.transform='scale(1.02)'; e.currentTarget.style.boxShadow='0 4px 16px rgba(0,0,0,0.10)' }}
-      onMouseLeave={e => { e.currentTarget.style.transform='scale(1)';    e.currentTarget.style.boxShadow='0 1px 3px rgba(0,0,0,0.06)' }}
-      onMouseDown={e => { e.currentTarget.style.transform='scale(0.98)' }}
-      onMouseUp={e => { e.currentTarget.style.transform='scale(1.02)' }}
-    >
-      {/* Photo: top 65% */}
-      <div style={{ height:182, background:'#F4F1EC', position:'relative', overflow:'hidden' }}>
-        {hasPhoto
-          ? <img src={headshotSignedUrl} alt={`${student.first_name} ${student.last_name}`}
-              onError={() => setErroredUrl(headshotSignedUrl)}
-              style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
-          : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center',
-              fontWeight:700, fontSize:36, color:'#9ca3af' }}>{initials}</div>
-        }
-        <span style={{ position:'absolute', top:8, right:8, background:badge.bg, color:badge.color,
-          fontSize:10.5, fontWeight:700, padding:'2px 8px', borderRadius:20 }}>
-          {badge.label}
-        </span>
-      </div>
-      {/* Details: bottom 35% */}
-      <div style={{ padding:'10px 12px 12px', background:'var(--bg-card,#fff)' }}>
-        <div style={{ fontWeight:700, fontSize:14, color:'var(--text-heading,#0E1428)', marginBottom:2,
-          whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-          {student.first_name} {student.last_name}
-        </div>
-        <div style={{ fontSize:12, color:'var(--text-caption,#6b7280)', marginBottom:2,
-          whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-          {unitName}
-        </div>
-        {student.matched_preceptor && (
-          <div style={{ fontSize:11, color:'#9ca3af', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
-            with {student.matched_preceptor}
-          </div>
-        )}
-        {openShift ? (
-          <div style={{ marginTop:6 }}>
-            <div style={{ fontSize:11, color:'#475467', fontWeight:600 }}>
-              Open {openDur}
-            </div>
-            {overdue && (
-              <div style={{ marginTop:2, fontSize:10.5, fontWeight:600, color:'#92400e' }}>
-                Clock-out may be overdue
-              </div>
-            )}
-          </div>
-        ) : (
-          log.total_hours != null && (
-            <div style={{ marginTop:6, fontSize:11, color:'#475467', fontWeight:500 }}>
-              {log.total_hours} hrs logged
-            </div>
-          )
-        )}
-      </div>
-    </button>
-  )
-}
-
-// ── Program at a Glance band ──────────────────────────────────────────────────
+// ── ASPIRE-MASTHEAD: Placement Snapshot ──────────────────────────────────────
+// Program at a Glance and the Capacity Coverage gauge told one supply-and-
+// demand story in two disconnected visual languages. This card merges them:
+// the KPI row above, the capacity composition bar below, one Updated clock,
+// and one number source. Open slots derive from the LIVE placement count
+// (total_slots minus matched students), closing the last display consumer of
+// the drift-prone stored slots_remaining field per the one-capacity-source
+// contract. The bar keeps the gauge's composition math; only the shape
+// changed (and the gauge's intro animation retired with it).
 // KPICell and useUpdatedLabel are shared - imported from ./KPIBand
 
-function ProgramAtAGlance({ totalSlots, placedCount, slotsRemaining, studentsRequesting, gap, participatingUnits, activeSchools, cohort, cohortId }) {
-  const placedPct = totalSlots > 0 ? Math.round((placedCount / totalSlots) * 100) : 0
+const SEGMENT_COLORS = {
+  placed:   'var(--gauge-segment-placed,   #C8D5C0)',
+  awaiting: 'var(--gauge-segment-awaiting, #D5DCEC)',
+  over:     'var(--gauge-segment-over,     #F2D5E0)',
+}
+
+function PlacementSnapshot({ totalSlots, placedCount, openSlots, studentsRequesting, gap, participatingUnits, activeSchools, cohort, cohortId }) {
   const updatedLabel = useUpdatedLabel(cohortId)
+  const totalDemand = studentsRequesting
+  const placedPct = totalSlots > 0 ? Math.round((placedCount / totalSlots) * 100) : 0
+
+  const noStudents = totalDemand === 0
+  const noCapacity = totalSlots === 0 && totalDemand > 0
+  const awaiting   = noStudents ? 0 : Math.min(Math.max(0, totalSlots - placedCount), Math.max(0, totalDemand - placedCount))
+  const unmatched  = noStudents ? 0 : Math.max(0, totalDemand - totalSlots)
+  const pctOf = n => noStudents ? 0 : (n / totalDemand) * 100
+
+  const barLabel = noStudents
+    ? 'No students yet'
+    : `${placedCount} placed, ${awaiting} awaiting placement, ${unmatched} over capacity, of ${totalDemand} student requests`
+
   return (
-    <section style={{ background: 'var(--bg-card,#fff)', border: '1px solid var(--border-card,rgba(29,37,103,0.08))', borderRadius: 14, boxShadow: 'var(--shadow-card)', overflow: 'hidden', fontFamily: 'DM Sans, sans-serif', height: '100%', boxSizing: 'border-box' }}>
-      {/* Eyebrow strip */}
-      <div style={{ padding: '11px 22px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-card,rgba(29,37,103,0.04))' }}>
-        <div style={{ fontSize: 10.5, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--text-caption,#475467)', fontWeight: 600 }}>
-          Program at a Glance
-        </div>
-        <div style={{ fontSize: 11.5, color: 'var(--text-muted,#98A2B3)', fontVariantNumeric: 'tabular-nums', maxWidth: 640 }}>
+    <section className="snap" aria-label="Placement snapshot">
+      <div className="snap-head">
+        <span className="snap-title">Placement Snapshot</span>
+        <span className="snap-sub">
           {cohort?.name || 'Cohort'} · {studentsRequesting} students · {activeSchools} affiliated schools · {participatingUnits} hosting units · Updated {updatedLabel}
-        </div>
+        </span>
       </div>
       {/* KPI grid - column count lives in CSS (.glance-kpis) so it can reflow */}
-      <div className="glance-kpis" style={{ display: 'grid', background: 'var(--border-card,rgba(29,37,103,0.04))', gap: 1 }}>
-        <KPICell value={totalSlots}          label="Total Slots"       sub={`${participatingUnits} units`} />
-        <KPICell value={placedCount}         label="Slots Filled"      sub={`${placedPct}% of total capacity`} accent="sage" />
-        <KPICell value={slotsRemaining}      label="Open Slots" />
-        <KPICell value={studentsRequesting}  label="Student Requests"  sub={`${activeSchools} schools`} />
-        <KPICell value={Math.abs(gap)}       label={gap > 0 ? 'Placement Gap' : 'Fully Covered'} sub={gap > 0 ? 'More requests than open slots' : 'Enough slots for all'} accent={gap > 0 ? 'warning' : 'sage'} />
+      <div className="glance-kpis snap-kpis">
+        <KPICell value={totalSlots}         label="Total Slots"      sub={`${participatingUnits} units`} />
+        <KPICell value={placedCount}        label="Slots Filled"     sub={`${placedPct}% of total capacity`} accent="sage" />
+        <KPICell value={openSlots}          label="Open Slots" />
+        <KPICell value={studentsRequesting} label="Student Requests" sub={`${activeSchools} schools`} />
+        <KPICell value={Math.abs(gap)}      label={gap > 0 ? 'Placement Gap' : 'Fully Covered'} sub={gap > 0 ? 'More requests than open slots' : 'Enough slots for all'} accent={gap > 0 ? 'warning' : 'sage'} />
+      </div>
+      <div className="snap-bar-zone">
+        <div className="snap-bar-top">
+          <span className="snap-bar-label">Capacity coverage</span>
+          <span className="snap-bar-read">
+            {noStudents ? 'No students yet'
+              : noCapacity ? `${totalDemand} student${totalDemand === 1 ? '' : 's'} · no capacity confirmed`
+              : <>{placedPct}% filled <span>· {placedCount} of {totalSlots} confirmed slots</span></>}
+          </span>
+        </div>
+        <div className="snap-bar" role="img" aria-label={barLabel}>
+          {!noStudents && placedCount > 0 && (
+            <i style={{ width: `${pctOf(placedCount)}%`, background: SEGMENT_COLORS.placed }} title={`${placedCount} placed`} />
+          )}
+          {!noStudents && awaiting > 0 && (
+            <i style={{ width: `${pctOf(awaiting)}%`, background: SEGMENT_COLORS.awaiting }} title={`${awaiting} awaiting placement (within capacity)`} />
+          )}
+          {!noStudents && unmatched > 0 && (
+            <i style={{ width: `${pctOf(unmatched)}%`, background: SEGMENT_COLORS.over }} title={`${unmatched} students over capacity (no slot available)`} />
+          )}
+        </div>
+        {!noStudents && (
+          <div className="snap-legend">
+            <span><i style={{ background: SEGMENT_COLORS.placed }} /><b>{placedCount}</b> placed</span>
+            <span><i style={{ background: SEGMENT_COLORS.awaiting }} /><b>{awaiting}</b> awaiting placement</span>
+            {(unmatched > 0 || noCapacity) && (
+              <span><i style={{ background: SEGMENT_COLORS.over }} /><b>{unmatched}</b> over capacity</span>
+            )}
+          </div>
+        )}
       </div>
     </section>
+  )
+}
+
+// ── ASPIRE-MASTHEAD: On Campus Now, promoted ─────────────────────────────────
+// The page's only real-time human signal moves directly under the attention
+// digest as a compact live strip. The photo-card grid retired from this page
+// (photos remain on profiles); the honest live-window logic, shift badges,
+// and hedged overdue wording are unchanged. Renders nothing when empty.
+function OnCampusStrip({ mergedCampusLogs, students, units, onSelectStudent, onOpenActivity }) {
+  if (!mergedCampusLogs.length) return null
+  return (
+    <div className="mast-live">
+      <div className="mast-live-head">
+        <span className="mast-live-dot" aria-hidden />
+        <span className="mast-live-title">On Campus Now</span>
+        <span className="mast-live-sub">
+          {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+          {' · '}
+          {mergedCampusLogs.length} student{mergedCampusLogs.length !== 1 ? 's' : ''}
+        </span>
+        <button type="button" className="mast-live-link" onClick={onOpenActivity}>View all activity →</button>
+      </div>
+      <div className="mast-live-grid">
+        {mergedCampusLogs.map(log => {
+          const stu = students.find(s => s.id === log.student_id)
+          if (!stu) return null
+          // ON-CAMPUS-NOW-UX-1: prefer the current shift log / lifecycle row's unit;
+          // fall back to the student's matched/assigned unit when the row has none.
+          const unitName = log.unit_name
+            || units?.find(u => u.id === stu.matched_unit_id)?.unit_name
+            || null
+          const { label: shiftLabel, tone } = shiftBadge(shiftTypeOf(log))
+          const open = isOpenShift(log)
+          const overdue = open && isClockoutMaybeOverdue(log)
+          return (
+            <button key={log.id} type="button" className="mast-live-card"
+              onClick={() => onSelectStudent?.(stu.id)}
+              aria-label={`Open profile for ${displayName(stu)}`}>
+              <StudentAvatar student={stu} size={38} />
+              <span className="mast-live-info">
+                <span className="mast-live-name">{displayName(stu)}</span>
+                <span className="mast-live-unit">
+                  {unitName || 'Unit not set'}{stu.matched_preceptor ? ` · with ${stu.matched_preceptor}` : ''}
+                </span>
+              </span>
+              <span className="mast-live-right">
+                <span className={`mast-live-shift mast-shift-${tone}`}>{shiftLabel}</span>
+                {open
+                  ? <span className={overdue ? 'mast-live-dur warn' : 'mast-live-dur'}>
+                      {overdue ? 'Clock-out may be overdue' : `Open ${formatDuration(openShiftMs(log))}`}
+                    </span>
+                  : log.total_hours != null && <span className="mast-live-dur">{log.total_hours} hrs logged</span>}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -501,7 +320,7 @@ function PlacementCapacityPanel({
 
         return (
           <div key={div} className="ov-group">
-            <div className="ov-group-row" onClick={() => toggleUnitGroup(div)}>
+            <button type="button" className="ov-group-row" onClick={() => toggleUnitGroup(div)} aria-expanded={!!open}>
               <span className="ov-chevron" style={{
                 display:'inline-block', transition:'transform 0.15s ease',
                 transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
@@ -516,7 +335,7 @@ function PlacementCapacityPanel({
               <span className="ov-group-badge">
                 {divRows.length} unit{divRows.length !== 1 ? 's' : ''}
               </span>
-            </div>
+            </button>
 
             {open && (
               <div className="ov-group-items">
@@ -603,36 +422,6 @@ function AttentionDigest({ attention, onOpenActionCenter }) {
   )
 }
 
-// ── ASPIRE-CHART: since-your-last-visit orientation ─────────────────────────
-// Honest and clearly-scoped: the timestamp lives in THIS browser's storage
-// per user+cohort (no server audit log is implied), and the line only claims
-// what the loaded data can prove (students added since that moment).
-function SinceLastVisit({ students, cohortId, currentUserId }) {
-  const [lastVisit, setLastVisit] = useState(null)
-  useEffect(() => {
-    if (!currentUserId || !cohortId) return
-    const key = `aspire:lastVisit:${currentUserId}:${cohortId}`
-    try {
-      const prev = localStorage.getItem(key)
-      setLastVisit(prev || null)
-      localStorage.setItem(key, new Date().toISOString())
-    } catch { /* storage unavailable: skip the affordance */ }
-  }, [currentUserId, cohortId])
-
-  if (!lastVisit) return null
-  const newStudents = students.filter(s => s.created_at && s.created_at > lastVisit).length
-  const then = new Date(lastVisit)
-  const days = Math.floor((Date.now() - then.getTime()) / (24 * 3600 * 1000))
-  const when = days === 0 ? 'earlier today' : days === 1 ? 'yesterday'
-    : then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  return (
-    <div className="today-lastvisit">
-      Last visit on this browser: {when}
-      {newStudents > 0 ? ` · ${newStudents} student${newStudents === 1 ? '' : 's'} added since` : ''}
-    </div>
-  )
-}
-
 export default function OverviewTab({ students, units, onStudentUpdate, cohortId, cohort, toast, onSelectStudent, attention, onOpenActionCenter, currentUserId }) {
   const [unitGroupsOpen,   setUnitGroupsOpen]   = useState({})
   const [schoolGroupsOpen, setSchoolGroupsOpen] = useState({})
@@ -640,13 +429,13 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   // UNIT-FORM-RESPONSE-VISIBILITY: the unit_cohort_responses row open in the read-only detail drawer.
   const [selectedUnitResponse, setSelectedUnitResponse] = useState(null)
   const [localToast,       setLocalToast]       = useState(null)
-  const [campusOpen,       setCampusOpen]       = useState(false)
 
   // ASPIRE-CHART performance: the five workspace tabs stay mounted while
   // hidden, so these 60s polls used to run forever regardless of where the
   // user was. Polling now pauses while another route is visible; the cached
   // data stays available and refreshes on return.
   const onTodayRoute = useLocation().pathname === '/aggregate'
+  const navigate = useNavigate()
 
   // en-CA gives reliable YYYY-MM-DD in the user's local timezone
   const todayStr     = new Date().toLocaleDateString('en-CA')
@@ -709,11 +498,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
     [campusLifecycleLogs, campusLogs]
   )
 
-  // Auto-expand the panel when shifts arrive for the first time
-  useEffect(() => {
-    if (mergedCampusLogs.length > 0) setCampusOpen(true)
-  }, [mergedCampusLogs.length])
-
   // Unit Response Status - query unit_cohort_responses for current cohort
   const { data: unitResponses = [], error: unitResponsesError, refetch: refetchUnitResponses } = useQuery({
     queryKey: ['unit_cohort_responses', cohortId],
@@ -755,13 +539,14 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
   // ── Derived values ──────────────────────────────────────────
   const participating       = units.filter(u => u.is_participating)
   const totalSlots          = participating.reduce((s, u) => s + (u.total_slots     || 0), 0)
-  const slotsRemaining      = participating.reduce((s, u) => s + (u.slots_remaining || 0), 0)
   const totalStudents       = students.length
   const slotsFilled         = students.filter(s => s.matched_unit_id).length
   const placedCount         = slotsFilled
   const netRemaining        = totalSlots - slotsFilled
+  // ASPIRE-MASTHEAD (D6): open slots display from the LIVE placement count,
+  // never the stored slots_remaining field (one-capacity-source contract).
+  const openSlotsLive       = Math.max(0, netRemaining)
   const gap                 = totalStudents - totalSlots  // positive = short on slots
-  const isShort             = gap > 0
   const participatingUnits  = participating.length
   const studentsRequesting  = totalStudents
   const activeSchools       = Object.keys((() => { const m = {}; students.forEach(s => { if (s.school) m[s.school] = 1 }); return m })()).length
@@ -778,7 +563,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
       `Placed: ${placedCount} (${totalStudents ? Math.round((placedCount/totalStudents)*100) : 0}%)`,
       `Active Rotation: ${activeCount}`,
       `Completed: ${completedCount}`,
-      `Open Slots: ${slotsRemaining} of ${totalSlots}`,
+      `Open Slots: ${openSlotsLive} of ${totalSlots}`,
       `Schools: ${schoolCount} affiliated partner schools`,
     ].join('\n')
     await navigator.clipboard.writeText(lines)
@@ -912,47 +697,31 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
         </div>
       )}
 
-      {/* ════════ TODAY: route title + attention digest (triage first) ════════ */}
-      <div className="today-head">
-        <div>
-          <h1 className="chart-route-title today-title">Today</h1>
-          <div className="today-sub">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-            {cohort?.name ? ` · ${cohort.name}` : ''}
-          </div>
-        </div>
-        <SinceLastVisit students={students} cohortId={cohortId} currentUserId={currentUserId} />
-      </div>
+      {/* ════════ ASPIRE-MASTHEAD: briefing masthead, then triage, then the
+          live campus signal, then the merged snapshot. Everything orientation
+          lives in the masthead card; the page says hello exactly once. ════════ */}
+      <TodayMasthead students={students} cohort={cohort} cohortId={cohortId}
+        currentUserId={currentUserId} onTodayRoute={onTodayRoute} />
       <AttentionDigest attention={attention} onOpenActionCenter={onOpenActionCenter} />
+      <OnCampusStrip
+        mergedCampusLogs={campusLoading ? [] : mergedCampusLogs}
+        students={students} units={units}
+        onSelectStudent={onSelectStudent}
+        onOpenActivity={() => navigate('/rotation/activity')}
+      />
 
-      {/* ════════ STICKY HEADER ════════ */}
+      <PlacementSnapshot
+        totalSlots={totalSlots} placedCount={placedCount} openSlots={openSlotsLive}
+        studentsRequesting={studentsRequesting} gap={gap}
+        participatingUnits={participatingUnits} activeSchools={activeSchools}
+        cohort={cohort} cohortId={cohortId}
+      />
+
+      {/* ════════ STICKY LEDGER HEADERS ════════
+          Slimmed by owner decision D5: the masthead, digest, and snapshot
+          scroll away; only these thin panel headers stay pinned (their
+          subtitles keep the counts in view while scrolling the ledgers). */}
       <div className="aggregate-sticky-header">
-
-        {/* Program at a Glance + Capacity Coverage Gauge - two-column, stacks below ~900px */}
-        <div style={{ display: 'flex', gap: 14, marginBottom: 20, marginTop: 0, alignItems: 'stretch', flexWrap: 'wrap' }}>
-          <div style={{ flex: '7 1 0', minWidth: 0 }}>
-            <ProgramAtAGlance
-              totalSlots={totalSlots}
-              placedCount={placedCount}
-              slotsRemaining={slotsRemaining}
-              studentsRequesting={studentsRequesting}
-              gap={gap}
-              participatingUnits={participatingUnits}
-              activeSchools={activeSchools}
-              cohort={cohort}
-              cohortId={cohortId}
-            />
-          </div>
-          <div style={{ flex: '3 1 0', minWidth: 180 }}>
-            <CapacityCoverageGauge
-              totalDemand={totalStudents}
-              totalCapacity={totalSlots}
-              placed={placedCount}
-              cohort={cohort}
-            />
-          </div>
-        </div>
-
         {/* Frozen panel headers - two columns matching the panels below */}
         <div className="aggregate-panel-headers">
           <div className="aggregate-panel-hdr">
@@ -1079,13 +848,13 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                     const divBadgeColor = divFilled >= divTotal ? '#991b1b' : '#166534'
                     return (
                       <div key={div} className="ov-group">
-                        <div className="ov-group-row" onClick={() => toggleUnitGroup(div)}>
+                        <button type="button" className="ov-group-row" onClick={() => toggleUnitGroup(div)} aria-expanded={!!open}>
                           <span className="ov-chevron">{open ? '▾' : '▸'}</span>
                           <span className="ov-group-name">{div}</span>
                           <span className="ov-group-badge" style={{ background: divBadgeBg, color: divBadgeColor }}>
                             {divFilled}/{divTotal} filled
                           </span>
-                        </div>
+                        </button>
                         {open && (
                           <div className="ov-group-items">
                             {(unitsByDiv[div] || []).map(u => {
@@ -1135,7 +904,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
 
                 return (
                   <div key={school} className="ov-group">
-                    <div className="ov-group-row" onClick={() => toggleSchoolGroup(school)}>
+                    <button type="button" className="ov-group-row" onClick={() => toggleSchoolGroup(school)} aria-expanded={!!open}>
                       <span className="ov-chevron">{open ? '▾' : '▸'}</span>
                       <div style={{ flex:1, minWidth:0 }}>
                         <span className="ov-group-name">{school}</span>
@@ -1155,7 +924,7 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
                           {sStudents.length} student{sStudents.length !== 1 ? 's' : ''}
                         </span>
                       </div>
-                    </div>
+                    </button>
 
                     {open && (
                       <div className="ov-group-items">
@@ -1247,72 +1016,6 @@ export default function OverviewTab({ students, units, onStudentUpdate, cohortId
             </div>
           </div>
 
-        </div>
-
-        {/* ── On Campus Now - StudentCard grid, full-collapse when empty ── */}
-        {!campusLoading && mergedCampusLogs.length > 0 && (
-          <div style={{ margin:'20px 0 24px', fontFamily:'DM Sans, sans-serif' }}>
-            {/* Section eyebrow */}
-            <div style={{ display:'flex', alignItems:'baseline', gap:8, marginBottom:14 }}>
-              <span style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
-                <span style={{
-                  width:7, height:7, borderRadius:'50%', display:'inline-block',
-                  background:'#22c55e', animation:'pulse 2s infinite', flexShrink:0,
-                }} />
-                <span style={{ fontSize:11, fontWeight:700, textTransform:'uppercase',
-                  letterSpacing:'0.12em', color:'#0E1428' }}>
-                  On Campus Now
-                </span>
-              </span>
-              <span style={{ fontSize:11, color:'#9ca3af' }}>
-                {new Date().toLocaleDateString('en-US', { month:'short', day:'numeric' })}
-                {' · '}
-                {mergedCampusLogs.length} student{mergedCampusLogs.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-            {/* Card grid */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(152px, 1fr))',
-              gap: 12,
-            }}>
-              {mergedCampusLogs.map(log => {
-                const stu = students.find(s => s.id === log.student_id)
-                if (!stu) return null
-                // ON-CAMPUS-NOW-UX-1: prefer the current shift log / lifecycle row's unit;
-                // fall back to the student's matched/assigned unit when the row has none.
-                const unitName = log.unit_name
-                  || units?.find(u => u.id === stu.matched_unit_id)?.unit_name
-                  || null
-                return (
-                  <StudentCard
-                    key={log.id}
-                    variant="on-campus"
-                    student={stu}
-                    onClick={() => onSelectStudent?.(stu.id)}
-                    variantProps={{
-                      hoursCompleted: parseFloat(stu.approved_hours) || 0,
-                      hoursRequired:  parseFloat(stu.hours_required)  || 200,
-                      // SHIFT-VIS-1: shift badge + open-shift duration from the shift log (read-only).
-                      shiftType: shiftTypeOf(log),
-                      openShift: isOpenShift(log),
-                      openDur:   isOpenShift(log) ? formatDuration(openShiftMs(log)) : null,
-                      overdue:   isOpenShift(log) && isClockoutMaybeOverdue(log),
-                      // ON-CAMPUS-NOW-UX-1: current unit (shift-log/lifecycle first, placement fallback).
-                      unit:      unitName,
-                    }}
-                  />
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ASPIRE-CHART: the program-time welcome band (weather, events,
-            milestones) is DEMOTED below the operational content - kept because
-            it stays useful and tasteful, but Today leads with the work. */}
-        <div style={{ padding: '16px 0 4px' }}>
-          <AggregateWelcome />
         </div>
 
       </div>

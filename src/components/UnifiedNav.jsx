@@ -33,7 +33,10 @@ export function RefreshHint({ onClick, tooltipLabel, loading = false, disabled =
 }
 
 const TABS = [
-  { id: 'overview',   label: 'Aggregate',        chip: 'A'  },
+  // ASPIRE-MASTHEAD: A-name preserved by owner decision (the A-SP-I-R-E
+  // mnemonic stays); 'At a Glance' replaces the database word 'Aggregate'.
+  // The route is unchanged: /aggregate.
+  { id: 'overview',   label: 'At a Glance',      chip: 'A'  },
   { id: 'profiles',   label: 'Student Profiles', chip: 'SP' },
   { id: 'interviews', label: 'Interviews',        chip: 'I'  },
   { id: 'rotation',   label: 'Rotation',          chip: 'R'  },

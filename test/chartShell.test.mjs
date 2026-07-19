@@ -111,6 +111,6 @@ test('shell accessibility and orientation', async (t) => {
 
   await t.test('staff routes set an orienting document title', () => {
     assert.match(app, /document\.title = label \? `\$\{label\} · ASPIRE Intelligence` : 'ASPIRE Intelligence'/)
-    assert.match(app, /overview: 'Today'/)
+    assert.match(app, /overview: 'At a Glance'/)
   })
 })

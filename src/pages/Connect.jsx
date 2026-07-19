@@ -25,7 +25,7 @@ const srOnly = {
   overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
 }
 
-export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef, backPath = '/aggregate', backLabel = 'Aggregate' }) {
+export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef, backPath = '/aggregate', backLabel = 'At a Glance' }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { toasts, removeToast, toast } = useToast()

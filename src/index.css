@@ -1253,15 +1253,176 @@ a.doc-file-link:hover { text-decoration: underline; }
 .ov-hero-num   { font-size: 48px; font-weight: 700; line-height: 1; margin-bottom: 6px; }
 .ov-hero-label { font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
 
-/* ── ASPIRE-CHART: Today head + attention digest ─────────────────────────── */
-.today-head {
-  display: flex; align-items: flex-end; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap;
-  padding: 14px 20px 0;
+/* ── ASPIRE-MASTHEAD: the At a Glance briefing masthead ───────────────────
+   One bounded card: greeting (Fraunces via .chart-route-title), sub-line,
+   compact weather scene, next milestone, View calendar, Today-in-ASPIRE
+   chips. The wash is a time-of-day tint only (never a weather claim - the
+   condition is text); dark mode swaps to low-opacity glows via the theme
+   attribute, and stars appear only overnight in dark mode. */
+.mast {
+  position: relative; overflow: hidden;
+  /* .overview-tab is a flex column: without this, overflow:hidden makes the
+     card flex-compressible and it crushes instead of letting the page scroll. */
+  flex-shrink: 0;
+  background: var(--chart-card, #fff);
+  border: 1px solid var(--chart-line, rgba(29,37,103,0.08));
+  border-radius: 14px;
+  padding: 18px 22px 16px;
+  margin: 14px 20px 0;
+  font-family: 'DM Sans', sans-serif;
 }
-.today-title { font-size: 30px; margin: 0; line-height: 1.1; }
-.today-sub { font-size: 13px; color: var(--chart-ink-soft, #6b7280); margin-top: 3px; font-family: 'DM Sans', sans-serif; }
-.today-lastvisit { font-size: 12px; color: var(--chart-ink-soft, #6b7280); font-family: 'DM Sans', sans-serif; padding-bottom: 4px; }
+.mast::before { content: ''; position: absolute; inset: 0; pointer-events: none; }
+.mast-wash-morning::before {
+  background: radial-gradient(560px 220px at 88% -20%, rgba(255,214,150,0.38), transparent 70%),
+    linear-gradient(115deg, transparent 46%, rgba(199,225,246,0.42) 100%);
+}
+.mast-wash-afternoon::before {
+  background: radial-gradient(560px 220px at 88% -30%, rgba(255,236,180,0.30), transparent 70%),
+    linear-gradient(115deg, transparent 50%, rgba(214,236,250,0.40) 100%);
+}
+.mast-wash-evening::before {
+  background: radial-gradient(620px 240px at 90% 120%, rgba(255,180,130,0.26), transparent 70%),
+    linear-gradient(115deg, transparent 44%, rgba(197,203,235,0.42) 100%);
+}
+.mast-wash-night::before {
+  background: linear-gradient(115deg, transparent 44%, rgba(29,37,103,0.10) 100%);
+}
+[data-theme="dark"] .mast-wash-morning::before {
+  background: radial-gradient(560px 220px at 88% -20%, rgba(255,196,120,0.14), transparent 70%),
+    linear-gradient(115deg, transparent 46%, rgba(107,142,255,0.12) 100%);
+}
+[data-theme="dark"] .mast-wash-afternoon::before {
+  background: radial-gradient(560px 220px at 88% -30%, rgba(255,220,150,0.10), transparent 70%),
+    linear-gradient(115deg, transparent 50%, rgba(107,142,255,0.10) 100%);
+}
+[data-theme="dark"] .mast-wash-evening::before {
+  background: radial-gradient(620px 240px at 90% 120%, rgba(255,160,110,0.12), transparent 70%),
+    linear-gradient(115deg, transparent 44%, rgba(107,142,255,0.13) 100%);
+}
+[data-theme="dark"] .mast-wash-night::before {
+  background: radial-gradient(2px 2px at 78% 24%, rgba(255,255,255,0.7), transparent 60%),
+    radial-gradient(1.5px 1.5px at 88% 55%, rgba(255,255,255,0.5), transparent 60%),
+    radial-gradient(1.5px 1.5px at 68% 70%, rgba(255,255,255,0.4), transparent 60%),
+    linear-gradient(115deg, transparent 44%, rgba(107,142,255,0.10) 100%);
+}
+.mast-row { position: relative; display: flex; align-items: flex-start; gap: 22px; flex-wrap: wrap; }
+.mast-left { min-width: 0; flex: 1 1 340px; }
+.mast-greet {
+  font-size: 30px; margin: 0; line-height: 1.1;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mast-sub { font-size: 13px; color: var(--chart-ink-soft, #6b7280); margin-top: 4px; }
+.mast-right { position: relative; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-left: auto; }
+.mast-vdiv { width: 1px; height: 40px; background: var(--chart-line, rgba(29,37,103,0.12)); flex-shrink: 0; }
+.mast-mile { min-width: 0; }
+.mast-mile-wrap { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.mast-mile-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--chart-ink-soft, #6b7280); }
+.mast-mile-name {
+  font-size: 13.5px; font-weight: 700; color: var(--chart-ink, #191919); margin-top: 1px;
+  max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mast-mile-when { font-size: 11.5px; color: var(--chart-ink-soft, #6b7280); }
+.mast-cal-btn {
+  background: var(--chart-navy, #1D2567); color: #fff;
+  border: none; border-radius: 9px; padding: 8px 16px;
+  font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+}
+[data-theme="dark"] .mast-cal-btn { color: #0F1419; }
+.mast-today-line {
+  position: relative; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 13px; padding-top: 11px; border-top: 1px solid var(--chart-line, rgba(29,37,103,0.08));
+}
+.mast-today-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--chart-ink-soft, #6b7280); margin-right: 2px; }
+.mast-evchip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: var(--chart-ink, #191919);
+  border: 1px solid var(--chart-line, rgba(29,37,103,0.12)); background: var(--chart-card, #fff);
+  border-radius: 20px; padding: 3px 11px; max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mast-evdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+/* Compact weather variant - the HTC-inspired scene, resized for the masthead.
+   .wx-mast .wx-svg outranks the component's own responsive .wx-svg widths. */
+.wx-mast { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.wx-mast-art { position: relative; flex-shrink: 0; width: 110px; }
+.wx-mast .wx-svg { width: 110px; }
+.wx-mast-temp { font-size: 24px; font-weight: 700; color: var(--chart-ink, #191919); letter-spacing: -0.01em; line-height: 1.05; }
+.wx-mast-cond { font-size: 12px; font-weight: 600; color: var(--chart-ink, #191919); margin-top: 1px; }
+.wx-mast-hilo { font-size: 11px; color: var(--chart-ink-soft, #6b7280); margin-top: 1px; }
+
+/* ── ASPIRE-MASTHEAD: On Campus Now live strip ────────────────────────────── */
+.mast-live { margin: 14px 20px 0; font-family: 'DM Sans', sans-serif; flex-shrink: 0; }
+.mast-live-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.mast-live-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #22c55e;
+  align-self: center; flex-shrink: 0; animation: pulse 2s infinite;
+}
+@media (prefers-reduced-motion: reduce) { .mast-live-dot { animation: none; } }
+.mast-live-title { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--chart-ink, #0E1428); }
+.mast-live-sub { font-size: 11px; color: var(--chart-ink-soft, #9ca3af); }
+.mast-live-link {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  color: var(--chart-navy, #1D2567); font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-weight: 600; padding: 2px;
+}
+.mast-live-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; margin-top: 9px; }
+.mast-live-card {
+  display: flex; align-items: center; gap: 11px;
+  background: var(--chart-card, #fff); border: 1px solid var(--chart-line, rgba(29,37,103,0.1));
+  border-radius: 12px; padding: 10px 13px; cursor: pointer; text-align: left;
+  font-family: 'DM Sans', sans-serif;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.mast-live-card:hover { border-color: var(--chart-navy, #1D2567); box-shadow: 0 2px 10px rgba(29,37,103,0.08); }
+.mast-live-info { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.mast-live-name { font-size: 13.5px; font-weight: 700; color: var(--chart-ink, #0E1428); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mast-live-unit { font-size: 11.5px; color: var(--chart-ink-soft, #6b7280); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mast-live-right { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
+.mast-live-shift { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+.mast-shift-day         { background: var(--chart-ok-bg, #E5F3EA);   color: var(--chart-ok-ink, #166534); }
+.mast-shift-night       { background: var(--chart-wait-bg, #EDF0FA); color: var(--chart-wait-ink, #3B4A9F); }
+.mast-shift-mid         { background: var(--chart-info-bg, #EFF1F5); color: var(--chart-info-ink, #4B5563); }
+.mast-shift-variable    { background: var(--chart-info-bg, #EFF1F5); color: var(--chart-info-ink, #4B5563); }
+.mast-shift-unspecified { background: var(--chart-info-bg, #EFF1F5); color: var(--chart-info-ink, #4B5563); }
+.mast-live-dur { font-size: 11px; color: var(--chart-ink-soft, #475467); white-space: nowrap; }
+.mast-live-dur.warn { color: var(--chart-warn-ink, #92400e); font-weight: 600; }
+
+/* ── ASPIRE-MASTHEAD: Placement Snapshot ──────────────────────────────────── */
+.snap {
+  flex-shrink: 0;
+  background: var(--chart-card, #fff);
+  border: 1px solid var(--chart-line, rgba(29,37,103,0.08));
+  border-radius: 14px; overflow: hidden;
+  margin: 14px 20px; font-family: 'DM Sans', sans-serif;
+  box-shadow: var(--shadow-card);
+}
+.snap-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 11px 22px 10px; border-bottom: 1px solid var(--chart-line, rgba(29,37,103,0.04));
+}
+.snap-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--text-caption, #475467); font-weight: 600; }
+.snap-sub { font-size: 11.5px; color: var(--text-muted, #98A2B3); font-variant-numeric: tabular-nums; }
+.snap-kpis { display: grid; background: var(--border-card, rgba(29,37,103,0.04)); gap: 1px; }
+.snap-bar-zone { padding: 14px 22px 16px; border-top: 1px solid var(--chart-line, rgba(29,37,103,0.06)); }
+.snap-bar-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 9px; }
+.snap-bar-label { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--chart-ink-soft, #6b7280); }
+.snap-bar-read { font-size: 12.5px; font-weight: 700; color: var(--chart-ink, #191919); }
+.snap-bar-read span { color: var(--chart-ink-soft, #6b7280); font-weight: 500; }
+.snap-bar { display: flex; height: 14px; border-radius: 8px; overflow: hidden; background: var(--gauge-segment-base, #EDEDEB); }
+.snap-bar i { display: block; height: 100%; }
+.snap-legend { display: flex; gap: 18px; margin-top: 9px; flex-wrap: wrap; font-size: 11.5px; color: var(--chart-ink-soft, #6b7280); }
+.snap-legend span { display: flex; align-items: center; gap: 6px; }
+.snap-legend i { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; }
+.snap-legend b { color: var(--chart-ink, #191919); font-variant-numeric: tabular-nums; }
+
+/* Ledger group rows are real buttons now (aria-expanded); neutralize the
+   user-agent button chrome while keeping the established row look. */
+button.ov-group-row {
+  width: 100%; background: none; border: none;
+  font: inherit; color: inherit; text-align: left;
+}
 .today-digest {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   padding: 10px 20px 12px;
@@ -1319,11 +1480,17 @@ a.doc-file-link:hover { text-decoration: underline; }
 }
 @media (max-width: 560px) {
   .glance-kpis { grid-template-columns: repeat(2, 1fr); }
+  /* Five cells in two columns leave the gap KPI alone on its row - give it
+     the full width so the warning keeps its explanation. */
+  .glance-kpis > *:last-child { grid-column: 1 / -1; }
+  .mast { padding: 15px 15px 13px; }
+  .mast-greet { font-size: 24px; white-space: normal; }
+  .mast-vdiv { display: none; }
+  .mast-right { width: 100%; justify-content: space-between; }
 }
 @media (max-width: 480px) {
   .ov-hero { grid-template-columns: 1fr 1fr; gap: 10px; }
   .ov-hero-num { font-size: 34px; }
-  .today-title { font-size: 25px; }
 }
 
 /* Keep these for any legacy references */

@@ -227,6 +227,41 @@ export function useWelcomeWeather() {
   return { ...q, location }
 }
 
+// ASPIRE-MASTHEAD: compact in-flow variant for the At a Glance masthead card.
+// Same scenes, same animations, same shared weather query - only resized and
+// laid out horizontally (graphic beside a caption column) so it sits in the
+// masthead's right cluster instead of floating over the old welcome band.
+// Caption ink comes from the chart tokens so light/dark both read on the card
+// (the old absolute night-sky caption colors assumed the dark band behind it).
+// Reduced-motion, asset-fallback, and silent-failure behavior are inherited.
+export function WeatherMasthead() {
+  const { data, location } = useWelcomeWeather()
+  const [assetsBroken, setAssetsBroken] = useState(false)
+  if (!data) return null // silent, non-blocking - the masthead simply has no weather module
+
+  const scene = mapScene(data.code, data.wind, data.isDay)
+  const label = LABELS[scene]
+  const night = data.isDay === 0
+  const manifest = assetsBroken ? null : sceneAssets(scene, night)
+  const hiLo = data.hi != null && data.lo != null ? `H ${data.hi}° · L ${data.lo}°` : ''
+  return (
+    <div className="wx-mast" style={{ fontFamily: F }} title={`${location.label} weather`}
+      role="img" aria-label={`${label || 'Weather'}, ${data.temp} degrees${hiLo ? `, high ${data.hi}, low ${data.lo}` : ''}, ${location.label}`}>
+      <style>{KEYFRAMES}</style>
+      <div className="wx-mast-art" aria-hidden>
+        {manifest
+          ? <AssetScene manifest={manifest} onBroken={() => setAssetsBroken(true)} />
+          : <SceneSvg scene={scene} />}
+      </div>
+      <div className="wx-mast-caption" aria-hidden>
+        <div className="wx-mast-temp">{data.temp}°</div>
+        {label && <div className="wx-mast-cond">{label}</div>}
+        <div className="wx-mast-hilo">{hiLo || location.label}</div>
+      </div>
+    </div>
+  )
+}
+
 export default function WeatherScene() {
   const { data, location } = useWelcomeWeather()
   // Licensed-asset renderer is preferred; any image load failure flips to the built-in SVG scene
