@@ -1,0 +1,176 @@
+// ASPIRE-MASTHEAD: the At a Glance briefing masthead. One bounded card
+// carries every orientation element - greeting (the route's one Fraunces
+// moment), date · cohort · last-visit line, the HTC-inspired weather scene
+// (compact variant, preserved by owner decision), the single next milestone,
+// View calendar, and a Today-in-ASPIRE chips row that renders only when
+// events or holidays exist. It replaces both the old "Today" head and the
+// bottom welcome band (AggregateWelcome), which greeted the user a second
+// time at the footer.
+//
+// Events come through the SAME gated /api/aspire-events list action and the
+// same query key the welcome band used, so nothing new is fetched; the query
+// is additionally gated to the visible route (the five workspace tabs stay
+// mounted, and hidden tabs must not fetch).
+import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
+import { toLocalDateStr } from '../lib/designTokens'
+import { eventOnDate, eventColor, eventTypeLabel, formatEventWhen, localDateStr } from '../lib/aspireEvents'
+import { getUsHolidaysForRange } from '../lib/usHolidays'
+import { greetingLine } from '../lib/masthead'
+import { WeatherMasthead } from './WeatherScene'
+
+const IMPORTANT_TYPES = new Set(['deadline', 'ngrp_deadline', 'ngrp_open', 'town_hall', 'orientation'])
+
+// Whole-day difference between two local 'YYYY-MM-DD' strings.
+function daysBetween(fromStr, toStr) {
+  const a = new Date(`${fromStr}T00:00:00`)
+  const b = new Date(`${toStr}T00:00:00`)
+  return Math.round((b.getTime() - a.getTime()) / 86400000)
+}
+
+// Honest and clearly-scoped: the timestamp lives in THIS browser's storage
+// per user+cohort (no server audit log is implied), and the line only claims
+// what the loaded data can prove (students added since that moment).
+function useLastVisitLine(students, cohortId, currentUserId) {
+  const [lastVisit, setLastVisit] = useState(null)
+  useEffect(() => {
+    if (!currentUserId || !cohortId) return
+    const key = `aspire:lastVisit:${currentUserId}:${cohortId}`
+    try {
+      const prev = localStorage.getItem(key)
+      setLastVisit(prev || null)
+      localStorage.setItem(key, new Date().toISOString())
+    } catch { /* storage unavailable: skip the affordance */ }
+  }, [currentUserId, cohortId])
+
+  if (!lastVisit) return null
+  const newStudents = students.filter(s => s.created_at && s.created_at > lastVisit).length
+  const then = new Date(lastVisit)
+  const days = Math.floor((Date.now() - then.getTime()) / (24 * 3600 * 1000))
+  const when = days === 0 ? 'earlier today' : days === 1 ? 'yesterday'
+    : then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return `Last visit on this browser: ${when}`
+    + (newStudents > 0 ? ` · ${newStudents} student${newStudents === 1 ? '' : 's'} added since` : '')
+}
+
+export default function TodayMasthead({ students, cohort, cohortId, currentUserId, onTodayRoute }) {
+  const { userProfile } = useAuth()
+  const navigate = useNavigate()
+
+  const today = toLocalDateStr()
+  const to = useMemo(() => {
+    const d = new Date(`${today}T00:00:00`)
+    d.setDate(d.getDate() + 90)
+    return toLocalDateStr(d)
+  }, [today])
+
+  const { data: events = [] } = useQuery({
+    queryKey: ['aggregate_welcome_events', today, to],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      const res = await fetch('/api/aspire-events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ action: 'list', from: today, to }),
+      })
+      if (!res.ok) return []
+      const json = await res.json().catch(() => ({}))
+      return json.events || []
+    },
+    // Hidden tabs stay mounted; only the visible At a Glance route fetches.
+    enabled: onTodayRoute !== false,
+  })
+
+  const { heading, wash } = greetingLine(userProfile?.full_name)
+  const dateLabel = new Date(`${today}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  const lastVisitLine = useLastVisitLine(students, cohortId, currentUserId)
+
+  // Today in ASPIRE - point / all-day / ranged events overlapping today,
+  // plus US holidays (client-computed, read-only, never persisted).
+  const todayEvents = useMemo(
+    () => (events || []).filter(ev => eventOnDate(ev, today)).sort((a, b) => {
+      if (!!a.all_day !== !!b.all_day) return a.all_day ? -1 : 1
+      return String(a.start_at).localeCompare(String(b.start_at))
+    }),
+    [events, today],
+  )
+  const todayHolidays = useMemo(() => getUsHolidaysForRange(today, today), [today])
+
+  // The single next milestone - soonest important event from today forward.
+  // The full list lives one click away behind View calendar.
+  const nextMilestone = useMemo(() => {
+    const isImportant = ev => ev.show_on_welcome || ev.is_milestone || IMPORTANT_TYPES.has(ev.event_type)
+    return (events || [])
+      .filter(ev => isImportant(ev) && localDateStr(ev.start_at) >= today)
+      .sort((a, b) => {
+        const c = localDateStr(a.start_at).localeCompare(localDateStr(b.start_at))
+        if (c) return c
+        return (b.show_on_welcome ? 1 : 0) - (a.show_on_welcome ? 1 : 0)
+      })[0] || null
+  }, [events, today])
+
+  const milestoneWhen = (() => {
+    if (!nextMilestone) return null
+    const startDay = localDateStr(nextMilestone.start_at)
+    const d = daysBetween(today, startDay)
+    const dateStr = new Date(`${startDay}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    if (d <= 0) return `Today · ${dateStr}`
+    if (d === 1) return `Tomorrow · ${dateStr}`
+    return `In ${d} days · ${dateStr}`
+  })()
+
+  const hasTodayLine = todayEvents.length > 0 || todayHolidays.length > 0
+
+  return (
+    <div className={`mast mast-wash-${wash}`}>
+      <div className="mast-row">
+        <div className="mast-left">
+          <h1 className="chart-route-title mast-greet">{heading}</h1>
+          <div className="mast-sub">
+            {dateLabel}
+            {cohort?.name ? ` · ${cohort.name}` : ''}
+            {lastVisitLine ? ` · ${lastVisitLine}` : ''}
+          </div>
+        </div>
+        <div className="mast-right">
+          <WeatherMasthead />
+          {nextMilestone && (
+            <div className="mast-mile-wrap">
+              <span className="mast-vdiv" aria-hidden />
+              <div className="mast-mile">
+                <div className="mast-mile-label">Next milestone</div>
+                <div className="mast-mile-name">{nextMilestone.title}</div>
+                <div className="mast-mile-when">{milestoneWhen}</div>
+              </div>
+            </div>
+          )}
+          <button type="button" className="mast-cal-btn" onClick={() => navigate('/interviews')}>
+            View calendar
+          </button>
+        </div>
+      </div>
+
+      {hasTodayLine && (
+        <div className="mast-today-line">
+          <span className="mast-today-label">Today in ASPIRE</span>
+          {todayHolidays.map(h => (
+            <span key={h.name} className="mast-evchip">
+              <span className="mast-evdot" style={{ background: '#D97706' }} aria-hidden />
+              {h.name} · US Holiday
+            </span>
+          ))}
+          {todayEvents.map(ev => (
+            <span key={ev.id} className="mast-evchip">
+              <span className="mast-evdot" style={{ background: eventColor(ev) }} aria-hidden />
+              {ev.is_milestone ? '★ ' : ''}{ev.title} · {eventTypeLabel(ev.event_type)} · {formatEventWhen(ev)}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

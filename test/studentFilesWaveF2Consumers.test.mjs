@@ -66,9 +66,13 @@ test('shared StudentAvatar (used by all student lists) reads a signed headshot',
   assert.doesNotMatch(avatar, /<img\s+src=\{student\?\.headshot_url\}/)
 })
 
-test('OverviewTab campus card renders the signed headshot, not the raw URL', () => {
-  assert.match(overview, /useStudentFileUrl\(\{[\s\S]*?kind: 'headshot'/)
-  assert.match(overview, /<img src=\{headshotSignedUrl\}/)
+test('OverviewTab campus strip renders headshots only through signed access', () => {
+  // ASPIRE-MASTHEAD: the photo-card grid (and its local signed-url plumbing)
+  // retired; the live strip's only headshot path is the shared StudentAvatar,
+  // which resolves through useStudentFileUrl (asserted above). No raw
+  // headshot_url may bind into an <img> in this file.
+  assert.match(overview, /<StudentAvatar student=\{stu\} size=\{38\} \/>/)
+  assert.doesNotMatch(overview, /<img[^>]*headshot_url/)
   assert.doesNotMatch(overview, /<img src=\{student\.headshot_url\}/)
 })
 
