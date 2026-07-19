@@ -57,7 +57,7 @@ function fileIcon(label) {
   return <FileText size={16} strokeWidth={1.9} /> // PDF / default
 }
 
-export default function CatalogPage({ backPath = '/aggregate', backLabel = 'Aggregate' }) {
+export default function CatalogPage({ backPath = '/aggregate', backLabel = 'At a Glance' }) {
   const { isOwner, isAdmin, isInterviewer } = useAuth()
   const canView = isOwner || isAdmin || isInterviewer  // read access (Interviewers included)
   const canManage = isOwner || isAdmin                  // upload / edit / move / feature / pin / remove

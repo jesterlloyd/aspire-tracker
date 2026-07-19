@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom'
 
 const NAVY = 'var(--color-accent-primary, #1D2567)'
 
-export default function WorkspaceBackLink({ path = '/aggregate', label = 'Aggregate' }) {
+export default function WorkspaceBackLink({ path = '/aggregate', label = 'At a Glance' }) {
   const navigate = useNavigate()
   const [hover, setHover] = useState(false)
   return (

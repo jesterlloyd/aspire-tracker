@@ -27,7 +27,7 @@ const SECTION_ICONS = {
   general: Settings, appearance: Monitor, signature: PenLine, accounts: Users, knowledge: FileText, preceptorParity: Scale, tours: Info,
 }
 
-export default function SettingsShell({ backPath = '/aggregate', backLabel = 'Aggregate', onRestartTour }) {
+export default function SettingsShell({ backPath = '/aggregate', backLabel = 'At a Glance', onRestartTour }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { isOwner, isAdmin } = useAuth()

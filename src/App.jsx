@@ -215,7 +215,7 @@ function MainApp({ onLogout }) {
   // routes are noindex, so this is purely orientation for the human reader.
   useEffect(() => {
     const ROUTE_TITLES = {
-      overview: 'Today', profiles: 'Student Profiles', interviews: 'Interviews',
+      overview: 'At a Glance', profiles: 'Student Profiles', interviews: 'Interviews',
       rotation: 'Rotation', evaluation: 'Evaluation', connect: 'ASPIRE Connect',
       catalog: 'Catalog', settings: 'Settings',
     }
@@ -230,7 +230,7 @@ function MainApp({ onLogout }) {
     : backPath === '/students'   ? 'Student Profiles'
     : backPath === '/interviews' ? 'Interviews'
     : backPath === '/evaluation' ? 'Evaluation'
-    : 'Aggregate'
+    : 'At a Glance'
 
   // Redirect / to the last visited tab, or /aggregate as default
   // eslint-disable-next-line react-hooks/exhaustive-deps
