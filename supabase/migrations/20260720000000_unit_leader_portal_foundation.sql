@@ -913,11 +913,11 @@ CREATE OR REPLACE FUNCTION public.messages_start_conversation(
   p_actor_kind             text,
   p_participant_profile_id uuid,
   p_student_id             uuid,
-  p_unit_key               text DEFAULT NULL,
   p_subject                text,
   p_category               text,
   p_body                   text,
-  p_delivery               jsonb
+  p_delivery               jsonb,
+  p_unit_key               text DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER
