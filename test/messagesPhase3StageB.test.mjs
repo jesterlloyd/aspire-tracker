@@ -352,13 +352,19 @@ test('API handlers: security and privacy posture', async (t) => {
   await t.test('every endpoint guards methods and verifies a caller', () => {
     for (const [name, src] of Object.entries({ ...portalSrc, ...staffSrc })) {
       assert.match(src, /methodGuard\(req, res, \[/, `${name} must guard methods`);
-      assert.match(src, /verify(PortalStudentCaller|StaffCaller)\(req\)/, `${name} must verify the caller`);
+      assert.match(src, /verify(PortalStudentCaller|PortalMessagesCaller|StaffCaller)\(req\)/, `${name} must verify the caller`);
     }
   });
 
   await t.test('portal endpoints require an active student caller; staff endpoints require active Owner/Admin', () => {
     for (const [name, src] of Object.entries(portalSrc)) {
-      assert.match(src, /verifyPortalStudentCaller/, `${name} must require an active student`);
+      // UL-PORTAL: the read path and mark-read now admit a student OR a unit
+      // leader. Both go through verifyPortalMessagesCaller, which returns the
+      // student result untouched, so Student Portal behavior is unchanged. The
+      // security property asserted here is that SOME active portal caller is
+      // verified before any data access, which both helpers guarantee.
+      assert.match(src, /verifyPortal(StudentCaller|MessagesCaller)/,
+        `${name} must verify an active portal caller`);
     }
     for (const [name, src] of Object.entries(staffSrc)) {
       assert.match(src, /verifyStaffCaller/, `${name} must require active Owner/Admin`);
@@ -383,7 +389,11 @@ test('API handlers: security and privacy posture', async (t) => {
     assert.match(authSrc, /no_active_student_link/);
     assert.match(authSrc, /expires_at == null \|\| g\.expires_at > nowIso/);
     // Future roles are not activated.
-    assert.doesNotMatch(authSrc.replace(/\/\/[^\n]*/g, ''), /unit_leader|academic_partner|preceptor/);
+    // UL-PORTAL: unit_leader is now deliberately activated in this module, after
+    // both Unit Leader migrations were applied and the RPCs were generalized to
+    // handle it. academic_partner and preceptor REMAIN schema reservations and must
+    // still not appear, so the original guard keeps its value for those two.
+    assert.doesNotMatch(authSrc.replace(/\/\/[^\n]*/g, ''), /academic_partner|preceptor/);
   });
 
   await t.test('no client-supplied delivery payload is ever accepted', () => {
@@ -436,7 +446,12 @@ test('API handlers: security and privacy posture', async (t) => {
 
   await t.test('mark read never accepts a client timestamp and is per-user', () => {
     assert.doesNotMatch(portalSrc['messages-mark-read'], /last_read_at:\s*parsed\.body/);
-    assert.match(portalSrc['messages-mark-read'], /p_actor_kind: 'student'/);
+    // UL-PORTAL: the actor kind is now the VERIFIED caller's kind rather than a
+    // hardcoded 'student', because a unit leader may also mark a thread read. The
+    // security property is unchanged and is what this asserts: the kind comes from
+    // the server-verified caller, never from the request body.
+    assert.match(portalSrc['messages-mark-read'], /p_actor_kind: caller\.actorKind/);
+    assert.doesNotMatch(portalSrc['messages-mark-read'], /p_actor_kind: (req|parsed|body)/);
     assert.match(staffSrc['messages-staff-read'], /p_actor_kind: 'staff'/);
   });
 

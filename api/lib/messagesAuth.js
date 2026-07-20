@@ -14,6 +14,7 @@
 /* global process */
 import { createClient } from '@supabase/supabase-js';
 import { verifyPortalCaller, getServiceDb } from './portalAuth.js';
+import { verifyPortalUnitLeaderCaller } from './unitLeaderScope.js';
 
 export { getServiceDb };
 
@@ -55,6 +56,44 @@ export async function verifyStaffCaller(req) {
 // intentionally NOT accepted here.
 //
 // Returns { ok: true, profile, studentIds } or { ok: false, status, reason }.
+/**
+ * UL-PORTAL: an ACTIVE portal caller who may use Messages, of either supported kind.
+ *
+ * Returns { ok: true, profile, actorKind: 'student' | 'unit_leader', studentIds, unitKeys }
+ * or { ok: false, status, reason }.
+ *
+ * Student is tried FIRST and its result is returned unchanged, so every existing
+ * Student Portal path behaves exactly as before, including its failure reasons.
+ * A unit leader is admitted only when the student check finds no student role at
+ * all, never as a fallback for a student whose access is merely broken.
+ *
+ * This deliberately does NOT re-derive per-conversation authorization. The read RPCs
+ * gate every row through my_message_conversation_ids(), and the write RPCs gate
+ * through message_participant_can_send, both of which already handle both kinds.
+ * This helper only answers "may this account use Messages at all".
+ */
+export async function verifyPortalMessagesCaller(req) {
+  const asStudent = await verifyPortalStudentCaller(req);
+  if (asStudent.ok) {
+    return { ...asStudent, actorKind: 'student', unitKeys: [] };
+  }
+  // Only a caller with no student role is considered as a unit leader. A student
+  // with a revoked link keeps its own denial rather than being re-evaluated.
+  if (asStudent.reason !== 'no_active_student_grant') return asStudent;
+
+  const asUnitLeader = await verifyPortalUnitLeaderCaller(req);
+  if (!asUnitLeader.ok) {
+    return { ok: false, status: asUnitLeader.status, reason: asUnitLeader.reason };
+  }
+  return {
+    ok: true,
+    profile: asUnitLeader.profile,
+    actorKind: 'unit_leader',
+    studentIds: [],
+    unitKeys: asUnitLeader.unitKeys,
+  };
+}
+
 export async function verifyPortalStudentCaller(req) {
   const caller = await verifyPortalCaller(req);
   if (!caller.authenticated) {

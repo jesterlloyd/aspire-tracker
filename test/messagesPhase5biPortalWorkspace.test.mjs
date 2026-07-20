@@ -292,7 +292,12 @@ test('mark read', async (t) => {
     // The endpoint advances only this participant's pointer; the browser cannot
     // name another profile.
     assert.match(read('../api/portal/messages-mark-read.js'), /p_actor_profile_id: caller\.profile\.id/)
-    assert.match(read('../api/portal/messages-mark-read.js'), /p_actor_kind: 'student'/)
+    // UL-PORTAL: the actor kind is now the VERIFIED caller's kind rather than a
+    // hardcoded 'student', because a unit leader may also mark a thread read. The
+    // security property is unchanged and is what this asserts: the kind comes from
+    // the server-verified caller, never from the request body.
+    assert.match(read('../api/portal/messages-mark-read.js'), /p_actor_kind: caller\.actorKind/);
+    assert.doesNotMatch(read('../api/portal/messages-mark-read.js'), /p_actor_kind: (req|parsed|body)/);
   })
 })
 

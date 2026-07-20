@@ -6,14 +6,16 @@
 // client-supplied last_read_at is never accepted, and staff read state is never
 // affected.
 
-import { verifyPortalStudentCaller, getServiceDb } from '../lib/messagesAuth.js';
+import { verifyPortalMessagesCaller, getServiceDb } from '../lib/messagesAuth.js';
 import { methodGuard, readJsonBody, mapRpcError, logApiError } from '../lib/messagesApi.js';
 import { isUuid } from '../../lib/server/messages/validation.js';
 
 export default async function handler(req, res) {
   if (!methodGuard(req, res, ['POST'])) return;
 
-  const caller = await verifyPortalStudentCaller(req);
+  // UL-PORTAL: either portal kind may mark a thread read. The RPC re-validates
+  // the actor against the conversation, so the kind is descriptive, not authority.
+  const caller = await verifyPortalMessagesCaller(req);
   if (!caller.ok) return res.status(caller.status).json({ error: caller.reason });
 
   const parsed = readJsonBody(req);
@@ -25,7 +27,7 @@ export default async function handler(req, res) {
   try {
     const { data, error } = await getServiceDb().rpc('messages_mark_read', {
       p_actor_profile_id: caller.profile.id,
-      p_actor_kind: 'student',
+      p_actor_kind: caller.actorKind,
       p_conversation_id: conversationId,
     });
     if (error) {
