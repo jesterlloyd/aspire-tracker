@@ -1,6 +1,23 @@
 // api/lib/unitLeaderAudit.js
 //
-// UL-PORTAL: audit emission for every state-changing Unit Leader action.
+// UL-PORTAL: SUPPLEMENTARY activity-feed emission.
+//
+// THIS IS NOT THE AUDIT OF RECORD, and no workflow depends on it for auditability.
+// Each Unit Leader workflow satisfies the audit requirement through its own
+// authoritative table, which is why this module is best effort and why nothing is
+// duplicated for the two workflows that already write their own history:
+//
+//   placement    unit_placement_request_events, written in the SAME transaction as
+//                the response by the unit_placement_respond RPC
+//   capacity     unit_capacity_submissions, whose rows are immutable apart from
+//                superseded_at and carry full attribution and supersedes_id lineage
+//   milestones   unit_student_milestones, a single INSERT with full attribution,
+//                never hard deleted, corrections additive
+//   nominations  unit_preceptor_nominations, likewise a single attributed INSERT
+//
+// It remains in use only for the two single-INSERT workflows above, purely to give
+// staff a unified activity feed alongside other ASPIRE events. A failure here can
+// therefore never leave a state change unaudited: the domain row is the audit.
 //
 // Reuses the existing public.activity_logs table rather than building a parallel
 // system. Two constraints made that possible without a migration:
@@ -15,9 +32,9 @@
 // where applicable, timestamp (activity_logs default), unit context, optional
 // comment, and the ASPIRE confirmation state where one exists.
 //
-// Best effort by design, matching api/aspire-events.js: an audit failure is logged
-// and swallowed rather than failing the user's operation. The authoritative record
-// is the row the endpoint already wrote.
+// Best effort by design, matching api/aspire-events.js: a failure is logged and
+// swallowed rather than failing the user's operation. That is safe precisely because
+// the authoritative audit is the domain row the endpoint already wrote.
 
 /**
  * Emit one Unit Leader audit record.

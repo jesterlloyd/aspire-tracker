@@ -20,6 +20,16 @@ const capacity    = read('api/portal/unit-capacity.js')
 const milestones  = read('api/portal/unit-milestones.js')
 const nominations = read('api/portal/unit-preceptor-nominations.js')
 const staffFiles  = read('api/student-file-access.js')
+// The atomic guarantees now live in the follow-up migration's RPCs, so the
+// assertions about them read the committed SQL rather than the endpoint.
+const rpcMigration = read('supabase/migrations/20260720000001_unit_leader_transactional_integrity.sql')
+const rpcLive = rpcMigration.replace(/\/\*[\s\S]*?\*\//g, '')
+const respondFn = rpcLive.slice(
+  rpcLive.indexOf('CREATE OR REPLACE FUNCTION public.unit_placement_respond'),
+  rpcLive.indexOf('CREATE OR REPLACE FUNCTION public.unit_capacity_submit'))
+const capacityFn = rpcLive.slice(
+  rpcLive.indexOf('CREATE OR REPLACE FUNCTION public.unit_capacity_submit'),
+  rpcLive.indexOf('CREATE OR REPLACE FUNCTION public.messages_portal_get_thread_v2'))
 
 // Executable JS only. Several of these files DESCRIBE the thing they must not do
 // (for example capacity explains why it does not reuse unit_cohort_responses), so
@@ -87,9 +97,12 @@ test('list results are re-filtered by the scope cohort rule after fetch', () => 
 
 test('out-of-scope records are reported as not found, never as forbidden', () => {
   // Distinguishing them would confirm the record exists.
-  assert.match(placement, /if \(!covered\) return res\.status\(404\)\.json\(\{ error: 'not_found' \}\)/)
   assert.match(milestones, /if \(!student\) return res\.status\(404\)\.json\(\{ error: 'not_found' \}\)/)
   assert.match(nominations, /if \(!student\) return res\.status\(404\)\.json\(\{ error: 'not_found' \}\)/)
+  // Placement now denies inside the RPC, with the same non-enumerating result:
+  // a missing request, a missing grant, and an out-of-scope unit all raise MS404.
+  const notFounds = respondFn.match(/RAISE EXCEPTION 'not found' USING ERRCODE = 'MS404'/g) || []
+  assert.ok(notFounds.length >= 3, `expected 3 non-enumerating denials, saw ${notFounds.length}`)
 })
 
 test('every write endpoint uses a strict body allowlist', () => {
@@ -101,27 +114,39 @@ test('every write endpoint uses a strict body allowlist', () => {
 
 // ── ASPIRE retains final authority ──────────────────────────────────────────
 test('a placement response never writes the ASPIRE decision columns', () => {
-  // The LOAD query also uses .eq('id', requestId), so the closing anchor must be
-  // searched for AFTER the update, not from the start of the file.
-  const updStart = placementCode.indexOf('.update({')
-  const update = placementCode.slice(
-    updStart, placementCode.indexOf(".eq('id', requestId)", updStart))
-  assert.ok(update.length > 0, 'update payload slice must not be empty')
-  assert.match(update, /unit_response: response/)
-  assert.doesNotMatch(update, /aspire_status/)
-  assert.doesNotMatch(update, /aspire_decided_by_profile_id/)
-  assert.doesNotMatch(update, /aspire_decided_at/)
+  const setClause = respondFn.slice(
+    respondFn.indexOf('UPDATE public.unit_placement_requests'),
+    respondFn.indexOf('RETURNING * INTO v_row'))
+  assert.match(setClause, /unit_response\s+= p_unit_response/)
+  assert.doesNotMatch(setClause, /aspire_status/)
+  assert.doesNotMatch(setClause, /aspire_decided_by_profile_id/)
+  assert.doesNotMatch(setClause, /aspire_decided_at/)
 })
 
-test('a placement response is refused once ASPIRE has decided', () => {
-  assert.match(placement, /if \(row\.aspire_status !== 'open'\)/)
-  assert.match(placement, /already_decided/)
-  // And the write itself is guarded, so a stale client cannot race it.
-  assert.match(placement, /\.eq\('aspire_status', 'open'\)/)
+test('a placement response is refused once ASPIRE has decided, under a row lock', () => {
+  assert.match(respondFn, /FOR UPDATE/)
+  assert.match(respondFn, /v_row\.aspire_status <> 'open'/)
+  assert.match(respondFn, /ASPIRE has already decided this request/)
+  // The lock is taken BEFORE the guard, so two responses serialize.
+  assert.ok(
+    respondFn.indexOf('FOR UPDATE') < respondFn.indexOf("v_row.aspire_status <> 'open'"),
+    'the row must be locked before the ASPIRE guard is evaluated')
+})
+
+test('the placement RPC re-derives authorization and writes history atomically', () => {
+  assert.match(respondFn, /FROM public\.user_role_grants/)
+  assert.match(respondFn, /FROM public\.user_unit_scopes/)
+  assert.match(respondFn, /INSERT INTO public\.unit_placement_request_events/)
+  // Update and history insert are in one function body, so one transaction.
+  assert.ok(
+    respondFn.indexOf('UPDATE public.unit_placement_requests') <
+    respondFn.indexOf('INSERT INTO public.unit_placement_request_events'))
 })
 
 test('capacity never sets its own review status', () => {
-  const insert = capacityCode.slice(capacityCode.indexOf('.insert({'), capacityCode.indexOf('.select('))
+  const insert = capacityFn.slice(
+    capacityFn.indexOf('INSERT INTO public.unit_capacity_submissions'),
+    capacityFn.indexOf('RETURNING * INTO v_new'))
   assert.doesNotMatch(insert, /review_status/)
   assert.doesNotMatch(insert, /reviewed_by_profile_id/)
   assert.doesNotMatch(insert, /reviewed_at/)
@@ -139,21 +164,25 @@ test('every workflow response surfaces the ASPIRE state to the UI', () => {
 })
 
 // ── Capacity: supersede, never overwrite ────────────────────────────────────
-test('a capacity correction inserts a new row and supersedes the prior one', () => {
-  assert.match(capacity, /supersedes_id: supersedesId/)
-  assert.match(capacity, /\.update\(\{ superseded_at: now \}\)/)
-  // The prior row is only retired AFTER the replacement exists.
+test('a capacity correction supersedes and inserts atomically, under a row lock', () => {
+  assert.match(capacityFn, /FOR UPDATE/)
+  assert.match(capacityFn, /UPDATE public\.unit_capacity_submissions/)
+  assert.match(capacityFn, /INSERT INTO public\.unit_capacity_submissions/)
+  // The lock precedes every guard, which is what makes it race safe.
   assert.ok(
-    capacity.indexOf('.insert({') < capacity.indexOf('superseded_at: now'),
-    'the replacement must be inserted before the prior row is superseded')
-  // And a failure compensates rather than leaving no live submission.
-  assert.match(capacity, /await db\.from\('unit_capacity_submissions'\)\.delete\(\)\.eq\('id', created\.id\)/)
+    capacityFn.indexOf('FOR UPDATE') < capacityFn.indexOf('v_prior.superseded_at IS NOT NULL'),
+    'the prior row must be locked before its state is re-checked')
+  // No compensating delete is needed once both writes are one transaction.
+  assert.doesNotMatch(capacityFn, /DELETE FROM/i)
 })
 
-test('a capacity correction is refused once reviewed or already superseded', () => {
-  assert.match(capacity, /if \(p\.superseded_at\) return res\.status\(409\)\.json\(\{ error: 'already_superseded' \}\)/)
-  assert.match(capacity, /if \(p\.review_status !== 'submitted'\)/)
-  assert.match(capacity, /already_reviewed/)
+test('STALE WRITE: a capacity correction is refused once reviewed or superseded', () => {
+  assert.match(capacityFn, /v_prior\.superseded_at IS NOT NULL/)
+  assert.match(capacityFn, /already superseded/)
+  assert.match(capacityFn, /v_prior\.review_status <> 'submitted'/)
+  assert.match(capacityFn, /already reviewed/)
+  // And the scope is re-derived inside the function, not trusted from the API.
+  assert.match(capacityFn, /FROM public\.user_unit_scopes/)
 })
 
 test('capacity never touches the legacy public unit form path', () => {
@@ -243,12 +272,59 @@ test('the batch path resolves the authorized set once, not per student', () => {
 })
 
 // ── Audit ───────────────────────────────────────────────────────────────────
-test('every state-changing endpoint emits an audit record', () => {
-  for (const [name, src] of Object.entries(WORKFLOW)) {
-    assert.match(src, /emitUnitLeaderAudit\(db, profile, \{/, name)
-  }
-  // Reads do not.
+test('AUDIT IS NEVER BEST EFFORT: each workflow has an atomic audit of record', () => {
+  // placement and capacity: the audit is written by the RPC in the SAME
+  // transaction, so they must NOT also duplicate into activity_logs.
+  assert.match(placement, /db\.rpc\('unit_placement_respond'/)
+  assert.doesNotMatch(placementCode, /emitUnitLeaderAudit/)
+  assert.match(capacity, /db\.rpc\('unit_capacity_submit'/)
+  assert.doesNotMatch(capacityCode, /emitUnitLeaderAudit/)
+
+  // milestones and nominations: a single attributed INSERT into a table that is
+  // never hard deleted IS the audit of record. activity_logs is supplementary.
+  assert.match(milestones, /confirmed_by_profile_id: profile\.id/)
+  assert.match(nominations, /nominated_by_profile_id: profile\.id/)
+
+  // Reads emit nothing.
   assert.doesNotMatch(files, /emitUnitLeaderAudit/)
+})
+
+test('the audit module states plainly that it is NOT the audit of record', () => {
+  assert.match(audit, /THIS IS NOT THE AUDIT OF RECORD/)
+  assert.match(audit, /the domain row is the audit/)
+})
+
+// ── Atomicity ───────────────────────────────────────────────────────────────
+test('a placement response goes through the atomic RPC, not a bare update', () => {
+  assert.match(placement, /db\.rpc\('unit_placement_respond'/)
+  // The non-atomic update-then-insert is gone.
+  assert.doesNotMatch(placementCode, /\.from\('unit_placement_requests'\)[\s\S]{0,200}\.update\(/)
+  assert.doesNotMatch(placementCode, /from\('unit_placement_request_events'\)/)
+})
+
+test('a capacity submission goes through the atomic RPC, not insert-then-supersede', () => {
+  assert.match(capacity, /db\.rpc\('unit_capacity_submit'/)
+  // The compensating-delete path is gone.
+  assert.doesNotMatch(capacityCode, /\.delete\(\)/)
+  assert.doesNotMatch(capacityCode, /superseded_at: now/)
+})
+
+test('RPC errors map to stable keys, never a raw database message', () => {
+  const mapper = read('api/lib/unitLeaderRpcErrors.js')
+  assert.match(mapper, /MS400: 400/)
+  assert.match(mapper, /MS403: 403/)
+  assert.match(mapper, /MS404: 404/)
+  assert.match(mapper, /MS409: 409/)
+  // Unknown codes fail closed to 500.
+  assert.match(mapper, /\?\? 500/)
+  assert.match(mapper, /\?\? 'internal_error'/)
+  // The raw message is never returned.
+  assert.doesNotMatch(mapper, /err\?\.message/)
+})
+
+test('the capacity backstop unique violation still maps to a conflict', () => {
+  assert.match(capacity, /rpcErr\.code === '23505'/)
+  assert.match(capacity, /duplicate_live_submission/)
 })
 
 test('audit records the acting role and unit context, not the portal role', () => {
@@ -274,4 +350,96 @@ test('no em dash in the Unit Leader endpoints', () => {
   for (const [name, src] of Object.entries({ ...ALL_UL, 'unitLeaderAudit.js': audit })) {
     assert.doesNotMatch(src, /—/, name)
   }
+})
+
+// ── Direct-thread authorship (correction 3) ─────────────────────────────────
+const threadFn = rpcLive.slice(rpcLive.indexOf('CREATE OR REPLACE FUNCTION public.messages_portal_get_thread_v2'))
+const verifyRpc = read('db/audit/unit_leader_transactional_integrity_preflight_and_verification.sql')
+
+test('APPLICATION-ONLY WAS IMPOSSIBLE: the old projection collapsed identity', () => {
+  // The pre-existing RPC returned only author_type/label/name, with author_profile_id
+  // and author_role consumed inside the CASE. The API could not recover the truth,
+  // which is why this had to be a database change.
+  const phase5 = read('supabase/migrations/20260716000006_messages_phase5_portal_thread_reverse_pagination.sql')
+  assert.match(phase5, /CASE WHEN p\.author_role = 'staff' THEN 'staff' ELSE 'me' END/)
+  assert.doesNotMatch(phase5, /'author_profile_id', p\.author_profile_id/)
+})
+
+test('authorship is now decided by IDENTITY, not by role', () => {
+  assert.match(threadFn, /WHEN p\.author_profile_id = public\.portal_profile_id\(\) THEN 'me'/)
+  assert.match(threadFn, /WHEN p\.author_profile_id = public\.portal_profile_id\(\) THEN 'You'/)
+})
+
+test('the three author types are me, staff, and participant', () => {
+  const typeCase = threadFn.slice(threadFn.indexOf("'author_type'"), threadFn.indexOf("'author_label'"))
+  assert.match(typeCase, /THEN 'me'/)
+  assert.match(typeCase, /WHEN p\.author_role = 'staff' THEN 'staff'/)
+  assert.match(typeCase, /ELSE 'participant'/)
+})
+
+test('a participant is labeled by their own display name, never You', () => {
+  const labelCase = threadFn.slice(threadFn.indexOf("'author_label'"), threadFn.indexOf("'author_name'"))
+  assert.match(labelCase, /SELECT up\.full_name FROM public\.user_profiles up/)
+  // With a safe fallback per role if a profile name is missing.
+  assert.match(labelCase, /WHEN 'unit_leader' THEN 'Unit Leader'/)
+})
+
+test('the acting role is projected so the UI can badge a Unit Leader', () => {
+  assert.match(threadFn, /'author_role', p\.author_role/)
+})
+
+test('EXISTING student to ASPIRE Team authorship is preserved exactly', () => {
+  // The viewing student matches by identity -> 'me'/'You', as before.
+  // Staff still map to 'staff'/'ASPIRE Team', as before.
+  const labelCase = threadFn.slice(threadFn.indexOf("'author_label'"), threadFn.indexOf("'author_name'"))
+  assert.match(labelCase, /WHEN p\.author_role = 'staff' THEN 'ASPIRE Team'/)
+  assert.match(threadFn, /EXISTING BEHAVIOR IS PRESERVED EXACTLY/)
+})
+
+test('no author email is ever projected', () => {
+  assert.doesNotMatch(threadFn, /up\.email/)
+})
+
+test('the thread RPC keeps its signature, so grants survive CREATE OR REPLACE', () => {
+  assert.match(threadFn, /CREATE OR REPLACE FUNCTION public\.messages_portal_get_thread_v2\(/)
+  assert.doesNotMatch(rpcLive, /DROP FUNCTION IF EXISTS public\.messages_portal_get_thread_v2/)
+})
+
+// ── The follow-up migration itself ──────────────────────────────────────────
+test('the follow-up migration is transactional with a reviewed rollback', () => {
+  assert.match(rpcMigration, /BEGIN;[\s\S]*COMMIT;/)
+  assert.match(rpcMigration, /Rollback\./)
+  // The rollback restores the Phase 5 binary projection verbatim.
+  assert.match(rpcMigration, /CASE WHEN p\.author_role = 'staff' THEN 'staff' ELSE 'me' END/)
+  assert.match(rpcMigration, /DROP FUNCTION IF EXISTS public\.unit_capacity_submit/)
+  assert.match(rpcMigration, /DROP FUNCTION IF EXISTS public\.unit_placement_respond/)
+})
+
+test('both new RPCs are service_role only', () => {
+  for (const fn of ['unit_placement_respond', 'unit_capacity_submit']) {
+    assert.match(rpcLive, new RegExp(`REVOKE ALL ON FUNCTION public\\.${fn}\\([^)]*\\)\\s*\\n?\\s*FROM PUBLIC, anon, authenticated`))
+    assert.match(rpcLive, new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${fn}\\([^)]*\\)\\s*\\n?\\s*TO service_role`))
+  }
+})
+
+test('the follow-up migration does not touch Wave F-2 or the read/send split', () => {
+  const sql = rpcLive.replace(/^\s*--.*$/gm, '')
+  assert.doesNotMatch(sql, /storage\.buckets|storage\.objects|student-files/)
+  assert.doesNotMatch(sql, /CREATE OR REPLACE FUNCTION public\.message_participant_can_(read|send)/)
+  assert.doesNotMatch(sql, /ALTER TABLE public\.user_unit_scopes/)
+})
+
+test('the follow-up preflight and verification are read only with stop conditions', () => {
+  assert.doesNotMatch(verifyRpc, /^\s*(UPDATE|INSERT|DELETE|ALTER|DROP|CREATE|TRUNCATE|GRANT|REVOKE)\b/im)
+  assert.match(verifyRpc, /STOP CONDITIONS/)
+  for (let i = 1; i <= 6; i++) assert.match(verifyRpc, new RegExp(`PREFLIGHT ${i}:`))
+  assert.match(verifyRpc, /VERIFY 4: the author projection is now identity-based and three-way/)
+  assert.match(verifyRpc, /STOP if is_binary_projection is still true/)
+  // And it uses executable-pattern matching, not bare substrings.
+  assert.match(verifyRpc, /prosrc ~\* 'FROM public\\\.user_unit_scopes'/)
+})
+
+test('no em dash in the follow-up migration or its verification', () => {
+  assert.doesNotMatch(rpcMigration, /—/)
+  assert.doesNotMatch(verifyRpc, /—/)
 })

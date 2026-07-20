@@ -11,11 +11,13 @@
 // response payload always reports both, and the UI labels the request as pending
 // ASPIRE confirmation until aspire_status leaves 'open'.
 //
-// Every transition is appended to unit_placement_request_events (never overwritten)
-// and emitted to activity_logs.
+// AUDIT IS ATOMIC, NOT BEST EFFORT. The response and its append-only history row
+// are written by unit_placement_respond in ONE transaction, so a successful state
+// change cannot exist without its audit row. unit_placement_request_events is the
+// audit of record for this workflow; nothing is duplicated into activity_logs.
 
 import { verifyPortalUnitLeaderCaller, narrowScopes } from '../lib/unitLeaderScope.js'
-import { emitUnitLeaderAudit } from '../lib/unitLeaderAudit.js'
+import { mapRpcError, mapRpcStatus } from '../lib/unitLeaderRpcErrors.js'
 
 const UNIT_RESPONSES = new Set(['accepted', 'declined', 'changes_requested'])
 const MAX_COMMENT = 2000
@@ -40,7 +42,7 @@ export default async function handler(req, res) {
 
   return req.method === 'GET'
     ? listRequests(req, res, { db, scopes, unitKeys })
-    : respondToRequest(req, res, { db, profile, scopes })
+    : respondToRequest(req, res, { db, profile })
 }
 
 async function listRequests(req, res, { db, scopes, unitKeys }) {
@@ -71,7 +73,7 @@ async function listRequests(req, res, { db, scopes, unitKeys }) {
   })
 }
 
-async function respondToRequest(req, res, { db, profile, scopes }) {
+async function respondToRequest(req, res, { db, profile }) {
   const body = req.body && typeof req.body === 'object' ? req.body : {}
 
   // Strict allowlist: an unexpected key is a client error, not something to ignore.
@@ -92,70 +94,25 @@ async function respondToRequest(req, res, { db, profile, scopes }) {
     return res.status(400).json({ error: 'comment_required_for_changes' })
   }
 
-  // Load the row and authorize it against the caller's scopes. A request outside
-  // scope is reported as not found, so the endpoint does not confirm its existence.
-  const { data: row, error: loadErr } = await db
-    .from('unit_placement_requests')
-    .select('id, student_id, cohort_id, unit_key, unit_response, aspire_status')
-    .eq('id', requestId)
-    .maybeSingle()
-  if (loadErr) return res.status(500).json({ error: 'internal_error' })
-  if (!row) return res.status(404).json({ error: 'not_found' })
-
-  const covered = scopes.some(s =>
-    s.unit_key === row.unit_key && (s.cohort_id === null || s.cohort_id === row.cohort_id))
-  if (!covered) return res.status(404).json({ error: 'not_found' })
-
-  // ASPIRE has already decided; the Unit Leader window is closed.
-  if (row.aspire_status !== 'open') {
-    return res.status(409).json({ error: 'already_decided', aspire_status: row.aspire_status })
-  }
-
-  const now = new Date().toISOString()
-  const { data: updated, error: updErr } = await db
-    .from('unit_placement_requests')
-    .update({
-      unit_response: response,
-      unit_comment: comment || null,
-      responded_by_profile_id: profile.id,
-      responded_at: now,
-      updated_at: now,
-    })
-    .eq('id', requestId)
-    // Optimistic guard: only transition while ASPIRE has not decided, so a stale
-    // client cannot overwrite a decision made between load and write.
-    .eq('aspire_status', 'open')
-    .select('id, student_id, cohort_id, unit_key, unit_response, unit_comment, ' +
-            'responded_at, aspire_status, aspire_note, aspire_decided_at, due_at, created_at, updated_at')
-    .maybeSingle()
-  if (updErr) return res.status(500).json({ error: 'internal_error' })
-  if (!updated) return res.status(409).json({ error: 'already_decided' })
-
-  // Append-only history. Never overwritten.
-  await db.from('unit_placement_request_events').insert({
-    request_id: requestId,
-    event_type: 'unit_response',
-    actor_profile_id: profile.id,
-    actor_role: 'unit_leader',
-    unit_key: row.unit_key,
-    from_value: row.unit_response,
-    to_value: response,
-    comment: comment || null,
+  // ATOMIC. The RPC re-derives authorization from the actor profile, guards on
+  // aspire_status = 'open' under a row lock, updates the request, and appends the
+  // history row in ONE transaction. A successful state change can no longer exist
+  // without its audit row, which the previous update-then-insert could produce.
+  //
+  // The request id is passed, not trusted: the function itself checks the active
+  // unit_leader grant and an active user_unit_scopes row covering the request's
+  // unit and cohort, so the API cannot widen scope by passing an arbitrary id.
+  const { data: result, error: rpcErr } = await db.rpc('unit_placement_respond', {
+    p_actor_profile_id: profile.id,
+    p_request_id: requestId,
+    p_unit_response: response,
+    p_comment: comment || null,
   })
 
-  await emitUnitLeaderAudit(db, profile, {
-    action: 'unit_placement_response',
-    entityType: 'unit_placement_request',
-    entityId: requestId,
-    unitKey: row.unit_key,
-    cohortId: row.cohort_id,
-    fromValue: row.unit_response,
-    toValue: response,
-    comment: comment || null,
-    aspireStatus: updated.aspire_status,
-  })
+  if (rpcErr) return res.status(mapRpcStatus(rpcErr)).json({ error: mapRpcError(rpcErr) })
+  if (!result) return res.status(404).json({ error: 'not_found' })
 
-  return res.status(200).json({ request: shapeRequest(updated) })
+  return res.status(200).json({ request: result })
 }
 
 function shapeRequest(r) {

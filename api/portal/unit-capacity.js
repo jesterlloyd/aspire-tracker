@@ -5,10 +5,16 @@
 // GET   live and superseded submissions for the caller's assigned units
 // POST  create a submission, or correct a pending one
 //
-// SUPERSEDE, NEVER OVERWRITE. A correction inserts a NEW row pointing at the one it
-// replaces and stamps superseded_at on the old row, so the history is complete and
-// nothing is lost. That is the whole reason this table exists rather than reusing
-// unit_cohort_responses, which is UNIQUE(cohort_id, unit_id) and overwrites in place.
+// SUPERSEDE, NEVER OVERWRITE, ATOMICALLY. A correction stamps superseded_at on the
+// prior row and inserts the replacement inside ONE transaction, under a row lock, so
+// two concurrent corrections serialize rather than both passing the pre-checks. The
+// history is complete and nothing is lost. That is the whole reason this table
+// exists rather than reusing unit_cohort_responses, which is
+// UNIQUE(cohort_id, unit_id) and overwrites in place.
+//
+// The table itself is the audit of record: every row carries submitted_by_profile_id,
+// submitted_at, the full values, and its supersedes_id lineage. Nothing is
+// duplicated into activity_logs.
 //
 // The legacy public unit form path (unit_cohort_responses, api/unit-form-submit.js)
 // is deliberately untouched by this endpoint.
@@ -17,7 +23,7 @@
 // only correct a submission that is still 'submitted'.
 
 import { verifyPortalUnitLeaderCaller, narrowScopes } from '../lib/unitLeaderScope.js'
-import { emitUnitLeaderAudit } from '../lib/unitLeaderAudit.js'
+import { mapRpcError, mapRpcStatus } from '../lib/unitLeaderRpcErrors.js'
 
 const SHIFTS = new Set(['any', 'day', 'evening', 'night', 'weekend'])
 const MAX_NOTES = 2000
@@ -118,87 +124,35 @@ async function createSubmission(req, res, { db, profile, scopes }) {
     s.unit_key === unitKey && (s.cohort_id === null || s.cohort_id === cohortId))
   if (!covered) return res.status(403).json({ error: 'unit_not_in_scope' })
 
-  // A correction may only supersede a submission that is still awaiting review, in
-  // the same unit, and not already superseded.
-  let prior = null
-  if (supersedesId) {
-    const { data: p, error: pErr } = await db
-      .from('unit_capacity_submissions')
-      .select('id, unit_key, cohort_id, review_status, superseded_at, student_count')
-      .eq('id', supersedesId)
-      .maybeSingle()
-    if (pErr) return res.status(500).json({ error: 'internal_error' })
-    if (!p) return res.status(404).json({ error: 'not_found' })
-    if (p.unit_key !== unitKey || p.cohort_id !== cohortId) {
-      return res.status(403).json({ error: 'supersedes_out_of_scope' })
-    }
-    if (p.superseded_at) return res.status(409).json({ error: 'already_superseded' })
-    if (p.review_status !== 'submitted') {
-      return res.status(409).json({ error: 'already_reviewed', review_status: p.review_status })
-    }
-    prior = p
-  }
-
-  const now = new Date().toISOString()
-  const { data: created, error: insErr } = await db
-    .from('unit_capacity_submissions')
-    .insert({
-      unit_key: unitKey,
-      cohort_id: cohortId,
-      period_label: periodLabel,
-      period_start_date: startDate,
-      period_end_date: endDate,
-      shift,
-      student_count: studentCount,
-      notes: notes || null,
-      supersedes_id: supersedesId,
-      submitted_by_profile_id: profile.id,
-      submitted_at: now,
-    })
-    .select('id, unit_key, cohort_id, period_label, period_start_date, period_end_date, ' +
-            'shift, student_count, notes, review_status, review_note, reviewed_at, ' +
-            'supersedes_id, superseded_at, submitted_at')
-    .maybeSingle()
-
-  if (insErr) {
-    // uq_ucs_live: one live submission per unit, cohort, period, and shift.
-    if (insErr.code === '23505') {
-      return res.status(409).json({ error: 'duplicate_live_submission' })
-    }
-    return res.status(500).json({ error: 'internal_error' })
-  }
-
-  // Mark the prior row superseded only AFTER the replacement exists, so a failure
-  // never leaves the unit with no live submission.
-  if (prior) {
-    const { error: supErr } = await db
-      .from('unit_capacity_submissions')
-      .update({ superseded_at: now })
-      .eq('id', prior.id)
-      .is('superseded_at', null)
-    if (supErr) {
-      // Compensate: the replacement would otherwise collide with the live unique
-      // index on the next attempt and the history would be ambiguous.
-      await db.from('unit_capacity_submissions').delete().eq('id', created.id)
-      return res.status(500).json({ error: 'internal_error' })
-    }
-  }
-
-  await emitUnitLeaderAudit(db, profile, {
-    action: prior ? 'unit_capacity_corrected' : 'unit_capacity_submitted',
-    entityType: 'unit_capacity_submission',
-    entityId: created.id,
-    unitKey,
-    cohortId,
-    fromValue: prior ? String(prior.student_count) : null,
-    toValue: String(studentCount),
-    comment: notes || null,
-    aspireStatus: created.review_status,
-    description: `${profile.full_name || 'A Unit Leader'} submitted capacity of ` +
-      `${studentCount} for ${unitKey} (${periodLabel}, ${shift})`,
+  // ATOMIC. The RPC locks the row being replaced, re-checks that it is still live
+  // and unreviewed, stamps superseded_at, and inserts the replacement in ONE
+  // transaction. Two concurrent corrections serialize on the lock instead of both
+  // passing the pre-checks, and uq_ucs_live remains the final backstop for exactly
+  // one live submission per unit, cohort, period, and shift.
+  //
+  // The previous insert-then-supersede with a compensating delete could not provide
+  // that guarantee under concurrency.
+  const { data: result, error: rpcErr } = await db.rpc('unit_capacity_submit', {
+    p_actor_profile_id: profile.id,
+    p_unit_key: unitKey,
+    p_cohort_id: cohortId,
+    p_period_label: periodLabel,
+    p_shift: shift,
+    p_student_count: studentCount,
+    p_notes: notes || null,
+    p_supersedes_id: supersedesId,
+    p_period_start_date: startDate,
+    p_period_end_date: endDate,
   })
 
-  return res.status(201).json({ submission: shapeSubmission(created) })
+  if (rpcErr) {
+    // uq_ucs_live is the concurrency backstop behind the RPC.
+    if (rpcErr.code === '23505') return res.status(409).json({ error: 'duplicate_live_submission' })
+    return res.status(mapRpcStatus(rpcErr)).json({ error: mapRpcError(rpcErr) })
+  }
+  if (!result) return res.status(500).json({ error: 'internal_error' })
+
+  return res.status(201).json({ submission: result })
 }
 
 function shapeSubmission(r) {
