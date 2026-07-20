@@ -95,12 +95,51 @@ test('mark-read passes the caller actor kind, never a hardcoded student', () => 
   assert.doesNotMatch(markRead, /p_actor_kind: 'student'/)
 })
 
-test('the WRITE paths are deliberately NOT generalized yet', () => {
-  // reply and start still hardcode the student actor. A unit leader reaching them
-  // would be denied by verifyPortalStudentCaller, which is the safe state until the
-  // direct-thread routing and delivery event types are implemented.
-  assert.match(reply, /verifyPortalStudentCaller/)
+test('REPLY is generalized and routes a direct thread to the other portal party', () => {
+  assert.match(reply, /verifyPortalMessagesCaller\(req\)/)
+  assert.doesNotMatch(reply, /verifyPortalStudentCaller/)
+  // The counterpart comes from the conversation's own participant rows.
+  assert.match(reply, /loadDirectCounterpart\(db, conversationId, caller\.profile\.id\)/)
+  assert.match(reply, /replyForPortalDirect\(/)
+  // A single-participant thread still uses the unchanged student to staff path.
+  assert.match(reply, /if \(counterpart\) \{/)
+  assert.match(reply, /await replyForPortal\(/)
+})
+
+test('the direct reply passes the VERIFIED actor kind, never a client value', () => {
+  assert.match(reply, /actorKind: caller\.actorKind/)
+  const body = reply.slice(reply.indexOf('replyForPortalDirect('), reply.indexOf('if (direct.rpcError)'))
+  assert.doesNotMatch(body, /req\.body|parsed\.body/)
+})
+
+test('THREAD CREATION is not yet exposed by an endpoint', () => {
+  // startDirectThreadForUnitLeader exists in the service layer but no route calls
+  // it yet, so a unit leader cannot create a thread. messages-start.js remains
+  // student-only, which is the safe state.
   assert.match(start, /verifyPortalStudentCaller/)
+  assert.doesNotMatch(start, /startDirectThreadForUnitLeader/)
+})
+
+test('the direct service functions never trust a client-supplied identity', () => {
+  const svc = read('lib/server/messages/conversationService.js')
+  const direct = svc.slice(svc.indexOf('export async function replyForPortalDirect'))
+  // Recipient identity comes from the resolved counterpart only.
+  assert.match(direct, /senderProfileId: profile\.id/)
+  assert.match(direct, /counterpart,/)
+  // The sender is never the recipient.
+  assert.match(svc, /counterpart\.profileId === senderProfileId/)
+  assert.match(svc, /sender_is_recipient/)
+  // And the delivery payload is still built by the shared allowlist.
+  assert.match(direct, /buildDeliveryPayload\(\{/)
+})
+
+test('direct threads use the two new delivery event types, correctly directed', () => {
+  const svc = read('lib/server/messages/conversationService.js')
+  assert.match(svc, /actorKind === 'unit_leader'\s*\n\s*\? 'unit_leader_message'\s*\n\s*: 'student_to_unit_leader_message'/)
+  // Both route to the other portal participant, never to staff.
+  assert.match(svc, /recipientKind: 'portal_user'/)
+  const direct = svc.slice(svc.indexOf('function directRecipient'))
+  assert.doesNotMatch(direct.slice(0, 600), /SHARED_INBOX_EMAIL|assignedStaff/)
 })
 
 test('no em dash in the generalized Messages files', () => {

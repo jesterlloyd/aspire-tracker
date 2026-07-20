@@ -11,17 +11,20 @@
 
 /* global process */
 import { Resend } from 'resend';
-import { verifyPortalStudentCaller, getServiceDb } from '../lib/messagesAuth.js';
+import { verifyPortalMessagesCaller, getServiceDb } from '../lib/messagesAuth.js';
 import { methodGuard, readJsonBody, mapRpcError, rateLimitResponse, notFound, logApiError } from '../lib/messagesApi.js';
 import { validateBody, isUuid } from '../../lib/server/messages/validation.js';
 import { consumeMessage } from '../../lib/server/messages/rateLimitUtil.js';
-import { replyForPortal } from '../../lib/server/messages/conversationService.js';
-import { loadConversationRoutingContext } from '../lib/messagesContext.js';
+import { replyForPortal, replyForPortalDirect } from '../../lib/server/messages/conversationService.js';
+import { loadConversationRoutingContext, loadDirectCounterpart } from '../lib/messagesContext.js';
 
 export default async function handler(req, res) {
   if (!methodGuard(req, res, ['POST'])) return;
 
-  const caller = await verifyPortalStudentCaller(req);
+  // UL-PORTAL: admits a student OR a unit leader. The RPC re-authorizes through
+  // message_participant_can_send, so an ended unit assignment freezes the thread
+  // for both parties even though this check passed.
+  const caller = await verifyPortalMessagesCaller(req);
   if (!caller.ok) return res.status(caller.status).json({ error: caller.reason });
 
   const parsed = readJsonBody(req);
@@ -45,6 +48,35 @@ export default async function handler(req, res) {
   try {
     const ctx = await loadConversationRoutingContext(db, conversationId);
     if (!ctx) return notFound(res);
+
+    // A DIRECT thread has two portal participants and routes to the other party,
+    // never to staff. The counterpart is resolved from the conversation's own
+    // participant rows, never from the request.
+    const counterpart = await loadDirectCounterpart(db, conversationId, caller.profile.id);
+    if (counterpart) {
+      const direct = await replyForPortalDirect(
+        { db, resend: new Resend(process.env.RESEND_API_KEY) },
+        {
+          profile: caller.profile,
+          actorKind: caller.actorKind,
+          conversationId,
+          conversation: ctx,
+          counterpart,
+          body: body.value,
+        },
+      );
+      if (direct.rpcError) {
+        const mapped = mapRpcError(direct.rpcError);
+        logApiError('portal/messages-reply', mapped.error, direct.rpcError);
+        return res.status(mapped.status).json({ error: mapped.error });
+      }
+      if (!direct.ok) return res.status(409).json({ error: 'conflict', reason: direct.reason });
+      return res.status(201).json({
+        message_id: direct.result.message_id,
+        created_at: direct.result.created_at,
+        reopened: direct.result.reopened === true,
+      });
+    }
 
     const out = await replyForPortal(
       { db, resend: new Resend(process.env.RESEND_API_KEY) },

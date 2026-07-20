@@ -92,3 +92,22 @@ export async function loadActiveParticipant(db, conversationId) {
   const all = await loadActiveParticipants(db, conversationId);
   return all.length > 0 ? all[0] : null;
 }
+
+// UL-PORTAL: resolve the OTHER portal participant of a direct thread, from verified
+// server state only. Returns null for a single-participant (student to ASPIRE Team)
+// conversation, which is how a caller distinguishes the two thread shapes without
+// trusting anything from the request.
+export async function loadDirectCounterpart(db, conversationId, selfProfileId) {
+  const participants = await loadActiveParticipants(db, conversationId);
+  if (participants.length < 2) return null;
+  const other = participants.find(p => p.profileId !== selfProfileId);
+  if (!other) return null;
+  return {
+    profileId: other.profileId,
+    email: other.email,
+    fullName: other.fullName,
+    role: other.role,
+    unitKey: other.unitKey || null,
+    studentId: other.studentId || null,
+  };
+}
