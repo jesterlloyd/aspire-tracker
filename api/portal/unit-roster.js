@@ -10,19 +10,26 @@
 // Authorization: verified JWT -> profile -> ACTIVE unit_leader grant ->
 // ACTIVE user_unit_scopes. No request parameter influences scope.
 //
+// UL-PORTAL SCOPE CORRECTION: scoping now runs through the single source of truth
+// in api/lib/unitLeaderScope.js, which resolves a student's unit via
+// students.matched_unit_id -> units.unit_name.
+//
+// The previous implementation filtered on students.unit, a legacy column that no
+// writer ever populates (it is absent from the api/student-update.js allowlist and
+// is only ever initialized to ''), so every scoped unit returned an empty roster.
+// That was fail closed but non-functional. matched_unit_id is the canonical
+// placement written by the matching workflow.
+//
 // Support-indicator privacy (Owner decision item 6 default): the response
 // carries ONLY a per-student count of recent shift logs with a support note,
 // never the note text.
 
-import { verifyPortalCaller, getServiceDb, hasActiveRoleGrant, getActiveUnitScopes } from '../lib/portalAuth.js'
 import { resolveAcceptingCohort } from '../lib/intakeStudentLookup.js'
-
-const ROSTER_STATUSES = ['Placed', 'Active Rotation', 'Completed']
-const STUDENT_COLUMNS = [
-  'id', 'cohort_id', 'first_name', 'preferred_first_name', 'last_name',
-  'school', 'status', 'unit', 'preceptor_name', 'term_dates',
-  'hours_required', 'approved_hours', 'pending_hours',
-].join(', ')
+import {
+  verifyPortalUnitLeaderCaller,
+  resolveUnitScopedStudents,
+  onboardingSummary,
+} from '../lib/unitLeaderScope.js'
 
 const SUPPORT_WINDOW_DAYS = 30
 
@@ -37,33 +44,23 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'internal_error' })
   }
 
-  const auth = await verifyPortalCaller(req)
-  if (!auth.authenticated) {
-    return res.status(auth.status === 403 ? 403 : 401).json({ error: auth.status === 403 ? 'forbidden' : 'unauthorized' })
+  const auth = await verifyPortalUnitLeaderCaller(req)
+  if (!auth.ok) {
+    return res.status(auth.status).json({ error: auth.status === 403 ? 'forbidden' : 'unauthorized' })
   }
 
-  const db = getServiceDb()
-
-  const isUnitLeader = await hasActiveRoleGrant(db, auth.profile.id, 'unit_leader')
-  if (!isUnitLeader) return res.status(403).json({ error: 'forbidden' })
-
-  const scopes = await getActiveUnitScopes(db, auth.profile.id)
+  const { db, scopes, unitKeys } = auth
   if (scopes.length === 0) return res.status(200).json({ units: [], accepting_cohort: null })
 
-  const unitKeys = [...new Set(scopes.map(s => s.unit_key))]
-
-  // Students placed in the scoped units (status subset appropriate for unit
-  // oversight). Cohort-restricted scopes filter after the fetch.
-  const { data: students, error: sErr } = await db
-    .from('students')
-    .select(STUDENT_COLUMNS)
-    .in('unit', unitKeys)
-    .in('status', ROSTER_STATUSES)
-  if (sErr) return res.status(500).json({ error: 'internal_error' })
-
-  const inScope = (students || []).filter(s =>
-    scopes.some(sc => sc.unit_key === s.unit && (sc.cohort_id === null || sc.cohort_id === s.cohort_id))
-  )
+  // THE authorization query. Resolves students via matched_unit_id -> unit_name,
+  // applies the scope's cohort rules, and drops any completed student outside the
+  // 90-day window (fail closed when no rotation end date exists).
+  let inScope
+  try {
+    ({ students: inScope } = await resolveUnitScopedStudents(db, scopes))
+  } catch {
+    return res.status(500).json({ error: 'internal_error' })
+  }
 
   const cohortIds = [...new Set(inScope.map(s => s.cohort_id).filter(Boolean))]
   let cohortsById = {}
@@ -125,7 +122,7 @@ export default async function handler(req, res) {
   const units = unitKeys.map(unitKey => ({
     unit_key: unitKey,
     students: inScope
-      .filter(s => s.unit === unitKey)
+      .filter(s => s.unit_key === unitKey)
       .map(s => ({
         id: s.id,
         first_name: s.first_name,
@@ -133,6 +130,11 @@ export default async function handler(req, res) {
         last_name: s.last_name,
         school: s.school,
         status: s.status,
+        // Lifecycle bucket resolved server side: upcoming | active | completed.
+        bucket: s.bucket,
+        // General onboarding category and outstanding item keys only. Underlying
+        // onboarding documents and clearance/health attributes are never included.
+        onboarding: onboardingSummary(s),
         term_dates: s.term_dates || null,
         cohort: cohortsById[s.cohort_id]
           ? {
