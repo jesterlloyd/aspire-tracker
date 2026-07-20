@@ -56,13 +56,38 @@ COMMENT ON COLUMN public.students.rotation_end_date IS
 COMMENT ON COLUMN public.students.rotation_completed_at IS
   'Set when a rotation is confirmed concluded. Drives the 90-day Unit Leader visibility window when present; falls back to rotation_end_date.';
 
--- Backfill: only real dates, only for students who actually have a rotation link.
+-- Backfill: ONLY where the source is uniquely and confidently determined.
+--
+-- Every condition below is required. If any one fails the field stays NULL, and a
+-- NULL rotation_end_date makes the student invisible in the completed bucket, so
+-- every failure mode is a fail-closed failure mode.
+--
+--   a. the student carries an explicit FK to one rotation row. cohort_school_rotations.id
+--      is the primary key, so this join can match AT MOST ONE source row: the
+--      backfill is structurally incapable of an ambiguous multi-row match.
+--   b. that row's cohort AND school still agree with the student's own cohort and
+--      school. This catches drift where a student was moved between cohorts or
+--      schools after the FK was set, in which case the linked dates are no longer
+--      trustworthy and are deliberately NOT copied.
+--   c. the date is not the '1900-01-01' sentinel, which means "pending admin review".
+--   d. the column is already a real `date`, so no cast, parse, or coercion occurs.
+--
+-- Explicitly NOT used as a source, in any branch: shift logs, students.term_dates
+-- (free text), and cohorts.start_date / end_date (TEXT). Nothing is inferred.
+--
+-- rotation_completed_at is deliberately NOT backfilled at all: no existing column
+-- records when a rotation was actually confirmed concluded, and inventing one from
+-- a scheduled end date would be exactly the inference this rule forbids. It is
+-- populated going forward by the milestone confirmation flow.
 UPDATE public.students s
 SET rotation_end_date = r.rotation_end_date
 FROM public.cohort_school_rotations r
 WHERE s.cohort_school_rotation_id = r.id
   AND s.rotation_end_date IS NULL
-  AND r.rotation_end_date <> DATE '1900-01-01';
+  AND r.rotation_end_date IS NOT NULL
+  AND r.rotation_end_date <> DATE '1900-01-01'
+  AND r.cohort_id   = s.cohort_id
+  AND r.school_name = s.school;
 
 CREATE INDEX IF NOT EXISTS idx_students_rotation_end_date
   ON public.students (rotation_end_date)
@@ -566,6 +591,271 @@ AS $$
       '-infinity'::timestamptz);
 $$;
 
+-- 8d. Delivery validation: admit the two direct-thread event types.
+-- Both route to portal_user, because a direct Unit Leader to student message
+-- notifies the OTHER portal participant and never staff. Every existing binding
+-- (new_conversation -> shared_inbox, portal_reply -> staff, staff_reply ->
+-- portal_user) is preserved byte for byte.
+CREATE OR REPLACE FUNCTION public.message_assert_valid_delivery(
+  p_delivery         jsonb,
+  p_expected_event   text,
+  p_actor_profile_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
+DECLARE
+  v_key   text;
+  v_email text;
+  v_kind  text;
+  v_event text;
+  v_rp    uuid;
+  v_k     text;
+BEGIN
+  IF p_delivery IS NULL OR jsonb_typeof(p_delivery) <> 'object' THEN
+    RAISE EXCEPTION 'delivery payload is required' USING ERRCODE = 'MS400';
+  END IF;
+
+  -- No message content may ever enter a delivery row.
+  FOR v_k IN SELECT jsonb_object_keys(p_delivery) LOOP
+    IF v_k ~* '(^|_)(body|preview|snippet|content|html|text|quote|quoted)(_|$)' THEN
+      RAISE EXCEPTION 'delivery payload may not contain message content'
+        USING ERRCODE = 'MS400';
+    END IF;
+  END LOOP;
+
+  v_key   := btrim(coalesce(p_delivery->>'idempotency_key', ''));
+  v_email := btrim(coalesce(p_delivery->>'recipient_email', ''));
+  v_kind  := coalesce(p_delivery->>'recipient_kind', '');
+  v_event := coalesce(p_delivery->>'event_type', '');
+  v_rp    := NULLIF(p_delivery->>'recipient_profile_id', '')::uuid;
+
+  IF v_key = '' THEN
+    RAISE EXCEPTION 'delivery idempotency_key is required' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_email = '' THEN
+    RAISE EXCEPTION 'delivery recipient_email is required' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_kind NOT IN ('shared_inbox', 'assigned_staff', 'portal_user') THEN
+    RAISE EXCEPTION 'invalid delivery recipient_kind' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_event NOT IN ('new_conversation', 'portal_reply', 'staff_reply',
+                     'unit_leader_message', 'student_to_unit_leader_message') THEN
+    RAISE EXCEPTION 'invalid delivery event_type' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_event <> p_expected_event THEN
+    RAISE EXCEPTION 'delivery event_type does not match the operation'
+      USING ERRCODE = 'MS400';
+  END IF;
+
+  -- The recipient kind must match the approved Phase 2 routing shape.
+  IF v_event = 'new_conversation' AND v_kind <> 'shared_inbox' THEN
+    RAISE EXCEPTION 'new_conversation must route to the shared inbox' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_event = 'portal_reply' AND v_kind NOT IN ('shared_inbox', 'assigned_staff') THEN
+    RAISE EXCEPTION 'portal_reply must route to staff' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_event = 'staff_reply' AND v_kind <> 'portal_user' THEN
+    RAISE EXCEPTION 'staff_reply must route to the portal participant' USING ERRCODE = 'MS400';
+  END IF;
+  -- UL-PORTAL: a direct Unit Leader to student thread notifies the OTHER portal
+  -- participant, never staff. Both new directions therefore route to portal_user.
+  IF v_event IN ('unit_leader_message', 'student_to_unit_leader_message')
+     AND v_kind <> 'portal_user' THEN
+    RAISE EXCEPTION 'direct portal message must route to the other portal participant'
+      USING ERRCODE = 'MS400';
+  END IF;
+  IF v_kind = 'portal_user' AND v_rp IS NULL THEN
+    RAISE EXCEPTION 'portal_user delivery requires recipient_profile_id' USING ERRCODE = 'MS400';
+  END IF;
+
+  -- The sender is never the recipient.
+  IF v_rp IS NOT NULL AND v_rp = p_actor_profile_id THEN
+    RAISE EXCEPTION 'sender may not be the notification recipient' USING ERRCODE = 'MS400';
+  END IF;
+
+  -- Required safe snapshot and CTA fields.
+  IF btrim(coalesce(p_delivery->>'snapshot_sender_name', '')) = '' THEN
+    RAISE EXCEPTION 'delivery snapshot_sender_name is required' USING ERRCODE = 'MS400';
+  END IF;
+  IF btrim(coalesce(p_delivery->>'snapshot_subject', '')) = '' THEN
+    RAISE EXCEPTION 'delivery snapshot_subject is required' USING ERRCODE = 'MS400';
+  END IF;
+  IF btrim(coalesce(p_delivery->>'cta_path', '')) = '' THEN
+    RAISE EXCEPTION 'delivery cta_path is required' USING ERRCODE = 'MS400';
+  END IF;
+END;
+$$;
+
+-- 8e. Reply: admit a unit_leader author, and make the staff branch deterministic.
+--
+-- TWO changes, both forced by the two-participant thread:
+--   1. p_actor_kind now admits 'unit_leader'. Access is checked with the same
+--      message_recipient_has_active_access predicate, so a revoked unit scope or a
+--      deactivated account denies the reply on the very next call.
+--   2. The staff branch no longer picks a participant with LIMIT 1. With two active
+--      participants that was nondeterministic and could refuse a legitimate
+--      intervention. The delivery's declared recipient is now validated to be an
+--      active-access participant of this conversation.
+--
+-- Student to ASPIRE Team behavior is unchanged: same author_role, same
+-- 'portal_reply' event, same read-pointer write, same delivery invariants.
+CREATE OR REPLACE FUNCTION public.messages_post_reply(
+  p_actor_profile_id uuid,
+  p_actor_kind       text,
+  p_conversation_id  uuid,
+  p_body             text,
+  p_delivery         jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
+DECLARE
+  v_now            timestamptz := now();
+  v_message_id     uuid;
+  v_delivery_id    uuid;
+  v_status         text;
+  v_reopened       boolean := false;
+  v_author_role    text;
+  v_participant    uuid;
+  v_expected_event text;
+BEGIN
+  IF p_actor_kind NOT IN ('student', 'staff', 'unit_leader') THEN
+    RAISE EXCEPTION 'invalid actor kind' USING ERRCODE = 'MS400';
+  END IF;
+  IF char_length(btrim(coalesce(p_body, ''))) < 1 OR char_length(p_body) > 5000 THEN
+    RAISE EXCEPTION 'body must be 1 to 5000 characters' USING ERRCODE = 'MS400';
+  END IF;
+
+  SELECT status INTO v_status FROM public.conversations WHERE id = p_conversation_id;
+  IF v_status IS NULL THEN
+    RAISE EXCEPTION 'conversation not found' USING ERRCODE = 'MS404';
+  END IF;
+
+  IF p_actor_kind IN ('student', 'unit_leader') THEN
+    -- Live active participant access (never conversation id alone). For a unit
+    -- leader this requires an ACTIVE unit_leader grant AND an ACTIVE
+    -- user_unit_scopes row for the participant row's unit, so a revoked scope
+    -- denies the reply on the very next call.
+    IF NOT public.message_recipient_has_active_access(p_conversation_id, p_actor_profile_id) THEN
+      RAISE EXCEPTION 'conversation not found' USING ERRCODE = 'MS404';
+    END IF;
+    IF p_actor_kind = 'student' THEN
+      v_author_role := 'student';
+      -- Unchanged for a student to ASPIRE Team thread. A student replying in a
+      -- DIRECT thread notifies the unit leader instead, which the caller declares.
+      v_expected_event := CASE
+        WHEN p_delivery->>'event_type' = 'student_to_unit_leader_message'
+          THEN 'student_to_unit_leader_message'
+        ELSE 'portal_reply' END;
+    ELSE
+      v_author_role    := 'unit_leader';
+      v_expected_event := 'unit_leader_message';
+    END IF;
+  ELSE
+    IF NOT public.message_profile_is_active_owner_or_admin(p_actor_profile_id) THEN
+      RAISE EXCEPTION 'staff actor must be an active owner or admin' USING ERRCODE = 'MS403';
+    END IF;
+    -- UL-PORTAL: a conversation may now hold TWO active portal participants
+    -- (a student and a unit leader). Staff are never participants, so the old
+    -- "SELECT ... LIMIT 1" resolution became NONDETERMINISTIC and could block a
+    -- legitimate staff intervention whenever the arbitrarily chosen party was the
+    -- one whose access had ended.
+    --
+    -- The delivery's declared recipient is now authoritative and is validated to be
+    -- an active-access participant of THIS conversation. Staff can therefore always
+    -- intervene toward whichever party still has access, which is exactly the
+    -- "staff may view and intervene" rule.
+    v_participant := NULLIF(p_delivery->>'recipient_profile_id', '')::uuid;
+    IF v_participant IS NULL
+       OR NOT EXISTS (
+            SELECT 1 FROM public.conversation_participants cp
+            WHERE cp.conversation_id = p_conversation_id
+              AND cp.participant_profile_id = v_participant
+              AND cp.removed_at IS NULL)
+       OR NOT public.message_recipient_has_active_access(p_conversation_id, v_participant) THEN
+      RAISE EXCEPTION 'participant portal access is not active' USING ERRCODE = 'MS409';
+    END IF;
+    v_author_role    := 'staff';
+    v_expected_event := 'staff_reply';
+  END IF;
+
+  -- REQUIRED durable delivery payload, validated before any authoritative write.
+  PERFORM public.message_assert_valid_delivery(p_delivery, v_expected_event, p_actor_profile_id);
+
+  -- A staff reply must target the conversation's active portal participant.
+  IF p_actor_kind = 'staff'
+     AND NULLIF(p_delivery->>'recipient_profile_id', '')::uuid IS DISTINCT FROM v_participant THEN
+    RAISE EXCEPTION 'staff reply must notify the active conversation participant'
+      USING ERRCODE = 'MS400';
+  END IF;
+
+  -- Automatic reopen on reply to a resolved conversation.
+  IF v_status = 'resolved' THEN
+    UPDATE public.conversations
+    SET status = 'open', resolved_at = NULL, updated_at = v_now
+    WHERE id = p_conversation_id;
+    INSERT INTO public.conversation_events (conversation_id, event_type, actor_profile_id, from_value, to_value, created_at)
+    VALUES (p_conversation_id, 'reopened', p_actor_profile_id, 'resolved', 'open', v_now);
+    v_reopened := true;
+  END IF;
+
+  INSERT INTO public.messages (conversation_id, author_profile_id, author_role, body, created_at)
+  VALUES (p_conversation_id, p_actor_profile_id, v_author_role, p_body, v_now)
+  RETURNING id INTO v_message_id;
+
+  UPDATE public.conversations
+  SET last_message_at = v_now, updated_at = v_now
+  WHERE id = p_conversation_id;
+
+  IF p_actor_kind IN ('student', 'unit_leader') THEN
+    INSERT INTO public.participant_conversation_reads (participant_profile_id, conversation_id, last_read_at)
+    VALUES (p_actor_profile_id, p_conversation_id, v_now)
+    ON CONFLICT (participant_profile_id, conversation_id) DO UPDATE SET last_read_at = v_now;
+  ELSE
+    INSERT INTO public.staff_conversation_reads (staff_profile_id, conversation_id, last_read_at)
+    VALUES (p_actor_profile_id, p_conversation_id, v_now)
+    ON CONFLICT (staff_profile_id, conversation_id) DO UPDATE SET last_read_at = v_now;
+  END IF;
+
+  -- Durable queued delivery row, same transaction, no silent conflict skip.
+  BEGIN
+    INSERT INTO public.message_notification_deliveries (
+      conversation_id, message_id, triggered_by_profile_id, recipient_profile_id,
+      recipient_email, recipient_kind, event_type, idempotency_key,
+      queue_status, next_attempt_at,
+      snapshot_sender_name, snapshot_subject, snapshot_category, cta_path
+    ) VALUES (
+      p_conversation_id, v_message_id, p_actor_profile_id,
+      NULLIF(p_delivery->>'recipient_profile_id', '')::uuid,
+      p_delivery->>'recipient_email', p_delivery->>'recipient_kind',
+      p_delivery->>'event_type', p_delivery->>'idempotency_key',
+      'queued', v_now,
+      p_delivery->>'snapshot_sender_name', p_delivery->>'snapshot_subject',
+      p_delivery->>'snapshot_category', p_delivery->>'cta_path'
+    )
+    RETURNING id INTO v_delivery_id;
+  EXCEPTION WHEN unique_violation THEN
+    RAISE EXCEPTION 'duplicate notification delivery for this message'
+      USING ERRCODE = 'MS409';
+  END;
+
+  IF v_delivery_id IS NULL THEN
+    RAISE EXCEPTION 'delivery row was not created' USING ERRCODE = 'MS409';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'message_id', v_message_id,
+    'delivery_id', v_delivery_id,
+    'created_at', v_now,
+    'reopened', v_reopened
+  );
+END;
+$$;
+
 COMMIT;
 
 
@@ -642,6 +932,222 @@ SET search_path = public, pg_catalog AS $rb$
           AND l.student_id = cp.scope_student_id
           AND l.revoked_at IS NULL));
 $rb$;
+
+-- 8d/8e. delivery validator and reply back to Phase 3 shape
+CREATE OR REPLACE FUNCTION public.message_assert_valid_delivery(
+  p_delivery         jsonb,
+  p_expected_event   text,
+  p_actor_profile_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
+DECLARE
+  v_key   text;
+  v_email text;
+  v_kind  text;
+  v_event text;
+  v_rp    uuid;
+  v_k     text;
+BEGIN
+  IF p_delivery IS NULL OR jsonb_typeof(p_delivery) <> 'object' THEN
+    RAISE EXCEPTION 'delivery payload is required' USING ERRCODE = 'MS400';
+  END IF;
+
+  -- No message content may ever enter a delivery row.
+  FOR v_k IN SELECT jsonb_object_keys(p_delivery) LOOP
+    IF v_k ~* '(^|_)(body|preview|snippet|content|html|text|quote|quoted)(_|$)' THEN
+      RAISE EXCEPTION 'delivery payload may not contain message content'
+        USING ERRCODE = 'MS400';
+    END IF;
+  END LOOP;
+
+  v_key   := btrim(coalesce(p_delivery->>'idempotency_key', ''));
+  v_email := btrim(coalesce(p_delivery->>'recipient_email', ''));
+  v_kind  := coalesce(p_delivery->>'recipient_kind', '');
+  v_event := coalesce(p_delivery->>'event_type', '');
+  v_rp    := NULLIF(p_delivery->>'recipient_profile_id', '')::uuid;
+
+  IF v_key = '' THEN
+    RAISE EXCEPTION 'delivery idempotency_key is required' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_email = '' THEN
+    RAISE EXCEPTION 'delivery recipient_email is required' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_kind NOT IN ('shared_inbox', 'assigned_staff', 'portal_user') THEN
+    RAISE EXCEPTION 'invalid delivery recipient_kind' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_event NOT IN ('new_conversation', 'portal_reply', 'staff_reply') THEN
+    RAISE EXCEPTION 'invalid delivery event_type' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_event <> p_expected_event THEN
+    RAISE EXCEPTION 'delivery event_type does not match the operation'
+      USING ERRCODE = 'MS400';
+  END IF;
+
+  -- The recipient kind must match the approved Phase 2 routing shape.
+  IF v_event = 'new_conversation' AND v_kind <> 'shared_inbox' THEN
+    RAISE EXCEPTION 'new_conversation must route to the shared inbox' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_event = 'portal_reply' AND v_kind NOT IN ('shared_inbox', 'assigned_staff') THEN
+    RAISE EXCEPTION 'portal_reply must route to staff' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_event = 'staff_reply' AND v_kind <> 'portal_user' THEN
+    RAISE EXCEPTION 'staff_reply must route to the portal participant' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_kind = 'portal_user' AND v_rp IS NULL THEN
+    RAISE EXCEPTION 'portal_user delivery requires recipient_profile_id' USING ERRCODE = 'MS400';
+  END IF;
+
+  -- The sender is never the recipient.
+  IF v_rp IS NOT NULL AND v_rp = p_actor_profile_id THEN
+    RAISE EXCEPTION 'sender may not be the notification recipient' USING ERRCODE = 'MS400';
+  END IF;
+
+  -- Required safe snapshot and CTA fields.
+  IF btrim(coalesce(p_delivery->>'snapshot_sender_name', '')) = '' THEN
+    RAISE EXCEPTION 'delivery snapshot_sender_name is required' USING ERRCODE = 'MS400';
+  END IF;
+  IF btrim(coalesce(p_delivery->>'snapshot_subject', '')) = '' THEN
+    RAISE EXCEPTION 'delivery snapshot_subject is required' USING ERRCODE = 'MS400';
+  END IF;
+  IF btrim(coalesce(p_delivery->>'cta_path', '')) = '' THEN
+    RAISE EXCEPTION 'delivery cta_path is required' USING ERRCODE = 'MS400';
+  END IF;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.messages_post_reply(
+  p_actor_profile_id uuid,
+  p_actor_kind       text,
+  p_conversation_id  uuid,
+  p_body             text,
+  p_delivery         jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
+DECLARE
+  v_now            timestamptz := now();
+  v_message_id     uuid;
+  v_delivery_id    uuid;
+  v_status         text;
+  v_reopened       boolean := false;
+  v_author_role    text;
+  v_participant    uuid;
+  v_expected_event text;
+BEGIN
+  IF p_actor_kind NOT IN ('student', 'staff') THEN
+    RAISE EXCEPTION 'invalid actor kind' USING ERRCODE = 'MS400';
+  END IF;
+  IF char_length(btrim(coalesce(p_body, ''))) < 1 OR char_length(p_body) > 5000 THEN
+    RAISE EXCEPTION 'body must be 1 to 5000 characters' USING ERRCODE = 'MS400';
+  END IF;
+
+  SELECT status INTO v_status FROM public.conversations WHERE id = p_conversation_id;
+  IF v_status IS NULL THEN
+    RAISE EXCEPTION 'conversation not found' USING ERRCODE = 'MS404';
+  END IF;
+
+  IF p_actor_kind = 'student' THEN
+    -- Live active participant access (never conversation id alone).
+    IF NOT public.message_recipient_has_active_access(p_conversation_id, p_actor_profile_id) THEN
+      RAISE EXCEPTION 'conversation not found' USING ERRCODE = 'MS404';
+    END IF;
+    v_author_role    := 'student';
+    v_expected_event := 'portal_reply';
+  ELSE
+    IF NOT public.message_profile_is_active_owner_or_admin(p_actor_profile_id) THEN
+      RAISE EXCEPTION 'staff actor must be an active owner or admin' USING ERRCODE = 'MS403';
+    END IF;
+    -- Staff may not send into a thread whose participant lost portal access.
+    SELECT cp.participant_profile_id INTO v_participant
+    FROM public.conversation_participants cp
+    WHERE cp.conversation_id = p_conversation_id AND cp.removed_at IS NULL
+    LIMIT 1;
+    IF v_participant IS NULL
+       OR NOT public.message_recipient_has_active_access(p_conversation_id, v_participant) THEN
+      RAISE EXCEPTION 'participant portal access is not active' USING ERRCODE = 'MS409';
+    END IF;
+    v_author_role    := 'staff';
+    v_expected_event := 'staff_reply';
+  END IF;
+
+  -- REQUIRED durable delivery payload, validated before any authoritative write.
+  PERFORM public.message_assert_valid_delivery(p_delivery, v_expected_event, p_actor_profile_id);
+
+  -- A staff reply must target the conversation's active portal participant.
+  IF p_actor_kind = 'staff'
+     AND NULLIF(p_delivery->>'recipient_profile_id', '')::uuid IS DISTINCT FROM v_participant THEN
+    RAISE EXCEPTION 'staff reply must notify the active conversation participant'
+      USING ERRCODE = 'MS400';
+  END IF;
+
+  -- Automatic reopen on reply to a resolved conversation.
+  IF v_status = 'resolved' THEN
+    UPDATE public.conversations
+    SET status = 'open', resolved_at = NULL, updated_at = v_now
+    WHERE id = p_conversation_id;
+    INSERT INTO public.conversation_events (conversation_id, event_type, actor_profile_id, from_value, to_value, created_at)
+    VALUES (p_conversation_id, 'reopened', p_actor_profile_id, 'resolved', 'open', v_now);
+    v_reopened := true;
+  END IF;
+
+  INSERT INTO public.messages (conversation_id, author_profile_id, author_role, body, created_at)
+  VALUES (p_conversation_id, p_actor_profile_id, v_author_role, p_body, v_now)
+  RETURNING id INTO v_message_id;
+
+  UPDATE public.conversations
+  SET last_message_at = v_now, updated_at = v_now
+  WHERE id = p_conversation_id;
+
+  IF p_actor_kind = 'student' THEN
+    INSERT INTO public.participant_conversation_reads (participant_profile_id, conversation_id, last_read_at)
+    VALUES (p_actor_profile_id, p_conversation_id, v_now)
+    ON CONFLICT (participant_profile_id, conversation_id) DO UPDATE SET last_read_at = v_now;
+  ELSE
+    INSERT INTO public.staff_conversation_reads (staff_profile_id, conversation_id, last_read_at)
+    VALUES (p_actor_profile_id, p_conversation_id, v_now)
+    ON CONFLICT (staff_profile_id, conversation_id) DO UPDATE SET last_read_at = v_now;
+  END IF;
+
+  -- Durable queued delivery row, same transaction, no silent conflict skip.
+  BEGIN
+    INSERT INTO public.message_notification_deliveries (
+      conversation_id, message_id, triggered_by_profile_id, recipient_profile_id,
+      recipient_email, recipient_kind, event_type, idempotency_key,
+      queue_status, next_attempt_at,
+      snapshot_sender_name, snapshot_subject, snapshot_category, cta_path
+    ) VALUES (
+      p_conversation_id, v_message_id, p_actor_profile_id,
+      NULLIF(p_delivery->>'recipient_profile_id', '')::uuid,
+      p_delivery->>'recipient_email', p_delivery->>'recipient_kind',
+      p_delivery->>'event_type', p_delivery->>'idempotency_key',
+      'queued', v_now,
+      p_delivery->>'snapshot_sender_name', p_delivery->>'snapshot_subject',
+      p_delivery->>'snapshot_category', p_delivery->>'cta_path'
+    )
+    RETURNING id INTO v_delivery_id;
+  EXCEPTION WHEN unique_violation THEN
+    RAISE EXCEPTION 'duplicate notification delivery for this message'
+      USING ERRCODE = 'MS409';
+  END;
+
+  IF v_delivery_id IS NULL THEN
+    RAISE EXCEPTION 'delivery row was not created' USING ERRCODE = 'MS409';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'message_id', v_message_id,
+    'delivery_id', v_delivery_id,
+    'created_at', v_now,
+    'reopened', v_reopened
+  );
+END;
+$$;
 
 -- 7. messages structures
 ALTER TABLE public.message_notification_deliveries DROP CONSTRAINT IF EXISTS chk_mnd_event_type;

@@ -75,6 +75,42 @@ LEFT JOIN public.cohort_school_rotations r ON r.id = s.cohort_school_rotation_id
 -- completed_but_undatable is the count of students who will NOT appear in a Unit
 -- Leader completed bucket until their school's rotation dates are filled in.
 
+-- ── PREFLIGHT 4b: rotation-date sources that are NOT confidently determined ──
+-- The backfill copies a date only when the student's explicit FK resolves to one
+-- row whose cohort AND school still agree with the student's own. This lists every
+-- student that fails that test, with the reason. All of them stay NULL, and NULL
+-- means invisible in the completed bucket, so every row here is a fail-closed skip.
+--
+-- EXPLICIT REVIEW RESULT, not an automatic stop: a non-empty result is expected in
+-- a live database. STOP and reconcile only if reason = 'cohort_or_school_mismatch'
+-- appears for a student you expect a Unit Leader to see, because that indicates the
+-- rotation link drifted and the dates on it can no longer be trusted.
+--
+-- Ambiguity is structurally impossible for the FK path: cohort_school_rotations.id
+-- is the primary key, so s.cohort_school_rotation_id = r.id matches at most one row.
+-- The ambiguity column below therefore reports on the WEAKER (cohort, school) match,
+-- purely to confirm that path would also have been unique had it been used.
+SELECT
+  s.id AS student_id, s.status, s.school,
+  CASE
+    WHEN s.cohort_school_rotation_id IS NULL              THEN 'no_rotation_link'
+    WHEN r.id IS NULL                                     THEN 'rotation_row_missing'
+    WHEN r.rotation_end_date IS NULL                      THEN 'null_end_date'
+    WHEN r.rotation_end_date = DATE '1900-01-01'          THEN 'sentinel_pending_admin'
+    WHEN r.cohort_id <> s.cohort_id
+      OR r.school_name IS DISTINCT FROM s.school          THEN 'cohort_or_school_mismatch'
+    ELSE 'backfilled'
+  END AS reason,
+  (SELECT count(*) FROM public.cohort_school_rotations r2
+    WHERE r2.cohort_id = s.cohort_id AND r2.school_name = s.school) AS weak_match_candidates
+FROM public.students s
+LEFT JOIN public.cohort_school_rotations r ON r.id = s.cohort_school_rotation_id
+WHERE s.status IN ('Placed', 'Active Rotation', 'Completed')
+ORDER BY reason, s.school;
+-- weak_match_candidates > 1 for any row would mean the (cohort, school) path is
+-- ambiguous. The table carries UNIQUE (cohort_id, school_name), so this must be 0
+-- or 1 everywhere. Any value above 1 is a STOP: the schema assumption is violated.
+
 -- ── PREFLIGHT 5: name collisions for the new tables ─────────────────────────
 -- Expected: 0 rows. Any row means an object of that name already exists.
 SELECT c.relname AS existing_object, c.relkind

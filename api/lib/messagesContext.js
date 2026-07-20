@@ -49,26 +49,46 @@ export async function loadConversationRoutingContext(db, conversationId) {
 // notification email. Messages always notifies user_profiles.email for the
 // portal account, never students.school_email or students.personal_email.
 // Returns null when there is no active participant row.
-export async function loadActiveParticipant(db, conversationId) {
-  const { data: cp, error } = await db
+// UL-PORTAL: a conversation may now hold TWO active portal participants (a student
+// and a unit leader). The previous implementation used .maybeSingle(), which ERRORS
+// on more than one row and would have made every staff reply into a direct thread
+// fail with no_active_participant. Staff themselves are never participants.
+export async function loadActiveParticipants(db, conversationId) {
+  const { data: rows, error } = await db
     .from('conversation_participants')
-    .select('participant_profile_id, scope_student_id')
+    .select('participant_profile_id, participant_role, scope_student_id, scope_unit_key, added_at')
     .eq('conversation_id', conversationId)
     .is('removed_at', null)
-    .maybeSingle();
-  if (error || !cp) return null;
+    .order('added_at', { ascending: true });
+  if (error || !rows || rows.length === 0) return [];
 
-  const { data: p } = await db
+  const ids = rows.map(r => r.participant_profile_id);
+  const { data: profiles } = await db
     .from('user_profiles')
     .select('id, email, full_name')
-    .eq('id', cp.participant_profile_id)
-    .maybeSingle();
-  if (!p) return null;
+    .in('id', ids);
+  const byId = new Map((profiles || []).map(p => [p.id, p]));
 
-  return {
-    profileId: p.id,
-    email: p.email,
-    fullName: p.full_name,
-    studentId: cp.scope_student_id,
-  };
+  return rows
+    .map(r => {
+      const p = byId.get(r.participant_profile_id);
+      if (!p) return null;
+      return {
+        profileId: p.id,
+        email: p.email,
+        fullName: p.full_name,
+        role: r.participant_role,
+        studentId: r.scope_student_id,
+        unitKey: r.scope_unit_key,
+      };
+    })
+    .filter(Boolean);
+}
+
+// Backward-compatible single-participant accessor. Returns the first active
+// participant in join order, or null. Callers that must address a specific party in
+// a two-party thread use loadActiveParticipants and choose explicitly.
+export async function loadActiveParticipant(db, conversationId) {
+  const all = await loadActiveParticipants(db, conversationId);
+  return all.length > 0 ? all[0] : null;
 }
