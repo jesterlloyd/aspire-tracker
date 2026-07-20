@@ -443,3 +443,67 @@ test('no em dash in the follow-up migration or its verification', () => {
   assert.doesNotMatch(rpcMigration, /—/)
   assert.doesNotMatch(verifyRpc, /—/)
 })
+
+// ── The thread RPC ACL must be PRESERVED, not tightened ─────────────────────
+// Traced after VERIFY 4b wrongly expected authenticated to be denied EXECUTE.
+// The grant is intentional and load bearing: 20260716000006 explicitly REVOKEs
+// from PUBLIC and anon and GRANTs to authenticated and service_role, and the sole
+// production caller runs the RPC as the signed-in student so auth.uid() resolves.
+const phase5Grant = read('supabase/migrations/20260716000006_messages_phase5_portal_thread_reverse_pagination.sql')
+const threadEndpoint = read('api/portal/messages-thread.js')
+
+test('ACL: the thread RPC grant to authenticated is explicit and intentional', () => {
+  assert.match(phase5Grant,
+    /REVOKE ALL ON FUNCTION public\.messages_portal_get_thread_v2\(uuid, integer, timestamptz, uuid\)\s*\n\s*FROM PUBLIC, anon;/)
+  assert.match(phase5Grant,
+    /GRANT EXECUTE ON FUNCTION public\.messages_portal_get_thread_v2\(uuid, integer, timestamptz, uuid\)\s*\n\s*TO authenticated, service_role;/)
+})
+
+test('ACL: the grant is LOAD BEARING because the caller runs as the student', () => {
+  // getUserScopedDb is an anon-key client carrying the caller's JWT, so the
+  // statement executes as `authenticated` and auth.uid() is that student.
+  assert.match(threadEndpoint, /const db = getUserScopedDb\(req\)/)
+  assert.match(threadEndpoint, /db\.rpc\('messages_portal_get_thread_v2', \{/)
+  // It is NOT executed with the service-role client.
+  assert.doesNotMatch(threadEndpoint, /getServiceDb\(\)[\s\S]{0,400}messages_portal_get_thread_v2/)
+})
+
+test('ACL: the function resolves the viewer from auth.uid(), so service_role would fail', () => {
+  // portal_profile_id() reads auth.uid(); under service_role there is none, so the
+  // thread would resolve no viewer and return nothing.
+  const authz = read('supabase/migrations/20260712000007_phase2_authz_foundation.sql')
+  const fn = authz.slice(authz.indexOf('CREATE OR REPLACE FUNCTION public.portal_profile_id'))
+  assert.match(fn.slice(0, 400), /auth\.uid\(\)/)
+  assert.match(threadFn, /public\.portal_profile_id\(\)/)
+})
+
+test('ACL: the follow-up migration does not REVOKE or re-GRANT the thread RPC', () => {
+  // CREATE OR REPLACE preserves the ACL. Any explicit grant statement here would
+  // risk narrowing it and breaking the Student Portal.
+  assert.doesNotMatch(rpcLive, /REVOKE[^;]*messages_portal_get_thread_v2/)
+  assert.doesNotMatch(rpcLive, /GRANT[^;]*messages_portal_get_thread_v2/)
+})
+
+test('ACL: VERIFY 4b expects the grant PRESERVED, and says why it is safe', () => {
+  const v4b = verifyRpc.slice(
+    verifyRpc.indexOf('-- ── VERIFY 4b:'), verifyRpc.indexOf('-- ── VERIFY 4c:'))
+  assert.match(v4b, /authenticated EXECUTE IS INTENTIONAL AND LOAD BEARING/)
+  assert.match(v4b, /authenticated_can_execute = TRUE/)
+  assert.match(v4b, /anon_can_execute = FALSE/)
+  assert.match(v4b, /has_function_privilege\('anon', p\.oid, 'EXECUTE'\)/)
+  assert.match(v4b, /STOP if authenticated_can_execute is false/)
+  // And it explains why direct authenticated execution cannot leak another thread.
+  assert.match(v4b, /my_message_conversation_ids\(\)/)
+  assert.match(v4b, /A caller cannot/)
+})
+
+test('ACL: the two NEW RPCs correctly DENY authenticated, and the contrast is stated', () => {
+  // They take p_actor_profile_id as a parameter and trust it, so they must only be
+  // reachable through the service-role client after the API verified the caller.
+  const v1 = verifyRpc.slice(verifyRpc.indexOf('-- ── VERIFY 1:'), verifyRpc.indexOf('-- ── VERIFY 1b:'))
+  assert.match(v1, /authenticated_can_execute = false/)
+  const v4b = verifyRpc.slice(
+    verifyRpc.indexOf('-- ── VERIFY 4b:'), verifyRpc.indexOf('-- ── VERIFY 4c:'))
+  assert.match(v4b, /Contrast VERIFY 1/)
+  assert.match(v4b, /take p_actor_profile_id as a PARAMETER and trust it/)
+})

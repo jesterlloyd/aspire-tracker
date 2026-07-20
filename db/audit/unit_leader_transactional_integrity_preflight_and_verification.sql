@@ -17,6 +17,8 @@
 --   - preflight 3 shows either audit column already exists
 --   - preflight 5 shows a capacity row already superseded AND reviewed, which
 --     would mean the pre-RPC compensating-delete path left inconsistent history
+--   - VERIFY 4b shows authenticated_can_execute = false on the thread RPC. That
+--     grant is intentional and load bearing; losing it breaks the Student Portal.
 -- ============================================================================
 
 
@@ -193,13 +195,44 @@ SELECT
 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public' AND p.proname = 'messages_portal_get_thread_v2';
 
--- ── VERIFY 4b: the thread RPC signature and grants are unchanged ────────────
--- PASS: one row, args = 'uuid, integer, timestamptz, uuid'. CREATE OR REPLACE
--- preserves grants; more than one row would mean an accidental overload.
+-- ── VERIFY 4b: the thread RPC signature and ACL are UNCHANGED ──────────────
+-- PASS: exactly one row, args = 'uuid, integer, timestamptz, uuid',
+-- service_role_can_execute = TRUE, authenticated_can_execute = TRUE,
+-- anon_can_execute = FALSE.
+--
+-- authenticated EXECUTE IS INTENTIONAL AND LOAD BEARING. Do not revoke it.
+-- It was granted deliberately by 20260716000006 lines 178-181:
+--   REVOKE ALL ... FROM PUBLIC, anon;
+--   GRANT EXECUTE ... TO authenticated, service_role;
+-- with the preceding comment "so the caller is resolved from their own JWT".
+--
+-- The reason is structural. This function is SECURITY DEFINER but resolves the
+-- VIEWER through public.portal_profile_id(), which reads auth.uid(). The sole
+-- production caller, api/portal/messages-thread.js:32, uses getUserScopedDb(req):
+-- an anon-key client carrying the signed-in student's JWT, so the statement runs
+-- as authenticated and auth.uid() is that student. Under service_role there is no
+-- auth.uid(), portal_profile_id() would resolve nothing, and the thread would come
+-- back empty. Revoking authenticated EXECUTE breaks the Student Portal thread view.
+--
+-- Direct authenticated execution is safe because the function authorizes itself:
+-- it gates every row through my_message_conversation_ids(), which requires an
+-- active participant row plus the live grant and scope predicates. A caller cannot
+-- pass a profile id, so holding EXECUTE grants no access to another person's thread.
+-- anon is explicitly revoked, so an unauthenticated caller has nothing.
+--
+-- CREATE OR REPLACE preserves the ACL, so this block asserts the ACL was PRESERVED,
+-- not that it was tightened. STOP if authenticated_can_execute is false: something
+-- revoked it and the Student Portal is broken. STOP if anon_can_execute is true, or
+-- if more than one row is returned, which would mean an accidental overload.
+--
+-- Contrast VERIFY 1: the two NEW RPCs correctly deny authenticated, because they
+-- take p_actor_profile_id as a PARAMETER and trust it. They must only ever be
+-- reachable through the service-role client after the API has verified the caller.
 SELECT
   pg_get_function_identity_arguments(p.oid)                AS args,
   has_function_privilege('service_role', p.oid, 'EXECUTE') AS service_role_can_execute,
-  has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_can_execute
+  has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_can_execute,
+  has_function_privilege('anon', p.oid, 'EXECUTE')          AS anon_can_execute
 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public' AND p.proname = 'messages_portal_get_thread_v2';
 
