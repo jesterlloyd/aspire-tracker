@@ -210,6 +210,60 @@ test('VERIFY 7e checks for exactly one overload and the correct argument order',
   assert.match(preflight, /has_function_privilege\('authenticated'/)
 })
 
+// ── Verification queries must match EXECUTABLE SQL, never prose ─────────────
+// VERIFY 7c originally used LIKE '%user_unit_scopes%', which also matched the
+// explanatory comments inside prosrc that name the table while explaining why read
+// does NOT require it. That produced a false positive on can_read against the live
+// database. Introspection predicates must therefore anchor on executable syntax.
+const V7C = preflight.slice(
+  preflight.indexOf('-- ── VERIFY 7c:'),
+  preflight.indexOf('-- ── VERIFY 7d:'))
+// Executable SQL only. The VERIFY 7c comment deliberately QUOTES the defective
+// LIKE pattern while explaining it, so a negative assertion against the raw block
+// would match that prose. That is the very hazard this block exists to prevent.
+const V7CSql = V7C.replace(/^\s*--.*$/gm, '')
+
+test('VERIFY 7c matches an executable FROM clause, not a bare table name', () => {
+  // A bare substring test is the defect. It must not reappear.
+  assert.ok(!V7CSql.includes("LIKE '%user_unit_scopes%'"),
+    'VERIFY 7c must not use a bare LIKE on the table name')
+  // The executable-pattern form that passed manually.
+  assert.ok(V7CSql.includes("prosrc ~* 'FROM[[:space:]]+public\\.user_unit_scopes'"),
+    'VERIFY 7c must anchor on an executable FROM clause')
+})
+
+test('VERIFY 7c anchors its other checks on call sites, not bare identifiers', () => {
+  assert.ok(V7CSql.includes("prosrc ~* 'message_profile_is_active[[:space:]]*\\('"),
+    'checks_account_active must anchor on a call site')
+  assert.ok(V7CSql.includes("prosrc ~* 'message_participant_can_read[[:space:]]*\\('"),
+    'delegates_to_can_read must anchor on a call site')
+  assert.ok(!V7CSql.includes("LIKE '%message_profile_is_active%'"))
+  assert.ok(!V7CSql.includes("LIKE '%message_participant_can_read%'"))
+})
+
+test('VERIFY 7c states the expected value for all three columns and its stops', () => {
+  assert.match(V7C, /requires_active_unit_scope/)
+  assert.match(V7C, /checks_account_active/)
+  assert.match(V7C, /delegates_to_can_read/)
+  assert.match(V7C, /STOP if can_read reports requires_active_unit_scope = true/)
+  assert.match(V7C, /STOP if can_send reports false/)
+  assert.match(V7C, /STOP if can_send does not delegate to can_read/)
+  assert.match(V7C, /STOP if can_read does not check the account/)
+  assert.match(V7C, /EXECUTABLE-PATTERN MATCHING, deliberately/)
+})
+
+test('the comment-versus-code hazard is proven: the source really does name the table in prose', () => {
+  // This is why a bare LIKE was wrong. can_read's body mentions user_unit_scopes in
+  // a comment explaining its ABSENCE, so any substring test on prosrc is unsafe.
+  const canRead = migrationLive.slice(
+    migrationLive.indexOf('CREATE OR REPLACE FUNCTION public.message_participant_can_read'),
+    migrationLive.indexOf('CREATE OR REPLACE FUNCTION public.message_participant_can_send'))
+  assert.match(canRead, /user_unit_scopes/, 'the comment names the table')
+  // But there is no executable FROM clause against it.
+  const codeOnly = canRead.replace(/^\s*--.*$/gm, '')
+  assert.doesNotMatch(codeOnly, /FROM\s+public\.user_unit_scopes/)
+})
+
 test('no em dash in the signature guards', () => {
   assert.doesNotMatch(migration, /—/)
   assert.doesNotMatch(preflight, /—/)

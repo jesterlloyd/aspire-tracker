@@ -329,13 +329,20 @@ JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public' AND p.proname = 'messages_portal_unread_count';
 
 -- ── VERIFY 7c: read and send are SEPARATE predicates ──────────────────────
--- PASS: 3 rows. can_read must NOT mention user_unit_scopes (that is what preserves
--- history after an assignment ends); can_send MUST mention it (that is what freezes
+-- PASS: 3 rows. can_read must NOT query user_unit_scopes (that is what preserves
+-- history after an assignment ends); can_send MUST query it (that is what freezes
 -- the thread); message_profile_is_active must check is_active.
+--
+-- EXECUTABLE-PATTERN MATCHING, deliberately: a plain LIKE '%user_unit_scopes%'
+-- also matches the explanatory COMMENTS inside prosrc, which name the table while
+-- describing why read does not require it. That produced a false positive on
+-- can_read. These predicates match an actual FROM clause and an actual call site,
+-- so prose can neither satisfy nor break them.
 SELECT
   p.proname,
-  (p.prosrc LIKE '%user_unit_scopes%')            AS requires_active_unit_scope,
-  (p.prosrc LIKE '%message_profile_is_active%')   AS checks_account_active
+  (p.prosrc ~* 'FROM[[:space:]]+public\.user_unit_scopes')   AS requires_active_unit_scope,
+  (p.prosrc ~* 'message_profile_is_active[[:space:]]*\(')     AS checks_account_active,
+  (p.prosrc ~* 'message_participant_can_read[[:space:]]*\(')  AS delegates_to_can_read
 FROM pg_proc p
 JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public'
@@ -344,11 +351,14 @@ WHERE n.nspname = 'public'
                     'message_participant_can_send')
 ORDER BY p.proname;
 -- Expected exactly:
---   message_profile_is_active      requires_active_unit_scope = false
---   message_participant_can_read   requires_active_unit_scope = FALSE, checks_account_active = true
---   message_participant_can_send   requires_active_unit_scope = TRUE
+--   message_profile_is_active      scope = false, active = false, delegates = false
+--   message_participant_can_read   scope = FALSE, active = TRUE,  delegates = false
+--   message_participant_can_send   scope = TRUE,  active = false, delegates = TRUE
 -- STOP if can_read reports requires_active_unit_scope = true: history would be lost
--- on revocation. STOP if can_send reports false: a former Unit Leader could still send.
+-- on revocation. STOP if can_send reports false: a former Unit Leader could still
+-- send. STOP if can_send does not delegate to can_read: send would no longer imply
+-- read. STOP if can_read does not check the account: an inactive Unit Leader could
+-- read history.
 
 -- ── VERIFY 7d: the reply RPC gates portal actors on SEND, staff on READ ────
 -- PASS: gates_portal_on_send = true and gates_staff_target_on_read = true.
