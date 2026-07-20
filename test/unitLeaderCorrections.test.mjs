@@ -21,6 +21,8 @@ const revoke    = read('api/revoke-portal-access.js')
 const listAcc   = read('api/list-portal-access.js')
 const ctx       = read('api/lib/messagesContext.js')
 const staffReply = read('api/messages-staff-reply.js')
+const scopeRules = read('api/lib/unitLeaderScopeRules.js')
+const scopeIo    = read('api/lib/unitLeaderScope.js')
 
 const migrationLive = migration.replace(/\/\*[\s\S]*?\*\//g, '')
 const migrationSql  = migrationLive.replace(/^\s*--.*$/gm, '')
@@ -93,8 +95,13 @@ test('staff intervention requires NO participant row, so the two-cap stands', ()
   assert.match(model, /Staff are structurally non-participants/)
   // The staff reply gate is an active owner/admin check, not membership.
   assert.match(migrationSql, /message_profile_is_active_owner_or_admin\(p_actor_profile_id\)/)
-  // No staff participant row is ever inserted by the migration.
-  assert.doesNotMatch(migrationSql, /INSERT INTO public\.conversation_participants/i)
+  // Participant rows are inserted only for portal roles. Staff never get one.
+  const inserts = migrationSql.match(/INSERT INTO public\.conversation_participants[\s\S]{0,400}?\);/g) || []
+  assert.ok(inserts.length > 0, 'direct-thread creation inserts participant rows')
+  for (const ins of inserts) {
+    assert.match(ins, /'student', 'student'|'unit_leader', 'unit'/)
+    assert.doesNotMatch(ins, /'staff'/)
+  }
 })
 
 test('the two-participant cap is enforced and fails closed', () => {
@@ -110,7 +117,7 @@ test('the staff reply target is validated, never picked arbitrarily', () => {
   // The declared recipient is validated to be an active-access participant.
   assert.match(fn, /v_participant := NULLIF\(p_delivery->>'recipient_profile_id', ''\)::uuid;/)
   assert.match(fn, /AND cp\.participant_profile_id = v_participant/)
-  assert.match(fn, /message_recipient_has_active_access\(p_conversation_id, v_participant\)/)
+  assert.match(fn, /message_participant_can_read\(p_conversation_id, v_participant\)/)
 })
 
 test('a unit leader may author a reply, gated by the same active-access predicate', () => {
@@ -118,7 +125,7 @@ test('a unit leader may author a reply, gated by the same active-access predicat
   assert.match(fn, /p_actor_kind NOT IN \('student', 'staff', 'unit_leader'\)/)
   assert.match(fn, /v_author_role    := 'unit_leader';/)
   assert.match(fn, /v_expected_event := 'unit_leader_message';/)
-  assert.match(fn, /IF p_actor_kind IN \('student', 'unit_leader'\) THEN[\s\S]{0,400}message_recipient_has_active_access\(p_conversation_id, p_actor_profile_id\)/)
+  assert.match(fn, /IF p_actor_kind IN \('student', 'unit_leader'\) THEN[\s\S]{0,600}message_participant_can_send\(p_conversation_id, p_actor_profile_id\)/)
 })
 
 test('a unit leader reply writes the participant read pointer, not the staff one', () => {
@@ -132,11 +139,11 @@ test('COMPATIBILITY: the student to ASPIRE Team shape is unchanged', () => {
   assert.match(fn, /v_author_role := 'student';/)
   assert.match(fn, /ELSE 'portal_reply' END;/)
   // The student branch of the conversation-id function is preserved verbatim.
-  const ids = migrationSql.slice(
-    migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.my_message_conversation_ids'),
-    migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.message_recipient_has_active_access'))
-  assert.match(ids, /p\.participant_role = 'student'\s*\n\s*AND p\.scope_kind = 'student'/)
-  assert.match(ids, /user_student_links/)
+  const cr = migrationSql.slice(
+    migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.message_participant_can_read'),
+    migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.message_participant_can_send'))
+  assert.match(cr, /cp\.participant_role = 'student'\s*\n\s*AND cp\.scope_kind = 'student'/)
+  assert.match(cr, /user_student_links/)
 })
 
 test('COMPATIBILITY: the unique index is widened, never narrowed', () => {
@@ -190,13 +197,120 @@ test('unread counting is correct for student, unit leader, and staff', () => {
   assert.match(model, /author_role <> 'staff'/)
 })
 
-test('scope revocation denies new messages and history, and is documented as such', () => {
-  assert.match(model, /Revocation, expiry, or deactivation denies \*\*everything\*\*, including history/)
-  // The mechanism: an active unit scope is required in the read path.
+// ── History after scope ends: read survives, send does not ──────────────────
+const canRead = migrationSql.slice(
+  migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.message_participant_can_read'),
+  migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.message_participant_can_send'))
+const canSend = migrationSql.slice(
+  migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.message_participant_can_send'),
+  migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.my_message_conversation_ids'))
+const replyFn = migrationSql.slice(
+  migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.messages_post_reply'),
+  migrationSql.indexOf('DROP FUNCTION IF EXISTS public.messages_start_conversation'))
+const startFn = migrationSql.slice(
+  migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.messages_start_conversation'))
+
+test('read and send are SEPARATE predicates', () => {
+  assert.ok(canRead.length > 0 && canSend.length > 0)
+  assert.match(canSend, /public\.message_participant_can_read\(p_conversation_id, p_profile_id\)/)
+})
+
+test('ACTIVE scope allows a unit leader and the student to read AND send', () => {
+  // can_send is can_read plus current scope, so an active scope satisfies both.
+  assert.match(canSend, /FROM public\.user_unit_scopes s/)
+  assert.match(canSend, /s\.revoked_at IS NULL/)
+  assert.match(canSend, /s\.expires_at IS NULL OR s\.expires_at > now\(\)/)
+})
+
+test('scope revocation PRESERVES read-only history for the former unit leader', () => {
+  // The read predicate deliberately carries no user_unit_scopes requirement.
+  assert.doesNotMatch(canRead, /user_unit_scopes/)
+  // It rests on the identity-backed participant row plus a live grant and account.
+  assert.match(canRead, /FROM public\.conversation_participants cp/)
+  assert.match(canRead, /g\.role = 'unit_leader'/)
+  assert.match(canRead, /public\.message_profile_is_active\(p_profile_id\)/)
+  // And the conversation list uses read, so history stays listed.
   const ids = migrationSql.slice(
     migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.my_message_conversation_ids'),
     migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.message_recipient_has_active_access'))
-  assert.match(ids, /FROM public\.user_unit_scopes s[\s\S]{0,300}s\.revoked_at IS NULL/)
+  assert.match(ids, /public\.message_participant_can_read/)
+  assert.doesNotMatch(ids, /message_participant_can_send/)
+})
+
+test('scope revocation DENIES a new message from the unit leader and the student', () => {
+  // The reply RPC gates portal actors on send, not read.
+  assert.match(replyFn, /public\.message_participant_can_send\(p_conversation_id, p_actor_profile_id\)/)
+  assert.doesNotMatch(replyFn, /message_recipient_has_active_access\(p_conversation_id, p_actor_profile_id\)/)
+  // An ended relationship freezes the thread for BOTH portal parties.
+  assert.match(canSend, /AND NOT EXISTS \(/)
+  assert.match(canSend, /cp\.participant_role = 'unit_leader'/)
+  // Non-enumerating denial.
+  assert.match(replyFn, /RAISE EXCEPTION 'conversation not found' USING ERRCODE = 'MS404'/)
+})
+
+test('scope revocation DENIES creating a new direct thread', () => {
+  assert.match(startFn, /p_actor_kind = 'unit_leader'/)
+  assert.match(startFn, /FROM public\.user_unit_scopes s/)
+  assert.match(startFn, /RAISE EXCEPTION 'unit scope is not active' USING ERRCODE = 'MS403'/)
+  assert.match(startFn, /RAISE EXCEPTION 'unit leader access is not active' USING ERRCODE = 'MS403'/)
+})
+
+test('a newly assigned unit leader gets a SEPARATE thread, not the predecessor\'s', () => {
+  // Access is per participant row; creation always inserts the actor's own row.
+  assert.match(startFn, /INSERT INTO public\.conversation_participants[\s\S]{0,400}'unit_leader', 'unit'/)
+  assert.match(model, /A newly assigned Unit Leader gets a separate thread/)
+  assert.match(model, /holds no row on a predecessor/)
+})
+
+test('the student unit membership is resolved server side, never client supplied', () => {
+  assert.match(startFn, /JOIN public\.units u ON u\.id = st\.matched_unit_id/)
+  assert.match(startFn, /RAISE EXCEPTION 'student is not in that unit'/)
+})
+
+test('an INACTIVE unit leader cannot read history', () => {
+  assert.match(canRead, /public\.message_profile_is_active\(p_profile_id\)/)
+  const active = migrationSql.slice(
+    migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.message_profile_is_active'),
+    migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.message_participant_can_read'))
+  assert.match(active, /COALESCE\(up\.is_active, true\) IS TRUE/)
+})
+
+test('a former unit leader loses live roster, profile, resume, and photo access', () => {
+  // All of it runs through the scope source of truth, which requires ACTIVE scopes.
+  assert.match(scopeRules, /narrowScopes/)
+  assert.match(scopeIo, /getActiveUnitScopes/)
+  assert.match(scopeIo, /resolveUnitScopedStudents/)
+  assert.match(model, /resolves an empty set the moment the scope ends/)
+})
+
+test('a historical thread exposes no live student data', () => {
+  // The portal read RPCs are not redefined here to join students, and the model
+  // records the verification.
+  assert.doesNotMatch(migrationSql, /messages_portal_get_thread_v2[\s\S]{0,2000}FROM public\.students/)
+  assert.match(model, /Neither joins `students`/)
+})
+
+test('ASPIRE staff can still read and reply after scope ends', () => {
+  // The staff target is validated on READ, so a frozen thread still accepts a
+  // staff reply toward a participant who can read it.
+  assert.match(replyFn, /public\.message_participant_can_read\(p_conversation_id, v_participant\)/)
+  assert.doesNotMatch(replyFn, /message_participant_can_send\(p_conversation_id, v_participant\)/)
+  assert.match(model, /staff can reply to a former Unit Leader and\nhave it reach them/)
+})
+
+test('verification proves the read/send split and the signature handling', () => {
+  assert.match(preflight, /VERIFY 7c: read and send are SEPARATE predicates/)
+  assert.match(preflight, /VERIFY 7d: the reply RPC gates portal actors on SEND, staff on READ/)
+  assert.match(preflight, /VERIFY 7e: exactly ONE messages_start_conversation, with grants/)
+  assert.match(preflight, /STOP if can_read reports requires_active_unit_scope = true/)
+  assert.match(preflight, /STOP if more than one row is returned/)
+})
+
+test('the signature change is handled without creating an ambiguous overload', () => {
+  assert.match(migrationSql, /DROP FUNCTION IF EXISTS public\.messages_start_conversation\(\s*\n?\s*uuid, text, uuid, uuid, text, text, text, jsonb\);/)
+  // DROP plus CREATE loses grants, so they are re-applied explicitly.
+  assert.match(migrationSql, /GRANT EXECUTE ON FUNCTION public\.messages_start_conversation\([\s\S]{0,120}jsonb, text\) TO service_role/)
+  assert.match(migrationSql, /REVOKE ALL ON FUNCTION public\.message_participant_can_read\(uuid, uuid\) FROM PUBLIC, anon, authenticated/)
 })
 
 // ── Correction 3: fail-closed rotation date backfill ─────────────────────────

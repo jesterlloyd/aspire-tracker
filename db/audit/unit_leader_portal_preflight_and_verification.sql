@@ -280,6 +280,50 @@ FROM pg_proc p
 JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public' AND p.proname = 'messages_portal_unread_count';
 
+-- ── VERIFY 7c: read and send are SEPARATE predicates ──────────────────────
+-- PASS: 3 rows. can_read must NOT mention user_unit_scopes (that is what preserves
+-- history after an assignment ends); can_send MUST mention it (that is what freezes
+-- the thread); message_profile_is_active must check is_active.
+SELECT
+  p.proname,
+  (p.prosrc LIKE '%user_unit_scopes%')            AS requires_active_unit_scope,
+  (p.prosrc LIKE '%message_profile_is_active%')   AS checks_account_active
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname IN ('message_profile_is_active',
+                    'message_participant_can_read',
+                    'message_participant_can_send')
+ORDER BY p.proname;
+-- Expected exactly:
+--   message_profile_is_active      requires_active_unit_scope = false
+--   message_participant_can_read   requires_active_unit_scope = FALSE, checks_account_active = true
+--   message_participant_can_send   requires_active_unit_scope = TRUE
+-- STOP if can_read reports requires_active_unit_scope = true: history would be lost
+-- on revocation. STOP if can_send reports false: a former Unit Leader could still send.
+
+-- ── VERIFY 7d: the reply RPC gates portal actors on SEND, staff on READ ────
+-- PASS: gates_portal_on_send = true and gates_staff_target_on_read = true.
+SELECT
+  (prosrc LIKE '%message_participant_can_send(p_conversation_id, p_actor_profile_id)%') AS gates_portal_on_send,
+  (prosrc LIKE '%message_participant_can_read(p_conversation_id, v_participant)%')      AS gates_staff_target_on_read
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.proname = 'messages_post_reply';
+
+-- ── VERIFY 7e: exactly ONE messages_start_conversation, with grants ────────
+-- PASS: one row, 9 arguments ending in "jsonb, text", and service_role holds
+-- EXECUTE. The 8-argument form must be gone, otherwise every existing call fails
+-- with "function is not unique".
+SELECT
+  pg_get_function_identity_arguments(p.oid) AS args,
+  has_function_privilege('service_role', p.oid, 'EXECUTE') AS service_role_can_execute,
+  has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_can_execute
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.proname = 'messages_start_conversation';
+-- STOP if more than one row is returned, or if authenticated_can_execute is true.
+
 -- ── VERIFY 8: Wave F-2 privacy is untouched ───────────────────────────────
 -- PASS: bucket_public = false, student_files_policies = 0, canonical_paths = 57,
 -- remaining_http_values = 0. This migration must not have moved any of them.

@@ -301,22 +301,47 @@ test('delivery event types are widened, not replaced', () => {
 })
 
 // ── Migration: messages authorization functions ──────────────────────────────
-test('unit leader message access requires an active grant AND an active scope', () => {
-  const fn = migrationLive.slice(
-    migrationLive.indexOf('CREATE OR REPLACE FUNCTION public.my_message_conversation_ids'),
-    migrationLive.indexOf('CREATE OR REPLACE FUNCTION public.message_recipient_has_active_access'))
+test('unit leader READ requires an active grant and a live account, not a scope', () => {
+  // History survives the end of an assignment, so read must NOT require a scope.
+  const fn = migrationSql.slice(
+    migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.message_participant_can_read'),
+    migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.message_participant_can_send'))
   assert.match(fn, /g\.role = 'unit_leader'/)
-  assert.match(fn, /FROM public\.user_unit_scopes s/)
-  assert.match(fn, /s\.unit_key = p\.scope_unit_key/)
-  assert.match(fn, /s\.revoked_at IS NULL/)
-  assert.match(fn, /s\.expires_at IS NULL OR s\.expires_at > now\(\)/)
+  assert.match(fn, /public\.message_profile_is_active\(p_profile_id\)/)
+  assert.doesNotMatch(fn, /user_unit_scopes/)
   // The student branch is preserved verbatim in behavior.
   assert.match(fn, /g\.role = 'student'/)
   assert.match(fn, /user_student_links/)
 })
 
-test('access is never derived from a related_ context column', () => {
-  assert.doesNotMatch(migrationSql, /related_student_id|related_unit_key|related_school_key|related_cohort_id/)
+test('unit leader SEND requires a current ACTIVE unit scope', () => {
+  const fn = migrationSql.slice(
+    migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.message_participant_can_send'),
+    migrationSql.indexOf('CREATE OR REPLACE FUNCTION public.my_message_conversation_ids'))
+  assert.match(fn, /FROM public\.user_unit_scopes s/)
+  assert.match(fn, /s\.unit_key = cp\.scope_unit_key/)
+  assert.match(fn, /s\.revoked_at IS NULL/)
+  assert.match(fn, /s\.expires_at IS NULL OR s\.expires_at > now\(\)/)
+})
+
+test('AUTHORIZATION is never derived from a related_ context column', () => {
+  // related_student_id is legitimately WRITTEN as staff context metadata by
+  // messages_start_conversation (unchanged Phase 3 behavior). What must never
+  // happen is a gate reading it. Assert on the authorization predicates only.
+  for (const fnName of [
+    'message_participant_can_read',
+    'message_participant_can_send',
+    'my_message_conversation_ids',
+    'message_recipient_has_active_access',
+  ]) {
+    const start = migrationSql.indexOf(`CREATE OR REPLACE FUNCTION public.${fnName}`)
+    assert.ok(start > -1, fnName)
+    const body = migrationSql.slice(start, migrationSql.indexOf('$$;', start))
+    assert.doesNotMatch(
+      body,
+      /related_student_id|related_unit_key|related_school_key|related_cohort_id|assigned_staff_profile_id/,
+      `${fnName} must not authorize from a related_ context column`)
+  }
 })
 
 test('portal unread now counts messages from anyone other than the caller', () => {

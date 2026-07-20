@@ -79,32 +79,85 @@ Nothing about a one-participant thread changes.
 ## Access after a student changes unit
 
 The unit leader's participant row records `scope_unit_key` **at thread creation**,
-not the student's current unit. If the student moves from unit A to unit B, the
-unit leader of A keeps an active scope on A, so `my_message_conversation_ids()`
-still returns the thread and **history remains visible**. The unit leader of B gets
-no retrospective access to it.
+not the student's current unit. If the student moves from unit A to unit B, the unit
+leader of A keeps their participant row, so the thread and its history remain
+readable. The unit leader of B gets no retrospective access to it and starts a
+separate thread.
 
 ## Access after the unit leader's scope ends
 
-Revocation, expiry, or deactivation denies **everything**, including history. This
-is deliberate and follows the locked rule "no access after assignment revocation"
-and "no access after account deactivation", which takes precedence over
-convenience. The mechanism:
+Read and send are separate authorizations. History survives; operational access does
+not.
 
-- `my_message_conversation_ids()` requires an ACTIVE `user_unit_scopes` row for
-  the participant row's `scope_unit_key`, so the thread disappears from the list,
-  the thread read, and the unread count on the very next call.
-- `messages_post_reply` calls `message_recipient_has_active_access` for a
-  `unit_leader` actor, so a **new message is refused** with `MS404`.
-- The conversation and all its messages are retained; nothing is deleted. Access is
-  what ends, not history. Restoring the scope restores visibility.
+| Capability | While scope active | After scope ends or is revoked |
+| --- | --- | --- |
+| Unit Leader reads the direct thread | yes | **yes, read only** |
+| Unit Leader sends in that thread | yes | no |
+| Student reads the direct thread | yes | **yes, read only** |
+| Student sends in that thread | yes | no |
+| Either starts a new direct thread on that relationship | yes | no |
+| ASPIRE staff read, reply, intervene | yes | **yes, unchanged** |
+| Unit Leader roster, profile, resume, photo | yes | no, immediately |
+| Unit Leader placement, capacity, milestone, preceptor actions | yes | no, immediately |
+
+The mechanism is two predicates:
+
+- `message_participant_can_read(conversation, profile)` rests on the identity-backed
+  `conversation_participants` row created **while the scope was valid**, plus a live
+  account and an active `unit_leader` role grant. It deliberately does **not**
+  require an active `user_unit_scopes` row, which is what preserves history.
+- `message_participant_can_send(conversation, profile)` requires read **and** current
+  operational standing: an active unit scope for a Unit Leader, and for a student, a
+  direct thread whose Unit Leader participant still holds active scope. Once the
+  relationship ends the thread is frozen for **both** portal parties.
+
+`messages_post_reply` gates portal actors on `can_send` and raises `MS404`, so a
+frozen thread is indistinguishable from an invisible one. `messages_start_conversation`
+requires active scope for a `unit_leader` actor, so an ended relationship can never be
+restarted.
+
+The participant row is never client-forged: only the server writes
+`conversation_participants`, and no client-supplied unit value is ever trusted. The
+student's unit membership is resolved server side from `students.matched_unit_id`.
+
+### No live student data through a historical thread
+
+Verified against the projections, not assumed. `messages_portal_get_thread_v2` reads
+`conversations`, `messages`, and `user_profiles` (for a staff author name) only.
+`messages_portal_list_conversations` reads `conversations`, `messages`, and
+`participant_conversation_reads` only. Neither joins `students`, and neither projects
+a `related_*` context column. A historical thread therefore shows the frozen
+conversation and nothing that is re-fetched from live student records.
+
+Roster, profile, resume, photo, placement, capacity, milestone, and preceptor access
+all run through `resolveUnitScopedStudents`, which calls `getActiveUnitScopes` and
+resolves an empty set the moment the scope ends. There is no path from a readable
+historical thread back to live student data.
+
+### A newly assigned Unit Leader gets a separate thread
+
+Access is per participant row. A new Unit Leader holds no row on a predecessor's
+conversation, so `can_read` is false for them on that thread, in perpetuity. When
+they start a thread they create a **new** conversation with their own participant
+row. Nothing is transferred, and the predecessor's history is not exposed to them.
+
+### Account deactivation
+
+`portal_profile_id()` maps `auth.uid()` to a profile and does **not** check
+`is_active`, so the historical-read path checks it explicitly through
+`message_profile_is_active`. An inactive Unit Leader is denied all portal access
+including historical thread access, in SQL as well as at the API layer.
+
+The student branch of `can_read` is deliberately left byte-identical to Phase 1, so
+no existing portal to ASPIRE Team thread changes behavior. Inactive students are
+already rejected upstream by `verifyPortalCaller`.
 
 ## Staff intervention after scope ends
 
-Unaffected, because staff authority never depended on the participant. Staff still
-list, read, reply, assign, and resolve.
+Unaffected, because staff authority never depended on the participant row. Staff
+still list, read, reply, assign, and resolve, including on a frozen thread.
 
-One real defect this correction surfaced and fixed: the staff branch of
+One real defect this work surfaced and fixed: the staff branch of
 `messages_post_reply` previously resolved the notification target with
 
 ```sql
@@ -117,16 +170,15 @@ LIMIT 1;
 With two participants and no `ORDER BY`, that is **nondeterministic**, and if it
 happened to select the party whose access had ended it raised `MS409` and blocked a
 legitimate intervention. It is replaced: the delivery's declared recipient is now
-authoritative and is validated to be an active-access participant of that
-conversation. Staff can therefore always intervene toward whichever party still has
-access.
+authoritative and is validated to be a participant who can still **read** the
+conversation. Read is the correct bar, so staff can reply to a former Unit Leader and
+have it reach them.
 
 The same bug existed in the application layer: `loadActiveParticipant` used
 `.maybeSingle()`, which errors on two rows and would have failed every staff reply
 into a direct thread with `no_active_participant`. It is replaced by
-`loadActiveParticipants`, and `api/messages-staff-reply.js` now chooses the
-recipient deterministically: whoever sent the most recent non-staff message, else
-join order.
+`loadActiveParticipants`, and `api/messages-staff-reply.js` now chooses the recipient
+deterministically: whoever sent the most recent non-staff message, else join order.
 
 ## New event types
 

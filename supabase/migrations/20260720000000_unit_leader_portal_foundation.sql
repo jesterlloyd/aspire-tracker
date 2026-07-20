@@ -442,75 +442,55 @@ ALTER TABLE public.message_notification_deliveries
 -- 8. Messages: authorization and projection functions
 -- ############################################################################
 -- CREATE OR REPLACE only. No table is touched, grants are preserved.
--- Every function keeps the Phase 1 invariants: access is never derived from a
--- related_* context column, inaccessible and missing are indistinguishable, and
--- the canonical active predicate is used for every grant and scope.
+--
+-- THE CENTRAL RULE OF THIS SECTION: read authorization and send authorization are
+-- SEPARATE predicates.
+--
+--   Historical READ  survives the end of a unit assignment. It rests on the
+--                    identity-backed participant row that was created WHILE the
+--                    scope was valid, plus a live active account and role grant.
+--   SEND             always requires CURRENT active unit scope. A former Unit
+--                    Leader can read the thread and can never add to it.
+--
+-- This is why a single "has access" predicate is no longer sufficient and is split
+-- into message_participant_can_read and message_participant_can_send below.
+--
+-- Everything else keeps the Phase 1 invariants: access is never derived from a
+-- related_* context column, inaccessible and missing are indistinguishable, and the
+-- canonical active predicate is used for every grant and scope.
 
--- 8a. Which conversations may the calling portal user see?
--- Generalized from student-only to (student OR unit_leader). A unit_leader row is
--- valid only while the profile holds an ACTIVE unit_leader grant AND an ACTIVE
--- user_unit_scopes row for that participant row's scope_unit_key. Revoking the
--- scope or deactivating the account removes access on the very next call.
-CREATE OR REPLACE FUNCTION public.my_message_conversation_ids()
-RETURNS SETOF uuid
+-- 8a. Is this profile's ACCOUNT live?
+-- portal_profile_id() maps auth.uid() to a profile and does NOT check is_active, so
+-- the historical-read path (the one thing that now survives scope revocation) checks
+-- it explicitly rather than relying on the API layer alone.
+CREATE OR REPLACE FUNCTION public.message_profile_is_active(p_profile_id uuid)
+RETURNS boolean
 LANGUAGE sql
 SECURITY DEFINER
 STABLE
 SET search_path = public, pg_catalog
 AS $$
-  SELECT p.conversation_id
-  FROM public.conversation_participants p
-  WHERE p.participant_profile_id = public.portal_profile_id()
-    AND p.removed_at IS NULL
-    AND (
-      -- Student participant: unchanged Phase 1 rule.
-      (
-        p.participant_role = 'student'
-        AND p.scope_kind = 'student'
-        AND EXISTS (
-          SELECT 1 FROM public.user_role_grants g
-          WHERE g.user_profile_id = public.portal_profile_id()
-            AND g.role = 'student'
-            AND g.revoked_at IS NULL
-            AND g.starts_at <= now()
-            AND (g.expires_at IS NULL OR g.expires_at > now())
-        )
-        AND EXISTS (
-          SELECT 1 FROM public.user_student_links l
-          WHERE l.user_profile_id = public.portal_profile_id()
-            AND l.student_id = p.scope_student_id
-            AND l.revoked_at IS NULL
-        )
-      )
-      OR
-      -- Unit Leader participant: active grant AND active scope on THIS unit.
-      (
-        p.participant_role = 'unit_leader'
-        AND p.scope_kind = 'unit'
-        AND EXISTS (
-          SELECT 1 FROM public.user_role_grants g
-          WHERE g.user_profile_id = public.portal_profile_id()
-            AND g.role = 'unit_leader'
-            AND g.revoked_at IS NULL
-            AND g.starts_at <= now()
-            AND (g.expires_at IS NULL OR g.expires_at > now())
-        )
-        AND EXISTS (
-          SELECT 1 FROM public.user_unit_scopes s
-          WHERE s.user_profile_id = public.portal_profile_id()
-            AND s.unit_key = p.scope_unit_key
-            AND s.revoked_at IS NULL
-            AND s.starts_at <= now()
-            AND (s.expires_at IS NULL OR s.expires_at > now())
-        )
-      )
-    );
+  SELECT EXISTS (
+    SELECT 1 FROM public.user_profiles up
+    WHERE up.id = p_profile_id
+      AND COALESCE(up.is_active, true) IS TRUE
+  );
 $$;
 
--- 8b. May this profile still receive a notification for this conversation?
--- Same generalization. Used by the delivery worker to suppress mail to a recipient
--- whose access ended between queueing and sending.
-CREATE OR REPLACE FUNCTION public.message_recipient_has_active_access(
+-- 8b. READ: may this profile see this conversation and its history?
+--
+-- Student branch: UNCHANGED from Phase 1, deliberately, so every existing portal to
+-- ASPIRE Team thread behaves exactly as before.
+--
+-- Unit Leader branch: the participant row plus an active unit_leader grant plus a
+-- live account. It does NOT require an active user_unit_scopes row, which is what
+-- preserves historical visibility after the assignment ends. The participant row is
+-- the identity-backed record, created while the scope was valid, and it is never
+-- forged by a client: only the server writes conversation_participants.
+--
+-- A newly assigned Unit Leader gets NO access to a former leader's thread, because
+-- access is per participant row and a new leader holds none on that conversation.
+CREATE OR REPLACE FUNCTION public.message_participant_can_read(
   p_conversation_id uuid,
   p_profile_id      uuid
 )
@@ -549,6 +529,10 @@ AS $$
         (
           cp.participant_role = 'unit_leader'
           AND cp.scope_kind = 'unit'
+          -- Live account. An inactive Unit Leader is denied ALL portal access,
+          -- including historical thread access.
+          AND public.message_profile_is_active(p_profile_id)
+          -- Still a Unit Leader at all. Losing the role grant removes the portal.
           AND EXISTS (
             SELECT 1 FROM public.user_role_grants g
             WHERE g.user_profile_id = p_profile_id
@@ -557,22 +541,89 @@ AS $$
               AND g.starts_at <= now()
               AND (g.expires_at IS NULL OR g.expires_at > now())
           )
-          AND EXISTS (
-            SELECT 1 FROM public.user_unit_scopes s
-            WHERE s.user_profile_id = p_profile_id
-              AND s.unit_key = cp.scope_unit_key
-              AND s.revoked_at IS NULL
-              AND s.starts_at <= now()
-              AND (s.expires_at IS NULL OR s.expires_at > now())
-          )
+          -- Deliberately NO user_unit_scopes requirement: history survives the end
+          -- of the assignment. Sending does not (see 8c).
         )
       )
   );
 $$;
 
--- 8c. Portal unread count.
--- Phase 1 counted only author_role = 'staff', which would never raise a badge for
--- a message from the other portal participant. The correct rule is "authored by
+-- 8c. SEND: may this profile add a NEW message to this conversation?
+--
+-- Always requires read, and then CURRENT operational standing:
+--   unit_leader  an ACTIVE user_unit_scopes row for that participant row's unit.
+--   student      if the thread has a Unit Leader participant (a direct thread), that
+--                Unit Leader must still hold active scope. This is the "current
+--                active direct-thread relationship" rule: once the relationship
+--                ends, neither side may add to it. A student to ASPIRE Team thread
+--                has no Unit Leader participant, so this clause is inert and student
+--                behavior is unchanged.
+CREATE OR REPLACE FUNCTION public.message_participant_can_send(
+  p_conversation_id uuid,
+  p_profile_id      uuid
+)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public, pg_catalog
+AS $$
+  SELECT
+    public.message_participant_can_read(p_conversation_id, p_profile_id)
+    AND NOT EXISTS (
+      -- Any Unit Leader participant on this thread whose scope has ended freezes it
+      -- for BOTH portal parties.
+      SELECT 1
+      FROM public.conversation_participants cp
+      WHERE cp.conversation_id = p_conversation_id
+        AND cp.removed_at IS NULL
+        AND cp.participant_role = 'unit_leader'
+        AND NOT EXISTS (
+          SELECT 1 FROM public.user_unit_scopes s
+          WHERE s.user_profile_id = cp.participant_profile_id
+            AND s.unit_key = cp.scope_unit_key
+            AND s.revoked_at IS NULL
+            AND s.starts_at <= now()
+            AND (s.expires_at IS NULL OR s.expires_at > now())
+        )
+    );
+$$;
+
+-- 8d. Which conversations may the calling portal user SEE?
+-- Uses the READ predicate, so a former Unit Leader keeps the thread in their list.
+CREATE OR REPLACE FUNCTION public.my_message_conversation_ids()
+RETURNS SETOF uuid
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public, pg_catalog
+AS $$
+  SELECT p.conversation_id
+  FROM public.conversation_participants p
+  WHERE p.participant_profile_id = public.portal_profile_id()
+    AND p.removed_at IS NULL
+    AND public.message_participant_can_read(p.conversation_id, public.portal_profile_id());
+$$;
+
+-- 8e. May this profile still RECEIVE a notification for this conversation?
+-- Read is the right bar: staff may reply to a former Unit Leader who can still read
+-- the thread, and that reply should reach them.
+CREATE OR REPLACE FUNCTION public.message_recipient_has_active_access(
+  p_conversation_id uuid,
+  p_profile_id      uuid
+)
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public, pg_catalog
+AS $$
+  SELECT public.message_participant_can_read(p_conversation_id, p_profile_id);
+$$;
+
+-- 8f. Portal unread count.
+-- Phase 1 counted only author_role = 'staff', which would never raise a badge for a
+-- message from the other portal participant. The correct rule is "authored by
 -- someone other than me", which preserves the existing student to staff behavior
 -- exactly and additionally counts a Unit Leader to student message.
 CREATE OR REPLACE FUNCTION public.messages_portal_unread_count()
@@ -591,7 +642,7 @@ AS $$
       '-infinity'::timestamptz);
 $$;
 
--- 8d. Delivery validation: admit the two direct-thread event types.
+-- 8g. Delivery validation: admit the two direct-thread event types.
 -- Both route to portal_user, because a direct Unit Leader to student message
 -- notifies the OTHER portal participant and never staff. Every existing binding
 -- (new_conversation -> shared_inbox, portal_reply -> staff, staff_reply ->
@@ -689,19 +740,7 @@ BEGIN
 END;
 $$;
 
--- 8e. Reply: admit a unit_leader author, and make the staff branch deterministic.
---
--- TWO changes, both forced by the two-participant thread:
---   1. p_actor_kind now admits 'unit_leader'. Access is checked with the same
---      message_recipient_has_active_access predicate, so a revoked unit scope or a
---      deactivated account denies the reply on the very next call.
---   2. The staff branch no longer picks a participant with LIMIT 1. With two active
---      participants that was nondeterministic and could refuse a legitimate
---      intervention. The delivery's declared recipient is now validated to be an
---      active-access participant of this conversation.
---
--- Student to ASPIRE Team behavior is unchanged: same author_role, same
--- 'portal_reply' event, same read-pointer write, same delivery invariants.
+-- 8h. Reply. Portal actors are gated by SEND, staff targets are gated by READ.
 CREATE OR REPLACE FUNCTION public.messages_post_reply(
   p_actor_profile_id uuid,
   p_actor_kind       text,
@@ -736,11 +775,12 @@ BEGIN
   END IF;
 
   IF p_actor_kind IN ('student', 'unit_leader') THEN
-    -- Live active participant access (never conversation id alone). For a unit
-    -- leader this requires an ACTIVE unit_leader grant AND an ACTIVE
-    -- user_unit_scopes row for the participant row's unit, so a revoked scope
-    -- denies the reply on the very next call.
-    IF NOT public.message_recipient_has_active_access(p_conversation_id, p_actor_profile_id) THEN
+    -- SEND authorization, not read. A former Unit Leader can still READ this thread
+    -- but must never add to it, and once a direct relationship ends the thread is
+    -- frozen for BOTH portal parties. can_send requires current active unit scope.
+    IF NOT public.message_participant_can_send(p_conversation_id, p_actor_profile_id) THEN
+      -- Non-enumerating: a readable-but-frozen thread and an invisible one are
+      -- indistinguishable to the caller.
       RAISE EXCEPTION 'conversation not found' USING ERRCODE = 'MS404';
     END IF;
     IF p_actor_kind = 'student' THEN
@@ -759,16 +799,14 @@ BEGIN
     IF NOT public.message_profile_is_active_owner_or_admin(p_actor_profile_id) THEN
       RAISE EXCEPTION 'staff actor must be an active owner or admin' USING ERRCODE = 'MS403';
     END IF;
-    -- UL-PORTAL: a conversation may now hold TWO active portal participants
-    -- (a student and a unit leader). Staff are never participants, so the old
-    -- "SELECT ... LIMIT 1" resolution became NONDETERMINISTIC and could block a
-    -- legitimate staff intervention whenever the arbitrarily chosen party was the
-    -- one whose access had ended.
+    -- UL-PORTAL: a conversation may now hold TWO active portal participants, and
+    -- staff must be able to intervene even after a unit assignment has ended. The
+    -- old "SELECT ... LIMIT 1" resolution was NONDETERMINISTIC with two rows and
+    -- could refuse a legitimate intervention.
     --
-    -- The delivery's declared recipient is now authoritative and is validated to be
-    -- an active-access participant of THIS conversation. Staff can therefore always
-    -- intervene toward whichever party still has access, which is exactly the
-    -- "staff may view and intervene" rule.
+    -- The delivery's declared recipient is now authoritative, and is validated to be
+    -- a participant of THIS conversation who can still READ it. Read, not send: a
+    -- former Unit Leader may still receive a staff reply.
     v_participant := NULLIF(p_delivery->>'recipient_profile_id', '')::uuid;
     IF v_participant IS NULL
        OR NOT EXISTS (
@@ -776,7 +814,7 @@ BEGIN
             WHERE cp.conversation_id = p_conversation_id
               AND cp.participant_profile_id = v_participant
               AND cp.removed_at IS NULL)
-       OR NOT public.message_recipient_has_active_access(p_conversation_id, v_participant) THEN
+       OR NOT public.message_participant_can_read(p_conversation_id, v_participant) THEN
       RAISE EXCEPTION 'participant portal access is not active' USING ERRCODE = 'MS409';
     END IF;
     v_author_role    := 'staff';
@@ -856,6 +894,221 @@ BEGIN
 END;
 $$;
 
+-- 8i. Start a conversation. Adds the unit_leader actor for a DIRECT thread, which
+-- always requires current active scope, so an ended relationship can never be
+-- restarted. Student and staff paths are unchanged.
+--
+-- SIGNATURE CHANGE, handled deliberately: this adds a 9th argument (p_unit_key).
+-- CREATE OR REPLACE cannot change a function's argument list, so leaving the old
+-- 8-argument form in place would create an OVERLOAD, and every existing 8-argument
+-- call would then fail with "function is not unique" because the 9th argument has a
+-- DEFAULT. The old signature is therefore dropped first, and because DROP plus
+-- CREATE does NOT preserve grants (unlike CREATE OR REPLACE), the exact Phase 3
+-- grants are re-applied immediately after the new definition below.
+DROP FUNCTION IF EXISTS public.messages_start_conversation(
+  uuid, text, uuid, uuid, text, text, text, jsonb);
+
+CREATE OR REPLACE FUNCTION public.messages_start_conversation(
+  p_actor_profile_id       uuid,
+  p_actor_kind             text,
+  p_participant_profile_id uuid,
+  p_student_id             uuid,
+  p_unit_key               text DEFAULT NULL,
+  p_subject                text,
+  p_category               text,
+  p_body                   text,
+  p_delivery               jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
+DECLARE
+  v_now             timestamptz := now();
+  v_conversation_id uuid;
+  v_message_id      uuid;
+  v_delivery_id     uuid;
+  v_subject         text := btrim(coalesce(p_subject, ''));
+  v_author_role     text;
+  v_expected_event  text;
+  v_unit_key        text := nullif(btrim(coalesce(p_unit_key, '')), '');
+BEGIN
+  IF p_actor_kind NOT IN ('student', 'staff', 'unit_leader') THEN
+    RAISE EXCEPTION 'invalid actor kind' USING ERRCODE = 'MS400';
+  END IF;
+  IF char_length(v_subject) < 3 OR char_length(v_subject) > 120 THEN
+    RAISE EXCEPTION 'subject must be 3 to 120 characters' USING ERRCODE = 'MS400';
+  END IF;
+  IF char_length(btrim(coalesce(p_body, ''))) < 1 OR char_length(p_body) > 5000 THEN
+    RAISE EXCEPTION 'body must be 1 to 5000 characters' USING ERRCODE = 'MS400';
+  END IF;
+
+  -- The participant must hold active student portal access in every case.
+  IF NOT public.message_profile_has_active_student_link(p_participant_profile_id, p_student_id) THEN
+    RAISE EXCEPTION 'participant portal access is not active' USING ERRCODE = 'MS409';
+  END IF;
+
+  IF p_actor_kind = 'student' THEN
+    IF p_actor_profile_id IS DISTINCT FROM p_participant_profile_id THEN
+      RAISE EXCEPTION 'student may only start their own conversation' USING ERRCODE = 'MS403';
+    END IF;
+    v_author_role    := 'student';
+    v_expected_event := 'new_conversation';
+  ELSIF p_actor_kind = 'unit_leader' THEN
+    -- A DIRECT thread. Creation ALWAYS requires current active scope, so a former
+    -- Unit Leader can never start a new thread on the ended relationship. A newly
+    -- assigned Unit Leader creating a thread gets a NEW conversation with their own
+    -- participant row, and never access to a predecessor's thread.
+    IF v_unit_key IS NULL THEN
+      RAISE EXCEPTION 'unit key is required to start a direct thread' USING ERRCODE = 'MS400';
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM public.user_role_grants g
+      WHERE g.user_profile_id = p_actor_profile_id
+        AND g.role = 'unit_leader'
+        AND g.revoked_at IS NULL
+        AND g.starts_at <= now()
+        AND (g.expires_at IS NULL OR g.expires_at > now())
+    ) OR NOT public.message_profile_is_active(p_actor_profile_id) THEN
+      RAISE EXCEPTION 'unit leader access is not active' USING ERRCODE = 'MS403';
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM public.user_unit_scopes s
+      WHERE s.user_profile_id = p_actor_profile_id
+        AND s.unit_key = v_unit_key
+        AND s.revoked_at IS NULL
+        AND s.starts_at <= now()
+        AND (s.expires_at IS NULL OR s.expires_at > now())
+    ) THEN
+      RAISE EXCEPTION 'unit scope is not active' USING ERRCODE = 'MS403';
+    END IF;
+    -- The student must actually be placed in that unit. Resolved server side from
+    -- students.matched_unit_id, never from a client-supplied unit value.
+    IF NOT EXISTS (
+      SELECT 1
+      FROM public.students st
+      JOIN public.units u ON u.id = st.matched_unit_id
+      WHERE st.id = p_student_id
+        AND u.unit_name = v_unit_key
+    ) THEN
+      RAISE EXCEPTION 'student is not in that unit' USING ERRCODE = 'MS403';
+    END IF;
+    v_author_role    := 'unit_leader';
+    v_expected_event := 'unit_leader_message';
+  ELSE
+    IF NOT public.message_profile_is_active_owner_or_admin(p_actor_profile_id) THEN
+      RAISE EXCEPTION 'staff actor must be an active owner or admin' USING ERRCODE = 'MS403';
+    END IF;
+    v_author_role    := 'staff';
+    v_expected_event := 'staff_reply';
+  END IF;
+
+  -- REQUIRED durable delivery payload. Validated before any authoritative write
+  -- so an invalid payload fails fast and creates nothing.
+  PERFORM public.message_assert_valid_delivery(p_delivery, v_expected_event, p_actor_profile_id);
+
+  INSERT INTO public.conversations (
+    subject, category, status, created_by_profile_id, created_by_role,
+    related_student_id, last_message_at, created_at, updated_at
+  ) VALUES (
+    v_subject, p_category, 'open', p_actor_profile_id, v_author_role,
+    p_student_id, v_now, v_now, v_now
+  ) RETURNING id INTO v_conversation_id;
+
+  INSERT INTO public.conversation_participants (
+    conversation_id, participant_profile_id, participant_role, scope_kind,
+    scope_student_id, added_at
+  ) VALUES (
+    v_conversation_id, p_participant_profile_id, 'student', 'student',
+    p_student_id, v_now
+  );
+
+  -- A direct thread carries a SECOND participant row for the Unit Leader, scoped to
+  -- the unit and naming the student. This row is the identity-backed record that
+  -- keeps history readable after the assignment ends. Two rows is the cap.
+  IF p_actor_kind = 'unit_leader' THEN
+    INSERT INTO public.conversation_participants (
+      conversation_id, participant_profile_id, participant_role, scope_kind,
+      scope_student_id, scope_unit_key, added_at
+    ) VALUES (
+      v_conversation_id, p_actor_profile_id, 'unit_leader', 'unit',
+      p_student_id, v_unit_key, v_now
+    );
+  END IF;
+
+  INSERT INTO public.messages (conversation_id, author_profile_id, author_role, body, created_at)
+  VALUES (v_conversation_id, p_actor_profile_id, v_author_role, p_body, v_now)
+  RETURNING id INTO v_message_id;
+
+  INSERT INTO public.conversation_events (conversation_id, event_type, actor_profile_id, to_value, created_at)
+  VALUES (v_conversation_id, 'created', p_actor_profile_id, 'open', v_now);
+
+  -- The SENDER's read pointer only. The recipient is never marked read.
+  IF p_actor_kind IN ('student', 'unit_leader') THEN
+    INSERT INTO public.participant_conversation_reads (participant_profile_id, conversation_id, last_read_at)
+    VALUES (p_actor_profile_id, v_conversation_id, v_now)
+    ON CONFLICT (participant_profile_id, conversation_id) DO UPDATE SET last_read_at = v_now;
+  ELSE
+    INSERT INTO public.staff_conversation_reads (staff_profile_id, conversation_id, last_read_at)
+    VALUES (p_actor_profile_id, v_conversation_id, v_now)
+    ON CONFLICT (staff_profile_id, conversation_id) DO UPDATE SET last_read_at = v_now;
+  END IF;
+
+  -- Durable queued delivery row, in the SAME transaction as the authoritative
+  -- write. NO ON CONFLICT DO NOTHING: the message is new inside this
+  -- transaction, so an existing row for this key can never legitimately belong
+  -- to it. A conflict aborts everything rather than committing a message with no
+  -- delivery record. The unique idempotency guarantee is unchanged.
+  BEGIN
+    INSERT INTO public.message_notification_deliveries (
+      conversation_id, message_id, triggered_by_profile_id, recipient_profile_id,
+      recipient_email, recipient_kind, event_type, idempotency_key,
+      queue_status, next_attempt_at,
+      snapshot_sender_name, snapshot_subject, snapshot_category, cta_path
+    ) VALUES (
+      v_conversation_id, v_message_id, p_actor_profile_id,
+      NULLIF(p_delivery->>'recipient_profile_id', '')::uuid,
+      p_delivery->>'recipient_email', p_delivery->>'recipient_kind',
+      p_delivery->>'event_type', p_delivery->>'idempotency_key',
+      'queued', v_now,
+      p_delivery->>'snapshot_sender_name', p_delivery->>'snapshot_subject',
+      p_delivery->>'snapshot_category', p_delivery->>'cta_path'
+    )
+    RETURNING id INTO v_delivery_id;
+  EXCEPTION WHEN unique_violation THEN
+    RAISE EXCEPTION 'duplicate notification delivery for this message'
+      USING ERRCODE = 'MS409';
+  END;
+
+  IF v_delivery_id IS NULL THEN
+    RAISE EXCEPTION 'delivery row was not created' USING ERRCODE = 'MS409';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'conversation_id', v_conversation_id,
+    'message_id', v_message_id,
+    'delivery_id', v_delivery_id,
+    'created_at', v_now,
+    'status', 'open'
+  );
+END;
+$$;
+
+-- Restore the exact Phase 3 grants for the re-created function.
+REVOKE ALL ON FUNCTION public.messages_start_conversation(
+  uuid, text, uuid, uuid, text, text, text, jsonb, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.messages_start_conversation(
+  uuid, text, uuid, uuid, text, text, text, jsonb, text) TO service_role;
+
+-- The new helper functions follow the same rule as every other messages helper:
+-- never callable by a browser role.
+REVOKE ALL ON FUNCTION public.message_profile_is_active(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.message_participant_can_read(uuid, uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.message_participant_can_send(uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.message_profile_is_active(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.message_participant_can_read(uuid, uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.message_participant_can_send(uuid, uuid) TO service_role;
+
 COMMIT;
 
 
@@ -933,7 +1186,361 @@ SET search_path = public, pg_catalog AS $rb$
           AND l.revoked_at IS NULL));
 $rb$;
 
--- 8d/8e. delivery validator and reply back to Phase 3 shape
+-- 8g/8h/8i. delivery validator, reply, and start back to Phase 3 shape
+CREATE OR REPLACE FUNCTION public.message_assert_valid_delivery(
+  p_delivery         jsonb,
+  p_expected_event   text,
+  p_actor_profile_id uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
+DECLARE
+  v_key   text;
+  v_email text;
+  v_kind  text;
+  v_event text;
+  v_rp    uuid;
+  v_k     text;
+BEGIN
+  IF p_delivery IS NULL OR jsonb_typeof(p_delivery) <> 'object' THEN
+    RAISE EXCEPTION 'delivery payload is required' USING ERRCODE = 'MS400';
+  END IF;
+
+  -- No message content may ever enter a delivery row.
+  FOR v_k IN SELECT jsonb_object_keys(p_delivery) LOOP
+    IF v_k ~* '(^|_)(body|preview|snippet|content|html|text|quote|quoted)(_|$)' THEN
+      RAISE EXCEPTION 'delivery payload may not contain message content'
+        USING ERRCODE = 'MS400';
+    END IF;
+  END LOOP;
+
+  v_key   := btrim(coalesce(p_delivery->>'idempotency_key', ''));
+  v_email := btrim(coalesce(p_delivery->>'recipient_email', ''));
+  v_kind  := coalesce(p_delivery->>'recipient_kind', '');
+  v_event := coalesce(p_delivery->>'event_type', '');
+  v_rp    := NULLIF(p_delivery->>'recipient_profile_id', '')::uuid;
+
+  IF v_key = '' THEN
+    RAISE EXCEPTION 'delivery idempotency_key is required' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_email = '' THEN
+    RAISE EXCEPTION 'delivery recipient_email is required' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_kind NOT IN ('shared_inbox', 'assigned_staff', 'portal_user') THEN
+    RAISE EXCEPTION 'invalid delivery recipient_kind' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_event NOT IN ('new_conversation', 'portal_reply', 'staff_reply') THEN
+    RAISE EXCEPTION 'invalid delivery event_type' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_event <> p_expected_event THEN
+    RAISE EXCEPTION 'delivery event_type does not match the operation'
+      USING ERRCODE = 'MS400';
+  END IF;
+
+  -- The recipient kind must match the approved Phase 2 routing shape.
+  IF v_event = 'new_conversation' AND v_kind <> 'shared_inbox' THEN
+    RAISE EXCEPTION 'new_conversation must route to the shared inbox' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_event = 'portal_reply' AND v_kind NOT IN ('shared_inbox', 'assigned_staff') THEN
+    RAISE EXCEPTION 'portal_reply must route to staff' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_event = 'staff_reply' AND v_kind <> 'portal_user' THEN
+    RAISE EXCEPTION 'staff_reply must route to the portal participant' USING ERRCODE = 'MS400';
+  END IF;
+  IF v_kind = 'portal_user' AND v_rp IS NULL THEN
+    RAISE EXCEPTION 'portal_user delivery requires recipient_profile_id' USING ERRCODE = 'MS400';
+  END IF;
+
+  -- The sender is never the recipient.
+  IF v_rp IS NOT NULL AND v_rp = p_actor_profile_id THEN
+    RAISE EXCEPTION 'sender may not be the notification recipient' USING ERRCODE = 'MS400';
+  END IF;
+
+  -- Required safe snapshot and CTA fields.
+  IF btrim(coalesce(p_delivery->>'snapshot_sender_name', '')) = '' THEN
+    RAISE EXCEPTION 'delivery snapshot_sender_name is required' USING ERRCODE = 'MS400';
+  END IF;
+  IF btrim(coalesce(p_delivery->>'snapshot_subject', '')) = '' THEN
+    RAISE EXCEPTION 'delivery snapshot_subject is required' USING ERRCODE = 'MS400';
+  END IF;
+  IF btrim(coalesce(p_delivery->>'cta_path', '')) = '' THEN
+    RAISE EXCEPTION 'delivery cta_path is required' USING ERRCODE = 'MS400';
+  END IF;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.messages_post_reply(
+  p_actor_profile_id uuid,
+  p_actor_kind       text,
+  p_conversation_id  uuid,
+  p_body             text,
+  p_delivery         jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
+DECLARE
+  v_now            timestamptz := now();
+  v_message_id     uuid;
+  v_delivery_id    uuid;
+  v_status         text;
+  v_reopened       boolean := false;
+  v_author_role    text;
+  v_participant    uuid;
+  v_expected_event text;
+BEGIN
+  IF p_actor_kind NOT IN ('student', 'staff') THEN
+    RAISE EXCEPTION 'invalid actor kind' USING ERRCODE = 'MS400';
+  END IF;
+  IF char_length(btrim(coalesce(p_body, ''))) < 1 OR char_length(p_body) > 5000 THEN
+    RAISE EXCEPTION 'body must be 1 to 5000 characters' USING ERRCODE = 'MS400';
+  END IF;
+
+  SELECT status INTO v_status FROM public.conversations WHERE id = p_conversation_id;
+  IF v_status IS NULL THEN
+    RAISE EXCEPTION 'conversation not found' USING ERRCODE = 'MS404';
+  END IF;
+
+  IF p_actor_kind = 'student' THEN
+    -- Live active participant access (never conversation id alone).
+    IF NOT public.message_recipient_has_active_access(p_conversation_id, p_actor_profile_id) THEN
+      RAISE EXCEPTION 'conversation not found' USING ERRCODE = 'MS404';
+    END IF;
+    v_author_role    := 'student';
+    v_expected_event := 'portal_reply';
+  ELSE
+    IF NOT public.message_profile_is_active_owner_or_admin(p_actor_profile_id) THEN
+      RAISE EXCEPTION 'staff actor must be an active owner or admin' USING ERRCODE = 'MS403';
+    END IF;
+    -- Staff may not send into a thread whose participant lost portal access.
+    SELECT cp.participant_profile_id INTO v_participant
+    FROM public.conversation_participants cp
+    WHERE cp.conversation_id = p_conversation_id AND cp.removed_at IS NULL
+    LIMIT 1;
+    IF v_participant IS NULL
+       OR NOT public.message_recipient_has_active_access(p_conversation_id, v_participant) THEN
+      RAISE EXCEPTION 'participant portal access is not active' USING ERRCODE = 'MS409';
+    END IF;
+    v_author_role    := 'staff';
+    v_expected_event := 'staff_reply';
+  END IF;
+
+  -- REQUIRED durable delivery payload, validated before any authoritative write.
+  PERFORM public.message_assert_valid_delivery(p_delivery, v_expected_event, p_actor_profile_id);
+
+  -- A staff reply must target the conversation's active portal participant.
+  IF p_actor_kind = 'staff'
+     AND NULLIF(p_delivery->>'recipient_profile_id', '')::uuid IS DISTINCT FROM v_participant THEN
+    RAISE EXCEPTION 'staff reply must notify the active conversation participant'
+      USING ERRCODE = 'MS400';
+  END IF;
+
+  -- Automatic reopen on reply to a resolved conversation.
+  IF v_status = 'resolved' THEN
+    UPDATE public.conversations
+    SET status = 'open', resolved_at = NULL, updated_at = v_now
+    WHERE id = p_conversation_id;
+    INSERT INTO public.conversation_events (conversation_id, event_type, actor_profile_id, from_value, to_value, created_at)
+    VALUES (p_conversation_id, 'reopened', p_actor_profile_id, 'resolved', 'open', v_now);
+    v_reopened := true;
+  END IF;
+
+  INSERT INTO public.messages (conversation_id, author_profile_id, author_role, body, created_at)
+  VALUES (p_conversation_id, p_actor_profile_id, v_author_role, p_body, v_now)
+  RETURNING id INTO v_message_id;
+
+  UPDATE public.conversations
+  SET last_message_at = v_now, updated_at = v_now
+  WHERE id = p_conversation_id;
+
+  IF p_actor_kind = 'student' THEN
+    INSERT INTO public.participant_conversation_reads (participant_profile_id, conversation_id, last_read_at)
+    VALUES (p_actor_profile_id, p_conversation_id, v_now)
+    ON CONFLICT (participant_profile_id, conversation_id) DO UPDATE SET last_read_at = v_now;
+  ELSE
+    INSERT INTO public.staff_conversation_reads (staff_profile_id, conversation_id, last_read_at)
+    VALUES (p_actor_profile_id, p_conversation_id, v_now)
+    ON CONFLICT (staff_profile_id, conversation_id) DO UPDATE SET last_read_at = v_now;
+  END IF;
+
+  -- Durable queued delivery row, same transaction, no silent conflict skip.
+  BEGIN
+    INSERT INTO public.message_notification_deliveries (
+      conversation_id, message_id, triggered_by_profile_id, recipient_profile_id,
+      recipient_email, recipient_kind, event_type, idempotency_key,
+      queue_status, next_attempt_at,
+      snapshot_sender_name, snapshot_subject, snapshot_category, cta_path
+    ) VALUES (
+      p_conversation_id, v_message_id, p_actor_profile_id,
+      NULLIF(p_delivery->>'recipient_profile_id', '')::uuid,
+      p_delivery->>'recipient_email', p_delivery->>'recipient_kind',
+      p_delivery->>'event_type', p_delivery->>'idempotency_key',
+      'queued', v_now,
+      p_delivery->>'snapshot_sender_name', p_delivery->>'snapshot_subject',
+      p_delivery->>'snapshot_category', p_delivery->>'cta_path'
+    )
+    RETURNING id INTO v_delivery_id;
+  EXCEPTION WHEN unique_violation THEN
+    RAISE EXCEPTION 'duplicate notification delivery for this message'
+      USING ERRCODE = 'MS409';
+  END;
+
+  IF v_delivery_id IS NULL THEN
+    RAISE EXCEPTION 'delivery row was not created' USING ERRCODE = 'MS409';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'message_id', v_message_id,
+    'delivery_id', v_delivery_id,
+    'created_at', v_now,
+    'reopened', v_reopened
+  );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.messages_start_conversation(
+  p_actor_profile_id       uuid,
+  p_actor_kind             text,
+  p_participant_profile_id uuid,
+  p_student_id             uuid,
+  p_subject                text,
+  p_category               text,
+  p_body                   text,
+  p_delivery               jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
+DECLARE
+  v_now             timestamptz := now();
+  v_conversation_id uuid;
+  v_message_id      uuid;
+  v_delivery_id     uuid;
+  v_subject         text := btrim(coalesce(p_subject, ''));
+  v_author_role     text;
+  v_expected_event  text;
+BEGIN
+  IF p_actor_kind NOT IN ('student', 'staff') THEN
+    RAISE EXCEPTION 'invalid actor kind' USING ERRCODE = 'MS400';
+  END IF;
+  IF char_length(v_subject) < 3 OR char_length(v_subject) > 120 THEN
+    RAISE EXCEPTION 'subject must be 3 to 120 characters' USING ERRCODE = 'MS400';
+  END IF;
+  IF char_length(btrim(coalesce(p_body, ''))) < 1 OR char_length(p_body) > 5000 THEN
+    RAISE EXCEPTION 'body must be 1 to 5000 characters' USING ERRCODE = 'MS400';
+  END IF;
+
+  -- The participant must hold active student portal access in every case.
+  IF NOT public.message_profile_has_active_student_link(p_participant_profile_id, p_student_id) THEN
+    RAISE EXCEPTION 'participant portal access is not active' USING ERRCODE = 'MS409';
+  END IF;
+
+  IF p_actor_kind = 'student' THEN
+    IF p_actor_profile_id IS DISTINCT FROM p_participant_profile_id THEN
+      RAISE EXCEPTION 'student may only start their own conversation' USING ERRCODE = 'MS403';
+    END IF;
+    v_author_role    := 'student';
+    v_expected_event := 'new_conversation';
+  ELSE
+    IF NOT public.message_profile_is_active_owner_or_admin(p_actor_profile_id) THEN
+      RAISE EXCEPTION 'staff actor must be an active owner or admin' USING ERRCODE = 'MS403';
+    END IF;
+    v_author_role    := 'staff';
+    v_expected_event := 'staff_reply';
+  END IF;
+
+  -- REQUIRED durable delivery payload. Validated before any authoritative write
+  -- so an invalid payload fails fast and creates nothing.
+  PERFORM public.message_assert_valid_delivery(p_delivery, v_expected_event, p_actor_profile_id);
+
+  INSERT INTO public.conversations (
+    subject, category, status, created_by_profile_id, created_by_role,
+    related_student_id, last_message_at, created_at, updated_at
+  ) VALUES (
+    v_subject, p_category, 'open', p_actor_profile_id, v_author_role,
+    p_student_id, v_now, v_now, v_now
+  ) RETURNING id INTO v_conversation_id;
+
+  INSERT INTO public.conversation_participants (
+    conversation_id, participant_profile_id, participant_role, scope_kind,
+    scope_student_id, added_at
+  ) VALUES (
+    v_conversation_id, p_participant_profile_id, 'student', 'student',
+    p_student_id, v_now
+  );
+
+  INSERT INTO public.messages (conversation_id, author_profile_id, author_role, body, created_at)
+  VALUES (v_conversation_id, p_actor_profile_id, v_author_role, p_body, v_now)
+  RETURNING id INTO v_message_id;
+
+  INSERT INTO public.conversation_events (conversation_id, event_type, actor_profile_id, to_value, created_at)
+  VALUES (v_conversation_id, 'created', p_actor_profile_id, 'open', v_now);
+
+  -- The SENDER's read pointer only. The recipient is never marked read.
+  IF p_actor_kind = 'student' THEN
+    INSERT INTO public.participant_conversation_reads (participant_profile_id, conversation_id, last_read_at)
+    VALUES (p_actor_profile_id, v_conversation_id, v_now)
+    ON CONFLICT (participant_profile_id, conversation_id) DO UPDATE SET last_read_at = v_now;
+  ELSE
+    INSERT INTO public.staff_conversation_reads (staff_profile_id, conversation_id, last_read_at)
+    VALUES (p_actor_profile_id, v_conversation_id, v_now)
+    ON CONFLICT (staff_profile_id, conversation_id) DO UPDATE SET last_read_at = v_now;
+  END IF;
+
+  -- Durable queued delivery row, in the SAME transaction as the authoritative
+  -- write. NO ON CONFLICT DO NOTHING: the message is new inside this
+  -- transaction, so an existing row for this key can never legitimately belong
+  -- to it. A conflict aborts everything rather than committing a message with no
+  -- delivery record. The unique idempotency guarantee is unchanged.
+  BEGIN
+    INSERT INTO public.message_notification_deliveries (
+      conversation_id, message_id, triggered_by_profile_id, recipient_profile_id,
+      recipient_email, recipient_kind, event_type, idempotency_key,
+      queue_status, next_attempt_at,
+      snapshot_sender_name, snapshot_subject, snapshot_category, cta_path
+    ) VALUES (
+      v_conversation_id, v_message_id, p_actor_profile_id,
+      NULLIF(p_delivery->>'recipient_profile_id', '')::uuid,
+      p_delivery->>'recipient_email', p_delivery->>'recipient_kind',
+      p_delivery->>'event_type', p_delivery->>'idempotency_key',
+      'queued', v_now,
+      p_delivery->>'snapshot_sender_name', p_delivery->>'snapshot_subject',
+      p_delivery->>'snapshot_category', p_delivery->>'cta_path'
+    )
+    RETURNING id INTO v_delivery_id;
+  EXCEPTION WHEN unique_violation THEN
+    RAISE EXCEPTION 'duplicate notification delivery for this message'
+      USING ERRCODE = 'MS409';
+  END;
+
+  IF v_delivery_id IS NULL THEN
+    RAISE EXCEPTION 'delivery row was not created' USING ERRCODE = 'MS409';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'conversation_id', v_conversation_id,
+    'message_id', v_message_id,
+    'delivery_id', v_delivery_id,
+    'created_at', v_now,
+    'status', 'open'
+  );
+END;
+$$;
+
+-- The read/send split helpers are removed. messages_start_conversation
+-- regains its original 8-argument signature, so drop the 9-argument form.
+DROP FUNCTION IF EXISTS public.messages_start_conversation(uuid, text, uuid, uuid, text, text, text, jsonb, text);
+REVOKE ALL ON FUNCTION public.messages_start_conversation(uuid, text, uuid, uuid, text, text, text, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.messages_start_conversation(uuid, text, uuid, uuid, text, text, text, jsonb) TO service_role;
+DROP FUNCTION IF EXISTS public.message_participant_can_send(uuid, uuid);
+DROP FUNCTION IF EXISTS public.message_participant_can_read(uuid, uuid);
+DROP FUNCTION IF EXISTS public.message_profile_is_active(uuid);
+
 CREATE OR REPLACE FUNCTION public.message_assert_valid_delivery(
   p_delivery         jsonb,
   p_expected_event   text,
