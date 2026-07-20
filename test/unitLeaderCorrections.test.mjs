@@ -355,7 +355,83 @@ test('preflight reports ambiguous or unconfident rotation sources for review', (
   assert.match(preflight, /sentinel_pending_admin/)
   assert.match(preflight, /weak_match_candidates/)
   assert.match(preflight, /EXPLICIT REVIEW RESULT, not an automatic stop/)
-  assert.match(preflight, /Any value above 1 is a STOP/)
+  assert.match(preflight, /HARD STOP: weak_match_candidates > 1/)
+})
+
+// The preflight must be internally consistent with the migration it gates.
+const P4  = preflight.slice(preflight.indexOf('-- ── PREFLIGHT 4:'),
+                            preflight.indexOf('-- ── PREFLIGHT 4b:'))
+const P4B = preflight.slice(preflight.indexOf('-- ── PREFLIGHT 4b:'),
+                            preflight.indexOf('-- ── PREFLIGHT 5:'))
+// Statement-only views: assertions about what the SQL DOES must not be satisfied
+// or broken by explanatory prose.
+const stripSql = (t) => t.replace(/^\s*--.*$/gm, '')
+const P4Sql  = stripSql(P4)
+const P4BSql = stripSql(P4B)
+const backfillSql = migrationSql.slice(
+  migrationSql.indexOf('UPDATE public.students s'),
+  migrationSql.indexOf('CREATE INDEX IF NOT EXISTS idx_students_rotation_end_date'))
+
+test('PREFLIGHT 4 backfillable mirrors the migration predicate exactly', () => {
+  // Every clause the migration applies must also constrain the count.
+  for (const clause of [
+    /r\.rotation_end_date IS NOT NULL/,
+    /r\.rotation_end_date <> DATE '1900-01-01'/,
+    /r\.cohort_id   = s\.cohort_id/,
+    /r\.school_name = s\.school/,
+  ]) {
+    assert.match(backfillSql, clause, 'migration clause')
+    assert.match(P4, clause, 'preflight 4 must apply the same clause')
+  }
+  // And it must be stated as the expected value of VERIFY 2.
+  assert.match(P4, /backfillable  MUST equal VERIFY 2's with_rotation_end_date/)
+})
+
+test('PREFLIGHT 4 uses = semantics, not IS NOT DISTINCT FROM, to match the migration', () => {
+  // IS NOT DISTINCT FROM would count a NULL-vs-NULL pair as backfillable while the
+  // migration's `=` would skip it, and the two counts would then disagree.
+  assert.doesNotMatch(P4Sql, /IS NOT DISTINCT FROM/)
+  assert.doesNotMatch(backfillSql, /IS NOT DISTINCT FROM/)
+  assert.match(P4, /NULL SEMANTICS, deliberately matched to the migration/)
+})
+
+test('PREFLIGHT 4 completed_but_undatable includes cohort or school mismatch', () => {
+  const col = P4.slice(P4.indexOf('AS status_completed'))
+  assert.match(col, /s\.status = 'Completed'/)
+  assert.match(col, /r\.rotation_end_date = DATE '1900-01-01'/)
+  assert.match(col, /r\.school_name = s\.school\) IS NOT TRUE/)
+  assert.match(P4, /INCLUDING cohort or school mismatch/)
+})
+
+test('PREFLIGHT 4b returns ONLY skipped rows, never backfilled ones', () => {
+  // No 'backfilled' category may be produced.
+  assert.doesNotMatch(P4BSql, /'backfilled'/)
+  // The WHERE clause is the exact complement of the migration predicate.
+  assert.match(P4B, /WHERE s\.status IN \('Placed', 'Active Rotation', 'Completed'\)/)
+  assert.match(P4B, /s\.cohort_school_rotation_id IS NULL/)
+  assert.match(P4B, /OR r\.id IS NULL/)
+  assert.match(P4B, /OR r\.rotation_end_date IS NULL/)
+  assert.match(P4B, /OR r\.rotation_end_date = DATE '1900-01-01'/)
+  assert.match(P4B, /OR \(r\.cohort_id = s\.cohort_id AND r\.school_name = s\.school\) IS NOT TRUE/)
+})
+
+test('PREFLIGHT 4b keeps exactly the five skip reasons', () => {
+  for (const reason of [
+    'no_rotation_link', 'rotation_row_missing', 'null_end_date',
+    'sentinel_pending_admin', 'cohort_or_school_mismatch',
+  ]) {
+    assert.ok(P4B.includes(`'${reason}'`), `reason ${reason}`)
+  }
+  assert.match(P4B, /weak_match_candidates/)
+})
+
+test('the global header lists the 4b hard stop, the mismatch review, and preflight 6', () => {
+  const header = preflight.slice(0, preflight.indexOf('-- ── PREFLIGHT 1:'))
+  assert.match(header, /preflight 4b shows weak_match_candidates > 1/)
+  assert.match(header, /HARD STOP/)
+  assert.match(header, /preflight 6 returns any row[\s\S]{0,120}PARTIAL APPLICATION/)
+  assert.match(header, /REVIEW, not an automatic stop/)
+  assert.match(header, /cohort_or_school_mismatch/)
 })
 
 // ── The existing public unit form is not weakened ────────────────────────────

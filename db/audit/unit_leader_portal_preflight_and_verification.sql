@@ -10,9 +10,22 @@
 --   - preflight 2 shows any conversation with more than one active participant
 --     (the Phase 1 invariant is already broken; investigate before widening it)
 --   - preflight 3 shows an existing unit_leader participant row (none should exist)
+--   - preflight 4b shows weak_match_candidates > 1 for any row. The table carries
+--     UNIQUE (cohort_id, school_name), so a value above 1 means that schema
+--     assumption is violated. HARD STOP.
 --   - preflight 5 shows a name collision that would make the new tables ambiguous
+--   - preflight 6 returns any row. The new student columns already exist, which
+--     means a PARTIAL APPLICATION. Investigate and reconcile before migrating.
 --   - preflight 7 shows delivery event_type values outside the Phase 1 set
--- Preflight 4 and 6 are informational and shape the backfill expectation.
+--
+-- REVIEW, not an automatic stop:
+--   - preflight 4b rows with reason 'cohort_or_school_mismatch'. Review and
+--     reconcile any that affect a student you expect a Unit Leader to see: the
+--     rotation link has drifted and its dates can no longer be trusted, so the
+--     student will have no rotation_end_date and will never appear in a completed
+--     bucket.
+--
+-- Preflight 4 is informational and sets the expected count for VERIFY 2.
 -- ============================================================================
 
 
@@ -57,38 +70,68 @@ GROUP BY 1, 2
 ORDER BY 1, 2;
 
 -- ── PREFLIGHT 4: how many students the 90-day backfill can actually date ────
--- Informational, and it sets the expectation for VERIFY 2. Students whose school
--- rotation is still the '1900-01-01' sentinel stay NULL and stay hidden from the
--- completed bucket, by design (fail closed).
+-- Informational. `backfillable` is the expected value of VERIFY 2's
+-- with_rotation_end_date, so the predicate below MIRRORS THE MIGRATION EXACTLY:
+--   explicit cohort_school_rotation_id resolves to a row
+--   rotation_end_date IS NOT NULL
+--   rotation_end_date <> '1900-01-01'   (the sentinel means "pending admin review")
+--   linked cohort_id   = the student's cohort_id
+--   linked school_name = the student's school
+--
+-- NULL SEMANTICS, deliberately matched to the migration: the migration uses plain
+-- `=` for cohort and school, so if either side is NULL the comparison yields NULL
+-- and the row is NOT backfilled. This query uses `=` for the same reason. Using
+-- IS NOT DISTINCT FROM here would count a NULL-versus-NULL pair as backfillable and
+-- would then disagree with VERIFY 2.
+--
+-- Students that fail any condition keep a NULL rotation_end_date and are therefore
+-- never shown in a Unit Leader completed bucket. Every skip is fail closed.
 SELECT
   count(*)                                                                    AS students_total,
   count(*) FILTER (WHERE s.cohort_school_rotation_id IS NOT NULL)              AS with_rotation_link,
-  count(*) FILTER (WHERE r.rotation_end_date IS NOT NULL
-                     AND r.rotation_end_date <> DATE '1900-01-01')             AS backfillable,
+  count(*) FILTER (WHERE r.id IS NOT NULL
+                     AND r.rotation_end_date IS NOT NULL
+                     AND r.rotation_end_date <> DATE '1900-01-01'
+                     AND r.cohort_id   = s.cohort_id
+                     AND r.school_name = s.school)                             AS backfillable,
   count(*) FILTER (WHERE r.rotation_end_date = DATE '1900-01-01')              AS sentinel_pending_admin,
+  count(*) FILTER (WHERE r.id IS NOT NULL
+                     AND r.rotation_end_date IS NOT NULL
+                     AND r.rotation_end_date <> DATE '1900-01-01'
+                     AND (r.cohort_id = s.cohort_id
+                          AND r.school_name = s.school) IS NOT TRUE)           AS cohort_or_school_mismatch,
   count(*) FILTER (WHERE s.status = 'Completed')                               AS status_completed,
   count(*) FILTER (WHERE s.status = 'Completed'
-                     AND (r.rotation_end_date IS NULL
-                          OR r.rotation_end_date = DATE '1900-01-01'))         AS completed_but_undatable
+                     AND (r.id IS NULL
+                          OR r.rotation_end_date IS NULL
+                          OR r.rotation_end_date = DATE '1900-01-01'
+                          OR (r.cohort_id = s.cohort_id
+                              AND r.school_name = s.school) IS NOT TRUE))      AS completed_but_undatable
 FROM public.students s
 LEFT JOIN public.cohort_school_rotations r ON r.id = s.cohort_school_rotation_id;
--- completed_but_undatable is the count of students who will NOT appear in a Unit
--- Leader completed bucket until their school's rotation dates are filled in.
+-- backfillable  MUST equal VERIFY 2's with_rotation_end_date. Record it.
+-- completed_but_undatable is every completed student the migration will leave
+-- without a trusted date, INCLUDING cohort or school mismatch. Those students will
+-- not appear in a Unit Leader completed bucket until their rotation data is fixed.
 
 -- ── PREFLIGHT 4b: rotation-date sources that are NOT confidently determined ──
--- The backfill copies a date only when the student's explicit FK resolves to one
--- row whose cohort AND school still agree with the student's own. This lists every
--- student that fails that test, with the reason. All of them stay NULL, and NULL
--- means invisible in the completed bucket, so every row here is a fail-closed skip.
+-- Returns ONLY students the migration will skip. A row here means the student keeps
+-- a NULL rotation_end_date and is therefore invisible in a Unit Leader completed
+-- bucket, so every row is a fail-closed skip. Rows the migration WILL backfill are
+-- excluded, so an empty result means every in-scope student got a trusted date.
+--
+-- The WHERE clause is the exact complement of the migration predicate, including
+-- its `=` NULL semantics: `(a = b) IS NOT TRUE` is true when the comparison is
+-- false OR NULL, which is precisely when the migration declines to backfill.
 --
 -- EXPLICIT REVIEW RESULT, not an automatic stop: a non-empty result is expected in
--- a live database. STOP and reconcile only if reason = 'cohort_or_school_mismatch'
--- appears for a student you expect a Unit Leader to see, because that indicates the
--- rotation link drifted and the dates on it can no longer be trusted.
+-- a live database. Review and reconcile any reason = 'cohort_or_school_mismatch'
+-- that affects a student you expect a Unit Leader to see, because that indicates
+-- the rotation link drifted and its dates can no longer be trusted.
 --
 -- Ambiguity is structurally impossible for the FK path: cohort_school_rotations.id
 -- is the primary key, so s.cohort_school_rotation_id = r.id matches at most one row.
--- The ambiguity column below therefore reports on the WEAKER (cohort, school) match,
+-- weak_match_candidates therefore reports on the WEAKER (cohort, school) match,
 -- purely to confirm that path would also have been unique had it been used.
 SELECT
   s.id AS student_id, s.status, s.school,
@@ -97,19 +140,24 @@ SELECT
     WHEN r.id IS NULL                                     THEN 'rotation_row_missing'
     WHEN r.rotation_end_date IS NULL                      THEN 'null_end_date'
     WHEN r.rotation_end_date = DATE '1900-01-01'          THEN 'sentinel_pending_admin'
-    WHEN r.cohort_id <> s.cohort_id
-      OR r.school_name IS DISTINCT FROM s.school          THEN 'cohort_or_school_mismatch'
-    ELSE 'backfilled'
+    ELSE 'cohort_or_school_mismatch'
   END AS reason,
   (SELECT count(*) FROM public.cohort_school_rotations r2
     WHERE r2.cohort_id = s.cohort_id AND r2.school_name = s.school) AS weak_match_candidates
 FROM public.students s
 LEFT JOIN public.cohort_school_rotations r ON r.id = s.cohort_school_rotation_id
 WHERE s.status IN ('Placed', 'Active Rotation', 'Completed')
+  AND (
+    s.cohort_school_rotation_id IS NULL
+    OR r.id IS NULL
+    OR r.rotation_end_date IS NULL
+    OR r.rotation_end_date = DATE '1900-01-01'
+    OR (r.cohort_id = s.cohort_id AND r.school_name = s.school) IS NOT TRUE
+  )
 ORDER BY reason, s.school;
--- weak_match_candidates > 1 for any row would mean the (cohort, school) path is
--- ambiguous. The table carries UNIQUE (cohort_id, school_name), so this must be 0
--- or 1 everywhere. Any value above 1 is a STOP: the schema assumption is violated.
+-- HARD STOP: weak_match_candidates > 1 for any row means the (cohort, school) path
+-- is ambiguous. The table carries UNIQUE (cohort_id, school_name), so this must be
+-- 0 or 1 everywhere. Any value above 1 means that schema assumption is violated.
 
 -- ── PREFLIGHT 5: name collisions for the new tables ─────────────────────────
 -- Expected: 0 rows. Any row means an object of that name already exists.
