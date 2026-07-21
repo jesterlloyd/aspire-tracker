@@ -31,7 +31,10 @@ import {
   EMPTY, orDash, studentName, BUCKET_LABEL,
   getStudentDetail, getMilestones, getStudentFileUrl,
 } from './unitLeaderApi'
-import { LoadingState, EmptyState, ErrorState, DeniedState, Pill } from './UnitLeaderChrome'
+import { LoadingState, EmptyState, ErrorState, DeniedState } from './UnitLeaderChrome'
+import { peekStudentPhotoUrl, resolveStudentPhotoUrl, clearStudentPhotoCache } from '../../lib/studentPhotoCache'
+import { ulPhotoKey } from './useUnitStudentPhotos'
+import { stageToken } from './unitStageTokens'
 
 const MILESTONE_LABEL = {
   arrival: 'Arrival',
@@ -83,27 +86,36 @@ function ContactLink({ kind, value }) {
  * load, which is what an expired link looks like to the browser. A second failure
  * stops the cycle and offers a manual retry rather than looping against the endpoint.
  */
-function StudentPhoto({ studentId, name }) {
-  // `attempt` names the link generation. Bumping it requests a fresh signed URL.
-  // Resolution is DERIVED by comparing the key the response arrived for against the
-  // key currently wanted, so the effect never assigns state synchronously.
+function StudentPhoto({ studentId, name, hasPhoto }) {
+  // FIRST read the shared cache the roster already primed, synchronously, so a photo
+  // opened from the roster appears instantly with no second load. Only on a miss does
+  // this sign a fresh URL, through the SAME cache so it obeys the same TTL and scope.
+  const cacheKey = ulPhotoKey(studentId)
   const [attempt, setAttempt] = useState(0)
   const [expired, setExpired] = useState(false)
-  const [state, setState] = useState({ key: null, url: null })
+  const warm = peekStudentPhotoUrl(cacheKey)
+  const [state, setState] = useState({ key: warm ? `${studentId}:0` : null, url: warm || null })
 
   const key = `${studentId}:${attempt}`
 
   useEffect(() => {
+    // Warm hit on the first attempt needs no request.
+    if (attempt === 0 && peekStudentPhotoUrl(cacheKey)) return undefined
     let live = true
-    getStudentFileUrl(studentId, 'headshot').then(res => {
-      if (!live) return
-      setState({ key: `${studentId}:${attempt}`, url: res.ok ? res.data?.signed_url || null : null })
-    })
+    resolveStudentPhotoUrl(cacheKey, async () => {
+      const res = await getStudentFileUrl(studentId, 'headshot')
+      return res.ok ? res.data?.signed_url || null : null
+    }).then(url => { if (live) setState({ key: `${studentId}:${attempt}`, url: url || null }) })
+      .catch(() => { if (live) setState({ key: `${studentId}:${attempt}`, url: null }) })
     return () => { live = false }
-  }, [studentId, attempt])
+  }, [studentId, attempt, cacheKey])
 
-  const retry = () => { setExpired(false); setAttempt(a => a + 1) }
+  const retry = () => { setExpired(false); clearStudentPhotoCache(); setAttempt(a => a + 1) }
 
+  // A student with no photo skips the loading state entirely.
+  if (hasPhoto === false) {
+    return <div className="ptl-detail-photo ptl-detail-photo-empty">No approved photo</div>
+  }
   if (state.key !== key) {
     return <div className="ptl-detail-photo ptl-detail-photo-empty" role="status">Loading photo</div>
   }
@@ -124,10 +136,10 @@ function StudentPhoto({ studentId, name }) {
       src={state.url}
       alt={`Approved photo of ${name}`}
       onError={() => {
-        // A load failure on the FIRST link is treated as expiry and refreshed once,
+        // A load failure on the first link is treated as expiry and refreshed once,
         // silently. Any later failure stops the cycle and hands the user a control,
         // so a genuinely broken object cannot spin against the endpoint forever.
-        if (attempt === 0) setAttempt(1)
+        if (attempt === 0) { clearStudentPhotoCache(); setAttempt(1) }
         else setExpired(true)
       }}
     />
@@ -250,12 +262,32 @@ export default function StudentDetailDrawer({ student, onClose, returnFocusRef }
         aria-modal="true"
         aria-label={`Details for ${name}`}
       >
-        <div className="ptl-drawer-head">
-          <h2 className="ptl-drawer-title">{name}</h2>
-          <button ref={closeRef} type="button" className="ptl-icon-btn"
-            aria-label="Close student details" onClick={onClose}>
-            <X size={18} aria-hidden="true" />
-          </button>
+        {/* Close control floats over the pastel hero so the header can be the full
+            identity treatment, matching the staff Student Profile hero. */}
+        <button ref={closeRef} type="button" className="ptl-icon-btn ptl-detail-close"
+          aria-label="Close student details" onClick={onClose}>
+          <X size={18} aria-hidden="true" />
+        </button>
+
+        {/* The pastel light-blue hero, reproducing the staff profile's visual
+            language: a circular photo, centred identity, and the stage pill. The
+            same cached photo the roster resolved is reused, so there is no reload. */}
+        <div className="ptl-detail-hero">
+          <StudentPhoto studentId={student?.id} name={name} hasPhoto={student?.has_photo} />
+          <h2 className="ptl-detail-heroname">{name}</h2>
+          {(d?.school || student?.school) && (
+            <p className="ptl-detail-heroschool">{orDash(d?.school || student?.school)}</p>
+          )}
+          {(() => {
+            const bucket = d?.bucket || student?.bucket
+            const t = stageToken(bucket)
+            return bucket ? (
+              <span className="ptl-detail-heropill"
+                style={{ background: t.bg, color: t.text, border: `1px solid ${t.border}` }}>
+                {BUCKET_LABEL[bucket] || EMPTY}
+              </span>
+            ) : null
+          })()}
         </div>
 
         <div className="ptl-drawer-body">
@@ -282,14 +314,6 @@ export default function StudentDetailDrawer({ student, onClose, returnFocusRef }
 
           {detailStatus === 'ready' && d && (
             <>
-              <div className="ptl-detail-top">
-                <StudentPhoto studentId={d.id} name={name} />
-                <div>
-                  <Pill>{BUCKET_LABEL[d.bucket] || EMPTY}</Pill>
-                  <p className="ptl-muted ptl-detail-sub">{orDash(d.unit_key)}</p>
-                </div>
-              </div>
-
               <dl className="ptl-detail-grid">
                 <Field label="School">{orDash(d.school)}</Field>
                 <Field label="Cohort">{orDash(d.cohort?.name)}</Field>

@@ -177,7 +177,8 @@ export default function PortalApp() {
     // Messages section reuses the same /portal/messages thread URL the Student
     // Portal already uses, so one thread link works for either kind.
     return (
-      <PortalShell title="Unit Leader Portal" userName={userProfile?.full_name} withTabBar showHeaderName>
+      <PortalShell title="Unit Leader Portal" userName={userProfile?.full_name} withTabBar showHeaderName
+        onProfile={() => goUnitSection('profile')} publicSiteUrl="https://aspireintelligence.app">
         <UnitLeaderPortal
           view={unitView}
           composeIntent={unitHandoff}

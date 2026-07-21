@@ -30,6 +30,16 @@ import {
   resolveUnitScopedStudents,
   onboardingSummary,
 } from '../lib/unitLeaderScope.js'
+import { parseStoredFileRef } from '../../lib/server/studentFiles.js'
+
+// True when a stored reference resolves to a real object in the private bucket.
+// Returns a BOOLEAN only, exactly like unit-student-detail. The path is never sent:
+// the browser learns a photo exists, not where it lives, preserving the Wave F-2
+// invariant that a Unit Leader never receives a storage path or an unmediated URL.
+function hasFile(stored) {
+  const ref = parseStoredFileRef(stored)
+  return ref.kind !== 'empty' && ref.kind !== 'unknown'
+}
 
 const SUPPORT_WINDOW_DAYS = 30
 
@@ -155,6 +165,9 @@ export default async function handler(req, res) {
           open_count: supportCounts[s.id] || 0,
           window_days: SUPPORT_WINDOW_DAYS,
         },
+        // Boolean availability only, so the roster avatar can request a signed URL for
+        // students who have one and skip a wasted round trip for those who do not.
+        has_photo: hasFile(s.headshot_url),
       })),
   }))
 

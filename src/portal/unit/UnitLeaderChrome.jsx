@@ -52,7 +52,7 @@ const SECTIONS = [
 // Concern is no longer a section: it was always a Messages conversation with
 // destination 'aspire', so it is an action inside Messages rather than a tab.
 const PRIMARY_KEYS = ['home', 'messages', 'evaluations']
-const MORE_KEYS = ['placements', 'capacity', 'preceptors', 'profile', 'notifications']
+const MORE_KEYS = ['placements', 'capacity', 'preceptors', 'notifications']
 
 function NavItem({ section, active, unread, onNavigate }) {
   const { key, label, Icon } = section

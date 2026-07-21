@@ -5,14 +5,14 @@
 // mobile (the desktop header may surface a couple of them inline). Portals are
 // focused, read-mostly surfaces; the staff shell is never loaded here.
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, ExternalLink, Pencil, LogOut } from 'lucide-react'
+import { ChevronDown, ExternalLink, Pencil, UserRound, LogOut } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 function initials(name) {
   return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
 }
 
-function ProfileMenu({ userName, onEditProfile }) {
+function ProfileMenu({ userName, onEditProfile, onProfile, publicSiteUrl = '/' }) {
   const { signOut } = useAuth()
   const [open, setOpen] = useState(false)
   const btnRef = useRef(null)
@@ -35,8 +35,13 @@ function ProfileMenu({ userName, onEditProfile }) {
       {open && (
         <div ref={menuRef} className="ptl-menu" role="menu" aria-label="Profile menu">
           {userName && <div className="ptl-menu-name">{userName}</div>}
-          {onEditProfile && <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onEditProfile() }}><Pencil size={15} /> Edit Profile</button>}
-          <a role="menuitem" className="ptl-menu-item" href="/"><ExternalLink size={15} /> Public site</a>
+          {onProfile
+            ? <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onProfile() }}><UserRound size={15} /> Profile</button>
+            : onEditProfile && <button role="menuitem" type="button" className="ptl-menu-item" onClick={() => { setOpen(false); onEditProfile() }}><Pencil size={15} /> Edit Profile</button>}
+          <a role="menuitem" className="ptl-menu-item" href={publicSiteUrl}
+             {...(publicSiteUrl !== '/' ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+            <ExternalLink size={15} /> Public site
+          </a>
           <button role="menuitem" type="button" className="ptl-menu-item ptl-menu-danger" onClick={() => { setOpen(false); signOut() }}><LogOut size={15} /> Sign out</button>
         </div>
       )}
@@ -44,7 +49,7 @@ function ProfileMenu({ userName, onEditProfile }) {
   )
 }
 
-export default function PortalShell({ title, userName, onEditProfile, withTabBar = false, showHeaderName = false, children }) {
+export default function PortalShell({ title, userName, onEditProfile, onProfile, publicSiteUrl, withTabBar = false, showHeaderName = false, children }) {
   return (
     <div className={`ptl-page${withTabBar ? ' ptl-page-tabbar' : ''}`}>
       <header className="ptl-header">
@@ -59,7 +64,7 @@ export default function PortalShell({ title, userName, onEditProfile, withTabBar
           {/* UL-POLISH P2: the signed-in name beside the avatar at desktop
               widths, opt-in per portal so student behavior is unchanged. */}
           {showHeaderName && userName && <span className="ptl-header-name">{userName}</span>}
-          <ProfileMenu userName={userName} onEditProfile={onEditProfile} />
+          <ProfileMenu userName={userName} onEditProfile={onEditProfile} onProfile={onProfile} publicSiteUrl={publicSiteUrl} />
         </div>
       </header>
       <main className="ptl-main">{children}</main>

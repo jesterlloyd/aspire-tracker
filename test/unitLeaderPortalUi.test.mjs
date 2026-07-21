@@ -154,7 +154,7 @@ test('unread is never conveyed by color alone', () => {
 
 test('tables are labelled and filters report their pressed state', () => {
   const captions = (portal.match(/<caption className="ptl-visually-hidden">/g) || []).length
-  assert.ok(captions >= 4, `every table needs a caption, saw ${captions}`)
+  assert.ok(captions >= 3, `every remaining table needs a caption, saw ${captions}`) // roster became a list in the visual redesign
   assert.match(portal, /scope="col"/)
   assert.match(portal, /aria-pressed=\{filter === f\}/)
   assert.match(portal, /role="group" aria-label="Filter students by stage"/)

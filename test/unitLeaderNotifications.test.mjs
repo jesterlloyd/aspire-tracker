@@ -205,29 +205,33 @@ test('the form states the cohort and disables submission when none is open', () 
 })
 
 // ── 4. Dense mobile actions ─────────────────────────────────────────────────
-test('row actions are a disclosure, not cramped side-by-side buttons', () => {
-  assert.match(portal, /function StudentActions/)
+test('row actions are a single kebab menu, not cramped side-by-side buttons', () => {
+  // The visual redesign replaced the disclosure with one overflow kebab. The
+  // property is unchanged: actions are behind a single accessible control per row.
+  assert.match(portal, /function StudentKebab/)
+  assert.match(portal, /aria-haspopup="menu"/)
   assert.match(portal, /aria-expanded=\{open\}/)
-  assert.match(portal, /className="ptl-rowactions-menu" role="group"/)
+  assert.match(portal, /role="menu" aria-label=\{label\}/)
+  assert.ok(!portal.includes('function StudentActions'), 'the old stacked disclosure is gone')
 })
 
-test('EVERY action is preserved, each with a clear label', () => {
-  const fn = portal.slice(portal.indexOf('function StudentActions'))
+test('EVERY safe action is preserved in the kebab, each with a clear label', () => {
+  const fn = portal.slice(portal.indexOf('function StudentKebab'))
   assert.match(fn, /Message student/)
   assert.match(fn, /Confirm \$\{m\.label\.toLowerCase\(\)\}/)
   assert.match(fn, /MILESTONES\.map/)
-  // The toggle is labelled per student, so it is unambiguous in a long table.
+  // The kebab is labelled per student, so it is unambiguous down a long list.
   assert.match(fn, /const label = `Actions for \$\{studentName\(student\)\}`/)
   assert.match(fn, /aria-label=\{label\}/)
 })
 
-test('actions stay in the normal tab order with visible focus and touch targets', () => {
-  const fn = portal.slice(portal.indexOf('function StudentActions'))
+test('kebab actions are real buttons with visible focus and touch targets', () => {
+  const fn = portal.slice(portal.indexOf('function StudentKebab'), portal.indexOf('function StudentKebab') + 1400)
   // Real buttons, never divs with click handlers.
   assert.doesNotMatch(fn, /<div[^>]*onClick/)
-  assert.match(css, /\.ptl-rowactions-menu \{/)
-  assert.match(css, /\.ptl-rowactions-item \{ width: 100%/)
-  assert.match(css, /@media \(max-width: 760px\) \{\s*\n\s*\.ptl-rowactions-item \{ padding: 10px 12px; \}/)
+  assert.match(fn, /role="menuitem"/)
+  assert.match(css, /\.ptl-stu-menu \{/)
+  assert.match(css, /\.ptl-stu-menuitem:focus-visible \{/)
 })
 
 test('responsive data-label behavior is preserved for every cell', () => {
@@ -254,6 +258,6 @@ test('excluded data is still absent from the notification paths', () => {
 
 test('no em dash in the final pass files', () => {
   for (const [n, s] of Object.entries({ alerts, feed, start, portal, api, css })) {
-    assert.doesNotMatch(s, /—/, n)
+    assert.doesNotMatch(s, new RegExp(String.fromCharCode(0x2014)), n)
   }
 })

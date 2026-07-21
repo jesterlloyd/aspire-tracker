@@ -121,7 +121,7 @@ test('P0-7: four-slot navigation with an accessible More sheet', async (t) => {
   // to protect are unchanged and asserted below.
   await t.test('one primary set at every width, no desktop-only branch', () => {
     assert.match(chrome, /PRIMARY_KEYS = \['home', 'messages', 'evaluations'\]/)
-    assert.match(chrome, /MORE_KEYS = \['placements', 'capacity', 'preceptors', 'profile', 'notifications'\]/)
+    assert.match(chrome, /MORE_KEYS = \['placements', 'capacity', 'preceptors', 'notifications'\]/)
     assert.ok(!chrome.includes('usePortalIsNarrow'), 'the width branch was removed')
   })
   await t.test('the More sheet is a real dialog with trap, Escape, and return focus', () => {
@@ -180,24 +180,30 @@ test('P1-10: Recent Messages renders the latest threads', () => {
   assert.match(portal, /Open Messages/)
 })
 
-test('P1-11: the Students table identity cell, hours bar, and chips', async (t) => {
-  await t.test('student cell stacks avatar, name link, and school; School column is gone', () => {
-    assert.match(portal, /ptl-stu-avatar/)
+test('P1-11: the Students row identity, hours bar, and chips', async (t) => {
+  // SUPERSEDED BY THE VISUAL REDESIGN. The table became a staff-style row LIST: a
+  // circular photo avatar, name and school stacked, a stage pill, and a single kebab.
+  // The properties this test protects (identity treatment, safe primary affordance,
+  // hours bar, onboarding chips) are unchanged and re-asserted against the new markup.
+  await t.test('the row uses the circular photo avatar with name and school', () => {
+    assert.match(portal, /<UnitStudentAvatar url=\{photoUrl\}/)
     assert.match(portal, /ptl-stu-name/)
     assert.match(portal, /ptl-stu-school/)
     assert.doesNotMatch(portal, /<th scope="col">School<\/th>/)
   })
-  await t.test('the name is a safe primary link, not a whole-row click', () => {
-    assert.match(portal, /className="ptl-linklike ptl-stu-name"/)
+  await t.test('the whole row is one safe open-profile control, not stacked buttons', () => {
+    assert.match(portal, /className="ptl-stu-rowbtn"/)
+    assert.match(portal, /aria-label=\{`Open details for \$\{studentName\(s\)\}`\}/)
+    // No <tr onClick> nesting, and the old stacked StudentActions is gone.
     assert.doesNotMatch(portal, /<tr[^>]*onClick/)
+    assert.ok(!portal.includes('function StudentActions'))
   })
   await t.test('hours render as a mini progress bar with the exact numbers', () => {
     assert.match(portal, /ptl-mini-progress/)
     assert.match(portal, /aria-label=\{`\$\{approved\} of \$\{hours\.required\} required hours approved`\}/)
   })
-  await t.test('outstanding onboarding items are chips, and View details remains', () => {
+  await t.test('outstanding onboarding items are chips', () => {
     assert.match(portal, /ptl-ochip/)
-    assert.match(portal, /View details/)
   })
 })
 

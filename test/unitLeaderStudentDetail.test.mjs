@@ -37,26 +37,29 @@ const apiCode      = stripJs(api)
 const endpointCode = stripJs(endpoint)
 
 // ── The detail action exists and is reachable ───────────────────────────────
-test('every student row exposes a View details action', () => {
-  assert.match(portalCode, /View details/,
-    'the Students table must offer a View details control')
-  assert.match(portalCode, /onViewDetails/,
-    'the row action must be wired to a handler')
+test('every student row is an open-profile control that renders the drawer', () => {
+  // The visual redesign made the whole row the open-profile affordance instead of a
+  // separate "View details" button. The property is unchanged: one click opens the
+  // safe drawer.
+  assert.match(portalCode, /className="ptl-stu-rowbtn"/)
+  assert.match(portalCode, /onClick=\{\(e\) => onOpen\(s, e\.currentTarget\)\}/)
   assert.match(portalCode, /<StudentDetailDrawer/,
-    'the Students screen must render the drawer')
+    'the roster still renders the drawer')
 })
 
-test('the detail action names the student, so a screen reader knows which row', () => {
-  assert.match(portalCode, /aria-label=\{`View details for \$\{studentName\(student\)\}`\}/,
-    'a bare "View details" label repeated down a column is ambiguous')
+test('the row action names the student, so a screen reader knows which row', () => {
+  assert.match(portalCode, /aria-label=\{`Open details for \$\{studentName\(s\)\}`\}/,
+    'a bare label repeated down a column is ambiguous')
 })
 
-test('the detail trigger is outside the actions disclosure, so it is one click', () => {
-  const actions = portalCode.slice(portalCode.indexOf('function StudentActions'))
-  const trigger = actions.indexOf('View details')
-  const menu = actions.indexOf('{open && (')
-  assert.ok(trigger > -1 && menu > -1, 'both the trigger and the disclosure must exist')
-  assert.ok(trigger < menu, 'View details must not be hidden behind the Actions toggle')
+test('the open-profile control is the row itself, separate from the kebab menu', () => {
+  const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function StudentKebab'))
+  // The row button opens the profile; the kebab is a sibling holding the write-lite
+  // actions. A button nested in a button would be invalid, so the kebab opens after
+  // the row button closes.
+  const rowClose = row.indexOf('</button>')
+  const kebab = row.indexOf('<StudentKebab')
+  assert.ok(rowClose > -1 && kebab > rowClose)
 })
 
 // ── Only approved fields are rendered ───────────────────────────────────────
@@ -151,8 +154,8 @@ test('an expired photo link is refreshed once, then stops and offers a control',
   const photo = drawerCode.slice(drawerCode.indexOf('function StudentPhoto'),
     drawerCode.indexOf('function ResumeAction'))
   assert.match(photo, /onError=/, 'an expired link surfaces as an image load error')
-  assert.match(photo, /if \(attempt === 0\) setAttempt\(1\)/,
-    'the first failure must request exactly one fresh link')
+  assert.match(photo, /if \(attempt === 0\) \{ clearStudentPhotoCache\(\); setAttempt\(1\) \}/,
+    'the first failure clears the cache and requests exactly one fresh link')
   assert.match(photo, /else setExpired\(true\)/,
     'a later failure must stop, so a broken object cannot spin against the endpoint')
   assert.match(photo, /Reload photo/, 'a manual retry control must exist')
@@ -233,8 +236,8 @@ test('focus moves into the drawer on open and returns to the trigger on close', 
 
 test('focus returns to the exact row that opened the drawer', () => {
   assert.match(portalCode, /detailTriggerRef\.current = triggerEl/,
-    'the opening element itself must be captured, not just the table')
-  assert.match(portalCode, /onClick=\{\(e\) => onViewDetails\(student, e\.currentTarget\)\}/)
+    'the opening element itself must be captured, not just the list')
+  assert.match(portalCode, /onClick=\{\(e\) => onOpen\(s, e\.currentTarget\)\}/)
   assert.match(portalCode, /returnFocusRef=\{detailTriggerRef\}/)
 })
 

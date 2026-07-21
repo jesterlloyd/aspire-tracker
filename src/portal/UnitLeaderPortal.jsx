@@ -15,6 +15,7 @@
 // private support narratives are never requested by any call in this file.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { MoreVertical } from 'lucide-react'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import { listPortalConversations } from '../lib/messages/portalMessagesApiClient'
 import { formatInboxTimestamp, formatUnread } from '../lib/messages/messagesConstants'
@@ -24,6 +25,9 @@ import StudentDetailDrawer from './unit/StudentDetailDrawer'
 import UnitRotationCalendar from './unit/UnitRotationCalendar'
 import UnitShiftDayDrawer from './unit/UnitShiftDayDrawer'
 import UnitEvaluationsPlaceholder from './unit/UnitEvaluationsPlaceholder'
+import UnitStudentAvatar from './unit/UnitStudentAvatar'
+import { stageToken } from './unit/unitStageTokens'
+import { useUnitStudentPhotos } from './unit/useUnitStudentPhotos'
 import { useAuth } from '../contexts/AuthContext'
 import {
   UnitLeaderNav, UnitSwitcher, LoadingState, EmptyState, ErrorState, DeniedState,
@@ -646,13 +650,6 @@ function CapacityScreen({ unitKey, unitKeys, acceptingCohort }) {
 
 // ── Students ────────────────────────────────────────────────────────────────
 
-/** Initials for the roster avatar; presentation only, from the display name. */
-function studentInitials(s) {
-  const name = studentName(s)
-  if (name === EMPTY) return '?'
-  return name.split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
-}
-
 /** UL-POLISH P1: hours as a mini progress bar plus the exact numbers. */
 function HoursCell({ hours }) {
   if (!hours || hours.required == null) return EMPTY
@@ -675,6 +672,7 @@ function HoursCell({ hours }) {
  * `heading` distinguishes them; everything else is identical, so the two can never drift.
  */
 function StudentRoster({ students, refreshRoster, onNavigate, onOpenThread, heading = null }) {
+  const photos = useUnitStudentPhotos(students)
   const [filter, setFilter] = useState('all')
   const [notice, setNotice] = useState(null)
   const [busy, setBusy] = useState(null)          // duplicate-click protection
@@ -754,68 +752,21 @@ function StudentRoster({ students, refreshRoster, onNavigate, onOpenThread, head
         <EmptyState title="No students in this view"
           detail="Students placed in your assigned units appear here, including those who completed within the last 90 days." />
       ) : (
-        <div className="ptl-table-wrap">
-          <table className="ptl-table">
-            <caption className="ptl-visually-hidden">Students in your assigned units</caption>
-            <thead>
-              <tr>
-                <th scope="col">Student</th><th scope="col">Unit</th>
-                <th scope="col">Stage</th><th scope="col">Preceptor</th><th scope="col">Hours</th>
-                <th scope="col">Onboarding</th><th scope="col">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(s => (
-                <tr key={s.id}>
-                  {/* UL-POLISH P1: the student cell is the row's identity: an
-                      initials avatar, the name as the safe primary link into the
-                      drawer, and the school stacked beneath. Never a whole-row
-                      click, which would nest interactive controls. */}
-                  <td data-label="Student">
-                    <span className="ptl-stu-cell">
-                      <span className="ptl-stu-avatar" aria-hidden="true">{studentInitials(s)}</span>
-                      <span className="ptl-stu-id">
-                        <button type="button" className="ptl-linklike ptl-stu-name"
-                          aria-label={`View details for ${studentName(s)}`}
-                          onClick={(e) => openDetail(s, e.currentTarget)}>
-                          {studentName(s)}
-                        </button>
-                        <span className="ptl-stu-school">{orDash(s.school)}</span>
-                      </span>
-                    </span>
-                  </td>
-                  <td data-label="Unit">{orDash(s.unit_key)}</td>
-                  <td data-label="Stage"><Pill>{BUCKET_LABEL[s.bucket] || EMPTY}</Pill></td>
-                  <td data-label="Preceptor">{orDash(s.preceptor_name)}</td>
-                  <td data-label="Hours"><HoursCell hours={s.hours} /></td>
-                  <td data-label="Onboarding">
-                    <Pill tone={s.onboarding?.state === 'ready' ? 'ok' : 'warn'}>
-                      {ONBOARDING_LABEL[s.onboarding?.state] || EMPTY}
-                    </Pill>
-                    {s.onboarding?.outstanding?.length > 0 && (
-                      <span className="ptl-ochips">
-                        {s.onboarding.outstanding.map(k => (
-                          <span key={k} className="ptl-ochip">{OUTSTANDING_LABEL[k] || k}</span>
-                        ))}
-                      </span>
-                    )}
-                  </td>
-                  <td data-label="Actions">
-                    <StudentActions
-                      student={s}
-                      busy={busy}
-                      open={openActions === s.id}
-                      onToggle={() => setOpenActions(openActions === s.id ? null : s.id)}
-                      onConfirm={confirm}
-                      onMessage={messageStudent}
-                      onViewDetails={openDetail}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul className="ptl-stu-list" aria-label="Students in your assigned units">
+          {rows.map(s => (
+            <StudentRow
+              key={s.id}
+              student={s}
+              photoUrl={photos.peek(s.id)}
+              busy={busy}
+              open={openActions === s.id}
+              onToggleActions={() => setOpenActions(openActions === s.id ? null : s.id)}
+              onOpen={openDetail}
+              onConfirm={confirm}
+              onMessage={messageStudent}
+            />
+          ))}
+        </ul>
       )}
 
       {detailStudent && (
@@ -847,50 +798,102 @@ function StudentsScreen(props) {
   return <StudentRoster {...props} />
 }
 
-function StudentActions({ student, busy, open, onToggle, onConfirm, onMessage, onViewDetails }) {
+/**
+ * A staff-style roster row: circular photo, identity with a stage pill, unit,
+ * preceptor, hours, onboarding, and one kebab. The whole row is the open-profile
+ * control; the kebab is a SEPARATE button that stops propagation, so the row is a
+ * single primary affordance rather than the old stacked View-details plus Actions.
+ *
+ * The row is a <button> so keyboard users get Enter and Space for free. The kebab
+ * lives OUTSIDE that button (a sibling in the <li>), because a button nested inside a
+ * button is invalid HTML and resolves unpredictably.
+ */
+function StudentRow({ student: s, photoUrl, busy, open, onToggleActions, onOpen, onConfirm, onMessage }) {
+  const rowRef = useRef(null)
+  const stage = stageToken(s.bucket)
+  const outstanding = s.onboarding?.outstanding || []
+  return (
+    <li className="ptl-stu-row">
+      <button
+        ref={rowRef}
+        type="button"
+        className="ptl-stu-rowbtn"
+        aria-label={`Open details for ${studentName(s)}`}
+        onClick={(e) => onOpen(s, e.currentTarget)}
+      >
+        <UnitStudentAvatar url={photoUrl} name={studentName(s)} size={44} />
+        <span className="ptl-stu-idcol">
+          <span className="ptl-stu-name">{studentName(s)}</span>
+          <span className="ptl-stu-school">{orDash(s.school)}</span>
+          <span className="ptl-stu-pill"
+            style={{ background: stage.bg, color: stage.text, border: `1px solid ${stage.border}` }}>
+            {BUCKET_LABEL[s.bucket] || EMPTY}
+          </span>
+        </span>
+        <span className="ptl-stu-meta">
+          <span><span className="ptl-stu-metak">Unit</span>{orDash(s.unit_key)}</span>
+          <span><span className="ptl-stu-metak">Preceptor</span>{orDash(s.preceptor_name)}</span>
+        </span>
+        <span className="ptl-stu-hourscol"><HoursCell hours={s.hours} /></span>
+        <span className="ptl-stu-onbcol">
+          <Pill tone={s.onboarding?.state === 'ready' ? 'ok' : 'warn'}>
+            {ONBOARDING_LABEL[s.onboarding?.state] || EMPTY}
+          </Pill>
+          {outstanding.length > 0 && (
+            <span className="ptl-ochips">
+              {outstanding.map(k => <span key={k} className="ptl-ochip">{OUTSTANDING_LABEL[k] || k}</span>)}
+            </span>
+          )}
+        </span>
+      </button>
+      <StudentKebab
+        student={s}
+        busy={busy}
+        open={open}
+        onToggle={onToggleActions}
+        onConfirm={onConfirm}
+        onMessage={onMessage}
+      />
+    </li>
+  )
+}
+
+/**
+ * The row's overflow menu. One control in the Actions column, holding only the safe
+ * Phase 1 actions: message the student, and confirm a milestone. No preceptor write
+ * action appears here; those are gated to a later phase.
+ */
+function StudentKebab({ student, busy, open, onToggle, onConfirm, onMessage }) {
   const label = `Actions for ${studentName(student)}`
   return (
-    <div className="ptl-rowactions">
-      {/* Deliberately OUTSIDE the disclosure. Viewing a student is the most common
-          thing a Unit Leader does here, so it stays one click and one tab stop
-          rather than sitting behind a toggle with the write actions. The accessible
-          name carries the student, because "View details" repeated down a column
-          tells a screen-reader user nothing about which row they are on. */}
+    <div className="ptl-stu-kebab">
       <button
         type="button"
-        className="ptl-btn ptl-btn-small"
-        aria-label={`View details for ${studentName(student)}`}
-        onClick={(e) => onViewDetails(student, e.currentTarget)}
-      >
-        View details
-      </button>
-
-      <button
-        type="button"
-        className="ptl-btn ptl-btn-small"
+        className="ptl-icon-btn ptl-stu-kebab-btn"
+        aria-haspopup="menu"
         aria-expanded={open}
         aria-label={label}
         onClick={onToggle}
       >
-        {open ? 'Hide actions' : 'Actions'}
+        <MoreVertical size={18} aria-hidden="true" />
       </button>
-
       {open && (
-        <div className="ptl-rowactions-menu" role="group" aria-label={label}>
+        <div className="ptl-stu-menu" role="menu" aria-label={label}>
           <button
             type="button"
-            className="ptl-btn ptl-rowactions-item"
+            role="menuitem"
+            className="ptl-stu-menuitem"
             disabled={busy === `${student.id}:message`}
             onClick={() => onMessage(student)}
           >
             {busy === `${student.id}:message` ? 'Opening' : 'Message student'}
           </button>
-
           {MILESTONES.map(m => (
             <button
               key={m.key}
               type="button"
-              className="ptl-btn ptl-rowactions-item"
+              role="menuitem"
+              className="ptl-stu-menuitem"
               disabled={busy === `${student.id}:${m.key}`}
               onClick={() => onConfirm(student.id, m.key)}
             >

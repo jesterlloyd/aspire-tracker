@@ -147,6 +147,20 @@ export const getStudentFileUrl = (studentId, kind) =>
     body: { student_id: studentId, kind },
   })
 
+/**
+ * Batch signed URLs for many scoped students at once, so a roster of N students
+ * signs its photos in ONE request instead of N. The server resolves the authorized
+ * set once for the whole batch, so the security property is identical to the single
+ * call; only the number of round trips changes. Bounded at 100 per the endpoint.
+ * Never persisted, never a raw path.
+ */
+export const getStudentFileUrlsBatch = (items, signal) =>
+  apiFetch('/api/portal/unit-student-file-access', {
+    method: 'POST',
+    body: { items },
+    signal,
+  })
+
 // ── Presentation helpers ────────────────────────────────────────────────────
 
 /** Any empty value renders as the standard placeholder. */

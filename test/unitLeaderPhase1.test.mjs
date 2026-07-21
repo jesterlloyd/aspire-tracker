@@ -51,7 +51,7 @@ test('Students is absent from primary navigation but still a section', () => {
 
 test('More holds the five infrequent destinations', () => {
   assert.match(chromeCode,
-    /const MORE_KEYS = \['placements', 'capacity', 'preceptors', 'profile', 'notifications'\]/)
+    /const MORE_KEYS = \['placements', 'capacity', 'preceptors', 'notifications'\]/)
 })
 
 test('the nav is identical at every width, with no desktop-only branch', () => {
@@ -317,10 +317,13 @@ test('phase 1 contains no preceptor assignment or creation action', () => {
 })
 
 test('the kebab menu carries only the existing safe actions', () => {
-  const actions = portalCode.slice(portalCode.indexOf('function StudentActions'))
-  assert.match(actions, /View details/)
-  assert.match(actions, /Message student/)
-  assert.match(actions, /Confirm \$\{m\.label\.toLowerCase\(\)\}/)
+  // The redesign moved View details to a whole-row click; the kebab now holds only
+  // Message student and Confirm milestone. No preceptor write action appears.
+  const kebab = portalCode.slice(portalCode.indexOf('function StudentKebab'))
+  assert.match(kebab, /Message student/)
+  assert.match(kebab, /Confirm \$\{m\.label\.toLowerCase\(\)\}/)
+  assert.match(portalCode, /aria-label=\{`Open details for \$\{studentName\(s\)\}`\}/,
+    'the whole row opens the profile')
 })
 
 // ── Evaluations exposes nothing ────────────────────────────────────────────
