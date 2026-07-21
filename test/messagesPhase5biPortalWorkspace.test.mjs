@@ -702,12 +702,16 @@ test('privacy', async (t) => {
 })
 
 test('dormancy and regression', async (t) => {
-  await t.test('only PortalApp imports the workspace, and only in the student branch', () => {
-    // Phase 5B-ii activated Messages through PortalApp alone. The staff shell and
-    // the other portal roles still must not reach it.
+  await t.test('only the two activated portals mount the workspace', () => {
+    // Phase 5B-ii activated Messages for the Student Portal through PortalApp.
+    // UL-PORTAL activated it for the Unit Leader Portal, which mounts the SAME
+    // workspace component so the approved Messages design is shared rather than
+    // reimplemented. The staff shell, the Academic Partner Portal, and the staff
+    // app still must not reach it.
     assert.match(read('../src/portal/PortalApp.jsx'), /import PortalMessagesWorkspace from '\.\/messages\/PortalMessagesWorkspace'/)
+    assert.match(read('../src/portal/UnitLeaderPortal.jsx'), /import PortalMessagesWorkspace from '\.\/messages\/PortalMessagesWorkspace'/)
     for (const f of ['../src/portal/PortalShell.jsx', '../src/portal/StudentPortal.jsx',
-      '../src/portal/UnitLeaderPortal.jsx', '../src/portal/AcademicPartnerPortal.jsx', '../src/App.jsx']) {
+      '../src/portal/AcademicPartnerPortal.jsx', '../src/App.jsx']) {
       assert.doesNotMatch(read(f), /PortalMessagesWorkspace/, `${f} must not mount the workspace`)
     }
   })
