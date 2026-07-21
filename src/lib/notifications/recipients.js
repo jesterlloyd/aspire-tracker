@@ -152,10 +152,44 @@ export async function resolveRecipients(type, context) {
       return resolveMidpointCheckin(context);
     case 'clockout_reminder':
       return resolveClockoutReminder(context);
+    case 'unit_leader_alert':
+      return resolveUnitLeaderAlert(context);
     default:
       console.warn(`[notifications/recipients] no resolver for type: ${type}`);
       return [];
   }
+}
+
+/**
+ * UL-PORTAL: the Unit Leader alert recipient.
+ *
+ * There is exactly ONE, and it is passed in already resolved. The caller
+ * (lib/server/notifications/unitLeaderAlerts.js) derives it from an ACTIVE
+ * unit_leader role grant plus an ACTIVE user_unit_scopes row, and has already
+ * checked the account is active and that the preference allows email. That work
+ * cannot be repeated here, because this module has no database access.
+ *
+ * This resolver therefore only VALIDATES the shape it was handed, and refuses
+ * anything that is not a resolved recipient. It never expands a unit into people,
+ * never reads a name list, and never falls back to a default address, so a bug
+ * upstream results in no email rather than mail to the wrong person.
+ */
+function resolveUnitLeaderAlert(context) {
+  const r = context.recipient;
+  if (!r || !r.email) {
+    console.warn('[notifications/recipients] unit_leader_alert: no resolved recipient');
+    return [];
+  }
+  if (r.audience !== 'unit_leader') {
+    console.warn('[notifications/recipients] unit_leader_alert: unexpected audience');
+    return [];
+  }
+  return [{
+    email: r.email,
+    name: r.name || '',
+    role: 'Unit Leader',
+    audience: 'unit_leader',
+  }];
 }
 
 function resolveInterviewReminder(context) {

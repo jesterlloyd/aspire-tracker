@@ -4,6 +4,7 @@ import { unitFormReceived } from './unitFormReceived.js';
 import { interviewReminder } from './interviewReminder.js';
 import { midpointCheckin } from './midpointCheckin.js';
 import { clockoutReminder } from './clockoutReminder.js';
+import { unitLeaderAlert } from './unitLeaderAlert.js';
 
 export const templates = {
   form_received:                    formReceived,
@@ -13,4 +14,5 @@ export const templates = {
   interview_reminder:               interviewReminder,
   midpoint_checkin:                 midpointCheckin,
   clockout_reminder:                clockoutReminder,
+  unit_leader_alert:                unitLeaderAlert,
 };
