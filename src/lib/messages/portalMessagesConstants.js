@@ -14,6 +14,21 @@ export const PORTAL_SUBTITLE = 'Contact the ASPIRE Team about your ASPIRE experi
 
 export const PORTAL_NO_SELECTION = 'Select a conversation to review your messages with the ASPIRE Team.';
 
+// UL-POLISH P0: role-aware copy. A Unit Leader's inbox mixes ASPIRE Team
+// threads and direct student threads, so the student wording above is wrong for
+// them. Student copy is preserved verbatim; these are additive.
+export const UL_PORTAL_SUBTITLE =
+  'Conversations with the ASPIRE Team, and direct conversations with students in your assigned units.';
+
+export const UL_PORTAL_NO_SELECTION = 'Select a conversation to review your messages.';
+
+// The visible participant labels on a Unit Leader inbox card. Direct student
+// threads and ASPIRE Team threads are semantically separate flows and must
+// never look interchangeable.
+export const UL_THREAD_ASPIRE_LABEL = 'ASPIRE Team';
+export const ulDirectThreadLabel = (studentName) =>
+  studentName ? `Direct · ${studentName}` : 'Direct · Student';
+
 export const PORTAL_EMPTY_TITLE = 'No messages yet';
 export const PORTAL_EMPTY_BODY =
   'Messages between you and the ASPIRE Team will appear here.';

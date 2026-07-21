@@ -270,7 +270,7 @@ test('query and polling reuse', async (t) => {
     assert.match(pp, /queryKey: \['portal_messages_unread'\]/)
     assert.match(pp, /export const PORTAL_ACTIVE_POLL_MS = 30 \* 1000/)
     assert.match(pp, /export const PORTAL_IDLE_UNREAD_POLL_MS = 60 \* 1000/)
-    assert.match(read('../src/portal/PortalApp.jsx'), /intervalMs: studentView === 'messages' \? PORTAL_ACTIVE_POLL_MS : PORTAL_IDLE_UNREAD_POLL_MS/)
+    assert.match(read('../src/portal/PortalApp.jsx'), /intervalMs: onMessagesRoute \? PORTAL_ACTIVE_POLL_MS : PORTAL_IDLE_UNREAD_POLL_MS/)
   })
 })
 

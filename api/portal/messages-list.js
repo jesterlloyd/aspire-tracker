@@ -6,7 +6,7 @@
 // by my_message_conversation_ids() and never by an unrestricted service_role
 // query. Returns no staff email and no other participant's data.
 
-import { verifyPortalMessagesCaller, getUserScopedDb } from '../lib/messagesAuth.js';
+import { verifyPortalMessagesCaller, getUserScopedDb, getServiceDb } from '../lib/messagesAuth.js';
 import { methodGuard, logApiError } from '../lib/messagesApi.js';
 import { parseLimit, parseCursor, nextCursorFrom } from '../../lib/server/messages/validation.js';
 
@@ -38,7 +38,16 @@ export default async function handler(req, res) {
       logApiError('portal/messages-list', 'rpc_failed', error);
       return res.status(500).json({ error: 'internal_error' });
     }
-    const conversations = data?.conversations || [];
+    let conversations = data?.conversations || [];
+    // UL-POLISH P0: a Unit Leader's inbox must distinguish a direct student
+    // thread from an ASPIRE Team thread. The caller's OWN participant rows
+    // already carry scope_student_id for direct threads, and the thread view
+    // already shows that student's name through the three-way author
+    // projection, so naming the counterpart here exposes nothing new. Students
+    // never receive the field, and rows without a named student stay untouched.
+    if (caller.actorKind === 'unit_leader' && conversations.length > 0) {
+      conversations = await withDirectStudentNames(conversations, caller.profile.id);
+    }
     return res.status(200).json({
       conversations,
       next_cursor: nextCursorFrom(conversations, limit.value, 'last_message_at'),
@@ -46,5 +55,47 @@ export default async function handler(req, res) {
   } catch (err) {
     logApiError('portal/messages-list', 'threw', err);
     return res.status(500).json({ error: 'internal_error' });
+  }
+}
+
+/**
+ * Attach direct_student_name to each conversation where the CALLER's own
+ * unit_leader participant row names a student. Read-only, bounded to the ids on
+ * this page, and best-effort: any failure returns the rows unchanged rather
+ * than failing the inbox.
+ */
+async function withDirectStudentNames(conversations, profileId) {
+  try {
+    const svc = getServiceDb();
+    if (!svc) return conversations;
+    const ids = conversations.map((c) => c.id);
+    const { data: parts, error: pErr } = await svc
+      .from('conversation_participants')
+      .select('conversation_id, scope_student_id')
+      .eq('participant_profile_id', profileId)
+      .eq('participant_role', 'unit_leader')
+      .in('conversation_id', ids)
+      .not('scope_student_id', 'is', null);
+    if (pErr || !parts?.length) return conversations;
+
+    const studentIds = [...new Set(parts.map((r) => r.scope_student_id))];
+    const { data: students, error: sErr } = await svc
+      .from('students')
+      .select('id, first_name, preferred_first_name, last_name')
+      .in('id', studentIds);
+    if (sErr) return conversations;
+
+    const nameOf = new Map((students || []).map((st) => [
+      st.id,
+      `${st.preferred_first_name || st.first_name || ''} ${st.last_name || ''}`.trim(),
+    ]));
+    const byConversation = new Map(parts.map((r) => [r.conversation_id, r.scope_student_id]));
+    return conversations.map((c) => {
+      const sid = byConversation.get(c.id);
+      const name = sid ? nameOf.get(sid) : null;
+      return name ? { ...c, direct_student_name: name } : c;
+    });
+  } catch {
+    return conversations;
   }
 }

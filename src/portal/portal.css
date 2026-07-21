@@ -322,6 +322,8 @@
   width: 30px; height: 30px; border-radius: 9px; background: #eef2fb; color: #1D2567; flex-shrink: 0;
 }
 .ptl-section-title { margin: 0; font-size: 15px; font-weight: 700; color: #1D2567; }
+.ptl-unit-page .ptl-section-title { width: fit-content; }
+.ptl-unit-page .ptl-section-title:focus:not(:focus-visible) { outline: none; }
 .ptl-empty {
   color: #6b7280; font-size: 13.5px; line-height: 1.6;
   background: #faf9f5; border: 1px dashed #e3ded4; border-radius: 10px; padding: 12px 14px;
@@ -787,7 +789,17 @@
 
 .ptl-unit-page { display: grid; gap: 16px; }
 
-.ptl-unit-switcher { display: grid; gap: 6px; }
+/* UL-POLISH P0: the switcher is a compact inline control on unit-scoped
+   screens only, not a full-width card on every screen. Single-unit leaders get
+   a static context line instead of a dead control. */
+.ptl-unit-switcher {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 0 2px;
+}
+.ptl-unit-switcher .ptl-label { margin: 0; }
+.ptl-unit-switcher .ptl-input { max-width: 320px; }
+.ptl-unit-context { margin: 0; padding: 0 2px; font-size: 13px; color: #6b7280; }
+.ptl-unit-context b { color: var(--ptl-navy, #1D2567); font-weight: 600; }
 
 /* Non-content states share one shape, so loading, empty, error, and denied read
    as the same kind of thing rather than four different treatments. */
@@ -823,12 +835,17 @@
 .ptl-pill-warn { background: rgba(176, 106, 0, 0.12); color: #8a5300; }
 
 .ptl-filterbar { display: flex; flex-wrap: wrap; gap: 8px; }
-.ptl-chip {
-  padding: 6px 12px; border-radius: 999px; cursor: pointer;
-  border: 1px solid rgba(29, 37, 103, 0.18); background: transparent;
-  font-size: 0.9rem;
+/* UL-POLISH P0: a dedicated class. `.ptl-chip` is the Student Portal STATUS
+   chip (navy fill, white text); reusing it here made these filter labels render
+   white-on-transparent. Never share a ptl-* class across different semantics. */
+.ptl-filter-chip {
+  padding: 6px 14px; border-radius: 999px; cursor: pointer; min-height: 32px;
+  border: 1px solid rgba(29, 37, 103, 0.22); background: #fff;
+  color: var(--ptl-navy, #1D2567); font: inherit; font-size: 0.9rem; font-weight: 600;
 }
-.ptl-chip-active {
+.ptl-filter-chip:hover { border-color: var(--ptl-navy, #1D2567); background: var(--ptl-navy-tint, #eef2fb); }
+.ptl-filter-chip[aria-pressed="true"],
+.ptl-filter-chip-active {
   background: var(--ptl-accent, #1D2567); color: #fff;
   border-color: var(--ptl-accent, #1D2567);
 }
@@ -942,4 +959,41 @@
 @media (max-width: 760px) {
   .ptl-detail-grid { grid-template-columns: 1fr; }
   .ptl-detail-drawer { max-width: 100%; }
+}
+
+/* UL-POLISH P0: inline change-request editor (replaces window.prompt). */
+.ptl-editor-row td { background: var(--ptl-navy-tint, #eef2fb); border-radius: 10px; }
+.ptl-editor { display: grid; gap: 8px; padding: 4px 2px 6px; }
+.ptl-editor textarea { width: 100%; box-sizing: border-box; min-height: 72px; }
+.ptl-editor-help { margin: 0; font-size: 12.5px; color: #6b7280; }
+.ptl-editor-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* UL-POLISH P0: More bottom sheet for the five-slot phone navigation. */
+.ptl-sheet-backdrop {
+  position: fixed; inset: 0; z-index: 60; background: rgba(15, 20, 25, 0.40);
+}
+.ptl-sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 61;
+  background: #fff; border-radius: 16px 16px 0 0;
+  padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 32px rgba(15, 20, 25, 0.18);
+}
+.ptl-sheet-title {
+  margin: 0 0 8px; font-size: 12.5px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; color: #6b7280;
+}
+.ptl-sheet-item {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  min-height: 48px; padding: 10px 12px; border: 0; border-radius: 10px;
+  background: none; cursor: pointer; font: inherit; font-size: 15px;
+  font-weight: 600; color: #232842; text-align: left;
+}
+.ptl-sheet-item:hover { background: var(--ptl-navy-tint, #eef2fb); }
+.ptl-sheet-item[aria-current="page"] { background: var(--ptl-navy-tint, #eef2fb); color: var(--ptl-navy, #1D2567); }
+
+/* UL-POLISH P0: participant context line on Unit Leader inbox cards. */
+.ptl-msg-row-context {
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--ptl-navy, #1D2567);
+  margin-bottom: 2px;
 }

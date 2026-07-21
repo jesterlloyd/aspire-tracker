@@ -141,7 +141,9 @@ test('unread navigation badge', async (t) => {
   })
 
   await t.test('30 seconds while Messages is active, 60 seconds elsewhere', () => {
-    assert.match(app, /intervalMs: studentView === 'messages' \? PORTAL_ACTIVE_POLL_MS : PORTAL_IDLE_UNREAD_POLL_MS/)
+    // UL-POLISH: the cadence is unchanged; the route check now serves both
+    // portal kinds (the unit-leader branch polls too).
+    assert.match(app, /intervalMs: onMessagesRoute \? PORTAL_ACTIVE_POLL_MS : PORTAL_IDLE_UNREAD_POLL_MS/)
     assert.match(polling, /export const PORTAL_ACTIVE_POLL_MS = 30 \* 1000/)
     assert.match(polling, /export const PORTAL_IDLE_UNREAD_POLL_MS = 60 \* 1000/)
   })

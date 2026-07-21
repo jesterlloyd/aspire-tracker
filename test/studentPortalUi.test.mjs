@@ -151,7 +151,10 @@ test('shell, navigation, and mobile', async (t) => {
 
   await t.test('a portal-wide focus-visible ring exists and nothing removes it', () => {
     assert.match(css, /\.ptl-page \*:focus-visible \{\s*\n\s*outline: 2px solid var\(--ptl-navy\);/)
-    assert.doesNotMatch(css, /outline: none/)
+    // UL-POLISH: outline suppression is permitted ONLY for programmatic focus
+    // (:focus:not(:focus-visible)); keyboard rings must survive every rule.
+    const keyboardRules = css.split('\n').filter(l => !l.includes(':focus:not(:focus-visible)')).join('\n')
+    assert.doesNotMatch(keyboardRules, /outline: none/)
   })
 })
 

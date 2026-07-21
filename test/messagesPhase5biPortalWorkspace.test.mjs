@@ -671,8 +671,10 @@ test('accessibility foundation', async (t) => {
   await t.test('copy is exact and restrained', () => {
     assert.equal(PORTAL_SUBTITLE, 'Contact the ASPIRE Team about your ASPIRE experience.')
     assert.equal(PORTAL_NO_SELECTION, 'Select a conversation to review your messages with the ASPIRE Team.')
-    assert.match(thread, /\{PORTAL_NO_SELECTION\}/)
-    assert.match(workspace, /\{PORTAL_SUBTITLE\}/)
+    // UL-POLISH: the copy is selected by variant; the student strings above
+    // stay byte-identical and remain the default branch.
+    assert.match(thread, /variant === 'unit_leader' \? UL_PORTAL_NO_SELECTION : PORTAL_NO_SELECTION/)
+    assert.match(workspace, /variant === 'unit_leader' \? UL_PORTAL_SUBTITLE : PORTAL_SUBTITLE/)
     // No response-time promise and no continuous-monitoring implication.
     for (const s of [PORTAL_SUBTITLE, PORTAL_NO_SELECTION, PORTAL_EMPTY_BODY]) {
       assert.doesNotMatch(s, /respond within|response time|24\/7|monitored|immediately/i)

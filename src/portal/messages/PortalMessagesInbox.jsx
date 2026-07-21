@@ -18,7 +18,7 @@ import {
 } from '../../lib/messages/messagesConstants'
 import {
   PORTAL_EMPTY_TITLE, PORTAL_EMPTY_BODY, portalStatusIsClosed, portalStatusLabel,
-  mapPortalMessagesError,
+  mapPortalMessagesError, UL_THREAD_ASPIRE_LABEL, ulDirectThreadLabel,
 } from '../../lib/messages/portalMessagesConstants'
 
 // One page size shared with the Home preview hook: both observers use the
@@ -32,6 +32,7 @@ const srOnly = {
 }
 
 export default function PortalMessagesInbox({
+  variant = 'student',
   selectedId,
   onSelect,
   onNewMessage,
@@ -99,6 +100,15 @@ export default function PortalMessagesInbox({
             aria-current={selected ? 'true' : undefined}
             onClick={() => onSelect?.(c.id)}
           >
+            {/* UL-POLISH P0: a Unit Leader inbox card names its participant so
+                direct student threads and ASPIRE Team threads never look
+                interchangeable. direct_student_name comes from the caller's own
+                participant row server-side; students never receive the field. */}
+            {variant === 'unit_leader' && (
+              <div className="ptl-msg-row-context">
+                {c.direct_student_name ? ulDirectThreadLabel(c.direct_student_name) : UL_THREAD_ASPIRE_LABEL}
+              </div>
+            )}
             <div className="ptl-msg-row-top">
               <span className="ptl-msg-row-subject">{c.subject}</span>
               {/* Unread is carried by the count itself and by text, never by

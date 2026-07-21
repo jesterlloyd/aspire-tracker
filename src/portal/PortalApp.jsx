@@ -76,9 +76,14 @@ export default function PortalApp() {
   }, [navigate])
 
   const isStudent = (access?.roles || []).includes('student')
+  // UL-POLISH P0: the idle unread poll runs for Unit Leaders too, so the
+  // Messages badge is live from Home and every other section, exactly like the
+  // Student Portal. Same endpoint, same cadence, faster while on Messages.
+  const isUnitLeader = !isStudent && (access?.roles || []).includes('unit_leader')
+  const onMessagesRoute = location.pathname.startsWith('/portal/messages')
   const unread = usePortalUnreadCount({
-    enabled: isStudent,
-    intervalMs: studentView === 'messages' ? PORTAL_ACTIVE_POLL_MS : PORTAL_IDLE_UNREAD_POLL_MS,
+    enabled: isStudent || isUnitLeader,
+    intervalMs: onMessagesRoute ? PORTAL_ACTIVE_POLL_MS : PORTAL_IDLE_UNREAD_POLL_MS,
   })
 
   const goHome = useCallback(() => navigate('/portal'), [navigate])

@@ -86,8 +86,26 @@ test('the read endpoints still run as the signed-in caller, not service role', (
   // This is what makes the RPC resolve auth.uid() to the viewer.
   for (const [name, src] of Object.entries(READ_ENDPOINTS)) {
     assert.match(src, /getUserScopedDb\(req\)/, name)
+    if (name === 'messages-list.js') continue // covered by the stricter test below
     assert.doesNotMatch(src, /getServiceDb\(\)/, name)
   }
+})
+
+test('messages-list: conversation ACCESS stays with the user-scoped RPC; service role only decorates names', () => {
+  const src = READ_ENDPOINTS['messages-list.js']
+  // The conversation set itself still comes from the caller-scoped RPC.
+  assert.match(src, /db\.rpc\('messages_portal_list_conversations'/)
+  assert.match(src, /const db = getUserScopedDb\(req\)/)
+  // UL-POLISH: the service client appears ONLY inside the bounded name
+  // decorator, gated to a unit_leader caller, reading the caller's OWN
+  // participant rows for the ids the RPC already authorized. It never selects
+  // conversations or messages, and students never receive the field.
+  assert.match(src, /caller\.actorKind === 'unit_leader' && conversations\.length > 0/)
+  assert.match(src, /\.eq\('participant_profile_id', profileId\)/)
+  assert.match(src, /\.in\('conversation_id', ids\)/)
+  const svcUses = (src.match(/getServiceDb\(\)/g) || []).length
+  assert.equal(svcUses, 1, 'service client only in withDirectStudentNames')
+  assert.doesNotMatch(src, /svc\s*\.\s*from\('conversations'\)|svc\s*\.\s*from\('messages'\)/)
 })
 
 test('mark-read passes the caller actor kind, never a hardcoded student', () => {

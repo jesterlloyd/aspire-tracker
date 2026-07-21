@@ -73,7 +73,10 @@ test('sections are REAL routes, so refresh and deep links work', () => {
 // ── Unit switcher and All assigned units ────────────────────────────────────
 test('the unit switcher offers All assigned units and hides for a single unit', () => {
   assert.match(chrome, /All assigned units \(\{unitKeys\.length\}\)/)
-  assert.match(chrome, /if \(unitKeys\.length <= 1\) return null/)
+  // UL-POLISH: a single-unit leader now gets a static unit-context line rather
+  // than a dead control; the select still never renders for one unit.
+  assert.match(chrome, /if \(unitKeys\.length === 0\) return null/)
+  assert.match(chrome, /if \(unitKeys\.length === 1\) \{\s*return <p className="ptl-unit-context">/)
 })
 
 test('All assigned units NARROWS nothing: it omits the unit filter entirely', () => {
@@ -164,7 +167,10 @@ test('motion respects a reduced-motion preference', () => {
 
 test('the focus ring is made consistent, never removed', () => {
   assert.match(css, /:focus-visible/)
-  assert.doesNotMatch(css, /\.ptl-(chip|linklike|section-title)[^{]*\{[^}]*outline:\s*none/)
+  // UL-POLISH: the section title may suppress its PROGRAMMATIC focus ring
+  // (:focus:not(:focus-visible)); keyboard focus-visible rings stay intact.
+  const keyboardCss = css.split('\n').filter(l => !l.includes(':focus:not(:focus-visible)')).join('\n')
+  assert.doesNotMatch(keyboardCss, /\.ptl-(chip|linklike|section-title)[^{]*\{[^}]*outline:\s*none/)
 })
 
 // ── Product rules ───────────────────────────────────────────────────────────

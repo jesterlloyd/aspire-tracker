@@ -24,7 +24,7 @@ import {
   PORTAL_ACTIVE_POLL_MS, usePortalIsNarrow, usePortalUnreadCount,
 } from '../../lib/messages/portalMessagesPolling'
 import { formatUnread, unreadLabel } from '../../lib/messages/messagesConstants'
-import { PORTAL_SUBTITLE, portalStatusIsClosed } from '../../lib/messages/portalMessagesConstants'
+import { PORTAL_SUBTITLE, UL_PORTAL_SUBTITLE, portalStatusIsClosed } from '../../lib/messages/portalMessagesConstants'
 
 const srOnly = {
   position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
@@ -33,6 +33,8 @@ const srOnly = {
 
 export default function PortalMessagesWorkspace({
   active = true,
+  // UL-POLISH P0: 'student' (default, copy unchanged) or 'unit_leader'.
+  variant = 'student',
   // ASPIRE-COMPASS: selection is URL-driven. threadId comes from
   // /portal/messages/:threadId; selecting and going back are navigations
   // handled by PortalApp, so refresh, back, and forward all work. An unknown
@@ -133,7 +135,7 @@ export default function PortalMessagesWorkspace({
         <div className="ptl-section-head ptl-msg-head">
           <div className="ptl-msg-head-text">
             <h1 className="ptl-section-title">Messages</h1>
-            <p className="ptl-muted ptl-msg-subtitle">{PORTAL_SUBTITLE}</p>
+            <p className="ptl-muted ptl-msg-subtitle">{variant === 'unit_leader' ? UL_PORTAL_SUBTITLE : PORTAL_SUBTITLE}</p>
           </div>
           <div className="ptl-msg-head-actions">
             {unread > 0 && (
@@ -158,6 +160,7 @@ export default function PortalMessagesWorkspace({
         {showList && (
           <div className="ptl-msg-pane ptl-msg-pane-list">
             <PortalMessagesInbox
+              variant={variant}
               selectedId={selectedId}
               onSelect={selectConversation}
               onNewMessage={() => setNewOpen(true)}
@@ -169,6 +172,7 @@ export default function PortalMessagesWorkspace({
         {showThread && (
           <div className="ptl-msg-pane ptl-msg-pane-thread">
             <PortalMessagesThread
+              variant={variant}
               conversationId={selectedId}
               showBack={narrow}
               onBack={() => onBackToList?.()}

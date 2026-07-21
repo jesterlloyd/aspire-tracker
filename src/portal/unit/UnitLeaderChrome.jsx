@@ -10,11 +10,13 @@
 // parallel style language, so the Unit Leader Portal inherits the approved shell,
 // the responsive breakpoints, and the focus treatment already in portal.css.
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Home, ClipboardList, CalendarRange, Users, UserCheck, MessageSquare, Flag, IdCard,
+  MoreHorizontal,
 } from 'lucide-react'
 import { formatUnread, unreadLabel } from '../../lib/messages/messagesConstants'
+import { usePortalIsNarrow } from '../../lib/messages/portalMessagesPolling'
 import { ALL_UNITS } from './unitLeaderApi'
 
 const srOnly = {
@@ -38,39 +40,132 @@ const SECTIONS = [
 /**
  * Section navigation. Real route changes are handled by the caller, so back,
  * forward, and refresh behave like the rest of the app.
+ *
+ * UL-POLISH P0: on phones the eight sections overflowed the fixed bottom bar
+ * and truncated mid-word. Narrow widths now show five slots (Home, Students,
+ * Placements, Messages, More); More opens an accessible bottom sheet with the
+ * remaining four sections. Desktop keeps the full tab row.
  */
-export function UnitLeaderNav({ view, unread = 0, onNavigate }) {
+const PRIMARY_KEYS = ['home', 'students', 'placements', 'messages']
+const MORE_KEYS = ['capacity', 'preceptors', 'concern', 'profile']
+
+function NavItem({ section, active, unread, onNavigate }) {
+  const { key, label, Icon } = section
+  const isMessages = key === 'messages'
   return (
-    <nav className="ptl-nav" aria-label="Unit Leader Portal sections">
-      {SECTIONS.map(({ key, label, Icon }) => {
-        const active = view === key
-        const isMessages = key === 'messages'
-        return (
+    <button
+      type="button"
+      className={`ptl-nav-item${active ? ' ptl-nav-item-active' : ''}`}
+      aria-current={active ? 'page' : undefined}
+      onClick={() => onNavigate?.(key)}
+    >
+      {isMessages ? (
+        <span className="ptl-nav-iconwrap">
+          <Icon size={16} aria-hidden="true" />
+          {/* The count carries the meaning and screen-reader text spells it
+              out, so unread is never conveyed by color alone. */}
+          {unread > 0 && (
+            <span className="ptl-nav-badge" aria-hidden="true">{formatUnread(unread)}</span>
+          )}
+        </span>
+      ) : (
+        <Icon size={16} aria-hidden="true" />
+      )}
+      <span className="ptl-nav-label">{label}</span>
+      {isMessages && <span style={srOnly}>{unread > 0 ? unreadLabel(unread) : ''}</span>}
+    </button>
+  )
+}
+
+/** The More bottom sheet: a real dialog with focus trap, Escape, and return. */
+function MoreSheet({ view, onNavigate, onClose, returnFocusRef }) {
+  const panelRef = useRef(null)
+  useEffect(() => {
+    const prev = returnFocusRef?.current || null
+    const t = setTimeout(() => panelRef.current?.querySelector('button')?.focus?.(), 20)
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); onClose?.(); return }
+      if (e.key !== 'Tab' || !panelRef.current) return
+      const els = Array.from(panelRef.current.querySelectorAll('button'))
+      if (els.length === 0) return
+      const first = els[0], last = els[els.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('keydown', onKey)
+      if (prev?.focus) prev.focus()
+    }
+  }, [onClose, returnFocusRef])
+
+  return (
+    <>
+      <div className="ptl-sheet-backdrop" onClick={onClose} aria-hidden="true" />
+      <div ref={panelRef} className="ptl-sheet" role="dialog" aria-modal="true" aria-label="More sections">
+        <p className="ptl-sheet-title">More</p>
+        {SECTIONS.filter(sec => MORE_KEYS.includes(sec.key)).map(({ key, label, Icon }) => (
           <button
             key={key}
             type="button"
-            className={`ptl-nav-item${active ? ' ptl-nav-item-active' : ''}`}
-            aria-current={active ? 'page' : undefined}
+            className="ptl-sheet-item"
+            aria-current={view === key ? 'page' : undefined}
             onClick={() => onNavigate?.(key)}
           >
-            {isMessages ? (
-              <span className="ptl-nav-iconwrap">
-                <Icon size={16} aria-hidden="true" />
-                {/* The count carries the meaning and screen-reader text spells it
-                    out, so unread is never conveyed by color alone. */}
-                {unread > 0 && (
-                  <span className="ptl-nav-badge" aria-hidden="true">{formatUnread(unread)}</span>
-                )}
-              </span>
-            ) : (
-              <Icon size={16} aria-hidden="true" />
-            )}
-            <span className="ptl-nav-label">{label}</span>
-            {isMessages && <span style={srOnly}>{unread > 0 ? unreadLabel(unread) : ''}</span>}
+            <Icon size={18} aria-hidden="true" /> {label}
           </button>
-        )
-      })}
-    </nav>
+        ))}
+      </div>
+    </>
+  )
+}
+
+export function UnitLeaderNav({ view, unread = 0, onNavigate }) {
+  const narrow = usePortalIsNarrow()
+  // The sheet remembers WHICH section it was opened on. A section change (or a
+  // viewport widening) hides it by derivation, with no state write in an effect.
+  const [moreFor, setMoreFor] = useState(null)
+  const moreBtnRef = useRef(null)
+  const moreOpen = narrow && moreFor === view
+
+  if (!narrow) {
+    return (
+      <nav className="ptl-nav" aria-label="Unit Leader Portal sections">
+        {SECTIONS.map(sec => (
+          <NavItem key={sec.key} section={sec} active={view === sec.key}
+            unread={unread} onNavigate={onNavigate} />
+        ))}
+      </nav>
+    )
+  }
+
+  const moreActive = MORE_KEYS.includes(view)
+  return (
+    <>
+      <nav className="ptl-nav" aria-label="Unit Leader Portal sections">
+        {SECTIONS.filter(sec => PRIMARY_KEYS.includes(sec.key)).map(sec => (
+          <NavItem key={sec.key} section={sec} active={view === sec.key}
+            unread={unread} onNavigate={onNavigate} />
+        ))}
+        <button
+          ref={moreBtnRef}
+          type="button"
+          className={`ptl-nav-item${moreActive ? ' ptl-nav-item-active' : ''}`}
+          aria-haspopup="dialog"
+          aria-expanded={moreOpen}
+          onClick={() => setMoreFor(moreOpen ? null : view)}
+        >
+          <MoreHorizontal size={16} aria-hidden="true" />
+          <span className="ptl-nav-label">More</span>
+        </button>
+      </nav>
+      {moreOpen && (
+        <MoreSheet view={view} returnFocusRef={moreBtnRef}
+          onNavigate={(k) => { setMoreFor(null); onNavigate?.(k) }}
+          onClose={() => setMoreFor(null)} />
+      )}
+    </>
   )
 }
 
@@ -82,9 +177,15 @@ export function UnitLeaderNav({ view, unread = 0, onNavigate }) {
  * the request, and the server returns exactly the caller's authorized set.
  */
 export function UnitSwitcher({ unitKeys = [], value, onChange }) {
-  if (unitKeys.length <= 1) return null
+  // UL-POLISH P0: a single-unit leader has nothing to switch between, but the
+  // unit still deserves to be visible. Static context line instead of a dead
+  // control; the compact switcher appears only with two or more units.
+  if (unitKeys.length === 0) return null
+  if (unitKeys.length === 1) {
+    return <p className="ptl-unit-context">Unit · <b>{unitKeys[0]}</b></p>
+  }
   return (
-    <div className="ptl-card ptl-unit-switcher">
+    <div className="ptl-unit-switcher">
       <label className="ptl-label" htmlFor="ul-unit-switcher">Viewing</label>
       <select
         id="ul-unit-switcher"

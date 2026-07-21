@@ -17,7 +17,7 @@ import {
 } from '../../lib/messages/portalThreadState'
 import { formatFullTimestamp } from '../../lib/messages/messagesConstants'
 import {
-  PORTAL_NO_SELECTION, portalStatusIsClosed, portalStatusLabel, mapPortalMessagesError,
+  PORTAL_NO_SELECTION, UL_PORTAL_NO_SELECTION, portalStatusIsClosed, portalStatusLabel, mapPortalMessagesError,
 } from '../../lib/messages/portalMessagesConstants'
 
 const srOnly = {
@@ -26,6 +26,7 @@ const srOnly = {
 }
 
 export default function PortalMessagesThread({
+  variant = 'student',
   conversationId,
   onBack,
   showBack,
@@ -98,7 +99,7 @@ export default function PortalMessagesThread({
   }, [active, conversationId, newestPage, newestAt, onMarkRead])
 
   if (!conversationId) {
-    return <div className="ptl-empty ptl-msg-noselect"><p className="ptl-muted">{PORTAL_NO_SELECTION}</p></div>
+    return <div className="ptl-empty ptl-msg-noselect"><p className="ptl-muted">{variant === 'unit_leader' ? UL_PORTAL_NO_SELECTION : PORTAL_NO_SELECTION}</p></div>
   }
 
   if (isLoading) {

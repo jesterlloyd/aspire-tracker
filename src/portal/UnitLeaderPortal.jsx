@@ -104,11 +104,18 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
 
   const shared = { unitKey, unitKeys, students, byBucket, acceptingCohort, refreshRoster: roster.refresh }
 
+  // UL-POLISH P0: Messages, Report a Concern, and Profile are not unit-scoped
+  // views (Messages ignores the unit filter entirely), so the switcher renders
+  // only where narrowing means something. Never an authorization control.
+  const UNIT_SCOPED_VIEWS = ['home', 'placements', 'capacity', 'students', 'preceptors']
+
   return (
     <>
       <UnitLeaderNav view={view} unread={unread} onNavigate={onNavigate} />
       <div className="ptl-page ptl-unit-page">
-        <UnitSwitcher unitKeys={unitKeys} value={unitKey} onChange={setUnitKey} />
+        {UNIT_SCOPED_VIEWS.includes(view) && (
+          <UnitSwitcher unitKeys={unitKeys} value={unitKey} onChange={setUnitKey} />
+        )}
 
         {view === 'home'       && <HomeScreen {...shared} onNavigate={onNavigate} />}
         {view === 'placements' && <PlacementScreen {...shared} />}
@@ -120,6 +127,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
         {view === 'messages'   && (
           <PortalMessagesWorkspace
             active
+            variant="unit_leader"
             threadId={threadId}
             onSelectThread={onSelectThread}
             onBackToList={onBackToList}
@@ -234,22 +242,41 @@ function PlacementScreen({ unitKey }) {
   const { loading, error, data, refresh } = useEndpoint(s => getPlacementRequests(unitKey, s), [unitKey])
   const [busy, setBusy] = useState(null)
   const [notice, setNotice] = useState(null)
+  // UL-POLISH P0: the change-request comment is an inline editor beneath the
+  // request row (the old native prompt dialog lost the comment on cancel and
+  // offered no context). Typed text survives a validation failure or a failed
+  // save.
+  const [editorFor, setEditorFor] = useState(null)
+  const [comment, setComment] = useState('')
 
-  const act = async (id, response) => {
-    const comment = response === 'changes_requested'
-      ? window.prompt('What should change? A comment is required when requesting changes.') || ''
-      : ''
-    if (response === 'changes_requested' && !comment.trim()) {
-      setNotice({ tone: 'error', text: 'A comment is required when requesting changes.' })
-      return
-    }
+  const act = async (id, response, unitComment = '') => {
+    if (busy) return
     setBusy(id)
-    const res = await respondToPlacement(id, response, comment)
+    const res = await respondToPlacement(id, response, unitComment)
     setBusy(null)
     setNotice(res.ok
       ? { tone: 'ok', text: 'Your response was recorded. ASPIRE confirms the final placement.' }
       : { tone: 'error', text: res.error === 'conflict' ? 'ASPIRE has already decided this request.' : 'That response could not be saved.' })
-    if (res.ok) refresh()
+    if (res.ok) {
+      setEditorFor(null)
+      setComment('')
+      refresh()
+    }
+    return res.ok
+  }
+
+  const openEditor = (id) => {
+    setEditorFor(id)
+    setComment('')
+    setNotice(null)
+  }
+
+  const sendChangeRequest = async (id) => {
+    if (!comment.trim()) {
+      setNotice({ tone: 'error', text: 'A comment is required when requesting changes.' })
+      return
+    }
+    await act(id, 'changes_requested', comment.trim())
   }
 
   if (loading) return <LoadingState label="Loading placement requests" />
@@ -272,25 +299,57 @@ function PlacementScreen({ unitKey }) {
             </thead>
             <tbody>
               {rows.map(r => (
-                <tr key={r.id}>
-                  <td data-label="Unit">{orDash(r.unit_key)}</td>
-                  <td data-label="Your response"><Pill tone={r.unit_response === 'pending' ? 'warn' : 'neutral'}>{r.unit_response.replace(/_/g, ' ')}</Pill></td>
-                  <td data-label="ASPIRE status"><Pill tone={r.awaiting_aspire_confirmation ? 'warn' : 'ok'}>{r.awaiting_aspire_confirmation ? 'Awaiting ASPIRE' : r.aspire_status}</Pill></td>
-                  <td data-label="Due">{orDash(r.due_at ? new Date(r.due_at).toLocaleDateString() : null)}</td>
-                  <td data-label="Actions">
-                    {r.aspire_status === 'open' ? (
-                      <div className="ptl-actions">
-                        <button type="button" className="ptl-btn" disabled={busy === r.id} onClick={() => act(r.id, 'accepted')}>Accept</button>
-                        <button type="button" className="ptl-btn" disabled={busy === r.id} onClick={() => act(r.id, 'declined')}>Decline</button>
-                        <button type="button" className="ptl-btn" disabled={busy === r.id} onClick={() => act(r.id, 'changes_requested')}>Request changes</button>
-                      </div>
-                    ) : <span className="ptl-muted">{EMPTY}</span>}
-                  </td>
-                </tr>
+                <PlacementRow key={r.id} r={r} busy={busy}
+                  editorOpen={editorFor === r.id}
+                  comment={comment} onComment={setComment}
+                  onAct={act} onOpenEditor={openEditor}
+                  onCancelEditor={() => { setEditorFor(null); setComment('') }}
+                  onSendChangeRequest={sendChangeRequest}
+                />
               ))}
             </tbody>
           </table>
         </div>
+      )}
+    </>
+  )
+}
+
+function PlacementRow({ r, busy, editorOpen, comment, onComment, onAct, onOpenEditor, onCancelEditor, onSendChangeRequest }) {
+  return (
+    <>
+      <tr>
+        <td data-label="Unit">{orDash(r.unit_key)}</td>
+        <td data-label="Your response"><Pill tone={r.unit_response === 'pending' ? 'warn' : 'neutral'}>{r.unit_response.replace(/_/g, ' ')}</Pill></td>
+        <td data-label="ASPIRE status"><Pill tone={r.awaiting_aspire_confirmation ? 'warn' : 'ok'}>{r.awaiting_aspire_confirmation ? 'Awaiting ASPIRE' : r.aspire_status}</Pill></td>
+        <td data-label="Due">{orDash(r.due_at ? new Date(r.due_at).toLocaleDateString() : null)}</td>
+        <td data-label="Actions">
+          {r.aspire_status === 'open' ? (
+            <div className="ptl-actions">
+              <button type="button" className="ptl-btn" disabled={busy === r.id} onClick={() => onAct(r.id, 'accepted')}>Accept</button>
+              <button type="button" className="ptl-btn" disabled={busy === r.id} onClick={() => onAct(r.id, 'declined')}>Decline</button>
+              <button type="button" className="ptl-btn" aria-expanded={editorOpen} disabled={busy === r.id} onClick={() => (editorOpen ? onCancelEditor() : onOpenEditor(r.id))}>Request changes</button>
+            </div>
+          ) : <span className="ptl-muted">{EMPTY}</span>}
+        </td>
+      </tr>
+      {editorOpen && (
+        <tr className="ptl-editor-row">
+          <td colSpan={5} data-label="Request changes">
+            <div className="ptl-editor">
+              <label className="ptl-label" htmlFor={`chg-${r.id}`}>What should change?</label>
+              <textarea id={`chg-${r.id}`} className="ptl-input" rows={3} maxLength={2000}
+                value={comment} onChange={e => onComment(e.target.value)} />
+              <p className="ptl-editor-help">A comment is required when requesting changes. ASPIRE reviews it with your response.</p>
+              <div className="ptl-editor-actions">
+                <button type="button" className="ptl-btn-outline ptl-btn-sm" disabled={busy === r.id} onClick={onCancelEditor}>Cancel</button>
+                <button type="button" className="ptl-btn ptl-btn-sm" disabled={busy === r.id} onClick={() => onSendChangeRequest(r.id)}>
+                  {busy === r.id ? 'Sending' : 'Send request'}
+                </button>
+              </div>
+            </div>
+          </td>
+        </tr>
       )}
     </>
   )
@@ -469,7 +528,7 @@ function StudentsScreen({ students, refreshRoster, onNavigate, onOpenThread }) {
       <div className="ptl-card ptl-filterbar" role="group" aria-label="Filter students by stage">
         {['all', 'upcoming', 'active', 'completed'].map(f => (
           <button key={f} type="button"
-            className={`ptl-chip${filter === f ? ' ptl-chip-active' : ''}`}
+            className={`ptl-filter-chip${filter === f ? ' ptl-filter-chip-active' : ''}`}
             aria-pressed={filter === f}
             onClick={() => setFilter(f)}>
             {f === 'all' ? 'All' : BUCKET_LABEL[f]}
