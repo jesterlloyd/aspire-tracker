@@ -111,13 +111,26 @@ async function _handler(req, res) {
     return res.status(400).json({ success: false, error: 'Invalid request body' });
   }
 
-  const extraKeys = Object.keys(body).filter(k => k !== 'student_id');
+  const ALLOWED_KEYS = ['student_id', 'expected_instrument_slug'];
+  const extraKeys = Object.keys(body).filter(k => !ALLOWED_KEYS.includes(k));
   if (extraKeys.length > 0) {
-    return res.status(400).json({ success: false, error: `Unexpected field(s): ${extraKeys.join(', ')}. Allowed: student_id.` });
+    return res.status(400).json({ success: false, error: `Unexpected field(s): ${extraKeys.join(', ')}. Allowed: ${ALLOWED_KEYS.join(', ')}.` });
   }
   const studentId = body.student_id;
   if (!isUuid(studentId)) {
     return res.status(400).json({ success: false, error: 'student_id must be a valid UUID' });
+  }
+  // ROUTING-HOTFIX-1B pre-send guard (MANDATORY). This endpoint was the ONLY one of the four
+  // release endpoints without it, which did not matter while its release was paused and the
+  // panel had no send button. Activating this workflow makes it matter: an unlabeled direct
+  // call could otherwise release the wrong survey to a real student. The guard runs BEFORE
+  // instrument resolution, student load, assignment creation, token creation, notification
+  // insertion, and email send, so a mismatched call writes nothing and sends nothing.
+  if (body.expected_instrument_slug == null || body.expected_instrument_slug === '') {
+    return res.status(400).json({ success: false, error: 'expected_instrument_slug is required. Nothing was sent.' });
+  }
+  if (body.expected_instrument_slug !== INSTRUMENT_SLUG) {
+    return res.status(400).json({ success: false, error: `Workflow mismatch: this endpoint releases ${INSTRUMENT_SLUG}, not ${body.expected_instrument_slug}. Nothing was sent.` });
   }
 
   // ── 3. Resolve + authorize instrument ──────────────────────────────────────────

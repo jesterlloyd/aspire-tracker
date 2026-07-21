@@ -19,7 +19,11 @@ export const WORKFLOW_KEYS = Object.freeze([
   'postRotation',
 ])
 
-export const DEFAULT_WORKFLOW_KEY = 'caseyFinkPostRotation'
+// The fallback when there is no URL key and no stored selection. This is now the FIRST
+// workflow in displayed order, not a hardcoded favourite: opening Review and Release used
+// to land on Casey-Fink even though Preceptor Readiness is listed first, which reads as a
+// bug every time. Kept as a derived constant so it cannot drift from the display order.
+export const DEFAULT_WORKFLOW_KEY = WORKFLOW_KEYS[0]
 
 export function isWorkflowKey(key) {
   return WORKFLOW_KEYS.includes(key)
@@ -30,3 +34,27 @@ export function isWorkflowKey(key) {
 export function resolveEffectiveWorkflow(selected) {
   return isWorkflowKey(selected) ? selected : DEFAULT_WORKFLOW_KEY
 }
+
+/**
+ * The workflow to open on arrival, in strict precedence:
+ *   1. a valid workflow key in the URL, so a deep link always wins
+ *   2. the most recently opened workflow for this user, when still valid
+ *   3. the first workflow in displayed order
+ *
+ * COUNTS ARE STILL NOT AN INPUT. The 1B regression this module exists to prevent was a
+ * resolver that followed whichever workflow's async counts arrived first, which silently
+ * moved the operational workflow under the operator. Adding URL and stored-selection
+ * precedence does not reintroduce that: neither input is derived from detection, and a
+ * ready count still cannot change what is selected.
+ *
+ * `order` defaults to WORKFLOW_KEYS but is a parameter so the caller can pass the actual
+ * displayed order if it ever diverges.
+ */
+export function resolveInitialWorkflow({ urlKey, storedKey, order = WORKFLOW_KEYS } = {}) {
+  if (isWorkflowKey(urlKey)) return urlKey
+  if (isWorkflowKey(storedKey)) return storedKey
+  return order.find(k => isWorkflowKey(k)) || DEFAULT_WORKFLOW_KEY
+}
+
+/** localStorage key for the last opened workflow. Per browser profile, not per cohort. */
+export const LAST_WORKFLOW_STORAGE_KEY = 'aspire.evaluation.lastWorkflow'

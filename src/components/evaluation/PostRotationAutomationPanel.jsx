@@ -1,7 +1,8 @@
-import { useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
+import { RELEASE_ROUTES } from '../../lib/evaluation/releaseRouting'
 import { classifyPostRotationCohort } from '../../lib/evaluation/postRotationCertDueDetection'
 import { getStudentPreferredFullName } from '../../lib/studentNameFormatters'
 
@@ -15,6 +16,7 @@ import { getStudentPreferredFullName } from '../../lib/studentNameFormatters'
 // student_shift_logs powers the optional Last Shift column and the support-needed warning; it
 // degrades gracefully if unavailable. Data loading uses react-query (the repo pattern).
 
+const ROUTE = RELEASE_ROUTES.postRotation
 const F = 'DM Sans, sans-serif'
 const NAVY = '#1D2567'
 
@@ -137,6 +139,48 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
   // Report the standard summary up to the shared status band + summary card.
   useEffect(() => { onCounts?.(summary) }, [onCounts, summary])
 
+  // Release flow ported verbatim in shape from CaseyFinkPostRotationAutomationPanel so both
+  // post-rotation workflows behave identically: human confirmation, server-resolved recipient,
+  // pre-send workflow guard, and a post-send identity tripwire that HALTS rather than retries.
+  const [confirm, setConfirm] = useState(null)
+  const [releasing, setReleasing] = useState(false)
+  const [releaseMsg, setReleaseMsg] = useState(null)
+  const [identityHold, setIdentityHold] = useState(false)
+
+  const doRelease = useCallback(async (row) => {
+    setReleasing(true); setReleaseMsg(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        setReleaseMsg({ tone: 'err', text: 'Your session expired. Please sign in again.' })
+        setReleasing(false); return
+      }
+      const res = await fetch(ROUTE.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        // Pre-send workflow guard: the server refuses if its instrument is not this one.
+        body: JSON.stringify({ student_id: row.studentId, expected_instrument_slug: ROUTE.instrumentSlug }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (res.ok && body.released) {
+        if (body.instrument_slug !== ROUTE.instrumentSlug || body.timepoint !== ROUTE.timepoint) {
+          setIdentityHold(true)
+          setReleaseMsg({ tone: 'err', text: `Release identity mismatch for ${row.studentName}. The server reported ${body.instrument_slug}/${body.timepoint}, not the expected ${ROUTE.instrumentSlug}/${ROUTE.timepoint}. This release may have completed and an email may have been sent. Do NOT retry: verify in the send log first, since retrying could send a duplicate. Re-run detection to confirm the current state.` })
+        } else {
+          setReleaseMsg({ tone: 'ok', text: `Released. Post-rotation evaluation sent to ${body.student_email || 'the student'} for ${row.studentName}.` })
+        }
+      } else {
+        setReleaseMsg({ tone: 'err', text: `Release refused for ${row.studentName}: ${body.reason || body.error || 'no longer eligible'}` })
+      }
+    } catch {
+      setReleaseMsg({ tone: 'err', text: 'Network error. Please try again.' })
+    } finally {
+      setReleasing(false)
+      setConfirm(null)
+      await refetch()
+    }
+  }, [refetch])
+
   // Release is PAUSED for this non-gating workflow, so there is no client release action, no
   // confirmation flow, and no call to the (retained but UI-unreachable) release API.
 
@@ -169,15 +213,26 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
         post-rotation readiness survey. Students appear here at or above their required hours.
       </p>
 
-      {/* Release paused - the certificate gate moved to the Casey-Fink post-rotation survey. */}
+      {/* NOT a certificate gate, but an active workflow. The distinction matters: this used to
+          issue the certificate, and the RPC that did so was replaced in migration
+          20260710000000 so it can no longer issue one regardless of what the UI says. */}
       <div style={{
-        fontSize: 12.5, color: '#92400e', background: '#FBF5E8', border: '1px solid #f0e0bd',
+        fontSize: 12.5, color: '#374151', background: '#f7f9ff', border: '1px solid #d7ddf5',
         borderRadius: 8, padding: '10px 14px', marginBottom: 18, lineHeight: 1.55,
       }}>
-        <strong>Release paused.</strong> Casey-Fink post-rotation is now the certificate-gating
-        survey. ASPIRE Post-Rotation Evaluation release is paused while this workflow is updated as
-        non-gating feedback.
+        This survey collects overall rotation feedback and is <strong>not</strong> a certificate
+        gate. The Certificate of Participation is unlocked by the Casey-Fink post-rotation
+        readiness survey.
       </div>
+
+      {releaseMsg && (
+        <div role="status" style={{
+          fontSize: 12.5, marginBottom: 14, borderRadius: 8, padding: '10px 14px', lineHeight: 1.55,
+          color: releaseMsg.tone === 'ok' ? '#166534' : '#991b1b',
+          background: releaseMsg.tone === 'ok' ? '#dcfce7' : '#fff1f2',
+          border: `1px solid ${releaseMsg.tone === 'ok' ? '#86efac' : '#fca5a5'}`,
+        }}>{releaseMsg.text}</div>
+      )}
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
         <button
@@ -269,15 +324,16 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
                           {r.status === 'eligible_for_review' ? (
                             <button
                               type="button"
-                              disabled
-                              title="Casey-Fink post-rotation is now the certificate-gating survey. ASPIRE Post-Rotation Evaluation release will be updated next."
+                              onClick={() => { setReleaseMsg(null); setConfirm(r) }}
+                              disabled={releasing || identityHold}
                               style={{
-                                padding: '6px 12px', background: '#f3f4f6', color: '#9ca3af',
-                                border: '1px solid #e5e7eb', borderRadius: 7, fontSize: 12, fontWeight: 600,
-                                fontFamily: F, cursor: 'not-allowed', whiteSpace: 'nowrap',
+                                padding: '6px 14px', background: '#166534', color: '#fff', border: 'none',
+                                borderRadius: 7, fontSize: 12, fontWeight: 600, fontFamily: F,
+                                cursor: (releasing || identityHold) ? 'default' : 'pointer',
+                                opacity: (releasing || identityHold) ? 0.6 : 1, whiteSpace: 'nowrap',
                               }}
                             >
-                              Release paused
+                              Release Survey
                             </button>
                           ) : (
                             <span style={{ color: '#9ca3af', fontSize: 12 }}>-</span>
@@ -292,6 +348,45 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
           )}
         </>
       )}
+      {/* Human approval. Shows the SERVER-RESOLVED recipient with no editable field, so an
+          operator can confirm who receives it but cannot redirect it. */}
+      {confirm && (
+        <div className="modal-overlay" onMouseDown={() => !releasing && setConfirm(null)}>
+          <div className="modal" role="dialog" aria-modal="true" style={{ maxWidth: 480, fontFamily: F }} onMouseDown={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1D2567', fontFamily: F }}>
+                Release ASPIRE Post-Rotation Evaluation?
+              </h2>
+            </div>
+            <div style={{ padding: '16px 20px', fontSize: 13.5, color: '#374151', lineHeight: 1.6 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '6px 12px', marginBottom: 14 }}>
+                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Workflow</span><span style={{ fontWeight: 600, color: '#1D2567' }}>{ROUTE.workflowTitle}</span>
+                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Student</span><span style={{ fontWeight: 600, color: '#191919' }}>{confirm.studentName}</span>
+                <span style={{ color: '#9ca3af', fontWeight: 600 }}>Recipient email</span><span>{confirm.studentEmail || '-'}</span>
+              </div>
+              <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>
+                This sends the ASPIRE Post-Rotation Evaluation to the student. It does NOT unlock a
+                certificate. Eligibility and the recipient are re-checked on the server before sending.
+              </p>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="btn-outline-modal" onClick={() => setConfirm(null)} disabled={releasing}>Cancel</button>
+              <button
+                onClick={() => doRelease(confirm)}
+                disabled={releasing}
+                style={{
+                  padding: '8px 18px', background: '#166534', color: '#fff', border: 'none',
+                  borderRadius: 8, fontSize: 13, fontWeight: 600, fontFamily: F,
+                  cursor: releasing ? 'default' : 'pointer', opacity: releasing ? 0.6 : 1,
+                }}
+              >
+                {releasing ? 'Sending…' : 'Confirm & Send'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

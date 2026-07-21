@@ -82,10 +82,10 @@ export function classifyPostRotationCohort({
 
   const rows = []
   const summary = {
-    // The ASPIRE Post-Rotation Evaluation is no longer the certificate gate, and its release is
-    // temporarily disabled (the Casey-Fink post-rotation survey is the gate). So nothing here is
-    // reported as releasable (due_sendable/due_unsendable stay 0), keeping the shared "Ready to
-    // release" band truthful. eligible_for_review is still surfaced inside the panel.
+    // The ASPIRE Post-Rotation Evaluation is NOT the certificate gate (Casey-Fink is), but it
+    // is an active, releasable workflow: students are still surveyed about the overall rotation
+    // experience. These counts were previously hard-zeroed while release was paused, which made
+    // the shared "Ready to release" band under-report. They are now real counts again.
     due_sendable: 0,
     due_unsendable: 0,
     suppressed_existing: 0, // in-flow: released + completed
@@ -118,9 +118,12 @@ export function classifyPostRotationCohort({
       summary.suppressed_existing += 1
       summary.in_flow += 1
     } else if (status === 'eligible_for_review') {
-      // Release is disabled for this workflow now, so eligible students are NOT counted as ready
-      // to release. The count is surfaced in the panel only.
+      // Mirrors caseyFinkPostRotationDueDetection exactly: eligible with a resolvable email is
+      // ready to release, eligible without one is blocked on the address. Both post-rotation
+      // detectors now report the same way, so the shared band cannot disagree with the panel.
       summary.eligible_for_review += 1
+      if (recipient.sendable) summary.due_sendable += 1
+      else summary.due_unsendable += 1
     } else if (status === 'not_eligible_hours') {
       summary.ineligible_hours += 1
     } else {

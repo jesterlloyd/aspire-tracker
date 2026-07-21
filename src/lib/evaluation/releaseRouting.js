@@ -23,6 +23,14 @@ export const RELEASE_ROUTES = Object.freeze({
     notificationType: 'student_preceptor_eval_request_sent',
     workflowTitle: 'Student Feedback: Preceptor & Unit',
   }),
+  postRotation: Object.freeze({
+    endpoint: '/api/evaluation-release-post-rotation-survey',
+    instrumentSlug: 'post_rotation_evaluation',
+    timepoint: 'post_rotation',
+    surveyRoute: '/evaluation/post-rotation',
+    notificationType: 'post_rotation_evaluation_request_sent',
+    workflowTitle: 'ASPIRE Post-Rotation Evaluation',
+  }),
   caseyFinkPostRotation: Object.freeze({
     endpoint: '/api/evaluation-release-casey-fink-post-rotation-survey',
     instrumentSlug: 'casey_fink_readiness_2024',

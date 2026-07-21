@@ -245,17 +245,17 @@ test('the test link carries no token and is useless without a session', () => {
 })
 
 // ── Paused workflows: previewable and testable, never releasable ────────────
-test('a paused workflow can be previewed and tested without becoming releasable', () => {
-  const paused = SURVEY_CATALOG.find(s => s.status === 'paused')
-  assert.ok(paused, 'ASPIRE Rotation Feedback is the paused workflow')
-  assert.equal(paused.key, 'postRotation')
-  // Preview and test both work for it.
-  assert.ok(buildPreviewModel(paused.slug, null))
-  assert.match(endpointCode, /postRotation: 'ASPIRE Post-Rotation Evaluation'/)
-  // And nothing here adds a release route for it.
-  const routing = read('src/lib/evaluation/releaseRouting.js')
-  assert.ok(!/postRotation\s*:/.test(stripJs(routing)),
-    'the paused workflow must still have no release route')
+test('every workflow can be previewed and tested regardless of release status', () => {
+  // CHANGED BY PRODUCT DECISION: ASPIRE Rotation Feedback is no longer paused, so there is
+  // no paused workflow to special-case. The property that matters is unchanged and now
+  // applies to all four: preview and test never depend on releasability.
+  assert.equal(SURVEY_CATALOG.filter(s => s.status === 'paused').length, 0,
+    'no workflow is paused today')
+  for (const s of SURVEY_CATALOG) {
+    assert.ok(['active', 'paused'].includes(s.status), `${s.key} must declare a status`)
+    assert.match(endpointCode, new RegExp(`${s.key}: '`), `${s.key} must be testable`)
+  }
+  assert.ok(buildPreviewModel('post_rotation_evaluation', null))
 })
 
 test('the preview states paused status and the certificate gate', () => {
@@ -266,20 +266,18 @@ test('the preview states paused status and the certificate gate', () => {
 })
 
 // ── Review and Release wiring ──────────────────────────────────────────────
-test('every workflow row exposes a survey preview control', () => {
-  assert.match(dashCode, /className="rr-row-eye"/)
-  assert.match(dashCode, /aria-label=\{`Preview the \$\{w\.label\} survey questions`\}/,
-    'four identical labels down a column would be ambiguous to a screen reader')
-  assert.match(dashCode, /onPreview\(w\.key\)/)
+test('the survey preview is reachable from the Survey tools toolbar', () => {
+  // The per-row eye icon was removed as redundant in the RR-corrections pass; the toolbar
+  // is now the single entry point. Coverage of the toolbar itself lives in
+  // test/evaluationReviewReleaseCorrections.test.mjs.
+  assert.ok(!dashCode.includes('rr-row-eye'), 'the per-row eye icon is gone')
+  assert.match(dashCode, /aria-label="Survey tools"/)
+  assert.match(dashCode, /setSurveyPreviewKey\(effective\)/)
 })
 
-test('the eye control is a sibling of the selection button, not nested inside it', () => {
-  // A button inside a button is invalid HTML and resolves unpredictably.
+test('the nav row contains exactly one control, so no button is nested in a button', () => {
   const row = dashCode.slice(dashCode.indexOf('function WorkflowNavRow'), dashCode.indexOf('export default'))
-  const selectClose = row.indexOf('</button>')
-  const eyeOpen = row.indexOf('className="rr-row-eye"')
-  assert.ok(selectClose > -1 && eyeOpen > selectClose,
-    'the eye button must open after the selection button closes')
+  assert.equal((row.match(/<button/g) || []).length, 1)
 })
 
 test('the survey preview is distinct from the pre-existing email preview', () => {

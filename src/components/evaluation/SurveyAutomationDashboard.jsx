@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
-import { Eye, Send, ExternalLink } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Eye, Send, ExternalLink, Mail } from 'lucide-react'
 import PreceptorAutomationPanel from './PreceptorAutomationPanel'
 import StudentEvalAutomationPanel from './StudentEvalAutomationPanel'
 import CaseyFinkPostRotationAutomationPanel from './CaseyFinkPostRotationAutomationPanel'
@@ -9,7 +10,7 @@ import { getEvaluationPreviewFixture } from '../../lib/evaluation/evaluationPrev
 import SurveyPreviewDrawer from './SurveyPreviewDrawer'
 import { SURVEY_CATALOG } from '../../lib/evaluation/surveyCatalog'
 import { supabase } from '../../lib/supabase'
-import { resolveEffectiveWorkflow } from '../../lib/evaluation/workflowSelection'
+import { resolveEffectiveWorkflow, resolveInitialWorkflow, isWorkflowKey, LAST_WORKFLOW_STORAGE_KEY } from '../../lib/evaluation/workflowSelection'
 
 // ASPIRE-EVALUATION-REVIEW-RELEASE-LAYOUT-1 - Review & Release as a workflow navigator with a
 // selected operational workspace (Settings-inspired left nav + right workspace). This shell runs
@@ -29,7 +30,6 @@ const WORKSPACE_ID = 'survey-automation-workspace'
 // badge fields stay here because they are navigator styling, not survey facts.
 const BADGES = {
   caseyFinkPostRotation: { badge: 'Certificate gate', badgeTone: 'gate' },
-  postRotation: { badge: 'Paused', badgeTone: 'paused' },
 }
 const WORKFLOWS = SURVEY_CATALOG.map(s => ({
   key: s.key,
@@ -65,23 +65,41 @@ const CSS = `
 /* Navigation-only workflow rows: one selection button each (no per-row preview control). Selected
    state = subtle nightfall tint + thin nightfall left accent bar; hover is a lighter tint; focus is
    a distinct blue outline (separate from selection). */
-.rr-row {
-  display:flex; align-items:stretch; gap:0; background:#fff; border:1px solid #e8e4dc;
-  border-radius:12px; box-shadow:0 1px 3px rgba(25,25,25,0.06); overflow:hidden; margin-bottom:8px;
-}
-.rr-row.sel { background:#f7f9ff; box-shadow:0 1px 3px rgba(25,25,25,0.06), inset 3px 0 0 0 ${NAVY}; }
 .rr-row-select {
-  flex:1; min-width:0; display:flex; align-items:center; text-align:left; padding:11px 12px;
-  cursor:pointer; background:transparent; border:none; font-family:${F};
+  width:100%; display:flex; align-items:center; text-align:left; padding:11px 12px; margin-bottom:8px;
+  cursor:pointer; background:#fff; border:1px solid #e8e4dc; border-radius:12px;
+  box-shadow:0 1px 3px rgba(25,25,25,0.06); font-family:${F};
 }
-.rr-row-eye {
-  flex:none; display:flex; align-items:center; justify-content:center; width:40px;
-  background:transparent; border:none; border-left:1px solid #f0ece3; color:${NAVY}; cursor:pointer;
+.rr-row-select.sel { background:#f7f9ff; box-shadow:0 1px 3px rgba(25,25,25,0.06), inset 3px 0 0 0 ${NAVY}; }
+.rr-tools {
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; padding:10px 12px;
+  background:#fbfaf7; border:1px solid #eee9df; border-radius:10px;
 }
-.rr-row-eye:hover { background:#eef2ff; }
-.rr-row-eye:focus-visible { outline:3px solid #93c5fd; outline-offset:-3px; }
+.rr-tools-label {
+  font-size:10.5px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#6b7280; white-space:nowrap;
+}
+.rr-tool-primary {
+  display:inline-flex; align-items:center; gap:7px; padding:9px 16px; background:${NAVY}; color:#fff;
+  border:1px solid ${NAVY}; border-radius:9px; font-size:13px; font-weight:700; font-family:${F}; cursor:pointer;
+}
+.rr-tool-primary:hover { background:#161d52; }
+.rr-tool-secondary {
+  display:inline-flex; align-items:center; gap:6px; padding:8px 13px; background:#fff; color:${NAVY};
+  border:1px solid #d7ddf5; border-radius:9px; font-size:12.5px; font-weight:600; font-family:${F}; cursor:pointer;
+}
+.rr-tool-secondary:hover { background:#f7f9ff; }
+.rr-tool-test {
+  display:inline-flex; align-items:center; gap:6px; padding:8px 13px; background:#fff; color:#92400e;
+  border:1px dashed #e0b877; border-radius:9px; font-size:12.5px; font-weight:600; font-family:${F}; cursor:pointer;
+}
+.rr-tool-test:hover { background:#fffaf0; }
+.rr-tool-primary:focus-visible, .rr-tool-secondary:focus-visible, .rr-tool-test:focus-visible {
+  outline:3px solid #93c5fd; outline-offset:2px;
+}
+@media (max-width: 640px) {
+  .rr-tool-primary, .rr-tool-secondary, .rr-tool-test { flex:1 1 auto; justify-content:center; }
+}
 .rr-row-select:hover { background:#fafbff; }
-.rr-row:hover { background:#fafbff; }
 .rr-row-select:focus-visible { outline:3px solid #93c5fd; outline-offset:2px; }
 .rr-preview-btn {
   display:inline-flex; align-items:center; gap:6px; padding:6px 12px; background:#fff; color:${NAVY};
@@ -127,42 +145,30 @@ function badgeStyle(tone) {
 
 // Navigation-only workflow row: a single native selection button (no per-row preview control).
 // Email preview is reached from the workspace Preview Email button. Enter/Space work natively.
-function WorkflowNavRow({ w, counts, selected, onSelect, onPreview }) {
+// Navigation-only workflow row. The per-row eye icon was removed as redundant: the selected
+// workflow's Survey tools toolbar already carries Preview Survey, Preview Email, and Send test
+// to me, and a control nested inside this button was invalid HTML besides.
+function WorkflowNavRow({ w, counts, selected, onSelect }) {
   return (
-    <div className={`rr-row${selected ? ' sel' : ''}`}>
-      <button
-        type="button"
-        className="rr-row-select"
-        aria-current={selected ? 'true' : undefined}
-        onClick={onSelect}
-      >
-        <span style={{ display: 'block', flex: 1, minWidth: 0 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 13.5, fontWeight: 700, color: '#191919' }}>{w.label}</span>
-            {w.badge && (
-              <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap', ...badgeStyle(w.badgeTone) }}>
-                {w.badge}
-              </span>
-            )}
-          </span>
-          <span style={{ display: 'block', fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{w.recipient}</span>
-          <span style={{ display: 'block', fontSize: 11.5, color: '#6b7280', marginTop: 3, lineHeight: 1.35 }}>{statusLine(w, counts)}</span>
+    <button
+      type="button"
+      className={`rr-row-select${selected ? ' sel' : ''}`}
+      aria-current={selected ? 'true' : undefined}
+      onClick={onSelect}
+    >
+      <span style={{ display: 'block', flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: '#191919' }}>{w.label}</span>
+          {w.badge && (
+            <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 999, padding: '1px 7px', whiteSpace: 'nowrap', ...badgeStyle(w.badgeTone) }}>
+              {w.badge}
+            </span>
+          )}
         </span>
-      </button>
-      {/* A SIBLING of the selection button, never nested inside it: a button within a
-          button is invalid HTML and browsers resolve the click unpredictably. The
-          accessible name carries the workflow, because four identical "Preview survey"
-          labels down a column tell a screen-reader user nothing about which row. */}
-      <button
-        type="button"
-        className="rr-row-eye"
-        onClick={() => onPreview(w.key)}
-        aria-label={`Preview the ${w.label} survey questions`}
-        title="Preview survey"
-      >
-        <Eye size={15} aria-hidden="true" />
-      </button>
-    </div>
+        <span style={{ display: 'block', fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{w.recipient}</span>
+        <span style={{ display: 'block', fontSize: 11.5, color: '#6b7280', marginTop: 3, lineHeight: 1.35 }}>{statusLine(w, counts)}</span>
+      </span>
+    </button>
   )
 }
 
@@ -171,7 +177,26 @@ export default function SurveyAutomationDashboard({ cohortId }) {
   const [counts, setCounts] = useState({})
   // Explicit user selection; null means "use the priority default". Once set, it is never
   // auto-overridden by a later count refresh.
-  const [selected, setSelected] = useState(null)
+  // DETERMINISTIC SELECTION. Root cause of the old bug: DEFAULT_WORKFLOW_KEY was hardcoded to
+  // caseyFinkPostRotation, unrelated to display order, so Review and Release always opened on the
+  // third workflow. Precedence is now URL, then the last workflow this user opened, then the first
+  // in displayed order. Counts remain not an input, preserving the 1B regression fix.
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const urlKey = searchParams.get('workflow')
+  const [selected, setSelected] = useState(() => {
+    let storedKey = null
+    try { storedKey = localStorage.getItem(LAST_WORKFLOW_STORAGE_KEY) } catch { /* storage unavailable */ }
+    return resolveInitialWorkflow({ urlKey, storedKey, order: WORKFLOWS.map(w => w.key) })
+  })
+
+  const selectWorkflow = useCallback((key) => {
+    if (!isWorkflowKey(key)) return
+    setSelected(key)
+    try { localStorage.setItem(LAST_WORKFLOW_STORAGE_KEY, key) } catch { /* storage unavailable */ }
+    // replace, so switching workflows does not fill the back stack with every click
+    setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('workflow', key); return n }, { replace: true })
+  }, [setSearchParams])
   const [previewKey, setPreviewKey] = useState(null)
   // The SURVEY-definition preview, distinct from the email preview above.
   const [surveyPreviewKey, setSurveyPreviewKey] = useState(null)
@@ -196,12 +221,21 @@ export default function SurveyAutomationDashboard({ cohortId }) {
           : 'The test could not be sent.' })
         return
       }
+      // SAME-ORIGIN ONLY. The emailed link is rewritten by the organization's URL isolation,
+      // which is a security control and not something to work around. The in-app path is
+      // therefore primary: reduce the returned URL to a RELATIVE route and navigate inside the
+      // SPA. The email remains a secondary convenience.
+      let path = ''
+      try {
+        const u = new URL(body?.test_url || '', window.location.origin)
+        if (u.origin === window.location.origin) path = `${u.pathname}${u.search}`
+      } catch { path = '' }
       setTestState({
         busy: false,
-        url: body?.test_url || '',
+        url: path,
         note: body?.email_sent
-          ? 'A TEST email is on its way to your inbox. Nothing was released.'
-          : 'Test ready. The email could not be sent, so use Open test now.',
+          ? 'Test ready. Use Open test now. A TEST email was also sent as a backup, though your organization may isolate that link. Nothing was released.'
+          : 'Test ready. Use Open test now. Nothing was released.',
       })
     } catch {
       setTestState({ busy: false, url: '', note: 'The test could not be sent.' })
@@ -234,7 +268,10 @@ export default function SurveyAutomationDashboard({ cohortId }) {
   // release dropped that workflow's ready count to zero). Because the navigator highlight, the active
   // panel, and the preview all derive from this one value, the visible workflow and the releasing
   // workflow can never diverge. Each nav row still shows its own ready/attention status.
-  const effective = resolveEffectiveWorkflow(selected)
+  // A valid workflow in the URL always wins, derived at render time so browser back and
+  // forward move the selection without an effect.
+  const current = isWorkflowKey(urlKey) ? urlKey : selected
+  const effective = resolveEffectiveWorkflow(current)
 
   const attention = totals.ready > 0 || totals.needs > 0
   const bannerText = attention
@@ -279,7 +316,7 @@ export default function SurveyAutomationDashboard({ cohortId }) {
         className="rr-nav-mobile"
         aria-label="Select survey workflow"
         value={effective}
-        onChange={(e) => setSelected(e.target.value)}
+        onChange={(e) => selectWorkflow(e.target.value)}
         style={{
           marginBottom: 14, padding: '9px 10px', borderRadius: 8, border: '1px solid #e5e7eb',
           fontSize: 13, fontFamily: F, color: '#191919', background: '#fff',
@@ -301,8 +338,7 @@ export default function SurveyAutomationDashboard({ cohortId }) {
               w={w}
               counts={counts[w.key]}
               selected={effective === w.key}
-              onSelect={() => setSelected(w.key)}
-              onPreview={setSurveyPreviewKey}
+              onSelect={() => selectWorkflow(w.key)}
             />
           ))}
         </nav>
@@ -310,40 +346,57 @@ export default function SurveyAutomationDashboard({ cohortId }) {
         {/* Selected workflow workspace. Panels self-describe (title/badges/description/detection/
             metrics/queue); the toolbar adds only a labeled Preview Email action. */}
         <section id={WORKSPACE_ID} className="rr-workspace">
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 8 }}>
+          {/* SURVEY TOOLS: the single home for the three read-only and test actions. Preview
+              Survey carries the strongest weight as the most-used action; Send test to me is
+              styled distinctly so it can never be mistaken for a production Release control. */}
+          <div className="rr-tools" role="group" aria-label="Survey tools">
+            <span className="rr-tools-label">Survey tools</span>
             <button
               type="button"
-              className="rr-preview-btn"
+              className="rr-tool-primary"
               onClick={() => setSurveyPreviewKey(effective)}
               aria-label="Preview the survey questions for the selected workflow"
             >
-              <Eye size={15} /> Preview Survey
+              <Eye size={15} aria-hidden="true" /> Preview Survey
             </button>
             <button
               type="button"
-              className="rr-preview-btn"
+              className="rr-tool-secondary"
               onClick={() => setPreviewKey(effective)}
               aria-label="Preview the invitation email for the selected workflow"
             >
-              <Eye size={15} /> Preview Email
+              <Mail size={14} aria-hidden="true" /> Preview Email
             </button>
             <button
               type="button"
-              className="rr-preview-btn"
+              className="rr-tool-test"
               disabled={testState.busy}
               onClick={() => sendTestToMe(effective)}
               aria-label="Send a test of the selected survey to my own email"
             >
-              <Send size={15} /> {testState.busy ? 'Sending…' : 'Send test to me'}
+              <Send size={14} aria-hidden="true" /> {testState.busy ? 'Preparing…' : 'Send test to me'}
             </button>
           </div>
           {testState.note && (
             <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: '#f7f9ff', border: '1px solid #d7ddf5', borderRadius: 10, padding: '9px 12px', marginBottom: 10, fontSize: 12.5, color: '#191919' }}>
               <span>{testState.note}</span>
               {testState.url && (
-                <a href={testState.url} target="_blank" rel="noopener noreferrer" className="rr-preview-btn" style={{ textDecoration: 'none' }}>
-                  <ExternalLink size={14} /> Open test now
-                </a>
+                <>
+                  <button type="button" className="rr-tool-primary" onClick={() => navigate(testState.url)}>
+                    <ExternalLink size={14} aria-hidden="true" /> Open test now
+                  </button>
+                  <button
+                    type="button"
+                    className="rr-tool-secondary"
+                    onClick={() => {
+                      // Absolute but same-origin. It carries no token and still requires the
+                      // signed-in Owner/Admin session to open.
+                      try { navigator.clipboard?.writeText(`${window.location.origin}${testState.url}`) } catch { /* clipboard unavailable */ }
+                    }}
+                  >
+                    Copy test link
+                  </button>
+                </>
               )}
             </div>
           )}

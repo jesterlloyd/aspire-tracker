@@ -13,7 +13,7 @@
 
 import assert from 'node:assert/strict';
 import { RELEASE_ROUTES } from '../src/lib/evaluation/releaseRouting.js';
-import { resolveEffectiveWorkflow, DEFAULT_WORKFLOW_KEY, WORKFLOW_KEYS } from '../src/lib/evaluation/workflowSelection.js';
+import { resolveEffectiveWorkflow, resolveInitialWorkflow, DEFAULT_WORKFLOW_KEY, WORKFLOW_KEYS } from '../src/lib/evaluation/workflowSelection.js';
 import { getEvaluationPreviewFixture } from '../src/lib/evaluation/evaluationPreviewFixtures.js';
 
 let passed = 0;
@@ -66,23 +66,41 @@ ok('Server pre-send guard is mandatory: missing or mismatched instrument refuses
 
 // ── Selection resolution (HOTFIX-1B: the actual production helper) ───────────────────────────────
 
-// Scenario 1: initial render, before any workflow counts resolve -> Casey-Fink is operational.
-assert.equal(resolveEffectiveWorkflow(null), 'caseyFinkPostRotation');
-assert.equal(resolveEffectiveWorkflow(undefined), 'caseyFinkPostRotation');
-assert.equal(DEFAULT_WORKFLOW_KEY, 'caseyFinkPostRotation');
-ok('Scenario 1 - before counts resolve, the operational workflow is Casey-Fink');
+// Scenario 1: initial render, before any workflow counts resolve.
+// CHANGED BY PRODUCT DECISION: the default was hardcoded to Casey-Fink, unrelated to display
+// order, so Review & Release always opened on the third workflow. The default is now the FIRST
+// workflow in displayed order. The property this scenario actually protects is unchanged:
+// nothing here depends on counts.
+assert.equal(resolveEffectiveWorkflow(null), 'preceptor');
+assert.equal(resolveEffectiveWorkflow(undefined), 'preceptor');
+assert.equal(DEFAULT_WORKFLOW_KEY, 'preceptor');
+assert.equal(DEFAULT_WORKFLOW_KEY, WORKFLOW_KEYS[0], 'the default must track display order, not a favourite');
+ok('Scenario 1 - before counts resolve, the operational workflow is the first in display order');
 
 // Scenario 2: Student Feedback becomes ready asynchronously with NO explicit user selection.
 const bothReady = { student: { due_sendable: 1 }, caseyFinkPostRotation: { due_sendable: 1 } };
 //   Old behavior (removed): auto-followed the first ready workflow -> Student (earlier in order).
 assert.equal(legacyResolve(null, bothReady), 'student');
-//   New behavior (production): counts are ignored; the operational workflow stays Casey-Fink.
-assert.equal(resolveEffectiveWorkflow(null), 'caseyFinkPostRotation');
+//   New behavior (production): counts are ignored; the operational workflow stays the default.
+assert.equal(resolveEffectiveWorkflow(null), 'preceptor');
 //   And the post-release auto-follow that produced the misleading Casey-Fink screenshot: once a
 //   Student release drops student.due_sendable to 0, the OLD resolver flipped to Casey-Fink. The new
 //   resolver never depended on counts, so no such flip exists.
 assert.equal(legacyResolve(null, { student: { due_sendable: 0 }, caseyFinkPostRotation: { due_sendable: 1 } }), 'caseyFinkPostRotation');
 ok('Scenario 2 - old resolver auto-followed Student then flipped to Casey-Fink; new resolver never follows counts');
+
+// Scenario 2b: initial selection precedence is URL, then last-opened, then first in order, and
+// STILL never counts. This is the fix for "Review & Release always opens Casey-Fink".
+assert.equal(resolveInitialWorkflow({}), 'preceptor');
+assert.equal(resolveInitialWorkflow({ urlKey: 'student' }), 'student');
+assert.equal(resolveInitialWorkflow({ storedKey: 'postRotation' }), 'postRotation');
+assert.equal(resolveInitialWorkflow({ urlKey: 'caseyFinkPostRotation', storedKey: 'student' }), 'caseyFinkPostRotation',
+  'a deep link must outrank the stored selection');
+assert.equal(resolveInitialWorkflow({ urlKey: 'nope', storedKey: 'alsoNope' }), 'preceptor',
+  'invalid keys fall through to the first workflow');
+// Counts are not a parameter at all, so they cannot influence the initial view.
+assert.equal(resolveInitialWorkflow({ storedKey: 'student' }), 'student');
+ok('Scenario 2b - initial selection is URL, then last-opened, then first in order; never counts');
 
 // Scenario 3: user explicitly selects Casey-Fink; later count updates must not change anything.
 {
@@ -149,8 +167,9 @@ ok('Scenario 2 - old resolver auto-followed Student then flipped to Casey-Fink; 
     assert.ok(WORKFLOW_KEYS.includes(effective));   // always exactly one valid operational key
   }
   // Unknown/garbage selection falls back to the safe default rather than an arbitrary workflow.
-  assert.equal(resolveEffectiveWorkflow('not_a_workflow'), 'caseyFinkPostRotation');
-  ok('Scenario 8 - exactly one operational workflow; unknown selection falls back to Casey-Fink');
+  assert.equal(resolveEffectiveWorkflow('not_a_workflow'), DEFAULT_WORKFLOW_KEY);
+  assert.equal(resolveEffectiveWorkflow('not_a_workflow'), 'preceptor');
+  ok('Scenario 8 - exactly one operational workflow; unknown selection falls back to the default');
 }
 
 // ── Preview fixtures (unchanged) ─────────────────────────────────────────────────────────────────
