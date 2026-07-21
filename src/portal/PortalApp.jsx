@@ -164,7 +164,7 @@ export default function PortalApp() {
     // Messages section reuses the same /portal/messages thread URL the Student
     // Portal already uses, so one thread link works for either kind.
     return (
-      <PortalShell title="Unit Leader Portal" userName={userProfile?.full_name} withTabBar>
+      <PortalShell title="Unit Leader Portal" userName={userProfile?.full_name} withTabBar showHeaderName>
         <UnitLeaderPortal
           view={unitView}
           onNavigate={goUnitSection}

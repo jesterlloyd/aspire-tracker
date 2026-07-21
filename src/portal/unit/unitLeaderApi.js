@@ -147,6 +147,12 @@ export function studentName(s) {
   return full || EMPTY
 }
 
+/** 'changes_requested' -> 'Changes requested'. Text stays the meaning carrier. */
+export function sentenceCase(value) {
+  const text = String(value || '').replace(/_/g, ' ').trim()
+  return text ? text[0].toUpperCase() + text.slice(1) : text
+}
+
 export const BUCKET_LABEL = {
   upcoming: 'Upcoming',
   active: 'Active rotation',

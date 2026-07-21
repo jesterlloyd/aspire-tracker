@@ -126,7 +126,13 @@ test('shell, navigation, and mobile', async (t) => {
   })
 
   await t.test('the previous overcrowded header actions are gone', () => {
-    assert.doesNotMatch(shell, /ptl-header-name/)
+    // UL-POLISH P2: the shared shell can render a name, but ONLY when a portal
+    // opts in. The Student Portal does not, so its header is unchanged.
+    assert.match(shell, /showHeaderName = false/)
+    assert.doesNotMatch(
+      read('src/portal/PortalApp.jsx'),
+      /title="Student Portal"[\s\S]{0,120}showHeaderName/,
+    )
     assert.doesNotMatch(shell, /className="ptl-header-link"/)
     assert.doesNotMatch(shell, /ptl-btn-outline ptl-btn-sm" onClick=\{signOut\}/)
   })
@@ -151,9 +157,12 @@ test('shell, navigation, and mobile', async (t) => {
 
   await t.test('a portal-wide focus-visible ring exists and nothing removes it', () => {
     assert.match(css, /\.ptl-page \*:focus-visible \{\s*\n\s*outline: 2px solid var\(--ptl-navy\);/)
-    // UL-POLISH: outline suppression is permitted ONLY for programmatic focus
-    // (:focus:not(:focus-visible)); keyboard rings must survive every rule.
-    const keyboardRules = css.split('\n').filter(l => !l.includes(':focus:not(:focus-visible)')).join('\n')
+  // UL-POLISH: an outline may be suppressed ONLY for non-keyboard focus, i.e.
+    // :focus:not(:focus-visible) or the [data-programmatic-focus] marker set by
+    // the focus-on-navigation effect. Every keyboard focus ring must survive.
+    const isProgrammaticFocusRule = (line) =>
+      line.includes(':focus:not(:focus-visible)') || line.includes('[data-programmatic-focus]')
+    const keyboardRules = css.split('\n').filter(l => !isProgrammaticFocusRule(l)).join('\n')
     assert.doesNotMatch(keyboardRules, /outline: none/)
   })
 })

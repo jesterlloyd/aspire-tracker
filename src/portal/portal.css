@@ -324,6 +324,9 @@
 .ptl-section-title { margin: 0; font-size: 15px; font-weight: 700; color: #1D2567; }
 .ptl-unit-page .ptl-section-title { width: fit-content; }
 .ptl-unit-page .ptl-section-title:focus:not(:focus-visible) { outline: none; }
+/* The heading is tabIndex=-1, so this marker is only ever set by the
+   programmatic focus-on-navigation. Keyboard focus rings are untouched. */
+.ptl-section-title[data-programmatic-focus]:focus { outline: none; }
 .ptl-empty {
   color: #6b7280; font-size: 13.5px; line-height: 1.6;
   background: #faf9f5; border: 1px dashed #e3ded4; border-radius: 10px; padding: 12px 14px;
@@ -584,8 +587,8 @@
 .ptl-msg-head { align-items: flex-start; justify-content: space-between; gap: 12px; }
 .ptl-msg-head-text { display: flex; flex-direction: column; gap: 2px; }
 /* Scoped so StudentPortal's own section cards keep their 15/18px titles. */
-.ptl-msg-workspace .ptl-section-title { font-size: 24px; line-height: 1.25; }
-@media (min-width: 1024px) { .ptl-msg-workspace .ptl-section-title { font-size: 26px; } }
+/* UL-POLISH P2: one page-title scale (20 to 22px) across the portal. */
+.ptl-msg-workspace .ptl-section-title { font-size: 22px; line-height: 1.25; }
 .ptl-msg-subtitle { font-size: 14.5px; margin: 0; }
 .ptl-msg-head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .ptl-msg-unread-summary { white-space: nowrap; }
@@ -787,7 +790,10 @@
    existing brand tokens rather than new literals.
    ========================================================================== */
 
-.ptl-unit-page { display: grid; gap: 16px; }
+/* align-content: start is load-bearing. The grid fills the viewport height, so
+   the default stretch distributed the leftover space into every row: a 21px
+   heading sat in a 174px row and short screens looked randomly spaced. */
+.ptl-unit-page { display: grid; gap: 16px; align-content: start; }
 
 /* UL-POLISH P0: the switcher is a compact inline control on unit-scoped
    screens only, not a full-width card on every screen. Single-unit leaders get
@@ -834,7 +840,9 @@
 .ptl-pill-ok   { background: rgba(23, 122, 74, 0.10); color: #12603a; }
 .ptl-pill-warn { background: rgba(176, 106, 0, 0.12); color: #8a5300; }
 
-.ptl-filterbar { display: flex; flex-wrap: wrap; gap: 8px; }
+/* A filter bar is a toolbar, not a content card: full card padding gave a row
+   of 32px chips a 132px box. */
+.ptl-filterbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px; }
 /* UL-POLISH P0: a dedicated class. `.ptl-chip` is the Student Portal STATUS
    chip (navy fill, white text); reusing it here made these filter labels render
    white-on-transparent. Never share a ptl-* class across different semantics. */
@@ -1030,16 +1038,21 @@
 }
 .ptl-attn-chevron { flex-shrink: 0; color: #9ca3af; font-size: 18px; line-height: 1; }
 
-/* Capacity-and-placement stats: emphasized numerals that go somewhere. */
-.ptl-stat-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
-.ptl-stat {
+/* Capacity-and-placement stats: emphasized numerals that go somewhere.
+   NAMESPACED deliberately: .ptl-stat / .ptl-stat-num / .ptl-stat-label already
+   belong to the Student Portal's clinical-hours and shift-summary rows, and an
+   unscoped redefinition here would silently restyle them. Same rule that
+   produced the invisible filter chips in P0: never share a ptl-* class across
+   two different components. */
+.ptl-ulstat-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.ptl-ulstat {
   display: flex; align-items: baseline; gap: 8px; flex: 1 1 180px;
   padding: 10px 14px; border: 1px solid #eee9df; border-radius: 10px;
   background: none; cursor: pointer; font: inherit; text-align: left;
 }
-.ptl-stat:hover { border-color: var(--ptl-navy, #1D2567); background: var(--ptl-navy-tint, #eef2fb); }
-.ptl-stat-num { font-size: 26px; font-weight: 700; color: var(--ptl-navy, #1D2567); font-variant-numeric: tabular-nums; }
-.ptl-stat-label { font-size: 13px; color: #4b5265; font-weight: 600; }
+.ptl-ulstat:hover { border-color: var(--ptl-navy, #1D2567); background: var(--ptl-navy-tint, #eef2fb); }
+.ptl-ulstat-num { font-size: 26px; font-weight: 700; color: var(--ptl-navy, #1D2567); font-variant-numeric: tabular-nums; }
+.ptl-ulstat-label { font-size: 13px; color: #4b5265; font-weight: 600; }
 
 /* Recent Messages rows on Home. */
 .ptl-recent-list { margin-bottom: 10px; }
@@ -1103,3 +1116,23 @@
 
 /* Overdue due dates carry the warning tone in text, not color alone. */
 .ptl-due-overdue { color: #8a5300; font-weight: 600; }
+
+/* ============================================================================
+   UL-POLISH P2: consistency and finish
+   ========================================================================== */
+
+/* Page titles land on the shared 20-22px scale; card titles stay 15px. */
+.ptl-unit-page .ptl-section-title { font-size: 21px; }
+
+/* Quiet metadata sits at 12.5px. */
+.ptl-msg-row-cat, .ptl-msg-row-time { font-size: 12.5px; }
+
+/* The signed-in name beside the avatar, desktop only. */
+@media (max-width: 760px) { .ptl-header-name { display: none; } }
+
+/* Three-row shimmer skeleton for tables whose layout is known. */
+.ptl-skel-table { display: grid; gap: 10px; }
+.ptl-skel-line { height: 40px; border-radius: 8px; }
+
+/* Drawer hours bar reuses the roster mini progress. */
+.ptl-detail-hours { display: grid; gap: 5px; max-width: 260px; }

@@ -24,22 +24,16 @@ import StudentDetailDrawer from './unit/StudentDetailDrawer'
 import { useAuth } from '../contexts/AuthContext'
 import {
   UnitLeaderNav, UnitSwitcher, LoadingState, EmptyState, ErrorState, DeniedState,
-  SectionHeading, Pill,
+  SectionHeading, Pill, TableSkeleton,
 } from './unit/UnitLeaderChrome'
 import {
-  ALL_UNITS, EMPTY, orDash, studentName, BUCKET_LABEL, ONBOARDING_LABEL,
+  ALL_UNITS, EMPTY, orDash, studentName, sentenceCase, BUCKET_LABEL, ONBOARDING_LABEL,
   OUTSTANDING_LABEL, ASPIRE_AUTHORITY_NOTE,
   getRoster, getPlacementRequests, respondToPlacement,
   getCapacity, submitCapacity, getNominations, nominatePreceptor,
   confirmMilestone, startUnitConversation,
   getNotifications, setNotificationPreference,
 } from './unit/unitLeaderApi'
-
-/** 'changes_requested' -> 'Changes requested'. Text stays the meaning carrier. */
-export function sentenceCase(value) {
-  const text = String(value || '').replace(/_/g, ' ').trim()
-  return text ? text[0].toUpperCase() + text.slice(1) : text
-}
 
 const MILESTONES = [
   { key: 'arrival', label: 'Arrival' },
@@ -57,16 +51,18 @@ const MILESTONES = [
  * showing a loading state on every refresh.
  */
 function useEndpoint(loader, deps) {
-  const [state, setState] = useState({ error: null, data: null, resolved: -1 })
+  const [state, setState] = useState({ error: null, data: null, resolved: -1, at: 0 })
   const [nonce, setNonce] = useState(0)
   useEffect(() => {
     const ac = new AbortController()
     let live = true
     loader(ac.signal).then(res => {
       if (!live || res.error === 'aborted') return
+      // loadedAt is stamped HERE, in the resolver, not during render: reading
+      // the clock while rendering is impure and makes output unstable.
       setState(res.ok
-        ? { error: null, data: res.data, resolved: nonce }
-        : { error: res, data: null, resolved: nonce })
+        ? { error: null, data: res.data, resolved: nonce, at: Date.now() }
+        : { error: res, data: null, resolved: nonce, at: Date.now() })
     })
     return () => { live = false; ac.abort() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -75,6 +71,7 @@ function useEndpoint(loader, deps) {
     loading: state.resolved !== nonce,
     error: state.error,
     data: state.data,
+    loadedAt: state.at,
     refresh: () => setNonce(n => n + 1),
   }
 }
@@ -231,14 +228,14 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate
             {capacity.loading || placements.loading ? (
               <LoadingState label="Loading capacity and placement" />
             ) : (
-              <div className="ptl-stat-row">
-                <button type="button" className="ptl-stat" onClick={() => onNavigate?.('capacity')}>
-                  <span className="ptl-stat-num">{liveCapacity.length}</span>
-                  <span className="ptl-stat-label">live capacity submission{liveCapacity.length === 1 ? '' : 's'}</span>
+              <div className="ptl-ulstat-row">
+                <button type="button" className="ptl-ulstat" onClick={() => onNavigate?.('capacity')}>
+                  <span className="ptl-ulstat-num">{liveCapacity.length}</span>
+                  <span className="ptl-ulstat-label">live capacity submission{liveCapacity.length === 1 ? '' : 's'}</span>
                 </button>
-                <button type="button" className="ptl-stat" onClick={() => onNavigate?.('placements')}>
-                  <span className="ptl-stat-num">{openRequests.length}</span>
-                  <span className="ptl-stat-label">open placement request{openRequests.length === 1 ? '' : 's'}</span>
+                <button type="button" className="ptl-ulstat" onClick={() => onNavigate?.('placements')}>
+                  <span className="ptl-ulstat-num">{openRequests.length}</span>
+                  <span className="ptl-ulstat-label">open placement request{openRequests.length === 1 ? '' : 's'}</span>
                 </button>
               </div>
             )}
@@ -317,7 +314,7 @@ function BucketCard({ title, bucket, byBucket, onNavigate }) {
 
 // ── Placement Requests ──────────────────────────────────────────────────────
 function PlacementScreen({ unitKey }) {
-  const { loading, error, data, refresh } = useEndpoint(s => getPlacementRequests(unitKey, s), [unitKey])
+  const { loading, error, data, loadedAt, refresh } = useEndpoint(s => getPlacementRequests(unitKey, s), [unitKey])
   const [busy, setBusy] = useState(null)
   const [notice, setNotice] = useState(null)
   // UL-POLISH P0: the change-request comment is an inline editor beneath the
@@ -363,7 +360,7 @@ function PlacementScreen({ unitKey }) {
     await act(id, 'changes_requested', comment.trim())
   }
 
-  if (loading) return <LoadingState label="Loading placement requests" />
+  if (loading) return <TableSkeleton label="Loading placement requests" />
   if (error) return <ErrorState detail="Placement requests could not be loaded." onRetry={refresh} />
 
   const rows = data?.requests || []
@@ -383,7 +380,7 @@ function PlacementScreen({ unitKey }) {
             </thead>
             <tbody>
               {rows.map(r => (
-                <PlacementRow key={r.id} r={r} busy={busy}
+                <PlacementRow key={r.id} r={r} busy={busy} now={loadedAt}
                   editorOpen={editorFor === r.id}
                   changing={changingFor === r.id}
                   onStartChanging={() => setChangingFor(r.id)}
@@ -403,11 +400,13 @@ function PlacementScreen({ unitKey }) {
   )
 }
 
-function PlacementRow({ r, busy, editorOpen, changing, onStartChanging, onStopChanging, comment, onComment, onAct, onOpenEditor, onCancelEditor, onSendChangeRequest }) {
+function PlacementRow({ r, busy, now, editorOpen, changing, onStartChanging, onStopChanging, comment, onComment, onAct, onOpenEditor, onCancelEditor, onSendChangeRequest }) {
   const isOpen = r.aspire_status === 'open'
   const hasResponded = r.unit_response !== 'pending'
   // Overdue carries a warning tone only while ASPIRE still awaits a response.
-  const overdue = isOpen && r.due_at && new Date(r.due_at).getTime() < Date.now()
+  // Measured against the moment this data loaded, so the row cannot change
+  // meaning between two renders of the same response.
+  const overdue = isOpen && r.due_at && new Date(r.due_at).getTime() < now
   const showOptions = isOpen && (!hasResponded || changing)
   return (
     <>
@@ -495,7 +494,7 @@ function CapacityScreen({ unitKey, unitKeys, acceptingCohort }) {
     if (res.ok) { refresh(); setForm(f => ({ ...f, period_label: '', student_count: 0, notes: '' })) }
   }
 
-  if (loading) return <LoadingState label="Loading capacity" />
+  if (loading) return <TableSkeleton label="Loading capacity" />
   if (error) return <ErrorState detail="Capacity could not be loaded." onRetry={refresh} />
 
   return (
@@ -840,7 +839,7 @@ function PreceptorScreen({ unitKey, students }) {
     if (res.ok) { refresh(); setForm({ student_id: '', proposed_name: '', note: '' }) }
   }
 
-  if (loading) return <LoadingState label="Loading preceptor assignments" />
+  if (loading) return <TableSkeleton label="Loading preceptor assignments" />
   if (error) return <ErrorState detail="Preceptor assignments could not be loaded." onRetry={refresh} />
 
   const rows = data?.nominations || []

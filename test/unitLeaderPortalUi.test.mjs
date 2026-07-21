@@ -103,7 +103,9 @@ test('every screen handles loading and error, not just the happy path', () => {
   for (const screen of ['PlacementScreen', 'CapacityScreen', 'PreceptorScreen']) {
     const body = portal.slice(portal.indexOf(`function ${screen}`))
     const scoped = body.slice(0, body.indexOf('\n// ──') === -1 ? body.length : body.indexOf('\n// ──'))
-    assert.match(scoped, /if \(loading\) return <LoadingState/, `${screen} loading`)
+    // UL-POLISH P2: table screens load with a shimmer skeleton (which carries
+    // its own polite live region); other surfaces keep LoadingState.
+    assert.match(scoped, /if \(loading\) return <(LoadingState|TableSkeleton)/, `${screen} loading`)
     assert.match(scoped, /if \(error\) return <ErrorState/, `${screen} error`)
     assert.match(scoped, /<EmptyState/, `${screen} empty`)
   }
@@ -119,7 +121,10 @@ test('state changes are announced, not silent', () => {
 test('navigation moves focus to the new section heading', () => {
   assert.match(chrome, /export function SectionHeading/)
   assert.match(chrome, /tabIndex=\{-1\}/)
-  assert.match(chrome, /ref\.current\?\.focus\(\)/)
+  // UL-POLISH: the heading still receives programmatic focus on navigation;
+  // the effect now also marks that focus so its ring can be suppressed.
+  assert.match(chrome, /const el = ref\.current/)
+  assert.match(chrome, /el\.focus\(\)/)
   // Every screen uses it, so focus never strands the user at the top of the shell.
   const headings = (portal.match(/<SectionHeading focusKey=/g) || []).length
   assert.ok(headings >= 6, `expected a heading per screen, saw ${headings}`)
@@ -170,9 +175,12 @@ test('motion respects a reduced-motion preference', () => {
 
 test('the focus ring is made consistent, never removed', () => {
   assert.match(css, /:focus-visible/)
-  // UL-POLISH: the section title may suppress its PROGRAMMATIC focus ring
-  // (:focus:not(:focus-visible)); keyboard focus-visible rings stay intact.
-  const keyboardCss = css.split('\n').filter(l => !l.includes(':focus:not(:focus-visible)')).join('\n')
+  // UL-POLISH: an outline may be suppressed ONLY for non-keyboard focus, i.e.
+  // :focus:not(:focus-visible) or the [data-programmatic-focus] marker set by
+  // the focus-on-navigation effect. Every keyboard focus ring must survive.
+  const isProgrammaticFocusRule = (line) =>
+    line.includes(':focus:not(:focus-visible)') || line.includes('[data-programmatic-focus]')
+  const keyboardCss = css.split('\n').filter(l => !isProgrammaticFocusRule(l)).join('\n')
   assert.doesNotMatch(keyboardCss, /\.ptl-(chip|linklike|section-title)[^{]*\{[^}]*outline:\s*none/)
 })
 

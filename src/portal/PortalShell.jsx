@@ -44,7 +44,7 @@ function ProfileMenu({ userName, onEditProfile }) {
   )
 }
 
-export default function PortalShell({ title, userName, onEditProfile, withTabBar = false, children }) {
+export default function PortalShell({ title, userName, onEditProfile, withTabBar = false, showHeaderName = false, children }) {
   return (
     <div className={`ptl-page${withTabBar ? ' ptl-page-tabbar' : ''}`}>
       <header className="ptl-header">
@@ -56,6 +56,9 @@ export default function PortalShell({ title, userName, onEditProfile, withTabBar
           </div>
         </div>
         <div className="ptl-header-user">
+          {/* UL-POLISH P2: the signed-in name beside the avatar at desktop
+              widths, opt-in per portal so student behavior is unchanged. */}
+          {showHeaderName && userName && <span className="ptl-header-name">{userName}</span>}
           <ProfileMenu userName={userName} onEditProfile={onEditProfile} />
         </div>
       </header>

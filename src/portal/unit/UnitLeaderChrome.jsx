@@ -210,6 +210,21 @@ export function LoadingState({ label = 'Loading' }) {
   )
 }
 
+/**
+ * UL-POLISH P2: a three-row shimmer for screens whose table layout is known.
+ * The announcement stays a polite live region; the shimmer is decoration.
+ */
+export function TableSkeleton({ label = 'Loading' }) {
+  return (
+    <div className="ptl-card ptl-state ptl-skel-table">
+      <div className="ptl-skel ptl-skel-line" aria-hidden="true" />
+      <div className="ptl-skel ptl-skel-line" aria-hidden="true" />
+      <div className="ptl-skel ptl-skel-line" aria-hidden="true" />
+      <p role="status" aria-live="polite" className="ptl-visually-hidden">{label}</p>
+    </div>
+  )
+}
+
 /** Empty. Always says what would appear here, never just "nothing found". */
 export function EmptyState({ title, detail }) {
   return (
@@ -257,7 +272,17 @@ export function SectionHeading({ children, focusKey }) {
   const ref = useRef(null)
   useEffect(() => {
     // Focus the heading when the section changes, never on every render.
-    ref.current?.focus()
+    // UL-POLISH P0: mark the focus as programmatic so the ring can be
+    // suppressed deterministically. A CSS-only :focus:not(:focus-visible) rule
+    // is not enough: Chromium matches :focus-visible for this programmatic
+    // focus, so the ring painted a box around the title on every navigation.
+    const el = ref.current
+    if (!el) return undefined
+    el.dataset.programmaticFocus = 'true'
+    el.focus()
+    const clear = () => { delete el.dataset.programmaticFocus }
+    el.addEventListener('blur', clear, { once: true })
+    return () => { el.removeEventListener('blur', clear); clear() }
   }, [focusKey])
   return (
     <h2 className="ptl-section-title" tabIndex={-1} ref={ref}>{children}</h2>

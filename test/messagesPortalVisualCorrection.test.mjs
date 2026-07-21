@@ -187,8 +187,11 @@ test('typography hierarchy', async (t) => {
   await t.test('the workspace heading is a page heading, scoped so other cards keep theirs', () => {
     // Global .ptl-section-title is 15px, 18px above 761px: too small for a page
     // heading, but StudentPortal's own section cards must keep it.
-    assert.match(css, /\.ptl-msg-workspace \.ptl-section-title \{ font-size: 24px; line-height: 1\.25; \}/)
-    assert.match(css, /@media \(min-width: 1024px\) \{ \.ptl-msg-workspace \.ptl-section-title \{ font-size: 26px; \} \}/)
+    // UL-POLISH P2: the page-title scale is now shared across the portal
+    // (20-22px). Still scoped to .ptl-msg-workspace, so StudentPortal's own
+    // section cards keep the 15px card-title scale.
+    assert.match(css, /\.ptl-msg-workspace \.ptl-section-title \{ font-size: 22px; line-height: 1\.25; \}/)
+    assert.doesNotMatch(css, /^\.ptl-section-title \{[^}]*font-size: 2[0-9]px/m)
   })
 
   await t.test('body, subjects, and metadata are readable', () => {

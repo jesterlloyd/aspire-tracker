@@ -301,8 +301,20 @@ export default function StudentDetailDrawer({ student, onClose, returnFocusRef }
                 </Field>
                 <Field label="Shift">{orDash(d.shift)}</Field>
                 <Field label="Hours">
-                  {`${d.hours?.approved ?? 0} approved of ${orDash(d.hours?.required)} required`}
-                  {d.hours?.pending ? ` (${d.hours.pending} pending)` : ''}
+                  {/* UL-POLISH P2: the same mini progress bar the roster uses,
+                      with the exact numbers always in text. */}
+                  <span className="ptl-detail-hours">
+                    {d.hours?.required > 0 && (
+                      <span className="ptl-mini-progress" role="img"
+                        aria-label={`${d.hours?.approved ?? 0} of ${d.hours.required} required hours approved`}>
+                        <i style={{ width: `${Math.min(100, Math.round(((d.hours?.approved ?? 0) / d.hours.required) * 100))}%` }} />
+                      </span>
+                    )}
+                    <span>
+                      {`${d.hours?.approved ?? 0} approved of ${orDash(d.hours?.required)} required`}
+                      {d.hours?.pending ? ` (${d.hours.pending} pending)` : ''}
+                    </span>
+                  </span>
                 </Field>
                 <Field label="Attendance">
                   {`${d.attendance?.shifts_recorded ?? 0} shifts recorded`}

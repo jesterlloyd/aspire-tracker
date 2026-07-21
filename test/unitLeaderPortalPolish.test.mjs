@@ -29,6 +29,9 @@ test('P0-1: filter chips are a dedicated, visible class', async (t) => {
     const defs = css.match(/^\.ptl-chip \{/gm) || []
     assert.equal(defs.length, 1, 'one .ptl-chip block')
   })
+  await t.test('the filter bar is a compact toolbar, not a full content card', () => {
+    assert.match(css, /\.ptl-filterbar \{ display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px; \}/)
+  })
   await t.test('.ptl-filter-chip declares its own text color and states', () => {
     assert.match(css, /\.ptl-filter-chip \{[\s\S]*?color: var\(--ptl-navy/)
     assert.match(css, /\.ptl-filter-chip:hover/)
@@ -36,9 +39,22 @@ test('P0-1: filter chips are a dedicated, visible class', async (t) => {
   })
 })
 
+test('P1: the page grid does not stretch its rows to fill the viewport', () => {
+  // Without this the leftover viewport height is distributed into every row,
+  // so short screens (Placements, Preceptors) show large arbitrary gaps.
+  assert.match(css, /\.ptl-unit-page \{ display: grid; gap: 16px; align-content: start; \}/)
+})
+
 test('P0-2: section-title focus behavior', () => {
   assert.match(css, /\.ptl-unit-page \.ptl-section-title \{ width: fit-content; \}/)
   assert.match(css, /\.ptl-unit-page \.ptl-section-title:focus:not\(:focus-visible\) \{ outline: none; \}/)
+  // A CSS-only rule is not sufficient (Chromium matches :focus-visible for the
+  // programmatic focus), so the effect marks it and the marker suppresses it.
+  assert.match(chrome, /el\.dataset\.programmaticFocus = 'true'/)
+  assert.match(chrome, /el\.addEventListener\('blur', clear, \{ once: true \}\)/)
+  assert.match(css, /\.ptl-section-title\[data-programmatic-focus\]:focus \{ outline: none; \}/)
+  // Programmatic focus itself is preserved for assistive technology.
+  assert.match(chrome, /el\.focus\(\)/)
   // The keyboard indicator is preserved (the existing focus-visible rule).
   assert.match(css, /\.ptl-section-title:focus-visible/)
 })
@@ -142,7 +158,7 @@ test('P1-9: Home is a 7/5 grid with actionable attention rows', async (t) => {
     assert.doesNotMatch(portal, /support_needed|support\.text|support\.note/)
   })
   await t.test('capacity and placement numerals link to their sections', () => {
-    assert.match(portal, /ptl-stat-num/)
+    assert.match(portal, /ptl-ulstat-num/)
     assert.match(portal, /onClick=\{\(\) => onNavigate\?\.\('capacity'\)\}/)
     assert.match(portal, /onClick=\{\(\) => onNavigate\?\.\('placements'\)\}/)
   })
@@ -211,14 +227,73 @@ test('P1-13: placement response state after responding', async (t) => {
     assert.match(portal, /Keep current/)
   })
   await t.test('sentence case flows through every status', () => {
-    assert.match(portal, /export function sentenceCase/)
+    // Lives with the other presentation helpers, not exported from a
+    // component module (react-refresh).
+    assert.match(read('src/portal/unit/unitLeaderApi.js'), /export function sentenceCase/)
+    assert.doesNotMatch(portal, /export function sentenceCase/)
     assert.match(portal, /sentenceCase\(r\.unit_response\)/)
     assert.match(portal, /sentenceCase\(r\.aspire_status\)/)
     assert.match(portal, /sentenceCase\(c\.review_status\)/)
   })
   await t.test('overdue due dates carry the warning tone with text', () => {
-    assert.match(portal, /const overdue = isOpen && r\.due_at && new Date\(r\.due_at\)\.getTime\(\) < Date\.now\(\)/)
+    // The clock is read in the loader's resolver, never during render.
+    assert.match(portal, /const overdue = isOpen && r\.due_at && new Date\(r\.due_at\)\.getTime\(\) < now/)
+    assert.match(portal, /at: Date\.now\(\)/)
+    assert.doesNotMatch(portal, /getTime\(\) < Date\.now\(\)/)
     assert.match(portal, /ptl-due-overdue/)
     assert.match(portal, /· overdue/)
   })
+})
+
+// ── P2: consistency and finish ──────────────────────────────────────────────
+
+test('P2-14: one type scale across the portal', () => {
+  assert.match(css, /\.ptl-unit-page \.ptl-section-title \{ font-size: 21px; \}/)
+  assert.match(css, /\.ptl-msg-workspace \.ptl-section-title \{ font-size: 22px; line-height: 1\.25; \}/)
+  // No 26px page heading survives; the pre-existing .ptl-hours-big stat is a
+  // Student Portal numeral, not a heading, and is deliberately untouched.
+  assert.doesNotMatch(css, /\.ptl-section-title \{ font-size: 26px/)
+  assert.match(css, /\.ptl-msg-row-cat, \.ptl-msg-row-time \{ font-size: 12\.5px; \}/)
+})
+
+test('P1/P2: no new class collides with an existing Student Portal component', () => {
+  // The P0 filter-chip defect was a shared class with two meanings. These are
+  // the Unit Leader equivalents, namespaced so the same bug cannot recur.
+  for (const cls of ['ptl-ulstat', 'ptl-ulstat-num', 'ptl-ulstat-label', 'ptl-ulstat-row']) {
+    assert.match(css, new RegExp(`\\.${cls}[\\s{:.]`), cls)
+  }
+  // The Student Portal's own stat rules keep their values.
+  assert.match(css, /\.ptl-stat \{ display: flex; flex-direction: column;/)
+  assert.match(css, /\.ptl-stat-num \{ font-size: 20px;/)
+  assert.match(css, /\.ptl-stat-label \{ font-size: 11\.5px;/)
+  assert.doesNotMatch(portal, /className="ptl-stat(-num|-label|-row)?"/)
+})
+
+test('P2-15: the signed-in name appears in the header, desktop only, opt-in', () => {
+  const shell = read('src/portal/PortalShell.jsx')
+  assert.match(shell, /showHeaderName = false/)
+  assert.match(shell, /\{showHeaderName && userName && <span className="ptl-header-name">\{userName\}<\/span>\}/)
+  assert.match(app, /title="Unit Leader Portal"[\s\S]{0,80}showHeaderName/)
+  // Student Portal shell call is unchanged.
+  assert.doesNotMatch(app, /title="Student Portal"[\s\S]{0,80}showHeaderName/)
+  assert.match(css, /@media \(max-width: 760px\) \{ \.ptl-header-name \{ display: none; \} \}/)
+})
+
+test('P2-16: table screens load with shimmer skeletons and polite announcements', () => {
+  assert.match(chrome, /export function TableSkeleton/)
+  assert.match(chrome, /role="status" aria-live="polite" className="ptl-visually-hidden"/)
+  assert.match(portal, /<TableSkeleton label="Loading placement requests" \/>/)
+  assert.match(portal, /<TableSkeleton label="Loading capacity" \/>/)
+  assert.match(portal, /<TableSkeleton label="Loading preceptor assignments" \/>/)
+})
+
+test('P2-17: the student drawer renders the real response shape with an hours bar', () => {
+  const drawer = read('src/portal/unit/StudentDetailDrawer.jsx')
+  // The endpoint nests the record under student; the drawer unwraps exactly that.
+  assert.match(drawer, /data: res\.data\?\.student \|\| null/)
+  assert.match(drawer, /ptl-mini-progress/)
+  assert.match(drawer, /required hours approved/)
+  // Approved contact links and mediated file access are untouched.
+  assert.match(drawer, /ContactLink/)
+  assert.match(drawer, /getStudentFileUrl/)
 })
