@@ -103,11 +103,16 @@ test('every workflow has a distinct slug today', () => {
 test('the preview holds no question text of its own', () => {
   // The normalizer maps shapes; it must not contain survey prose. If someone pastes
   // questions in here, the preview stops being a preview of the live definition.
+  //
+  // Checked against COMMENT-STRIPPED source. The file legitimately names response keys
+  // like approachable_available in its documentation, to explain the two item shapes it
+  // has to support; matching raw text flagged that explanation as if it were content.
+  const modelCode = stripJs(model)
   for (const phrase of [
     'Overall, ASPIRE was a valuable learning experience',
     'approachable', 'Strongly Agree', 'clinical judgment',
   ]) {
-    assert.ok(!model.includes(phrase), `the normalizer must not hardcode "${phrase}"`)
+    assert.ok(!modelCode.includes(phrase), `the normalizer must not hardcode "${phrase}"`)
   }
 })
 

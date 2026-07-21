@@ -30,20 +30,43 @@ import { POST_ROTATION_CONTENT } from '../../../lib/server/evaluation/postRotati
 const item = ({ key, label, type, required = false, scale = [], helper = '' }) =>
   ({ key, label, type, required, scale, helper })
 
-/** A sectionN block keyed by question key, as used by the two ASPIRE-authored surveys. */
+/**
+ * A sectionN block keyed by question key, as used by the two ASPIRE-authored surveys.
+ *
+ * TWO ITEM SHAPES, both canonical. This is where a real defect lived: the two ASPIRE
+ * surveys store their items differently, and reading only one shape made the other fall
+ * back to the raw response key.
+ *
+ *   student_preceptor_eval:  { approachable_available: "My preceptor was approachable..." }
+ *                            the VALUE IS the respondent-facing text, exactly as
+ *                            StudentEvaluationPage renders it (Object.entries -> text).
+ *   preceptor_progress:      { clinical_judgment: { label: "Clinical Judgment",
+ *                                                   prompt: "The student notices..." } }
+ *                            a short label plus a descriptive prompt.
+ *
+ * Falling back to the key is never acceptable: a response key is a machine identifier and
+ * must not be shown to anyone as a question. An item with no resolvable text is dropped
+ * and reported, so a missing prompt is visible as missing rather than disguised as a
+ * question nobody wrote.
+ */
 function normalizeKeyedSection(sec, { scale, requiredDefault = true }) {
   if (!sec) return null
   const items = []
+  const missing = []
   for (const [key, def] of Object.entries(sec.items || {})) {
+    const isString = typeof def === 'string'
+    const label = (isString ? def : def?.label) || ''
+    if (!label.trim()) { missing.push(key); continue }
     items.push(item({
       key,
-      label: def?.label || key,
-      helper: def?.prompt || '',
+      label,
+      helper: isString ? '' : (def?.prompt || ''),
       type: 'rating',
-      required: def?.required ?? requiredDefault,
+      required: (isString ? undefined : def?.required) ?? requiredDefault,
       scale,
     }))
   }
+  if (missing.length > 0) sec.__missingPrompts = missing
   // An optional per-section narrative comment, where the section defines one.
   if (sec.commentKey || sec.commentLabel) {
     items.push(item({

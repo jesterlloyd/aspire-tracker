@@ -8,8 +8,8 @@ import { getStudentPreferredFullName } from '../../lib/studentNameFormatters'
 
 // READ-ONLY eligible / in-flow queue for the ASPIRE Post-Rotation Evaluation workflow (slug:
 // post_rotation_evaluation). Recipient is the STUDENT. This is NON-GATING experience feedback and
-// is fully decoupled from the Certificate of Participation (the Casey-Fink post-rotation survey is
-// the certificate gate). Release is PAUSED here: the action is disabled and nothing sends email,
+// is fully decoupled from certificate issuance: migration 20260710000000 replaced its RPC so it
+// cannot issue one. Release is ACTIVE and human-approved, mirroring the Casey-Fink panel,
 // creates tokens/assignments, issues certificates, or generates PDFs.
 //
 // Reads (Owner/Admin RLS SELECT policies): students + post_rotation_evaluation assignments.
@@ -209,21 +209,8 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
       </div>
       <p style={{ fontSize: 13, color: '#9ca3af', margin: '0 0 16px', lineHeight: 1.6 }}>
         Collect student feedback about the ASPIRE rotation experience, unit learning environment, and
-        preceptor support. The Certificate of Participation is unlocked through the Casey-Fink
-        post-rotation readiness survey. Students appear here at or above their required hours.
+        preceptor support. Students appear here at or above their required hours.
       </p>
-
-      {/* NOT a certificate gate, but an active workflow. The distinction matters: this used to
-          issue the certificate, and the RPC that did so was replaced in migration
-          20260710000000 so it can no longer issue one regardless of what the UI says. */}
-      <div style={{
-        fontSize: 12.5, color: '#374151', background: '#f7f9ff', border: '1px solid #d7ddf5',
-        borderRadius: 8, padding: '10px 14px', marginBottom: 18, lineHeight: 1.55,
-      }}>
-        This survey collects overall rotation feedback and is <strong>not</strong> a certificate
-        gate. The Certificate of Participation is unlocked by the Casey-Fink post-rotation
-        readiness survey.
-      </div>
 
       {releaseMsg && (
         <div role="status" style={{
@@ -365,8 +352,8 @@ export default function PostRotationAutomationPanel({ cohortId, onCounts, active
                 <span style={{ color: '#9ca3af', fontWeight: 600 }}>Recipient email</span><span>{confirm.studentEmail || '-'}</span>
               </div>
               <p style={{ margin: 0, fontSize: 12.5, color: '#6b7280' }}>
-                This sends the ASPIRE Post-Rotation Evaluation to the student. It does NOT unlock a
-                certificate. Eligibility and the recipient are re-checked on the server before sending.
+                This sends the ASPIRE Post-Rotation Evaluation to the student. Eligibility and the
+                recipient are re-checked on the server before sending.
               </p>
             </div>
             <div className="modal-footer" style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
