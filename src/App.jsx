@@ -19,6 +19,7 @@ import ManageCohortModal from './components/ManageCohortModal'
 import { useAuth } from './contexts/AuthContext'
 import LoginNew from './pages/Login'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import ActivateAccountPage from './pages/ActivateAccountPage'
 import DevDispositionModal from './pages/DevDispositionModal'
 import EvaluationPage from './pages/EvaluationPage'
 import PreceptorEvaluationPage from './pages/PreceptorEvaluationPage'
@@ -1306,6 +1307,11 @@ export default function App() {
       {/* RECOVERY-PASSWORD-SCREEN-1: public password-recovery landing (Supabase reset link target).
           Must precede the /* wildcard so it renders outside AuthedShell even with a recovery session. */}
       <Route path="/auth/reset-password"   element={<div data-theme-lock="light"><ResetPasswordPage /></div>} />
+      {/* First-time activation. Mounted ABOVE the /* wildcard for the same reason
+          reset-password is: detectSessionInUrl establishes a session from the
+          invite token, and without this the invitee would fall through to the
+          authed shell with no password ever set. */}
+      <Route path="/auth/activate"        element={<div data-theme-lock="light"><ActivateAccountPage /></div>} />
       {/* Legacy URL redirects */}
       <Route path="/interview-room"        element={<Navigate to="/interviews" replace />} />
       <Route path="/embed"                 element={<Navigate to="/rotation/matrix" replace />} />

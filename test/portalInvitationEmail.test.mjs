@@ -15,7 +15,10 @@ const here = dirname(fileURLToPath(import.meta.url))
 const endpoint = readFileSync(join(here, '../api/invite-portal-user.js'), 'utf8')
 
 test('portalInvitationEmail is ASPIRE-branded and embeds the activation link', async (t) => {
-  const out = portalInvitationEmail({ firstName: 'Jae', activationLink: 'https://auth.example/verify?token=SECRET123', expiresAt: '2026-08-01T00:00:00Z' })
+  // Explicitly the STUDENT role now that the builder is role aware. This test
+  // predates roles; leaving the role off would assert student copy from the
+  // neutral fallback, which is the coupling the role layer removed.
+  const out = portalInvitationEmail({ firstName: 'Jae', role: 'student', activationLink: 'https://auth.example/verify?token=SECRET123', expiresAt: '2026-08-01T00:00:00Z' })
   await t.test('official subject', () => {
     assert.equal(out.subject, PORTAL_INVITE_SUBJECT)
     assert.match(out.subject, /ASPIRE Student Portal/)
@@ -26,7 +29,7 @@ test('portalInvitationEmail is ASPIRE-branded and embeds the activation link', a
     assert.match(out.html, /Hello Jae/)
   })
   await t.test('primary activation button and the raw link', () => {
-    assert.match(out.html, /Activate My Portal Access/)
+    assert.match(out.html, /Activate My Account/)
     assert.match(out.html, /token=SECRET123/)
   })
   await t.test('security note, support email, expiration, and public site', () => {
@@ -52,8 +55,10 @@ test('invite endpoint sends the branded email, not the default Supabase mailer',
     assert.match(endpoint, /portalInvitationEmail/)
     assert.match(endpoint, /replyTo: EMAIL_REPLY_TO/)
     assert.match(endpoint, /const EMAIL_REPLY_TO = 'aspire@cshs\.org'/)
-    // Only sends for a newly created account (preserves renewal/reuse behavior).
-    assert.match(endpoint, /if \(createdAuthUser && activationLink\)/)
+    // Sends for a newly created account OR a reissued activation for an existing
+    // auth user who never completed password setup. Re-granting to an already
+    // activated account still sends nothing.
+    assert.match(endpoint, /if \(activationLink && \(createdAuthUser \|\| needsActivation\)\)/)
   })
   await t.test('never logs or returns the raw activation link', () => {
     // The link is embedded in the email only; it must not appear in any console.log or res.json.
@@ -66,7 +71,7 @@ test('invite endpoint sends the branded email, not the default Supabase mailer',
     assert.match(endpoint, /branded invite email failed/)
     assert.match(endpoint, /email_sent: emailSent/)
     // A mail failure returns success with email_sent:false, not a compensation delete.
-    assert.match(endpoint, /emailSent \? 'Portal invitation sent and access granted\.'/)
+    assert.match(endpoint, /emailSent\s*\?\s*'Portal invitation sent and access granted\.'/)
   })
   await t.test('no service-role key or raw provider error is returned to the client', () => {
     assert.doesNotMatch(endpoint, /json\([^)]*SERVICE_ROLE/i)

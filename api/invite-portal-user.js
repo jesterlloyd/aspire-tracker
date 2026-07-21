@@ -50,10 +50,10 @@ const EMAIL_REPLY_TO = 'aspire@cshs.org'
 
 // Send the branded ASPIRE Student Portal invitation via Resend. The activation
 // link is embedded ONLY in the email HTML and is never logged or returned.
-async function sendPortalInvitation({ to, firstName, activationLink, expiresAt, requestId }) {
+async function sendPortalInvitation({ to, firstName, activationLink, expiresAt, role, requestId }) {
   try {
     if (!process.env.RESEND_API_KEY || !activationLink) return false
-    const { subject, html } = portalInvitationEmail({ firstName, activationLink, expiresAt })
+    const { subject, html } = portalInvitationEmail({ firstName, activationLink, expiresAt, role })
     const resend = new Resend(process.env.RESEND_API_KEY)
     const { error } = await resend.emails.send({ from: EMAIL_FROM, to, replyTo: EMAIL_REPLY_TO, subject, html })
     if (error) { console.log('[invite-portal-user] branded invite email failed', { request_id: requestId }); return false }
@@ -256,17 +256,45 @@ export default async function handler(req, res) {
   //    renewal; only invite (and flag for compensation) when we create one. ──
   let authUserId = null
   let createdAuthUser = false
+  let needsActivation = false
   let activationLink = null // Supabase-hosted acceptance link; embedded in the branded email only, never logged/returned.
   try {
     if (existingProfile?.auth_user_id) {
       authUserId = existingProfile.auth_user_id
+      // REISSUE PATH. An existing auth user gets no invite link, so before this
+      // fix re-granting access to someone who never finished setup sent nothing
+      // at all and left them stranded. If the account has not completed
+      // activation, mint a fresh recovery link that lands on the same activation
+      // screen. user_metadata.password_set is stamped by that screen and is the
+      // only signal available: Supabase does not expose whether a password exists.
+      try {
+        const { data: existingUser } = await db.auth.admin.getUserById(authUserId)
+        needsActivation = existingUser?.user?.user_metadata?.password_set !== true
+      } catch {
+        // Unknown state: assume activation is still needed. Sending a recovery
+        // link to someone who already has a password is an ordinary reset email;
+        // sending nothing to someone who cannot sign in is a lockout.
+        needsActivation = true
+      }
+      if (needsActivation) {
+        const { data: reissue, error: reissueErr } = await db.auth.admin.generateLink({
+          type: 'recovery',
+          email,
+          options: { redirectTo: appUrl('/auth/activate') },
+        })
+        if (!reissueErr) activationLink = reissue?.properties?.action_link || null
+      }
     } else {
       // generateLink creates the user and returns the activation link WITHOUT
       // sending Supabase's default email, so ASPIRE controls the branded send.
       const { data: linkData, error: linkErr } = await db.auth.admin.generateLink({
         type: 'invite',
         email,
-        options: { data: { full_name: fullName, role: 'portal', portal_role: portalRole }, redirectTo: appUrl('/portal') },
+        // ACTIVATION: land on /auth/activate, NOT /portal. Supabase establishes a
+        // session from this token, so redirecting straight to the portal produced
+        // an account with access but no password, which locked the user out at
+        // their first sign-out.
+        options: { data: { full_name: fullName, role: 'portal', portal_role: portalRole }, redirectTo: appUrl('/auth/activate') },
       })
       if (linkErr) {
         if (/already|registered|exists/i.test(linkErr.message || '')) {
@@ -335,26 +363,29 @@ export default async function handler(req, res) {
     // account and grant are already committed, so a mail failure does not roll
     // back or compensate; it is reported (email_sent:false) for a resend.
     let emailSent = false
-    if (createdAuthUser && activationLink) {
+    if (activationLink && (createdAuthUser || needsActivation)) {
       emailSent = await sendPortalInvitation({
         to: email,
         firstName: (fullName.split(/\s+/)[0] || ''),
         activationLink,
         expiresAt: result?.grant?.expires_at || expiresAt,
+        role: portalRole,
         requestId,
       })
     }
 
     const status = createdAuthUser ? 201 : 200
+    const invited = createdAuthUser || needsActivation
     console.log('[invite-portal-user] portal access provisioned', {
-      portalRole, created: createdAuthUser, grant: result?.grant?.action, email_sent: emailSent, request_id: requestId,
+      portalRole, created: createdAuthUser, reissued_activation: needsActivation && !createdAuthUser,
+      grant: result?.grant?.action, email_sent: emailSent, request_id: requestId,
     })
     return res.status(status).json({
       success: true,
-      message: createdAuthUser
+      message: invited
         ? (emailSent ? 'Portal invitation sent and access granted.' : 'Portal access granted. The invitation email could not be sent; please resend.')
         : 'Portal access updated.',
-      email_sent: createdAuthUser ? emailSent : undefined,
+      email_sent: invited ? emailSent : undefined,
       provisioned: {
         role: result?.role,
         grant_action: result?.grant?.action,
