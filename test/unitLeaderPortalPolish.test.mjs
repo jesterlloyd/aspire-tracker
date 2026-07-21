@@ -115,3 +115,110 @@ test('P0-7: five-slot mobile navigation with an accessible More sheet', async (t
     assert.match(css, /\.ptl-sheet-item\[aria-current="page"\]/)
   })
 })
+
+// ── P1: hierarchy and density ───────────────────────────────────────────────
+
+test('P1-8: the Compass welcome header replaces the literal Home heading', () => {
+  assert.match(portal, /\{first \? `Welcome, \$\{first\}` : 'Welcome'\}/)
+  assert.match(portal, /Unit Leader · \{unitContext\}/)
+  // Long unit lists summarize instead of running on.
+  assert.match(portal, /`\$\{unitKeys\.length\} assigned units`/)
+})
+
+test('P1-9: Home is a 7/5 grid with actionable attention rows', async (t) => {
+  await t.test('the grid uses the existing Compass columns', () => {
+    assert.match(portal, /className="ptl-grid ptl-home-grid"/)
+    assert.match(portal, /className="ptl-col-7 ptl-home-col"/)
+    assert.match(portal, /className="ptl-col-5 ptl-home-col"/)
+  })
+  await t.test('attention items are rows with tone dot, unit chip, and a destination', () => {
+    assert.match(portal, /ptl-attn-dot/)
+    assert.match(portal, /ptl-attn-unit/)
+    assert.match(portal, /ptl-attn-chevron/)
+    assert.match(portal, /onClick=\{\(\) => onNavigate\?\.\(n\.section\)\}/)
+  })
+  await t.test('the support signal links to Students and never carries note text', () => {
+    assert.match(portal, /raised a support note/)
+    assert.doesNotMatch(portal, /support_needed|support\.text|support\.note/)
+  })
+  await t.test('capacity and placement numerals link to their sections', () => {
+    assert.match(portal, /ptl-stat-num/)
+    assert.match(portal, /onClick=\{\(\) => onNavigate\?\.\('capacity'\)\}/)
+    assert.match(portal, /onClick=\{\(\) => onNavigate\?\.\('placements'\)\}/)
+  })
+})
+
+test('P1-10: Recent Messages renders the latest threads', () => {
+  assert.match(portal, /listPortalConversations\(\{ limit: 3, signal: sig \}\)/)
+  assert.match(portal, /ptl-recent-row/)
+  assert.match(portal, /formatInboxTimestamp\(c\.last_message_at\)/)
+  assert.match(portal, /ulDirectThreadLabel\(c\.direct_student_name\) : UL_THREAD_ASPIRE_LABEL/)
+  assert.match(portal, /onClick=\{\(\) => onOpenThread\?\.\(c\.id\)\}/)
+  // The empty state stays honest and Open Messages remains.
+  assert.match(portal, /No messages yet\./)
+  assert.match(portal, /Open Messages/)
+})
+
+test('P1-11: the Students table identity cell, hours bar, and chips', async (t) => {
+  await t.test('student cell stacks avatar, name link, and school; School column is gone', () => {
+    assert.match(portal, /ptl-stu-avatar/)
+    assert.match(portal, /ptl-stu-name/)
+    assert.match(portal, /ptl-stu-school/)
+    assert.doesNotMatch(portal, /<th scope="col">School<\/th>/)
+  })
+  await t.test('the name is a safe primary link, not a whole-row click', () => {
+    assert.match(portal, /className="ptl-linklike ptl-stu-name"/)
+    assert.doesNotMatch(portal, /<tr[^>]*onClick/)
+  })
+  await t.test('hours render as a mini progress bar with the exact numbers', () => {
+    assert.match(portal, /ptl-mini-progress/)
+    assert.match(portal, /aria-label=\{`\$\{approved\} of \$\{hours\.required\} required hours approved`\}/)
+  })
+  await t.test('outstanding onboarding items are chips, and View details remains', () => {
+    assert.match(portal, /ptl-ochip/)
+    assert.match(portal, /View details/)
+  })
+})
+
+test('P1-12: the Compass form treatment on all three forms', async (t) => {
+  await t.test('full-width inputs inside the responsive field grid', () => {
+    const grids = portal.match(/className="ptl-form-grid"/g) || []
+    assert.equal(grids.length, 3, 'capacity, nomination, and concern forms')
+    assert.match(portal, /ptl-input ptl-input-full/)
+    assert.match(css, /@media \(min-width: 760px\) \{\s*\n\s*\.ptl-form-grid \{ grid-template-columns: 1fr 1fr; \}/)
+  })
+  await t.test('helper text and a right-aligned submit row', () => {
+    assert.match(portal, /ptl-field-help/)
+    const submits = portal.match(/className="ptl-form-submit"/g) || []
+    assert.equal(submits.length, 3)
+    assert.match(css, /\.ptl-form-submit \{\s*\n\s*display: flex; align-items: center; justify-content: flex-end/)
+  })
+  await t.test('success notices name what was recorded', () => {
+    assert.match(portal, /`Capacity recorded for \$\{summaryUnit\}/)
+    assert.match(portal, /`Nomination recorded: \$\{form\.proposed_name\} for \$\{studentName\(nominee\)\}/)
+  })
+  await t.test('the ASPIRE authority note appears once per screen', () => {
+    const notes = portal.match(/\{ASPIRE_AUTHORITY_NOTE\}/g) || []
+    assert.equal(notes.length, 4, 'home, placements, capacity, preceptors: one each')
+  })
+})
+
+test('P1-13: placement response state after responding', async (t) => {
+  await t.test('a recorded response shows one chip and one Change response affordance', () => {
+    assert.match(portal, /const hasResponded = r\.unit_response !== 'pending'/)
+    assert.match(portal, /const showOptions = isOpen && \(!hasResponded \|\| changing\)/)
+    assert.match(portal, /Change response/)
+    assert.match(portal, /Keep current/)
+  })
+  await t.test('sentence case flows through every status', () => {
+    assert.match(portal, /export function sentenceCase/)
+    assert.match(portal, /sentenceCase\(r\.unit_response\)/)
+    assert.match(portal, /sentenceCase\(r\.aspire_status\)/)
+    assert.match(portal, /sentenceCase\(c\.review_status\)/)
+  })
+  await t.test('overdue due dates carry the warning tone with text', () => {
+    assert.match(portal, /const overdue = isOpen && r\.due_at && new Date\(r\.due_at\)\.getTime\(\) < Date\.now\(\)/)
+    assert.match(portal, /ptl-due-overdue/)
+    assert.match(portal, /· overdue/)
+  })
+})

@@ -28,12 +28,15 @@ const apiCode = stripJs(api)
 // ── Home priority order ─────────────────────────────────────────────────────
 test('Home renders the five sections in the locked order', () => {
   const home = portal.slice(portal.indexOf('function HomeScreen'), portal.indexOf('function BucketCard'))
+  // UL-POLISH P1: the priority order is unchanged in the markup source order;
+  // Upcoming and Active now sit in the right-hand grid column (rendered after
+  // the left column in source), and the messages card shows real threads.
   const order = [
     'Needs your attention',
+    'Capacity and placement',
+    'Recent Messages',
     'Upcoming students',
     'Active rotations',
-    'Capacity and placement',
-    'Recent ASPIRE Messages',
   ]
   let cursor = -1
   for (const label of order) {

@@ -16,6 +16,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
+import { listPortalConversations } from '../lib/messages/portalMessagesApiClient'
+import { formatInboxTimestamp, formatUnread } from '../lib/messages/messagesConstants'
+import { UL_THREAD_ASPIRE_LABEL, ulDirectThreadLabel } from '../lib/messages/portalMessagesConstants'
+import { firstNameOf } from '../lib/masthead'
 import StudentDetailDrawer from './unit/StudentDetailDrawer'
 import { useAuth } from '../contexts/AuthContext'
 import {
@@ -30,6 +34,12 @@ import {
   confirmMilestone, startUnitConversation,
   getNotifications, setNotificationPreference,
 } from './unit/unitLeaderApi'
+
+/** 'changes_requested' -> 'Changes requested'. Text stays the meaning carrier. */
+export function sentenceCase(value) {
+  const text = String(value || '').replace(/_/g, ' ').trim()
+  return text ? text[0].toUpperCase() + text.slice(1) : text
+}
 
 const MILESTONES = [
   { key: 'arrival', label: 'Arrival' },
@@ -117,7 +127,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
           <UnitSwitcher unitKeys={unitKeys} value={unitKey} onChange={setUnitKey} />
         )}
 
-        {view === 'home'       && <HomeScreen {...shared} onNavigate={onNavigate} />}
+        {view === 'home'       && <HomeScreen {...shared} profile={userProfile} onNavigate={onNavigate} onOpenThread={onSelectThread} />}
         {view === 'placements' && <PlacementScreen {...shared} />}
         {view === 'capacity'   && <CapacityScreen {...shared} />}
         {view === 'students'   && <StudentsScreen {...shared} onNavigate={onNavigate} onOpenThread={onSelectThread} />}
@@ -138,13 +148,19 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
   )
 }
 
-// ── Home: the locked priority order ─────────────────────────────────────────
-function HomeScreen({ unitKey, students, byBucket, onNavigate }) {
+// ── Home: the locked priority order, now with hierarchy ─────────────────────
+function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate, onOpenThread }) {
   const placements = useEndpoint(s => getPlacementRequests(unitKey, s), [unitKey])
   const capacity = useEndpoint(s => getCapacity(unitKey, s), [unitKey])
   // The in-app feed is DERIVED server side from the caller's own authorized rows,
   // so Home and the feed can never disagree.
   const alerts = useEndpoint(s => getNotifications(unitKey, s), [unitKey])
+  // UL-POLISH P1: the latest threads, from the same endpoint the inbox uses.
+  const recent = useEndpoint(
+    (sig) => listPortalConversations({ limit: 3, signal: sig })
+      .then((data) => ({ ok: true, data }))
+      .catch(() => ({ ok: false, status: 0, data: null, error: 'request_failed' })),
+    [])
 
   // Awaiting-response requests are surfaced by the derived feed, so they are not
   // recomputed here. openRequests is still needed for the capacity summary count.
@@ -152,62 +168,124 @@ function HomeScreen({ unitKey, students, byBucket, onNavigate }) {
   const supportFlags = students.filter(s => s.support?.open_count > 0)
   const notifications = alerts.data?.notifications || []
   const liveCapacity = (capacity.data?.submissions || []).filter(c => c.is_live)
+  const threads = (recent.data?.conversations || []).slice(0, 3)
+
+  // UL-POLISH P1: the Compass welcome header replaces the literal "Home"
+  // heading (the nav already says Home). Unit context is always visible here.
+  const first = firstNameOf(profile?.full_name)
+  const unitContext = unitKeys.length === 1 ? unitKeys[0]
+    : unitKeys.length === 2 ? unitKeys.join(' and ')
+    : `${unitKeys.length} assigned units`
 
   return (
     <>
-      <SectionHeading focusKey="home">Home</SectionHeading>
+      <SectionHeading focusKey="home">{first ? `Welcome, ${first}` : 'Welcome'}</SectionHeading>
+      <p className="ptl-muted ptl-home-sub">Unit Leader · {unitContext}</p>
 
-      {/* 1. Needs your attention */}
-      <section className="ptl-card" aria-labelledby="ul-attention">
-        <h3 id="ul-attention" className="ptl-card-title">Needs your attention</h3>
-        {alerts.loading ? (
-          <LoadingState label="Loading your notifications" />
-        ) : notifications.length === 0 && supportFlags.length === 0 ? (
-          <p className="ptl-muted">Nothing needs your attention right now.</p>
-        ) : (
-          <ul className="ptl-list">
-            {notifications.map(n => (
-              <li key={n.id}>
-                <button type="button" className="ptl-linklike" onClick={() => onNavigate?.(n.section)}>
-                  {n.label}
+      <div className="ptl-grid ptl-home-grid">
+        <div className="ptl-col-7 ptl-home-col">
+          {/* 1. Needs your attention */}
+          <section className="ptl-card" aria-labelledby="ul-attention">
+            <h3 id="ul-attention" className="ptl-card-title">Needs your attention</h3>
+            {alerts.loading ? (
+              <LoadingState label="Loading your notifications" />
+            ) : notifications.length === 0 && supportFlags.length === 0 ? (
+              <p className="ptl-muted">Nothing needs your attention right now.</p>
+            ) : (
+              <ul className="ptl-list ptl-attn-list">
+                {notifications.map(n => (
+                  <li key={n.id}>
+                    <button type="button" className="ptl-attn-row" onClick={() => onNavigate?.(n.section)}>
+                      <span className="ptl-attn-dot" aria-hidden="true" />
+                      <span className="ptl-attn-text">
+                        <span className="ptl-attn-label">{n.label}</span>
+                        <span className="ptl-attn-sub">{n.summary}</span>
+                      </span>
+                      {n.unit_key && <span className="ptl-attn-unit">{n.unit_key}</span>}
+                      <span className="ptl-attn-chevron" aria-hidden="true">›</span>
+                    </button>
+                  </li>
+                ))}
+                {/* The support signal links to Students and carries only the fact
+                    that a note exists, never its text. */}
+                {supportFlags.map(s => (
+                  <li key={s.id}>
+                    <button type="button" className="ptl-attn-row" onClick={() => onNavigate?.('students')}>
+                      <span className="ptl-attn-dot" aria-hidden="true" />
+                      <span className="ptl-attn-text">
+                        <span className="ptl-attn-label">{studentName(s)} raised a support note</span>
+                        <span className="ptl-attn-sub">in the last {s.support.window_days} days</span>
+                      </span>
+                      {s.unit_key && <span className="ptl-attn-unit">{s.unit_key}</span>}
+                      <span className="ptl-attn-chevron" aria-hidden="true">›</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* 2. Capacity and placement, with numbers that go somewhere */}
+          <section className="ptl-card" aria-labelledby="ul-cap">
+            <h3 id="ul-cap" className="ptl-card-title">Capacity and placement</h3>
+            {capacity.loading || placements.loading ? (
+              <LoadingState label="Loading capacity and placement" />
+            ) : (
+              <div className="ptl-stat-row">
+                <button type="button" className="ptl-stat" onClick={() => onNavigate?.('capacity')}>
+                  <span className="ptl-stat-num">{liveCapacity.length}</span>
+                  <span className="ptl-stat-label">live capacity submission{liveCapacity.length === 1 ? '' : 's'}</span>
                 </button>
-                <span className="ptl-muted"> {n.summary} ({orDash(n.unit_key)})</span>
-              </li>
-            ))}
-            {supportFlags.map(s => (
-              <li key={s.id}>
-                {studentName(s)} raised a support note in the last {s.support.window_days} days
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                <button type="button" className="ptl-stat" onClick={() => onNavigate?.('placements')}>
+                  <span className="ptl-stat-num">{openRequests.length}</span>
+                  <span className="ptl-stat-label">open placement request{openRequests.length === 1 ? '' : 's'}</span>
+                </button>
+              </div>
+            )}
+            <p className="ptl-muted">{ASPIRE_AUTHORITY_NOTE}</p>
+          </section>
 
-      {/* 2. Upcoming, 3. Active */}
-      <BucketCard title="Upcoming students" bucket="upcoming" byBucket={byBucket} onNavigate={onNavigate} />
-      <BucketCard title="Active rotations" bucket="active" byBucket={byBucket} onNavigate={onNavigate} />
+          {/* 3. Recent Messages: actual threads, not a promise */}
+          <section className="ptl-card" aria-labelledby="ul-msg">
+            <h3 id="ul-msg" className="ptl-card-title">Recent Messages</h3>
+            {recent.loading ? (
+              <LoadingState label="Loading recent messages" />
+            ) : threads.length === 0 ? (
+              <p className="ptl-muted">No messages yet. Conversations with the ASPIRE Team and your students appear here.</p>
+            ) : (
+              <ul className="ptl-list ptl-recent-list">
+                {threads.map(c => (
+                  <li key={c.id}>
+                    <button type="button" className="ptl-recent-row" onClick={() => onOpenThread?.(c.id)}>
+                      <span className="ptl-recent-text">
+                        <span className="ptl-recent-context">
+                          {c.direct_student_name ? ulDirectThreadLabel(c.direct_student_name) : UL_THREAD_ASPIRE_LABEL}
+                        </span>
+                        <span className="ptl-recent-subject">{c.subject}</span>
+                      </span>
+                      <span className="ptl-recent-meta">
+                        {Number(c.unread_count) > 0 && (
+                          <span className="ptl-nav-badge">{formatUnread(Number(c.unread_count))}</span>
+                        )}
+                        <time dateTime={c.last_message_at || undefined}>{formatInboxTimestamp(c.last_message_at)}</time>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button type="button" className="ptl-btn" onClick={() => onNavigate?.('messages')}>
+              Open Messages
+            </button>
+          </section>
+        </div>
 
-      {/* 4. Capacity and placement */}
-      <section className="ptl-card" aria-labelledby="ul-cap">
-        <h3 id="ul-cap" className="ptl-card-title">Capacity and placement</h3>
-        {capacity.loading || placements.loading ? (
-          <LoadingState label="Loading capacity and placement" />
-        ) : (
-          <ul className="ptl-list">
-            <li>{liveCapacity.length} live capacity submission{liveCapacity.length === 1 ? '' : 's'}</li>
-            <li>{openRequests.length} open placement request{openRequests.length === 1 ? '' : 's'}</li>
-          </ul>
-        )}
-        <p className="ptl-muted">{ASPIRE_AUTHORITY_NOTE}</p>
-      </section>
-
-      {/* 5. Recent Messages */}
-      <section className="ptl-card" aria-labelledby="ul-msg">
-        <h3 id="ul-msg" className="ptl-card-title">Recent ASPIRE Messages</h3>
-        <button type="button" className="ptl-btn" onClick={() => onNavigate?.('messages')}>
-          Open Messages
-        </button>
-      </section>
+        <div className="ptl-col-5 ptl-home-col">
+          {/* 4. Upcoming, 5. Active */}
+          <BucketCard title="Upcoming students" bucket="upcoming" byBucket={byBucket} onNavigate={onNavigate} />
+          <BucketCard title="Active rotations" bucket="active" byBucket={byBucket} onNavigate={onNavigate} />
+        </div>
+      </div>
     </>
   )
 }
@@ -271,6 +349,12 @@ function PlacementScreen({ unitKey }) {
     setNotice(null)
   }
 
+  // UL-POLISH P1: after a response is recorded, the row shows one status chip
+  // and a single Change response affordance; the three options return only
+  // while changing. ASPIRE's authority and the append-only history are server
+  // facts this state never touches.
+  const [changingFor, setChangingFor] = useState(null)
+
   const sendChangeRequest = async (id) => {
     if (!comment.trim()) {
       setNotice({ tone: 'error', text: 'A comment is required when requesting changes.' })
@@ -301,8 +385,12 @@ function PlacementScreen({ unitKey }) {
               {rows.map(r => (
                 <PlacementRow key={r.id} r={r} busy={busy}
                   editorOpen={editorFor === r.id}
+                  changing={changingFor === r.id}
+                  onStartChanging={() => setChangingFor(r.id)}
+                  onStopChanging={() => setChangingFor(null)}
                   comment={comment} onComment={setComment}
-                  onAct={act} onOpenEditor={openEditor}
+                  onAct={async (...args) => { const ok = await act(...args); if (ok) setChangingFor(null); return ok }}
+                  onOpenEditor={openEditor}
                   onCancelEditor={() => { setEditorFor(null); setComment('') }}
                   onSendChangeRequest={sendChangeRequest}
                 />
@@ -315,21 +403,37 @@ function PlacementScreen({ unitKey }) {
   )
 }
 
-function PlacementRow({ r, busy, editorOpen, comment, onComment, onAct, onOpenEditor, onCancelEditor, onSendChangeRequest }) {
+function PlacementRow({ r, busy, editorOpen, changing, onStartChanging, onStopChanging, comment, onComment, onAct, onOpenEditor, onCancelEditor, onSendChangeRequest }) {
+  const isOpen = r.aspire_status === 'open'
+  const hasResponded = r.unit_response !== 'pending'
+  // Overdue carries a warning tone only while ASPIRE still awaits a response.
+  const overdue = isOpen && r.due_at && new Date(r.due_at).getTime() < Date.now()
+  const showOptions = isOpen && (!hasResponded || changing)
   return (
     <>
       <tr>
         <td data-label="Unit">{orDash(r.unit_key)}</td>
-        <td data-label="Your response"><Pill tone={r.unit_response === 'pending' ? 'warn' : 'neutral'}>{r.unit_response.replace(/_/g, ' ')}</Pill></td>
-        <td data-label="ASPIRE status"><Pill tone={r.awaiting_aspire_confirmation ? 'warn' : 'ok'}>{r.awaiting_aspire_confirmation ? 'Awaiting ASPIRE' : r.aspire_status}</Pill></td>
-        <td data-label="Due">{orDash(r.due_at ? new Date(r.due_at).toLocaleDateString() : null)}</td>
+        <td data-label="Your response"><Pill tone={r.unit_response === 'pending' ? 'warn' : 'neutral'}>{sentenceCase(r.unit_response)}</Pill></td>
+        <td data-label="ASPIRE status"><Pill tone={r.awaiting_aspire_confirmation ? 'warn' : 'ok'}>{r.awaiting_aspire_confirmation ? 'Awaiting ASPIRE' : sentenceCase(r.aspire_status)}</Pill></td>
+        <td data-label="Due">
+          {r.due_at
+            ? <span className={overdue ? 'ptl-due-overdue' : undefined}>
+                {new Date(r.due_at).toLocaleDateString()}{overdue ? ' · overdue' : ''}
+              </span>
+            : EMPTY}
+        </td>
         <td data-label="Actions">
-          {r.aspire_status === 'open' ? (
+          {showOptions ? (
             <div className="ptl-actions">
               <button type="button" className="ptl-btn" disabled={busy === r.id} onClick={() => onAct(r.id, 'accepted')}>Accept</button>
               <button type="button" className="ptl-btn" disabled={busy === r.id} onClick={() => onAct(r.id, 'declined')}>Decline</button>
               <button type="button" className="ptl-btn" aria-expanded={editorOpen} disabled={busy === r.id} onClick={() => (editorOpen ? onCancelEditor() : onOpenEditor(r.id))}>Request changes</button>
+              {hasResponded && (
+                <button type="button" className="ptl-btn-outline ptl-btn-sm" disabled={busy === r.id} onClick={() => { onStopChanging(); onCancelEditor() }}>Keep current</button>
+              )}
             </div>
+          ) : isOpen && hasResponded ? (
+            <button type="button" className="ptl-linklike" onClick={onStartChanging}>Change response</button>
           ) : <span className="ptl-muted">{EMPTY}</span>}
         </td>
       </tr>
@@ -384,8 +488,9 @@ function CapacityScreen({ unitKey, unitKeys, acceptingCohort }) {
       notes: form.notes,
     })
     setSaving(false)
+    const summaryUnit = form.unit_key || (unitKey !== ALL_UNITS ? unitKey : unitKeys[0])
     setNotice(res.ok
-      ? { tone: 'ok', text: 'Capacity submitted. ASPIRE reviews it before it takes effect.' }
+      ? { tone: 'ok', text: `Capacity recorded for ${summaryUnit}: ${form.period_label}, ${form.shift} shift, ${Number(form.student_count)} student${Number(form.student_count) === 1 ? '' : 's'}. ASPIRE reviews it before it takes effect.` }
       : { tone: 'error', text: res.error === 'conflict' ? 'A live submission already exists for that period and shift.' : 'That submission could not be saved.' })
     if (res.ok) { refresh(); setForm(f => ({ ...f, period_label: '', student_count: 0, notes: '' })) }
   }
@@ -398,39 +503,50 @@ function CapacityScreen({ unitKey, unitKeys, acceptingCohort }) {
       <SectionHeading focusKey="capacity">Capacity</SectionHeading>
       {notice && <p className={`ptl-notice ptl-notice-${notice.tone}`} role="status">{notice.text}</p>}
 
-      <form className="ptl-card" onSubmit={save}>
+      <form className="ptl-card ptl-unit-form" onSubmit={save}>
         <h3 className="ptl-card-title">Submit capacity</h3>
         <p className="ptl-muted">
           Cohort: {acceptingCohort?.name ? acceptingCohort.name : EMPTY}
         </p>
-        <label className="ptl-label" htmlFor="cap-unit">Unit</label>
-        <select id="cap-unit" className="ptl-input" value={form.unit_key || (unitKey !== ALL_UNITS ? unitKey : unitKeys[0])}
-          onChange={e => setForm(f => ({ ...f, unit_key: e.target.value }))}>
-          {unitKeys.map(k => <option key={k} value={k}>{k}</option>)}
-        </select>
-
-        <label className="ptl-label" htmlFor="cap-period">Rotation period</label>
-        <input id="cap-period" className="ptl-input" required maxLength={120} value={form.period_label}
-          onChange={e => setForm(f => ({ ...f, period_label: e.target.value }))} />
-
-        <label className="ptl-label" htmlFor="cap-shift">Shift</label>
-        <select id="cap-shift" className="ptl-input" value={form.shift}
-          onChange={e => setForm(f => ({ ...f, shift: e.target.value }))}>
-          {['any', 'day', 'evening', 'night', 'weekend'].map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-
-        <label className="ptl-label" htmlFor="cap-count">Number of students</label>
-        <input id="cap-count" className="ptl-input" type="number" min={0} max={99} required value={form.student_count}
-          onChange={e => setForm(f => ({ ...f, student_count: e.target.value }))} />
-
-        <label className="ptl-label" htmlFor="cap-notes">Notes</label>
-        <textarea id="cap-notes" className="ptl-input" maxLength={2000} value={form.notes}
-          onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
-
-        <p className="ptl-muted">{ASPIRE_AUTHORITY_NOTE}</p>
-        <button type="submit" className="ptl-btn" disabled={saving || !cohortId}>
-          {saving ? 'Submitting' : 'Submit capacity'}
-        </button>
+        <div className="ptl-form-grid">
+          <div className="ptl-field">
+            <label className="ptl-label" htmlFor="cap-unit">Unit</label>
+            <select id="cap-unit" className="ptl-input ptl-input-full" value={form.unit_key || (unitKey !== ALL_UNITS ? unitKey : unitKeys[0])}
+              onChange={e => setForm(f => ({ ...f, unit_key: e.target.value }))}>
+              {unitKeys.map(k => <option key={k} value={k}>{k}</option>)}
+            </select>
+          </div>
+          <div className="ptl-field">
+            <label className="ptl-label" htmlFor="cap-shift">Shift</label>
+            <select id="cap-shift" className="ptl-input ptl-input-full" value={form.shift}
+              onChange={e => setForm(f => ({ ...f, shift: e.target.value }))}>
+              {['any', 'day', 'evening', 'night', 'weekend'].map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="ptl-field">
+            <label className="ptl-label" htmlFor="cap-period">Rotation period</label>
+            <input id="cap-period" className="ptl-input ptl-input-full" required maxLength={120} value={form.period_label}
+              onChange={e => setForm(f => ({ ...f, period_label: e.target.value }))} />
+            <p className="ptl-field-help">For example, Fall 2026 first half.</p>
+          </div>
+          <div className="ptl-field">
+            <label className="ptl-label" htmlFor="cap-count">Number of students</label>
+            <input id="cap-count" className="ptl-input ptl-input-full" type="number" min={0} max={99} required value={form.student_count}
+              onChange={e => setForm(f => ({ ...f, student_count: e.target.value }))} />
+            <p className="ptl-field-help">How many students this unit can host for the period and shift.</p>
+          </div>
+          <div className="ptl-field ptl-field-wide">
+            <label className="ptl-label" htmlFor="cap-notes">Notes</label>
+            <textarea id="cap-notes" className="ptl-input ptl-input-full" maxLength={2000} value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+          </div>
+        </div>
+        <div className="ptl-form-submit">
+          <p className="ptl-muted">{ASPIRE_AUTHORITY_NOTE}</p>
+          <button type="submit" className="ptl-btn" disabled={saving || !cohortId}>
+            {saving ? 'Submitting' : 'Submit capacity'}
+          </button>
+        </div>
       </form>
 
       {rows.length === 0 ? (
@@ -449,7 +565,7 @@ function CapacityScreen({ unitKey, unitKeys, acceptingCohort }) {
                   <td data-label="Period">{orDash(c.period_label)}</td>
                   <td data-label="Shift">{orDash(c.shift)}</td>
                   <td data-label="Students">{c.student_count}</td>
-                  <td data-label="ASPIRE review"><Pill tone={c.awaiting_aspire_review ? 'warn' : 'ok'}>{c.awaiting_aspire_review ? 'Awaiting ASPIRE' : c.review_status}</Pill></td>
+                  <td data-label="ASPIRE review"><Pill tone={c.awaiting_aspire_review ? 'warn' : 'ok'}>{c.awaiting_aspire_review ? 'Awaiting ASPIRE' : sentenceCase(c.review_status)}</Pill></td>
                   <td data-label="State">{c.is_live ? 'Live' : 'Superseded'}</td>
                 </tr>
               ))}
@@ -462,6 +578,30 @@ function CapacityScreen({ unitKey, unitKeys, acceptingCohort }) {
 }
 
 // ── Students ────────────────────────────────────────────────────────────────
+
+/** Initials for the roster avatar; presentation only, from the display name. */
+function studentInitials(s) {
+  const name = studentName(s)
+  if (name === EMPTY) return '?'
+  return name.split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
+}
+
+/** UL-POLISH P1: hours as a mini progress bar plus the exact numbers. */
+function HoursCell({ hours }) {
+  if (!hours || hours.required == null) return EMPTY
+  const approved = hours.approved ?? 0
+  const pct = hours.required > 0 ? Math.min(100, Math.round((approved / hours.required) * 100)) : 0
+  return (
+    <span className="ptl-hours-cell">
+      <span className="ptl-mini-progress" role="img"
+        aria-label={`${approved} of ${hours.required} required hours approved`}>
+        <i style={{ width: `${pct}%` }} />
+      </span>
+      <span className="ptl-hours-text">{approved} of {hours.required}</span>
+    </span>
+  )
+}
+
 function StudentsScreen({ students, refreshRoster, onNavigate, onOpenThread }) {
   const [filter, setFilter] = useState('all')
   const [notice, setNotice] = useState(null)
@@ -545,7 +685,7 @@ function StudentsScreen({ students, refreshRoster, onNavigate, onOpenThread }) {
             <caption className="ptl-visually-hidden">Students in your assigned units</caption>
             <thead>
               <tr>
-                <th scope="col">Student</th><th scope="col">Unit</th><th scope="col">School</th>
+                <th scope="col">Student</th><th scope="col">Unit</th>
                 <th scope="col">Stage</th><th scope="col">Preceptor</th><th scope="col">Hours</th>
                 <th scope="col">Onboarding</th><th scope="col">Actions</th>
               </tr>
@@ -553,18 +693,37 @@ function StudentsScreen({ students, refreshRoster, onNavigate, onOpenThread }) {
             <tbody>
               {rows.map(s => (
                 <tr key={s.id}>
-                  <td data-label="Student">{studentName(s)}</td>
+                  {/* UL-POLISH P1: the student cell is the row's identity: an
+                      initials avatar, the name as the safe primary link into the
+                      drawer, and the school stacked beneath. Never a whole-row
+                      click, which would nest interactive controls. */}
+                  <td data-label="Student">
+                    <span className="ptl-stu-cell">
+                      <span className="ptl-stu-avatar" aria-hidden="true">{studentInitials(s)}</span>
+                      <span className="ptl-stu-id">
+                        <button type="button" className="ptl-linklike ptl-stu-name"
+                          aria-label={`View details for ${studentName(s)}`}
+                          onClick={(e) => openDetail(s, e.currentTarget)}>
+                          {studentName(s)}
+                        </button>
+                        <span className="ptl-stu-school">{orDash(s.school)}</span>
+                      </span>
+                    </span>
+                  </td>
                   <td data-label="Unit">{orDash(s.unit_key)}</td>
-                  <td data-label="School">{orDash(s.school)}</td>
                   <td data-label="Stage"><Pill>{BUCKET_LABEL[s.bucket] || EMPTY}</Pill></td>
                   <td data-label="Preceptor">{orDash(s.preceptor_name)}</td>
-                  <td data-label="Hours">{s.hours ? `${s.hours.approved ?? 0}/${orDash(s.hours.required)}` : EMPTY}</td>
+                  <td data-label="Hours"><HoursCell hours={s.hours} /></td>
                   <td data-label="Onboarding">
                     <Pill tone={s.onboarding?.state === 'ready' ? 'ok' : 'warn'}>
                       {ONBOARDING_LABEL[s.onboarding?.state] || EMPTY}
                     </Pill>
                     {s.onboarding?.outstanding?.length > 0 && (
-                      <span className="ptl-muted"> {s.onboarding.outstanding.map(k => OUTSTANDING_LABEL[k] || k).join(', ')}</span>
+                      <span className="ptl-ochips">
+                        {s.onboarding.outstanding.map(k => (
+                          <span key={k} className="ptl-ochip">{OUTSTANDING_LABEL[k] || k}</span>
+                        ))}
+                      </span>
                     )}
                   </td>
                   <td data-label="Actions">
@@ -674,8 +833,9 @@ function PreceptorScreen({ unitKey, students }) {
       proposedName: form.proposed_name,
       note: form.note,
     })
+    const nominee = students.find(s => s.id === form.student_id)
     setNotice(res.ok
-      ? { tone: 'ok', text: 'Nomination recorded. ASPIRE confirms the preceptor.' }
+      ? { tone: 'ok', text: `Nomination recorded: ${form.proposed_name} for ${studentName(nominee)}. ASPIRE confirms the preceptor.` }
       : { tone: 'error', text: res.error === 'conflict' ? 'A nomination is already open for that student.' : 'That nomination could not be saved.' })
     if (res.ok) { refresh(); setForm({ student_id: '', proposed_name: '', note: '' }) }
   }
@@ -690,24 +850,32 @@ function PreceptorScreen({ unitKey, students }) {
       {notice && <p className={`ptl-notice ptl-notice-${notice.tone}`} role="status">{notice.text}</p>}
       <p className="ptl-muted">{ASPIRE_AUTHORITY_NOTE}</p>
 
-      <form className="ptl-card" onSubmit={nominate}>
+      <form className="ptl-card ptl-unit-form" onSubmit={nominate}>
         <h3 className="ptl-card-title">Nominate a preceptor</h3>
-        <label className="ptl-label" htmlFor="nom-student">Student</label>
-        <select id="nom-student" className="ptl-input" required value={form.student_id}
-          onChange={e => setForm(f => ({ ...f, student_id: e.target.value }))}>
-          <option value="">Select a student</option>
-          {students.map(s => <option key={s.id} value={s.id}>{studentName(s)}</option>)}
-        </select>
-
-        <label className="ptl-label" htmlFor="nom-name">Proposed preceptor</label>
-        <input id="nom-name" className="ptl-input" required minLength={2} maxLength={120}
-          value={form.proposed_name} onChange={e => setForm(f => ({ ...f, proposed_name: e.target.value }))} />
-
-        <label className="ptl-label" htmlFor="nom-note">Note</label>
-        <textarea id="nom-note" className="ptl-input" maxLength={2000} value={form.note}
-          onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
-
-        <button type="submit" className="ptl-btn">Nominate</button>
+        <div className="ptl-form-grid">
+          <div className="ptl-field">
+            <label className="ptl-label" htmlFor="nom-student">Student</label>
+            <select id="nom-student" className="ptl-input ptl-input-full" required value={form.student_id}
+              onChange={e => setForm(f => ({ ...f, student_id: e.target.value }))}>
+              <option value="">Select a student</option>
+              {students.map(s => <option key={s.id} value={s.id}>{studentName(s)}</option>)}
+            </select>
+          </div>
+          <div className="ptl-field">
+            <label className="ptl-label" htmlFor="nom-name">Proposed preceptor</label>
+            <input id="nom-name" className="ptl-input ptl-input-full" required minLength={2} maxLength={120}
+              value={form.proposed_name} onChange={e => setForm(f => ({ ...f, proposed_name: e.target.value }))} />
+            <p className="ptl-field-help">The nurse you propose to precept this student.</p>
+          </div>
+          <div className="ptl-field ptl-field-wide">
+            <label className="ptl-label" htmlFor="nom-note">Note</label>
+            <textarea id="nom-note" className="ptl-input ptl-input-full" maxLength={2000} value={form.note}
+              onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
+          </div>
+        </div>
+        <div className="ptl-form-submit">
+          <button type="submit" className="ptl-btn">Nominate</button>
+        </div>
       </form>
 
       {rows.length === 0 ? (
@@ -725,7 +893,7 @@ function PreceptorScreen({ unitKey, students }) {
                   <td data-label="Unit">{orDash(n.unit_key)}</td>
                   <td data-label="Preceptor">{orDash(n.preceptor_name)}</td>
                   <td data-label="Status"><Pill tone={n.awaiting_aspire_confirmation ? 'warn' : 'ok'}>
-                    {n.awaiting_aspire_confirmation ? 'Awaiting ASPIRE' : n.status}
+                    {n.awaiting_aspire_confirmation ? 'Awaiting ASPIRE' : sentenceCase(n.status)}
                   </Pill></td>
                 </tr>
               ))}
@@ -795,25 +963,33 @@ function ConcernScreen({ students }) {
         This opens a conversation with the ASPIRE Team. The student is not part of it.
       </p>
 
-      <form className="ptl-card" onSubmit={send}>
-        <label className="ptl-label" htmlFor="con-student">Student</label>
-        <select id="con-student" className="ptl-input" required value={studentId}
-          onChange={e => pick(e.target.value)}>
-          <option value="">Select a student</option>
-          {students.map(s => <option key={s.id} value={s.id}>{studentName(s)} ({s.unit_key})</option>)}
-        </select>
-
-        <label className="ptl-label" htmlFor="con-subject">Subject</label>
-        <input id="con-subject" className="ptl-input" required minLength={3} maxLength={120}
-          value={subject} onChange={e => setSubject(e.target.value)} />
-
-        <label className="ptl-label" htmlFor="con-body">Message</label>
-        <textarea id="con-body" className="ptl-input" required minLength={1} maxLength={5000} rows={8}
-          value={body} onChange={e => setBody(e.target.value)} />
-
-        <button type="submit" className="ptl-btn" disabled={sending || !student}>
-          {sending ? 'Sending' : 'Send to ASPIRE'}
-        </button>
+      <form className="ptl-card ptl-unit-form" onSubmit={send}>
+        <div className="ptl-form-grid">
+          <div className="ptl-field">
+            <label className="ptl-label" htmlFor="con-student">Student</label>
+            <select id="con-student" className="ptl-input ptl-input-full" required value={studentId}
+              onChange={e => pick(e.target.value)}>
+              <option value="">Select a student</option>
+              {students.map(s => <option key={s.id} value={s.id}>{studentName(s)} ({s.unit_key})</option>)}
+            </select>
+            <p className="ptl-field-help">Choosing a student prefills the draft; everything stays editable.</p>
+          </div>
+          <div className="ptl-field">
+            <label className="ptl-label" htmlFor="con-subject">Subject</label>
+            <input id="con-subject" className="ptl-input ptl-input-full" required minLength={3} maxLength={120}
+              value={subject} onChange={e => setSubject(e.target.value)} />
+          </div>
+          <div className="ptl-field ptl-field-wide">
+            <label className="ptl-label" htmlFor="con-body">Message</label>
+            <textarea id="con-body" className="ptl-input ptl-input-full" required minLength={1} maxLength={5000} rows={8}
+              value={body} onChange={e => setBody(e.target.value)} />
+          </div>
+        </div>
+        <div className="ptl-form-submit">
+          <button type="submit" className="ptl-btn" disabled={sending || !student}>
+            {sending ? 'Sending' : 'Send to ASPIRE'}
+          </button>
+        </div>
       </form>
     </>
   )
