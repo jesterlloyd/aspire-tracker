@@ -28,6 +28,7 @@ export const UL_STUDENT_COLUMNS = [
   'first_name', 'preferred_first_name', 'last_name',
   'school', 'status',
   'term_dates', 'rotation_end_date', 'rotation_completed_at',
+  'cohort_school_rotation_id', 'shift_availability',
   'hours_required', 'approved_hours', 'pending_hours',
   'preceptor_name', 'preceptor_id',
   'school_email', 'personal_email', 'phone',

@@ -14,8 +14,9 @@
 // answers, certificates, uploaded onboarding documents, internal staff notes, and
 // private support narratives are never requested by any call in this file.
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
+import StudentDetailDrawer from './unit/StudentDetailDrawer'
 import { useAuth } from '../contexts/AuthContext'
 import {
   UnitLeaderNav, UnitSwitcher, LoadingState, EmptyState, ErrorState, DeniedState,
@@ -407,6 +408,15 @@ function StudentsScreen({ students, refreshRoster, onNavigate, onOpenThread }) {
   const [notice, setNotice] = useState(null)
   const [busy, setBusy] = useState(null)          // duplicate-click protection
   const [openActions, setOpenActions] = useState(null)
+  const [detailStudent, setDetailStudent] = useState(null)
+  // The exact button that opened the drawer, so focus returns to the right ROW and
+  // not merely to the top of the table.
+  const detailTriggerRef = useRef(null)
+
+  const openDetail = (student, triggerEl) => {
+    detailTriggerRef.current = triggerEl || null
+    setDetailStudent(student)
+  }
 
   const rows = filter === 'all' ? students : students.filter(s => s.bucket === filter)
 
@@ -506,6 +516,7 @@ function StudentsScreen({ students, refreshRoster, onNavigate, onOpenThread }) {
                       onToggle={() => setOpenActions(openActions === s.id ? null : s.id)}
                       onConfirm={confirm}
                       onMessage={messageStudent}
+                      onViewDetails={openDetail}
                     />
                   </td>
                 </tr>
@@ -513,6 +524,14 @@ function StudentsScreen({ students, refreshRoster, onNavigate, onOpenThread }) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {detailStudent && (
+        <StudentDetailDrawer
+          student={detailStudent}
+          returnFocusRef={detailTriggerRef}
+          onClose={() => setDetailStudent(null)}
+        />
       )}
     </>
   )
@@ -527,10 +546,24 @@ function StudentsScreen({ students, refreshRoster, onNavigate, onOpenThread }) {
  * normal tab order, and the toggle reports its expanded state, so keyboard and
  * screen-reader users get the same affordance as pointer users.
  */
-function StudentActions({ student, busy, open, onToggle, onConfirm, onMessage }) {
+function StudentActions({ student, busy, open, onToggle, onConfirm, onMessage, onViewDetails }) {
   const label = `Actions for ${studentName(student)}`
   return (
     <div className="ptl-rowactions">
+      {/* Deliberately OUTSIDE the disclosure. Viewing a student is the most common
+          thing a Unit Leader does here, so it stays one click and one tab stop
+          rather than sitting behind a toggle with the write actions. The accessible
+          name carries the student, because "View details" repeated down a column
+          tells a screen-reader user nothing about which row they are on. */}
+      <button
+        type="button"
+        className="ptl-btn ptl-btn-small"
+        aria-label={`View details for ${studentName(student)}`}
+        onClick={(e) => onViewDetails(student, e.currentTarget)}
+      >
+        View details
+      </button>
+
       <button
         type="button"
         className="ptl-btn ptl-btn-small"

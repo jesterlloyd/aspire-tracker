@@ -66,6 +66,57 @@ already applied and verified (they are).
 - [ ] Revoke the unit scope. The Unit Leader can still READ the direct thread but
       cannot send, and cannot start a new one.
 
+### Student detail drawer
+
+Open Students, then use `View details` on a row. Static tests cover the shape of
+this screen; only a browser can prove it renders, so run every check below.
+
+Contents:
+- [ ] The drawer shows exactly: name, school, cohort, matched unit, rotation dates,
+      shift, hours, attendance, preceptor, work or school email, personal email,
+      phone, photo, resume, and milestone history. Nothing else.
+- [ ] Every field with no value shows `-`, not a blank, `null`, or `N/A`.
+- [ ] Rotation dates are real dates. If you ever see `1900`, stop: the pending-review
+      sentinel has leaked and that is a defect.
+- [ ] Nothing anywhere in the drawer shows an interview rubric or score, a readiness
+      survey answer, a certificate, an uploaded onboarding document, an internal
+      staff note, or the text of a support-needed note. A support COUNT is fine.
+
+Files, with the network tab open:
+- [ ] The photo loads, and its request goes to `/api/portal/unit-student-file-access`.
+- [ ] `Open resume` opens the file in a new tab.
+- [ ] No response anywhere contains a `student-files` path or a public storage URL.
+      The detail response must carry `has_photo` and `has_resume` booleans only.
+
+Expired links, the check most likely to be skipped and most likely to break:
+- [ ] Open the drawer, wait more than 5 minutes with it open, then reload the photo.
+      It recovers on its own, or offers `Reload photo`, and that control works.
+- [ ] Open the drawer, wait more than 5 minutes, then click `Open resume`. It opens.
+      The resume link is minted at click time, so this must never fail on age.
+
+Keyboard, with no mouse:
+- [ ] Tab to `View details` and press Enter. The drawer opens and focus lands on the
+      close control.
+- [ ] Tab forward past the last control. Focus cycles to the first, never escaping to
+      the page behind the drawer. Shift+Tab from the first cycles to the last.
+- [ ] Every focused control shows a visible focus ring.
+- [ ] Press Escape. The drawer closes and focus returns to the SAME row's
+      `View details` button, not to the top of the table.
+- [ ] Open a second student's drawer and close it. Focus returns to that row.
+
+Mobile, at 375px wide:
+- [ ] The drawer is full width and the detail fields stack in one column.
+- [ ] The body scrolls, and no content is cut off at the bottom of the screen.
+
+States:
+- [ ] Loading appears while the record is fetched.
+- [ ] A student with no confirmed milestones shows the empty state, not a blank area.
+- [ ] Denied: open a drawer, have an Owner revoke the unit scope, then open another
+      student. It reads "Details not available" and explains why, and does NOT read
+      "No unit access yet" or present a retry.
+- [ ] Error: block `/api/portal/unit-student-detail` in devtools and open a drawer.
+      It shows an error state, not a blank drawer and not a crash.
+
 ### Files
 - [ ] Photo and resume open for a scoped student, and the URL is short-lived.
 - [ ] No public storage URL appears anywhere in the network tab.

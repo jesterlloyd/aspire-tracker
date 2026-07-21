@@ -115,6 +115,16 @@ export const setNotificationPreference = (alertType, emailEnabled) =>
     body: { alert_type: alertType, email_enabled: emailEnabled },
   })
 
+/**
+ * The approved detail record for ONE scoped student.
+ *
+ * The student id is an IDENTIFIER, not authority: the server re-derives the unit
+ * from the student's own placement and answers 404 for anything out of scope, so
+ * calling this with an arbitrary id cannot widen what the caller may see.
+ */
+export const getStudentDetail = (studentId, signal) =>
+  apiFetch(`/api/portal/unit-student-detail?student_id=${encodeURIComponent(studentId)}`, { signal })
+
 /** A short-lived signed URL for one scoped student file. Never persisted. */
 export const getStudentFileUrl = (studentId, kind) =>
   apiFetch('/api/portal/unit-student-file-access', {
