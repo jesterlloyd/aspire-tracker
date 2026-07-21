@@ -879,3 +879,21 @@
   outline: 2px solid var(--ptl-accent, #1D2567);
   outline-offset: 2px;
 }
+
+/* Row actions: a disclosure rather than a row of cramped buttons, so a phone
+   never has to fit five controls side by side. */
+.ptl-rowactions { display: grid; gap: 6px; justify-items: start; }
+.ptl-rowactions-menu {
+  display: grid; gap: 6px; width: 100%;
+  padding: 8px; border-radius: 8px;
+  border: 1px solid rgba(29, 37, 103, 0.12);
+}
+.ptl-rowactions-item { width: 100%; text-align: left; }
+
+.ptl-preflist { display: grid; gap: 8px; }
+.ptl-checkline { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+/* A comfortable touch target on a phone without changing the desktop rhythm. */
+@media (max-width: 760px) {
+  .ptl-rowactions-item { padding: 10px 12px; }
+  .ptl-checkline { padding: 6px 0; }
+}

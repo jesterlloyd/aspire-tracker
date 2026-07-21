@@ -106,6 +106,15 @@ export const startUnitConversation = ({ destination, studentId, subject, categor
     body: { destination, student_id: studentId, subject, category, body },
   })
 
+export const getNotifications = (unitKey, signal) =>
+  apiFetch(`/api/portal/unit-notifications${unitQuery(unitKey)}`, { signal })
+
+export const setNotificationPreference = (alertType, emailEnabled) =>
+  apiFetch('/api/portal/unit-notifications', {
+    method: 'POST',
+    body: { alert_type: alertType, email_enabled: emailEnabled },
+  })
+
 /** A short-lived signed URL for one scoped student file. Never persisted. */
 export const getStudentFileUrl = (studentId, kind) =>
   apiFetch('/api/portal/unit-student-file-access', {

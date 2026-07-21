@@ -27,6 +27,7 @@ import {
   getRoster, getPlacementRequests, respondToPlacement,
   getCapacity, submitCapacity, getNominations, nominatePreceptor,
   confirmMilestone, startUnitConversation,
+  getNotifications, setNotificationPreference,
 } from './unit/unitLeaderApi'
 
 const MILESTONES = [
@@ -73,6 +74,10 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
 
   const roster = useEndpoint(getRoster, [])
   const units = useMemo(() => roster.data?.units || [], [roster.data])
+  // The server resolves the accepting cohort, so a unit with NO prior capacity
+  // submission can still submit. Inferring it from existing rows would have made
+  // the very first submission for a unit impossible.
+  const acceptingCohort = roster.data?.accepting_cohort || null
   const unitKeys = useMemo(() => units.map(u => u.unit_key), [units])
 
   // Students across the current view, flattened with their unit.
@@ -96,7 +101,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
   // No assigned unit is a permission state, not an empty one.
   if (unitKeys.length === 0) return <DeniedState />
 
-  const shared = { unitKey, unitKeys, students, byBucket, refreshRoster: roster.refresh }
+  const shared = { unitKey, unitKeys, students, byBucket, acceptingCohort, refreshRoster: roster.refresh }
 
   return (
     <>
@@ -107,7 +112,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
         {view === 'home'       && <HomeScreen {...shared} onNavigate={onNavigate} />}
         {view === 'placements' && <PlacementScreen {...shared} />}
         {view === 'capacity'   && <CapacityScreen {...shared} />}
-        {view === 'students'   && <StudentsScreen {...shared} />}
+        {view === 'students'   && <StudentsScreen {...shared} onNavigate={onNavigate} onOpenThread={onSelectThread} />}
         {view === 'preceptors' && <PreceptorScreen {...shared} />}
         {view === 'concern'    && <ConcernScreen {...shared} />}
         {view === 'profile'    && <ProfileScreen unitKeys={unitKeys} profile={userProfile} />}
@@ -128,10 +133,15 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
 function HomeScreen({ unitKey, students, byBucket, onNavigate }) {
   const placements = useEndpoint(s => getPlacementRequests(unitKey, s), [unitKey])
   const capacity = useEndpoint(s => getCapacity(unitKey, s), [unitKey])
+  // The in-app feed is DERIVED server side from the caller's own authorized rows,
+  // so Home and the feed can never disagree.
+  const alerts = useEndpoint(s => getNotifications(unitKey, s), [unitKey])
 
+  // Awaiting-response requests are surfaced by the derived feed, so they are not
+  // recomputed here. openRequests is still needed for the capacity summary count.
   const openRequests = (placements.data?.requests || []).filter(r => r.aspire_status === 'open')
-  const awaitingResponse = openRequests.filter(r => r.unit_response === 'pending')
-  const needsAttention = students.filter(s => s.support?.open_count > 0)
+  const supportFlags = students.filter(s => s.support?.open_count > 0)
+  const notifications = alerts.data?.notifications || []
   const liveCapacity = (capacity.data?.submissions || []).filter(c => c.is_live)
 
   return (
@@ -141,19 +151,21 @@ function HomeScreen({ unitKey, students, byBucket, onNavigate }) {
       {/* 1. Needs your attention */}
       <section className="ptl-card" aria-labelledby="ul-attention">
         <h3 id="ul-attention" className="ptl-card-title">Needs your attention</h3>
-        {needsAttention.length === 0 && awaitingResponse.length === 0 ? (
+        {alerts.loading ? (
+          <LoadingState label="Loading your notifications" />
+        ) : notifications.length === 0 && supportFlags.length === 0 ? (
           <p className="ptl-muted">Nothing needs your attention right now.</p>
         ) : (
           <ul className="ptl-list">
-            {awaitingResponse.length > 0 && (
-              <li>
-                <button type="button" className="ptl-linklike" onClick={() => onNavigate?.('placements')}>
-                  {awaitingResponse.length} placement request
-                  {awaitingResponse.length === 1 ? '' : 's'} awaiting your response
+            {notifications.map(n => (
+              <li key={n.id}>
+                <button type="button" className="ptl-linklike" onClick={() => onNavigate?.(n.section)}>
+                  {n.label}
                 </button>
+                <span className="ptl-muted"> {n.summary} ({orDash(n.unit_key)})</span>
               </li>
-            )}
-            {needsAttention.map(s => (
+            ))}
+            {supportFlags.map(s => (
               <li key={s.id}>
                 {studentName(s)} raised a support note in the last {s.support.window_days} days
               </li>
@@ -284,19 +296,22 @@ function PlacementScreen({ unitKey }) {
 }
 
 // ── Capacity ────────────────────────────────────────────────────────────────
-function CapacityScreen({ unitKey, unitKeys }) {
+function CapacityScreen({ unitKey, unitKeys, acceptingCohort }) {
   const { loading, error, data, refresh } = useEndpoint(s => getCapacity(unitKey, s), [unitKey])
   const [form, setForm] = useState({ unit_key: '', period_label: '', shift: 'any', student_count: 0, notes: '' })
   const [notice, setNotice] = useState(null)
   const [saving, setSaving] = useState(false)
 
   const rows = data?.submissions || []
-  const cohortId = rows[0]?.cohort_id || null
+  // Server-resolved, so the FIRST submission for a unit works. Falling back to an
+  // existing row only helps a unit that has already submitted, which is exactly the
+  // case that did not need help.
+  const cohortId = acceptingCohort?.id || null
 
   const save = async (e) => {
     e.preventDefault()
     if (!cohortId) {
-      setNotice({ tone: 'error', text: 'A cohort is not available yet, so capacity cannot be submitted.' })
+      setNotice({ tone: 'error', text: 'ASPIRE has not opened a cohort for submissions yet. Capacity can be submitted once one is open.' })
       return
     }
     setSaving(true)
@@ -325,6 +340,9 @@ function CapacityScreen({ unitKey, unitKeys }) {
 
       <form className="ptl-card" onSubmit={save}>
         <h3 className="ptl-card-title">Submit capacity</h3>
+        <p className="ptl-muted">
+          Cohort: {acceptingCohort?.name ? acceptingCohort.name : EMPTY}
+        </p>
         <label className="ptl-label" htmlFor="cap-unit">Unit</label>
         <select id="cap-unit" className="ptl-input" value={form.unit_key || (unitKey !== ALL_UNITS ? unitKey : unitKeys[0])}
           onChange={e => setForm(f => ({ ...f, unit_key: e.target.value }))}>
@@ -350,7 +368,9 @@ function CapacityScreen({ unitKey, unitKeys }) {
           onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
 
         <p className="ptl-muted">{ASPIRE_AUTHORITY_NOTE}</p>
-        <button type="submit" className="ptl-btn" disabled={saving}>{saving ? 'Submitting' : 'Submit capacity'}</button>
+        <button type="submit" className="ptl-btn" disabled={saving || !cohortId}>
+          {saving ? 'Submitting' : 'Submit capacity'}
+        </button>
       </form>
 
       {rows.length === 0 ? (
@@ -382,18 +402,53 @@ function CapacityScreen({ unitKey, unitKeys }) {
 }
 
 // ── Students ────────────────────────────────────────────────────────────────
-function StudentsScreen({ students, refreshRoster }) {
+function StudentsScreen({ students, refreshRoster, onNavigate, onOpenThread }) {
   const [filter, setFilter] = useState('all')
   const [notice, setNotice] = useState(null)
+  const [busy, setBusy] = useState(null)          // duplicate-click protection
+  const [openActions, setOpenActions] = useState(null)
 
   const rows = filter === 'all' ? students : students.filter(s => s.bucket === filter)
 
   const confirm = async (studentId, milestone) => {
+    if (busy) return
+    setBusy(`${studentId}:${milestone}`)
     const res = await confirmMilestone(studentId, milestone, '')
+    setBusy(null)
     setNotice(res.ok
       ? { tone: 'ok', text: 'Milestone confirmed and recorded for ASPIRE.' }
       : { tone: 'error', text: res.error === 'conflict' ? 'That milestone is already confirmed.' : 'That could not be saved.' })
     if (res.ok) refreshRoster()
+  }
+
+  // ITEM 2: message a student directly. The endpoint re-verifies the active scope,
+  // so this button is a convenience, never the authorization.
+  const messageStudent = async (student) => {
+    if (busy) return
+    setBusy(`${student.id}:message`)
+    const res = await startUnitConversation({
+      destination: 'student',
+      studentId: student.id,
+      subject: `About your ASPIRE rotation on ${student.unit_key}`,
+      category: 'Clinical rotation support',
+      body: `Hello ${studentName(student)},\n\n`,
+    })
+    setBusy(null)
+    if (res.ok) {
+      setNotice({ tone: 'ok', text: 'Conversation opened.' })
+      // Open the created thread in Messages.
+      if (res.data?.conversation_id) onOpenThread?.(res.data.conversation_id)
+      else onNavigate?.('messages')
+      return
+    }
+    setNotice({
+      tone: 'error',
+      text: res.error === 'student_has_no_portal_account'
+        ? 'That student does not have an ASPIRE portal account yet, so a direct conversation cannot be opened.'
+        : res.status === 429
+          ? 'You have started several conversations recently. Please try again shortly.'
+          : 'That conversation could not be opened.',
+    })
   }
 
   return (
@@ -423,7 +478,7 @@ function StudentsScreen({ students, refreshRoster }) {
               <tr>
                 <th scope="col">Student</th><th scope="col">Unit</th><th scope="col">School</th>
                 <th scope="col">Stage</th><th scope="col">Preceptor</th><th scope="col">Hours</th>
-                <th scope="col">Onboarding</th><th scope="col">Milestones</th>
+                <th scope="col">Onboarding</th><th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -443,15 +498,15 @@ function StudentsScreen({ students, refreshRoster }) {
                       <span className="ptl-muted"> {s.onboarding.outstanding.map(k => OUTSTANDING_LABEL[k] || k).join(', ')}</span>
                     )}
                   </td>
-                  <td data-label="Milestones">
-                    <div className="ptl-actions">
-                      {MILESTONES.map(m => (
-                        <button key={m.key} type="button" className="ptl-btn ptl-btn-small"
-                          onClick={() => confirm(s.id, m.key)}>
-                          {m.label}
-                        </button>
-                      ))}
-                    </div>
+                  <td data-label="Actions">
+                    <StudentActions
+                      student={s}
+                      busy={busy}
+                      open={openActions === s.id}
+                      onToggle={() => setOpenActions(openActions === s.id ? null : s.id)}
+                      onConfirm={confirm}
+                      onMessage={messageStudent}
+                    />
                   </td>
                 </tr>
               ))}
@@ -460,6 +515,57 @@ function StudentsScreen({ students, refreshRoster }) {
         </div>
       )}
     </>
+  )
+}
+
+/**
+ * ITEM 4: student actions as a DISCLOSURE rather than a row of cramped buttons.
+ *
+ * Four milestone buttons plus Message side by side were unusable on a phone. A
+ * single labelled toggle reveals a stacked, full-width menu instead. Every action
+ * is preserved, each is a real button with a visible label, focus stays inside the
+ * normal tab order, and the toggle reports its expanded state, so keyboard and
+ * screen-reader users get the same affordance as pointer users.
+ */
+function StudentActions({ student, busy, open, onToggle, onConfirm, onMessage }) {
+  const label = `Actions for ${studentName(student)}`
+  return (
+    <div className="ptl-rowactions">
+      <button
+        type="button"
+        className="ptl-btn ptl-btn-small"
+        aria-expanded={open}
+        aria-label={label}
+        onClick={onToggle}
+      >
+        {open ? 'Hide actions' : 'Actions'}
+      </button>
+
+      {open && (
+        <div className="ptl-rowactions-menu" role="group" aria-label={label}>
+          <button
+            type="button"
+            className="ptl-btn ptl-rowactions-item"
+            disabled={busy === `${student.id}:message`}
+            onClick={() => onMessage(student)}
+          >
+            {busy === `${student.id}:message` ? 'Opening' : 'Message student'}
+          </button>
+
+          {MILESTONES.map(m => (
+            <button
+              key={m.key}
+              type="button"
+              className="ptl-btn ptl-rowactions-item"
+              disabled={busy === `${student.id}:${m.key}`}
+              onClick={() => onConfirm(student.id, m.key)}
+            >
+              {busy === `${student.id}:${m.key}` ? 'Saving' : `Confirm ${m.label.toLowerCase()}`}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -623,6 +729,22 @@ function ConcernScreen({ students }) {
 
 // ── Profile and unit context ────────────────────────────────────────────────
 function ProfileScreen({ unitKeys, profile }) {
+  const prefs = useEndpoint(s => getNotifications(null, s), [])
+  const [rows, setRows] = useState(null)
+  const [notice, setNotice] = useState(null)
+
+  const list = rows || prefs.data?.preferences || []
+
+  const toggle = async (alertType, next) => {
+    const res = await setNotificationPreference(alertType, next)
+    if (res.ok) {
+      setRows(res.data?.preferences || null)
+      setNotice({ tone: 'ok', text: next ? 'Email turned on for that alert.' : 'Email turned off for that alert.' })
+    } else {
+      setNotice({ tone: 'error', text: 'That preference could not be saved.' })
+    }
+  }
+
   return (
     <>
       <SectionHeading focusKey="profile">Profile</SectionHeading>
@@ -638,6 +760,39 @@ function ProfileScreen({ unitKeys, profile }) {
         <p className="ptl-muted">
           The ASPIRE team manages unit assignments. To change yours, contact ASPIRE.
         </p>
+      </section>
+
+      <section className="ptl-card" aria-labelledby="ul-prefs">
+        <h3 id="ul-prefs" className="ptl-card-title">Notification preferences</h3>
+        {notice && <p className={`ptl-notice ptl-notice-${notice.tone}`} role="status">{notice.text}</p>}
+        <p className="ptl-muted">
+          Every alert always appears in the portal. These settings control email only,
+          so turning one off is how you unsubscribe from that email.
+        </p>
+        {prefs.loading ? (
+          <LoadingState label="Loading your preferences" />
+        ) : prefs.error ? (
+          <ErrorState detail="Your preferences could not be loaded." onRetry={prefs.refresh} />
+        ) : (
+          <ul className="ptl-list ptl-preflist">
+            {list.map(p => (
+              <li key={p.alert_type}>
+                {p.email_supported ? (
+                  <label className="ptl-checkline">
+                    <input
+                      type="checkbox"
+                      checked={p.email_enabled === true}
+                      onChange={e => toggle(p.alert_type, e.target.checked)}
+                    />
+                    <span>{p.label}</span>
+                  </label>
+                ) : (
+                  <span>{p.label} <span className="ptl-muted">(in portal only)</span></span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </>
   )

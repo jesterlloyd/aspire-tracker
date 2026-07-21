@@ -31,6 +31,7 @@ import {
   verifyPortalUnitLeaderCaller,
   resolveUnitScopedStudents,
 } from '../lib/unitLeaderScope.js'
+import { emitUnitLeaderAlert } from '../../lib/server/notifications/unitLeaderAlerts.js'
 
 const DESTINATIONS = new Set(['student', 'aspire'])
 
@@ -116,6 +117,20 @@ export default async function handler(req, res) {
       return res.status(mapped.status).json({ error: mapped.error })
     }
     if (!out.ok) return res.status(409).json({ error: 'conflict', reason: out.reason })
+
+    // Best effort, and deliberately AFTER the authoritative write. A notification
+    // failure can never undo the conversation that was already created.
+    if (destination === 'aspire') {
+      await emitUnitLeaderAlert(db, {
+        alertType: 'concern_follow_up',
+        unitKey: student.unit_key,
+        cohortId: student.cohort_id,
+        subjectId: out.result.conversation_id,
+        subject: subject.value,
+        summary: 'Your concern was received by the ASPIRE Team.',
+        ctaPath: '/portal/messages',
+      })
+    }
 
     return res.status(201).json({
       conversation_id: out.result.conversation_id,
