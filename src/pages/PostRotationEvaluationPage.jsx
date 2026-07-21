@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 
 // Public tokenized renderer for the ASPIRE Post-Rotation Evaluation (slug:
 // post_rotation_evaluation). Mounted at /evaluation/post-rotation. This is NON-GATING experience
-// feedback and is fully decoupled from the Certificate of Participation (the Casey-Fink
-// post-rotation survey is the certificate gate). Fully isolated from the Casey-Fink, preceptor, and
-// student-experience pages, none of which is modified. Submits the flat response object to
-// /api/evaluation-post-rotation-submit, which calls submit_post_rotation_evaluation_response (which
-// no longer issues a certificate). This page never shows a certificate download link.
+// feedback, and it does not gate anything: migration 20260710000000 removed certificate issuance
+// from submit_post_rotation_evaluation_response, so this survey cannot issue one. Fully isolated
+// from the Casey-Fink, preceptor, and student-experience pages, none of which is modified. Submits
+// the flat response object to /api/evaluation-post-rotation-submit. Nothing on this page mentions
+// or links to a certificate: this workflow does not explain another workflow's gating.
 
 const TOKEN_PATTERN = /^#t=([A-Za-z0-9_-]{43})$/
 
@@ -232,10 +232,6 @@ export default function PostRotationEvaluationPage() {
               <p style={{ fontSize: 15, color: '#4b5563', lineHeight: 1.65, margin: '0 0 10px' }}>
                 Your feedback has been submitted. Your responses help us improve ASPIRE for future
                 students and academic partners.
-              </p>
-              <p style={{ fontSize: 13.5, color: '#6b7280', lineHeight: 1.6, margin: 0 }}>
-                The Certificate of Participation is unlocked through the Casey-Fink post-rotation
-                readiness survey.
               </p>
             </div>
           ) : (

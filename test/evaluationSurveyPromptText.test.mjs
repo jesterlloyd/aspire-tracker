@@ -30,6 +30,7 @@ const model = buildPreviewModel('student_preceptor_eval', studentContent)
 const renderer = read('src/pages/StudentEvaluationPage.jsx')
 const normalizer = read('src/lib/evaluation/surveyPreviewModel.js')
 const panel = read('src/components/evaluation/PostRotationAutomationPanel.jsx')
+const rotationSurveyPage = read('src/pages/PostRotationEvaluationPage.jsx')
 
 const stripJs = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 
@@ -176,6 +177,38 @@ test('required rating items remain required and keep their scale', () => {
 })
 
 // ── ASPIRE Rotation Feedback: no certificate explanation ───────────────────
+test('the student-facing thank-you screen contains no certificate explanation', () => {
+  // This sentence survived two earlier passes because they targeted the staff panel and the
+  // survey intro. It was the last student-facing place where a non-gating survey explained
+  // another workflow's certificate gate.
+  const code = stripJs(rotationSurveyPage)
+  assert.equal((code.match(/[Cc]ertificate/g) || []).length, 0,
+    'no rendered text on this page may mention a certificate')
+  assert.ok(!code.includes('Casey-Fink'),
+    'this survey must not name another workflow to the respondent')
+  // The rest of the thank-you screen is intact.
+  assert.match(code, /Thank you for completing the ASPIRE Post-Rotation Evaluation\./)
+  assert.match(code, /Your feedback has been submitted\./)
+})
+
+test('every other thank-you and error state on that page is unchanged', () => {
+  const code = stripJs(rotationSurveyPage)
+  for (const state of [
+    'This evaluation has already been submitted\.',
+    'This evaluation link is no longer valid\.',
+    'Too many requests\.',
+  ]) {
+    assert.match(code, new RegExp(state), `the ${state} state must survive`)
+  }
+})
+
+test('the Rotation Feedback survey page still submits through the same path', () => {
+  const code = stripJs(rotationSurveyPage)
+  assert.match(code, /\/api\/evaluation-post-rotation-submit/,
+    'the submit path must be untouched')
+  assert.ok(!code.includes('issue_participation_certificate'))
+})
+
 test('the Rotation Feedback panel no longer explains the certificate', () => {
   assert.ok(!panel.includes('Certificate of Participation'))
   assert.ok(!panel.includes('certificate gate'))
