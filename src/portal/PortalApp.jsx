@@ -41,6 +41,18 @@ function threadIdFromPath(pathname) {
   return m ? m[1] : null
 }
 
+// UL-PORTAL section from the URL. Messages deliberately shares the Student Portal
+// route so a thread deep link is identical for both portal kinds.
+const UNIT_SECTIONS = new Set([
+  'home', 'placements', 'capacity', 'students', 'preceptors', 'concern', 'profile',
+])
+function unitViewFromPath(pathname) {
+  if (pathname.startsWith('/portal/messages')) return 'messages'
+  const m = /^\/portal\/unit\/([^/]+)\/?$/.exec(pathname)
+  if (m && UNIT_SECTIONS.has(m[1])) return m[1]
+  return 'home'
+}
+
 export default function PortalApp() {
   const { userProfile } = useAuth()
   const location = useLocation()
@@ -55,6 +67,13 @@ export default function PortalApp() {
 
   const studentView = location.pathname.startsWith('/portal/messages') ? 'messages' : 'home'
   const threadId = threadIdFromPath(location.pathname)
+  // /portal/unit/<section> -> section; /portal/messages -> messages; else home.
+  const unitView = unitViewFromPath(location.pathname)
+
+  // A section change is a real navigation, so the URL is the source of truth.
+  const goUnitSection = useCallback((key) => {
+    navigate(key === 'messages' ? '/portal/messages' : `/portal/unit/${key}`)
+  }, [navigate])
 
   const isStudent = (access?.roles || []).includes('student')
   const unread = usePortalUnreadCount({
@@ -135,9 +154,20 @@ export default function PortalApp() {
   }
 
   if (roles.includes('unit_leader')) {
+    // UL-PORTAL: sections are REAL routes under /portal/unit, so back, forward,
+    // refresh, and a pasted deep link all behave like the rest of the app. The
+    // Messages section reuses the same /portal/messages thread URL the Student
+    // Portal already uses, so one thread link works for either kind.
     return (
-      <PortalShell title="Unit Leader Portal" userName={userProfile?.full_name}>
-        <UnitLeaderPortal />
+      <PortalShell title="Unit Leader Portal" userName={userProfile?.full_name} withTabBar>
+        <UnitLeaderPortal
+          view={unitView}
+          onNavigate={goUnitSection}
+          unread={unread}
+          threadId={threadId}
+          onSelectThread={openThread}
+          onBackToList={backToList}
+        />
       </PortalShell>
     )
   }

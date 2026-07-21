@@ -292,7 +292,12 @@ test('mark read', async (t) => {
     // The endpoint advances only this participant's pointer; the browser cannot
     // name another profile.
     assert.match(read('../api/portal/messages-mark-read.js'), /p_actor_profile_id: caller\.profile\.id/)
-    assert.match(read('../api/portal/messages-mark-read.js'), /p_actor_kind: 'student'/)
+    // UL-PORTAL: the actor kind is now the VERIFIED caller's kind rather than a
+    // hardcoded 'student', because a unit leader may also mark a thread read. The
+    // security property is unchanged and is what this asserts: the kind comes from
+    // the server-verified caller, never from the request body.
+    assert.match(read('../api/portal/messages-mark-read.js'), /p_actor_kind: caller\.actorKind/);
+    assert.doesNotMatch(read('../api/portal/messages-mark-read.js'), /p_actor_kind: (req|parsed|body)/);
   })
 })
 
@@ -697,12 +702,16 @@ test('privacy', async (t) => {
 })
 
 test('dormancy and regression', async (t) => {
-  await t.test('only PortalApp imports the workspace, and only in the student branch', () => {
-    // Phase 5B-ii activated Messages through PortalApp alone. The staff shell and
-    // the other portal roles still must not reach it.
+  await t.test('only the two activated portals mount the workspace', () => {
+    // Phase 5B-ii activated Messages for the Student Portal through PortalApp.
+    // UL-PORTAL activated it for the Unit Leader Portal, which mounts the SAME
+    // workspace component so the approved Messages design is shared rather than
+    // reimplemented. The staff shell, the Academic Partner Portal, and the staff
+    // app still must not reach it.
     assert.match(read('../src/portal/PortalApp.jsx'), /import PortalMessagesWorkspace from '\.\/messages\/PortalMessagesWorkspace'/)
+    assert.match(read('../src/portal/UnitLeaderPortal.jsx'), /import PortalMessagesWorkspace from '\.\/messages\/PortalMessagesWorkspace'/)
     for (const f of ['../src/portal/PortalShell.jsx', '../src/portal/StudentPortal.jsx',
-      '../src/portal/UnitLeaderPortal.jsx', '../src/portal/AcademicPartnerPortal.jsx', '../src/App.jsx']) {
+      '../src/portal/AcademicPartnerPortal.jsx', '../src/App.jsx']) {
       assert.doesNotMatch(read(f), /PortalMessagesWorkspace/, `${f} must not mount the workspace`)
     }
   })

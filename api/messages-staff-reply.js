@@ -15,7 +15,7 @@ import { verifyStaffCaller, getServiceDb } from './lib/messagesAuth.js';
 import { methodGuard, readJsonBody, mapRpcError, notFound, logApiError } from './lib/messagesApi.js';
 import { validateBody, isUuid } from '../lib/server/messages/validation.js';
 import { replyForStaff } from '../lib/server/messages/conversationService.js';
-import { loadConversationRoutingContext, loadActiveParticipant } from './lib/messagesContext.js';
+import { loadConversationRoutingContext, loadActiveParticipants } from './lib/messagesContext.js';
 
 export default async function handler(req, res) {
   if (!methodGuard(req, res, ['POST'])) return;
@@ -39,8 +39,28 @@ export default async function handler(req, res) {
 
     // The authoritative notification target is the portal account's
     // user_profiles.email, never students.school_email or personal_email.
-    const participant = await loadActiveParticipant(db, conversationId);
-    if (!participant) return res.status(409).json({ error: 'conflict', reason: 'no_active_participant' });
+    // UL-PORTAL: a direct thread has TWO active participants. Staff intervene in
+    // both shapes, so the recipient is chosen deterministically rather than
+    // arbitrarily: reply to whoever sent the most recent non-staff message, and
+    // fall back to join order. The RPC independently re-validates that this
+    // recipient is an active-access participant of this conversation.
+    const participants = await loadActiveParticipants(db, conversationId);
+    if (participants.length === 0) {
+      return res.status(409).json({ error: 'conflict', reason: 'no_active_participant' });
+    }
+    let participant = participants[0];
+    if (participants.length > 1) {
+      const { data: lastInbound } = await db
+        .from('messages')
+        .select('author_profile_id')
+        .eq('conversation_id', conversationId)
+        .neq('author_role', 'staff')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      const lastAuthorId = lastInbound?.[0]?.author_profile_id;
+      const preferred = participants.find(p => p.profileId === lastAuthorId);
+      if (preferred) participant = preferred;
+    }
 
     const out = await replyForStaff(
       { db, resend: new Resend(process.env.RESEND_API_KEY) },

@@ -5,13 +5,17 @@
 // staff-authored messages newer than this participant's own read pointer, in
 // accessible conversations. The participant's own messages are never counted.
 
-import { verifyPortalStudentCaller, getUserScopedDb } from '../lib/messagesAuth.js';
+import { verifyPortalMessagesCaller, getUserScopedDb } from '../lib/messagesAuth.js';
 import { methodGuard, logApiError } from '../lib/messagesApi.js';
 
 export default async function handler(req, res) {
   if (!methodGuard(req, res, ['GET'])) return;
 
-  const caller = await verifyPortalStudentCaller(req);
+  // UL-PORTAL: admits a student OR a unit leader. The RPC below gates every row
+  // through my_message_conversation_ids(), which handles both kinds, so this only
+  // decides whether the account may use Messages at all. Student behavior is
+  // unchanged: verifyPortalMessagesCaller returns the student result untouched.
+  const caller = await verifyPortalMessagesCaller(req);
   if (!caller.ok) return res.status(caller.status).json({ error: caller.reason });
 
   const db = getUserScopedDb(req);

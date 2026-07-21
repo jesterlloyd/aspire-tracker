@@ -11,14 +11,18 @@
 // BACKWARD through history. next_cursor points at the oldest message of the page
 // returned and is null when no older history remains.
 
-import { verifyPortalStudentCaller, getUserScopedDb } from '../lib/messagesAuth.js';
+import { verifyPortalMessagesCaller, getUserScopedDb } from '../lib/messagesAuth.js';
 import { methodGuard, notFound, logApiError } from '../lib/messagesApi.js';
 import { parseLimit, parseCursor, isUuid } from '../../lib/server/messages/validation.js';
 
 export default async function handler(req, res) {
   if (!methodGuard(req, res, ['GET'])) return;
 
-  const caller = await verifyPortalStudentCaller(req);
+  // UL-PORTAL: admits a student OR a unit leader. The RPC below gates every row
+  // through my_message_conversation_ids(), which handles both kinds, so this only
+  // decides whether the account may use Messages at all. Student behavior is
+  // unchanged: verifyPortalMessagesCaller returns the student result untouched.
+  const caller = await verifyPortalMessagesCaller(req);
   if (!caller.ok) return res.status(caller.status).json({ error: caller.reason });
 
   const conversationId = req.query?.conversation_id;

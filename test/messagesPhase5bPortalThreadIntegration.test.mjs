@@ -83,8 +83,8 @@ test('endpoint: methods, auth, and errors', async (t) => {
   })
 
   await t.test('authentication precedes any data access', () => {
-    assert.match(code, /verifyPortalStudentCaller\(req\)/)
-    assert.ok(code.indexOf('verifyPortalStudentCaller') < code.indexOf('db.rpc'),
+    assert.match(code, /verifyPortal(StudentCaller|MessagesCaller)\(req\)/)
+    assert.ok(code.indexOf('verifyPortalMessagesCaller') < code.indexOf('db.rpc'),
       'the caller is verified before the RPC runs')
     assert.match(code, /if \(!db\) return res\.status\(401\)\.json\(\{ error: 'unauthenticated' \}\)/)
   })

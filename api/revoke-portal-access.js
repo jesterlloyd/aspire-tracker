@@ -65,11 +65,16 @@ async function verifyCaller(req) {
     const admin = getServiceDb()
     const { data: profile, error: pErr } = await admin
       .from('user_profiles')
-      .select('id, role, is_owner')
+      .select('id, role, is_owner, is_active')
       .eq('auth_user_id', user.id)
       .maybeSingle()
     if (pErr) return { authenticated: false, status: 401, reason: 'profile_lookup_failed' }
     if (!profile) return { authenticated: false, status: 403, reason: 'no_profile' }
+    // UL-PORTAL: is_active is REQUIRED here. These endpoints grant and revoke
+    // user_unit_scopes, and only an ACTIVE Owner/Admin may manage Unit Leader
+    // assignments. A deactivated Owner/Admin previously retained full grant and
+    // revoke authority because is_active was never selected. Fail closed.
+    if (profile.is_active === false) return { authenticated: false, status: 403, reason: 'inactive' }
     return { authenticated: true, profileId: profile.id, role: profile.role || '', isOwner: profile.is_owner === true }
   } catch {
     return { authenticated: false, status: 401, reason: 'profile_threw' }

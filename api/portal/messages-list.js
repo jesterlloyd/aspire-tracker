@@ -6,14 +6,18 @@
 // by my_message_conversation_ids() and never by an unrestricted service_role
 // query. Returns no staff email and no other participant's data.
 
-import { verifyPortalStudentCaller, getUserScopedDb } from '../lib/messagesAuth.js';
+import { verifyPortalMessagesCaller, getUserScopedDb } from '../lib/messagesAuth.js';
 import { methodGuard, logApiError } from '../lib/messagesApi.js';
 import { parseLimit, parseCursor, nextCursorFrom } from '../../lib/server/messages/validation.js';
 
 export default async function handler(req, res) {
   if (!methodGuard(req, res, ['GET'])) return;
 
-  const caller = await verifyPortalStudentCaller(req);
+  // UL-PORTAL: admits a student OR a unit leader. The RPC below gates every row
+  // through my_message_conversation_ids(), which handles both kinds, so this only
+  // decides whether the account may use Messages at all. Student behavior is
+  // unchanged: verifyPortalMessagesCaller returns the student result untouched.
+  const caller = await verifyPortalMessagesCaller(req);
   if (!caller.ok) return res.status(caller.status).json({ error: caller.reason });
 
   const limit = parseLimit(req.query?.limit, { fallback: 25, max: 100 });
