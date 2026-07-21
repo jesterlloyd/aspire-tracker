@@ -116,6 +116,21 @@ export const setNotificationPreference = (alertType, emailEnabled) =>
   })
 
 /**
+ * Rotation activity for the calendar: completed and in-progress shifts only.
+ *
+ * The server bounds this to a rolling 90 days and refuses a future range, because there
+ * is no forward schedule to return. It also enforces the safe-field allowlist, so no
+ * support narrative, internal note, or review metadata can arrive here.
+ */
+export const getShiftActivity = ({ from, to } = {}, signal) => {
+  const q = new URLSearchParams()
+  if (from) q.set('from', from)
+  if (to) q.set('to', to)
+  const qs = q.toString()
+  return apiFetch(`/api/portal/unit-shift-activity${qs ? `?${qs}` : ''}`, { signal })
+}
+
+/**
  * The approved detail record for ONE scoped student.
  *
  * The student id is an IDENTIFIER, not authority: the server re-derives the unit

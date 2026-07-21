@@ -21,6 +21,9 @@ import { formatInboxTimestamp, formatUnread } from '../lib/messages/messagesCons
 import { UL_THREAD_ASPIRE_LABEL, ulDirectThreadLabel } from '../lib/messages/portalMessagesConstants'
 import { firstNameOf } from '../lib/masthead'
 import StudentDetailDrawer from './unit/StudentDetailDrawer'
+import UnitRotationCalendar from './unit/UnitRotationCalendar'
+import UnitShiftDayDrawer from './unit/UnitShiftDayDrawer'
+import UnitEvaluationsPlaceholder from './unit/UnitEvaluationsPlaceholder'
 import { useAuth } from '../contexts/AuthContext'
 import {
   UnitLeaderNav, UnitSwitcher, LoadingState, EmptyState, ErrorState, DeniedState,
@@ -32,8 +35,15 @@ import {
   getRoster, getPlacementRequests, respondToPlacement,
   getCapacity, submitCapacity, getNominations, nominatePreceptor,
   confirmMilestone, startUnitConversation,
-  getNotifications, setNotificationPreference,
+  getNotifications, setNotificationPreference, getShiftActivity,
 } from './unit/unitLeaderApi'
+
+/** A local clock time from an ISO timestamp, for check-in and check-out display. */
+function fmtClock(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
 
 const MILESTONES = [
   { key: 'arrival', label: 'Arrival' },
@@ -76,7 +86,7 @@ function useEndpoint(loader, deps) {
   }
 }
 
-export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0, threadId, onSelectThread, onBackToList }) {
+export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0, threadId, onSelectThread, onBackToList, composeIntent = null }) {
   const { userProfile } = useAuth()
   const [unitKey, setUnitKey] = useState(ALL_UNITS)
 
@@ -128,9 +138,16 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
         {view === 'placements' && <PlacementScreen {...shared} />}
         {view === 'capacity'   && <CapacityScreen {...shared} />}
         {view === 'students'   && <StudentsScreen {...shared} onNavigate={onNavigate} onOpenThread={onSelectThread} />}
+        {view === 'evaluations' && <UnitEvaluationsPlaceholder />}
         {view === 'preceptors' && <PreceptorScreen {...shared} />}
-        {view === 'concern'    && <ConcernScreen {...shared} />}
         {view === 'profile'    && <ProfileScreen unitKeys={unitKeys} profile={userProfile} />}
+        {view === 'messages'   && (
+          <AspireTeamComposer
+            students={students}
+            startOpen={composeIntent?.compose === 'aspire'}
+            onNavigate={onNavigate}
+          />
+        )}
         {view === 'messages'   && (
           <PortalMessagesWorkspace
             active
@@ -146,12 +163,16 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
 }
 
 // ── Home: the locked priority order, now with hierarchy ─────────────────────
-function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate, onOpenThread }) {
+function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, refreshRoster, onNavigate, onOpenThread }) {
   const placements = useEndpoint(s => getPlacementRequests(unitKey, s), [unitKey])
   const capacity = useEndpoint(s => getCapacity(unitKey, s), [unitKey])
   // The in-app feed is DERIVED server side from the caller's own authorized rows,
   // so Home and the feed can never disagree.
   const alerts = useEndpoint(s => getNotifications(unitKey, s), [unitKey])
+  // Rotation activity for the calendar. Server-bounded to a rolling 90 days and
+  // server-filtered to safe fields; nothing here can widen either.
+  const activity = useEndpoint(s => getShiftActivity({}, s), [])
+  const [dayOpen, setDayOpen] = useState(null)   // { ymd, shifts }
   // UL-POLISH P1: the latest threads, from the same endpoint the inbox uses.
   const recent = useEndpoint(
     (sig) => listPortalConversations({ limit: 3, signal: sig })
@@ -166,6 +187,10 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate
   const notifications = alerts.data?.notifications || []
   const liveCapacity = (capacity.data?.submissions || []).filter(c => c.is_live)
   const threads = (recent.data?.conversations || []).slice(0, 3)
+  const shifts = activity.data?.shifts || []
+  // A student currently checked in is the single most time-sensitive thing on this
+  // screen, so it is promoted into the attention list rather than left to the grid.
+  const onShiftNow = shifts.filter(x => x.state === 'in_progress')
 
   // UL-POLISH P1: the Compass welcome header replaces the literal "Home"
   // heading (the nav already says Home). Unit context is always visible here.
@@ -186,10 +211,28 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate
             <h3 id="ul-attention" className="ptl-card-title">Needs your attention</h3>
             {alerts.loading ? (
               <LoadingState label="Loading your notifications" />
-            ) : notifications.length === 0 && supportFlags.length === 0 ? (
+            ) : notifications.length === 0 && supportFlags.length === 0 && onShiftNow.length === 0 ? (
               <p className="ptl-muted">Nothing needs your attention right now.</p>
             ) : (
               <ul className="ptl-list ptl-attn-list">
+                {/* Live first: a student on the unit right now outranks anything queued. */}
+                {onShiftNow.map(x => (
+                  <li key={`live-${x.id}`}>
+                    <button type="button" className="ptl-attn-row"
+                      onClick={() => setDayOpen({ ymd: x.shift_date, shifts: shifts.filter(y => y.shift_date === x.shift_date) })}>
+                      <span className="ptl-attn-dot ptl-attn-dot-live" aria-hidden="true" />
+                      <span className="ptl-attn-text">
+                        <span className="ptl-attn-label">{x.student_name || 'A student'} is on shift now</span>
+                        <span className="ptl-attn-sub">
+                          {x.checked_in_at ? `Checked in ${fmtClock(x.checked_in_at)}` : 'Checked in'}
+                          {x.preceptor_name ? ` · with ${x.preceptor_name}` : ''}
+                        </span>
+                      </span>
+                      {x.unit_key && <span className="ptl-attn-unit">{x.unit_key}</span>}
+                      <span className="ptl-attn-chevron" aria-hidden="true">›</span>
+                    </button>
+                  </li>
+                ))}
                 {notifications.map(n => (
                   <li key={n.id}>
                     <button type="button" className="ptl-attn-row" onClick={() => onNavigate?.(n.section)}>
@@ -222,7 +265,24 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate
             )}
           </section>
 
-          {/* 2. Capacity and placement, with numbers that go somewhere */}
+          {/* 2. Rotation activity: what actually happened, never a schedule. */}
+          <UnitRotationCalendar
+            shifts={shifts}
+            windowStart={activity.data?.window?.start}
+            loading={activity.loading}
+            onSelectDay={(ymd, dayShifts) => setDayOpen({ ymd, shifts: dayShifts })}
+          />
+
+          {/* 3. The roster, embedded. Students left the nav but not the product. */}
+          <StudentRoster
+            students={students}
+            refreshRoster={refreshRoster}
+            onNavigate={onNavigate}
+            onOpenThread={onOpenThread}
+            heading="Your students"
+          />
+
+          {/* 4. Capacity and placement, with numbers that go somewhere */}
           <section className="ptl-card" aria-labelledby="ul-cap">
             <h3 id="ul-cap" className="ptl-card-title">Capacity and placement</h3>
             {capacity.loading || placements.loading ? (
@@ -283,6 +343,14 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate
           <BucketCard title="Active rotations" bucket="active" byBucket={byBucket} onNavigate={onNavigate} />
         </div>
       </div>
+
+      {dayOpen && (
+        <UnitShiftDayDrawer
+          ymd={dayOpen.ymd}
+          shifts={dayOpen.shifts}
+          onClose={() => setDayOpen(null)}
+        />
+      )}
     </>
   )
 }
@@ -601,7 +669,12 @@ function HoursCell({ hours }) {
   )
 }
 
-function StudentsScreen({ students, refreshRoster, onNavigate, onOpenThread }) {
+/**
+ * The roster. ONE module, two mount points: embedded in Home, and standalone at
+ * /portal/unit/students so that deep link keeps working after Students left the nav.
+ * `heading` distinguishes them; everything else is identical, so the two can never drift.
+ */
+function StudentRoster({ students, refreshRoster, onNavigate, onOpenThread, heading = null }) {
   const [filter, setFilter] = useState('all')
   const [notice, setNotice] = useState(null)
   const [busy, setBusy] = useState(null)          // duplicate-click protection
@@ -661,7 +734,9 @@ function StudentsScreen({ students, refreshRoster, onNavigate, onOpenThread }) {
 
   return (
     <>
-      <SectionHeading focusKey="students">Students</SectionHeading>
+      {heading
+        ? <h3 className="ptl-card-title ptl-roster-heading">{heading}</h3>
+        : <SectionHeading focusKey="students">Students</SectionHeading>}
       {notice && <p className={`ptl-notice ptl-notice-${notice.tone}`} role="status">{notice.text}</p>}
 
       <div className="ptl-card ptl-filterbar" role="group" aria-label="Filter students by stage">
@@ -763,6 +838,15 @@ function StudentsScreen({ students, refreshRoster, onNavigate, onOpenThread }) {
  * normal tab order, and the toggle reports its expanded state, so keyboard and
  * screen-reader users get the same affordance as pointer users.
  */
+/**
+ * Standalone Students view. Students is no longer a primary tab, but
+ * /portal/unit/students remains a valid deep link and renders the same roster module
+ * Home embeds, so a bookmark or an emailed link still works.
+ */
+function StudentsScreen(props) {
+  return <StudentRoster {...props} />
+}
+
 function StudentActions({ student, busy, open, onToggle, onConfirm, onMessage, onViewDetails }) {
   const label = `Actions for ${studentName(student)}`
   return (
@@ -905,6 +989,28 @@ function PreceptorScreen({ unitKey, students }) {
 }
 
 // ── Report a Concern ────────────────────────────────────────────────────────
+/**
+ * Message the ASPIRE Team, which absorbed Report a Concern.
+ *
+ * It was never a separate workflow: it posts to the same startUnitConversation endpoint
+ * with destination 'aspire'. Losing its tab cost nothing, so it lives inside Messages and
+ * opens expanded when reached from the retained /portal/unit/concern link.
+ */
+function AspireTeamComposer({ students, startOpen = false, onNavigate }) {
+  const [open, setOpen] = useState(startOpen)
+  if (!open) {
+    return (
+      <div className="ptl-card ptl-aspire-cta">
+        <button type="button" className="ptl-btn ptl-btn-small" onClick={() => setOpen(true)}>
+          Message the ASPIRE Team
+        </button>
+        <span className="ptl-muted">Raise a concern or ask a question about a student or your unit.</span>
+      </div>
+    )
+  }
+  return <ConcernScreen students={students} onDone={() => setOpen(false)} onNavigate={onNavigate} />
+}
+
 function ConcernScreen({ students }) {
   const [studentId, setStudentId] = useState('')
   const [subject, setSubject] = useState('')

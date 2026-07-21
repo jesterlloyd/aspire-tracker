@@ -43,9 +43,18 @@ function threadIdFromPath(pathname) {
 
 // UL-PORTAL section from the URL. Messages deliberately shares the Student Portal
 // route so a thread deep link is identical for both portal kinds.
+// Every valid /portal/unit/<section>. 'students' stays here even though it left the
+// primary nav, so the deep link keeps working. 'concern' stays so old links resolve,
+// and is handed off to Messages below rather than 404ing.
 const UNIT_SECTIONS = new Set([
-  'home', 'placements', 'capacity', 'students', 'preceptors', 'concern', 'profile',
+  'home', 'messages', 'evaluations', 'placements', 'capacity', 'students',
+  'preceptors', 'profile', 'notifications', 'concern',
 ])
+// Report a Concern is no longer a section. It was always a Messages conversation with
+// destination 'aspire', so the retained route hands off to Messages with the concern
+// compose prefilled rather than rendering a separate screen.
+const HANDOFF_TO_MESSAGES = { concern: { compose: 'aspire', category: 'concern' } }
+
 function unitViewFromPath(pathname) {
   if (pathname.startsWith('/portal/messages')) return 'messages'
   const m = /^\/portal\/unit\/([^/]+)\/?$/.exec(pathname)
@@ -68,7 +77,11 @@ export default function PortalApp() {
   const studentView = location.pathname.startsWith('/portal/messages') ? 'messages' : 'home'
   const threadId = threadIdFromPath(location.pathname)
   // /portal/unit/<section> -> section; /portal/messages -> messages; else home.
-  const unitView = unitViewFromPath(location.pathname)
+  const rawUnitView = unitViewFromPath(location.pathname)
+  // A retained handoff route resolves to Messages, with the compose intent passed
+  // through so the concern link still lands the user in the right place.
+  const unitHandoff = HANDOFF_TO_MESSAGES[rawUnitView] || null
+  const unitView = unitHandoff ? 'messages' : rawUnitView
 
   // A section change is a real navigation, so the URL is the source of truth.
   const goUnitSection = useCallback((key) => {
@@ -167,6 +180,7 @@ export default function PortalApp() {
       <PortalShell title="Unit Leader Portal" userName={userProfile?.full_name} withTabBar showHeaderName>
         <UnitLeaderPortal
           view={unitView}
+          composeIntent={unitHandoff}
           onNavigate={goUnitSection}
           unread={unread}
           threadId={threadId}

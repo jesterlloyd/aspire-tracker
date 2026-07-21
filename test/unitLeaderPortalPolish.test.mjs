@@ -113,11 +113,16 @@ test('P0-6: unread polling runs for the unit-leader branch', () => {
   assert.match(app, /intervalMs: onMessagesRoute \? PORTAL_ACTIVE_POLL_MS : PORTAL_IDLE_UNREAD_POLL_MS/)
 })
 
-test('P0-7: five-slot mobile navigation with an accessible More sheet', async (t) => {
-  await t.test('narrow widths show the five primary slots', () => {
-    assert.match(chrome, /PRIMARY_KEYS = \['home', 'students', 'placements', 'messages'\]/)
-    assert.match(chrome, /MORE_KEYS = \['capacity', 'preceptors', 'concern', 'profile'\]/)
-    assert.match(chrome, /usePortalIsNarrow\(\)/)
+test('P0-7: four-slot navigation with an accessible More sheet', async (t) => {
+  // SUPERSEDED BY THE PHASE 1 PRODUCT DECISION. This originally asserted a five-slot
+  // NARROW-ONLY bar (home, students, placements, messages) while desktop rendered all
+  // eight sections. The locked navigation is now four primary destinations at EVERY
+  // width, so the width branch is gone. The accessibility properties this test exists
+  // to protect are unchanged and asserted below.
+  await t.test('one primary set at every width, no desktop-only branch', () => {
+    assert.match(chrome, /PRIMARY_KEYS = \['home', 'messages', 'evaluations'\]/)
+    assert.match(chrome, /MORE_KEYS = \['placements', 'capacity', 'preceptors', 'profile', 'notifications'\]/)
+    assert.ok(!chrome.includes('usePortalIsNarrow'), 'the width branch was removed')
   })
   await t.test('the More sheet is a real dialog with trap, Escape, and return focus', () => {
     assert.match(chrome, /role="dialog" aria-modal="true" aria-label="More sections"/)

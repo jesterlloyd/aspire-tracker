@@ -21,6 +21,10 @@ const api    = read('src/portal/unit/unitLeaderApi.js')
 const app    = read('src/portal/PortalApp.jsx')
 const css    = read('src/portal/portal.css')
 
+// Built from its code point so this guard does not put the character it forbids into
+// the very file that enforces the rule.
+const EM_DASH_RE = new RegExp(String.fromCharCode(0x2014))
+
 const stripJs = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 const portalCode = stripJs(portal)
 const apiCode = stripJs(api)
@@ -48,19 +52,27 @@ test('Home renders the five sections in the locked order', () => {
 })
 
 // ── Every required section exists and is routed ─────────────────────────────
-test('all eight sections exist in the navigation', () => {
+test('every workflow still has a nav entry after the Phase 1 restructure', () => {
+  // Report a Concern is deliberately absent: it was never a separate workflow, only a
+  // Messages conversation with destination 'aspire', and now lives inside Messages.
   for (const label of [
-    'Home', 'Placement Requests', 'Capacity', 'Students',
-    'Preceptor Assignments', 'Messages', 'Report a Concern', 'Profile',
+    'Home', 'Messages', 'Evaluations', 'Placement Requests', 'Capacity',
+    'Preceptor Assignments', 'Profile', 'Notification preferences', 'Students',
   ]) {
     assert.ok(chrome.includes(`label: '${label}'`), `nav must include ${label}`)
   }
+  assert.ok(!chrome.includes("label: 'Report a Concern'"),
+    'it is an action inside Messages, not a section')
 })
 
 test('every section has a screen wired in the portal', () => {
-  for (const view of ['home', 'placements', 'capacity', 'students', 'preceptors', 'concern', 'profile', 'messages']) {
+  for (const view of ['home', 'placements', 'capacity', 'students', 'preceptors',
+    'profile', 'messages', 'evaluations']) {
     assert.match(portalCode, new RegExp(`view === '${view}'`), `${view} must render`)
   }
+  // 'concern' no longer renders a screen; its route hands off to Messages instead,
+  // which is asserted in test/unitLeaderPhase1.test.mjs.
+  assert.ok(!portalCode.includes("view === 'concern'"))
 })
 
 test('sections are REAL routes, so refresh and deep links work', () => {
@@ -263,6 +275,6 @@ test('Student Portal behavior is preserved in the shared router', () => {
 
 test('no em dash in the Unit Leader UI', () => {
   for (const [n, s] of Object.entries({ portal, chrome, api, css })) {
-    assert.doesNotMatch(s, /—/, n)
+    assert.doesNotMatch(s, EM_DASH_RE, n)
   }
 })
