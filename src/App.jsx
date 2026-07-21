@@ -20,6 +20,7 @@ import { useAuth } from './contexts/AuthContext'
 import LoginNew from './pages/Login'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import ActivateAccountPage from './pages/ActivateAccountPage'
+import SurveyTestModePage from './pages/SurveyTestModePage'
 import DevDispositionModal from './pages/DevDispositionModal'
 import EvaluationPage from './pages/EvaluationPage'
 import PreceptorEvaluationPage from './pages/PreceptorEvaluationPage'
@@ -1312,6 +1313,10 @@ export default function App() {
           invite token, and without this the invitee would fall through to the
           authed shell with no password ever set. */}
       <Route path="/auth/activate"        element={<div data-theme-lock="light"><ActivateAccountPage /></div>} />
+      {/* ASPIRE-EVAL-TEST-MODE-1: staff-only, non-persistent survey test renderer. Above
+          the wildcard for the same reason as the auth routes, and light-locked because
+          it renders a survey form. It writes nothing and has no submit endpoint. */}
+      <Route path="/evaluation/test/:workflowKey" element={<div data-theme-lock="light"><SurveyTestModePage /></div>} />
       {/* Legacy URL redirects */}
       <Route path="/interview-room"        element={<Navigate to="/interviews" replace />} />
       <Route path="/embed"                 element={<Navigate to="/rotation/matrix" replace />} />
