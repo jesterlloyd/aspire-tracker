@@ -20,23 +20,11 @@ const thread = read('src/portal/messages/PortalMessagesThread.jsx')
 const constants = read('src/lib/messages/portalMessagesConstants.js')
 const listApi = read('api/portal/messages-list.js')
 
-test('P0-1: filter chips are a dedicated, visible class', async (t) => {
-  await t.test('the UL filter control no longer squats on .ptl-chip', () => {
-    assert.match(portal, /ptl-filter-chip/)
-    assert.doesNotMatch(portal, /className=\{`ptl-chip\$/)
-  })
-  await t.test('exactly one semantic .ptl-chip definition remains (the status chip)', () => {
-    const defs = css.match(/^\.ptl-chip \{/gm) || []
-    assert.equal(defs.length, 1, 'one .ptl-chip block')
-  })
-  await t.test('the filter bar is a compact toolbar, not a full content card', () => {
-    assert.match(css, /\.ptl-filterbar \{ display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 14px; \}/)
-  })
-  await t.test('.ptl-filter-chip declares its own text color and states', () => {
-    assert.match(css, /\.ptl-filter-chip \{[\s\S]*?color: var\(--ptl-navy/)
-    assert.match(css, /\.ptl-filter-chip:hover/)
-    assert.match(css, /\.ptl-filter-chip\[aria-pressed="true"\]/)
-  })
+test('P0-1: the stage filter bar is removed', () => {
+  // SUPERSEDED: the UX-cleanup pass removed the All/Upcoming/Active/Completed filters in
+  // favour of one 90-day table, so the filter chip class is gone from the roster.
+  assert.ok(!portal.includes('ptl-filterbar'), 'the filter bar markup is gone')
+  assert.ok(!portal.includes('ptl-filter-chip'), 'the filter chip class is gone')
 })
 
 test('P1: the page grid does not stretch its rows to fill the viewport', () => {
@@ -121,7 +109,7 @@ test('P0-7: four-slot navigation with an accessible More sheet', async (t) => {
   // to protect are unchanged and asserted below.
   await t.test('one primary set at every width, no desktop-only branch', () => {
     assert.match(chrome, /PRIMARY_KEYS = \['home', 'messages', 'evaluations'\]/)
-    assert.match(chrome, /MORE_KEYS = \['placements', 'capacity', 'preceptors', 'notifications'\]/)
+    assert.match(chrome, /MORE_KEYS = \['placements', 'capacity', 'preceptors'\]/)
     assert.ok(!chrome.includes('usePortalIsNarrow'), 'the width branch was removed')
   })
   await t.test('the More sheet is a real dialog with trap, Escape, and return focus', () => {
@@ -169,18 +157,14 @@ test('P1-9: Home is a 7/5 grid with actionable attention rows', async (t) => {
   })
 })
 
-test('P1-10: Recent Messages renders the latest threads', () => {
-  assert.match(portal, /listPortalConversations\(\{ limit: 3, signal: sig \}\)/)
-  assert.match(portal, /ptl-recent-row/)
-  assert.match(portal, /formatInboxTimestamp\(c\.last_message_at\)/)
-  assert.match(portal, /ulDirectThreadLabel\(c\.direct_student_name\) : UL_THREAD_ASPIRE_LABEL/)
-  assert.match(portal, /onClick=\{\(\) => onOpenThread\?\.\(c\.id\)\}/)
-  // The empty state stays honest and Open Messages remains.
-  assert.match(portal, /No messages yet\./)
-  assert.match(portal, /Open Messages/)
+test('P1-10: the recent-threads card is removed from Home', () => {
+  // SUPERSEDED: the card was removed (Messages has its own tab). Check the render markup
+  // and the fetch, not prose, so a comment mentioning it does not trip this.
+  assert.ok(!portal.includes('ptl-recent-row'), 'the recent-threads card markup is gone')
+  assert.ok(!portal.includes('listPortalConversations'), 'the recent-threads fetch is gone')
 })
 
-test('P1-11: the Students row identity, hours bar, and chips', async (t) => {
+test('P1-11: the Students table identity, hours bar', async (t) => {
   // SUPERSEDED BY THE VISUAL REDESIGN. The table became a staff-style row LIST: a
   // circular photo avatar, name and school stacked, a stage pill, and a single kebab.
   // The properties this test protects (identity treatment, safe primary affordance,
@@ -189,21 +173,16 @@ test('P1-11: the Students row identity, hours bar, and chips', async (t) => {
     assert.match(portal, /<UnitStudentAvatar url=\{photoUrl\}/)
     assert.match(portal, /ptl-stu-name/)
     assert.match(portal, /ptl-stu-school/)
-    assert.doesNotMatch(portal, /<th scope="col">School<\/th>/)
   })
-  await t.test('the whole row is one safe open-profile control, not stacked buttons', () => {
-    assert.match(portal, /className="ptl-stu-rowbtn"/)
+  await t.test('the whole table row opens the profile; the old stacked buttons are gone', () => {
+    assert.match(portal, /role="button"/)
     assert.match(portal, /aria-label=\{`Open details for \$\{studentName\(s\)\}`\}/)
-    // No <tr onClick> nesting, and the old stacked StudentActions is gone.
-    assert.doesNotMatch(portal, /<tr[^>]*onClick/)
     assert.ok(!portal.includes('function StudentActions'))
+    assert.ok(!portal.includes('ptl-stu-rowbtn'), 'the row-button list markup is superseded by a table')
   })
   await t.test('hours render as a mini progress bar with the exact numbers', () => {
     assert.match(portal, /ptl-mini-progress/)
     assert.match(portal, /aria-label=\{`\$\{approved\} of \$\{hours\.required\} required hours approved`\}/)
-  })
-  await t.test('outstanding onboarding items are chips', () => {
-    assert.match(portal, /ptl-ochip/)
   })
 })
 

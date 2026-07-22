@@ -19,3 +19,16 @@ const NEUTRAL = { bg: '#f3f4f6', text: '#6b7280', border: '#d1d5db', label: '' }
 export function stageToken(bucket) {
   return STAGE_TOKENS[bucket] || { ...NEUTRAL }
 }
+
+// ASPIRE status -> pill colors, matching the staff ASPIRE_STATUS_CONFIG hues so the
+// student table's status pill reads as the same visual language. Only the roster
+// statuses a Unit Leader can see are needed; anything else falls back to neutral.
+export const STATUS_TOKENS = Object.freeze({
+  'Placed':          { bg: '#dcfce7', text: '#166534', border: '#86efac' },
+  'Active Rotation': { bg: '#d1fae5', text: '#065f46', border: '#6ee7b7' },
+  'Completed':       { bg: '#f0fdf4', text: '#14532d', border: '#4ade80' },
+})
+
+export function statusToken(status) {
+  return STATUS_TOKENS[status] || { ...NEUTRAL }
+}

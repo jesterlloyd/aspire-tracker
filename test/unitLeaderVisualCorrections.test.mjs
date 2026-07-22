@@ -34,8 +34,8 @@ const chromeCode = stripJs(chrome)
 test('the roster renders a circular photo avatar with an initials fallback', () => {
   assert.match(portalCode, /<UnitStudentAvatar url=\{photoUrl\} name=\{studentName\(s\)\}/)
   assert.match(avatar, /borderRadius: '50%'/)
-  // The avatar renders the photo when a url is present, else initials.
-  assert.match(avatar, /if \(url\) \{/)
+  // The avatar shows the photo when present and not failed, else initials.
+  assert.match(avatar, /const showPhoto = url && !failed/)
   assert.match(avatar, /initials\(name\)/)
 })
 
@@ -43,17 +43,18 @@ test('a photo that fails to load falls back rather than showing broken', () => {
   assert.match(avatar, /onError=/)
 })
 
-test('the row shows the required fields and a colored stage pill', () => {
+test('the row shows the required fields and a colored status pill', () => {
+  // SUPERSEDED: the row is now a table row and the pill is the ASPIRE STATUS (not the
+  // lifecycle bucket). Unit and onboarding left the columns per the approved table spec.
   const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function StudentKebab'))
   assert.match(row, /studentName\(s\)/)
   assert.match(row, /orDash\(s\.school\)/)
-  assert.match(row, /orDash\(s\.unit_key\)/)
   assert.match(row, /orDash\(s\.preceptor_name\)/)
+  assert.match(row, /orDash\(s\.shift\)/)
+  assert.match(row, /orDash\(s\.cohort\?\.name\)/)
   assert.match(row, /<HoursCell/)
-  assert.match(row, /ONBOARDING_LABEL/)
-  // Stage pill uses the shared stage tokens.
-  assert.match(row, /const stage = stageToken\(s\.bucket\)/)
-  assert.match(row, /background: stage\.bg, color: stage\.text/)
+  assert.match(row, /const status = statusToken\(s\.status\)/)
+  assert.match(row, /background: status\.bg, color: status\.text/)
 })
 
 test('exactly one kebab menu, and the stacked View details plus Actions buttons are gone', () => {
@@ -66,22 +67,23 @@ test('exactly one kebab menu, and the stacked View details plus Actions buttons 
   assert.match(portalCode, /aria-haspopup="menu"/)
 })
 
-test('the whole row is the open-profile control and the kebab is a sibling', () => {
+test('the whole table row opens the profile and the kebab is in its own cell', () => {
+  // SUPERSEDED: the row is a <tr role="button">; the kebab lives in the Actions cell,
+  // which stops click propagation so a kebab click is never a row click.
   const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function StudentKebab'))
-  assert.match(row, /className="ptl-stu-rowbtn"/)
-  assert.match(row, /onClick=\{\(e\) => onOpen\(s, e\.currentTarget\)\}/)
-  // The kebab opens after the row button closes: not nested inside it.
-  const rowBtnClose = row.indexOf('</button>')
-  const kebab = row.indexOf('<StudentKebab')
-  assert.ok(rowBtnClose > -1 && kebab > rowBtnClose)
+  assert.match(row, /role="button"/)
+  assert.match(row, /onClick=\{\(e\) => open_\(e\.currentTarget\)\}/)
+  assert.match(row, /className="ptl-stu-actioncell"[\s\S]{0,80}stopPropagation/)
 })
 
-test('the kebab carries only the safe Phase 1 actions, no preceptor write', () => {
-  const kebab = portalCode.slice(portalCode.indexOf('function StudentKebab'), portalCode.indexOf('function StudentKebab') + 1400)
+test('the kebab carries only Message Student in this no-SQL phase', () => {
+  // SUPERSEDED: the milestone confirmations were removed until Phase 2; only Message
+  // Student remains, and no preceptor write action appears.
+  const kebab = portalCode.slice(portalCode.indexOf('function StudentKebab'))
   assert.match(kebab, /Message student/)
-  assert.match(kebab, /Confirm \$\{m\.label\.toLowerCase\(\)\}/)
+  assert.ok(!kebab.includes('Confirm '))
   for (const forbidden of ['Change primary', 'Add secondary', 'Add coverage', 'Create new preceptor']) {
-    assert.ok(!kebab.includes(forbidden), `Phase 1 kebab must not offer ${forbidden}`)
+    assert.ok(!portalCode.includes(forbidden), `Phase 1 kebab must not offer ${forbidden}`)
   }
 })
 
@@ -177,11 +179,13 @@ test('the Student Portal avatar menu is unchanged, still Edit Profile', () => {
 })
 
 // ── More ────────────────────────────────────────────────────────────────────
-test('More holds exactly Placement Requests, Capacity, Preceptors, Notification Preferences', () => {
-  assert.match(chromeCode, /const MORE_KEYS = \['placements', 'capacity', 'preceptors', 'notifications'\]/)
-  // Profile is not in More.
+test('More holds exactly Placement Requests, Capacity, Preceptor Assignments', () => {
+  // SUPERSEDED by the UX-cleanup pass: Notification Preferences left More (it lives in
+  // Profile) so More is now three items.
+  assert.match(chromeCode, /const MORE_KEYS = \['placements', 'capacity', 'preceptors'\]/)
   const m = /const MORE_KEYS = \[([^\]]*)\]/.exec(chromeCode)
   assert.ok(!m[1].includes('profile'), 'Profile must not appear in More')
+  assert.ok(!m[1].includes('notifications'), 'Notification Preferences must not appear in More')
 })
 
 test('there is exactly one Notification Preferences destination', () => {

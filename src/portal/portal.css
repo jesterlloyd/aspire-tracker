@@ -1056,11 +1056,6 @@ img.ptl-detail-photo {
 .ptl-ulstat-num { font-size: 26px; font-weight: 700; color: var(--ptl-navy, #1D2567); font-variant-numeric: tabular-nums; }
 .ptl-ulstat-label { font-size: 13px; color: #4b5265; font-weight: 600; }
 
-/* Recent Messages rows on Home. */
-.ptl-recent-list { margin-bottom: 10px; }
-.ptl-recent-list li { padding: 0; border-bottom: 1px dashed #eee9df; }
-.ptl-recent-list li:last-child { border-bottom: none; }
-.ptl-recent-row {
   display: flex; align-items: center; gap: 10px; width: 100%;
   min-height: 48px; padding: 9px 6px; border: 0; background: none;
   cursor: pointer; font: inherit; text-align: left; border-radius: 8px;
@@ -1202,46 +1197,39 @@ img.ptl-detail-photo {
 /* ── UL-PHASE1-VISUAL: staff-language roster row + pastel profile hero ───────── */
 
 /* Roster as a list of rows, matching the staff Student Profiles list density. */
-.ptl-stu-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.ptl-stu-row { position: relative; display: flex; align-items: stretch; }
-.ptl-stu-rowbtn {
-  flex: 1; min-width: 0; display: grid;
-  grid-template-columns: auto minmax(0, 2.2fr) minmax(0, 1.6fr) auto auto;
-  align-items: center; gap: 14px; text-align: left; cursor: pointer;
-  background: #fff; border: 1px solid #e8e4dc; border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(25,25,25,0.05); padding: 11px 52px 11px 14px; font-family: inherit;
+/* UL-UX: one desktop-first student table for the 90-day window. */
+.ptl-stu-tablewrap { padding: 0; overflow-x: auto; }
+.ptl-stu-table { width: 100%; border-collapse: collapse; font-family: inherit; }
+.ptl-stu-table thead th {
+  text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: #9ca3af; padding: 10px 14px; border-bottom: 1px solid #eee9df;
+  white-space: nowrap;
 }
-.ptl-stu-rowbtn:hover { background: #fafbff; border-color: #d7ddf5; }
-.ptl-stu-rowbtn:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+.ptl-stu-trow { border-bottom: 1px solid #f4f1ec; cursor: pointer; }
+.ptl-stu-trow:last-child { border-bottom: none; }
+.ptl-stu-trow:hover { background: #fafbff; }
+.ptl-stu-trow:focus-visible { outline: 3px solid #93c5fd; outline-offset: -3px; }
+.ptl-stu-table td { padding: 10px 14px; font-size: 12.5px; color: #191919; vertical-align: middle; }
 
-.ptl-stu-idcol { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.ptl-stu-idcol .ptl-stu-name {
-  font-size: 14px; font-weight: 700; color: #191919; line-height: 1.2;
+.ptl-stu-idcell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ptl-stu-idtext { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.ptl-stu-name {
+  font-size: 13.5px; font-weight: 700; color: #191919; line-height: 1.2;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.ptl-stu-idcol .ptl-stu-school {
-  font-size: 11.5px; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
+.ptl-stu-school { font-size: 11px; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ptl-stu-pill {
-  align-self: flex-start; margin-top: 1px; font-size: 9.5px; font-weight: 700;
-  padding: 2px 8px; border-radius: 10px; white-space: nowrap; font-family: 'DM Sans', sans-serif;
+  display: inline-block; font-size: 9.5px; font-weight: 700; padding: 2px 8px;
+  border-radius: 10px; white-space: nowrap; font-family: 'DM Sans', sans-serif;
 }
-
-.ptl-stu-meta { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 12.5px; color: #191919; }
-.ptl-stu-meta > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ptl-stu-metak {
-  display: inline-block; min-width: 66px; font-size: 9.5px; font-weight: 700;
-  letter-spacing: 0.05em; text-transform: uppercase; color: #9ca3af;
-}
-.ptl-stu-hourscol { min-width: 92px; }
-.ptl-stu-onbcol { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-align: right; }
+.ptl-stu-actioncell { width: 44px; text-align: right; }
 
 /* The kebab is a sibling of the row button, absolutely placed in the reserved gutter. */
-.ptl-stu-kebab { position: absolute; top: 8px; right: 8px; }
+.ptl-stu-kebab { position: relative; display: inline-flex; }
 .ptl-stu-kebab-btn { padding: 6px; border-radius: 8px; color: #6b7280; }
 .ptl-stu-kebab-btn:hover { background: #eef2ff; color: #1d2567; }
 .ptl-stu-menu {
-  position: absolute; top: 38px; right: 0; z-index: 40; min-width: 190px;
+  position: absolute; top: 34px; right: 0; z-index: 40; min-width: 190px;
   background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
   box-shadow: 0 8px 24px rgba(16,24,40,0.14); padding: 5px; display: flex; flex-direction: column; gap: 2px;
 }
@@ -1270,4 +1258,21 @@ img.ptl-detail-photo {
 @media (max-width: 760px) {
   .ptl-stu-rowbtn { grid-template-columns: auto 1fr; grid-auto-rows: min-content; gap: 8px 12px; }
   .ptl-stu-meta, .ptl-stu-hourscol, .ptl-stu-onbcol { grid-column: 2; align-items: flex-start; text-align: left; }
+}
+
+/* UL-UX: the student table collapses to stacked cards on a phone. */
+@media (max-width: 760px) {
+  .ptl-stu-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .ptl-stu-table, .ptl-stu-table tbody, .ptl-stu-trow, .ptl-stu-table td { display: block; width: 100%; }
+  .ptl-stu-trow {
+    border: 1px solid #e8e4dc; border-radius: 12px; margin-bottom: 8px; padding: 4px 2px;
+    box-shadow: 0 1px 3px rgba(25,25,25,0.05);
+  }
+  .ptl-stu-table td { display: flex; justify-content: space-between; gap: 12px; padding: 6px 14px; border: none; }
+  .ptl-stu-table td::before {
+    content: attr(data-label); font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase; color: #9ca3af; flex: none;
+  }
+  .ptl-stu-table td[data-label="Student"]::before { display: none; }
+  .ptl-stu-actioncell { width: auto; justify-content: flex-end; }
 }

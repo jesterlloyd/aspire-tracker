@@ -119,6 +119,28 @@ export default async function handler(req, res) {
     }
   }
 
+  // Canonical rotation windows, batch-loaded for the whole roster in one query so the
+  // student table can show a start-to-end timeline without a per-student round trip.
+  // These are the SAME approved rotation dates the detail drawer already shows; this
+  // adds no new field class and no new authorization, only surfaces them in the list.
+  // The '1900-01-01' sentinel means "pending admin review" and is resolved to null, so
+  // a Unit Leader is never shown a placeholder date.
+  const ROTATION_SENTINEL = '1900-01-01'
+  const rotationById = {}
+  const rotationIds = [...new Set(inScope.map(s => s.cohort_school_rotation_id).filter(Boolean))]
+  if (rotationIds.length > 0) {
+    const { data: rotRows } = await db
+      .from('cohort_school_rotations')
+      .select('id, rotation_start_date, rotation_end_date')
+      .in('id', rotationIds)
+    for (const r of rotRows || []) {
+      const { rotation_start_date: start, rotation_end_date: end } = r
+      rotationById[r.id] = (!start || !end || start === ROTATION_SENTINEL || end === ROTATION_SENTINEL)
+        ? null
+        : { start, end }
+    }
+  }
+
   // Accepting cohort (server-resolved) so the portal participation form can
   // target and pre-fill the right cycle.
   let acceptingCohort = null
@@ -156,6 +178,11 @@ export default async function handler(req, res) {
             }
           : null,
         preceptor_name: assignmentsByStudent[s.id] || s.preceptor_name || null,
+        // Approved fields already shown in the detail drawer, surfaced here for the
+        // student table. shift is the student's stated availability; rotation is the
+        // canonical window (null when pending admin review).
+        shift: s.shift_availability || null,
+        rotation: rotationById[s.cohort_school_rotation_id] || null,
         hours: {
           required: s.hours_required ?? null,
           approved: s.approved_hours ?? 0,

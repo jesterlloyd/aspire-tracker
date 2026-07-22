@@ -41,6 +41,16 @@ export function setStudentPhotoCacheScope(nextScope) {
 }
 
 // Explicit clear (sign-out, authorization failure).
+// Invalidate ONE student's cached photo, e.g. when its signed URL is stale. This is
+// the surgical alternative to clearStudentPhotoCache: the drawer used to clear the
+// WHOLE cache on a single photo error, which blanked every roster avatar. A one-key
+// delete re-signs only the affected student and leaves the rest of the roster warm.
+export function invalidateStudentPhoto(key) {
+  if (!key) return
+  cache.delete(key)
+  inflight.delete(key)
+}
+
 export function clearStudentPhotoCache() {
   cache.clear()
   inflight.clear()

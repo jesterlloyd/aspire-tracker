@@ -30,23 +30,17 @@ const portalCode = stripJs(portal)
 const apiCode = stripJs(api)
 
 // ── Home priority order ─────────────────────────────────────────────────────
-test('Home renders the five sections in the locked order', () => {
+test('Home renders welcome, attention, calendar, upcoming, capacity, then the table', () => {
+  // SUPERSEDED: the Home layout changed in the UX-cleanup pass. Active Rotations and
+  // Recent Messages are gone; the order is welcome, attention strip, calendar, Upcoming
+  // Students, Capacity and placement, then the full-width student table.
   const home = portal.slice(portal.indexOf('function HomeScreen'), portal.indexOf('function BucketCard'))
-  // UL-POLISH P1: the priority order is unchanged in the markup source order;
-  // Upcoming and Active now sit in the right-hand grid column (rendered after
-  // the left column in source), and the messages card shows real threads.
-  const order = [
-    'Needs your attention',
-    'Capacity and placement',
-    'Recent Messages',
-    'Upcoming students',
-    'Active rotations',
-  ]
+  const order = ['Welcome', 'ptl-attn-strip', 'UnitRotationCalendar', 'Upcoming students', 'Capacity and placement', 'StudentRoster']
   let cursor = -1
-  for (const label of order) {
-    const at = home.indexOf(label)
-    assert.ok(at > -1, `Home must contain ${label}`)
-    assert.ok(at > cursor, `${label} must come after the previous section`)
+  for (const marker of order) {
+    const at = home.indexOf(marker)
+    assert.ok(at > -1, `Home must contain ${marker}`)
+    assert.ok(at > cursor, `${marker} in order`)
     cursor = at
   }
 })
@@ -152,12 +146,14 @@ test('unread is never conveyed by color alone', () => {
   assert.match(chrome, /aria-hidden="true"/)
 })
 
-test('tables are labelled and filters report their pressed state', () => {
+test('tables are labelled with captions and column scopes', () => {
+  // SUPERSEDED: the stage filters were removed in the UX-cleanup pass, so the pressed-
+  // state and filter-group assertions are gone. The student table returned (with its own
+  // caption), so every table including the roster is captioned.
   const captions = (portal.match(/<caption className="ptl-visually-hidden">/g) || []).length
-  assert.ok(captions >= 3, `every remaining table needs a caption, saw ${captions}`) // roster became a list in the visual redesign
+  assert.ok(captions >= 4, `every table needs a caption, saw ${captions}`)
   assert.match(portal, /scope="col"/)
-  assert.match(portal, /aria-pressed=\{filter === f\}/)
-  assert.match(portal, /role="group" aria-label="Filter students by stage"/)
+  assert.ok(!portal.includes('Filter students by stage'), 'the stage filter control is gone')
 })
 
 test('every form control has an associated label', () => {

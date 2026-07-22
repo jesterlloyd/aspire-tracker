@@ -215,12 +215,12 @@ test('row actions are a single kebab menu, not cramped side-by-side buttons', ()
   assert.ok(!portal.includes('function StudentActions'), 'the old stacked disclosure is gone')
 })
 
-test('EVERY safe action is preserved in the kebab, each with a clear label', () => {
+test('the kebab preserves Message Student with a clear per-student label', () => {
+  // SUPERSEDED: the milestone confirmations were removed until Phase 2, so the kebab now
+  // holds only Message Student. It stays labelled per student.
   const fn = portal.slice(portal.indexOf('function StudentKebab'))
   assert.match(fn, /Message student/)
-  assert.match(fn, /Confirm \$\{m\.label\.toLowerCase\(\)\}/)
-  assert.match(fn, /MILESTONES\.map/)
-  // The kebab is labelled per student, so it is unambiguous down a long list.
+  assert.ok(!fn.includes('MILESTONES'))
   assert.match(fn, /const label = `Actions for \$\{studentName\(student\)\}`/)
   assert.match(fn, /aria-label=\{label\}/)
 })

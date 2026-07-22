@@ -32,7 +32,7 @@ import {
   getStudentDetail, getMilestones, getStudentFileUrl,
 } from './unitLeaderApi'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from './UnitLeaderChrome'
-import { peekStudentPhotoUrl, resolveStudentPhotoUrl, clearStudentPhotoCache } from '../../lib/studentPhotoCache'
+import { peekStudentPhotoUrl, resolveStudentPhotoUrl, invalidateStudentPhoto } from '../../lib/studentPhotoCache'
 import { ulPhotoKey } from './useUnitStudentPhotos'
 import { stageToken } from './unitStageTokens'
 
@@ -110,7 +110,7 @@ function StudentPhoto({ studentId, name, hasPhoto }) {
     return () => { live = false }
   }, [studentId, attempt, cacheKey])
 
-  const retry = () => { setExpired(false); clearStudentPhotoCache(); setAttempt(a => a + 1) }
+  const retry = () => { setExpired(false); invalidateStudentPhoto(cacheKey); setAttempt(a => a + 1) }
 
   // A student with no photo skips the loading state entirely.
   if (hasPhoto === false) {
@@ -139,7 +139,7 @@ function StudentPhoto({ studentId, name, hasPhoto }) {
         // A load failure on the first link is treated as expiry and refreshed once,
         // silently. Any later failure stops the cycle and hands the user a control,
         // so a genuinely broken object cannot spin against the endpoint forever.
-        if (attempt === 0) { clearStudentPhotoCache(); setAttempt(1) }
+        if (attempt === 0) { invalidateStudentPhoto(cacheKey); setAttempt(1) }
         else setExpired(true)
       }}
     />

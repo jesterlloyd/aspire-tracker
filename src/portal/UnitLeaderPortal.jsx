@@ -17,16 +17,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MoreVertical } from 'lucide-react'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
-import { listPortalConversations } from '../lib/messages/portalMessagesApiClient'
-import { formatInboxTimestamp, formatUnread } from '../lib/messages/messagesConstants'
-import { UL_THREAD_ASPIRE_LABEL, ulDirectThreadLabel } from '../lib/messages/portalMessagesConstants'
 import { firstNameOf } from '../lib/masthead'
 import StudentDetailDrawer from './unit/StudentDetailDrawer'
 import UnitRotationCalendar from './unit/UnitRotationCalendar'
 import UnitShiftDayDrawer from './unit/UnitShiftDayDrawer'
 import UnitEvaluationsPlaceholder from './unit/UnitEvaluationsPlaceholder'
 import UnitStudentAvatar from './unit/UnitStudentAvatar'
-import { stageToken } from './unit/unitStageTokens'
+import { statusToken } from './unit/unitStageTokens'
 import { useUnitStudentPhotos } from './unit/useUnitStudentPhotos'
 import { useAuth } from '../contexts/AuthContext'
 import {
@@ -34,11 +31,10 @@ import {
   SectionHeading, Pill, TableSkeleton,
 } from './unit/UnitLeaderChrome'
 import {
-  ALL_UNITS, EMPTY, orDash, studentName, sentenceCase, BUCKET_LABEL, ONBOARDING_LABEL,
-  OUTSTANDING_LABEL, ASPIRE_AUTHORITY_NOTE,
+  ALL_UNITS, EMPTY, orDash, studentName, sentenceCase, BUCKET_LABEL, ASPIRE_AUTHORITY_NOTE,
   getRoster, getPlacementRequests, respondToPlacement,
   getCapacity, submitCapacity, getNominations, nominatePreceptor,
-  confirmMilestone, startUnitConversation,
+  startUnitConversation,
   getNotifications, setNotificationPreference, getShiftActivity,
 } from './unit/unitLeaderApi'
 
@@ -48,13 +44,6 @@ function fmtClock(iso) {
   const d = new Date(iso)
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 }
-
-const MILESTONES = [
-  { key: 'arrival', label: 'Arrival' },
-  { key: 'unit_orientation', label: 'Unit orientation' },
-  { key: 'preceptor_confirmation', label: 'Preceptor confirmed' },
-  { key: 'rotation_conclusion', label: 'Rotation concluded' },
-]
 
 /**
  * One data hook: load, error, and refresh, with abort on unmount.
@@ -111,7 +100,19 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
   const byBucket = useCallback(
     (b) => students.filter(s => s.bucket === b), [students])
 
-  if (roster.loading) return <LoadingState label="Loading your units" />
+  // While the roster loads, render the NAV immediately so Messages, Evaluations, and
+  // More are usable at once, and skeleton only the content area. This replaces the old
+  // full-page blocker that hid already-navigable chrome behind one spinner.
+  if (roster.loading) {
+    return (
+      <>
+        <UnitLeaderNav view={view} unread={unread} onNavigate={onNavigate} />
+        <div className="ptl-page ptl-unit-page">
+          <LoadingState label="Loading your units" />
+        </div>
+      </>
+    )
+  }
   if (roster.error) {
     return (
       <ErrorState
@@ -167,7 +168,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
 }
 
 // ── Home: the locked priority order, now with hierarchy ─────────────────────
-function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, refreshRoster, onNavigate, onOpenThread }) {
+function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate, onOpenThread }) {
   const placements = useEndpoint(s => getPlacementRequests(unitKey, s), [unitKey])
   const capacity = useEndpoint(s => getCapacity(unitKey, s), [unitKey])
   // The in-app feed is DERIVED server side from the caller's own authorized rows,
@@ -177,12 +178,6 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, refreshRos
   // server-filtered to safe fields; nothing here can widen either.
   const activity = useEndpoint(s => getShiftActivity({}, s), [])
   const [dayOpen, setDayOpen] = useState(null)   // { ymd, shifts }
-  // UL-POLISH P1: the latest threads, from the same endpoint the inbox uses.
-  const recent = useEndpoint(
-    (sig) => listPortalConversations({ limit: 3, signal: sig })
-      .then((data) => ({ ok: true, data }))
-      .catch(() => ({ ok: false, status: 0, data: null, error: 'request_failed' })),
-    [])
 
   // Awaiting-response requests are surfaced by the derived feed, so they are not
   // recomputed here. openRequests is still needed for the capacity summary count.
@@ -190,7 +185,6 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, refreshRos
   const supportFlags = students.filter(s => s.support?.open_count > 0)
   const notifications = alerts.data?.notifications || []
   const liveCapacity = (capacity.data?.submissions || []).filter(c => c.is_live)
-  const threads = (recent.data?.conversations || []).slice(0, 3)
   const shifts = activity.data?.shifts || []
   // A student currently checked in is the single most time-sensitive thing on this
   // screen, so it is promoted into the attention list rather than left to the grid.
@@ -203,90 +197,84 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, refreshRos
     : unitKeys.length === 2 ? unitKeys.join(' and ')
     : `${unitKeys.length} assigned units`
 
+  // The attention strip renders ONLY when something is actionable. There is no empty
+  // "nothing needs your attention" card any more: an empty strip is just noise.
+  const hasAttention = onShiftNow.length > 0 || notifications.length > 0 || supportFlags.length > 0
+
   return (
     <>
       <SectionHeading focusKey="home">{first ? `Welcome, ${first}` : 'Welcome'}</SectionHeading>
       <p className="ptl-muted ptl-home-sub">Unit Leader · {unitContext}</p>
 
-      <div className="ptl-grid ptl-home-grid">
-        <div className="ptl-col-7 ptl-home-col">
-          {/* 1. Needs your attention */}
-          <section className="ptl-card" aria-labelledby="ul-attention">
-            <h3 id="ul-attention" className="ptl-card-title">Needs your attention</h3>
-            {alerts.loading ? (
-              <LoadingState label="Loading your notifications" />
-            ) : notifications.length === 0 && supportFlags.length === 0 && onShiftNow.length === 0 ? (
-              <p className="ptl-muted">Nothing needs your attention right now.</p>
-            ) : (
-              <ul className="ptl-list ptl-attn-list">
-                {/* Live first: a student on the unit right now outranks anything queued. */}
-                {onShiftNow.map(x => (
-                  <li key={`live-${x.id}`}>
-                    <button type="button" className="ptl-attn-row"
-                      onClick={() => setDayOpen({ ymd: x.shift_date, shifts: shifts.filter(y => y.shift_date === x.shift_date) })}>
-                      <span className="ptl-attn-dot ptl-attn-dot-live" aria-hidden="true" />
-                      <span className="ptl-attn-text">
-                        <span className="ptl-attn-label">{x.student_name || 'A student'} is on shift now</span>
-                        <span className="ptl-attn-sub">
-                          {x.checked_in_at ? `Checked in ${fmtClock(x.checked_in_at)}` : 'Checked in'}
-                          {x.preceptor_name ? ` · with ${x.preceptor_name}` : ''}
-                        </span>
-                      </span>
-                      {x.unit_key && <span className="ptl-attn-unit">{x.unit_key}</span>}
-                      <span className="ptl-attn-chevron" aria-hidden="true">›</span>
-                    </button>
-                  </li>
-                ))}
-                {notifications.map(n => (
-                  <li key={n.id}>
-                    <button type="button" className="ptl-attn-row" onClick={() => onNavigate?.(n.section)}>
-                      <span className="ptl-attn-dot" aria-hidden="true" />
-                      <span className="ptl-attn-text">
-                        <span className="ptl-attn-label">{n.label}</span>
-                        <span className="ptl-attn-sub">{n.summary}</span>
-                      </span>
-                      {n.unit_key && <span className="ptl-attn-unit">{n.unit_key}</span>}
-                      <span className="ptl-attn-chevron" aria-hidden="true">›</span>
-                    </button>
-                  </li>
-                ))}
-                {/* The support signal links to Students and carries only the fact
-                    that a note exists, never its text. */}
-                {supportFlags.map(s => (
-                  <li key={s.id}>
-                    <button type="button" className="ptl-attn-row" onClick={() => onNavigate?.('students')}>
-                      <span className="ptl-attn-dot" aria-hidden="true" />
-                      <span className="ptl-attn-text">
-                        <span className="ptl-attn-label">{studentName(s)} raised a support note</span>
-                        <span className="ptl-attn-sub">in the last {s.support.window_days} days</span>
-                      </span>
-                      {s.unit_key && <span className="ptl-attn-unit">{s.unit_key}</span>}
-                      <span className="ptl-attn-chevron" aria-hidden="true">›</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+      {/* A compact attention strip, only when there is something to act on. */}
+      {hasAttention && (
+        <section className="ptl-card ptl-attn-strip" aria-label="Needs your attention">
+          <ul className="ptl-list ptl-attn-list">
+            {/* Live first: a student on the unit right now outranks anything queued. */}
+            {onShiftNow.map(x => (
+              <li key={`live-${x.id}`}>
+                <button type="button" className="ptl-attn-row"
+                  onClick={() => setDayOpen({ ymd: x.shift_date, shifts: shifts.filter(y => y.shift_date === x.shift_date) })}>
+                  <span className="ptl-attn-dot ptl-attn-dot-live" aria-hidden="true" />
+                  <span className="ptl-attn-text">
+                    <span className="ptl-attn-label">{x.student_name || 'A student'} is on shift now</span>
+                    <span className="ptl-attn-sub">
+                      {x.checked_in_at ? `Checked in ${fmtClock(x.checked_in_at)}` : 'Checked in'}
+                      {x.preceptor_name ? ` · with ${x.preceptor_name}` : ''}
+                    </span>
+                  </span>
+                  {x.unit_key && <span className="ptl-attn-unit">{x.unit_key}</span>}
+                  <span className="ptl-attn-chevron" aria-hidden="true">›</span>
+                </button>
+              </li>
+            ))}
+            {notifications.map(n => (
+              <li key={n.id}>
+                <button type="button" className="ptl-attn-row" onClick={() => onNavigate?.(n.section)}>
+                  <span className="ptl-attn-dot" aria-hidden="true" />
+                  <span className="ptl-attn-text">
+                    <span className="ptl-attn-label">{n.label}</span>
+                    <span className="ptl-attn-sub">{n.summary}</span>
+                  </span>
+                  {n.unit_key && <span className="ptl-attn-unit">{n.unit_key}</span>}
+                  <span className="ptl-attn-chevron" aria-hidden="true">›</span>
+                </button>
+              </li>
+            ))}
+            {/* The support signal links to Students and carries only the fact that a
+                note exists, never its text. */}
+            {supportFlags.map(s => (
+              <li key={s.id}>
+                <button type="button" className="ptl-attn-row" onClick={() => onNavigate?.('students')}>
+                  <span className="ptl-attn-dot" aria-hidden="true" />
+                  <span className="ptl-attn-text">
+                    <span className="ptl-attn-label">{studentName(s)} raised a support note</span>
+                    <span className="ptl-attn-sub">in the last {s.support.window_days} days</span>
+                  </span>
+                  {s.unit_key && <span className="ptl-attn-unit">{s.unit_key}</span>}
+                  <span className="ptl-attn-chevron" aria-hidden="true">›</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
-          {/* 2. Rotation activity: what actually happened, never a schedule. */}
+      <div className="ptl-grid ptl-home-grid">
+        {/* Left: the Rotation Activity Calendar. */}
+        <div className="ptl-col-7 ptl-home-col">
           <UnitRotationCalendar
             shifts={shifts}
             windowStart={activity.data?.window?.start}
             loading={activity.loading}
             onSelectDay={(ymd, dayShifts) => setDayOpen({ ymd, shifts: dayShifts })}
           />
+        </div>
 
-          {/* 3. The roster, embedded. Students left the nav but not the product. */}
-          <StudentRoster
-            students={students}
-            refreshRoster={refreshRoster}
-            onNavigate={onNavigate}
-            onOpenThread={onOpenThread}
-            heading="Your students"
-          />
+        {/* Right: Upcoming Students, then Capacity and Placement directly below. */}
+        <div className="ptl-col-5 ptl-home-col">
+          <BucketCard title="Upcoming students" bucket="upcoming" byBucket={byBucket} onNavigate={onNavigate} />
 
-          {/* 4. Capacity and placement, with numbers that go somewhere */}
           <section className="ptl-card" aria-labelledby="ul-cap">
             <h3 id="ul-cap" className="ptl-card-title">Capacity and placement</h3>
             {capacity.loading || placements.loading ? (
@@ -305,48 +293,18 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, refreshRos
             )}
             <p className="ptl-muted">{ASPIRE_AUTHORITY_NOTE}</p>
           </section>
-
-          {/* 3. Recent Messages: actual threads, not a promise */}
-          <section className="ptl-card" aria-labelledby="ul-msg">
-            <h3 id="ul-msg" className="ptl-card-title">Recent Messages</h3>
-            {recent.loading ? (
-              <LoadingState label="Loading recent messages" />
-            ) : threads.length === 0 ? (
-              <p className="ptl-muted">No messages yet. Conversations with the ASPIRE Team and your students appear here.</p>
-            ) : (
-              <ul className="ptl-list ptl-recent-list">
-                {threads.map(c => (
-                  <li key={c.id}>
-                    <button type="button" className="ptl-recent-row" onClick={() => onOpenThread?.(c.id)}>
-                      <span className="ptl-recent-text">
-                        <span className="ptl-recent-context">
-                          {c.direct_student_name ? ulDirectThreadLabel(c.direct_student_name) : UL_THREAD_ASPIRE_LABEL}
-                        </span>
-                        <span className="ptl-recent-subject">{c.subject}</span>
-                      </span>
-                      <span className="ptl-recent-meta">
-                        {Number(c.unread_count) > 0 && (
-                          <span className="ptl-nav-badge">{formatUnread(Number(c.unread_count))}</span>
-                        )}
-                        <time dateTime={c.last_message_at || undefined}>{formatInboxTimestamp(c.last_message_at)}</time>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <button type="button" className="ptl-btn" onClick={() => onNavigate?.('messages')}>
-              Open Messages
-            </button>
-          </section>
-        </div>
-
-        <div className="ptl-col-5 ptl-home-col">
-          {/* 4. Upcoming, 5. Active */}
-          <BucketCard title="Upcoming students" bucket="upcoming" byBucket={byBucket} onNavigate={onNavigate} />
-          <BucketCard title="Active rotations" bucket="active" byBucket={byBucket} onNavigate={onNavigate} />
         </div>
       </div>
+
+      {/* Your Students, full width below. The Active-rotations and recent-threads cards
+          are gone: the student table already represents active rotations, and Messages
+          has its own primary tab. */}
+      <StudentRoster
+        students={students}
+        onNavigate={onNavigate}
+        onOpenThread={onOpenThread}
+        heading="Your students"
+      />
 
       {dayOpen && (
         <UnitShiftDayDrawer
@@ -671,15 +629,21 @@ function HoursCell({ hours }) {
  * /portal/unit/students so that deep link keeps working after Students left the nav.
  * `heading` distinguishes them; everything else is identical, so the two can never drift.
  */
-function StudentRoster({ students, refreshRoster, onNavigate, onOpenThread, heading = null }) {
+/** A short rotation-timeline date, matching the drawer's date style. */
+function fmtShortDate(ymd) {
+  if (!ymd) return null
+  const [y, m, d] = String(ymd).split('-').map(Number)
+  if (!y || !m || !d) return null
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function StudentRoster({ students, onNavigate, onOpenThread, heading = null }) {
   const photos = useUnitStudentPhotos(students)
-  const [filter, setFilter] = useState('all')
   const [notice, setNotice] = useState(null)
   const [busy, setBusy] = useState(null)          // duplicate-click protection
   const [openActions, setOpenActions] = useState(null)
   const [detailStudent, setDetailStudent] = useState(null)
-  // The exact button that opened the drawer, so focus returns to the right ROW and
-  // not merely to the top of the table.
+  // The exact element that opened the drawer, so focus returns to the right ROW.
   const detailTriggerRef = useRef(null)
 
   const openDetail = (student, triggerEl) => {
@@ -687,21 +651,9 @@ function StudentRoster({ students, refreshRoster, onNavigate, onOpenThread, head
     setDetailStudent(student)
   }
 
-  const rows = filter === 'all' ? students : students.filter(s => s.bucket === filter)
-
-  const confirm = async (studentId, milestone) => {
-    if (busy) return
-    setBusy(`${studentId}:${milestone}`)
-    const res = await confirmMilestone(studentId, milestone, '')
-    setBusy(null)
-    setNotice(res.ok
-      ? { tone: 'ok', text: 'Milestone confirmed and recorded for ASPIRE.' }
-      : { tone: 'error', text: res.error === 'conflict' ? 'That milestone is already confirmed.' : 'That could not be saved.' })
-    if (res.ok) refreshRoster()
-  }
-
-  // ITEM 2: message a student directly. The endpoint re-verifies the active scope,
-  // so this button is a convenience, never the authorization.
+  // ONE table, the whole 90-day visibility window. The stage filters are gone: a Unit
+  // Leader with a handful of students does not need to slice them, and the window is
+  // already bounded server side to placed, active, and recently-completed students.
   const messageStudent = async (student) => {
     if (busy) return
     setBusy(`${student.id}:message`)
@@ -715,7 +667,6 @@ function StudentRoster({ students, refreshRoster, onNavigate, onOpenThread, head
     setBusy(null)
     if (res.ok) {
       setNotice({ tone: 'ok', text: 'Conversation opened.' })
-      // Open the created thread in Messages.
       if (res.data?.conversation_id) onOpenThread?.(res.data.conversation_id)
       else onNavigate?.('messages')
       return
@@ -737,36 +688,41 @@ function StudentRoster({ students, refreshRoster, onNavigate, onOpenThread, head
         : <SectionHeading focusKey="students">Students</SectionHeading>}
       {notice && <p className={`ptl-notice ptl-notice-${notice.tone}`} role="status">{notice.text}</p>}
 
-      <div className="ptl-card ptl-filterbar" role="group" aria-label="Filter students by stage">
-        {['all', 'upcoming', 'active', 'completed'].map(f => (
-          <button key={f} type="button"
-            className={`ptl-filter-chip${filter === f ? ' ptl-filter-chip-active' : ''}`}
-            aria-pressed={filter === f}
-            onClick={() => setFilter(f)}>
-            {f === 'all' ? 'All' : BUCKET_LABEL[f]}
-          </button>
-        ))}
-      </div>
-
-      {rows.length === 0 ? (
-        <EmptyState title="No students in this view"
+      {students.length === 0 ? (
+        <EmptyState title="No students in your assigned units"
           detail="Students placed in your assigned units appear here, including those who completed within the last 90 days." />
       ) : (
-        <ul className="ptl-stu-list" aria-label="Students in your assigned units">
-          {rows.map(s => (
-            <StudentRow
-              key={s.id}
-              student={s}
-              photoUrl={photos.peek(s.id)}
-              busy={busy}
-              open={openActions === s.id}
-              onToggleActions={() => setOpenActions(openActions === s.id ? null : s.id)}
-              onOpen={openDetail}
-              onConfirm={confirm}
-              onMessage={messageStudent}
-            />
-          ))}
-        </ul>
+        <div className="ptl-card ptl-stu-tablewrap">
+          <table className="ptl-stu-table">
+            <caption className="ptl-visually-hidden">Students in your assigned units, last 90 days</caption>
+            <thead>
+              <tr>
+                <th scope="col">Student</th>
+                <th scope="col">ASPIRE status</th>
+                <th scope="col">Primary preceptor</th>
+                <th scope="col">Shift</th>
+                <th scope="col">Rotation</th>
+                <th scope="col">Cohort</th>
+                <th scope="col">Hours</th>
+                <th scope="col"><span className="ptl-visually-hidden">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {students.map(s => (
+                <StudentRow
+                  key={s.id}
+                  student={s}
+                  photoUrl={photos.peek(s.id)}
+                  busy={busy}
+                  open={openActions === s.id}
+                  onToggleActions={() => setOpenActions(openActions === s.id ? null : s.id)}
+                  onOpen={openDetail}
+                  onMessage={messageStudent}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {detailStudent && (
@@ -780,15 +736,6 @@ function StudentRoster({ students, refreshRoster, onNavigate, onOpenThread, head
   )
 }
 
-/**
- * ITEM 4: student actions as a DISCLOSURE rather than a row of cramped buttons.
- *
- * Four milestone buttons plus Message side by side were unusable on a phone. A
- * single labelled toggle reveals a stacked, full-width menu instead. Every action
- * is preserved, each is a real button with a visible label, focus stays inside the
- * normal tab order, and the toggle reports its expanded state, so keyboard and
- * screen-reader users get the same affordance as pointer users.
- */
 /**
  * Standalone Students view. Students is no longer a primary tab, but
  * /portal/unit/students remains a valid deep link and renders the same roster module
@@ -808,53 +755,52 @@ function StudentsScreen(props) {
  * lives OUTSIDE that button (a sibling in the <li>), because a button nested inside a
  * button is invalid HTML and resolves unpredictably.
  */
-function StudentRow({ student: s, photoUrl, busy, open, onToggleActions, onOpen, onConfirm, onMessage }) {
-  const rowRef = useRef(null)
-  const stage = stageToken(s.bucket)
-  const outstanding = s.onboarding?.outstanding || []
+function StudentRow({ student: s, photoUrl, busy, open, onToggleActions, onOpen, onMessage }) {
+  const status = statusToken(s.status)
+  const rot = s.rotation ? `${fmtShortDate(s.rotation.start)} to ${fmtShortDate(s.rotation.end)}` : EMPTY
+  // The whole row opens the profile; the Actions cell stops propagation so a kebab
+  // click never doubles as a row click. Enter and Space activate the row for keyboard.
+  const open_ = (el) => onOpen(s, el)
   return (
-    <li className="ptl-stu-row">
-      <button
-        ref={rowRef}
-        type="button"
-        className="ptl-stu-rowbtn"
-        aria-label={`Open details for ${studentName(s)}`}
-        onClick={(e) => onOpen(s, e.currentTarget)}
-      >
-        <UnitStudentAvatar url={photoUrl} name={studentName(s)} size={44} />
-        <span className="ptl-stu-idcol">
-          <span className="ptl-stu-name">{studentName(s)}</span>
-          <span className="ptl-stu-school">{orDash(s.school)}</span>
-          <span className="ptl-stu-pill"
-            style={{ background: stage.bg, color: stage.text, border: `1px solid ${stage.border}` }}>
-            {BUCKET_LABEL[s.bucket] || EMPTY}
+    <tr
+      className="ptl-stu-trow"
+      role="button"
+      tabIndex={0}
+      aria-label={`Open details for ${studentName(s)}`}
+      onClick={(e) => open_(e.currentTarget)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open_(e.currentTarget) } }}
+    >
+      <td data-label="Student">
+        <span className="ptl-stu-idcell">
+          <UnitStudentAvatar url={photoUrl} name={studentName(s)} size={40} />
+          <span className="ptl-stu-idtext">
+            <span className="ptl-stu-name">{studentName(s)}</span>
+            <span className="ptl-stu-school">{orDash(s.school)}</span>
           </span>
         </span>
-        <span className="ptl-stu-meta">
-          <span><span className="ptl-stu-metak">Unit</span>{orDash(s.unit_key)}</span>
-          <span><span className="ptl-stu-metak">Preceptor</span>{orDash(s.preceptor_name)}</span>
+      </td>
+      <td data-label="ASPIRE status">
+        <span className="ptl-stu-pill"
+          style={{ background: status.bg, color: status.text, border: `1px solid ${status.border}` }}>
+          {orDash(s.status)}
         </span>
-        <span className="ptl-stu-hourscol"><HoursCell hours={s.hours} /></span>
-        <span className="ptl-stu-onbcol">
-          <Pill tone={s.onboarding?.state === 'ready' ? 'ok' : 'warn'}>
-            {ONBOARDING_LABEL[s.onboarding?.state] || EMPTY}
-          </Pill>
-          {outstanding.length > 0 && (
-            <span className="ptl-ochips">
-              {outstanding.map(k => <span key={k} className="ptl-ochip">{OUTSTANDING_LABEL[k] || k}</span>)}
-            </span>
-          )}
-        </span>
-      </button>
-      <StudentKebab
-        student={s}
-        busy={busy}
-        open={open}
-        onToggle={onToggleActions}
-        onConfirm={onConfirm}
-        onMessage={onMessage}
-      />
-    </li>
+      </td>
+      <td data-label="Primary preceptor">{orDash(s.preceptor_name)}</td>
+      <td data-label="Shift">{orDash(s.shift)}</td>
+      <td data-label="Rotation">{rot}</td>
+      <td data-label="Cohort">{orDash(s.cohort?.name)}</td>
+      <td data-label="Hours"><HoursCell hours={s.hours} /></td>
+      <td data-label="Actions" className="ptl-stu-actioncell"
+        onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+        <StudentKebab
+          student={s}
+          busy={busy}
+          open={open}
+          onToggle={onToggleActions}
+          onMessage={onMessage}
+        />
+      </td>
+    </tr>
   )
 }
 
@@ -863,7 +809,7 @@ function StudentRow({ student: s, photoUrl, busy, open, onToggleActions, onOpen,
  * Phase 1 actions: message the student, and confirm a milestone. No preceptor write
  * action appears here; those are gated to a later phase.
  */
-function StudentKebab({ student, busy, open, onToggle, onConfirm, onMessage }) {
+function StudentKebab({ student, busy, open, onToggle, onMessage }) {
   const label = `Actions for ${studentName(student)}`
   return (
     <div className="ptl-stu-kebab">
@@ -879,6 +825,10 @@ function StudentKebab({ student, busy, open, onToggle, onConfirm, onMessage }) {
       </button>
       {open && (
         <div className="ptl-stu-menu" role="menu" aria-label={label}>
+          {/* No-SQL phase: only Message Student. The milestone confirmations were
+              removed here until Phase 2, and the approved preceptor-assignment actions
+              (Assign New Primary, Assign Secondary, Assign Coverage) arrive with the
+              repair migration and the transactional RPC, not before. */}
           <button
             type="button"
             role="menuitem"
@@ -888,18 +838,6 @@ function StudentKebab({ student, busy, open, onToggle, onConfirm, onMessage }) {
           >
             {busy === `${student.id}:message` ? 'Opening' : 'Message student'}
           </button>
-          {MILESTONES.map(m => (
-            <button
-              key={m.key}
-              type="button"
-              role="menuitem"
-              className="ptl-stu-menuitem"
-              disabled={busy === `${student.id}:${m.key}`}
-              onClick={() => onConfirm(student.id, m.key)}
-            >
-              {busy === `${student.id}:${m.key}` ? 'Saving' : `Confirm ${m.label.toLowerCase()}`}
-            </button>
-          ))}
         </div>
       )}
     </div>

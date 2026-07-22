@@ -41,8 +41,9 @@ test('every student row is an open-profile control that renders the drawer', () 
   // The visual redesign made the whole row the open-profile affordance instead of a
   // separate "View details" button. The property is unchanged: one click opens the
   // safe drawer.
-  assert.match(portalCode, /className="ptl-stu-rowbtn"/)
-  assert.match(portalCode, /onClick=\{\(e\) => onOpen\(s, e\.currentTarget\)\}/)
+  // The row is a <tr role="button"> whose click opens the drawer.
+  assert.match(portalCode, /role="button"/)
+  assert.match(portalCode, /onClick=\{\(e\) => open_\(e\.currentTarget\)\}/)
   assert.match(portalCode, /<StudentDetailDrawer/,
     'the roster still renders the drawer')
 })
@@ -57,9 +58,10 @@ test('the open-profile control is the row itself, separate from the kebab menu',
   // The row button opens the profile; the kebab is a sibling holding the write-lite
   // actions. A button nested in a button would be invalid, so the kebab opens after
   // the row button closes.
-  const rowClose = row.indexOf('</button>')
-  const kebab = row.indexOf('<StudentKebab')
-  assert.ok(rowClose > -1 && kebab > rowClose)
+  // The kebab lives in the Actions cell, which stops propagation so a kebab click is
+  // never a row click.
+  assert.match(row, /className="ptl-stu-actioncell"[\s\S]{0,80}stopPropagation/)
+  assert.match(row, /<StudentKebab/)
 })
 
 // ── Only approved fields are rendered ───────────────────────────────────────
@@ -154,8 +156,8 @@ test('an expired photo link is refreshed once, then stops and offers a control',
   const photo = drawerCode.slice(drawerCode.indexOf('function StudentPhoto'),
     drawerCode.indexOf('function ResumeAction'))
   assert.match(photo, /onError=/, 'an expired link surfaces as an image load error')
-  assert.match(photo, /if \(attempt === 0\) \{ clearStudentPhotoCache\(\); setAttempt\(1\) \}/,
-    'the first failure clears the cache and requests exactly one fresh link')
+  assert.match(photo, /if \(attempt === 0\) \{ invalidateStudentPhoto\(cacheKey\); setAttempt\(1\) \}/,
+    'the first failure invalidates only this photo and requests one fresh link, never the whole cache')
   assert.match(photo, /else setExpired\(true\)/,
     'a later failure must stop, so a broken object cannot spin against the endpoint')
   assert.match(photo, /Reload photo/, 'a manual retry control must exist')
@@ -237,7 +239,7 @@ test('focus moves into the drawer on open and returns to the trigger on close', 
 test('focus returns to the exact row that opened the drawer', () => {
   assert.match(portalCode, /detailTriggerRef\.current = triggerEl/,
     'the opening element itself must be captured, not just the list')
-  assert.match(portalCode, /onClick=\{\(e\) => onOpen\(s, e\.currentTarget\)\}/)
+  assert.match(portalCode, /onClick=\{\(e\) => open_\(e\.currentTarget\)\}/)
   assert.match(portalCode, /returnFocusRef=\{detailTriggerRef\}/)
 })
 

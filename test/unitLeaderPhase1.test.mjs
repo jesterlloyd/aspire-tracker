@@ -51,7 +51,7 @@ test('Students is absent from primary navigation but still a section', () => {
 
 test('More holds the five infrequent destinations', () => {
   assert.match(chromeCode,
-    /const MORE_KEYS = \['placements', 'capacity', 'preceptors', 'notifications'\]/)
+    /const MORE_KEYS = \['placements', 'capacity', 'preceptors'\]/)
 })
 
 test('the nav is identical at every width, with no desktop-only branch', () => {
@@ -281,9 +281,9 @@ test('the day drawer shows student and preceptor and traps focus', () => {
 })
 
 // ── Home composition ───────────────────────────────────────────────────────
-test('Home renders welcome, attention, calendar, roster, then summaries', () => {
+test('Home renders welcome, an attention strip, the calendar, then the students table', () => {
   const home = portalCode.slice(portalCode.indexOf('function HomeScreen'), portalCode.indexOf('function BucketCard'))
-  const order = ['Welcome', 'Needs your attention', '<UnitRotationCalendar', '<StudentRoster', 'Capacity and placement']
+  const order = ['Welcome', 'ptl-attn-strip', '<UnitRotationCalendar', 'bucket="upcoming"', 'Capacity and placement', '<StudentRoster']
   let cursor = -1
   for (const marker of order) {
     const at = home.indexOf(marker)
@@ -291,6 +291,8 @@ test('Home renders welcome, attention, calendar, roster, then summaries', () => 
     assert.ok(at > cursor, `${marker} must come after the previous block`)
     cursor = at
   }
+  // Recent Messages is gone.
+  assert.ok(!home.includes('Recent Messages'))
 })
 
 test('a student on shift now is promoted into the attention list', () => {
@@ -316,12 +318,12 @@ test('phase 1 contains no preceptor assignment or creation action', () => {
   }
 })
 
-test('the kebab menu carries only the existing safe actions', () => {
-  // The redesign moved View details to a whole-row click; the kebab now holds only
-  // Message student and Confirm milestone. No preceptor write action appears.
+test('the kebab menu carries only Message Student in this no-SQL phase', () => {
+  // SUPERSEDED: milestone confirmations were removed until Phase 2; only Message Student
+  // remains. The whole row opens the profile.
   const kebab = portalCode.slice(portalCode.indexOf('function StudentKebab'))
   assert.match(kebab, /Message student/)
-  assert.match(kebab, /Confirm \$\{m\.label\.toLowerCase\(\)\}/)
+  assert.ok(!kebab.includes('Confirm '))
   assert.match(portalCode, /aria-label=\{`Open details for \$\{studentName\(s\)\}`\}/,
     'the whole row opens the profile')
 })
