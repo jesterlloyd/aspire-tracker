@@ -56,21 +56,20 @@ The migration performs exactly these writes, in order:
    `search_path = public, pg_temp`). It does no work at creation time; it defines what
    happens on a future canonical change.
 6. **Create the trigger `trg_sync_primary_preceptor_mirror`** `AFTER INSERT OR UPDATE OF
-   preceptor_id, cohort_id ON students`. From this point, whenever any writer changes a
-   student's `preceptor_id` or `cohort_id`, the function runs and, inside the same
-   transaction, writes:
-   - on a **cohort change**: ends every active assignment tied to the OLD cohort (soft-end,
-     never delete), then rebuilds the current-cohort mirror below;
-   - on a **new/changed primary**: ends the stale active-primary row for the current cohort;
+   preceptor_id ON students` (preceptor_id ONLY; `cohort_id` is not a trigger event). From
+   this point, whenever any writer changes a student's `preceptor_id`, the function runs and,
+   inside the same transaction, writes:
+   - on a **new/changed primary**: ends the stale active-primary row for the student's cohort;
      ends the new preceptor's active secondary/coverage row for that cohort if one exists
      (the only case a secondary/coverage row is ever touched, required so the primary insert
      does not violate the ppm3 relationship index); inserts one active-primary row if none
      exists; aligns `students.matched_preceptor`/`preceptor_email` from the preceptor record;
      aligns the current-cohort `matches.preceptor_id`;
    - on a **cleared primary** (`preceptor_id` set to NULL): ends the active-primary row for
-     the current cohort; clears the two display fields; nulls the current-cohort match FK.
+     the student's cohort; clears the two display fields; nulls the current-cohort match FK.
    Every branch is guarded (`IS DISTINCT FROM`, `NOT EXISTS`) so re-running the same change is
-   a no-op.
+   a no-op. The student's cohort is fixed (students are never re-cohorted), so every write is
+   scoped to that one cohort and the function contains no cohort-change logic.
 7. **`REVOKE ALL ON FUNCTION ... FROM PUBLIC`.** The function is only ever invoked by the
    trigger; no caller executes it directly.
 
@@ -86,7 +85,7 @@ No other table is written. No RLS policy is created or changed. No grant is issu
   `students.preceptor_email`, and the current-cohort `matches.preceptor_id` (NULL preserved),
   then drops the trigger and the function.
 - The rollback intentionally does NOT undo mirror updates the trigger made for **real**
-  `preceptor_id`/`cohort_id` changes committed after apply; those are legitimate and correct.
+  `preceptor_id` changes committed after apply; those are legitimate and correct.
   Only the one-time repair rows and the prevention mechanism are reverted.
 - The audit table may be retained as a record or dropped (a commented `DROP TABLE` line is
   included).
@@ -124,9 +123,10 @@ canonical; `matches.preceptor_assigned` never written; repair writes no SPA rows
 with the batch sentinel and RLS enabled; function is SECURITY DEFINER with fixed search_path;
 trigger fires only on `preceptor_id`/`cohort_id`; idempotent + history-preserving (no DELETE,
 insert-only-when-missing, same-preceptor is the only secondary/coverage touch); cleared-primary
-branch behavior; cohort-change ends old-cohort active rows; no permission widening (REVOKE from
-PUBLIC, no CREATE POLICY, no anon/authenticated/portal grant); verification file covers the
-equivalence gate and the definer/search_path/execute checks; no em dash.
+branch behavior; NO cohort-change logic (no `v_cohort_changed`, no `OLD.cohort_id`, trigger is
+preceptor_id-only) while every write stays scoped to the fixed cohort; no permission widening
+(REVOKE from PUBLIC, no CREATE POLICY, no anon/authenticated/portal grant); verification file
+covers the equivalence gate and the definer/search_path/execute checks; no em dash.
 
 ## 7. Exact manual application order
 
@@ -144,24 +144,96 @@ equivalence gate and the definer/search_path/execute checks; no em dash.
    confirm the SPA active-primary row, display fields, and current-cohort match FK follow, then
    `ROLLBACK`.
 
-## Notes for the reviewer (judgment calls to confirm)
+## Revision: locked cohort model (all cohort-change logic removed)
 
-- **Cohort-change handling is included** (`AFTER UPDATE OF preceptor_id, cohort_id`) because the
-  task asks the mechanism to handle future cohort changes and, without it, a future re-cohort
-  would recreate exactly the drift Phase 2A found. It is inert on current data (zero cohort-stale
-  rows). Consequence to confirm: a change to `students.cohort_id` now ends that student's
-  old-cohort active assignments (history preserved). If a `cohort_id` value ever needs correcting
-  WITHOUT ending assignments (a data fix, not a real re-cohort), do it with the trigger disabled.
-  If you prefer to defer cohort handling to Phase 2C, drop the `cohort_id` column from the
-  trigger's `UPDATE OF` list and the `v_cohort_changed` branch; the preceptor_id repair and
-  prevention stand alone.
-- **SECURITY DEFINER is required** so the mirror is maintained when a staff user changes
-  `preceptor_id` from the client (that user has no direct write policy on
-  `student_preceptor_assignments`). It does not widen who may change `preceptor_id`.
-- **Pre-existing observation (out of scope):** the `students` write policy is `is_staff()`,
-  which today includes interviewer/viewer, so the staff assignment path is reachable more broadly
-  than owner/admin. This migration neither widens nor narrows that; flagging it for a separate
-  authorization review before Unit Leader primary writes ship.
+Per the locked product decisions (a student is permanently tied to one cohort, is never
+re-cohorted, and graduates after completing it; preceptors are not cohort-bound), this revised
+migration:
+
+- fires the trigger on `AFTER INSERT OR UPDATE OF preceptor_id` only (`cohort_id` removed from
+  the event list);
+- removed the `v_cohort_changed` flag, the cohort-change branch, and every reference to
+  `OLD.cohort_id`;
+- adds no logic that ends or recreates assignments because `students.cohort_id` changed;
+- keeps existing historical assignment rows untouched;
+- continues to scope every assignment write to the student's fixed cohort (`NEW.cohort_id`).
+
+A static guard (`NO cohort-change logic exists ...`) asserts `v_cohort_changed` and
+`OLD.cohort_id` are absent and that the trigger event is preceptor_id-only, so the removal cannot
+silently regress.
+
+## Authorization findings and recommended Phase 2C sequence
+
+**Q1. Which roles can update `students.preceptor_id` today?**
+Only one path writes it: the client Supabase mutation in `PreceptorAssignmentModal.jsx`
+(`handleConfirm` / `handleAddSaved`), gated by the RLS policy `staff_all_students`
+(`FOR ALL TO authenticated USING (is_staff())`). `is_staff()` is true for
+`owner, admin, co_lead, interviewer, viewer`. The server action
+`api/student-update.js: update_preceptor_assignment` is Owner/Admin only but explicitly does
+NOT write `preceptor_id` (free-text fields only). So the RLS boundary that governs `preceptor_id`
+writes is **owner, admin, co_lead, interviewer, viewer**.
+
+**Q2. Can interviewer/viewer do it in practice, or only theoretically?**
+In the UI, no: the assign-preceptor modal is gated by `canEdit`, and `canEdit = ['owner','admin']`
+(`src/contexts/AuthContext.jsx:167`), so interviewer/viewer/co_lead never see the control.
+But the true security boundary is RLS, not the UI, and RLS is broader: any `is_staff()` user holds
+a valid `authenticated` JWT and could issue a direct `students.update({preceptor_id})` outside the
+UI, which the policy would allow. So it is **theoretically reachable by interviewer/viewer/co_lead
+today**, blocked only by the client UI, not by the database. This gap is the reason authorization
+must be tightened before Unit Leaders (or anyone) get a new primary-write path.
+
+**Q3. Smallest safe way to ensure only Owner/Admin use the existing staff write path?**
+RLS cannot express "only owner/admin may change this one column": policies are row-level, not
+column-level, and every app user shares the single DB role `authenticated`, so DB-level column
+GRANTs cannot distinguish owner from interviewer either. The smallest safe enforcement is a
+**`BEFORE UPDATE OF preceptor_id` guard trigger on `students`** that raises unless the acting
+user is owner/admin, resolved from `user_profiles` via `auth.uid()` (mirroring `is_staff()` but
+narrowed to `role IN ('owner','admin')`), with a controlled exception for the scoped Unit Leader
+RPC below (e.g. the RPC sets a transaction-local GUC the guard recognizes, or the guard allows the
+change when the row is being written by the definer RPC). This is an authorization change and is
+deliberately **NOT** in the Phase 2B migration.
+
+**Q4. How should the future Unit Leader path be exposed?**
+Only through a `SECURITY DEFINER` transactional RPC, never direct table write. Proposed:
+`unit_leader_set_primary_preceptor(p_student_id uuid, p_preceptor_id uuid)` that (a) verifies the
+caller is a portal user with an ACTIVE `unit_leader` role grant AND an ACTIVE `user_unit_scopes`
+row covering the student's matched unit (fail closed), (b) updates `students.preceptor_id` (which
+fires the Phase 2B sync trigger to maintain all mirrors), (c) writes an audit row and queues an
+Owner/Admin notification, all in one transaction. Unit Leaders receive `EXECUTE` on the RPC only;
+they never gain a write policy on `students`, `matches`, or `student_preceptor_assignments`. This
+mirrors the existing UL transactional RPC pattern (`unit_placement_respond`, `unit_capacity_submit`).
+
+**Q5. Owner/Admin notification and audit when a Unit Leader changes Primary?**
+In the same RPC transaction, insert an audit row (a dedicated `preceptor_change_log`, or reuse the
+`activity_logs` + `unitLeaderAudit.js` pattern) capturing `student_id`, `old_preceptor_id`,
+`new_preceptor_id`, `changed_by_profile_id`, acting role, `unit_key`, and timestamp. After the
+authoritative write, best-effort notify Owner/Admin through the existing staff notification path
+(so a notification failure never rolls back the change). The Phase 2B trigger is compatible: it
+runs inside the RPC's transaction when the RPC sets `preceptor_id`.
+
+**Why authorization is NOT changed in Phase 2B.** The sync trigger's safety does not depend on
+WHO changes `preceptor_id`: it only mirrors an already-committed canonical change into the
+service-managed tables, idempotently and history-preservingly. Tightening WHO may change
+`preceptor_id` (Q3) and adding the scoped UL RPC (Q4/Q5) are orthogonal authorization work with
+their own review, tests, and rollback. Bundling them into the data-repair migration would enlarge
+its blast radius and couple a hot staff path change to a data fix. Recommended split:
+
+- **Phase 2B (this handoff):** repair the four mirror defects + install the writer-agnostic sync
+  trigger. No authorization change.
+- **Phase 2C (separate migration + app change):** (1) the `BEFORE UPDATE OF preceptor_id` guard
+  restricting the direct path to owner/admin; (2) point `PreceptorAssignmentModal` at an owner/admin
+  RPC (or keep the direct path but behind the guard); (3) the scoped
+  `unit_leader_set_primary_preceptor` RPC + audit + Owner/Admin notification; (4) the Unit Leader UI
+  that calls it. Sequence 2C AFTER 2B so the mirror trigger already exists when the new write paths
+  land.
+
+**SECURITY DEFINER note.** The Phase 2B trigger function is `SECURITY DEFINER` because a client
+staff change to `preceptor_id` runs as the `authenticated` role, which has no write policy on
+`student_preceptor_assignments`; the definer (owned by the migration runner) performs the mirror
+write. This does not widen who may change `preceptor_id` (still the unchanged `is_staff()` students
+policy); it only keeps the mirror consistent for changes that are already allowed. Until Phase 2C
+narrows that policy, the trigger faithfully mirrors whatever the current policy permits, neither
+improving nor worsening the authorization posture.
 
 ## Stop point
 

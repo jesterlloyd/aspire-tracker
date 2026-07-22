@@ -71,11 +71,12 @@ test('the sync function is SECURITY DEFINER with a fixed search_path', () => {
   assert.match(prevention, /SET search_path = public, pg_temp/)
 })
 
-test('the trigger fires only on canonical changes (preceptor_id or cohort_id)', () => {
-  assert.match(prevention, /AFTER INSERT OR UPDATE OF preceptor_id, cohort_id ON public\.students/)
+test('the trigger fires ONLY on students.preceptor_id, never cohort_id', () => {
+  assert.match(prevention, /AFTER INSERT OR UPDATE OF preceptor_id ON public\.students/)
+  assert.ok(!/UPDATE OF preceptor_id, cohort_id/.test(prevention), 'cohort_id is not a trigger event')
   assert.match(prevention, /FOR EACH ROW EXECUTE FUNCTION public\.sync_primary_preceptor_mirror\(\)/)
-  // Early-return when nothing canonical changed (idempotent no-op).
-  assert.match(prevention, /IF NOT v_preceptor_changed AND NOT v_cohort_changed THEN\s*\n\s*RETURN NULL/)
+  // Early-return when preceptor_id did not change (idempotent no-op).
+  assert.match(prevention, /IF TG_OP = 'UPDATE' AND NEW\.preceptor_id IS NOT DISTINCT FROM OLD\.preceptor_id THEN\s*\n\s*RETURN NULL/)
 })
 
 test('the trigger is idempotent and history-preserving', () => {
@@ -97,8 +98,13 @@ test('the cleared-primary branch ends the primary and clears the mirrors', () =>
   assert.match(prevention, /ELSE[\s\S]{0,400}role\s*= 'primary'\s*\n\s*AND status\s*= 'active'/)
 })
 
-test('cohort change ends old-cohort active rows, never deletes them', () => {
-  assert.match(prevention, /IF v_cohort_changed THEN[\s\S]{0,300}cohort_id\s*= OLD\.cohort_id[\s\S]{0,60}status\s*= 'active'/)
+test('NO cohort-change logic exists (students are permanently single-cohort)', () => {
+  // The locked product model: students are never re-cohorted, so the trigger neither
+  // watches for nor acts on a cohort change.
+  assert.ok(!/v_cohort_changed/.test(mig), 'no cohort-change flag')
+  assert.ok(!/OLD\.cohort_id/.test(mig), 'the function never reads OLD.cohort_id')
+  // Every assignment write is still scoped to the student fixed cohort (NEW.cohort_id).
+  assert.match(prevention, /cohort_id\s*= NEW\.cohort_id/)
 })
 
 test('no permission widening: execute revoked from PUBLIC, no new policy or anon/portal grant', () => {

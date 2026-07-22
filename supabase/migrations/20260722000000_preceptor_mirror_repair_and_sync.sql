@@ -15,13 +15,21 @@
 --      (Phase 2A categories 1/2/3a/8a = 0), so this repair writes NO
 --      student_preceptor_assignments rows.
 --   2. A PREVENTION trigger that keeps the same mirror in step whenever the canonical
---      students.preceptor_id (or students.cohort_id) changes, from ANY writer.
+--      students.preceptor_id changes, from ANY writer.
 --
 -- CANONICAL RULE (unchanged): students.preceptor_id (in students.cohort_id) is THE
 --   primary-preceptor identity. Every mirror is derived FROM it. Liveness is status
 --   only; rows are soft-ended, never deleted.
 --
+-- STUDENT-COHORT MODEL (locked): a student is permanently tied to one cohort and is never
+--   re-cohorted (they graduate after completing it). Preceptors are NOT tied to a cohort
+--   and may precept across cohorts. The trigger therefore fires ONLY on preceptor_id and
+--   never watches or responds to students.cohort_id; every assignment write is scoped to
+--   the student's fixed cohort, and existing historical rows are left untouched.
+--
 -- WHAT IT DOES NOT DO
+--   - It does not respond to a students.cohort_id change (there is no such thing) and adds
+--     no logic that ends or recreates assignments because cohort_id changed.
 --   - It does not touch correct active-primary rows, secondary/coverage rows, or ended/
 --     removed history (except a direct same-preceptor conflict, see the trigger).
 --   - It does not touch matches.preceptor_assigned. That free-text column is NOT a
@@ -123,36 +131,24 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $fn$
 DECLARE
-  v_preceptor_changed boolean;
-  v_cohort_changed    boolean;
-  v_full_name         text;
-  v_email             text;
+  v_full_name text;
+  v_email     text;
 BEGIN
-  v_preceptor_changed :=
-       (TG_OP = 'INSERT' AND NEW.preceptor_id IS NOT NULL)
-    OR (TG_OP = 'UPDATE' AND NEW.preceptor_id IS DISTINCT FROM OLD.preceptor_id);
-  v_cohort_changed :=
-       (TG_OP = 'UPDATE' AND NEW.cohort_id IS DISTINCT FROM OLD.cohort_id);
-
-  IF NOT v_preceptor_changed AND NOT v_cohort_changed THEN
-    RETURN NULL;  -- nothing canonical changed; the triggering row is already locked
+  -- Fire only on a real change of the canonical Primary identity. A student is permanently
+  -- tied to one cohort and is never re-cohorted, so students.cohort_id is fixed and this
+  -- function neither watches for nor responds to a cohort change: it always scopes every
+  -- assignment write to the student's fixed cohort (NEW.cohort_id).
+  IF TG_OP = 'UPDATE' AND NEW.preceptor_id IS NOT DISTINCT FROM OLD.preceptor_id THEN
+    RETURN NULL;  -- preceptor_id did not change; the triggering row is already locked
   END IF;
-
-  -- COHORT CHANGE: the student moved cohorts. End every active assignment tied to the
-  -- OLD cohort (history preserved, soft end). Never delete. The current-cohort mirror is
-  -- (re)built below from students.preceptor_id.
-  IF v_cohort_changed THEN
-    UPDATE public.student_preceptor_assignments
-       SET status = 'ended', end_date = COALESCE(end_date, current_date), updated_at = now()
-     WHERE student_id = NEW.id
-       AND cohort_id  = OLD.cohort_id
-       AND status     = 'active';
+  IF TG_OP = 'INSERT' AND NEW.preceptor_id IS NULL THEN
+    RETURN NULL;  -- new student with no Primary; nothing to mirror
   END IF;
 
   IF NEW.preceptor_id IS NOT NULL THEN
-    -- New/changed primary for the CURRENT cohort.
+    -- New/changed Primary for the student's cohort.
 
-    -- End any active primary for the current cohort that is not this preceptor.
+    -- End any active primary for the cohort that is not this preceptor.
     UPDATE public.student_preceptor_assignments
        SET status = 'ended', end_date = COALESCE(end_date, current_date), updated_at = now()
      WHERE student_id = NEW.id
@@ -226,18 +222,19 @@ END;
 $fn$;
 
 COMMENT ON FUNCTION public.sync_primary_preceptor_mirror() IS
-  'Phase 2B: mirrors the canonical students.preceptor_id (and cohort_id) into the '
-  'active-primary student_preceptor_assignments row, students display fields, and the '
-  'current-cohort matches.preceptor_id. Writer-agnostic and idempotent. Does not touch '
-  'matches.preceptor_assigned, secondary/coverage rows (except a same-preceptor conflict), '
-  'or history.';
+  'Phase 2B: mirrors the canonical students.preceptor_id into the active-primary '
+  'student_preceptor_assignments row (scoped to the student fixed cohort), students '
+  'display fields, and the current-cohort matches.preceptor_id. Writer-agnostic and '
+  'idempotent. Does not respond to cohort changes (students are single-cohort), and does '
+  'not touch matches.preceptor_assigned, secondary/coverage rows (except a same-preceptor '
+  'conflict), or history.';
 
 -- The self-UPDATE of students.matched_preceptor / preceptor_email inside the function does
--- NOT re-enter this trigger: it fires only on INSERT or on UPDATE OF preceptor_id/cohort_id,
--- and the self-UPDATE sets neither. No recursion is possible.
+-- NOT re-enter this trigger: it fires only on INSERT or on UPDATE OF preceptor_id, and the
+-- self-UPDATE sets neither. No recursion is possible.
 DROP TRIGGER IF EXISTS trg_sync_primary_preceptor_mirror ON public.students;
 CREATE TRIGGER trg_sync_primary_preceptor_mirror
-  AFTER INSERT OR UPDATE OF preceptor_id, cohort_id ON public.students
+  AFTER INSERT OR UPDATE OF preceptor_id ON public.students
   FOR EACH ROW EXECUTE FUNCTION public.sync_primary_preceptor_mirror();
 
 -- No caller ever executes this function directly; it runs only via the trigger.
