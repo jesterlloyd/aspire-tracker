@@ -1207,13 +1207,16 @@ img.ptl-detail-photo {
 }
 .ptl-stu-actioncell { width: 44px; text-align: right; }
 
-/* The kebab is a sibling of the row button, absolutely placed in the reserved gutter. */
-.ptl-stu-kebab { position: relative; display: inline-flex; }
+/* The kebab button lives in the row's reserved Actions gutter. */
+.ptl-stu-kebab { display: inline-flex; }
 .ptl-stu-kebab-btn { padding: 6px; border-radius: 8px; color: #6b7280; }
 .ptl-stu-kebab-btn:hover { background: #eef2ff; color: #1d2567; }
+/* The menu renders through a document.body portal, so it is position:fixed with its top
+   and left set imperatively at open. It carries no absolute offset here: living at the
+   body root it escapes the table wrapper's overflow clip, and a high z-index keeps it
+   above portal chrome. Width is set inline to match the measured anchor. */
 .ptl-stu-menu {
-  position: absolute; top: 34px; right: 0; z-index: 40; min-width: 190px;
-  background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+  z-index: 1000; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
   box-shadow: 0 8px 24px rgba(16,24,40,0.14); padding: 5px; display: flex; flex-direction: column; gap: 2px;
 }
 .ptl-stu-menuitem {

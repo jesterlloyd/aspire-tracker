@@ -15,9 +15,9 @@
 // private support narratives are never requested by any call in this file.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { MoreVertical } from 'lucide-react'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import { firstNameOf } from '../lib/masthead'
+import StudentActionsMenu from './unit/StudentActionsMenu'
 import StudentDetailDrawer from './unit/StudentDetailDrawer'
 import UnitRotationCalendar from './unit/UnitRotationCalendar'
 import UnitShiftDayDrawer from './unit/UnitShiftDayDrawer'
@@ -716,6 +716,7 @@ function StudentRoster({ students, onNavigate, onOpenThread, heading = null }) {
                   busy={busy}
                   open={openActions === s.id}
                   onToggleActions={() => setOpenActions(openActions === s.id ? null : s.id)}
+                  onCloseActions={() => setOpenActions(null)}
                   onOpen={openDetail}
                   onMessage={messageStudent}
                 />
@@ -755,7 +756,7 @@ function StudentsScreen(props) {
  * lives OUTSIDE that button (a sibling in the <li>), because a button nested inside a
  * button is invalid HTML and resolves unpredictably.
  */
-function StudentRow({ student: s, photoUrl, busy, open, onToggleActions, onOpen, onMessage }) {
+function StudentRow({ student: s, photoUrl, busy, open, onToggleActions, onCloseActions, onOpen, onMessage }) {
   const status = statusToken(s.status)
   const rot = s.rotation ? `${fmtShortDate(s.rotation.start)} to ${fmtShortDate(s.rotation.end)}` : EMPTY
   // The whole row opens the profile; the Actions cell stops propagation so a kebab
@@ -792,55 +793,25 @@ function StudentRow({ student: s, photoUrl, busy, open, onToggleActions, onOpen,
       <td data-label="Hours"><HoursCell hours={s.hours} /></td>
       <td data-label="Actions" className="ptl-stu-actioncell"
         onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-        <StudentKebab
-          student={s}
-          busy={busy}
+        {/* No-SQL phase: only Message Student. The milestone confirmations were removed
+            until Phase 2, and the approved preceptor-assignment actions (Assign New
+            Primary, Assign Secondary, Assign Coverage) arrive with the repair migration
+            and the transactional RPC, not before. The menu renders through a document.body
+            portal so the table's overflow can never clip it. */}
+        <StudentActionsMenu
+          label={`Actions for ${studentName(s)}`}
           open={open}
           onToggle={onToggleActions}
-          onMessage={onMessage}
+          onClose={onCloseActions}
+          items={[{
+            key: 'message',
+            label: busy === `${s.id}:message` ? 'Opening' : 'Message student',
+            disabled: busy === `${s.id}:message`,
+            onSelect: () => onMessage(s),
+          }]}
         />
       </td>
     </tr>
-  )
-}
-
-/**
- * The row's overflow menu. One control in the Actions column, holding only the safe
- * Phase 1 actions: message the student, and confirm a milestone. No preceptor write
- * action appears here; those are gated to a later phase.
- */
-function StudentKebab({ student, busy, open, onToggle, onMessage }) {
-  const label = `Actions for ${studentName(student)}`
-  return (
-    <div className="ptl-stu-kebab">
-      <button
-        type="button"
-        className="ptl-icon-btn ptl-stu-kebab-btn"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={label}
-        onClick={onToggle}
-      >
-        <MoreVertical size={18} aria-hidden="true" />
-      </button>
-      {open && (
-        <div className="ptl-stu-menu" role="menu" aria-label={label}>
-          {/* No-SQL phase: only Message Student. The milestone confirmations were
-              removed here until Phase 2, and the approved preceptor-assignment actions
-              (Assign New Primary, Assign Secondary, Assign Coverage) arrive with the
-              repair migration and the transactional RPC, not before. */}
-          <button
-            type="button"
-            role="menuitem"
-            className="ptl-stu-menuitem"
-            disabled={busy === `${student.id}:message`}
-            onClick={() => onMessage(student)}
-          >
-            {busy === `${student.id}:message` ? 'Opening' : 'Message student'}
-          </button>
-        </div>
-      )}
-    </div>
   )
 }
 

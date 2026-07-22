@@ -54,14 +54,12 @@ test('the row action names the student, so a screen reader knows which row', () 
 })
 
 test('the open-profile control is the row itself, separate from the kebab menu', () => {
-  const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function StudentKebab'))
-  // The row button opens the profile; the kebab is a sibling holding the write-lite
-  // actions. A button nested in a button would be invalid, so the kebab opens after
-  // the row button closes.
-  // The kebab lives in the Actions cell, which stops propagation so a kebab click is
-  // never a row click.
+  const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function PreceptorScreen'))
+  // The row button opens the profile; the kebab (StudentActionsMenu) is a sibling in the
+  // Actions cell holding the write-lite actions. The cell stops propagation so a kebab
+  // click is never a row click.
   assert.match(row, /className="ptl-stu-actioncell"[\s\S]{0,80}stopPropagation/)
-  assert.match(row, /<StudentKebab/)
+  assert.match(row, /<StudentActionsMenu/)
 })
 
 // ── Only approved fields are rendered ───────────────────────────────────────

@@ -65,10 +65,11 @@ test('Active Rotations and Recent Messages cards are gone', () => {
 
 // ── 3. Kebab: Message Student only ──────────────────────────────────────────
 test('the kebab shows only Message Student in this no-SQL phase', () => {
-  const kebab = portalCode.slice(portalCode.indexOf('function StudentKebab'))
-  assert.match(kebab, /Message student/)
+  // The single action is built as the one item passed to StudentActionsMenu in the row.
+  const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function PreceptorScreen'))
+  assert.match(row, /Message student/)
   // The milestone confirmations are removed.
-  assert.ok(!kebab.includes('Confirm '))
+  assert.ok(!row.includes('Confirm '))
   assert.ok(!portalCode.includes('MILESTONES'))
   assert.ok(!portal.includes('confirmMilestone'))
   // And no unfinished preceptor action.
@@ -97,9 +98,9 @@ test('opening the kebab does not change the photo url or remount the row', () =>
   assert.match(portalCode, /key=\{s\.id\}/)
   assert.match(portalCode, /photoUrl=\{photos\.peek\(s\.id\)\}/)
   // The kebab toggle only flips openActions; it does not clear the cache.
-  const kebab = portalCode.slice(portalCode.indexOf('function StudentKebab'))
-  assert.ok(!kebab.includes('clearStudentPhotoCache'))
-  assert.ok(!kebab.includes('invalidateStudentPhoto'))
+  const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function PreceptorScreen'))
+  assert.ok(!row.includes('clearStudentPhotoCache'))
+  assert.ok(!row.includes('invalidateStudentPhoto'))
 })
 
 test('the drawer no longer wipes the whole photo cache on one photo error', () => {
@@ -129,7 +130,7 @@ test('the student table has exactly the approved columns', () => {
     assert.ok(head.includes(`>${col}<`), `the table must have a ${col} column`)
   }
   // The row renders each column from roster data.
-  const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function StudentKebab'))
+  const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function PreceptorScreen'))
   assert.match(row, /<UnitStudentAvatar/)
   assert.match(row, /statusToken\(s\.status\)/)
   assert.match(row, /orDash\(s\.preceptor_name\)/)
@@ -140,7 +141,7 @@ test('the student table has exactly the approved columns', () => {
 })
 
 test('the whole row opens the profile and the kebab does not double as a row click', () => {
-  const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function StudentKebab'))
+  const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function PreceptorScreen'))
   assert.match(row, /role="button"/)
   assert.match(row, /onClick=\{\(e\) => open_\(e\.currentTarget\)\}/)
   assert.match(row, /e\.key === 'Enter' \|\| e\.key === ' '/)

@@ -19,7 +19,6 @@
 
 import {
   verifyPortalUnitLeaderCaller,
-  resolveUnitScopedStudents,
   narrowScopes,
 } from '../lib/unitLeaderScope.js'
 import {
@@ -97,17 +96,13 @@ async function getFeed(req, res, { db, profile, scopes }) {
         `ASPIRE ${n.status} a preceptor nomination.`, n.decided_at, 'preceptors'))
     }
 
-    // onboarding_issue, derived from the same rollup the Students screen shows.
-    const { students } = await resolveUnitScopedStudents(db, effective)
-    for (const s of students) {
-      if (s.bucket !== 'upcoming' && s.bucket !== 'active') continue
-      const done = [s.badge_created === true, s.cs_link_complete === true,
-        !!s.student_form_privacy_ack_at].filter(Boolean).length
-      if (done < 3) {
-        items.push(item('onboarding_issue', s.id, s.unit_key,
-          'A student has outstanding onboarding requirements.', null, 'students'))
-      }
-    }
+    // NO onboarding alert. Onboarding completion (badge, CS-Link, privacy
+    // acknowledgment, clearance) is owned by ASPIRE staff and the student; a Unit
+    // Leader cannot resolve any of it, and a student already in Active Rotation was
+    // still tripping the alert because completion is checked regardless of lifecycle.
+    // The feed derives ONLY Unit-Leader-actionable work; staff-owned compliance stays
+    // in the staff application where ASPIRE can act on it. onboardingSummary remains a
+    // passive column on the Students table, which is not an alert.
   } catch {
     return res.status(500).json({ error: 'internal_error' })
   }

@@ -18,6 +18,7 @@ const alerts = read('lib/server/notifications/unitLeaderAlerts.js')
 const feed   = read('api/portal/unit-notifications.js')
 const start  = read('api/portal/unit-messages-start.js')
 const portal = read('src/portal/UnitLeaderPortal.jsx')
+const menu   = read('src/portal/unit/StudentActionsMenu.jsx')
 const api    = read('src/portal/unit/unitLeaderApi.js')
 const css    = read('src/portal/portal.css')
 
@@ -26,17 +27,31 @@ const alertsCode = stripJs(alerts)
 const feedCode = stripJs(feed)
 const portalCode = stripJs(portal)
 
+// onboarding_issue is deliberately NOT surfaced to Unit Leaders (staff-owned
+// compliance), so it is absent from ALERT_TYPES even though the DB CHECK still permits
+// the value. The remaining seven are all Unit-Leader-actionable.
 const ALERT_TYPES = [
-  'placement_request', 'response_deadline', 'onboarding_issue', 'schedule_change',
+  'placement_request', 'response_deadline', 'schedule_change',
   'new_message', 'capacity_review_outcome', 'preceptor_assignment_update', 'concern_follow_up',
 ]
 
 // ── 1. Notifications ────────────────────────────────────────────────────────
-test('all eight approved alert types are defined', () => {
+test('every surfaced alert type is defined', () => {
   for (const t of ALERT_TYPES) {
     assert.ok(alerts.includes(`'${t}'`), `alert type ${t}`)
   }
   assert.match(alerts, /export const ALERT_TYPES = \[/)
+})
+
+test('onboarding_issue is NOT surfaced to Unit Leaders (staff-owned compliance)', () => {
+  // Absent from the alert model: no type entry, no label, no email eligibility.
+  const types = alertsCode.slice(alertsCode.indexOf('export const ALERT_TYPES'),
+                                 alertsCode.indexOf('export const EMAIL_ELIGIBLE'))
+  assert.ok(!types.includes('onboarding_issue'), 'onboarding_issue not in ALERT_TYPES')
+  const labels = alertsCode.slice(alertsCode.indexOf('export const ALERT_LABEL'))
+  assert.ok(!labels.includes('onboarding_issue'), 'onboarding_issue has no label')
+  const set = alerts.slice(alerts.indexOf('EMAIL_ELIGIBLE'), alerts.indexOf('export const DEFAULT_EMAIL_ENABLED'))
+  assert.ok(!set.includes('onboarding_issue'), 'onboarding_issue is not email eligible')
 })
 
 test('every alert type has a human label', () => {
@@ -47,7 +62,7 @@ test('every alert type has a human label', () => {
 test('EMAIL is restricted to the approved subset, so not every state change emails', () => {
   assert.match(alerts, /export const EMAIL_ELIGIBLE = new Set\(\[/)
   const set = alerts.slice(alerts.indexOf('EMAIL_ELIGIBLE'), alerts.indexOf('export const DEFAULT_EMAIL_ENABLED'))
-  for (const t of ['placement_request', 'response_deadline', 'onboarding_issue', 'schedule_change', 'new_message']) {
+  for (const t of ['placement_request', 'response_deadline', 'schedule_change', 'new_message']) {
     assert.ok(set.includes(`'${t}'`), `${t} may email`)
   }
   for (const t of ['capacity_review_outcome', 'preceptor_assignment_update', 'concern_follow_up']) {
@@ -124,9 +139,18 @@ test('the in-app feed is DERIVED and scope-checked, not stored', () => {
 
 test('the feed covers the alert types it can derive', () => {
   for (const t of ['placement_request', 'response_deadline', 'capacity_review_outcome',
-    'preceptor_assignment_update', 'onboarding_issue']) {
+    'preceptor_assignment_update']) {
     assert.ok(feedCode.includes(`'${t}'`), `feed derives ${t}`)
   }
+})
+
+test('the feed never derives an onboarding alert, even for an active-rotation student', () => {
+  // The onboarding producer is gone entirely: no onboarding_issue item, and the feed no
+  // longer resolves the full student roster just to inspect onboarding booleans.
+  assert.ok(!feedCode.includes('onboarding_issue'), 'no onboarding_issue item in the feed')
+  assert.ok(!feedCode.includes('badge_created'), 'the feed does not inspect onboarding booleans')
+  assert.ok(!feedCode.includes('cs_link_complete'), 'the feed does not inspect CS-Link state')
+  assert.ok(!feedCode.includes('resolveUnitScopedStudents'), 'the feed no longer loads the roster for onboarding')
 })
 
 test('preferences govern EMAIL only, never the in-app feed', () => {
@@ -206,30 +230,29 @@ test('the form states the cohort and disables submission when none is open', () 
 
 // ── 4. Dense mobile actions ─────────────────────────────────────────────────
 test('row actions are a single kebab menu, not cramped side-by-side buttons', () => {
-  // The visual redesign replaced the disclosure with one overflow kebab. The
+  // SUPERSEDED: the disclosure is one overflow kebab, now its own portal component. The
   // property is unchanged: actions are behind a single accessible control per row.
-  assert.match(portal, /function StudentKebab/)
-  assert.match(portal, /aria-haspopup="menu"/)
-  assert.match(portal, /aria-expanded=\{open\}/)
-  assert.match(portal, /role="menu" aria-label=\{label\}/)
+  assert.equal((portal.match(/<StudentActionsMenu/g) || []).length, 1)
+  assert.match(menu, /aria-haspopup="menu"/)
+  assert.match(menu, /aria-expanded=\{open\}/)
+  assert.match(menu, /role="menu"\s+aria-label=\{label\}/)
   assert.ok(!portal.includes('function StudentActions'), 'the old stacked disclosure is gone')
 })
 
 test('the kebab preserves Message Student with a clear per-student label', () => {
   // SUPERSEDED: the milestone confirmations were removed until Phase 2, so the kebab now
-  // holds only Message Student. It stays labelled per student.
-  const fn = portal.slice(portal.indexOf('function StudentKebab'))
-  assert.match(fn, /Message student/)
-  assert.ok(!fn.includes('MILESTONES'))
-  assert.match(fn, /const label = `Actions for \$\{studentName\(student\)\}`/)
-  assert.match(fn, /aria-label=\{label\}/)
+  // holds only Message Student, built as the single item passed to StudentActionsMenu and
+  // labelled per student.
+  const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function PreceptorScreen'))
+  assert.match(row, /Message student/)
+  assert.ok(!row.includes('MILESTONES'))
+  assert.match(row, /label=\{`Actions for \$\{studentName\(s\)\}`\}/)
 })
 
 test('kebab actions are real buttons with visible focus and touch targets', () => {
-  const fn = portal.slice(portal.indexOf('function StudentKebab'), portal.indexOf('function StudentKebab') + 1400)
   // Real buttons, never divs with click handlers.
-  assert.doesNotMatch(fn, /<div[^>]*onClick/)
-  assert.match(fn, /role="menuitem"/)
+  assert.doesNotMatch(menu, /<div[^>]*onClick/)
+  assert.match(menu, /role="menuitem"/)
   assert.match(css, /\.ptl-stu-menu \{/)
   assert.match(css, /\.ptl-stu-menuitem:focus-visible \{/)
 })

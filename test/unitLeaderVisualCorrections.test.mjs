@@ -46,7 +46,7 @@ test('a photo that fails to load falls back rather than showing broken', () => {
 test('the row shows the required fields and a colored status pill', () => {
   // SUPERSEDED: the row is now a table row and the pill is the ASPIRE STATUS (not the
   // lifecycle bucket). Unit and onboarding left the columns per the approved table spec.
-  const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function StudentKebab'))
+  const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function PreceptorScreen'))
   assert.match(row, /studentName\(s\)/)
   assert.match(row, /orDash\(s\.school\)/)
   assert.match(row, /orDash\(s\.preceptor_name\)/)
@@ -58,19 +58,18 @@ test('the row shows the required fields and a colored status pill', () => {
 })
 
 test('exactly one kebab menu, and the stacked View details plus Actions buttons are gone', () => {
+  // SUPERSEDED: the kebab menu now lives in its own portal component, StudentActionsMenu,
+  // used exactly once from the row's Actions cell.
   assert.ok(!portalCode.includes('function StudentActions'), 'the old stacked control is removed')
-  assert.match(portalCode, /function StudentKebab/)
-  // One overflow control per row.
-  const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('export default') === -1 ? undefined : undefined)
-  assert.match(portalCode, /<StudentKebab/)
-  assert.equal((portalCode.match(/<StudentKebab/g) || []).length, 1)
-  assert.match(portalCode, /aria-haspopup="menu"/)
+  assert.match(portalCode, /import StudentActionsMenu from/)
+  assert.match(portalCode, /<StudentActionsMenu/)
+  assert.equal((portalCode.match(/<StudentActionsMenu/g) || []).length, 1)
 })
 
 test('the whole table row opens the profile and the kebab is in its own cell', () => {
   // SUPERSEDED: the row is a <tr role="button">; the kebab lives in the Actions cell,
   // which stops click propagation so a kebab click is never a row click.
-  const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function StudentKebab'))
+  const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function PreceptorScreen'))
   assert.match(row, /role="button"/)
   assert.match(row, /onClick=\{\(e\) => open_\(e\.currentTarget\)\}/)
   assert.match(row, /className="ptl-stu-actioncell"[\s\S]{0,80}stopPropagation/)
@@ -78,10 +77,10 @@ test('the whole table row opens the profile and the kebab is in its own cell', (
 
 test('the kebab carries only Message Student in this no-SQL phase', () => {
   // SUPERSEDED: the milestone confirmations were removed until Phase 2; only Message
-  // Student remains, and no preceptor write action appears.
-  const kebab = portalCode.slice(portalCode.indexOf('function StudentKebab'))
-  assert.match(kebab, /Message student/)
-  assert.ok(!kebab.includes('Confirm '))
+  // Student remains, built as the single item passed to StudentActionsMenu.
+  const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function PreceptorScreen'))
+  assert.match(row, /Message student/)
+  assert.ok(!row.includes('Confirm '))
   for (const forbidden of ['Change primary', 'Add secondary', 'Add coverage', 'Create new preceptor']) {
     assert.ok(!portalCode.includes(forbidden), `Phase 1 kebab must not offer ${forbidden}`)
   }

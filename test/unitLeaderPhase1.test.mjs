@@ -321,9 +321,9 @@ test('phase 1 contains no preceptor assignment or creation action', () => {
 test('the kebab menu carries only Message Student in this no-SQL phase', () => {
   // SUPERSEDED: milestone confirmations were removed until Phase 2; only Message Student
   // remains. The whole row opens the profile.
-  const kebab = portalCode.slice(portalCode.indexOf('function StudentKebab'))
-  assert.match(kebab, /Message student/)
-  assert.ok(!kebab.includes('Confirm '))
+  const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function PreceptorScreen'))
+  assert.match(row, /Message student/)
+  assert.ok(!row.includes('Confirm '))
   assert.match(portalCode, /aria-label=\{`Open details for \$\{studentName\(s\)\}`\}/,
     'the whole row opens the profile')
 })
