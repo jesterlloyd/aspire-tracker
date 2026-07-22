@@ -111,6 +111,38 @@ FROM pg_proc p WHERE p.proname IN ('_preceptor_begin_request', '_preceptor_finis
 ORDER BY p.proname;
 -- Expect: authenticated_insert=false; both helpers prosecdef=true; begin/finish authenticated_can=false.
 
+-- A10. Fingerprint coverage in the deployed write RPC definitions. Expect common_keys=true and
+--      delimiter_fingerprint_absent=true on all three rows; assignment_keys=true for the two
+--      assignment RPCs; creation_keys=true for create_unit_preceptor. Non-applicable columns are NULL.
+SELECT p.proname,
+  (position('jsonb_build_object' IN p.prosrc) > 0
+   AND position('actor_profile_id' IN p.prosrc) > 0
+   AND position('''rpc''' IN p.prosrc) > 0
+   AND position('''action''' IN p.prosrc) > 0) AS common_keys,
+  CASE WHEN p.proname IN ('assign_primary_preceptor', 'set_secondary_coverage_preceptor') THEN
+    position('student_id' IN p.prosrc) > 0
+    AND position('assignment_id' IN p.prosrc) > 0
+    AND position('preceptor_id' IN p.prosrc) > 0
+    AND position('''role''' IN p.prosrc) > 0
+    AND position('''reason''' IN p.prosrc) > 0
+    AND position('''notes''' IN p.prosrc) > 0
+    AND position('''force''' IN p.prosrc) > 0
+    AND position('confirm_override' IN p.prosrc) > 0
+  END AS assignment_keys,
+  CASE WHEN p.proname = 'create_unit_preceptor' THEN
+    position('full_name' IN p.prosrc) > 0
+    AND position('''email''' IN p.prosrc) > 0
+    AND position('unit_key' IN p.prosrc) > 0
+    AND position('''shift''' IN p.prosrc) > 0
+    AND position('''phone''' IN p.prosrc) > 0
+  END AS creation_keys,
+  (position('concat_ws(' IN p.prosrc) = 0) AS delimiter_fingerprint_absent
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname IN ('assign_primary_preceptor', 'set_secondary_coverage_preceptor', 'create_unit_preceptor')
+ORDER BY p.proname;
+
 -- A6. Guard smoke test (REAL; scratch transaction; ROLLBACK). Picks a student and a DIFFERENT
 --     active preceptor than the student's current primary, then attempts an UNAUTHORIZED direct
 --     client UPDATE as role authenticated (auth.uid() is NULL, so is_active_owner_or_admin() is

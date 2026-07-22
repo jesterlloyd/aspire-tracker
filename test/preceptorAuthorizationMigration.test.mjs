@@ -21,10 +21,13 @@ const ver     = read('db/audit/preceptor_assignment_authorization_preflight_and_
 const ulEp    = read('api/portal/unit-preceptor-manage.js')
 const staffEp = read('api/preceptor-primary-assign.js')
 const modal   = read('src/components/PreceptorAssignmentModal.jsx')
+const ridCtl  = read('src/lib/preceptorRequestId.js')
 const worker  = read('lib/server/staffNotifications/deliveryService.js')
 const emailC  = read('lib/server/staffNotifications/emailContent.js')
+const mailCfg = read('lib/server/messages/config.js')
 const cron    = read('api/cron/staff-notification-worker.js')
 const vercel  = read('vercel.json')
+const handoff = read('docs/product/PHASE_2C_PRECEPTOR_AUTHORIZATION_HANDOFF.md')
 
 const live = mig.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*--.*$/gm, '')
 
@@ -161,9 +164,57 @@ test('endpoints verify the caller, call RPCs with the actor id, and forward forc
   assert.match(staffEp, /p_confirm_override: body\.confirmOverride === true/)
 })
 
-test('the staff modal routes the primary write through the audited endpoint', () => {
+test('both assignment APIs require a caller-supplied non-empty request id and forward it unchanged', () => {
+  assert.match(staffEp, /typeof body\.requestId === 'string' \? body\.requestId\.trim\(\) : ''/)
+  assert.match(staffEp, /if \(!requestId\)[\s\S]{0,100}request_id_required/)
+  assert.match(staffEp, /p_request_id: requestId/)
+  assert.ok(!/const rid\s*=|Math\.random/.test(staffEp), 'staff API does not mint request ids')
+
+  assert.match(ulEp, /typeof body\.request_id === 'string' \? body\.request_id\.trim\(\) : ''/)
+  assert.match(ulEp, /if \(!requestId\)[\s\S]{0,100}request_id_required/)
+  assert.match(ulEp, /p_request_id: requestId/)
+  assert.ok(!/const rid\s*=|Math\.random/.test(ulEp), 'Unit Leader API does not mint request ids')
+})
+
+test('the staff modal uses one stable client request id per action and blocks double-clicks', () => {
   assert.match(modal, /fetch\('\/api\/preceptor-primary-assign'/)
+  assert.match(ridCtl, /globalThis\.crypto\.randomUUID\(\)/)
+  assert.match(modal, /const requestId = requestIds\.begin\(\)/)
+  assert.match(modal, /if \(!requestId\) return false[\s\S]{0,240}assignPrimaryViaApi\(requestId/)
+  assert.match(modal, /body: JSON\.stringify\(\{ requestId, studentId, preceptorId \}\)/)
+  assert.match(ridCtl, /if \(inFlight\) return null[\s\S]{0,100}requestId \|\|= createId\(\)/)
+  assert.match(modal, /requestIds\.reset\(\); setConfirming\(false\)/)
+  assert.match(modal, /const handleSelect = preceptor => \{\s*\n\s*requestIds\.reset\(\)/)
+  const catchBlock = modal.slice(modal.indexOf('} catch (e) {'), modal.indexOf('\n  }\n\n  const handleConfirm'))
+  assert.match(catchBlock, /requestIds\.releaseForRetry\(\)/)
+  assert.ok(!catchBlock.includes('requestIds.complete()'), 'a failed attempt retains its request id for retry')
+  assert.match(modal, /const handleClose = \(\) => \{\s*\n\s*if \(assigning\) return/)
+  assert.match(modal, /requestIds\.complete\(\)\s*\n\s*setAssigning\(false\)\s*\n\s*onAssigned/)
+  assert.match(modal, /disabled=\{assigning\}/)
   assert.ok(!/from\('students'\)\.update\(\{[\s\S]{0,80}preceptor_id:/.test(modal), 'no direct students preceptor_id write')
+})
+
+test('the approved envelope sender and Reply-To are fixed in shared mail configuration', () => {
+  assert.match(mailCfg, /MESSAGE_FROM = 'ASPIRE at Cedars-Sinai <noreply@aspire-program\.com>'/)
+  assert.match(mailCfg, /MESSAGE_REPLY_TO = 'aspire@cshs\.org'/)
+})
+
+test('the final package embeds all five canonical SQL files byte-for-byte', () => {
+  const appendices = [
+    ['Appendix A: Phase 2B migration', 'supabase/migrations/20260722000000_preceptor_mirror_repair_and_sync.sql'],
+    ['Appendix B: Phase 2C migration', 'supabase/migrations/20260723000000_preceptor_assignment_authorization.sql'],
+    ['Appendix C: Phase 2B preflight / verification / rollback', 'db/audit/preceptor_mirror_repair_preflight_and_verification.sql'],
+    ['Appendix D: Phase 2C preflight / verification / rollback', 'db/audit/preceptor_assignment_authorization_preflight_and_verification.sql'],
+    ['Appendix E: Preceptor email-uniqueness preflight', 'db/audit/preceptor_email_uniqueness_preflight.sql'],
+  ]
+  for (const [title, path] of appendices) {
+    const heading = `## ${title} (${path})\n\n\`\`\`sql\n`
+    const start = handoff.indexOf(heading)
+    assert.ok(start > -1, `${title} heading exists`)
+    const sqlStart = start + heading.length
+    const sqlEnd = handoff.indexOf('```', sqlStart)
+    assert.equal(handoff.slice(sqlStart, sqlEnd), read(path), `${title} is byte-for-byte canonical`)
+  }
 })
 
 // ── Email worker + cron are runnable and registered ─────────────────────────

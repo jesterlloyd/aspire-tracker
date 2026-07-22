@@ -9,7 +9,7 @@
 // active owner/admin (WS1 pattern, mirroring api/preceptor-assignments.js) and calls the RPC
 // with the service-role client, passing the actor profile id.
 //
-// POST { studentId, preceptorId, reason? }
+// POST { requestId, studentId, preceptorId, reason? }
 // Authorization: Bearer <session token> (Owner/Admin)
 
 import { createClient } from '@supabase/supabase-js'
@@ -17,7 +17,6 @@ import { mapRpcStatus, mapRpcError } from './lib/unitLeaderRpcErrors.js'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const isUuid = v => typeof v === 'string' && UUID_PATTERN.test(v)
-const rid = () => `req_${Math.random().toString(36).slice(2, 10)}`
 
 async function verifyCaller(req) {
   const authHeader = req.headers['authorization'] || req.headers['Authorization'] || ''
@@ -61,10 +60,13 @@ export default async function handler(req, res) {
   if (!caller.ok) return res.status(caller.status).json({ error: caller.error })
 
   const body = (req.body && typeof req.body === 'object') ? req.body : {}
+  const requestId = typeof body.requestId === 'string' ? body.requestId.trim() : ''
+  if (!requestId) {
+    return res.status(400).json({ error: 'request_id_required' })
+  }
   if (!isUuid(body.studentId) || !isUuid(body.preceptorId)) {
     return res.status(400).json({ error: 'invalid_request' })
   }
-  const requestId = rid()
   const { data, error } = await caller.admin.rpc('assign_primary_preceptor', {
     p_actor_profile_id: caller.profileId,
     p_student_id: body.studentId,

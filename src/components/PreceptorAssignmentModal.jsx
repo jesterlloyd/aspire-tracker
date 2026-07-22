@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
+import { createPreceptorRequestIdController } from '../lib/preceptorRequestId'
 import PreceptorFormModal from './PreceptorFormModal'
 
 export default function PreceptorAssignmentModal({ isOpen, onClose, student, onAssigned }) {
@@ -11,18 +12,21 @@ export default function PreceptorAssignmentModal({ isOpen, onClose, student, onA
   const [selected,    setSelected]    = useState(null)
   const [confirming,  setConfirming]  = useState(false)
   const [addOpen,     setAddOpen]     = useState(false)
+  const [assigning,   setAssigning]   = useState(false)
   const [error,       setError]       = useState(null)
   const debounceRef   = useRef(null)
   const inputRef      = useRef(null)
+  const requestIds    = useMemo(() => createPreceptorRequestIdController(), [])
   const queryClient   = useQueryClient()
 
   // Reset on open
   useEffect(() => {
     if (!isOpen) return
     setQuery(''); setResults([]); setSearching(false)
-    setSelected(null); setConfirming(false); setError(null)
+    setSelected(null); setConfirming(false); setAssigning(false); setError(null)
+    requestIds.reset()
     setTimeout(() => inputRef.current?.focus(), 50)
-  }, [isOpen])
+  }, [isOpen, requestIds])
 
   const runSearch = useCallback(async (q) => {
     if (!q.trim()) { setResults([]); setSearching(false); return }
@@ -51,24 +55,51 @@ export default function PreceptorAssignmentModal({ isOpen, onClose, student, onA
   }
 
   const handleSelect = preceptor => {
+    requestIds.reset()
     setSelected(preceptor)
     setConfirming(true)
+  }
+
+  const handleClose = () => {
+    if (assigning) return
+    requestIds.reset()
+    onClose()
   }
 
   // PHASE 2C: the primary change goes through the audited RPC endpoint, not a bare client
   // write. The RPC sets students.preceptor_id (guarded), and the Phase 2B trigger synchronizes
   // matched_preceptor, preceptor_email, the active-primary assignment row, and the current-cohort
   // match FK. So the modal no longer writes those columns directly.
-  const assignPrimaryViaApi = async (studentId, preceptorId) => {
+  const assignPrimaryViaApi = async (requestId, studentId, preceptorId) => {
     const { data: { session } } = await supabase.auth.getSession()
     const resp = await fetch('/api/preceptor-primary-assign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
-      body: JSON.stringify({ studentId, preceptorId }),
+      body: JSON.stringify({ requestId, studentId, preceptorId }),
     })
     if (!resp.ok) {
       const j = await resp.json().catch(() => ({}))
       throw new Error(j.error || 'assignment_failed')
+    }
+  }
+
+  // One client-created request id represents one intentional assignment action. It survives a
+  // failed HTTP attempt so an explicit retry replays the same RPC result. The synchronous
+  // guard closes the gap before React can render the disabled button after a double-click.
+  const runAssignmentAction = async (preceptor) => {
+    if (!student || !preceptor) return false
+    const requestId = requestIds.begin()
+    if (!requestId) return false
+    setAssigning(true)
+
+    try {
+      await assignPrimaryViaApi(requestId, student.id, preceptor.id)
+      return true
+    } catch (e) {
+      requestIds.releaseForRetry()
+      setError(e.message || 'That preceptor could not be assigned.')
+      setAssigning(false)
+      return false
     }
   }
 
@@ -80,12 +111,7 @@ export default function PreceptorAssignmentModal({ isOpen, onClose, student, onA
 
     // Set the primary through the audited RPC endpoint. The 2B trigger keeps the display
     // fields (matched_preceptor, preceptor_email) and the current-cohort match FK in sync.
-    try {
-      await assignPrimaryViaApi(student.id, selected.id)
-    } catch (e) {
-      setError(e.message || 'That preceptor could not be assigned.')
-      return
-    }
+    if (!await runAssignmentAction(selected)) return
 
     // Create cohort participation if it doesn't exist yet
     if (student.cohort_id) {
@@ -104,6 +130,8 @@ export default function PreceptorAssignmentModal({ isOpen, onClose, student, onA
     queryClient.invalidateQueries({ queryKey: ['students', student.cohort_id] })
     queryClient.invalidateQueries({ queryKey: ['preceptors'] })
 
+    requestIds.complete()
+    setAssigning(false)
     onAssigned?.(selected)
     onClose()
   }
@@ -111,16 +139,13 @@ export default function PreceptorAssignmentModal({ isOpen, onClose, student, onA
   const handleAddSaved = async (newPreceptor) => {
     setAddOpen(false)
     // Auto-assign the just-created preceptor through the audited RPC endpoint.
-    try {
-      await assignPrimaryViaApi(student.id, newPreceptor.id)
-    } catch (e) {
-      setError(e.message || 'That preceptor could not be assigned.')
-      return
-    }
+    if (!await runAssignmentAction(newPreceptor)) return
 
     queryClient.invalidateQueries({ queryKey: ['students', student.cohort_id] })
     queryClient.invalidateQueries({ queryKey: ['preceptors'] })
 
+    requestIds.complete()
+    setAssigning(false)
     onAssigned?.(newPreceptor)
     onClose()
   }
@@ -131,11 +156,11 @@ export default function PreceptorAssignmentModal({ isOpen, onClose, student, onA
 
   return (
     <>
-      <div className="modal-overlay" onMouseDown={onClose}>
+      <div className="modal-overlay" onMouseDown={handleClose}>
         <div className="modal" onMouseDown={e => e.stopPropagation()} style={{ maxWidth: 440, width: '90vw' }}>
           <div className="modal-header">
             <h2>Assign Preceptor</h2>
-            <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
+            <button className="modal-close" onClick={handleClose} disabled={assigning} aria-label="Close">×</button>
           </div>
 
           <div className="modal-body" style={{ paddingBottom: 4 }}>
@@ -254,16 +279,17 @@ export default function PreceptorAssignmentModal({ isOpen, onClose, student, onA
               <>
                 <button
                   className="btn btn-outline-modal"
-                  onClick={() => { setConfirming(false); setSelected(null) }}
+                  disabled={assigning}
+                  onClick={() => { requestIds.reset(); setConfirming(false); setSelected(null) }}
                 >
                   Back
                 </button>
-                <button className="btn btn-primary" onClick={handleConfirm}>
-                  Confirm Assignment
+                <button className="btn btn-primary" onClick={handleConfirm} disabled={assigning}>
+                  {assigning ? 'Assigning…' : 'Confirm Assignment'}
                 </button>
               </>
             ) : (
-              <button className="btn btn-outline-modal" onClick={onClose}>Cancel</button>
+              <button className="btn btn-outline-modal" onClick={handleClose}>Cancel</button>
             )}
           </div>
         </div>

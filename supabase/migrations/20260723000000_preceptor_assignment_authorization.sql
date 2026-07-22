@@ -350,6 +350,8 @@ SET search_path = public, pg_catalog
 AS $fn$
 DECLARE
   v_inserted int;
+  v_actor    uuid;
+  v_rpc      text;
   v_fp       text;
   v_res      jsonb;
 BEGIN
@@ -368,10 +370,12 @@ BEGIN
 
   -- A row already exists: replay or conflicting reuse. Lock it (serializes with any in-flight txn;
   -- by the time this returns, that txn has committed a result or rolled back the claim entirely).
-  SELECT fingerprint, result INTO v_fp, v_res
+  SELECT actor_profile_id, rpc, fingerprint, result INTO v_actor, v_rpc, v_fp, v_res
   FROM public.preceptor_assignment_requests WHERE request_id = p_request_id FOR UPDATE;
 
-  IF v_fp IS DISTINCT FROM p_fingerprint THEN
+  IF v_actor IS DISTINCT FROM p_actor_profile_id
+     OR v_rpc IS DISTINCT FROM p_rpc
+     OR v_fp IS DISTINCT FROM p_fingerprint THEN
     RAISE EXCEPTION 'this request id was already used with different parameters' USING ERRCODE = 'MS409';
   END IF;
   IF v_res IS NULL THEN
@@ -490,8 +494,19 @@ BEGIN
   END IF;
 
   -- Idempotency: claim (or replay) BEFORE any mutation. A failed run rolls the claim back with it.
-  v_fp := md5(concat_ws('|', 'assign_primary', p_actor_profile_id, p_student_id, p_preceptor_id,
-                        coalesce(p_reason, ''), p_force, p_confirm_override));
+  v_fp := jsonb_build_object(
+    'rpc', 'assign_primary_preceptor',
+    'actor_profile_id', p_actor_profile_id,
+    'action', 'assign',
+    'student_id', p_student_id,
+    'assignment_id', NULL,
+    'preceptor_id', p_preceptor_id,
+    'role', 'primary',
+    'reason', p_reason,
+    'notes', NULL,
+    'force', COALESCE(p_force, false),
+    'confirm_override', COALESCE(p_confirm_override, false)
+  )::text;
   v_claim := public._preceptor_begin_request(p_request_id, p_actor_profile_id, 'assign_primary_preceptor', v_fp);
   IF NOT (v_claim->>'claimed')::boolean THEN
     RETURN v_claim->'result';
@@ -617,9 +632,19 @@ BEGIN
     RAISE EXCEPTION 'action must be add, replace, or end' USING ERRCODE = 'MS400';
   END IF;
 
-  v_fp := md5(concat_ws('|', 'set_secondary', p_actor_profile_id, p_student_id, p_role, p_action,
-                        coalesce(p_preceptor_id::text, ''), coalesce(p_assignment_id::text, ''),
-                        coalesce(p_reason, ''), coalesce(p_notes, ''), p_force, p_confirm_override));
+  v_fp := jsonb_build_object(
+    'rpc', 'set_secondary_coverage_preceptor',
+    'actor_profile_id', p_actor_profile_id,
+    'action', p_action,
+    'student_id', p_student_id,
+    'assignment_id', p_assignment_id,
+    'preceptor_id', p_preceptor_id,
+    'role', p_role,
+    'reason', p_reason,
+    'notes', p_notes,
+    'force', COALESCE(p_force, false),
+    'confirm_override', COALESCE(p_confirm_override, false)
+  )::text;
   v_claim := public._preceptor_begin_request(p_request_id, p_actor_profile_id, 'set_secondary_coverage_preceptor', v_fp);
   IF NOT (v_claim->>'claimed')::boolean THEN
     RETURN v_claim->'result';
@@ -751,8 +776,16 @@ BEGIN
   IF v_email = '' OR position('@' in v_email) = 0 THEN RAISE EXCEPTION 'a valid email is required' USING ERRCODE = 'MS400'; END IF;
   IF p_shift NOT IN ('Day', 'Night', 'Mid', 'Variable') THEN RAISE EXCEPTION 'shift must be Day, Night, Mid, or Variable' USING ERRCODE = 'MS400'; END IF;
 
-  v_fp := md5(concat_ws('|', 'create_preceptor', p_actor_profile_id, v_email,
-                        lower(btrim(p_full_name)), p_unit_key, p_shift, coalesce(p_phone, '')));
+  v_fp := jsonb_build_object(
+    'rpc', 'create_unit_preceptor',
+    'actor_profile_id', p_actor_profile_id,
+    'action', 'create',
+    'full_name', btrim(p_full_name),
+    'email', v_email,
+    'unit_key', p_unit_key,
+    'shift', p_shift,
+    'phone', NULLIF(btrim(coalesce(p_phone, '')), '')
+  )::text;
   v_claim := public._preceptor_begin_request(p_request_id, p_actor_profile_id, 'create_unit_preceptor', v_fp);
   IF NOT (v_claim->>'claimed')::boolean THEN
     RETURN v_claim->'result';

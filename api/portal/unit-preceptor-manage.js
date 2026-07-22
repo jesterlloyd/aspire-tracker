@@ -9,7 +9,7 @@
 // arbitrary id, and writes the audit + Owner/Admin notification in one transaction. This
 // mirrors api/portal/unit-placement-requests.js exactly.
 //
-// Actions (POST body { action, ... }):
+// Actions (POST body { request_id, action, ... }):
 //   change_primary   { student_id, preceptor_id, reason? }
 //   set_secondary    { student_id, role: secondary|coverage, op: add|replace|end,
 //                      preceptor_id?, assignment_id?, reason?, notes? }
@@ -17,8 +17,6 @@
 
 import { verifyPortalUnitLeaderCaller } from '../lib/unitLeaderScope.js'
 import { mapRpcStatus, mapRpcError } from '../lib/unitLeaderRpcErrors.js'
-
-const rid = () => `req_${Math.random().toString(36).slice(2, 10)}`
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
@@ -31,7 +29,8 @@ export default async function handler(req, res) {
 
   const body = (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) ? req.body : {}
   const action = typeof body.action === 'string' ? body.action : ''
-  const requestId = rid()
+  const requestId = typeof body.request_id === 'string' ? body.request_id.trim() : ''
+  if (!requestId) return res.status(400).json({ error: 'request_id_required' })
 
   let rpc, args
   if (action === 'change_primary') {

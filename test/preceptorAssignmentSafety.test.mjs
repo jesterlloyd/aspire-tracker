@@ -81,18 +81,55 @@ test('the idempotency ledger claims first, replays on repeat, and conflicts on r
   assert.match(ledger, /INSERT INTO public\.preceptor_assignment_requests \(request_id, actor_profile_id, rpc, fingerprint\)\s*\n\s*VALUES[\s\S]{0,80}ON CONFLICT \(request_id\) DO NOTHING/)
   assert.match(ledger, /v_inserted = 1 THEN\s*\n\s*RETURN jsonb_build_object\('claimed', true\)/)   // first time
   assert.match(ledger, /WHERE request_id = p_request_id FOR UPDATE/)                                 // serialize
-  assert.match(ledger, /v_fp IS DISTINCT FROM p_fingerprint THEN\s*\n\s*RAISE EXCEPTION 'this request id was already used with different parameters' USING ERRCODE = 'MS409'/)
+  assert.match(ledger, /v_actor IS DISTINCT FROM p_actor_profile_id[\s\S]{0,160}v_rpc IS DISTINCT FROM p_rpc[\s\S]{0,160}v_fp IS DISTINCT FROM p_fingerprint THEN/)
+  assert.match(ledger, /RAISE EXCEPTION 'this request id was already used with different parameters' USING ERRCODE = 'MS409'/)
   assert.match(ledger, /RETURN jsonb_build_object\('claimed', false, 'result', v_res\)/)             // replay
   assert.match(ledger, /a request id is required' USING ERRCODE = 'MS400'/)
 })
 
 test('every write RPC claims/replays via the ledger and finishes with its result', () => {
   for (const [name, fn] of [['assign_primary', primary], ['set_secondary', sec], ['create_unit', create]]) {
-    assert.match(fn, /v_fp := md5\(concat_ws\('\|'/, `${name} fingerprints its args`)
+    assert.match(fn, /v_fp := jsonb_build_object\([\s\S]{0,800}\)::text;/, `${name} has an unambiguous canonical JSON fingerprint`)
     assert.match(fn, /v_claim := public\._preceptor_begin_request\(p_request_id/, `${name} claims`)
     assert.match(fn, /IF NOT \(v_claim->>'claimed'\)::boolean THEN\s*\n\s*RETURN v_claim->'result';/, `${name} replays`)
     assert.match(fn, /PERFORM public\._preceptor_finish_request\(p_request_id, v_result\)/, `${name} finishes`)
   }
+})
+
+test('exact replay returns the stored result before any mutation or notification', () => {
+  for (const [name, fn, firstWrite] of [
+    ['assign_primary', primary, 'UPDATE public.students'],
+    ['set_secondary', sec, 'UPDATE public.student_preceptor_assignments'],
+    ['create_unit', create, 'INSERT INTO public.preceptors'],
+  ]) {
+    const replay = fn.indexOf("IF NOT (v_claim->>'claimed')::boolean")
+    const returned = fn.indexOf("RETURN v_claim->'result';")
+    const mutation = fn.indexOf(firstWrite)
+    const notification = fn.indexOf('_emit_staff_notifications')
+    assert.ok(replay > -1 && replay < returned && returned < mutation, `${name} replays before mutation`)
+    assert.ok(returned < notification, `${name} replays before notification`)
+  }
+})
+
+test('fingerprints include actor, RPC/action, and every assignment mutation input', () => {
+  for (const key of ['rpc', 'actor_profile_id', 'action', 'student_id', 'assignment_id',
+    'preceptor_id', 'role', 'reason', 'notes', 'force', 'confirm_override']) {
+    assert.ok(primary.includes(`'${key}'`), `primary fingerprint includes ${key}`)
+    assert.ok(sec.includes(`'${key}'`), `secondary fingerprint includes ${key}`)
+  }
+  assert.match(primary, /'role', 'primary'/)
+  assert.match(primary, /'rpc', 'assign_primary_preceptor'/)
+  assert.match(sec, /'rpc', 'set_secondary_coverage_preceptor'/)
+})
+
+test('create-preceptor fingerprint includes actor, RPC/action, name, email, unit, shift, and phone', () => {
+  for (const key of ['rpc', 'actor_profile_id', 'action', 'full_name', 'email', 'unit_key', 'shift', 'phone']) {
+    assert.ok(create.includes(`'${key}'`), `create fingerprint includes ${key}`)
+  }
+  assert.match(create, /'full_name', btrim\(p_full_name\)/)
+  assert.match(create, /'email', v_email/)
+  assert.match(create, /'phone', NULLIF\(btrim\(coalesce\(p_phone, ''\)\), ''\)/)
+  assert.ok(!/concat_ws\('\|'/i.test(primary + sec + create), 'delimiter-based collision-prone fingerprints are absent')
 })
 
 test('correlation ids are derived from p_request_id and are NEVER timestamp-based', () => {
