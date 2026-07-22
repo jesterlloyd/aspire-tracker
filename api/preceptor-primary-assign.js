@@ -14,7 +14,6 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { mapRpcStatus, mapRpcError } from './lib/unitLeaderRpcErrors.js'
-import { SHARED_INBOX_EMAIL } from '../lib/server/messages/config.js'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const isUuid = v => typeof v === 'string' && UUID_PATTERN.test(v)
@@ -71,7 +70,9 @@ export default async function handler(req, res) {
     p_student_id: body.studentId,
     p_preceptor_id: body.preceptorId,
     p_reason: typeof body.reason === 'string' && body.reason.trim() ? body.reason.trim() : null,
-    p_notify_email: SHARED_INBOX_EMAIL,
+    // Owner/Admin historical override (rotation completed >90 days ago) requires both, plus a reason.
+    p_force: body.force === true,
+    p_confirm_override: body.confirmOverride === true,
     p_request_id: requestId,
   })
   if (error) {

@@ -17,7 +17,6 @@
 
 import { verifyPortalUnitLeaderCaller } from '../lib/unitLeaderScope.js'
 import { mapRpcStatus, mapRpcError } from '../lib/unitLeaderRpcErrors.js'
-import { SHARED_INBOX_EMAIL } from '../../lib/server/messages/config.js'
 
 const rid = () => `req_${Math.random().toString(36).slice(2, 10)}`
 
@@ -42,7 +41,10 @@ export default async function handler(req, res) {
       p_student_id: body.student_id,
       p_preceptor_id: body.preceptor_id,
       p_reason: body.reason || null,
-      p_notify_email: SHARED_INBOX_EMAIL,
+      // A Unit Leader can never override the 90-day window; the RPC denies it even if these are
+      // set. They are forwarded only so the contract is uniform with the owner/admin path.
+      p_force: body.force === true,
+      p_confirm_override: body.confirm_override === true,
       p_request_id: requestId,
     }
   } else if (action === 'set_secondary') {
@@ -56,7 +58,8 @@ export default async function handler(req, res) {
       p_assignment_id: body.assignment_id || null,
       p_reason: body.reason || null,
       p_notes: body.notes || null,
-      p_notify_email: SHARED_INBOX_EMAIL,
+      p_force: body.force === true,
+      p_confirm_override: body.confirm_override === true,
       p_request_id: requestId,
     }
   } else if (action === 'create_preceptor') {
@@ -68,7 +71,6 @@ export default async function handler(req, res) {
       p_unit_key: body.unit_key,
       p_shift: body.shift,
       p_phone: body.phone || null,
-      p_notify_email: SHARED_INBOX_EMAIL,
       p_request_id: requestId,
     }
   } else {
