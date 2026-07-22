@@ -125,7 +125,7 @@ export default function StudentActionsMenu({ label, open, onToggle, onClose, ite
               role="menuitem"
               className="ptl-stu-menuitem"
               disabled={it.disabled}
-              onClick={() => { it.onSelect(); close() }}
+              onClick={() => { it.onSelect(btnRef.current); close() }}
             >
               {it.label}
             </button>

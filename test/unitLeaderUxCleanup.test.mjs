@@ -212,7 +212,7 @@ test('photos are batch-signed once and reused, never per-avatar', () => {
 
 test('the roster load no longer hides the navigation behind a full-page spinner', () => {
   // While roster loads, the nav renders so Messages/Evaluations/More are usable at once.
-  assert.match(portalCode, /if \(roster\.loading\) \{[\s\S]*?<UnitLeaderNav/)
+  assert.match(portalCode, /if \(roster\.loading && !roster\.data\) \{[\s\S]*?<UnitLeaderNav/)
 })
 
 test('the drawer reuses roster data and the primed photo, avoiding a visible reload', () => {

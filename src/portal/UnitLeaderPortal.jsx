@@ -24,6 +24,7 @@ import UnitRotationCalendar from './unit/UnitRotationCalendar'
 import UnitShiftDayDrawer from './unit/UnitShiftDayDrawer'
 import UnitEvaluationsPlaceholder from './unit/UnitEvaluationsPlaceholder'
 import UnitPreceptorsWorkspace from './unit/UnitPreceptorsWorkspace'
+import UnitLeaderPreceptorManager from './unit/UnitLeaderPreceptorManager'
 import UnitStudentAvatar from './unit/UnitStudentAvatar'
 import { statusToken } from './unit/unitStageTokens'
 import { useUnitStudentPhotos } from './unit/useUnitStudentPhotos'
@@ -64,6 +65,7 @@ function fmtClock(iso) {
 function useEndpoint(loader, deps) {
   const [state, setState] = useState({ error: null, data: null, resolved: -1, at: 0 })
   const [nonce, setNonce] = useState(0)
+  const refreshWaiters = useRef([])
   useEffect(() => {
     const ac = new AbortController()
     let live = true
@@ -71,9 +73,11 @@ function useEndpoint(loader, deps) {
       if (!live || res.error === 'aborted') return
       // loadedAt is stamped HERE, in the resolver, not during render: reading
       // the clock while rendering is impure and makes output unstable.
-      setState(res.ok
+      setState(current => res.ok
         ? { error: null, data: res.data, resolved: nonce, at: Date.now() }
-        : { error: res, data: null, resolved: nonce, at: Date.now() })
+        : { error: res, data: current.data, resolved: nonce, at: Date.now() })
+      const waiters = refreshWaiters.current.splice(0)
+      waiters.forEach(resolve => resolve(res))
     })
     return () => { live = false; ac.abort() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -83,7 +87,10 @@ function useEndpoint(loader, deps) {
     error: state.error,
     data: state.data,
     loadedAt: state.at,
-    refresh: () => setNonce(n => n + 1),
+    refresh: () => new Promise(resolve => {
+      refreshWaiters.current.push(resolve)
+      setNonce(n => n + 1)
+    }),
   }
 }
 
@@ -111,7 +118,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
   // While the roster loads, render the NAV immediately so Messages, Evaluations, and
   // More are usable at once, and skeleton only the content area. This replaces the old
   // full-page blocker that hid already-navigable chrome behind one spinner.
-  if (roster.loading) {
+  if (roster.loading && !roster.data) {
     return (
       <>
         <UnitLeaderNav view={view} unread={unread} onNavigate={onNavigate} />
@@ -121,7 +128,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
       </>
     )
   }
-  if (roster.error) {
+  if (roster.error && !roster.data) {
     return (
       <ErrorState
         detail="Your units could not be loaded just now."
@@ -152,7 +159,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
         {view === 'capacity'   && <CapacityScreen {...shared} />}
         {view === 'students'   && <StudentsScreen {...shared} onNavigate={onNavigate} onOpenThread={onSelectThread} />}
         {view === 'evaluations' && <UnitEvaluationsPlaceholder />}
-        {view === 'preceptors' && <PreceptorScreen unitKey={unitKey} unitKeys={unitKeys} />}
+        {view === 'preceptors' && <PreceptorScreen unitKey={unitKey} unitKeys={unitKeys} refreshRoster={roster.refresh} />}
         {view === 'profile'    && <ProfileScreen unitKeys={unitKeys} profile={userProfile} />}
         {view === 'messages'   && (
           <AspireTeamComposer
@@ -176,7 +183,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
 }
 
 // ── Home: the locked priority order, now with hierarchy ─────────────────────
-function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate, onOpenThread }) {
+function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate, onOpenThread, refreshRoster }) {
   const placements = useEndpoint(s => getPlacementRequests(unitKey, s), [unitKey])
   // The in-app feed is DERIVED server side from the caller's own authorized rows,
   // so Home and the feed can never disagree.
@@ -311,6 +318,7 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate
         students={students}
         onNavigate={onNavigate}
         onOpenThread={onOpenThread}
+        refreshRoster={refreshRoster}
         heading="Your students"
       />
 
@@ -763,18 +771,33 @@ function fmtShortDate(ymd) {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-function StudentRoster({ students, onNavigate, onOpenThread, heading = null }) {
+function StudentRoster({ students, onNavigate, onOpenThread, refreshRoster, heading = null }) {
   const photos = useUnitStudentPhotos(students)
   const [notice, setNotice] = useState(null)
   const [busy, setBusy] = useState(null)          // duplicate-click protection
   const [openActions, setOpenActions] = useState(null)
   const [detailStudent, setDetailStudent] = useState(null)
+  const [manager, setManager] = useState(null)
+  const [assignmentRefreshKey, setAssignmentRefreshKey] = useState(0)
   // The exact element that opened the drawer, so focus returns to the right ROW.
   const detailTriggerRef = useRef(null)
+  const managerTriggerRef = useRef(null)
 
   const openDetail = (student, triggerEl) => {
     detailTriggerRef.current = triggerEl || null
     setDetailStudent(student)
+  }
+
+  const openManager = (student, initialAction, triggerEl) => {
+    managerTriggerRef.current = triggerEl || null
+    setManager({ student, initialAction })
+  }
+
+  const assignmentCommitted = async (_result, message) => {
+    setNotice({ tone: 'ok', text: message })
+    setAssignmentRefreshKey(value => value + 1)
+    const refreshed = await refreshRoster?.()
+    return refreshed?.ok !== false
   }
 
   // ONE table, the whole 90-day visibility window. The stage filters are gone: a Unit
@@ -845,6 +868,7 @@ function StudentRoster({ students, onNavigate, onOpenThread, heading = null }) {
                   onCloseActions={() => setOpenActions(null)}
                   onOpen={openDetail}
                   onMessage={messageStudent}
+                  onManage={openManager}
                 />
               ))}
             </tbody>
@@ -856,7 +880,20 @@ function StudentRoster({ students, onNavigate, onOpenThread, heading = null }) {
         <StudentDetailDrawer
           student={detailStudent}
           returnFocusRef={detailTriggerRef}
+          assignmentRefreshKey={assignmentRefreshKey}
+          suspended={!!manager}
+          onManageAssignments={(student, triggerEl) => openManager(student, null, triggerEl)}
           onClose={() => setDetailStudent(null)}
+        />
+      )}
+
+      {manager && (
+        <UnitLeaderPreceptorManager
+          student={manager.student}
+          initialAction={manager.initialAction}
+          returnFocusRef={managerTriggerRef}
+          onCommitted={assignmentCommitted}
+          onClose={() => setManager(null)}
         />
       )}
     </>
@@ -882,7 +919,9 @@ function StudentsScreen(props) {
  * lives OUTSIDE that button (a sibling in the <li>), because a button nested inside a
  * button is invalid HTML and resolves unpredictably.
  */
-function StudentRow({ student: s, photoUrl, busy, open, onToggleActions, onCloseActions, onOpen, onMessage }) {
+function StudentRow({
+  student: s, photoUrl, busy, open, onToggleActions, onCloseActions, onOpen, onMessage, onManage,
+}) {
   const status = statusToken(s.status)
   const rot = s.rotation ? `${fmtShortDate(s.rotation.start)} to ${fmtShortDate(s.rotation.end)}` : EMPTY
   // The whole row opens the profile; the Actions cell stops propagation so a kebab
@@ -924,30 +963,44 @@ function StudentRow({ student: s, photoUrl, busy, open, onToggleActions, onClose
       <td data-label="Hours"><HoursCell hours={s.hours} /></td>
       <td data-label="Actions" className="ptl-stu-actioncell"
         onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-        {/* No-SQL phase: only Message Student. The milestone confirmations were removed
-            until Phase 2, and the approved preceptor-assignment actions (Assign New
-            Primary, Assign Secondary, Assign Coverage) arrive with the repair migration
-            and the transactional RPC, not before. The menu renders through a document.body
-            portal so the table's overflow can never clip it. */}
+        {/* The menu renders through document.body so the table overflow cannot clip it.
+            Replace and End remain row-specific actions inside the shared manager. */}
         <StudentActionsMenu
           label={`Actions for ${studentName(s)}`}
           open={open}
           onToggle={onToggleActions}
           onClose={onCloseActions}
-          items={[{
-            key: 'message',
-            label: busy === `${s.id}:message` ? 'Opening' : 'Message student',
-            disabled: busy === `${s.id}:message`,
-            onSelect: () => onMessage(s),
-          }]}
+          items={[
+            {
+              key: 'message',
+              label: busy === `${s.id}:message` ? 'Opening' : 'Message student',
+              disabled: busy === `${s.id}:message`,
+              onSelect: () => onMessage(s),
+            },
+            {
+              key: 'change-primary',
+              label: 'Change Primary preceptor',
+              onSelect: triggerEl => onManage(s, 'change_primary', triggerEl),
+            },
+            {
+              key: 'add-secondary',
+              label: 'Add Secondary preceptor',
+              onSelect: triggerEl => onManage(s, 'add_secondary', triggerEl),
+            },
+            {
+              key: 'add-coverage',
+              label: 'Add Coverage preceptor',
+              onSelect: triggerEl => onManage(s, 'add_coverage', triggerEl),
+            },
+          ]}
         />
       </td>
     </tr>
   )
 }
 
-function PreceptorScreen({ unitKey, unitKeys }) {
-  return <UnitPreceptorsWorkspace unitKey={unitKey} unitKeys={unitKeys} />
+function PreceptorScreen({ unitKey, unitKeys, refreshRoster }) {
+  return <UnitPreceptorsWorkspace unitKey={unitKey} unitKeys={unitKeys} onAssignmentsChanged={refreshRoster} />
 }
 
 // ── Report a Concern ────────────────────────────────────────────────────────

@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   EmptyState, ErrorState, Pill, SectionHeading, TableSkeleton,
 } from './UnitLeaderChrome'
 import UnitPreceptorCreateModal from './UnitPreceptorCreateModal'
+import UnitLeaderPreceptorManager from './UnitLeaderPreceptorManager'
 import {
   ALL_UNITS, getNominations, getUnitPreceptors, orDash, sentenceCase,
 } from './unitLeaderApi'
@@ -10,6 +11,7 @@ import {
 function useResource(loader) {
   const [state, setState] = useState({ data: null, error: null, resolved: -1 })
   const [nonce, setNonce] = useState(0)
+  const refreshWaiters = useRef([])
   useEffect(() => {
     const controller = new AbortController()
     let live = true
@@ -18,6 +20,8 @@ function useResource(loader) {
       setState(result.ok
         ? { data: result.data, error: null, resolved: nonce }
         : { data: null, error: result, resolved: nonce })
+      const waiters = refreshWaiters.current.splice(0)
+      waiters.forEach(resolve => resolve(result))
     })
     return () => { live = false; controller.abort() }
   }, [loader, nonce])
@@ -25,7 +29,10 @@ function useResource(loader) {
     data: state.data,
     error: state.error,
     loading: state.resolved !== nonce,
-    refresh: () => setNonce(value => value + 1),
+    refresh: () => new Promise(resolve => {
+      refreshWaiters.current.push(resolve)
+      setNonce(value => value + 1)
+    }),
   }
 }
 
@@ -49,7 +56,7 @@ function sortRows(rows, sortBy) {
   })
 }
 
-function AssignmentList({ assignments }) {
+function AssignmentList({ assignments, onManage }) {
   if (!assignments.length) return <span className="ptl-muted">None</span>
   return (
     <span className="ptl-prec-list">
@@ -62,13 +69,18 @@ function AssignmentList({ assignments }) {
           {assignment.student_unit && assignment.student_unit !== '' && (
             <span className="ptl-muted">{assignment.student_unit}</span>
           )}
+          <button type="button" className="ptl-linklike ptl-prec-manage"
+            aria-label={`Manage assignments for ${assignment.student_name}`}
+            onClick={event => onManage(assignment, event.currentTarget)}>
+            Manage student assignments
+          </button>
         </span>
       ))}
     </span>
   )
 }
 
-export default function UnitPreceptorsWorkspace({ unitKey, unitKeys }) {
+export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmentsChanged }) {
   const loadPreceptors = useCallback(signal => getUnitPreceptors(signal), [])
   const loadHistory = useCallback(signal => getNominations(unitKey, signal), [unitKey])
   const preceptors = useResource(loadPreceptors)
@@ -79,7 +91,9 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys }) {
   const [crossUnit, setCrossUnit] = useState('all')
   const [sortBy, setSortBy] = useState('name')
   const [createOpen, setCreateOpen] = useState(false)
+  const [manager, setManager] = useState(null)
   const [notice, setNotice] = useState(null)
+  const managerTriggerRef = useRef(null)
 
   const roster = useMemo(() => preceptors.data?.roster || [], [preceptors.data])
   const unitRoster = useMemo(
@@ -109,6 +123,25 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys }) {
       text: 'Preceptor created and active. Owner/Admin reviewers were notified for follow-up.',
     })
     preceptors.refresh()
+  }
+
+  const openManager = (assignment, triggerEl) => {
+    managerTriggerRef.current = triggerEl || null
+    setManager({
+      id: assignment.student_id,
+      first_name: assignment.student_name,
+      last_name: '',
+      unit_key: assignment.student_unit,
+    })
+  }
+
+  const assignmentCommitted = async (_result, message) => {
+    setNotice({ tone: 'ok', text: message })
+    const [workspaceResult, rosterResult] = await Promise.all([
+      preceptors.refresh(),
+      onAssignmentsChanged?.(),
+    ])
+    return workspaceResult?.ok !== false && rosterResult?.ok !== false
   }
 
   return (
@@ -192,7 +225,9 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys }) {
                   <td data-label="Home unit">{orDash(row.home_unit?.name)}</td>
                   <td data-label="Shift">{orDash(row.shift)}</td>
                   <td data-label="Status"><Pill tone={row.is_active ? 'ok' : 'neutral'}>{row.is_active ? 'Active' : 'Inactive'}</Pill></td>
-                  <td data-label="Current students"><AssignmentList assignments={row.assignments} /></td>
+                  <td data-label="Current students">
+                    <AssignmentList assignments={row.assignments} onManage={openManager} />
+                  </td>
                   <td data-label="Assignments">{row.active_assignment_count}</td>
                   <td data-label="Association">
                     {row.cross_unit_association ? <Pill tone="warn">Cross-unit</Pill> : <span className="ptl-muted">Home unit</span>}
@@ -226,6 +261,10 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys }) {
 
       {createOpen && (
         <UnitPreceptorCreateModal unitKeys={unitKeys} onClose={() => setCreateOpen(false)} onCreated={created} />
+      )}
+      {manager && (
+        <UnitLeaderPreceptorManager student={manager} returnFocusRef={managerTriggerRef}
+          onCommitted={assignmentCommitted} onClose={() => setManager(null)} />
       )}
     </>
   )

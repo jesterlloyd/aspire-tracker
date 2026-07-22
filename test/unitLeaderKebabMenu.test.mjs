@@ -69,7 +69,7 @@ test('Escape, an outside press, and external scroll or resize all close the menu
 test('closing returns focus to the trigger button', () => {
   assert.match(menuCode, /const close = useCallback\(\(\) => \{\s*onClose\(\)\s*btnRef\.current\?\.focus\(\)/)
   // Selecting an item also closes (and therefore returns focus).
-  assert.match(menuCode, /onClick=\{\(\) => \{ it\.onSelect\(\); close\(\) \}\}/)
+  assert.match(menuCode, /onClick=\{\(\) => \{ it\.onSelect\(btnRef\.current\); close\(\) \}\}/)
 })
 
 test('the first item is focused on open and arrow keys move between items', () => {

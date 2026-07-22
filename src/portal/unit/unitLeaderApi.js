@@ -112,6 +112,13 @@ export const createUnitPreceptor = ({ full_name, email, phone, unit_key, shift, 
     },
   })
 
+export const mutateUnitPreceptorAssignment = ({
+  action, op, role, student_id, preceptor_id, assignment_id, request_id,
+}) => apiFetch('/api/portal/unit-preceptor-manage', {
+  method: 'POST',
+  body: { action, op, role, student_id, preceptor_id, assignment_id, request_id },
+})
+
 /** Report a Concern, or open a direct thread with a student. */
 export const startUnitConversation = ({ destination, studentId, subject, category, body }) =>
   apiFetch('/api/portal/unit-messages-start', {

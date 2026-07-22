@@ -126,7 +126,7 @@ test('the roster returns EVERY active assignment, not a single collapsed name', 
 
 test('the column is renamed Preceptor(s) and rendered by the shared PreceptorList', () => {
   assert.match(portalCode, /<th scope="col">Preceptor\(s\)<\/th>/)
-  assert.ok(!portalCode.includes('Primary preceptor'), 'the old column header is gone')
+  assert.ok(!portalCode.includes('<th scope="col">Primary preceptor</th>'), 'the old column header is gone')
   assert.match(portalCode, /<PreceptorList assignments=\{s\.preceptors\}/)
   // The drawer reuses the same component, so the two cannot drift.
   assert.match(read('src/portal/unit/StudentDetailDrawer.jsx'), /<PreceptorList assignments=\{d\.preceptors\}/)

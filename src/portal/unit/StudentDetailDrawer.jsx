@@ -177,7 +177,14 @@ function ResumeAction({ studentId, available }) {
   )
 }
 
-export default function StudentDetailDrawer({ student, onClose, returnFocusRef }) {
+export default function StudentDetailDrawer({
+  student,
+  onClose,
+  returnFocusRef,
+  onManageAssignments,
+  assignmentRefreshKey = 0,
+  suspended = false,
+}) {
   const panelRef = useRef(null)
   const closeRef = useRef(null)
   // Both loads carry the id they resolved FOR. Loading is then derived by comparing
@@ -206,7 +213,7 @@ export default function StudentDetailDrawer({ student, onClose, returnFocusRef }
       else setDetail({ forId: studentId, status: 'error', data: null })
     })
     return () => { live = false; ac.abort() }
-  }, [studentId])
+  }, [studentId, assignmentRefreshKey])
 
   // Milestone history, through the authorized unit-scoped endpoint, narrowed to this
   // student in the browser. The server has already bounded the set to the caller's
@@ -227,11 +234,20 @@ export default function StudentDetailDrawer({ student, onClose, returnFocusRef }
   const detailStatus = detail.forId === studentId ? detail.status : 'loading'
   const milestoneStatus = milestones.forId === studentId ? milestones.status : 'loading'
 
-  // Focus management: move focus in, trap and cycle Tab, Escape to close, restore
-  // focus to the element that opened the drawer.
+  // Move focus in once and restore it only when the drawer itself unmounts. Temporarily
+  // suspending the keyboard trap for the assignment manager must not steal focus back.
   useEffect(() => {
     const prev = returnFocusRef?.current || null
     const t = setTimeout(() => closeRef.current?.focus?.(), 20)
+    return () => {
+      clearTimeout(t)
+      if (prev?.focus) prev.focus()
+    }
+  }, [returnFocusRef])
+
+  // Trap and cycle Tab and handle Escape while this is the active dialog.
+  useEffect(() => {
+    if (suspended) return undefined
     const onKey = (e) => {
       if (e.key === 'Escape') { e.stopPropagation(); onClose?.(); return }
       if (e.key !== 'Tab' || !panelRef.current) return
@@ -244,11 +260,9 @@ export default function StudentDetailDrawer({ student, onClose, returnFocusRef }
     }
     document.addEventListener('keydown', onKey)
     return () => {
-      clearTimeout(t)
       document.removeEventListener('keydown', onKey)
-      if (prev?.focus) prev.focus()
     }
-  }, [onClose, returnFocusRef])
+  }, [onClose, suspended])
 
   if (!student) return null
   const d = detail.data
@@ -261,6 +275,7 @@ export default function StudentDetailDrawer({ student, onClose, returnFocusRef }
         className="ptl-drawer ptl-detail-drawer"
         role="dialog"
         aria-modal="true"
+        aria-hidden={suspended ? 'true' : undefined}
         aria-label={`Details for ${name}`}
       >
         {/* Close control floats over the pastel hero so the header can be the full
@@ -358,6 +373,12 @@ export default function StudentDetailDrawer({ student, onClose, returnFocusRef }
                   <ResumeAction studentId={d.id} available={d.has_resume} />
                 </Field>
               </dl>
+
+              <div className="ptl-detail-manage">
+                <button type="button" className="ptl-btn" onClick={event => onManageAssignments?.(d, event.currentTarget)}>
+                  Manage assignments
+                </button>
+              </div>
 
               <h3 className="ptl-detail-heading">Milestone history</h3>
               {milestoneStatus === 'loading' && <LoadingState label="Loading milestone history" />}
