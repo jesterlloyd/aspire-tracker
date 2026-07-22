@@ -55,35 +55,36 @@ export default function PreceptorAssignmentModal({ isOpen, onClose, student, onA
     setConfirming(true)
   }
 
+  // PHASE 2C: the primary change goes through the audited RPC endpoint, not a bare client
+  // write. The RPC sets students.preceptor_id (guarded), and the Phase 2B trigger synchronizes
+  // matched_preceptor, preceptor_email, the active-primary assignment row, and the current-cohort
+  // match FK. So the modal no longer writes those columns directly.
+  const assignPrimaryViaApi = async (studentId, preceptorId) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const resp = await fetch('/api/preceptor-primary-assign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+      body: JSON.stringify({ studentId, preceptorId }),
+    })
+    if (!resp.ok) {
+      const j = await resp.json().catch(() => ({}))
+      throw new Error(j.error || 'assignment_failed')
+    }
+  }
+
   const handleConfirm = async () => {
     if (!selected || !student) return
     setError(null)
 
     const today = new Date().toISOString().split('T')[0]
 
-    // Update student row: set preceptor_id + keep free-text in sync
-    const { error: stuErr } = await safeWrite(
-      () => supabase.from('students').update({
-        preceptor_id:      selected.id,
-        matched_preceptor: selected.full_name,
-        preceptor_email:   selected.email,
-      }).eq('id', student.id),
-      { name: 'assign preceptor to student' }
-    )
-
-    if (stuErr) { setError(stuErr.message); return }
-
-    // Update the active match row for this student
-    const { data: matchRows } = await supabase
-      .from('matches')
-      .select('id')
-      .eq('student_id', student.id)
-      .limit(1)
-    if (matchRows?.length) {
-      await safeWrite(
-        () => supabase.from('matches').update({ preceptor_id: selected.id }).eq('id', matchRows[0].id),
-        { name: 'update match preceptor' }
-      )
+    // Set the primary through the audited RPC endpoint. The 2B trigger keeps the display
+    // fields (matched_preceptor, preceptor_email) and the current-cohort match FK in sync.
+    try {
+      await assignPrimaryViaApi(student.id, selected.id)
+    } catch (e) {
+      setError(e.message || 'That preceptor could not be assigned.')
+      return
     }
 
     // Create cohort participation if it doesn't exist yet
@@ -109,22 +110,12 @@ export default function PreceptorAssignmentModal({ isOpen, onClose, student, onA
 
   const handleAddSaved = async (newPreceptor) => {
     setAddOpen(false)
-    // Auto-assign the just-created preceptor
-    await safeWrite(
-      () => supabase.from('students').update({
-        preceptor_id:      newPreceptor.id,
-        matched_preceptor: newPreceptor.full_name,
-        preceptor_email:   newPreceptor.email,
-      }).eq('id', student.id),
-      { name: 'auto-assign new preceptor to student' }
-    )
-
-    const { data: matchRows } = await supabase.from('matches').select('id').eq('student_id', student.id).limit(1)
-    if (matchRows?.length) {
-      await safeWrite(
-        () => supabase.from('matches').update({ preceptor_id: newPreceptor.id }).eq('id', matchRows[0].id),
-        { name: 'auto-assign new preceptor to match' }
-      )
+    // Auto-assign the just-created preceptor through the audited RPC endpoint.
+    try {
+      await assignPrimaryViaApi(student.id, newPreceptor.id)
+    } catch (e) {
+      setError(e.message || 'That preceptor could not be assigned.')
+      return
     }
 
     queryClient.invalidateQueries({ queryKey: ['students', student.cohort_id] })
