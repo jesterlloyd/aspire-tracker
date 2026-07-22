@@ -1129,6 +1129,7 @@ function MainApp({ onLogout }) {
           onActionCountChange={handleActionCount}
           onNavigateToProfiles={id => { setFocusStudentId(id); switchTab('profiles'); setShowActionCenter(false) }}
           onNavigateToActivityShift={goToActivityShift}
+          onNavigateNotificationDestination={destination => { navigate(destination); setShowActionCenter(false) }}
           notifications={staffNotifications}
           toast={toast}
         />

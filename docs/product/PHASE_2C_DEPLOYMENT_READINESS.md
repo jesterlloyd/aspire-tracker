@@ -4,51 +4,58 @@ Review date: 2026-07-22
 
 Branch: `phase2c-preceptor-authz`
 
-Reviewed commit: `683d9ef97b7595401e707df9d9f708b06e8bf637`
+Blocker-remediation baseline: `378cb23c5d5178e14bf8f149f38523e80bdea43c`
+
+Final remediation commit: the commit containing this document, with message
+`Resolve Phase 2C deployment blockers`. Its exact hash is reported in the Codex completion because
+a Git commit cannot contain its own final content-derived hash.
 
 Local comparison baseline: `main` / `origin/main` at `544ec5dc2ddedffacdaa12353a7b5067846c37c7`
 
 ## Verdict
 
-**NOT READY FOR PRODUCTION DEPLOYMENT until the blockers below are resolved and the production
-environment checklist is confirmed by the Owner.**
+**SOURCE BLOCKERS RESOLVED. CONDITIONALLY READY FOR OWNER-CONTROLLED DEPLOYMENT after the production
+baseline and environment checklist are confirmed.**
 
 Phase 2B and Phase 2C, including the live privilege hardening, are already applied and verified.
-This review did not run SQL, apply or roll back a migration, deploy, or enable the Unit Leader
-assignment UI.
+This remediation did not run SQL, apply or roll back a migration, inspect or alter a stash, merge,
+push, deploy, change the sender identity, or enable the Unit Leader assignment UI.
 
 The local and remote-tracking `main` refs both identify `544ec5d` as the apparent production source
 baseline. Repository history cannot prove which commit is currently deployed by Vercel. The Owner
 must confirm the live deployment SHA before using the comparison as the final release manifest.
 
-## Pre-deployment blockers
+## Blocker resolution
 
-1. **Cron authentication must fail closed when configuration is missing.**
-   `api/cron/staff-notification-worker.js` compares the request header with
-   ``Bearer ${process.env.CRON_SECRET}`` but never first proves that `CRON_SECRET` is non-empty. If
-   the variable is absent, a literal `Bearer undefined` header satisfies the comparison. Add an
-   explicit missing-secret rejection and handler tests for absent, incorrect, and correct
-   authorization.
-2. **Worker persistence errors must be detected.**
-   `lib/server/staffNotifications/deliveryService.js` awaits the Supabase update but does not inspect
-   its resolved `{ error }`. Supabase normally resolves database failures rather than rejecting the
-   promise, so the worker can report a row as sent/retried/failed even though it remains
-   `processing`. Check and throw on the returned error; add a test for a resolved Supabase error,
-   not only a rejected promise. Stale-claim recovery and the provider idempotency key reduce the
-   duplicate-send risk but do not make the reported state correct.
-3. **The in-app `preceptor_created` destination is not wired.**
-   The database stores `/rotation/preceptors` in `dest_url`, and email renders that link, but
-   `StaffNotificationsPanel` only makes rows with `student_id` navigable. A preceptor-created item
-   can only be marked read. Route this event to the Preceptor Directory and add a behavioral test
-   that covers both student and preceptor destinations.
-4. **Production facts require Owner confirmation.**
+1. **RESOLVED: cron authentication fails closed.**
+   `api/cron/staff-notification-worker.js` now rejects absent, blank, and whitespace-only
+   `CRON_SECRET` values plus missing, incorrect, and literal `Bearer undefined` headers. Rejection
+   occurs before database construction, cron recording, Resend construction, or queue processing.
+   Request-level tests prove rejected requests do no work and only the exact configured header is
+   accepted.
+2. **RESOLVED: worker persistence errors are detected.**
+   `lib/server/staffNotifications/deliveryService.js` now inspects the resolved queue-state update
+   result and throws on `{ error }`. Tests cover rejected promises, resolved errors, and successful
+   `{ error: null }` updates; worker counts record persistence failures as `errored` while later
+   rows continue. Stale-claim recovery and provider idempotency behavior are unchanged.
+3. **RESOLVED: non-student notification destinations are honored safely.**
+   `src/lib/staffNotificationNavigation.js` allows only the exact student route and
+   `/rotation/preceptors`, rejects external/protocol-relative/javascript/arbitrary destinations,
+   and provides shared mouse/keyboard activation. Tests prove student and preceptor routing,
+   fail-closed invalid destinations, per-item mark-read, Enter/Space activation, and the legacy
+   null-destination student fallback.
+4. **REMAINING OWNER GATE: production facts require confirmation.**
    Confirm the actual deployed production SHA and the presence of every required production
    environment variable below without copying any value into tickets, logs, or this document.
 
+There are no remaining source-code blockers identified by this remediation pass. Live Vercel,
+database, and Resend behavior remains subject to the post-deployment smoke checklist.
+
 ## Runtime deployment contents
 
-Deploy the application and serverless delta from the confirmed production baseline through
-`683d9ef`. The database migrations are retained as canonical source but must not be re-applied.
+Deploy the application and serverless delta from the confirmed production baseline through the
+final remediation commit. The database migrations are retained as canonical source but must not be
+re-applied.
 
 ### Assignment and idempotency
 
@@ -80,6 +87,8 @@ backend reserved for the disabled future UI.
 - `src/hooks/useStaffNotifications.js`: reads the recipient's latest rows and changes read state
   only through `mark_staff_notifications_read`.
 - `src/components/StaffNotificationsPanel.jsx`: renders read/unread activity and mark-read actions.
+- `src/lib/staffNotificationNavigation.js`: validates durable internal destinations and supplies
+  shared mouse/keyboard activation behavior.
 - `src/components/ActionCenter.jsx`: retains `Action Needed` and adds a separate `Notifications`
   tab.
 - `src/components/Header/HeaderActions.jsx` and `src/App.jsx`: combine live task count and durable
@@ -108,7 +117,7 @@ Confirm presence and correct Production scope only. Do not disclose values.
 
 | Variable | Required by | Readiness requirement |
 | --- | --- | --- |
-| `CRON_SECRET` | `api/cron/staff-notification-worker.js` | Required for worker authentication. Block deployment until present and until the missing-secret fail-closed code path is fixed. |
+| `CRON_SECRET` | `api/cron/staff-notification-worker.js` | Required for worker authentication. The handler now rejects absent/blank configuration before any queue work. |
 | `RESEND_API_KEY` | `api/cron/staff-notification-worker.js` | Required to create the Resend client and deliver claimed email jobs. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Worker, primary endpoint, Unit Leader endpoint through `portalAuth` | Server-only database/RPC access. Never expose to the browser. |
 | `SUPABASE_URL` or `VITE_SUPABASE_URL` | Worker and both assignment endpoints | At least one server-side URL name must be present. The browser specifically requires `VITE_SUPABASE_URL`. |
@@ -127,7 +136,8 @@ found no Phase 2C override or drift.
 
 ## Deployment sequence
 
-1. Resolve the three code blockers and run the same verification matrix again.
+1. Confirm the exact final remediation commit from the Codex completion and use that immutable SHA
+   for preview and production.
 2. Confirm the actual Vercel production SHA. Recompute and review the runtime diff if it is not
    `544ec5d`.
 3. Confirm all production environment variable names above are present in the Production scope.
@@ -167,7 +177,8 @@ and the second account receives the notification. Do not copy secrets into evide
       timestamp, and read/unread state.
 - [ ] Opening a student-linked item routes to the intended student and marks only that item read.
 - [ ] `Mark all read` clears the recipient's remaining unread notification rows and badge count.
-- [ ] After blocker 3 is fixed, a `preceptor_created` item routes to `/rotation/preceptors`.
+- [ ] A `preceptor_created` item routes to `/rotation/preceptors`, marks only itself read, and never
+      leaves the ASPIRE application.
 
 ### Worker and Resend
 
@@ -223,20 +234,20 @@ student-update path. It is destructive, manual, and outside this deployment pack
 ## Verification completed in this review
 
 - Targeted Phase 2B/2C, idempotency, notification, badge, and Unit Leader boundary tests:
-  **170 passed, 0 failed**.
-- Full suite, `node --test 'test/*.test.mjs'`: **2,179 passed, 0 failed**.
+  **189 passed, 0 failed**.
+- Full suite, `node --test 'test/*.test.mjs'`: **2,198 passed, 0 failed**.
 - Client build, `npx vite build`: **passed**; non-blocking warning for chunks larger than 500 kB.
 - SSR build, `npx vite build --ssr src/public-site/prerender-entry.jsx --outDir .prerender-ssr`:
   **passed**.
-- `git diff --check`: **passed** before this document was added.
+- `git diff --check`: **passed**.
 
 ## Remaining test and evidence gaps
 
 - No live database, Vercel, or Resend integration was run in this review.
 - The new assignment endpoints are covered primarily by static source assertions rather than
   request-level handler tests.
-- The notification panel tests inspect source text rather than rendering and exercising the React
-  component.
-- No test covers a missing `CRON_SECRET` or a Supabase update that resolves with `{ error }`.
-- No test proves the `preceptor_created` in-app destination.
+- Notification row activation is behavior-tested through the exact helper used by the React
+  component; the repository still has no browser DOM/component-rendering test harness.
+- Request-level tests cover the cron handler, but the Primary and Unit Leader assignment endpoints
+  remain primarily covered by static source assertions.
 - Production environment presence and the actual deployed SHA remain Owner-confirmed facts.

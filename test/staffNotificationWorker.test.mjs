@@ -34,7 +34,7 @@ function makeRow(over = {}) {
 }
 
 // Fake db: records every staff_notifications update and the claim RPC call.
-function makeDb({ claimRows = [], claimError = null, failUpdateForId = null } = {}) {
+function makeDb({ claimRows = [], claimError = null, failUpdateForId = null, resolveUpdateErrorForId = null } = {}) {
   const updates = []
   const rpcCalls = []
   return {
@@ -56,6 +56,9 @@ function makeDb({ claimRows = [], claimError = null, failUpdateForId = null } = 
               assert.equal(col, 'id')
               if (failUpdateForId && id === failUpdateForId) {
                 return Promise.reject(new Error('db write failed'))
+              }
+              if (resolveUpdateErrorForId && id === resolveUpdateErrorForId) {
+                return Promise.resolve({ data: null, error: { message: 'resolved db write failed' } })
               }
               updates.push({ id, patch })
               return Promise.resolve({ data: null, error: null })
@@ -99,6 +102,34 @@ test('a successful send marks the row sent, records the provider id, one attempt
   assert.equal(patch.resend_email_id, 'resend-abc')
   assert.equal(patch.next_attempt_at, null)
   assert.equal(patch.locked_at, null)
+})
+
+test('a successful Supabase queue-state update resolves with error null', async () => {
+  const db = makeDb()
+  const resend = makeResend({ id: 'resend-ok' })
+  await assert.doesNotReject(() => processClaimedStaffNotification(db, resend, makeRow()))
+  assert.equal(db.updates.length, 1)
+  assert.equal(db.updates[0].patch.queue_status, 'sent')
+})
+
+test('a resolved Supabase queue-state error surfaces instead of reporting persistence success', async () => {
+  const db = makeDb({ resolveUpdateErrorForId: 'row-1' })
+  const resend = makeResend({ id: 'resend-sent-before-db-error' })
+  await assert.rejects(
+    () => processClaimedStaffNotification(db, resend, makeRow()),
+    /staff notification state update failed: resolved db write failed/,
+  )
+  assert.equal(db.updates.length, 0)
+})
+
+test('a rejected Supabase queue-state update surfaces instead of reporting persistence success', async () => {
+  const db = makeDb({ failUpdateForId: 'row-1' })
+  const resend = makeResend({ id: 'resend-sent-before-db-rejection' })
+  await assert.rejects(
+    () => processClaimedStaffNotification(db, resend, makeRow()),
+    /db write failed/,
+  )
+  assert.equal(db.updates.length, 0)
 })
 
 test('the Resend idempotency key is correlation_id:recipient (no double-send per recipient)', async () => {
@@ -167,6 +198,20 @@ test('the worker keeps going when one row cannot be persisted', async () => {
   assert.equal(counts.claimed, 2)
   assert.equal(counts.errored, 1)                   // r1's write threw
   assert.equal(counts.sent, 1)                      // r2 still completed
+})
+
+test('the worker counts a resolved Supabase persistence error as errored and keeps going', async () => {
+  const rows = [makeRow({ id: 'r1', recipient_profile_id: 'a1' }),
+                makeRow({ id: 'r2', recipient_profile_id: 'a2' })]
+  const db = makeDb({ claimRows: rows, resolveUpdateErrorForId: 'r1' })
+  const resend = makeResend({ id: 'ok' })
+
+  const counts = await runStaffNotificationWorker(db, resend, { worker: 'w1', limit: 25, staleSeconds: 300 })
+
+  assert.deepEqual(counts, { claimed: 2, sent: 1, retried: 0, failed: 0, suppressed: 0, errored: 1 })
+  assert.equal(resend.sends.length, 2)
+  assert.equal(db.updates.length, 1)
+  assert.equal(db.updates[0].id, 'r2')
 })
 
 test('a claim RPC error surfaces (the cron records the failure) and sends nothing', async () => {

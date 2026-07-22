@@ -368,7 +368,8 @@ export default function ActionCenter({
   isOpen, onClose, anchorEl,
   students, units, matches, cohortId, activeCohort,
   communications, onLogCommunication, onStudentUpdate, onMatchUpdate,
-  onNavigateToProfiles, onNavigateToActivityShift, onActionCountChange, toast,
+  onNavigateToProfiles, onNavigateToActivityShift, onNavigateNotificationDestination,
+  onActionCountChange, toast,
   notifications = {},
 }) {
   const { canEdit, userProfile } = useAuth()
@@ -1066,7 +1067,7 @@ ${KR_SIG}`
           isError={notifications.isError}
           onMarkRead={notifications.markRead}
           onMarkAllRead={() => notifications.markRead?.(null)}
-          onOpenStudent={onNavigateToProfiles}
+          onNavigateDestination={onNavigateNotificationDestination}
         />
       )}
     </div>

@@ -10,12 +10,17 @@
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
+const readTree = (p) => readdirSync(p, { withFileTypes: true })
+  .map(entry => entry.isDirectory()
+    ? readTree(join(p, entry.name))
+    : readFileSync(join(p, entry.name), 'utf8'))
+  .join('\n')
 
 const mig     = read('supabase/migrations/20260723000000_preceptor_assignment_authorization.sql')
 const ver     = read('db/audit/preceptor_assignment_authorization_preflight_and_verification.sql')
@@ -29,6 +34,7 @@ const mailCfg = read('lib/server/messages/config.js')
 const cron    = read('api/cron/staff-notification-worker.js')
 const vercel  = read('vercel.json')
 const handoff = read('docs/product/PHASE_2C_PRECEPTOR_AUTHORIZATION_HANDOFF.md')
+const readiness = read('docs/product/PHASE_2C_DEPLOYMENT_READINESS.md')
 
 const live = mig.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*--.*$/gm, '')
 
@@ -216,6 +222,12 @@ test('both assignment APIs require a caller-supplied non-empty request id and fo
   assert.ok(!/const rid\s*=|Math\.random/.test(ulEp), 'Unit Leader API does not mint request ids')
 })
 
+test('the Unit Leader assignment backend has no frontend caller', () => {
+  const frontend = readTree(join(here, '..', 'src'))
+  assert.ok(!frontend.includes('/api/portal/unit-preceptor-manage'),
+    'the Unit Leader assignment UI remains disabled')
+})
+
 test('the staff modal uses one stable client request id per action and blocks double-clicks', () => {
   assert.match(modal, /fetch\('\/api\/preceptor-primary-assign'/)
   assert.match(ridCtl, /globalThis\.crypto\.randomUUID\(\)/)
@@ -250,6 +262,19 @@ test('the handoff records the live hardening history and unchanged deployment/UI
   assert.match(handoff, /Reply-To `aspire@cshs\.org`/)
 })
 
+test('deployment readiness records all blocker resolutions, environment names, and fixed boundaries', () => {
+  assert.match(readiness, /SOURCE BLOCKERS RESOLVED/)
+  assert.equal((readiness.match(/\*\*RESOLVED:/g) || []).length, 3)
+  for (const name of [
+    'CRON_SECRET', 'RESEND_API_KEY', 'SUPABASE_SERVICE_ROLE_KEY',
+    'SUPABASE_URL', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY',
+  ]) assert.ok(readiness.includes(name), `readiness includes ${name}`)
+  assert.match(readiness, /ASPIRE at Cedars-Sinai <noreply@aspire-program\.com>/)
+  assert.match(readiness, /Reply-To: `aspire@cshs\.org`/)
+  assert.match(readiness, /Unit Leader assignment UI remains disabled/)
+  assert.match(readiness, /did not run SQL, apply or roll back a migration, inspect or alter a stash, merge,\s*push, deploy, change the sender identity, or enable the Unit Leader assignment UI/)
+})
+
 test('the final package embeds all five canonical SQL files byte-for-byte', () => {
   const appendices = [
     ['Appendix A: Phase 2B migration', 'supabase/migrations/20260722000000_preceptor_mirror_repair_and_sync.sql'],
@@ -277,7 +302,11 @@ test('the email worker claims via the RPC, sends, and is idempotent per recipien
 })
 
 test('the cron endpoint is CRON_SECRET-gated and registered in vercel.json', () => {
-  assert.match(cron, /req\.headers\['authorization'\] !== `Bearer \$\{process\.env\.CRON_SECRET\}`/)
+  assert.match(cron, /const configuredSecret = env\.CRON_SECRET/)
+  assert.match(cron, /typeof configuredSecret !== 'string' \|\| configuredSecret\.trim\(\) === ''/)
+  assert.match(cron, /req\.headers\['authorization'\] !== `Bearer \$\{configuredSecret\}`/)
+  assert.ok(cron.indexOf('configuredSecret.trim()') < cron.indexOf('const supabase = getDb()'),
+    'authorization fails before database construction')
   assert.match(cron, /runStaffNotificationWorker/)
   assert.match(vercel, /\/api\/cron\/staff-notification-worker/)
 })

@@ -2,10 +2,11 @@
 // staff_notifications rows (Owner/Admin preceptor activity) as a read/unread activity list, fully
 // separate from the live-derived "Action Needed" task list (notification events are never mixed
 // into the task list). Data + markRead come from useStaffNotifications (hoisted to App). Opening an
-// item deep-links to the affected student (same internal navigation the task list uses) and marks
-// that item read; a "Mark all read" affordance clears the rest.
+// item follows its allowlisted student or Preceptor Directory destination and marks that item read;
+// a "Mark all read" affordance clears the rest.
 
 import { BADGE_COUNT_BG } from '../lib/badgeTokens'
+import { createStaffNotificationActivation } from '../lib/staffNotificationNavigation'
 
 const EVENT_LABEL = {
   preceptor_primary_changed: 'Primary preceptor changed',
@@ -46,7 +47,8 @@ function relTime(iso) {
 }
 
 export default function StaffNotificationsPanel({
-  items = [], unreadCount = 0, isLoading, isError, onMarkRead, onMarkAllRead, onOpenStudent,
+  items = [], unreadCount = 0, isLoading, isError, onMarkRead, onMarkAllRead,
+  onNavigateDestination,
 }) {
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0 18px', fontFamily: 'DM Sans, sans-serif' }}>
@@ -91,26 +93,25 @@ export default function StaffNotificationsPanel({
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {items.map(row => {
             const unread = !row.in_app_read_at
-            const canOpen = !!row.student_id
+            const behavior = createStaffNotificationActivation(row, {
+              onMarkRead,
+              onNavigate: onNavigateDestination,
+            })
             const change = (row.old_value || row.new_value)
               ? `${row.old_value || '(none)'} → ${row.new_value || '(none)'}`
               : null
-            const open = () => {
-              if (unread) onMarkRead?.([row.id])
-              if (canOpen) onOpenStudent?.(row.student_id)
-            }
             return (
               <div
                 key={row.id}
-                role={canOpen ? 'button' : undefined}
-                tabIndex={canOpen ? 0 : undefined}
-                onClick={canOpen ? open : (unread ? () => onMarkRead?.([row.id]) : undefined)}
-                onKeyDown={canOpen ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open() } } : undefined}
+                role={behavior.interactive ? 'button' : undefined}
+                tabIndex={behavior.interactive ? 0 : undefined}
+                onClick={behavior.interactive ? behavior.activate : undefined}
+                onKeyDown={behavior.interactive ? behavior.onKeyDown : undefined}
                 style={{
                   display: 'flex', gap: 10, padding: '11px 16px',
                   borderBottom: '1px solid rgba(0,0,0,0.05)',
                   background: unread ? 'rgba(29,37,103,0.035)' : 'transparent',
-                  cursor: canOpen ? 'pointer' : 'default',
+                  cursor: behavior.interactive ? 'pointer' : 'default',
                 }}
               >
                 <span aria-hidden="true" style={{
@@ -147,9 +148,9 @@ export default function StaffNotificationsPanel({
                       Reason: {row.reason}
                     </div>
                   )}
-                  {canOpen && (
+                  {behavior.destination && (
                     <div style={{ fontSize: 11, fontWeight: 600, color: '#3949ab', marginTop: 4 }}>
-                      Open student
+                      {row.student_id ? 'Open student' : 'Open preceptor directory'}
                     </div>
                   )}
                 </div>

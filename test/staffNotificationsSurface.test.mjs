@@ -19,6 +19,7 @@ const panel   = read('src/components/StaffNotificationsPanel.jsx')
 const actionC = read('src/components/ActionCenter.jsx')
 const headerA = read('src/components/Header/HeaderActions.jsx')
 const app     = read('src/App.jsx')
+const nav     = read('src/lib/staffNotificationNavigation.js')
 
 // ── The read hook: own rows via RLS, read-state only through the RPC ──────────
 test('the hook reads the caller\'s own staff_notifications and marks read only via the RPC', () => {
@@ -42,7 +43,8 @@ test('each notification surfaces event type, actor, role, unit, old/new, assignm
   assert.match(panel, /row\.assignment_role/)                    // assignment role
   assert.match(panel, /row\.reason/)                             // reason when present
   assert.match(panel, /relTime\(row\.created_at\)/)             // timestamp
-  assert.match(panel, /onOpenStudent\?\.\(row\.student_id\)/)    // direct destination link
+  assert.match(panel, /createStaffNotificationActivation\(row/)    // allowlisted destination behavior
+  assert.match(panel, /onNavigateDestination/)                      // internal SPA navigation
   assert.match(panel, /!row\.in_app_read_at/)                   // read/unread state drives styling
   // Override is called out; the match-anomaly event is labeled.
   assert.match(panel, /row\.was_override/)
@@ -58,8 +60,17 @@ test('the panel covers every notified event type from the migration', () => {
 })
 
 test('opening an unread item marks it read (per-item), and Mark all read clears the rest', () => {
-  assert.match(panel, /if \(unread\) onMarkRead\?\.\(\[row\.id\]\)/)
+  assert.match(nav, /if \(unread\) onMarkRead\?\.\(\[row\.id\]\)/)
   assert.match(panel, /onMarkAllRead/)
+})
+
+test('notification destinations are fail-closed and include the two Phase 2C internal routes', () => {
+  assert.match(nav, /candidate\.startsWith\('\/'\)/)
+  assert.match(nav, /candidate\.startsWith\('\/\/'\)/)
+  assert.match(nav, /parsed\.origin !== INTERNAL_ORIGIN/)
+  assert.match(nav, /parsed\.pathname === '\/rotation\/preceptors'/)
+  assert.match(nav, /parsed\.pathname !== '\/students'/)
+  assert.match(app, /onNavigateNotificationDestination=\{destination => \{ navigate\(destination\)/)
 })
 
 // ── Two tabs under one bell; no second model; task list stays separate ───────
@@ -92,5 +103,5 @@ test('the bell shows ONE combined badge: task count plus notification unread', (
 
 test('no em dash in the new in-app surface files', () => {
   const emDash = String.fromCharCode(0x2014)
-  for (const src of [hook, panel]) assert.ok(!src.includes(emDash), 'no em dash')
+  for (const src of [hook, panel, nav]) assert.ok(!src.includes(emDash), 'no em dash')
 })
