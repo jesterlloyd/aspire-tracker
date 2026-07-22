@@ -192,12 +192,16 @@ test('the Connect icon badge', async (t) => {
   await t.test('Action Center now shares the red, but its count LOGIC is unchanged', () => {
     // The standard was corrected to one color everywhere, so #930045 is gone.
     assert.doesNotMatch(headerActions, /#930045/)
-    // Its count behavior is Action Center's own and must not change: still 9+.
-    assert.match(headerActions, /\{actionBadgeCount >= 10 \? '9\+' : actionBadgeCount\}/)
+    // PHASE 2C: the bell now carries ONE combined badge across its two tabs (open tasks plus
+    // unread staff notifications). The 9+ cap and aria-hidden chip are unchanged; the count is the
+    // combined bellBadgeCount = actionBadgeCount + notificationsUnread.
+    assert.match(headerActions, /const bellBadgeCount = \(actionBadgeCount \|\| 0\) \+ \(notificationsUnread \|\| 0\)/)
+    assert.match(headerActions, /\{bellBadgeCount >= 10 \? '9\+' : bellBadgeCount\}/)
     // ASPIRE-CHART: the accessible name is dynamic - it always starts with
     // "Action Center" and carries the TRUE count (the visual chip caps at 9+
-    // and is aria-hidden), mirroring the Connect icon's pattern.
-    assert.match(headerActions, /aria-label=\{actionBadgeCount > 0\s*\n\s*\? `Action Center, \$\{actionBadgeCount\} open action/)
+    // and is aria-hidden). It now spans both tabs: open actions plus new notifications.
+    assert.match(headerActions, /aria-label=\{bellBadgeCount > 0\s*\n\s*\? `Action Center, \$\{actionBadgeCount\} open action/)
+    assert.match(headerActions, /new notification\$\{notificationsUnread === 1 \? '' : 's'\}/)
     assert.match(headerActions, /: 'Action Center'\}/)
     // The bell badge and its open marker still render; only the color moved.
     assert.match(headerActions, /ref=\{bellRef\}/)

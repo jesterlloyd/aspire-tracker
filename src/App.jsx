@@ -35,6 +35,7 @@ import ShiftLogLifecycle from './components/shift-log-lifecycle/ShiftLogLifecycl
 import InterviewersModal from './components/InterviewersModal'
 import ActionCenter from './components/ActionCenter'
 import { useSupportRequestReads } from './lib/support/useSupportRequestReads'
+import { useStaffNotifications } from './hooks/useStaffNotifications'
 import { unreadSupportBellCount } from './lib/support/supportRequests'
 import CustomOnboardingTour from './components/CustomOnboardingTour'
 import { TOUR_VERSION } from './lib/onboardingTours'
@@ -936,6 +937,13 @@ function MainApp({ onLogout }) {
   })
   const supportUnreadCount = unreadSupportBellCount(supportShiftLogs, supportProfileId, supportReceipts)
 
+  // PHASE 2C: durable staff_notifications (Owner/Admin preceptor activity) power the Notifications
+  // tab of the Action Center and add their unread count to the SAME bell badge as the task list.
+  // Hoisted here so the badge updates while the panel is closed. Read-state changes go through the
+  // mark_staff_notifications_read RPC inside the hook.
+  const staffNotifications = useStaffNotifications({ enabled: canEdit })
+  const notificationsUnread = staffNotifications.unreadCount || 0
+
   // While the panel is open it reports its exact visible-task count (including support items); the
   // badge uses that. When closed, fall back to the shared engine's total so all task types are
   // reflected. Support requests are counted exactly once (never inside eager/lazy).
@@ -950,7 +958,7 @@ function MainApp({ onLogout }) {
         <Header
           cohort={{ cohorts, cohortPickerRef, cohortOpen, setCohortOpen, activeCohort, activeCohortId, sortedCohorts, handleCohortSwitch, canEdit, setShowManageCohort, setShowNewCohort }}
           search={{ searchAreaRef, searchInputRef, searchQuery, searchFocused, searchOpen, searchLoading, searchFlat, searchResults, searchActiveIdx, setSearchActiveIdx, setSearchOpen, setSearchFocused, handleSearchChange, handleSearchKey, handleSearchResult }}
-          actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, showActionCenter, actionBadgeCount }}
+          actions={{ cohorts, navigate, activeTab, bellRef, setShowActionCenter, showActionCenter, actionBadgeCount, notificationsUnread }}
         />
 
         {cohorts.length > 0 && activeTab !== 'connect' && activeTab !== 'settings' && activeTab !== 'catalog' && (
@@ -1121,6 +1129,7 @@ function MainApp({ onLogout }) {
           onActionCountChange={handleActionCount}
           onNavigateToProfiles={id => { setFocusStudentId(id); switchTab('profiles'); setShowActionCenter(false) }}
           onNavigateToActivityShift={goToActivityShift}
+          notifications={staffNotifications}
           toast={toast}
         />
       )}

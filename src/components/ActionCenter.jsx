@@ -10,6 +10,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { DISPOSITION_TYPES, FOLLOWUP_TYPES } from '../lib/dispositions'
 import { deriveEagerAttention, deriveLazyAttention } from '../lib/attention'
 import { useSupportRequestReads } from '../lib/support/useSupportRequestReads'
+import { BADGE_COUNT_BG, BADGE_COUNT_FG } from '../lib/badgeTokens'
+import StaffNotificationsPanel from './StaffNotificationsPanel'
 import { unreadSupportShifts, buildSupportActionItem } from '../lib/support/supportRequests'
 
 function fmtIvDate(s) {
@@ -367,8 +369,10 @@ export default function ActionCenter({
   students, units, matches, cohortId, activeCohort,
   communications, onLogCommunication, onStudentUpdate, onMatchUpdate,
   onNavigateToProfiles, onNavigateToActivityShift, onActionCountChange, toast,
+  notifications = {},
 }) {
   const { canEdit, userProfile } = useAuth()
+  const notifUnread = notifications.unreadCount || 0
   const { receipts: supportReceipts } = useSupportRequestReads(userProfile?.id)
   const popoverRef = useRef(null)
 
@@ -378,6 +382,7 @@ export default function ActionCenter({
   const [oriDone,        setOriDone]        = useState(false)
   const [oriExpanded,    setOriExpanded]    = useState(false)
   const [activeFilter,   setActiveFilter]   = useState(null)
+  const [acTab,          setAcTab]          = useState('actions')  // 'actions' | 'notifications'
   const [expandedStacks, setExpandedStacks] = useState({})
   const [confirmingId,   setConfirmingId]   = useState(null)
   const [actioning,      setActioning]      = useState(null)
@@ -856,10 +861,47 @@ ${KR_SIG}`
           Prioritized actions requiring attention
         </div>
         <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.92)' }}>
-          {totalCount} open action{totalCount !== 1 ? 's' : ''}
+          {acTab === 'actions'
+            ? `${totalCount} open action${totalCount !== 1 ? 's' : ''}`
+            : `${notifUnread} unread`}
         </div>
       </div>
 
+      {/* Two tabs under one bell: live-derived tasks vs durable staff notifications. Notification
+          events are never mixed into the task list. One combined unread badge lives on the bell. */}
+      <div role="tablist" aria-label="Action Center views" style={{
+        display: 'flex', gap: 2, padding: '0 10px', flexShrink: 0,
+        borderBottom: '1px solid rgba(0,0,0,0.08)', background: '#fff',
+      }}>
+        <button
+          role="tab" aria-selected={acTab === 'actions'} onClick={() => setAcTab('actions')}
+          style={{
+            background: 'none', border: 'none', borderBottom: `2px solid ${acTab === 'actions' ? '#1D2567' : 'transparent'}`,
+            padding: '10px 12px', fontSize: 12.5, fontWeight: acTab === 'actions' ? 700 : 600,
+            color: acTab === 'actions' ? '#1D2567' : '#6b7280', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+          }}>
+          Action Needed{totalCount > 0 ? ` (${totalCount})` : ''}
+        </button>
+        <button
+          role="tab" aria-selected={acTab === 'notifications'} onClick={() => setAcTab('notifications')}
+          style={{
+            display: 'inline-flex', alignItems: 'center', background: 'none', border: 'none',
+            borderBottom: `2px solid ${acTab === 'notifications' ? '#1D2567' : 'transparent'}`,
+            padding: '10px 12px', fontSize: 12.5, fontWeight: acTab === 'notifications' ? 700 : 600,
+            color: acTab === 'notifications' ? '#1D2567' : '#6b7280', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif',
+          }}>
+          Notifications
+          {notifUnread > 0 && (
+            <span aria-hidden="true" style={{
+              marginLeft: 6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              minWidth: 16, height: 16, padding: '0 4px', borderRadius: 8,
+              background: BADGE_COUNT_BG, color: BADGE_COUNT_FG, fontSize: 10, fontWeight: 700,
+            }}>{notifUnread >= 10 ? '9+' : notifUnread}</span>
+          )}
+        </button>
+      </div>
+
+      {acTab === 'actions' && (<>
       {/* Filter pills */}
       {totalCount > 0 && (
         <div style={{
@@ -1014,6 +1056,19 @@ ${KR_SIG}`
           </div>
         )}
       </div>
+      </>)}
+
+      {acTab === 'notifications' && (
+        <StaffNotificationsPanel
+          items={notifications.items || []}
+          unreadCount={notifUnread}
+          isLoading={notifications.isLoading}
+          isError={notifications.isError}
+          onMarkRead={notifications.markRead}
+          onMarkAllRead={() => notifications.markRead?.(null)}
+          onOpenStudent={onNavigateToProfiles}
+        />
+      )}
     </div>
     </>
   )

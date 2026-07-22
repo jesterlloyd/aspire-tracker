@@ -13,8 +13,13 @@ import { formatUnread, unreadLabel } from '../../lib/messages/messagesConstants'
 
 export default function HeaderActions({
   cohorts, navigate, activeTab, bellRef, setShowActionCenter, showActionCenter, actionBadgeCount,
+  notificationsUnread = 0,
 }) {
   const { isOwner, isAdmin, isInterviewer, userProfile } = useAuth()
+  // One bell, one badge: the derived-task count plus the durable staff-notification unread count.
+  // The two live in separate tabs of the Action Center, but the closed bell shows their combined
+  // total so nothing goes unseen while the panel is shut.
+  const bellBadgeCount = (actionBadgeCount || 0) + (notificationsUnread || 0)
   const canViewCatalog = isOwner || isAdmin || isInterviewer
   // ASPIRE MESSAGES: the Connect icon's unread badge follows the Messages
   // authorization gate, which is stricter than the icon's own rule. isAdmin and
@@ -141,10 +146,12 @@ export default function HeaderActions({
         <button
           ref={bellRef}
           id="keith-bell-trigger"
-          // ASPIRE-CHART: the accessible name carries the true open-action
-          // count (the visual badge caps at 9+), mirroring the Connect icon.
-          aria-label={actionBadgeCount > 0
+          // ASPIRE-CHART: the accessible name carries the true count (the visual badge caps at 9+),
+          // mirroring the Connect icon. It now spans both Action Center tabs: open tasks plus unread
+          // staff notifications.
+          aria-label={bellBadgeCount > 0
             ? `Action Center, ${actionBadgeCount} open action${actionBadgeCount === 1 ? '' : 's'}`
+              + (notificationsUnread > 0 ? ` and ${notificationsUnread} new notification${notificationsUnread === 1 ? '' : 's'}` : '')
             : 'Action Center'}
           data-tour="action-center"
           onClick={() => setShowActionCenter(p => !p)}
@@ -174,12 +181,11 @@ export default function HeaderActions({
               display: 'block',
             }} />
           )}
-          {/* Same shared pin badge as the ASPIRE Connect icon. Only the color and
-              shared styling moved here: the count logic is Action Center's own and
-              is deliberately unchanged, so it still caps at 9+, not Messages 99+. */}
-          {actionBadgeCount > 0 && (
+          {/* Same shared pin badge as the ASPIRE Connect icon. Combined total across both Action
+              Center tabs (tasks + unread staff notifications); still caps at 9+, not Messages 99+. */}
+          {bellBadgeCount > 0 && (
             <span aria-hidden="true" style={pinBadgeStyle}>
-              {actionBadgeCount >= 10 ? '9+' : actionBadgeCount}
+              {bellBadgeCount >= 10 ? '9+' : bellBadgeCount}
             </span>
           )}
         </button>
