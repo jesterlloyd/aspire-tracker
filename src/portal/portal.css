@@ -1056,23 +1056,6 @@ img.ptl-detail-photo {
 .ptl-ulstat-num { font-size: 26px; font-weight: 700; color: var(--ptl-navy, #1D2567); font-variant-numeric: tabular-nums; }
 .ptl-ulstat-label { font-size: 13px; color: #4b5265; font-weight: 600; }
 
-  display: flex; align-items: center; gap: 10px; width: 100%;
-  min-height: 48px; padding: 9px 6px; border: 0; background: none;
-  cursor: pointer; font: inherit; text-align: left; border-radius: 8px;
-}
-.ptl-recent-row:hover { background: var(--ptl-navy-tint, #eef2fb); }
-.ptl-recent-text { min-width: 0; display: grid; gap: 1px; }
-.ptl-recent-context {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
-  text-transform: uppercase; color: var(--ptl-navy, #1D2567);
-}
-.ptl-recent-subject {
-  font-size: 14px; font-weight: 600; color: #232842;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.ptl-recent-meta { margin-left: auto; flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
-.ptl-recent-meta time { font-size: 12px; color: #6b7280; }
-
 /* Students table: identity cell, hours bar, onboarding chips. */
 .ptl-stu-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .ptl-stu-avatar {
