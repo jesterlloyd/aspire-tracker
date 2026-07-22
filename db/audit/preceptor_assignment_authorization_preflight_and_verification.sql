@@ -48,15 +48,49 @@ WHERE p.proname IN ('assign_primary_preceptor', 'set_secondary_coverage_precepto
                     'create_unit_preceptor', 'claim_due_staff_notifications')
 ORDER BY p.proname;
 
--- A2b. Grants. The write/claim RPCs: authenticated/anon = false, service_role = true. The
---      mark-read RPC is authenticated = true (called with the user's JWT), anon = false.
-SELECT 'assign_primary_preceptor' AS fn,
-  has_function_privilege('authenticated', 'public.assign_primary_preceptor(uuid,uuid,uuid,text,boolean,boolean,text)', 'EXECUTE') AS authenticated_can,
-  has_function_privilege('service_role',  'public.assign_primary_preceptor(uuid,uuid,uuid,text,boolean,boolean,text)', 'EXECUTE') AS service_role_can;
-SELECT 'mark_staff_notifications_read' AS fn,
-  has_function_privilege('authenticated', 'public.mark_staff_notifications_read(uuid[])', 'EXECUTE') AS authenticated_can,
-  has_function_privilege('anon',          'public.mark_staff_notifications_read(uuid[])', 'EXECUTE') AS anon_can;
--- Expect: assign authenticated=false/service_role=true; mark-read authenticated=true/anon=false.
+-- A2b. Intended RPC grants. Expect PUBLIC=false, anon=false, service_role=true for every row;
+--      authenticated=true only for mark_staff_notifications_read and false for all other rows.
+WITH expected(fn, signature, authenticated_should) AS (VALUES
+  ('assign_primary_preceptor',          'public.assign_primary_preceptor(uuid,uuid,uuid,text,boolean,boolean,text)', false),
+  ('set_secondary_coverage_preceptor',  'public.set_secondary_coverage_preceptor(uuid,uuid,text,text,uuid,uuid,text,text,boolean,boolean,text)', false),
+  ('create_unit_preceptor',             'public.create_unit_preceptor(uuid,text,text,text,text,text,text)', false),
+  ('claim_due_staff_notifications',     'public.claim_due_staff_notifications(text,integer,integer)', false),
+  ('mark_staff_notifications_read',     'public.mark_staff_notifications_read(uuid[])', true)
+)
+SELECT e.fn,
+  EXISTS (
+    SELECT 1
+    FROM aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) a
+    WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE'
+  ) AS public_can,
+  has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_can,
+  has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_can,
+  e.authenticated_should,
+  has_function_privilege('service_role', p.oid, 'EXECUTE') AS service_role_can
+FROM expected e
+JOIN pg_proc p ON p.oid = to_regprocedure(e.signature)
+ORDER BY e.fn;
+
+-- A2c. Internal functions are never client-callable. Expect five rows with public_can=false,
+--      anon_can=false, and authenticated_can=false.
+WITH internal(signature) AS (VALUES
+  ('public.guard_students_preceptor_id_change()'),
+  ('public._preceptor_assert_actor_for_student(uuid,uuid,text,boolean,boolean)'),
+  ('public._preceptor_begin_request(text,uuid,text,text)'),
+  ('public._preceptor_finish_request(text,jsonb)'),
+  ('public._emit_staff_notifications(text,text,uuid,text,text,uuid,uuid,text,text,text,text,text,boolean,text)')
+)
+SELECT p.proname, pg_get_function_identity_arguments(p.oid) AS identity_arguments,
+  EXISTS (
+    SELECT 1
+    FROM aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) a
+    WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE'
+  ) AS public_can,
+  has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_can,
+  has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_can
+FROM internal i
+JOIN pg_proc p ON p.oid = to_regprocedure(i.signature)
+ORDER BY p.proname;
 
 -- A3. New tables: RLS enabled; preceptor_assignment_events has one owner/admin SELECT policy;
 --     staff_notifications has one SELECT policy (own-or-admin) and NO client write policy.
@@ -67,6 +101,43 @@ ORDER BY tablename, cmd;
 SELECT c.relname, c.relrowsecurity AS rls_enabled
 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public' AND c.relname IN ('preceptor_assignment_events', 'staff_notifications', 'preceptor_assignment_requests');
+
+-- A3b. Exact table-level privileges. Expect for each of the three tables:
+--      PUBLIC SELECT/INSERT/UPDATE/DELETE=false; anon SELECT/INSERT/UPDATE/DELETE=false;
+--      authenticated SELECT=true and INSERT/UPDATE/DELETE=false;
+--      service_role SELECT/INSERT/UPDATE/DELETE=true.
+WITH target AS (
+  SELECT c.oid, c.relname, c.relacl, c.relowner
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public'
+    AND c.relname IN ('preceptor_assignment_events', 'staff_notifications', 'preceptor_assignment_requests')
+)
+SELECT t.relname,
+  EXISTS (SELECT 1 FROM aclexplode(COALESCE(t.relacl, acldefault('r', t.relowner))) a WHERE a.grantee = 0 AND a.privilege_type = 'SELECT') AS public_select,
+  EXISTS (SELECT 1 FROM aclexplode(COALESCE(t.relacl, acldefault('r', t.relowner))) a WHERE a.grantee = 0 AND a.privilege_type = 'INSERT') AS public_insert,
+  EXISTS (SELECT 1 FROM aclexplode(COALESCE(t.relacl, acldefault('r', t.relowner))) a WHERE a.grantee = 0 AND a.privilege_type = 'UPDATE') AS public_update,
+  EXISTS (SELECT 1 FROM aclexplode(COALESCE(t.relacl, acldefault('r', t.relowner))) a WHERE a.grantee = 0 AND a.privilege_type = 'DELETE') AS public_delete,
+  has_table_privilege('anon', t.oid, 'SELECT') AS anon_select,
+  has_table_privilege('anon', t.oid, 'INSERT') AS anon_insert,
+  has_table_privilege('anon', t.oid, 'UPDATE') AS anon_update,
+  has_table_privilege('anon', t.oid, 'DELETE') AS anon_delete,
+  has_table_privilege('authenticated', t.oid, 'SELECT') AS authenticated_select,
+  has_table_privilege('authenticated', t.oid, 'INSERT') AS authenticated_insert,
+  has_table_privilege('authenticated', t.oid, 'UPDATE') AS authenticated_update,
+  has_table_privilege('authenticated', t.oid, 'DELETE') AS authenticated_delete,
+  has_table_privilege('service_role', t.oid, 'SELECT') AS service_role_select,
+  has_table_privilege('service_role', t.oid, 'INSERT') AS service_role_insert,
+  has_table_privilege('service_role', t.oid, 'UPDATE') AS service_role_update,
+  has_table_privilege('service_role', t.oid, 'DELETE') AS service_role_delete
+FROM target t
+ORDER BY t.relname;
+
+-- A3c. Policies remain SELECT-only. Expect non_select_policy_count=0.
+SELECT count(*) FILTER (WHERE cmd <> 'SELECT') AS non_select_policy_count
+FROM pg_policies
+WHERE schemaname = 'public'
+  AND tablename IN ('preceptor_assignment_events', 'staff_notifications', 'preceptor_assignment_requests');
 
 -- A4. preceptors gained the provenance columns.
 SELECT column_name, data_type, is_nullable

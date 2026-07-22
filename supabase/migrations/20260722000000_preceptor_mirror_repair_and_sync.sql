@@ -75,6 +75,8 @@ CREATE TABLE IF NOT EXISTS public.preceptor_mirror_repair_audit (
   CONSTRAINT uq_pmra_batch_entity_ref_col UNIQUE (batch, entity, ref_id, col)
 );
 ALTER TABLE public.preceptor_mirror_repair_audit ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public.preceptor_mirror_repair_audit FROM PUBLIC, anon, authenticated;
+GRANT ALL PRIVILEGES ON TABLE public.preceptor_mirror_repair_audit TO service_role;
 
 -- COLUMN-PRECISE, CONFLICT-SAFE snapshots: each mirror column is captured ONLY when that
 -- specific column differs from canonical (an already-correct value is never audited), and
@@ -278,6 +280,6 @@ CREATE TRIGGER trg_sync_primary_preceptor_mirror
   FOR EACH ROW EXECUTE FUNCTION public.sync_primary_preceptor_mirror();
 
 -- No caller ever executes this function directly; it runs only via the trigger.
-REVOKE ALL ON FUNCTION public.sync_primary_preceptor_mirror() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.sync_primary_preceptor_mirror() FROM PUBLIC, anon, authenticated;
 
 COMMIT;

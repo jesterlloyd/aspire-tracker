@@ -154,5 +154,6 @@ test('the ledger table is RLS owner/admin SELECT only, with no client write poli
   assert.match(live, /preceptor_assignment_requests[\s\S]{0,200}ENABLE ROW LEVEL SECURITY/)
   assert.match(live, /"preceptor_assignment_requests_owner_admin_read"\s*\n\s*ON public\.preceptor_assignment_requests FOR SELECT/)
   assert.ok(!/preceptor_assignment_requests FOR (INSERT|UPDATE|DELETE|ALL)/.test(live), 'no client write policy')
-  assert.ok(!/GRANT[^;]*preceptor_assignment_requests[^;]*(anon|authenticated)/i.test(live), 'no client grant')
+  assert.match(live, /GRANT SELECT ON TABLE public\.preceptor_assignment_requests TO authenticated/)
+  assert.ok(!/GRANT (INSERT|UPDATE|DELETE|ALL)[^;]*preceptor_assignment_requests[^;]*(anon|authenticated)/i.test(live), 'no client write grant')
 })

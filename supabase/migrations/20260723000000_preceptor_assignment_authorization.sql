@@ -98,6 +98,9 @@ ALTER TABLE public.preceptor_assignment_events ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "preceptor_assignment_events_owner_admin_read"
   ON public.preceptor_assignment_events FOR SELECT TO authenticated
   USING (public.is_active_owner_or_admin());
+REVOKE ALL PRIVILEGES ON TABLE public.preceptor_assignment_events FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE public.preceptor_assignment_events TO authenticated;
+GRANT ALL PRIVILEGES ON TABLE public.preceptor_assignment_events TO service_role;
 
 
 -- ############################################################################
@@ -163,6 +166,9 @@ CREATE POLICY "staff_notifications_read_own_or_admin"
     recipient_profile_id = public.portal_profile_id()
     OR public.is_active_owner_or_admin()
   );
+REVOKE ALL PRIVILEGES ON TABLE public.staff_notifications FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE public.staff_notifications TO authenticated;
+GRANT ALL PRIVILEGES ON TABLE public.staff_notifications TO service_role;
 
 
 -- ############################################################################
@@ -185,6 +191,9 @@ ALTER TABLE public.preceptor_assignment_requests ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "preceptor_assignment_requests_owner_admin_read"
   ON public.preceptor_assignment_requests FOR SELECT TO authenticated
   USING (public.is_active_owner_or_admin());
+REVOKE ALL PRIVILEGES ON TABLE public.preceptor_assignment_requests FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE public.preceptor_assignment_requests TO authenticated;
+GRANT ALL PRIVILEGES ON TABLE public.preceptor_assignment_requests TO service_role;
 
 
 -- ############################################################################
@@ -241,7 +250,7 @@ CREATE TRIGGER trg_guard_students_preceptor_id
   BEFORE UPDATE OF preceptor_id ON public.students
   FOR EACH ROW EXECUTE FUNCTION public.guard_students_preceptor_id_change();
 
-REVOKE ALL ON FUNCTION public.guard_students_preceptor_id_change() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.guard_students_preceptor_id_change() FROM PUBLIC, anon, authenticated;
 
 
 -- ############################################################################
@@ -329,7 +338,7 @@ BEGIN
   RETURN jsonb_build_object('role', v_role, 'was_override', false, 'unit_key', v_unit_key, 'cohort_id', v_stu.cohort_id);
 END;
 $fn$;
-REVOKE ALL ON FUNCTION public._preceptor_assert_actor_for_student(uuid, uuid, text, boolean, boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._preceptor_assert_actor_for_student(uuid, uuid, text, boolean, boolean) FROM PUBLIC, anon, authenticated;
 
 
 -- ############################################################################
@@ -386,7 +395,7 @@ BEGIN
   RETURN jsonb_build_object('claimed', false, 'result', v_res);  -- idempotent replay
 END;
 $fn$;
-REVOKE ALL ON FUNCTION public._preceptor_begin_request(text, uuid, text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._preceptor_begin_request(text, uuid, text, text) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public._preceptor_finish_request(p_request_id text, p_result jsonb)
 RETURNS void
@@ -400,7 +409,7 @@ BEGIN
    WHERE request_id = p_request_id;
 END;
 $fn$;
-REVOKE ALL ON FUNCTION public._preceptor_finish_request(text, jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._preceptor_finish_request(text, jsonb) FROM PUBLIC, anon, authenticated;
 
 
 -- ############################################################################
@@ -453,7 +462,7 @@ BEGIN
   RETURN v_count;
 END;
 $fn$;
-REVOKE ALL ON FUNCTION public._emit_staff_notifications(text, text, uuid, text, text, uuid, uuid, text, text, text, text, text, boolean, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._emit_staff_notifications(text, text, uuid, text, text, uuid, uuid, text, text, text, text, text, boolean, text) FROM PUBLIC, anon, authenticated;
 
 
 -- ############################################################################
@@ -933,7 +942,7 @@ BEGIN
   RETURN v_count;
 END;
 $fn$;
-REVOKE ALL ON FUNCTION public.mark_staff_notifications_read(uuid[]) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.mark_staff_notifications_read(uuid[]) TO authenticated;
+REVOKE ALL ON FUNCTION public.mark_staff_notifications_read(uuid[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.mark_staff_notifications_read(uuid[]) TO authenticated, service_role;
 
 COMMIT;

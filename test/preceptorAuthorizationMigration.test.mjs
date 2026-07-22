@@ -1,7 +1,8 @@
 // PHASE 2C: static guards for the scoped preceptor-assignment authorization + backend.
 //
-// The migration and app changes are GATED and NOT applied/deployed by this pass. These guards
-// prove the guard fails closed and cannot be bypassed, the RPCs follow the established
+// The migrations were applied manually and the live grants were subsequently hardened by
+// Jester; this source pass is not applied/deployed. These guards prove the guard fails closed
+// and cannot be bypassed, the RPCs follow the established
 // service-role/definer convention, the completed-rotation override and cross-unit rules, the
 // per-recipient in-app + email fan-out, the durable queue + worker, no RLS widening, and the
 // staff-path routing. Behavioral proof against a live DB is in the handoff's verification plan;
@@ -60,7 +61,21 @@ test('the write + claim RPCs are SECURITY DEFINER, fixed search_path, service_ro
     assert.ok(live.includes(`GRANT EXECUTE ON FUNCTION public.${fn}`) && live.includes('TO service_role'), `${fn} to service_role`)
   }
   // The in-app mark-read RPC is granted to authenticated (called with the user's JWT).
-  assert.match(live, /GRANT EXECUTE ON FUNCTION public\.mark_staff_notifications_read\(uuid\[\]\) TO authenticated/)
+  assert.match(live, /REVOKE ALL ON FUNCTION public\.mark_staff_notifications_read\(uuid\[\]\) FROM PUBLIC, anon, authenticated/)
+  assert.match(live, /GRANT EXECUTE ON FUNCTION public\.mark_staff_notifications_read\(uuid\[\]\) TO authenticated, service_role/)
+})
+
+test('every internal function explicitly revokes execute from PUBLIC, anon, and authenticated', () => {
+  const signatures = [
+    'guard_students_preceptor_id_change\\(\\)',
+    '_preceptor_assert_actor_for_student\\(uuid, uuid, text, boolean, boolean\\)',
+    '_preceptor_begin_request\\(text, uuid, text, text\\)',
+    '_preceptor_finish_request\\(text, jsonb\\)',
+    '_emit_staff_notifications\\(text, text, uuid, text, text, uuid, uuid, text, text, text, text, text, boolean, text\\)',
+  ]
+  for (const signature of signatures) {
+    assert.match(live, new RegExp(`REVOKE ALL ON FUNCTION public\\.${signature} FROM PUBLIC, anon, authenticated`))
+  }
 })
 
 test('authorization is from the actor profile id (never auth.uid), non-enumerating', () => {
@@ -153,6 +168,31 @@ test('no RLS widening: SELECT-only policies, no client write policy, no anon/aut
   assert.match(live, /ENABLE ROW LEVEL SECURITY/)
 })
 
+test('all Phase 2C tables explicitly remove default writes and grant only intended access', () => {
+  for (const table of ['preceptor_assignment_events', 'preceptor_assignment_requests', 'staff_notifications']) {
+    assert.match(live, new RegExp(`REVOKE ALL PRIVILEGES ON TABLE public\\.${table} FROM PUBLIC, anon, authenticated`))
+    assert.match(live, new RegExp(`GRANT SELECT ON TABLE public\\.${table} TO authenticated`))
+    assert.match(live, new RegExp(`GRANT ALL PRIVILEGES ON TABLE public\\.${table} TO service_role`))
+  }
+})
+
+test('AFTER verification proves exact table, internal-function, RPC, and SELECT-policy privileges', () => {
+  for (const marker of [
+    'public_select', 'public_insert', 'public_update', 'public_delete',
+    'anon_select', 'anon_insert', 'anon_update', 'anon_delete',
+    'authenticated_select', 'authenticated_insert', 'authenticated_update', 'authenticated_delete',
+    'service_role_select', 'service_role_insert', 'service_role_update', 'service_role_delete',
+    'non_select_policy_count',
+  ]) assert.ok(ver.includes(marker), `verification includes ${marker}`)
+  assert.match(ver, /A2c\. Internal functions are never client-callable/)
+  assert.match(ver, /guard_students_preceptor_id_change/)
+  assert.match(ver, /_preceptor_assert_actor_for_student/)
+  assert.match(ver, /_preceptor_begin_request/)
+  assert.match(ver, /_preceptor_finish_request/)
+  assert.match(ver, /_emit_staff_notifications/)
+  assert.match(ver, /mark_staff_notifications_read[\s\S]{0,800}authenticated_should/)
+})
+
 // ── Endpoints + modal ───────────────────────────────────────────────────────
 test('endpoints verify the caller, call RPCs with the actor id, and forward force/confirm', () => {
   assert.match(ulEp, /verifyPortalUnitLeaderCaller\(req\)/)
@@ -197,6 +237,17 @@ test('the staff modal uses one stable client request id per action and blocks do
 test('the approved envelope sender and Reply-To are fixed in shared mail configuration', () => {
   assert.match(mailCfg, /MESSAGE_FROM = 'ASPIRE at Cedars-Sinai <noreply@aspire-program\.com>'/)
   assert.match(mailCfg, /MESSAGE_REPLY_TO = 'aspire@cshs\.org'/)
+})
+
+test('the handoff records the live hardening history and unchanged deployment/UI state', () => {
+  assert.match(handoff, /Phase 2B and Phase 2C were applied manually to the live database/)
+  assert.match(handoff, /Live AFTER verification then\s+exposed Supabase default-grant gaps/)
+  assert.match(handoff, /Jester manually hardened the live grants/)
+  assert.match(handoff, /codifies that hardened state in the\s+canonical migrations/)
+  assert.match(handoff, /nothing was merged, pushed, or deployed/)
+  assert.match(handoff, /Unit Leader assignment UI remains\s+disabled/)
+  assert.match(handoff, /ASPIRE at Cedars-Sinai <noreply@aspire-program\.com>/)
+  assert.match(handoff, /Reply-To `aspire@cshs\.org`/)
 })
 
 test('the final package embeds all five canonical SQL files byte-for-byte', () => {

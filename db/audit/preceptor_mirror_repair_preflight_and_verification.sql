@@ -134,15 +134,54 @@ FROM public.preceptor_mirror_repair_audit
 WHERE batch = 'phase2b-preceptor-mirror';
 
 -- A6. The trigger exists, is an AFTER trigger on students, and the function is
---     SECURITY DEFINER with a fixed search_path and no PUBLIC execute.
+--     SECURITY DEFINER with a fixed search_path and no PUBLIC/anon/authenticated execute.
 SELECT t.tgname, t.tgenabled, p.prosecdef AS security_definer, p.proconfig AS settings
 FROM pg_trigger t
 JOIN pg_proc p ON p.oid = t.tgfoid
 WHERE t.tgrelid = 'public.students'::regclass
   AND t.tgname = 'trg_sync_primary_preceptor_mirror';
 
-SELECT has_function_privilege('public', 'public.sync_primary_preceptor_mirror()', 'EXECUTE') AS public_can_execute;
-  -- Expect false.
+SELECT p.proname,
+  EXISTS (
+    SELECT 1
+    FROM aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) a
+    WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE'
+  ) AS public_can_execute,
+  has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_can_execute,
+  has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_can_execute
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.proname = 'sync_primary_preceptor_mirror';
+  -- Expect: all three execute columns = false.
+
+-- A6b. Rollback-audit table privileges are fail-closed. PUBLIC/anon/authenticated have no table
+--      privileges; service_role has the SELECT/INSERT/UPDATE/DELETE access needed for support and
+--      rollback operations. Expect every public/anon/authenticated column false and every
+--      service_role column true.
+WITH target AS (
+  SELECT c.oid, c.relacl, c.relowner
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public' AND c.relname = 'preceptor_mirror_repair_audit'
+)
+SELECT
+  EXISTS (SELECT 1 FROM aclexplode(COALESCE(t.relacl, acldefault('r', t.relowner))) a WHERE a.grantee = 0 AND a.privilege_type = 'SELECT') AS public_select,
+  EXISTS (SELECT 1 FROM aclexplode(COALESCE(t.relacl, acldefault('r', t.relowner))) a WHERE a.grantee = 0 AND a.privilege_type = 'INSERT') AS public_insert,
+  EXISTS (SELECT 1 FROM aclexplode(COALESCE(t.relacl, acldefault('r', t.relowner))) a WHERE a.grantee = 0 AND a.privilege_type = 'UPDATE') AS public_update,
+  EXISTS (SELECT 1 FROM aclexplode(COALESCE(t.relacl, acldefault('r', t.relowner))) a WHERE a.grantee = 0 AND a.privilege_type = 'DELETE') AS public_delete,
+  has_table_privilege('anon', t.oid, 'SELECT') AS anon_select,
+  has_table_privilege('anon', t.oid, 'INSERT') AS anon_insert,
+  has_table_privilege('anon', t.oid, 'UPDATE') AS anon_update,
+  has_table_privilege('anon', t.oid, 'DELETE') AS anon_delete,
+  has_table_privilege('authenticated', t.oid, 'SELECT') AS authenticated_select,
+  has_table_privilege('authenticated', t.oid, 'INSERT') AS authenticated_insert,
+  has_table_privilege('authenticated', t.oid, 'UPDATE') AS authenticated_update,
+  has_table_privilege('authenticated', t.oid, 'DELETE') AS authenticated_delete,
+  has_table_privilege('service_role', t.oid, 'SELECT') AS service_role_select,
+  has_table_privilege('service_role', t.oid, 'INSERT') AS service_role_insert,
+  has_table_privilege('service_role', t.oid, 'UPDATE') AS service_role_update,
+  has_table_privilege('service_role', t.oid, 'DELETE') AS service_role_delete
+FROM target t;
 
 -- A7. No new RLS policy was added to the relationship tables (permissions unchanged).
 SELECT schemaname, tablename, policyname, cmd

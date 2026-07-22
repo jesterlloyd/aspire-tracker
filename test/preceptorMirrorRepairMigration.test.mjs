@@ -88,6 +88,8 @@ test('rollback audit table with a fixed batch sentinel, RLS enabled, no policy',
   // Snapshot happens before the repair UPDATEs.
   assert.ok(liveSql.indexOf('INSERT INTO public.preceptor_mirror_repair_audit')
           < liveSql.indexOf('UPDATE public.students s'), 'snapshot precedes repair')
+  assert.match(liveSql, /REVOKE ALL PRIVILEGES ON TABLE public\.preceptor_mirror_repair_audit FROM PUBLIC, anon, authenticated/)
+  assert.match(liveSql, /GRANT ALL PRIVILEGES ON TABLE public\.preceptor_mirror_repair_audit TO service_role/)
 })
 
 // ── Prevention trigger ──────────────────────────────────────────────────────
@@ -133,8 +135,8 @@ test('NO cohort-change logic exists (students are permanently single-cohort)', (
   assert.match(prevention, /cohort_id\s*= NEW\.cohort_id/)
 })
 
-test('no permission widening: execute revoked from PUBLIC, no new policy or anon/portal grant', () => {
-  assert.match(liveSql, /REVOKE ALL ON FUNCTION public\.sync_primary_preceptor_mirror\(\) FROM PUBLIC/)
+test('no permission widening: trigger execute is revoked from every client role', () => {
+  assert.match(liveSql, /REVOKE ALL ON FUNCTION public\.sync_primary_preceptor_mirror\(\) FROM PUBLIC, anon, authenticated/)
   assert.ok(!/CREATE POLICY/i.test(liveSql), 'no new RLS policy')
   assert.ok(!/GRANT[^;]*\b(anon|authenticated|portal)\b/i.test(liveSql), 'no grant to anon/authenticated/portal')
 })
@@ -143,6 +145,11 @@ test('verification file covers the equivalence gate, no-SPA-change, and trigger 
   assert.match(ver, /MUST RETURN ZERO ROWS/)
   assert.match(ver, /prosecdef AS security_definer/)
   assert.match(ver, /public_can_execute/)
+  assert.match(ver, /anon_can_execute/)
+  assert.match(ver, /authenticated_can_execute/)
+  assert.match(ver, /public_select/)
+  assert.match(ver, /authenticated_delete/)
+  assert.match(ver, /service_role_delete/)
   assert.match(ver, /role, status, count\(\*\) AS rows/)   // before/after SPA snapshot
   assert.match(ver, /ROLLBACK/)
   assert.match(ver, /preceptor_mirror_repair_audit/)

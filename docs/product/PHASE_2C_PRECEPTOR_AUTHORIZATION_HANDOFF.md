@@ -1,14 +1,17 @@
 # Phase 2B/2C: Request Idempotency and Final Owner SQL Package
 
-Status: AUTHORED AND VERIFIED LOCALLY. NOT APPLIED, NOT DEPLOYED, NOT MERGED.
+Status: PHASE 2B AND PHASE 2C APPLIED MANUALLY. LIVE GRANTS HARDENED. CANONICAL SOURCE ALIGNED LOCALLY. NOT DEPLOYED OR MERGED.
 Branch: `phase2c-preceptor-authz`.
-Exact baseline: `75f19ebf072a551f6614cd55bcbdc79b5f783a5f`.
+Privilege-hardening baseline: `2da9bb431faa275858f2fb171d0714567f59e10f`.
 
-This verification pass traced every caller of both assignment endpoints, corrected the
-end-to-end request-ID contract, hardened all three request-ledger fingerprints, verified the
-approved mail identity, refreshed the complete SQL appendices from their canonical files, and
-expanded the static proof suite. No SQL was run; no migration was applied; nothing was merged,
-pushed, or deployed; and the Unit Leader assignment UI remains disabled.
+Phase 2B and Phase 2C were applied manually to the live database. Live AFTER verification then
+exposed Supabase default-grant gaps: internal functions remained client-executable and the three
+new Phase 2C tables retained client table-level write privileges despite having no write policies.
+Jester manually hardened the live grants. This source pass codifies that hardened state in the
+canonical migrations, expands the AFTER verification proofs, refreshes the complete SQL
+appendices, and preserves the approved mail identity. Codex ran no SQL and applied or rolled back
+no migration; nothing was merged, pushed, or deployed; and the Unit Leader assignment UI remains
+disabled.
 
 ---
 
@@ -21,11 +24,11 @@ pushed, or deployed; and the Unit Leader assignment UI remains disabled.
 | There is no current caller of `api/portal/unit-preceptor-manage.js`; it is reserved for the disabled future Unit Leader UI and also minted IDs per attempt. | The endpoint now requires non-empty `request_id` and forwards it unchanged. Any future UI must create, retain, and replace IDs under the same per-intent contract. The UI was not enabled. |
 | SQL fingerprints used delimiter-concatenated MD5 input. A `|` inside free text could make different field tuples indistinguishable. Creation also lowercased a name even though the stored name preserves case. | Each RPC now fingerprints a canonical `jsonb_build_object(...)::text` containing every applicable mutation value. No delimiter parsing or digest collision is involved. The ledger also compares stored actor ID and RPC name explicitly. |
 | The embedded SQL appendices were stale relative to the canonical files and omitted the email-uniqueness preflight. | Appendices A-E are regenerated from the five canonical SQL files and verified byte-for-byte by test. |
+| Live AFTER verification exposed default table and function grants that were broader than the intended RLS/RPC model. | Jester manually hardened the live database. The Phase 2B/2C migrations now explicitly revoke client table/function privileges, restore only the intended authenticated SELECT/mark-read access, and grant full required access to `service_role`; AFTER verification proves the exact privilege matrix and SELECT-only policies. |
 | The mail sender was described indirectly. | The approved values are preserved exactly: `ASPIRE at Cedars-Sinai <noreply@aspire-program.com>` and Reply-To `aspire@cshs.org`. Sender approval is not a blocker. |
 
-The exact diff from `75f19eb` consists of the tracked binary patch plus the three new-file
-addition patches (`src/lib/preceptorRequestId.js`, `test/preceptorRequestId.test.mjs`, and
-`scripts/generate-preceptor-sql-package.mjs`). The handoff response links all four patch files.
+The privilege-hardening diff from `2da9bb4` is limited to the two canonical migrations, their two
+read-only audit files, static migration/safety tests, and this regenerated handoff package.
 
 ---
 
@@ -131,7 +134,11 @@ Do not apply 2C alone.
 
 ---
 
-## 6. Maintenance-window order
+## 6. Future-environment maintenance-window order
+
+The live database has already completed the Phase 2B and Phase 2C application sequence and Jester
+has manually corrected its grants. The following order remains the canonical process for future
+environments; it was not run during this source-hardening pass.
 
 1. Run the email-uniqueness preflight (Appendix E). Confirm the normalized unique index exists,
    duplicate groups = 0, and excess duplicate rows = 0. The normalization and blank/null counts
@@ -209,28 +216,25 @@ one else) is preserved.
 
 ## 10. Test and build results
 
-- Full suite: `node --test 'test/*.test.mjs'` → 2175 tests, 2175 pass, 0 fail.
-- Request-id / Phase 2B+2C targeted set → 48 pass, 0 fail. This includes behavioral controller
+- Full suite: `node --test 'test/*.test.mjs'` → 2179 tests, 2179 pass, 0 fail.
+- Request-id / Phase 2B+2C targeted set → 68 pass, 0 fail. This includes behavioral controller
   tests for stable retry IDs, double-submit rejection, and new-action IDs; API-boundary guards;
-  exact replay/conflict ordering; every fingerprint field; and byte-identical SQL appendices.
+  exact replay/conflict ordering; every fingerprint field; exact privilege matrices; internal
+  function revokes; SELECT-only policies; and byte-identical SQL appendices.
 - Client build: `npx vite build` → clean (size warning only).
 - SSR bundle: `npx vite build --ssr src/public-site/prerender-entry.jsx --outDir .prerender-ssr`
-  → clean. The full `npm run build` prerender step fails locally on a missing
-  `VITE_SUPABASE_URL`; this is a local-env gap after both bundles compile, not a code regression.
-- Lint: `eslint .` reports 729 errors / 42 warnings from the existing repo baseline and remains
-  non-gating. The new controller, tests, and package generator lint clean; the two changed APIs
-  lint clean with the repo's server-global `no-undef` mismatch disabled; the modal has only its
-  pre-existing open-reset `react-hooks/set-state-in-effect` finding.
+  → clean.
 - Source hygiene: `git diff --check` clean; no em dash in any changed SQL/JS/JSON.
 
 ---
 
 ## 11. Verdict and required Owner actions
 
-Verdict: **READY TO RUN OWNER PREFLIGHTS**.
+Verdict: **LIVE GRANTS HARDENED; CANONICAL SOURCE ALIGNED**.
 
-1. Owner SQL gate: both migrations are GATED and must be applied manually by the Owner in the
-   order in Section 6 / the checklist below. Nothing here applies them.
+1. Live SQL state: both migrations were applied manually, live AFTER verification exposed the
+   default-grant gaps, and Jester manually hardened those grants. The updated read-only AFTER
+   checks now document the exact expected state. Codex did not run those checks or execute any SQL.
 2. `preceptors` normalized-email uniqueness: RESOLVED. The partial unique index
    `preceptors_email_lower_unique_idx ON public.preceptors (lower(trim(email))) WHERE email IS NOT
    NULL AND trim(email) <> ''` already enforces it (authored in the root-level
@@ -256,9 +260,11 @@ Verdict: **READY TO RUN OWNER PREFLIGHTS**.
 
 # Final Owner SQL Review Package
 
-Everything the Owner needs to apply both migrations back-to-back, in one place. The SQL in
-Appendices A through E is embedded verbatim from the canonical repository files (identical
-byte-for-byte); apply from these files, and use the appendices for review.
+Everything needed to reproduce both migrations back-to-back in a future environment, in one
+place. The SQL in Appendices A through E is embedded verbatim from the canonical repository files
+(identical byte-for-byte); apply from these files, and use the appendices for review. The live
+database has already been applied and manually hardened; this package was not executed in this
+source pass.
 
 Canonical files:
 - Appendix A: `supabase/migrations/20260722000000_preceptor_mirror_repair_and_sync.sql` (2B)
@@ -267,7 +273,7 @@ Canonical files:
 - Appendix D: `db/audit/preceptor_assignment_authorization_preflight_and_verification.sql` (2C BEFORE / AFTER / ROLLBACK)
 - Appendix E: `db/audit/preceptor_email_uniqueness_preflight.sql` (read-only prerequisite)
 
-## Numbered back-to-back application checklist
+## Numbered back-to-back application checklist for future environments
 
 Run as the service role or an owner/admin, in the Supabase SQL editor. Each apply is ONE
 transaction (the migration files already contain `BEGIN;` / `COMMIT;`).
@@ -282,7 +288,9 @@ transaction (the migration files already contain `BEGIN;` / `COMMIT;`).
 4. Paste and run Appendix C's `AFTER (read-only)` block. Confirm: all five defect counts = 0;
    the role/status counts equal the step-2 baseline; the audit shows `students|matched_preceptor|4`
    and `matches|preceptor_id|4` and 8 total rows; the trigger is AFTER + SECURITY DEFINER with a
-   fixed search_path and `public_can_execute = false`; no new RLS policy.
+   fixed search_path and PUBLIC/anon/authenticated execute all false; the audit table gives
+   PUBLIC/anon/authenticated no privileges and service_role SELECT/INSERT/UPDATE/DELETE; no new
+   RLS policy.
 5. Paste and run Appendix D's `BEFORE (read-only)` block. Confirm: the 2B trigger is present (B1
    ONE row); the 2C guard trigger and all three 2C tables are absent (B2 ZERO rows each); `preceptors`
    has no `created_by`/`created_by_role` yet (B3 ZERO rows); `is_active_owner_or_admin` and
@@ -290,11 +298,12 @@ transaction (the migration files already contain `BEGIN;` / `COMMIT;`).
 6. Paste and run all of Appendix B (Phase 2C migration). It runs in its own `BEGIN/COMMIT`.
 7. Paste and run Appendix D's `AFTER (read-only)` block. Confirm: the guard trigger exists,
    `security_definer = false` (INVOKER), search_path set (A1); the four write/claim RPCs are
-   `security_definer = true` (A2); `assign_primary_preceptor` authenticated = false / service_role
-   = true and `mark_staff_notifications_read` authenticated = true / anon = false (A2b); all three
-   tables have RLS enabled with SELECT-only policies and NO client write policy (A3); the
-   provenance columns exist (A4); no other RLS was widened (A5); and all A10 fingerprint flags
-   are true for their applicable RPCs.
+   `security_definer = true` (A2); PUBLIC/anon cannot execute any intended RPC, authenticated can
+   execute only `mark_staff_notifications_read`, and service_role can execute all five (A2b); all
+   five internal functions deny PUBLIC/anon/authenticated execute (A2c); all three tables have the
+   exact client-deny/authenticated-SELECT/service_role-all privilege matrix, RLS enabled, and only
+   SELECT policies (A3/A3b/A3c); the provenance columns exist (A4); no other RLS was widened (A5);
+   and all A10 fingerprint flags are true for their applicable RPCs.
 8. Deploy the app changes on this branch (endpoints, `lib/server/staffNotifications/*`,
    `api/cron/staff-notification-worker.js`, `vercel.json`). Confirm `CRON_SECRET` and the Resend
    env are present so the `staff-notification-worker` cron can run.
@@ -387,6 +396,8 @@ CREATE TABLE IF NOT EXISTS public.preceptor_mirror_repair_audit (
   CONSTRAINT uq_pmra_batch_entity_ref_col UNIQUE (batch, entity, ref_id, col)
 );
 ALTER TABLE public.preceptor_mirror_repair_audit ENABLE ROW LEVEL SECURITY;
+REVOKE ALL PRIVILEGES ON TABLE public.preceptor_mirror_repair_audit FROM PUBLIC, anon, authenticated;
+GRANT ALL PRIVILEGES ON TABLE public.preceptor_mirror_repair_audit TO service_role;
 
 -- COLUMN-PRECISE, CONFLICT-SAFE snapshots: each mirror column is captured ONLY when that
 -- specific column differs from canonical (an already-correct value is never audited), and
@@ -590,7 +601,7 @@ CREATE TRIGGER trg_sync_primary_preceptor_mirror
   FOR EACH ROW EXECUTE FUNCTION public.sync_primary_preceptor_mirror();
 
 -- No caller ever executes this function directly; it runs only via the trigger.
-REVOKE ALL ON FUNCTION public.sync_primary_preceptor_mirror() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.sync_primary_preceptor_mirror() FROM PUBLIC, anon, authenticated;
 
 COMMIT;
 ```
@@ -698,6 +709,9 @@ ALTER TABLE public.preceptor_assignment_events ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "preceptor_assignment_events_owner_admin_read"
   ON public.preceptor_assignment_events FOR SELECT TO authenticated
   USING (public.is_active_owner_or_admin());
+REVOKE ALL PRIVILEGES ON TABLE public.preceptor_assignment_events FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE public.preceptor_assignment_events TO authenticated;
+GRANT ALL PRIVILEGES ON TABLE public.preceptor_assignment_events TO service_role;
 
 
 -- ############################################################################
@@ -763,6 +777,9 @@ CREATE POLICY "staff_notifications_read_own_or_admin"
     recipient_profile_id = public.portal_profile_id()
     OR public.is_active_owner_or_admin()
   );
+REVOKE ALL PRIVILEGES ON TABLE public.staff_notifications FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE public.staff_notifications TO authenticated;
+GRANT ALL PRIVILEGES ON TABLE public.staff_notifications TO service_role;
 
 
 -- ############################################################################
@@ -785,6 +802,9 @@ ALTER TABLE public.preceptor_assignment_requests ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "preceptor_assignment_requests_owner_admin_read"
   ON public.preceptor_assignment_requests FOR SELECT TO authenticated
   USING (public.is_active_owner_or_admin());
+REVOKE ALL PRIVILEGES ON TABLE public.preceptor_assignment_requests FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE public.preceptor_assignment_requests TO authenticated;
+GRANT ALL PRIVILEGES ON TABLE public.preceptor_assignment_requests TO service_role;
 
 
 -- ############################################################################
@@ -841,7 +861,7 @@ CREATE TRIGGER trg_guard_students_preceptor_id
   BEFORE UPDATE OF preceptor_id ON public.students
   FOR EACH ROW EXECUTE FUNCTION public.guard_students_preceptor_id_change();
 
-REVOKE ALL ON FUNCTION public.guard_students_preceptor_id_change() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.guard_students_preceptor_id_change() FROM PUBLIC, anon, authenticated;
 
 
 -- ############################################################################
@@ -929,7 +949,7 @@ BEGIN
   RETURN jsonb_build_object('role', v_role, 'was_override', false, 'unit_key', v_unit_key, 'cohort_id', v_stu.cohort_id);
 END;
 $fn$;
-REVOKE ALL ON FUNCTION public._preceptor_assert_actor_for_student(uuid, uuid, text, boolean, boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._preceptor_assert_actor_for_student(uuid, uuid, text, boolean, boolean) FROM PUBLIC, anon, authenticated;
 
 
 -- ############################################################################
@@ -986,7 +1006,7 @@ BEGIN
   RETURN jsonb_build_object('claimed', false, 'result', v_res);  -- idempotent replay
 END;
 $fn$;
-REVOKE ALL ON FUNCTION public._preceptor_begin_request(text, uuid, text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._preceptor_begin_request(text, uuid, text, text) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public._preceptor_finish_request(p_request_id text, p_result jsonb)
 RETURNS void
@@ -1000,7 +1020,7 @@ BEGIN
    WHERE request_id = p_request_id;
 END;
 $fn$;
-REVOKE ALL ON FUNCTION public._preceptor_finish_request(text, jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._preceptor_finish_request(text, jsonb) FROM PUBLIC, anon, authenticated;
 
 
 -- ############################################################################
@@ -1053,7 +1073,7 @@ BEGIN
   RETURN v_count;
 END;
 $fn$;
-REVOKE ALL ON FUNCTION public._emit_staff_notifications(text, text, uuid, text, text, uuid, uuid, text, text, text, text, text, boolean, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public._emit_staff_notifications(text, text, uuid, text, text, uuid, uuid, text, text, text, text, text, boolean, text) FROM PUBLIC, anon, authenticated;
 
 
 -- ############################################################################
@@ -1533,8 +1553,8 @@ BEGIN
   RETURN v_count;
 END;
 $fn$;
-REVOKE ALL ON FUNCTION public.mark_staff_notifications_read(uuid[]) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.mark_staff_notifications_read(uuid[]) TO authenticated;
+REVOKE ALL ON FUNCTION public.mark_staff_notifications_read(uuid[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.mark_staff_notifications_read(uuid[]) TO authenticated, service_role;
 
 COMMIT;
 ```
@@ -1678,15 +1698,54 @@ FROM public.preceptor_mirror_repair_audit
 WHERE batch = 'phase2b-preceptor-mirror';
 
 -- A6. The trigger exists, is an AFTER trigger on students, and the function is
---     SECURITY DEFINER with a fixed search_path and no PUBLIC execute.
+--     SECURITY DEFINER with a fixed search_path and no PUBLIC/anon/authenticated execute.
 SELECT t.tgname, t.tgenabled, p.prosecdef AS security_definer, p.proconfig AS settings
 FROM pg_trigger t
 JOIN pg_proc p ON p.oid = t.tgfoid
 WHERE t.tgrelid = 'public.students'::regclass
   AND t.tgname = 'trg_sync_primary_preceptor_mirror';
 
-SELECT has_function_privilege('public', 'public.sync_primary_preceptor_mirror()', 'EXECUTE') AS public_can_execute;
-  -- Expect false.
+SELECT p.proname,
+  EXISTS (
+    SELECT 1
+    FROM aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) a
+    WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE'
+  ) AS public_can_execute,
+  has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_can_execute,
+  has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_can_execute
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.proname = 'sync_primary_preceptor_mirror';
+  -- Expect: all three execute columns = false.
+
+-- A6b. Rollback-audit table privileges are fail-closed. PUBLIC/anon/authenticated have no table
+--      privileges; service_role has the SELECT/INSERT/UPDATE/DELETE access needed for support and
+--      rollback operations. Expect every public/anon/authenticated column false and every
+--      service_role column true.
+WITH target AS (
+  SELECT c.oid, c.relacl, c.relowner
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public' AND c.relname = 'preceptor_mirror_repair_audit'
+)
+SELECT
+  EXISTS (SELECT 1 FROM aclexplode(COALESCE(t.relacl, acldefault('r', t.relowner))) a WHERE a.grantee = 0 AND a.privilege_type = 'SELECT') AS public_select,
+  EXISTS (SELECT 1 FROM aclexplode(COALESCE(t.relacl, acldefault('r', t.relowner))) a WHERE a.grantee = 0 AND a.privilege_type = 'INSERT') AS public_insert,
+  EXISTS (SELECT 1 FROM aclexplode(COALESCE(t.relacl, acldefault('r', t.relowner))) a WHERE a.grantee = 0 AND a.privilege_type = 'UPDATE') AS public_update,
+  EXISTS (SELECT 1 FROM aclexplode(COALESCE(t.relacl, acldefault('r', t.relowner))) a WHERE a.grantee = 0 AND a.privilege_type = 'DELETE') AS public_delete,
+  has_table_privilege('anon', t.oid, 'SELECT') AS anon_select,
+  has_table_privilege('anon', t.oid, 'INSERT') AS anon_insert,
+  has_table_privilege('anon', t.oid, 'UPDATE') AS anon_update,
+  has_table_privilege('anon', t.oid, 'DELETE') AS anon_delete,
+  has_table_privilege('authenticated', t.oid, 'SELECT') AS authenticated_select,
+  has_table_privilege('authenticated', t.oid, 'INSERT') AS authenticated_insert,
+  has_table_privilege('authenticated', t.oid, 'UPDATE') AS authenticated_update,
+  has_table_privilege('authenticated', t.oid, 'DELETE') AS authenticated_delete,
+  has_table_privilege('service_role', t.oid, 'SELECT') AS service_role_select,
+  has_table_privilege('service_role', t.oid, 'INSERT') AS service_role_insert,
+  has_table_privilege('service_role', t.oid, 'UPDATE') AS service_role_update,
+  has_table_privilege('service_role', t.oid, 'DELETE') AS service_role_delete
+FROM target t;
 
 -- A7. No new RLS policy was added to the relationship tables (permissions unchanged).
 SELECT schemaname, tablename, policyname, cmd
@@ -1783,15 +1842,49 @@ WHERE p.proname IN ('assign_primary_preceptor', 'set_secondary_coverage_precepto
                     'create_unit_preceptor', 'claim_due_staff_notifications')
 ORDER BY p.proname;
 
--- A2b. Grants. The write/claim RPCs: authenticated/anon = false, service_role = true. The
---      mark-read RPC is authenticated = true (called with the user's JWT), anon = false.
-SELECT 'assign_primary_preceptor' AS fn,
-  has_function_privilege('authenticated', 'public.assign_primary_preceptor(uuid,uuid,uuid,text,boolean,boolean,text)', 'EXECUTE') AS authenticated_can,
-  has_function_privilege('service_role',  'public.assign_primary_preceptor(uuid,uuid,uuid,text,boolean,boolean,text)', 'EXECUTE') AS service_role_can;
-SELECT 'mark_staff_notifications_read' AS fn,
-  has_function_privilege('authenticated', 'public.mark_staff_notifications_read(uuid[])', 'EXECUTE') AS authenticated_can,
-  has_function_privilege('anon',          'public.mark_staff_notifications_read(uuid[])', 'EXECUTE') AS anon_can;
--- Expect: assign authenticated=false/service_role=true; mark-read authenticated=true/anon=false.
+-- A2b. Intended RPC grants. Expect PUBLIC=false, anon=false, service_role=true for every row;
+--      authenticated=true only for mark_staff_notifications_read and false for all other rows.
+WITH expected(fn, signature, authenticated_should) AS (VALUES
+  ('assign_primary_preceptor',          'public.assign_primary_preceptor(uuid,uuid,uuid,text,boolean,boolean,text)', false),
+  ('set_secondary_coverage_preceptor',  'public.set_secondary_coverage_preceptor(uuid,uuid,text,text,uuid,uuid,text,text,boolean,boolean,text)', false),
+  ('create_unit_preceptor',             'public.create_unit_preceptor(uuid,text,text,text,text,text,text)', false),
+  ('claim_due_staff_notifications',     'public.claim_due_staff_notifications(text,integer,integer)', false),
+  ('mark_staff_notifications_read',     'public.mark_staff_notifications_read(uuid[])', true)
+)
+SELECT e.fn,
+  EXISTS (
+    SELECT 1
+    FROM aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) a
+    WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE'
+  ) AS public_can,
+  has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_can,
+  has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_can,
+  e.authenticated_should,
+  has_function_privilege('service_role', p.oid, 'EXECUTE') AS service_role_can
+FROM expected e
+JOIN pg_proc p ON p.oid = to_regprocedure(e.signature)
+ORDER BY e.fn;
+
+-- A2c. Internal functions are never client-callable. Expect five rows with public_can=false,
+--      anon_can=false, and authenticated_can=false.
+WITH internal(signature) AS (VALUES
+  ('public.guard_students_preceptor_id_change()'),
+  ('public._preceptor_assert_actor_for_student(uuid,uuid,text,boolean,boolean)'),
+  ('public._preceptor_begin_request(text,uuid,text,text)'),
+  ('public._preceptor_finish_request(text,jsonb)'),
+  ('public._emit_staff_notifications(text,text,uuid,text,text,uuid,uuid,text,text,text,text,text,boolean,text)')
+)
+SELECT p.proname, pg_get_function_identity_arguments(p.oid) AS identity_arguments,
+  EXISTS (
+    SELECT 1
+    FROM aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) a
+    WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE'
+  ) AS public_can,
+  has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_can,
+  has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_can
+FROM internal i
+JOIN pg_proc p ON p.oid = to_regprocedure(i.signature)
+ORDER BY p.proname;
 
 -- A3. New tables: RLS enabled; preceptor_assignment_events has one owner/admin SELECT policy;
 --     staff_notifications has one SELECT policy (own-or-admin) and NO client write policy.
@@ -1802,6 +1895,43 @@ ORDER BY tablename, cmd;
 SELECT c.relname, c.relrowsecurity AS rls_enabled
 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public' AND c.relname IN ('preceptor_assignment_events', 'staff_notifications', 'preceptor_assignment_requests');
+
+-- A3b. Exact table-level privileges. Expect for each of the three tables:
+--      PUBLIC SELECT/INSERT/UPDATE/DELETE=false; anon SELECT/INSERT/UPDATE/DELETE=false;
+--      authenticated SELECT=true and INSERT/UPDATE/DELETE=false;
+--      service_role SELECT/INSERT/UPDATE/DELETE=true.
+WITH target AS (
+  SELECT c.oid, c.relname, c.relacl, c.relowner
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public'
+    AND c.relname IN ('preceptor_assignment_events', 'staff_notifications', 'preceptor_assignment_requests')
+)
+SELECT t.relname,
+  EXISTS (SELECT 1 FROM aclexplode(COALESCE(t.relacl, acldefault('r', t.relowner))) a WHERE a.grantee = 0 AND a.privilege_type = 'SELECT') AS public_select,
+  EXISTS (SELECT 1 FROM aclexplode(COALESCE(t.relacl, acldefault('r', t.relowner))) a WHERE a.grantee = 0 AND a.privilege_type = 'INSERT') AS public_insert,
+  EXISTS (SELECT 1 FROM aclexplode(COALESCE(t.relacl, acldefault('r', t.relowner))) a WHERE a.grantee = 0 AND a.privilege_type = 'UPDATE') AS public_update,
+  EXISTS (SELECT 1 FROM aclexplode(COALESCE(t.relacl, acldefault('r', t.relowner))) a WHERE a.grantee = 0 AND a.privilege_type = 'DELETE') AS public_delete,
+  has_table_privilege('anon', t.oid, 'SELECT') AS anon_select,
+  has_table_privilege('anon', t.oid, 'INSERT') AS anon_insert,
+  has_table_privilege('anon', t.oid, 'UPDATE') AS anon_update,
+  has_table_privilege('anon', t.oid, 'DELETE') AS anon_delete,
+  has_table_privilege('authenticated', t.oid, 'SELECT') AS authenticated_select,
+  has_table_privilege('authenticated', t.oid, 'INSERT') AS authenticated_insert,
+  has_table_privilege('authenticated', t.oid, 'UPDATE') AS authenticated_update,
+  has_table_privilege('authenticated', t.oid, 'DELETE') AS authenticated_delete,
+  has_table_privilege('service_role', t.oid, 'SELECT') AS service_role_select,
+  has_table_privilege('service_role', t.oid, 'INSERT') AS service_role_insert,
+  has_table_privilege('service_role', t.oid, 'UPDATE') AS service_role_update,
+  has_table_privilege('service_role', t.oid, 'DELETE') AS service_role_delete
+FROM target t
+ORDER BY t.relname;
+
+-- A3c. Policies remain SELECT-only. Expect non_select_policy_count=0.
+SELECT count(*) FILTER (WHERE cmd <> 'SELECT') AS non_select_policy_count
+FROM pg_policies
+WHERE schemaname = 'public'
+  AND tablename IN ('preceptor_assignment_events', 'staff_notifications', 'preceptor_assignment_requests');
 
 -- A4. preceptors gained the provenance columns.
 SELECT column_name, data_type, is_nullable
