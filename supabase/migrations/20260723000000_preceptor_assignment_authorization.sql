@@ -13,23 +13,44 @@
 --   - Interviewer / viewer / co_lead / other is_staff() roles: NOT allowed.
 --   - Unit Leaders never get direct table-write permission; they act only through the RPCs.
 --
--- COMPLETED-ROTATION WINDOW (locked)
+-- TARGETED SECONDARY/COVERAGE (locked):
+--   - add     : add ONE active secondary/coverage row; alter no existing assignment.
+--   - replace : require p_assignment_id; lock+validate the selected ACTIVE assignment (belongs to
+--               the student, role = p_role); end ONLY that assignment; add the new one; preserve
+--               every other active assignment.
+--   - end     : require p_assignment_id; lock+validate as above; end ONLY that assignment.
+--   The actual old/new preceptor id AND name are recorded in the audit event, the in-app
+--   notification, the queued email, and the RPC response. History is soft-ended, never deleted.
+--
+-- COMPLETED-ROTATION WINDOW (locked): a rotation is "completed" IFF students.status = 'Completed'
+--   (the canonical source of truth api/lib/unitLeaderScopeRules.js lifecycleBucket; Declined /
+--   Not Proceeding are off-ramps, NOT completed rotations). end date = COALESCE(rotation_completed_at,
+--   rotation_end_date); NULL => beyond window (fail closed).
 --   - Active, or completed within 90 days: normal authorization.
 --   - Unit Leader beyond 90 days: DENIED (even with a force flag).
 --   - Owner/Admin beyond 90 days: allowed ONLY with p_force = true AND p_confirm_override = true
 --     AND a non-empty reason; the event and every notification are marked as a historical override.
 --
+-- IDEMPOTENCY (locked): every write RPC requires p_request_id and is idempotent on it via the
+--   preceptor_assignment_requests ledger. Repeating the SAME request replays the stored result
+--   with no second mutation and no second notification; the SAME request_id with DIFFERENT
+--   parameters fails (MS409). Correlation ids are derived from p_request_id (stable, never
+--   timestamp-based), so notification/email dedup is stable across retries.
+--
 -- NOTIFICATION (locked): every Unit Leader assignment change / UL-created preceptor, and every
 --   Owner/Admin >90d override, writes a durable audit row AND fans out one durable
 --   staff_notifications row per ACTIVE Owner/Admin except the acting user, in the SAME
 --   transaction. That row carries BOTH the in-app state (read/unread) and the email queue state.
---   A separate worker (lib/server/staffNotifications/deliveryService.js, api/cron/...) sends the
---   emails; a send failure never rolls back the committed assignment.
+--   Destinations use REAL staff routes: a student notification links to /students?student=<id>
+--   (the query form the Student Profiles tab reads; the /students/<id> path form does not route),
+--   a preceptor-created notification links to /rotation/preceptors (the directory; there is no
+--   per-preceptor detail route). A separate worker sends the emails; a send failure never rolls
+--   back the committed assignment.
 --
 -- SECURITY: no RLS widened; no anon/authenticated write grant; new tables are owner/admin SELECT
---   (staff_notifications additionally lets a recipient read/update their own row) + service-role
---   write. Every function has a fixed search_path; the write RPCs are service-role only. Errors
---   use the established MS400/403/404/409 SQLSTATE convention.
+--   (staff_notifications additionally lets a recipient read their own row) + service-role write.
+--   Every function has a fixed search_path; the write RPCs are service-role only. Errors use the
+--   established MS400/403/404/409 SQLSTATE convention.
 -- ============================================================================
 
 BEGIN;
@@ -60,8 +81,8 @@ CREATE TABLE IF NOT EXISTS public.preceptor_assignment_events (
   cohort_id        uuid        REFERENCES public.cohorts(id)    ON DELETE SET NULL,
   unit_key         text,
   assignment_role  text        CHECK (assignment_role IS NULL OR assignment_role IN ('primary', 'secondary', 'coverage')),
-  old_value        text,
-  new_value        text,
+  old_value        text,       -- human-readable old preceptor name (ids live in metadata)
+  new_value        text,       -- human-readable new preceptor name (ids live in metadata)
   reason           text,
   was_override     boolean     NOT NULL DEFAULT false,
   correlation_id   text,
@@ -98,8 +119,8 @@ CREATE TABLE IF NOT EXISTS public.staff_notifications (
   preceptor_id         uuid        REFERENCES public.preceptors(id) ON DELETE SET NULL,
   unit_key             text,
   assignment_role      text,
-  old_value            text,
-  new_value            text,
+  old_value            text,       -- human-readable old preceptor name
+  new_value            text,       -- human-readable new preceptor name
   reason               text,
   was_override         boolean     NOT NULL DEFAULT false,
   subject              text        NOT NULL,
@@ -142,6 +163,28 @@ CREATE POLICY "staff_notifications_read_own_or_admin"
     recipient_profile_id = public.portal_profile_id()
     OR public.is_active_owner_or_admin()
   );
+
+
+-- ############################################################################
+-- 3b. preceptor_assignment_requests -- idempotency ledger. One row per p_request_id. A repeat of
+--     the SAME request (same fingerprint) replays the stored result with no second mutation and no
+--     second notification; the SAME request_id with a DIFFERENT fingerprint is a conflict (MS409).
+--     The claim is row-first (INSERT ... ON CONFLICT DO NOTHING), so two concurrent identical
+--     requests serialize on the primary key and only one mutates. Owner/admin SELECT only.
+-- ############################################################################
+CREATE TABLE IF NOT EXISTS public.preceptor_assignment_requests (
+  request_id       text        PRIMARY KEY,
+  actor_profile_id uuid        NOT NULL REFERENCES public.user_profiles(id) ON DELETE CASCADE,
+  rpc              text        NOT NULL,
+  fingerprint      text        NOT NULL,
+  result           jsonb,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  completed_at     timestamptz
+);
+ALTER TABLE public.preceptor_assignment_requests ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "preceptor_assignment_requests_owner_admin_read"
+  ON public.preceptor_assignment_requests FOR SELECT TO authenticated
+  USING (public.is_active_owner_or_admin());
 
 
 -- ############################################################################
@@ -202,8 +245,9 @@ REVOKE ALL ON FUNCTION public.guard_students_preceptor_id_change() FROM PUBLIC;
 
 
 -- ############################################################################
--- 5a. Shared authorization helper. Returns jsonb { role, was_override } for the actor against
---     the student, or RAISES MS4xx. Enforces the completed-rotation window and the override rule.
+-- 5a. Shared authorization helper. Returns jsonb { role, was_override, unit_key, cohort_id } for
+--     the actor against the student, or RAISES MS4xx. Enforces the completed-rotation window and
+--     the override rule. Completed <=> students.status = 'Completed' (see header).
 -- ############################################################################
 CREATE OR REPLACE FUNCTION public._preceptor_assert_actor_for_student(
   p_actor_profile_id uuid,
@@ -258,8 +302,9 @@ BEGIN
     RAISE EXCEPTION 'not found' USING ERRCODE = 'MS404';  -- non-enumerating
   END IF;
 
-  -- Completed-rotation window. end date = COALESCE(rotation_completed_at, rotation_end_date),
-  -- mirroring completedStillVisible; NULL for a completed student => treated as beyond window.
+  -- Completed-rotation window. Completed <=> status = 'Completed' (canonical, per header). end
+  -- date = COALESCE(rotation_completed_at, rotation_end_date); NULL for a completed student =>
+  -- treated as beyond window (fail closed).
   v_completed := (v_stu.status = 'Completed');
   v_end := COALESCE(v_stu.rotation_completed_at, v_stu.rotation_end_date::timestamptz);
   v_within_90 := v_completed AND v_end IS NOT NULL AND v_end >= v_now - INTERVAL '90 days';
@@ -285,6 +330,73 @@ BEGIN
 END;
 $fn$;
 REVOKE ALL ON FUNCTION public._preceptor_assert_actor_for_student(uuid, uuid, text, boolean, boolean) FROM PUBLIC;
+
+
+-- ############################################################################
+-- 5a2. Idempotency helpers. _preceptor_begin_request claims a request row (or detects a replay /
+--      a conflicting reuse); _preceptor_finish_request stores the result. Internal (owner-only);
+--      called only by the write RPCs below, which run as the definer owner.
+-- ############################################################################
+CREATE OR REPLACE FUNCTION public._preceptor_begin_request(
+  p_request_id       text,
+  p_actor_profile_id uuid,
+  p_rpc              text,
+  p_fingerprint      text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $fn$
+DECLARE
+  v_inserted int;
+  v_fp       text;
+  v_res      jsonb;
+BEGIN
+  IF p_request_id IS NULL OR btrim(p_request_id) = '' THEN
+    RAISE EXCEPTION 'a request id is required' USING ERRCODE = 'MS400';
+  END IF;
+
+  INSERT INTO public.preceptor_assignment_requests (request_id, actor_profile_id, rpc, fingerprint)
+  VALUES (p_request_id, p_actor_profile_id, p_rpc, p_fingerprint)
+  ON CONFLICT (request_id) DO NOTHING;
+  GET DIAGNOSTICS v_inserted = ROW_COUNT;
+
+  IF v_inserted = 1 THEN
+    RETURN jsonb_build_object('claimed', true);   -- first time: caller proceeds and finishes
+  END IF;
+
+  -- A row already exists: replay or conflicting reuse. Lock it (serializes with any in-flight txn;
+  -- by the time this returns, that txn has committed a result or rolled back the claim entirely).
+  SELECT fingerprint, result INTO v_fp, v_res
+  FROM public.preceptor_assignment_requests WHERE request_id = p_request_id FOR UPDATE;
+
+  IF v_fp IS DISTINCT FROM p_fingerprint THEN
+    RAISE EXCEPTION 'this request id was already used with different parameters' USING ERRCODE = 'MS409';
+  END IF;
+  IF v_res IS NULL THEN
+    -- Same fingerprint, no stored result: a concurrent attempt is still in flight (a committed
+    -- single-transaction RPC always stores its result before COMMIT). Refuse to double-run.
+    RAISE EXCEPTION 'this request is already in progress' USING ERRCODE = 'MS409';
+  END IF;
+  RETURN jsonb_build_object('claimed', false, 'result', v_res);  -- idempotent replay
+END;
+$fn$;
+REVOKE ALL ON FUNCTION public._preceptor_begin_request(text, uuid, text, text) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION public._preceptor_finish_request(p_request_id text, p_result jsonb)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $fn$
+BEGIN
+  UPDATE public.preceptor_assignment_requests
+     SET result = p_result, completed_at = now()
+   WHERE request_id = p_request_id;
+END;
+$fn$;
+REVOKE ALL ON FUNCTION public._preceptor_finish_request(text, jsonb) FROM PUBLIC;
 
 
 -- ############################################################################
@@ -342,7 +454,7 @@ REVOKE ALL ON FUNCTION public._emit_staff_notifications(text, text, uuid, text, 
 
 -- ############################################################################
 -- 5c. assign_primary_preceptor -- change/assign the Primary. Sets students.preceptor_id and lets
---     the Phase 2B trigger synchronize the Primary mirror.
+--     the Phase 2B trigger synchronize the Primary mirror. Idempotent on p_request_id.
 -- ############################################################################
 CREATE OR REPLACE FUNCTION public.assign_primary_preceptor(
   p_actor_profile_id uuid,
@@ -359,17 +471,30 @@ SECURITY DEFINER
 SET search_path = public, pg_catalog
 AS $fn$
 DECLARE
+  v_fp        text;
+  v_claim     jsonb;
   v_authz     jsonb;
   v_role      text;
   v_override  boolean;
   v_cohort    uuid;
   v_unit_key  text;
   v_old       uuid;
+  v_old_name  text;
+  v_new_name  text;
   v_match_ct  int;
   v_corr      text;
+  v_result    jsonb;
 BEGIN
   IF p_actor_profile_id IS NULL OR p_student_id IS NULL OR p_preceptor_id IS NULL THEN
     RAISE EXCEPTION 'missing required argument' USING ERRCODE = 'MS400';
+  END IF;
+
+  -- Idempotency: claim (or replay) BEFORE any mutation. A failed run rolls the claim back with it.
+  v_fp := md5(concat_ws('|', 'assign_primary', p_actor_profile_id, p_student_id, p_preceptor_id,
+                        coalesce(p_reason, ''), p_force, p_confirm_override));
+  v_claim := public._preceptor_begin_request(p_request_id, p_actor_profile_id, 'assign_primary_preceptor', v_fp);
+  IF NOT (v_claim->>'claimed')::boolean THEN
+    RETURN v_claim->'result';
   END IF;
 
   v_authz := public._preceptor_assert_actor_for_student(p_actor_profile_id, p_student_id, p_reason, p_force, p_confirm_override);
@@ -393,21 +518,25 @@ BEGIN
   UPDATE public.students SET preceptor_id = p_preceptor_id WHERE id = p_student_id;
   PERFORM set_config('app.preceptor_change_authorized', '', true);
 
-  v_corr := 'preceptor_primary:' || p_student_id::text || ':' || p_preceptor_id::text
-            || ':' || extract(epoch from now())::bigint::text;
+  IF v_old IS NOT NULL THEN SELECT full_name INTO v_old_name FROM public.preceptors WHERE id = v_old; END IF;
+  SELECT full_name INTO v_new_name FROM public.preceptors WHERE id = p_preceptor_id;
+
+  v_corr := 'preceptor_primary:' || p_request_id;
 
   INSERT INTO public.preceptor_assignment_events
     (actor_profile_id, actor_role, action, student_id, preceptor_id, cohort_id, unit_key,
-     assignment_role, old_value, new_value, reason, was_override, correlation_id, request_id)
+     assignment_role, old_value, new_value, reason, was_override, correlation_id, request_id, metadata)
   VALUES
     (p_actor_profile_id, v_role, 'assign_primary', p_student_id, p_preceptor_id, v_cohort, v_unit_key,
-     'primary', v_old::text, p_preceptor_id::text, p_reason, v_override, v_corr, p_request_id);
+     'primary', v_old_name, v_new_name, p_reason, v_override, v_corr, p_request_id,
+     jsonb_build_object('old_preceptor_id', v_old, 'old_preceptor_name', v_old_name,
+                        'new_preceptor_id', p_preceptor_id, 'new_preceptor_name', v_new_name));
 
   PERFORM public._emit_staff_notifications(
     v_corr, 'preceptor_primary_changed', p_actor_profile_id, v_role,
     (CASE WHEN v_override THEN 'Primary preceptor changed (historical override)' ELSE 'Primary preceptor changed' END),
-    p_student_id, p_preceptor_id, v_unit_key, 'primary', v_old::text, p_preceptor_id::text, p_reason, v_override,
-    '/students/' || p_student_id::text);
+    p_student_id, p_preceptor_id, v_unit_key, 'primary', v_old_name, v_new_name, p_reason, v_override,
+    '/students?student=' || p_student_id::text);
 
   -- matches anomaly: >1 same-cohort match rows => 2B trigger left the match FK unsynced. Record a
   -- structured event AND notify, without failing the assignment.
@@ -419,17 +548,21 @@ BEGIN
        assignment_role, old_value, new_value, reason, correlation_id, request_id, metadata)
     VALUES
       (p_actor_profile_id, v_role, 'matches_anomaly', p_student_id, p_preceptor_id, v_cohort, v_unit_key,
-       'primary', v_old::text, p_preceptor_id::text, p_reason, v_corr || ':anomaly', p_request_id,
+       'primary', v_old_name, v_new_name, p_reason, v_corr || ':anomaly', p_request_id,
        jsonb_build_object('same_cohort_match_rows', v_match_ct));
     PERFORM public._emit_staff_notifications(
       v_corr || ':anomaly', 'preceptor_match_anomaly', p_actor_profile_id, v_role,
       'Match record needs review (multiple same-cohort matches)',
-      p_student_id, p_preceptor_id, v_unit_key, 'primary', v_old::text, p_preceptor_id::text, NULL, false,
-      '/students/' || p_student_id::text);
+      p_student_id, p_preceptor_id, v_unit_key, 'primary', v_old_name, v_new_name, NULL, false,
+      '/students?student=' || p_student_id::text);
   END IF;
 
-  RETURN jsonb_build_object('ok', true, 'student_id', p_student_id, 'old_preceptor_id', v_old,
-                            'new_preceptor_id', p_preceptor_id, 'actor_role', v_role, 'was_override', v_override);
+  v_result := jsonb_build_object('ok', true, 'student_id', p_student_id,
+                            'old_preceptor_id', v_old, 'old_preceptor_name', v_old_name,
+                            'new_preceptor_id', p_preceptor_id, 'new_preceptor_name', v_new_name,
+                            'actor_role', v_role, 'was_override', v_override);
+  PERFORM public._preceptor_finish_request(p_request_id, v_result);
+  RETURN v_result;
 END;
 $fn$;
 REVOKE ALL ON FUNCTION public.assign_primary_preceptor(uuid, uuid, uuid, text, boolean, boolean, text) FROM PUBLIC, anon, authenticated;
@@ -437,8 +570,10 @@ GRANT EXECUTE ON FUNCTION public.assign_primary_preceptor(uuid, uuid, uuid, text
 
 
 -- ############################################################################
--- 5d. set_secondary_coverage_preceptor -- add / replace / end Secondary or Coverage through the
---     canonical student_preceptor_assignments. Never touches Primary. Cross-unit allowed.
+-- 5d. set_secondary_coverage_preceptor -- TARGETED add / replace / end of Secondary or Coverage
+--     through the canonical student_preceptor_assignments. Replace/End act on the ONE assignment
+--     named by p_assignment_id (locked + validated); all other active rows are preserved. Never
+--     touches Primary. Cross-unit allowed. Idempotent on p_request_id.
 -- ############################################################################
 CREATE OR REPLACE FUNCTION public.set_secondary_coverage_preceptor(
   p_actor_profile_id uuid,
@@ -459,14 +594,21 @@ SECURITY DEFINER
 SET search_path = public, pg_catalog
 AS $fn$
 DECLARE
+  v_fp       text;
+  v_claim    jsonb;
   v_authz    jsonb;
   v_role     text;
   v_override boolean;
   v_cohort   uuid;
   v_unit_key text;
+  v_target   record;
+  v_old_id   uuid;
+  v_old_name text;
+  v_new_name text;
   v_new_id   uuid;
   v_lbl      text;
   v_corr     text;
+  v_result   jsonb;
 BEGIN
   IF p_role NOT IN ('secondary', 'coverage') THEN
     RAISE EXCEPTION 'role must be secondary or coverage' USING ERRCODE = 'MS400';
@@ -475,35 +617,57 @@ BEGIN
     RAISE EXCEPTION 'action must be add, replace, or end' USING ERRCODE = 'MS400';
   END IF;
 
+  v_fp := md5(concat_ws('|', 'set_secondary', p_actor_profile_id, p_student_id, p_role, p_action,
+                        coalesce(p_preceptor_id::text, ''), coalesce(p_assignment_id::text, ''),
+                        coalesce(p_reason, ''), coalesce(p_notes, ''), p_force, p_confirm_override));
+  v_claim := public._preceptor_begin_request(p_request_id, p_actor_profile_id, 'set_secondary_coverage_preceptor', v_fp);
+  IF NOT (v_claim->>'claimed')::boolean THEN
+    RETURN v_claim->'result';
+  END IF;
+
   v_authz    := public._preceptor_assert_actor_for_student(p_actor_profile_id, p_student_id, p_reason, p_force, p_confirm_override);
   v_role     := v_authz->>'role';
   v_override := (v_authz->>'was_override')::boolean;
   v_unit_key := v_authz->>'unit_key';
   v_cohort   := (v_authz->>'cohort_id')::uuid;
 
-  IF p_action = 'end' THEN
+  -- Replace and End both target ONE existing assignment: lock it, validate ownership + role, and
+  -- end ONLY that row. Every other active assignment is left untouched.
+  IF p_action IN ('replace', 'end') THEN
     IF p_assignment_id IS NULL THEN
-      RAISE EXCEPTION 'assignment id is required to end an assignment' USING ERRCODE = 'MS400';
+      RAISE EXCEPTION 'assignment id is required to replace or end' USING ERRCODE = 'MS400';
     END IF;
-    UPDATE public.student_preceptor_assignments a
-       SET status = 'ended', end_date = current_date, updated_at = now()
-     WHERE a.id = p_assignment_id AND a.student_id = p_student_id
-       AND a.role IN ('secondary', 'coverage') AND a.status = 'active';
+    SELECT a.id, a.preceptor_id, a.role, a.student_id, a.status
+      INTO v_target
+      FROM public.student_preceptor_assignments a
+     WHERE a.id = p_assignment_id
+     FOR UPDATE;
     IF NOT FOUND THEN
-      RAISE EXCEPTION 'not found' USING ERRCODE = 'MS404';
+      RAISE EXCEPTION 'assignment not found' USING ERRCODE = 'MS404';
     END IF;
-    v_lbl := 'end_' || p_role;
-  ELSE
+    IF v_target.student_id <> p_student_id THEN
+      RAISE EXCEPTION 'assignment does not belong to this student' USING ERRCODE = 'MS404';
+    END IF;
+    IF v_target.role <> p_role THEN
+      RAISE EXCEPTION 'assignment role does not match' USING ERRCODE = 'MS409';
+    END IF;
+    IF v_target.status <> 'active' THEN
+      RAISE EXCEPTION 'assignment is not active' USING ERRCODE = 'MS409';
+    END IF;
+    v_old_id := v_target.preceptor_id;
+
+    UPDATE public.student_preceptor_assignments
+       SET status = 'ended', end_date = current_date, updated_at = now()
+     WHERE id = p_assignment_id;
+  END IF;
+
+  -- Add and Replace both insert exactly ONE new active assignment.
+  IF p_action IN ('add', 'replace') THEN
     IF p_preceptor_id IS NULL THEN
       RAISE EXCEPTION 'preceptor id is required to add or replace' USING ERRCODE = 'MS400';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM public.preceptors p WHERE p.id = p_preceptor_id AND p.is_active IS TRUE) THEN
       RAISE EXCEPTION 'preceptor is inactive or does not exist' USING ERRCODE = 'MS400';
-    END IF;
-    IF p_action = 'replace' THEN
-      UPDATE public.student_preceptor_assignments a
-         SET status = 'ended', end_date = current_date, updated_at = now()
-       WHERE a.student_id = p_student_id AND a.cohort_id = v_cohort AND a.role = p_role AND a.status = 'active';
     END IF;
     BEGIN
       INSERT INTO public.student_preceptor_assignments
@@ -515,25 +679,38 @@ BEGIN
     EXCEPTION WHEN unique_violation THEN
       RAISE EXCEPTION 'that preceptor already has an active assignment for this student' USING ERRCODE = 'MS409';
     END;
-    v_lbl := (CASE WHEN p_action = 'replace' THEN 'replace_' ELSE 'add_' END) || p_role;
   END IF;
 
-  v_corr := 'preceptor_' || v_lbl || ':' || p_student_id::text || ':'
-            || COALESCE(p_preceptor_id::text, p_assignment_id::text) || ':' || extract(epoch from now())::bigint::text;
+  v_lbl := (CASE p_action WHEN 'add' THEN 'add_' WHEN 'replace' THEN 'replace_' ELSE 'end_' END) || p_role;
+
+  IF v_old_id IS NOT NULL THEN SELECT full_name INTO v_old_name FROM public.preceptors WHERE id = v_old_id; END IF;
+  IF p_preceptor_id IS NOT NULL THEN SELECT full_name INTO v_new_name FROM public.preceptors WHERE id = p_preceptor_id; END IF;
+
+  v_corr := 'preceptor_' || v_lbl || ':' || p_request_id;
 
   INSERT INTO public.preceptor_assignment_events
     (actor_profile_id, actor_role, action, student_id, preceptor_id, cohort_id, unit_key,
-     assignment_role, old_value, new_value, reason, was_override, correlation_id, request_id)
+     assignment_role, old_value, new_value, reason, was_override, correlation_id, request_id, metadata)
   VALUES
     (p_actor_profile_id, v_role, v_lbl, p_student_id, p_preceptor_id, v_cohort, v_unit_key,
-     p_role, NULL, COALESCE(p_preceptor_id::text, p_assignment_id::text), p_reason, v_override, v_corr, p_request_id);
+     p_role, v_old_name, v_new_name, p_reason, v_override, v_corr, p_request_id,
+     jsonb_build_object('assignment_id', COALESCE(v_new_id, p_assignment_id),
+                        'ended_assignment_id', CASE WHEN p_action IN ('replace', 'end') THEN p_assignment_id ELSE NULL END,
+                        'old_preceptor_id', v_old_id, 'old_preceptor_name', v_old_name,
+                        'new_preceptor_id', p_preceptor_id, 'new_preceptor_name', v_new_name));
 
   PERFORM public._emit_staff_notifications(
     v_corr, 'preceptor_' || v_lbl, p_actor_profile_id, v_role, 'Preceptor assignment updated',
-    p_student_id, p_preceptor_id, v_unit_key, p_role, NULL,
-    COALESCE(p_preceptor_id::text, p_assignment_id::text), p_reason, v_override, '/students/' || p_student_id::text);
+    p_student_id, p_preceptor_id, v_unit_key, p_role, v_old_name, v_new_name, p_reason, v_override,
+    '/students?student=' || p_student_id::text);
 
-  RETURN jsonb_build_object('ok', true, 'assignment_id', COALESCE(v_new_id, p_assignment_id), 'action', v_lbl);
+  v_result := jsonb_build_object('ok', true, 'action', v_lbl,
+     'assignment_id', COALESCE(v_new_id, p_assignment_id),
+     'ended_assignment_id', CASE WHEN p_action IN ('replace', 'end') THEN p_assignment_id ELSE NULL END,
+     'old_preceptor_id', v_old_id, 'old_preceptor_name', v_old_name,
+     'new_preceptor_id', p_preceptor_id, 'new_preceptor_name', v_new_name);
+  PERFORM public._preceptor_finish_request(p_request_id, v_result);
+  RETURN v_result;
 END;
 $fn$;
 REVOKE ALL ON FUNCTION public.set_secondary_coverage_preceptor(uuid, uuid, text, text, uuid, uuid, text, text, boolean, boolean, text) FROM PUBLIC, anon, authenticated;
@@ -543,6 +720,7 @@ GRANT EXECUTE ON FUNCTION public.set_secondary_coverage_preceptor(uuid, uuid, te
 -- ############################################################################
 -- 5e. create_unit_preceptor -- canonical Preceptor Directory record. A Unit Leader may only
 --     create under a unit in their active scope. Dedups by normalized email; records provenance.
+--     Idempotent on p_request_id. Notification links to the preceptor directory (no detail route).
 -- ############################################################################
 CREATE OR REPLACE FUNCTION public.create_unit_preceptor(
   p_actor_profile_id uuid,
@@ -560,15 +738,25 @@ SET search_path = public, pg_catalog
 AS $fn$
 DECLARE
   v_now     timestamptz := now();
+  v_fp      text;
+  v_claim   jsonb;
   v_role    text;
   v_unit_id uuid;
   v_email   text := lower(btrim(coalesce(p_email, '')));
   v_new_id  uuid;
   v_corr    text;
+  v_result  jsonb;
 BEGIN
   IF btrim(coalesce(p_full_name, '')) = '' THEN RAISE EXCEPTION 'full name is required' USING ERRCODE = 'MS400'; END IF;
   IF v_email = '' OR position('@' in v_email) = 0 THEN RAISE EXCEPTION 'a valid email is required' USING ERRCODE = 'MS400'; END IF;
   IF p_shift NOT IN ('Day', 'Night', 'Mid', 'Variable') THEN RAISE EXCEPTION 'shift must be Day, Night, Mid, or Variable' USING ERRCODE = 'MS400'; END IF;
+
+  v_fp := md5(concat_ws('|', 'create_preceptor', p_actor_profile_id, v_email,
+                        lower(btrim(p_full_name)), p_unit_key, p_shift, coalesce(p_phone, '')));
+  v_claim := public._preceptor_begin_request(p_request_id, p_actor_profile_id, 'create_unit_preceptor', v_fp);
+  IF NOT (v_claim->>'claimed')::boolean THEN
+    RETURN v_claim->'result';
+  END IF;
 
   SELECT u.id INTO v_unit_id FROM public.units u WHERE u.unit_name = p_unit_key LIMIT 1;
   IF v_unit_id IS NULL THEN RAISE EXCEPTION 'unit not found' USING ERRCODE = 'MS400'; END IF;
@@ -609,20 +797,22 @@ BEGIN
     RAISE EXCEPTION 'a preceptor with this email already exists' USING ERRCODE = 'MS409';
   END;
 
-  v_corr := 'preceptor_created:' || v_new_id::text;
+  v_corr := 'preceptor_created:' || p_request_id;
 
   INSERT INTO public.preceptor_assignment_events
     (actor_profile_id, actor_role, action, preceptor_id, unit_key, new_value, correlation_id, request_id, metadata)
   VALUES
-    (p_actor_profile_id, v_role, 'create_preceptor', v_new_id, p_unit_key, v_new_id::text, v_corr, p_request_id,
-     jsonb_build_object('full_name', btrim(p_full_name), 'email', v_email, 'shift', p_shift));
+    (p_actor_profile_id, v_role, 'create_preceptor', v_new_id, p_unit_key, btrim(p_full_name), v_corr, p_request_id,
+     jsonb_build_object('preceptor_id', v_new_id, 'full_name', btrim(p_full_name), 'email', v_email, 'shift', p_shift));
 
   PERFORM public._emit_staff_notifications(
     v_corr, 'preceptor_created', p_actor_profile_id, v_role,
     'New preceptor created' || (CASE WHEN v_role = 'unit_leader' THEN ' by a Unit Leader (review)' ELSE '' END),
-    NULL, v_new_id, p_unit_key, NULL, NULL, v_new_id::text, NULL, false, '/preceptors/' || v_new_id::text);
+    NULL, v_new_id, p_unit_key, NULL, NULL, btrim(p_full_name), NULL, false, '/rotation/preceptors');
 
-  RETURN jsonb_build_object('ok', true, 'preceptor_id', v_new_id, 'created_by_role', v_role);
+  v_result := jsonb_build_object('ok', true, 'preceptor_id', v_new_id, 'created_by_role', v_role);
+  PERFORM public._preceptor_finish_request(p_request_id, v_result);
+  RETURN v_result;
 END;
 $fn$;
 REVOKE ALL ON FUNCTION public.create_unit_preceptor(uuid, text, text, text, text, text, text) FROM PUBLIC, anon, authenticated;

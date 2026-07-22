@@ -20,7 +20,7 @@ WHERE tgrelid = 'public.students'::regclass AND tgname = 'trg_sync_primary_prece
 SELECT tgname FROM pg_trigger
 WHERE tgrelid = 'public.students'::regclass AND tgname = 'trg_guard_students_preceptor_id';
 SELECT tablename FROM pg_tables
-WHERE schemaname = 'public' AND tablename IN ('preceptor_assignment_events', 'staff_notifications');
+WHERE schemaname = 'public' AND tablename IN ('preceptor_assignment_events', 'staff_notifications', 'preceptor_assignment_requests');
 
 -- B3. Baseline: preceptors has no provenance columns yet. Expect ZERO rows.
 SELECT column_name FROM information_schema.columns
@@ -62,11 +62,11 @@ SELECT 'mark_staff_notifications_read' AS fn,
 --     staff_notifications has one SELECT policy (own-or-admin) and NO client write policy.
 SELECT tablename, policyname, cmd
 FROM pg_policies
-WHERE schemaname = 'public' AND tablename IN ('preceptor_assignment_events', 'staff_notifications')
+WHERE schemaname = 'public' AND tablename IN ('preceptor_assignment_events', 'staff_notifications', 'preceptor_assignment_requests')
 ORDER BY tablename, cmd;
 SELECT c.relname, c.relrowsecurity AS rls_enabled
 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-WHERE n.nspname = 'public' AND c.relname IN ('preceptor_assignment_events', 'staff_notifications');
+WHERE n.nspname = 'public' AND c.relname IN ('preceptor_assignment_events', 'staff_notifications', 'preceptor_assignment_requests');
 
 -- A4. preceptors gained the provenance columns.
 SELECT column_name, data_type, is_nullable
@@ -101,12 +101,41 @@ WHERE n.nspname = 'public' AND t.relname = 'preceptors'
   AND pg_get_indexdef(ix.indexrelid) ILIKE '%lower(%trim%(email%';
 -- Expect: preceptors_email_lower_unique_idx | t | t | ...lower(trim(email))...WHERE...
 
--- A6. Behavioral smoke (OPTIONAL; run only in a scratch transaction and ROLLBACK):
+-- A9. Idempotency ledger present: RLS enabled, ONE owner/admin SELECT policy, NO client write
+--     policy; and the two internal helpers exist but are NOT executable by anon/authenticated.
+SELECT has_table_privilege('authenticated', 'public.preceptor_assignment_requests', 'INSERT') AS authenticated_insert; -- expect false
+SELECT p.proname, p.prosecdef AS security_definer,
+  has_function_privilege('authenticated', 'public._preceptor_begin_request(text,uuid,text,text)', 'EXECUTE') AS begin_authenticated_can,
+  has_function_privilege('authenticated', 'public._preceptor_finish_request(text,jsonb)', 'EXECUTE')          AS finish_authenticated_can
+FROM pg_proc p WHERE p.proname IN ('_preceptor_begin_request', '_preceptor_finish_request')
+ORDER BY p.proname;
+-- Expect: authenticated_insert=false; both helpers prosecdef=true; begin/finish authenticated_can=false.
+
+-- A6. Guard smoke test (REAL; scratch transaction; ROLLBACK). Picks a student and a DIFFERENT
+--     active preceptor than the student's current primary, then attempts an UNAUTHORIZED direct
+--     client UPDATE as role authenticated (auth.uid() is NULL, so is_active_owner_or_admin() is
+--     false and no per-row marker is set). Because the target preceptor DIFFERS from the current
+--     one, the guard's change-detection fires and MUST raise MS403. Uses a genuinely different
+--     preceptor id (not the no-op self-assignment). ROLL BACK regardless.
 -- BEGIN;
---   SET LOCAL ROLE authenticated;   -- auth.uid() is NULL, so is_active_owner_or_admin() = false
---   UPDATE public.students SET preceptor_id = preceptor_id WHERE id = (SELECT id FROM public.students LIMIT 1);
---   -- expect: ERROR MS403 (guarded)
+--   SET LOCAL ROLE authenticated;
+--   WITH tgt AS (
+--     SELECT s.id AS student_id,
+--            (SELECT p.id FROM public.preceptors p
+--               WHERE p.is_active IS TRUE AND p.id IS DISTINCT FROM s.preceptor_id
+--               ORDER BY p.id LIMIT 1) AS other_preceptor
+--     FROM public.students s
+--     WHERE EXISTS (SELECT 1 FROM public.preceptors p2
+--                   WHERE p2.is_active IS TRUE AND p2.id IS DISTINCT FROM s.preceptor_id)
+--     ORDER BY s.id LIMIT 1
+--   )
+--   UPDATE public.students s SET preceptor_id = t.other_preceptor
+--   FROM tgt t WHERE s.id = t.student_id;
+--   -- EXPECT: ERROR 'preceptor_id may only be changed ...' USING ERRCODE = 'MS403'
 -- ROLLBACK;
+-- Fixture note: if the dataset has no active preceptor distinct from a chosen student's current
+-- primary, substitute a known student id and any active preceptor id that is not currently their
+-- primary; the assertion (MS403) is unchanged.
 
 
 -- ############################################################################
@@ -119,10 +148,13 @@ WHERE n.nspname = 'public' AND t.relname = 'preceptors'
 --   DROP FUNCTION IF EXISTS public.set_secondary_coverage_preceptor(uuid, uuid, text, text, uuid, uuid, text, text, boolean, boolean, text);
 --   DROP FUNCTION IF EXISTS public.create_unit_preceptor(uuid, text, text, text, text, text, text);
 --   DROP FUNCTION IF EXISTS public._preceptor_assert_actor_for_student(uuid, uuid, text, boolean, boolean);
+--   DROP FUNCTION IF EXISTS public._preceptor_begin_request(text, uuid, text, text);
+--   DROP FUNCTION IF EXISTS public._preceptor_finish_request(text, jsonb);
 --   DROP FUNCTION IF EXISTS public._emit_staff_notifications(text, text, uuid, text, text, uuid, uuid, text, text, text, text, text, boolean, text);
 --   DROP FUNCTION IF EXISTS public.claim_due_staff_notifications(text, integer, integer);
 --   DROP FUNCTION IF EXISTS public.mark_staff_notifications_read(uuid[]);
 --   DROP TABLE IF EXISTS public.staff_notifications;
+--   DROP TABLE IF EXISTS public.preceptor_assignment_requests;
 --   DROP TABLE IF EXISTS public.preceptor_assignment_events;
 --   ALTER TABLE public.preceptors DROP COLUMN IF EXISTS created_by_role;
 --   ALTER TABLE public.preceptors DROP COLUMN IF EXISTS created_by;

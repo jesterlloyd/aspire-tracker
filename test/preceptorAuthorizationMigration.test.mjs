@@ -96,12 +96,14 @@ test('a UL-created preceptor must be under a unit in the UL scope', () => {
   assert.match(fn, /user_unit_scopes s[\s\S]{0,140}s\.unit_key = p_unit_key/)
 })
 
-// ── Secondary/Coverage never touch primary; ppm3 dedup ──────────────────────
+// ── Secondary/Coverage never touch primary; targeted replace/end; ppm3 dedup ─
 test('secondary/coverage writes canonical assignments, never primary, dedup to MS409', () => {
   const fn = live.slice(live.indexOf('FUNCTION public.set_secondary_coverage_preceptor'), live.indexOf('FUNCTION public.create_unit_preceptor'))
-  assert.match(fn, /a\.role IN \('secondary', 'coverage'\)/)
+  assert.match(fn, /p_role NOT IN \('secondary', 'coverage'\)/)  // only secondary/coverage roles
   assert.match(fn, /INSERT INTO public\.student_preceptor_assignments/)
   assert.match(fn, /EXCEPTION WHEN unique_violation THEN\s*\n\s*RAISE EXCEPTION[\s\S]{0,160}MS409/)
+  // It NEVER writes students.preceptor_id (that is the primary RPC's job).
+  assert.ok(!/UPDATE public\.students SET preceptor_id/.test(fn), 'set_secondary never touches primary')
 })
 
 // ── Notification: unified in-app + email, fan-out excludes actor, idempotent ─
