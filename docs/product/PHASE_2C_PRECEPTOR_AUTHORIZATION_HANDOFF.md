@@ -239,16 +239,29 @@ one else) is preserved.
 
 1. Owner SQL gate: both migrations are GATED and must be applied manually by the Owner in the
    order in Section 6 / the checklist below. Nothing here applies them.
-2. `preceptors` UNIQUE on `lower(btrim(email))`: `create_unit_preceptor` dedups by normalized
-   email in application logic and catches `unique_violation`. If the `preceptors` table has no
-   unique index on the normalized email, two concurrent creations could still both insert. Confirm
-   whether such an index exists; if not, it is a follow-up (out of scope for this gated pass).
-3. `CRON_SECRET` and Resend env: the worker cron requires `CRON_SECRET` and the Resend key to be
-   present in the deployment (same as the messages worker). Confirm both are set before the cron
-   runs.
-4. In-app surface: `mark_staff_notifications_read` and the `staff_notifications` SELECT policy are
-   ready, but no staff in-app notification UI is built in this pass. The email path is fully
-   runnable; the in-app cards are a future UI task.
+2. `preceptors` normalized-email uniqueness: RESOLVED. The partial unique index
+   `preceptors_email_lower_unique_idx ON public.preceptors (lower(trim(email))) WHERE email IS NOT
+   NULL AND trim(email) <> ''` already enforces it (authored in the root-level
+   `migration_preceptor_schema_v2.sql`), and `create_unit_preceptor`'s `lower(btrim(email))` matches
+   that expression exactly (`btrim` = `trim`), so concurrent duplicate creation is impossible (the
+   second insert hits the index, raises `unique_violation`, mapped to MS409). Because that index
+   lives outside `supabase/migrations/`, its presence must be confirmed in the target DB:
+   `db/audit/preceptor_email_uniqueness_preflight.sql` reports it plus any duplicate/blank rows, and
+   Phase 2C after-verification now includes block A8 asserting the index exists. No new migration is
+   required unless A8/the preflight shows the index absent.
+3. `CRON_SECRET` and Resend env: the worker cron requires `CRON_SECRET` and `RESEND_API_KEY` (plus
+   `SUPABASE_SERVICE_ROLE_KEY`/`SUPABASE_URL`), the SAME variables the already-deployed
+   `messages-delivery-worker` cron uses. They are present in the Vercel-pulled environment. Both
+   cron routes are registered in `vercel.json`. The envelope sender is `MESSAGE_FROM`
+   (`noreply@aspire-program.com`) with reply-to `aspire@cshs.org`, the established verified identity;
+   the worker inherits it (no new sender). Email links use the canonical `appUrl()` helper.
+4. In-app surface: PENDING A PLACEMENT DECISION. `mark_staff_notifications_read` and the
+   `staff_notifications` SELECT policy are ready (the RPC is already granted to `authenticated`), but
+   the staff app has NO existing surface that reads `staff_notifications` (the header bell is the
+   derived-task "Action Center", not a stored-notification reader). Per the task constraint, the
+   placement is not chosen independently; two options are presented to Jester (fold into the Action
+   Center bell, or a dedicated notifications bell in `HeaderActions.jsx`). The email path is fully
+   runnable regardless.
 5. UL assignment UI stays disabled until explicitly approved.
 
 ---

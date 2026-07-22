@@ -22,6 +22,7 @@ const ulEp    = read('api/portal/unit-preceptor-manage.js')
 const staffEp = read('api/preceptor-primary-assign.js')
 const modal   = read('src/components/PreceptorAssignmentModal.jsx')
 const worker  = read('lib/server/staffNotifications/deliveryService.js')
+const emailC  = read('lib/server/staffNotifications/emailContent.js')
 const cron    = read('api/cron/staff-notification-worker.js')
 const vercel  = read('vercel.json')
 
@@ -177,7 +178,15 @@ test('the cron endpoint is CRON_SECRET-gated and registered in vercel.json', () 
   assert.match(vercel, /\/api\/cron\/staff-notification-worker/)
 })
 
-test('no em dash in the migration, verification, endpoints, worker, or cron', () => {
+test('the email builder uses the canonical appUrl helper, not a hardcoded /app.html# base', () => {
+  assert.match(emailC, /import \{ appUrl \} from '\.\.\/appUrl\.js'/)
+  assert.match(emailC, /appUrl\(destUrl \|\| ''\)/)
+  assert.ok(!emailC.includes('app.html#'), 'no hardcoded /app.html# hash base')
+  // The link host, when present as a literal, is the canonical domain (the helper enforces it).
+  assert.ok(!/https?:\/\/(?!aspireintelligence\.app)/.test(emailC), 'no non-canonical hardcoded host')
+})
+
+test('no em dash in the migration, verification, endpoints, worker, email builder, or cron', () => {
   const emDash = String.fromCharCode(0x2014)
-  for (const src of [mig, ver, ulEp, staffEp, worker, cron]) assert.ok(!src.includes(emDash), 'no em dash')
+  for (const src of [mig, ver, ulEp, staffEp, worker, emailC, cron]) assert.ok(!src.includes(emDash), 'no em dash')
 })

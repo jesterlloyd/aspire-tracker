@@ -83,6 +83,24 @@ WHERE schemaname = 'public'
   AND tablename IN ('students', 'student_preceptor_assignments', 'preceptors', 'matches')
 ORDER BY tablename, policyname;
 
+-- A8. Preceptor email uniqueness (the guarantee create_unit_preceptor's dedup relies on). Expect
+--     ONE row: a UNIQUE, PARTIAL index on a normalized email expression (lower(trim(email))),
+--     matching the RPC's lower(btrim(email)). If this returns ZERO rows, STOP and run
+--     db/audit/preceptor_email_uniqueness_preflight.sql before enabling Unit Leader preceptor
+--     creation (concurrent duplicate creation would otherwise be possible).
+SELECT i.relname AS index_name,
+       ix.indisunique AS is_unique,
+       (ix.indpred IS NOT NULL) AS is_partial,
+       pg_get_indexdef(ix.indexrelid) AS definition
+FROM pg_index ix
+JOIN pg_class i ON i.oid = ix.indexrelid
+JOIN pg_class t ON t.oid = ix.indrelid
+JOIN pg_namespace n ON n.oid = t.relnamespace
+WHERE n.nspname = 'public' AND t.relname = 'preceptors'
+  AND ix.indisunique
+  AND pg_get_indexdef(ix.indexrelid) ILIKE '%lower(%trim%(email%';
+-- Expect: preceptors_email_lower_unique_idx | t | t | ...lower(trim(email))...WHERE...
+
 -- A6. Behavioral smoke (OPTIONAL; run only in a scratch transaction and ROLLBACK):
 -- BEGIN;
 --   SET LOCAL ROLE authenticated;   -- auth.uid() is NULL, so is_active_owner_or_admin() = false
