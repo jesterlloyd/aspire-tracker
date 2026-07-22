@@ -76,6 +76,13 @@ export const getCapacity = (unitKey, signal) =>
 export const submitCapacity = (payload) =>
   apiFetch('/api/portal/unit-capacity', { method: 'POST', body: payload })
 
+// Canonical unit-availability submission: the portal counterpart of the public
+// /unit-form. Writes units + unit_cohort_responses through the same server helper, so a
+// Unit Leader's response appears in the staff At a Glance -> Placement Capacity view. The
+// server derives the submitter name and email from the profile, so the body carries none.
+export const submitParticipation = (body) =>
+  apiFetch('/api/portal/unit-participation-submit', { method: 'POST', body })
+
 export const getMilestones = (unitKey, signal) =>
   apiFetch(`/api/portal/unit-milestones${unitQuery(unitKey)}`, { signal })
 

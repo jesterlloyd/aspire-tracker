@@ -32,6 +32,7 @@ import {
   getStudentDetail, getMilestones, getStudentFileUrl,
 } from './unitLeaderApi'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from './UnitLeaderChrome'
+import PreceptorList from './PreceptorList'
 import { peekStudentPhotoUrl, resolveStudentPhotoUrl, invalidateStudentPhoto } from '../../lib/studentPhotoCache'
 import { ulPhotoKey } from './useUnitStudentPhotos'
 import { stageToken } from './unitStageTokens'
@@ -323,7 +324,7 @@ export default function StudentDetailDrawer({ student, onClose, returnFocusRef }
                     ? `${fmtDate(d.rotation.start)} to ${fmtDate(d.rotation.end)}`
                     : EMPTY}
                 </Field>
-                <Field label="Shift">{orDash(d.shift)}</Field>
+                <Field label="Shift">{d.shift || 'Not assigned'}</Field>
                 <Field label="Hours">
                   {/* UL-POLISH P2: the same mini progress bar the roster uses,
                       with the exact numbers always in text. */}
@@ -346,7 +347,10 @@ export default function StudentDetailDrawer({ student, onClose, returnFocusRef }
                     ? `, most recent ${fmtDate(d.attendance.most_recent_shift)}`
                     : ''}
                 </Field>
-                <Field label="Preceptor">{orDash(d.preceptor_name)}</Field>
+                <Field label="Preceptor(s)">
+                  <PreceptorList assignments={d.preceptors} fallbackName={d.preceptor_name}
+                    formatDate={fmtDate} empty={EMPTY} />
+                </Field>
                 <Field label="Work or school email"><ContactLink value={d.school_email} /></Field>
                 <Field label="Personal email"><ContactLink value={d.personal_email} /></Field>
                 <Field label="Phone"><ContactLink kind="phone" value={d.phone} /></Field>

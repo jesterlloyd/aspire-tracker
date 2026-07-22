@@ -49,8 +49,9 @@ test('the row shows the required fields and a colored status pill', () => {
   const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function PreceptorScreen'))
   assert.match(row, /studentName\(s\)/)
   assert.match(row, /orDash\(s\.school\)/)
-  assert.match(row, /orDash\(s\.preceptor_name\)/)
-  assert.match(row, /orDash\(s\.shift\)/)
+  // Preceptor(s) column (all active assignments) and the deployed-shift fallback.
+  assert.match(row, /<PreceptorList assignments=\{s\.preceptors\}/)
+  assert.match(row, /\{s\.shift \|\| 'Not assigned'\}/)
   assert.match(row, /orDash\(s\.cohort\?\.name\)/)
   assert.match(row, /<HoursCell/)
   assert.match(row, /const status = statusToken\(s\.status\)/)

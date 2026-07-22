@@ -126,15 +126,17 @@ test('the student table has exactly the approved columns', () => {
   // render tables with their own headers.
   const roster0 = portalCode.slice(portalCode.indexOf('function StudentRoster'), portalCode.indexOf('function StudentRow'))
   const head = roster0.slice(roster0.indexOf('<thead>'), roster0.indexOf('</thead>'))
-  for (const col of ['Student', 'ASPIRE status', 'Primary preceptor', 'Shift', 'Rotation', 'Cohort', 'Hours']) {
+  // The preceptor column is now Preceptor(s), showing every active assignment.
+  for (const col of ['Student', 'ASPIRE status', 'Preceptor(s)', 'Shift', 'Rotation', 'Cohort', 'Hours']) {
     assert.ok(head.includes(`>${col}<`), `the table must have a ${col} column`)
   }
   // The row renders each column from roster data.
   const row = portalCode.slice(portalCode.indexOf('function StudentRow'), portalCode.indexOf('function PreceptorScreen'))
   assert.match(row, /<UnitStudentAvatar/)
   assert.match(row, /statusToken\(s\.status\)/)
-  assert.match(row, /orDash\(s\.preceptor_name\)/)
-  assert.match(row, /orDash\(s\.shift\)/)
+  assert.match(row, /<PreceptorList assignments=\{s\.preceptors\}/)
+  // Deployed shift with a clear Not assigned fallback (never a preference).
+  assert.match(row, /\{s\.shift \|\| 'Not assigned'\}/)
   assert.match(row, /s\.rotation \?/)
   assert.match(row, /orDash\(s\.cohort\?\.name\)/)
   assert.match(row, /<HoursCell hours=\{s\.hours\}/)
@@ -155,7 +157,8 @@ test('the deep link and safe drawer are preserved', () => {
 })
 
 test('the roster returns shift and rotation window, both approved fields', () => {
-  assert.match(roster, /shift: s\.shift_availability \|\| null/)
+  // Shift is now the DEPLOYED shift (primary preceptor's shift_type), never the preference.
+  assert.match(roster, /shift: normalizeAssignedShift\(primaryShiftByStudent\[s\.id\]\) \|\| null/)
   assert.match(roster, /rotation: rotationById\[s\.cohort_school_rotation_id\] \|\| null/)
   // Rotation dates come from the canonical table, sentinel resolved to null.
   assert.match(roster, /const ROTATION_SENTINEL = '1900-01-01'/)
@@ -181,8 +184,10 @@ test('Notification preferences still lives in Profile', () => {
 // ── 7. Load waterfall ───────────────────────────────────────────────────────
 test('the independent Home requests are separate parallel useEndpoint calls', () => {
   const home = portalCode.slice(portalCode.indexOf('function HomeScreen'), portalCode.indexOf('function BucketCard'))
-  // Each is its own useEndpoint, so they fan out in parallel, none chained on another.
-  for (const call of ['getPlacementRequests', 'getCapacity', 'getNotifications', 'getShiftActivity']) {
+  // Each is its own useEndpoint, so they fan out in parallel, none chained on another. The
+  // Home capacity fetch was dropped: capacity is now the canonical model, which the portal
+  // does not read back, so Home no longer queries the old unit_capacity_submissions summary.
+  for (const call of ['getPlacementRequests', 'getNotifications', 'getShiftActivity']) {
     assert.match(home, new RegExp(`useEndpoint\\([^)]*${call}`), `${call} is an independent endpoint`)
   }
 })

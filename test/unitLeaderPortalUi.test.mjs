@@ -106,7 +106,9 @@ test('denied is DISTINCT from empty, because they are different facts', () => {
 })
 
 test('every screen handles loading and error, not just the happy path', () => {
-  for (const screen of ['PlacementScreen', 'CapacityScreen', 'PreceptorScreen']) {
+  // SUPERSEDED: CapacityScreen is now the canonical unit-availability SUBMIT form (like
+  // /unit-form); it loads no prior rows, so it has no loading/error/empty table states.
+  for (const screen of ['PlacementScreen', 'PreceptorScreen']) {
     const body = portal.slice(portal.indexOf(`function ${screen}`))
     const scoped = body.slice(0, body.indexOf('\n// ──') === -1 ? body.length : body.indexOf('\n// ──'))
     // UL-POLISH P2: table screens load with a shimmer skeleton (which carries
@@ -150,8 +152,10 @@ test('tables are labelled with captions and column scopes', () => {
   // SUPERSEDED: the stage filters were removed in the UX-cleanup pass, so the pressed-
   // state and filter-group assertions are gone. The student table returned (with its own
   // caption), so every table including the roster is captioned.
+  // The canonical Capacity form replaced the old capacity table, so its caption is gone;
+  // the remaining tables (roster, placements, preceptors) stay captioned.
   const captions = (portal.match(/<caption className="ptl-visually-hidden">/g) || []).length
-  assert.ok(captions >= 4, `every table needs a caption, saw ${captions}`)
+  assert.ok(captions >= 3, `every table needs a caption, saw ${captions}`)
   assert.match(portal, /scope="col"/)
   assert.ok(!portal.includes('Filter students by stage'), 'the stage filter control is gone')
 })

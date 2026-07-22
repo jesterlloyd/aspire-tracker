@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import { firstNameOf } from '../lib/masthead'
 import StudentActionsMenu from './unit/StudentActionsMenu'
+import PreceptorList from './unit/PreceptorList'
 import StudentDetailDrawer from './unit/StudentDetailDrawer'
 import UnitRotationCalendar from './unit/UnitRotationCalendar'
 import UnitShiftDayDrawer from './unit/UnitShiftDayDrawer'
@@ -33,10 +34,16 @@ import {
 import {
   ALL_UNITS, EMPTY, orDash, studentName, sentenceCase, BUCKET_LABEL, ASPIRE_AUTHORITY_NOTE,
   getRoster, getPlacementRequests, respondToPlacement,
-  getCapacity, submitCapacity, getNominations, nominatePreceptor,
+  submitParticipation, getNominations, nominatePreceptor,
   startUnitConversation,
   getNotifications, setNotificationPreference, getShiftActivity,
 } from './unit/unitLeaderApi'
+import {
+  SUBMITTER_ROLES, SHIFT_PREFERENCE_OPTIONS, ALUMNI_HIRED_OPTIONS,
+  ALUMNI_OUTCOME_OPTIONS, WOULD_CONSIDER_OPTIONS, PARTICIPATION_TEXT,
+  emptyParticipation, isHostingParticipation, validateParticipation,
+  participationReady, buildParticipationBody,
+} from '../lib/unitParticipationForm'
 
 /** A local clock time from an ISO timestamp, for check-in and check-out display. */
 function fmtClock(iso) {
@@ -170,7 +177,6 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
 // ── Home: the locked priority order, now with hierarchy ─────────────────────
 function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate, onOpenThread }) {
   const placements = useEndpoint(s => getPlacementRequests(unitKey, s), [unitKey])
-  const capacity = useEndpoint(s => getCapacity(unitKey, s), [unitKey])
   // The in-app feed is DERIVED server side from the caller's own authorized rows,
   // so Home and the feed can never disagree.
   const alerts = useEndpoint(s => getNotifications(unitKey, s), [unitKey])
@@ -184,7 +190,6 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate
   const openRequests = (placements.data?.requests || []).filter(r => r.aspire_status === 'open')
   const supportFlags = students.filter(s => s.support?.open_count > 0)
   const notifications = alerts.data?.notifications || []
-  const liveCapacity = (capacity.data?.submissions || []).filter(c => c.is_live)
   const shifts = activity.data?.shifts || []
   // A student currently checked in is the single most time-sensitive thing on this
   // screen, so it is promoted into the attention list rather than left to the grid.
@@ -277,13 +282,15 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate
 
           <section className="ptl-card" aria-labelledby="ul-cap">
             <h3 id="ul-cap" className="ptl-card-title">Capacity and placement</h3>
-            {capacity.loading || placements.loading ? (
-              <LoadingState label="Loading capacity and placement" />
+            {placements.loading ? (
+              <LoadingState label="Loading placement requests" />
             ) : (
               <div className="ptl-ulstat-row">
-                <button type="button" className="ptl-ulstat" onClick={() => onNavigate?.('capacity')}>
-                  <span className="ptl-ulstat-num">{liveCapacity.length}</span>
-                  <span className="ptl-ulstat-label">live capacity submission{liveCapacity.length === 1 ? '' : 's'}</span>
+                {/* Capacity is the canonical unit-availability form, submitted for ASPIRE's
+                    At a Glance view; the portal does not read that model back, so this is a
+                    call to action rather than a count. */}
+                <button type="button" className="ptl-ulstat ptl-ulstat-cta" onClick={() => onNavigate?.('capacity')}>
+                  <span className="ptl-ulstat-label">Submit unit availability</span>
                 </button>
                 <button type="button" className="ptl-ulstat" onClick={() => onNavigate?.('placements')}>
                   <span className="ptl-ulstat-num">{openRequests.length}</span>
@@ -489,119 +496,237 @@ function PlacementRow({ r, busy, now, editorOpen, changing, onStartChanging, onS
 }
 
 // ── Capacity ────────────────────────────────────────────────────────────────
+/**
+ * The canonical Unit Availability form, the portal counterpart of the public /unit-form.
+ * It uses the SAME shared definition (src/lib/unitParticipationForm.js) for options,
+ * labels, helper text, and validation, and submits through unit-participation-submit,
+ * which writes units + unit_cohort_responses, exactly the model the staff "At a Glance ->
+ * Placement Capacity" panel reads. So a Unit Leader response lands where ASPIRE reviews it.
+ *
+ * Identity comes from the authenticated profile server side (no name/email fields). The
+ * unit is prefilled and locked for a single-unit leader, and a picker restricted to
+ * assigned units for a multi-unit leader; the endpoint independently rejects any unit
+ * outside the caller's active scope.
+ */
 function CapacityScreen({ unitKey, unitKeys, acceptingCohort }) {
-  const { loading, error, data, refresh } = useEndpoint(s => getCapacity(unitKey, s), [unitKey])
-  const [form, setForm] = useState({ unit_key: '', period_label: '', shift: 'any', student_count: 0, notes: '' })
+  const assignedUnits = unitKeys || []
+  const singleUnit = assignedUnits.length === 1
+  const initialUnit = singleUnit
+    ? assignedUnits[0]
+    : (unitKey && unitKey !== ALL_UNITS ? unitKey : '')
+
+  const [form, setForm] = useState(() => ({ ...emptyParticipation(), unit_name: initialUnit }))
   const [notice, setNotice] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
 
-  const rows = data?.submissions || []
-  // Server-resolved, so the FIRST submission for a unit works. Falling back to an
-  // existing row only helps a unit that has already submitted, which is exactly the
-  // case that did not need help.
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const cohortId = acceptingCohort?.id || null
+  const hosting = isHostingParticipation(form)
 
-  const save = async (e) => {
+  const submit = async (e) => {
     e.preventDefault()
+    setNotice(null)
     if (!cohortId) {
-      setNotice({ tone: 'error', text: 'ASPIRE has not opened a cohort for submissions yet. Capacity can be submitted once one is open.' })
+      setNotice({ tone: 'error', text: 'ASPIRE has not opened a cohort for submissions yet. Availability can be submitted once one is open.' })
       return
     }
+    const invalid = validateParticipation(form, { requireIdentity: false })
+    if (invalid) { setNotice({ tone: 'error', text: invalid }); return }
     setSaving(true)
-    const res = await submitCapacity({
-      unit_key: form.unit_key || (unitKey !== ALL_UNITS ? unitKey : unitKeys[0]),
-      cohort_id: cohortId,
-      period_label: form.period_label,
-      shift: form.shift,
-      student_count: Number(form.student_count),
-      notes: form.notes,
-    })
+    const res = await submitParticipation(buildParticipationBody(form, { includeIdentity: false }))
     setSaving(false)
-    const summaryUnit = form.unit_key || (unitKey !== ALL_UNITS ? unitKey : unitKeys[0])
-    setNotice(res.ok
-      ? { tone: 'ok', text: `Capacity recorded for ${summaryUnit}: ${form.period_label}, ${form.shift} shift, ${Number(form.student_count)} student${Number(form.student_count) === 1 ? '' : 's'}. ASPIRE reviews it before it takes effect.` }
-      : { tone: 'error', text: res.error === 'conflict' ? 'A live submission already exists for that period and shift.' : 'That submission could not be saved.' })
-    if (res.ok) { refresh(); setForm(f => ({ ...f, period_label: '', student_count: 0, notes: '' })) }
+    if (res.ok) { setSubmitted(true); return }
+    setNotice({
+      tone: 'error',
+      text: res.status === 403
+        ? 'That unit is not in your access scope.'
+        : (res.message || 'That response could not be saved.'),
+    })
   }
 
-  if (loading) return <TableSkeleton label="Loading capacity" />
-  if (error) return <ErrorState detail="Capacity could not be loaded." onRetry={refresh} />
+  if (submitted) {
+    return (
+      <>
+        <SectionHeading focusKey="capacity">Placement capacity</SectionHeading>
+        <div className="ptl-card">
+          <h3 className="ptl-card-title">Thank you, {form.unit_name}.</h3>
+          <p className="ptl-muted">
+            Your unit availability for {acceptingCohort?.name || 'this cohort'} was recorded. It
+            now appears in the ASPIRE team's At a Glance placement capacity view.
+          </p>
+          <p>
+            <button type="button" className="ptl-btn" onClick={() => {
+              setSubmitted(false)
+              setForm({ ...emptyParticipation(), unit_name: initialUnit })
+            }}>
+              Submit another response
+            </button>
+          </p>
+        </div>
+      </>
+    )
+  }
+
+  const ready = participationReady(form, { requireIdentity: false })
 
   return (
     <>
-      <SectionHeading focusKey="capacity">Capacity</SectionHeading>
+      <SectionHeading focusKey="capacity">Placement capacity</SectionHeading>
       {notice && <p className={`ptl-notice ptl-notice-${notice.tone}`} role="status">{notice.text}</p>}
 
-      <form className="ptl-card ptl-unit-form" onSubmit={save}>
-        <h3 className="ptl-card-title">Submit capacity</h3>
+      <form className="ptl-card ptl-unit-form" onSubmit={submit}>
+        <h3 className="ptl-card-title">Unit availability</h3>
+        <p className="ptl-muted">Cohort: {acceptingCohort?.name ? acceptingCohort.name : EMPTY}</p>
         <p className="ptl-muted">
-          Cohort: {acceptingCohort?.name ? acceptingCohort.name : EMPTY}
+          This is the same unit availability form the ASPIRE team reviews in At a Glance.
         </p>
+
         <div className="ptl-form-grid">
           <div className="ptl-field">
-            <label className="ptl-label" htmlFor="cap-unit">Unit</label>
-            <select id="cap-unit" className="ptl-input ptl-input-full" value={form.unit_key || (unitKey !== ALL_UNITS ? unitKey : unitKeys[0])}
-              onChange={e => setForm(f => ({ ...f, unit_key: e.target.value }))}>
-              {unitKeys.map(k => <option key={k} value={k}>{k}</option>)}
+            <label className="ptl-label" htmlFor="cap-unit">{PARTICIPATION_TEXT.unitLabel}</label>
+            {/* One assigned unit: prefilled and LOCKED (disabled). Several: a picker
+                restricted to the caller's assigned units. The endpoint independently
+                rejects any unit outside the caller's active scope either way. */}
+            <select id="cap-unit" className="ptl-input ptl-input-full" value={form.unit_name} required
+              disabled={singleUnit} aria-disabled={singleUnit}
+              onChange={e => set('unit_name', e.target.value)}>
+              {!singleUnit && <option value="">Select your assigned unit…</option>}
+              {assignedUnits.map(k => <option key={k} value={k}>{k}</option>)}
             </select>
           </div>
+
           <div className="ptl-field">
-            <label className="ptl-label" htmlFor="cap-shift">Shift</label>
-            <select id="cap-shift" className="ptl-input ptl-input-full" value={form.shift}
-              onChange={e => setForm(f => ({ ...f, shift: e.target.value }))}>
-              {['any', 'day', 'evening', 'night', 'weekend'].map(s => <option key={s} value={s}>{s}</option>)}
+            <label className="ptl-label" htmlFor="cap-role">{PARTICIPATION_TEXT.roleLabel}</label>
+            <select id="cap-role" className="ptl-input ptl-input-full" value={form.submitter_role} required
+              onChange={e => set('submitter_role', e.target.value)}>
+              <option value="">{PARTICIPATION_TEXT.rolePlaceholder}</option>
+              {SUBMITTER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
-          <div className="ptl-field">
-            <label className="ptl-label" htmlFor="cap-period">Rotation period</label>
-            <input id="cap-period" className="ptl-input ptl-input-full" required maxLength={120} value={form.period_label}
-              onChange={e => setForm(f => ({ ...f, period_label: e.target.value }))} />
-            <p className="ptl-field-help">For example, Fall 2026 first half.</p>
-          </div>
-          <div className="ptl-field">
-            <label className="ptl-label" htmlFor="cap-count">Number of students</label>
-            <input id="cap-count" className="ptl-input ptl-input-full" type="number" min={0} max={99} required value={form.student_count}
-              onChange={e => setForm(f => ({ ...f, student_count: e.target.value }))} />
-            <p className="ptl-field-help">How many students this unit can host for the period and shift.</p>
-          </div>
+
           <div className="ptl-field ptl-field-wide">
-            <label className="ptl-label" htmlFor="cap-notes">Notes</label>
-            <textarea id="cap-notes" className="ptl-input ptl-input-full" maxLength={2000} value={form.notes}
-              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+            <label className="ptl-label" htmlFor="cap-slots">{PARTICIPATION_TEXT.slotsLabel}</label>
+            <input id="cap-slots" className="ptl-input ptl-input-full" type="text" inputMode="numeric" pattern="[0-9]*"
+              value={form.slots_offered} placeholder={PARTICIPATION_TEXT.slotsPlaceholder}
+              onChange={e => set('slots_offered', e.target.value)} />
+            <p className="ptl-field-help">{PARTICIPATION_TEXT.slotsHelp}</p>
+          </div>
+
+          {form.slots_offered !== '' && !hosting && (
+            <div className="ptl-field ptl-field-wide">
+              <label className="ptl-label" htmlFor="cap-reason">{PARTICIPATION_TEXT.reasonLabel}</label>
+              <textarea id="cap-reason" className="ptl-input ptl-input-full" rows={3} value={form.reason_for_zero}
+                placeholder={PARTICIPATION_TEXT.reasonPlaceholder}
+                onChange={e => set('reason_for_zero', e.target.value)} />
+            </div>
+          )}
+
+          {hosting && (
+            <>
+              <div className="ptl-field">
+                <label className="ptl-label" htmlFor="cap-shift">{PARTICIPATION_TEXT.shiftLabel}</label>
+                <select id="cap-shift" className="ptl-input ptl-input-full" value={form.shift_preference}
+                  onChange={e => set('shift_preference', e.target.value)}>
+                  <option value="">{PARTICIPATION_TEXT.shiftPlaceholder}</option>
+                  {SHIFT_PREFERENCE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="ptl-field ptl-field-wide">
+                <label className="ptl-label" htmlFor="cap-preceptors">{PARTICIPATION_TEXT.preceptorsLabel}</label>
+                <textarea id="cap-preceptors" className="ptl-input ptl-input-full" rows={3} value={form.preferred_preceptors}
+                  placeholder={PARTICIPATION_TEXT.preceptorsPlaceholder}
+                  onChange={e => set('preferred_preceptors', e.target.value)} />
+              </div>
+            </>
+          )}
+
+          <fieldset className="ptl-field ptl-field-wide ptl-fieldset">
+            <legend className="ptl-label">{PARTICIPATION_TEXT.ngrpLabel}</legend>
+            <div className="ptl-radio-row">
+              <label className="ptl-radio">
+                <input type="radio" name="cap-ngrp" checked={form.hiring_ngrp === true} onChange={() => set('hiring_ngrp', true)} />
+                <span>Yes</span>
+              </label>
+              <label className="ptl-radio">
+                <input type="radio" name="cap-ngrp" checked={form.hiring_ngrp === false} onChange={() => set('hiring_ngrp', false)} />
+                <span>No</span>
+              </label>
+            </div>
+          </fieldset>
+
+          {form.hiring_ngrp === false && (
+            <div className="ptl-field ptl-field-wide">
+              <label className="ptl-label" htmlFor="cap-ngrp-reason">{PARTICIPATION_TEXT.ngrpReasonLabel}</label>
+              <textarea id="cap-ngrp-reason" className="ptl-input ptl-input-full" rows={3} value={form.hiring_ngrp_reason}
+                placeholder={PARTICIPATION_TEXT.ngrpReasonPlaceholder}
+                onChange={e => set('hiring_ngrp_reason', e.target.value)} />
+            </div>
+          )}
+
+          <fieldset className="ptl-field ptl-field-wide ptl-fieldset">
+            <legend className="ptl-label">{PARTICIPATION_TEXT.alumniHiredLabel}</legend>
+            <div className="ptl-radio-row">
+              {ALUMNI_HIRED_OPTIONS.map(([v, l]) => (
+                <label key={v} className="ptl-radio">
+                  <input type="radio" name="cap-alumni" checked={form.has_fired_alumni === v} onChange={() => set('has_fired_alumni', v)} />
+                  <span>{l}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          {form.has_fired_alumni === 'yes' && (
+            <>
+              <fieldset className="ptl-field ptl-field-wide ptl-fieldset">
+                <legend className="ptl-label">{PARTICIPATION_TEXT.alumniOutcomeLabel}</legend>
+                <div className="ptl-radio-row">
+                  {ALUMNI_OUTCOME_OPTIONS.map(([v, l]) => (
+                    <label key={v} className="ptl-radio">
+                      <input type="radio" name="cap-outcome" checked={form.alumni_outcome === v} onChange={() => set('alumni_outcome', v)} />
+                      <span>{l}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <div className="ptl-field ptl-field-wide">
+                <label className="ptl-label" htmlFor="cap-alumni-notes">{PARTICIPATION_TEXT.alumniNotesLabel}</label>
+                <textarea id="cap-alumni-notes" className="ptl-input ptl-input-full" rows={3} value={form.alumni_notes}
+                  placeholder={PARTICIPATION_TEXT.alumniNotesPlaceholder}
+                  onChange={e => set('alumni_notes', e.target.value)} />
+              </div>
+            </>
+          )}
+
+          {form.has_fired_alumni === 'no' && (
+            <fieldset className="ptl-field ptl-field-wide ptl-fieldset">
+              <legend className="ptl-label">{PARTICIPATION_TEXT.wouldConsiderLabel}</legend>
+              <div className="ptl-radio-row">
+                {WOULD_CONSIDER_OPTIONS.map(([v, l]) => (
+                  <label key={v} className="ptl-radio">
+                    <input type="radio" name="cap-consider" checked={form.would_consider_alumni === v} onChange={() => set('would_consider_alumni', v)} />
+                    <span>{l}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+
+          <div className="ptl-field ptl-field-wide">
+            <label className="ptl-label" htmlFor="cap-considerations">{PARTICIPATION_TEXT.considerationsLabel}</label>
+            <textarea id="cap-considerations" className="ptl-input ptl-input-full" rows={3} value={form.considerations}
+              placeholder={PARTICIPATION_TEXT.considerationsPlaceholder}
+              onChange={e => set('considerations', e.target.value)} />
           </div>
         </div>
+
         <div className="ptl-form-submit">
           <p className="ptl-muted">{ASPIRE_AUTHORITY_NOTE}</p>
-          <button type="submit" className="ptl-btn" disabled={saving || !cohortId}>
-            {saving ? 'Submitting' : 'Submit capacity'}
+          <button type="submit" className="ptl-btn" disabled={saving || !cohortId || !ready}>
+            {saving ? 'Submitting' : 'Submit response'}
           </button>
         </div>
       </form>
-
-      {rows.length === 0 ? (
-        <EmptyState title="No capacity submitted yet" detail="Your submissions and their ASPIRE review status appear here." />
-      ) : (
-        <div className="ptl-table-wrap">
-          <table className="ptl-table">
-            <caption className="ptl-visually-hidden">Capacity submissions and review status</caption>
-            <thead>
-              <tr><th scope="col">Unit</th><th scope="col">Period</th><th scope="col">Shift</th><th scope="col">Students</th><th scope="col">ASPIRE review</th><th scope="col">State</th></tr>
-            </thead>
-            <tbody>
-              {rows.map(c => (
-                <tr key={c.id}>
-                  <td data-label="Unit">{orDash(c.unit_key)}</td>
-                  <td data-label="Period">{orDash(c.period_label)}</td>
-                  <td data-label="Shift">{orDash(c.shift)}</td>
-                  <td data-label="Students">{c.student_count}</td>
-                  <td data-label="ASPIRE review"><Pill tone={c.awaiting_aspire_review ? 'warn' : 'ok'}>{c.awaiting_aspire_review ? 'Awaiting ASPIRE' : sentenceCase(c.review_status)}</Pill></td>
-                  <td data-label="State">{c.is_live ? 'Live' : 'Superseded'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </>
   )
 }
@@ -699,7 +824,7 @@ function StudentRoster({ students, onNavigate, onOpenThread, heading = null }) {
               <tr>
                 <th scope="col">Student</th>
                 <th scope="col">ASPIRE status</th>
-                <th scope="col">Primary preceptor</th>
+                <th scope="col">Preceptor(s)</th>
                 <th scope="col">Shift</th>
                 <th scope="col">Rotation</th>
                 <th scope="col">Cohort</th>
@@ -786,8 +911,13 @@ function StudentRow({ student: s, photoUrl, busy, open, onToggleActions, onClose
           {orDash(s.status)}
         </span>
       </td>
-      <td data-label="Primary preceptor">{orDash(s.preceptor_name)}</td>
-      <td data-label="Shift">{orDash(s.shift)}</td>
+      <td data-label="Preceptor(s)">
+        <PreceptorList assignments={s.preceptors} fallbackName={s.preceptor_name}
+          formatDate={fmtShortDate} empty={EMPTY} />
+      </td>
+      {/* DEPLOYED shift (primary preceptor's assigned shift), never a preference. A clear
+          "Not assigned" reads better than a dash when no actual shift exists. */}
+      <td data-label="Shift">{s.shift || 'Not assigned'}</td>
       <td data-label="Rotation">{rot}</td>
       <td data-label="Cohort">{orDash(s.cohort?.name)}</td>
       <td data-label="Hours"><HoursCell hours={s.hours} /></td>

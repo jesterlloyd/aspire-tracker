@@ -185,8 +185,11 @@
   padding: 9px 12px; border-radius: 9px; border: 1.5px solid #d7d2c7;
   background: #fff; font-family: inherit; font-size: 14px; font-weight: 400;
 }
-.ptl-radio-row { display: flex; gap: 18px; align-items: center; }
+.ptl-radio-row { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
 .ptl-radio-row label { flex-direction: row; align-items: center; gap: 6px; font-weight: 400; }
+/* A fieldset used only to group radios semantically, with no default chrome. */
+.ptl-fieldset { border: 0; padding: 0; margin: 0; min-inline-size: 0; }
+.ptl-fieldset legend { padding: 0; margin-bottom: 6px; }
 .ptl-form-actions { display: flex; gap: 10px; align-items: center; }
 .ptl-form-error {
   margin: 10px 0; padding: 9px 13px; border-radius: 9px;
@@ -1055,6 +1058,9 @@ img.ptl-detail-photo {
 .ptl-ulstat:hover { border-color: var(--ptl-navy, #1D2567); background: var(--ptl-navy-tint, #eef2fb); }
 .ptl-ulstat-num { font-size: 26px; font-weight: 700; color: var(--ptl-navy, #1D2567); font-variant-numeric: tabular-nums; }
 .ptl-ulstat-label { font-size: 13px; color: #4b5265; font-weight: 600; }
+/* CTA variant: no count, so center the label and give it a little more presence. */
+.ptl-ulstat-cta { align-items: center; justify-content: center; }
+.ptl-ulstat-cta .ptl-ulstat-label { color: var(--ptl-navy, #1D2567); }
 
 /* Students table: identity cell, hours bar, onboarding chips. */
 .ptl-stu-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -1206,6 +1212,21 @@ img.ptl-detail-photo {
   border-radius: 10px; white-space: nowrap; font-family: 'DM Sans', sans-serif;
 }
 .ptl-stu-actioncell { width: 44px; text-align: right; }
+
+/* Preceptor(s) cell: every active assignment stacked compactly (name + role pill, with
+   dates below when present). Kept dense so multiple entries never make the row tall. */
+.ptl-prec-list { display: flex; flex-direction: column; gap: 4px; }
+.ptl-prec-item { display: flex; flex-direction: column; gap: 1px; }
+.ptl-prec-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ptl-prec-name { font-size: 12.5px; color: #191919; }
+.ptl-prec-pill {
+  display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.02em;
+  padding: 1px 6px; border-radius: 4px; white-space: nowrap; font-family: 'DM Sans', sans-serif;
+}
+.ptl-prec-primary   { color: #3730a3; background: #eef2ff; }
+.ptl-prec-secondary { color: #155e75; background: #ecfeff; }
+.ptl-prec-coverage  { color: #92400e; background: #fef3c7; }
+.ptl-prec-dates { font-size: 10.5px; color: #6b7280; }
 
 /* The kebab button lives in the row's reserved Actions gutter. */
 .ptl-stu-kebab { display: inline-flex; }

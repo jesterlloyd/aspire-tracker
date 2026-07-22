@@ -31,6 +31,10 @@ import {
   authorizeStudentForUnitLeader,
 } from '../lib/unitLeaderScope.js'
 import { parseStoredFileRef } from '../../lib/server/studentFiles.js'
+import { normalizeAssignedShift } from '../lib/normalizeAssignedShift.js'
+
+// Display order for a student's active assignments: Primary, then Secondary, then Coverage.
+const ROLE_ORDER = { primary: 0, secondary: 1, coverage: 2 }
 
 const isUuid = (v) =>
   typeof v === 'string' &&
@@ -91,14 +95,18 @@ export default async function handler(req, res) {
       // Canonical window first; the legacy free-text column is a labelled fallback
       // so a Unit Leader is never shown a date range the coordinator did not set.
       rotation,
-      shift: s.shift_availability || null,
+      // DEPLOYED shift: the primary preceptor's canonical shift_type (Day/Night/Mid),
+      // never the student's shift_availability preference.
+      shift: preceptor.shift || null,
       hours: {
         required: s.hours_required ?? null,
         approved: s.approved_hours ?? 0,
         pending: s.pending_hours ?? 0,
       },
       attendance,
-      preceptor_name: preceptor || s.preceptor_name || null,
+      preceptor_name: preceptor.name || s.preceptor_name || null,
+      // Every active assignment (Primary, Secondary, Coverage) with role and dates.
+      preceptors: preceptor.assignments,
       school_email: s.school_email || null,
       personal_email: s.personal_email || null,
       phone: s.phone || null,
@@ -135,23 +143,32 @@ async function loadRotation(db, rotationId) {
 }
 
 /**
- * The active assignment, which outranks the legacy free-text preceptor_name column.
+ * Every active assignment for the student, mirroring the roster resolution exactly:
+ * active rows only, sorted Primary, Secondary, Coverage. NOT maybeSingle, because a
+ * student may legitimately hold more than one active assignment.
  *
- * Mirrors the roster resolution exactly: active rows only, primary wins over any
- * other role. NOT maybeSingle: a student may legitimately hold more than one active
- * assignment, and maybeSingle would turn that into an error instead of a preceptor.
+ * Returns { name, shift, assignments }: name is the primary (or first) preceptor for the
+ * single-preceptor projection; shift is the PRIMARY preceptor's canonical shift_type
+ * normalized to Day/Night/Mid (never the student's shift_availability preference);
+ * assignments is the full [{ name, role, start_date, end_date }] set.
  */
 async function loadPreceptor(db, studentId) {
   const { data } = await db
     .from('student_preceptor_assignments')
-    .select('student_id, role, status, preceptors ( full_name )')
+    .select('role, status, start_date, end_date, preceptors ( full_name, shift_type )')
     .eq('student_id', studentId)
     .eq('status', 'active')
-  let name = null
+  const assignments = []
+  let primaryShift = null
   for (const a of data || []) {
-    if (!name || a.role === 'primary') name = a.preceptors?.full_name || name
+    const name = a.preceptors?.full_name || null
+    if (!name) continue
+    assignments.push({ name, role: a.role, start_date: a.start_date || null, end_date: a.end_date || null })
+    if (a.role === 'primary') primaryShift = a.preceptors?.shift_type || null
   }
-  return name
+  assignments.sort((x, y) => (ROLE_ORDER[x.role] ?? 9) - (ROLE_ORDER[y.role] ?? 9))
+  const name = assignments.find(a => a.role === 'primary')?.name || assignments[0]?.name || null
+  return { name, shift: normalizeAssignedShift(primaryShift), assignments }
 }
 
 /**

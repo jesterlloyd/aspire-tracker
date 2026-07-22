@@ -31,6 +31,10 @@ import {
   onboardingSummary,
 } from '../lib/unitLeaderScope.js'
 import { parseStoredFileRef } from '../../lib/server/studentFiles.js'
+import { normalizeAssignedShift } from '../lib/normalizeAssignedShift.js'
+
+// Display order for a student's active assignments: Primary, then Secondary, then Coverage.
+const ROLE_ORDER = { primary: 0, secondary: 1, coverage: 2 }
 
 // True when a stored reference resolves to a real object in the private bucket.
 // Returns a BOOLEAN only, exactly like unit-student-detail. The path is never sent:
@@ -85,21 +89,43 @@ export default async function handler(req, res) {
 
   const studentIds = inScope.map(s => s.id)
 
-  // Active primary preceptor per student (normalized model; legacy fallback below).
-  const assignmentsByStudent = {}
+  // ALL active preceptor assignments per student, from the canonical
+  // student_preceptor_assignments (the same table and status filter as before; only the
+  // reduction changed). Every active Primary, Secondary, and Coverage row is returned with
+  // its role and descriptive dates so the roster can show "Preceptor(s)". The DEPLOYED
+  // shift is the PRIMARY preceptor's canonical shift_type, NOT the student's
+  // shift_availability preference. Name, role, dates, and shift_type are the same data
+  // class already surfaced; no new field is exposed and scope is unchanged (studentIds are
+  // the already-authorized in-scope set).
+  const assignmentsByStudent = {}   // student_id -> [{ name, role, start_date, end_date }]
+  const primaryShiftByStudent = {}  // student_id -> primary preceptor's shift_type
   if (studentIds.length > 0) {
     const { data: assignments } = await db
       .from('student_preceptor_assignments')
-      .select('student_id, role, status, preceptors ( full_name )')
+      .select('student_id, role, status, start_date, end_date, preceptors ( full_name, shift_type )')
       .in('student_id', studentIds)
       .eq('status', 'active')
     for (const a of assignments || []) {
-      const current = assignmentsByStudent[a.student_id]
-      if (!current || a.role === 'primary') {
-        assignmentsByStudent[a.student_id] = a.preceptors?.full_name || null
-      }
+      const name = a.preceptors?.full_name || null
+      if (!name) continue
+      ;(assignmentsByStudent[a.student_id] ||= []).push({
+        name,
+        role: a.role,
+        start_date: a.start_date || null,
+        end_date: a.end_date || null,
+      })
+      if (a.role === 'primary') primaryShiftByStudent[a.student_id] = a.preceptors?.shift_type || null
+    }
+    for (const id of Object.keys(assignmentsByStudent)) {
+      assignmentsByStudent[id].sort((x, y) => (ROLE_ORDER[x.role] ?? 9) - (ROLE_ORDER[y.role] ?? 9))
     }
   }
+
+  // The single primary NAME, kept as a backward-compatible projection for consumers that
+  // still read one preceptor: the active primary assignment, else the legacy free-text
+  // students.preceptor_name.
+  const primaryNameOf = (id) =>
+    (assignmentsByStudent[id] || []).find(a => a.role === 'primary')?.name || null
 
   // Support flag: count of recent logs with a non-empty support note. The
   // note text is intentionally never selected.
@@ -177,11 +203,16 @@ export default async function handler(req, res) {
               end_date: cohortsById[s.cohort_id].end_date,
             }
           : null,
-        preceptor_name: assignmentsByStudent[s.id] || s.preceptor_name || null,
-        // Approved fields already shown in the detail drawer, surfaced here for the
-        // student table. shift is the student's stated availability; rotation is the
-        // canonical window (null when pending admin review).
-        shift: s.shift_availability || null,
+        // Primary preceptor name, kept for backward compatibility (single-preceptor
+        // consumers). The full active set is in `preceptors` below.
+        preceptor_name: primaryNameOf(s.id) || s.preceptor_name || null,
+        // Every active assignment (Primary, Secondary, Coverage) with role and dates.
+        preceptors: assignmentsByStudent[s.id] || [],
+        // DEPLOYED shift: the primary preceptor's canonical shift_type normalized to
+        // Day/Night/Mid (null for Variable or no primary), NEVER the student's
+        // shift_availability preference. rotation is the canonical window (null when
+        // pending admin review).
+        shift: normalizeAssignedShift(primaryShiftByStudent[s.id]) || null,
         rotation: rotationById[s.cohort_school_rotation_id] || null,
         hours: {
           required: s.hours_required ?? null,

@@ -65,13 +65,14 @@ test('the open-profile control is the row itself, separate from the kebab menu',
 // ── Only approved fields are rendered ───────────────────────────────────────
 const APPROVED_LABELS = [
   'School', 'Cohort', 'Matched unit', 'Rotation dates', 'Shift', 'Hours',
-  'Attendance', 'Preceptor', 'Work or school email', 'Personal email', 'Phone',
+  'Attendance', 'Preceptor(s)', 'Work or school email', 'Personal email', 'Phone',
   'Resume',
 ]
 
 test('the drawer renders every approved field label', () => {
   for (const label of APPROVED_LABELS) {
-    assert.match(drawerCode, new RegExp(`label="${label}"`),
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    assert.match(drawerCode, new RegExp(`label="${escaped}"`),
       `the drawer must render the approved field ${label}`)
   }
 })

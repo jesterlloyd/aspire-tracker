@@ -217,14 +217,13 @@ test('Report a Concern remains a SEPARATE flow to the ASPIRE Team', () => {
 test('the cohort comes from the server, NOT from prior capacity rows', () => {
   assert.match(portal, /const acceptingCohort = roster\.data\?\.accepting_cohort \|\| null/)
   assert.match(portal, /const cohortId = acceptingCohort\?\.id \|\| null/)
-  // The old inference is gone.
+  // No inference from prior rows; the canonical endpoint resolves the accepting cohort.
   assert.doesNotMatch(portalCode, /rows\[0\]\?\.cohort_id/)
-  assert.match(portal, /so the FIRST submission for a unit works/)
 })
 
 test('the form states the cohort and disables submission when none is open', () => {
   assert.match(portal, /Cohort: \{acceptingCohort\?\.name \? acceptingCohort\.name : EMPTY\}/)
-  assert.match(portal, /disabled=\{saving \|\| !cohortId\}/)
+  assert.match(portal, /disabled=\{saving \|\| !cohortId/)
   assert.match(portal, /ASPIRE has not opened a cohort for submissions yet/)
 })
 

@@ -1,46 +1,19 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { getUnitsByDivision, getUnit, DIVISION_ORDER } from '../lib/unitCatalog'
+import {
+  SUBMITTER_ROLES, SHIFT_PREFERENCE_OPTIONS, ALUMNI_HIRED_OPTIONS,
+  ALUMNI_OUTCOME_OPTIONS, WOULD_CONSIDER_OPTIONS, PARTICIPATION_TEXT,
+  emptyParticipation, participationSlots, isHostingParticipation, validateParticipation,
+} from '../lib/unitParticipationForm'
 
 const PAGE_TITLE = 'ASPIRE: Unit Availability Form'
 
-// Computed from unitCatalog at module load; ?showAll=true renders all 27 including ED/OR
-
-const SUBMITTER_ROLES = [
-  'Associate Director',
-  'Acting Associate Director',
-  'Executive Director',
-  'Assistant Nurse Manager',
-  'NPD Practitioner',
-  'Clinical Nurse Specialist',
-  'Charge Nurse',
-  'Other',
-]
-
-const SHIFT_OPTIONS = [
-  'Day Shift',
-  'Night Shift',
-  'Mid Shift',
-  'Either / No Preference',
-]
-
-const empty = {
-  unit_name:              '',
-  submitter_name:         '',
-  submitter_email:        '',
-  submitter_role:         '',
-  slots_offered:          '',
-  shift_preference:       '',
-  preferred_preceptors:   '',
-  considerations:         '',
-  reason_for_zero:        '',
-  hiring_ngrp:            null,
-  hiring_ngrp_reason:     '',
-  has_fired_alumni:       '',
-  alumni_outcome:         '',
-  alumni_notes:           '',
-  would_consider_alumni:  '',
-}
+// Field options, labels, empty state, and validation are the CANONICAL definitions shared
+// with the Unit Leader Portal Capacity screen (src/lib/unitParticipationForm.js), so the
+// public form and the portal form cannot drift. Computed from unitCatalog at module load;
+// ?showAll=true renders all 27 including ED/OR.
+const empty = emptyParticipation()
 
 export default function UnitFormPage() {
   const showAll        = new URLSearchParams(window.location.search).has('showAll')
@@ -113,20 +86,16 @@ export default function UnitFormPage() {
     setLookingUp(false)
   }, [cohortId])
 
-  const slotsNum = parseInt(form.slots_offered) || 0
-  const isHosting = slotsNum > 0
+  const slotsNum = participationSlots(form)
+  const isHosting = isHostingParticipation(form)
 
   const handleSubmit = async e => {
     e.preventDefault()
     setError(null)
 
-    if (!form.unit_name) return setError('Please select your unit or department.')
-    if (!form.submitter_name.trim()) return setError('Please enter your name.')
-    if (!form.submitter_email.trim()) return setError('Please enter your email address.')
-    if (!form.submitter_role) return setError('Please select your role.')
-    if (form.slots_offered === '') return setError('Please enter the number of slots (enter 0 if not hosting).')
-    if (!isHosting && form.hiring_ngrp === null) return setError('Please answer the NGRP hiring question.')
-    if (isHosting && form.hiring_ngrp === null) return setError('Please answer the NGRP hiring question.')
+    // Shared canonical validation (identity required for the public form).
+    const invalid = validateParticipation(form, { requireIdentity: true })
+    if (invalid) return setError(invalid)
 
     setSubmitting(true)
 
@@ -293,7 +262,7 @@ export default function UnitFormPage() {
           <div className="uf-section-header">Section 1: Identify</div>
           <div className="uf-section">
             <div className="uf-field">
-              <label className="uf-label">Select Your Unit or Department *</label>
+              <label className="uf-label">{PARTICIPATION_TEXT.unitLabel} *</label>
               <select className="uf-input" value={form.unit_name}
                 onChange={e => handleUnitChange(e.target.value)}>
                 <option value="">Select your unit or department…</option>
@@ -324,24 +293,24 @@ export default function UnitFormPage() {
             </div>
 
             <div className="uf-field">
-              <label className="uf-label">Your Name *</label>
+              <label className="uf-label">{PARTICIPATION_TEXT.nameLabel} *</label>
               <input className="uf-input" value={form.submitter_name}
                 onChange={e => set('submitter_name', e.target.value)}
                 placeholder="e.g. Jane Smith, RN" />
             </div>
 
             <div className="uf-field">
-              <label className="uf-label">Your Email Address *</label>
+              <label className="uf-label">{PARTICIPATION_TEXT.emailLabel} *</label>
               <input className="uf-input" type="email" value={form.submitter_email}
                 onChange={e => set('submitter_email', e.target.value)}
                 placeholder="you@cshs.org" />
             </div>
 
             <div className="uf-field">
-              <label className="uf-label">Your Role *</label>
+              <label className="uf-label">{PARTICIPATION_TEXT.roleLabel} *</label>
               <select className="uf-input" value={form.submitter_role}
                 onChange={e => set('submitter_role', e.target.value)}>
-                <option value="">Select your role…</option>
+                <option value="">{PARTICIPATION_TEXT.rolePlaceholder}</option>
                 {SUBMITTER_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
@@ -351,21 +320,21 @@ export default function UnitFormPage() {
           <div className="uf-section-header">Section 2: Capacity</div>
           <div className="uf-section">
             <div className="uf-field">
-              <label className="uf-label">Number of students your unit can host this cohort *</label>
+              <label className="uf-label">{PARTICIPATION_TEXT.slotsLabel} *</label>
               <input className="uf-input uf-input-sm" type="text" inputMode="numeric" pattern="[0-9]*"
                 value={form.slots_offered}
                 onChange={e => set('slots_offered', e.target.value)}
-                placeholder="Enter 0 if unable to host" />
-              <p style={{ fontSize:12, color:'#9ca3af', marginTop:4 }}>Enter 0 if your unit is unable to host students this cycle.</p>
+                placeholder={PARTICIPATION_TEXT.slotsPlaceholder} />
+              <p style={{ fontSize:12, color:'#9ca3af', marginTop:4 }}>{PARTICIPATION_TEXT.slotsHelp}</p>
             </div>
 
             {/* Not hosting: reason */}
             {form.slots_offered !== '' && !isHosting && (
               <div className="uf-field">
-                <label className="uf-label">Reason for not hosting this cycle (optional)</label>
+                <label className="uf-label">{PARTICIPATION_TEXT.reasonLabel}</label>
                 <textarea className="uf-textarea" rows={3} value={form.reason_for_zero}
                   onChange={e => set('reason_for_zero', e.target.value)}
-                  placeholder="Help us understand the context so we can plan better. Anything you share stays internal." />
+                  placeholder={PARTICIPATION_TEXT.reasonPlaceholder} />
               </div>
             )}
 
@@ -373,18 +342,18 @@ export default function UnitFormPage() {
             {isHosting && (
               <>
                 <div className="uf-field">
-                  <label className="uf-label">Shift preference</label>
+                  <label className="uf-label">{PARTICIPATION_TEXT.shiftLabel}</label>
                   <select className="uf-input" value={form.shift_preference}
                     onChange={e => set('shift_preference', e.target.value)}>
-                    <option value="">Select a preference…</option>
-                    {SHIFT_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    <option value="">{PARTICIPATION_TEXT.shiftPlaceholder}</option>
+                    {SHIFT_PREFERENCE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div className="uf-field">
-                  <label className="uf-label">Preferred preceptors (optional)</label>
+                  <label className="uf-label">{PARTICIPATION_TEXT.preceptorsLabel}</label>
                   <textarea className="uf-textarea" rows={3} value={form.preferred_preceptors}
                     onChange={e => set('preferred_preceptors', e.target.value)}
-                    placeholder="Optional, you can leave this blank if preceptor assignments aren't finalized yet." />
+                    placeholder={PARTICIPATION_TEXT.preceptorsPlaceholder} />
                 </div>
               </>
             )}
@@ -394,7 +363,7 @@ export default function UnitFormPage() {
           <div className="uf-section-header">Section 3: NGRP Hiring Intent</div>
           <div className="uf-section">
             <div className="uf-field">
-              <label className="uf-label">Does your unit plan to hire new graduate RNs for the upcoming NGRP cohort? *</label>
+              <label className="uf-label">{PARTICIPATION_TEXT.ngrpLabel} *</label>
               <div className="uf-radio-group">
                 <label className="uf-radio-label">
                   <input type="radio" name="hiring_ngrp"
@@ -413,10 +382,10 @@ export default function UnitFormPage() {
 
             {form.hiring_ngrp === false && (
               <div className="uf-field">
-                <label className="uf-label">Why not? (required)</label>
+                <label className="uf-label">{PARTICIPATION_TEXT.ngrpReasonLabel}</label>
                 <textarea className="uf-textarea" rows={3} value={form.hiring_ngrp_reason}
                   onChange={e => set('hiring_ngrp_reason', e.target.value)}
-                  placeholder="e.g. staffing freeze, budget constraints, recent hire cohort not yet onboarded" />
+                  placeholder={PARTICIPATION_TEXT.ngrpReasonPlaceholder} />
               </div>
             )}
           </div>
@@ -425,13 +394,13 @@ export default function UnitFormPage() {
           <div className="uf-section-header">Section 4: ASPIRE Alumni Experience <span style={{ fontWeight:400, fontSize:13, color:'#9ca3af' }}>(optional)</span></div>
           <div className="uf-section">
             <p style={{ fontSize:13, color:'#6b7280', margin:'0 0 12px', lineHeight:1.6 }}>
-              Share your experience if you'd like. This helps us understand the long-term impact of the program.
+              {PARTICIPATION_TEXT.alumniIntro}
             </p>
 
             <div className="uf-field">
-              <label className="uf-label">Has your unit ever hired an ASPIRE participant into the NGRP?</label>
+              <label className="uf-label">{PARTICIPATION_TEXT.alumniHiredLabel}</label>
               <div className="uf-radio-group">
-                {[['yes','Yes'],['no','No'],['not_sure','Not sure']].map(([v, l]) => (
+                {ALUMNI_HIRED_OPTIONS.map(([v, l]) => (
                   <label key={v} className="uf-radio-label">
                     <input type="radio" name="has_fired_alumni"
                       checked={form.has_fired_alumni === v}
@@ -445,9 +414,9 @@ export default function UnitFormPage() {
             {form.has_fired_alumni === 'yes' && (
               <>
                 <div className="uf-field">
-                  <label className="uf-label">How was the experience?</label>
+                  <label className="uf-label">{PARTICIPATION_TEXT.alumniOutcomeLabel}</label>
                   <div className="uf-radio-group">
-                    {[['successful','Successful'],['mixed','Mixed'],['would_not_hire_again','Would not hire again']].map(([v, l]) => (
+                    {ALUMNI_OUTCOME_OPTIONS.map(([v, l]) => (
                       <label key={v} className="uf-radio-label">
                         <input type="radio" name="alumni_outcome"
                           checked={form.alumni_outcome === v}
@@ -458,19 +427,19 @@ export default function UnitFormPage() {
                   </div>
                 </div>
                 <div className="uf-field">
-                  <label className="uf-label">Anything you'd like to share? (optional)</label>
+                  <label className="uf-label">{PARTICIPATION_TEXT.alumniNotesLabel}</label>
                   <textarea className="uf-textarea" rows={3} value={form.alumni_notes}
                     onChange={e => set('alumni_notes', e.target.value)}
-                    placeholder="e.g. how the student transitioned, standout qualities, lessons learned" />
+                    placeholder={PARTICIPATION_TEXT.alumniNotesPlaceholder} />
                 </div>
               </>
             )}
 
             {form.has_fired_alumni === 'no' && (
               <div className="uf-field">
-                <label className="uf-label">Would you consider hiring an ASPIRE alumnus in the future?</label>
+                <label className="uf-label">{PARTICIPATION_TEXT.wouldConsiderLabel}</label>
                 <div className="uf-radio-group">
-                  {[['yes','Yes'],['no','No'],['maybe','Maybe']].map(([v, l]) => (
+                  {WOULD_CONSIDER_OPTIONS.map(([v, l]) => (
                     <label key={v} className="uf-radio-label">
                       <input type="radio" name="would_consider_alumni"
                         checked={form.would_consider_alumni === v}
@@ -487,10 +456,10 @@ export default function UnitFormPage() {
           <div className="uf-section-header">Section 5: Additional Notes</div>
           <div className="uf-section">
             <div className="uf-field">
-              <label className="uf-label">Any other considerations or requirements? (optional)</label>
+              <label className="uf-label">{PARTICIPATION_TEXT.considerationsLabel}</label>
               <textarea className="uf-textarea" rows={3} value={form.considerations}
                 onChange={e => set('considerations', e.target.value)}
-                placeholder="e.g. scheduling requirements, dress code, skill level preferences, anything else we should know" />
+                placeholder={PARTICIPATION_TEXT.considerationsPlaceholder} />
             </div>
           </div>
 

@@ -200,7 +200,9 @@ test('P1-12: the Compass form treatment on all three forms', async (t) => {
     assert.match(css, /\.ptl-form-submit \{\s*\n\s*display: flex; align-items: center; justify-content: flex-end/)
   })
   await t.test('success notices name what was recorded', () => {
-    assert.match(portal, /`Capacity recorded for \$\{summaryUnit\}/)
+    // SUPERSEDED: Capacity is now the canonical unit-availability form and shows a
+    // thank-you confirmation naming the unit, like /unit-form, rather than a summary notice.
+    assert.match(portal, /Thank you, \{form\.unit_name\}/)
     assert.match(portal, /`Nomination recorded: \$\{form\.proposed_name\} for \$\{studentName\(nominee\)\}/)
   })
   await t.test('the ASPIRE authority note appears once per screen', () => {
@@ -223,7 +225,8 @@ test('P1-13: placement response state after responding', async (t) => {
     assert.doesNotMatch(portal, /export function sentenceCase/)
     assert.match(portal, /sentenceCase\(r\.unit_response\)/)
     assert.match(portal, /sentenceCase\(r\.aspire_status\)/)
-    assert.match(portal, /sentenceCase\(c\.review_status\)/)
+    // SUPERSEDED: the old capacity review-status table is gone; the canonical form has no
+    // per-submission review status to sentence-case.
   })
   await t.test('overdue due dates carry the warning tone with text', () => {
     // The clock is read in the loader's resolver, never during render.
@@ -273,8 +276,9 @@ test('P2-16: table screens load with shimmer skeletons and polite announcements'
   assert.match(chrome, /export function TableSkeleton/)
   assert.match(chrome, /role="status" aria-live="polite" className="ptl-visually-hidden"/)
   assert.match(portal, /<TableSkeleton label="Loading placement requests" \/>/)
-  assert.match(portal, /<TableSkeleton label="Loading capacity" \/>/)
   assert.match(portal, /<TableSkeleton label="Loading preceptor assignments" \/>/)
+  // SUPERSEDED: Capacity is a submit form (the canonical /unit-form workflow), not a table
+  // that loads prior rows, so it no longer shows a table skeleton.
 })
 
 test('P2-17: the student drawer renders the real response shape with an hours bar', () => {
