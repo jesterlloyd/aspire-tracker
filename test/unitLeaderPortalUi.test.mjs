@@ -20,6 +20,7 @@ const chrome = read('src/portal/unit/UnitLeaderChrome.jsx')
 const api    = read('src/portal/unit/unitLeaderApi.js')
 const app    = read('src/portal/PortalApp.jsx')
 const css    = read('src/portal/portal.css')
+const preceptorsWorkspace = read('src/portal/unit/UnitPreceptorsWorkspace.jsx')
 
 // Built from its code point so this guard does not put the character it forbids into
 // the very file that enforces the rule.
@@ -50,11 +51,12 @@ test('every workflow still has a nav entry after the Phase 1 restructure', () =>
   // Report a Concern is deliberately absent: it was never a separate workflow, only a
   // Messages conversation with destination 'aspire', and now lives inside Messages.
   for (const label of [
-    'Home', 'Messages', 'Evaluations', 'Placement Requests', 'Capacity',
-    'Preceptor Assignments', 'Profile', 'Notification preferences', 'Students',
+    'Home', 'Preceptors', 'Messages', 'Evaluations', 'Placement Requests', 'Capacity',
   ]) {
     assert.ok(chrome.includes(`label: '${label}'`), `nav must include ${label}`)
   }
+  assert.ok(!chrome.includes("label: 'Profile'"), 'Profile lives in the avatar menu')
+  assert.ok(!chrome.includes("label: 'Notification preferences'"), 'preferences live inside Profile')
   assert.ok(!chrome.includes("label: 'Report a Concern'"),
     'it is an action inside Messages, not a section')
 })
@@ -108,7 +110,7 @@ test('denied is DISTINCT from empty, because they are different facts', () => {
 test('every screen handles loading and error, not just the happy path', () => {
   // SUPERSEDED: CapacityScreen is now the canonical unit-availability SUBMIT form (like
   // /unit-form); it loads no prior rows, so it has no loading/error/empty table states.
-  for (const screen of ['PlacementScreen', 'PreceptorScreen']) {
+  for (const screen of ['PlacementScreen']) {
     const body = portal.slice(portal.indexOf(`function ${screen}`))
     const scoped = body.slice(0, body.indexOf('\n// ──') === -1 ? body.length : body.indexOf('\n// ──'))
     // UL-POLISH P2: table screens load with a shimmer skeleton (which carries
@@ -117,6 +119,9 @@ test('every screen handles loading and error, not just the happy path', () => {
     assert.match(scoped, /if \(error\) return <ErrorState/, `${screen} error`)
     assert.match(scoped, /<EmptyState/, `${screen} empty`)
   }
+  assert.match(preceptorsWorkspace, /preceptors\.loading \?/)
+  assert.match(preceptorsWorkspace, /preceptors\.error \?/)
+  assert.match(preceptorsWorkspace, /<EmptyState/)
 })
 
 // ── Accessibility ───────────────────────────────────────────────────────────
@@ -154,7 +159,7 @@ test('tables are labelled with captions and column scopes', () => {
   // caption), so every table including the roster is captioned.
   // The canonical Capacity form replaced the old capacity table, so its caption is gone;
   // the remaining tables (roster, placements, preceptors) stay captioned.
-  const captions = (portal.match(/<caption className="ptl-visually-hidden">/g) || []).length
+  const captions = ((portal + preceptorsWorkspace).match(/<caption className="ptl-visually-hidden">/g) || []).length
   assert.ok(captions >= 3, `every table needs a caption, saw ${captions}`)
   assert.match(portal, /scope="col"/)
   assert.ok(!portal.includes('Filter students by stage'), 'the stage filter control is gone')

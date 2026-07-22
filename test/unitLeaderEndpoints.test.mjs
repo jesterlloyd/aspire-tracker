@@ -19,6 +19,7 @@ const placement   = read('api/portal/unit-placement-requests.js')
 const capacity    = read('api/portal/unit-capacity.js')
 const milestones  = read('api/portal/unit-milestones.js')
 const nominations = read('api/portal/unit-preceptor-nominations.js')
+const preceptors  = read('api/portal/unit-preceptors.js')
 const staffFiles  = read('api/student-file-access.js')
 // The atomic guarantees now live in the follow-up migration's RPCs, so the
 // assertions about them read the committed SQL rather than the endpoint.
@@ -49,7 +50,11 @@ const WORKFLOW = {
   'unit-milestones.js': milestones,
   'unit-preceptor-nominations.js': nominations,
 }
-const ALL_UL = { ...WORKFLOW, 'unit-student-file-access.js': files }
+const ALL_UL = {
+  ...WORKFLOW,
+  'unit-student-file-access.js': files,
+  'unit-preceptors.js': preceptors,
+}
 
 // ── Authorization: one source of truth, fail closed ─────────────────────────
 test('every Unit Leader endpoint authorizes through verifyPortalUnitLeaderCaller', () => {

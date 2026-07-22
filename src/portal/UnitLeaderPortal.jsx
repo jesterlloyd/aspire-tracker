@@ -23,6 +23,7 @@ import StudentDetailDrawer from './unit/StudentDetailDrawer'
 import UnitRotationCalendar from './unit/UnitRotationCalendar'
 import UnitShiftDayDrawer from './unit/UnitShiftDayDrawer'
 import UnitEvaluationsPlaceholder from './unit/UnitEvaluationsPlaceholder'
+import UnitPreceptorsWorkspace from './unit/UnitPreceptorsWorkspace'
 import UnitStudentAvatar from './unit/UnitStudentAvatar'
 import { statusToken } from './unit/unitStageTokens'
 import { useUnitStudentPhotos } from './unit/useUnitStudentPhotos'
@@ -34,7 +35,7 @@ import {
 import {
   ALL_UNITS, EMPTY, orDash, studentName, sentenceCase, BUCKET_LABEL, ASPIRE_AUTHORITY_NOTE,
   getRoster, getPlacementRequests, respondToPlacement,
-  submitParticipation, getNominations, nominatePreceptor,
+  submitParticipation,
   startUnitConversation,
   getNotifications, setNotificationPreference, getShiftActivity,
 } from './unit/unitLeaderApi'
@@ -151,7 +152,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
         {view === 'capacity'   && <CapacityScreen {...shared} />}
         {view === 'students'   && <StudentsScreen {...shared} onNavigate={onNavigate} onOpenThread={onSelectThread} />}
         {view === 'evaluations' && <UnitEvaluationsPlaceholder />}
-        {view === 'preceptors' && <PreceptorScreen {...shared} />}
+        {view === 'preceptors' && <PreceptorScreen unitKey={unitKey} unitKeys={unitKeys} />}
         {view === 'profile'    && <ProfileScreen unitKeys={unitKeys} profile={userProfile} />}
         {view === 'messages'   && (
           <AspireTeamComposer
@@ -945,89 +946,8 @@ function StudentRow({ student: s, photoUrl, busy, open, onToggleActions, onClose
   )
 }
 
-// ── Preceptor Assignments ───────────────────────────────────────────────────
-function PreceptorScreen({ unitKey, students }) {
-  const { loading, error, data, refresh } = useEndpoint(s => getNominations(unitKey, s), [unitKey])
-  const [form, setForm] = useState({ student_id: '', proposed_name: '', note: '' })
-  const [notice, setNotice] = useState(null)
-
-  const nominate = async (e) => {
-    e.preventDefault()
-    const res = await nominatePreceptor({
-      studentId: form.student_id,
-      proposedName: form.proposed_name,
-      note: form.note,
-    })
-    const nominee = students.find(s => s.id === form.student_id)
-    setNotice(res.ok
-      ? { tone: 'ok', text: `Nomination recorded: ${form.proposed_name} for ${studentName(nominee)}. ASPIRE confirms the preceptor.` }
-      : { tone: 'error', text: res.error === 'conflict' ? 'A nomination is already open for that student.' : 'That nomination could not be saved.' })
-    if (res.ok) { refresh(); setForm({ student_id: '', proposed_name: '', note: '' }) }
-  }
-
-  if (loading) return <TableSkeleton label="Loading preceptor assignments" />
-  if (error) return <ErrorState detail="Preceptor assignments could not be loaded." onRetry={refresh} />
-
-  const rows = data?.nominations || []
-  return (
-    <>
-      <SectionHeading focusKey="preceptors">Preceptor Assignments</SectionHeading>
-      {notice && <p className={`ptl-notice ptl-notice-${notice.tone}`} role="status">{notice.text}</p>}
-      <p className="ptl-muted">{ASPIRE_AUTHORITY_NOTE}</p>
-
-      <form className="ptl-card ptl-unit-form" onSubmit={nominate}>
-        <h3 className="ptl-card-title">Nominate a preceptor</h3>
-        <div className="ptl-form-grid">
-          <div className="ptl-field">
-            <label className="ptl-label" htmlFor="nom-student">Student</label>
-            <select id="nom-student" className="ptl-input ptl-input-full" required value={form.student_id}
-              onChange={e => setForm(f => ({ ...f, student_id: e.target.value }))}>
-              <option value="">Select a student</option>
-              {students.map(s => <option key={s.id} value={s.id}>{studentName(s)}</option>)}
-            </select>
-          </div>
-          <div className="ptl-field">
-            <label className="ptl-label" htmlFor="nom-name">Proposed preceptor</label>
-            <input id="nom-name" className="ptl-input ptl-input-full" required minLength={2} maxLength={120}
-              value={form.proposed_name} onChange={e => setForm(f => ({ ...f, proposed_name: e.target.value }))} />
-            <p className="ptl-field-help">The nurse you propose to precept this student.</p>
-          </div>
-          <div className="ptl-field ptl-field-wide">
-            <label className="ptl-label" htmlFor="nom-note">Note</label>
-            <textarea id="nom-note" className="ptl-input ptl-input-full" maxLength={2000} value={form.note}
-              onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
-          </div>
-        </div>
-        <div className="ptl-form-submit">
-          <button type="submit" className="ptl-btn">Nominate</button>
-        </div>
-      </form>
-
-      {rows.length === 0 ? (
-        <EmptyState title="No nominations yet" detail="Preceptor nominations and their ASPIRE confirmation status appear here." />
-      ) : (
-        <div className="ptl-table-wrap">
-          <table className="ptl-table">
-            <caption className="ptl-visually-hidden">Preceptor nominations</caption>
-            <thead>
-              <tr><th scope="col">Unit</th><th scope="col">Preceptor</th><th scope="col">Status</th></tr>
-            </thead>
-            <tbody>
-              {rows.map(n => (
-                <tr key={n.id}>
-                  <td data-label="Unit">{orDash(n.unit_key)}</td>
-                  <td data-label="Preceptor">{orDash(n.preceptor_name)}</td>
-                  <td data-label="Status"><Pill tone={n.awaiting_aspire_confirmation ? 'warn' : 'ok'}>
-                    {n.awaiting_aspire_confirmation ? 'Awaiting ASPIRE' : sentenceCase(n.status)}
-                  </Pill></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </>
-  )
+function PreceptorScreen({ unitKey, unitKeys }) {
+  return <UnitPreceptorsWorkspace unitKey={unitKey} unitKeys={unitKeys} />
 }
 
 // ── Report a Concern ────────────────────────────────────────────────────────

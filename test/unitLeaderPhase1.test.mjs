@@ -39,26 +39,24 @@ const calendarCode = stripJs(calendar)
 const evalsCode    = stripJs(evals)
 
 // ── Locked navigation ──────────────────────────────────────────────────────
-test('primary navigation is exactly Home, Messages, Evaluations, in that order', () => {
-  assert.match(chromeCode, /const PRIMARY_KEYS = \['home', 'messages', 'evaluations'\]/)
+test('desktop navigation promotes Preceptors and preserves the locked order', () => {
+  assert.match(chromeCode, /const DESKTOP_KEYS = \['home', 'preceptors', 'messages', 'evaluations', 'placements', 'capacity'\]/)
 })
 
-test('Students is absent from primary navigation but still a section', () => {
-  const m = /const PRIMARY_KEYS = \[([^\]]*)\]/.exec(chromeCode)
+test('Students is absent from navigation but remains a supported deep link', () => {
+  const m = /const DESKTOP_KEYS = \[([^\]]*)\]/.exec(chromeCode)
   assert.ok(!m[1].includes('students'), 'Students must not be a primary tab')
-  assert.match(chromeCode, /key: 'students'/, 'but it must remain a known section')
+  assert.match(appCode, /'students'/, 'but it must remain a known route')
 })
 
-test('More holds the five infrequent destinations', () => {
+test('mobile More holds Evaluations, Placement Requests, and Capacity', () => {
   assert.match(chromeCode,
-    /const MORE_KEYS = \['placements', 'capacity', 'preceptors'\]/)
+    /const MOBILE_MORE_KEYS = \['evaluations', 'placements', 'capacity'\]/)
 })
 
-test('the nav is identical at every width, with no desktop-only branch', () => {
-  // The desktop branch used to render all eight sections while narrow screens got More.
-  assert.ok(!chromeCode.includes('usePortalIsNarrow'),
-    'the width branch is gone; one nav for all widths')
-  assert.ok(!/if \(!narrow\)/.test(chromeCode))
+test('responsive membership is CSS-driven at the existing mobile breakpoint', () => {
+  assert.match(chromeCode, /MOBILE_PRIMARY_KEYS\.includes\(sec\.key\)/)
+  assert.match(chromeCode, /ptl-nav-mobile-more/)
 })
 
 test('More is a real dialog with focus trap, Escape, and focus return', () => {
@@ -71,7 +69,7 @@ test('More is a real dialog with focus trap, Escape, and focus return', () => {
 })
 
 test('the active nested route is visible on the More control', () => {
-  assert.match(chromeCode, /const moreActive = MORE_KEYS\.includes\(view\)/)
+  assert.match(chromeCode, /const moreActive = MOBILE_MORE_KEYS\.includes\(view\)/)
   assert.match(chromeCode, /aria-current=\{moreActive \? 'page' : undefined\}/)
 })
 
@@ -81,13 +79,14 @@ test('the Messages badge still works, so More can carry a count later', () => {
 })
 
 // ── Routes preserved ───────────────────────────────────────────────────────
-test('every prior unit route still resolves, including students and concern', () => {
+test('every rendered unit route still resolves, including students and concern', () => {
   const m = /const UNIT_SECTIONS = new Set\(\[([\s\S]*?)\]\)/.exec(appCode)
   assert.ok(m, 'UNIT_SECTIONS must exist')
   for (const key of ['home', 'placements', 'capacity', 'students', 'preceptors',
-    'profile', 'concern', 'evaluations', 'notifications']) {
+    'profile', 'concern', 'evaluations']) {
     assert.ok(m[1].includes(`'${key}'`), `/portal/unit/${key} must remain routable`)
   }
+  assert.ok(!m[1].includes("'notifications'"), 'the stale standalone notifications route is removed')
 })
 
 test('the concern route hands off to Messages instead of 404ing', () => {

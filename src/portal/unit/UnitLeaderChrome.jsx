@@ -12,8 +12,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import {
-  Home, ClipboardList, CalendarRange, Users, UserCheck, MessageSquare, IdCard,
-  MoreHorizontal, ClipboardCheck, Bell,
+  Home, ClipboardList, CalendarRange, UserCheck, MessageSquare,
+  MoreHorizontal, ClipboardCheck,
 } from 'lucide-react'
 import { formatUnread, unreadLabel } from '../../lib/messages/messagesConstants'
 import { ALL_UNITS } from './unitLeaderApi'
@@ -27,16 +27,11 @@ const srOnly = {
 // only by UnitLeaderNav below, and exporting a non-component breaks fast refresh.
 const SECTIONS = [
   { key: 'home',          label: 'Home',                    Icon: Home },
+  { key: 'preceptors',    label: 'Preceptors',              Icon: UserCheck },
   { key: 'messages',      label: 'Messages',                Icon: MessageSquare },
   { key: 'evaluations',   label: 'Evaluations',             Icon: ClipboardCheck },
   { key: 'placements',    label: 'Placement Requests',      Icon: ClipboardList },
   { key: 'capacity',      label: 'Capacity',                Icon: CalendarRange },
-  { key: 'preceptors',    label: 'Preceptor Assignments',   Icon: UserCheck },
-  { key: 'profile',       label: 'Profile',                 Icon: IdCard },
-  { key: 'notifications', label: 'Notification preferences', Icon: Bell },
-  // Students left the primary bar and now lives inside Home. The route survives:
-  // /portal/unit/students still renders the same roster on its own.
-  { key: 'students',      label: 'Students',                Icon: Users },
 ]
 
 /**
@@ -48,11 +43,11 @@ const SECTIONS = [
  * Placements, Messages, More); More opens an accessible bottom sheet with the
  * remaining four sections. Desktop keeps the full tab row.
  */
-// LOCKED ORDER, at EVERY width: Home, Messages, Evaluations, then More. Report a
-// Concern is no longer a section: it was always a Messages conversation with
-// destination 'aspire', so it is an action inside Messages rather than a tab.
-const PRIMARY_KEYS = ['home', 'messages', 'evaluations']
-const MORE_KEYS = ['placements', 'capacity', 'preceptors']
+// Desktop/tablet uses the complete work-oriented navigation. At the existing phone
+// breakpoint, CSS hides the three less-frequent destinations and reveals More.
+const DESKTOP_KEYS = ['home', 'preceptors', 'messages', 'evaluations', 'placements', 'capacity']
+const MOBILE_PRIMARY_KEYS = ['home', 'preceptors', 'messages']
+const MOBILE_MORE_KEYS = ['evaluations', 'placements', 'capacity']
 
 function NavItem({ section, active, unread, onNavigate }) {
   const { key, label, Icon } = section
@@ -110,7 +105,7 @@ function MoreSheet({ view, onNavigate, onClose, returnFocusRef }) {
       <div className="ptl-sheet-backdrop" onClick={onClose} aria-hidden="true" />
       <div ref={panelRef} className="ptl-sheet" role="dialog" aria-modal="true" aria-label="More sections">
         <p className="ptl-sheet-title">More</p>
-        {SECTIONS.filter(sec => MORE_KEYS.includes(sec.key)).map(({ key, label, Icon }) => (
+        {SECTIONS.filter(sec => MOBILE_MORE_KEYS.includes(sec.key)).map(({ key, label, Icon }) => (
           <button
             key={key}
             type="button"
@@ -127,31 +122,28 @@ function MoreSheet({ view, onNavigate, onClose, returnFocusRef }) {
 }
 
 export function UnitLeaderNav({ view, unread = 0, onNavigate }) {
-  // ONE nav at every width. The desktop branch used to render all eight sections while
-  // narrow screens got a five-slot bar plus More; that divergence is why the same portal
-  // felt like two products. Four primary destinations now, everywhere.
-  //
   // The sheet remembers WHICH section it was opened on, so a section change hides it by
   // derivation rather than by a setState in an effect.
   const [moreFor, setMoreFor] = useState(null)
   const moreBtnRef = useRef(null)
   const moreOpen = moreFor === view
-  const moreActive = MORE_KEYS.includes(view)
+  const moreActive = MOBILE_MORE_KEYS.includes(view)
 
   return (
     <>
       <nav className="ptl-nav" aria-label="Unit Leader Portal sections">
-        {SECTIONS.filter(sec => PRIMARY_KEYS.includes(sec.key))
-          // Render in the LOCKED order, not the declaration order of SECTIONS.
-          .sort((a, b) => PRIMARY_KEYS.indexOf(a.key) - PRIMARY_KEYS.indexOf(b.key))
+        {SECTIONS.filter(sec => DESKTOP_KEYS.includes(sec.key))
+          .sort((a, b) => DESKTOP_KEYS.indexOf(a.key) - DESKTOP_KEYS.indexOf(b.key))
           .map(sec => (
-            <NavItem key={sec.key} section={sec} active={view === sec.key}
-              unread={unread} onNavigate={onNavigate} />
+            <span key={sec.key} className={MOBILE_PRIMARY_KEYS.includes(sec.key) ? '' : 'ptl-nav-desktop-only'}>
+              <NavItem section={sec} active={view === sec.key}
+                unread={unread} onNavigate={onNavigate} />
+            </span>
           ))}
         <button
           ref={moreBtnRef}
           type="button"
-          className={`ptl-nav-item${moreActive ? ' ptl-nav-item-active' : ''}`}
+          className={`ptl-nav-item ptl-nav-mobile-more${moreActive ? ' ptl-nav-item-active' : ''}`}
           aria-haspopup="dialog"
           aria-expanded={moreOpen}
           aria-current={moreActive ? 'page' : undefined}

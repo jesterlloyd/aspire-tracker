@@ -179,26 +179,24 @@ test('the Student Portal avatar menu is unchanged, still Edit Profile', () => {
 })
 
 // ── More ────────────────────────────────────────────────────────────────────
-test('More holds exactly Placement Requests, Capacity, Preceptor Assignments', () => {
-  // SUPERSEDED by the UX-cleanup pass: Notification Preferences left More (it lives in
-  // Profile) so More is now three items.
-  assert.match(chromeCode, /const MORE_KEYS = \['placements', 'capacity', 'preceptors'\]/)
-  const m = /const MORE_KEYS = \[([^\]]*)\]/.exec(chromeCode)
+test('mobile More holds exactly Evaluations, Placement Requests, and Capacity', () => {
+  assert.match(chromeCode, /const MOBILE_MORE_KEYS = \['evaluations', 'placements', 'capacity'\]/)
+  const m = /const MOBILE_MORE_KEYS = \[([^\]]*)\]/.exec(chromeCode)
   assert.ok(!m[1].includes('profile'), 'Profile must not appear in More')
   assert.ok(!m[1].includes('notifications'), 'Notification Preferences must not appear in More')
+  assert.ok(!m[1].includes('preceptors'), 'Preceptors must be top level')
 })
 
 test('there is exactly one Notification Preferences destination', () => {
-  // In More, and nowhere else: not in the avatar menu, not in primary nav.
-  assert.ok(chromeCode.includes("'notifications'"))
-  const primary = /const PRIMARY_KEYS = \[([^\]]*)\]/.exec(chromeCode)
-  assert.ok(!primary[1].includes('notifications'))
+  const profile = portalCode.slice(portalCode.indexOf('function ProfileScreen'))
+  assert.match(profile, /Notification preferences/)
+  assert.ok(!chromeCode.includes("'notifications'"))
   assert.ok(!shell.includes('Notification'))
 })
 
 test('Profile remains reachable as a route even though it left More', () => {
-  // Still a known section and a routable unit view.
-  assert.match(chromeCode, /key: 'profile'/)
+  // Profile is reached from the avatar menu and remains a routable unit view.
+  assert.match(stripJs(app), /goUnitSection\('profile'\)/)
   assert.match(stripJs(app), /'profile'/)
 })
 

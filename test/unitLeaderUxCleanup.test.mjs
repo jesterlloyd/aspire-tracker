@@ -168,11 +168,12 @@ test('the roster returns shift and rotation window, both approved fields', () =>
 })
 
 // ── 6. More corrected ───────────────────────────────────────────────────────
-test('More contains exactly Placement Requests, Capacity, Preceptor Assignments', () => {
-  assert.match(chromeCode, /const MORE_KEYS = \['placements', 'capacity', 'preceptors'\]/)
-  const m = /const MORE_KEYS = \[([^\]]*)\]/.exec(chromeCode)
+test('mobile More contains exactly Evaluations, Placement Requests, and Capacity', () => {
+  assert.match(chromeCode, /const MOBILE_MORE_KEYS = \['evaluations', 'placements', 'capacity'\]/)
+  const m = /const MOBILE_MORE_KEYS = \[([^\]]*)\]/.exec(chromeCode)
   assert.ok(!m[1].includes('notifications'), 'Notification Preferences is not in More')
   assert.ok(!m[1].includes('profile'), 'Profile is not in More')
+  assert.ok(!m[1].includes('preceptors'), 'Preceptors is a primary mobile destination')
 })
 
 test('Notification preferences still lives in Profile', () => {

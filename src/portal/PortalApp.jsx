@@ -48,7 +48,7 @@ function threadIdFromPath(pathname) {
 // and is handed off to Messages below rather than 404ing.
 const UNIT_SECTIONS = new Set([
   'home', 'messages', 'evaluations', 'placements', 'capacity', 'students',
-  'preceptors', 'profile', 'notifications', 'concern',
+  'preceptors', 'profile', 'concern',
 ])
 // Report a Concern is no longer a section. It was always a Messages conversation with
 // destination 'aspire', so the retained route hands off to Messages with the concern

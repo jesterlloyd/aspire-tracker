@@ -752,6 +752,8 @@
    underline plus weight are the visual echo, never the only signal. */
 .ptl-nav-item-active { color: var(--ptl-navy); border-bottom-color: var(--ptl-navy); }
 .ptl-nav-iconwrap { position: relative; display: inline-flex; }
+.ptl-nav > span { display: contents; }
+.ptl-nav-mobile-more { display: none; }
 /* Desktop: the stage-aware action lives in the Compass band, not the tabs. */
 .ptl-nav-action { display: none; }
 
@@ -776,6 +778,8 @@
     min-height: 52px; padding: 6px 4px; border-bottom: none; border-radius: 10px;
     font-size: 11.5px;
   }
+  .ptl-nav-desktop-only { display: none !important; }
+  .ptl-nav-mobile-more { display: inline-flex; }
   .ptl-nav-item-active { background: var(--ptl-navy-tint, #eef2fb); }
   .ptl-nav-iconwrap .ptl-nav-badge {
     position: absolute; top: -7px; right: -13px;
@@ -797,6 +801,61 @@
    the default stretch distributed the leftover space into every row: a 21px
    heading sat in a 174px row and short screens looked randomly spaced. */
 .ptl-unit-page { display: grid; gap: 16px; align-content: start; }
+
+/* Unit Leader Preceptors workspace. The existing .ptl-table mobile conversion
+   supplies stacked cards below 760px; these rules cover only workspace-specific
+   controls and the create-only dialog. */
+.ptl-section-headrow {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.ptl-section-headrow .ptl-section-title { margin: 0; }
+.ptl-prec-controls {
+  display: grid; grid-template-columns: minmax(200px, 2fr) repeat(4, minmax(130px, 1fr));
+  gap: 10px; align-items: end; padding: 14px;
+}
+.ptl-prec-controls .ptl-field { margin: 0; }
+.ptl-prec-controls .ptl-input { width: 100%; min-width: 0; }
+.ptl-prec-phone { display: block; margin-top: 3px; font-size: 12px; color: #6b7280; }
+.ptl-prec-table .ptl-prec-line { margin-bottom: 4px; }
+.ptl-legacy-history { padding: 0; overflow: hidden; }
+.ptl-legacy-history > summary {
+  padding: 14px 16px; cursor: pointer; font-weight: 700; color: var(--ptl-navy, #1D2567);
+}
+.ptl-legacy-history .ptl-table-wrap { border-top: 1px solid var(--ptl-line, #e3ded4); }
+
+.ptl-modal-backdrop {
+  position: fixed; inset: 0; z-index: 80; display: grid; place-items: center;
+  padding: 20px; background: rgba(15, 20, 25, 0.48);
+}
+.ptl-modal {
+  width: min(560px, 100%); max-height: calc(100vh - 40px); overflow-y: auto;
+  background: #fff; border-radius: 14px; box-shadow: 0 20px 60px rgba(15, 20, 25, 0.24);
+}
+.ptl-modal-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 16px 18px; border-bottom: 1px solid var(--ptl-line, #e3ded4);
+}
+.ptl-modal-head h2 { margin: 0; font-size: 20px; }
+.ptl-modal-body { padding: 18px; }
+.ptl-modal-actions {
+  display: flex; justify-content: flex-end; gap: 10px; padding: 14px 18px;
+  border-top: 1px solid var(--ptl-line, #e3ded4);
+}
+
+@media (max-width: 1000px) {
+  .ptl-prec-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ptl-prec-search { grid-column: 1 / -1; }
+}
+
+@media (max-width: 760px) {
+  .ptl-section-headrow { align-items: stretch; flex-direction: column; }
+  .ptl-section-headrow .ptl-btn { align-self: flex-start; }
+  .ptl-prec-controls { grid-template-columns: 1fr; }
+  .ptl-prec-search { grid-column: auto; }
+  .ptl-modal-backdrop { align-items: end; padding: 0; }
+  .ptl-modal { width: 100%; max-height: 92vh; border-radius: 16px 16px 0 0; }
+  .ptl-modal-actions > button { flex: 1; }
+}
 
 /* UL-POLISH P0: the switcher is a compact inline control on unit-scoped
    screens only, not a full-width card on every screen. Single-unit leaders get

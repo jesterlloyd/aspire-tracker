@@ -19,6 +19,8 @@ const inbox = read('src/portal/messages/PortalMessagesInbox.jsx')
 const thread = read('src/portal/messages/PortalMessagesThread.jsx')
 const constants = read('src/lib/messages/portalMessagesConstants.js')
 const listApi = read('api/portal/messages-list.js')
+const preceptorsWorkspace = read('src/portal/unit/UnitPreceptorsWorkspace.jsx')
+const createModal = read('src/portal/unit/UnitPreceptorCreateModal.jsx')
 
 test('P0-1: the stage filter bar is removed', () => {
   // SUPERSEDED: the UX-cleanup pass removed the All/Upcoming/Active/Completed filters in
@@ -101,16 +103,13 @@ test('P0-6: unread polling runs for the unit-leader branch', () => {
   assert.match(app, /intervalMs: onMessagesRoute \? PORTAL_ACTIVE_POLL_MS : PORTAL_IDLE_UNREAD_POLL_MS/)
 })
 
-test('P0-7: four-slot navigation with an accessible More sheet', async (t) => {
-  // SUPERSEDED BY THE PHASE 1 PRODUCT DECISION. This originally asserted a five-slot
-  // NARROW-ONLY bar (home, students, placements, messages) while desktop rendered all
-  // eight sections. The locked navigation is now four primary destinations at EVERY
-  // width, so the width branch is gone. The accessibility properties this test exists
-  // to protect are unchanged and asserted below.
-  await t.test('one primary set at every width, no desktop-only branch', () => {
-    assert.match(chrome, /PRIMARY_KEYS = \['home', 'messages', 'evaluations'\]/)
-    assert.match(chrome, /MORE_KEYS = \['placements', 'capacity', 'preceptors'\]/)
-    assert.ok(!chrome.includes('usePortalIsNarrow'), 'the width branch was removed')
+test('P0-7: six desktop destinations and four mobile slots with accessible More', async (t) => {
+  await t.test('desktop and mobile sets are explicit and ordered', () => {
+    assert.match(chrome, /DESKTOP_KEYS = \['home', 'preceptors', 'messages', 'evaluations', 'placements', 'capacity'\]/)
+    assert.match(chrome, /MOBILE_PRIMARY_KEYS = \['home', 'preceptors', 'messages'\]/)
+    assert.match(chrome, /MOBILE_MORE_KEYS = \['evaluations', 'placements', 'capacity'\]/)
+    assert.match(css, /\.ptl-nav-mobile-more \{ display: none; \}/)
+    assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.ptl-nav-mobile-more \{ display: inline-flex; \}/)
   })
   await t.test('the More sheet is a real dialog with trap, Escape, and return focus', () => {
     assert.match(chrome, /role="dialog" aria-modal="true" aria-label="More sections"/)
@@ -186,28 +185,28 @@ test('P1-11: the Students table identity, hours bar', async (t) => {
   })
 })
 
-test('P1-12: the Compass form treatment on all three forms', async (t) => {
+test('P1-12: the Compass form treatment covers portal and create forms', async (t) => {
   await t.test('full-width inputs inside the responsive field grid', () => {
     const grids = portal.match(/className="ptl-form-grid"/g) || []
-    assert.equal(grids.length, 3, 'capacity, nomination, and concern forms')
+    assert.equal(grids.length, 2, 'capacity and concern forms')
     assert.match(portal, /ptl-input ptl-input-full/)
+    assert.match(createModal, /ptl-modal-body ptl-form-grid/)
     assert.match(css, /@media \(min-width: 760px\) \{\s*\n\s*\.ptl-form-grid \{ grid-template-columns: 1fr 1fr; \}/)
   })
   await t.test('helper text and a right-aligned submit row', () => {
     assert.match(portal, /ptl-field-help/)
     const submits = portal.match(/className="ptl-form-submit"/g) || []
-    assert.equal(submits.length, 3)
+    assert.equal(submits.length, 2)
     assert.match(css, /\.ptl-form-submit \{\s*\n\s*display: flex; align-items: center; justify-content: flex-end/)
+    assert.match(createModal, /ptl-modal-actions/)
   })
   await t.test('success notices name what was recorded', () => {
-    // SUPERSEDED: Capacity is now the canonical unit-availability form and shows a
-    // thank-you confirmation naming the unit, like /unit-form, rather than a summary notice.
     assert.match(portal, /Thank you, \{form\.unit_name\}/)
-    assert.match(portal, /`Nomination recorded: \$\{form\.proposed_name\} for \$\{studentName\(nominee\)\}/)
+    assert.match(preceptorsWorkspace, /Preceptor created and active/)
   })
   await t.test('the ASPIRE authority note appears once per screen', () => {
     const notes = portal.match(/\{ASPIRE_AUTHORITY_NOTE\}/g) || []
-    assert.equal(notes.length, 4, 'home, placements, capacity, preceptors: one each')
+    assert.equal(notes.length, 3, 'home, placements, and capacity: one each')
   })
 })
 
@@ -276,7 +275,7 @@ test('P2-16: table screens load with shimmer skeletons and polite announcements'
   assert.match(chrome, /export function TableSkeleton/)
   assert.match(chrome, /role="status" aria-live="polite" className="ptl-visually-hidden"/)
   assert.match(portal, /<TableSkeleton label="Loading placement requests" \/>/)
-  assert.match(portal, /<TableSkeleton label="Loading preceptor assignments" \/>/)
+  assert.match(preceptorsWorkspace, /<TableSkeleton label="Loading preceptors" \/>/)
   // SUPERSEDED: Capacity is a submit form (the canonical /unit-form workflow), not a table
   // that loads prior rows, so it no longer shows a table skeleton.
 })

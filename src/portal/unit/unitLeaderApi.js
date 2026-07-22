@@ -95,14 +95,20 @@ export const confirmMilestone = (studentId, milestone, comment) =>
 export const getNominations = (unitKey, signal) =>
   apiFetch(`/api/portal/unit-preceptor-nominations${unitQuery(unitKey)}`, { signal })
 
-export const nominatePreceptor = ({ studentId, preceptorId, proposedName, note }) =>
-  apiFetch('/api/portal/unit-preceptor-nominations', {
+export const getUnitPreceptors = (signal) =>
+  apiFetch('/api/portal/unit-preceptors', { signal })
+
+export const createUnitPreceptor = ({ full_name, email, phone, unit_key, shift, requestId }) =>
+  apiFetch('/api/portal/unit-preceptor-manage', {
     method: 'POST',
     body: {
-      student_id: studentId,
-      ...(preceptorId ? { preceptor_id: preceptorId } : {}),
-      ...(proposedName ? { proposed_name: proposedName } : {}),
-      note: note || '',
+      action: 'create_preceptor',
+      request_id: requestId,
+      full_name,
+      email,
+      phone,
+      unit_key,
+      shift,
     },
   })
 

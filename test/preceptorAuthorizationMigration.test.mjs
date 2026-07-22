@@ -222,10 +222,13 @@ test('both assignment APIs require a caller-supplied non-empty request id and fo
   assert.ok(!/const rid\s*=|Math\.random/.test(ulEp), 'Unit Leader API does not mint request ids')
 })
 
-test('the Unit Leader assignment backend has no frontend caller', () => {
+test('the Unit Leader backend frontend caller is create-only; assignment controls remain disabled', () => {
   const frontend = readTree(join(here, '..', 'src'))
-  assert.ok(!frontend.includes('/api/portal/unit-preceptor-manage'),
-    'the Unit Leader assignment UI remains disabled')
+  assert.ok(frontend.includes('/api/portal/unit-preceptor-manage'),
+    'the direct canonical creation UI uses the secured Unit Leader endpoint')
+  assert.match(frontend, /action: 'create_preceptor'/)
+  assert.doesNotMatch(frontend, /action: 'change_primary'|action: 'set_secondary'/,
+    'student assignment mutation callers remain disabled')
 })
 
 test('the staff modal uses one stable client request id per action and blocks double-clicks', () => {
