@@ -10,10 +10,11 @@
 
 
 -- ############################################################################
--- BEFORE (read-only). Expect exactly: 6a=4, 7a=4, everything else 0.
+-- BEFORE (read-only). Expect: 6a_name=4, 6a_email=0, 7a=4, everything else 0.
 -- ############################################################################
 
--- B1. Defect counts (must match the accepted Phase 2A findings before applying).
+-- B1. Defect counts, COLUMN-PRECISE. The free-text defect is split so it is explicit that
+--     for the accepted data only matched_preceptor is wrong (email is already canonical).
 WITH
 missing AS (SELECT s.id FROM students s WHERE s.preceptor_id IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM student_preceptor_assignments a
@@ -21,16 +22,19 @@ missing AS (SELECT s.id FROM students s WHERE s.preceptor_id IS NOT NULL
 stale AS (SELECT s.id FROM students s
   JOIN student_preceptor_assignments a ON a.student_id=s.id AND a.cohort_id=s.cohort_id AND a.role='primary' AND a.status='active'
   WHERE s.preceptor_id IS DISTINCT FROM a.preceptor_id),
-freetext AS (SELECT s.id FROM students s JOIN preceptors p ON p.id=s.preceptor_id
-  WHERE s.preceptor_id IS NOT NULL AND (
-    btrim(lower(coalesce(s.matched_preceptor,''))) IS DISTINCT FROM btrim(lower(coalesce(p.full_name,'')))
-    OR btrim(lower(coalesce(s.preceptor_email,''))) IS DISTINCT FROM btrim(lower(coalesce(p.email,''))))),
+name_drift AS (SELECT s.id FROM students s JOIN preceptors p ON p.id=s.preceptor_id
+  WHERE s.preceptor_id IS NOT NULL
+    AND btrim(lower(coalesce(s.matched_preceptor,''))) IS DISTINCT FROM btrim(lower(coalesce(p.full_name,'')))),
+email_drift AS (SELECT s.id FROM students s JOIN preceptors p ON p.id=s.preceptor_id
+  WHERE s.preceptor_id IS NOT NULL
+    AND btrim(lower(coalesce(s.preceptor_email,''))) IS DISTINCT FROM btrim(lower(coalesce(p.email,'')))),
 matchfk AS (SELECT m.id FROM matches m JOIN students s ON s.id=m.student_id AND s.cohort_id=m.cohort_id
   WHERE m.preceptor_id IS DISTINCT FROM s.preceptor_id)
-SELECT '1_primary_missing_mirror' AS category, count(*) FROM missing
-UNION ALL SELECT '2_primary_stale_mirror',       count(*) FROM stale
-UNION ALL SELECT '6a_freetext_disagrees',        count(*) FROM freetext
-UNION ALL SELECT '7a_match_preceptor_disagrees', count(*) FROM matchfk
+SELECT '1_primary_missing_mirror'     AS category, count(*) FROM missing
+UNION ALL SELECT '2_primary_stale_mirror',        count(*) FROM stale
+UNION ALL SELECT '6a_matched_preceptor_disagrees', count(*) FROM name_drift
+UNION ALL SELECT '6a_preceptor_email_disagrees',   count(*) FROM email_drift
+UNION ALL SELECT '7a_match_preceptor_disagrees',   count(*) FROM matchfk
 ORDER BY category;
 
 -- B2. Baseline count of student_preceptor_assignments rows by (role, status). Record this;
@@ -39,6 +43,17 @@ SELECT role, status, count(*) AS rows
 FROM student_preceptor_assignments
 GROUP BY role, status
 ORDER BY role, status;
+
+-- B2b. MATCHES CARDINALITY. Students with more than one match row in their OWN cohort.
+--      Expect ZERO rows. Any row here means the "single current match" rule is undecided for
+--      that student: the repair and the trigger will NOT touch that student's match FK, and a
+--      data decision (which match row is canonical) is required before those rows are repaired.
+SELECT m.student_id, m.cohort_id, count(*) AS same_cohort_match_rows, array_agg(m.id) AS match_ids
+FROM matches m
+JOIN students s ON s.id = m.student_id AND s.cohort_id = m.cohort_id
+GROUP BY m.student_id, m.cohort_id
+HAVING count(*) > 1
+ORDER BY m.student_id;
 
 -- B3. The equivalence gate (should already be clean per Phase 2A). MUST RETURN ZERO ROWS.
 SELECT s.id AS student_id, s.preceptor_id AS canonical, a.preceptor_id AS active_primary
@@ -56,7 +71,7 @@ WHERE tgrelid = 'public.students'::regclass AND tgname = 'trg_sync_primary_prece
 -- AFTER (read-only). Run immediately after COMMIT.
 -- ############################################################################
 
--- A1. Defect counts now ZERO for 6a and 7a (re-run B1's CTEs). Expect all four = 0.
+-- A1. Defect counts now ZERO (re-run B1's column-precise CTEs). Expect all five = 0.
 WITH
 missing AS (SELECT s.id FROM students s WHERE s.preceptor_id IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM student_preceptor_assignments a
@@ -64,16 +79,20 @@ missing AS (SELECT s.id FROM students s WHERE s.preceptor_id IS NOT NULL
 stale AS (SELECT s.id FROM students s
   JOIN student_preceptor_assignments a ON a.student_id=s.id AND a.cohort_id=s.cohort_id AND a.role='primary' AND a.status='active'
   WHERE s.preceptor_id IS DISTINCT FROM a.preceptor_id),
-freetext AS (SELECT s.id FROM students s JOIN preceptors p ON p.id=s.preceptor_id
-  WHERE s.preceptor_id IS NOT NULL AND (
-    btrim(lower(coalesce(s.matched_preceptor,''))) IS DISTINCT FROM btrim(lower(coalesce(p.full_name,'')))
-    OR btrim(lower(coalesce(s.preceptor_email,''))) IS DISTINCT FROM btrim(lower(coalesce(p.email,''))))),
+name_drift AS (SELECT s.id FROM students s JOIN preceptors p ON p.id=s.preceptor_id
+  WHERE s.preceptor_id IS NOT NULL
+    AND btrim(lower(coalesce(s.matched_preceptor,''))) IS DISTINCT FROM btrim(lower(coalesce(p.full_name,'')))),
+email_drift AS (SELECT s.id FROM students s JOIN preceptors p ON p.id=s.preceptor_id
+  WHERE s.preceptor_id IS NOT NULL
+    AND btrim(lower(coalesce(s.preceptor_email,''))) IS DISTINCT FROM btrim(lower(coalesce(p.email,'')))),
 matchfk AS (SELECT m.id FROM matches m JOIN students s ON s.id=m.student_id AND s.cohort_id=m.cohort_id
-  WHERE m.preceptor_id IS DISTINCT FROM s.preceptor_id)
-SELECT '1_primary_missing_mirror' AS category, count(*) FROM missing
-UNION ALL SELECT '2_primary_stale_mirror',       count(*) FROM stale
-UNION ALL SELECT '6a_freetext_disagrees',        count(*) FROM freetext
-UNION ALL SELECT '7a_match_preceptor_disagrees', count(*) FROM matchfk
+  WHERE m.preceptor_id IS DISTINCT FROM s.preceptor_id
+    AND (SELECT count(*) FROM matches m2 WHERE m2.student_id=s.id AND m2.cohort_id=s.cohort_id) = 1)
+SELECT '1_primary_missing_mirror'     AS category, count(*) FROM missing
+UNION ALL SELECT '2_primary_stale_mirror',        count(*) FROM stale
+UNION ALL SELECT '6a_matched_preceptor_disagrees', count(*) FROM name_drift
+UNION ALL SELECT '6a_preceptor_email_disagrees',   count(*) FROM email_drift
+UNION ALL SELECT '7a_match_preceptor_disagrees',   count(*) FROM matchfk
 ORDER BY category;
 
 -- A2. student_preceptor_assignments rows by (role, status) are IDENTICAL to B2 (the repair
@@ -98,12 +117,21 @@ LEFT JOIN student_preceptor_assignments a
   ON a.student_id=s.id AND a.cohort_id=s.cohort_id AND a.role='primary' AND a.status='active'
 WHERE s.preceptor_id IS DISTINCT FROM a.preceptor_id;
 
--- A5. Repaired-row provenance (before/after values, from the audit). One row per change.
+-- A5. Repaired-row provenance from the audit, one row per repaired column. For the accepted
+--     production data expect EXACTLY:
+--        students | matched_preceptor | 4
+--        matches  | preceptor_id      | 4
+--     and NO students/preceptor_email row (email was already canonical) -> 8 audit rows total.
 SELECT entity, col, count(*) AS repaired_rows
 FROM public.preceptor_mirror_repair_audit
 WHERE batch = 'phase2b-preceptor-mirror'
 GROUP BY entity, col
 ORDER BY entity, col;
+
+-- A5b. Total audit rows for the batch. Expect 8 for the accepted data.
+SELECT count(*) AS total_audit_rows
+FROM public.preceptor_mirror_repair_audit
+WHERE batch = 'phase2b-preceptor-mirror';
 
 -- A6. The trigger exists, is an AFTER trigger on students, and the function is
 --     SECURITY DEFINER with a fixed search_path and no PUBLIC execute.

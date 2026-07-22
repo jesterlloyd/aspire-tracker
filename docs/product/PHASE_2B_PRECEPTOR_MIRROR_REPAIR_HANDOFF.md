@@ -9,9 +9,12 @@ Deliverables:
 - Static guards (passing): `test/preceptorMirrorRepairMigration.test.mjs`
 
 Accepted Phase 2A production findings (source of truth): the only defects are denormalized
-mirror drift, `6a_freetext_disagrees = 4` and `7a_match_preceptor_disagrees = 4`; every other
-category is 0. The canonical `students.preceptor_id` and the active-primary
-`student_preceptor_assignments` rows are already correct, and there is no re-cohort ambiguity.
+mirror drift on 4 students, each of whom has a **blank `students.matched_preceptor`**, an
+**already-correct `students.preceptor_email`**, a **null current-cohort `matches.preceptor_id`**,
+a correct canonical `students.preceptor_id`, and a correct active-primary
+`student_preceptor_assignments` row. So the four defects are `matched_preceptor` drift (4) and
+`matches.preceptor_id` drift (4); `preceptor_email` is NOT wrong for anyone. Every other category
+is 0 and there is no re-cohort ambiguity.
 
 ---
 
@@ -36,26 +39,36 @@ The migration performs exactly these writes, in order:
    internal table that stores the prior value of every row the repair is about to change,
    tagged with the batch id `phase2b-preceptor-mirror`, so the one-time repair is exactly
    reversible. RLS is enabled with no policy, so only the service role can read it.
-2. **Insert the pre-repair snapshot** into that audit table: for each student whose
-   `matched_preceptor`/`preceptor_email` will change, the old value of each field; for each
-   current-cohort match row whose `preceptor_id` will change, the old value. This is a read
-   of current state written into the audit table; it changes no business data.
-3. **Repair the students display mirror.** `UPDATE students SET matched_preceptor =
-   preceptors.full_name, preceptor_email = preceptors.email` for students whose
-   `preceptor_id` is set and whose free-text differs from the canonical preceptor record.
-   Data-driven (joins `preceptors` on the FK; no student ids are hardcoded). In production
-   this affects the 4 students with blank display fields.
-4. **Repair the current-cohort match mirror.** `UPDATE matches SET preceptor_id =
-   students.preceptor_id` where the match is the student's current-cohort row and its
-   `preceptor_id` differs. In production this affects the 4 null match FKs. Historical match
+   The table has a `UNIQUE (batch, entity, ref_id, col)` constraint so re-running the snapshot
+   is a no-op and the rollback join can never match more than one snapshot row per column.
+2. **Insert the pre-repair snapshot** into that audit table, COLUMN-PRECISE and conflict-safe
+   (`ON CONFLICT DO NOTHING`): a `matched_preceptor` row only for a student whose
+   `matched_preceptor` differs; a `preceptor_email` row only for a student whose
+   `preceptor_email` differs; a `matches.preceptor_id` row only for the student's single
+   current-cohort match whose FK differs. An already-correct column is never audited. For the
+   accepted data this is 4 (`matched_preceptor`) + 0 (`preceptor_email`) + 4 (`matches`) = **8
+   audit rows**. This is a read of current state written into the audit table; it changes no
+   business data.
+3. **Repair `students.matched_preceptor`** (step 1a). `UPDATE students SET matched_preceptor =
+   preceptors.full_name` only where `matched_preceptor` differs from canonical. Data-driven; no
+   student ids are hardcoded. In production this affects the 4 students with a blank name.
+4. **Repair `students.preceptor_email`** (step 1b), as a SEPARATE statement. `UPDATE students
+   SET preceptor_email = preceptors.email` only where `preceptor_email` differs. Because it is
+   independent of 1a, an already-correct email is never rewritten. In production this affects
+   **0 rows**.
+5. **Repair the current-cohort match mirror** (step 1c). `UPDATE matches SET preceptor_id =
+   students.preceptor_id` where the match is the student's current-cohort row, its
+   `preceptor_id` differs, AND the student has EXACTLY ONE match row in that cohort (so no
+   historical or duplicate row is ever overwritten; see the Matches cardinality section). In
+   production this affects the 4 null match FKs. Historical match
    rows in other cohorts are not touched. **`matches.preceptor_assigned` is deliberately NOT
    written**: it is a free-text field the assignment writer never maintains
    (`PreceptorAssignmentModal` writes `matches.preceptor_id` only), and the architecture doc
    lists it as a fallback that must not be cleared, so aligning it is not canonical behavior.
-5. **Create the function `public.sync_primary_preceptor_mirror()`** (SECURITY DEFINER, fixed
+6. **Create the function `public.sync_primary_preceptor_mirror()`** (SECURITY DEFINER, fixed
    `search_path = public, pg_temp`). It does no work at creation time; it defines what
    happens on a future canonical change.
-6. **Create the trigger `trg_sync_primary_preceptor_mirror`** `AFTER INSERT OR UPDATE OF
+7. **Create the trigger `trg_sync_primary_preceptor_mirror`** `AFTER INSERT OR UPDATE OF
    preceptor_id ON students` (preceptor_id ONLY; `cohort_id` is not a trigger event). From
    this point, whenever any writer changes a student's `preceptor_id`, the function runs and,
    inside the same transaction, writes:
@@ -64,16 +77,27 @@ The migration performs exactly these writes, in order:
      (the only case a secondary/coverage row is ever touched, required so the primary insert
      does not violate the ppm3 relationship index); inserts one active-primary row if none
      exists; aligns `students.matched_preceptor`/`preceptor_email` from the preceptor record;
-     aligns the current-cohort `matches.preceptor_id`;
+     aligns the current-cohort `matches.preceptor_id` (only when the student has exactly one
+     match row in that cohort);
    - on a **cleared primary** (`preceptor_id` set to NULL): ends the active-primary row for
-     the student's cohort; clears the two display fields; nulls the current-cohort match FK.
+     the student's cohort; clears the two display fields; nulls the current-cohort match FK
+     (again only for a single current-cohort match row).
    Every branch is guarded (`IS DISTINCT FROM`, `NOT EXISTS`) so re-running the same change is
    a no-op. The student's cohort is fixed (students are never re-cohorted), so every write is
    scoped to that one cohort and the function contains no cohort-change logic.
-7. **`REVOKE ALL ON FUNCTION ... FROM PUBLIC`.** The function is only ever invoked by the
+8. **`REVOKE ALL ON FUNCTION ... FROM PUBLIC`.** The function is only ever invoked by the
    trigger; no caller executes it directly.
 
 No other table is written. No RLS policy is created or changed. No grant is issued.
+
+**Evidence the one-time repair changes NO `student_preceptor_assignments` row** (not a
+contrived query): (a) the repair section issues only `UPDATE public.students` and
+`UPDATE public.matches` (migration steps 1a/1b/1c) with no INSERT/UPDATE/DELETE against
+`student_preceptor_assignments`; (b) verification **B2 vs A2** show the SPA `(role, status)`
+counts are byte-identical before and after; (c) verification **A3** shows the rollback audit
+contains zero `student_preceptor_assignments` rows; (d) a static guard asserts the repair
+section contains no SPA write. The only code that ever writes SPA is the prevention trigger,
+which fires on FUTURE `preceptor_id` changes, not during this one-time repair.
 
 ## 4. Rollback plan
 
@@ -115,18 +139,43 @@ No other table is written. No RLS policy is created or changed. No grant is issu
   **the RPC owns `students.preceptor_id`; the trigger owns the mirror.** This keeps a single
   place responsible for the normalized model for both the staff and Unit Leader paths.
 
+## 5b. Matches cardinality findings
+
+- **The canonical writer updates ONE match row per student.** `PreceptorAssignmentModal`
+  (`handleConfirm` and `handleAddSaved`) selects the match with
+  `.from('matches').select('id').eq('student_id', student.id).limit(1)` and then updates that
+  single row by id. It filters by `student_id` only (not `cohort_id`), uses `LIMIT 1` with **no
+  `ORDER BY`**, so the "which row" is nondeterministic. No other code path defines a
+  "current/latest" match rule (no `ORDER BY matched_at` anywhere).
+- **Can more than one `matches` row exist for one student in the same cohort?** Yes, by schema:
+  `matches` has **no unique constraint** on `(student_id, cohort_id)` (confirmed across all
+  migrations). So it is schema-possible, though a well-formed placement is one-per-student.
+- **What identifies the canonical current match row?** There is no explicit rule in the
+  repository beyond the writer's arbitrary `LIMIT 1`. Because that is nondeterministic and
+  updating all same-cohort rows could rewrite history, the migration does **not** adopt
+  "all rows." It adopts the only safe deterministic rule: sync the current-cohort match FK
+  **only when the student has exactly one match row in that cohort**. Students with more than
+  one are left untouched and surfaced by the cardinality query (**B2b**) for a data decision.
+- **Would updating all same-cohort rows rewrite historical records?** It could, if any student
+  had more than one. The single-row guard removes that risk entirely. For the accepted data
+  each of the 4 students has exactly one current-cohort match (its FK null), so all 4 are
+  repaired; B2b is expected to return zero rows.
+
 ## 6. Tests / static guards added
 
-`test/preceptorMirrorRepairMigration.test.mjs` (14 guards, passing): gated + transactional;
-repair is data-driven (no hardcoded UUIDs); repair aligns exactly the two mirror classes from
-canonical; `matches.preceptor_assigned` never written; repair writes no SPA rows; audit table
-with the batch sentinel and RLS enabled; function is SECURITY DEFINER with fixed search_path;
-trigger fires only on `preceptor_id`/`cohort_id`; idempotent + history-preserving (no DELETE,
+`test/preceptorMirrorRepairMigration.test.mjs` (16 guards, passing): gated + transactional;
+repair is data-driven (no hardcoded UUIDs); repair is COLUMN-PRECISE (separate `matched_preceptor`
+and `preceptor_email` updates, no combined predicate); the match FK is aligned only for a SINGLE
+current-cohort match row (repair and both trigger branches guarded on `count(*) = 1`); the audit
+is column-precise and safely repeatable (`UNIQUE (batch, entity, ref_id, col)`, three
+`ON CONFLICT DO NOTHING` snapshots, email captured only on its own difference);
+`matches.preceptor_assigned` never written; repair writes no SPA rows; audit table with the batch
+sentinel and RLS enabled; function is SECURITY DEFINER with fixed search_path; trigger fires only
+on `preceptor_id` (never `cohort_id`); idempotent + history-preserving (no DELETE,
 insert-only-when-missing, same-preceptor is the only secondary/coverage touch); cleared-primary
-branch behavior; NO cohort-change logic (no `v_cohort_changed`, no `OLD.cohort_id`, trigger is
-preceptor_id-only) while every write stays scoped to the fixed cohort; no permission widening
-(REVOKE from PUBLIC, no CREATE POLICY, no anon/authenticated/portal grant); verification file
-covers the equivalence gate and the definer/search_path/execute checks; no em dash.
+branch behavior; NO cohort-change logic; no permission widening (REVOKE from PUBLIC, no CREATE
+POLICY, no anon/authenticated/portal grant); verification file covers the equivalence gate and
+the definer/search_path/execute checks; no em dash.
 
 ## 7. Exact manual application order
 
@@ -235,7 +284,79 @@ policy); it only keeps the mirror consistent for changes that are already allowe
 narrows that policy, the trigger faithfully mirrors whatever the current policy permits, neither
 improving nor worsening the authorization posture.
 
+## Security sequencing (release recommendation)
+
+- **Phase 2B must NOT be applied as a standalone, long-lived production state.** It repairs the
+  data and installs the sync trigger, but it does not narrow who may change
+  `students.preceptor_id`. On its own it should not sit in production indefinitely before the
+  authorization protection lands.
+- **Author Phase 2C authorization next** (scope below), then **apply Phase 2B and the Phase 2C
+  authorization migration back-to-back in ONE controlled maintenance sequence**, before any Unit
+  Leader assignment UI is enabled. The order is 2B first (so the mirror trigger exists), then 2C
+  immediately after (so the direct path is guarded and the scoped UL RPC is the only new writer).
+
+**Does the Phase 2B trigger make an unauthorized `preceptor_id` update more consequential?**
+Yes, and this is the reason for the back-to-back sequencing. Before 2B, an unauthorized direct
+`students.preceptor_id` change (theoretically possible today for interviewer/viewer/co_lead via
+the broad `is_staff()` policy) only changed the canonical field plus the free-text display fields;
+the active-primary `student_preceptor_assignments` row stayed stale (drift, but the
+service-managed normalized table was untouched). After 2B, the same unauthorized change ALSO, via
+the SECURITY DEFINER trigger, ends the old active-primary SPA row and inserts a new one, and
+rewrites the current-cohort match FK, bypassing the SPA table's no-write RLS. So the blast radius
+of an unauthorized change grows from "one FK plus free text" to "the full normalized assignment
+model." That is not a reason to omit the trigger (the drift it prevents is the whole point); it is
+the reason to apply the Phase 2C authorization guard in the same maintenance window.
+
+## Expected counts (accepted production data)
+
+| Check | Expected |
+|---|---|
+| B1 `6a_matched_preceptor_disagrees` | 4 |
+| B1 `6a_preceptor_email_disagrees` | 0 |
+| B1 `7a_match_preceptor_disagrees` | 4 |
+| B1 `1_primary_missing_mirror`, `2_primary_stale_mirror` | 0, 0 |
+| B2b matches-cardinality (students with >1 same-cohort match) | 0 rows |
+| B3 equivalence gate | 0 rows |
+| Audit rows written (A5): `students/matched_preceptor` | 4 |
+| Audit rows written (A5): `students/preceptor_email` | 0 (none) |
+| Audit rows written (A5): `matches/preceptor_id` | 4 |
+| **A5b total audit rows** | **8** |
+| A1 all five defect categories (after) | 0 |
+| A2 SPA `(role, status)` counts (after) | identical to B2 (no SPA row changed, none deleted) |
+| A4 equivalence gate (after) | 0 rows |
+| A6 trigger present / SECURITY DEFINER / search_path | present / true / `public, pg_temp` |
+| A6 `public_can_execute` | false |
+| A7 new RLS policy | none |
+
+## Final recommendation for Phase 2B SQL authoring
+
+**PASS** for authoring, conditional on two read-only preflight confirmations at apply time:
+(1) B1 matches the accepted counts (`6a_name=4, 6a_email=0, 7a=4`, others 0), and (2) **B2b
+returns zero rows** (no student has more than one same-cohort match). Both are expected from the
+accepted Phase 2A data. If B2b returns any row, do not apply until the canonical-match rule for
+those students is decided; the migration already fails safe by skipping them, but they should be
+reviewed. Phase 2B must ship in the same maintenance window as the Phase 2C authorization guard,
+per Security sequencing above.
+
+## Proposed Phase 2C authorization scope
+
+1. **Guard the direct path.** A `BEFORE UPDATE OF preceptor_id ON students` trigger that raises
+   unless the acting user is owner/admin (resolved from `user_profiles` via `auth.uid()`), with a
+   controlled exception for the scoped UL RPC (e.g. a transaction-local GUC the RPC sets). RLS
+   cannot be column-scoped and all app users share the `authenticated` DB role, so this guard is
+   the enforcement point.
+2. **Point the staff modal at an owner/admin path** (or leave the direct update but behind the
+   guard) so `PreceptorAssignmentModal` continues to work for owner/admin only.
+3. **Scoped Unit Leader RPC** `unit_leader_set_primary_preceptor(p_student_id, p_preceptor_id)`,
+   SECURITY DEFINER, fail closed: verifies an ACTIVE `unit_leader` grant AND an ACTIVE
+   `user_unit_scopes` row covering the student's unit; sets `students.preceptor_id` (firing the
+   2B trigger for the mirror); writes an audit row; queues an Owner/Admin notification. UL gets
+   `EXECUTE` only, never a table write policy.
+4. **Audit + Owner/Admin notification** on every UL primary change, in the RPC transaction.
+5. **Then** the Unit Leader assignment UI that calls the RPC.
+
 ## Stop point
 
-Handoff delivered. Nothing applied or deployed. Next action for the owner: review, then follow
-the application order above under the Owner SQL gate.
+Handoff delivered. Nothing applied or deployed. Next action for the owner: review, then apply
+Phase 2B and the Phase 2C authorization migration back-to-back under the Owner SQL gate, following
+the application order above (including the B2b cardinality confirmation).

@@ -37,13 +37,39 @@ test('the repair is data-driven: no hardcoded student or preceptor UUIDs', () =>
   assert.ok(!uuidLiteral.test(mig), 'no UUID literal anywhere in the migration')
 })
 
-test('the repair aligns exactly the two mirror classes from canonical', () => {
-  // students display fields from preceptors
-  assert.match(repair, /UPDATE public\.students s\s*\n\s*SET matched_preceptor = p\.full_name,\s*\n\s*preceptor_email\s*= p\.email/)
-  assert.match(repair, /FROM public\.preceptors p/)
-  // current-cohort match FK from students
+test('the repair is COLUMN-PRECISE: matched_preceptor and preceptor_email are separate', () => {
+  // Two independent single-column UPDATEs, each guarded on THAT column differing, so an
+  // already-canonical column is never rewritten.
+  assert.match(repair, /UPDATE public\.students s\s*\n\s*SET matched_preceptor = p\.full_name\s*\nFROM/)
+  assert.match(repair, /UPDATE public\.students s\s*\n\s*SET preceptor_email = p\.email\s*\nFROM/)
+  // The old combined "name OR email" student update must be gone.
+  assert.ok(!/SET matched_preceptor = p\.full_name,\s*\n\s*preceptor_email\s*= p\.email/.test(repair),
+    'no combined two-column student update')
+  assert.ok(!/IS DISTINCT FROM btrim\(lower\(coalesce\(p\.full_name[\s\S]{0,60}OR[\s\S]{0,120}p\.email/.test(repair),
+    'no combined name-OR-email predicate in the repair')
+})
+
+test('the match FK is aligned only for a SINGLE current-cohort match row', () => {
+  // Repair 1c: current-cohort match FK, guarded so it never overwrites one of several rows.
   assert.match(repair, /UPDATE public\.matches m\s*\n\s*SET preceptor_id = s\.preceptor_id/)
   assert.match(repair, /m\.cohort_id\s*= s\.cohort_id/)
+  assert.match(repair, /SELECT count\(\*\) FROM public\.matches m2\s*\n\s*WHERE m2\.student_id = s\.id AND m2\.cohort_id = s\.cohort_id\) = 1/)
+  // The trigger applies the same single-row guard on both its match updates.
+  assert.equal((prevention.match(/WHERE m2\.student_id = NEW\.id AND m2\.cohort_id = NEW\.cohort_id\) = 1/g) || []).length, 2,
+    'both trigger match updates are single-row guarded')
+})
+
+test('the audit is column-precise and safely repeatable', () => {
+  // Unique per repaired column; conflict-safe inserts; only the differing column is captured.
+  assert.match(liveSql, /CONSTRAINT uq_pmra_batch_entity_ref_col UNIQUE \(batch, entity, ref_id, col\)/)
+  assert.equal((liveSql.match(/ON CONFLICT \(batch, entity, ref_id, col\) DO NOTHING/g) || []).length, 3,
+    'all three snapshots are conflict-safe')
+  // Three distinct column snapshots exist.
+  assert.match(liveSql, /'matched_preceptor', s\.matched_preceptor/)
+  assert.match(liveSql, /'preceptor_email', s\.preceptor_email/)
+  assert.match(liveSql, /'preceptor_id', m\.preceptor_id::text/)
+  // The email snapshot is guarded on the EMAIL difference alone (its own predicate).
+  assert.match(liveSql, /btrim\(lower\(coalesce\(s\.preceptor_email,''\)\)\) IS DISTINCT FROM btrim\(lower\(coalesce\(p\.email,''\)\)\)/)
 })
 
 test('the repair does NOT touch matches.preceptor_assigned (not a maintained mirror)', () => {
