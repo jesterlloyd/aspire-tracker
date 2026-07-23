@@ -150,7 +150,6 @@ export default function PortalMessagesThread({
             key={m.id}
             message={m}
             perspective="portal"
-            bubbleClassName="ptl-msg-item"
           />
         ))}
       </div>

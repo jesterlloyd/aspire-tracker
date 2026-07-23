@@ -227,19 +227,22 @@ body { min-height: 100vh; }
 .msg-bubble-row {
   list-style: none;
   display: flex;
-  flex-direction: column;
-  padding: 3px 0;
+  flex-direction: row;
+  width: 100%;
+  padding: 4px 8px;
   border: 0;
+  background: transparent;
 }
-.msg-bubble-row-incoming { align-items: flex-start; }
-.msg-bubble-row-outgoing { align-items: flex-end; }
-.msg-bubble-row-neutral { align-items: center; }
+.msg-bubble-row-incoming { justify-content: flex-start; }
+.msg-bubble-row-outgoing { justify-content: flex-end; }
+.msg-bubble-row-neutral { justify-content: center; }
 .msg-bubble {
-  display: flex;
+  position: relative;
+  display: inline-flex;
   flex-direction: column;
   gap: 4px;
-  width: fit-content;
-  max-width: min(78%, 620px);
+  width: auto;
+  max-width: min(70%, 620px);
   border: 0;
   border-radius: 20px;
   padding: 10px 12px;
@@ -248,18 +251,37 @@ body { min-height: 100vh; }
   min-width: 0;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
   font-family: 'DM Sans', sans-serif;
+  overflow: visible;
 }
 .msg-bubble-incoming {
-  align-self: flex-start;
   border-bottom-left-radius: 7px;
   background: #eef0f4;
   color: #1f2937;
 }
 .msg-bubble-outgoing {
-  align-self: flex-end;
   border-bottom-right-radius: 7px;
   background: #3478f6;
   color: #fff;
+}
+.msg-bubble-incoming::after,
+.msg-bubble-outgoing::after {
+  content: '';
+  position: absolute;
+  bottom: 1px;
+  width: 12px;
+  height: 14px;
+  background: inherit;
+  pointer-events: none;
+}
+.msg-bubble-incoming::after {
+  left: -4px;
+  clip-path: polygon(100% 0, 0 100%, 100% 76%);
+  border-bottom-left-radius: 10px;
+}
+.msg-bubble-outgoing::after {
+  right: -4px;
+  clip-path: polygon(0 0, 100% 100%, 0 76%);
+  border-bottom-right-radius: 10px;
 }
 .msg-bubble-neutral {
   max-width: min(88%, 680px);
@@ -268,12 +290,15 @@ body { min-height: 100vh; }
   border: 1px solid #e5e7eb;
   box-shadow: none;
 }
+.msg-bubble-neutral::after { content: none; }
 .msg-bubble-meta {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 4px 8px;
   flex-wrap: wrap;
   margin-bottom: 1px;
+  min-width: 0;
+  max-width: 100%;
 }
 .msg-bubble-author {
   font-size: 12.5px;
@@ -288,17 +313,18 @@ body { min-height: 100vh; }
   opacity: 0.72;
 }
 .msg-bubble-time {
-  margin-left: auto;
   font-size: 11.5px;
   color: inherit;
   opacity: 0.72;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .msg-bubble-body {
   font-size: 14.5px;
   line-height: 1.55;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  word-break: break-word;
 }
 @media (max-width: 760px) {
   .msg-bubble { max-width: 86%; }

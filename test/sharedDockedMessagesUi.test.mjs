@@ -20,6 +20,7 @@ const thread = read('src/portal/messages/PortalMessagesThread.jsx')
 const reply = read('src/portal/messages/PortalReplyComposer.jsx')
 const client = read('src/lib/messages/portalMessagesApiClient.js')
 const css = read('src/portal/portal.css')
+const globalCss = read('src/index.css')
 
 const panelCode = strip(panel)
 const startBlock = panel.match(/const startTeamConversation = async[\s\S]*?\n  }/)?.[0] || ''
@@ -110,9 +111,15 @@ test('existing replies and read-state continue through the shared portal thread 
 test('shared bubbles render ASPIRE Team incoming left and portal user outgoing right', () => {
   assert.match(thread, /MessageBubble/)
   assert.match(thread, /perspective="portal"/)
-  assert.match(css, /\.ptl-msg-item \{[\s\S]*border-radius: 20px;[\s\S]*background: #eef0f4/)
-  assert.match(css, /\.ptl-msg-item-staff \{[\s\S]*align-self: flex-start;[\s\S]*background: #eef0f4;[\s\S]*color: #1f2937/)
-  assert.match(css, /\.ptl-msg-item-me \{[\s\S]*align-self: flex-end;[\s\S]*background: #3478f6;[\s\S]*color: #fff/)
+  assert.doesNotMatch(thread, /bubbleClassName="ptl-msg-item"/)
+  assert.match(globalCss, /\.msg-bubble-row-incoming \{ justify-content: flex-start; \}/)
+  assert.match(globalCss, /\.msg-bubble-row-outgoing \{ justify-content: flex-end; \}/)
+  assert.match(globalCss, /\.msg-bubble-incoming \{[\s\S]*background: #eef0f4;[\s\S]*color: #1f2937/)
+  assert.match(globalCss, /\.msg-bubble-outgoing \{[\s\S]*background: #3478f6;[\s\S]*color: #fff/)
+  assert.match(globalCss, /\.msg-bubble-incoming::after,[\s\S]*\.msg-bubble-outgoing::after \{[\s\S]*background: inherit;/)
+  const legacy = css.slice(css.indexOf('.ptl-msg-item {'), css.indexOf('.ptl-msg-author {'))
+  assert.match(legacy, /width: auto;/)
+  assert.doesNotMatch(legacy, /align-self: flex|background: #3478f6|background: #eef0f4|max-width: min\(78%/)
 })
 
 test('static boundaries exclude SQL, Academic Partner Messages, and desktop student notice', () => {

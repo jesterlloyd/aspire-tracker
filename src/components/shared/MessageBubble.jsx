@@ -45,8 +45,6 @@ export default function MessageBubble({
         className={[
           'msg-bubble-row',
           `msg-bubble-row-${direction}`,
-          incoming ? 'ptl-msg-item-staff' : '',
-          outgoing ? 'ptl-msg-item-me' : '',
           className,
         ].filter(Boolean).join(' ')}
       >
@@ -54,19 +52,17 @@ export default function MessageBubble({
           className={[
             'msg-bubble',
             `msg-bubble-${direction}`,
-            incoming ? 'ptl-msg-item-staff' : '',
-            outgoing ? 'ptl-msg-item-me' : '',
             neutral ? 'msg-bubble-neutral' : '',
             bubbleClassName,
           ].filter(Boolean).join(' ')}
         >
-          <div className="msg-bubble-meta ptl-msg-item-head">
-            <span className="msg-bubble-author ptl-msg-author">{displayName}</span>
+          <div className="msg-bubble-meta">
+            <span className="msg-bubble-author">{displayName}</span>
             {fromStaff && message?.author_name && message.author_name !== displayName && (
-              <span className="msg-bubble-author-detail ptl-msg-author-name">{message.author_name}</span>
+              <span className="msg-bubble-author-detail">{message.author_name}</span>
             )}
             <time
-              className="msg-bubble-time ptl-msg-time"
+              className="msg-bubble-time"
               dateTime={message?.created_at || undefined}
               title={fullTime}
             >
@@ -74,7 +70,7 @@ export default function MessageBubble({
               <span style={srOnly}>{`${directionLabel} message from ${displayName}, sent ${fullTime}`}</span>
             </time>
           </div>
-          <div className={`msg-bubble-body ptl-msg-body ${bodyClassName}`}>{message?.body}</div>
+          <div className={`msg-bubble-body ${bodyClassName}`}>{message?.body}</div>
         </div>
       </Container>
     </>

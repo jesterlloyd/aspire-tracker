@@ -691,23 +691,21 @@
 .ptl-msg-scroll { display: flex; flex-direction: column; gap: 10px; max-height: 460px; overflow-y: auto; padding-right: 4px; }
 @media (max-width: 760px) { .ptl-msg-scroll { max-height: none; } }
 
-/* Shared docked/full thread renderer: conversational bubbles, never images. */
+/* Legacy compatibility only. The canonical shared bubble layout, sizing,
+   direction, colors, and tails live in src/index.css under .msg-bubble*. */
 .ptl-msg-item {
-  display: flex; flex-direction: column; gap: 4px;
-  width: fit-content; max-width: min(78%, 620px);
-  border: 0; border-radius: 20px; padding: 10px 12px;
-  background: #eef0f4; color: #1f2937; min-width: 0;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  width: auto;
+  max-width: none;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
 }
-.ptl-msg-item-staff {
-  align-self: flex-start; border-bottom-left-radius: 7px;
-  background: #eef0f4; color: #1f2937;
-}
+.ptl-msg-item-staff,
 .ptl-msg-item-me {
-  align-self: flex-end; border-bottom-right-radius: 7px;
-  background: #3478f6; color: #fff;
+  background: transparent;
+  color: inherit;
 }
-.ptl-msg-item-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 1px; }
+.ptl-msg-item-head { margin-bottom: 1px; }
 .ptl-msg-author { font-size: 12.5px; font-weight: 700; }
 .ptl-msg-author { color: inherit; opacity: 0.95; }
 /* Secondary context only: an individual staff name never outranks the team. */
@@ -1336,7 +1334,7 @@ img.ptl-detail-photo {
   .ptl-team-message-head { padding: 12px 14px; }
   .ptl-team-message-icon { display: none; }
   .ptl-team-message-new { padding: 0 10px; }
-  .ptl-msg-item { max-width: 86%; }
+  .msg-bubble { max-width: 86%; }
 }
 
 /* UL-POLISH P0: participant context line on Unit Leader inbox cards. */

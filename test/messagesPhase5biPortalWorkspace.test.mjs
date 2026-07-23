@@ -230,9 +230,9 @@ test('thread', async (t) => {
     const globalCss = read('../src/index.css')
     assert.match(thread, /MessageBubble/)
     assert.match(thread, /perspective="portal"/)
-    assert.match(bubble, /<div className=\{`msg-bubble-body ptl-msg-body \$\{bodyClassName\}`\}>\{message\?\.body\}<\/div>/)
+    assert.match(bubble, /<div className=\{`msg-bubble-body \$\{bodyClassName\}`\}>\{message\?\.body\}<\/div>/)
     assert.doesNotMatch(strip(thread + bubble), /dangerouslySetInnerHTML|innerHTML|\bmarkdown\b|\bmarked\b|\bremark\b/i)
-    assert.match(globalCss, /\.msg-bubble-body \{[\s\S]*white-space: pre-wrap;[\s\S]*overflow-wrap: anywhere/)
+    assert.match(globalCss, /\.msg-bubble-body \{[\s\S]*white-space: pre-wrap;[\s\S]*overflow-wrap: anywhere;[\s\S]*word-break: break-word;/)
   })
 })
 
