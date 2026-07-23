@@ -101,7 +101,7 @@ export default function PortalUtilityLayer({
 
   const isUnitLeaderPortal = portalRole === 'unit_leader' && portalType === 'unit_leader'
   const isStudentPortal = portalRole === 'student' && portalType === 'student'
-  const feedbackEnabled = isUnitLeaderPortal
+  const feedbackEnabled = isUnitLeaderPortal || isStudentPortal
   const messagesEnabled = messagesAuthorized && (isUnitLeaderPortal || isStudentPortal)
   const noticeVisible = enabled && isUnitLeaderPortal && narrow && !onMessagesRoute && !storedDismissed && !sessionDismissed
 
@@ -145,6 +145,7 @@ export default function PortalUtilityLayer({
           launcherRef={feedbackRef}
           pathname={pathname}
           section={section}
+          portalType={isStudentPortal ? 'student' : 'unit_leader'}
         />
       )}
 

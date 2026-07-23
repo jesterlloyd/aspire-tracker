@@ -2,7 +2,7 @@
 
 ## Architecture
 
-This pass adds the dormant backend foundation for ASPIRE portal feedback and bug reports. The implementation is role-neutral at the storage and service layers, with a Unit Leader-only endpoint adapter for the first active release.
+This pass adds the backend foundation for ASPIRE portal feedback and bug reports. The implementation is role-neutral at the storage and service layers, with active endpoint adapters for Student and Unit Leader portal users.
 
 The boundary is:
 
@@ -11,9 +11,9 @@ The boundary is:
 3. atomic database submission through `submit_portal_feedback_report`,
 4. purpose-specific delivery/outbox processing through `portal_feedback_deliveries`,
 5. retry worker processing through `/api/cron/portal-feedback-delivery-worker`,
-6. dormant browser helpers in `src/lib/portalFeedbackApiClient.js`.
+6. browser helpers in `src/lib/portalFeedbackApiClient.js`.
 
-No portal launcher, floating control, desktop notice, navigation item, Student feedback UI, Unit Leader feedback UI, or Academic Partner feedback UI is mounted in this pass.
+Student and Unit Leader feedback are mounted through the shared portal utility layer. Academic Partner feedback remains unmounted.
 
 ## Migration Contents
 
@@ -58,23 +58,26 @@ The server rejects unexpected fields, including client-supplied identity or auth
 
 The endpoint sets `Cache-Control: no-store`, accepts JSON only, enforces a 64 KB body limit, normalizes plain text, rejects HTML-like text, bounds field lengths, and returns stable application error codes.
 
-## Unit Leader-Only Active Authorization
+## Active Portal Authorization
 
-This pass accepts only a currently authenticated Unit Leader with an active role grant and at least one active Unit Leader scope.
+This pass accepts:
 
-The endpoint uses `verifyPortalUnitLeaderCaller()` and derives:
+- a currently authenticated Student with an active Student portal grant, or
+- a currently authenticated Unit Leader with an active role grant and at least one active Unit Leader scope.
+
+The endpoint tries the Student verifier first. If there is no active Student grant, it falls back to the Unit Leader verifier. It derives:
 
 - reporter profile id,
 - display name,
 - email,
-- `portal_role = unit_leader`,
-- `portal_type = unit_leader`.
+- `portal_role`,
+- `portal_type`.
 
 No client-supplied role, profile, unit, school, or scope data is trusted.
 
 ## Role-Neutral Future Extension Point
 
-Future Student or Academic Partner feedback support should add a new verified reporter-context adapter that calls the same `submitPortalFeedback()` service with:
+Future Academic Partner feedback support should add a new verified reporter-context adapter that calls the same `submitPortalFeedback()` service with:
 
 - `profileId`
 - optional display name/email
@@ -177,15 +180,15 @@ git diff --check
 
 Live database verification is deferred until after Jester manually applies SQL. Do not claim live database verification from this branch alone.
 
-## Future Pass 2 Dependencies
+## UI Activation Dependencies
 
-Before mounting UI, confirm:
+Before live rollout, confirm:
 
 - migration applied in production,
-- endpoint can submit as an active Unit Leader,
+- endpoint can submit as an active Student and active Unit Leader,
 - outbox row is created on submit,
 - worker can send or retry notification without duplicate submissions,
-- the first UI pass sends no server-derived identity fields,
+- the UI sends no server-derived identity fields,
 - the UI preserves the same privacy allowlist.
 
 Academic Partner feedback can be added later by introducing a verified Academic Partner reporter-context resolver that calls the same shared service. Academic Partner Messages was not built in this pass.

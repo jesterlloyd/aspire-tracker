@@ -2,9 +2,9 @@
 
 ## Scope
 
-This pass enables the lower-right docked `Messages` launcher and panel for Student and Unit Leader portal users.
+This pass keeps the lower-right docked `Messages` launcher and panel active for Student and Unit Leader portal users, and converges the docked panel, full portal Messages workspaces, and staff Connect Messages thread on one shared bubble treatment.
 
-It does not enable Academic Partner Messages, Student feedback, the Student desktop optimization notice, SQL, migrations, deployment, or the Unit Leader assignment UI.
+It does not enable Academic Partner Messages, the Student desktop optimization notice, SQL, migrations, deployment, or the Unit Leader assignment UI.
 
 ## User Experience
 
@@ -14,8 +14,16 @@ Panel header:
 
 - title: `Messages`
 - subtitle: `ASPIRE Team`
-- action: `New` with accessible name `Start a new conversation`
-- action: close with accessible name `Close Messages`
+- subtle `↺ New` action with accessible name `Start a new conversation`
+- subtle `×` close action with accessible name `Close Messages`
+
+The large outlined `+ New` control was retired. Header actions now follow the Keith-style low-chrome treatment without using Keith identity or AI behavior.
+
+The safety/guidance notice appears above the conversation and composer, not between the textbox and the send control. The composer is pinned low inside the panel and uses a compact row:
+
+- flexible textarea
+- circular blue paper-plane send button
+- accessible send name: `Send message`
 
 `Open full Messages` still navigates to the full `/portal/messages` workspace.
 
@@ -50,11 +58,31 @@ Existing `team_general` replies continue through the existing portal thread, rep
 
 ## Shared Visual Treatment
 
-The shared portal thread renderer now uses an iMessage-inspired bubble treatment:
+The canonical message bubble lives in:
+
+- `src/components/shared/MessageBubble.jsx`
+- `src/lib/messages/messageBubbleDirection.js`
+
+It is reused by:
+
+- docked Student and Unit Leader Messages panel
+- Student full Messages workspace
+- Unit Leader full Messages workspace
+- staff Connect > Messages thread
+
+Viewer-relative direction:
+
+- portal perspective: portal-user messages are outgoing blue/right; ASPIRE/staff messages are incoming gray/left
+- staff perspective: staff messages are outgoing blue/right; portal participant messages are incoming gray/left
+
+The visual treatment is iMessage-inspired:
 
 - ASPIRE Team/staff messages: left-aligned gray bubbles
-- portal-user messages: right-aligned blue bubbles
-- shared behavior for Student and Unit Leader
+- active viewer messages: right-aligned blue bubbles
+- author/time metadata stays subdued inside the bubble
+- body text remains plain text with preserved line breaks
+
+The Unit Leader full Messages workspace now uses the broader Student-style available width rather than the earlier narrow centered maximum.
 
 ## Verification
 

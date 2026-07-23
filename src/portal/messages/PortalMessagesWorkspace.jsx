@@ -24,7 +24,9 @@ import {
   PORTAL_ACTIVE_POLL_MS, usePortalIsNarrow, usePortalUnreadCount,
 } from '../../lib/messages/portalMessagesPolling'
 import { formatUnread, unreadLabel } from '../../lib/messages/messagesConstants'
-import { PORTAL_SUBTITLE, UL_PORTAL_SUBTITLE, portalStatusIsClosed } from '../../lib/messages/portalMessagesConstants'
+import {
+  PORTAL_SUBTITLE, UL_PORTAL_SUBTITLE, PORTAL_SAFETY_NOTICE, portalStatusIsClosed,
+} from '../../lib/messages/portalMessagesConstants'
 
 const srOnly = {
   position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
@@ -155,6 +157,8 @@ export default function PortalMessagesWorkspace({
           </div>
         </div>
       )}
+
+      <p className="ptl-msg-guidance ptl-msg-workspace-guidance">{PORTAL_SAFETY_NOTICE}</p>
 
       <div className={`ptl-msg-split${narrow ? ' ptl-msg-split-narrow' : ''}`}>
         {showList && (

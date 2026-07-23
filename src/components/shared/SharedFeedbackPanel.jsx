@@ -126,8 +126,8 @@ export default function SharedFeedbackPanel({
             <div className="shared-feedback-head">
               <MessageCircle size={20} color="#ffffff" strokeWidth={2} aria-hidden="true" />
               <div>
-                <h2 id="shared-feedback-title">Send a Message</h2>
-                <p id="shared-feedback-desc">Report a bug, suggest a feature, or ask a question</p>
+                <h2 id="shared-feedback-title">Send Feedback</h2>
+                <p id="shared-feedback-desc">Report a bug, suggest a feature, or ask a question.</p>
               </div>
               <button type="button" className="shared-feedback-close" onClick={() => setOpen(false)} aria-label="Close feedback panel">
                 <X size={18} aria-hidden="true" />

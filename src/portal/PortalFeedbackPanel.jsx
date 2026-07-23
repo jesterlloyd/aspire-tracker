@@ -8,8 +8,6 @@ import {
   validatePortalFeedbackClientPayload,
 } from '../lib/portalFeedbackApiClient'
 
-const INTENT_KEY = 'unit_leader:utility'
-
 function errorText(code) {
   switch (code) {
     case 'request_id_payload_conflict':
@@ -44,9 +42,11 @@ export default function PortalFeedbackPanel({
   launcherRef,
   pathname,
   section,
+  portalType = 'unit_leader',
 }) {
   const submit = async ({ category, message, bugFields }) => {
-    const requestId = createPortalFeedbackRequestId(INTENT_KEY)
+    const intentKey = `${portalType}:utility`
+    const requestId = createPortalFeedbackRequestId(intentKey)
     const type = typeForCategory(category)
     const payload = {
       request_id: requestId,
@@ -68,24 +68,26 @@ export default function PortalFeedbackPanel({
     if (!checked.ok) throw new Error(errorText(checked.error))
     try {
       await submitPortalFeedbackReport(payload)
-      clearPortalFeedbackRequestId(INTENT_KEY)
+      clearPortalFeedbackRequestId(intentKey)
     } catch (err) {
       const code = err instanceof PortalFeedbackApiError ? err.code : null
       throw new Error(errorText(code), { cause: err })
     }
   }
 
+  const portalLabel = portalType === 'student' ? 'Student Portal' : 'Unit Leader Portal'
+
   return (
     <SharedFeedbackPanel
       activeTab={section}
-      cohortName="Unit Leader Portal"
+      cohortName={portalLabel}
       isAuthenticated
       launcherRef={launcherRef}
       open={open}
       onOpenChange={onOpenChange}
       hidden={hidden}
       submitLabel="Send to ASPIRE"
-      contextNote={`Will include: ${section || 'current section'} · Unit Leader Portal`}
+      contextNote={`Will include: ${section || 'current section'} · ${portalLabel}`}
       onSubmit={submit}
     />
   )

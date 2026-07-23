@@ -10,20 +10,15 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { ChevronLeft, RefreshCw } from 'lucide-react'
+import MessageBubble from '../../components/shared/MessageBubble'
 import { getPortalThreadPage } from '../../lib/messages/portalMessagesApiClient'
 import {
   portalThreadQueryKey, prependOlderPage, nextThreadCursor, threadPageIsCurrent,
   PORTAL_THREAD_LIMIT_DEFAULT,
 } from '../../lib/messages/portalThreadState'
-import { formatFullTimestamp } from '../../lib/messages/messagesConstants'
 import {
   PORTAL_NO_SELECTION, UL_PORTAL_NO_SELECTION, portalStatusIsClosed, portalStatusLabel, mapPortalMessagesError,
 } from '../../lib/messages/portalMessagesConstants'
-
-const srOnly = {
-  position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
-  overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0,
-}
 
 export default function PortalMessagesThread({
   variant = 'student',
@@ -150,37 +145,14 @@ export default function PortalMessagesThread({
           </button>
         )}
 
-        {messages.map((m) => {
-          const fromStaff = m.author_type === 'staff'
-          return (
-            <article
-              key={m.id}
-              className={`ptl-msg-item ${fromStaff ? 'ptl-msg-item-staff' : 'ptl-msg-item-me'}`}
-            >
-              <div className="ptl-msg-item-head">
-                {/* author_label is the server's own label: 'ASPIRE Team' or
-                    'You'. The team label stays primary; an individual staff name
-                    is secondary context and is never made more prominent. */}
-                <span className="ptl-msg-author">{m.author_label}</span>
-                {fromStaff && m.author_name && (
-                  <span className="ptl-msg-author-name">{m.author_name}</span>
-                )}
-                <time
-                  className="ptl-msg-time"
-                  dateTime={m.created_at || undefined}
-                  title={formatFullTimestamp(m.created_at)}
-                >
-                  <span aria-hidden="true">{formatFullTimestamp(m.created_at)}</span>
-                  <span style={srOnly}>{`Sent ${formatFullTimestamp(m.created_at)}`}</span>
-                </time>
-              </div>
-              {/* Plain text only. React escapes it, and whiteSpace: pre-wrap
-                  preserves the student's line breaks without any HTML or
-                  Markdown interpretation. */}
-              <div className="ptl-msg-body">{m.body}</div>
-            </article>
-          )
-        })}
+        {messages.map((m) => (
+          <MessageBubble
+            key={m.id}
+            message={m}
+            perspective="portal"
+            bubbleClassName="ptl-msg-item"
+          />
+        ))}
       </div>
     </div>
   )

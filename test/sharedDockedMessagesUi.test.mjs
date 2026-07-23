@@ -42,7 +42,7 @@ test('Student and Unit Leader mount the same docked ASPIRE Team Messages utility
   assert.match(layer, /isUnitLeaderPortal = portalRole === 'unit_leader' && portalType === 'unit_leader'/)
   assert.match(layer, /isStudentPortal = portalRole === 'student' && portalType === 'student'/)
   assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal\)/)
-  assert.match(layer, /feedbackEnabled = isUnitLeaderPortal/)
+  assert.match(layer, /feedbackEnabled = isUnitLeaderPortal \|\| isStudentPortal/)
   assert.match(layer, /noticeVisible = enabled && isUnitLeaderPortal/)
   assert.match(layer, /variant=\{isUnitLeaderPortal \? 'unit_leader' : 'student'\}/)
 })
@@ -56,8 +56,11 @@ test('panel header and launch targets match the shared Messages spec', () => {
   assert.match(panel, /aria-labelledby="ptl-team-message-title"/)
   assert.match(panel, /aria-describedby="ptl-team-message-subtitle"/)
   assert.match(panel, /aria-label="Messages with the ASPIRE Team"/)
-  assert.match(css, /\.ptl-team-message-new[\s\S]*min-width: 44px; min-height: 44px/)
-  assert.match(css, /\.ptl-team-message-close[\s\S]*min-width: 44px; min-height: 44px/)
+  assert.match(panel, /RotateCcw/)
+  assert.match(panel, /ptl-keith-head-action ptl-team-message-new/)
+  assert.match(panel, /ptl-keith-head-close ptl-team-message-close/)
+  assert.doesNotMatch(panel, /Plus/)
+  assert.match(css, /\.ptl-keith-head-action,[\s\S]*\.ptl-keith-head-close \{[\s\S]*min-width: 44px; min-height: 44px/)
 })
 
 test('new general conversation uses a stable request id and the final endpoint contract only', () => {
@@ -105,21 +108,21 @@ test('existing replies and read-state continue through the shared portal thread 
 })
 
 test('shared bubbles render ASPIRE Team incoming left and portal user outgoing right', () => {
-  assert.match(thread, /const fromStaff = m\.author_type === 'staff'/)
-  assert.match(thread, /fromStaff \? 'ptl-msg-item-staff' : 'ptl-msg-item-me'/)
+  assert.match(thread, /MessageBubble/)
+  assert.match(thread, /perspective="portal"/)
   assert.match(css, /\.ptl-msg-item \{[\s\S]*border-radius: 20px;[\s\S]*background: #eef0f4/)
   assert.match(css, /\.ptl-msg-item-staff \{[\s\S]*align-self: flex-start;[\s\S]*background: #eef0f4;[\s\S]*color: #1f2937/)
   assert.match(css, /\.ptl-msg-item-me \{[\s\S]*align-self: flex-end;[\s\S]*background: #3478f6;[\s\S]*color: #fff/)
 })
 
-test('static boundaries exclude SQL, Academic Partner Messages, student feedback, and desktop student notice', () => {
+test('static boundaries exclude SQL, Academic Partner Messages, and desktop student notice', () => {
   for (const source of [app, layer, panel, css]) {
     assert.doesNotMatch(source, /CREATE TABLE|ALTER TABLE|supabase\/migrations|migration_/)
     assert.doesNotMatch(source, /Academic Partner Messages|academic_partner_message/)
   }
   const studentBranch = app.slice(app.indexOf("roles.includes('student')"), app.indexOf("roles.includes('unit_leader')"))
-  assert.doesNotMatch(studentBranch, /PortalFeedbackPanel|desktopNotice/)
-  assert.match(layer, /const feedbackEnabled = isUnitLeaderPortal/)
+  assert.doesNotMatch(studentBranch, /desktopNotice/)
+  assert.match(layer, /const feedbackEnabled = isUnitLeaderPortal \|\| isStudentPortal/)
   assert.match(layer, /const noticeVisible = enabled && isUnitLeaderPortal/)
   assert.match(layer, /\{feedbackEnabled && \(/)
   assert.match(layer, /\{noticeVisible && \(/)

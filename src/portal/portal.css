@@ -597,10 +597,10 @@
 .ptl-msg-unread-summary { white-space: nowrap; }
 
 /* Desktop: a readable list beside a thread wide enough for long content. The
-   list is fixed and the thread takes the remaining space, so neither collapses. */
-/* Bounded, centered content width. Constrained on the workspace rather than on
-   .ptl-main, which the other portal sections and portal roles also use. */
-.ptl-msg-workspace { max-width: 1280px; margin-left: auto; margin-right: auto; }
+   list is fixed and the thread takes the remaining space, so neither collapses.
+   The full Messages workspace uses the available portal width for both Student
+   and Unit Leader instead of the earlier narrow centered maximum. */
+.ptl-msg-workspace { width: 100%; max-width: none; margin-left: 0; margin-right: 0; }
 .ptl-msg-split { display: grid; grid-template-columns: 360px 1fr; gap: 18px; margin-top: 16px; align-items: start; }
 .ptl-msg-pane { min-width: 0; }  /* lets long content wrap instead of forcing overflow */
 .ptl-msg-pane-list { max-height: 620px; overflow-y: auto; }
@@ -718,14 +718,36 @@
 .ptl-msg-body { font-size: 14.5px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .ptl-msg-composer { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid #e3ded4; padding-top: 14px; }
-.ptl-msg-composer .ptl-form-actions { margin-top: 2px; display: flex; justify-content: flex-end; }
-.ptl-msg-textarea { resize: vertical; min-height: 104px; max-height: 320px; font: inherit; }
+.ptl-msg-compose-row {
+  display: flex; align-items: flex-end; gap: 8px; width: 100%;
+}
+.ptl-msg-textarea {
+  resize: vertical; min-height: 44px; max-height: 180px; font: inherit;
+  border-radius: 20px; padding: 10px 14px; line-height: 1.45;
+}
+.ptl-msg-send-circle {
+  flex: none; width: 40px; height: 40px; border: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #3478f6; color: #fff; cursor: pointer;
+  box-shadow: 0 3px 10px rgba(52, 120, 246, 0.28);
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.ptl-msg-send-circle:hover:not(:disabled) { background: #2563eb; transform: translateY(-1px); }
+.ptl-msg-send-circle:disabled {
+  background: #d1d5db; color: #fff; cursor: not-allowed; box-shadow: none;
+}
+.ptl-msg-send-circle:focus-visible { outline: 2px solid #1D2567; outline-offset: 3px; }
+.ptl-msg-guidance {
+  margin: 0 0 10px; padding: 10px 12px;
+  background: #f6f7fb; border: 1px solid #e2e6f3; color: #4b5563;
+  border-radius: 10px; font-size: 12.5px; line-height: 1.45;
+}
+.ptl-msg-workspace-guidance { margin-top: 12px; margin-bottom: -2px; }
 /* Declared after the base: an equal-specificity rule inside an earlier media
    block would lose the cascade. 16px also avoids Safari's zoom-on-focus, which
    fires for any font under 16px and shifts the whole composer. */
 @media (max-width: 760px) {
-  .ptl-msg-textarea { min-height: 112px; font-size: 16px; }
-  .ptl-msg-composer .ptl-form-actions .ptl-msg-btn { flex: 1; }
+  .ptl-msg-textarea { min-height: 44px; font-size: 16px; }
 }
 /* .ptl-compose-note is a space-between note-plus-action row; used for a three
    line paragraph it rendered a 114px panel that dominated the composer. Reset it
@@ -1244,29 +1266,27 @@ img.ptl-detail-photo {
 .ptl-team-message-head h2 { margin: 0; color: #fff; font-size: 16px; line-height: 1.2; }
 .ptl-team-message-head p { margin: 2px 0 0; color: rgba(255, 255, 255, 0.68); font-size: 12px; }
 .ptl-team-message-unread { flex: none; }
-.ptl-team-message-new {
-  min-width: 44px; min-height: 44px; padding: 0 12px;
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.28); border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12); color: #fff;
-  font: inherit; font-size: 13px; font-weight: 800; cursor: pointer;
-}
-.ptl-team-message-new:hover { background: rgba(255, 255, 255, 0.18); }
-.ptl-team-message-close {
+.ptl-keith-head-action,
+.ptl-keith-head-close {
   min-width: 44px; min-height: 44px;
   display: inline-flex; align-items: center; justify-content: center;
   background: none; border: 0; border-radius: 8px;
-  color: rgba(255, 255, 255, 0.75); cursor: pointer;
+  color: rgba(255, 255, 255, 0.58); cursor: pointer;
+  font: inherit; transition: color 0.15s ease, background 0.15s ease;
 }
+.ptl-keith-head-action { gap: 5px; padding: 4px 8px; font-size: 13px; font-weight: 700; }
+.ptl-keith-head-close { padding: 4px; font-size: 23px; line-height: 1; }
+.ptl-keith-head-action:hover,
+.ptl-keith-head-close:hover { color: rgba(255, 255, 255, 0.92); background: rgba(255, 255, 255, 0.08); }
 .ptl-team-message-body {
   flex: 1; min-height: 0; overflow: hidden;
-  display: flex; flex-direction: column; background: #f8fafc;
+  display: flex; flex-direction: column; background: #f8fafc; padding: 12px;
 }
 .ptl-team-message-body .ptl-msg-thread {
   min-height: 0; height: 100%; display: flex; flex-direction: column;
 }
 .ptl-team-message-body .ptl-msg-scroll {
-  flex: 1; min-height: 0; overflow-y: auto; padding: 12px;
+  flex: 1; min-height: 0; overflow-y: auto; padding: 0;
 }
 .ptl-team-message-empty {
   margin: 16px; padding: 16px; border: 1px solid rgba(29, 37, 103, 0.12);
@@ -1281,7 +1301,7 @@ img.ptl-detail-photo {
   border: 0; padding: 0; box-shadow: none; background: transparent;
 }
 .ptl-team-message-compose .ptl-msg-textarea {
-  min-height: 84px;
+  min-height: 44px;
 }
 .ptl-team-start-form { display: grid; gap: 8px; }
 .ptl-team-full-link {

@@ -35,10 +35,12 @@ test('primary buttons use the established base, not the hero-only modifier', asy
     }
   })
 
-  await t.test('New message and Send compose .ptl-btn with the Messages modifier', () => {
+  await t.test('New message keeps .ptl-btn, reply Send uses the compact circular control', () => {
     assert.match(workspace, /className="ptl-btn ptl-msg-btn ptl-msg-new"/)
     assert.match(inbox, /className="ptl-btn ptl-msg-btn"/)
-    assert.match(reply, /className="ptl-btn ptl-msg-btn"/)
+    assert.match(reply, /className="ptl-msg-send-circle"/)
+    assert.match(reply, /aria-label="Send message"/)
+    assert.doesNotMatch(reply, /className="ptl-btn ptl-msg-btn"/)
     assert.match(drawer, /className="ptl-btn ptl-msg-btn"/)
   })
 
@@ -82,10 +84,10 @@ test('the breakpoint is one value in both languages', async (t) => {
 })
 
 test('desktop uses the viewport without stranding the card', async (t) => {
-  await t.test('the workspace is bounded and centered', () => {
-    // 1354px wide against a 1500px .ptl-main gave a 320/961 split. The bound is
-    // on the workspace, not .ptl-main, which other portal sections share.
-    assert.match(css, /\.ptl-msg-workspace \{ max-width: 1280px; margin-left: auto; margin-right: auto; \}/)
+  await t.test('the workspace uses the available portal width', () => {
+    // The convergence pass intentionally removed the narrow centered maximum so
+    // Unit Leader and Student full Messages share the same broader workspace.
+    assert.match(css, /\.ptl-msg-workspace \{ width: 100%; max-width: none; margin-left: 0; margin-right: 0; \}/)
   })
 
   await t.test('the split is balanced', () => {
@@ -123,11 +125,11 @@ test('mobile rhythm', async (t) => {
   await t.test('the textarea is compact and avoids Safari zoom-on-focus', () => {
     // Declared AFTER the base: an equal-specificity rule in an earlier media
     // block silently lost the cascade and never applied.
-    const baseAt = css.indexOf('.ptl-msg-textarea { resize: vertical;')
-    const mobileAt = css.indexOf('.ptl-msg-textarea { min-height: 112px; font-size: 16px; }')
+    const baseAt = css.indexOf('.ptl-msg-textarea {')
+    const mobileAt = css.indexOf('.ptl-msg-textarea { min-height: 44px; font-size: 16px; }')
     assert.ok(baseAt > -1 && mobileAt > -1)
     assert.ok(mobileAt > baseAt, 'the mobile override must follow the base rule')
-    assert.match(css, /\.ptl-msg-textarea \{ resize: vertical; min-height: 104px; max-height: 320px; font: inherit; \}/)
+    assert.match(css, /\.ptl-msg-textarea \{\s*\n\s*resize: vertical; min-height: 44px; max-height: 180px; font: inherit;/)
   })
 
   await t.test('the phone thread starts at Back to messages, not a second header', () => {
@@ -154,7 +156,8 @@ test('safety notice is compact but exact', async (t) => {
       'ASPIRE Messages is not monitored continuously. Do not include patient names, '
       + 'medical record numbers, or other identifying information. For urgent '
       + 'patient-care or safety concerns, follow your unit\'s established escalation process.')
-    assert.match(reply, /\{PORTAL_SAFETY_NOTICE\}/)
+    assert.match(workspace, /\{PORTAL_SAFETY_NOTICE\}/)
+    assert.doesNotMatch(reply, /\{PORTAL_SAFETY_NOTICE\}/)
     assert.match(drawer, /\{PORTAL_SAFETY_NOTICE\}/)
   })
 

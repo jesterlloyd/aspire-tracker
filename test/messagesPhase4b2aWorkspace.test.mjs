@@ -146,21 +146,25 @@ test('thread rendering and pagination', async (t) => {
   })
 
   await t.test('messages render as safe plain text with preserved line breaks', () => {
-    assert.match(workspace, /whiteSpace: 'pre-wrap'/)
-    assert.match(workspace, /overflowWrap: 'anywhere'/)
-    const code = strip(workspace)
+    const bubble = read('../src/components/shared/MessageBubble.jsx')
+    const globalCss = read('../src/index.css')
+    assert.match(workspace, /MessageBubble/)
+    assert.match(workspace, /perspective="staff"/)
+    assert.match(globalCss, /\.msg-bubble-body \{[\s\S]*white-space: pre-wrap;[\s\S]*overflow-wrap: anywhere/)
+    const code = strip(workspace + bubble)
     assert.doesNotMatch(code, /dangerouslySetInnerHTML/)
     assert.doesNotMatch(code, /innerHTML/)
     assert.doesNotMatch(code, /\bmarked\b|markdown|DOMPurify/i)
   })
 
   await t.test('author, role, access, and timestamps are shown accessibly', () => {
-    assert.match(workspace, /m\.author_name \|\| \(isStaff \? 'ASPIRE Team' : 'Portal participant'\)/)
-    assert.match(workspace, /\{isStaff \? 'ASPIRE Team' : 'Participant'\}/)
+    const bubble = read('../src/components/shared/MessageBubble.jsx')
+    assert.match(bubble, /message\?\.author_label \|\| message\?\.author_name \|\| \(fromStaff \? 'ASPIRE Team' : 'Portal participant'\)/)
+    assert.match(bubble, /messageBubbleDirection\(message, perspective\)/)
     assert.match(workspace, /participantAccessLabel\(accessActive\)/)
-    assert.match(workspace, /dateTime=\{m\.created_at\}/)
-    assert.match(workspace, /title=\{formatFullTimestamp\(m\.created_at\)\}/)
-    assert.match(workspace, /<span style=\{srOnly\}>\{formatFullTimestamp\(m\.created_at\)\}<\/span>/)
+    assert.match(bubble, /dateTime=\{message\?\.created_at \|\| undefined\}/)
+    assert.match(bubble, /title=\{fullTime\}/)
+    assert.match(bubble, /message from \$\{displayName\}, sent \$\{fullTime\}/)
   })
 
   await t.test('no email is ever rendered', () => {

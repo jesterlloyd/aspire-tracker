@@ -13,7 +13,7 @@ import {
   MESSAGE_MAX_BODY_CHARS, normalizeBody, validateBodyValue,
 } from '../../lib/messages/messagesConstants'
 import {
-  PORTAL_SAFETY_NOTICE, PORTAL_CLOSED_NOTICE, PORTAL_SEND_CONFIRMATION,
+  PORTAL_CLOSED_NOTICE, PORTAL_SEND_CONFIRMATION,
   mapPortalMessagesError, mapPortalConflict, portalConflictIsAccessLost,
 } from '../../lib/messages/portalMessagesConstants'
 
@@ -81,29 +81,28 @@ export default function PortalReplyComposer({
       )}
 
       <label className="ptl-label" htmlFor="ptl-reply-body">Reply</label>
-      <textarea
-        id="ptl-reply-body"
-        className="ptl-input ptl-input-full ptl-msg-textarea"
-        rows={4}
-        value={body}
-        maxLength={MESSAGE_MAX_BODY_CHARS}
-        onChange={(e) => setBody(e.target.value)}
-        disabled={accessLost}
-        aria-describedby="ptl-reply-help ptl-reply-safety"
-      />
+      <div className="ptl-msg-compose-row">
+        <textarea
+          id="ptl-reply-body"
+          className="ptl-input ptl-input-full ptl-msg-textarea"
+          rows={2}
+          value={body}
+          maxLength={MESSAGE_MAX_BODY_CHARS}
+          onChange={(e) => setBody(e.target.value)}
+          disabled={accessLost}
+          aria-describedby="ptl-reply-help"
+        />
+        <button type="submit" className="ptl-msg-send-circle" disabled={disabled} aria-label="Send message">
+          <Send size={16} aria-hidden="true" />
+        </button>
+      </div>
       <div className="ptl-small" id="ptl-reply-help">
         {`${normalized.length} of ${MESSAGE_MAX_BODY_CHARS} characters`}
       </div>
 
-      <p className="ptl-compose-note ptl-msg-safety" id="ptl-reply-safety">{PORTAL_SAFETY_NOTICE}</p>
-
       {err && <p className="ptl-form-error" role="alert">{err}</p>}
 
-      <div className="ptl-form-actions">
-        <button type="submit" className="ptl-btn ptl-msg-btn" disabled={disabled}>
-          <Send size={15} aria-hidden="true" /> {pending ? 'Sending...' : 'Send'}
-        </button>
-      </div>
+      {pending && <p className="ptl-small" role="status">Sending...</p>}
     </form>
   )
 }

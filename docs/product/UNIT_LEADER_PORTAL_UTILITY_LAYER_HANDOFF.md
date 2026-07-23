@@ -10,7 +10,7 @@ Shared feedback presentation:
 - consumed by `src/components/FeedbackPanel.jsx`
 - consumed by `src/portal/PortalFeedbackPanel.jsx`
 
-Unit Leader corner utilities:
+Portal corner utilities:
 
 - `src/portal/PortalUtilityLayer.jsx`
 - `src/portal/PortalTeamMessagesPanel.jsx`
@@ -18,7 +18,7 @@ Unit Leader corner utilities:
 
 `PortalShell` still accepts a `utilityLayer` prop and renders it once below the portal header. `PortalApp` supplies that prop in the Student and Unit Leader branches only.
 
-Student receives the shared docked Messages utility with `portalRole="student"` and `portalType="student"`. Unit Leader receives the shared docked Messages utility plus Unit Leader-only feedback and desktop notice behavior with `portalRole="unit_leader"` and `portalType="unit_leader"`.
+Student receives the shared docked Messages utility plus shared portal feedback with `portalRole="student"` and `portalType="student"`. Unit Leader receives the shared docked Messages utility, shared portal feedback, and Unit Leader-only desktop notice behavior with `portalRole="unit_leader"` and `portalType="unit_leader"`.
 
 No utility layer is mounted inside `UnitLeaderPortal.jsx`, `StudentPortal.jsx`, or `AcademicPartnerPortal.jsx`. Academic Partner still receives no utility layer.
 
@@ -26,12 +26,12 @@ No utility layer is mounted inside `UnitLeaderPortal.jsx`, `StudentPortal.jsx`, 
 
 The old white `Feedback / Bug` and `Messages` pill buttons were retired.
 
-Normal Unit Leader portal pages now show:
+Normal Student and Unit Leader portal pages now show:
 
 - lower-left circular magenta feedback launcher
 - lower-right circular ASPIRE Team message launcher
 
-The launchers have comparable size, elevation, placement, focus treatment, and tooltip/accessibility behavior. Opening one corner panel hides the other utility so the panels never overlap.
+The launchers have comparable size, elevation, placement, focus treatment, and tooltip/accessibility behavior. Opening one corner panel hides the other utility so the panels never overlap. Academic Partner remains without either launcher.
 
 ## Shared Feedback UI
 
@@ -39,8 +39,8 @@ The lower-left utility reuses the canonical main-app feedback experience:
 
 - circular magenta launcher
 - anchored panel above the launcher
-- `Send a Message` heading
-- supporting description
+- `Send Feedback` heading
+- `Report a bug, suggest a feature, or ask a question.` description
 - category cards
 - message area
 - contextual metadata note
@@ -55,7 +55,7 @@ The visible categories remain:
 
 The main app keeps its Outlook compose transport through `src/components/FeedbackPanel.jsx`.
 
-The Unit Leader portal uses the same shared UI through `src/portal/PortalFeedbackPanel.jsx`, but submits to the durable portal feedback backend:
+Student and Unit Leader portals use the same shared UI through `src/portal/PortalFeedbackPanel.jsx`, but submit to the durable portal feedback backend:
 
 ```text
 POST /api/portal/feedback-submit
@@ -92,9 +92,9 @@ The backend remains authoritative for identity, role, and scope.
 
 ## Request-ID Lifecycle
 
-The Unit Leader feedback adapter uses the shared request-ID helper in `src/lib/portalFeedbackApiClient.js`.
+The portal feedback adapter uses the shared request-ID helper in `src/lib/portalFeedbackApiClient.js`.
 
-One stable request ID is retained across failed attempts and cleared only after success. Duplicate submit is blocked synchronously in the shared panel before React rerenders.
+One stable request ID is retained per portal/utility intent across failed attempts and cleared only after success. Duplicate submit is blocked synchronously in the shared panel before React rerenders.
 
 `409` request-ID conflicts and `429` rate limits produce safe user-facing messages. A saved submission with pending email delivery is treated as successful receipt.
 
@@ -114,10 +114,11 @@ Panel structure:
 
 - header title `Messages`
 - subtitle `ASPIRE Team`
-- `New` action with accessible name `Start a new conversation`
-- close control with accessible name `Close Messages`
+- subtle `↺ New` action with accessible name `Start a new conversation`
+- subtle `×` close control with accessible name `Close Messages`
+- guidance notice above the conversation/composer
 - scrollable conversation history
-- composer pinned inside the panel
+- composer pinned inside the panel with a circular blue paper-plane send action labelled `Send message`
 - live-region announcements
 - `Open full Messages` action
 
@@ -147,12 +148,17 @@ Existing `team_general` replies still use the existing thread, reply, and read A
 
 ## Message Bubble Treatment
 
-The docked panel and shared portal thread renderer use the same iMessage-inspired visual treatment:
+The docked panel, portal full Messages workspaces, and staff Connect Messages thread now share `src/components/shared/MessageBubble.jsx`.
 
-- ASPIRE Team/staff messages align left with gray bubbles
-- portal-user messages align right with blue bubbles
+Viewer-relative direction:
+
+- portal perspective: portal-user messages align right with blue bubbles; ASPIRE/staff messages align left with gray bubbles
+- staff perspective: staff messages align right with blue bubbles; portal participant messages align left with gray bubbles
+
 - author/time metadata stays subdued inside the bubble
 - Student and Unit Leader use the same bubble classes
+
+Unit Leader full Messages now uses the broader Student-style available width, not the earlier narrow centered maximum.
 
 ## Overlay And Keyboard Suppression
 
@@ -202,7 +208,6 @@ This correction did not:
 - add or alter migrations
 - create a new Messages backend
 - add Academic Partner Messages
-- add Student feedback
 - show the Student desktop notice
 - activate Academic Partner utilities
 - add attachments or screenshots
@@ -249,6 +254,7 @@ Confirm:
 - opening messages hides the feedback launcher
 - feedback retry preserves text
 - rapid feedback submit cannot duplicate
+- Student and Unit Leader feedback both submit through `/api/portal/feedback-submit`
 - Student and Unit Leader lower-right launchers open the docked panel, not the full Messages route
 - Academic Partner has no launcher
 - `Open full Messages` navigates to `/portal/messages`
@@ -258,7 +264,5 @@ Confirm:
 - replies refresh thread/list/unread state through existing APIs
 
 ## Future Extension Points
-
-Student feedback can later use the same utility layer after product approval. It is intentionally not enabled in this pass.
 
 Academic Partner Portal can later use the same feedback utility once that portal is ready. The Messages launcher must remain disabled for Academic Partner until Academic Partner Messages is actually built.

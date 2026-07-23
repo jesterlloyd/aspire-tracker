@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
-import { MessageCircle, Plus, RefreshCw, Send, X } from 'lucide-react'
+import { MessageCircle, RefreshCw, RotateCcw, Send } from 'lucide-react'
 import PortalMessagesThread from './messages/PortalMessagesThread'
 import PortalReplyComposer from './messages/PortalReplyComposer'
 import usePortalDialogFocus from './usePortalDialogFocus'
@@ -196,19 +196,20 @@ export default function PortalTeamMessagesPanel({
             {unread > 0 && <span className="ptl-team-message-unread">{unread > 99 ? '99+' : unread}</span>}
             <button
               type="button"
-              className="ptl-team-message-new"
+              className="ptl-keith-head-action ptl-team-message-new"
               onClick={() => beginFreshCompose()}
               aria-label="Start a new conversation"
             >
-              <Plus size={15} aria-hidden="true" /> New
+              <RotateCcw size={14} aria-hidden="true" /> New
             </button>
-            <button type="button" className="ptl-team-message-close" onClick={onClose} aria-label="Close Messages">
-              <X size={18} aria-hidden="true" />
+            <button type="button" className="ptl-keith-head-close ptl-team-message-close" onClick={onClose} aria-label="Close Messages">
+              <span aria-hidden="true">×</span>
             </button>
           </div>
         </header>
 
         <div className="ptl-team-message-body" aria-label="Messages with the ASPIRE Team">
+          <p className="ptl-msg-guidance" id="ptl-team-message-guidance">{PORTAL_SAFETY_NOTICE}</p>
           {isLoading && <div className="ptl-muted ptl-loading">Loading your ASPIRE Team conversation...</div>}
           {isError && (
             <div className="ptl-card ptl-error">
@@ -247,24 +248,26 @@ export default function PortalTeamMessagesPanel({
           ) : (
             <form onSubmit={startTeamConversation} className="ptl-team-start-form">
               <label className="ptl-label" htmlFor="ptl-team-start-body">Message</label>
-              <textarea
-                id="ptl-team-start-body"
-                ref={composeRef}
-                className="ptl-input ptl-input-full ptl-msg-textarea"
-                rows={4}
-                value={draft}
-                maxLength={MESSAGE_MAX_BODY_CHARS}
-                onChange={(e) => { setDraft(e.target.value); setErr('') }}
-                aria-describedby="ptl-team-start-help ptl-team-start-safety"
-              />
+              <div className="ptl-msg-compose-row">
+                <textarea
+                  id="ptl-team-start-body"
+                  ref={composeRef}
+                  className="ptl-input ptl-input-full ptl-msg-textarea"
+                  rows={2}
+                  value={draft}
+                  maxLength={MESSAGE_MAX_BODY_CHARS}
+                  onChange={(e) => { setDraft(e.target.value); setErr('') }}
+                  aria-describedby="ptl-team-start-help"
+                />
+                <button type="submit" className="ptl-msg-send-circle" disabled={!canStart} aria-label="Send message">
+                  <Send size={16} aria-hidden="true" />
+                </button>
+              </div>
               <div className="ptl-small" id="ptl-team-start-help">
                 {`${normalized.length} of ${MESSAGE_MAX_BODY_CHARS} characters`}
               </div>
-              <p className="ptl-compose-note ptl-msg-safety" id="ptl-team-start-safety">{PORTAL_SAFETY_NOTICE}</p>
               {err && <p className="ptl-form-error" role="alert">{err}</p>}
-              <button type="submit" className="ptl-btn ptl-msg-btn" disabled={!canStart}>
-                <Send size={15} aria-hidden="true" /> {pendingStart ? 'Sending...' : 'Send message'}
-              </button>
+              {pendingStart && <p className="ptl-small" role="status">Sending...</p>}
             </form>
           )}
           <button type="button" className="ptl-team-full-link" onClick={onOpenFullMessages}>

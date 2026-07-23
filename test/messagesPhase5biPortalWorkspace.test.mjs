@@ -226,25 +226,30 @@ test('thread', async (t) => {
   })
 
   await t.test('bodies are plain text: wrapped, line breaks kept, no HTML or Markdown', () => {
-    assert.match(thread, /<div className="ptl-msg-body">\{m\.body\}<\/div>/)
-    assert.doesNotMatch(strip(thread), /dangerouslySetInnerHTML|innerHTML|\bmarkdown\b|\bmarked\b|\bremark\b/i)
-    assert.match(css, /\.ptl-msg-body \{[^}]*white-space: pre-wrap/)
-    assert.match(css, /\.ptl-msg-body \{[^}]*overflow-wrap: anywhere/)
+    const bubble = read('../src/components/shared/MessageBubble.jsx')
+    const globalCss = read('../src/index.css')
+    assert.match(thread, /MessageBubble/)
+    assert.match(thread, /perspective="portal"/)
+    assert.match(bubble, /<div className=\{`msg-bubble-body ptl-msg-body \$\{bodyClassName\}`\}>\{message\?\.body\}<\/div>/)
+    assert.doesNotMatch(strip(thread + bubble), /dangerouslySetInnerHTML|innerHTML|\bmarkdown\b|\bmarked\b|\bremark\b/i)
+    assert.match(globalCss, /\.msg-bubble-body \{[\s\S]*white-space: pre-wrap;[\s\S]*overflow-wrap: anywhere/)
   })
 })
 
 test('author display', async (t) => {
   await t.test('the server label is shown for both sides', () => {
     // author_label is 'You' or 'ASPIRE Team', projected by the RPC.
-    assert.match(thread, /\{m\.author_label\}/)
+    assert.match(read('../src/components/shared/MessageBubble.jsx'), /message\?\.author_label/)
     const rpc = read('../supabase/migrations/20260716000006_messages_phase5_portal_thread_reverse_pagination.sql')
     assert.match(rpc, /'author_label', CASE WHEN p\.author_role = 'staff' THEN 'ASPIRE Team' ELSE 'You' END/)
   })
 
   await t.test('a staff name is secondary context only', () => {
-    assert.match(thread, /fromStaff && m\.author_name/)
-    assert.match(css, /\.ptl-msg-author \{ font-size: 12\.5px; font-weight: 700; \}/)
-    assert.match(css, /\.ptl-msg-author-name \{ font-size: 12px; font-weight: 400/)
+    const bubble = read('../src/components/shared/MessageBubble.jsx')
+    const globalCss = read('../src/index.css')
+    assert.match(bubble, /fromStaff && message\?\.author_name/)
+    assert.match(globalCss, /\.msg-bubble-author \{[\s\S]*font-size: 12\.5px;[\s\S]*font-weight: 700/)
+    assert.match(globalCss, /\.msg-bubble-author-detail \{[\s\S]*font-size: 12px;[\s\S]*font-weight: 400/)
   })
 
   await t.test('no staff email is shown', () => {
@@ -252,9 +257,11 @@ test('author display', async (t) => {
   })
 
   await t.test('timestamps carry readable accessible labels', () => {
-    assert.match(thread, /formatFullTimestamp\(m\.created_at\)/)
-    assert.match(thread, /`Sent \$\{formatFullTimestamp\(m\.created_at\)\}`/)
-    assert.match(thread, /dateTime=\{m\.created_at \|\| undefined\}/)
+    const bubble = read('../src/components/shared/MessageBubble.jsx')
+    assert.match(bubble, /formatFullTimestamp\(message\?\.created_at\)/)
+    assert.match(bubble, /message from \$\{displayName\}, sent \$\{fullTime\}/)
+    assert.match(bubble, /dateTime=\{message\?\.created_at \|\| undefined\}/)
+    assert.match(bubble, /title=\{fullTime\}/)
   })
 })
 
@@ -397,7 +404,8 @@ test('reply', async (t) => {
       'ASPIRE Messages is not monitored continuously. Do not include patient names, '
       + 'medical record numbers, or other identifying information. For urgent '
       + 'patient-care or safety concerns, follow your unit\'s established escalation process.')
-    assert.match(reply, /\{PORTAL_SAFETY_NOTICE\}/)
+    assert.match(read('../src/portal/messages/PortalMessagesWorkspace.jsx'), /\{PORTAL_SAFETY_NOTICE\}/)
+    assert.doesNotMatch(reply, /PORTAL_SAFETY_NOTICE/)
     assert.match(newMsg, /\{PORTAL_SAFETY_NOTICE\}/)
   })
 
@@ -545,8 +553,8 @@ test('responsive foundation', async (t) => {
   await t.test('desktop is a readable list beside a flexible thread', () => {
     // Corrected: 320px read as a cramped inbox against an oversized thread.
     assert.match(css, /\.ptl-msg-split \{ display: grid; grid-template-columns: 360px 1fr/)
-    // The workspace is bounded and centered rather than stretching to .ptl-main.
-    assert.match(css, /\.ptl-msg-workspace \{ max-width: 1280px; margin-left: auto; margin-right: auto; \}/)
+    // Convergence: Unit Leader full Messages now uses the available portal width.
+    assert.match(css, /\.ptl-msg-workspace \{ width: 100%; max-width: none; margin-left: 0; margin-right: 0; \}/)
   })
 
   await t.test('tablet keeps a usable split', () => {

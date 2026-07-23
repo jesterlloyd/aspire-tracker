@@ -48,7 +48,7 @@ test('utility layer mounts through PortalShell for Student and Unit Leader only'
   assert.match(studentBranch, /messagesAuthorized/)
   assert.match(studentBranch, /unread=\{unread\}/)
   assert.match(studentBranch, /onOpenMessages=\{goMessages\}/)
-  assert.doesNotMatch(studentBranch, /PortalFeedbackPanel|desktopNotice/)
+  assert.doesNotMatch(studentBranch, /desktopNotice/)
   assert.match(unitBranch, /portalRole="unit_leader"/)
   assert.match(unitBranch, /portalType="unit_leader"/)
   assert.match(unitBranch, /unread=\{unread\}/)
@@ -63,8 +63,8 @@ test('utility layer mounts through PortalShell for Student and Unit Leader only'
 test('main app and Unit Leader portal consume the same canonical feedback UI', () => {
   assert.match(staffFeedback, /SharedFeedbackPanel/)
   assert.match(portalFeedback, /SharedFeedbackPanel/)
-  assert.match(sharedFeedback, /Send a Message/)
-  assert.match(sharedFeedback, /Report a bug, suggest a feature, or ask a question/)
+  assert.match(sharedFeedback, /Send Feedback/)
+  assert.match(sharedFeedback, /Report a bug, suggest a feature, or ask a question\./)
   for (const category of ['Bug Report', 'Feature Idea', 'Question']) {
     assert.match(sharedFeedback, new RegExp(category))
   }
@@ -80,8 +80,8 @@ test('Unit Leader feedback transport maps categories to the durable backend with
   assert.match(portalFeedback, /category === 'Bug Report' \? 'bug' : 'feedback'/)
   assert.match(portalFeedback, /messageWithCategory\(category, message\)/)
   assert.match(portalFeedback, /request_id: requestId/)
-  assert.match(portalFeedback, /createPortalFeedbackRequestId\(INTENT_KEY\)/)
-  assert.match(portalFeedback, /clearPortalFeedbackRequestId\(INTENT_KEY\)/)
+  assert.match(portalFeedback, /createPortalFeedbackRequestId\(intentKey\)/)
+  assert.match(portalFeedback, /clearPortalFeedbackRequestId\(intentKey\)/)
   assert.match(sharedFeedback, /submittingRef\.current/)
   for (const field of ['expected_behavior', 'actual_behavior', 'reproduction_steps']) {
     assert.match(sharedFeedback + portalFeedback, new RegExp(field))
@@ -151,7 +151,7 @@ test('matched corner behavior and accessibility are explicit', () => {
   assert.match(layer, /current === 'messages' \? null : 'messages'/)
   assert.match(layer, /hidden=\{utilitiesHidden \|\| visiblePanel === 'messages'\}/)
   assert.match(layer, /visiblePanel !== 'feedback'/)
-  assert.match(layer, /feedbackEnabled = isUnitLeaderPortal/)
+  assert.match(layer, /feedbackEnabled = isUnitLeaderPortal \|\| isStudentPortal/)
   assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal\)/)
   assert.match(layer, /const visiblePanel = suppressed \? null : activePanel/)
   assert.match(layerCode, /\[aria-modal="true"\]:not\(\.shared-feedback-panel\):not\(\.ptl-team-message-panel\)/)
@@ -190,8 +190,7 @@ test('responsive placement and bottom-nav clearance are present', () => {
   assert.match(css, /width: min\(420px, calc\(100vw - 32px\)\)/)
   assert.match(css, /height: min\(720px, calc\(100vh - 160px\)\)/)
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.ptl-team-message-panel/)
-  assert.match(css, /\.ptl-team-message-new[\s\S]*min-width: 44px; min-height: 44px/)
-  assert.match(css, /\.ptl-team-message-close[\s\S]*min-width: 44px; min-height: 44px/)
+  assert.match(css, /\.ptl-keith-head-action,[\s\S]*\.ptl-keith-head-close \{[\s\S]*min-width: 44px; min-height: 44px/)
 })
 
 test('static boundaries remain locked', () => {
@@ -201,6 +200,6 @@ test('static boundaries remain locked', () => {
     assert.doesNotMatch(source, /MESSAGE_FROM|MESSAGE_REPLY_TO|noreply@aspire-program\.com|aspire@cshs\.org/)
     assert.doesNotMatch(source, /type="file"|file upload|dangerouslySetInnerHTML/i)
   }
-  assert.doesNotMatch(portalFeedback + layer + client, /Student Portal feedback|Academic Partner feedback/)
+  assert.doesNotMatch(portalFeedback + layer + client, /Academic Partner feedback/)
   assert.doesNotMatch(sharedFeedbackCode + teamPanelCode, /screenshot|attachment/i)
 })

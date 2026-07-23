@@ -196,21 +196,13 @@ test('endpoint contract', async (t) => {
     assert.equal(res.headers['Cache-Control'], 'no-store');
   });
 
-  await t.test('requires active Unit Leader and active scope', async () => {
+  await t.test('requires active portal feedback caller', async () => {
     const handler = createPortalFeedbackSubmitHandler({
       verifyCaller: async () => ({ ok: false, status: 401, reason: 'missing_token' }),
     });
     const res = createRes();
     await handler({ method: 'POST', headers: { 'content-type': 'application/json' }, body: validFeedback }, res);
     assert.equal(res.statusCode, 401);
-
-    const scoped = createPortalFeedbackSubmitHandler({
-      verifyCaller: async () => ({ ok: true, profile: { id: 'p1' }, db: {}, scopes: [] }),
-    });
-    const scopedRes = createRes();
-    await scoped({ method: 'POST', headers: { 'content-type': 'application/json' }, body: validFeedback }, scopedRes);
-    assert.equal(scopedRes.statusCode, 403);
-    assert.equal(scopedRes.body.error, 'unit_leader_active_scope_required');
   });
 
   await t.test('submits only server-derived Unit Leader reporter context', async () => {
@@ -241,6 +233,36 @@ test('endpoint contract', async (t) => {
     assert.equal(received.input.reporterContext.portalRole, 'unit_leader');
     assert.equal(received.input.reporterContext.portalType, 'unit_leader');
     assert.equal(received.input.payload.role, undefined);
+  });
+
+  await t.test('submits only server-derived Student reporter context', async () => {
+    let received;
+    const handler = createPortalFeedbackSubmitHandler({
+      verifyCaller: async () => ({
+        ok: true,
+        actorKind: 'student',
+        db: { label: 'db' },
+        studentIds: ['student-1'],
+        profile: { id: 'profile-s1', full_name: 'Student User', email: 'student@example.edu' },
+      }),
+      makeResend: () => ({ label: 'resend' }),
+      submit: async (deps, input) => {
+        received = { deps, input };
+        return {
+          ok: true,
+          status: 201,
+          result: { submission_id: 'sub-s1', created_at: '2026-07-22T00:00:00Z', replayed: false },
+          send: { outcome: 'sent' },
+        };
+      },
+    });
+    const res = createRes();
+    await handler({ method: 'POST', headers: { 'content-type': 'application/json' }, body: validFeedback }, res);
+    assert.equal(res.statusCode, 201);
+    assert.equal(received.input.reporterContext.profileId, 'profile-s1');
+    assert.equal(received.input.reporterContext.portalRole, 'student');
+    assert.equal(received.input.reporterContext.portalType, 'student');
+    assert.equal(received.input.payload.student_id, undefined);
   });
 
   await t.test('rate limit returns Retry-After and stable code', async () => {
@@ -318,10 +340,13 @@ test('submission and delivery services', async (t) => {
 });
 
 test('static wiring and dormant frontend boundary', async (t) => {
-  await t.test('endpoint uses Unit Leader auth and never client-supplied identity', () => {
+  await t.test('endpoint uses portal feedback auth and never client-supplied identity', () => {
     assert.match(endpointSrc, /verifyPortalUnitLeaderCaller/);
+    assert.match(endpointSrc, /verifyPortalStudentCaller/);
     assert.match(endpointSrc, /portalRole: 'unit_leader'/);
+    assert.match(endpointSrc, /portalRole: 'student'/);
     assert.match(endpointSrc, /portalType: 'unit_leader'/);
+    assert.match(endpointSrc, /portalType: 'student'/);
     assert.doesNotMatch(endpointSrc, /profile_id|student_id|school|user_school_scopes/);
   });
 

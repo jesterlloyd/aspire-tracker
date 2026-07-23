@@ -19,11 +19,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, RotateCw, Flag, MessageSquare, AlertCircle, Plus } from 'lucide-react'
+import MessageBubble from '../../shared/MessageBubble'
 import MessagesInbox from './MessagesInbox'
 import NewMessageDialog from './NewMessageDialog'
 import { ReplyComposer, ThreadManagementControls } from './ThreadActions'
 import {
-  STAFF_STATUS_LABEL, formatUnread, unreadLabel, formatFullTimestamp,
+  STAFF_STATUS_LABEL, formatUnread, unreadLabel,
   formatInboxTimestamp, participantAccessLabel, mapMessagesError,
 } from '../../../lib/messages/messagesConstants'
 import { appendPage } from '../../../lib/messages/inboxState'
@@ -361,41 +362,16 @@ function ThreadHeader({ conversation: c, api, announce, onOpenStudent }) {
 }
 
 function MessageRow({ message: m, previous }) {
-  const isStaff = m.author_role === 'staff'
   const showDate = !previous || !sameDay(previous.created_at, m.created_at)
   return (
-    <>
-      {showDate && (
-        <li aria-hidden="true" style={{ textAlign: 'center', margin: '12px 0 8px' }}>
-          <span style={{ fontSize: 11, color: T.muted, fontFamily: F }}>
-            {formatInboxTimestamp(m.created_at)}
-          </span>
-        </li>
-      )}
-      <li style={{ padding: '8px 0', borderBottom: `1px solid ${T.border}` }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: isStaff ? T.accent : T.text }}>
-            {m.author_name || (isStaff ? 'ASPIRE Team' : 'Portal participant')}
-          </span>
-          <span style={{ ...badge, padding: '0 5px' }}>{isStaff ? 'ASPIRE Team' : 'Participant'}</span>
-          <time
-            dateTime={m.created_at}
-            title={formatFullTimestamp(m.created_at)}
-            style={{ marginLeft: 'auto', fontSize: 11, color: T.muted }}
-          >
-            <span aria-hidden="true">{formatInboxTimestamp(m.created_at)}</span>
-            <span style={srOnly}>{formatFullTimestamp(m.created_at)}</span>
-          </time>
-        </div>
-        {/* Plain text with preserved line breaks. Never interpreted as HTML. */}
-        <p style={{
-          margin: '4px 0 0', fontSize: 13, lineHeight: 1.6, color: T.text,
-          whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontFamily: F,
-        }}>
-          {m.body}
-        </p>
-      </li>
-    </>
+    <MessageBubble
+      message={m}
+      perspective="staff"
+      container="li"
+      showDate={showDate}
+      dateLabel={formatInboxTimestamp(m.created_at)}
+      timeMode="short"
+    />
   )
 }
 
