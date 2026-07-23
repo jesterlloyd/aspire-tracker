@@ -2,11 +2,26 @@
 
 ## Entry points
 
-One portal-specific `UnitLeaderPreceptorManager` serves all assignment workflows.
-It opens in focused mode from the student kebab actions, in full-management mode
-from `Manage assignments` in the Student Detail Drawer, and in full-management mode
-from `Manage student assignments` beside an assignment in the Preceptors workspace.
-The staff `PreceptorAssignmentModal` is not mounted or imported.
+One shared assignment-manager foundation, `UnitLeaderPreceptorManager`, serves the
+Unit Leader portal and the main-app Preceptor Directory through role-specific data
+and mutation adapters.
+
+Unit Leader entry points:
+
+- focused mode from the student kebab actions,
+- full-management mode from `Manage assignments` in the Student Detail Drawer,
+- full-management mode from `Manage preceptor assignments` beside an assignment in
+  the Preceptors workspace.
+
+Main-app entry point:
+
+- `Manage preceptor assignments` under each applicable assignment in
+  `Main app > Rotation > Preceptors > Preceptor Directory`.
+
+The old `Manage student assignments` label is retired. The legacy staff
+`PreceptorAssignmentModal` remains available to older student-profile/placement
+entry points, but the main-app Preceptor Directory no longer requires opening a
+student profile to manage Secondary or Coverage rows.
 
 The student kebab order is:
 
@@ -31,6 +46,26 @@ the full manager.
 The UI never implements a role-wide Replace or End. The existing Phase 2C RPCs
 remain authoritative for row locking, stale-row detection, unrelated-row
 preservation, audit events, and notifications.
+
+## Staff adapter
+
+The main app supplies a staff read adapter from the Preceptor Directory's existing
+preceptor/student data plus active `student_preceptor_assignments` rows, and a
+staff mutation adapter:
+
+```text
+POST /api/preceptor-assignment-manage
+```
+
+The staff endpoint verifies an active Owner/Admin server-side, then calls the same
+audited RPCs:
+
+- `assign_primary_preceptor`
+- `set_secondary_coverage_preceptor`
+
+It does not use Unit Leader scope as staff authority. It does not accept actor,
+cohort, student-unit, or role authority from the browser. It preserves the same
+request-id idempotency, exact-row Replace/End, audit, and notification behavior.
 
 ## Candidate selection
 
@@ -101,10 +136,12 @@ and refreshes its authorized detail record after a mutation.
 
 ## Security boundary
 
-- All assignment writes use `POST /api/portal/unit-preceptor-manage`.
-- No browser assignment-table write, staff endpoint, or staff mutation component is
-  used.
+- Unit Leader assignment writes use `POST /api/portal/unit-preceptor-manage`.
+- Main-app Preceptor Directory assignment writes use `POST /api/preceptor-assignment-manage`.
+- No browser assignment-table write is used.
 - Server-side active Unit Leader grant and student scope checks are unchanged.
+- Staff writes require existing active Owner/Admin authority and do not reuse Unit
+  Leader scope.
 - Cross-unit candidate visibility carries no outside-scope assignment details.
 - Unit Leader canonical creation remains limited to active authorized units.
 - Replace and End always carry the exact selected assignment ID and role.

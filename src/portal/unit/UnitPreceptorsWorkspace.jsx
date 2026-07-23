@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  EmptyState, ErrorState, Pill, SectionHeading, TableSkeleton,
+  EmptyState, ErrorState, SectionHeading, TableSkeleton,
 } from './UnitLeaderChrome'
+import PreceptorDirectoryTable from '../../components/shared/PreceptorDirectoryTable'
+import { sortPreceptorDirectoryRows } from '../../lib/preceptorDirectory'
 import UnitPreceptorCreateModal from './UnitPreceptorCreateModal'
 import UnitLeaderPreceptorManager from './UnitLeaderPreceptorManager'
 import {
@@ -44,42 +46,6 @@ function associatedWithUnit(preceptor, unitKey) {
     preceptor.assignments.some(assignment => assignment.student_unit === unitKey)
 }
 
-function sortRows(rows, sortBy) {
-  return [...rows].sort((a, b) => {
-    if (sortBy === 'count') {
-      return b.active_assignment_count - a.active_assignment_count ||
-        lower(a.full_name).localeCompare(lower(b.full_name))
-    }
-    const av = sortBy === 'unit' ? lower(a.home_unit?.name) : lower(a.full_name)
-    const bv = sortBy === 'unit' ? lower(b.home_unit?.name) : lower(b.full_name)
-    return av.localeCompare(bv) || lower(a.full_name).localeCompare(lower(b.full_name))
-  })
-}
-
-function AssignmentList({ assignments, onManage }) {
-  if (!assignments.length) return <span className="ptl-muted">None</span>
-  return (
-    <span className="ptl-prec-list">
-      {assignments.map(assignment => (
-        <span className="ptl-prec-line" key={assignment.id}>
-          <span className="ptl-prec-name">{assignment.student_name}</span>
-          <span className={`ptl-prec-pill ptl-prec-${assignment.role.toLowerCase()}`}>
-            {assignment.role}
-          </span>
-          {assignment.student_unit && assignment.student_unit !== '' && (
-            <span className="ptl-muted">{assignment.student_unit}</span>
-          )}
-          <button type="button" className="ptl-linklike ptl-prec-manage"
-            aria-label={`Manage assignments for ${assignment.student_name}`}
-            onClick={event => onManage(assignment, event.currentTarget)}>
-            Manage student assignments
-          </button>
-        </span>
-      ))}
-    </span>
-  )
-}
-
 export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmentsChanged }) {
   const loadPreceptors = useCallback(signal => getUnitPreceptors(signal), [])
   const loadHistory = useCallback(signal => getNominations(unitKey, signal), [unitKey])
@@ -90,6 +56,7 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmen
   const [active, setActive] = useState('active')
   const [crossUnit, setCrossUnit] = useState('all')
   const [sortBy, setSortBy] = useState('name')
+  const [sortDir, setSortDir] = useState('asc')
   const [createOpen, setCreateOpen] = useState(false)
   const [manager, setManager] = useState(null)
   const [notice, setNotice] = useState(null)
@@ -110,8 +77,8 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmen
       if (crossUnit === 'cross' && !row.cross_unit_association) return false
       return true
     })
-    return sortRows(filtered, sortBy)
-  }, [active, crossUnit, search, shift, sortBy, unitRoster])
+    return sortPreceptorDirectoryRows(filtered, { sortBy, sortDir })
+  }, [active, crossUnit, search, shift, sortBy, sortDir, unitRoster])
 
   const legacyRows = history.data?.nominations || []
   const hasFilters = search.trim() || shift !== 'all' || active !== 'active' || crossUnit !== 'all'
@@ -133,6 +100,12 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmen
       last_name: '',
       unit_key: assignment.student_unit,
     })
+  }
+
+  const handleSort = (key) => {
+    const nextKey = key === 'unit_name' ? 'unit' : key
+    if (sortBy === nextKey) setSortDir(current => current === 'asc' ? 'desc' : 'asc')
+    else { setSortBy(nextKey); setSortDir('asc') }
   }
 
   const assignmentCommitted = async (_result, message) => {
@@ -185,7 +158,7 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmen
         </label>
         <label className="ptl-field">
           <span className="ptl-label">Sort</span>
-          <select className="ptl-input" value={sortBy} onChange={event => setSortBy(event.target.value)}>
+          <select className="ptl-input" value={sortBy} onChange={event => { setSortBy(event.target.value); setSortDir('asc') }}>
             <option value="name">Name</option>
             <option value="unit">Home unit</option>
             <option value="count">Assignment count</option>
@@ -205,37 +178,16 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmen
           detail={hasFilters ? 'Clear or change the filters to see more preceptors.' : 'No preceptors match this view.'} />
       ) : (
         <div className="ptl-table-wrap">
-          <table className="ptl-table ptl-prec-table">
-            <caption className="ptl-visually-hidden">Preceptors associated with authorized units</caption>
-            <thead>
-              <tr>
-                <th scope="col">Name</th><th scope="col">Contact</th><th scope="col">Home unit</th>
-                <th scope="col">Shift</th><th scope="col">Status</th><th scope="col">Current students</th>
-                <th scope="col">Assignments</th><th scope="col">Association</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(row => (
-                <tr key={row.id}>
-                  <td data-label="Name"><b>{row.full_name}</b></td>
-                  <td data-label="Contact">
-                    {row.email ? <a className="ptl-detail-link" href={`mailto:${row.email}`}>{row.email}</a> : '-'}
-                    {row.phone && <span className="ptl-prec-phone">{row.phone}</span>}
-                  </td>
-                  <td data-label="Home unit">{orDash(row.home_unit?.name)}</td>
-                  <td data-label="Shift">{orDash(row.shift)}</td>
-                  <td data-label="Status"><Pill tone={row.is_active ? 'ok' : 'neutral'}>{row.is_active ? 'Active' : 'Inactive'}</Pill></td>
-                  <td data-label="Current students">
-                    <AssignmentList assignments={row.assignments} onManage={openManager} />
-                  </td>
-                  <td data-label="Assignments">{row.active_assignment_count}</td>
-                  <td data-label="Association">
-                    {row.cross_unit_association ? <Pill tone="warn">Cross-unit</Pill> : <span className="ptl-muted">Home unit</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <PreceptorDirectoryTable
+            rows={rows}
+            sortBy={sortBy}
+            sortDir={sortDir}
+            onSort={handleSort}
+            onManageAssignment={openManager}
+            showAssignmentCount
+            showAssociation
+            caption="Preceptors associated with authorized units"
+          />
         </div>
       )}
 

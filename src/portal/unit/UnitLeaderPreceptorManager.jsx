@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { X } from 'lucide-react'
+import '../portal.css'
 import { getUnitPreceptors, mutateUnitPreceptorAssignment, orDash, studentName } from './unitLeaderApi'
 import {
   assignmentErrorMessage,
@@ -56,6 +57,9 @@ export default function UnitLeaderPreceptorManager({
   onClose,
   onCommitted,
   returnFocusRef,
+  loadPreceptors = getUnitPreceptors,
+  mutateAssignment = mutateUnitPreceptorAssignment,
+  readOnlyMessage = 'Assignments are read-only because this completed rotation is outside the 90-day Unit Leader window.',
 }) {
   const panelRef = useRef(null)
   const closeRef = useRef(null)
@@ -77,17 +81,17 @@ export default function UnitLeaderPreceptorManager({
   const readOnly = assignmentWindowIsClosed(student)
 
   const controller = useMemo(() => createUnitAssignmentMutationController({
-    mutate: mutateUnitPreceptorAssignment,
-  }), [])
+    mutate: mutateAssignment,
+  }), [mutateAssignment])
 
   const load = useCallback(async (signal) => {
-    const result = await getUnitPreceptors(signal)
+    const result = await loadPreceptors(signal)
     if (!mountedRef.current || result.error === 'aborted') return result
     setResource(result.ok
       ? { status: 'ready', data: result.data }
       : { status: 'error', data: null })
     return result
-  }, [])
+  }, [loadPreceptors])
 
   useEffect(() => {
     mountedRef.current = true
@@ -392,7 +396,7 @@ export default function UnitLeaderPreceptorManager({
         <div className="ptl-modal-body ptl-asn-body">
           {readOnly && (
             <p className="ptl-notice ptl-notice-warn">
-              Assignments are read-only because this completed rotation is outside the 90-day Unit Leader window.
+              {readOnlyMessage}
             </p>
           )}
           {success && <p className="ptl-notice ptl-notice-ok" role="status">{success}</p>}

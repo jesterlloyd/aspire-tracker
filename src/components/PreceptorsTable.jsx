@@ -1,24 +1,19 @@
 import { useState } from 'react'
-import Tooltip from './ui/Tooltip'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { safeWrite } from '../lib/safeWrite'
 import { usePreceptors } from '../hooks/usePreceptors'
+import PreceptorDirectoryTable from './shared/PreceptorDirectoryTable'
 import PreceptorFormModal from './PreceptorFormModal'
-import PreceptorAssignmentModal from './PreceptorAssignmentModal'
+import UnitLeaderPreceptorManager from '../portal/unit/UnitLeaderPreceptorManager'
 import ConfirmDeleteModal from './ConfirmDeleteModal'
+import { mutateStaffPreceptorAssignment } from '../lib/staffPreceptorAssignmentApi'
+import { sortPreceptorDirectoryRows } from '../lib/preceptorDirectory'
 
 function fmtDate(d) {
   if (!d) return '-'
   const dt = new Date(d + 'T00:00:00')
   return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function getInitials(name) {
-  if (!name) return '?'
-  const parts = name.trim().split(/\s+/)
-  if (parts.length === 1) return (parts[0][0] || '?').toUpperCase()
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
 }
 
 export default function PreceptorsTable({ students = [], cohortId, toast }) {
@@ -52,10 +47,10 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
   const [addOpen,      setAddOpen]      = useState(false)
   const [editTarget,   setEditTarget]   = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
-  const [deleting,     setDeleting]     = useState(false)
   const [assignState,  setAssignState]  = useState(null)
-  const [sortBy,       setSortBy]       = useState('full_name')
+  const [sortBy,       setSortBy]       = useState('name')
   const [sortDir,      setSortDir]      = useState('asc')
+  const [assignNotice, setAssignNotice] = useState(null)
 
   const filtered = search.trim()
     ? preceptors.filter(p =>
@@ -64,63 +59,81 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
       )
     : preceptors
 
-  // Map preceptor_id → student for current cohort (PRIMARY source - students.preceptor_id, unchanged)
-  const studentByPreceptorId = {}
-  for (const s of students) {
-    if (s.preceptor_id) studentByPreceptorId[s.preceptor_id] = s
-  }
-
-  // PRECEPTOR-MODEL-3: read-only cohort-scoped ACTIVE secondary/coverage assignments so a preceptor
-  // with a coverage relationship is no longer shown "without a student assigned". Read via the
-  // table's Owner/Admin SELECT RLS; this only AUGMENTS the predicate, it does not change the primary
-  // source. (Backfilled active-primary rows are intentionally ignored here - primary is shown above.)
-  const { data: coverageRows = [] } = useQuery({
-    queryKey: ['spa_active_coverage', cohortId],
+  // PRECEPTOR-MODEL-3 + portal convergence: read all active Primary, Secondary,
+  // and Coverage assignment rows for this cohort so the Current Student column
+  // can show every active relationship and open the exact-row manager.
+  const { data: activeAssignmentRows = [] } = useQuery({
+    queryKey: ['spa_active_assignments', cohortId],
     enabled: !!cohortId,
     queryFn: async () => {
       const { data } = await supabase
         .from('student_preceptor_assignments')
-        .select('preceptor_id, student_id, role, status')
+        .select('id, preceptor_id, student_id, role, status, start_date, end_date')
         .eq('cohort_id', cohortId)
         .eq('status', 'active')
-        .in('role', ['secondary', 'coverage'])
+        .in('role', ['primary', 'secondary', 'coverage'])
       return data || []
     },
     staleTime: 60 * 1000,
   })
   const studentById = {}
   for (const s of students) studentById[s.id] = s
-  const coverageByPreceptorId = {}
-  for (const r of coverageRows) {
-    (coverageByPreceptorId[r.preceptor_id] ||= []).push(r)
+  const assignmentsByPreceptorId = {}
+  for (const r of activeAssignmentRows) {
+    const student = studentById[r.student_id]
+    if (!student) continue
+    const first = student.preferred_first_name || student.first_name || ''
+    const name = `${first} ${student.last_name || ''}`.trim() || 'Student'
+    const roleLabel = r.role === 'primary' ? 'Primary' : r.role === 'coverage' ? 'Coverage' : 'Secondary'
+    ;(assignmentsByPreceptorId[r.preceptor_id] ||= []).push({
+      id: r.id,
+      student_id: r.student_id,
+      student_name: name,
+      student_unit: student.matched_unit || student.unit_name || student.unit_key || '',
+      role: roleLabel,
+      role_label: roleLabel,
+      status: r.status,
+      start_date: r.start_date || null,
+      end_date: r.end_date || null,
+      preceptor_id: r.preceptor_id,
+    })
   }
 
-  function getSortValue(p, col) {
-    const stu = studentByPreceptorId[p.id]
-    switch (col) {
-      case 'full_name':       return p.full_name?.toLowerCase() || ''
-      case 'unit_name':       return p.unit_name?.toLowerCase() || ''
-      case 'current_student': return stu ? `${stu.first_name} ${stu.last_name}`.toLowerCase() : ''
-      default: return ''
-    }
+  // Compatibility fallback for older rows if a primary mirror row is absent.
+  for (const s of students) {
+    if (!s.preceptor_id) continue
+    const existing = assignmentsByPreceptorId[s.preceptor_id] || []
+    if (existing.some(row => row.student_id === s.id && row.role === 'Primary')) continue
+    const first = s.preferred_first_name || s.first_name || ''
+    existing.push({
+      id: `primary:${s.id}:${s.preceptor_id}`,
+      student_id: s.id,
+      student_name: `${first} ${s.last_name || ''}`.trim() || 'Student',
+      student_unit: s.matched_unit || s.unit_name || s.unit_key || '',
+      role: 'Primary',
+      role_label: 'Primary',
+      status: 'active',
+      preceptor_id: s.preceptor_id,
+    })
+    assignmentsByPreceptorId[s.preceptor_id] = existing
   }
+
+  const rowsForDirectory = filtered.map(p => ({
+    ...p,
+    home_unit: { id: p.unit_id || null, name: p.unit_name || null },
+    shift: p.shift_type || null,
+    assignments: assignmentsByPreceptorId[p.id] || [],
+    active_assignment_count: (assignmentsByPreceptorId[p.id] || []).length,
+    last_active_display: p.last_active_cohort || fmtDate(p.last_active_date),
+  }))
 
   function handleSort(col) {
-    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortBy(col); setSortDir('asc') }
+    const next = col === 'unit_name' ? 'unit' : col === 'full_name' ? 'name' : col
+    if (sortBy === next) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortBy(next); setSortDir('asc') }
   }
 
-  const sorted = [...filtered].sort((a, b) => {
-    const av = getSortValue(a, sortBy)
-    const bv = getSortValue(b, sortBy)
-    if (!av && !bv) return 0
-    if (!av) return 1
-    if (!bv) return -1
-    const cmp = av.localeCompare(bv)
-    return sortDir === 'asc' ? cmp : -cmp
-  })
-
-  const arrow = (col) => sortBy === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''
+  const sorted = sortPreceptorDirectoryRows(rowsForDirectory, { sortBy, sortDir })
 
   const handleSaved = (preceptor) => {
     if (editTarget) {
@@ -132,12 +145,10 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
 
   const handleDelete = async () => {
     if (!deleteTarget) return
-    setDeleting(true)
     const { error: err } = await safeWrite(
       () => supabase.from('preceptors').delete().eq('id', deleteTarget.id),
       { name: 'delete preceptor' }
     )
-    setDeleting(false)
     if (err) {
       toast?.error('Delete failed', err.message || 'Could not delete preceptor.')
     } else {
@@ -145,6 +156,43 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
       toast?.success('Preceptor deleted', `${deleteTarget.full_name} removed from the roster.`)
       setDeleteTarget(null)
     }
+  }
+
+  const openAssignmentManager = (assignment, triggerEl) => {
+    setAssignState({
+      student: {
+        id: assignment.student_id,
+        first_name: assignment.student_name,
+        last_name: '',
+        unit_key: assignment.student_unit,
+      },
+      returnFocusRef: { current: triggerEl || null },
+    })
+  }
+
+  const loadStaffAssignments = async () => ({
+    ok: true,
+    data: {
+      roster: rowsForDirectory,
+      candidates: preceptors
+        .filter(row => row.is_active !== false)
+        .map(row => ({
+          id: row.id,
+          full_name: row.full_name || '',
+          home_unit: { id: row.unit_id || null, name: row.unit_name || null },
+          shift: row.shift_type || null,
+        })),
+    },
+  })
+
+  const assignmentCommitted = async (_result, message) => {
+    setAssignNotice(message)
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['preceptors'] }),
+      queryClient.invalidateQueries({ queryKey: ['spa_active_assignments', cohortId] }),
+    ])
+    toast?.success('Assignment updated', message)
+    return true
   }
 
   if (error) {
@@ -214,148 +262,23 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
             </div>
           </div>
         ) : (
-          <table className="am-table">
-            <thead>
-              <tr>
-                <th className="am-th am-sortable" onClick={() => handleSort('full_name')}>
-                  Name{arrow('full_name')}
-                </th>
-                <th className="am-th">Email</th>
-                <th className="am-th am-sortable" onClick={() => handleSort('unit_name')}>
-                  Unit{arrow('unit_name')}
-                </th>
-                <th className="am-th">Shift</th>
-                <th className="am-th">Status</th>
-                <th className="am-th am-sortable" onClick={() => handleSort('current_student')}>
-                  Current Student{arrow('current_student')}
-                </th>
-                <th className="am-th">Cohorts</th>
-                <th className="am-th">Last Active</th>
-                <th className="am-th"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map(p => {
-                const currentStudent = studentByPreceptorId[p.id]
-                const isActive       = p.is_active !== false
-                const avatarUrl      = p.email
-                  ? contactAvatarMap[p.email.toLowerCase().trim()] || null
-                  : null
-
-                return (
-                  <tr key={p.id} className="am-row">
-                    <td className="am-td" style={{ fontWeight: 600, color: '#111', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{
-                          width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-                          background: '#1D2567', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 11, fontWeight: 700, color: '#fff', userSelect: 'none',
-                          overflow: 'hidden', position: 'relative',
-                        }}>
-                          {avatarUrl && (
-                            <img
-                              src={avatarUrl}
-                              alt={p.full_name}
-                              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-                              onError={e => { e.currentTarget.style.display = 'none' }}
-                            />
-                          )}
-                          {getInitials(p.full_name)}
-                        </div>
-                        {p.full_name}
-                      </div>
-                    </td>
-                    <td className="am-td" style={{ color: '#4b5563', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {p.email || '-'}
-                    </td>
-                    <td className="am-td" style={{ color: '#6b7280', whiteSpace: 'nowrap' }}>
-                      {p.unit_name || '-'}
-                    </td>
-                    <td className="am-td" style={{ color: '#6b7280', whiteSpace: 'nowrap' }}>
-                      {p.shift_type || '-'}
-                    </td>
-                    <td className="am-td">
-                      <span style={{
-                        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                        background: isActive ? '#dcfce7' : '#f3f4f6',
-                        color:      isActive ? '#166534' : '#6b7280',
-                      }}>
-                        {isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="am-td" style={{ color: '#374151', whiteSpace: 'nowrap' }}>
-                      {currentStudent
-                        ? `${currentStudent.first_name} ${currentStudent.last_name}`
-                        : (() => {
-                            // PRECEPTOR-MODEL-3: no PRIMARY student, but an active secondary/coverage
-                            // relationship means this preceptor IS assigned - show it role-labeled
-                            // instead of "-". (Primary, when present, is shown unchanged above.)
-                            const cov = coverageByPreceptorId[p.id] || []
-                            if (cov.length === 0) return <span style={{ color: '#9ca3af' }}>-</span>
-                            const first = cov[0]
-                            const stu = studentById[first.student_id]
-                            const name = stu ? `${stu.first_name} ${stu.last_name}` : 'Assigned'
-                            const roleLabel = first.role === 'coverage' ? 'Coverage' : 'Secondary'
-                            const extra = cov.length > 1 ? ` +${cov.length - 1}` : ''
-                            return (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                {name}{extra}
-                                <span style={{ fontSize: 10.5, fontWeight: 700, color: '#3730a3', background: '#eef2ff', padding: '1px 6px', borderRadius: 4 }}>{roleLabel}</span>
-                              </span>
-                            )
-                          })()
-                      }
-                    </td>
-                    <td className="am-td" style={{ color: '#6b7280', textAlign: 'center' }}>
-                      {p.cohorts_participated ?? '-'}
-                    </td>
-                    <td className="am-td" style={{ color: '#6b7280', whiteSpace: 'nowrap' }}>
-                      {p.last_active_cohort
-                        ? <span>{p.last_active_cohort}</span>
-                        : fmtDate(p.last_active_date)
-                      }
-                    </td>
-                    <td className="am-td" style={{ whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <Tooltip label="Edit preceptor" placement="top">
-                        <button
-                          onClick={() => setEditTarget(p)}
-                          aria-label="Edit preceptor"
-                          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, background: '#f3f4f6', border: 'none', fontSize: 12, fontWeight: 600, color: '#374151', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#e5e7eb'}
-                          onMouseLeave={e => e.currentTarget.style.background = '#f3f4f6'}
-                        >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                          </svg>
-                          Edit
-                        </button>
-                        </Tooltip>
-                        <Tooltip label="Delete preceptor" placement="top">
-                        <button
-                          onClick={() => setDeleteTarget(p)}
-                          aria-label="Delete preceptor"
-                          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 6, background: '#fef2f2', border: 'none', fontSize: 12, fontWeight: 600, color: '#dc2626', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
-                          onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
-                        >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="3 6 5 6 21 6"/>
-                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                            <path d="M10 11v6M14 11v6"/>
-                            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-                          </svg>
-                          Delete
-                        </button>
-                        </Tooltip>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          <>
+            {assignNotice && <p className="sr-only" role="status">{assignNotice}</p>}
+            <PreceptorDirectoryTable
+              rows={sorted}
+              sortBy={sortBy}
+              sortDir={sortDir}
+              onSort={handleSort}
+              onManageAssignment={openAssignmentManager}
+              onEditPreceptor={setEditTarget}
+              onDeletePreceptor={setDeleteTarget}
+              contactAvatarMap={contactAvatarMap}
+              showCohorts
+              showLastActive
+              showAdminActions
+              caption="Preceptor Directory"
+            />
+          </>
         )}
       </div>
 
@@ -384,11 +307,14 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
       )}
 
       {assignState && (
-        <PreceptorAssignmentModal
-          isOpen
-          onClose={() => setAssignState(null)}
+        <UnitLeaderPreceptorManager
           student={assignState.student}
-          onAssigned={() => setAssignState(null)}
+          returnFocusRef={assignState.returnFocusRef}
+          loadPreceptors={loadStaffAssignments}
+          mutateAssignment={mutateStaffPreceptorAssignment}
+          readOnlyMessage="Assignments are read-only because this completed rotation is outside the owner/admin override flow."
+          onCommitted={assignmentCommitted}
+          onClose={() => setAssignState(null)}
         />
       )}
     </div>

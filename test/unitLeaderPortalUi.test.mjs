@@ -21,6 +21,7 @@ const api    = read('src/portal/unit/unitLeaderApi.js')
 const app    = read('src/portal/PortalApp.jsx')
 const css    = read('src/portal/portal.css')
 const preceptorsWorkspace = read('src/portal/unit/UnitPreceptorsWorkspace.jsx')
+const preceptorDirectoryTable = read('src/components/shared/PreceptorDirectoryTable.jsx')
 
 // Built from its code point so this guard does not put the character it forbids into
 // the very file that enforces the rule.
@@ -159,7 +160,7 @@ test('tables are labelled with captions and column scopes', () => {
   // caption), so every table including the roster is captioned.
   // The canonical Capacity form replaced the old capacity table, so its caption is gone;
   // the remaining tables (roster, placements, preceptors) stay captioned.
-  const captions = ((portal + preceptorsWorkspace).match(/<caption className="ptl-visually-hidden">/g) || []).length
+  const captions = ((portal + preceptorsWorkspace + preceptorDirectoryTable).match(/<caption className="ptl-visually-hidden">/g) || []).length
   assert.ok(captions >= 3, `every table needs a caption, saw ${captions}`)
   assert.match(portal, /scope="col"/)
   assert.ok(!portal.includes('Filter students by stage'), 'the stage filter control is gone')

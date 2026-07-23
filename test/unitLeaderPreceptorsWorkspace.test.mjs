@@ -14,6 +14,7 @@ const chrome = strip(read('src/portal/unit/UnitLeaderChrome.jsx'))
 const app = strip(read('src/portal/PortalApp.jsx'))
 const portal = strip(read('src/portal/UnitLeaderPortal.jsx'))
 const workspace = strip(read('src/portal/unit/UnitPreceptorsWorkspace.jsx'))
+const directoryTable = strip(read('src/components/shared/PreceptorDirectoryTable.jsx'))
 const modal = strip(read('src/portal/unit/UnitPreceptorCreateModal.jsx'))
 const api = strip(read('src/portal/unit/unitLeaderApi.js'))
 const migration = read('supabase/migrations/20260723000000_preceptor_assignment_authorization.sql')
@@ -36,8 +37,9 @@ test('students deep link remains while stale notifications route metadata is rem
 
 test('workspace supplies the complete roster table, filters, states, and legacy history', () => {
   for (const heading of [
-    'Name', 'Contact', 'Home unit', 'Shift', 'Status', 'Current students', 'Assignments', 'Association',
-  ]) assert.ok(workspace.includes(`>${heading}<`), heading)
+    'Name', 'Contact', 'Unit', 'Shift', 'Status', 'Current Student', 'Assignments', 'Association',
+  ]) assert.ok((workspace + directoryTable).includes(`>${heading}<`) || (workspace + directoryTable).includes(`>${heading}`), heading)
+  assert.match(workspace, /PreceptorDirectoryTable/)
   for (const control of ['Name or email', 'All shifts', 'All statuses', 'Cross-unit only', 'Assignment count']) {
     assert.ok(workspace.includes(control), control)
   }

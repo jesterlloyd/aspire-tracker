@@ -21,6 +21,7 @@ const strip = text => text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$
 const portal = strip(read('src/portal/UnitLeaderPortal.jsx'))
 const drawer = strip(read('src/portal/unit/StudentDetailDrawer.jsx'))
 const workspace = strip(read('src/portal/unit/UnitPreceptorsWorkspace.jsx'))
+const directoryTable = strip(read('src/components/shared/PreceptorDirectoryTable.jsx'))
 const manager = strip(read('src/portal/unit/UnitLeaderPreceptorManager.jsx'))
 const assignmentModule = strip(read('src/portal/unit/unitPreceptorAssignments.js'))
 const unitApi = strip(read('src/portal/unit/unitLeaderApi.js'))
@@ -72,7 +73,8 @@ test('student kebab has the exact locked action order and no ambiguous Replace o
 test('every entry point mounts the same portal-specific manager', () => {
   assert.match(portal, /<UnitLeaderPreceptorManager/)
   assert.match(drawer, />\s*Manage assignments\s*</)
-  assert.match(workspace, /Manage student assignments/)
+  assert.match(directoryTable, /Manage preceptor assignments/)
+  assert.doesNotMatch(directoryTable, /Manage student assignments/)
   assert.match(workspace, /<UnitLeaderPreceptorManager/)
   assert.doesNotMatch(manager, /PreceptorAssignmentModal|api\/preceptor-primary-assign/)
 })

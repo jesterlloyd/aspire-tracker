@@ -10,10 +10,22 @@ Requests, and Capacity. Profile and notification preferences remain in the avata
 menu, and `/portal/unit/students` remains available as a deep link without a
 permanent navigation item.
 
-The workspace provides a responsive, read-only roster with search, selected-unit
-association, shift, status, cross-unit, and sorting controls. It defaults to active
-preceptors. Loading, retryable error, no-associated-preceptor, and no-filter-result
-states use the shared portal patterns.
+The workspace provides a responsive roster with search, selected-unit association,
+shift, status, cross-unit, and sorting controls. It defaults to active preceptors.
+Loading, retryable error, no-associated-preceptor, and no-filter-result states use
+the shared portal patterns.
+
+The directory table now uses the same shared presentation foundation as the main
+app Preceptor Directory:
+
+- `src/components/shared/PreceptorDirectoryTable.jsx`
+- `src/lib/preceptorDirectory.js`
+
+The shared foundation provides compact directory density, row separators, circular
+avatar/initials treatment, sortable headers with `aria-sort`, status pills,
+assignment-role badges, and the same `Current Student` assignment list treatment.
+Unit Leader still receives only the safe Unit Leader columns and never receives
+main-app Edit or Delete controls.
 
 ## Authorized read model
 
@@ -53,19 +65,41 @@ Existing scoped nomination records appear only when present in a collapsed,
 read-only `Legacy nomination history` section. The workspace uses the existing GET
 path and has no legacy nomination submission form or nomination POST caller.
 
+## Assignment management
+
+Each active assignment row in the `Current Student` column renders:
+
+- student name,
+- role badge: `Primary`, `Secondary`, or `Coverage`,
+- safe unit context when available,
+- `Manage preceptor assignments`.
+
+The old `Manage student assignments` label is retired.
+
+The link opens `UnitLeaderPreceptorManager` with the exact student context. The
+manager supports Change Primary, Add Secondary, Add Coverage, Replace exact
+Secondary/Coverage assignment, and End exact Secondary/Coverage assignment while
+preserving the Phase 2C idempotency, audit, notification, stale-row, and role
+validation guarantees.
+
 ## Security boundary
 
 The read endpoint verifies an active Unit Leader grant and resolves active unit
 scopes before service-role reads. Browser RLS and client-supplied student IDs are
-not treated as authorization. Safe candidate fields do not include assignment
-details. Generic staff, interviewer, viewer, or co-lead status is insufficient.
+not treated as authorization. Generic staff, interviewer, viewer, or co-lead
+status is insufficient.
 
-The only new Unit Leader write is `create_preceptor`. Primary, Secondary,
-Coverage, Replace, End, and Manage assignment controls remain disabled, and the
-Unit Leader frontend has no assignment-mutation caller. Phase 2C authorization,
-idempotency, audit, notification, completed-rotation, approved sender, and Reply-To
-behavior were not changed. No SQL, migration, RPC, view, or schema change was
-made.
+Unit Leader assignment writes still use only:
+
+```text
+POST /api/portal/unit-preceptor-manage
+```
+
+Unit Leaders do not receive Edit/Delete preceptor authority, staff endpoints,
+historical override controls, or any ability to widen their scoped student set.
+Phase 2C authorization, idempotency, audit, notification, completed-rotation,
+approved sender, and Reply-To behavior were not changed. No SQL, migration, RPC,
+view, or schema change was made.
 
 ## Verification
 
@@ -80,11 +114,9 @@ made.
 - SSR build: passed (11 modules transformed; 36.08 kB output, 8.06 kB gzip).
 - `git diff --check`: passed with no whitespace errors.
 
-## Remaining work
+## Main-app convergence
 
-A later, separately authorized pass can build the shared assignment manager using
-the safe `candidates` collection and the existing Phase 2C backend. That work must
-design and test the Primary, Secondary, Coverage, Replace, End, and completed-
-rotation interactions without weakening server-side scope resolution,
-idempotency, audit, or notification guarantees. None of those controls is enabled
-in this release.
+The main app Preceptor Directory now uses the same shared table presentation and
+opens the same assignment-manager foundation from each applicable `Current Student`
+entry. Staff authority is separate from Unit Leader authority and uses the
+Owner/Admin endpoint documented in the assignment-manager handoff.
