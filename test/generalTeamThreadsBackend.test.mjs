@@ -255,12 +255,13 @@ test('new endpoint contract accepts only request_id and body', () => {
   assert.match(endpoint, /startGeneralTeamConversationForPortal/)
 })
 
-test('dormant browser helper does not activate visible UI', () => {
+test('browser helper is adopted only by the shared docked ASPIRE Team composer', () => {
   assert.match(portalClient, /export function startGeneralTeamConversation/)
   assert.match(portalClient, /\/api\/portal\/team-messages-start/)
   assert.match(portalClient, /body: \{ request_id: requestId, body \}/)
   assert.doesNotMatch(portalClient.match(/export function startGeneralTeamConversation[\s\S]*?\n}/)?.[0] || '', /student_id|unit_key|role|profile_id|subject|category|destination/)
-  assert.doesNotMatch(teamPanel, /startGeneralTeamConversation/)
+  assert.match(teamPanel, /startGeneralTeamConversation/)
+  assert.match(teamPanel, /api\.startGeneralTeamConversation\(\{\s*\n\s*requestId: stableRequestId,\s*\n\s*body: normalized,\s*\n\s*\}\)/)
   assert.doesNotMatch(newDrawer, /startGeneralTeamConversation/)
 })
 

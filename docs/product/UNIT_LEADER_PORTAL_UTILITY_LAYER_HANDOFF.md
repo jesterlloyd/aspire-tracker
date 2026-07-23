@@ -16,9 +16,11 @@ Unit Leader corner utilities:
 - `src/portal/PortalTeamMessagesPanel.jsx`
 - `src/portal/usePortalDialogFocus.js`
 
-`PortalShell` still accepts a `utilityLayer` prop and renders it once below the portal header. `PortalApp` supplies that prop only in the Unit Leader branch with `portalRole="unit_leader"` and `portalType="unit_leader"`.
+`PortalShell` still accepts a `utilityLayer` prop and renders it once below the portal header. `PortalApp` supplies that prop in the Student and Unit Leader branches only.
 
-No utility layer is mounted inside `UnitLeaderPortal.jsx`, `StudentPortal.jsx`, or `AcademicPartnerPortal.jsx`.
+Student receives the shared docked Messages utility with `portalRole="student"` and `portalType="student"`. Unit Leader receives the shared docked Messages utility plus Unit Leader-only feedback and desktop notice behavior with `portalRole="unit_leader"` and `portalType="unit_leader"`.
+
+No utility layer is mounted inside `UnitLeaderPortal.jsx`, `StudentPortal.jsx`, or `AcademicPartnerPortal.jsx`. Academic Partner still receives no utility layer.
 
 ## Matched Corner Design
 
@@ -96,9 +98,9 @@ One stable request ID is retained across failed attempts and cleared only after 
 
 `409` request-ID conflicts and `429` rate limits produce safe user-facing messages. A saved submission with pending email delivery is treated as successful receipt.
 
-## Docked ASPIRE Team Messages Panel
+## Shared Docked ASPIRE Team Messages Panel
 
-The lower-right utility is no longer a shortcut that navigates immediately to `/portal/messages`.
+The lower-right utility is shared by Student and Unit Leader. It is no longer a shortcut that navigates immediately to `/portal/messages`.
 
 It is now a circular message-bubble launcher with the accessible name:
 
@@ -110,9 +112,10 @@ Opening it displays a docked panel anchored to the lower-right, following the Ke
 
 Panel structure:
 
-- header with `ASPIRE Team`
-- supporting label `Messages`
-- close control
+- header title `Messages`
+- subtitle `ASPIRE Team`
+- `New` action with accessible name `Start a new conversation`
+- close control with accessible name `Close Messages`
 - scrollable conversation history
 - composer pinned inside the panel
 - live-region announcements
@@ -134,9 +137,22 @@ The docked panel reuses the existing portal Messages system:
 
 It does not mount another unread polling hook. It uses the unread count owned by `PortalApp` and invalidates the shared unread/list caches after read and send actions.
 
-The panel selects the existing ASPIRE Team conversation from the authorized portal message list. It marks read through the existing mark-read API and sends replies through the existing reply API.
+The panel selects the most recent authorized `thread_kind: 'team_general'` conversation from the portal message list. It does not infer general-team state from `!direct_student_name`, and it does not auto-select `team_student_context` or `direct_student` rows.
 
-For an initial ASPIRE Team message, the panel uses the existing Unit Leader message-start adapter path with `destination: "aspire"`. It does not introduce a new backend, table model, or browser-side direct table access.
+For an initial ASPIRE Team message, the panel calls `startGeneralTeamConversation({ requestId, body })`, which posts only `request_id` and `body` to `POST /api/portal/team-messages-start`. It does not send student, unit, role, profile, subject, category, or destination fields. Opening the panel, clicking `New`, closing the panel, or canceling by leaving compose does not create a conversation; creation happens only on successful submit.
+
+Each compose attempt uses a stable request id. Rapid double submit is blocked synchronously. Failed retries preserve both draft text and request id. Successful sends activate the returned thread and refresh the shared list/unread caches.
+
+Existing `team_general` replies still use the existing thread, reply, and read APIs.
+
+## Message Bubble Treatment
+
+The docked panel and shared portal thread renderer use the same iMessage-inspired visual treatment:
+
+- ASPIRE Team/staff messages align left with gray bubbles
+- portal-user messages align right with blue bubbles
+- author/time metadata stays subdued inside the bubble
+- Student and Unit Leader use the same bubble classes
 
 ## Overlay And Keyboard Suppression
 
@@ -186,7 +202,8 @@ This correction did not:
 - add or alter migrations
 - create a new Messages backend
 - add Academic Partner Messages
-- activate Student utilities
+- add Student feedback
+- show the Student desktop notice
 - activate Academic Partner utilities
 - add attachments or screenshots
 - change sender or Reply-To behavior
@@ -197,6 +214,7 @@ This correction did not:
 Recommended verification:
 
 - `node --test test/unitLeaderPortalUtilityLayer.test.mjs`
+- `node --test test/sharedDockedMessagesUi.test.mjs`
 - `node --test test/portalFeedbackBackendFoundation.test.mjs`
 - portal Messages tests
 - Unit Leader portal tests
@@ -231,12 +249,16 @@ Confirm:
 - opening messages hides the feedback launcher
 - feedback retry preserves text
 - rapid feedback submit cannot duplicate
-- lower-right launcher opens the docked panel, not the full Messages route
+- Student and Unit Leader lower-right launchers open the docked panel, not the full Messages route
+- Academic Partner has no launcher
 - `Open full Messages` navigates to `/portal/messages`
+- `New` starts compose without creating a backend row
+- failed first-message retry preserves text and request id
+- first-message success activates the returned `team_general` thread
 - replies refresh thread/list/unread state through existing APIs
 
 ## Future Extension Points
 
-Student Portal can later pass `enabled` and Student-specific reporter context into the same utility layer after product approval.
+Student feedback can later use the same utility layer after product approval. It is intentionally not enabled in this pass.
 
 Academic Partner Portal can later use the same feedback utility once that portal is ready. The Messages launcher must remain disabled for Academic Partner until Academic Partner Messages is actually built.

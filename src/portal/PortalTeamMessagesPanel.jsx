@@ -1,10 +1,14 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
-import { MessageCircle, RefreshCw, Send, X } from 'lucide-react'
+import { MessageCircle, Plus, RefreshCw, Send, X } from 'lucide-react'
 import PortalMessagesThread from './messages/PortalMessagesThread'
 import PortalReplyComposer from './messages/PortalReplyComposer'
 import usePortalDialogFocus from './usePortalDialogFocus'
-import { listPortalConversations, markPortalConversationRead } from '../lib/messages/portalMessagesApiClient'
+import {
+  listPortalConversations,
+  markPortalConversationRead,
+  startGeneralTeamConversation,
+} from '../lib/messages/portalMessagesApiClient'
 import { appendPage, normalizeCursor } from '../lib/messages/inboxState'
 import { PORTAL_ACTIVE_POLL_MS, PORTAL_INBOX_PAGE_SIZE } from '../lib/messages/portalMessagesPolling'
 import { MESSAGE_MAX_BODY_CHARS, normalizeBody, validateBodyValue } from '../lib/messages/messagesConstants'
@@ -14,14 +18,23 @@ import {
   mapPortalMessagesError,
   mapPortalConflict,
 } from '../lib/messages/portalMessagesConstants'
-import { startUnitConversation } from './unit/unitLeaderApi'
 import { portalThreadQueryKey } from '../lib/messages/portalThreadState'
 
-const TEAM_SUBJECT = 'Message to the ASPIRE Team'
-const TEAM_CATEGORY = 'Question'
+function createRequestId() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
+  const bytes = new Uint8Array(16)
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) crypto.getRandomValues(bytes)
+  else {
+    for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256)
+  }
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
 
-function isAspireTeamConversation(row) {
-  return row && !row.direct_student_name
+function isGeneralTeamConversation(row) {
+  return row?.thread_kind === 'team_general'
 }
 
 export default function PortalTeamMessagesPanel({
@@ -30,12 +43,17 @@ export default function PortalTeamMessagesPanel({
   launcherRef,
   unread = 0,
   onOpenFullMessages,
+  variant = 'student',
+  api = { startGeneralTeamConversation },
 }) {
   const qc = useQueryClient()
   const panelRef = useRef(null)
+  const composeRef = useRef(null)
   const startRef = useRef(false)
   const [conversation, setConversation] = useState(null)
   const [selectedId, setSelectedId] = useState(null)
+  const [composeMode, setComposeMode] = useState(false)
+  const [requestId, setRequestId] = useState(null)
   const [draft, setDraft] = useState('')
   const [pendingStart, setPendingStart] = useState(false)
   const [err, setErr] = useState('')
@@ -61,15 +79,15 @@ export default function PortalTeamMessagesPanel({
     staleTime: 10 * 1000,
   })
 
-  const teamConversation = useMemo(() => {
+  const latestGeneralConversation = useMemo(() => {
     const rows = (data?.pages || []).reduce(
       (acc, page) => appendPage(acc, page?.conversations || []),
       [],
     )
-    return rows.find(isAspireTeamConversation) || null
+    return rows.find(isGeneralTeamConversation) || null
   }, [data])
 
-  const activeConversationId = selectedId || teamConversation?.id || null
+  const activeConversationId = composeMode ? null : selectedId || latestGeneralConversation?.id || null
   const closed = conversation?.status === 'Closed'
   const normalized = normalizeBody(draft)
   const draftCheck = validateBodyValue(draft)
@@ -85,6 +103,28 @@ export default function PortalTeamMessagesPanel({
     qc.invalidateQueries({ queryKey: ['portal_messages_unread'] })
     if (activeConversationId) qc.invalidateQueries({ queryKey: portalThreadQueryKey(activeConversationId) })
   }, [activeConversationId, qc])
+
+  const beginFreshCompose = useCallback(({ resetDraft = true } = {}) => {
+    setConversation(null)
+    setSelectedId(null)
+    setComposeMode(true)
+    setRequestId(createRequestId())
+    setErr('')
+    if (resetDraft) setDraft('')
+    setTimeout(() => composeRef.current?.focus?.(), 30)
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    if (!isLoading && !latestGeneralConversation && !selectedId && !composeMode && !requestId) {
+      const timer = window.setTimeout(() => {
+        setComposeMode(true)
+        setRequestId(createRequestId())
+      }, 0)
+      return () => window.clearTimeout(timer)
+    }
+    return undefined
+  }, [composeMode, isLoading, latestGeneralConversation, open, requestId, selectedId])
 
   const handleMarkRead = useCallback(async (id) => {
     try {
@@ -104,26 +144,24 @@ export default function PortalTeamMessagesPanel({
   const startTeamConversation = async (event) => {
     event?.preventDefault?.()
     if (!canStart || startRef.current) return
+    const stableRequestId = requestId || createRequestId()
+    if (!requestId) setRequestId(stableRequestId)
     startRef.current = true
     setPendingStart(true)
     setErr('')
     try {
-      const out = await startUnitConversation({
-        destination: 'aspire',
-        subject: TEAM_SUBJECT,
-        category: TEAM_CATEGORY,
+      const out = await api.startGeneralTeamConversation({
+        requestId: stableRequestId,
         body: normalized,
       })
-      if (!out.ok) {
-        const reason = out.status === 409 ? mapPortalConflict(out.data?.reason) : mapPortalMessagesError(out.status)
-        throw new Error(reason)
-      }
       setDraft('')
-      setSelectedId(out.data?.conversation_id || null)
-      announce('Your message was sent to the ASPIRE Team.')
+      setRequestId(null)
+      setComposeMode(false)
+      setSelectedId(out?.conversation_id || null)
+      announce(out?.confirmation || 'Your message was sent to the ASPIRE Team.')
       refreshMessages()
     } catch (e) {
-      setErr(e?.message || 'Something went wrong loading your messages. Try again.')
+      setErr(e?.status === 409 ? mapPortalConflict(e?.reason) : mapPortalMessagesError(e?.status))
     } finally {
       startRef.current = false
       setPendingStart(false)
@@ -145,20 +183,32 @@ export default function PortalTeamMessagesPanel({
         tabIndex={-1}
       >
         <header className="ptl-team-message-head">
-          <div className="ptl-team-message-icon" aria-hidden="true">
-            <MessageCircle size={18} />
+          <div className="ptl-team-message-title-block">
+            <div className="ptl-team-message-icon" aria-hidden="true">
+              <MessageCircle size={18} />
+            </div>
+            <div>
+              <h2 id="ptl-team-message-title">Messages</h2>
+              <p id="ptl-team-message-subtitle">ASPIRE Team</p>
+            </div>
           </div>
-          <div>
-            <h2 id="ptl-team-message-title">ASPIRE Team</h2>
-            <p id="ptl-team-message-subtitle">Messages</p>
+          <div className="ptl-team-message-actions">
+            {unread > 0 && <span className="ptl-team-message-unread">{unread > 99 ? '99+' : unread}</span>}
+            <button
+              type="button"
+              className="ptl-team-message-new"
+              onClick={() => beginFreshCompose()}
+              aria-label="Start a new conversation"
+            >
+              <Plus size={15} aria-hidden="true" /> New
+            </button>
+            <button type="button" className="ptl-team-message-close" onClick={onClose} aria-label="Close Messages">
+              <X size={18} aria-hidden="true" />
+            </button>
           </div>
-          {unread > 0 && <span className="ptl-team-message-unread">{unread > 99 ? '99+' : unread}</span>}
-          <button type="button" className="ptl-team-message-close" onClick={onClose} aria-label="Close ASPIRE Team messages">
-            <X size={18} aria-hidden="true" />
-          </button>
         </header>
 
-        <div className="ptl-team-message-body" aria-label="ASPIRE Team conversation history">
+        <div className="ptl-team-message-body" aria-label="Messages with the ASPIRE Team">
           {isLoading && <div className="ptl-muted ptl-loading">Loading your ASPIRE Team conversation...</div>}
           {isError && (
             <div className="ptl-card ptl-error">
@@ -170,7 +220,7 @@ export default function PortalTeamMessagesPanel({
           )}
           {!isLoading && !isError && activeConversationId && (
             <PortalMessagesThread
-              variant="unit_leader"
+              variant={variant}
               conversationId={activeConversationId}
               refreshMs={PORTAL_ACTIVE_POLL_MS}
               onConversation={setConversation}
@@ -199,6 +249,7 @@ export default function PortalTeamMessagesPanel({
               <label className="ptl-label" htmlFor="ptl-team-start-body">Message</label>
               <textarea
                 id="ptl-team-start-body"
+                ref={composeRef}
                 className="ptl-input ptl-input-full ptl-msg-textarea"
                 rows={4}
                 value={draft}

@@ -99,7 +99,11 @@ export default function PortalUtilityLayer({
   const sessionDismissed = Boolean(noticeKey && sessionDismissedKey === noticeKey)
   const section = useMemo(() => sectionFromPath(pathname), [pathname])
 
-  const noticeVisible = enabled && portalRole === 'unit_leader' && narrow && !onMessagesRoute && !storedDismissed && !sessionDismissed
+  const isUnitLeaderPortal = portalRole === 'unit_leader' && portalType === 'unit_leader'
+  const isStudentPortal = portalRole === 'student' && portalType === 'student'
+  const feedbackEnabled = isUnitLeaderPortal
+  const messagesEnabled = messagesAuthorized && (isUnitLeaderPortal || isStudentPortal)
+  const noticeVisible = enabled && isUnitLeaderPortal && narrow && !onMessagesRoute && !storedDismissed && !sessionDismissed
 
   const dismissNotice = () => {
     if (!persistDismissal(profileId, portalRole)) setSessionDismissedKey(noticeKey)
@@ -119,7 +123,7 @@ export default function PortalUtilityLayer({
     onOpenMessages?.()
   }, [onOpenMessages])
 
-  if (!enabled || portalRole !== 'unit_leader' || portalType !== 'unit_leader') return null
+  if (!enabled || (!isUnitLeaderPortal && !isStudentPortal)) return null
 
   const utilitiesHidden = suppressed
   const visiblePanel = suppressed ? null : activePanel
@@ -133,16 +137,18 @@ export default function PortalUtilityLayer({
         </div>
       )}
 
-      <PortalFeedbackPanel
-        open={visiblePanel === 'feedback'}
-        onOpenChange={openFeedback}
-        hidden={utilitiesHidden || visiblePanel === 'messages'}
-        launcherRef={feedbackRef}
-        pathname={pathname}
-        section={section}
-      />
+      {feedbackEnabled && (
+        <PortalFeedbackPanel
+          open={visiblePanel === 'feedback'}
+          onOpenChange={openFeedback}
+          hidden={utilitiesHidden || visiblePanel === 'messages'}
+          launcherRef={feedbackRef}
+          pathname={pathname}
+          section={section}
+        />
+      )}
 
-      {messagesAuthorized && !utilitiesHidden && visiblePanel !== 'feedback' && (
+      {messagesEnabled && !utilitiesHidden && visiblePanel !== 'feedback' && (
         <div className="ptl-team-message-launcher-wrap">
           <div className={`ptl-team-message-tooltip${visiblePanel === 'messages' ? '' : ' is-visible-on-hover'}`}>
             Messages
@@ -167,6 +173,7 @@ export default function PortalUtilityLayer({
         launcherRef={messagesRef}
         unread={unread}
         onOpenFullMessages={openFullMessages}
+        variant={isUnitLeaderPortal ? 'unit_leader' : 'student'}
       />
     </>
   )

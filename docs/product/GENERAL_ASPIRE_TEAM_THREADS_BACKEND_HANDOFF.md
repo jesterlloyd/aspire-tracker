@@ -125,8 +125,17 @@ The pass does not remove or repurpose:
 4. Apply `supabase/migrations/20260724000001_general_team_threads_backend.sql` as one transaction.
 5. Run the same audit file again and verify the post-SQL checks.
 
-## Later UI dependency
+## Shared docked Messages UI adoption
 
-The shared docked Messages refinement should switch thread creation to `startGeneralTeamConversation({ requestId, body })`, generate a stable request id per compose attempt, and use `thread_kind` rather than `!direct_student_name` to distinguish general, student-context, and direct-student threads.
+The shared docked Messages refinement now uses `startGeneralTeamConversation({ requestId, body })` for the first ASPIRE Team message. It generates one stable request id per compose attempt, preserves that id and draft text across failed retries, clears the id only after success or an intentional fresh draft reset, and activates the returned `conversation_id` after a successful send.
+
+The docked panel opens the most recent authorized `thread_kind: 'team_general'` row only. It does not infer general-team state from `!direct_student_name`, and it does not auto-select `thread_kind: 'team_student_context'` or `thread_kind: 'direct_student'` rows.
+
+The browser still sends only:
+
+- `request_id`
+- `body`
+
+It does not send `student_id`, `unit_key`, `school_key`, `role`, `portal_type`, `profile_id`, `actor_profile_id`, `destination`, `category`, or `subject`.
 
 Do not enable Academic Partner Messages as part of that UI pass.

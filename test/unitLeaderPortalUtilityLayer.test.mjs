@@ -35,15 +35,20 @@ const sharedFeedbackCode = strip(sharedFeedback)
 const teamPanelCode = strip(teamPanel)
 const clientCode = strip(client)
 
-test('utility layer still mounts once through PortalShell and remains Unit Leader-only', () => {
+test('utility layer mounts through PortalShell for Student and Unit Leader only', () => {
   assert.match(shell, /utilityLayer = null/)
   assert.match(shell, /\{utilityLayer\}/)
   assert.match(app, /import PortalUtilityLayer from '\.\/PortalUtilityLayer'/)
-  assert.equal((app.match(/<PortalUtilityLayer/g) || []).length, 1)
+  assert.equal((app.match(/<PortalUtilityLayer/g) || []).length, 2)
   const studentBranch = app.slice(app.indexOf("roles.includes('student')"), app.indexOf("roles.includes('unit_leader')"))
   const unitBranch = app.slice(app.indexOf("roles.includes('unit_leader')"), app.indexOf("roles.includes('academic_partner')"))
   const academicBranch = app.slice(app.indexOf("roles.includes('academic_partner')"))
-  assert.doesNotMatch(studentBranch, /PortalUtilityLayer|utilityLayer=/)
+  assert.match(studentBranch, /portalRole="student"/)
+  assert.match(studentBranch, /portalType="student"/)
+  assert.match(studentBranch, /messagesAuthorized/)
+  assert.match(studentBranch, /unread=\{unread\}/)
+  assert.match(studentBranch, /onOpenMessages=\{goMessages\}/)
+  assert.doesNotMatch(studentBranch, /PortalFeedbackPanel|desktopNotice/)
   assert.match(unitBranch, /portalRole="unit_leader"/)
   assert.match(unitBranch, /portalType="unit_leader"/)
   assert.match(unitBranch, /unread=\{unread\}/)
@@ -123,17 +128,17 @@ test('lower-right Messages is a circular docked ASPIRE Team panel, not a navigat
 
 test('docked Messages panel reuses existing portal Messages APIs and shared unread cache', () => {
   for (const apiName of [
-    'listPortalConversations', 'markPortalConversationRead',
+    'listPortalConversations', 'markPortalConversationRead', 'startGeneralTeamConversation',
   ]) assert.match(teamPanel, new RegExp(apiName))
   assert.match(teamPanel, /PortalMessagesThread/)
   assert.match(teamPanel, /PortalReplyComposer/)
-  assert.match(teamPanel, /startUnitConversation/)
+  assert.doesNotMatch(teamPanel, /startUnitConversation|destination: 'aspire'|studentId|student_id/)
   assert.match(unitApi, /\/api\/portal\/unit-messages-start/)
-  assert.match(teamPanel, /destination: 'aspire'/)
   assert.match(teamPanel, /queryKey: \['portal_messages_list'\]/)
   assert.match(teamPanel, /invalidateQueries\(\{ queryKey: \['portal_messages_unread'\] \}\)/)
   assert.match(teamPanel, /portalThreadQueryKey\(activeConversationId\)/)
-  assert.match(teamPanel, /isAspireTeamConversation/)
+  assert.match(teamPanel, /isGeneralTeamConversation/)
+  assert.match(teamPanel, /thread_kind === 'team_general'/)
   assert.doesNotMatch(teamPanel, /usePortalUnreadCount/)
   assert.doesNotMatch(teamPanel + layer, /from\('messages'|from\('conversations'|supabase\.from/)
   assert.equal((app.match(/usePortalUnreadCount/g) || []).length, 2)
@@ -146,6 +151,8 @@ test('matched corner behavior and accessibility are explicit', () => {
   assert.match(layer, /current === 'messages' \? null : 'messages'/)
   assert.match(layer, /hidden=\{utilitiesHidden \|\| visiblePanel === 'messages'\}/)
   assert.match(layer, /visiblePanel !== 'feedback'/)
+  assert.match(layer, /feedbackEnabled = isUnitLeaderPortal/)
+  assert.match(layer, /messagesEnabled = messagesAuthorized && \(isUnitLeaderPortal \|\| isStudentPortal\)/)
   assert.match(layer, /const visiblePanel = suppressed \? null : activePanel/)
   assert.match(layerCode, /\[aria-modal="true"\]:not\(\.shared-feedback-panel\):not\(\.ptl-team-message-panel\)/)
   assert.match(layerCode, /INPUT', 'TEXTAREA', 'SELECT'/)
@@ -154,6 +161,8 @@ test('matched corner behavior and accessibility are explicit', () => {
   assert.match(teamPanel, /role="dialog"/)
   assert.match(teamPanel, /aria-labelledby="ptl-team-message-title"/)
   assert.match(teamPanel, /aria-describedby="ptl-team-message-subtitle"/)
+  assert.match(teamPanel, /aria-label="Start a new conversation"/)
+  assert.match(teamPanel, /aria-label="Close Messages"/)
   assert.match(focus, /event\.key === 'Escape'/)
   assert.match(focus, /previous\?\.focus\?\.\(\)/)
   assert.match(teamPanel, /role="status" aria-live="polite"/)
@@ -163,6 +172,7 @@ test('matched corner behavior and accessibility are explicit', () => {
 test('desktop notice trigger, suppression, and persistence are unchanged', () => {
   assert.match(layer, /window\.matchMedia\('\(max-width: 1023px\)'\)/)
   assert.match(layer, /This portal is optimized for desktop use\. For the best experience, open it on a laptop or larger screen\./)
+  assert.match(layer, /noticeVisible = enabled && isUnitLeaderPortal/)
   assert.match(layer, /Continue anyway/)
   assert.match(layer, /pathname\.startsWith\('\/portal\/messages'\)/)
   assert.match(layer, /aspire\.portal\.desktopNotice\.v1:\$\{profileId\}:\$\{role\}/)
@@ -180,6 +190,8 @@ test('responsive placement and bottom-nav clearance are present', () => {
   assert.match(css, /width: min\(420px, calc\(100vw - 32px\)\)/)
   assert.match(css, /height: min\(720px, calc\(100vh - 160px\)\)/)
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.ptl-team-message-panel/)
+  assert.match(css, /\.ptl-team-message-new[\s\S]*min-width: 44px; min-height: 44px/)
+  assert.match(css, /\.ptl-team-message-close[\s\S]*min-width: 44px; min-height: 44px/)
 })
 
 test('static boundaries remain locked', () => {

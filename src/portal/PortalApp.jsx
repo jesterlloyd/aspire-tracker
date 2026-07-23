@@ -141,7 +141,19 @@ export default function PortalApp() {
   if (roles.includes('student')) {
     return (
       <PortalShell title="Student Portal" userName={userProfile?.full_name}
-        onEditProfile={() => setEditOpen(true)} withTabBar>
+        onEditProfile={() => setEditOpen(true)} withTabBar
+        utilityLayer={(
+          <PortalUtilityLayer
+            enabled
+            portalRole="student"
+            portalType="student"
+            profileId={userProfile?.id}
+            pathname={location.pathname}
+            unread={unread}
+            messagesAuthorized
+            onOpenMessages={goMessages}
+          />
+        )}>
         <PortalNav
           view={studentView}
           unread={unread}
