@@ -1,40 +1,75 @@
 # Unit Leader Portal Utility Layer Handoff
 
-## Mount Architecture
+## Corrected Architecture
 
-The visible portal utility layer is implemented through shared, role-neutral components:
+The Unit Leader portal utility layer now mirrors the main-app corner-panel model.
+
+Shared feedback presentation:
+
+- `src/components/shared/SharedFeedbackPanel.jsx`
+- consumed by `src/components/FeedbackPanel.jsx`
+- consumed by `src/portal/PortalFeedbackPanel.jsx`
+
+Unit Leader corner utilities:
 
 - `src/portal/PortalUtilityLayer.jsx`
-- `src/portal/PortalUtilityButton.jsx`
-- `src/portal/PortalFeedbackDialog.jsx`
+- `src/portal/PortalTeamMessagesPanel.jsx`
 - `src/portal/usePortalDialogFocus.js`
 
-`PortalShell` accepts a `utilityLayer` prop and renders it once below the portal header. `PortalApp` supplies that prop only in the Unit Leader branch with `portalRole="unit_leader"` and `portalType="unit_leader"`.
+`PortalShell` still accepts a `utilityLayer` prop and renders it once below the portal header. `PortalApp` supplies that prop only in the Unit Leader branch with `portalRole="unit_leader"` and `portalType="unit_leader"`.
 
 No utility layer is mounted inside `UnitLeaderPortal.jsx`, `StudentPortal.jsx`, or `AcademicPartnerPortal.jsx`.
 
-## Unit Leader-Only Activation
+## Matched Corner Design
 
-This pass activates the utilities only for active Unit Leader portal rendering. Student Portal and Academic Partner Portal feedback controls remain inactive.
+The old white `Feedback / Bug` and `Messages` pill buttons were retired.
 
-Academic Partner Messages was not built. Academic Partner authorization, predicates, APIs, floating controls, desktop notice, and table repairs were not changed.
+Normal Unit Leader portal pages now show:
 
-## Feedback Dialog Behavior
+- lower-left circular magenta feedback launcher
+- lower-right circular ASPIRE Team message launcher
 
-The lower-left `Feedback / Bug` launcher opens an accessible modal dialog. At the existing 760px breakpoint, it inherits the portal bottom-sheet modal behavior.
+The launchers have comparable size, elevation, placement, focus treatment, and tooltip/accessibility behavior. Opening one corner panel hides the other utility so the panels never overlap.
 
-The dialog provides two explicit choices:
+## Shared Feedback UI
 
-- `Send Feedback`
-- `Report a Bug`
+The lower-left utility reuses the canonical main-app feedback experience:
 
-Feedback requires a message. Bug reports require a summary, expected behavior, actual behavior, and reproduction steps. Bug reports also include viewport width and height. Attachments, screenshots, pasted images, and file uploads are not included.
+- circular magenta launcher
+- anchored panel above the launcher
+- `Send a Message` heading
+- supporting description
+- category cards
+- message area
+- contextual metadata note
+- close control
+- primary send action
 
-The dialog traps focus, restores focus to the exact launcher, supports Escape when not submitting, preserves form text after failures, blocks rapid duplicate submits with a synchronous guard, and announces success or failure in a live region.
+The visible categories remain:
 
-## Payload Privacy
+- `Bug Report`
+- `Feature Idea`
+- `Question`
 
-The browser sends only the approved fields:
+The main app keeps its Outlook compose transport through `src/components/FeedbackPanel.jsx`.
+
+The Unit Leader portal uses the same shared UI through `src/portal/PortalFeedbackPanel.jsx`, but submits to the durable portal feedback backend:
+
+```text
+POST /api/portal/feedback-submit
+```
+
+Category mapping:
+
+- `Bug Report` -> backend `type: "bug"`
+- `Feature Idea` -> backend `type: "feedback"`
+- `Question` -> backend `type: "feedback"`
+
+The selected category is preserved in the submitted message text. Bug reports collect expected behavior, actual behavior, reproduction steps, and viewport dimensions required by the backend.
+
+## Feedback Payload Privacy
+
+The feedback payload sends only:
 
 - `request_id`
 - `type`
@@ -55,85 +90,122 @@ The backend remains authoritative for identity, role, and scope.
 
 ## Request-ID Lifecycle
 
-The dialog uses the shared request-ID helper in `src/lib/portalFeedbackApiClient.js`.
+The Unit Leader feedback adapter uses the shared request-ID helper in `src/lib/portalFeedbackApiClient.js`.
 
-One stable request ID is held for the active submission intent. It is retained after failed attempts and cleared only after success or cancellation. A synchronous `submittingRef` guard prevents rapid double-send before React rerenders.
+One stable request ID is retained across failed attempts and cleared only after success. Duplicate submit is blocked synchronously in the shared panel before React rerenders.
 
 `409` request-ID conflicts and `429` rate limits produce safe user-facing messages. A saved submission with pending email delivery is treated as successful receipt.
 
-## Messages Reuse
+## Docked ASPIRE Team Messages Panel
 
-The lower-right `Messages` launcher uses the existing unread count passed from `PortalApp`. It does not mount a second unread polling hook and does not create another Messages workspace.
+The lower-right utility is no longer a shortcut that navigates immediately to `/portal/messages`.
 
-The control navigates to `/portal/messages`. When already on a Messages route, it marks itself current and focuses the existing Messages heading instead of resetting or discarding the selected thread.
-
-## Notice Trigger And Persistence
-
-The desktop-optimization notice is Unit Leader-only and uses:
-
-```js
-window.matchMedia('(max-width: 1023px)')
-```
-
-It is hidden at 1024px and above, suppressed on `/portal/messages`, and never uses user-agent or device-name detection.
-
-Dismissal is stored per browser, account, and role:
+It is now a circular message-bubble launcher with the accessible name:
 
 ```text
-aspire.portal.desktopNotice.v1:<profile-id>:unit_leader
+Open messages with the ASPIRE Team
 ```
 
-The stored value is:
+Opening it displays a docked panel anchored to the lower-right, following the Keith panel interaction pattern without using Keith identity or AI behavior.
 
-```json
-{ "dismissedAt": "<ISO timestamp>" }
-```
+Panel structure:
 
-Dismissal expires after 30 days. If localStorage is unavailable, the component falls back to session-only dismissal.
+- header with `ASPIRE Team`
+- supporting label `Messages`
+- close control
+- scrollable conversation history
+- composer pinned inside the panel
+- live-region announcements
+- `Open full Messages` action
 
-## Overlay Suppression
+The full `/portal/messages` workspace remains available. The docked panel’s `Open full Messages` action navigates there.
 
-Floating utilities hide while modal, drawer, bottom sheet, or assignment manager surfaces are open. They also hide on narrow viewports when a text input, textarea, or select has focus, so the software keyboard does not collide with the controls.
+## Messages Reuse
 
-Hidden controls are not rendered and therefore are not focusable.
+The docked panel reuses the existing portal Messages system:
 
-## Responsive Placement
+- `src/lib/messages/portalMessagesApiClient.js`
+- `PortalMessagesThread.jsx`
+- `PortalReplyComposer.jsx`
+- shared React Query keys:
+  - `portal_messages_list`
+  - `portal_messages_unread`
+  - `portal_messages_thread`
 
-The utility layer uses z-index `25`, above normal content and below the existing bottom navigation, sheets, modals, assignment manager, drawers, and menus.
+It does not mount another unread polling hook. It uses the unread count owned by `PortalApp` and invalidates the shared unread/list caches after read and send actions.
 
-Desktop/tablet placement:
+The panel selects the existing ASPIRE Team conversation from the authorized portal message list. It marks read through the existing mark-read API and sends replies through the existing reply API.
 
-- lower-left `Feedback / Bug`
-- lower-right `Messages`
-- safe-area-aware `20px` offsets
+For an initial ASPIRE Team message, the panel uses the existing Unit Leader message-start adapter path with `destination: "aspire"`. It does not introduce a new backend, table model, or browser-side direct table access.
 
-Phone placement:
+## Overlay And Keyboard Suppression
 
-- both controls move above the fixed bottom navigation
-- 44px minimum target is preserved
-- labels can wrap safely
-- safe-area inset is included
+Floating utilities hide when modal, drawer, bottom sheet, assignment manager, or other full-screen interactions are open.
+
+On narrow viewports, launchers are suppressed while text inputs, textareas, or selects have focus unless the active corner panel itself owns the focus. Hidden controls are not rendered as focusable controls.
+
+The desktop optimization notice behavior is unchanged.
+
+## Responsive Behavior
+
+Desktop/tablet:
+
+- feedback panel docks above the lower-left magenta launcher
+- ASPIRE Team Messages panel docks above the lower-right message launcher
+- panels follow the Keith-style width and responsive height proportions
+
+Phone/narrow viewports:
+
+- launchers clear the Unit Leader bottom navigation
+- panels become near-full-width bottom sheets
+- safe-area insets are respected
+- horizontal overflow is avoided
+- composer remains inside the panel
 
 ## Accessibility
 
-The launchers are visible text buttons, not ambiguous icon-only controls. The dialog has `role="dialog"`, `aria-modal="true"`, a labelled title and description, focus trapping, Escape handling, focus restoration, inline validation, and live-region status.
+Both shared panels provide:
 
-The notice is non-modal and does not block phone access.
+- keyboard activation
+- visible focus states
+- Escape close
+- focus restoration to the initiating launcher
+- accessible names
+- 44px-or-larger launch targets
+- live-region success/error announcements
+- labelled form controls
+- no focusable controls behind hidden panels
 
-## Test Results
+The Messages panel labels its conversation history and composer, and uses restrained live announcements for newly sent or loaded message state.
 
-Verification for this branch should include:
+## Unchanged Boundaries
+
+This correction did not:
+
+- run SQL
+- add or alter migrations
+- create a new Messages backend
+- add Academic Partner Messages
+- activate Student utilities
+- activate Academic Partner utilities
+- add attachments or screenshots
+- change sender or Reply-To behavior
+- push or deploy
+
+## Verification
+
+Recommended verification:
 
 - `node --test test/unitLeaderPortalUtilityLayer.test.mjs`
 - `node --test test/portalFeedbackBackendFoundation.test.mjs`
+- portal Messages tests
 - Unit Leader portal tests
-- Messages tests
 - changed-file ESLint
-- `node --test 'test/*.test.mjs'`
+- `node --test test/*.test.mjs`
 - production client/SSR build
 - `git diff --check`
 
-Live database verification is not part of this pass. No SQL or migration was added.
+Live database verification is not part of this pass.
 
 ## Live QC Plan
 
@@ -155,9 +227,13 @@ Confirm:
 - `Continue anyway` persists for the current account and role
 - launchers do not cover final rows, pagination, or action buttons
 - launchers hide behind overlays and during narrow text input
+- opening feedback hides the message launcher
+- opening messages hides the feedback launcher
 - feedback retry preserves text
-- rapid submit cannot duplicate
-- success says ASPIRE received the submission
+- rapid feedback submit cannot duplicate
+- lower-right launcher opens the docked panel, not the full Messages route
+- `Open full Messages` navigates to `/portal/messages`
+- replies refresh thread/list/unread state through existing APIs
 
 ## Future Extension Points
 

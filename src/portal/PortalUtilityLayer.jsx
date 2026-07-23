@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import PortalFeedbackDialog from './PortalFeedbackDialog'
-import PortalUtilityButton from './PortalUtilityButton'
+import { MessageCircle } from 'lucide-react'
+import PortalFeedbackPanel from './PortalFeedbackPanel'
+import PortalTeamMessagesPanel from './PortalTeamMessagesPanel'
 
 const NOTICE_DAYS = 30
 const NOTICE_COPY = 'This portal is optimized for desktop use. For the best experience, open it on a laptop or larger screen.'
@@ -45,15 +46,15 @@ function useNarrowViewport() {
   return narrow
 }
 
-function useUtilitySuppression(dialogOpen) {
+function useUtilitySuppression(panelOpen) {
   const [suppressed, setSuppressed] = useState(false)
   useEffect(() => {
     const compute = () => {
       const active = document.activeElement
       const inputFocused = active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)
       const narrow = window.matchMedia('(max-width: 760px)').matches
-      const modalOpen = Boolean(document.querySelector('[aria-modal="true"]:not(.ptl-feedback-dialog), .ptl-drawer, .ptl-sheet, .ptl-asn-manager'))
-      setSuppressed(modalOpen || (narrow && inputFocused) || dialogOpen)
+      const modalOpen = Boolean(document.querySelector('[aria-modal="true"]:not(.shared-feedback-panel):not(.ptl-team-message-panel), .ptl-drawer, .ptl-sheet, .ptl-asn-manager'))
+      setSuppressed(modalOpen || (narrow && inputFocused && !panelOpen))
     }
     compute()
     document.addEventListener('focusin', compute)
@@ -64,7 +65,7 @@ function useUtilitySuppression(dialogOpen) {
       document.removeEventListener('focusout', compute)
       window.removeEventListener('resize', compute)
     }
-  }, [dialogOpen])
+  }, [panelOpen])
   return suppressed
 }
 
@@ -85,36 +86,43 @@ export default function PortalUtilityLayer({
   messagesAuthorized = false,
   onOpenMessages,
 }) {
-  const [feedbackOpen, setFeedbackOpen] = useState(false)
+  const [activePanel, setActivePanel] = useState(null)
   const [sessionDismissedKey, setSessionDismissedKey] = useState(null)
   const [storedDismissedKey, setStoredDismissedKey] = useState(null)
   const feedbackRef = useRef(null)
+  const messagesRef = useRef(null)
   const narrow = useNarrowViewport()
-  const suppressed = useUtilitySuppression(feedbackOpen)
+  const suppressed = useUtilitySuppression(Boolean(activePanel))
   const onMessagesRoute = pathname.startsWith('/portal/messages')
   const noticeKey = profileId ? storageKey(profileId, portalRole) : null
   const storedDismissed = Boolean(noticeKey && storedDismissedKey === noticeKey) || isDismissed(profileId, portalRole)
   const sessionDismissed = Boolean(noticeKey && sessionDismissedKey === noticeKey)
+  const section = useMemo(() => sectionFromPath(pathname), [pathname])
 
   const noticeVisible = enabled && portalRole === 'unit_leader' && narrow && !onMessagesRoute && !storedDismissed && !sessionDismissed
-  const section = useMemo(() => sectionFromPath(pathname), [pathname])
 
   const dismissNotice = () => {
     if (!persistDismissal(profileId, portalRole)) setSessionDismissedKey(noticeKey)
     setStoredDismissedKey(noticeKey)
   }
 
+  const openFeedback = useCallback((next) => {
+    setActivePanel(next ? 'feedback' : null)
+  }, [])
+
   const openMessages = useCallback(() => {
-    if (onMessagesRoute) {
-      const heading = document.querySelector('.ptl-msg-head h2, .ptl-section-title, h1, h2')
-      if (heading && !heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1')
-      heading?.focus?.()
-      return
-    }
+    setActivePanel(current => (current === 'messages' ? null : 'messages'))
+  }, [])
+
+  const openFullMessages = useCallback(() => {
+    setActivePanel(null)
     onOpenMessages?.()
-  }, [onMessagesRoute, onOpenMessages])
+  }, [onOpenMessages])
 
   if (!enabled || portalRole !== 'unit_leader' || portalType !== 'unit_leader') return null
+
+  const utilitiesHidden = suppressed
+  const visiblePanel = suppressed ? null : activePanel
 
   return (
     <>
@@ -125,30 +133,41 @@ export default function PortalUtilityLayer({
         </div>
       )}
 
-      {!suppressed && (
-        <div className="ptl-utility-layer" aria-label="Portal utilities">
-          <PortalUtilityButton side="left" label="Feedback / Bug" buttonRef={feedbackRef} onClick={() => setFeedbackOpen(true)} />
-          {messagesAuthorized && (
-            <PortalUtilityButton
-              side="right"
-              label="Messages"
-              badge={unread}
-              current={onMessagesRoute}
-              onClick={openMessages}
-            />
-          )}
+      <PortalFeedbackPanel
+        open={visiblePanel === 'feedback'}
+        onOpenChange={openFeedback}
+        hidden={utilitiesHidden || visiblePanel === 'messages'}
+        launcherRef={feedbackRef}
+        pathname={pathname}
+        section={section}
+      />
+
+      {messagesAuthorized && !utilitiesHidden && visiblePanel !== 'feedback' && (
+        <div className="ptl-team-message-launcher-wrap">
+          <div className={`ptl-team-message-tooltip${visiblePanel === 'messages' ? '' : ' is-visible-on-hover'}`}>
+            Messages
+          </div>
+          <button
+            ref={messagesRef}
+            type="button"
+            className={`ptl-team-message-launcher${visiblePanel === 'messages' ? ' is-open' : ''}`}
+            onClick={openMessages}
+            aria-label="Open messages with the ASPIRE Team"
+            aria-expanded={visiblePanel === 'messages'}
+          >
+            <MessageCircle size={24} aria-hidden="true" />
+            {unread > 0 && <span className="ptl-team-message-badge" aria-hidden="true">{unread > 99 ? '99+' : unread}</span>}
+          </button>
         </div>
       )}
 
-      {feedbackOpen && (
-        <PortalFeedbackDialog
-          open={feedbackOpen}
-          onClose={() => setFeedbackOpen(false)}
-          launcherRef={feedbackRef}
-          pathname={pathname}
-          section={section}
-        />
-      )}
+      <PortalTeamMessagesPanel
+        open={visiblePanel === 'messages'}
+        onClose={() => setActivePanel(null)}
+        launcherRef={messagesRef}
+        unread={unread}
+        onOpenFullMessages={openFullMessages}
+      />
     </>
   )
 }
