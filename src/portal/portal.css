@@ -1128,6 +1128,76 @@ img.ptl-detail-photo {
 .ptl-sheet-item:hover { background: var(--ptl-navy-tint, #eef2fb); }
 .ptl-sheet-item[aria-current="page"] { background: var(--ptl-navy-tint, #eef2fb); color: var(--ptl-navy, #1D2567); }
 
+/* ── Shared portal utility layer: active only when PortalApp passes enabled. */
+.ptl-desktop-notice {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin: 0 0 14px; padding: 10px 14px;
+  border: 1px solid rgba(176, 106, 0, 0.18); border-radius: 10px;
+  background: #fff7e6; color: #5f3b00; font-size: 13.5px; line-height: 1.45;
+}
+.ptl-desktop-notice-action {
+  flex: none; min-height: 36px; padding: 6px 10px;
+  border: 1px solid rgba(95, 59, 0, 0.28); border-radius: 8px;
+  background: #fff; color: #5f3b00; font: inherit; font-weight: 700; cursor: pointer;
+}
+.ptl-utility-layer {
+  position: fixed; inset: auto 0 0 0; z-index: 25; pointer-events: none;
+}
+.ptl-utility-button {
+  position: fixed; bottom: calc(20px + env(safe-area-inset-bottom));
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; max-width: min(42vw, 190px);
+  padding: 10px 14px; border: 1px solid rgba(29, 37, 103, 0.18);
+  border-radius: 999px; background: #fff; color: var(--ptl-navy, #1D2567);
+  box-shadow: 0 8px 28px rgba(15, 20, 25, 0.18);
+  font: inherit; font-size: 13.5px; font-weight: 750; line-height: 1.2;
+  cursor: pointer; pointer-events: auto; white-space: normal; text-align: center;
+}
+.ptl-utility-button-left { left: max(20px, env(safe-area-inset-left)); }
+.ptl-utility-button-right { right: max(20px, env(safe-area-inset-right)); }
+.ptl-utility-button:hover,
+.ptl-utility-button-current { background: var(--ptl-navy-tint, #eef2fb); }
+.ptl-utility-button:focus-visible {
+  outline: 3px solid #93c5fd; outline-offset: 3px;
+}
+.ptl-utility-badge {
+  min-width: 19px; padding: 1px 6px; border-radius: 999px;
+  background: var(--cs-red, #DC1E34); color: #fff;
+  font-size: 11.5px; font-weight: 800; line-height: 1.5; text-align: center;
+}
+.ptl-feedback-backdrop { z-index: 80; }
+.ptl-feedback-dialog { width: min(620px, 100%); }
+.ptl-feedback-dialog .ptl-modal-head { align-items: flex-start; }
+.ptl-feedback-dialog .ptl-modal-head p { margin: 5px 0 0; }
+.ptl-feedback-body { display: grid; gap: 14px; }
+.ptl-feedback-mode {
+  display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; padding: 0; margin: 0; border: 0;
+}
+.ptl-feedback-mode .ptl-field-label { flex-basis: 100%; }
+.ptl-feedback-mode-option {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 9px 12px; border: 1px solid rgba(29, 37, 103, 0.18);
+  border-radius: 10px; cursor: pointer; font-weight: 700; color: var(--ptl-navy, #1D2567);
+}
+.ptl-feedback-mode-option:has(input:checked) { background: var(--ptl-navy-tint, #eef2fb); border-color: var(--ptl-navy, #1D2567); }
+.ptl-feedback-textarea { width: 100%; min-height: 96px; resize: vertical; }
+.ptl-feedback-privacy { margin: 0; font-size: 12.5px; }
+.ptl-feedback-live { min-height: 20px; }
+.ptl-field-error { display: block; margin-top: 5px; color: #9d1626; font-size: 12.5px; }
+
+@media (max-width: 760px) {
+  .ptl-desktop-notice {
+    align-items: stretch; flex-direction: column;
+  }
+  .ptl-desktop-notice-action { align-self: flex-start; }
+  .ptl-utility-button {
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    max-width: calc(50vw - 24px); padding: 9px 11px; font-size: 12.5px;
+    border-radius: 14px;
+  }
+  .ptl-feedback-mode { display: grid; grid-template-columns: 1fr; }
+}
+
 /* UL-POLISH P0: participant context line on Unit Leader inbox cards. */
 .ptl-msg-row-context {
   font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em;

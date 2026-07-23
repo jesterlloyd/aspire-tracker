@@ -49,7 +49,7 @@ function ProfileMenu({ userName, onEditProfile, onProfile, publicSiteUrl = '/' }
   )
 }
 
-export default function PortalShell({ title, userName, onEditProfile, onProfile, publicSiteUrl, withTabBar = false, showHeaderName = false, children }) {
+export default function PortalShell({ title, userName, onEditProfile, onProfile, publicSiteUrl, withTabBar = false, showHeaderName = false, utilityLayer = null, children }) {
   return (
     <div className={`ptl-page${withTabBar ? ' ptl-page-tabbar' : ''}`}>
       <header className="ptl-header">
@@ -67,6 +67,7 @@ export default function PortalShell({ title, userName, onEditProfile, onProfile,
           <ProfileMenu userName={userName} onEditProfile={onEditProfile} onProfile={onProfile} publicSiteUrl={publicSiteUrl} />
         </div>
       </header>
+      {utilityLayer}
       <main className="ptl-main">{children}</main>
       <footer className="ptl-footer">
         ASPIRE, Geri and Richard Brawerman Nursing Institute, Cedars-Sinai

@@ -339,11 +339,10 @@ test('static wiring and dormant frontend boundary', async (t) => {
     assert.doesNotMatch(deliverySrc, /console\.(log|error).*message/);
   });
 
-  await t.test('frontend helper is dormant and omits server-derived identity', () => {
+  await t.test('frontend helper omits server-derived identity and does not write feedback tables directly', () => {
     assert.match(clientSrc, /api\/portal\/feedback-submit/);
     assert.doesNotMatch(clientSrc, /profile_id|user_id|role|unit|school|student_id|actor_profile_id|email/);
-    assert.doesNotMatch(read('../src/portal/PortalShell.jsx'), /portalFeedbackApiClient|feedback-submit|PortalFeedback/);
-    assert.doesNotMatch(read('../src/portal/PortalApp.jsx'), /portalFeedbackApiClient|feedback-submit|PortalFeedback/);
+    assert.doesNotMatch(clientSrc, /\.from\('portal_feedback_|portal_feedback_submissions|portal_feedback_deliveries/);
   });
 
   await t.test('service returns success without claiming email success', () => {

@@ -24,6 +24,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import PortalShell from './PortalShell'
+import PortalUtilityLayer from './PortalUtilityLayer'
 import PortalNav from './PortalNav'
 import StudentPortal from './StudentPortal'
 import UnitLeaderPortal from './UnitLeaderPortal'
@@ -178,7 +179,19 @@ export default function PortalApp() {
     // Portal already uses, so one thread link works for either kind.
     return (
       <PortalShell title="Unit Leader Portal" userName={userProfile?.full_name} withTabBar showHeaderName
-        onProfile={() => goUnitSection('profile')} publicSiteUrl="https://aspireintelligence.app">
+        onProfile={() => goUnitSection('profile')} publicSiteUrl="https://aspireintelligence.app"
+        utilityLayer={(
+          <PortalUtilityLayer
+            enabled
+            portalRole="unit_leader"
+            portalType="unit_leader"
+            profileId={userProfile?.id}
+            pathname={location.pathname}
+            unread={unread}
+            messagesAuthorized
+            onOpenMessages={goMessages}
+          />
+        )}>
         <UnitLeaderPortal
           view={unitView}
           composeIntent={unitHandoff}

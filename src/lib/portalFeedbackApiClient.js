@@ -18,15 +18,24 @@ export class PortalFeedbackApiError extends Error {
 
 export function createPortalFeedbackRequestId(intentKey = 'default') {
   const key = `${STORAGE_PREFIX}${intentKey}`;
-  const existing = window.localStorage?.getItem(key);
-  if (existing) return existing;
+  try {
+    const existing = window.localStorage?.getItem(key);
+    if (existing) return existing;
+  } catch {
+    // Storage can be unavailable in strict privacy modes. Fall through to a
+    // one-shot id; callers retain it in React state for the active attempt.
+  }
   const id = globalThis.crypto?.randomUUID?.() || `${Date.now()}:${Math.random().toString(36).slice(2)}`;
-  window.localStorage?.setItem(key, id);
+  try { window.localStorage?.setItem(key, id); } catch {
+    // Storage can be read-blocked and write-blocked independently.
+  }
   return id;
 }
 
 export function clearPortalFeedbackRequestId(intentKey = 'default') {
-  window.localStorage?.removeItem(`${STORAGE_PREFIX}${intentKey}`);
+  try { window.localStorage?.removeItem(`${STORAGE_PREFIX}${intentKey}`); } catch {
+    // Clearing storage is best-effort; callers also clear React state.
+  }
 }
 
 export function buildPortalFeedbackPayload(input = {}) {
