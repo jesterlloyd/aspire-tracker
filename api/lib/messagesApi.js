@@ -23,6 +23,7 @@ const SQLSTATE_TO_HTTP = {
   MS403: 403, // forbidden
   MS404: 404, // not found / non-enumerating
   MS409: 409, // conflict (inactive participant, duplicate delivery)
+  MS429: 429, // rate limited inside an idempotent transactional RPC
 };
 
 export function methodGuard(req, res, allowed) {
@@ -81,6 +82,7 @@ function rpcErrorCode(sqlstate) {
     case 'MS403': return 'forbidden';
     case 'MS404': return 'not_found';
     case 'MS409': return 'conflict';
+    case 'MS429': return 'rate_limited';
     default: return 'internal_error';
   }
 }

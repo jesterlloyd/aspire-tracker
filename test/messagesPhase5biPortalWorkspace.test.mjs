@@ -41,10 +41,11 @@ const all = [workspace, inbox, thread, newMsg, reply]
 const allCode = all.map(strip)
 
 test('API client', async (t) => {
-  await t.test('all six portal endpoints are used, and only those', () => {
+  await t.test('all active portal endpoints plus the dormant general-team helper are used, and only those', () => {
     for (const p of ['/api/portal/messages-list', '/api/portal/messages-thread',
       '/api/portal/messages-start', '/api/portal/messages-reply',
-      '/api/portal/messages-mark-read', '/api/portal/messages-unread-count']) {
+      '/api/portal/messages-mark-read', '/api/portal/messages-unread-count',
+      '/api/portal/team-messages-start']) {
       assert.ok(clientCode.includes(p), `missing endpoint ${p}`)
     }
     // No parallel or invented endpoint.
@@ -53,6 +54,7 @@ test('API client', async (t) => {
       '/api/portal/messages-list', '/api/portal/messages-mark-read',
       '/api/portal/messages-reply', '/api/portal/messages-start',
       '/api/portal/messages-thread', '/api/portal/messages-unread-count',
+      '/api/portal/team-messages-start',
     ])
   })
 

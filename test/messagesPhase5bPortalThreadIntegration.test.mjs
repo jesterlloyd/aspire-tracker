@@ -160,11 +160,14 @@ test('endpoint: pagination contract', async (t) => {
 
 test('endpoint: response privacy', async (t) => {
   await t.test('only the browser-safe projection is returned', () => {
-    const body = code.slice(code.indexOf('return res.status(200)'), code.indexOf('} catch'))
+    const body = code.slice(code.indexOf('return res.status(200)'), code.indexOf('  } catch (err)'))
     for (const key of ['conversation', 'messages', 'next_cursor', 'has_more']) {
       assert.ok(body.includes(key), `response key ${key} missing`)
     }
-    // Nothing else is added on top of the RPC projection.
+    // Explicit thread classification may decorate conversation after the
+    // caller-scoped RPC authorizes it, but sensitive delivery or identity fields
+    // still never leave the endpoint.
+    assert.match(code, /classifyPortalConversations\(svc, \[conversation\], caller\.profile\.id\)/)
     assert.doesNotMatch(body, /email|recipient|delivery|notification|provider|auth_user_id|user_metadata/i)
   })
 

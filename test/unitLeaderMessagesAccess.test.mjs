@@ -86,25 +86,29 @@ test('the read endpoints still run as the signed-in caller, not service role', (
   // This is what makes the RPC resolve auth.uid() to the viewer.
   for (const [name, src] of Object.entries(READ_ENDPOINTS)) {
     assert.match(src, /getUserScopedDb\(req\)/, name)
-    if (name === 'messages-list.js') continue // covered by the stricter test below
+    if (name === 'messages-list.js' || name === 'messages-thread.js') continue // metadata decoration is covered below
     assert.doesNotMatch(src, /getServiceDb\(\)/, name)
   }
 })
 
-test('messages-list: conversation ACCESS stays with the user-scoped RPC; service role only decorates names', () => {
+test('messages-thread: access stays with the user-scoped RPC; service role only decorates metadata', () => {
+  assert.match(thread, /db\.rpc\('messages_portal_get_thread_v2'/)
+  assert.match(thread, /const db = getUserScopedDb\(req\)/)
+  assert.match(thread, /classifyPortalConversations\(svc, \[conversation\], caller\.profile\.id\)/)
+  assert.match(thread, /Classification is response metadata only/)
+})
+
+test('messages-list: conversation ACCESS stays with the user-scoped RPC; service role only decorates metadata', () => {
   const src = READ_ENDPOINTS['messages-list.js']
   // The conversation set itself still comes from the caller-scoped RPC.
   assert.match(src, /db\.rpc\('messages_portal_list_conversations'/)
   assert.match(src, /const db = getUserScopedDb\(req\)/)
-  // UL-POLISH: the service client appears ONLY inside the bounded name
-  // decorator, gated to a unit_leader caller, reading the caller's OWN
-  // participant rows for the ids the RPC already authorized. It never selects
-  // conversations or messages, and students never receive the field.
-  assert.match(src, /caller\.actorKind === 'unit_leader' && conversations\.length > 0/)
-  assert.match(src, /\.eq\('participant_profile_id', profileId\)/)
-  assert.match(src, /\.in\('conversation_id', ids\)/)
+  // General thread metadata is attached only after the user-scoped RPC returns
+  // the authorized page. It never selects the conversation set itself.
+  assert.match(src, /classifyPortalConversations\(svc, conversations, caller\.profile\.id\)/)
+  assert.match(src, /Classification is response metadata only/)
   const svcUses = (src.match(/getServiceDb\(\)/g) || []).length
-  assert.equal(svcUses, 1, 'service client only in withDirectStudentNames')
+  assert.equal(svcUses, 1, 'service client only in response metadata decoration')
   assert.doesNotMatch(src, /svc\s*\.\s*from\('conversations'\)|svc\s*\.\s*from\('messages'\)/)
 })
 
@@ -130,7 +134,7 @@ test('the direct reply passes the VERIFIED actor kind, never a client value', ()
   assert.doesNotMatch(body, /req\.body|parsed\.body/)
 })
 
-test('THREAD CREATION is not yet exposed by an endpoint', () => {
+test('student-linked thread creation remains on the existing student-only endpoint', () => {
   // startDirectThreadForUnitLeader exists in the service layer but no route calls
   // it yet, so a unit leader cannot create a thread. messages-start.js remains
   // student-only, which is the safe state.

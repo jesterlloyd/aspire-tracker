@@ -70,6 +70,23 @@ export function startPortalConversation({ subject, category, body, signal } = {}
   });
 }
 
+// POST a new GENERAL ASPIRE Team conversation for an authorized portal user.
+//
+// This is the role-aware backend contract for Student and Unit Leader callers.
+// The browser supplies only the stable request id and first message body. It
+// never sends a student id, unit key, role, profile id, destination, category, or
+// subject. The server derives all routing and classification.
+//
+// Returns 201 for a new thread or 200 for an idempotent replay:
+// { conversation_id, message_id, created_at, status, thread_kind, idempotent_replay, confirmation }.
+export function startGeneralTeamConversation({ requestId, body, signal } = {}) {
+  return request('/api/portal/team-messages-start', {
+    method: 'POST',
+    body: { request_id: requestId, body },
+    signal,
+  });
+}
+
 // POST a reply. Replying to a Closed conversation reopens it inside the
 // transactional RPC; the server reports that through `reopened`. The browser
 // never reopens anything itself.

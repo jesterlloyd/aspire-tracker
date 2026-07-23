@@ -111,3 +111,114 @@ export async function loadDirectCounterpart(db, conversationId, selfProfileId) {
     studentId: other.studentId || null,
   };
 }
+
+/**
+ * Add explicit thread_kind and safe context labels for portal responses that
+ * have already been authorized by the caller-scoped read RPC.
+ *
+ * Classification rules:
+ *   - two portal participants: direct_student
+ *   - one portal participant with student context: team_student_context
+ *   - one portal participant without student or unit context: team_general
+ *
+ * Student names are loaded only for conversation ids the caller already
+ * received from an authorized RPC page. The helper is best effort for display:
+ * on lookup failure it returns conservative labels and never widens access.
+ */
+export async function classifyPortalConversations(db, conversations, viewerProfileId) {
+  if (!Array.isArray(conversations) || conversations.length === 0) return conversations || [];
+
+  const ids = conversations.map((c) => c?.id).filter(Boolean);
+  if (ids.length === 0) return conversations;
+
+  try {
+    const { data: participantRows, error: pErr } = await db
+      .from('conversation_participants')
+      .select('conversation_id, participant_profile_id, participant_role, scope_student_id, scope_unit_key, added_at')
+      .in('conversation_id', ids)
+      .is('removed_at', null)
+      .order('added_at', { ascending: true });
+    if (pErr) return conversations.map(withGeneralFallback);
+
+    const byConversation = new Map();
+    const studentIds = new Set();
+    for (const row of participantRows || []) {
+      if (!byConversation.has(row.conversation_id)) byConversation.set(row.conversation_id, []);
+      byConversation.get(row.conversation_id).push(row);
+      if (row.scope_student_id) studentIds.add(row.scope_student_id);
+    }
+
+    const { data: contextRows } = await db
+      .from('conversations')
+      .select('id, related_student_id')
+      .in('id', ids);
+    for (const row of contextRows || []) {
+      if (row.related_student_id) studentIds.add(row.related_student_id);
+    }
+    const relatedByConversation = new Map((contextRows || []).map((r) => [r.id, r.related_student_id || null]));
+
+    let nameOf = new Map();
+    if (studentIds.size > 0) {
+      const { data: students } = await db
+        .from('students')
+        .select('id, first_name, preferred_first_name, last_name')
+        .in('id', [...studentIds]);
+      nameOf = new Map((students || []).map((st) => [
+        st.id,
+        `${st.preferred_first_name || st.first_name || ''} ${st.last_name || ''}`.trim(),
+      ]));
+    }
+
+    return conversations.map((conversation) => {
+      const parts = byConversation.get(conversation.id) || [];
+      const hasOtherPortalParticipant = parts.some((p) => p.participant_profile_id !== viewerProfileId);
+      const viewerPart = parts.find((p) => p.participant_profile_id === viewerProfileId) || parts[0] || null;
+      const contextStudentId = viewerPart?.scope_student_id || relatedByConversation.get(conversation.id) || null;
+      const contextStudentName = contextStudentId ? nameOf.get(contextStudentId) || null : null;
+
+      if (hasOtherPortalParticipant) {
+        return {
+          ...conversation,
+          thread_kind: 'direct_student',
+          context_student_id: contextStudentId,
+          context_student_name: contextStudentName,
+          context_label: contextStudentName || 'Student',
+          direct_student_name: contextStudentName || conversation.direct_student_name || null,
+        };
+      }
+
+      if (contextStudentId) {
+        return {
+          ...conversation,
+          thread_kind: 'team_student_context',
+          context_student_id: contextStudentId,
+          context_student_name: contextStudentName,
+          context_label: contextStudentName ? `Related to: ${contextStudentName}` : 'Related to student',
+          direct_student_name: conversation.direct_student_name || null,
+        };
+      }
+
+      return {
+        ...conversation,
+        thread_kind: 'team_general',
+        context_student_id: null,
+        context_student_name: null,
+        context_label: 'ASPIRE Team',
+        direct_student_name: conversation.direct_student_name || null,
+      };
+    });
+  } catch {
+    return conversations.map(withGeneralFallback);
+  }
+}
+
+function withGeneralFallback(conversation) {
+  if (!conversation || conversation.thread_kind) return conversation;
+  return {
+    ...conversation,
+    thread_kind: 'team_general',
+    context_student_id: null,
+    context_student_name: null,
+    context_label: 'ASPIRE Team',
+  };
+}

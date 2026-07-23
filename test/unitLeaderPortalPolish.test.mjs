@@ -89,11 +89,11 @@ test('P0-5: Messages is role-aware', async (t) => {
     assert.match(inbox, /direct_student_name \? ulDirectThreadLabel\(c\.direct_student_name\) : UL_THREAD_ASPIRE_LABEL/)
     assert.match(thread, /UL_PORTAL_NO_SELECTION : PORTAL_NO_SELECTION/)
   })
-  await t.test('the list endpoint names students only for a unit_leader caller', () => {
-    assert.match(listApi, /caller\.actorKind === 'unit_leader' && conversations\.length > 0/)
-    assert.match(listApi, /\.eq\('participant_profile_id', profileId\)/)
-    assert.match(listApi, /\.eq\('participant_role', 'unit_leader'\)/)
-    assert.match(listApi, /\.not\('scope_student_id', 'is', null\)/)
+  await t.test('the list endpoint attaches explicit thread classification after authorization', () => {
+    assert.match(listApi, /classifyPortalConversations\(svc, conversations, caller\.profile\.id\)/)
+    assert.match(listApi, /direct_student_name is preserved/)
+    assert.match(listApi, /callers should now prefer thread_kind/)
+    assert.doesNotMatch(listApi, /svc\s*\.\s*from\('conversations'\)|svc\s*\.\s*from\('messages'\)/)
   })
 })
 

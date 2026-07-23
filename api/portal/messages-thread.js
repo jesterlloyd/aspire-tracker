@@ -11,9 +11,10 @@
 // BACKWARD through history. next_cursor points at the oldest message of the page
 // returned and is null when no older history remains.
 
-import { verifyPortalMessagesCaller, getUserScopedDb } from '../lib/messagesAuth.js';
+import { verifyPortalMessagesCaller, getUserScopedDb, getServiceDb } from '../lib/messagesAuth.js';
 import { methodGuard, notFound, logApiError } from '../lib/messagesApi.js';
 import { parseLimit, parseCursor, isUuid } from '../../lib/server/messages/validation.js';
+import { classifyPortalConversations } from '../lib/messagesContext.js';
 
 export default async function handler(req, res) {
   if (!methodGuard(req, res, ['GET'])) return;
@@ -62,8 +63,22 @@ export default async function handler(req, res) {
     // The RPC returns NULL for both inaccessible and missing conversations.
     if (!data) return notFound(res);
 
+    let conversation = data.conversation;
+    if (conversation?.id) {
+      try {
+        const svc = getServiceDb();
+        if (svc) {
+          const classified = await classifyPortalConversations(svc, [conversation], caller.profile.id);
+          conversation = classified[0] || conversation;
+        }
+      } catch {
+        // Classification is response metadata only; the thread was already
+        // authorized by the caller-scoped RPC.
+      }
+    }
+
     return res.status(200).json({
-      conversation: data.conversation,
+      conversation,
       messages: data.messages || [],
       // v2 returns the authoritative BACKWARD cursor (the oldest message of the
       // page) and has_more itself, so the API passes them through rather than
