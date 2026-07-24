@@ -1489,9 +1489,10 @@ img.ptl-detail-photo {
 /* ── UL-PHASE1: Rotation Activity Calendar ───────────────────────────────────
    Presentational only. Every value here is a brand hex or a token already used
    elsewhere in this file; nothing reaches into the staff stylesheet. */
-.ptl-cal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
 .ptl-cal-nav { display: flex; align-items: center; gap: 8px; }
 .ptl-cal-month { font-size: 13px; font-weight: 700; color: #191919; min-width: 130px; text-align: center; }
+.ptl-cal-view-tabs { display: inline-flex; border: 1px solid #d1d5db; border-radius: 7px; overflow: hidden; }
+.ptl-cal-view-active { min-height: 30px; display: inline-flex; align-items: center; padding: 0 12px; background: #1D2567; color: #fff; font-size: 12px; font-weight: 700; }
 
 .ptl-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
 .ptl-cal-dow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #9ca3af; text-align: center; padding: 2px 0 4px; }
@@ -1509,6 +1510,7 @@ img.ptl-detail-photo {
 .ptl-cal-out .ptl-cal-num { color: #c7c2b8; }
 .ptl-cal-today { border-color: var(--ptl-navy, #1d2567); }
 .ptl-cal-today .ptl-cal-num { color: var(--ptl-navy, #1d2567); font-weight: 700; }
+.ptl-cal-selected { box-shadow: inset 0 0 0 2px var(--ptl-navy, #1d2567); }
 /* Future days are visibly inert: there is no forward schedule to show. */
 .ptl-cal-future { background: #fdfdfc; }
 .ptl-cal-future .ptl-cal-num { color: #d7d2c7; }
@@ -1521,6 +1523,23 @@ img.ptl-detail-photo {
 .ptl-cal-more { font-size: 9.5px; color: #9ca3af; }
 .ptl-cal-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 11.5px; color: #6b7280; align-items: center; }
 .ptl-cal-legend > span { display: inline-flex; align-items: center; gap: 5px; }
+.ptl-cal-mini-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.ptl-cal-mini-dow { font-size: 9px; font-weight: 700; color: #d1d5db; text-align: center; padding-bottom: 3px; }
+.ptl-cal-mini-cell {
+  min-height: 28px; border: 0; border-radius: 6px; background: transparent; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  color: #374151; font: inherit; font-size: 11px;
+}
+.ptl-cal-mini-cell:hover { background: #f3f4ff; }
+.ptl-cal-mini-cell:focus-visible { outline: 3px solid #93c5fd; outline-offset: -2px; }
+.ptl-cal-mini-out { color: #c7c2b8; }
+.ptl-cal-mini-today { background: #e0e7ff; color: #1D2567; font-weight: 700; }
+.ptl-cal-mini-selected { background: #1D2567; color: #fff; font-weight: 700; }
+.ptl-cal-mini-cell i { width: 3px; height: 3px; border-radius: 50%; background: currentColor; opacity: 0.8; }
+.ptl-cal-today-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ptl-cal-today-list li { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; background: #fff; border: 1px solid #eef0f2; border-radius: 10px; }
+.ptl-cal-today-list b { display: block; font-size: 12px; color: #1D2567; }
+.ptl-cal-today-list small { display: block; margin-top: 2px; font-size: 10.5px; color: #6b7280; line-height: 1.35; }
 
 /* Live attention dot, distinct from the standard one. */
 .ptl-attn-dot-live { background: #16a34a; }

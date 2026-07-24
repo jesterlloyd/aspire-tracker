@@ -135,11 +135,12 @@ test('P1-8: the Compass welcome header replaces the literal Home heading', () =>
   assert.match(portal, /`\$\{unitKeys\.length\} assigned units`/)
 })
 
-test('P1-9: Home is a 7/5 grid with actionable attention rows', async (t) => {
-  await t.test('the grid uses the existing Compass columns', () => {
-    assert.match(portal, /className="ptl-grid ptl-home-grid"/)
-    assert.match(portal, /className="ptl-col-7 ptl-home-col"/)
-    assert.match(portal, /className="ptl-col-5 ptl-home-col"/)
+test('P1-9: Home uses the canonical calendar first with actionable attention rows', async (t) => {
+  await t.test('the calendar leads and remaining cards use the follow-up grid', () => {
+    const home = portal.slice(portal.indexOf('function HomeScreen'), portal.indexOf('function BucketCard'))
+    assert.ok(home.indexOf('<UnitRotationCalendar') < home.indexOf('ptl-home-followup-grid'))
+    assert.match(portal, /className="ptl-grid ptl-home-followup-grid"/)
+    assert.match(portal, /className="ptl-col-6 ptl-home-col"/)
   })
   await t.test('attention items are rows with tone dot, unit chip, and a destination', () => {
     assert.match(portal, /ptl-attn-dot/)

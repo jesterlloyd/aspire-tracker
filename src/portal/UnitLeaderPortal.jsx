@@ -200,9 +200,10 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate
   const supportFlags = students.filter(s => s.support?.open_count > 0)
   const notifications = alerts.data?.notifications || []
   const shifts = activity.data?.shifts || []
+  const visibleShifts = unitKey === ALL_UNITS ? shifts : shifts.filter(shift => shift.unit_key === unitKey)
   // A student currently checked in is the single most time-sensitive thing on this
   // screen, so it is promoted into the attention list rather than left to the grid.
-  const onShiftNow = shifts.filter(x => x.state === 'in_progress')
+  const onShiftNow = visibleShifts.filter(x => x.state === 'in_progress')
 
   // UL-POLISH P1: the Compass welcome header replaces the literal "Home"
   // heading (the nav already says Home). Unit context is always visible here.
@@ -228,7 +229,7 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate
             {onShiftNow.map(x => (
               <li key={`live-${x.id}`}>
                 <button type="button" className="ptl-attn-row"
-                  onClick={() => setDayOpen({ ymd: x.shift_date, shifts: shifts.filter(y => y.shift_date === x.shift_date) })}>
+                  onClick={() => setDayOpen({ ymd: x.shift_date, shifts: visibleShifts.filter(y => y.shift_date === x.shift_date) })}>
                   <span className="ptl-attn-dot ptl-attn-dot-live" aria-hidden="true" />
                   <span className="ptl-attn-text">
                     <span className="ptl-attn-label">{x.student_name || 'A student'} is on shift now</span>
@@ -274,21 +275,19 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate
         </section>
       )}
 
-      <div className="ptl-grid ptl-home-grid">
-        {/* Left: the Rotation Activity Calendar. */}
-        <div className="ptl-col-7 ptl-home-col">
-          <UnitRotationCalendar
-            shifts={shifts}
-            windowStart={activity.data?.window?.start}
-            loading={activity.loading}
-            onSelectDay={(ymd, dayShifts) => setDayOpen({ ymd, shifts: dayShifts })}
-          />
+      <UnitRotationCalendar
+        shifts={visibleShifts}
+        windowStart={activity.data?.window?.start}
+        loading={activity.loading}
+        onSelectDay={(ymd, dayShifts) => setDayOpen({ ymd, shifts: dayShifts })}
+      />
+
+      <div className="ptl-grid ptl-home-followup-grid">
+        <div className="ptl-col-6 ptl-home-col">
+          <BucketCard title="Upcoming students" bucket="upcoming" byBucket={byBucket} onNavigate={onNavigate} />
         </div>
 
-        {/* Right: Upcoming Students, then Capacity and Placement directly below. */}
-        <div className="ptl-col-5 ptl-home-col">
-          <BucketCard title="Upcoming students" bucket="upcoming" byBucket={byBucket} onNavigate={onNavigate} />
-
+        <div className="ptl-col-6 ptl-home-col">
           <section className="ptl-card" aria-labelledby="ul-cap">
             <h3 id="ul-cap" className="ptl-card-title">Capacity and placement</h3>
             {placements.loading ? (

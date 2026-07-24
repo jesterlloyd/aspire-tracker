@@ -261,9 +261,11 @@ test('month navigation is bounded by the same window the server enforces', () =>
   assert.match(calendarCode, /canGoForward = monthStart < today/)
 })
 
-test('a day cell with activity opens the day drawer and is otherwise inert', () => {
-  assert.match(calendarCode, /disabled=\{day\.length === 0\}/)
-  assert.match(calendarCode, /onSelectDay\?\.\(ymd, day\)/)
+test('a day cell selects every date but opens the day drawer only when activity exists', () => {
+  assert.match(calendarCode, /const selectDate = \(ymd, day = byDay\.get\(ymd\) \|\| \[\]\) => \{/)
+  assert.match(calendarCode, /setSelectedDate\(ymd\)/)
+  assert.match(calendarCode, /if \(day\.length > 0\) onSelectDay\?\.\(ymd, day\)/)
+  assert.doesNotMatch(calendarCode, /disabled=\{day\.length === 0\}/)
   assert.match(portalCode, /<UnitShiftDayDrawer/)
 })
 
@@ -295,7 +297,8 @@ test('Home renders welcome, an attention strip, the calendar, then the students 
 })
 
 test('a student on shift now is promoted into the attention list', () => {
-  assert.match(portalCode, /const onShiftNow = shifts\.filter\(x => x\.state === 'in_progress'\)/)
+  assert.match(portalCode, /const visibleShifts = unitKey === ALL_UNITS \? shifts : shifts\.filter\(shift => shift\.unit_key === unitKey\)/)
+  assert.match(portalCode, /const onShiftNow = visibleShifts\.filter\(x => x\.state === 'in_progress'\)/)
   assert.match(portal, /is on shift now/)
   assert.match(portalCode, /ptl-attn-dot-live/)
 })

@@ -392,6 +392,105 @@ body { min-height: 100vh; }
   line-height: 1;
 }
 
+.canonical-calendar-shell {
+  display: grid;
+  grid-template-columns: minmax(190px, 240px) minmax(0, 1fr);
+  gap: 18px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 14px;
+  background: var(--pearl, #fff);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  overflow: hidden;
+}
+.canonical-calendar-sidebar {
+  min-width: 0;
+  padding: 18px;
+  border-right: 1px solid var(--border-lt, #eef0f2);
+  background: #fbfaf7;
+}
+.canonical-calendar-sidebar-stack {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+.canonical-calendar-main {
+  min-width: 0;
+  padding: 18px;
+}
+.canonical-calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.canonical-calendar-title {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: var(--text-primary, #0E1428);
+}
+.canonical-calendar-description {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-secondary, #6b7280);
+}
+.canonical-calendar-kicker {
+  font-family: "DM Sans", sans-serif;
+  font-weight: 700;
+  font-size: 10px;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 8px;
+}
+.canonical-calendar-today {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #f3f4f6;
+}
+.canonical-calendar-today-date {
+  margin: 0 0 4px;
+  font-family: "DM Sans", sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  color: #1D2567;
+}
+.canonical-calendar-today-summary {
+  margin: 0 0 12px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 11px;
+  color: #6b7280;
+}
+.canonical-calendar-empty {
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+  font-family: "DM Sans", sans-serif;
+  font-size: 11px;
+  color: #9ca3af;
+  line-height: 1.5;
+}
+@media (max-width: 760px) {
+  .canonical-calendar-shell {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .canonical-calendar-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-lt, #eef0f2);
+  }
+  .canonical-calendar-main {
+    padding: 14px;
+  }
+}
+
 .preceptor-dir-table {
   width: 100%;
   min-width: 920px;

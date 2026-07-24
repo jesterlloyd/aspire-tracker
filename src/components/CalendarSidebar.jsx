@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { toLocalDateStr } from '../lib/designTokens'
 import { getUsHolidaysForRange } from '../lib/usHolidays'
 import { eventOnDate } from '../lib/aspireEvents'
+import { CanonicalCalendarSidebar } from './shared/CanonicalCalendarFoundation'
 
 // ASPIRE-POLISH-6B: mini-calendar day indicators. Subtle 3px dots, priority-ordered, max 3 per day.
 // Colors: holiday = amber (matches the holiday chip); interview/booked = navy accent; ASPIRE event =
@@ -267,9 +268,9 @@ function TodaySnapshot({ slots }) {
 // ─── Main Sidebar Export ──────────────────────────────────────────────────────
 export default function CalendarSidebar({ blocks, slots, aspireEvents, selectedDate, onSelectDate }) {
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+    <CanonicalCalendarSidebar>
       <MiniCalendar blocks={blocks} slots={slots} aspireEvents={aspireEvents} selectedDate={selectedDate} onSelectDate={onSelectDate} />
       <TodaySnapshot slots={slots} />
-    </div>
+    </CanonicalCalendarSidebar>
   )
 }

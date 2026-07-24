@@ -35,20 +35,22 @@ test('the attention strip renders only when something is actionable', () => {
   assert.ok(!portalCode.includes('Nothing needs your attention right now'))
 })
 
-test('the calendar is on the left, Upcoming Students then Capacity on the right', () => {
-  const grid = portalCode.slice(portalCode.indexOf('ptl-home-grid'), portalCode.indexOf('Your Students', portalCode.indexOf('ptl-home-grid')) === -1
-    ? portalCode.indexOf('StudentRoster') : portalCode.indexOf('StudentRoster'))
-  const left = portalCode.indexOf('ptl-col-7')
-  const cal = portalCode.indexOf('<UnitRotationCalendar', left)
-  const right = portalCode.indexOf('ptl-col-5', left)
-  const upcoming = portalCode.indexOf('bucket="upcoming"', right)
-  const cap = portalCode.indexOf('Capacity and placement', right)
-  assert.ok(left < cal && cal < right, 'calendar is in the left column')
-  assert.ok(right < upcoming && upcoming < cap, 'Upcoming Students precedes Capacity in the right column')
+test('the canonical calendar is full width, with follow-up cards below it', () => {
+  const home = portalCode.slice(portalCode.indexOf('function HomeScreen'), portalCode.indexOf('function BucketCard'))
+  const cal = home.indexOf('<UnitRotationCalendar')
+  const followup = home.indexOf('ptl-home-followup-grid')
+  const upcoming = home.indexOf('bucket="upcoming"', followup)
+  const cap = home.indexOf('Capacity and placement', followup)
+  const roster = home.indexOf('<StudentRoster', followup)
+  assert.ok(cal > -1, 'Home renders the Unit Leader calendar')
+  assert.ok(cal < followup, 'follow-up card grid renders after the calendar')
+  assert.ok(followup < upcoming && upcoming < cap, 'Upcoming Students precedes Capacity below the calendar')
+  assert.ok(cap < roster, 'Your Students stays below the follow-up cards')
+  assert.doesNotMatch(home, /ptl-col-7[\s\S]*<UnitRotationCalendar/, 'calendar no longer sits in the old left column')
 })
 
 test('Your Students is full width below the grid', () => {
-  const gridEnd = portalCode.indexOf('</div>', portalCode.indexOf('ptl-col-5'))
+  const gridEnd = portalCode.indexOf('</div>', portalCode.indexOf('ptl-home-followup-grid'))
   const roster = portalCode.indexOf('<StudentRoster', gridEnd)
   assert.ok(roster > gridEnd, 'the roster renders after the two-column grid closes')
   assert.match(portalCode, /heading="Your students"/)
