@@ -2,6 +2,16 @@ import { createPreceptorRequestIdController } from '../../lib/preceptorRequestId
 
 const ROLE_ORDER = { primary: 0, secondary: 1, coverage: 2 }
 const ROLE_LABEL = { primary: 'Primary', secondary: 'Secondary', coverage: 'Coverage' }
+export const PRECEPTOR_ASSIGNMENT_MANAGER_TITLE = 'Manage Preceptor Assignments'
+
+export function assignmentManagerStudentDisplay(student = {}) {
+  const first = student.preferred_first_name || student.first_name || ''
+  const name = student.full_name || student.name || `${first} ${student.last_name || ''}`.trim() || 'Student'
+  const unit = student.current_unit || student.unit_key || student.student_unit || ''
+  const shift = student.current_shift || student.shift || student.student_shift || student.assigned_shift_type || ''
+  const subtitle = [name, unit, shift].filter(Boolean).join(' · ')
+  return { name, unit, shift, subtitle }
+}
 
 export function collectStudentAssignments(roster, studentId) {
   const rows = []
@@ -15,6 +25,7 @@ export function collectStudentAssignments(roster, studentId) {
         student_id: assignment.student_id,
         student_name: assignment.student_name,
         student_unit: assignment.student_unit,
+        student_shift: assignment.student_shift || null,
         role,
         role_label: ROLE_LABEL[role],
         start_date: assignment.start_date || null,

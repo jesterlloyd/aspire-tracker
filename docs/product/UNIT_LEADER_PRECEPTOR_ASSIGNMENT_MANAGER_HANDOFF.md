@@ -10,12 +10,12 @@ Unit Leader entry points:
 
 - focused mode from the student kebab actions,
 - full-management mode from `Manage assignments` in the Student Detail Drawer,
-- full-management mode from `Manage preceptor assignments` beside an assignment in
-  the Preceptors workspace.
+- full-management mode from `Manage Preceptor Assignments` in the Preceptors
+  workspace row-action menu.
 
 Main-app entry point:
 
-- `Manage preceptor assignments` under each applicable assignment in
+- `Manage Preceptor Assignments` in the rightmost row-action menu at
   `Main app > Rotation > Preceptors > Preceptor Directory`.
 
 The old `Manage student assignments` label is retired. The legacy staff
@@ -33,6 +33,26 @@ The student kebab order is:
 Replace and End are available only on a specific Secondary or Coverage row inside
 the full manager.
 
+## Shared title and student context
+
+The modal title is title case and comes from one shared source:
+
+```text
+Manage Preceptor Assignments
+```
+
+The subtitle uses one normalized safe display model for both staff and Unit
+Leader callers:
+
+```text
+Student Name · Unit · Shift
+```
+
+Unavailable segments are omitted rather than shown as `-`, so the subtitle never
+has dangling separators. The main-app Preceptor Directory passes the student unit
+and shift through the same assignment display model used by the Unit Leader
+portal.
+
 ## Assignment behavior
 
 - Primary uses `change_primary` to assign or change the one active Primary.
@@ -46,6 +66,29 @@ the full manager.
 The UI never implements a role-wide Replace or End. The existing Phase 2C RPCs
 remain authoritative for row locking, stale-row detection, unrelated-row
 preservation, audit events, and notifications.
+
+## Presentation
+
+`UnitLeaderPreceptorManager` remains the shared presentational foundation. The
+modal is a clean white responsive sheet with internal scrolling, a stronger title
+hierarchy, compact student-context subtitle, and consistent Primary, Secondary,
+and Coverage sections.
+
+Each active assignment row shows:
+
+- preceptor name
+- home unit when available
+- shift when available
+- start date when available
+- compact contextual actions
+
+Secondary and Coverage empty states are exact:
+
+- `No active Secondary assignments`
+- `No active Coverage assignments`
+
+Primary uses `No active Primary assignment` when no active Primary is present.
+Add actions remain visible and aligned.
 
 ## Staff adapter
 
@@ -129,10 +172,12 @@ preceptor names when present.
 ## Accessibility and responsive behavior
 
 The manager is a responsive portal modal/sheet with a labelled modal dialog, focus
-trap, safe Escape behavior, focus restoration to the initiating control, keyboard-
-operable candidate and row actions, and no required horizontal scrolling on mobile.
-The Student Detail Drawer suspends its own keyboard trap while the manager is open
-and refreshes its authorized detail record after a mutation.
+trap, safe Escape behavior, focus restoration to the initiating control, visible
+focus treatment, 44px-or-larger action targets, keyboard-operable candidate and
+row actions, internal scrolling, wrapped long names/units, and no required
+horizontal scrolling on mobile. The Student Detail Drawer suspends its own
+keyboard trap while the manager is open and refreshes its authorized detail record
+after a mutation.
 
 ## Security boundary
 

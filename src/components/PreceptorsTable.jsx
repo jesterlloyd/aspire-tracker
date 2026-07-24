@@ -90,6 +90,7 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
       student_id: r.student_id,
       student_name: name,
       student_unit: student.matched_unit || student.unit_name || student.unit_key || '',
+      student_shift: student.shift || student.shift_assigned || student.assigned_shift_type || student.shift_availability || '',
       role: roleLabel,
       role_label: roleLabel,
       status: r.status,
@@ -110,6 +111,7 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
       student_id: s.id,
       student_name: `${first} ${s.last_name || ''}`.trim() || 'Student',
       student_unit: s.matched_unit || s.unit_name || s.unit_key || '',
+      student_shift: s.shift || s.shift_assigned || s.assigned_shift_type || s.shift_availability || '',
       role: 'Primary',
       role_label: 'Primary',
       status: 'active',
@@ -171,6 +173,7 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
         first_name: assignment.student_name,
         last_name: '',
         unit_key: assignment.student_unit,
+        shift: assignment.student_shift,
       },
       returnFocusRef: { current: triggerEl || null },
     })

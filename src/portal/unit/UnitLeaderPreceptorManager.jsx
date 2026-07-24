@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import '../portal.css'
-import { getUnitPreceptors, mutateUnitPreceptorAssignment, orDash, studentName } from './unitLeaderApi'
+import { getUnitPreceptors, mutateUnitPreceptorAssignment, orDash } from './unitLeaderApi'
 import {
   assignmentErrorMessage,
+  assignmentManagerStudentDisplay,
   assignmentSuccessMessage,
   assignmentWindowIsClosed,
   buildAssignmentMutationPayload,
   collectStudentAssignments,
   createUnitAssignmentMutationController,
   mutationIntentKey,
+  PRECEPTOR_ASSIGNMENT_MANAGER_TITLE,
 } from './unitPreceptorAssignments'
 import { ErrorState, LoadingState } from './UnitLeaderChrome'
 
@@ -35,18 +37,22 @@ function fmtDate(value) {
 }
 
 function actionTitle(intent, assignment) {
-  if (intent.action === 'change_primary') return assignment ? 'Change Primary preceptor' : 'Assign Primary preceptor'
-  if (intent.op === 'add') return `Add ${ROLE_LABEL[intent.role]} preceptor`
-  if (intent.op === 'replace') return `Replace ${ROLE_LABEL[intent.role]} assignment`
-  return `End ${ROLE_LABEL[intent.role]} assignment`
+  if (intent.action === 'change_primary') return assignment ? 'Change Primary' : 'Assign Primary'
+  if (intent.op === 'add') return `Add ${ROLE_LABEL[intent.role]}`
+  if (intent.op === 'replace') return `Replace ${ROLE_LABEL[intent.role]}`
+  return `End ${ROLE_LABEL[intent.role]}`
 }
 
 function AssignmentIdentity({ assignment }) {
+  const details = [
+    assignment.preceptor.home_unit?.name,
+    assignment.preceptor.shift,
+    assignment.start_date ? `Started ${fmtDate(assignment.start_date)}` : null,
+  ].filter(Boolean)
   return (
     <div className="ptl-asn-identity">
       <strong>{assignment.preceptor.full_name}</strong>
-      <span>{orDash(assignment.preceptor.home_unit?.name)} · {orDash(assignment.preceptor.shift)}</span>
-      <span>Started {fmtDate(assignment.start_date)}</span>
+      {details.length > 0 && <span>{details.join(' · ')}</span>}
     </div>
   )
 }
@@ -79,6 +85,7 @@ export default function UnitLeaderPreceptorManager({
   const [committedRefresh, setCommittedRefresh] = useState(null)
   const focused = initialAction !== null
   const readOnly = assignmentWindowIsClosed(student)
+  const studentContext = assignmentManagerStudentDisplay(student)
 
   const controller = useMemo(() => createUnitAssignmentMutationController({
     mutate: mutateAssignment,
@@ -353,18 +360,18 @@ export default function UnitLeaderPreceptorManager({
             Add {label}
           </button>
         </div>
-        {rows.length === 0 ? <p className="ptl-muted">No active {label.toLowerCase()} assignments.</p> : (
+        {rows.length === 0 ? <p className="ptl-muted">No active {label} assignments</p> : (
           <ul className="ptl-asn-rows">
             {rows.map(row => (
               <li key={row.id}>
                 <AssignmentIdentity assignment={row} />
                 <div className="ptl-asn-row-actions">
-                  <button type="button" className="ptl-linklike" disabled={readOnly}
+                  <button type="button" className="ptl-asn-row-action" disabled={readOnly}
                     aria-label={`Replace ${label} assignment for ${row.preceptor.full_name}`}
                     onClick={() => start({ action: 'set_secondary', op: 'replace', role, assignmentId: row.id, assignment: row })}>
                     Replace
                   </button>
-                  <button type="button" className="ptl-linklike ptl-link-danger" disabled={readOnly}
+                  <button type="button" className="ptl-asn-row-action ptl-asn-row-action-danger" disabled={readOnly}
                     aria-label={`End ${label} assignment for ${row.preceptor.full_name}`}
                     onClick={() => start({ action: 'set_secondary', op: 'end', role, assignmentId: row.id, assignment: row })}>
                     End
@@ -384,8 +391,8 @@ export default function UnitLeaderPreceptorManager({
         aria-labelledby="ptl-asn-title" onMouseDown={event => event.stopPropagation()}>
         <div className="ptl-modal-head">
           <div>
-            <h2 id="ptl-asn-title">Manage preceptor assignments</h2>
-            <p className="ptl-muted">{studentName(student)} · {orDash(student.unit_key)}</p>
+            <h2 id="ptl-asn-title">{PRECEPTOR_ASSIGNMENT_MANAGER_TITLE}</h2>
+            {studentContext.subtitle && <p className="ptl-muted">{studentContext.subtitle}</p>}
           </div>
           <button ref={closeRef} type="button" className="ptl-icon-btn" disabled={saving}
             aria-label="Close assignment manager" onClick={close}>
@@ -422,7 +429,7 @@ export default function UnitLeaderPreceptorManager({
                       {primary ? 'Change Primary' : 'Assign Primary'}
                     </button>
                   </div>
-                  {primary ? <AssignmentIdentity assignment={primary} /> : <p className="ptl-muted">No active Primary assignment.</p>}
+                  {primary ? <AssignmentIdentity assignment={primary} /> : <p className="ptl-muted">No active Primary assignment</p>}
                 </section>
                 {renderRole('secondary')}
                 {renderRole('coverage')}

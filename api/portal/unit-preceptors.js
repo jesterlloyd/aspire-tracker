@@ -78,6 +78,7 @@ export function buildUnitPreceptorCollections({ preceptors, assignments, student
       student_id: student.id,
       student_name: displayName(student),
       student_unit: student.unit_key,
+      student_shift: student.shift || student.shift_availability || null,
       role,
       start_date: assignment.start_date || null,
       end_date: assignment.end_date || null,

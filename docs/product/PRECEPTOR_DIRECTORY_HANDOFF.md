@@ -78,3 +78,7 @@ and falls back to initials without broken-image placeholders.
 This directory convergence did not change backend assignment semantics, SQL,
 migrations, audit behavior, notification behavior, sender behavior, Reply-To
 behavior, Unit Leader authority, or data scope.
+
+The assignment manager opened from this menu uses the shared title
+`Manage Preceptor Assignments` and the shared `Student · Unit · Shift` subtitle
+model documented in `UNIT_LEADER_PRECEPTOR_ASSIGNMENT_MANAGER_HANDOFF.md`.

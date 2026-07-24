@@ -105,6 +105,7 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmen
       first_name: assignment.student_name,
       last_name: '',
       unit_key: assignment.student_unit,
+      shift: assignment.student_shift,
     })
   }
 
