@@ -14,17 +14,14 @@
 // answers, certificates, uploaded onboarding documents, internal staff notes, and
 // private support narratives are never requested by any call in this file.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import { firstNameOf } from '../lib/masthead'
 import StudentActionsMenu from './unit/StudentActionsMenu'
 import PreceptorList from './unit/PreceptorList'
 import StudentDetailDrawer from './unit/StudentDetailDrawer'
-import UnitRotationCalendar from './unit/UnitRotationCalendar'
 import UnitShiftDayDrawer from './unit/UnitShiftDayDrawer'
 import UnitEvaluationsPlaceholder from './unit/UnitEvaluationsPlaceholder'
-import UnitPreceptorsWorkspace from './unit/UnitPreceptorsWorkspace'
-import UnitLeaderPreceptorManager from './unit/UnitLeaderPreceptorManager'
 import UnitStudentAvatar from './unit/UnitStudentAvatar'
 import { statusToken } from './unit/unitStageTokens'
 import { useUnitStudentPhotos } from './unit/useUnitStudentPhotos'
@@ -47,6 +44,10 @@ import {
   emptyParticipation, isHostingParticipation, validateParticipation,
   participationReady, buildParticipationBody,
 } from '../lib/unitParticipationForm'
+
+const UnitRotationCalendar = lazy(() => import('./unit/UnitRotationCalendar'))
+const UnitPreceptorsWorkspace = lazy(() => import('./unit/UnitPreceptorsWorkspace'))
+const UnitLeaderPreceptorManager = lazy(() => import('./unit/UnitLeaderPreceptorManager'))
 
 /** A local clock time from an ISO timestamp, for check-in and check-out display. */
 function fmtClock(iso) {
@@ -252,12 +253,14 @@ function HomeScreen({ unitKey, unitKeys, students, profile, onNavigate, onOpenTh
         </section>
       )}
 
-      <UnitRotationCalendar
-        shifts={visibleShifts}
-        windowStart={activity.data?.window?.start}
-        loading={activity.loading}
-        onSelectDay={(ymd, dayShifts) => setDayOpen({ ymd, shifts: dayShifts })}
-      />
+      <Suspense fallback={<LoadingState label="Loading rotation activity" />}>
+        <UnitRotationCalendar
+          shifts={visibleShifts}
+          windowStart={activity.data?.window?.start}
+          loading={activity.loading}
+          onSelectDay={(ymd, dayShifts) => setDayOpen({ ymd, shifts: dayShifts })}
+        />
+      </Suspense>
 
       {/* Your Students, full width below. The Active-rotations and recent-threads cards
           are gone: the student table already represents active rotations, Messages
@@ -823,13 +826,15 @@ function StudentRoster({ students, onNavigate, onOpenThread, refreshRoster, head
       )}
 
       {manager && (
-        <UnitLeaderPreceptorManager
-          student={manager.student}
-          initialAction={manager.initialAction}
-          returnFocusRef={managerTriggerRef}
-          onCommitted={assignmentCommitted}
-          onClose={() => setManager(null)}
-        />
+        <Suspense fallback={<LoadingState label="Loading assignment manager" />}>
+          <UnitLeaderPreceptorManager
+            student={manager.student}
+            initialAction={manager.initialAction}
+            returnFocusRef={managerTriggerRef}
+            onCommitted={assignmentCommitted}
+            onClose={() => setManager(null)}
+          />
+        </Suspense>
       )}
     </>
   )
@@ -935,7 +940,11 @@ function StudentRow({
 }
 
 function PreceptorScreen({ unitKey, unitKeys, refreshRoster }) {
-  return <UnitPreceptorsWorkspace unitKey={unitKey} unitKeys={unitKeys} onAssignmentsChanged={refreshRoster} />
+  return (
+    <Suspense fallback={<TableSkeleton label="Loading preceptors" />}>
+      <UnitPreceptorsWorkspace unitKey={unitKey} unitKeys={unitKeys} onAssignmentsChanged={refreshRoster} />
+    </Suspense>
+  )
 }
 
 // ── Report a Concern ────────────────────────────────────────────────────────
