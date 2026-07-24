@@ -33,6 +33,7 @@ import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import {
   PORTAL_ACTIVE_POLL_MS, PORTAL_IDLE_UNREAD_POLL_MS, usePortalUnreadCount,
 } from '../lib/messages/portalMessagesPolling'
+import { usePortalHeadshotUrl } from '../lib/useStudentFile'
 import '../styles/aspireBrand.css'
 import './portal.css'
 
@@ -94,6 +95,7 @@ export default function PortalApp() {
   // Messages badge is live from Home and every other section, exactly like the
   // Student Portal. Same endpoint, same cadence, faster while on Messages.
   const isUnitLeader = !isStudent && (access?.roles || []).includes('unit_leader')
+  const { url: studentHeaderPhotoUrl } = usePortalHeadshotUrl({ enabled: isStudent })
   const onMessagesRoute = location.pathname.startsWith('/portal/messages')
   const unread = usePortalUnreadCount({
     enabled: isStudent || isUnitLeader,
@@ -142,6 +144,8 @@ export default function PortalApp() {
     return (
       <PortalShell title="Student Portal" userName={userProfile?.full_name}
         onEditProfile={() => setEditOpen(true)} withTabBar
+        headerVariant="nightfall" logoSrc="/cs-logo-large.png"
+        profileImageUrl={studentHeaderPhotoUrl}
         utilityLayer={(
           <PortalUtilityLayer
             enabled
@@ -192,6 +196,7 @@ export default function PortalApp() {
     return (
       <PortalShell title="Unit Leader Portal" userName={userProfile?.full_name} withTabBar showHeaderName
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
+        profileImageUrl={userProfile?.avatar_url}
         onProfile={() => goUnitSection('profile')} publicSiteUrl="https://aspireintelligence.app"
         utilityLayer={(
           <PortalUtilityLayer

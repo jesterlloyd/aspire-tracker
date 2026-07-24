@@ -1,4 +1,4 @@
-// Commit 3: Unit Leader Portal chrome converges with the Nightfall taskbar.
+// Portal chrome convergence: Student and Unit Leader share the Nightfall taskbar.
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -18,26 +18,49 @@ const indexCss = read('src/index.css')
 
 const shellCode = stripJs(shell)
 const appCode = stripJs(app)
+const cssBlock = (selector) => {
+  const start = css.indexOf(`${selector} {`)
+  if (start === -1) return ''
+  const end = css.indexOf('\n}', start)
+  return end === -1 ? '' : css.slice(start, end + 2)
+}
 
-test('canonical Cedars-Sinai logo asset exists and is used by Unit Leader Portal', () => {
+test('canonical Cedars-Sinai logo asset exists and is used by Student and Unit Leader portals', () => {
   assert.ok(existsSync(join(root, 'public/cs-logo-large.png')))
   assert.match(shellCode, /logoSrc = '\/Cedars-Sinai\.png'/)
   assert.match(shellCode, /src=\{logoSrc\}/)
   assert.match(shellCode, /alt="Cedars-Sinai"/)
+  assert.match(appCode, /title="Student Portal"[\s\S]{0,180}headerVariant="nightfall" logoSrc="\/cs-logo-large\.png"/)
   assert.match(appCode, /title="Unit Leader Portal"[\s\S]{0,140}headerVariant="nightfall" logoSrc="\/cs-logo-large\.png"/)
-  assert.doesNotMatch(appCode, /title="Student Portal"[\s\S]{0,180}logoSrc="\/cs-logo-large\.png"/)
   assert.doesNotMatch(appCode, /title="Academic Partner Portal"[\s\S]{0,180}logoSrc="\/cs-logo-large\.png"/)
 })
 
-test('Nightfall header is opt-in and uses the canonical app token', () => {
+test('Nightfall header is shared and uses the canonical app token and logo treatment', () => {
   assert.match(indexCss, /--nightfall:\s+#1d2567/)
   assert.match(shellCode, /headerVariant = 'light'/)
   assert.match(shellCode, /headerClass = `ptl-header\$\{headerVariant === 'nightfall' \? ' ptl-header-nightfall' : ''\}`/)
   assert.match(css, /\.ptl-header-nightfall \{[\s\S]*?background: var\(--nightfall/)
-  assert.match(css, /\.ptl-header-nightfall \.ptl-header-logo \{[\s\S]*?background: var\(--pearl/)
+  const logo = cssBlock('.ptl-header-nightfall .ptl-header-logo')
+  assert.match(logo, /height: 46px/)
+  assert.match(logo, /object-fit: contain/)
+  assert.doesNotMatch(logo, /background: var\(--pearl/)
+  assert.match(css, /\.ptl-header-nightfall \.ptl-header-divider \{[\s\S]*?height: 30px/)
   assert.match(css, /\.ptl-header-nightfall \.ptl-header-aspire/)
+  assert.match(css, /\.ptl-header-nightfall \.ptl-header-aspire \{[\s\S]*?font-size: 20px/)
   assert.match(css, /\.ptl-header-nightfall \.ptl-header-sub/)
   assert.match(css, /\.ptl-header-nightfall \.ptl-header-name/)
+})
+
+test('Student and Unit Leader profile photos use safe sources and keep initials fallback', () => {
+  assert.match(appCode, /import \{ usePortalHeadshotUrl \} from '\.\.\/lib\/useStudentFile'/)
+  assert.match(appCode, /const \{ url: studentHeaderPhotoUrl \} = usePortalHeadshotUrl\(\{ enabled: isStudent \}\)/)
+  assert.match(appCode, /profileImageUrl=\{studentHeaderPhotoUrl\}/)
+  assert.match(appCode, /profileImageUrl=\{userProfile\?\.avatar_url\}/)
+  assert.match(shellCode, /profileImageUrl = null/)
+  assert.match(shellCode, /const \[failedImageUrl, setFailedImageUrl\] = useState\(null\)/)
+  assert.match(shellCode, /const showPhoto = Boolean\(profileImageUrl && failedImageUrl !== profileImageUrl\)/)
+  assert.match(shellCode, /<img src=\{profileImageUrl\} alt="" onError=\{\(\) => setFailedImageUrl\(profileImageUrl\)\} \/>/)
+  assert.match(shellCode, /: initials\(userName\)/)
 })
 
 test('Unit Leader title, name, avatar, profile menu, and public site remain', () => {
@@ -82,6 +105,7 @@ test('staff-only topbar controls are not added to the portal shell', () => {
 test('mobile and accessibility behavior stay explicit', () => {
   assert.match(css, /@media \(max-width: 760px\) \{ \.ptl-header-name \{ display: none; \} \}/)
   assert.match(css, /\.ptl-header-nightfall \*:focus-visible/)
+  assert.match(css, /\.ptl-header-nightfall \.ptl-header-logo \{ height: 34px; max-width: 112px; \}/)
   assert.match(css, /\.ptl-nav-mobile-more/)
   assert.match(css, /\.ptl-sheet \{/)
   assert.match(read('src/portal/unit/UnitLeaderChrome.jsx'), /aria-haspopup="dialog"/)

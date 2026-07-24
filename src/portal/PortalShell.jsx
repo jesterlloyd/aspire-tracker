@@ -12,11 +12,13 @@ function initials(name) {
   return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
 }
 
-function ProfileMenu({ userName, onEditProfile, onProfile, publicSiteUrl = '/' }) {
+function ProfileMenu({ userName, profileImageUrl, onEditProfile, onProfile, publicSiteUrl = '/' }) {
   const { signOut } = useAuth()
   const [open, setOpen] = useState(false)
+  const [failedImageUrl, setFailedImageUrl] = useState(null)
   const btnRef = useRef(null)
   const menuRef = useRef(null)
+  const showPhoto = Boolean(profileImageUrl && failedImageUrl !== profileImageUrl)
   useEffect(() => {
     if (!open) return
     const onDoc = (e) => { if (!menuRef.current?.contains(e.target) && !btnRef.current?.contains(e.target)) setOpen(false) }
@@ -29,7 +31,11 @@ function ProfileMenu({ userName, onEditProfile, onProfile, publicSiteUrl = '/' }
   return (
     <div className="ptl-menu-wrap">
       <button ref={btnRef} type="button" className="ptl-avatar-btn" aria-haspopup="menu" aria-expanded={open} aria-label="Open profile menu" onClick={() => setOpen(o => !o)}>
-        <span className="ptl-avatar ptl-avatar-sm" aria-hidden="true">{initials(userName)}</span>
+        <span className="ptl-avatar ptl-avatar-sm" aria-hidden="true">
+          {showPhoto
+            ? <img src={profileImageUrl} alt="" onError={() => setFailedImageUrl(profileImageUrl)} />
+            : initials(userName)}
+        </span>
         <ChevronDown size={15} className="ptl-avatar-caret" />
       </button>
       {open && (
@@ -59,6 +65,7 @@ export default function PortalShell({
   showHeaderName = false,
   headerVariant = 'light',
   logoSrc = '/Cedars-Sinai.png',
+  profileImageUrl = null,
   utilityLayer = null,
   children,
 }) {
@@ -67,7 +74,8 @@ export default function PortalShell({
     <div className={`ptl-page${withTabBar ? ' ptl-page-tabbar' : ''}`}>
       <header className={headerClass}>
         <div className="ptl-header-brand">
-          <img src={logoSrc} alt="Cedars-Sinai" className="ptl-header-logo" height="26" />
+          <img src={logoSrc} alt="Cedars-Sinai" className="ptl-header-logo" />
+          <span className="ptl-header-divider" aria-hidden="true" />
           <div className="ptl-header-title">
             <span className="ptl-header-aspire">ASPIRE</span>
             <span className="ptl-header-sub">{title}</span>
@@ -77,7 +85,8 @@ export default function PortalShell({
           {/* UL-POLISH P2: the signed-in name beside the avatar at desktop
               widths, opt-in per portal so student behavior is unchanged. */}
           {showHeaderName && userName && <span className="ptl-header-name">{userName}</span>}
-          <ProfileMenu userName={userName} onEditProfile={onEditProfile} onProfile={onProfile} publicSiteUrl={publicSiteUrl} />
+          <ProfileMenu userName={userName} profileImageUrl={profileImageUrl}
+            onEditProfile={onEditProfile} onProfile={onProfile} publicSiteUrl={publicSiteUrl} />
         </div>
       </header>
       {utilityLayer}

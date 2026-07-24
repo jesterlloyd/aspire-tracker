@@ -4,7 +4,7 @@
 
 The Unit Leader portal utility layer now mirrors the main-app corner-panel model.
 
-Related chrome note: the Unit Leader portal top taskbar now uses the scoped
+Related chrome note: Student and Unit Leader portal taskbars now use the shared
 Nightfall `PortalShell` variant, while the floating feedback and Messages
 utilities remain mounted through the same `utilityLayer` prop below the header.
 
