@@ -191,6 +191,7 @@ export default function PortalApp() {
     // Portal already uses, so one thread link works for either kind.
     return (
       <PortalShell title="Unit Leader Portal" userName={userProfile?.full_name} withTabBar showHeaderName
+        headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         onProfile={() => goUnitSection('profile')} publicSiteUrl="https://aspireintelligence.app"
         utilityLayer={(
           <PortalUtilityLayer
