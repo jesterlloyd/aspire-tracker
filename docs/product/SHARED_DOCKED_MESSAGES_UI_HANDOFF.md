@@ -84,6 +84,14 @@ The visual treatment is iMessage-inspired:
 
 The Unit Leader full Messages workspace now uses the broader Student-style available width rather than the earlier narrow centered maximum.
 
+The full Unit Leader Messages workspace no longer renders the extra full-width
+`Message the ASPIRE Team` banner above the workspace. Normal navigation now
+begins directly with the main Messages workspace card, while retaining the `New
+message` action, thread list, conversation pane, composer, privacy and escalation
+guidance, and the lower-right docked Messages utility. The retained
+`/portal/unit/concern` handoff still opens the ASPIRE-Team compose flow when that
+legacy route explicitly requests it.
+
 ## Verification
 
 Recommended checks:

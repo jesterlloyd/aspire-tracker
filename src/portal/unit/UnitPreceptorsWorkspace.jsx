@@ -184,7 +184,7 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmen
         <EmptyState title="No matching preceptors"
           detail={hasFilters ? 'Clear or change the filters to see more preceptors.' : 'No preceptors match this view.'} />
       ) : (
-        <div className="ptl-table-wrap">
+        <div className="am-table-wrap">
           <PreceptorDirectoryTable
             rows={rows}
             sortBy={sortBy}

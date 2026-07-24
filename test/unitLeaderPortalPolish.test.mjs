@@ -66,7 +66,7 @@ test('P0-4: unit switcher scope and the single-unit context line', async (t) => 
   await t.test('a single-unit leader sees a static context line, not a dead control', () => {
     assert.match(chrome, /if \(unitKeys\.length === 1\) \{\s*return <p className="ptl-unit-context">/)
     assert.match(chrome, /label: 'All Assigned Units'/)
-    assert.match(chrome, /className=\{`ptl-unit-segment \$\{value === option\.key \? 'ptl-unit-segment-active' : ''\}`\}/)
+    assert.match(chrome, /<SegmentedTabs[\s\S]*className="ptl-unit-switcher"[\s\S]*items=\{items\}/)
     assert.doesNotMatch(chrome, /id="ul-unit-switcher"|<select/)
   })
 })

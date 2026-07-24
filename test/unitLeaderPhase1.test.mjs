@@ -96,8 +96,8 @@ test('the concern route hands off to Messages instead of 404ing', () => {
 })
 
 test('Message the ASPIRE Team lives inside Messages and opens from the concern link', () => {
-  assert.match(portalCode, /<AspireTeamComposer/)
-  assert.match(portalCode, /startOpen=\{composeIntent\?\.compose === 'aspire'\}/)
+  assert.match(portalCode, /view === 'messages' && composeIntent\?\.compose === 'aspire'/)
+  assert.match(portalCode, /<AspireTeamComposer[\s\S]*startOpen/)
   assert.match(portalCode, /Message the ASPIRE Team/)
   // It is no longer a section of its own.
   assert.ok(!/view === 'concern'/.test(portalCode))

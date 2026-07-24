@@ -33,9 +33,10 @@ row separators, circular profile-photo/initials treatment, sortable headers with
 assignment list treatment. Unit Leader still receives only the safe Unit Leader
 columns and never receives main-app Edit or Delete controls.
 
-For multi-unit leaders, the portal unit selector is a segmented control with
-`All Assigned Units` followed by the caller's authorized units. It is a view
-narrowing control only; unauthorized units never appear.
+For multi-unit leaders, the portal unit selector uses the shared compact
+`SegmentedTabs` foundation with `All Assigned Units` followed by the caller's
+authorized units. It is a content-width, left-aligned view narrowing control only;
+unauthorized units never appear.
 
 ## Authorized read model
 
@@ -82,8 +83,11 @@ Each active assignment row in the `Current Student` column renders only assignme
 display information:
 
 - student name,
-- role badge: `Primary`, `Secondary`, or `Coverage`,
-- safe unit context when available.
+- role badge: `Primary`, `Secondary`, or `Coverage`.
+
+The repeated student-unit text was removed from the table cell. The assignment
+data still carries student unit and shift context for the assignment manager; it
+is just not repeated in the directory display.
 
 The old `Manage student assignments` label is retired.
 

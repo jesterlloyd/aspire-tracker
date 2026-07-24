@@ -238,7 +238,8 @@ test('Phase 4A remains dormant and Messages stays unexposed', async (t) => {
   })
 
   await t.test('the inbox is mounted only through the gated Connect workspace', () => {
-    assert.match(connect, /navigate\('\/connect\/messages'\)/)
+    assert.match(connect, /canUseMessages \? \{[\s\S]*key: 'messages'[\s\S]*path: '\/connect\/messages'/)
+    assert.match(connect, /\{canUseMessages && \(\s*\n\s*<div style=\{\{ display: activeSubTab === 'messages'/)
     assert.doesNotMatch(app, /\/connect\/messages/)
   })
 

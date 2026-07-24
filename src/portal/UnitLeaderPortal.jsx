@@ -28,6 +28,7 @@ import UnitLeaderPreceptorManager from './unit/UnitLeaderPreceptorManager'
 import UnitStudentAvatar from './unit/UnitStudentAvatar'
 import { statusToken } from './unit/unitStageTokens'
 import { useUnitStudentPhotos } from './unit/useUnitStudentPhotos'
+import { sortUnitLeaderStudentsByName } from './unit/unitLeaderStudentSort'
 import { useAuth } from '../contexts/AuthContext'
 import {
   UnitLeaderNav, UnitSwitcher, LoadingState, EmptyState, ErrorState, DeniedState,
@@ -161,10 +162,10 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
         {view === 'evaluations' && <UnitEvaluationsPlaceholder />}
         {view === 'preceptors' && <PreceptorScreen unitKey={unitKey} unitKeys={unitKeys} refreshRoster={roster.refresh} />}
         {view === 'profile'    && <ProfileScreen unitKeys={unitKeys} profile={userProfile} />}
-        {view === 'messages'   && (
+        {view === 'messages' && composeIntent?.compose === 'aspire' && (
           <AspireTeamComposer
             students={students}
-            startOpen={composeIntent?.compose === 'aspire'}
+            startOpen
             onNavigate={onNavigate}
           />
         )}
@@ -779,9 +780,14 @@ function StudentRoster({ students, onNavigate, onOpenThread, refreshRoster, head
   const [detailStudent, setDetailStudent] = useState(null)
   const [manager, setManager] = useState(null)
   const [assignmentRefreshKey, setAssignmentRefreshKey] = useState(0)
+  const [nameSortDir, setNameSortDir] = useState('asc')
   // The exact element that opened the drawer, so focus returns to the right ROW.
   const detailTriggerRef = useRef(null)
   const managerTriggerRef = useRef(null)
+  const sortedStudents = useMemo(
+    () => sortUnitLeaderStudentsByName(students, nameSortDir),
+    [students, nameSortDir],
+  )
 
   const openDetail = (student, triggerEl) => {
     detailTriggerRef.current = triggerEl || null
@@ -846,7 +852,14 @@ function StudentRoster({ students, onNavigate, onOpenThread, refreshRoster, head
             <caption className="ptl-visually-hidden">Students in your assigned units, last 90 days</caption>
             <thead>
               <tr>
-                <th scope="col">Student</th>
+                <th scope="col" aria-sort={nameSortDir === 'asc' ? 'ascending' : 'descending'}>
+                  <button type="button" className="ptl-stu-sort"
+                    onClick={() => setNameSortDir(current => current === 'asc' ? 'desc' : 'asc')}
+                    aria-label={`Sort students by name ${nameSortDir === 'asc' ? 'descending' : 'ascending'}`}>
+                    <span>Student</span>
+                    <span aria-hidden="true">{nameSortDir === 'asc' ? ' ↑' : ' ↓'}</span>
+                  </button>
+                </th>
                 <th scope="col">ASPIRE status</th>
                 <th scope="col">Preceptor(s)</th>
                 <th scope="col">Shift</th>
@@ -857,7 +870,7 @@ function StudentRoster({ students, onNavigate, onOpenThread, refreshRoster, head
               </tr>
             </thead>
             <tbody>
-              {students.map(s => (
+              {sortedStudents.map(s => (
                 <StudentRow
                   key={s.id}
                   student={s}

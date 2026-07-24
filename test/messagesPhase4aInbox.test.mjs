@@ -396,9 +396,10 @@ test('Phase 4A safety: Messages stays unexposed', async (t) => {
     assert.match(connect, /const VALID_TABS = new Set\(\['contacts', 'outreach', 'messages', 'broadcasts'\]\)/)
     assert.match(connect, /const canUseMessages = \['owner', 'admin'\]\.includes\(userProfile\?\.role\)/, 'Messages is activated in Phase 4B2b-ii and gated to an active Owner or Admin')
     // The existing three tabs and the redirect are intact.
-    assert.match(connect, /navigate\('\/connect\/contacts'\)/)
-    assert.match(connect, /navigate\('\/connect\/outreach'\)/)
-    assert.match(connect, /navigate\('\/connect\/broadcasts'\)/)
+    assert.match(connect, /path: '\/connect\/contacts'/)
+    assert.match(connect, /path: '\/connect\/outreach'/)
+    assert.match(connect, /path: '\/connect\/broadcasts'/)
+    assert.match(connect, /<SegmentedTabs/)
     assert.match(connect, /aspire\.connect\.lastTab/)
   })
 

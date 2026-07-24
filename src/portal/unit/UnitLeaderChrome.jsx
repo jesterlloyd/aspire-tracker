@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { formatUnread, unreadLabel } from '../../lib/messages/messagesConstants'
 import { ALL_UNITS } from './unitLeaderApi'
+import SegmentedTabs from '../../components/ui/SegmentedTabs'
 
 const srOnly = {
   position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
@@ -177,20 +178,15 @@ export function UnitSwitcher({ unitKeys = [], value, onChange }) {
   if (unitKeys.length === 1) {
     return <p className="ptl-unit-context">Unit · <b>{unitKeys[0]}</b></p>
   }
+  const items = [{ key: ALL_UNITS, label: 'All Assigned Units' }, ...unitKeys.map(k => ({ key: k, label: k }))]
   return (
-    <div className="ptl-unit-switcher" role="group" aria-label="Viewing">
-      {[{ key: ALL_UNITS, label: 'All Assigned Units' }, ...unitKeys.map(k => ({ key: k, label: k }))].map(option => (
-        <button
-          key={option.key}
-          type="button"
-          className={`ptl-unit-segment ${value === option.key ? 'ptl-unit-segment-active' : ''}`}
-          aria-pressed={value === option.key}
-          onClick={() => onChange?.(option.key)}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
+    <SegmentedTabs
+      className="ptl-unit-switcher"
+      label="Viewing"
+      items={items}
+      value={value}
+      onChange={onChange}
+    />
   )
 }
 

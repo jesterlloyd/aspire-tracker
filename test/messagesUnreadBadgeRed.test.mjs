@@ -66,7 +66,8 @@ test('every Messages unread counter is red, and none is blue', async (t) => {
   })
 
   await t.test('ASPIRE Connect Messages tab badge', () => {
-    assert.match(connect, /style=\{\{ \.\.\.inlineBadgeStyle, marginLeft: 2 \}\}/)
+    assert.match(connect, /badge: messagesUnread > 0 \? formatUnread\(messagesUnread\) : null/)
+    assert.match(indexCss, /\.segmented-tabs-badge \{[\s\S]*background: var\(--color-danger, #DC1E34\);[\s\S]*color: #fff;/)
     // It previously swapped color with tab selection; the red is now constant.
     assert.doesNotMatch(strip(connect), /background: activeSubTab === 'messages' \? 'rgba\(255,255,255,0\.22\)'/)
   })
@@ -117,12 +118,9 @@ test('every Messages unread counter is red, and none is blue', async (t) => {
     // The badges were authored navy to match the accent, which is the defect.
     assert.doesNotMatch(portalCss, /\.ptl-nav-badge \{[\s\S]{0,160}?background: #1D2567/)
     assert.doesNotMatch(portalCss, /\.ptl-msg-unread-dot \{[\s\S]{0,200}?background: #1D2567/)
-    // The accent legitimately remains the selected tab button's background; only
-    // the unread badge moved off it. Scope the check to the badge span.
-    const badgeSpan = connect.slice(connect.indexOf('{messagesUnread > 0 && ('), connect.indexOf('{formatUnread(messagesUnread)}'))
-    assert.doesNotMatch(badgeSpan, /#1D2567|--color-accent-primary/)
-    assert.match(connect, /background: activeSubTab === key \? 'var\(--color-accent-primary,#1D2567\)'/,
-      'the tab button background is unchanged')
+    assert.match(indexCss, /\.segmented-tabs-badge \{[\s\S]*background: var\(--color-danger, #DC1E34\);/)
+    assert.match(indexCss, /\.segmented-tabs-item\[aria-selected="true"\] \{[\s\S]*background: var\(--color-accent-primary, #1D2567\);/,
+      'the selected tab button background is unchanged')
   })
 })
 
@@ -153,7 +151,7 @@ test('count formatting and accessible labels', async (t) => {
 
   await t.test('every badge renders only above zero', () => {
     assert.match(portalNav, /\{unread > 0 && \(/)
-    assert.match(connect, /\{messagesUnread > 0 && \(/)
+    assert.match(connect, /badge: messagesUnread > 0 \? formatUnread\(messagesUnread\) : null/)
     assert.match(headerActions, /\{messagesUnread > 0 && \(/)
   })
 

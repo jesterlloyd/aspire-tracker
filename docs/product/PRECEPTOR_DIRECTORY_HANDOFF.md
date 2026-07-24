@@ -20,10 +20,13 @@ The Current Student column contains assignment data only:
 
 - student name
 - Primary, Secondary, or Coverage badge
-- student unit when useful and authorized
 
 Multiple active assignments remain visible and stacked compactly. The empty state
 is neutral: `No current student`.
+
+The student unit remains available in normalized assignment data for authorized
+downstream flows such as the assignment manager, but the directory cell no longer
+repeats it because the table already has a dedicated Unit column.
 
 ## Row actions
 
@@ -59,12 +62,15 @@ The Unit Leader Preceptors workspace uses a compact row:
 Sorting lives in table headers. The old oversized filter card and Sort dropdown
 are retired.
 
-Multi-unit Unit Leaders use the shared segmented unit selector:
+Multi-unit Unit Leaders use the canonical shared segmented tab foundation in
+`src/components/ui/SegmentedTabs.jsx`:
 
 - All Assigned Units
 - each authorized unit
 
-Only authorized units appear.
+Only authorized units appear. The selector is content-width, left-aligned with the
+page content, keyboard accessible, and horizontally scrollable only when the
+authorized unit list cannot fit.
 
 ## Profile pictures
 

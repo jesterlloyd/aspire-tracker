@@ -11,19 +11,15 @@ import OutreachView from '../components/connect/OutreachView'
 import AutomationView from '../components/connect/AutomationView'
 import MessagesWorkspace from '../components/connect/messages/MessagesWorkspace'
 import { useAuth } from '../contexts/AuthContext'
-import { inlineBadgeStyle } from '../lib/badgeTokens'
 import { formatUnread, unreadLabel } from '../lib/messages/messagesConstants'
 import { ACTIVE_POLL_MS, IDLE_UNREAD_POLL_MS, useStaffUnreadCount } from '../lib/messages/messagesPolling'
 import { useToast } from '../hooks/useToast'
 import { ToastContainer } from '../components/Toast'
 import { RefreshHint } from '../components/UnifiedNav'
 import WorkspaceBackLink from '../components/ui/WorkspaceBackLink'
+import SegmentedTabs from '../components/ui/SegmentedTabs'
 
 const F = 'DM Sans, sans-serif'
-const srOnly = {
-  position: 'absolute', width: 1, height: 1, padding: 0, margin: -1,
-  overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0,
-}
 
 export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef, backPath = '/aggregate', backLabel = 'At a Glance' }) {
   const navigate = useNavigate()
@@ -104,15 +100,19 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
     intervalMs: activeSubTab === 'messages' ? ACTIVE_POLL_MS : IDLE_UNREAD_POLL_MS,
   })
 
-  const btnStyle = key => ({
-    height: 32, padding: '0 13px',
-    display: 'flex', alignItems: 'center', gap: 6,
-    border: 'none', cursor: 'pointer', fontSize: 12,
-    fontFamily: F, fontWeight: 500,
-    background: activeSubTab === key ? 'var(--color-accent-primary,#1D2567)' : 'var(--bg-input,#fff)',
-    color: activeSubTab === key ? '#fff' : 'var(--text-secondary,#4A5560)',
-    transition: 'all 0.12s',
-  })
+  const tabs = [
+    { key: 'contacts', label: 'Contacts', Icon: Users, path: '/connect/contacts' },
+    { key: 'outreach', label: 'Outreach', Icon: Send, path: '/connect/outreach' },
+    canUseMessages ? {
+      key: 'messages',
+      label: 'Messages',
+      Icon: MessageSquare,
+      path: '/connect/messages',
+      badge: messagesUnread > 0 ? formatUnread(messagesUnread) : null,
+      srLabel: messagesUnread > 0 ? unreadLabel(messagesUnread) : '',
+    } : null,
+    { key: 'broadcasts', label: 'Automations', Icon: Activity, path: '/connect/broadcasts' },
+  ].filter(Boolean)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 128px)', fontFamily: F }}>
@@ -139,45 +139,12 @@ export default function ConnectPage({ cohortId, onNavigateToStudent, refreshRef,
 
         {/* Sub-tab picker */}
         <div style={{ paddingBottom: 12 }}>
-          <div style={{
-            display: 'flex',
-            borderRadius: 7,
-            border: '1px solid var(--border-input,rgba(29,37,103,0.10))',
-            overflow: 'hidden',
-            width: 'fit-content',
-          }}>
-            <button onClick={() => navigate('/connect/contacts')} style={btnStyle('contacts')}>
-              <Users size={13} />
-              Contacts
-            </button>
-            <button onClick={() => navigate('/connect/outreach')} style={btnStyle('outreach')}>
-              <Send size={13} />
-              Outreach
-            </button>
-            {canUseMessages && (
-              <button onClick={() => navigate('/connect/messages')} style={btnStyle('messages')}>
-                <MessageSquare size={13} />
-                Messages
-                {messagesUnread > 0 && (
-                  <>
-                    {/* Unread is a count chip plus screen-reader text, never
-                        color alone. */}
-                    {/* Shared inline count chip: Cedars-Sinai red on every tab
-                        state, so the badge no longer changes meaning-carrying
-                        color with selection. */}
-                    <span aria-hidden="true" style={{ ...inlineBadgeStyle, marginLeft: 2 }}>
-                      {formatUnread(messagesUnread)}
-                    </span>
-                    <span style={srOnly}>{unreadLabel(messagesUnread)}</span>
-                  </>
-                )}
-              </button>
-            )}
-            <button onClick={() => navigate('/connect/broadcasts')} style={btnStyle('broadcasts')}>
-              <Activity size={13} />
-              Automations
-            </button>
-          </div>
+          <SegmentedTabs
+            label="ASPIRE Connect sections"
+            items={tabs}
+            value={activeSubTab}
+            onChange={key => navigate(tabs.find(tab => tab.key === key)?.path || '/connect/contacts')}
+          />
         </div>
       </div>
 

@@ -59,7 +59,6 @@ function AssignmentList({ assignments = [], emptyLabel = 'No current student' })
           <span className="preceptor-dir-assignment" key={assignment.id || `${assignment.student_id}:${role}:${assignment.preceptor_id || ''}`}>
             <span className="preceptor-dir-student">{assignment.student_name}</span>
             <span className={`preceptor-dir-role preceptor-dir-role-${roleClass}`}>{role}</span>
-            {assignment.student_unit && <span className="preceptor-dir-context">{assignment.student_unit}</span>}
           </span>
         )
       })}

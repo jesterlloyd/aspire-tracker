@@ -44,7 +44,7 @@ test('Connect authorization gate', async (t) => {
   })
 
   await t.test('the tab renders only for an authorized user', () => {
-    assert.match(connect, /\{canUseMessages && \(\s*\n\s*<button onClick=\{\(\) => navigate\('\/connect\/messages'\)\}/)
+    assert.match(connect, /canUseMessages \? \{[\s\S]*key: 'messages'[\s\S]*path: '\/connect\/messages'/)
   })
 
   await t.test('the workspace mounts only for an authorized user', () => {
@@ -73,12 +73,13 @@ test('Connect authorization gate', async (t) => {
 test('Connect routing', async (t) => {
   await t.test('messages joins VALID_TABS and Automations keeps its slug', () => {
     assert.match(connect, /const VALID_TABS = new Set\(\['contacts', 'outreach', 'messages', 'broadcasts'\]\)/)
-    assert.match(connect, /navigate\('\/connect\/broadcasts'\)/)
+    assert.match(connect, /path: '\/connect\/broadcasts'/)
     assert.doesNotMatch(code, /\/connect\/automations/)
   })
 
   await t.test('tab order is Contacts, Outreach, Messages, Automations', () => {
-    const order = [...connect.matchAll(/navigate\('\/connect\/(contacts|outreach|messages|broadcasts)'\)\} style=\{btnStyle/g)].map((m) => m[1])
+    const tabsBlock = connect.slice(connect.indexOf('const tabs = ['), connect.indexOf('].filter(Boolean)', connect.indexOf('const tabs = [')))
+    const order = [...tabsBlock.matchAll(/key: '(contacts|outreach|messages|broadcasts)'/g)].map((m) => m[1])
     assert.deepEqual(order, ['contacts', 'outreach', 'messages', 'broadcasts'])
   })
 
@@ -99,8 +100,9 @@ test('Connect routing', async (t) => {
 
   await t.test('the existing tabs and their behavior are preserved', () => {
     for (const t2 of ['contacts', 'outreach', 'broadcasts']) {
-      assert.ok(connect.includes(`navigate('/connect/${t2}')`), `missing ${t2} tab`)
+      assert.ok(connect.includes(`path: '/connect/${t2}'`), `missing ${t2} tab`)
     }
+    assert.match(connect, /<SegmentedTabs/)
     assert.match(connect, /<ContactsView refreshKey=\{refreshKey\} \/>/)
     assert.match(connect, /<OutreachView cohortId=\{cohortId\}/)
     assert.match(connect, /<AutomationView active=\{activeSubTab === 'broadcasts'\}/)
@@ -115,9 +117,8 @@ test('Connect routing', async (t) => {
 
 test('Messages tab unread badge', async (t) => {
   await t.test('shows only above zero, with 99+ formatting and accessible text', () => {
-    assert.match(connect, /\{messagesUnread > 0 && \(/)
-    assert.match(connect, /\{formatUnread\(messagesUnread\)\}/)
-    assert.match(connect, /<span style=\{srOnly\}>\{unreadLabel\(messagesUnread\)\}<\/span>/)
+    assert.match(connect, /badge: messagesUnread > 0 \? formatUnread\(messagesUnread\) : null/)
+    assert.match(connect, /srLabel: messagesUnread > 0 \? unreadLabel\(messagesUnread\) : ''/)
     // formatUnread caps at 99+ and unreadLabel supplies the text; both are
     // covered by the Phase 4A constants tests.
     assert.match(connect, /import \{[^}]*formatUnread, unreadLabel \}/)
@@ -125,7 +126,8 @@ test('Messages tab unread badge', async (t) => {
 
   await t.test('is not conveyed by color alone', () => {
     // The chip carries the count itself, plus screen-reader text.
-    assert.match(connect, /<span aria-hidden="true" style=\{\{[\s\S]{0,600}?\{formatUnread\(messagesUnread\)\}/)
+    assert.match(connect, /badge: messagesUnread > 0 \? formatUnread\(messagesUnread\) : null/)
+    assert.match(connect, /srLabel: messagesUnread > 0 \? unreadLabel\(messagesUnread\) : ''/)
   })
 
   await t.test('polls at 30s active and 60s idle, pausing while hidden', () => {

@@ -993,19 +993,8 @@
    screens only, not a full-width card on every screen. Single-unit leaders get
    a static context line instead of a dead control. */
 .ptl-unit-switcher {
-  display: flex; align-items: stretch; gap: 0; flex-wrap: nowrap;
-  max-width: 100%; overflow-x: auto; padding: 3px;
-  border: 1px solid #d1d5db; border-radius: 999px; background: #fff;
+  justify-self: start;
 }
-.ptl-unit-segment {
-  min-height: 38px; padding: 7px 14px; border: 0; border-radius: 999px;
-  background: transparent; color: #4b5563; font: inherit; font-size: 13px;
-  font-weight: 700; white-space: nowrap; cursor: pointer;
-}
-.ptl-unit-segment:hover { background: #f3f4f6; color: #1D2567; }
-.ptl-unit-segment:focus-visible { outline: 3px solid #93c5fd; outline-offset: 1px; }
-.ptl-unit-segment-active { background: #1D2567; color: #fff; }
-.ptl-unit-segment-active:hover { background: #1D2567; color: #fff; }
 .ptl-unit-context { margin: 0; padding: 0 2px; font-size: 13px; color: #6b7280; }
 .ptl-unit-context b { color: var(--ptl-navy, #1D2567); font-weight: 600; }
 
@@ -1567,6 +1556,14 @@ img.ptl-detail-photo {
   text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
   text-transform: uppercase; color: #9ca3af; padding: 10px 14px; border-bottom: 1px solid #eee9df;
   white-space: nowrap;
+}
+.ptl-stu-sort {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0;
+  border: 0; background: transparent; color: inherit; font: inherit; font-weight: inherit;
+  text-transform: inherit; letter-spacing: inherit; cursor: pointer;
+}
+.ptl-stu-sort:focus-visible {
+  outline: 2px solid var(--ptl-navy, #1D2567); outline-offset: 3px; border-radius: 6px;
 }
 .ptl-stu-trow { border-bottom: 1px solid #f4f1ec; cursor: pointer; }
 .ptl-stu-trow:last-child { border-bottom: none; }

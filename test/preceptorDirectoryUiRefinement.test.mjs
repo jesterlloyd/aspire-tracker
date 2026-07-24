@@ -23,6 +23,7 @@ const chrome = strip(read('src/portal/unit/UnitLeaderChrome.jsx'))
 const endpoint = strip(read('api/portal/unit-preceptors.js'))
 const css = read('src/index.css')
 const portalCss = read('src/portal/portal.css')
+const segmentedTabs = strip(read('src/components/ui/SegmentedTabs.jsx'))
 
 test('both directories use the shared white Preceptor Directory table foundation', () => {
   assert.match(staff, /PreceptorDirectoryTable/)
@@ -56,13 +57,20 @@ test('Unit Leader controls are compact and preserve search and filters without a
 })
 
 test('the Unit Leader unit selector uses the shared segmented-control language', () => {
-  assert.match(chrome, /role="group" aria-label="Viewing"/)
+  assert.match(chrome, /SegmentedTabs/)
+  assert.match(chrome, /label="Viewing"/)
   assert.match(chrome, /label: 'All Assigned Units'/)
-  assert.match(chrome, /aria-pressed=\{value === option\.key\}/)
-  assert.match(chrome, /onClick=\{\(\) => onChange\?\.\(option\.key\)\}/)
+  assert.match(chrome, /items=\{items\}/)
+  assert.match(chrome, /onChange=\{onChange\}/)
+  assert.match(segmentedTabs, /role="tablist" aria-label=\{label\}/)
+  assert.match(segmentedTabs, /role="tab"/)
+  assert.match(segmentedTabs, /aria-selected=\{selected\}/)
+  assert.match(segmentedTabs, /event\.key === 'ArrowRight'/)
+  assert.match(segmentedTabs, /event\.key === 'Home'/)
   assert.doesNotMatch(chrome, /id="ul-unit-switcher"|<select[\s\S]*All assigned units/i)
-  assert.match(portalCss, /\.ptl-unit-switcher \{[\s\S]*overflow-x: auto;[\s\S]*border-radius: 999px;[\s\S]*background: #fff;/)
-  assert.match(portalCss, /\.ptl-unit-segment-active \{ background: #1D2567; color: #fff; \}/)
+  assert.match(css, /\.segmented-tabs \{[\s\S]*display: inline-flex;[\s\S]*overflow-x: auto;[\s\S]*border-radius: 7px;/)
+  assert.match(css, /\.segmented-tabs-item\[aria-selected="true"\] \{[\s\S]*background: var\(--color-accent-primary, #1D2567\);[\s\S]*color: #fff;/)
+  assert.match(portalCss, /\.ptl-unit-switcher \{[\s\S]*justify-self: start;/)
 })
 
 test('one canonical row kebab drives staff and Unit Leader row actions with role-specific items', () => {
@@ -84,7 +92,7 @@ test('Current Student contains assignment data only and keeps multiple active as
   const assignmentBlock = table.slice(table.indexOf('function AssignmentList'), table.indexOf('export default function PreceptorDirectoryTable'))
   assert.match(assignmentBlock, /preceptor-dir-student/)
   assert.match(assignmentBlock, /preceptor-dir-role-\$\{roleClass\}/)
-  assert.match(assignmentBlock, /preceptor-dir-context/)
+  assert.doesNotMatch(assignmentBlock, /student_unit && <span className="preceptor-dir-context">/)
   assert.doesNotMatch(assignmentBlock, /Manage Preceptor Assignments|button|onClick/)
   assert.match(table, /sortAssignmentsForDisplay\(assignments\)/)
 })
