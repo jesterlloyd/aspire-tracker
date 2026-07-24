@@ -14,7 +14,7 @@
 // answers, certificates, uploaded onboarding documents, internal staff notes, and
 // private support narratives are never requested by any call in this file.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import { firstNameOf } from '../lib/masthead'
 import StudentActionsMenu from './unit/StudentActionsMenu'
@@ -35,7 +35,7 @@ import {
   SectionHeading, Pill, TableSkeleton,
 } from './unit/UnitLeaderChrome'
 import {
-  ALL_UNITS, EMPTY, orDash, studentName, sentenceCase, BUCKET_LABEL, ASPIRE_AUTHORITY_NOTE,
+  ALL_UNITS, EMPTY, orDash, studentName, sentenceCase, ASPIRE_AUTHORITY_NOTE,
   getRoster, getPlacementRequests, respondToPlacement,
   submitParticipation,
   startUnitConversation,
@@ -113,9 +113,6 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
     return src.flatMap(u => (u.students || []).map(s => ({ ...s, unit_key: u.unit_key })))
   }, [units, unitKey])
 
-  const byBucket = useCallback(
-    (b) => students.filter(s => s.bucket === b), [students])
-
   // While the roster loads, render the NAV immediately so Messages, Evaluations, and
   // More are usable at once, and skeleton only the content area. This replaces the old
   // full-page blocker that hid already-navigable chrome behind one spinner.
@@ -140,7 +137,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
   // No assigned unit is a permission state, not an empty one.
   if (unitKeys.length === 0) return <DeniedState />
 
-  const shared = { unitKey, unitKeys, students, byBucket, acceptingCohort, refreshRoster: roster.refresh }
+  const shared = { unitKey, unitKeys, students, acceptingCohort, refreshRoster: roster.refresh }
 
   // UL-POLISH P0: Messages, Report a Concern, and Profile are not unit-scoped
   // views (Messages ignores the unit filter entirely), so the switcher renders
@@ -184,8 +181,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
 }
 
 // ── Home: the locked priority order, now with hierarchy ─────────────────────
-function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate, onOpenThread, refreshRoster }) {
-  const placements = useEndpoint(s => getPlacementRequests(unitKey, s), [unitKey])
+function HomeScreen({ unitKey, unitKeys, students, profile, onNavigate, onOpenThread, refreshRoster }) {
   // The in-app feed is DERIVED server side from the caller's own authorized rows,
   // so Home and the feed can never disagree.
   const alerts = useEndpoint(s => getNotifications(unitKey, s), [unitKey])
@@ -194,10 +190,6 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate
   const activity = useEndpoint(s => getShiftActivity({}, s), [])
   const [dayOpen, setDayOpen] = useState(null)   // { ymd, shifts }
 
-  // Awaiting-response requests are surfaced by the derived feed, so they are not
-  // recomputed here. openRequests is still needed for the capacity summary count.
-  const openRequests = (placements.data?.requests || []).filter(r => r.aspire_status === 'open')
-  const supportFlags = students.filter(s => s.support?.open_count > 0)
   const notifications = alerts.data?.notifications || []
   const shifts = activity.data?.shifts || []
   const visibleShifts = unitKey === ALL_UNITS ? shifts : shifts.filter(shift => shift.unit_key === unitKey)
@@ -214,7 +206,7 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate
 
   // The attention strip renders ONLY when something is actionable. There is no empty
   // "nothing needs your attention" card any more: an empty strip is just noise.
-  const hasAttention = onShiftNow.length > 0 || notifications.length > 0 || supportFlags.length > 0
+  const hasAttention = onShiftNow.length > 0 || notifications.length > 0
 
   return (
     <>
@@ -256,21 +248,6 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate
                 </button>
               </li>
             ))}
-            {/* The support signal links to Students and carries only the fact that a
-                note exists, never its text. */}
-            {supportFlags.map(s => (
-              <li key={s.id}>
-                <button type="button" className="ptl-attn-row" onClick={() => onNavigate?.('students')}>
-                  <span className="ptl-attn-dot" aria-hidden="true" />
-                  <span className="ptl-attn-text">
-                    <span className="ptl-attn-label">{studentName(s)} raised a support note</span>
-                    <span className="ptl-attn-sub">in the last {s.support.window_days} days</span>
-                  </span>
-                  {s.unit_key && <span className="ptl-attn-unit">{s.unit_key}</span>}
-                  <span className="ptl-attn-chevron" aria-hidden="true">›</span>
-                </button>
-              </li>
-            ))}
           </ul>
         </section>
       )}
@@ -282,38 +259,9 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate
         onSelectDay={(ymd, dayShifts) => setDayOpen({ ymd, shifts: dayShifts })}
       />
 
-      <div className="ptl-grid ptl-home-followup-grid">
-        <div className="ptl-col-6 ptl-home-col">
-          <BucketCard title="Upcoming students" bucket="upcoming" byBucket={byBucket} onNavigate={onNavigate} />
-        </div>
-
-        <div className="ptl-col-6 ptl-home-col">
-          <section className="ptl-card" aria-labelledby="ul-cap">
-            <h3 id="ul-cap" className="ptl-card-title">Capacity and placement</h3>
-            {placements.loading ? (
-              <LoadingState label="Loading placement requests" />
-            ) : (
-              <div className="ptl-ulstat-row">
-                {/* Capacity is the canonical unit-availability form, submitted for ASPIRE's
-                    At a Glance view; the portal does not read that model back, so this is a
-                    call to action rather than a count. */}
-                <button type="button" className="ptl-ulstat ptl-ulstat-cta" onClick={() => onNavigate?.('capacity')}>
-                  <span className="ptl-ulstat-label">Submit unit availability</span>
-                </button>
-                <button type="button" className="ptl-ulstat" onClick={() => onNavigate?.('placements')}>
-                  <span className="ptl-ulstat-num">{openRequests.length}</span>
-                  <span className="ptl-ulstat-label">open placement request{openRequests.length === 1 ? '' : 's'}</span>
-                </button>
-              </div>
-            )}
-            <p className="ptl-muted">{ASPIRE_AUTHORITY_NOTE}</p>
-          </section>
-        </div>
-      </div>
-
       {/* Your Students, full width below. The Active-rotations and recent-threads cards
-          are gone: the student table already represents active rotations, and Messages
-          has its own primary tab. */}
+          are gone: the student table already represents active rotations, Messages
+          has its own primary tab, and Capacity/Placement have dedicated routes. */}
       <StudentRoster
         students={students}
         onNavigate={onNavigate}
@@ -330,31 +278,6 @@ function HomeScreen({ unitKey, unitKeys, students, byBucket, profile, onNavigate
         />
       )}
     </>
-  )
-}
-
-function BucketCard({ title, bucket, byBucket, onNavigate }) {
-  const rows = byBucket(bucket)
-  return (
-    <section className="ptl-card" aria-labelledby={`ul-${bucket}`}>
-      <h3 id={`ul-${bucket}`} className="ptl-card-title">{title}</h3>
-      {rows.length === 0 ? (
-        <p className="ptl-muted">No {BUCKET_LABEL[bucket].toLowerCase()} students right now.</p>
-      ) : (
-        <>
-          <ul className="ptl-list">
-            {rows.slice(0, 5).map(s => (
-              <li key={s.id}>{studentName(s)} <span className="ptl-muted">{orDash(s.unit_key)}</span></li>
-            ))}
-          </ul>
-          {rows.length > 5 && (
-            <button type="button" className="ptl-linklike" onClick={() => onNavigate?.('students')}>
-              View all {rows.length}
-            </button>
-          )}
-        </>
-      )}
-    </section>
   )
 }
 

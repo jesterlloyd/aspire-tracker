@@ -32,12 +32,12 @@ const portalCode = stripJs(portal)
 const apiCode = stripJs(api)
 
 // ── Home priority order ─────────────────────────────────────────────────────
-test('Home renders welcome, attention, calendar, upcoming, capacity, then the table', () => {
-  // SUPERSEDED: the Home layout changed in the UX-cleanup pass. Active Rotations and
-  // Recent Messages are gone; the order is welcome, attention strip, calendar, Upcoming
-  // Students, Capacity and placement, then the full-width student table.
-  const home = portal.slice(portal.indexOf('function HomeScreen'), portal.indexOf('function BucketCard'))
-  const order = ['Welcome', 'ptl-attn-strip', 'UnitRotationCalendar', 'Upcoming students', 'Capacity and placement', 'StudentRoster']
+test('Home renders welcome, optional attention, calendar, then the table', () => {
+  // Portal convergence keeps Home focused: welcome/context, actionable attention
+  // when present, the activity calendar, then the full-width student roster. Capacity
+  // and Placement remain dedicated routes rather than extra Home cards.
+  const home = portal.slice(portal.indexOf('function HomeScreen'), portal.indexOf('function PlacementScreen'))
+  const order = ['Welcome', 'ptl-attn-strip', 'UnitRotationCalendar', 'StudentRoster']
   let cursor = -1
   for (const marker of order) {
     const at = home.indexOf(marker)
@@ -45,6 +45,9 @@ test('Home renders welcome, attention, calendar, upcoming, capacity, then the ta
     assert.ok(at > cursor, `${marker} in order`)
     cursor = at
   }
+  assert.ok(!home.includes('Upcoming students'))
+  assert.ok(!home.includes('Capacity and placement'))
+  assert.ok(!home.includes('ptl-home-followup-grid'))
 })
 
 // ── Every required section exists and is routed ─────────────────────────────
@@ -244,9 +247,9 @@ test('no excluded field is ever requested by the browser', () => {
   }
 })
 
-test('the support signal is a COUNT, never the narrative text', () => {
-  assert.match(portal, /s\.support\?\.open_count > 0/)
-  assert.match(portal, /s\.support\.window_days/)
+test('support signals stay out of the portal UI', () => {
+  assert.doesNotMatch(portal, /s\.support\?\.open_count > 0/)
+  assert.doesNotMatch(portal, /s\.support\.window_days/)
   assert.doesNotMatch(portalCode, /support\.text|support_needed/)
 })
 

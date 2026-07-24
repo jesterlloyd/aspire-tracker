@@ -29,30 +29,29 @@ const drawerCode = stripJs(drawer)
 
 // ── 1. Home layout ──────────────────────────────────────────────────────────
 test('the attention strip renders only when something is actionable', () => {
-  assert.match(portalCode, /const hasAttention = onShiftNow\.length > 0 \|\| notifications\.length > 0 \|\| supportFlags\.length > 0/)
+  assert.match(portalCode, /const hasAttention = onShiftNow\.length > 0 \|\| notifications\.length > 0/)
   assert.match(portalCode, /\{hasAttention && \(/)
+  assert.ok(!portalCode.includes('supportFlags'))
+  assert.ok(!portalCode.includes('raised a support note'))
   // No empty "nothing needs your attention" card any more.
   assert.ok(!portalCode.includes('Nothing needs your attention right now'))
 })
 
-test('the canonical calendar is full width, with follow-up cards below it', () => {
-  const home = portalCode.slice(portalCode.indexOf('function HomeScreen'), portalCode.indexOf('function BucketCard'))
+test('the canonical calendar is full width, followed directly by Your Students', () => {
+  const home = portalCode.slice(portalCode.indexOf('function HomeScreen'), portalCode.indexOf('function PlacementScreen'))
   const cal = home.indexOf('<UnitRotationCalendar')
-  const followup = home.indexOf('ptl-home-followup-grid')
-  const upcoming = home.indexOf('bucket="upcoming"', followup)
-  const cap = home.indexOf('Capacity and placement', followup)
-  const roster = home.indexOf('<StudentRoster', followup)
+  const roster = home.indexOf('<StudentRoster')
   assert.ok(cal > -1, 'Home renders the Unit Leader calendar')
-  assert.ok(cal < followup, 'follow-up card grid renders after the calendar')
-  assert.ok(followup < upcoming && upcoming < cap, 'Upcoming Students precedes Capacity below the calendar')
-  assert.ok(cap < roster, 'Your Students stays below the follow-up cards')
+  assert.ok(cal < roster, 'Your Students follows the calendar')
+  assert.ok(!home.includes('ptl-home-followup-grid'))
+  assert.ok(!home.includes('Upcoming students'))
+  assert.ok(!home.includes('Capacity and placement'))
   assert.doesNotMatch(home, /ptl-col-7[\s\S]*<UnitRotationCalendar/, 'calendar no longer sits in the old left column')
 })
 
-test('Your Students is full width below the grid', () => {
-  const gridEnd = portalCode.indexOf('</div>', portalCode.indexOf('ptl-home-followup-grid'))
-  const roster = portalCode.indexOf('<StudentRoster', gridEnd)
-  assert.ok(roster > gridEnd, 'the roster renders after the two-column grid closes')
+test('Your Students is full width below the calendar', () => {
+  const home = portalCode.slice(portalCode.indexOf('function HomeScreen'), portalCode.indexOf('function PlacementScreen'))
+  assert.ok(home.indexOf('<StudentRoster') > home.indexOf('<UnitRotationCalendar'))
   assert.match(portalCode, /heading="Your students"/)
 })
 
@@ -61,8 +60,10 @@ test('Active Rotations and Recent Messages cards are gone', () => {
   assert.ok(!portalCode.includes('Active rotations'), 'Active Rotations card removed')
   assert.ok(!portalCode.includes('Recent Messages'), 'Recent Messages card removed')
   assert.ok(!portalCode.includes('listPortalConversations'), 'the recent-threads fetch is removed from Home')
-  // BucketCard is still used for Upcoming only, not Active.
-  assert.equal((portalCode.match(/<BucketCard/g) || []).length, 1)
+  assert.ok(!portalCode.includes('Upcoming students'), 'Upcoming Students card removed')
+  assert.ok(!portalCode.includes('Capacity and placement'), 'Capacity and placement card removed')
+  assert.ok(!portalCode.includes('function BucketCard'))
+  assert.equal((portalCode.match(/<BucketCard/g) || []).length, 0)
 })
 
 // ── 3. Kebab: Message Student only ──────────────────────────────────────────
@@ -186,13 +187,14 @@ test('Notification preferences still lives in Profile', () => {
 
 // ── 7. Load waterfall ───────────────────────────────────────────────────────
 test('the independent Home requests are separate parallel useEndpoint calls', () => {
-  const home = portalCode.slice(portalCode.indexOf('function HomeScreen'), portalCode.indexOf('function BucketCard'))
-  // Each is its own useEndpoint, so they fan out in parallel, none chained on another. The
-  // Home capacity fetch was dropped: capacity is now the canonical model, which the portal
-  // does not read back, so Home no longer queries the old unit_capacity_submissions summary.
-  for (const call of ['getPlacementRequests', 'getNotifications', 'getShiftActivity']) {
+  const home = portalCode.slice(portalCode.indexOf('function HomeScreen'), portalCode.indexOf('function PlacementScreen'))
+  // Each is its own useEndpoint, so they fan out in parallel, none chained on another.
+  // Placement and Capacity data live on their dedicated routes, so Home no longer loads
+  // either one just to show summary cards.
+  for (const call of ['getNotifications', 'getShiftActivity']) {
     assert.match(home, new RegExp(`useEndpoint\\([^)]*${call}`), `${call} is an independent endpoint`)
   }
+  assert.ok(!home.includes('getPlacementRequests'))
 })
 
 test('there is no duplicate roster fetch on Home', () => {

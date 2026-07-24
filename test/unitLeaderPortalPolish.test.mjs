@@ -136,11 +136,12 @@ test('P1-8: the Compass welcome header replaces the literal Home heading', () =>
 })
 
 test('P1-9: Home uses the canonical calendar first with actionable attention rows', async (t) => {
-  await t.test('the calendar leads and remaining cards use the follow-up grid', () => {
-    const home = portal.slice(portal.indexOf('function HomeScreen'), portal.indexOf('function BucketCard'))
-    assert.ok(home.indexOf('<UnitRotationCalendar') < home.indexOf('ptl-home-followup-grid'))
-    assert.match(portal, /className="ptl-grid ptl-home-followup-grid"/)
-    assert.match(portal, /className="ptl-col-6 ptl-home-col"/)
+  await t.test('the calendar leads directly into the student roster', () => {
+    const home = portal.slice(portal.indexOf('function HomeScreen'), portal.indexOf('function PlacementScreen'))
+    assert.ok(home.indexOf('<UnitRotationCalendar') < home.indexOf('<StudentRoster'))
+    assert.ok(!home.includes('ptl-home-followup-grid'))
+    assert.ok(!home.includes('Capacity and placement'))
+    assert.ok(!home.includes('Upcoming students'))
   })
   await t.test('attention items are rows with tone dot, unit chip, and a destination', () => {
     assert.match(portal, /ptl-attn-dot/)
@@ -148,14 +149,15 @@ test('P1-9: Home uses the canonical calendar first with actionable attention row
     assert.match(portal, /ptl-attn-chevron/)
     assert.match(portal, /onClick=\{\(\) => onNavigate\?\.\(n\.section\)\}/)
   })
-  await t.test('the support signal links to Students and never carries note text', () => {
-    assert.match(portal, /raised a support note/)
+  await t.test('support-note signals stay out of Home attention', () => {
+    assert.ok(!portal.includes('raised a support note'))
     assert.doesNotMatch(portal, /support_needed|support\.text|support\.note/)
   })
-  await t.test('capacity and placement numerals link to their sections', () => {
-    assert.match(portal, /ptl-ulstat-num/)
-    assert.match(portal, /onClick=\{\(\) => onNavigate\?\.\('capacity'\)\}/)
-    assert.match(portal, /onClick=\{\(\) => onNavigate\?\.\('placements'\)\}/)
+  await t.test('capacity and placement stay as dedicated routed sections', () => {
+    assert.match(portal, /view === 'capacity'/)
+    assert.match(portal, /view === 'placements'/)
+    assert.match(chrome, /label: 'Capacity'/)
+    assert.match(chrome, /label: 'Placement Requests'/)
   })
 })
 
@@ -207,9 +209,9 @@ test('P1-12: the Compass form treatment covers portal and create forms', async (
     assert.match(portal, /Thank you, \{form\.unit_name\}/)
     assert.match(preceptorsWorkspace, /Preceptor created and active/)
   })
-  await t.test('the ASPIRE authority note appears once per screen', () => {
+  await t.test('the ASPIRE authority note remains on routed action screens', () => {
     const notes = portal.match(/\{ASPIRE_AUTHORITY_NOTE\}/g) || []
-    assert.equal(notes.length, 3, 'home, placements, and capacity: one each')
+    assert.equal(notes.length, 2, 'placements and capacity: one each')
   })
 })
 

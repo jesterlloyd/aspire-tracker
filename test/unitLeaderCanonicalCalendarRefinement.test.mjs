@@ -38,7 +38,9 @@ test('Unit Leader calendar renders mini calendar, Today panel, toolbar, and sele
   assert.match(unitCalendar, /Previous month/)
   assert.match(unitCalendar, /Next month/)
   assert.match(unitCalendar, /onClick=\{goToday\}>Today/)
-  assert.match(unitCalendar, /ptl-cal-view-active">Month/)
+  assert.doesNotMatch(unitCalendar, /ptl-cal-view-active|ptl-cal-view-tabs/)
+  assert.match(staffCalendar, /Month/)
+  assert.match(staffCalendar, /Week/)
   assert.match(unitCalendarCode, /const \[selectedDate, setSelectedDate\] = useState\(today\)/)
   assert.match(unitCalendarCode, /selected \? 'ptl-cal-selected' : ''/)
   assert.match(unitCalendarCode, /selected \? 'ptl-cal-mini-selected' : ''/)
@@ -60,15 +62,14 @@ test('Unit Leader Home filters calendar activity by authorized unit selection', 
   assert.match(portalCode, /visibleShifts\.filter\(y => y\.shift_date === x\.shift_date\)/)
 })
 
-test('remaining Home cards render below the full-width calendar', () => {
-  const home = portalCode.slice(portalCode.indexOf('function HomeScreen'), portalCode.indexOf('function BucketCard'))
+test('students table follows the full-width calendar without redundant cards', () => {
+  const home = portalCode.slice(portalCode.indexOf('function HomeScreen'), portalCode.indexOf('function PlacementScreen'))
   const cal = home.indexOf('<UnitRotationCalendar')
-  const followup = home.indexOf('ptl-home-followup-grid')
-  const upcoming = home.indexOf('bucket="upcoming"', followup)
-  const capacity = home.indexOf('Capacity and placement', followup)
-  const roster = home.indexOf('<StudentRoster', followup)
-  assert.ok(cal > -1 && followup > cal)
-  assert.ok(followup < upcoming && upcoming < capacity && capacity < roster)
+  const roster = home.indexOf('<StudentRoster')
+  assert.ok(cal > -1 && roster > cal)
+  assert.ok(!home.includes('ptl-home-followup-grid'))
+  assert.ok(!home.includes('bucket="upcoming"'))
+  assert.ok(!home.includes('Capacity and placement'))
 })
 
 test('role-unsafe staff controls and data dependencies do not enter Unit Leader calendar', () => {

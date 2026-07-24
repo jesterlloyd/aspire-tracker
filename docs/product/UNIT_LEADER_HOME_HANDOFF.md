@@ -11,12 +11,19 @@ Home order:
 - welcome heading and authorized unit context
 - actionable attention strip, only when needed
 - full-width `Rotation activity` calendar
-- follow-up card row with `Upcoming students` and `Capacity and placement`
 - full-width `Your students` table
 
 The calendar is intentionally a historical activity record, not a schedule.
 It keeps the existing 90-day server-bounded shift activity model and still tells
 Unit Leaders that ASPIRE does not hold a forward schedule.
+
+The previous Home summary cards for `Upcoming students` and `Capacity and
+placement` were removed. Those workflows remain available through their
+dedicated portal routes, where the full context and actions live.
+
+Support-note-derived attention rows were also removed from Home. Home attention
+now stays limited to live shift activity and server-provided notification rows,
+without exposing private support narratives or duplicating routed work queues.
 
 ## Canonical calendar treatment
 
@@ -32,7 +39,6 @@ Unit Leader Home configures the shared shell for portal-safe activity:
 - previous and next month controls
 - `Today` button
 - month title
-- month-only view indicator
 - selected-day treatment in both mini and main calendars
 - activity chips for completed and active logged shifts
 
@@ -80,5 +86,5 @@ shared `Intl.Collator` helper in `src/portal/unit/unitLeaderStudentSort.js`.
 ## Boundaries
 
 This Home pass did not expose staff-only data or controls, change Unit Leader
-scope, fabricate forward schedules, run SQL, add migrations, or alter backend
-activity semantics.
+scope, fabricate forward schedules, remove the dedicated Capacity or Placement
+pages, run SQL, add migrations, or alter backend activity semantics.

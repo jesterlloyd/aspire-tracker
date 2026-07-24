@@ -160,9 +160,6 @@ export default function UnitRotationCalendar({ shifts = [], windowStart, onSelec
         <ChevronRight size={15} aria-hidden="true" />
       </button>
       <button type="button" className="ptl-btn ptl-btn-small" onClick={goToday}>Today</button>
-      <span className="ptl-cal-view-tabs" aria-label="Calendar view">
-        <span className="ptl-cal-view-active">Month</span>
-      </span>
     </div>
   )
 

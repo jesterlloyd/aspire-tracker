@@ -32,7 +32,7 @@ Unit Leader Home:
 - `src/portal/unit/UnitRotationCalendar.jsx` uses `CanonicalCalendarLayout`,
   `CanonicalCalendarSidebar`, and `CanonicalCalendarTodayPanel`.
 - `src/portal/UnitLeaderPortal.jsx` renders the calendar full width before the
-  remaining Home cards.
+  `Your students` roster.
 
 ## Unit Leader configuration
 
@@ -45,6 +45,8 @@ The Unit Leader calendar is configured as a role-safe activity record:
 - no Supabase, auth, fetch, or staff calendar dependencies inside
   `UnitRotationCalendar`
 - unit selector filtering applies to already-authorized activity rows
+- previous, next, Today, and month-title controls without a redundant static
+  Month-view pill
 
 Staff-only controls intentionally remain absent from the Unit Leader calendar:
 

@@ -283,8 +283,8 @@ test('the day drawer shows student and preceptor and traps focus', () => {
 
 // ── Home composition ───────────────────────────────────────────────────────
 test('Home renders welcome, an attention strip, the calendar, then the students table', () => {
-  const home = portalCode.slice(portalCode.indexOf('function HomeScreen'), portalCode.indexOf('function BucketCard'))
-  const order = ['Welcome', 'ptl-attn-strip', '<UnitRotationCalendar', 'bucket="upcoming"', 'Capacity and placement', '<StudentRoster']
+  const home = portalCode.slice(portalCode.indexOf('function HomeScreen'), portalCode.indexOf('function PlacementScreen'))
+  const order = ['Welcome', 'ptl-attn-strip', '<UnitRotationCalendar', '<StudentRoster']
   let cursor = -1
   for (const marker of order) {
     const at = home.indexOf(marker)
@@ -292,7 +292,10 @@ test('Home renders welcome, an attention strip, the calendar, then the students 
     assert.ok(at > cursor, `${marker} must come after the previous block`)
     cursor = at
   }
-  // Recent Messages is gone.
+  // Redundant Home cards are gone; dedicated routes remain.
+  assert.ok(!home.includes('bucket="upcoming"'))
+  assert.ok(!home.includes('Capacity and placement'))
+  assert.ok(!home.includes('ptl-home-followup-grid'))
   assert.ok(!home.includes('Recent Messages'))
 })
 
