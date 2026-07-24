@@ -178,17 +178,18 @@ export function UnitSwitcher({ unitKeys = [], value, onChange }) {
     return <p className="ptl-unit-context">Unit · <b>{unitKeys[0]}</b></p>
   }
   return (
-    <div className="ptl-unit-switcher">
-      <label className="ptl-label" htmlFor="ul-unit-switcher">Viewing</label>
-      <select
-        id="ul-unit-switcher"
-        className="ptl-input"
-        value={value}
-        onChange={(e) => onChange?.(e.target.value)}
-      >
-        <option value={ALL_UNITS}>All assigned units ({unitKeys.length})</option>
-        {unitKeys.map(k => <option key={k} value={k}>{k}</option>)}
-      </select>
+    <div className="ptl-unit-switcher" role="group" aria-label="Viewing">
+      {[{ key: ALL_UNITS, label: 'All Assigned Units' }, ...unitKeys.map(k => ({ key: k, label: k }))].map(option => (
+        <button
+          key={option.key}
+          type="button"
+          className={`ptl-unit-segment ${value === option.key ? 'ptl-unit-segment-active' : ''}`}
+          aria-pressed={value === option.key}
+          onClick={() => onChange?.(option.key)}
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   )
 }

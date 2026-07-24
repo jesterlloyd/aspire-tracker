@@ -158,7 +158,13 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
     }
   }
 
-  const openAssignmentManager = (assignment, triggerEl) => {
+  const openAssignmentManager = (row, triggerEl) => {
+    const assignment = row?.assignments?.[0]
+    if (!assignment) {
+      setAssignNotice('No active assignments are available for this preceptor.')
+      triggerEl?.focus?.()
+      return
+    }
     setAssignState({
       student: {
         id: assignment.student_id,
@@ -269,7 +275,7 @@ export default function PreceptorsTable({ students = [], cohortId, toast }) {
               sortBy={sortBy}
               sortDir={sortDir}
               onSort={handleSort}
-              onManageAssignment={openAssignmentManager}
+              onManagePreceptorAssignments={openAssignmentManager}
               onEditPreceptor={setEditTarget}
               onDeletePreceptor={setDeleteTarget}
               contactAvatarMap={contactAvatarMap}

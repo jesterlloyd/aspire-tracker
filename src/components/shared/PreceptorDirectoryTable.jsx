@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { preceptorInitials, sortAssignmentsForDisplay } from '../../lib/preceptorDirectory'
+import RowActionsMenu from './RowActionsMenu'
 
 const ROLE_CLASS = {
   Primary: 'primary',
@@ -31,7 +33,21 @@ function StatusPill({ active }) {
   )
 }
 
-function AssignmentList({ assignments = [], emptyLabel = '-', onManageAssignment }) {
+function PreceptorAvatar({ row, contactAvatarMap = {} }) {
+  const [failedUrl, setFailedUrl] = useState(null)
+  const emailKey = row.email ? String(row.email).toLowerCase().trim() : ''
+  const avatarUrl = row.avatar_url || row.profile_image_url || (emailKey ? contactAvatarMap[emailKey] : null)
+  const failed = avatarUrl && failedUrl === avatarUrl
+  const showPhoto = avatarUrl && !failed
+  return (
+    <span className="preceptor-dir-avatar" role="img" aria-label={`${row.full_name || 'Preceptor'} profile`}>
+      {showPhoto && <img src={avatarUrl} alt="" onError={() => setFailedUrl(avatarUrl)} />}
+      <span>{preceptorInitials(row.full_name)}</span>
+    </span>
+  )
+}
+
+function AssignmentList({ assignments = [], emptyLabel = 'No current student' }) {
   const rows = sortAssignmentsForDisplay(assignments)
   if (rows.length === 0) return <span className="preceptor-dir-empty">{emptyLabel}</span>
   return (
@@ -44,13 +60,6 @@ function AssignmentList({ assignments = [], emptyLabel = '-', onManageAssignment
             <span className="preceptor-dir-student">{assignment.student_name}</span>
             <span className={`preceptor-dir-role preceptor-dir-role-${roleClass}`}>{role}</span>
             {assignment.student_unit && <span className="preceptor-dir-context">{assignment.student_unit}</span>}
-            {onManageAssignment && (
-              <button type="button" className="preceptor-dir-manage"
-                aria-label={`Manage preceptor assignments for ${assignment.student_name}`}
-                onClick={event => onManageAssignment(assignment, event.currentTarget)}>
-                Manage preceptor assignments
-              </button>
-            )}
           </span>
         )
       })}
@@ -64,6 +73,7 @@ export default function PreceptorDirectoryTable({
   sortDir,
   onSort,
   onManageAssignment,
+  onManagePreceptorAssignments,
   onEditPreceptor,
   onDeletePreceptor,
   contactAvatarMap = {},
@@ -75,6 +85,9 @@ export default function PreceptorDirectoryTable({
   showAdminActions = false,
   caption = 'Preceptor Directory',
 }) {
+  const [openRowId, setOpenRowId] = useState(null)
+  const manage = onManagePreceptorAssignments || onManageAssignment
+  const showActions = !!(manage || showAdminActions || onEditPreceptor || onDeletePreceptor)
   return (
     <table className="am-table preceptor-dir-table">
       <caption className="ptl-visually-hidden">{caption}</caption>
@@ -83,27 +96,42 @@ export default function PreceptorDirectoryTable({
           <SortHeader sortKey="name" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>Name</SortHeader>
           {showContact && <th scope="col" className="am-th">Contact</th>}
           <SortHeader sortKey="unit" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>Unit</SortHeader>
-          <th scope="col" className="am-th">Shift</th>
-          <th scope="col" className="am-th">Status</th>
+          <SortHeader sortKey="shift" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>Shift</SortHeader>
+          <SortHeader sortKey="status" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>Status</SortHeader>
           <SortHeader sortKey="current_student" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>Current Student</SortHeader>
           {showAssignmentCount && <SortHeader sortKey="count" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>Assignments</SortHeader>}
-          {showAssociation && <th scope="col" className="am-th">Association</th>}
+          {showAssociation && <SortHeader sortKey="association" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>Association</SortHeader>}
           {showCohorts && <th scope="col" className="am-th">Cohorts</th>}
           {showLastActive && <th scope="col" className="am-th">Last Active</th>}
-          {showAdminActions && <th scope="col" className="am-th"><span className="sr-only">Actions</span></th>}
+          {showActions && <th scope="col" className="am-th"><span className="sr-only">Actions</span></th>}
         </tr>
       </thead>
       <tbody>
         {(rows || []).map(row => {
-          const avatarUrl = row.email ? contactAvatarMap[String(row.email).toLowerCase().trim()] || null : null
+          const actions = [
+            manage ? {
+              key: 'manage',
+              label: 'Manage Preceptor Assignments',
+              disabled: !row.assignments?.length,
+              onSelect: triggerEl => manage(row, triggerEl),
+            } : null,
+            showAdminActions && onEditPreceptor ? {
+              key: 'edit',
+              label: 'Edit Preceptor',
+              onSelect: () => onEditPreceptor(row),
+            } : null,
+            showAdminActions && onDeletePreceptor ? {
+              key: 'delete',
+              label: 'Delete Preceptor',
+              danger: true,
+              onSelect: () => onDeletePreceptor(row),
+            } : null,
+          ].filter(Boolean)
           return (
             <tr key={row.id} className="am-row">
               <td className="am-td" data-label="Name">
                 <div className="preceptor-dir-name">
-                  <span className="preceptor-dir-avatar" aria-hidden="true">
-                    {avatarUrl && <img src={avatarUrl} alt="" onError={e => { e.currentTarget.style.display = 'none' }} />}
-                    <span>{preceptorInitials(row.full_name)}</span>
-                  </span>
+                  <PreceptorAvatar row={row} contactAvatarMap={contactAvatarMap} />
                   <strong>{row.full_name}</strong>
                 </div>
               </td>
@@ -117,7 +145,7 @@ export default function PreceptorDirectoryTable({
               <td className="am-td" data-label="Shift">{row.shift || row.shift_type || '-'}</td>
               <td className="am-td" data-label="Status"><StatusPill active={row.is_active !== false} /></td>
               <td className="am-td preceptor-dir-current" data-label="Current Student">
-                <AssignmentList assignments={row.assignments} onManageAssignment={onManageAssignment} />
+                <AssignmentList assignments={row.assignments} />
               </td>
               {showAssignmentCount && <td className="am-td" data-label="Assignments">{row.active_assignment_count ?? row.assignments?.length ?? '-'}</td>}
               {showAssociation && (
@@ -127,12 +155,15 @@ export default function PreceptorDirectoryTable({
               )}
               {showCohorts && <td className="am-td" data-label="Cohorts">{row.cohorts_participated ?? '-'}</td>}
               {showLastActive && <td className="am-td" data-label="Last Active">{row.last_active_display || row.last_active_cohort || row.last_active_date || '-'}</td>}
-              {showAdminActions && (
+              {showActions && (
                 <td className="am-td" data-label="Actions">
-                  <div className="preceptor-dir-actions">
-                    <button type="button" className="preceptor-dir-action" onClick={() => onEditPreceptor?.(row)}>Edit</button>
-                    <button type="button" className="preceptor-dir-action preceptor-dir-action-danger" onClick={() => onDeletePreceptor?.(row)}>Delete</button>
-                  </div>
+                  <RowActionsMenu
+                    label={`Open actions for ${row.full_name || 'preceptor'}`}
+                    open={openRowId === row.id}
+                    onToggle={() => setOpenRowId(current => current === row.id ? null : row.id)}
+                    onClose={() => setOpenRowId(null)}
+                    items={actions}
+                  />
                 </td>
               )}
             </tr>

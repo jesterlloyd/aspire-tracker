@@ -73,7 +73,7 @@ test('student kebab has the exact locked action order and no ambiguous Replace o
 test('every entry point mounts the same portal-specific manager', () => {
   assert.match(portal, /<UnitLeaderPreceptorManager/)
   assert.match(drawer, />\s*Manage assignments\s*</)
-  assert.match(directoryTable, /Manage preceptor assignments/)
+  assert.match(directoryTable, /Manage Preceptor Assignments/)
   assert.doesNotMatch(directoryTable, /Manage student assignments/)
   assert.match(workspace, /<UnitLeaderPreceptorManager/)
   assert.doesNotMatch(manager, /PreceptorAssignmentModal|api\/preceptor-primary-assign/)

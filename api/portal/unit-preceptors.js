@@ -25,6 +25,29 @@ async function loadPreceptors(db) {
   return data || []
 }
 
+async function loadContactAvatars(db, preceptors) {
+  try {
+    const emails = [...new Set((preceptors || [])
+      .map(preceptor => String(preceptor.email || '').toLowerCase().trim())
+      .filter(Boolean))]
+    if (emails.length === 0) return {}
+    const { data, error } = await db
+      .from('contacts')
+      .select('email, avatar_url')
+      .in('email', emails)
+      .not('avatar_url', 'is', null)
+    if (error) return {}
+    const map = {}
+    for (const contact of data || []) {
+      const key = String(contact.email || '').toLowerCase().trim()
+      if (key && !map[key]) map[key] = contact.avatar_url
+    }
+    return map
+  } catch {
+    return {}
+  }
+}
+
 async function loadAssignments(db, studentIds) {
   if (studentIds.length === 0) return []
   const { data, error } = await db
@@ -41,7 +64,7 @@ const displayName = (student) => {
   return `${first} ${student?.last_name || ''}`.trim() || 'Student'
 }
 
-export function buildUnitPreceptorCollections({ preceptors, assignments, students, unitKeys }) {
+export function buildUnitPreceptorCollections({ preceptors, assignments, students, unitKeys, contactAvatarMap = {} }) {
   const studentById = new Map((students || []).map(student => [student.id, student]))
   const scopedUnitKeys = new Set(unitKeys || [])
   const assignmentsByPreceptor = new Map()
@@ -74,6 +97,7 @@ export function buildUnitPreceptorCollections({ preceptors, assignments, student
     const activeAssignments = assignmentsByPreceptor.get(preceptor.id) || []
     const associated = scopedUnitKeys.has(preceptor.unit_name) || activeAssignments.length > 0
     const homeUnit = { id: preceptor.unit_id || null, name: preceptor.unit_name || null }
+    const emailKey = String(preceptor.email || '').toLowerCase().trim()
 
     if (associated) {
       roster.push({
@@ -83,6 +107,7 @@ export function buildUnitPreceptorCollections({ preceptors, assignments, student
         phone: preceptor.phone || null,
         home_unit: homeUnit,
         shift: preceptor.shift_type || null,
+        avatar_url: emailKey ? contactAvatarMap[emailKey] || null : null,
         is_active: preceptor.is_active !== false,
         active_assignment_count: activeAssignments.length,
         cross_unit_association: activeAssignments.some(a => a.student_unit !== preceptor.unit_name),
@@ -108,6 +133,7 @@ export function createUnitPreceptorsHandler({
   resolveStudents = resolveUnitScopedStudents,
   fetchPreceptors = loadPreceptors,
   fetchAssignments = loadAssignments,
+  fetchContactAvatars = loadContactAvatars,
 } = {}) {
   return async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store')
@@ -122,15 +148,17 @@ export function createUnitPreceptorsHandler({
     try {
       const { students } = await resolveStudents(db, scopes)
       const studentIds = students.map(student => student.id)
-      const [preceptors, assignments] = await Promise.all([
-        fetchPreceptors(db),
+      const preceptors = await fetchPreceptors(db)
+      const [assignments, contactAvatarMap] = await Promise.all([
         fetchAssignments(db, studentIds),
+        fetchContactAvatars(db, preceptors),
       ])
       return res.status(200).json(buildUnitPreceptorCollections({
         preceptors,
         assignments,
         students,
         unitKeys,
+        contactAvatarMap,
       }))
     } catch {
       return res.status(500).json({ error: 'internal_error' })

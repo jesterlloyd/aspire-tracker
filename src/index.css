@@ -330,7 +330,14 @@ body { min-height: 100vh; }
   .msg-bubble { max-width: 86%; }
 }
 
-.preceptor-dir-table { width: 100%; }
+.preceptor-dir-table {
+  width: 100%;
+  min-width: 920px;
+  background: var(--pearl);
+}
+.preceptor-dir-table thead th { background: #fafafa; }
+.preceptor-dir-table .am-row { background: #fff; }
+.preceptor-dir-table .am-row:hover { background: #fafafa; }
 .preceptor-dir-sort {
   display: inline-flex;
   align-items: center;
@@ -361,7 +368,7 @@ body { min-height: 100vh; }
 .preceptor-dir-contact span {
   display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.preceptor-dir-assignments { display: grid; gap: 8px; min-width: 180px; }
+.preceptor-dir-assignments { display: grid; gap: 6px; min-width: 180px; }
 .preceptor-dir-assignment { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .preceptor-dir-student { font-weight: 600; color: #374151; }
 .preceptor-dir-role,
@@ -378,23 +385,30 @@ body { min-height: 100vh; }
 .preceptor-dir-association { background: #fff7e6; color: #8a5300; }
 .preceptor-dir-context,
 .preceptor-dir-empty { color: #6b7280; font-size: 12px; }
-.preceptor-dir-manage {
-  flex-basis: 100%; width: max-content; border: 0; background: transparent;
-  color: #1D2567; text-decoration: underline; font: inherit; font-size: 11.5px;
-  cursor: pointer; padding: 0;
+.shared-row-actions { display: inline-flex; justify-content: flex-end; width: 100%; }
+.shared-row-actions-btn {
+  min-width: 44px; min-height: 44px; display: inline-grid; place-items: center;
+  border: 0; border-radius: 10px; background: transparent; color: #6b7280; cursor: pointer;
 }
-.preceptor-dir-manage:focus-visible {
-  outline: 2px solid #1D2567; outline-offset: 3px; border-radius: 4px;
+.shared-row-actions-btn:hover { background: #f3f4f6; color: #1d2567; }
+.shared-row-actions-btn:focus-visible {
+  outline: 3px solid #93c5fd; outline-offset: 2px;
 }
-.preceptor-dir-actions { display: flex; gap: 6px; white-space: nowrap; }
-.preceptor-dir-action {
-  display: inline-flex; align-items: center; justify-content: center; min-height: 30px;
-  border: 0; border-radius: 6px; background: #f3f4f6; color: #374151;
-  font: inherit; font-size: 12px; font-weight: 600; padding: 4px 10px; cursor: pointer;
+.shared-row-actions-menu {
+  z-index: 1000; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(16,24,40,0.14); padding: 5px; display: flex; flex-direction: column; gap: 2px;
 }
-.preceptor-dir-action:hover { background: #e5e7eb; }
-.preceptor-dir-action-danger { background: #fef2f2; color: #dc2626; }
-.preceptor-dir-action-danger:hover { background: #fee2e2; }
+.shared-row-actions-item {
+  text-align: left; padding: 9px 10px; border: none; background: none; border-radius: 7px;
+  font-size: 13px; color: #191919; font-family: inherit; cursor: pointer;
+}
+.shared-row-actions-item:hover:not(:disabled) { background: #f7f9ff; }
+.shared-row-actions-item:disabled { color: #9ca3af; cursor: default; }
+.shared-row-actions-item-danger { color: #b42318; }
+.shared-row-actions-item:focus-visible { outline: 3px solid #93c5fd; outline-offset: -2px; }
+@media (max-width: 760px) {
+  .preceptor-dir-table { min-width: 780px; }
+}
 
 /* ================================================================
    COHORT BAR - Nightfall (attached to header)

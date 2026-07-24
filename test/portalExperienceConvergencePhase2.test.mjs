@@ -38,7 +38,7 @@ test('main app and Unit Leader use the shared preceptor directory table foundati
 
 test('correct assignment link label is canonical', () => {
   const sources = [staffDirectory, unitDirectory, sharedTable].join('\n')
-  assert.match(sharedTable, /Manage preceptor assignments/)
+  assert.match(sharedTable, /Manage Preceptor Assignments/)
   assert.doesNotMatch(sources, /Manage student assignments/)
 })
 
@@ -70,7 +70,8 @@ test('Current Student rows preserve all roles and exact manager context', () => 
   assert.deepEqual(collectStudentAssignments(roster, 's1').map(row => [row.id, row.role]), [
     ['a1', 'primary'], ['a2', 'secondary'], ['a3', 'coverage'],
   ])
-  assert.match(sharedTable, /onManageAssignment\(assignment, event\.currentTarget\)/)
+  assert.match(sharedTable, /onSelect: triggerEl => manage\(row, triggerEl\)/)
+  assert.doesNotMatch(sharedTable, /onManageAssignment\(assignment/)
   assert.match(staffDirectory, /activeAssignmentRows/)
 })
 

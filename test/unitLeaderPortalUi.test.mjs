@@ -84,11 +84,14 @@ test('sections are REAL routes, so refresh and deep links work', () => {
 
 // ── Unit switcher and All assigned units ────────────────────────────────────
 test('the unit switcher offers All assigned units and hides for a single unit', () => {
-  assert.match(chrome, /All assigned units \(\{unitKeys\.length\}\)/)
+  assert.match(chrome, /role="group" aria-label="Viewing"/)
+  assert.match(chrome, /label: 'All Assigned Units'/)
+  assert.match(chrome, /aria-pressed=\{value === option\.key\}/)
   // UL-POLISH: a single-unit leader now gets a static unit-context line rather
-  // than a dead control; the select still never renders for one unit.
+  // than a dead control; the segmented switcher still never renders for one unit.
   assert.match(chrome, /if \(unitKeys\.length === 0\) return null/)
   assert.match(chrome, /if \(unitKeys\.length === 1\) \{\s*return <p className="ptl-unit-context">/)
+  assert.doesNotMatch(chrome, /id="ul-unit-switcher"|<select/)
 })
 
 test('All assigned units NARROWS nothing: it omits the unit filter entirely', () => {

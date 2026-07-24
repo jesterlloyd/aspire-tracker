@@ -92,7 +92,13 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmen
     preceptors.refresh()
   }
 
-  const openManager = (assignment, triggerEl) => {
+  const openManager = (row, triggerEl) => {
+    const assignment = row?.assignments?.[0]
+    if (!assignment) {
+      setNotice({ tone: 'warn', text: 'No active assignments are available for this preceptor.' })
+      triggerEl?.focus?.()
+      return
+    }
     managerTriggerRef.current = triggerEl || null
     setManager({
       id: assignment.student_id,
@@ -121,49 +127,49 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmen
     <>
       <div className="ptl-section-headrow">
         <SectionHeading focusKey="preceptors">Preceptors</SectionHeading>
-        <button type="button" className="ptl-btn" onClick={() => setCreateOpen(true)}>Add preceptor</button>
       </div>
       <p className="ptl-muted">
         Preceptors whose home unit is in your scope or who currently work with one of your students.
       </p>
       {notice && <p className={`ptl-notice ptl-notice-${notice.tone}`} role="status">{notice.text}</p>}
 
-      <div className="ptl-card ptl-prec-controls" aria-label="Filter preceptors">
+      <div className="ptl-prec-toolbar" aria-label="Preceptor directory controls">
+        <button type="button" className="ptl-btn ptl-prec-add" onClick={() => setCreateOpen(true)}>+ Add Preceptor</button>
         <label className="ptl-field ptl-prec-search">
-          <span className="ptl-label">Search</span>
+          <span className="ptl-visually-hidden">Search preceptors</span>
           <input className="ptl-input" type="search" value={search}
             onChange={event => setSearch(event.target.value)} placeholder="Name or email" />
         </label>
-        <label className="ptl-field">
-          <span className="ptl-label">Shift</span>
-          <select className="ptl-input" value={shift} onChange={event => setShift(event.target.value)}>
-            <option value="all">All shifts</option>
-            {['Day', 'Night', 'Mid', 'Variable'].map(value => <option key={value}>{value}</option>)}
-          </select>
-        </label>
-        <label className="ptl-field">
-          <span className="ptl-label">Status</span>
-          <select className="ptl-input" value={active} onChange={event => setActive(event.target.value)}>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="all">All statuses</option>
-          </select>
-        </label>
-        <label className="ptl-field">
-          <span className="ptl-label">Association</span>
-          <select className="ptl-input" value={crossUnit} onChange={event => setCrossUnit(event.target.value)}>
-            <option value="all">All associations</option>
-            <option value="cross">Cross-unit only</option>
-          </select>
-        </label>
-        <label className="ptl-field">
-          <span className="ptl-label">Sort</span>
-          <select className="ptl-input" value={sortBy} onChange={event => { setSortBy(event.target.value); setSortDir('asc') }}>
-            <option value="name">Name</option>
-            <option value="unit">Home unit</option>
-            <option value="count">Assignment count</option>
-          </select>
-        </label>
+        <details className="ptl-prec-filter-menu">
+          <summary className="ptl-btn ptl-btn-quiet">Filters</summary>
+          <div className="ptl-prec-filter-panel">
+            <label className="ptl-field">
+              <span className="ptl-label">Shift</span>
+              <select className="ptl-input" value={shift} onChange={event => setShift(event.target.value)}>
+                <option value="all">All shifts</option>
+                {['Day', 'Night', 'Mid', 'Variable'].map(value => <option key={value}>{value}</option>)}
+              </select>
+            </label>
+            <label className="ptl-field">
+              <span className="ptl-label">Status</span>
+              <select className="ptl-input" value={active} onChange={event => setActive(event.target.value)}>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="all">All statuses</option>
+              </select>
+            </label>
+            <label className="ptl-field">
+              <span className="ptl-label">Association</span>
+              <select className="ptl-input" value={crossUnit} onChange={event => setCrossUnit(event.target.value)}>
+                <option value="all">All associations</option>
+                <option value="cross">Cross-unit only</option>
+              </select>
+            </label>
+          </div>
+        </details>
+        <span className="ptl-prec-count">
+          {preceptors.loading ? 'Loading…' : `${rows.length} preceptor${rows.length !== 1 ? 's' : ''}`}
+        </span>
       </div>
 
       {preceptors.loading ? (
@@ -183,7 +189,7 @@ export default function UnitPreceptorsWorkspace({ unitKey, unitKeys, onAssignmen
             sortBy={sortBy}
             sortDir={sortDir}
             onSort={handleSort}
-            onManageAssignment={openManager}
+            onManagePreceptorAssignments={openManager}
             showAssignmentCount
             showAssociation
             caption="Preceptors associated with authorized units"

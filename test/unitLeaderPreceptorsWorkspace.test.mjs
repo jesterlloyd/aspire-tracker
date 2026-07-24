@@ -40,9 +40,10 @@ test('workspace supplies the complete roster table, filters, states, and legacy 
     'Name', 'Contact', 'Unit', 'Shift', 'Status', 'Current Student', 'Assignments', 'Association',
   ]) assert.ok((workspace + directoryTable).includes(`>${heading}<`) || (workspace + directoryTable).includes(`>${heading}`), heading)
   assert.match(workspace, /PreceptorDirectoryTable/)
-  for (const control of ['Name or email', 'All shifts', 'All statuses', 'Cross-unit only', 'Assignment count']) {
+  for (const control of ['+ Add Preceptor', 'Name or email', 'Filters', 'All shifts', 'All statuses', 'Cross-unit only']) {
     assert.ok(workspace.includes(control), control)
   }
+  assert.doesNotMatch(workspace, /<span className="ptl-label">Sort<\/span>|<option value="count">Assignment count<\/option>/)
   for (const state of ['TableSkeleton', 'ErrorState', 'No associated preceptors', 'No matching preceptors']) {
     assert.ok(workspace.includes(state), state)
   }

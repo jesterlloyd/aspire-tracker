@@ -10,8 +10,12 @@ export function preceptorInitials(name) {
 
 export function preceptorSortValue(row, key) {
   if (key === 'unit' || key === 'unit_name') return String(row.home_unit?.name || row.unit_name || '').toLowerCase()
+  if (key === 'shift') return String(row.shift || row.shift_type || '').toLowerCase()
+  if (key === 'status') return row.is_active === false ? 1 : 0
+  if (key === 'association') return row.cross_unit_association ? 0 : 1
   if (key === 'current_student') {
-    return String(row.assignments?.[0]?.student_name || '').toLowerCase()
+    const first = sortAssignmentsForDisplay(row.assignments || [])[0]
+    return String(first?.student_name || '').toLowerCase()
   }
   if (key === 'count') return Number(row.active_assignment_count || row.assignments?.length || 0)
   return String(row.full_name || '').toLowerCase()
@@ -25,6 +29,7 @@ export function sortPreceptorDirectoryRows(rows, { sortBy = 'name', sortDir = 'a
       ? Number(av) - Number(bv)
       : String(av).localeCompare(String(bv))
     if (cmp === 0) cmp = String(a.full_name || '').localeCompare(String(b.full_name || ''))
+    if (cmp === 0) cmp = String(a.id || '').localeCompare(String(b.id || ''))
     return sortDir === 'desc' ? -cmp : cmp
   })
 }
