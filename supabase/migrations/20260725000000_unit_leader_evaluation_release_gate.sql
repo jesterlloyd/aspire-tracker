@@ -50,7 +50,7 @@
 --
 -- Re-runnable: uses IF NOT EXISTS / CREATE OR REPLACE / DROP ... IF EXISTS / ON CONFLICT.
 -- Verification and rollback are at the bottom (comments) and, in full, in
--- db/verify/unit_leader_evaluation_release_gate_verify.sql and _rollback.sql.
+-- db/audit/unit_leader_evaluation_release_gate_verification.sql and _rollback.sql.
 -- ============================================================================
 
 BEGIN;
@@ -580,7 +580,7 @@ NOTIFY pgrst, 'reload schema';
 
 -- ============================================================================
 -- VERIFICATION (run AFTER COMMIT; expects the described results). Full script:
---   db/verify/unit_leader_evaluation_release_gate_verify.sql
+--   db/audit/unit_leader_evaluation_release_gate_verification.sql
 -- ----------------------------------------------------------------------------
 -- 1) Table + RLS present:
 --    SELECT relrowsecurity FROM pg_class WHERE relname = 'evaluation_response_unit_release';
@@ -600,5 +600,5 @@ NOTIFY pgrst, 'reload schema';
 --    UPDATE public.evaluation_response_unit_release SET hist_unit_key = 'x' WHERE true;
 --
 -- ROLLBACK (emergency = revoke read EXECUTE, preserving all data). Full script:
---   db/verify/unit_leader_evaluation_release_gate_rollback.sql
+--   db/audit/unit_leader_evaluation_release_gate_rollback.sql
 -- ============================================================================

@@ -183,7 +183,7 @@ present results plainly and must never assert that a single-response result is a
 2. Apply `20260725000000_unit_leader_evaluation_release_gate.sql` as one whole block in the
    Supabase SQL editor. It is transactional (`BEGIN/COMMIT`); the verification and rollback
    queries live outside the transaction as comments.
-3. Run the verification script (`db/verify/unit_leader_evaluation_release_gate_verify.sql`)
+3. Run the verification script (`db/audit/unit_leader_evaluation_release_gate_verification.sql`)
    and confirm every check.
 4. Do NOT invite/activate any Unit Leader evaluations surface: the API/UI is a later branch
    (`unit-leader-evaluations-backend-ui`).
@@ -194,7 +194,7 @@ Preferred emergency rollback preserves all data: revoke EXECUTE on the read func
 (instantly disables Unit Leader reads) while leaving the table, snapshots, and release
 history intact. Full teardown (only safe before first production use of the release
 functions) drops the functions, then the trigger, then the table. See
-`db/verify/unit_leader_evaluation_release_gate_rollback.sql`. Never delete
+`db/audit/unit_leader_evaluation_release_gate_rollback.sql`. Never delete
 `evaluation_responses` content in any rollback.
 
 ## 9. UI activation gate
