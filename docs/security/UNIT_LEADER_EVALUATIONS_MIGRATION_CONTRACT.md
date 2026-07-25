@@ -77,9 +77,8 @@ Authorization primitives (`20260712000007_phase2_authz_foundation.sql`):
   aware), all SECURITY DEFINER + `search_path = public, pg_catalog`, EXECUTE to
   `authenticated`.
 - `is_owner_or_admin()` (owner/admin, auth.uid) / `is_active_owner_or_admin()` (adds
-  `is_active`). For service-role write functions the migration validates a passed actor
-  profile id directly against `user_profiles(role, is_active)` because auth.uid() is null
-  under the service role.
+  `is_active`). The lifecycle functions gate on `is_active_owner_or_admin()` evaluated from
+  the caller's JWT (not a passed actor id); its exact live definition is surfaced in §11.
 
 ## 3. Target data model (this migration)
 
@@ -89,8 +88,9 @@ attribution snapshot and the mutable release lifecycle:
 `public.evaluation_response_unit_release`
 - Identity: `id`, `response_id UNIQUE → evaluation_responses(id) ON DELETE RESTRICT`
   (audit-preserving: a response with a release row cannot be deleted out from under its
-  history), `public_token` (opaque handle returned to Unit Leaders instead of the raw
-  response_id), `assignment_id`, `instrument_id`, `instrument_slug`, `timepoint`.
+  history; DELETE and TRUNCATE on the release table are also denied), `assignment_id`,
+  `instrument_id`, `instrument_slug`, `timepoint`. No response identifier or token is ever
+  returned to a Unit Leader.
 - Immutable snapshot: `hist_unit_id`, `hist_unit_key`, `hist_preceptor_id`,
   `hist_preceptor_label` (audit only), `hist_cohort_id`, `hist_cohort_label`,
   `hist_rotation_id`, `hist_rotation_end` (timestamptz effective end),
@@ -158,29 +158,31 @@ browser cannot supply scope authority):
 - `ul_eval_dashboard_summary(p_instrument_slug, p_timepoint, p_unit_key)` → jsonb unit-level
   aggregates.
 - `ul_eval_response_list(p_instrument_slug, p_timepoint, p_unit_key)` → rows of
-  `(anon_label, response_token, instrument_slug, timepoint, unit_key, quantitative jsonb)`.
-- `ul_eval_response_detail(p_token)` → jsonb; keyed by the **opaque token**, re-checks scope
-  + release for that exact token, never trusting a prior list.
+  `(anon_label, instrument_slug, timepoint, unit_key, quantitative jsonb)`.
+- No individual by-id/by-token detail RPC exists in this branch (see below).
 
 Every read applies the full defense-in-depth predicate set: active `unit_leader` grant;
 approved instrument slug; `release_state = 'released'`; `release_state <> 'revoked'`;
 `moderation_state = 'cleared'`; `quantitative_visible = true`; `free_text_visible = false`;
 `snapshot_source IN ('submission_trigger','backfill_verified')`;
+`hist_preceptor_id IS NOT NULL` (resolved evaluated preceptor);
 `unit_leader_eligible_at IS NOT NULL AND now() >= unit_leader_eligible_at`;
 `hist_unit_key` ∈ the caller's active scopes (cohort-aware); `p_unit_key` only narrows.
 
-**No raw response_id** is ever returned: reads emit `public_token` (an opaque 32-char
-handle, unrelated to any record id); the exact `response_id` never leaves the server, and
-`ul_eval_response_detail` accepts only the token. Quantitative payload comes from the
-**explicit per-instrument section allowlist** `_ul_eval_safe_quantitative(slug, responses)`
-(see §5a) — numeric leaves only, so free text, identity, and the evaluated target are
-excluded structurally. No identity, no timestamps, no preceptor grouping. The anonymous
-label is positional within the result (ephemeral), not a stable cross-context tracker.
+**No stable response identifier** is ever returned: the `public_token` column and the
+by-token detail RPC are removed. Response identifiers stay internal; short-lived /
+context-bound token generation is deferred to the follow-on server API branch. Reads emit
+only a positional (ephemeral) `anon_label`. Quantitative payload comes from the
+**exact per-instrument path allowlist** `_ul_eval_safe_quantitative(slug, responses)`
+(§5a) — allowlisted numeric paths only, so free text, identity, and the evaluated target are
+excluded structurally.
 
 Write / lifecycle functions (SECURITY DEFINER, EXECUTE to `authenticated`; the internal
 gate `is_active_owner_or_admin()` — evaluated against the **caller's JWT**, not a passed or
 spoofable actor id and not a bespoke `user_profiles.role` read — denies everyone who is not
-an active Owner/Admin; the acting profile is `portal_profile_id()`). Every action writes an
+an active Owner/Admin; the acting profile is `portal_profile_id()`). Each takes a
+**`FOR UPDATE` row lock** and enforces expected-state predicates so concurrent actions
+cannot produce inaccurate transitions or duplicate audit events. Every action writes an
 append-only audit event (§4a):
 - `ul_eval_moderate_response(p_response_id, p_decision)` — `cleared` advances a pending row
   to `moderated`; **`blocked` immediately hides a released response** (demotes it, clears
@@ -195,33 +197,49 @@ append-only audit event (§4a):
   explicit, audited (`event_type = 're_release'`), re-checks every gate, preserves
   `revoked_at/by`.
 
-Table grants (both new tables): `ENABLE ROW LEVEL SECURITY`;
-`REVOKE ALL FROM PUBLIC, anon, authenticated`; `GRANT SELECT TO authenticated` with an
-`is_active_owner_or_admin()` SELECT policy (staff read directly; Unit Leaders get zero rows
-via direct access and must use the functions); `GRANT ALL TO service_role`.
+Table grants (least privilege; all three new tables have RLS + an `is_active_owner_or_admin()`
+SELECT policy so staff read directly and Unit Leaders get zero rows via direct access):
 
-### 5a. Explicit per-instrument quantitative allowlist
+- Release table: `service_role` = SELECT, INSERT, UPDATE only. DELETE and TRUNCATE denied
+  (grants + a `BEFORE DELETE` trigger and a `BEFORE TRUNCATE` statement trigger).
+- Events (audit) table: `service_role` = SELECT, INSERT only. UPDATE, DELETE, and TRUNCATE
+  all denied (grants + `BEFORE UPDATE OR DELETE` and `BEFORE TRUNCATE` triggers).
+- Allowlist table: `service_role` = SELECT, INSERT, DELETE (staff curate the exact keys).
+- `GRANT ALL` is never used. Row triggers do not fire on TRUNCATE, so statement-level
+  `BEFORE TRUNCATE` triggers back the privilege restrictions. The SECURITY DEFINER
+  functions run as the table owner and operate regardless of these role grants.
 
-`_ul_eval_safe_quantitative(p_slug, p_responses)` returns a flat `{'section.item': number}`
-map taking numeric leaves ONLY from the allowlisted quantitative sections of each
-instrument. The exact numeric leaf item codes live in the instruments' private content and
-are narrowed further in the follow-on API branch; the numeric-only filter guarantees no
-free text can ever leak.
+### 5a. Exact per-instrument quantitative allowlist (controlled table)
 
-| Instrument | Allowlisted quantitative sections | Excluded (never exposed) |
+Quantitative exposure is an **exact path allowlist** held in the controlled table
+`public.evaluation_unit_quantitative_keys(instrument_slug, json_path text[])`.
+`_ul_eval_safe_quantitative(p_slug, p_responses)` returns `{'path.dotted': number}` for
+**only** the allowlisted paths whose value is numeric; anything not listed is hidden
+(unknown keys default to hidden). A table CHECK forbids allowlisting a free-text or
+identifying first-level section, so curation itself cannot expose `narrative`,
+`evaluated_target`, `confidential_team_comments`, or `attestation`.
+
+The per-item leaf codes are content-driven (they live in the instruments' private content,
+not the repo), so the table is **seeded with the fixed, repo-verifiable numeric paths** and
+staff curate the remaining exact item paths before those metrics surface:
+
+| Instrument | Seeded paths | Curated later (content-driven) |
 |---|---|---|
-| `student_preceptor_eval` | `preceptor_support`, `learning_environment`, `psychological_safety`, `overall_experience` | `evaluated_target` (identifying), `narrative` (free text), `attestation` |
-| `preceptor_progress` | `developmental_feedback`, `readiness_endorsement` | `confidential_team_comments` (free text), `attestation` |
+| `student_preceptor_eval` | `overall_experience.overall_rating` | `preceptor_support.<code>`, `learning_environment.<code>`, `psychological_safety.<code>`, `overall_experience.<code>` |
+| `preceptor_progress` | `developmental_feedback.context.shifts_observed`, `readiness_endorsement.{transition_readiness, unit_endorsement_consideration, cedars_consideration_recommendation}` (each only if numeric) | `developmental_feedback.competency.<code>.rating` |
 
-### 5b. Preceptor attribution source (assignment/respondent relationship)
+### 5b. Evaluated-preceptor attribution (exact, or snapshot-incomplete)
 
-Preceptor attribution is snapshotted from the assignment, never from
-`students.preceptor_id`:
+Preceptor attribution is snapshotted exactly, never from `students.preceptor_id`:
 - `preceptor_progress`: `hist_preceptor_id = evaluation_assignments.respondent_preceptor_id`
-  (the responding preceptor is the evaluated preceptor).
-- `student_preceptor_eval`: `hist_preceptor_id = NULL` — the evaluated preceptor/unit is
-  carried in `responses.evaluated_target`, and there is no authoritative preceptor id
-  column. Preceptor attribution is audit-only and is never returned to a Unit Leader.
+  (the responding preceptor), validated against `preceptors`.
+- `student_preceptor_eval`: `hist_preceptor_id = responses.evaluated_target.preceptor_id`
+  (uuid-validated and confirmed to exist in `preceptors`).
+- If it cannot be resolved unambiguously for either instrument, `hist_preceptor_id` is
+  `NULL`: the snapshot is **incomplete** and `ul_eval_release_response` /
+  `ul_eval_rerelease_response` refuse it (`snapshot_incomplete`); reads also require
+  `hist_preceptor_id IS NOT NULL`. Preceptor attribution is audit-only and is never
+  returned to a Unit Leader.
 
 ## 6. Contextual re-identification risk (Owner-accepted)
 
@@ -264,7 +282,7 @@ functions, then the triggers, then both new tables. See
 | A | Blocked moderation hides a released response; reads require cleared moderation | `ul_eval_moderate_response('blocked')` demotes + clears visibility; all reads require `moderation_state='cleared'` |
 | B | Append-only lifecycle audit | `evaluation_response_unit_release_events` + append-only trigger (§4a) |
 | C | Authoritative active authorization model | writes gate on `is_active_owner_or_admin()` (caller JWT); reads on `has_active_role_grant('unit_leader')`; no bespoke role read, no passed actor id |
-| D | No raw response_id to Unit Leaders | reads emit `public_token`; detail keyed by token; response_id stays server-side |
+| D | No raw response_id to Unit Leaders | response_id stays server-side (see §11 #5: the interim `public_token` was later removed entirely — reads emit no stable identifier at all) |
 | E | Per-instrument quantitative allowlist | `_ul_eval_safe_quantitative` section allowlist + numeric-only (§5a) |
 | F | Immutability test fails hard | verification block raises `assert_failure` on a successful forbidden update, not swallowed |
 | G | Explicit audited re-release | ordinary release refuses revoked; `ul_eval_rerelease_response` is the only path; `revoked_at/by` never cleared |
@@ -282,3 +300,35 @@ production; (2) server API adapters call the read/write functions; (3) Owner/Adm
 controls exist in the staff Evaluation Dashboard; (4) shared role-safe Evaluation
 components are built; (5) the workspace is activated; (6) live security and privacy QC
 passes. None of those are in this branch.
+
+## 11. Second Owner pre-apply review corrections (this revision)
+
+| # | Correction | How it is enforced |
+|---|---|---|
+| 1 | Table privileges + TRUNCATE denial | `GRANT ALL` removed; events = SELECT/INSERT, release = SELECT/INSERT/UPDATE for service_role; `BEFORE TRUNCATE` statement triggers + `BEFORE DELETE`/`BEFORE UPDATE OR DELETE` triggers back the grants (row triggers cannot block TRUNCATE) |
+| 2 | Exact evaluated-preceptor attribution | preceptor_progress ← `respondent_preceptor_id`; student_preceptor_eval ← `responses.evaluated_target.preceptor_id` (uuid-validated, must exist); unresolved ⇒ `hist_preceptor_id` NULL ⇒ snapshot incomplete ⇒ release refused; reads require it non-null |
+| 3 | Row locking + expected-state | all four lifecycle functions `SELECT … FOR UPDATE` and enforce state predicates (release only from pending/moderated; revoke/rerelease idempotent/guarded); no-op guards prevent spurious audit events |
+| 4 | Exact per-instrument item allowlist | controlled table `evaluation_unit_quantitative_keys` (exact JSON paths) with a section CHECK; `_ul_eval_safe_quantitative` returns only allowlisted numeric paths; unknown ⇒ hidden (§5a) |
+| 5 | No stable response identifier | `public_token` column and by-token detail RPC removed; reads emit only a positional label; token generation deferred to the API branch |
+| 6 | Verification corrected/expanded | `_ul_eval_safe_quantitative` expected NOT SECURITY DEFINER; added checks for table privileges, TRUNCATE denial, row locking, exact allowlisting, missing-preceptor ineligibility, no stable identifier, and the surfaced `is_active_owner_or_admin()` definition |
+
+### Owner/Admin authority (surfaced for review)
+
+`public.is_active_owner_or_admin()` (from `20260716000000_messages_phase1_schema_foundation.sql`):
+
+```sql
+SELECT EXISTS (
+  SELECT 1 FROM public.user_profiles
+  WHERE auth_user_id = auth.uid()
+    AND role IN ('owner', 'admin')
+    AND COALESCE(is_active, true) = true
+);
+```
+
+It validates role + active profile from the caller's JWT. It does **not** consult
+`user_role_grants`, because owner/admin are not represented there (that table's CHECK allows
+only `student`/`unit_leader`/`academic_partner`). For staff, "revocation" is `is_active = false`;
+grant expiration does not apply to staff roles. The Unit Leader READ side does use the active
+role-grant model (`has_active_role_grant('unit_leader')`, honoring revocation and expiration).
+Tying staff authority to a grant/expiry model would be a separate global change to
+`is_active_owner_or_admin` and the authz foundation, out of scope for this migration.

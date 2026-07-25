@@ -31,32 +31,44 @@ test('the verification script checks objects, security, grants, and immutability
     'verification must not release a real response')
 })
 
-test('the expanded verification proves the Owner-review corrections', () => {
-  // (C) active/authoritative authorization model + no bespoke role read.
-  assert.match(verify, /is_active_owner_or_admin\(\)/)
-  assert.match(verify, /bespoke_role_read/)
-  // (J) defense-in-depth read predicates are checked in the read-function bodies.
-  assert.match(verify, /moderation_checked/)
-  assert.match(verify, /snapshot_checked/)
-  // (D) no raw response_id exposure.
-  assert.match(verify, /read_fns_exposing_response_id/)
-  // (I) FK is RESTRICT, never CASCADE.
-  assert.match(verify, /confdeltype[\s\S]*?RESTRICT[\s\S]*?NEVER 'c'/)
-  // (F) corrected immutability failure is a hard, un-swallowed assert_failure.
+test('the expanded verification proves the second-review corrections', () => {
+  // Surface + confirm the authoritative Owner/Admin helper definition.
+  assert.match(verify, /pg_get_functiondef\('public\.is_active_owner_or_admin\(\)'::regprocedure\)/)
+  assert.match(verify, /checks_active/)
+  // (1) Table privilege restrictions + TRUNCATE denial.
+  assert.match(verify, /ev_truncate/)
+  assert.match(verify, /rel_delete/)
+  assert.match(verify, /no_truncate/)
+  // (5) No stable response identifier exposed.
+  assert.match(verify, /public_token_columns/)
+  assert.match(verify, /read_fns_with_identifier/)
+  // (6/4b) The pure helper is NOT security definer.
+  assert.match(verify, /_ul_eval_safe_quantitative\(text,jsonb\)'::regprocedure/)
+  // (3) Row locking in every lifecycle function.
+  assert.match(verify, /for_update/)
+  // (2) Missing-preceptor ineligibility.
+  assert.match(verify, /release_checks_preceptor/)
+  // (4) Exact allowlist table seeded + joined; no unsafe rows.
+  assert.match(verify, /seeded_allowlist_paths/)
+  assert.match(verify, /helper_uses_allowlist/)
+  assert.match(verify, /unsafe_allowlist_rows/)
+  // Corrected immutability failure is a hard, un-swallowed assert_failure.
   assert.match(verify, /IMMUTABILITY GUARD FAILED/)
   assert.match(verify, /ERRCODE = 'assert_failure'/)
-  // (B) append-only audit UPDATE/DELETE both blocked.
+  // Append-only + release delete/truncate blocking negative tests.
   assert.match(verify, /append_only_enforced/)
-  assert.match(verify, /APPEND-ONLY FAILED/)
-  // (E) allowlisted quantitative keys named in the manual behavioral checks.
-  assert.match(verify, /preceptor_support|developmental_feedback/)
+  assert.match(verify, /release_delete_truncate_blocked/)
+  // (I) FK is RESTRICT, never CASCADE.
+  assert.match(verify, /confdeltype[\s\S]*?RESTRICT[\s\S]*?NEVER 'c'/)
 })
 
 test('the rollback preserves data and never deletes responses', () => {
   // Option A (preferred): revoke read EXECUTE, non-destructive.
   assert.match(rollback, /REVOKE EXECUTE ON FUNCTION public\.ul_eval_response_list/)
-  // Option B (full teardown) drops the gate table but never evaluation_responses.
-  assert.match(rollback, /DROP TABLE IF EXISTS public\.evaluation_response_unit_release/)
+  // Option B (full teardown) drops all three new tables but never evaluation_responses.
+  assert.match(rollback, /DROP TABLE IF EXISTS public\.evaluation_response_unit_release_events/)
+  assert.match(rollback, /DROP TABLE IF EXISTS public\.evaluation_unit_quantitative_keys/)
+  assert.match(rollback, /DROP TABLE IF EXISTS public\.evaluation_response_unit_release;/)
   assert.ok(!/DELETE FROM public\.evaluation_responses|DROP TABLE[^\n]*evaluation_responses\b/.test(rollback),
     'rollback must never delete evaluation_responses content')
   assert.match(rollback, /safe ONLY before/i)

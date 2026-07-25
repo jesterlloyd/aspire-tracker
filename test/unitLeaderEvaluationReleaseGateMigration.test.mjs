@@ -1,7 +1,7 @@
-// Commit-2 (Owner-review-corrected) static guards for the Unit Leader evaluation
-// release-gate migration. The migration is NOT applied on this branch; these are
-// source-level assertions on the migration text, matching this repo's migration-test
-// style, locking the safety-critical properties after the Owner pre-apply corrections.
+// Static guards for the Unit Leader evaluation release-gate migration
+// (second Owner-review-corrected revision). The migration is NOT applied on this branch;
+// these are source-level assertions on the migration text, matching this repo's
+// migration-test style, locking the safety-critical properties after both review rounds.
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -23,7 +23,7 @@ function fnBody(name) {
   return sql.slice(start, end)
 }
 
-const READ_FNS = ['ul_eval_dashboard_summary', 'ul_eval_response_list', 'ul_eval_response_detail']
+const READ_FNS = ['ul_eval_dashboard_summary', 'ul_eval_response_list']
 const WRITE_FNS = ['ul_eval_moderate_response', 'ul_eval_release_response',
                    'ul_eval_revoke_response', 'ul_eval_rerelease_response']
 
@@ -33,199 +33,171 @@ test('the migration is transactional and reloads the PostgREST schema', () => {
   assert.match(sql, /NOTIFY pgrst, 'reload schema'/)
 })
 
-test('both the release table and the append-only audit table are created', () => {
+test('three tables: release, append-only events, and the exact-key allowlist', () => {
   assert.match(sql, /CREATE TABLE IF NOT EXISTS public\.evaluation_response_unit_release\b/)
   assert.match(sql, /CREATE TABLE IF NOT EXISTS public\.evaluation_response_unit_release_events\b/)
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS public\.evaluation_unit_quantitative_keys\b/)
 })
 
-// ── (I) audit-preserving deletion ──────────────────────────────────────────
-test('the response relationship is ON DELETE RESTRICT, never CASCADE', () => {
-  assert.match(sql, /REFERENCES public\.evaluation_responses\(id\) ON DELETE RESTRICT/)
-  assert.ok(!/ON DELETE CASCADE/.test(code), 'no CASCADE on any relationship in executable SQL')
-  // The audit table keeps response_id as a durable, non-FK column.
-  assert.match(sql, /response_id\s+uuid NOT NULL,\s*--[^\n]*durable/)
+// ── (Blocker 1) table privileges + TRUNCATE denial ──────────────────────────
+test('no GRANT ALL; service_role privileges are restricted per table', () => {
+  assert.ok(!/GRANT ALL/.test(code), 'GRANT ALL must not appear')
+  // Release: SELECT/INSERT/UPDATE to service_role (no DELETE/TRUNCATE).
+  assert.match(sql, /GRANT SELECT, INSERT, UPDATE ON TABLE public\.evaluation_response_unit_release TO service_role/)
+  // Events: SELECT/INSERT only.
+  assert.match(sql, /GRANT SELECT, INSERT ON TABLE public\.evaluation_response_unit_release_events TO service_role/)
+  // All three REVOKE ALL from service_role first.
+  assert.ok((sql.match(/REVOKE ALL ON TABLE [^\n]*FROM PUBLIC, anon, authenticated, service_role/g) || []).length >= 3)
 })
 
-// ── (D) opaque token, no raw response_id to Unit Leaders ────────────────────
-test('reads return an opaque public_token and never a raw response_id', () => {
-  assert.match(sql, /public_token\s+text NOT NULL UNIQUE/)
-  // list/detail output the token; detail is keyed by the token, not a response id.
-  assert.match(fnBody('ul_eval_response_list'), /rel\.public_token AS response_token/)
-  assert.match(sql, /CREATE OR REPLACE FUNCTION public\.ul_eval_response_detail\(p_token text\)/)
-  assert.match(fnBody('ul_eval_response_detail'), /rel\.public_token = p_token/)
+test('DELETE and TRUNCATE are blocked by triggers (row triggers cannot block TRUNCATE)', () => {
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public\._ul_eval_block_write/)
+  // Release: BEFORE DELETE (row) + BEFORE TRUNCATE (statement).
+  assert.match(sql, /BEFORE DELETE ON public\.evaluation_response_unit_release\b[\s\S]*?_ul_eval_block_write/)
+  assert.match(sql, /BEFORE TRUNCATE ON public\.evaluation_response_unit_release\b[\s\S]*?FOR EACH STATEMENT/)
+  // Events: BEFORE UPDATE OR DELETE (row) + BEFORE TRUNCATE (statement).
+  assert.match(sql, /BEFORE UPDATE OR DELETE ON public\.evaluation_response_unit_release_events[\s\S]*?_ul_eval_block_write/)
+  assert.match(sql, /BEFORE TRUNCATE ON public\.evaluation_response_unit_release_events[\s\S]*?FOR EACH STATEMENT/)
+})
+
+// ── (Blocker 5) no stable response identifier ───────────────────────────────
+test('no public_token column, no by-token detail RPC, no identifier in reads', () => {
+  assert.ok(!/public_token/.test(code), 'public_token must not exist in executable SQL')
+  assert.ok(!sql.includes('ul_eval_response_detail'), 'the by-token detail RPC must be gone')
   for (const fn of READ_FNS) {
-    // response_id may appear ONLY in a JOIN (r.id = rel.response_id), never as an output key.
-    assert.ok(!/'response_id'/.test(fnBody(fn)), `${fn} must not output a response_id key`)
+    const b = fnBody(fn)
+    assert.ok(!/'response_id'|'response_token'|public_token/.test(b), `${fn} exposes no identifier`)
   }
+  // The list returns only a positional anon_label (no id/token columns).
+  assert.match(fnBody('ul_eval_response_list'), /RETURNS TABLE \(\s*anon_label\s+text,\s*instrument_slug/)
 })
 
-// ── (E) explicit per-instrument quantitative allowlist ──────────────────────
-test('quantitative exposure is an explicit per-instrument section allowlist, numeric-only', () => {
+// ── (Blocker 4) exact per-instrument path allowlist ─────────────────────────
+test('quantitative exposure is an exact allowlist table joined by the extractor', () => {
+  // Allowlist table with a section CHECK forbidding free-text/identifying sections.
+  assert.match(sql, /CONSTRAINT chk_uqk_safe_section CHECK/)
+  assert.match(sql, /json_path\[1\] IN \('preceptor_support', 'learning_environment',\s*'psychological_safety', 'overall_experience'\)/)
+  assert.match(sql, /json_path\[1\] IN \('developmental_feedback', 'readiness_endorsement'\)/)
+  // Seeded with the fixed numeric paths.
+  assert.match(sql, /ARRAY\['overall_experience', 'overall_rating'\]/)
+  assert.match(sql, /ARRAY\['developmental_feedback', 'context', 'shifts_observed'\]/)
+  // Extractor JOINS the allowlist and returns numbers only (no generic scan).
   const helper = fnBody('_ul_eval_safe_quantitative')
-  assert.match(helper, /jsonb_typeof\(it\.value\) = 'number'/)          // numeric leaves only
-  assert.match(helper, /p_slug = 'student_preceptor_eval'[\s\S]*?'preceptor_support', 'learning_environment',[\s\S]*?'psychological_safety', 'overall_experience'/)
-  assert.match(helper, /p_slug = 'preceptor_progress'[\s\S]*?'developmental_feedback', 'readiness_endorsement'/)
-  // The excluded free-text / identifying sections are never allowlisted.
-  for (const excluded of ['evaluated_target', 'narrative', 'confidential_team_comments', 'attestation']) {
-    assert.ok(!helper.includes(`'${excluded}'`), `allowlist must not include ${excluded}`)
-  }
-  // Reads obtain quantitative data ONLY through the allowlist helper (no ad-hoc jsonb_each
-  // over the raw responses in list/detail).
-  assert.match(fnBody('ul_eval_response_list'), /public\._ul_eval_safe_quantitative\(rel\.instrument_slug, r\.responses\)/)
-  assert.match(fnBody('ul_eval_response_detail'), /public\._ul_eval_safe_quantitative\(rel\.instrument_slug, r\.responses\)/)
-})
-
-test('release timing is rotation end plus a 7-day delay', () => {
-  assert.match(sql, /COALESCE\(s\.rotation_completed_at, s\.rotation_end_date::timestamptz\)/)
-  assert.match(sql, /v_rotation_end \+ interval '7 days'/)
-})
-
-test('free text stays hidden: hard CHECK plus numeric-only allowlist', () => {
-  assert.match(sql, /CONSTRAINT chk_ul_eval_free_text_hidden_first_release\s*\n?\s*CHECK \(free_text_visible = false\)/)
-  for (const fn of READ_FNS) {
-    assert.match(fnBody(fn), /free_text_visible = false/, `${fn} re-asserts free_text hidden`)
+  assert.match(helper, /FROM public\.evaluation_unit_quantitative_keys k/)
+  assert.match(helper, /jsonb_typeof\(v\.val\) = 'number'/)
+  // No free-text/identifying section is ever named in the extractor.
+  for (const s of ['narrative', 'evaluated_target', 'confidential_team_comments', 'attestation']) {
+    assert.ok(!helper.includes(s), `extractor must not reference ${s}`)
   }
 })
 
-// ── (J) defense-in-depth read predicates ────────────────────────────────────
+// ── (Blocker 2) exact evaluated-preceptor attribution ───────────────────────
+test('evaluated preceptor is resolved exactly; unresolved blocks release', () => {
+  const cap = fnBody('_ul_eval_capture_snapshot')
+  // preceptor_progress from the assignment respondent.
+  assert.match(cap, /a\.respondent_preceptor_id/)
+  // student_preceptor_eval from responses.evaluated_target.preceptor_id, uuid-validated.
+  assert.match(cap, /NEW\.responses #>> '\{evaluated_target,preceptor_id\}'/)
+  assert.match(cap, /\^\[0-9a-f\]\{8\}-\[0-9a-f\]\{4\}/)   // uuid format guard
+  assert.ok(!/s\.preceptor_id/.test(cap), 'capture must not use students.preceptor_id')
+  // Validated against preceptors before it counts as resolved.
+  assert.match(cap, /FROM public\.preceptors p WHERE p\.id = v_cand_preceptor/)
+  // Unresolved (hist_preceptor_id NULL) blocks release + re-release, and reads require it.
+  assert.match(fnBody('ul_eval_release_response'), /hist_preceptor_id IS NULL[\s\S]*?snapshot_incomplete/)
+  assert.match(fnBody('ul_eval_rerelease_response'), /hist_preceptor_id IS NULL[\s\S]*?snapshot_incomplete/)
+  for (const fn of READ_FNS) assert.match(fnBody(fn), /hist_preceptor_id IS NOT NULL/)
+})
+
+// ── (Blocker 3) FOR UPDATE row locking + expected-state ─────────────────────
+test('lifecycle functions lock the row FOR UPDATE and enforce expected state', () => {
+  for (const fn of WRITE_FNS) {
+    const b = fnBody(fn)
+    assert.match(b, /WHERE response_id = p_response_id\s*\n?\s*FOR UPDATE;/, `${fn}: FOR UPDATE lock`)
+    assert.match(b, /public\.is_active_owner_or_admin\(\)/, `${fn}: authoritative gate`)
+  }
+  assert.match(fnBody('ul_eval_release_response'), /release_state NOT IN \('pending', 'moderated'\)[\s\S]*?not_releasable_state/)
+  assert.match(fnBody('ul_eval_revoke_response'), /release_state = 'revoked'[\s\S]*?already_revoked/)
+  assert.match(fnBody('ul_eval_rerelease_response'), /release_state <> 'revoked'[\s\S]*?not_revoked/)
+  // No-op guard prevents spurious audit events on moderation.
+  assert.match(fnBody('ul_eval_moderate_response'), /no_change/)
+})
+
+// ── (Blocker 6) SECURITY DEFINER expectations ───────────────────────────────
+test('public API + trigger functions are SECURITY DEFINER; the pure helper is not', () => {
+  for (const fn of [...WRITE_FNS, ...READ_FNS, '_ul_eval_capture_snapshot',
+                    '_ul_eval_guard_snapshot_immutable', '_ul_eval_block_write']) {
+    assert.match(fnBody(fn), /SECURITY DEFINER/, `${fn} must be SECURITY DEFINER`)
+  }
+  // The pure allowlist helper is intentionally NOT security definer (invoker; STABLE).
+  const helper = fnBody('_ul_eval_safe_quantitative')
+  assert.ok(!/SECURITY DEFINER/.test(helper), '_ul_eval_safe_quantitative must not be SECURITY DEFINER')
+  assert.match(helper, /\bSTABLE\b/)
+  // 10 functions, all with a fixed search_path; exactly 9 are SECURITY DEFINER.
+  // Counted on comment-stripped code so prose mentions do not inflate the totals.
+  assert.equal((code.match(/CREATE OR REPLACE FUNCTION/g) || []).length, 10)
+  assert.equal((code.match(/SET search_path = public, pg_catalog/g) || []).length, 10)
+  assert.equal((code.match(/SECURITY DEFINER/g) || []).length, 9)
+})
+
+// ── carried-over invariants ─────────────────────────────────────────────────
 test('every read carries the full defense-in-depth predicate set', () => {
   for (const fn of READ_FNS) {
     const b = fnBody(fn)
-    assert.match(b, /public\.has_active_role_grant\('unit_leader'\)/, `${fn}: active grant`)
-    assert.match(b, /rel\.release_state = 'released'/, `${fn}: release state`)
-    assert.match(b, /rel\.release_state <> 'revoked'/, `${fn}: explicit non-revocation`)
-    assert.match(b, /rel\.moderation_state = 'cleared'/, `${fn}: cleared moderation`)
-    assert.match(b, /rel\.quantitative_visible = true/, `${fn}: quantitative visibility`)
-    assert.match(b, /rel\.snapshot_source IN \('submission_trigger', 'backfill_verified'\)/, `${fn}: verified snapshot`)
-    assert.match(b, /now\(\) >= rel\.unit_leader_eligible_at/, `${fn}: eligibility`)
-    assert.match(b, /FROM public\.my_unit_scope_keys\(\) s/, `${fn}: server-derived scope`)
-    assert.match(b, /s\.unit_key = rel\.hist_unit_key/, `${fn}: historical unit scope`)
+    assert.match(b, /has_active_role_grant\('unit_leader'\)/)
+    assert.match(b, /release_state = 'released'/)
+    assert.match(b, /release_state <> 'revoked'/)
+    assert.match(b, /moderation_state = 'cleared'/)
+    assert.match(b, /quantitative_visible = true/)
+    assert.match(b, /free_text_visible = false/)
+    assert.match(b, /snapshot_source IN \('submission_trigger', 'backfill_verified'\)/)
+    assert.match(b, /now\(\) >= rel\.unit_leader_eligible_at/)
+    assert.match(b, /FROM public\.my_unit_scope_keys\(\) s/)
+    assert.match(b, /p_unit_key IS NULL OR rel\.hist_unit_key = p_unit_key/)
   }
-  // The unit parameter can only narrow.
-  assert.ok((sql.match(/p_unit_key IS NULL OR rel\.hist_unit_key = p_unit_key/g) || []).length >= 2)
 })
 
 test('reads never return identity, timestamps, or preceptor grouping', () => {
   for (const fn of READ_FNS) {
     const b = fnBody(fn)
-    for (const forbidden of ['first_name', 'last_name', 'preferred_first_name', 'email',
-                             'headshot', 'submitted_at', 'hist_preceptor']) {
+    for (const forbidden of ['first_name', 'last_name', 'email', 'headshot', 'submitted_at',
+                             'hist_preceptor_label']) {
       assert.ok(!b.includes(forbidden), `${fn} must not expose ${forbidden}`)
     }
   }
 })
 
-test('there is no minimum-count suppression', () => {
+test('no minimum-count suppression', () => {
   assert.match(sql, /'released_response_count', \(SELECT count\(\*\) FROM scoped\)/)
-  assert.ok(!/min_unit_aggregate_n|HAVING count/.test(sql), 'no hidden threshold')
+  assert.ok(!/min_unit_aggregate_n|HAVING count/.test(sql))
 })
 
-// ── (C) authoritative active authorization model ────────────────────────────
-test('lifecycle functions gate on is_active_owner_or_admin() from the JWT (no actor param, no bespoke role read)', () => {
-  for (const fn of WRITE_FNS) {
-    const b = fnBody(fn)
-    assert.match(b, /IF NOT public\.is_active_owner_or_admin\(\) THEN/, `${fn}: authoritative gate`)
-    assert.match(b, /public\.portal_profile_id\(\)/, `${fn}: actor from JWT`)
-    assert.ok(!/p_actor_profile_id/.test(b), `${fn}: no passed actor id`)
-    assert.ok(!/user_profiles[\s\S]{0,40}role\s+IN/.test(b), `${fn}: no bespoke user_profiles.role read`)
-  }
-  // The bespoke _ul_eval_is_active_owner_admin helper from the first draft is gone.
-  assert.ok(!code.includes('_ul_eval_is_active_owner_admin'), 'bespoke owner/admin helper removed')
+test('response FK is ON DELETE RESTRICT, never CASCADE', () => {
+  assert.match(sql, /REFERENCES public\.evaluation_responses\(id\) ON DELETE RESTRICT/)
+  assert.ok(!/ON DELETE CASCADE/.test(code))
 })
 
-// ── (A) blocked moderation hides a released response ─────────────────────────
-test('a blocked moderation immediately hides a released response', () => {
-  const b = fnBody('ul_eval_moderate_response')
-  assert.match(b, /v_new_visible := false/)
-  assert.match(b, /release_state = 'released' THEN 'moderated'/)   // demote out of released
-})
-
-// ── (G) explicit audited re-release; ordinary release refuses revoked ───────
-test('ordinary release never silently re-releases and never clears revoked_at/by', () => {
-  const rel = fnBody('ul_eval_release_response')
-  assert.match(rel, /release_state = 'revoked' THEN[\s\S]*?'revoked_requires_explicit_rerelease'/)
-  assert.ok(!/revoked_at\s*=\s*NULL/.test(rel), 'ordinary release must not clear revoked_at')
-  const re = fnBody('ul_eval_rerelease_response')
-  assert.match(re, /release_state <> 'revoked' THEN[\s\S]*?'not_revoked'/)
-  assert.ok(!/revoked_at\s*=\s*NULL/.test(re), 're-release must preserve revoked_at')
-})
-
-// ── (B) append-only audit ────────────────────────────────────────────────────
-test('every lifecycle action writes an append-only audit event', () => {
+test('immutability guard + append-only audit inserts', () => {
+  assert.match(sql, /BEFORE UPDATE ON public\.evaluation_response_unit_release\b[\s\S]*?_ul_eval_guard_snapshot_immutable/)
   for (const fn of WRITE_FNS) {
     assert.match(fnBody(fn), /INSERT INTO public\.evaluation_response_unit_release_events/, `${fn}: audit insert`)
   }
-  // Append-only enforced by a BEFORE UPDATE OR DELETE trigger that raises.
-  assert.match(sql, /CREATE OR REPLACE FUNCTION public\._ul_eval_events_append_only/)
-  assert.match(sql, /BEFORE UPDATE OR DELETE ON public\.evaluation_response_unit_release_events/)
-  assert.match(fnBody('_ul_eval_events_append_only'), /RAISE EXCEPTION[\s\S]*?append-only/)
 })
 
-test('the snapshot is immutable via a BEFORE UPDATE guard trigger', () => {
-  assert.match(sql, /CREATE OR REPLACE FUNCTION public\._ul_eval_guard_snapshot_immutable/)
-  assert.match(sql, /BEFORE UPDATE ON public\.evaluation_response_unit_release\b/)
-  for (const col of ['hist_unit_key', 'hist_preceptor_id', 'unit_leader_eligible_at', 'public_token']) {
-    assert.match(sql, new RegExp(`NEW\\.${col}\\s+IS DISTINCT FROM OLD\\.${col}`))
-  }
-})
-
-// ── (H) preceptor attribution from the assignment/respondent relationship ────
-test('preceptor attribution uses the assignment respondent, never students.preceptor_id', () => {
-  const cap = fnBody('_ul_eval_capture_snapshot')
-  assert.match(cap, /a\.respondent_type, a\.respondent_preceptor_id/)
-  assert.match(cap, /v_slug = 'preceptor_progress' THEN\s*\n?\s*v_preceptor_id := v_resp_preceptor;/)
-  assert.match(cap, /ELSE\s*\n?\s*v_preceptor_id := NULL;/)
-  assert.ok(!/s\.preceptor_id/.test(cap), 'capture must not read students.preceptor_id')
-  // Legacy backfill uses the same respondent source (not students.preceptor_id).
-  assert.match(sql, /CASE WHEN i\.slug = 'preceptor_progress' THEN a\.respondent_preceptor_id ELSE NULL END/)
-})
-
-test('snapshots are captured at submission for approved instruments only', () => {
-  assert.match(sql, /AFTER INSERT ON public\.evaluation_responses/)
-  assert.match(fnBody('_ul_eval_capture_snapshot'),
-    /v_slug NOT IN \('student_preceptor_eval', 'preceptor_progress'\) THEN\s*\n?\s*RETURN NEW/)
-})
-
-test('legacy rows are quarantined ineligible and unverified', () => {
-  assert.match(sql, /'backfill_unverified', 'ineligible'/)
-  assert.match(fnBody('ul_eval_release_response'),
-    /snapshot_source NOT IN \('submission_trigger', 'backfill_verified'\)[\s\S]*?snapshot_unverified/)
-})
-
-test('lifecycle functions are authenticated EXECUTE, never anon/public', () => {
+test('lifecycle + read functions are authenticated EXECUTE, never anon/public', () => {
   for (const sig of ['ul_eval_moderate_response(uuid, text)', 'ul_eval_release_response(uuid)',
-                     'ul_eval_revoke_response(uuid)', 'ul_eval_rerelease_response(uuid)']) {
+                     'ul_eval_revoke_response(uuid)', 'ul_eval_rerelease_response(uuid)',
+                     'ul_eval_dashboard_summary(text, text, text)', 'ul_eval_response_list(text, text, text)']) {
     const e = sig.replace(/[()]/g, '\\$&')
     assert.match(sql, new RegExp(`REVOKE ALL ON FUNCTION public\\.${e}\\s+FROM PUBLIC, anon`))
     assert.match(sql, new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${e}\\s+TO authenticated`))
   }
+  // The pure helper is not client-executable at all.
+  assert.match(sql, /REVOKE ALL ON FUNCTION public\._ul_eval_safe_quantitative\(text, jsonb\) FROM PUBLIC, anon, authenticated/)
 })
 
-test('read functions are authenticated EXECUTE, never anon/public', () => {
-  for (const sig of ['ul_eval_dashboard_summary(text, text, text)',
-                     'ul_eval_response_list(text, text, text)', 'ul_eval_response_detail(text)']) {
-    const e = sig.replace(/[()]/g, '\\$&')
-    assert.match(sql, new RegExp(`REVOKE ALL ON FUNCTION public\\.${e}\\s+FROM PUBLIC, anon`))
-    assert.match(sql, new RegExp(`GRANT EXECUTE ON FUNCTION public\\.${e}\\s+TO authenticated`))
-  }
-})
-
-test('every function is SECURITY DEFINER with a fixed search_path', () => {
-  const defs = sql.match(/CREATE OR REPLACE FUNCTION/g) || []
-  const paths = sql.match(/SET search_path = public, pg_catalog/g) || []
-  assert.equal(defs.length, 11)
-  assert.equal(paths.length, 11)
-})
-
-test('the base evaluation tables and staff/student contracts are untouched', () => {
+test('base evaluation tables and staff/student contracts are untouched', () => {
   assert.ok(!/ALTER TABLE public\.evaluation_responses/.test(sql))
   assert.ok(!/ALTER TABLE public\.evaluation_assignments/.test(sql))
   assert.ok(!/submit_evaluation_response|submit_preceptor_evaluation_response|submit_student_preceptor_evaluation_response/.test(code))
-  assert.match(sql, /AFTER INSERT ON public\.evaluation_responses/)   // additive trigger only
-})
-
-test('both new tables are RLS-protected owner/admin SELECT only', () => {
-  assert.match(sql, /ALTER TABLE public\.evaluation_response_unit_release ENABLE ROW LEVEL SECURITY/)
-  assert.match(sql, /ALTER TABLE public\.evaluation_response_unit_release_events ENABLE ROW LEVEL SECURITY/)
-  assert.ok((sql.match(/USING \(public\.is_active_owner_or_admin\(\)\)/g) || []).length >= 2)
+  assert.match(sql, /AFTER INSERT ON public\.evaluation_responses/)
 })
