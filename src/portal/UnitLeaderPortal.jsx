@@ -16,7 +16,8 @@
 
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
-import { firstNameOf } from '../lib/masthead'
+import GreetingMasthead from '../components/masthead/GreetingMasthead'
+import { useLastVisitLabel } from '../lib/lastVisit'
 import StudentActionsMenu from './unit/StudentActionsMenu'
 import PreceptorList from './unit/PreceptorList'
 import StudentDetailDrawer from './unit/StudentDetailDrawer'
@@ -199,7 +200,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
 }
 
 // ── Home: the locked priority order, now with hierarchy ─────────────────────
-function HomeScreen({ unitKey, unitKeys, students, profile, onNavigate, onOpenThread, refreshRoster }) {
+function HomeScreen({ unitKey, unitKeys, students, profile, acceptingCohort, onNavigate, onOpenThread, refreshRoster }) {
   // The in-app feed is DERIVED server side from the caller's own authorized rows,
   // so Home and the feed can never disagree.
   const alerts = useEndpoint(s => getNotifications(unitKey, s), [unitKey])
@@ -215,12 +216,30 @@ function HomeScreen({ unitKey, unitKeys, students, profile, onNavigate, onOpenTh
   // screen, so it is promoted into the attention list rather than left to the grid.
   const onShiftNow = visibleShifts.filter(x => x.state === 'in_progress')
 
-  // UL-POLISH P1: the Compass welcome header replaces the literal "Home"
-  // heading (the nav already says Home). Unit context is always visible here.
-  const first = firstNameOf(profile?.full_name)
   const unitContext = unitKeys.length === 1 ? unitKeys[0]
     : unitKeys.length === 2 ? unitKeys.join(' and ')
     : `${unitKeys.length} assigned units`
+
+  // The shared greeting masthead replaces the plain "Welcome" heading. It reuses the main-app
+  // masthead visual system (greeting, HTC weather scene, .mast* styling); the role/unit line
+  // below carries the Unit Leader context ONCE, so nothing is repeated (no "Unit · X" then
+  // "Unit Leader · X"). The greeting <h1> is the focus-on-navigation target, mirroring the
+  // portal's SectionHeading behavior (programmatic focus, ring suppressed in CSS).
+  const dateLabel = useMemo(
+    () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
+    [],
+  )
+  const lastVisitLine = useLastVisitLabel(profile?.id ? `aspire:lastVisit:portal:ul:${profile.id}` : null)
+  const greetingRef = useRef(null)
+  useEffect(() => {
+    const el = greetingRef.current
+    if (!el) return undefined
+    el.dataset.programmaticFocus = 'true'
+    el.focus()
+    const clear = () => { delete el.dataset.programmaticFocus }
+    el.addEventListener('blur', clear, { once: true })
+    return () => { el.removeEventListener('blur', clear); clear() }
+  }, [])
 
   // The attention strip renders ONLY when something is actionable. There is no empty
   // "nothing needs your attention" card any more: an empty strip is just noise.
@@ -228,8 +247,14 @@ function HomeScreen({ unitKey, unitKeys, students, profile, onNavigate, onOpenTh
 
   return (
     <>
-      <SectionHeading focusKey="home">{first ? `Welcome, ${first}` : 'Welcome'}</SectionHeading>
-      <p className="ptl-muted ptl-home-sub">Unit Leader · {unitContext}</p>
+      <GreetingMasthead
+        fullName={profile?.full_name}
+        dateLabel={dateLabel}
+        contextLabel={acceptingCohort?.name || null}
+        lastVisitLine={lastVisitLine}
+        headingRef={greetingRef}
+      />
+      <p className="ptl-muted" style={{ margin: '12px 0 0' }}>Unit Leader · {unitContext}</p>
 
       {/* A compact attention strip, only when there is something to act on. */}
       {hasAttention && (

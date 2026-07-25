@@ -131,7 +131,11 @@ test('P0-7: six desktop destinations and four mobile slots with accessible More'
 // ── P1: hierarchy and density ───────────────────────────────────────────────
 
 test('P1-8: the Compass welcome header replaces the literal Home heading', () => {
-  assert.match(portal, /\{first \? `Welcome, \$\{first\}` : 'Welcome'\}/)
+  // The welcome header is now the shared greeting masthead (Commit 1), which reuses the
+  // main-app masthead visual system rather than a plain heading.
+  assert.match(portal, /<GreetingMasthead/)
+  assert.doesNotMatch(portal, /\{first \? `Welcome, \$\{first\}` : 'Welcome'\}/)
+  // The Unit Leader unit context still appears exactly once, below the masthead.
   assert.match(portal, /Unit Leader · \{unitContext\}/)
   // Long unit lists summarize instead of running on.
   assert.match(portal, /`\$\{unitKeys\.length\} assigned units`/)

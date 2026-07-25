@@ -396,6 +396,10 @@
 /* The heading is tabIndex=-1, so this marker is only ever set by the
    programmatic focus-on-navigation. Keyboard focus rings are untouched. */
 .ptl-section-title[data-programmatic-focus]:focus { outline: none; }
+/* The shared greeting masthead's <h1> is the Home view's focus-on-navigation target and is
+   also tabIndex=-1, so the same programmatic-focus marker suppresses its ring. Scoped to the
+   portal so the main-app masthead (never focused) is untouched. */
+.ptl-page .mast-greet[data-programmatic-focus]:focus { outline: none; }
 .ptl-empty {
   color: #6b7280; font-size: 13.5px; line-height: 1.6;
   background: #faf9f5; border: 1px dashed #e3ded4; border-radius: 10px; padding: 12px 14px;
