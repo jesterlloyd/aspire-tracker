@@ -19,17 +19,37 @@ const followon = read('docs/UNIT_LEADER_EVALUATIONS_FOLLOWON.md')
 test('the verification script checks objects, security, grants, and immutability', () => {
   assert.match(verify, /relrowsecurity/)
   assert.match(verify, /prosecdef, proconfig/)
-  // Lifecycle functions must not be executable by authenticated (least privilege).
-  assert.match(verify, /has_function_privilege\('authenticated', 'public\.ul_eval_release_response\(uuid,uuid\)',\s+'EXECUTE'\)/)
+  // Lifecycle functions must not be executable by anon (least privilege).
+  assert.match(verify, /has_function_privilege\('anon', 'public\.ul_eval_release_response\(uuid\)',\s+'EXECUTE'\)/)
   // Read functions: authenticated yes, anon no.
   assert.match(verify, /has_function_privilege\('anon',\s+'public\.ul_eval_response_list\(text,text,text\)', 'EXECUTE'\)/)
-  // Backfill outcome + non-approved invariant + immutability negative test.
+  // Backfill outcome + non-approved invariant.
   assert.match(verify, /GROUP BY 1, 2/)
   assert.match(verify, /non_approved_rows/)
-  assert.match(verify, /immutability_enforced/)
   // It is a review script: it must not itself release or grant anything.
   assert.ok(!/SELECT public\.ul_eval_release_response\([^']*'[0-9a-f]/.test(verify),
     'verification must not release a real response')
+})
+
+test('the expanded verification proves the Owner-review corrections', () => {
+  // (C) active/authoritative authorization model + no bespoke role read.
+  assert.match(verify, /is_active_owner_or_admin\(\)/)
+  assert.match(verify, /bespoke_role_read/)
+  // (J) defense-in-depth read predicates are checked in the read-function bodies.
+  assert.match(verify, /moderation_checked/)
+  assert.match(verify, /snapshot_checked/)
+  // (D) no raw response_id exposure.
+  assert.match(verify, /read_fns_exposing_response_id/)
+  // (I) FK is RESTRICT, never CASCADE.
+  assert.match(verify, /confdeltype[\s\S]*?RESTRICT[\s\S]*?NEVER 'c'/)
+  // (F) corrected immutability failure is a hard, un-swallowed assert_failure.
+  assert.match(verify, /IMMUTABILITY GUARD FAILED/)
+  assert.match(verify, /ERRCODE = 'assert_failure'/)
+  // (B) append-only audit UPDATE/DELETE both blocked.
+  assert.match(verify, /append_only_enforced/)
+  assert.match(verify, /APPEND-ONLY FAILED/)
+  // (E) allowlisted quantitative keys named in the manual behavioral checks.
+  assert.match(verify, /preceptor_support|developmental_feedback/)
 })
 
 test('the rollback preserves data and never deletes responses', () => {
@@ -64,7 +84,7 @@ test('the SQL-gate branch wired no evaluation endpoint or client read', () => {
       if (e.isDirectory()) walk(rel)
       else if (/\.(js|jsx|mjs|ts|tsx)$/.test(e.name)) {
         const t = readFileSync(join(root, rel), 'utf8')
-        if (/ul_eval_(dashboard_summary|response_list|response_detail|release_response|revoke_response|moderate_response)/.test(t)) {
+        if (/ul_eval_(dashboard_summary|response_list|response_detail|release_response|rerelease_response|revoke_response|moderate_response)/.test(t)) {
           hits.push(rel)
         }
       }

@@ -87,8 +87,10 @@ One linked table, one row per approved-instrument response, holding both the imm
 attribution snapshot and the mutable release lifecycle:
 
 `public.evaluation_response_unit_release`
-- Identity: `id`, `response_id UNIQUE → evaluation_responses(id) ON DELETE CASCADE`,
-  `assignment_id`, `instrument_id`, `instrument_slug`, `timepoint`.
+- Identity: `id`, `response_id UNIQUE → evaluation_responses(id) ON DELETE RESTRICT`
+  (audit-preserving: a response with a release row cannot be deleted out from under its
+  history), `public_token` (opaque handle returned to Unit Leaders instead of the raw
+  response_id), `assignment_id`, `instrument_id`, `instrument_slug`, `timepoint`.
 - Immutable snapshot: `hist_unit_id`, `hist_unit_key`, `hist_preceptor_id`,
   `hist_preceptor_label` (audit only), `hist_cohort_id`, `hist_cohort_label`,
   `hist_rotation_id`, `hist_rotation_end` (timestamptz effective end),
@@ -96,11 +98,16 @@ attribution snapshot and the mutable release lifecycle:
   `snapshot_source` (`submission_trigger` | `backfill_verified` | `backfill_unverified`),
   `snapshot_captured_at`.
 - Mutable lifecycle: `release_state` (`pending` | `moderated` | `released` | `revoked` |
-  `ineligible`, default `pending`), `moderation_state` (`pending` | `cleared` | `blocked`,
-  default `pending`), `quantitative_visible bool` (default false), `free_text_visible bool`
-  (default false, hard-locked false by CHECK for the first release), `released_at/by`,
-  `moderated_at/by`, `revoked_at/by`, `created_at`, `updated_at`.
-- Constraints: approved-slug CHECK; free-text-hidden CHECK; state enums.
+  `ineligible`, default `pending`) is the authoritative visibility state;
+  `moderation_state` (`pending` | `cleared` | `blocked`, default `pending`);
+  `quantitative_visible bool` (default false); `free_text_visible bool` (default false,
+  hard-locked false by CHECK); `released_at/by`, `moderated_at/by`, `revoked_at/by`
+  (`revoked_at/by` is the last-revocation record and is **never cleared**; reads gate on
+  `release_state`, not `revoked_at`), `created_at`, `updated_at`.
+- Constraints: approved-slug CHECK; free-text-hidden CHECK; released↔visible CHECK; state
+  enums.
+
+`public.evaluation_response_unit_release_events` (append-only lifecycle audit, §4a).
 
 Rationale for a linked table (not extending `evaluation_responses`): the response tables
 are written by four separate SECURITY DEFINER submit RPCs and guarded for immutability by
@@ -131,39 +138,90 @@ migration is applied:
   submission-time unit cannot be reconstructed.
 - The migration's verification section reports backfilled counts by source and state.
 
+## 4a. Append-only lifecycle audit
+
+`public.evaluation_response_unit_release_events` records every `moderate`, `release`,
+`revoke`, and `re_release` action with: `response_id` (a durable reference, intentionally
+NOT a cascading FK, so audit survives anything), `event_type`, `decision`
+(`cleared`/`blocked` for moderation), `prior_release_state`/`new_release_state`,
+`prior_moderation_state`/`new_moderation_state`, `actor_profile_id` (the acting Owner/Admin
+from `portal_profile_id()`), `created_at`, and `notes`. A `BEFORE UPDATE OR DELETE` trigger
+raises, so the log is strictly append-only: prior history is never overwritten or erased.
+RLS mirrors the release table (owner/admin SELECT; Unit Leaders get nothing directly).
+
 ## 5. Authorization contract (enforced in the database)
 
 Read functions (SECURITY DEFINER, `search_path = public, pg_catalog`, EXECUTE to
-`authenticated`, scope from `auth.uid()` via `my_unit_scope_keys()` — the browser cannot
-supply scope authority):
+`authenticated`, scope from `auth.uid()` via `has_active_role_grant('unit_leader')` and
+`my_unit_scope_keys()` — the active role-grant model with revocation/expiration; the
+browser cannot supply scope authority):
 - `ul_eval_dashboard_summary(p_instrument_slug, p_timepoint, p_unit_key)` → jsonb unit-level
   aggregates.
 - `ul_eval_response_list(p_instrument_slug, p_timepoint, p_unit_key)` → rows of
-  `(anon_label, response_id, instrument_slug, timepoint, unit_key, quantitative jsonb)`.
-- `ul_eval_response_detail(p_response_id)` → jsonb; re-checks scope + release for that exact
-  id, never trusting a prior list.
+  `(anon_label, response_token, instrument_slug, timepoint, unit_key, quantitative jsonb)`.
+- `ul_eval_response_detail(p_token)` → jsonb; keyed by the **opaque token**, re-checks scope
+  + release for that exact token, never trusting a prior list.
 
-Every read requires: active `unit_leader` grant; `hist_unit_key` ∈ the caller's active
-scopes (cohort-aware); approved instrument slug; `release_state = 'released'` and not
-revoked; `now() >= unit_leader_eligible_at`. `p_unit_key` only narrows (intersected with
-scopes). Returned quantitative payload = only numeric-valued entries of `responses` (all
-strings/free text dropped); no identity, no timestamps, no preceptor grouping. Anonymous
-label is positional within the result (ephemeral), so it is not a stable cross-context
-tracker; `response_id` is returned only as a fetch token the detail function re-authorizes.
+Every read applies the full defense-in-depth predicate set: active `unit_leader` grant;
+approved instrument slug; `release_state = 'released'`; `release_state <> 'revoked'`;
+`moderation_state = 'cleared'`; `quantitative_visible = true`; `free_text_visible = false`;
+`snapshot_source IN ('submission_trigger','backfill_verified')`;
+`unit_leader_eligible_at IS NOT NULL AND now() >= unit_leader_eligible_at`;
+`hist_unit_key` ∈ the caller's active scopes (cohort-aware); `p_unit_key` only narrows.
 
-Write functions (SECURITY DEFINER, EXECUTE to `service_role` only — Unit Leaders cannot
-execute at all; the future server API passes the authenticated Owner/Admin actor id):
-- `ul_eval_moderate_response(p_actor_profile_id, p_response_id, p_decision)`.
-- `ul_eval_release_response(p_actor_profile_id, p_response_id)` — blocks unless actor is
-  active Owner/Admin, instrument approved, snapshot complete and not `backfill_unverified`,
-  `now() >= unit_leader_eligible_at`, moderation `cleared`, not revoked.
-- `ul_eval_revoke_response(p_actor_profile_id, p_response_id)` — immediately clears
-  visibility.
+**No raw response_id** is ever returned: reads emit `public_token` (an opaque 32-char
+handle, unrelated to any record id); the exact `response_id` never leaves the server, and
+`ul_eval_response_detail` accepts only the token. Quantitative payload comes from the
+**explicit per-instrument section allowlist** `_ul_eval_safe_quantitative(slug, responses)`
+(see §5a) — numeric leaves only, so free text, identity, and the evaluated target are
+excluded structurally. No identity, no timestamps, no preceptor grouping. The anonymous
+label is positional within the result (ephemeral), not a stable cross-context tracker.
 
-Table grants: `ENABLE ROW LEVEL SECURITY`; `REVOKE ALL FROM PUBLIC, anon, authenticated`;
-`GRANT SELECT TO authenticated` with an `is_active_owner_or_admin()` SELECT policy (staff
-read release state directly; Unit Leaders get zero rows via direct access and must use the
-functions); `GRANT ALL TO service_role`.
+Write / lifecycle functions (SECURITY DEFINER, EXECUTE to `authenticated`; the internal
+gate `is_active_owner_or_admin()` — evaluated against the **caller's JWT**, not a passed or
+spoofable actor id and not a bespoke `user_profiles.role` read — denies everyone who is not
+an active Owner/Admin; the acting profile is `portal_profile_id()`). Every action writes an
+append-only audit event (§4a):
+- `ul_eval_moderate_response(p_response_id, p_decision)` — `cleared` advances a pending row
+  to `moderated`; **`blocked` immediately hides a released response** (demotes it, clears
+  `quantitative_visible`).
+- `ul_eval_release_response(p_response_id)` — blocks unless instrument approved, snapshot
+  verified (not `backfill_unverified`) and complete, `now() >= unit_leader_eligible_at`,
+  moderation `cleared`. **Refuses a revoked row** (`revoked_requires_explicit_rerelease`)
+  and never clears `revoked_at/by`.
+- `ul_eval_revoke_response(p_response_id)` — immediately clears visibility; keeps
+  `revoked_at/by`.
+- `ul_eval_rerelease_response(p_response_id)` — the ONLY way to re-show a revoked response;
+  explicit, audited (`event_type = 're_release'`), re-checks every gate, preserves
+  `revoked_at/by`.
+
+Table grants (both new tables): `ENABLE ROW LEVEL SECURITY`;
+`REVOKE ALL FROM PUBLIC, anon, authenticated`; `GRANT SELECT TO authenticated` with an
+`is_active_owner_or_admin()` SELECT policy (staff read directly; Unit Leaders get zero rows
+via direct access and must use the functions); `GRANT ALL TO service_role`.
+
+### 5a. Explicit per-instrument quantitative allowlist
+
+`_ul_eval_safe_quantitative(p_slug, p_responses)` returns a flat `{'section.item': number}`
+map taking numeric leaves ONLY from the allowlisted quantitative sections of each
+instrument. The exact numeric leaf item codes live in the instruments' private content and
+are narrowed further in the follow-on API branch; the numeric-only filter guarantees no
+free text can ever leak.
+
+| Instrument | Allowlisted quantitative sections | Excluded (never exposed) |
+|---|---|---|
+| `student_preceptor_eval` | `preceptor_support`, `learning_environment`, `psychological_safety`, `overall_experience` | `evaluated_target` (identifying), `narrative` (free text), `attestation` |
+| `preceptor_progress` | `developmental_feedback`, `readiness_endorsement` | `confidential_team_comments` (free text), `attestation` |
+
+### 5b. Preceptor attribution source (assignment/respondent relationship)
+
+Preceptor attribution is snapshotted from the assignment, never from
+`students.preceptor_id`:
+- `preceptor_progress`: `hist_preceptor_id = evaluation_assignments.respondent_preceptor_id`
+  (the responding preceptor is the evaluated preceptor).
+- `student_preceptor_eval`: `hist_preceptor_id = NULL` — the evaluated preceptor/unit is
+  carried in `responses.evaluated_target`, and there is no authoritative preceptor id
+  column. Preceptor attribution is audit-only and is never returned to a Unit Leader.
 
 ## 6. Contextual re-identification risk (Owner-accepted)
 
@@ -190,12 +248,31 @@ present results plainly and must never assert that a single-response result is a
 
 ## 8. Rollback plan
 
-Preferred emergency rollback preserves all data: revoke EXECUTE on the read functions
-(instantly disables Unit Leader reads) while leaving the table, snapshots, and release
-history intact. Full teardown (only safe before first production use of the release
-functions) drops the functions, then the trigger, then the table. See
+Preferred emergency rollback preserves all data: revoke EXECUTE on the read functions (and,
+optionally, the lifecycle functions) — instantly disabling Unit Leader reads and freezing
+the lifecycle — while leaving both tables, all snapshots, all release state, and the entire
+append-only audit history intact. Full teardown (only safe before first production use of
+the lifecycle functions, i.e. before any real state or audit history exists) drops the
+functions, then the triggers, then both new tables. See
 `db/audit/unit_leader_evaluation_release_gate_rollback.sql`. Never delete
-`evaluation_responses` content in any rollback.
+`evaluation_responses` content, and never erase audit history after first use.
+
+## 10. Owner pre-apply review corrections (this revision)
+
+| # | Correction | How it is enforced |
+|---|---|---|
+| A | Blocked moderation hides a released response; reads require cleared moderation | `ul_eval_moderate_response('blocked')` demotes + clears visibility; all reads require `moderation_state='cleared'` |
+| B | Append-only lifecycle audit | `evaluation_response_unit_release_events` + append-only trigger (§4a) |
+| C | Authoritative active authorization model | writes gate on `is_active_owner_or_admin()` (caller JWT); reads on `has_active_role_grant('unit_leader')`; no bespoke role read, no passed actor id |
+| D | No raw response_id to Unit Leaders | reads emit `public_token`; detail keyed by token; response_id stays server-side |
+| E | Per-instrument quantitative allowlist | `_ul_eval_safe_quantitative` section allowlist + numeric-only (§5a) |
+| F | Immutability test fails hard | verification block raises `assert_failure` on a successful forbidden update, not swallowed |
+| G | Explicit audited re-release | ordinary release refuses revoked; `ul_eval_rerelease_response` is the only path; `revoked_at/by` never cleared |
+| H | Preceptor attribution from assignment/respondent | `respondent_preceptor_id` for `preceptor_progress`, NULL for `student_preceptor_eval`; never `students.preceptor_id` (§5b) |
+| I | Audit-preserving deletion behavior | `response_id … ON DELETE RESTRICT`; audit `response_id` is a durable non-FK column |
+| J | Defense-in-depth read predicates | cleared moderation, quantitative visibility, verified snapshot, hidden free text, release state, eligibility, non-revocation on every read |
+| K | Expanded verification | active-grant, blocked invisibility, audit preservation, no-raw-UUID, allowlisted keys, corrected immutability failure |
+| L | Docs/rollback/tests/verification realigned | this contract, the rollback, the static tests, and the verification script match the corrected SQL |
 
 ## 9. UI activation gate
 
