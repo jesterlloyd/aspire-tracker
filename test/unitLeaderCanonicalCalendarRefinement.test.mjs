@@ -37,12 +37,14 @@ test('Unit Leader calendar renders mini calendar, Today panel, toolbar, and sele
   assert.match(unitCalendar, /Today/)
   assert.match(unitCalendar, /Previous month/)
   assert.match(unitCalendar, /Next month/)
-  assert.match(unitCalendar, /onClick=\{goToday\}>Today/)
+  // The Today button is now the shared CanonicalCalendarNav's, wired via onToday.
+  assert.match(unitCalendar, /onToday=\{goToday\}/)
   assert.doesNotMatch(unitCalendar, /ptl-cal-view-active|ptl-cal-view-tabs/)
   assert.match(staffCalendar, /Month/)
   assert.match(staffCalendar, /Week/)
   assert.match(unitCalendarCode, /const \[selectedDate, setSelectedDate\] = useState\(today\)/)
-  assert.match(unitCalendarCode, /selected \? 'ptl-cal-selected' : ''/)
+  // The main grid's selected state now flows through the shared CanonicalMonthCell.
+  assert.match(unitCalendarCode, /isSelected=\{selected\}/)
   assert.match(unitCalendarCode, /selected \? 'ptl-cal-mini-selected' : ''/)
 })
 
@@ -92,13 +94,15 @@ test('role-unsafe staff controls and data dependencies do not enter Unit Leader 
 })
 
 test('responsive and accessible calendar shell guardrails are codified', () => {
-  assert.match(sharedCss, /\.canonical-calendar-shell \{[\s\S]*?grid-template-columns: minmax\(190px, 240px\) minmax\(0, 1fr\)/)
+  // The shell sidebar column is now 260px, matching the main-app calendar sidebar.
+  assert.match(sharedCss, /\.canonical-calendar-shell \{[\s\S]*?grid-template-columns: 260px minmax\(0, 1fr\)/)
   assert.match(sharedCss, /\.canonical-calendar-main \{[\s\S]*?min-width: 0/)
   assert.match(sharedCss, /@media \(max-width: 760px\) \{[\s\S]*?\.canonical-calendar-shell \{[\s\S]*?grid-template-columns: 1fr/)
   assert.match(unitCalendar, /role="grid"/)
   assert.match(unitCalendar, /role="gridcell"/)
   assert.match(unitCalendar, /aria-label=\{`Rotation activity for/)
   assert.match(unitCalendar, /aria-label="Mini rotation activity calendar"/)
-  assert.match(portalCss, /\.ptl-cal-cell:focus-visible/)
+  // The shared month cell carries the main-grid focus ring; the mini keeps its own.
+  assert.match(sharedCss, /\.canonical-month-cell:focus-visible/)
   assert.match(portalCss, /\.ptl-cal-mini-cell:focus-visible/)
 })

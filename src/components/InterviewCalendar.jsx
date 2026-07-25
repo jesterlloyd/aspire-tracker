@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { X, Trash2, CheckCircle, Clock } from 'lucide-react'
 import CalendarSidebar from './CalendarSidebar'
+import { CanonicalCalendarNav, CanonicalWeekdayHeader } from './shared/CanonicalCalendarFoundation'
 import InterviewDayDrawer from './InterviewDayDrawer'
 import AspireEventModal from './AspireEventModal'
 import { toLocalDateStr } from '../lib/designTokens'
@@ -627,13 +628,7 @@ function CustomMonthGrid({ displayDate, blocks, slots, colorMap, selectedDate, o
 
   return (
     <div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(7, 1fr)', borderBottom:'1px solid #f3f4f6' }}>
-        {DAYS.map(d => (
-          <div key={d} style={{ padding:'8px 0', textAlign:'center', fontFamily:'DM Sans', fontWeight:700, fontSize:10, textTransform:'uppercase', letterSpacing:'0.06em', color:'#6b7280' }}>
-            {d}
-          </div>
-        ))}
-      </div>
+      <CanonicalWeekdayHeader days={DAYS} />
       <div style={{ display:'grid', gridTemplateColumns:'repeat(7, 1fr)' }}>
         {cells.map((cell, idx) => {
           const { dateStr, day, isOtherMonth } = cell
@@ -1462,35 +1457,9 @@ export default function InterviewCalendar({ cohortId, activeCohort, onDataChange
           {/* Custom Calendar Toolbar */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 16px 12px', borderBottom:'1px solid #f3f4f6' }}>
 
-            {/* Left: prev/next + Today */}
-            <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-              <div style={{ display:'flex', alignItems:'center', border:'1px solid #e5e7eb', borderRadius:'9px', overflow:'hidden', height:'32px' }}>
-                <button
-                  onClick={navPrev}
-                  style={{ width:'34px', height:'32px', background:'none', border:'none', borderRight:'1px solid #e5e7eb', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#374151', transition:'background 0.15s ease' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                  title="Previous"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-                </button>
-                <button
-                  onClick={navNext}
-                  style={{ width:'34px', height:'32px', background:'none', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#374151', transition:'background 0.15s ease' }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                  title="Next"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
-                </button>
-              </div>
-              <button
-                onClick={navToday}
-                style={{ height:'32px', padding:'0 14px', background:'none', border:'1px solid #e5e7eb', borderRadius:'9px', cursor:'pointer', fontFamily:'DM Sans', fontWeight:600, fontSize:'12px', color:'#374151', transition:'all 0.15s ease' }}
-                onMouseEnter={e => { e.currentTarget.style.background='#f9fafb'; e.currentTarget.style.borderColor='#d1d5db' }}
-                onMouseLeave={e => { e.currentTarget.style.background='none'; e.currentTarget.style.borderColor='#e5e7eb' }}
-              >Today</button>
-            </div>
+            {/* Left: prev/next + Today. Rendered through the shared CanonicalCalendarNav
+                so the main app and the Unit Leader calendar are one visual system. */}
+            <CanonicalCalendarNav onPrev={navPrev} onNext={navNext} onToday={navToday} />
 
             {/* Center: title + filtered pill */}
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>

@@ -194,15 +194,15 @@ test('addDays crosses month, year, and leap boundaries correctly', () => {
   assert.equal(addDays('2026-12-31', 1), '2027-01-01')
 })
 
-test('monthGrid returns whole Monday-first weeks with the right day count', () => {
+test('monthGrid returns whole Sunday-first weeks with the right day count', () => {
   for (const [y, m, days] of [[2026, 8, 30], [2026, 1, 28], [2024, 1, 29], [2026, 10, 30]]) {
     const g = monthGrid(y, m)
     assert.equal(g.length % 7, 0, 'always whole weeks')
     assert.equal(g.filter(c => c.inMonth).length, days)
   }
-  // Monday first: the first cell is always a Monday.
+  // Sunday first (matching the main-app Interviews calendar): the first cell is a Sunday.
   const g = monthGrid(2026, 8)
-  assert.equal(new Date(`${g[0].ymd}T00:00:00Z`).getUTCDay(), 1)
+  assert.equal(new Date(`${g[0].ymd}T00:00:00Z`).getUTCDay(), 0)
 })
 
 test('pacificToday returns a YYYY-MM-DD string', () => {
@@ -244,7 +244,9 @@ test('completed shifts render with a stable marker distinct from live', () => {
 test('the calendar never implies a future shift is scheduled', () => {
   assert.match(calendar, /does not hold a forward schedule/)
   assert.match(calendarCode, /const future = ymd > today/)
-  assert.match(calendarCode, /future \? 'ptl-cal-future' : ''/)
+  // Future days are marked via the shared CanonicalMonthCell's isFuture prop, which
+  // dims the day number rather than filling the cell.
+  assert.match(calendarCode, /isFuture=\{future\}/)
   // Checked against COMMENT-STRIPPED code. The header legitimately says the UI must
   // never say "Schedule", and matching raw source flags that explanation as a label.
   assert.ok(!/Schedule/.test(calendarCode),

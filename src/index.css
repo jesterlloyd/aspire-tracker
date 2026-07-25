@@ -394,7 +394,8 @@ body { min-height: 100vh; }
 
 .canonical-calendar-shell {
   display: grid;
-  grid-template-columns: minmax(190px, 240px) minmax(0, 1fr);
+  /* 260px matches the main-app Interviews calendar sidebar width exactly. */
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 18px;
   width: 100%;
   min-width: 0;
@@ -404,6 +405,10 @@ body { min-height: 100vh; }
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   overflow: hidden;
 }
+/* The shared month cell (CanonicalMonthCell) is a button; inline styles carry its
+   frame, and these two rules add the interactions inline style cannot express. */
+.canonical-month-cell:hover { background: #f0f4ff !important; }
+.canonical-month-cell:focus-visible { outline: 3px solid #93c5fd; outline-offset: -2px; }
 .canonical-calendar-sidebar {
   min-width: 0;
   padding: 18px;

@@ -13,17 +13,29 @@
 // at check-in. All comparison and grouping here is string-based against Pacific
 // "today", so a Unit Leader in any timezone sees the same day boundaries the
 // student did.
+//
+// VISUAL PARITY. The toolbar, weekday header, and month grid are the shared
+// CanonicalCalendar* primitives the main-app Interviews calendar uses, so this
+// calendar and that one are one visual system, not two look-alikes. What differs is
+// only the content inside a cell (activity chips, never staff capacity controls) and
+// the toolbar's right side (empty, because a Unit Leader adds no events).
 
 import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   CanonicalCalendarLayout,
   CanonicalCalendarSidebar,
   CanonicalCalendarTodayPanel,
+  CanonicalCalendarNav,
+  CanonicalCalendarMonthTitle,
+  CanonicalWeekdayHeader,
+  CanonicalMonthCell,
+  CanonicalActivityChip,
 } from '../../components/shared/CanonicalCalendarFoundation'
 import { pacificToday, monthGrid, monthLabel, groupByDay } from './rotationCalendarDates'
 
-const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+// Sunday-first, matching the main-app Interviews calendar week start. The main grid
+// uses the three-letter labels; the mini calendar uses the first letter of each.
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 function initials(name) {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean)
@@ -148,25 +160,31 @@ export default function UnitRotationCalendar({ shifts = [], windowStart, onSelec
     </CanonicalCalendarSidebar>
   )
 
+  // Toolbar matches the main-app Interviews layout: previous and next grouped with
+  // Today on the left, the month/year centered, and an empty right side (a Unit
+  // Leader adds no events, so nothing lives where staff controls would).
   const toolbar = (
-    <div className="ptl-cal-nav">
-      <button type="button" className="ptl-btn ptl-btn-small" disabled={!canGoBack}
-        onClick={() => step(-1)} aria-label="Previous month">
-        <ChevronLeft size={15} aria-hidden="true" />
-      </button>
-      <span className="ptl-cal-month" aria-live="polite">{monthLabel(cursor.y, cursor.m)}</span>
-      <button type="button" className="ptl-btn ptl-btn-small" disabled={!canGoForward}
-        onClick={() => step(1)} aria-label="Next month">
-        <ChevronRight size={15} aria-hidden="true" />
-      </button>
-      <button type="button" className="ptl-btn ptl-btn-small" onClick={goToday}>Today</button>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-start' }}>
+        <CanonicalCalendarNav
+          onPrev={() => step(-1)}
+          onNext={() => step(1)}
+          onToday={goToday}
+          prevAriaLabel="Previous month"
+          nextAriaLabel="Next month"
+          prevDisabled={!canGoBack}
+          nextDisabled={!canGoForward}
+        />
+      </div>
+      <CanonicalCalendarMonthTitle ariaLive="polite">{monthLabel(cursor.y, cursor.m)}</CanonicalCalendarMonthTitle>
+      <div style={{ flex: 1 }} aria-hidden="true" />
     </div>
   )
 
   return (
     <CanonicalCalendarLayout
       title="Rotation activity"
-      description="Logged student shift activity from authorized Unit Leader scopes."
+      titleVisuallyHidden
       labelledBy="ul-cal-title"
       sidebar={sidebar}
       toolbar={toolbar}
@@ -181,48 +199,43 @@ export default function UnitRotationCalendar({ shifts = [], windowStart, onSelec
         <p className="ptl-muted" role="status">Loading rotation activity</p>
       ) : (
         <>
-          <div className="ptl-cal-grid" role="grid" aria-label={`Rotation activity for ${monthLabel(cursor.y, cursor.m)}`}>
-            {DOW.map(day => (
-              <div key={day} className="ptl-cal-dow" role="columnheader">{day}</div>
-            ))}
-            {cells.map(({ ymd, inMonth }) => {
-              const day = byDay.get(ymd) || []
-              const isToday = ymd === today
-              const selected = ymd === selectedDate
-              const future = ymd > today
-              const live = day.some(s => s.state === 'in_progress')
-              const label = day.length === 0
-                ? `${ymd}, no activity`
-                : `${ymd}, ${day.length} shift${day.length === 1 ? '' : 's'}${live ? ', on shift now' : ''}`
-              return (
-                <button
-                  key={ymd}
-                  type="button"
-                  role="gridcell"
-                  className={[
-                    'ptl-cal-cell',
-                    inMonth ? '' : 'ptl-cal-out',
-                    isToday ? 'ptl-cal-today' : '',
-                    selected ? 'ptl-cal-selected' : '',
-                    future ? 'ptl-cal-future' : '',
-                    day.length > 0 ? 'ptl-cal-has' : '',
-                  ].filter(Boolean).join(' ')}
-                  aria-label={label}
-                  onClick={() => selectDate(ymd, day)}
-                >
-                  <span className="ptl-cal-num">{Number(ymd.slice(8, 10))}</span>
-                  {day.slice(0, 3).map(shift => (
-                    <span
-                      key={shift.id}
-                      className={`ptl-cal-chip${shift.state === 'in_progress' ? ' ptl-cal-chip-live' : ''}`}
-                    >
-                      {initials(shift.student_name)}
-                    </span>
-                  ))}
-                  {day.length > 3 && <span className="ptl-cal-more">+{day.length - 3}</span>}
-                </button>
-              )
-            })}
+          <div role="grid" aria-label={`Rotation activity for ${monthLabel(cursor.y, cursor.m)}`}>
+            <CanonicalWeekdayHeader days={DOW} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+              {cells.map(({ ymd, inMonth }) => {
+                const day = byDay.get(ymd) || []
+                const isToday = ymd === today
+                const selected = ymd === selectedDate
+                const future = ymd > today
+                const live = day.some(s => s.state === 'in_progress')
+                const label = day.length === 0
+                  ? `${ymd}, no activity`
+                  : `${ymd}, ${day.length} shift${day.length === 1 ? '' : 's'}${live ? ', on shift now' : ''}`
+                if (!inMonth) {
+                  return <CanonicalMonthCell key={ymd} isOtherMonth />
+                }
+                return (
+                  <CanonicalMonthCell
+                    key={ymd}
+                    day={Number(ymd.slice(8, 10))}
+                    isToday={isToday}
+                    isSelected={selected}
+                    isFuture={future}
+                    ariaLabel={label}
+                    onClick={() => selectDate(ymd, day)}
+                  >
+                    {day.slice(0, 3).map(shift => (
+                      <CanonicalActivityChip
+                        key={shift.id}
+                        label={initials(shift.student_name)}
+                        live={shift.state === 'in_progress'}
+                      />
+                    ))}
+                    {day.length > 3 && <span className="ptl-cal-more">+{day.length - 3}</span>}
+                  </CanonicalMonthCell>
+                )
+              })}
+            </div>
           </div>
 
           {!monthHasActivity && (

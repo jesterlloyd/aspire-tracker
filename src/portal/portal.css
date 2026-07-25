@@ -1560,32 +1560,11 @@ img.ptl-detail-photo {
 .ptl-detail-hours { display: grid; gap: 5px; max-width: 260px; }
 
 /* ── UL-PHASE1: Rotation Activity Calendar ───────────────────────────────────
-   Presentational only. Every value here is a brand hex or a token already used
-   elsewhere in this file; nothing reaches into the staff stylesheet. */
-.ptl-cal-nav { display: flex; align-items: center; gap: 8px; }
-.ptl-cal-month { font-size: 13px; font-weight: 700; color: #191919; min-width: 130px; text-align: center; }
-
-.ptl-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
-.ptl-cal-dow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #9ca3af; text-align: center; padding: 2px 0 4px; }
-
-.ptl-cal-cell {
-  min-height: 62px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-  padding: 4px 5px; background: #fff; border: 1px solid #f0ece3; border-radius: 8px;
-  font-family: inherit; text-align: left; cursor: default;
-}
-.ptl-cal-cell.ptl-cal-has { cursor: pointer; }
-.ptl-cal-cell.ptl-cal-has:hover { background: #f7f9ff; border-color: #d7ddf5; }
-.ptl-cal-cell:focus-visible { outline: 3px solid #93c5fd; outline-offset: -2px; }
-.ptl-cal-num { font-size: 11.5px; color: #6b7280; font-variant-numeric: tabular-nums; }
-.ptl-cal-out { background: #fbfaf7; }
-.ptl-cal-out .ptl-cal-num { color: #c7c2b8; }
-.ptl-cal-today { border-color: var(--ptl-navy, #1d2567); }
-.ptl-cal-today .ptl-cal-num { color: var(--ptl-navy, #1d2567); font-weight: 700; }
-.ptl-cal-selected { box-shadow: inset 0 0 0 2px var(--ptl-navy, #1d2567); }
-/* Future days are visibly inert: there is no forward schedule to show. */
-.ptl-cal-future { background: #fdfdfc; }
-.ptl-cal-future .ptl-cal-num { color: #d7d2c7; }
-
+   Presentational only. The toolbar nav, weekday header, and month-cell frame now
+   come from the shared CanonicalCalendar* primitives (one visual system with the
+   main-app Interviews calendar), so only the chips, legend, mini calendar, and the
+   Today-panel list remain unique to the Unit Leader calendar. Every value here is a
+   brand hex or a token already used elsewhere in this file. */
 .ptl-cal-chip {
   display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.02em;
   padding: 1px 5px; border-radius: 4px; background: #e8eaf6; color: #1d2567; white-space: nowrap;
@@ -1631,8 +1610,6 @@ img.ptl-detail-photo {
 .ptl-day-meta dd { margin: 1px 0 0; font-size: 12.5px; color: #191919; overflow-wrap: anywhere; }
 
 @media (max-width: 760px) {
-  .ptl-cal-cell { min-height: 52px; padding: 3px 4px; }
-  .ptl-cal-month { min-width: 108px; font-size: 12.5px; }
   .ptl-day-drawer { max-width: 100%; }
 }
 

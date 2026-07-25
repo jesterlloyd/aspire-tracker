@@ -28,12 +28,13 @@ export function addDays(ymd, days) {
 }
 
 /**
- * A month grid of { ymd, inMonth }, Monday first, padded to whole weeks.
- * Returns 35 cells for most months and 42 when the month needs a sixth week.
+ * A month grid of { ymd, inMonth }, Sunday first to match the main-app Interviews
+ * calendar week start, padded to whole weeks. Returns 35 cells for most months and
+ * 42 when the month needs a sixth week.
  */
 export function monthGrid(year, monthIndex) {
   const first = new Date(Date.UTC(year, monthIndex, 1))
-  const lead = (first.getUTCDay() + 6) % 7      // getUTCDay: 0=Sun, so shift to Monday
+  const lead = first.getUTCDay()                // getUTCDay: 0=Sun, so Sunday needs no shift
   const start = new Date(first)
   start.setUTCDate(start.getUTCDate() - lead)
   const cells = []
