@@ -1,12 +1,15 @@
 # Unit Leader Evaluations: Safety Diagnostic and Migration Contract
 
-Status: **BLOCKED before activation. SQL and policy work required.**
-Branch: `unit-leader-calendar-evaluations-convergence`
-Scope of this document: Commit 4 of the convergence work. It records the read-only
-inspection of the evaluations subsystem, the authorization contract a Unit Leader
-Evaluations workspace must satisfy, the exact schema and policy gaps that block it,
-and the migration contract that would unblock it. No SQL, migration, endpoint, or
-client data path was created in this commit.
+Status: **BLOCKED before activation.** The unblocking SQL is now AUTHORED (not applied)
+on branch `unit-leader-evaluations-sql-gate`. The Owner-approved policy is locked and the
+migration + authorization functions are drafted for manual application through the SQL
+gate. See `docs/security/UNIT_LEADER_EVALUATIONS_MIGRATION_CONTRACT.md` and
+`supabase/migrations/20260725000000_unit_leader_evaluation_release_gate.sql`. The
+Evaluations UI stays a placeholder until the follow-on API/UI branch.
+
+Originating branch: `unit-leader-calendar-evaluations-convergence` (Commit 4 read-only
+diagnostic). This document records the evaluations inspection, the locked authorization
+contract, the exact schema and policy gaps, and the migration contract that unblocks it.
 
 ## Verdict
 
@@ -138,10 +141,12 @@ side, all of:
 8. The **unit-visibility consent/policy** rule satisfied where represented.
 9. **Stable historical attribution**: the response is attributed to this unit and
    preceptor by a submission-time snapshot, not by live roster state.
-10. The **small-cohort threshold** satisfied before any aggregate is returned.
-11. **Role-safe field shaping**: an explicit `SAFE_COLUMNS`-style allowlist, free text
-    excluded unless an approved release contract permits it, identity anonymized where
-    required. Follow the allowlist pattern in `api/portal/unit-shift-activity.js:39`.
+10. **No count suppression** (locked policy): aggregates and released responses show even
+    at `n = 1`; there is no minimum-count threshold. The accepted re-identification risk
+    is recorded, not mitigated by hiding.
+11. **Role-safe field shaping**: return only numeric response values (all free text is a
+    string and is dropped), no identity, no identifying timestamps, no preceptor-specific
+    grouping. Follow the allowlist spirit of `api/portal/unit-shift-activity.js:39`.
 
 ## Proposed migration contract (for a future Owner-gated SQL pass)
 
@@ -167,40 +172,58 @@ Snapshot at submission (denormalized, immutable after write), either on
 Written by the submit RPCs at completion, never recomputed. This mirrors the existing
 `approved_hours_at_completion` snapshot pattern.
 
-### C. Small-cohort threshold
-- A policy value (config table or documented constant enforced in SQL/endpoint), e.g.
-  `min_unit_aggregate_n = 5`. Aggregates return a threshold state, never a count,
-  when `n < min`.
+### C. Response-count policy (LOCKED: no suppression)
 
-### D. Consent for unit visibility
-- Represent, per instrument, whether a response may be shown to a unit leader and at
-  what granularity (aggregate only vs. individual, identified vs. anonymized). Where a
-  student consent governs this, bind it to a concrete boolean the endpoint can read.
+- **No minimum-count suppression.** Quantitative aggregates and released anonymous
+  quantitative responses may display even when only one eligible response exists. Do
+  **not** add a five-response (or any) hidden threshold.
+- This is an Owner-accepted **contextual re-identification risk**: when exactly one
+  student is assigned to a unit, a released quantitative result is not mathematically
+  anonymous. The system must never claim a one-response result is anonymous, and must
+  never suppress it either. See the migration contract for the accepted-risk record.
+
+### D. Visibility policy (LOCKED)
+
+- Unit-level reporting only; no preceptor-specific dashboards, filters, scores, or
+  groupings. Historical preceptor attribution is still snapshotted immutably for audit,
+  but never returned to a Unit Leader in this release.
+- All free text hidden from Unit Leaders in the first release (comments, narratives,
+  suggestions, open-ended answers, internal moderation notes). Data may remain stored
+  for staff; every Unit Leader read contract excludes it.
+- No student identity and no identifying timestamps returned. Anonymous server-generated
+  response labels only.
 
 ### E. Access path
 - New RLS policy or, preferably, a **service-role portal endpoint**
   `api/portal/unit-evaluations*.js` that enforces contract items 1-11 and returns only
   shaped, threshold-safe, released, moderated, stably-attributed, role-safe data.
 
-## Per-instrument release rules (to be finalized with the SQL pass)
+## Per-instrument release rules (LOCKED for the first release)
 
-Do not assume all three instruments are appropriate for Unit Leaders. Each needs an
-explicit contract before it surfaces.
+Exactly two instruments are in scope for the first release, both unit-level and
+quantitative-only. Casey-Fink and the ASPIRE Post-Rotation Evaluation are excluded.
 
-| Instrument | Slug | Respondent | Plausible unit-leader surface | Notes / open policy questions |
-|---|---|---|---|---|
-| Preceptor Student Readiness Assessment | `preceptor_progress` | Preceptor about student | Likely **not** unit-leader facing by default: it is about a student's readiness and carries confidential ASPIRE-only comments (`PreceptorResponseDetail.jsx:186`). | Confidential comments must never surface. Probably excluded entirely, or aggregate-only. |
-| Student Feedback: Preceptor and Unit | `student_preceptor_eval` | Student about preceptor/unit | The **primary** candidate: this is feedback about precepting and the unit. | Requires release, moderation, delayed release, stable attribution, threshold, and free-text handling before any surface. Identity anonymized. |
-| Casey-Fink Readiness | `casey_fink_readiness_2024` | Student self-assessment | Likely **aggregate-only** at most, if at all: it is a self-assessment, and the instrument is copyrighted (`permission_status` pending). | Copyright/permission gate (`chk_instrument_authorized_documented`) must be satisfied. Item prose is not even in the repo (private Storage). |
-| ASPIRE Post-Rotation Evaluation | `post_rotation_evaluation` | Student about program | Program feedback, not unit-specific; probably **not** a unit-leader surface. | `may_use_anonymized_comments` consent governs comment reuse. |
+| Instrument | Slug | Respondent | First-release surface | Free text | Identity |
+|---|---|---|---|---|---|
+| Preceptor & Unit Feedback ("Student Feedback: Preceptor and Unit") | `student_preceptor_eval` | Student about preceptor/unit | **Included.** Unit-level quantitative only, released + moderated + eligible. | Hidden | Anonymous label only |
+| Preceptor Readiness Assessment ("Preceptor Student Readiness Assessment") | `preceptor_progress` | Preceptor about student | **Included.** Unit-level quantitative only, released + moderated + eligible. Confidential ASPIRE comments are free text and are excluded by the free-text hide. | Hidden | Anonymous label only |
+| Casey-Fink Readiness | `casey_fink_readiness_2024` | Student self-assessment | **Excluded** from the first release. | n/a | n/a |
+| ASPIRE Post-Rotation Evaluation | `post_rotation_evaluation` | Student about program | **Excluded** (program-level, not unit-specific). | n/a | n/a |
 
-## Threshold behavior contract
+Free text is excluded structurally in the read path: the read functions return only the
+numeric-valued entries of the `responses` JSONB, so every string answer (including
+confidential comments) is dropped regardless of any flag.
 
-- Below threshold: show an aggregate-unavailable state that does **not** reveal the
-  hidden count (no "1 response"). The existing placeholder already models this honesty
-  (`UnitEvaluationsPlaceholder.jsx:6`).
-- Partial availability: a unit may meet threshold on one instrument/timepoint and not
-  another; each surface is gated independently.
+## Response-count and anonymity contract (LOCKED)
+
+- No minimum-count suppression. A quantitative aggregate or a released anonymous
+  quantitative response displays even when `n = 1`.
+- Owner-accepted contextual re-identification risk: with one student assigned to a unit,
+  a released result is not mathematically anonymous. The UI must not claim anonymity is
+  guaranteed, and must not suppress the result. Recorded as accepted in the migration
+  contract.
+- Partial availability: a unit may have released data for one instrument/timepoint and
+  not another; each surface is gated independently by release + moderation + eligibility.
 
 ## Response-viewer field contract (target, once released data exists)
 
@@ -221,14 +244,23 @@ explicit contract before it surfaces.
 - Did not: run SQL, add or alter a migration, create an endpoint, add a client
   evaluation data path, or change the staff Evaluation Dashboard.
 
-## Required product/engineering decisions before Commit 5
+## Product/engineering decisions: RESOLVED (Owner-approved, locked)
 
-1. Which instruments surface to Unit Leaders, and at what granularity
-   (aggregate-only vs. individual, identified vs. anonymized).
-2. The delayed-release rule's exact trigger (rotation end date source and offset).
-3. The small-cohort threshold value and whether it differs by instrument.
-4. The unit-visibility consent representation per instrument.
-5. Owner approval of the migration contract through the SQL gate.
+These were the open questions; all are now locked by the Owner-approved policy and
+implemented as the migration contract in
+`docs/security/UNIT_LEADER_EVALUATIONS_MIGRATION_CONTRACT.md`:
 
-Until these are resolved and the migration is applied and verified, the Unit Leader
-Evaluations workspace stays a placeholder.
+1. Instruments: `student_preceptor_eval` and `preceptor_progress` only. Casey-Fink and
+   post-rotation excluded. Unit-level, quantitative-only.
+2. Delayed release: eligible only after the student's rotation ends plus 7 days, derived
+   from `COALESCE(students.rotation_completed_at, students.rotation_end_date)` snapshotted
+   immutably at submission.
+3. Response count: no suppression; `n = 1` is displayed, with an accepted contextual
+   re-identification risk (no threshold).
+4. Consent/visibility: unit-level only; free text hidden; no identity; no identifying
+   timestamps; Owner/Admin-only moderation and release.
+5. Owner approval of the migration through the SQL gate: pending manual application by
+   Jester after review (this branch authors, never runs, the migration).
+
+Until the migration is applied and verified, and the follow-on API/UI branch ships, the
+Unit Leader Evaluations workspace stays a placeholder.
