@@ -118,7 +118,7 @@ function SelectedDayActivity({ shifts }) {
   )
 }
 
-export default function UnitRotationCalendar({ shifts = [], windowStart, onSelectDay, loading = false }) {
+export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading = false }) {
   const today = pacificToday()
   const [cursor, setCursor] = useState(() => ({ y: Number(today.slice(0, 4)), m: Number(today.slice(5, 7)) - 1 }))
   const [selectedDate, setSelectedDate] = useState(today)
@@ -127,9 +127,12 @@ export default function UnitRotationCalendar({ shifts = [], windowStart, onSelec
   const cells = useMemo(() => monthGrid(cursor.y, cursor.m), [cursor])
   const selectedShifts = byDay.get(selectedDate) || []
 
-  const monthStart = `${cursor.y}-${String(cursor.m + 1).padStart(2, '0')}-01`
-  const canGoBack = !windowStart || monthStart > windowStart
-  const canGoForward = monthStart < today.slice(0, 8) + '01'
+  // Navigation is unbounded in both directions, matching the main-app Interviews
+  // calendar. The 90-day activity window bounds what DATA exists, never where the
+  // user may look: paging to an empty past or future month simply renders an empty
+  // grid with the honest "no activity" note. No month change triggers a server
+  // request, because all authorized activity for the window arrives in one fetch, so
+  // there is no unbounded historical read and no fabricated forward schedule.
   const monthHasActivity = cells.some(c => c.inMonth && byDay.has(c.ymd))
 
   const step = (delta) => {
@@ -172,8 +175,6 @@ export default function UnitRotationCalendar({ shifts = [], windowStart, onSelec
           onToday={goToday}
           prevAriaLabel="Previous month"
           nextAriaLabel="Next month"
-          prevDisabled={!canGoBack}
-          nextDisabled={!canGoForward}
         />
       </div>
       <CanonicalCalendarMonthTitle ariaLive="polite">{monthLabel(cursor.y, cursor.m)}</CanonicalCalendarMonthTitle>

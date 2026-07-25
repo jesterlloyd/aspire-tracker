@@ -114,6 +114,15 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
     return src.flatMap(u => (u.students || []).map(s => ({ ...s, unit_key: u.unit_key })))
   }, [units, unitKey])
 
+  // UL-PERF: warm the lazy calendar chunk as soon as an authorized Unit Leader mounts
+  // the portal, so it downloads in parallel with the roster bootstrap instead of only
+  // after Home renders its Suspense boundary. Same specifier as the lazy() import
+  // above, so both resolve one chunk; a failed prefetch is a no-op, since the Suspense
+  // boundary still fetches on demand.
+  useEffect(() => {
+    import('./unit/UnitRotationCalendar').catch(() => {})
+  }, [])
+
   // While the roster loads, render the NAV immediately so Messages, Evaluations, and
   // More are usable at once, and skeleton only the content area. This replaces the old
   // full-page blocker that hid already-navigable chrome behind one spinner.
@@ -256,7 +265,6 @@ function HomeScreen({ unitKey, unitKeys, students, profile, onNavigate, onOpenTh
       <Suspense fallback={<LoadingState label="Loading rotation activity" />}>
         <UnitRotationCalendar
           shifts={visibleShifts}
-          windowStart={activity.data?.window?.start}
           loading={activity.loading}
           onSelectDay={(ymd, dayShifts) => setDayOpen({ ymd, shifts: dayShifts })}
         />

@@ -258,9 +258,14 @@ test('an empty month states so rather than rendering a blank grid', () => {
   assert.match(calendar, /No rotation activity recorded in/)
 })
 
-test('month navigation is bounded by the same window the server enforces', () => {
-  assert.match(calendarCode, /canGoBack = !windowStart \|\| monthStart > windowStart/)
-  assert.match(calendarCode, /canGoForward = monthStart < today/)
+test('month navigation is unbounded, matching the main-app calendar', () => {
+  // The old current-month ceiling and window floor are gone: navigation is free in
+  // both directions, and no month change triggers a server request (all window data
+  // arrives in one fetch), so empty months just render the honest empty note.
+  assert.doesNotMatch(calendarCode, /canGoForward/)
+  assert.doesNotMatch(calendarCode, /canGoBack/)
+  assert.doesNotMatch(calendarCode, /prevDisabled/)
+  assert.doesNotMatch(calendarCode, /nextDisabled/)
 })
 
 test('a day cell selects every date but opens the day drawer only when activity exists', () => {
