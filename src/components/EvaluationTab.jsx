@@ -9,6 +9,7 @@ import PreceptorFeedbackPanel from './evaluation/PreceptorFeedbackPanel'
 import PreceptorResponseDetail from './evaluation/PreceptorResponseDetail'
 import StudentEvalResponseDetail from './evaluation/StudentEvalResponseDetail'
 import SurveyAutomationDashboard from './evaluation/SurveyAutomationDashboard'
+import UnitEvaluationReleaseConsole from './evaluation/UnitEvaluationReleaseConsole'
 import RestrictedAccessOverlay from './RestrictedAccessOverlay'
 import { instrumentCompactLabel, instrumentSortIndex, timepointSortIndex, statusSortIndex, completedByLabel, INSTRUMENT_ORDER } from '../lib/evaluationLabels'
 
@@ -660,9 +661,13 @@ export default function EvaluationTab({ cohortId }) {
         <PreceptorFeedbackPanel cohortId={cohortId} />
       )}
 
-      {/* ── Survey Automation - read-only due detection (Owner/Admin only) ── */}
+      {/* ── Review & Release (Owner/Admin only): release evaluation results to Unit
+             Leaders, then the existing survey-automation due detection below it. ── */}
       {activeSubTab === 'automation' && (isOwner || isAdmin) && (
-        <SurveyAutomationDashboard cohortId={cohortId} />
+        <>
+          <UnitEvaluationReleaseConsole />
+          <SurveyAutomationDashboard cohortId={cohortId} />
+        </>
       )}
 
       {/* ── Cohort View ─────────────────────────────────────────────────── */}
