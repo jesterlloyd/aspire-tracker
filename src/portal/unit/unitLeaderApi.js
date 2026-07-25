@@ -151,6 +151,22 @@ export const getShiftActivity = ({ from, to } = {}, signal) => {
 }
 
 /**
+ * Unit Leader evaluations: a released, unit-scoped, quantitative-only summary plus an
+ * anonymous response list for one approved instrument. instrument is required (one of the
+ * two approved slugs). unit_key narrows to a single authorized unit; ALL_UNITS (or omitting
+ * it) means All Assigned Units. The server derives and enforces scope; this can only narrow.
+ * The response carries no identity, timestamps, free text, ids, or stable tokens.
+ */
+export const getUnitEvaluations = ({ instrument, timepoint, unitKey } = {}, signal) => {
+  const q = new URLSearchParams()
+  if (instrument) q.set('instrument', instrument)
+  if (timepoint) q.set('timepoint', timepoint)
+  if (unitKey && unitKey !== ALL_UNITS) q.set('unit_key', unitKey)
+  const qs = q.toString()
+  return apiFetch(`/api/portal/unit-evaluations${qs ? `?${qs}` : ''}`, { signal })
+}
+
+/**
  * The approved detail record for ONE scoped student.
  *
  * The student id is an IDENTIFIER, not authority: the server re-derives the unit

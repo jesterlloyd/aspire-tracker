@@ -39,10 +39,16 @@ test('the placeholder reads no endpoint and derives nothing from evaluation data
   }
 })
 
-test('no Unit Leader evaluation endpoint exists (no service-role read was added)', () => {
-  const portalApi = readdirSync(join(root, 'api', 'portal'))
-  const evalEndpoints = portalApi.filter(f => /eval/i.test(f))
-  assert.deepEqual(evalEndpoints, [], `no api/portal evaluation endpoint may exist yet, found: ${evalEndpoints.join(', ')}`)
+test('the Unit Leader evaluation endpoint is activated and uses the caller JWT, not service role', () => {
+  // The follow-on backend-ui branch activates the read surface. The invariant now is that
+  // the endpoint calls the SECURITY DEFINER RPCs with the caller's JWT client
+  // (getUserScopedDb), which preserves auth.uid(), and NEVER the service-role client.
+  const ul = read('api/portal/unit-evaluations.js')
+  assert.match(ul, /getUserScopedDb/)
+  assert.ok(!/getServiceDb/.test(ul), 'the read RPCs must not be called with the service-role client')
+  assert.match(ul, /ul_eval_dashboard_summary/)
+  assert.match(ul, /ul_eval_response_list/)
+  assert.match(ul, /Cache-Control', 'no-store, private/)
 })
 
 test('the Unit Leader portal makes no evaluation data call', () => {

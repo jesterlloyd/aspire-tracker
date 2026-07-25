@@ -1,3 +1,4 @@
+/* global process */
 // api/lib/portalAuth.js
 //
 // PHASE2-PORTAL: shared server-verified caller identity for the api/portal/*
@@ -57,6 +58,21 @@ export async function verifyPortalCaller(req) {
   } catch {
     return { authenticated: false, status: 401, reason: 'profile_threw' }
   }
+}
+
+// Verifies the caller is an active Owner or Admin (staff). Reuses verifyPortalCaller,
+// which already rejects a missing/invalid token, a missing profile, and a deactivated
+// profile. Returns { ok, profile } on success or { ok:false, status, reason }.
+export async function verifyOwnerAdminCaller(req) {
+  const caller = await verifyPortalCaller(req)
+  if (!caller.authenticated) {
+    return { ok: false, status: caller.status || 401, reason: caller.reason || 'unauthenticated' }
+  }
+  const role = caller.profile?.role
+  if (role !== 'owner' && role !== 'admin') {
+    return { ok: false, status: 403, reason: 'owner_or_admin_required' }
+  }
+  return { ok: true, profile: caller.profile }
 }
 
 const nowActive = (row) =>

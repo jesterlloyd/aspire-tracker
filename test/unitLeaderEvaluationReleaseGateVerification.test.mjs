@@ -81,14 +81,14 @@ test('the follow-on contract names the next branch and defers all API/UI', () =>
   assert.match(followon, /out of scope/i)
 })
 
-test('the SQL-gate branch wired no evaluation endpoint or client read', () => {
-  // The migration exists but nothing in the app imports/calls the new DB functions.
-  const portalApi = readdirSync(join(root, 'api', 'portal'))
-  assert.deepEqual(portalApi.filter(f => /eval/i.test(f)), [],
-    'no api/portal evaluation endpoint may exist on this branch')
-  // No application code references the new functions yet.
+test('every app reference to the lifecycle/read RPCs goes through the caller-JWT client', () => {
+  // The follow-on backend-ui branch activates the surface. Any code that calls the
+  // SECURITY DEFINER RPCs must do so with the caller's JWT client (getUserScopedDb), which
+  // preserves auth.uid(); it must NEVER use the service-role client, and must never pass a
+  // spoofable actor id. We check every app file that names an RPC.
   const grepDirs = ['src', 'api']
-  const hits = []
+  const rpcRe = /ul_eval_(dashboard_summary|response_list|release_response|rerelease_response|revoke_response|moderate_response)/
+  const offenders = []
   const walk = (dir) => {
     for (const e of readdirSync(join(root, dir), { withFileTypes: true })) {
       if (e.name === 'node_modules') continue
@@ -96,14 +96,18 @@ test('the SQL-gate branch wired no evaluation endpoint or client read', () => {
       if (e.isDirectory()) walk(rel)
       else if (/\.(js|jsx|mjs|ts|tsx)$/.test(e.name)) {
         const t = readFileSync(join(root, rel), 'utf8')
-        if (/ul_eval_(dashboard_summary|response_list|response_detail|release_response|rerelease_response|revoke_response|moderate_response)/.test(t)) {
-          hits.push(rel)
+        if (rpcRe.test(t)) {
+          // A file that invokes an RPC (db.rpc / .rpc()) must import getUserScopedDb and
+          // must not call the RPC through a service-role client.
+          if (/\.rpc\(/.test(t)) {
+            if (!/getUserScopedDb/.test(t) || /getServiceDb[\s\S]*\.rpc\(/.test(t)) offenders.push(rel)
+          }
         }
       }
     }
   }
   grepDirs.forEach(walk)
-  assert.deepEqual(hits, [], `no app code may call the new DB functions yet, found: ${hits.join(', ')}`)
+  assert.deepEqual(offenders, [], `RPC calls must use the caller-JWT client, offenders: ${offenders.join(', ')}`)
 })
 
 test('the Evaluations tab remains the placeholder (gate intact)', () => {
