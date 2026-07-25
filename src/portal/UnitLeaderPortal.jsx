@@ -149,10 +149,12 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
 
   const shared = { unitKey, unitKeys, students, acceptingCohort, refreshRoster: roster.refresh }
 
-  // UL-POLISH P0: Messages, Report a Concern, and Profile are not unit-scoped
-  // views (Messages ignores the unit filter entirely), so the switcher renders
-  // only where narrowing means something. Never an authorization control.
-  const UNIT_SCOPED_VIEWS = ['home', 'placements', 'capacity', 'students', 'preceptors']
+  // The switcher renders only where narrowing the unit view materially changes what the
+  // page shows, and never as an authorization control. Placement Requests and Capacity
+  // are deliberately excluded: Placement Requests already carries a Unit column on every
+  // row and shows the full authorized set, and Capacity has its own in-form unit picker,
+  // so a page-level selector there was redundant and could conflict with the form.
+  const UNIT_SCOPED_VIEWS = ['home', 'students', 'preceptors']
 
   return (
     <>
@@ -293,8 +295,12 @@ function HomeScreen({ unitKey, unitKeys, students, profile, onNavigate, onOpenTh
 }
 
 // ── Placement Requests ──────────────────────────────────────────────────────
-function PlacementScreen({ unitKey }) {
-  const { loading, error, data, loadedAt, refresh } = useEndpoint(s => getPlacementRequests(unitKey, s), [unitKey])
+function PlacementScreen() {
+  // Every request across the caller's authorized units, not a single-unit slice: the
+  // page-level switcher was removed here because each row already carries its own Unit
+  // column. ALL_UNITS omits the unit filter, so the server returns exactly the caller's
+  // authorized set; it never widens scope.
+  const { loading, error, data, loadedAt, refresh } = useEndpoint(s => getPlacementRequests(ALL_UNITS, s), [])
   const [busy, setBusy] = useState(null)
   const [notice, setNotice] = useState(null)
   // UL-POLISH P0: the change-request comment is an inline editor beneath the
@@ -451,12 +457,14 @@ function PlacementRow({ r, busy, now, editorOpen, changing, onStartChanging, onS
  * assigned units for a multi-unit leader; the endpoint independently rejects any unit
  * outside the caller's active scope.
  */
-function CapacityScreen({ unitKey, unitKeys, acceptingCohort }) {
+function CapacityScreen({ unitKeys, acceptingCohort }) {
   const assignedUnits = unitKeys || []
   const singleUnit = assignedUnits.length === 1
-  const initialUnit = singleUnit
-    ? assignedUnits[0]
-    : (unitKey && unitKey !== ALL_UNITS ? unitKey : '')
+  // The form's own unit picker is the only unit selection that matters for submission,
+  // so Capacity no longer reads a page-level selector. One assigned unit is prefilled and
+  // locked; several start unset so the leader chooses in the form. The endpoint independently
+  // rejects any unit outside the caller's active scope either way.
+  const initialUnit = singleUnit ? assignedUnits[0] : ''
 
   const [form, setForm] = useState(() => ({ ...emptyParticipation(), unit_name: initialUnit }))
   const [notice, setNotice] = useState(null)

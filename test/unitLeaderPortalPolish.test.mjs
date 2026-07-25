@@ -59,8 +59,10 @@ test('P0-3: the change-request comment is an inline editor, never window.prompt'
 })
 
 test('P0-4: unit switcher scope and the single-unit context line', async (t) => {
-  await t.test('the switcher renders only on unit-scoped views', () => {
-    assert.match(portal, /UNIT_SCOPED_VIEWS = \['home', 'placements', 'capacity', 'students', 'preceptors'\]/)
+  await t.test('the switcher renders only on views where narrowing changes the data', () => {
+    // Placement Requests and Capacity are excluded (each carries its own unit context),
+    // so the switcher lives on Home, Students, and Preceptors only.
+    assert.match(portal, /UNIT_SCOPED_VIEWS = \['home', 'students', 'preceptors'\]/)
     assert.match(portal, /\{UNIT_SCOPED_VIEWS\.includes\(view\) && \(\s*<UnitSwitcher/)
   })
   await t.test('a single-unit leader sees a static context line, not a dead control', () => {
