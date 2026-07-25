@@ -1,14 +1,15 @@
-// Commit 4: the Unit Leader Evaluations gate.
+// The Unit Leader Evaluations gate.
 //
-// The evaluations safety review found that the schema lacks every safeguard a
+// The original evaluations safety review found the schema lacked every safeguard a
 // unit-leader-facing evaluation surface needs (release-to-unit, moderation, delayed
-// release, stable historical attribution, small-cohort threshold, unit-visibility
-// consent, free-text redaction). See docs/UNIT_LEADER_EVALUATIONS_DIAGNOSTIC.md.
+// release, stable historical attribution, unit-visibility consent, free-text redaction).
+// See docs/UNIT_LEADER_EVALUATIONS_DIAGNOSTIC.md.
 //
-// Until an Owner-gated migration adds those, the Evaluations tab MUST stay a
-// placeholder and MUST NOT read any evaluation data or simulate a safeguard in the
-// browser. These guards fail loudly if a future change activates the surface without
-// the backend contract in place.
+// Those safeguards were added by the Owner-gated release-gate migration (applied and
+// verified before this branch), so the tab is now activated to a read-only,
+// quantitative-only workspace. The invariant these guards now enforce is not "no UI
+// exists" but "the activated surface reads only the caller-JWT endpoint, the retained
+// placeholder rollback target stays inert, and the portal itself makes no eval call".
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -23,12 +24,16 @@ const read = (p) => readFileSync(join(root, p), 'utf8')
 const portal = read('src/portal/UnitLeaderPortal.jsx')
 const placeholder = read('src/portal/unit/UnitEvaluationsPlaceholder.jsx')
 
-test('the Evaluations view still renders the honest placeholder', () => {
-  assert.match(portal, /view === 'evaluations' && <UnitEvaluationsPlaceholder \/>/)
-  assert.match(portal, /import UnitEvaluationsPlaceholder from '\.\/unit\/UnitEvaluationsPlaceholder'/)
+test('the Evaluations view now renders the activated read-only workspace', () => {
+  // Activation era: the backend contract the placeholder was waiting for is applied and
+  // verified, so the tab mounts the released workspace. The placeholder file is retained on
+  // disk only as a rollback target, and the test below still proves it stays inert.
+  assert.match(portal, /view === 'evaluations'[\s\S]*?<UnitEvaluationsWorkspace unitKeys=\{unitKeys\} \/>/)
+  assert.match(portal, /const UnitEvaluationsWorkspace = lazy\(\(\) => import\('\.\/unit\/UnitEvaluationsWorkspace'\)\)/)
+  assert.ok(!portal.includes('UnitEvaluationsPlaceholder'))
 })
 
-test('the placeholder reads no endpoint and derives nothing from evaluation data', () => {
+test('the retained placeholder (rollback target) reads no endpoint and derives nothing from evaluation data', () => {
   // It must not fetch, must hold no counts, and must not import a data client.
   assert.ok(!/fetch\(|apiFetch|getShiftActivity|getRoster|useEndpoint/.test(placeholder))
   assert.ok(!/supabase/.test(placeholder))

@@ -110,10 +110,14 @@ test('every app reference to the lifecycle/read RPCs goes through the caller-JWT
   assert.deepEqual(offenders, [], `RPC calls must use the caller-JWT client, offenders: ${offenders.join(', ')}`)
 })
 
-test('the Evaluations tab remains the placeholder (gate intact)', () => {
+test('the activated Evaluations tab mounts the read-only workspace, not the placeholder', () => {
+  // Activation era: the placeholder is superseded by the released workspace. The gate that
+  // matters now is not "no UI exists" but "the UI is the read-only, quantitative-only
+  // workspace" — the placeholder file is retained on disk only as a rollback target.
   const portal = read('src/portal/UnitLeaderPortal.jsx')
-  assert.match(portal, /view === 'evaluations' && <UnitEvaluationsPlaceholder \/>/)
-  assert.ok(existsSync(join(root, 'src/portal/unit/UnitEvaluationsPlaceholder.jsx')))
+  assert.match(portal, /view === 'evaluations'[\s\S]*?<UnitEvaluationsWorkspace unitKeys=\{unitKeys\} \/>/)
+  assert.ok(!portal.includes('UnitEvaluationsPlaceholder'))
+  assert.ok(existsSync(join(root, 'src/portal/unit/UnitEvaluationsWorkspace.jsx')))
 })
 
 test('the migration file exists and is not referenced by the build', () => {

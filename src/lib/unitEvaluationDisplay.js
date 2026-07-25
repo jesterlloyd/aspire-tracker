@@ -25,6 +25,26 @@ export const QUANT_METRIC_META = Object.freeze({
   'readiness_endorsement.cedars_consideration_recommendation': { label: 'Cedars Consideration Recommendation', kind: 'outcome' },
 })
 
+// instrument slug → its approved quantitative paths, in display order. Mirrors the seeded
+// evaluation_unit_quantitative_keys allowlist (and lib/server QUANTITATIVE_PATHS); the DB is
+// authoritative for what is EXPOSED — this only names/orders the columns, so a table can show
+// stable, labeled columns even when a filter currently has zero responses.
+export const INSTRUMENT_METRIC_PATHS = Object.freeze({
+  student_preceptor_eval: Object.freeze([
+    'overall_experience.overall_rating',
+  ]),
+  preceptor_progress: Object.freeze([
+    'developmental_feedback.context.shifts_observed',
+    'readiness_endorsement.transition_readiness',
+    'readiness_endorsement.unit_endorsement_consideration',
+    'readiness_endorsement.cedars_consideration_recommendation',
+  ]),
+})
+
+export function instrumentMetricPaths(slug) {
+  return INSTRUMENT_METRIC_PATHS[slug] || []
+}
+
 export function metricLabel(path) {
   return QUANT_METRIC_META[path]?.label || path
 }

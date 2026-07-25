@@ -110,7 +110,8 @@ test('/portal/unit/students renders the same roster module Home embeds', () => {
 })
 
 test('the Evaluations route is wired', () => {
-  assert.match(portalCode, /view === 'evaluations' && <UnitEvaluationsPlaceholder/)
+  // Now activated to the read-only workspace (the placeholder was superseded on release).
+  assert.match(portalCode, /view === 'evaluations'[\s\S]*?<UnitEvaluationsWorkspace unitKeys=\{unitKeys\} \/>/)
 })
 
 // ── Shift endpoint: the field allowlist ────────────────────────────────────

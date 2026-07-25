@@ -21,7 +21,6 @@ import StudentActionsMenu from './unit/StudentActionsMenu'
 import PreceptorList from './unit/PreceptorList'
 import StudentDetailDrawer from './unit/StudentDetailDrawer'
 import UnitShiftDayDrawer from './unit/UnitShiftDayDrawer'
-import UnitEvaluationsPlaceholder from './unit/UnitEvaluationsPlaceholder'
 import UnitStudentAvatar from './unit/UnitStudentAvatar'
 import { statusToken } from './unit/unitStageTokens'
 import { useUnitStudentPhotos } from './unit/useUnitStudentPhotos'
@@ -48,6 +47,9 @@ import {
 const UnitRotationCalendar = lazy(() => import('./unit/UnitRotationCalendar'))
 const UnitPreceptorsWorkspace = lazy(() => import('./unit/UnitPreceptorsWorkspace'))
 const UnitLeaderPreceptorManager = lazy(() => import('./unit/UnitLeaderPreceptorManager'))
+// UL-EVAL: the Evaluations workspace is lazy-loaded like the other heavy screens, so its
+// chunk (and the shared reporting components) download only when a Unit Leader opens the tab.
+const UnitEvaluationsWorkspace = lazy(() => import('./unit/UnitEvaluationsWorkspace'))
 
 /** A local clock time from an ISO timestamp, for check-in and check-out display. */
 function fmtClock(iso) {
@@ -168,7 +170,11 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
         {view === 'placements' && <PlacementScreen {...shared} />}
         {view === 'capacity'   && <CapacityScreen {...shared} />}
         {view === 'students'   && <StudentsScreen {...shared} onNavigate={onNavigate} onOpenThread={onSelectThread} />}
-        {view === 'evaluations' && <UnitEvaluationsPlaceholder />}
+        {view === 'evaluations' && (
+          <Suspense fallback={<LoadingState label="Loading evaluations" />}>
+            <UnitEvaluationsWorkspace unitKeys={unitKeys} />
+          </Suspense>
+        )}
         {view === 'preceptors' && <PreceptorScreen unitKey={unitKey} unitKeys={unitKeys} refreshRoster={roster.refresh} />}
         {view === 'profile'    && <ProfileScreen unitKeys={unitKeys} profile={userProfile} />}
         {view === 'messages' && composeIntent?.compose === 'aspire' && (
