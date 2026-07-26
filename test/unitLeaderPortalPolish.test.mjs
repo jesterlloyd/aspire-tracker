@@ -131,14 +131,15 @@ test('P0-7: six desktop destinations and four mobile slots with accessible More'
 // ── P1: hierarchy and density ───────────────────────────────────────────────
 
 test('P1-8: the Compass welcome header replaces the literal Home heading', () => {
-  // The welcome header is now the shared greeting masthead (Commit 1), which reuses the
-  // main-app masthead visual system rather than a plain heading.
+  // The welcome header is the shared greeting masthead (Commit 1), which reuses the main-app
+  // masthead visual system rather than a plain heading.
   assert.match(portal, /<GreetingMasthead/)
   assert.doesNotMatch(portal, /\{first \? `Welcome, \$\{first\}` : 'Welcome'\}/)
-  // The Unit Leader unit context still appears exactly once, below the masthead.
-  assert.match(portal, /Unit Leader · \{unitContext\}/)
-  // Long unit lists summarize instead of running on.
-  assert.match(portal, /`\$\{unitKeys\.length\} assigned units`/)
+  // The redundant lower "Unit Leader · <units>" line was removed (Commit 2); the unit context
+  // is shown once above by the UnitSwitcher's "Unit · X" line in UnitLeaderChrome.
+  assert.doesNotMatch(portal, /Unit Leader · \{unitContext\}/)
+  const chrome = read('src/portal/unit/UnitLeaderChrome.jsx')
+  assert.match(chrome, /<p className="ptl-unit-context">Unit · <b>\{unitKeys\[0\]\}<\/b><\/p>/)
 })
 
 test('P1-9: Home uses the canonical calendar first with actionable attention rows', async (t) => {

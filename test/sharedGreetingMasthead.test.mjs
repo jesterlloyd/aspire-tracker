@@ -70,10 +70,11 @@ test('the Unit Leader Home renders the shared masthead without a duplicated unit
   assert.match(portal, /<GreetingMasthead[\s\S]*?headingRef=\{greetingRef\}/)
   // The greeting <h1> is the focus-on-navigation target (programmatic focus, like SectionHeading).
   assert.match(portal, /el\.dataset\.programmaticFocus = 'true'/)
-  // The role/unit context appears exactly once, no "Unit · X" AND "Unit Leader · X" pair.
-  assert.ok(!portal.includes('Unit · '), 'must not add a second unit label line')
+  // The redundant lower "Unit Leader · X" line was removed (Commit 2); the unit context is
+  // shown once by the UnitSwitcher's upper "Unit · X" line, which lives in UnitLeaderChrome.
+  assert.ok(!portal.includes('Unit · '), 'no unit label line in the portal body')
   const unitLeaderLines = portal.match(/Unit Leader · /g) || []
-  assert.equal(unitLeaderLines.length, 1, 'exactly one Unit Leader context line')
+  assert.equal(unitLeaderLines.length, 0, 'no Unit Leader context line below the masthead')
   // The old plain welcome heading is gone.
   assert.ok(!portal.includes('firstNameOf') && !/`Welcome`|Welcome, \$\{first\}/.test(portal))
   // A portal-scoped ring suppression exists for the masthead heading focus.

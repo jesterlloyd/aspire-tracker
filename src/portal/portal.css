@@ -57,9 +57,12 @@
    up the workspace becomes fluid (94vw) so large displays gain usable width,
    capped at 1500px on very wide screens so text measures inside cards stay
    readable. Per-card content widths are capped separately below. */
-.ptl-main { flex: 1; width: 100%; margin: 0 auto; padding: 28px 24px 40px; }
+/* Top padding is the gap between the Nightfall taskbar and the first content (the nav tabs).
+   Kept compact, like the main app where the tabs sit directly under the header band, while
+   preserving readable separation and the 44px touch targets on the tabs themselves. */
+.ptl-main { flex: 1; width: 100%; margin: 0 auto; padding: 16px 24px 40px; }
 @media (min-width: 1024px) {
-  .ptl-main { width: 94vw; max-width: 1500px; padding: 24px 0 40px; }
+  .ptl-main { width: 94vw; max-width: 1500px; padding: 14px 0 40px; }
 }
 
 .ptl-footer {
@@ -914,6 +917,12 @@
    the default stretch distributed the leftover space into every row: a 21px
    heading sat in a 174px row and short screens looked randomly spaced. */
 .ptl-unit-page { display: grid; gap: 16px; align-content: start; }
+/* The greeting masthead and On Campus Now card reuse the main-app .mast / .mast-live classes,
+   which carry a 14px 20px side/top margin for the staff aggregate page. Inside the Unit Leader
+   Home grid they must align to the SAME left/right edges as the calendar and roster, and let the
+   grid gap own the vertical rhythm, so the reused margin is zeroed here (staff usage untouched). */
+.ptl-unit-page .mast,
+.ptl-unit-page .mast-live { margin: 0; }
 
 /* Unit Leader Preceptors workspace. The existing .ptl-table mobile conversion
    supplies stacked cards below 760px; these rules cover only workspace-specific

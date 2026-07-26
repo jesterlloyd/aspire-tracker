@@ -199,7 +199,7 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
 }
 
 // ── Home: the locked priority order, now with hierarchy ─────────────────────
-function HomeScreen({ unitKey, unitKeys, students, profile, acceptingCohort, onNavigate, onOpenThread, refreshRoster }) {
+function HomeScreen({ unitKey, students, profile, acceptingCohort, onNavigate, onOpenThread, refreshRoster }) {
   // The in-app feed is DERIVED server side from the caller's own authorized rows,
   // so Home and the feed can never disagree.
   const alerts = useEndpoint(s => getNotifications(unitKey, s), [unitKey])
@@ -215,14 +215,10 @@ function HomeScreen({ unitKey, unitKeys, students, profile, acceptingCohort, onN
   // screen, so it is promoted into the attention list rather than left to the grid.
   const onShiftNow = visibleShifts.filter(x => x.state === 'in_progress')
 
-  const unitContext = unitKeys.length === 1 ? unitKeys[0]
-    : unitKeys.length === 2 ? unitKeys.join(' and ')
-    : `${unitKeys.length} assigned units`
-
   // The shared greeting masthead replaces the plain "Welcome" heading. It reuses the main-app
-  // masthead visual system (greeting, HTC weather scene, .mast* styling); the role/unit line
-  // below carries the Unit Leader context ONCE, so nothing is repeated (no "Unit · X" then
-  // "Unit Leader · X"). The greeting <h1> is the focus-on-navigation target, mirroring the
+  // masthead visual system (greeting, HTC weather scene, .mast* styling). The unit context is
+  // shown once, above, by the UnitSwitcher's "Unit · X" line, so no second unit label sits
+  // below the masthead. The greeting <h1> is the focus-on-navigation target, mirroring the
   // portal's SectionHeading behavior (programmatic focus, ring suppressed in CSS).
   const dateLabel = useMemo(
     () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
@@ -277,7 +273,6 @@ function HomeScreen({ unitKey, unitKeys, students, profile, acceptingCohort, onN
         lastVisitLine={lastVisitLine}
         headingRef={greetingRef}
       />
-      <p className="ptl-muted" style={{ margin: '12px 0 0' }}>Unit Leader · {unitContext}</p>
 
       {/* On Campus Now: the canonical live-shift card, scoped to authorized units. */}
       <OnCampusNow
