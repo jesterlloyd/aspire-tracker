@@ -26,6 +26,11 @@ import { deriveClinicalHours } from '../lib/portalProgress'
 import UnitStudentAvatar from './unit/UnitStudentAvatar'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from './unit/UnitLeaderChrome'
 import { cohortOptions, inCohortScope, summaryCounts, applyFilter, sortRoster } from './ap/academicPartnerRoster'
+import { useSchoolStudentPhotos } from './ap/useSchoolStudentPhotos'
+
+// A stable empty roster reference so the photo-prefetch effect does not re-run every render while
+// the roster is still loading (a fresh [] each render would look like a new dependency).
+const EMPTY_ROSTER = []
 
 const fmtDate = (d) => {
   if (!d) return ''
@@ -146,6 +151,17 @@ function StudentsView() {
     return () => { cancelled = true }
   }, [reloadKey])
 
+  // The roster in view, derived defensively so the photo hook can run unconditionally (rules of
+  // hooks) before the loading/error/denied early returns below.
+  const activeSchool = schools && schools.length > 0
+    ? (schools.find(s => s.school_key === selectedSchoolKey) || schools[0])
+    : null
+  const roster = activeSchool?.students || EMPTY_ROSTER
+  // Prime secure, short-lived signed photo URLs for this school's roster into the shared cache, and
+  // only for students the endpoint flagged has_photo. Authorization is server-side; initials remain
+  // the fallback whenever a photo is absent or not yet resolved.
+  const photos = useSchoolStudentPhotos(roster)
+
   if (loading) return <LoadingState label="Loading your students" />
   if (error)   return <ErrorState detail={error} onRetry={reload} />
   if (!schools || schools.length === 0) {
@@ -157,8 +173,8 @@ function StudentsView() {
     )
   }
 
-  const school = schools.find(s => s.school_key === selectedSchoolKey) || schools[0]
-  const students = school.students || []
+  const school = activeSchool
+  const students = roster
   const { options, defaultId, currentIds } = cohortOptions(students)
   const cohortId = options.some(o => o.id === selectedCohortId) ? selectedCohortId : defaultId
   const cohortLabel = options.find(o => o.id === cohortId)?.label || 'All Cohorts'
@@ -253,7 +269,7 @@ function StudentsView() {
                   <tr key={s.id}>
                     <td>
                       <span className="ptl-ap-student">
-                        <UnitStudentAvatar url={null} name={displayName(s)} size={34} />
+                        <UnitStudentAvatar url={photos.peek(s.id)} name={displayName(s)} size={34} />
                         <span className="ptl-ap-student-name">{displayName(s)}</span>
                       </span>
                     </td>

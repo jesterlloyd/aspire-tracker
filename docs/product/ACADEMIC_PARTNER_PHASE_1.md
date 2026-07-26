@@ -88,13 +88,18 @@ null when there is no confirmed placement. The legacy column is no longer select
 `api/portal/school-students.js` is unchanged in its authorization spine and re-hardened by tests:
 
 - Server-side chain: `verifyPortalCaller` (JWT) then `hasActiveRoleGrant('academic_partner')` then
-  active `user_school_scopes`. Empty or revoked scope returns nothing; a non-partner is 403; an
-  unauthenticated caller is 401/403.
+  active `user_school_scopes`. This chain and the school-scope resolution now live in one shared
+  helper, `api/lib/schoolScope.js` (`verifyPortalAcademicPartnerCaller` + `resolveSchoolScopedStudents`),
+  used by both the roster endpoint and the photo endpoint, so a photo can never be authorized on a
+  different rule than the roster it appears in. Empty or revoked scope returns nothing; a non-partner
+  is 403; an unauthenticated caller is 401/403.
 - Explicit column allowlist (allowlist, not denylist). No private or confidential field is selected
   or returned: no support narrative, learning highlight, admin notes, review reason, exception
   flags, interview outcome or notes, rubric or scores, NGRP, disposition, compliance or clearance or
-  health fields, SSN, date of birth, contact email or phone, resume, or headshot. Evaluation
-  exposure is counts-only (completed and pending), never content.
+  health fields, SSN, date of birth, contact email or phone, or resume. `students.headshot_url` is
+  selected ONLY to derive a `has_photo` boolean (via `parseStoredFileRef`); the URL, storage path,
+  and signed URL never appear in the roster response. Evaluation exposure is counts-only (completed
+  and pending), never content.
 - School isolation uses EXACT normalized term membership from `resolveSchoolAliases`, so West Coast
   University Anaheim and North Hollywood cannot cross campuses, and a bare-parent alias cannot pull a
   campus roster.
@@ -155,8 +160,9 @@ avatar, or progress bar):
   Phase 1 filters remain (All Students / Currently Rotating / Completed). The cohort picker (and the
   multi-school school picker) moved into the same control row, right-aligned on desktop, wrapping
   cleanly on narrow screens.
-- **Roster visual reuse:** the Student cell uses the Unit Leader `UnitStudentAvatar` (circular,
-  initials fallback); the ASPIRE Status cell uses a new shared `StatusPill`
+- **Roster visual reuse:** the Student cell uses the Unit Leader `UnitStudentAvatar` (circular, with
+  the securely resolved student photo when present and an initials fallback otherwise); the ASPIRE
+  Status cell uses a new shared `StatusPill`
   (`src/components/StatusPill.jsx`) driven by the canonical `ASPIRE_STATUS_CONFIG` colors; the Hours
   cell uses the canonical `.ptl-mini-progress` bar driven by `deriveClinicalHours` (percentage
   capped at 100, accessible text equivalent, pending shown but never counted as approved).
@@ -172,21 +178,38 @@ avatar, or progress bar):
   approved hours numerically (required as a stable secondary; pending never counted as approved).
   Headers are buttons with `aria-sort`; sorting preserves the active filter, cohort, and school.
 
-### Student photo security path (deferred)
+### Student photo security path (implemented)
 
-Real student photos are NOT shown in this pass. The approved pattern is a `has_photo` boolean plus a
-server-mediated signed URL, but the existing school roster endpoint cannot serve signed photo URLs:
-`api/portal/unit-student-file-access.js` is unit-scoped only, and there is no school-scoped
-file-access endpoint. Per the escape clause ("if the existing endpoint cannot safely support photos
-through current code-only infrastructure, stop and report rather than exposing raw URLs or paths"),
-the avatar renders with `url={null}` (initials only) and no storage path is exposed. Enabling real
-photos is a code-only (no SQL) fast-follow: add a `has_photo` boolean to `school-students.js`
-(derived from `students.headshot_url`, never the raw path) and a new
-`api/portal/school-student-file-access.js` that mirrors the unit file-access endpoint but authorizes
-through the Academic Partner chain (`hasActiveRoleGrant('academic_partner')` + `user_school_scopes`),
-plus an Academic Partner photo hook and cache namespace. No new response photo field was added, so
-the private-field exclusion coverage is unchanged (it already asserts `headshot_url` is never
-exposed).
+Real student photos are now shown, through the Wave F-2 server-mediated architecture, with no raw
+URL or storage path ever leaving the server. The roster carries only a presence signal; the bytes
+come from a separate school-scoped file-access endpoint that authorizes on exactly the same school
+scope as the roster.
+
+- **Presence signal.** `api/portal/school-students.js` selects `students.headshot_url` solely to
+  compute a `has_photo` boolean (via `parseStoredFileRef`, the same `hasFile` pattern as the Unit
+  Leader roster). The URL, path, and any signed URL are never placed on a response entry.
+- **Server-mediated bytes.** `api/portal/school-student-file-access.js` mirrors the approved Unit
+  Leader photo path (`api/portal/unit-student-file-access.js`). It verifies the caller JWT, requires
+  an active `academic_partner` grant, and derives school scope from `user_school_scopes`. It accepts
+  ONLY a student id (single or a bounded batch) and the `headshot` kind; it never accepts a school
+  identifier or an object path as input. It intersects the requested ids with the caller's authorized
+  students, derives the object path server-side from the stored reference, and returns a short-lived
+  (300s) signed URL against the private `student-files` bucket. Cross-school, revoked, expired,
+  malformed, and no-photo cases all return `signed_url: null`, so the endpoint never reveals whether a
+  student or a file exists. Only the approved profile photo is reachable: no resume, onboarding
+  document, or certificate, and no upload, replace, rename, or delete path.
+- **Shared authorization.** Both endpoints authorize through one helper, `api/lib/schoolScope.js`
+  (`verifyPortalAcademicPartnerCaller` + `resolveSchoolScopedStudents`), so a photo can only be signed
+  for a student who appears on the caller's roster.
+- **Client.** `src/portal/ap/useSchoolStudentPhotos.js` requests photos only for students the server
+  flagged `has_photo`, in one batch, and primes the shared `studentPhotoCache` under the namespaced
+  key `ap:headshot:<id>` (so an Academic Partner-signed URL cannot collide with a Unit Leader- or
+  staff-signed one, and it inherits the cache's sign-out / role-change clearing). The roster renders
+  through the existing presentational `UnitStudentAvatar` with the initials fallback; the fixed
+  avatar footprint means a late-arriving photo never shifts the layout, and sorting and filtering are
+  unchanged. No drawer and no upload flow were added.
+- **No SQL.** This is code-only. No schema change, migration, or storage-policy change was required;
+  the private bucket and existing stored references already support the signed-URL read.
 
 ### Academic Partner profile image
 
@@ -203,8 +226,17 @@ partner has no `avatar_url`, the initials fallback shows.
   counts, filtering) plus workspace source guards (masthead reuse, single vs multi school, scope
   never sent to the server, exact filters, no later-phase surfaces).
 - `test/academicPartnerPrivateFieldExclusion.test.mjs`: matched-unit resolution, no legacy unit,
-  the response allowlist, private-field exclusion, WCU campus isolation, empty/revoked scope, and
-  spoofing fail-closed.
+  the response allowlist, private-field exclusion, and the secure-photo path. It proves the roster
+  exposes only a `has_photo` boolean (never `headshot_url`, a path, or a signed URL); that the roster
+  and photo endpoint share ONE authorization + scope implementation (`api/lib/schoolScope.js`) with
+  active-grant + `user_school_scopes` scoping, WCU campus isolation, empty/revoked fail-closed, and no
+  request parameter widening scope; that the photo endpoint is POST-only, headshot-only, derives the
+  path server-side, accepts no school or path input, returns only a short-lived signed URL, and nulls
+  out (non-enumerating) for cross-school / revoked / expired / missing; and that the roster UI renders
+  the resolved photo with an initials fallback, requests photos only for `has_photo` students through
+  the AP endpoint, never renders a raw path, and leaves sorting/filtering unchanged.
+- `test/academicPartnerRosterConvergence.test.mjs`: updated so the Student-cell avatar test reflects
+  the securely resolved photo (`photos.peek(s.id)`) instead of the deferred initials-only state.
 - Existing chrome, utility-layer, feedback, and Messages-activation suites were updated to reflect
   the AP shell upgrade and the wired AP feedback endpoint.
 

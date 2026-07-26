@@ -17,21 +17,26 @@
 // no support requests, no disposition reasons, no compliance flags (the
 // exact compliance field list awaits the Owner's decision item 8).
 
-import { verifyPortalCaller, getServiceDb, hasActiveRoleGrant } from '../lib/portalAuth.js'
-import { resolveSchoolAliases } from '../lib/schoolAliases.js'
+import { verifyPortalAcademicPartnerCaller, resolveSchoolScopedStudents } from '../lib/schoolScope.js'
+import { parseStoredFileRef } from '../../lib/server/studentFiles.js'
 
 // Explicit allowlist (allowlist, not denylist, so a new students column is excluded by default).
 // Confirmed unit resolves through the reliable normalized assignment matched_unit_id -> units, NOT
 // the legacy free-text students.unit (which no writer populates, so it is unreliable and omitted).
+// headshot_url is selected server-side ONLY to compute the has_photo boolean below; it is never
+// placed on a response entry, and the photo bytes are served through the separate school-scoped
+// file-access endpoint (a signed URL), never as a raw storage path.
 const STUDENT_COLUMNS = [
   'id', 'cohort_id', 'first_name', 'preferred_first_name', 'last_name',
   'school', 'status', 'matched_unit_id', 'preceptor_name', 'term_dates',
-  'hours_required', 'approved_hours', 'pending_hours',
+  'hours_required', 'approved_hours', 'pending_hours', 'headshot_url',
 ].join(', ')
 
-// Pipeline stages an academic partner may see (their own students at any
-// stage of the current pathway, including declines at the summary level).
-const norm = (s) => String(s || '').toLowerCase().replace(/[.,&/-]/g, ' ').replace(/\s+/g, ' ').trim()
+// A stored file reference resolves to a real object (not empty, not an unparseable value).
+function hasFile(stored) {
+  const ref = parseStoredFileRef(stored)
+  return ref.kind !== 'empty' && ref.kind !== 'unknown'
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -44,52 +49,20 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'internal_error' })
   }
 
-  const auth = await verifyPortalCaller(req)
-  if (!auth.authenticated) {
-    return res.status(auth.status === 403 ? 403 : 401).json({ error: auth.status === 403 ? 'forbidden' : 'unauthorized' })
-  }
+  // Authorization + school scope resolution are shared with the school-scoped file-access endpoint
+  // (api/lib/schoolScope.js), so a photo is authorized on exactly the same rule as the roster it
+  // appears in. Fails closed: unauthenticated -> 401, non-partner -> 403.
+  const auth = await verifyPortalAcademicPartnerCaller(req)
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.reason })
 
-  const db = getServiceDb()
-
-  const isPartner = await hasActiveRoleGrant(db, auth.profile.id, 'academic_partner')
-  if (!isPartner) return res.status(403).json({ error: 'forbidden' })
-
-  const { data: scopeRows, error: scErr } = await db
-    .from('user_school_scopes')
-    .select('school_key, cohort_id, starts_at, expires_at, revoked_at')
-    .eq('user_profile_id', auth.profile.id)
-  if (scErr) return res.status(500).json({ error: 'internal_error' })
-
-  const nowTs = new Date()
-  const scopes = (scopeRows || []).filter(r =>
-    r.revoked_at === null &&
-    new Date(r.starts_at) <= nowTs &&
-    (r.expires_at == null || new Date(r.expires_at) > nowTs)
-  )
+  const { db, scopes } = auth
   if (scopes.length === 0) return res.status(200).json({ schools: [] })
 
-  // Alias-aware school term sets, per scope key.
-  const scopeTerms = scopes.map(s => ({
-    school_key: s.school_key,
-    cohort_id: s.cohort_id,
-    terms: new Set([...resolveSchoolAliases(s.school_key), norm(s.school_key)]),
-  }))
-
-  // Students are dropdown-constrained to a handful of school strings, so
-  // fetch by status breadth and filter by normalized school in code.
-  const { data: students, error: sErr } = await db
-    .from('students')
-    .select(STUDENT_COLUMNS)
-    .not('school', 'is', null)
-  if (sErr) return res.status(500).json({ error: 'internal_error' })
-
-  const matches = []
-  for (const s of students || []) {
-    const n = norm(s.school)
-    const scope = scopeTerms.find(t =>
-      t.terms.has(n) && (t.cohort_id === null || t.cohort_id === s.cohort_id)
-    )
-    if (scope) matches.push({ student: s, school_key: scope.school_key })
+  let scopeTerms, matches
+  try {
+    ;({ scopeTerms, matches } = await resolveSchoolScopedStudents(db, scopes, STUDENT_COLUMNS))
+  } catch {
+    return res.status(500).json({ error: 'internal_error' })
   }
 
   if (matches.length === 0) {
@@ -161,6 +134,9 @@ export default async function handler(req, res) {
       preferred_first_name: s.preferred_first_name,
       last_name: s.last_name,
       status: s.status,
+      // Presence-only signal: the client requests a signed photo URL from the file-access endpoint
+      // for these students. The storage path itself never leaves the server.
+      has_photo: hasFile(s.headshot_url),
       unit_name: unitNameById[s.matched_unit_id] || null,
       preceptor_name: assignmentsByStudent[s.id] || s.preceptor_name || null,
       term_dates: s.term_dates || null,

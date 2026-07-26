@@ -1,10 +1,12 @@
-// AP Phase 1, Commit 3: prove the Academic Partner roster endpoint resolves confirmed unit from the
-// reliable matched_unit_id -> units path (never the legacy students.unit), keeps a tight response
-// allowlist, never leaks a private field, derives school scope only from user_school_scopes (never a
-// request parameter), isolates schools (including the WCU campuses), and fails closed on spoofing.
+// AP Phase 1, Commit 3 + secure-photo fast-follow: prove the Academic Partner roster endpoint keeps
+// a tight response allowlist and never leaks a private field; that authorization and school scope are
+// derived only from an active academic_partner grant + user_school_scopes (never a request
+// parameter, and the WCU campuses stay isolated); and that the secure student-photo path exposes only
+// a presence flag on the roster plus short-lived signed URLs from a SEPARATE server-mediated
+// endpoint that authorizes on the SAME school scope, never a raw storage path.
 //
 // Modeled on test/unitLeaderPrivateFieldExclusion.test.mjs: exclusion is a SERVER property, so the
-// guards read the endpoint source and its .select() calls. Negative assertions run against
+// guards read endpoint source and its .select() calls. Negative assertions run against
 // comment-stripped source so a field NAMED in a comment to explain its exclusion is not a false leak.
 
 import test from 'node:test'
@@ -18,82 +20,186 @@ const here = dirname(fileURLToPath(import.meta.url))
 const read = (p) => readFileSync(join(here, '..', p), 'utf8')
 const stripJs = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 
-const src = stripJs(read('api/portal/school-students.js'))
+const roster = stripJs(read('api/portal/school-students.js'))     // AP roster endpoint
+const scope = stripJs(read('api/lib/schoolScope.js'))             // shared AP authorization + scope
+const photo = stripJs(read('api/portal/school-student-file-access.js')) // secure photo endpoint
+const portalRaw = read('src/portal/AcademicPartnerPortal.jsx')
+const portal = stripJs(portalRaw)                                 // AP roster UI
+const hook = stripJs(read('src/portal/ap/useSchoolStudentPhotos.js'))   // client photo prefetch
+const client = stripJs(read('src/portal/ap/academicPartnerApi.js'))     // client file-access fetch
 const norm = (s) => String(s).toLowerCase().replace(/[.,&/-]/g, ' ').replace(/\s+/g, ' ').trim()
 
+// ── Roster endpoint: allowlist, confirmed unit, no private field ─────────────────────────────────
+
 test('confirmed unit resolves from matched_unit_id -> units.unit_name, never the legacy students.unit', () => {
-  // The students column allowlist reads matched_unit_id, not the legacy free-text unit column.
-  assert.match(src, /matched_unit_id/)
-  assert.doesNotMatch(src, /'[^']*\bunit\b[^']*'/)   // no bare 'unit' string column anywhere
-  // A units lookup resolves the name; the response binds unit_name from that map, not from s.unit.
-  assert.match(src, /\.from\('units'\)\s*\.select\('id, unit_name'\)/)
-  assert.match(src, /unit_name: unitNameById\[s\.matched_unit_id\] \|\| null/)
-  assert.doesNotMatch(src, /unit_name: s\.unit\b/)
+  assert.match(roster, /matched_unit_id/)
+  assert.doesNotMatch(roster, /'[^']*\bunit\b[^']*'/)   // no bare 'unit' string column anywhere
+  assert.match(roster, /\.from\('units'\)\s*\.select\('id, unit_name'\)/)
+  assert.match(roster, /unit_name: unitNameById\[s\.matched_unit_id\] \|\| null/)
+  assert.doesNotMatch(roster, /unit_name: s\.unit\b/)
 })
 
 test('the response allowlist is exactly the Phase 1 roster fields; no private field is selected', () => {
-  // The students column allowlist (declared as a STUDENT_COLUMNS const, passed to .select()).
   for (const col of ['id', 'cohort_id', 'first_name', 'preferred_first_name', 'last_name',
     'school', 'status', 'matched_unit_id', 'preceptor_name', 'term_dates',
     'hours_required', 'approved_hours', 'pending_hours']) {
-    assert.match(src, new RegExp(`'${col}'`), `roster must select ${col}`)
+    assert.match(roster, new RegExp(`'${col}'`), `roster must select ${col}`)
   }
-  // No restricted / confidential field is ever selected or returned. (Comment-stripped source, so a
-  // field explained in prose does not read as a leak.)
+  // No restricted / confidential field is ever selected or returned. headshot_url is deliberately
+  // NOT in this list: it is handled by the has_photo test below (selected to derive a boolean, never
+  // returned). Comment-stripped source, so a field explained in prose does not read as a leak.
   for (const forbidden of [
     'support_needed', 'learning_highlight', 'admin_notes', 'reviewed_by', 'reviewed_at',
     'review_reason', 'exception_flags', 'unit_override_reason', 'preceptor_override_note',
     'interview_outcome', 'interview_notes', 'rubric', 'ngrp', 'disposition',
     'gpa_verified', 'cumulative_gpa', 'bls_current', 'health_cleared', 'background_check',
     'ssn', 'date_of_birth', 'school_email', 'personal_email', 'phone',
-    'resume_url', 'headshot_url', 'program_type',
+    'resume_url', 'program_type',
   ]) {
-    assert.ok(!src.includes(forbidden), `endpoint must not reference ${forbidden}`)
+    assert.ok(!roster.includes(forbidden), `endpoint must not reference ${forbidden}`)
   }
 })
 
-test('school scope is derived from user_school_scopes only; no request parameter widens it', () => {
-  assert.match(src, /hasActiveRoleGrant\(db, auth\.profile\.id, 'academic_partner'\)/)
-  assert.match(src, /\.from\('user_school_scopes'\)/)
+test('the roster exposes only a has_photo boolean; never headshot_url, a path, or a signed URL', () => {
+  // headshot_url is selected ONLY to compute the presence flag, through the same hasFile()/
+  // parseStoredFileRef pattern as the Unit Leader roster.
+  assert.match(roster, /'headshot_url'/)                         // present in the select allowlist
+  assert.match(roster, /function hasFile\(stored\)/)
+  assert.match(roster, /parseStoredFileRef\(stored\)/)
+  assert.match(roster, /has_photo: hasFile\(s\.headshot_url\)/)  // the ONLY use of the value
+  // The value itself never leaves the server: no response key named headshot_url, and no signed URL,
+  // public URL, or object path is ever constructed or returned by the roster.
+  assert.doesNotMatch(roster, /headshot_url:/)                   // not a response entry key
+  assert.doesNotMatch(roster, /signed_url|createSignedUrl|getPublicUrl|publicUrl|\.path\b/)
+})
+
+test('evaluation exposure stays counts-only (no evaluation content)', () => {
+  assert.match(roster, /\.from\('evaluation_assignments'\)\s*\.select\('student_id, status, respondent_type'\)/)
+  assert.doesNotMatch(roster, /response_json|answers|score|rubric|comment/)
+})
+
+// ── Shared authorization + school scope (api/lib/schoolScope.js) ──────────────────────────────────
+// The roster and the photo endpoint both authorize through this one module, so a photo can never be
+// signed on a different rule than the roster it appears in.
+
+test('the roster and the photo endpoint share ONE authorization + scope implementation', () => {
+  // Neither endpoint re-implements the scope query; both call the shared helpers.
+  for (const [name, s] of [['roster', roster], ['photo', photo]]) {
+    assert.match(s, /verifyPortalAcademicPartnerCaller\(req\)/, `${name} verifies via the shared helper`)
+    assert.match(s, /resolveSchoolScopedStudents\(db, scopes,/, `${name} resolves scope via the shared helper`)
+    assert.doesNotMatch(s, /\.from\('user_school_scopes'\)/, `${name} does not re-read scopes inline`)
+  }
+})
+
+test('school scope is derived from an active academic_partner grant + user_school_scopes only', () => {
+  assert.match(scope, /hasActiveRoleGrant\(db, auth\.profile\.id, 'academic_partner'\)/)
+  assert.match(scope, /\.from\('user_school_scopes'\)/)
   // Active-scope filter: not revoked, started, not expired.
-  assert.match(src, /r\.revoked_at === null/)
-  assert.match(src, /new Date\(r\.starts_at\) <= nowTs/)
-  assert.match(src, /r\.expires_at == null \|\| new Date\(r\.expires_at\) > nowTs/)
-  // Nothing from the request influences scope: no query string or body is read for a school/cohort.
-  assert.doesNotMatch(src, /req\.query|req\.body|req\.params/)
+  assert.match(scope, /r\.revoked_at === null/)
+  assert.match(scope, /new Date\(r\.starts_at\) <= now/)
+  assert.match(scope, /r\.expires_at == null \|\| new Date\(r\.expires_at\) > now/)
+  // Nothing from the request influences scope: the helper never reads a query, body, or params.
+  assert.doesNotMatch(scope, /req\.query|req\.body|req\.params/)
 })
 
-test('empty or revoked scope returns nothing (fail closed), and unknown callers are rejected', () => {
-  assert.match(src, /if \(scopes\.length === 0\) return res\.status\(200\)\.json\(\{ schools: \[\] \}\)/)
-  // Not an active academic_partner grant -> 403; unauthenticated -> 401/403.
-  assert.match(src, /if \(!isPartner\) return res\.status\(403\)/)
-  assert.match(src, /if \(!auth\.authenticated\)/)
+test('the shared helper fails closed: unauthenticated -> 401/403, non-partner -> 403', () => {
+  assert.match(scope, /if \(!auth\.authenticated\)/)
+  assert.match(scope, /if \(!isPartner\) return \{ ok: false, status: 403/)
+  // An empty scope is a valid "sees nothing" result, and the roster returns an empty payload for it.
+  assert.match(roster, /if \(scopes\.length === 0\) return res\.status\(200\)\.json\(\{ schools: \[\] \}\)/)
 })
 
-test('WCU campus aliases cannot cross campus boundaries (exact-term scoping)', () => {
-  // The endpoint scopes by EXACT normalized term membership (terms.has(norm(student.school))),
-  // built from resolveSchoolAliases(school_key). So a campus scope resolves only to its own terms.
+test('scope matching is EXACT normalized term membership, so WCU campuses cannot cross', () => {
+  // The helper scopes by exact normalized term membership (terms.has(norm(student.school))), built
+  // from resolveSchoolAliases(school_key). So a campus scope resolves only to its own terms.
+  assert.match(scope, /terms\.has\(n\)/)
+  assert.match(scope, /const n = norm\(s\.school\)/)
+
   const anaheim = resolveSchoolAliases('West Coast University Anaheim').map(norm)
   const noho = resolveSchoolAliases('West Coast University North Hollywood').map(norm)
   const parent = resolveSchoolAliases('West Coast University').map(norm)
 
-  // An Anaheim-scoped partner's terms do not include the North Hollywood or bare-parent school
-  // strings, so a NoHo or parent student is never matched into an Anaheim scope.
   assert.ok(!anaheim.includes(norm('West Coast University North Hollywood')))
   assert.ok(!anaheim.includes(norm('West Coast University')))
-  // And the two campus term sets are disjoint.
-  assert.ok(!anaheim.some(t => noho.includes(t)))
-  // The bare parent does not resolve to either campus (so a parent scope cannot pull a campus roster
-  // via the alias group either).
+  assert.ok(!anaheim.some(t => noho.includes(t)))            // the two campus term sets are disjoint
   assert.ok(!parent.includes(norm('West Coast University Anaheim')))
   assert.ok(!parent.includes(norm('West Coast University North Hollywood')))
-  // Confirm the endpoint really uses exact membership, not a substring match.
-  assert.match(src, /terms\.has\(n\)/)
-  assert.match(src, /const n = norm\(s\.school\)/)
 })
 
-test('evaluation exposure stays counts-only (no evaluation content)', () => {
-  // The evaluation read selects only status-level fields and returns completed/pending counts.
-  assert.match(src, /\.from\('evaluation_assignments'\)\s*\.select\('student_id, status, respondent_type'\)/)
-  assert.doesNotMatch(src, /response_json|answers|score|rubric|comment/)
+// ── Secure photo endpoint (api/portal/school-student-file-access.js) ──────────────────────────────
+
+test('the photo endpoint is POST-only and serves ONLY the approved profile photo (headshot)', () => {
+  assert.match(photo, /if \(req\.method !== 'POST'\) return res\.status\(405\)/)
+  assert.match(photo, /const ALLOWED_KINDS = new Set\(\['headshot'\]\)/)
+  // No resume, onboarding document, or certificate is ever reachable through the AP endpoint.
+  assert.doesNotMatch(photo, /'resume'|resume_url|onboarding|certificate/)
+})
+
+test('the photo path is derived server-side; the browser never supplies a path or a school', () => {
+  // The stored reference is the ONLY source of the object path.
+  assert.match(photo, /parseStoredFileRef\(student\.headshot_url\)/)
+  // No request-supplied object path, and no school identifier is accepted as authorization input.
+  assert.doesNotMatch(photo, /body\.path|item\.path|req\.query|school_key|body\.school/)
+  // The authorized set is the intersection of the caller's scoped students with the requested ids.
+  assert.match(photo, /resolveSchoolScopedStudents\(db, scopes, FILE_COLUMNS\)/)
+  assert.match(photo, /if \(wanted\.has\(student\.id\)\) map\.set\(student\.id, student\)/)
+})
+
+test('the photo endpoint returns only a short-lived signed URL, never a raw or public path', () => {
+  assert.match(photo, /const SIGNED_URL_TTL_SECONDS = 300/)
+  assert.match(photo, /STUDENT_FILES_BUCKET/)
+  assert.match(photo, /createSignedUrl\(ref\.path, SIGNED_URL_TTL_SECONDS\)/)
+  assert.match(photo, /signed_url: signed\.signedUrl/)
+  // No public URL is constructed, and the object path is used ONLY to sign, never returned.
+  assert.doesNotMatch(photo, /getPublicUrl|publicUrl/)
+  assert.doesNotMatch(photo, /json\([^)]*ref\.path|res\.status\(200\)\.json\(\{[^}]*path/)
+})
+
+test('the photo endpoint is non-enumerating: cross-school, revoked, expired, and missing all null out', () => {
+  // A single null shape covers every failure: bad input, out-of-scope student, and a student with no
+  // photo are indistinguishable, so the endpoint never leaks whether a student or a file exists.
+  assert.match(photo, /const nullResult = \(studentId, kind\) => \(\{ student_id: studentId, kind, signed_url: null \}\)/)
+  assert.match(photo, /const student = authorized\.get\(studentId\)\s*\n\s*if \(!student\) \{/)
+  assert.match(photo, /if \(ref\.kind === 'empty' \|\| ref\.kind === 'unknown'\) \{\s*\n\s*results\.push\(nullResult/)
+  assert.match(photo, /if \(signErr \|\| !signed\?\.signedUrl\) \{\s*\n\s*results\.push\(nullResult/)
+})
+
+// ── Roster UI: secure photo when available, initials fallback, no raw path, sort/filter unchanged ──
+
+test('the roster avatar renders the securely resolved photo with the initials fallback preserved', () => {
+  assert.match(portalRaw, /import UnitStudentAvatar from '\.\/unit\/UnitStudentAvatar'/)
+  assert.match(portalRaw, /import \{ useSchoolStudentPhotos \} from '\.\/ap\/useSchoolStudentPhotos'/)
+  assert.match(portalRaw, /const photos = useSchoolStudentPhotos\(roster\)/)
+  assert.match(portalRaw, /<UnitStudentAvatar url=\{photos\.peek\(s\.id\)\} name=\{displayName\(s\)\} size=\{34\} \/>/)
+  // The avatar itself keeps the initials fallback and never fetches (presentational only).
+  const avatar = read('src/portal/unit/UnitStudentAvatar.jsx')
+  assert.match(avatar, /function initials\(name\)/)
+  assert.match(avatar, /const showPhoto = url && !failed/)
+  assert.doesNotMatch(avatar, /fetch\(|createSignedUrl|storage\.from/)
+})
+
+test('the roster UI never renders a raw storage path or signed URL', () => {
+  assert.doesNotMatch(portal, /headshot_url|storage\.from|createSignedUrl|signed_url|getPublicUrl|\.path\b/)
+})
+
+test('photos are requested only for students the server flagged has_photo, through the AP endpoint', () => {
+  assert.match(hook, /s\?\.id && s\.has_photo && !peekStudentPhotoUrl\(apPhotoKey\(s\.id\)\)/)
+  assert.match(hook, /getSchoolStudentFileUrlsBatch/)
+  // Namespaced cache key so an AP-signed URL cannot collide with a UL- or staff-signed one.
+  assert.match(hook, /ap:headshot:/)
+  // The hook never resolves a path itself; it only primes the server-returned signed URL.
+  assert.doesNotMatch(hook, /createSignedUrl|storage\.from|\.path\b/)
+  // The client posts to the AP file endpoint and sends no school key as authority.
+  assert.match(client, /'\/api\/portal\/school-student-file-access'/)
+  assert.doesNotMatch(client, /school_key|unit_key/)
+})
+
+test('sorting and filtering are unchanged; the photo prefetch keys off the roster, not the sort', () => {
+  // The client-side filter+sort pipeline is untouched.
+  assert.match(portalRaw, /const rows = sortRoster\(applyFilter\(scoped, filter\), sort\.column, sort\.direction\)/)
+  assert.doesNotMatch(portalRaw, /fetch\([^)]*sort|[?&]sort=|order_by/)
+  // The prefetch depends on the per-school roster (stable across sort/filter), never the sorted rows,
+  // so changing sort or filter never re-signs photos.
+  assert.match(portalRaw, /useSchoolStudentPhotos\(roster\)/)
+  assert.doesNotMatch(portalRaw, /useSchoolStudentPhotos\(rows\)/)
 })

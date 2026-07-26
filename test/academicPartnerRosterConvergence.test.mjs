@@ -1,7 +1,8 @@
 // AP Phase visual convergence, Commit 2: the Academic Partner roster reuses the canonical status
 // pill (ASPIRE_STATUS_CONFIG), the canonical Status Legend (staff disposition detail hidden), the
-// Unit Leader circular avatar (initials fallback, no photo path this phase), and the canonical
-// hours progress bar (deriveClinicalHours). Source guards + pure-helper tests.
+// Unit Leader circular avatar (secure resolved photo via the school-scoped file endpoint, initials
+// fallback), and the canonical hours progress bar (deriveClinicalHours). Source guards + pure-helper
+// tests.
 
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -53,11 +54,12 @@ test('the legend is accessible: info-icon trigger, Escape close, and focus retur
   assert.match(legend, /if \(wasOpen\.current && !isOpen\) triggerRef\.current\?\.focus\(\)/)
 })
 
-test('the Student cell reuses the circular avatar with initials fallback; no photo path this phase', () => {
+test('the Student cell reuses the circular avatar with a securely resolved photo and initials fallback', () => {
   assert.match(portal, /import UnitStudentAvatar from '\.\/unit\/UnitStudentAvatar'/)
-  // Photos are deferred (the AP endpoint cannot serve signed URLs without a new school-scoped file
-  // endpoint), so the avatar is rendered with url={null} => initials only. No raw path is exposed.
-  assert.match(portal, /<UnitStudentAvatar url=\{null\} name=\{displayName\(s\)\} size=\{34\} \/>/)
+  // Secure-photo fast-follow: photos are served through the school-scoped file-access endpoint, so
+  // the avatar takes an already-resolved signed URL from the shared cache (or null => initials). No
+  // raw storage path is ever exposed in the roster UI.
+  assert.match(portal, /<UnitStudentAvatar url=\{photos\.peek\(s\.id\)\} name=\{displayName\(s\)\} size=\{34\} \/>/)
   const avatar = read('src/portal/unit/UnitStudentAvatar.jsx')
   assert.match(avatar, /function initials\(name\)/)
   assert.doesNotMatch(portalCode, /headshot_url|storage\.from|createSignedUrl|signed_url|getStudentFileUrl/)
