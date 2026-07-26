@@ -227,16 +227,37 @@ export function CanonicalMonthCell({
  * A dense activity chip for a month cell, matching the main-app interviewer chip's
  * radius and density. Navy on a light wash by default; a live variant uses the
  * on-shift green already established in the Unit Leader calendar.
+ *
+ * Optional `secondary` (e.g. "with Susie") and `ordinal` (a small numeric badge) extend the
+ * chip for the Unit Leader calendar; when both are absent it renders exactly as before, so the
+ * Interviews calendar and any label-only caller are unchanged. `ariaLabel`, when provided,
+ * carries the full accessible meaning ("Jordan Cruz with Susie, fourth logged shift") while the
+ * compact visual (initials + secondary + ordinal badge) can truncate on narrow cells.
  */
-export function CanonicalActivityChip({ label, live = false }) {
+export function CanonicalActivityChip({ label, live = false, secondary = null, ordinal = null, ariaLabel = null }) {
+  const base = {
+    display: 'inline-flex', alignItems: 'center', gap: 3, maxWidth: '100%',
+    background: live ? '#dcfce7' : '#e8eaf6',
+    color: live ? '#166534' : '#1d2567',
+    boxShadow: live ? 'inset 0 0 0 1px #86efac' : 'none',
+    fontSize: 9, fontWeight: 700, letterSpacing: '0.02em',
+    padding: '1px 5px', borderRadius: 4, lineHeight: 1.4, whiteSpace: 'nowrap',
+  }
+  // Label-only callers (Interviews) keep the exact prior output.
+  if (secondary == null && ordinal == null) return <span style={base}>{label}</span>
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center',
-      background: live ? '#dcfce7' : '#e8eaf6',
-      color: live ? '#166534' : '#1d2567',
-      boxShadow: live ? 'inset 0 0 0 1px #86efac' : 'none',
-      fontSize: 9, fontWeight: 700, letterSpacing: '0.02em',
-      padding: '1px 5px', borderRadius: 4, lineHeight: 1.4, whiteSpace: 'nowrap',
-    }}>{label}</span>
+    <span style={base} title={ariaLabel || undefined} aria-label={ariaLabel || undefined}>
+      <span style={{ flexShrink: 0 }}>{label}</span>
+      {secondary && (
+        <span aria-hidden="true" style={{ fontWeight: 500, color: live ? '#15803d' : '#4b5563', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{secondary}</span>
+      )}
+      {ordinal != null && (
+        <span aria-hidden="true" style={{
+          flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          minWidth: 12, height: 12, padding: '0 3px', borderRadius: 999,
+          background: live ? '#166534' : '#1d2567', color: '#fff', fontSize: 8, fontWeight: 700, lineHeight: 1,
+        }}>{ordinal}</span>
+      )}
+    </span>
   )
 }

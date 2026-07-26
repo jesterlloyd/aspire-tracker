@@ -31,6 +31,7 @@ import {
   resolveUnitScopedStudents,
 } from '../lib/unitLeaderScope.js'
 import { parseStoredFileRef } from '../../lib/server/studentFiles.js'
+import { buildStudentShiftOrdinals } from '../../lib/server/shiftOrdinals.js'
 
 // Does the resolved student have a real headshot? A boolean only; the storage path itself
 // is never sent; the browser resolves the photo through the unit-scoped file endpoint. Same
@@ -44,6 +45,10 @@ function hasFile(stored) {
 // nothing ahead to look at.
 const WINDOW_DAYS = 90
 const MAX_ROWS = 2000
+// A generous safety cap for the full-history ordinal query. A unit's students accrue at most a
+// few hundred shift-log rows across all history, so this is never reached in practice; it only
+// bounds a pathological result set.
+const ORDINAL_HISTORY_MAX = 20000
 
 // EXPLICIT ALLOWLIST. Everything not named here is excluded, including columns that do
 // not exist yet. Never convert this to a denylist.
@@ -117,6 +122,19 @@ export default async function handler(req, res) {
     .limit(MAX_ROWS)
   if (error) return res.status(500).json({ error: 'internal_error' })
 
+  // Chronological "logged shift" ordinal. Computed from each scoped student's FULL history
+  // (NOT bounded by from/to), so a student whose first shift predates the visible 90-day window
+  // still gets the correct number. This second query is server-internal and minimal; only the
+  // resulting ordinal is attached to the display rows below, so the caller's visible history is
+  // never widened.
+  const { data: historyRows, error: histErr } = await db
+    .from('student_shift_logs')
+    .select('id, student_id, shift_date, checked_in_at, lifecycle_state')
+    .in('student_id', [...byId.keys()])
+    .limit(ORDINAL_HISTORY_MAX)
+  if (histErr) return res.status(500).json({ error: 'internal_error' })
+  const ordinalById = buildStudentShiftOrdinals(historyRows || [])
+
   const shifts = (data || []).map(r => {
     const s = byId.get(r.student_id)
     const inProgress = r.lifecycle_state === 'in_progress'
@@ -143,6 +161,8 @@ export default async function handler(req, res) {
       // A presentation-level hours label only. Review metadata (reviewed_by,
       // reviewed_at, exception_flags) is never sent.
       hours_state: inProgress ? 'pending' : (r.status === 'approved' ? 'approved' : 'pending'),
+      // 1-based chronological position among ALL of this student's logged shifts.
+      ordinal: ordinalById.get(r.id) ?? null,
     }
   })
 

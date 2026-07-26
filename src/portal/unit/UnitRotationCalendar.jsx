@@ -32,6 +32,8 @@ import {
   CanonicalActivityChip,
 } from '../../components/shared/CanonicalCalendarFoundation'
 import { pacificToday, monthGrid, monthLabel, groupByDay } from './rotationCalendarDates'
+import { firstNameOf } from '../../lib/masthead'
+import { ordinalWord } from '../../lib/ordinalWord'
 
 // Sunday-first, matching the main-app Interviews calendar week start. The main grid
 // uses the three-letter labels; the mini calendar uses the first letter of each.
@@ -41,6 +43,20 @@ function initials(name) {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return '?'
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase()
+}
+
+// The extra chip content for one shift: "with <preceptor first name>" and the chronological
+// ordinal, plus a full accessible label. The preceptor's first name only (never a last name)
+// is shown; a missing preceptor drops the "with" clause (the safe fallback). The ordinal is
+// server-computed from full history (shift.ordinal).
+function chipExtras(shift) {
+  const pFirst = firstNameOf(shift.preceptor_name) || null
+  const ordinal = Number.isInteger(shift.ordinal) ? shift.ordinal : null
+  const secondary = pFirst ? `with ${pFirst}` : null
+  const nameForLabel = shift.student_name || 'Student'
+  let ariaLabel = pFirst ? `${nameForLabel} with ${pFirst}` : nameForLabel
+  if (ordinal) ariaLabel += `, ${ordinalWord(ordinal)} logged shift`
+  return { secondary, ordinal, ariaLabel }
 }
 
 function fmtClock(iso) {
@@ -108,7 +124,9 @@ function SelectedDayActivity({ shifts }) {
             <b>{shift.student_name || 'Student'}</b>
             <small>
               {shift.unit_key ? `${shift.unit_key} · ` : ''}
+              {firstNameOf(shift.preceptor_name) ? `with ${firstNameOf(shift.preceptor_name)} · ` : ''}
               {shift.state === 'in_progress' ? 'On shift now' : 'Completed shift'}
+              {Number.isInteger(shift.ordinal) ? ` · ${ordinalWord(shift.ordinal)} logged shift` : ''}
               {shift.checked_in_at ? ` · checked in ${fmtClock(shift.checked_in_at)}` : ''}
             </small>
           </span>
@@ -230,6 +248,7 @@ export default function UnitRotationCalendar({ shifts = [], onSelectDay, loading
                         key={shift.id}
                         label={initials(shift.student_name)}
                         live={shift.state === 'in_progress'}
+                        {...chipExtras(shift)}
                       />
                     ))}
                     {day.length > 3 && <span className="ptl-cal-more">+{day.length - 3}</span>}
