@@ -20,9 +20,12 @@
 import { verifyPortalCaller, getServiceDb, hasActiveRoleGrant } from '../lib/portalAuth.js'
 import { resolveSchoolAliases } from '../lib/schoolAliases.js'
 
+// Explicit allowlist (allowlist, not denylist, so a new students column is excluded by default).
+// Confirmed unit resolves through the reliable normalized assignment matched_unit_id -> units, NOT
+// the legacy free-text students.unit (which no writer populates, so it is unreliable and omitted).
 const STUDENT_COLUMNS = [
   'id', 'cohort_id', 'first_name', 'preferred_first_name', 'last_name',
-  'school', 'status', 'unit', 'preceptor_name', 'term_dates',
+  'school', 'status', 'matched_unit_id', 'preceptor_name', 'term_dates',
   'hours_required', 'approved_hours', 'pending_hours',
 ].join(', ')
 
@@ -104,6 +107,18 @@ export default async function handler(req, res) {
     cohortsById = Object.fromEntries((cohorts || []).map(c => [c.id, c]))
   }
 
+  // Confirmed unit name from the reliable normalized assignment (matched_unit_id -> units.unit_name).
+  const unitIds = [...new Set(matches.map(m => m.student.matched_unit_id).filter(Boolean))]
+  let unitNameById = {}
+  if (unitIds.length > 0) {
+    const { data: units, error: uErr } = await db
+      .from('units')
+      .select('id, unit_name')
+      .in('id', unitIds)
+    if (uErr) return res.status(500).json({ error: 'internal_error' })
+    unitNameById = Object.fromEntries((units || []).map(u => [u.id, u.unit_name]))
+  }
+
   const studentIds = matches.map(m => m.student.id)
 
   // Active primary preceptor (normalized model; legacy text fallback below).
@@ -146,7 +161,7 @@ export default async function handler(req, res) {
       preferred_first_name: s.preferred_first_name,
       last_name: s.last_name,
       status: s.status,
-      unit_name: s.unit || null,
+      unit_name: unitNameById[s.matched_unit_id] || null,
       preceptor_name: assignmentsByStudent[s.id] || s.preceptor_name || null,
       term_dates: s.term_dates || null,
       cohort: cohortsById[s.cohort_id]
