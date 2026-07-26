@@ -58,7 +58,7 @@ test('Placement Requests and Messages render honest prepared states, not broken 
   assert.match(portal, /if \(view === 'placement-requests'\)/)
   assert.match(portal, /if \(view === 'messages'\)/)
   // The prepared states reuse the shared EmptyState primitive (no bespoke card, no controls).
-  assert.match(portal, /import \{ EmptyState \} from '\.\/unit\/UnitLeaderChrome'/)
+  assert.match(portal, /import \{[^}]*\bEmptyState\b[^}]*\} from '\.\/unit\/UnitLeaderChrome'/)
   assert.match(portal, /being prepared and is not active yet/)
   // Students still renders the roster (StudentsView), which is the only view that fetches.
   assert.match(code, /return <StudentsView \/>/)

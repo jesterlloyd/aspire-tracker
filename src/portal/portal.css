@@ -886,6 +886,25 @@
    rotation switch and the card grid, and the .ptl-student flex gap owns the vertical rhythm. */
 .ptl-student .mast { margin: 0; }
 
+/* ── AP-PORTAL: Academic Partner Students workspace ─────────────────────────── */
+.ptl-ap-page { display: flex; flex-direction: column; gap: 16px; }
+.ptl-ap-page .mast { margin: 0; }
+.ptl-ap-scope { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 20px; }
+.ptl-ap-field { display: flex; flex-direction: column; gap: 4px; min-width: 220px; }
+/* School/cohort scope filters. The count carries the number; aria-pressed carries the selection
+   (never color alone), and the active state adds a navy ring so it reads without color too. */
+.ptl-ap-filters { display: flex; flex-wrap: wrap; gap: 10px; }
+.ptl-ap-filter {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  min-width: 128px; padding: 10px 16px; border-radius: 12px;
+  background: var(--ptl-card, #fff); border: 1px solid var(--ptl-line, #e3ded4);
+  cursor: pointer; font: inherit; text-align: left; color: inherit;
+}
+.ptl-ap-filter:hover { border-color: #cfc7b8; }
+.ptl-ap-filter-active { border-color: var(--ptl-navy, #1D2567); box-shadow: inset 0 0 0 1px var(--ptl-navy, #1D2567); }
+.ptl-ap-filter-count { font-size: 22px; font-weight: 700; color: var(--ptl-navy, #1D2567); line-height: 1; }
+.ptl-ap-filter-label { font-size: 12.5px; font-weight: 600; color: var(--ptl-ink-soft, #6b7280); }
+
 /* Unit Leader Preceptors workspace. The existing .ptl-table mobile conversion
    supplies stacked cards below 760px; these rules cover only workspace-specific
    controls and the create-only dialog. */
