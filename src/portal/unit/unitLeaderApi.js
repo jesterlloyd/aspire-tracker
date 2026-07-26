@@ -176,6 +176,15 @@ export const getUnitEvaluations = ({ instrument, timepoint, unitKey } = {}, sign
 export const getStudentDetail = (studentId, signal) =>
   apiFetch(`/api/portal/unit-student-detail?student_id=${encodeURIComponent(studentId)}`, { signal })
 
+/**
+ * Role-safe logged shifts + clinical-hours totals for ONE scoped student, for the Clinical
+ * Hours section of the profile drawer. The server re-checks the student against the caller's
+ * active unit scope and returns only quantitative + status fields, never private support text,
+ * internal review notes, or timestamps beyond the shift date.
+ */
+export const getStudentShifts = (studentId, signal) =>
+  apiFetch(`/api/portal/unit-student-shifts?student_id=${encodeURIComponent(studentId)}`, { signal })
+
 /** A short-lived signed URL for one scoped student file. Never persisted. */
 export const getStudentFileUrl = (studentId, kind) =>
   apiFetch('/api/portal/unit-student-file-access', {

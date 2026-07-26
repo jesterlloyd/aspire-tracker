@@ -12,6 +12,7 @@ import ShiftDetailsModal from './ShiftDetailsModal'
 import { useAuth } from '../contexts/AuthContext'
 import { useSupportRequestReads } from '../lib/support/useSupportRequestReads'
 import { isShiftSupportUnread } from '../lib/support/supportRequests'
+import { shiftStatusChip, isPendingReview } from '../lib/shiftStatusChips'
 
 export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenShiftLogId = null, onAutoOpenConsumed }) {
   const [selectedShift, setSelectedShift] = useState(null)
@@ -85,18 +86,7 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenSh
                   </td>
                   <td style={{ padding: '6px 8px' }}>
                     {(() => {
-                      const STATUS_STYLES = {
-                        'Auto-Accepted':  { bg: '#D1FAE5', text: '#065F46', label: 'Auto-Accepted' },
-                        'Pending Review': { bg: '#FEF3C7', text: '#78350F', label: 'Pending Review' },
-                        'Approved':       { bg: '#DBEAFE', text: '#1E40AF', label: 'Approved' },
-                        'Rejected':       { bg: '#FEE2E2', text: '#7F1D1D', label: 'Rejected' },
-                        'Edited':         { bg: '#E0E7FF', text: '#3730A3', label: 'Edited' },
-                        // legacy values (pre-migration rows)
-                        'approved':       { bg: '#D1FAE5', text: '#065F46', label: 'Approved' },
-                        'needs_review':   { bg: '#FEF3C7', text: '#78350F', label: 'Pending Review' },
-                        'rejected':       { bg: '#FEE2E2', text: '#7F1D1D', label: 'Rejected' },
-                      }
-                      const s = STATUS_STYLES[log.status] || { bg: '#F3F4F6', text: '#6B7280', label: log.status || '-' }
+                      const s = shiftStatusChip(log.status)
                       return (
                         <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 999, background: s.bg, color: s.text, fontWeight: 600, fontFamily: 'DM Sans, sans-serif', whiteSpace: 'nowrap' }}>
                           {s.label}
@@ -129,7 +119,7 @@ export default function ClinicalHoursPanel({ student, shiftLogs = [], autoOpenSh
                     {/* WS1e-A4: per-shift approve/adjust/reject controls disabled - approved
                         and pending hours are calculated from submitted shift logs and cannot
                         be edited directly. Read-only status only. */}
-                    {['Pending Review', 'needs_review'].includes(log.status) && (
+                    {isPendingReview(log.status) && (
                       <span style={{ fontSize: 11, color: '#6b7280', fontStyle: 'italic' }}
                         title="Approved and pending hours are calculated from submitted shift logs and cannot be edited directly.">
                         Pending review

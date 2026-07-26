@@ -29,10 +29,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import {
   EMPTY, orDash, studentName, BUCKET_LABEL,
-  getStudentDetail, getMilestones, getStudentFileUrl,
+  getStudentDetail, getMilestones, getStudentFileUrl, getStudentShifts,
 } from './unitLeaderApi'
 import { LoadingState, EmptyState, ErrorState, DeniedState } from './UnitLeaderChrome'
 import PreceptorList from './PreceptorList'
+import UnitClinicalHours from './UnitClinicalHours'
 import { peekStudentPhotoUrl, resolveStudentPhotoUrl, invalidateStudentPhoto } from '../../lib/studentPhotoCache'
 import { ulPhotoKey } from './useUnitStudentPhotos'
 import { stageToken } from './unitStageTokens'
@@ -194,6 +195,11 @@ export default function StudentDetailDrawer({
   // over the student currently on screen, because the ids will not match.
   const [detail, setDetail] = useState({ forId: null, status: 'loading', data: null })
   const [milestones, setMilestones] = useState({ forId: null, status: 'loading', rows: [] })
+  // Clinical hours + logged shifts, through the role-safe unit-scoped endpoint. Same forId
+  // pattern as detail/milestones: loading is derived, never a synchronous setState in an
+  // effect. `reloadShifts` re-runs the fetch for the Try-again affordance.
+  const [shiftData, setShiftData] = useState({ forId: null, status: 'loading', hours: null, rows: [] })
+  const [shiftNonce, setShiftNonce] = useState(0)
 
   const studentId = student?.id || null
   const unitKey = student?.unit_key || null
@@ -231,8 +237,22 @@ export default function StudentDetailDrawer({
     return () => { live = false; ac.abort() }
   }, [studentId, unitKey])
 
+  // Clinical hours + logged shifts.
+  useEffect(() => {
+    if (!studentId) return undefined
+    const ac = new AbortController()
+    let live = true
+    getStudentShifts(studentId, ac.signal).then(res => {
+      if (!live || res.error === 'aborted') return
+      if (res.ok) setShiftData({ forId: studentId, status: 'ready', hours: res.data?.hours || null, rows: res.data?.shifts || [] })
+      else setShiftData({ forId: studentId, status: 'error', hours: null, rows: [] })
+    })
+    return () => { live = false; ac.abort() }
+  }, [studentId, shiftNonce])
+
   const detailStatus = detail.forId === studentId ? detail.status : 'loading'
   const milestoneStatus = milestones.forId === studentId ? milestones.status : 'loading'
+  const shiftStatus = shiftData.forId === studentId ? shiftData.status : 'loading'
 
   // Move focus in once and restore it only when the drawer itself unmounts. Temporarily
   // suspending the keyboard trap for the assignment manager must not steal focus back.
@@ -381,6 +401,17 @@ export default function StudentDetailDrawer({
                   </button>
                 </div>
               )}
+
+              {/* Clinical Hours: the canonical calc + status chips, role-safe (no support text,
+                  no internal review reason, no ShiftDetailsModal). */}
+              <h3 className="ptl-detail-heading">Clinical hours</h3>
+              <UnitClinicalHours
+                hours={shiftData.forId === studentId ? shiftData.hours : null}
+                shifts={shiftData.forId === studentId ? shiftData.rows : []}
+                loading={shiftStatus === 'loading'}
+                error={shiftStatus === 'error'}
+                onRetry={() => setShiftNonce(n => n + 1)}
+              />
 
               <h3 className="ptl-detail-heading">Milestone history</h3>
               {milestoneStatus === 'loading' && <LoadingState label="Loading milestone history" />}
