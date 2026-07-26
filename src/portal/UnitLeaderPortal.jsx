@@ -30,7 +30,7 @@ import { useUnitStudentPhotos } from './unit/useUnitStudentPhotos'
 import { sortUnitLeaderStudentsByName } from './unit/unitLeaderStudentSort'
 import { useAuth } from '../contexts/AuthContext'
 import {
-  UnitLeaderNav, UnitSwitcher, LoadingState, EmptyState, ErrorState, DeniedState,
+  UnitSwitcher, LoadingState, EmptyState, ErrorState, DeniedState,
   SectionHeading, Pill, TableSkeleton,
 } from './unit/UnitLeaderChrome'
 import {
@@ -98,7 +98,7 @@ function useEndpoint(loader, deps) {
   }
 }
 
-export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0, threadId, onSelectThread, onBackToList, composeIntent = null }) {
+export default function UnitLeaderPortal({ view = 'home', onNavigate, threadId, onSelectThread, onBackToList, composeIntent = null }) {
   const { userProfile } = useAuth()
   const [unitKey, setUnitKey] = useState(ALL_UNITS)
 
@@ -125,17 +125,13 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
     import('./unit/UnitRotationCalendar').catch(() => {})
   }, [])
 
-  // While the roster loads, render the NAV immediately so Messages, Evaluations, and
-  // More are usable at once, and skeleton only the content area. This replaces the old
-  // full-page blocker that hid already-navigable chrome behind one spinner.
+  // The section nav lives in the shell chrome now, so it is always present (Messages, Evaluations,
+  // and More stay usable) while only the content area skeletons during the roster load.
   if (roster.loading && !roster.data) {
     return (
-      <>
-        <UnitLeaderNav view={view} unread={unread} onNavigate={onNavigate} />
-        <div className="ptl-page ptl-unit-page">
-          <LoadingState label="Loading your units" />
-        </div>
-      </>
+      <div className="ptl-page ptl-unit-page">
+        <LoadingState label="Loading your units" />
+      </div>
     )
   }
   if (roster.error && !roster.data) {
@@ -159,12 +155,10 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
   const UNIT_SCOPED_VIEWS = ['home', 'students', 'preceptors']
 
   return (
-    <>
-      <UnitLeaderNav view={view} unread={unread} onNavigate={onNavigate} />
-      <div className="ptl-page ptl-unit-page">
-        {UNIT_SCOPED_VIEWS.includes(view) && (
-          <UnitSwitcher unitKeys={unitKeys} value={unitKey} onChange={setUnitKey} />
-        )}
+    <div className="ptl-page ptl-unit-page">
+      {UNIT_SCOPED_VIEWS.includes(view) && (
+        <UnitSwitcher unitKeys={unitKeys} value={unitKey} onChange={setUnitKey} />
+      )}
 
         {view === 'home'       && <HomeScreen {...shared} profile={userProfile} onNavigate={onNavigate} onOpenThread={onSelectThread} />}
         {view === 'placements' && <PlacementScreen {...shared} />}
@@ -194,7 +188,6 @@ export default function UnitLeaderPortal({ view = 'home', onNavigate, unread = 0
           />
         )}
       </div>
-    </>
   )
 }
 

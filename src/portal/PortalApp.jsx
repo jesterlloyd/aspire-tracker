@@ -28,6 +28,7 @@ import PortalUtilityLayer from './PortalUtilityLayer'
 import PortalNav from './PortalNav'
 import StudentPortal from './StudentPortal'
 import UnitLeaderPortal from './UnitLeaderPortal'
+import { UnitLeaderNav } from './unit/UnitLeaderChrome'
 import AcademicPartnerPortal from './AcademicPartnerPortal'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import {
@@ -146,6 +147,15 @@ export default function PortalApp() {
         onEditProfile={() => setEditOpen(true)} withTabBar
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         profileImageUrl={studentHeaderPhotoUrl}
+        nav={(
+          <PortalNav
+            view={studentView}
+            unread={unread}
+            onHome={goHome}
+            onMessages={goMessages}
+            action={mobileAction}
+          />
+        )}
         utilityLayer={(
           <PortalUtilityLayer
             enabled
@@ -158,13 +168,6 @@ export default function PortalApp() {
             onOpenMessages={goMessages}
           />
         )}>
-        <PortalNav
-          view={studentView}
-          unread={unread}
-          onHome={goHome}
-          onMessages={goMessages}
-          action={mobileAction}
-        />
         <div style={{ display: studentView === 'home' ? 'block' : 'none' }}>
           <StudentPortal
             editOpen={editOpen}
@@ -198,6 +201,7 @@ export default function PortalApp() {
         headerVariant="nightfall" logoSrc="/cs-logo-large.png"
         profileImageUrl={userProfile?.avatar_url}
         onProfile={() => goUnitSection('profile')} publicSiteUrl="https://aspireintelligence.app"
+        nav={<UnitLeaderNav view={unitView} unread={unread} onNavigate={goUnitSection} />}
         utilityLayer={(
           <PortalUtilityLayer
             enabled
@@ -214,7 +218,6 @@ export default function PortalApp() {
           view={unitView}
           composeIntent={unitHandoff}
           onNavigate={goUnitSection}
-          unread={unread}
           threadId={threadId}
           onSelectThread={openThread}
           onBackToList={backToList}

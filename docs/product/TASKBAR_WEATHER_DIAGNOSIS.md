@@ -45,19 +45,33 @@ Selectors/files responsible: `src/index.css` (`.top-section`, `.app-header`),
 `src/portal/portal.css` (`.ptl-header-nightfall`, `.ptl-nav`),
 `src/styles/chartTokens.css` (`.chart-nav`).
 
-## 2. Taskbar fix
-Made `.ptl-header-nightfall` reuse `.app-header`'s exact final behavior: gradient as
-the whole background and **nothing else**, dropping its own `box-shadow`. The dark bar
-now renders identically to the main app's (gradient only, crisp bottom edge, no
-floating shadow). Background, dark-theme solid, border, and height were already
-identical. Both Student and Unit Leader portals benefit through the shared class.
-The main app is unchanged.
+## 2. Taskbar fix (complete top-chrome parity)
 
-Not done (deliberately, to stay minimal and avoid rewriting the portal chrome
-architecture): giving the portal a `.top-section`-style sticky wrapper that unifies
-the header with a solid light tab bar. The remaining difference is that the main app
-has a subtle chrome shadow beneath its tab bar, which the portal (different chrome
-structure) does not replicate. The dark bars themselves now match.
+The canonical main-app chrome is the whole `.top-section` system, not just
+`.app-header`, so the portals now replicate that entire structure rather than only
+matching the dark bar.
+
+- **Step one (dark bar):** `.ptl-header-nightfall` reuses `.app-header`'s exact final
+  behavior, gradient as the whole background and nothing else, with **no** `box-shadow`
+  of its own. Background, dark-theme solid, border, and height were already identical.
+- **Step two (shared structural primitive):** added `.ptl-topsection`, the portal
+  mirror of `.top-section`. `PortalShell` wraps the Nightfall header **and** the primary
+  section nav in this one sticky block. The Nightfall shadow rides the wrapper
+  (`.ptl-topsection-nightfall`, reusing `--nightfall-shadow`), beneath the combined
+  header + nav, exactly like the main app. Stickiness moved off `.ptl-header` onto the
+  wrapper.
+- **Step three (attached solid light nav):** the primary nav is lifted out of the
+  padded, width-constrained `.ptl-main` into the chrome, directly beneath the header
+  with no gap. On desktop `.ptl-nav` is now a full-bleed solid light bar using the
+  shared `--bg-card` token (theme-aware, matching `.chart-nav`) with a hairline bottom
+  border. On phones it is still the fixed bottom tab bar (portal-specific, preserved).
+
+Both Student and Unit Leader portals converge through the shared `PortalShell` +
+`.ptl-topsection` primitive (no new per-role variant). Portal-specific tabs, titles,
+profile controls, routes, and accessibility are unchanged; the nav components
+(`PortalNav`, `UnitLeaderNav`) are the same, only mounted in the shell chrome. The main
+app is unchanged. The Academic Partner portal (light header, no nav) simply gets the
+sticky wrapper with no shadow, as before.
 
 ## 3. Weather masthead refinement (shared: main app + both portals)
 

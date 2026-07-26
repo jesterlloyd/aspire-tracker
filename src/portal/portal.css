@@ -205,9 +205,15 @@
 
 /* ── ASPIRE-STUDENT-PORTAL: mobile-first redesign ─────────────────────────── */
 
-/* Header: sticky, compact, iOS safe-area aware */
+/* Portal top chrome: the shared primitive that mirrors the main app's .top-section. It wraps the
+   Nightfall header AND the primary section nav into one sticky block; the Nightfall shadow rides the
+   wrapper (beneath the combined header + nav), not the header, so the dark bar itself is flush and
+   shadowless like .app-header. Reuses the same --nightfall-shadow token. */
+.ptl-topsection { position: sticky; top: 0; z-index: 20; }
+.ptl-topsection-nightfall { box-shadow: var(--nightfall-shadow); }
+
+/* Header: compact, iOS safe-area aware. Stickiness now lives on .ptl-topsection. */
 .ptl-header {
-  position: sticky; top: 0; z-index: 20;
   padding-top: calc(14px + env(safe-area-inset-top));
   padding-left: max(16px, env(safe-area-inset-left));
   padding-right: max(16px, env(safe-area-inset-right));
@@ -857,9 +863,14 @@
    buttons and links, so keyboard reach, activation, and focus come from the
    platform rather than synthetic handlers. */
 
+/* Desktop/tablet: the attached solid light navigation row, directly beneath the Nightfall header
+   inside .ptl-topsection (no gap), full-bleed with a hairline bottom border, mirroring the main
+   app's .chart-nav. Uses the same shared --bg-card token so it tracks light/dark theme like the main
+   app. On phones this is overridden into a fixed bottom bar. */
 .ptl-nav {
   display: flex; align-items: center; gap: 6px;
-  margin-bottom: 14px; padding: 0 4px;
+  padding: 0 max(24px, env(safe-area-inset-left));
+  background: var(--bg-card, #fafaf7);
   border-bottom: 1px solid var(--ptl-line, #e3ded4);
   overflow-x: auto;                 /* many items scroll rather than wrap raggedly */
   -webkit-overflow-scrolling: touch;

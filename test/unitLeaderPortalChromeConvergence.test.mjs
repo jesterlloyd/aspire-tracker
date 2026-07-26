@@ -38,7 +38,8 @@ test('canonical Cedars-Sinai logo asset exists and is used by Student and Unit L
 test('Nightfall header is shared and uses the canonical app token and logo treatment', () => {
   assert.match(indexCss, /--nightfall:\s+#1d2567/)
   assert.match(shellCode, /headerVariant = 'light'/)
-  assert.match(shellCode, /headerClass = `ptl-header\$\{headerVariant === 'nightfall' \? ' ptl-header-nightfall' : ''\}`/)
+  assert.match(shellCode, /const nightfall = headerVariant === 'nightfall'/)
+  assert.match(shellCode, /headerClass = `ptl-header\$\{nightfall \? ' ptl-header-nightfall' : ''\}`/)
   assert.match(css, /\.ptl-header-nightfall \{[\s\S]*?background: var\(--nightfall/)
   const logo = cssBlock('.ptl-header-nightfall .ptl-header-logo')
   assert.match(logo, /height: 46px/)
@@ -109,12 +110,26 @@ test('Unit Leader title, name, avatar, profile menu, and public site remain', ()
   assert.match(shellCode, /> Sign out<\/button>/)
 })
 
-test('secondary navigation remains separate from the Nightfall taskbar', () => {
-  const unitBranch = appCode.slice(appCode.indexOf("roles.includes('unit_leader')"), appCode.indexOf("roles.includes('academic_partner')"))
-  assert.ok(unitBranch.indexOf('<PortalShell') < unitBranch.indexOf('<UnitLeaderPortal'))
+test('the section nav is the attached solid light row inside the shared top-section chrome', () => {
+  // Mirror of the main app .top-section: one sticky wrapper holds the header AND the nav, the
+  // Nightfall shadow rides the wrapper (not the header), and the nav is a solid, full-bleed, attached
+  // light bar (theme-aware --bg-card token, hairline bottom border) directly beneath the header.
+  assert.match(shellCode, /const chromeClass = `ptl-topsection\$\{nightfall \? ' ptl-topsection-nightfall' : ''\}`/)
+  assert.match(shellCode, /<div className=\{chromeClass\}>[\s\S]*?<header className=\{headerClass\}>[\s\S]*?<\/header>\s*\{nav\}\s*<\/div>/)
+  assert.match(css, /\.ptl-topsection \{ position: sticky; top: 0; z-index: 20; \}/)
+  assert.match(css, /\.ptl-topsection-nightfall \{ box-shadow: var\(--nightfall-shadow\); \}/)
+  // Stickiness moved off the header onto the wrapper: no .ptl-header rule declares position: sticky.
+  assert.doesNotMatch(css, /\.ptl-header \{[^}]*position: sticky/)
+  // The nav row: attached (no bottom margin), full-bleed solid light bar with a hairline border.
+  const navBlock = cssBlock('.ptl-nav')
+  assert.match(navBlock, /background: var\(--bg-card, #fafaf7\)/)
+  assert.match(navBlock, /border-bottom: 1px solid var\(--ptl-line/)
+  assert.doesNotMatch(navBlock, /margin-bottom/)
+  // The shell renders whatever nav each portal passes; it does not hard-code a role's nav component.
   assert.doesNotMatch(shellCode, /UnitLeaderNav|PortalNav|PortalMessagesWorkspace/)
+  assert.match(appCode, /nav=\{<UnitLeaderNav view=\{unitView\} unread=\{unread\} onNavigate=\{goUnitSection\} \/>\}/)
+  assert.match(appCode, /nav=\{\(\s*<PortalNav/)
   assert.match(read('src/portal/unit/UnitLeaderChrome.jsx'), /<nav className="ptl-nav" aria-label="Unit Leader Portal sections">/)
-  assert.match(css, /\.ptl-nav \{[\s\S]*?background: #fff/)
 })
 
 test('staff-only topbar controls are not added to the portal shell', () => {

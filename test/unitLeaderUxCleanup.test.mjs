@@ -216,8 +216,15 @@ test('photos are batch-signed once and reused, never per-avatar', () => {
 })
 
 test('the roster load no longer hides the navigation behind a full-page spinner', () => {
-  // While roster loads, the nav renders so Messages/Evaluations/More are usable at once.
-  assert.match(portalCode, /if \(roster\.loading && !roster\.data\) \{[\s\S]*?<UnitLeaderNav/)
+  // The section nav now lives in the shell chrome, so it is ALWAYS present; the loading branch
+  // skeletons only the content area (no nav inside it), which keeps Messages/Evaluations/More usable.
+  const loadingBranch = portalCode.slice(
+    portalCode.indexOf('if (roster.loading && !roster.data)'),
+    portalCode.indexOf('if (roster.error'))
+  assert.doesNotMatch(loadingBranch, /UnitLeaderNav/)
+  assert.match(loadingBranch, /<LoadingState label="Loading your units" \/>/)
+  // The portal no longer imports or renders the nav at all; the shell owns it.
+  assert.doesNotMatch(portalCode, /UnitLeaderNav/)
 })
 
 test('the drawer reuses roster data and the primed photo, avoiding a visible reload', () => {

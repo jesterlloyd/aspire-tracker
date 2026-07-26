@@ -66,29 +66,40 @@ export default function PortalShell({
   headerVariant = 'light',
   logoSrc = '/Cedars-Sinai.png',
   profileImageUrl = null,
+  nav = null,
   utilityLayer = null,
   children,
 }) {
-  const headerClass = `ptl-header${headerVariant === 'nightfall' ? ' ptl-header-nightfall' : ''}`
+  const nightfall = headerVariant === 'nightfall'
+  const headerClass = `ptl-header${nightfall ? ' ptl-header-nightfall' : ''}`
+  // The Nightfall header and the primary section nav form ONE sticky chrome block, mirroring the
+  // main app's .top-section (which wraps .app-header + .chart-nav). The dark bar carries no shadow of
+  // its own; the Nightfall shadow sits on this wrapper, beneath the combined header + nav, exactly
+  // like the main app. On phones the nav is a fixed bottom bar, so the wrapper then holds only the
+  // header (the nav positions itself away), and the shadow falls under the header.
+  const chromeClass = `ptl-topsection${nightfall ? ' ptl-topsection-nightfall' : ''}`
   return (
     <div className={`ptl-page${withTabBar ? ' ptl-page-tabbar' : ''}`}>
-      <header className={headerClass}>
-        <div className="ptl-header-brand">
-          <img src={logoSrc} alt="Cedars-Sinai" className="ptl-header-logo" />
-          <span className="ptl-header-divider" aria-hidden="true" />
-          <div className="ptl-header-title">
-            <span className="ptl-header-aspire">ASPIRE</span>
-            <span className="ptl-header-sub">{title}</span>
+      <div className={chromeClass}>
+        <header className={headerClass}>
+          <div className="ptl-header-brand">
+            <img src={logoSrc} alt="Cedars-Sinai" className="ptl-header-logo" />
+            <span className="ptl-header-divider" aria-hidden="true" />
+            <div className="ptl-header-title">
+              <span className="ptl-header-aspire">ASPIRE</span>
+              <span className="ptl-header-sub">{title}</span>
+            </div>
           </div>
-        </div>
-        <div className="ptl-header-user">
-          {/* UL-POLISH P2: the signed-in name beside the avatar at desktop
-              widths, opt-in per portal so student behavior is unchanged. */}
-          {showHeaderName && userName && <span className="ptl-header-name">{userName}</span>}
-          <ProfileMenu userName={userName} profileImageUrl={profileImageUrl}
-            onEditProfile={onEditProfile} onProfile={onProfile} publicSiteUrl={publicSiteUrl} />
-        </div>
-      </header>
+          <div className="ptl-header-user">
+            {/* UL-POLISH P2: the signed-in name beside the avatar at desktop
+                widths, opt-in per portal so student behavior is unchanged. */}
+            {showHeaderName && userName && <span className="ptl-header-name">{userName}</span>}
+            <ProfileMenu userName={userName} profileImageUrl={profileImageUrl}
+              onEditProfile={onEditProfile} onProfile={onProfile} publicSiteUrl={publicSiteUrl} />
+          </div>
+        </header>
+        {nav}
+      </div>
       {utilityLayer}
       <main className="ptl-main">{children}</main>
       <footer className="ptl-footer">
