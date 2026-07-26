@@ -61,7 +61,9 @@ test('Unit Leader Home filters calendar activity by authorized unit selection', 
   assert.match(portalCode, /const visibleShifts = unitKey === ALL_UNITS \? shifts : shifts\.filter\(shift => shift\.unit_key === unitKey\)/)
   assert.match(portalCode, /const onShiftNow = visibleShifts\.filter\(x => x\.state === 'in_progress'\)/)
   assert.match(portalCode, /shifts=\{visibleShifts\}/)
-  assert.match(portalCode, /visibleShifts\.filter\(y => y\.shift_date === x\.shift_date\)/)
+  // The calendar's day drawer opens from the selected day's shifts (the live-row day filter
+  // was retired when live shifts moved to the On Campus Now card in Commit 2).
+  assert.match(portalCode, /onSelectDay=\{\(ymd, dayShifts\) => setDayOpen\(\{ ymd, shifts: dayShifts \}\)\}/)
 })
 
 test('students table follows the full-width calendar without redundant cards', () => {

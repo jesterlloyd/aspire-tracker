@@ -374,11 +374,13 @@ export default function StudentDetailDrawer({
                 </Field>
               </dl>
 
-              <div className="ptl-detail-manage">
-                <button type="button" className="ptl-btn" onClick={event => onManageAssignments?.(d, event.currentTarget)}>
-                  Manage assignments
-                </button>
-              </div>
+              {onManageAssignments && (
+                <div className="ptl-detail-manage">
+                  <button type="button" className="ptl-btn" onClick={event => onManageAssignments(d, event.currentTarget)}>
+                    Manage assignments
+                  </button>
+                </div>
+              )}
 
               <h3 className="ptl-detail-heading">Milestone history</h3>
               {milestoneStatus === 'loading' && <LoadingState label="Loading milestone history" />}

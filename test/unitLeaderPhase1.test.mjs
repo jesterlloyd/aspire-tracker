@@ -308,11 +308,12 @@ test('Home renders welcome, an attention strip, the calendar, then the students 
   assert.ok(!home.includes('Recent Messages'))
 })
 
-test('a student on shift now is promoted into the attention list', () => {
+test('a student on shift now is surfaced in the On Campus Now card', () => {
+  // Live shifts moved from the attention strip into the canonical On Campus Now card (Commit 2).
   assert.match(portalCode, /const visibleShifts = unitKey === ALL_UNITS \? shifts : shifts\.filter\(shift => shift\.unit_key === unitKey\)/)
   assert.match(portalCode, /const onShiftNow = visibleShifts\.filter\(x => x\.state === 'in_progress'\)/)
-  assert.match(portal, /is on shift now/)
-  assert.match(portalCode, /ptl-attn-dot-live/)
+  assert.match(portalCode, /const campusRows = onShiftNow\.map/)
+  assert.match(portal, /<OnCampusNow/)
 })
 
 test('Home student rows open the approved drawer, not the staff panel', () => {

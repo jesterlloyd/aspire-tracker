@@ -1751,6 +1751,9 @@ a.doc-file-link:hover { text-decoration: underline; }
 .mast-shift-unspecified { background: var(--chart-info-bg, #EFF1F5); color: var(--chart-info-ink, #4B5563); }
 .mast-live-dur { font-size: 11px; color: var(--chart-ink-soft, #475467); white-space: nowrap; }
 .mast-live-dur.warn { color: var(--chart-warn-ink, #92400e); font-weight: 600; }
+/* Zero-state for the shared On Campus Now card. Only rendered when a caller supplies
+   emptyText (the staff strip returns null when empty and never sets it). */
+.mast-live-empty { margin: 9px 0 0; font-size: 12.5px; color: var(--chart-ink-soft, #6b7280); }
 
 /* ── ASPIRE-MASTHEAD: Placement Snapshot ──────────────────────────────────── */
 .snap {

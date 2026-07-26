@@ -30,6 +30,15 @@ import {
   verifyPortalUnitLeaderCaller,
   resolveUnitScopedStudents,
 } from '../lib/unitLeaderScope.js'
+import { parseStoredFileRef } from '../../lib/server/studentFiles.js'
+
+// Does the resolved student have a real headshot? A boolean only; the storage path itself
+// is never sent; the browser resolves the photo through the unit-scoped file endpoint. Same
+// pattern as unit-roster.js / unit-student-detail.js.
+function hasFile(stored) {
+  const ref = parseStoredFileRef(stored)
+  return ref.kind !== 'empty' && ref.kind !== 'unknown'
+}
 
 // The rolling window. A Unit Leader may look back 90 days and no further; there is
 // nothing ahead to look at.
@@ -118,6 +127,9 @@ export default async function handler(req, res) {
       // from the SCOPED student record rather than from the shift row.
       student_name: [s?.preferred_first_name || s?.first_name, s?.last_name].filter(Boolean).join(' ').trim() || null,
       unit_key: s?.unit_key || null,
+      // Presence-only flag so the On Campus Now card can show a photo; resolved through the
+      // unit-scoped batch file endpoint (useUnitStudentPhotos), never a path in this payload.
+      has_photo: hasFile(s?.headshot_url),
       shift_date: r.shift_date,
       // Live shifts carry their planned values; completed shifts carry their recorded ones.
       shift_type: (inProgress ? r.planned_shift_type : r.shift_type) || null,

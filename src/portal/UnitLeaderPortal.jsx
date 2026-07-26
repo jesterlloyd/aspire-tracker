@@ -17,7 +17,9 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import PortalMessagesWorkspace from './messages/PortalMessagesWorkspace'
 import GreetingMasthead from '../components/masthead/GreetingMasthead'
+import OnCampusNow from '../components/oncampus/OnCampusNow'
 import { useLastVisitLabel } from '../lib/lastVisit'
+import { buildLiveShiftDisplay } from '../lib/onCampusRows'
 import StudentActionsMenu from './unit/StudentActionsMenu'
 import PreceptorList from './unit/PreceptorList'
 import StudentDetailDrawer from './unit/StudentDetailDrawer'
@@ -52,12 +54,9 @@ const UnitLeaderPreceptorManager = lazy(() => import('./unit/UnitLeaderPreceptor
 // chunk (and the shared reporting components) download only when a Unit Leader opens the tab.
 const UnitEvaluationsWorkspace = lazy(() => import('./unit/UnitEvaluationsWorkspace'))
 
-/** A local clock time from an ISO timestamp, for check-in and check-out display. */
-function fmtClock(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-}
+// A stable empty array so StudentRoster can call the photo hook with no work when a parent
+// already supplies resolved photos (one batch for the whole Home instead of two).
+const NO_PHOTO_STUDENTS = []
 
 /**
  * One data hook: load, error, and refresh, with abort on unmount.
@@ -241,9 +240,33 @@ function HomeScreen({ unitKey, unitKeys, students, profile, acceptingCohort, onN
     return () => { el.removeEventListener('blur', clear); clear() }
   }, [])
 
-  // The attention strip renders ONLY when something is actionable. There is no empty
-  // "nothing needs your attention" card any more: an empty strip is just noise.
-  const hasAttention = onShiftNow.length > 0 || notifications.length > 0
+  // On Campus Now: the same canonical live-shift card the staff At a Glance dashboard uses,
+  // built from the SAME shift-activity payload already loaded above (no extra request) and
+  // scoped to the caller's authorized units. Photos resolve through the unit-scoped batch
+  // (useUnitStudentPhotos, one batch for the whole Home). The open-shift duration / overdue
+  // hedge reuse the pure shiftStatus helpers via a small shim (the UL row exposes `state`,
+  // the helpers read `lifecycle_state`); the clock comes from when the data loaded, never a
+  // render-time Date.now(). Clicking a card opens the canonical student profile drawer.
+  const photos = useUnitStudentPhotos(students)
+  const activityNow = activity.loadedAt || 0
+  const [campusDetail, setCampusDetail] = useState(null)
+  const campusTriggerRef = useRef(null)
+  const openCampusDetail = (row) => {
+    campusTriggerRef.current = typeof document !== 'undefined' ? document.activeElement : null
+    const full = students.find(s => s.id === row.student_id)
+    setCampusDetail(full || { id: row.student_id, first_name: row.student_name, unit_key: row.unit_key })
+  }
+  const campusRows = onShiftNow.map(x => ({
+    ...buildLiveShiftDisplay(x, activityNow),
+    key: x.id,
+    avatar: <UnitStudentAvatar url={photos.peek(x.student_id)} name={x.student_name} size={38} />,
+    onClick: () => openCampusDetail(x),
+    ariaLabel: `Open profile for ${x.student_name || 'student'}`,
+  }))
+
+  // The attention strip renders ONLY when something is actionable. Live shifts moved to the
+  // On Campus Now card above, so the strip is now the notifications queue only.
+  const hasAttention = notifications.length > 0
 
   return (
     <>
@@ -256,28 +279,17 @@ function HomeScreen({ unitKey, unitKeys, students, profile, acceptingCohort, onN
       />
       <p className="ptl-muted" style={{ margin: '12px 0 0' }}>Unit Leader · {unitContext}</p>
 
-      {/* A compact attention strip, only when there is something to act on. */}
+      {/* On Campus Now: the canonical live-shift card, scoped to authorized units. */}
+      <OnCampusNow
+        title="On Campus Now"
+        rows={campusRows}
+        emptyText="No students from your units are on shift right now."
+      />
+
+      {/* The notifications queue, only when there is something to act on. */}
       {hasAttention && (
         <section className="ptl-card ptl-attn-strip" aria-label="Needs your attention">
           <ul className="ptl-list ptl-attn-list">
-            {/* Live first: a student on the unit right now outranks anything queued. */}
-            {onShiftNow.map(x => (
-              <li key={`live-${x.id}`}>
-                <button type="button" className="ptl-attn-row"
-                  onClick={() => setDayOpen({ ymd: x.shift_date, shifts: visibleShifts.filter(y => y.shift_date === x.shift_date) })}>
-                  <span className="ptl-attn-dot ptl-attn-dot-live" aria-hidden="true" />
-                  <span className="ptl-attn-text">
-                    <span className="ptl-attn-label">{x.student_name || 'A student'} is on shift now</span>
-                    <span className="ptl-attn-sub">
-                      {x.checked_in_at ? `Checked in ${fmtClock(x.checked_in_at)}` : 'Checked in'}
-                      {x.preceptor_name ? ` · with ${x.preceptor_name}` : ''}
-                    </span>
-                  </span>
-                  {x.unit_key && <span className="ptl-attn-unit">{x.unit_key}</span>}
-                  <span className="ptl-attn-chevron" aria-hidden="true">›</span>
-                </button>
-              </li>
-            ))}
             {notifications.map(n => (
               <li key={n.id}>
                 <button type="button" className="ptl-attn-row" onClick={() => onNavigate?.(n.section)}>
@@ -308,6 +320,7 @@ function HomeScreen({ unitKey, unitKeys, students, profile, acceptingCohort, onN
           has its own primary tab, and Capacity/Placement have dedicated routes. */}
       <StudentRoster
         students={students}
+        photos={photos}
         onNavigate={onNavigate}
         onOpenThread={onOpenThread}
         refreshRoster={refreshRoster}
@@ -319,6 +332,16 @@ function HomeScreen({ unitKey, unitKeys, students, profile, acceptingCohort, onN
           ymd={dayOpen.ymd}
           shifts={dayOpen.shifts}
           onClose={() => setDayOpen(null)}
+        />
+      )}
+
+      {/* Clicking an On Campus Now card opens the canonical student profile drawer. No
+          manage-assignments handler is passed, so that staff-style control stays hidden. */}
+      {campusDetail && (
+        <StudentDetailDrawer
+          student={campusDetail}
+          returnFocusRef={campusTriggerRef}
+          onClose={() => setCampusDetail(null)}
         />
       )}
     </>
@@ -744,8 +767,12 @@ function fmtShortDate(ymd) {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-function StudentRoster({ students, onNavigate, onOpenThread, refreshRoster, heading = null }) {
-  const photos = useUnitStudentPhotos(students)
+function StudentRoster({ students, photos: providedPhotos = null, onNavigate, onOpenThread, refreshRoster, heading = null }) {
+  // Reuse the parent's already-batched photos when provided (Home), otherwise resolve our own
+  // (the standalone /portal/unit/students route). The hook is always called; a stable empty
+  // input makes it a no-op when photos are supplied.
+  const ownPhotos = useUnitStudentPhotos(providedPhotos ? NO_PHOTO_STUDENTS : students)
+  const photos = providedPhotos || ownPhotos
   const [notice, setNotice] = useState(null)
   const [busy, setBusy] = useState(null)          // duplicate-click protection
   const [openActions, setOpenActions] = useState(null)

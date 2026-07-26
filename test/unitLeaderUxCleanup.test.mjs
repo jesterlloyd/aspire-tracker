@@ -29,7 +29,8 @@ const drawerCode = stripJs(drawer)
 
 // ── 1. Home layout ──────────────────────────────────────────────────────────
 test('the attention strip renders only when something is actionable', () => {
-  assert.match(portalCode, /const hasAttention = onShiftNow\.length > 0 \|\| notifications\.length > 0/)
+  // Live shifts moved to the On Campus Now card (Commit 2); the strip is now notifications only.
+  assert.match(portalCode, /const hasAttention = notifications\.length > 0/)
   assert.match(portalCode, /\{hasAttention && \(/)
   assert.ok(!portalCode.includes('supportFlags'))
   assert.ok(!portalCode.includes('raised a support note'))
