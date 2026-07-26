@@ -224,14 +224,15 @@
   padding-bottom: 9px;
   padding-left: max(32px, env(safe-area-inset-left));
   padding-right: max(32px, env(safe-area-inset-right));
-  /* Byte-for-byte the main-app header background: the shared Nightfall gradient as the whole
-     background and nothing else. The main app's .app-header sets `background: var(--nightfall-gradient)`
-     (which resets background-color to transparent); matching that exactly means dropping the earlier
-     portal-only solid `background-color` that sat under the gradient, so the computed background,
-     not just the source token, is identical to the main app. */
+  /* Reuse the main-app header's exact final behavior. The main app's .app-header sets
+     `background: var(--nightfall-gradient)` and NOTHING else: no box-shadow and no border. Its
+     Nightfall shadow lives one tier down on the .top-section wrapper (which also holds the light tab
+     bar), so the dark gradient bar itself is flush and shadowless. The portal header previously
+     carried box-shadow: var(--nightfall-shadow) directly, so its dark bar drop-shadowed onto the
+     content and read as a heavier, floating bar than the main app's. Dropping it makes the portal
+     dark bar render identically to .app-header (gradient only, crisp edge, no own shadow). */
   background: var(--nightfall-gradient);
   border-bottom: 0;
-  box-shadow: var(--nightfall-shadow);
 }
 /* Dark theme: mirror the main app, which swaps the gradient for a flat near-black solid
    ([data-theme="dark"] .app-header). Without this override the portal kept the navy gradient and

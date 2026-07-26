@@ -51,26 +51,25 @@ test('Nightfall header is shared and uses the canonical app token and logo treat
   assert.match(css, /\.ptl-header-nightfall \.ptl-header-name/)
 })
 
-test('the Nightfall gradient and shadow are shared tokens used by the main app and both portals', () => {
+test('the Nightfall header reuses the main app .app-header behavior exactly (gradient only, no own shadow)', () => {
   // The single source of truth: tokens defined once, with a dark-theme shadow override.
   assert.match(indexCss, /--nightfall-gradient:\s*linear-gradient\(180deg, #1c2452 0%, #141928 100%\)/)
   assert.match(indexCss, /--nightfall-shadow:\s*0 2px 8px rgba\(29,37,103,0\.25\)/)
   assert.match(indexCss, /\[data-theme="dark"\] \{\s*--nightfall-shadow:\s*0 2px 8px rgba\(0,0,0,0\.40\)/)
-  // Main app consumes the tokens (output unchanged; same values).
+  // In the main app the Nightfall shadow lives on the .top-section wrapper (one tier below the dark
+  // bar, beneath the light tab bar); the dark bar .app-header itself has gradient and nothing else.
   assert.match(indexCss, /\.top-section \{[\s\S]*?box-shadow: var\(--nightfall-shadow\)/)
-  assert.match(indexCss, /\.app-header \{\s*background: var\(--nightfall-gradient\)/)
-  // Both portals (via the shared .ptl-header-nightfall) take the SAME background path as the
-  // main-app .app-header: `background: var(--nightfall-gradient)` as the whole background, with no
-  // portal-only solid background-color underneath (so the COMPUTED background matches, not just the
-  // token). They also consume the shared shadow token.
-  const nf = cssBlock('.ptl-header-nightfall')
-  assert.match(nf, /background: var\(--nightfall-gradient\)/)
-  assert.doesNotMatch(nf, /background:\s*var\(--nightfall,/)      // the old redundant solid layer is gone
-  assert.doesNotMatch(nf, /background-image:/)                    // no separate image layer either
-  assert.match(nf, /box-shadow: var\(--nightfall-shadow\)/)
+  assert.match(indexCss, /\.app-header \{\s*background: var\(--nightfall-gradient\);?\s*\}/)
+  // The portal dark bar must render identically to .app-header: gradient as the whole background,
+  // no portal-only solid underneath, and crucially NO box-shadow of its own (which had floated it).
+  const nfCode = stripJs(cssBlock('.ptl-header-nightfall'))   // strip the explanatory comment first
+  assert.match(nfCode, /background: var\(--nightfall-gradient\)/)
+  assert.doesNotMatch(nfCode, /background:\s*var\(--nightfall,/)  // the old redundant solid layer is gone
+  assert.doesNotMatch(nfCode, /background-image:/)               // no separate image layer either
+  assert.doesNotMatch(nfCode, /box-shadow/)                      // no own shadow, exactly like .app-header
   // No portal-only gradient, alternate gradient, or shadow literal remains.
-  assert.doesNotMatch(nf, /linear-gradient\(180deg/)
-  assert.doesNotMatch(nf, /rgba\(14,20,40/)
+  assert.doesNotMatch(nfCode, /linear-gradient\(180deg/)
+  assert.doesNotMatch(nfCode, /rgba\(14,20,40/)
 })
 
 test('dark theme: the portal taskbar mirrors the main app flat solid, not a gradient that fades to black', () => {
